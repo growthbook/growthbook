@@ -423,9 +423,11 @@ export async function assertValidRuleProjectIds(
 }
 
 // `null` (explicit removal) and `undefined` (no change) are both no-ops.
+// `getById` is read-permission filtered, so this is also the authorization check
+// that stops a caller linking a flag into a Holdout they cannot see.
 export async function assertValidHoldout(
   holdout: { id: string } | null | undefined,
-  context: ApiReqContext,
+  context: ReqContext | ApiReqContext,
 ): Promise<void> {
   if (!holdout) return;
   const holdoutObj = await context.models.holdout.getById(holdout.id);

@@ -78,8 +78,6 @@ export async function publishFeatureRevision(
     revision,
   });
   const { environmentIds, mergeResult: mergeChanges } = plan;
-  // A stranded live revision also has no changes, but publishing it is the
-  // supported way to reconcile it — refusing would leave no route out.
   const isStranded = isStrandedLiveRevision({
     featureVersion: feature.version,
     revisionVersion: revision.version,

@@ -210,8 +210,7 @@ export async function revertFeatureCore(
     }
   }
 
-  // Holdout membership is part of the state a revert restores, so a
-  // holdout-only difference is a real revert rather than an empty diff.
+  // Runs before the empty-diff check: a holdout-only difference is a real revert.
   const targetHoldout = getEffectiveRevisionHoldout(revision, feature);
   if (!isEqual(targetHoldout, feature.holdout ?? null)) {
     if (

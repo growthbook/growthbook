@@ -244,9 +244,6 @@ export async function revertFeatureRevision(
     }
   }
 
-  // Holdout membership is part of the state a revert restores: reverting to a
-  // revision that predates a holdout must detach it, and reverting to one that
-  // had it must reattach it (with the linkage side effects publish runs).
   const targetHoldout = getEffectiveRevisionHoldout(targetRevision, feature);
   const holdoutChanged = !isEqual(targetHoldout, feature.holdout ?? null);
   if (holdoutChanged) {

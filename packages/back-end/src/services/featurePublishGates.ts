@@ -260,10 +260,8 @@ export async function collectFeaturePublishGates({
     );
   }
 
-  // Above the validation-gate cutoff on purpose: a holdout conflict is a
-  // structural guard, not data validation, and every publish surface — including
-  // the armed/scheduled ones that skip validation gates — must bail out before
-  // the linkage writes rather than throwing after the feature has advanced.
+  // Above the validation-gate cutoff on purpose: surfaces that skip validation
+  // gates still must not reach the linkage writes with a bad holdout transition.
   gates.push(
     ...(await collectHoldoutChangeGates({
       context,

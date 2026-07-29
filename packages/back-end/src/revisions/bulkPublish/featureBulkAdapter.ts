@@ -8,10 +8,13 @@ import {
   assertHoldoutChangeAllowed,
   applyRampCreateActionsForRevision,
   applyRevisionChanges,
+  captureHoldoutLinkagePreImage,
   computeRevisionMergeChanges,
   computeSafeRolloutStatusMap,
   finalizeRampActionsAfterPublish,
   getFeature,
+  type HoldoutLinkagePreImage,
+  rewindHoldoutLinkage,
   rollbackCreatedRampSchedules,
   updateFeature,
 } from "back-end/src/models/FeatureModel";
@@ -79,6 +82,12 @@ type FeatureDesiredState = {
     writtenStatus: string;
     post?: SafeRolloutInterface;
   }>;
+  /**
+   * The holdout linkage the apply is about to write, captured before any
+   * mutation. Absent means the apply threw before that point, so there is
+   * nothing for compensation to reverse.
+   */
+  holdoutLinkage?: HoldoutLinkagePreImage | null;
 };
 
 function toRef(revision: FeatureRevisionInterface): BulkRevisionRef {
@@ -208,8 +217,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     // advance the live version pointer — so an empty revision blocks.
     if (
       !plan.hasChanges &&
-      // A stranded live revision has no changes either, but publishing it is
-      // how it gets reconciled — gating it would leave no route out.
+      // Publishing a stranded revision is how it gets reconciled.
       !isStrandedLiveRevision({
         featureVersion: feature.version,
         revisionVersion: raw.version,
@@ -326,13 +334,18 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     const desired = desiredState as unknown as FeatureDesiredState;
     const { mergeResult } = desired;
 
-    // Guard the holdout change BEFORE any mutation (ramp schedules, feature
-    // write) so a rejected change fails fast without relying on compensation to
-    // undo an already-advanced feature.version. Check the merged (post-publish)
-    // rules so a bundled experiment-ref for an already-running experiment is
-    // caught.
+    // TOCTOU backstop — the plan gate is the primary check. Runs before any
+    // mutation so a change that became invalid since planning fails fast,
+    // without relying on compensation to undo an advanced feature.version.
     if (mergeResult.holdout !== undefined) {
       await assertHoldoutChangeAllowed(
+        context,
+        feature,
+        mergeResult.holdout,
+        mergeResult.rules ?? feature.rules ?? [],
+        { isRevert: !!raw.revertedFrom },
+      );
+      desired.holdoutLinkage = await captureHoldoutLinkagePreImage(
         context,
         feature,
         mergeResult.holdout,
@@ -467,21 +480,16 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       assertNoReversalFailures();
     }
 
-    // Reverse the apply-time holdout transition. `isRevert` skips the config-
-    // time guard: this restores a previously-valid holdout state, and the
-    // still-published rules transiently include state the guard would refuse.
-    // Deliberately unconditional (converge to pre-image, not delta-undo): if
-    // the apply threw before the forward holdout write, every step here is an
-    // idempotent no-op; if it threw mid-transition, this repairs the half —
-    // gating on "did the forward write run" would leave that case broken.
-    if (mergeResult.holdout !== undefined) {
+    // Reverse the apply-time holdout transition from the pre-image the apply
+    // captured before any mutation, rather than running the transition backwards:
+    // a reversal derived from the delta cannot express "there was no holdout
+    // before" (its experiment restamping would be skipped entirely) and would
+    // stamp the old holdout onto experiments this revision newly added. Every
+    // step converges on a captured value, so it is an idempotent no-op if the
+    // forward write never landed and repairs the half if it landed partway.
+    if (desired.holdoutLinkage) {
       try {
-        await applyHoldoutSideEffects(
-          context,
-          { ...current, holdout: mergeResult.holdout ?? undefined },
-          feature.holdout ?? null,
-          { isRevert: true },
-        );
+        await rewindHoldoutLinkage(context, desired.holdoutLinkage);
       } catch (e) {
         reversalFailures.push("holdout");
         logger.error(

@@ -243,6 +243,7 @@ import {
   maybeAutoPublishFeatureRevision,
   parseScheduledPublishDate,
 } from "back-end/src/api/features/autoPublishOnApproval";
+import { assertValidHoldout } from "back-end/src/api/features/v2Shared";
 import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
@@ -760,6 +761,10 @@ export async function postFeatures(
   if (createTargetingProjects?.length) {
     await context.models.projects.ensureProjectsExist(createTargetingProjects);
   }
+  // Read-gated, so a caller can't link a flag into a Holdout outside their scope.
+  // The linkage write itself deliberately bypasses read scope, so this is the
+  // only place the id is authorized.
+  await assertValidHoldout(holdout?.id ? holdout : null, context);
 
   await validateCustomFieldsForSection({
     customFieldValues: customFields,
@@ -2460,6 +2465,15 @@ export async function postFeatureRevert(
     }
   }
 
+  // Runs before the empty-diff check: a holdout-only difference is a real revert.
+  const targetHoldout = getEffectiveRevisionHoldout(revision, feature);
+  if (!isEqual(targetHoldout, feature.holdout ?? null)) {
+    if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
+      context.permissions.throwPermissionError();
+    }
+    mergeChanges.holdout = targetHoldout;
+  }
+
   // No diff against live — refuse before creating an empty "Locked" revision.
   if (Object.keys(mergeChanges).length === 0) {
     throw new Error(
@@ -2484,6 +2498,9 @@ export async function postFeatureRevert(
   const revisionChanges: Partial<FeatureRevisionInterface> = {
     defaultValue: revision.defaultValue,
     rules: revision.rules ?? feature.rules ?? [],
+    // Both objects: `revisionChanges` records it on the revision doc, `mergeChanges`
+    // makes the publish see a delta and run the linkage side effects.
+    holdout: targetHoldout,
   };
   if (revision.environmentsEnabled !== undefined) {
     revisionChanges.environmentsEnabled = revision.environmentsEnabled;
@@ -2496,18 +2513,6 @@ export async function postFeatureRevert(
   }
   if (revision.metadata !== undefined) {
     revisionChanges.metadata = revision.metadata;
-  }
-  // Holdout membership is part of the state a revert restores. It must land in
-  // BOTH objects — `revisionChanges` so the revision doc records it, and
-  // `mergeChanges` so the publish sees a delta and runs the linkage side effects.
-  // Setting only one is a silent no-op.
-  const targetHoldout = getEffectiveRevisionHoldout(revision, feature);
-  revisionChanges.holdout = targetHoldout;
-  if (!isEqual(targetHoldout, feature.holdout ?? null)) {
-    if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
-      context.permissions.throwPermissionError();
-    }
-    mergeChanges.holdout = targetHoldout;
   }
 
   const newRevision = await createRevision({
@@ -2640,9 +2645,6 @@ export async function postFeatureRevertDraft(
   if (revision.metadata !== undefined) {
     changes.metadata = revision.metadata;
   }
-  // The draft carries the target's holdout so it represents the state being
-  // reverted to; `revertedFrom` survives on it so the later publish still
-  // applies revert semantics.
   changes.holdout = getEffectiveRevisionHoldout(revision, feature);
 
   const newRevision = await createRevision({
@@ -5167,6 +5169,10 @@ export async function putFeature(
   ) as Partial<FeatureInterface>;
   normalizeTargetingInUpdates(metadataUpdates, feature);
   const holdoutUpdate = "holdout" in updates ? updates.holdout : undefined;
+  // Read-gated, so a caller can't link a flag into a Holdout outside their scope.
+  // The publish-time linkage write deliberately bypasses read scope, so this is
+  // the only place the id is authorized.
+  await assertValidHoldout(holdoutUpdate ?? null, context);
 
   if (Object.keys(metadataUpdates).length > 0 || holdoutUpdate !== undefined) {
     const envelopeChanges: Parameters<

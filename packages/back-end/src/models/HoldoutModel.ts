@@ -55,6 +55,13 @@ export class HoldoutModel extends BaseClass {
     existing: HoldoutInterface,
     updates: Partial<HoldoutInterface>,
   ) {
+    // Every check below validates schedule dates. Returning early keeps a
+    // linkage-only write from having to resolve the holdout's experiment, which
+    // `getExperimentById` hides from anyone without `readData` on its project —
+    // the holdout experiment carries `project: ""`, so that is the caller's
+    // global role, and a project-scoped flag publisher would fail mid-publish.
+    if ((updates.statusUpdateSchedule ?? null) === null) return;
+
     const holdoutExperiment = await getExperimentById(
       this.context,
       existing.experimentId,
@@ -220,13 +227,10 @@ export class HoldoutModel extends BaseClass {
     holdoutId: string,
     experimentId: string,
   ) {
-    const holdout = await this.getById(holdoutId);
-    if (!holdout) {
-      throw new Error("Holdout not found");
-    }
+    const holdout = await this.getLinkageTarget(holdoutId);
     const { [experimentId]: _, ...linkedExperiments } =
       holdout.linkedExperiments;
-    await this.updateById(holdoutId, { linkedExperiments });
+    await this.writeLinkage(holdout, { linkedExperiments });
   }
 
   public async removeFeatureFromHoldout(holdoutId: string, featureId: string) {
@@ -262,10 +266,53 @@ export class HoldoutModel extends BaseClass {
     });
   }
 
-  // Resolve a linkage target regardless of the caller's read scope: the Holdout
-  // reference is already committed on the Feature Flag, so a linkage write must
-  // not depend on the publisher also being able to see the Holdout's Projects.
-  // Public so a publish path can preflight resolution before it mutates.
+  // Publish-rewind counterpart to `addFeatureToHoldout`: drops only the entries a
+  // failed publish added, in one write, leaving entries other features
+  // contributed alone. No-ops when the maps are already at the target state, so
+  // rewinding a forward pass that never landed writes nothing.
+  public async removeLinkageFromHoldout(
+    holdoutId: string,
+    {
+      featureId,
+      experimentIds,
+    }: { featureId?: string | null; experimentIds?: string[] },
+  ) {
+    const holdout = await this.getByIdForLinkage(holdoutId);
+    if (!holdout) return;
+
+    const drop = new Set(experimentIds ?? []);
+    const linkedExperiments = Object.fromEntries(
+      Object.entries(holdout.linkedExperiments).filter(([id]) => !drop.has(id)),
+    );
+    const linkedFeatures = { ...holdout.linkedFeatures };
+    if (featureId) delete linkedFeatures[featureId];
+
+    if (
+      Object.keys(linkedExperiments).length ===
+        Object.keys(holdout.linkedExperiments).length &&
+      Object.keys(linkedFeatures).length ===
+        Object.keys(holdout.linkedFeatures).length
+    ) {
+      return;
+    }
+    await this.writeLinkage(holdout, { linkedFeatures, linkedExperiments });
+  }
+
+  // Puts a feature back under the holdout it was unlinked from, with its original
+  // `dateAdded`. No-ops when it is still linked.
+  public async restoreFeatureLinkage(
+    holdoutId: string,
+    feature: { id: string; dateAdded: Date },
+  ) {
+    const holdout = await this.getByIdForLinkage(holdoutId);
+    if (!holdout || holdout.linkedFeatures[feature.id]) return;
+    await this.writeLinkage(holdout, {
+      linkedFeatures: { ...holdout.linkedFeatures, [feature.id]: feature },
+    });
+  }
+
+  // Bypasses read scope: the Holdout reference is already committed on the
+  // Feature Flag, so linkage must not depend on the publisher seeing its Projects.
   public async getByIdForLinkage(
     holdoutId: string,
   ): Promise<HoldoutInterface | null> {
@@ -284,16 +331,8 @@ export class HoldoutModel extends BaseClass {
     return holdout;
   }
 
-  // Linkage maps are the back-reference to `feature.holdout`, maintained as a
-  // side effect of an authorized Feature Flag write rather than a user-initiated
-  // Holdout edit — so flag edit/publish authority is enough. Gating them on
-  // Holdout update authority (`createAnalyses`) instead fails mid-publish for
-  // roles that can publish flags but not manage analyses, and an unlinked
-  // Holdout drops out of the SDK payload (getAllPayloadHoldouts) entirely.
-  //
-  // Takes the resolved doc, not an id: the by-id variant re-reads through the
-  // read-permission filter and would reintroduce the same failure for a Holdout
-  // outside the publisher's read scope.
+  // A side effect of an authorized Feature Flag write, so flag authority is
+  // enough — gating on `createAnalyses` fails mid-publish for flag publishers.
   private async writeLinkage(
     holdout: HoldoutInterface,
     updates: UpdateProps<HoldoutInterface>,

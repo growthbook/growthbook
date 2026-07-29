@@ -1475,8 +1475,6 @@ export default function ReviewAndPublish({
   const allDiffs = [...resultDiffs, ...rampDiffs];
   const hasChanges = mergeResultHasChanges(mergeResult) || rampDiffs.length > 0;
 
-  // Diffs empty against live but publishing it is the reconciliation, so the
-  // CTA stays enabled below instead of dead-ending on "nothing to publish".
   const isStranded = isStrandedLiveRevision({
     featureVersion: feature.version,
     revisionVersion: revision.version,
@@ -1567,8 +1565,6 @@ export default function ReviewAndPublish({
     requireReviews,
     status: revision.status,
     mergeSuccess: mergeResult.success,
-    // A stranded revision is publishable despite having no diff — publishing is
-    // what reconciles it.
     hasChanges: hasChanges || isStranded,
     hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(feature),
     canManageDraft: permissionsUtil.canManageFeatureDrafts(feature),

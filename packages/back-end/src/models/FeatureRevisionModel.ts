@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
+import isEqual from "lodash/isEqual";
 import {
   checkIfRevisionNeedsReview,
   isRevisionEditLockedBySchedule,
@@ -107,7 +108,7 @@ const featureRevisionSchema = new mongoose.Schema({
   // Live feature version captured when this revision was approved; used to
   // detect approvals that have gone stale due to subsequent publishes.
   approvedBaseVersion: Number,
-  // Version this revision reverts to; marks the revision as a revert.
+  // Version this revision reverts to.
   revertedFrom: Number,
   dateCreated: Date,
   dateUpdated: Date,
@@ -945,10 +946,7 @@ export async function createRevision({
   environments: string[];
   baseVersion?: number;
   changes?: Partial<FeatureRevisionInterface>;
-  // Deliberately its own parameter rather than a `changes` field: callers that
-  // clone a whole revision into `changes` (forking a draft) must not inherit
-  // another revision's revert marker, which would let an edited fork publish
-  // with the revert guard relaxations.
+  // Not a `changes` field: a draft forked from a revert must not inherit the marker.
   revertedFrom?: number;
   publish?: boolean;
   comment?: string;
@@ -1145,8 +1143,7 @@ export function computeRevisionUpdate(
   // flip to "-stale" variants (see `staleReviews`) so they stay attributable
   // without counting as active verdicts.
   clearReviews: boolean;
-  // True when a content edit means this revision no longer represents the state
-  // it was created to revert to, so its `revertedFrom` marker must be dropped.
+  // True when a content edit invalidated the revert marker.
   clearRevertedFrom: boolean;
   // The `reviews` array to persist when `clearReviews` is true: prior active
   // verdicts demoted to "approved-stale" / "changes-requested-stale".
@@ -1200,11 +1197,13 @@ export function computeRevisionUpdate(
         }
       : changes;
 
-  // A revert marker only describes the revision as it was created. Once its
-  // content is edited it no longer restores that previously-live state, so the
-  // publish-time guard relaxations it grants must not carry over.
+  // Compared by value, not presence: a rebase re-sends every mutable field.
   const clearRevertedFrom =
-    hasMutableChange && revision.revertedFrom !== undefined;
+    revision.revertedFrom !== undefined &&
+    MUTABLE_FIELDS.some(
+      (f) =>
+        f in normalizedChanges && !isEqual(normalizedChanges[f], revision[f]),
+    );
 
   const clearReviews =
     status === "pending-review" && revision.status !== "pending-review";
@@ -1391,7 +1390,7 @@ export async function markRevisionAsPublished(
   revision: FeatureRevisionInterface,
   user: EventUser,
   comment?: string,
-) {
+): Promise<Date | null> {
   // "re-publish" only applies to a revision that was already live; publishing
   // an approved (or otherwise in-flight) draft for the first time is a "publish".
   const action = revision.status === "published" ? "re-publish" : "publish";
@@ -1441,9 +1440,6 @@ export async function markRevisionAsPublished(
 
   await dispatchRevisionPublishedHook(context, revision);
 
-  // The datePublished this call stamped: a caller that has to undo the publish
-  // passes it back as the claim fingerprint, so the restore becomes a no-op once
-  // a concurrent legitimate publish has re-stamped the revision.
   return changes.datePublished ?? null;
 }
 
@@ -2592,18 +2588,15 @@ export async function discardRevision(
   context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
   user: EventUser,
-  // The parent feature's current version. Pass it whenever the caller has the
-  // feature so this can refuse to discard the revision the feature is live on.
-  liveVersion?: number,
+  // The parent feature's current version, or null when the caller can't have
+  // published this revision.
+  liveVersion: number | null,
 ) {
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error(`Can not discard ${revision.status} revisions`);
   }
 
-  // Discarding the revision the feature is live on turns a recoverable split
-  // into silent corruption: the feature keeps serving a revision that then
-  // reports as never published, and publishing it can no longer reconcile it.
-  if (liveVersion !== undefined && revision.version === liveVersion) {
+  if (liveVersion !== null && revision.version === liveVersion) {
     throw new Error(
       "This revision is the live version of the Feature Flag, so it cannot be discarded. An earlier publish updated the Feature Flag without marking this revision published — publish it again to reconcile.",
     );

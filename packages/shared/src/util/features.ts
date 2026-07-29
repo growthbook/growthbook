@@ -1090,14 +1090,8 @@ export function getEffectiveRevisionHoldout(
     : (feature.holdout ?? null);
 }
 
-/**
- * An open draft that is already the feature's live version: a publish advanced
- * the feature but never marked the revision published. It diffs empty against
- * live, so the ordinary "nothing to publish" handling would dead-end it — and
- * discarding it would leave the feature serving a revision reported as never
- * published. Publishing it is the reconciliation: no feature write is needed,
- * only the revision's status.
- */
+// An open draft that is already the feature's live version: a publish advanced
+// the feature but never marked the revision published. Publishing it reconciles.
 export function isStrandedLiveRevision({
   featureVersion,
   revisionVersion,

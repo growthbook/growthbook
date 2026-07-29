@@ -247,6 +247,23 @@ describe("computeRevisionUpdate revert marker", () => {
     expect(proposedRevision.revertedFrom).toBe(1);
   });
 
+  it("keeps the marker when mutable fields are re-sent unchanged", () => {
+    const revision = revertDraft();
+    const { clearRevertedFrom, proposedRevision } = computeRevisionUpdate(
+      mockContext(),
+      FEATURE,
+      revision,
+      {
+        defaultValue: revision.defaultValue,
+        rules: revision.rules,
+        baseVersion: 3,
+      } as RevisionChanges,
+      false,
+    );
+    expect(clearRevertedFrom).toBe(false);
+    expect(proposedRevision.revertedFrom).toBe(1);
+  });
+
   it("is a no-op for revisions that were never reverts", () => {
     const { clearRevertedFrom } = computeRevisionUpdate(
       mockContext(),
