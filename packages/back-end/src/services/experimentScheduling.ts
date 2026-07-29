@@ -283,9 +283,10 @@ export async function applyScheduledExperimentStop({
       context,
       input: {
         experimentId: experiment.id,
-        // With a verdict, record it as metadata; without EDF, treat the forced
-        // variation as the declared winner.
-        results: verdict?.results ?? "won",
+        // With a verdict, record it as metadata; without EDF there's no
+        // statistical basis for a winner, so stay inconclusive while still
+        // releasing the configured variation as a temporary rollout.
+        results: verdict?.results ?? "inconclusive",
         winner: verdict?.winnerIndex,
         releasedVariationId: forceShipTarget,
         enableTemporaryRollout: true,
