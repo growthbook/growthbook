@@ -17,6 +17,11 @@ import Modal from "@/components/Modal";
 import Badge from "@/ui/Badge";
 import SelectField from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
+import {
+  DATA_REGION_OPTIONS,
+  DEFAULT_DATA_REGION,
+  DataRegion,
+} from "@/services/dataRegions";
 
 export default function ManagedWarehouseModal({
   close,
@@ -31,7 +36,7 @@ export default function ManagedWarehouseModal({
 
   const [agree, setAgree] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
-  const [region, setRegion] = useState<"us-east-1" | "eu-west-1">("us-east-1");
+  const [region, setRegion] = useState<DataRegion>(DEFAULT_DATA_REGION);
 
   const settings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -148,13 +153,10 @@ export default function ManagedWarehouseModal({
 
       <SelectField
         size="legacy"
-        label="Data Region"
+        label="Data region"
         value={region}
-        onChange={(value) => setRegion(value as "us-east-1" | "eu-west-1")}
-        options={[
-          { label: "AWS us-east-1", value: "us-east-1" },
-          { label: "AWS eu-west-1", value: "eu-west-1" },
-        ]}
+        onChange={(value) => setRegion(value as DataRegion)}
+        options={DATA_REGION_OPTIONS}
         helpText="Where your event data will be ingested and stored. This cannot be changed later."
       />
 

@@ -41,6 +41,11 @@ import SelectField from "@/components/Forms/SelectField";
 import StringArrayField from "@/ui/StringArrayField";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
+import {
+  DATA_REGION_OPTIONS,
+  DEFAULT_DATA_REGION,
+  DataRegion,
+} from "@/services/dataRegions";
 
 interface memberOrgProps {
   id: string;
@@ -80,9 +85,8 @@ function OrganizationRow({
   const [licenseLoading, setLicenseLoading] = useState(false);
   const { apiCall } = useAuth();
   const [clickhouseModalOpen, setClickhouseModalOpen] = useState(false);
-  const [clickhouseRegion, setClickhouseRegion] = useState<
-    "us-east-1" | "eu-west-1"
-  >("us-east-1");
+  const [clickhouseRegion, setClickhouseRegion] =
+    useState<DataRegion>(DEFAULT_DATA_REGION);
   const [managedWarehouseId, setManagedWarehouseId] = useState(
     datasources.find((ds) => ds.type === "growthbook_clickhouse")?.id || null,
   );
@@ -168,18 +172,15 @@ function OrganizationRow({
         >
           Are you sure you want to create a Managed Warehouse data source for
           this organization?
-          <SelectField
-            size="small"
-            label="Data Region"
-            value={clickhouseRegion}
-            onChange={(value) =>
-              setClickhouseRegion(value as "us-east-1" | "eu-west-1")
-            }
-            options={[
-              { label: "AWS us-east-1", value: "us-east-1" },
-              { label: "AWS eu-west-1", value: "eu-west-1" },
-            ]}
-          />
+          <Box mt="3">
+            <SelectField
+              size="small"
+              label="Data region"
+              value={clickhouseRegion}
+              onChange={(value) => setClickhouseRegion(value as DataRegion)}
+              options={DATA_REGION_OPTIONS}
+            />
+          </Box>
         </Modal>
       )}
       {editSSOOpen && (

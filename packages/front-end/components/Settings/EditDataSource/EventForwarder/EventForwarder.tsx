@@ -42,6 +42,12 @@ import {
   PROVISIONING_TIMEOUT_MESSAGE,
   useEventForwarderProvisioningPoll,
 } from "@/components/Settings/EditDataSource/EventForwarder/useEventForwarderProvisioningPoll";
+import {
+  DATA_REGION_OPTIONS,
+  DEFAULT_DATA_REGION,
+  DataRegion,
+  getDataRegionLabel,
+} from "@/services/dataRegions";
 
 type Props = {
   dataSource: DataSourceInterfaceWithParams;
@@ -444,20 +450,17 @@ function EventForwarderModal({
             {eventForwarderConfig ? (
               <SelectField
                 size="small"
-                label="Data Region"
-                value={eventForwarderConfig.region ?? "us-east-1"}
+                label="Data region"
+                value={eventForwarderConfig.region ?? DEFAULT_DATA_REGION}
                 onChange={(value) => {
                   setEventForwarderConfig({
                     ...eventForwarderConfig,
-                    region: value as "us-east-1" | "eu-west-1",
+                    region: value as DataRegion,
                   });
                   setUsEventForwarderFlowConsent(false);
                 }}
                 disabled={isEditingEventForwarder}
-                options={[
-                  { label: "AWS us-east-1", value: "us-east-1" },
-                  { label: "AWS eu-west-1", value: "eu-west-1" },
-                ]}
+                options={DATA_REGION_OPTIONS}
                 helpText="Where the forwarder's Kafka/Confluent resources are provisioned. This cannot be changed later."
               />
             ) : null}
@@ -466,9 +469,9 @@ function EventForwarderModal({
                 value={usEventForwarderFlowConsent}
                 setValue={setUsEventForwarderFlowConsent}
                 disabled={isEditingEventForwarder}
-                label={`I understand that event data will flow through GrowthBook's servers in ${
-                  eventForwarderConfig?.region ?? "us-east-1"
-                } and confirm I'm authorized to enable this for my organization.`}
+                label={`I understand that event data will flow through GrowthBook's servers in ${getDataRegionLabel(
+                  eventForwarderConfig?.region ?? DEFAULT_DATA_REGION,
+                )} and confirm I'm authorized to enable this for my organization.`}
                 weight="regular"
               />
             </Callout>
