@@ -17,6 +17,18 @@ Use the `callApi` tool for every REST request. Mutating calls are gated automati
    { "method": "GET", "path": "/api/v1/experiments/<experiment-id>" }
    ```
 
+   If the user gave a name instead of an ID ("stop the checkout test"), resolve it first — `q` matches against name, tracking key, description, and hypothesis, and `status=running` keeps the candidates to experiments this skill can act on:
+
+   ```json
+   {
+     "method": "GET",
+     "path": "/api/v1/experiments",
+     "query": { "q": "checkout", "status": "running" }
+   }
+   ```
+
+   If more than one experiment plausibly matches, list the candidates and let the user pick — don't guess. Stopping the wrong experiment is not cleanly reversible.
+
    Check the `status` field. Only `running` experiments should be stopped via this skill. If `status === "draft"`, the experiment hasn't started — the user wants to delete it, not stop it (different operation). If `status === "stopped"`, it's already done.
 
    Also capture the `type` field. If `type === "multi-armed-bandit"`, halt and tell the user this skill targets standard A/B tests; bandits have their own lifecycle (stop is similar but interpretation and rollout differ — recommend they review in the UI before scripting).
@@ -125,9 +137,11 @@ Use the `callApi` tool for every REST request. Mutating calls are gated automati
 - **Always remind about the linked flag.** Stopping the experiment does not remove the `experiment-ref` rule from the linked flag. Without a temporary rollout, the flag keeps routing to a stale experiment until the user cleans the rule up.
 - **`analysis` should explain the decision in plain English (markdown).** Future readers (including future-self) will want context. Don't leave it blank when declaring a winner.
 - **Run `experiment-analyze` first if the user hasn't.** Stopping based on a glance at the dashboard is a common mistake — interim numbers can flip, and the data-quality checks in `experiment-analyze` can flag results that look conclusive but aren't.
+- **`q` rejects negation and operators with a 400.** The list endpoint's `q` param takes the app's search syntax (`status:running tag:checkout` plus free text) but hard-rejects `!`, `~`, `^`, `>`, `<`, `=`. Send plain `field:value` tokens and free text only.
 
 ## Endpoints used
 
+- `GET /api/v1/experiments?q=<text>&status=running` — resolve an experiment ID when the user only gave a name or keyword. `q` matches name, tracking key, description, and hypothesis.
 - `GET /api/v1/experiments/<id>` — fetch state, variations, and `type`
 - `POST /api/v1/experiments/<id>/stop` — stop and optionally declare a winner + temporary rollout
 - `POST /api/v1/experiments/<id>/modify-temporary-rollout` — toggle the temporary rollout off (or on) after stopping, without re-running this skill

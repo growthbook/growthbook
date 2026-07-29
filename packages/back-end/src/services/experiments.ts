@@ -201,6 +201,7 @@ import {
 } from "back-end/src/services/dimensions";
 import {
   getErrorMessage,
+  BadRequestError,
   ConcurrentIncrementalRefreshError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
 } from "back-end/src/util/errors";
@@ -2228,6 +2229,19 @@ export async function planExperimentSnapshot({
       phaseIndex: phase,
     });
 
+  const metricGroups = await context.models.metricGroups.getAll();
+  const metricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+    metricGroups,
+  );
+
+  if (metricIds.length === 0) {
+    throw new BadRequestError(
+      "Experiment must have at least 1 metric selected to be analyzed.",
+    );
+  }
+
   let project = null;
   if (experiment.project) {
     project = await context.models.projects.getById(experiment.project);
@@ -2243,17 +2257,16 @@ export async function planExperimentSnapshot({
   });
   const statsEngine = settings.statsEngine.value;
   const postStratificationEnabled = settings.postStratificationEnabled.value;
+
   const metricMap = await getMetricMap(context);
-  const factTableMap = await getFactTableMap(context);
-
-  const metricGroups = await context.models.metricGroups.getAll();
-  const metricIds = getAllMetricIdsFromExperiment(
-    experiment,
-    false,
-    metricGroups,
+  const allExperimentMetrics = metricIds.map(
+    (metricId) => metricMap.get(metricId) ?? null,
   );
-
-  const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
+  if (!allExperimentMetrics.some(isDefined)) {
+    throw new BadRequestError(
+      "Experiment must have at least 1 metric selected to be analyzed.",
+    );
+  }
 
   const denominatorMetricIds = uniq<string>(
     allExperimentMetrics
@@ -2263,6 +2276,8 @@ export async function planExperimentSnapshot({
   const denominatorMetrics = denominatorMetricIds
     .map((m) => metricMap.get(m) || null)
     .filter(isDefined) as MetricInterface[];
+
+  const factTableMap = await getFactTableMap(context);
 
   const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
     getAllMetricSettingsForSnapshot({

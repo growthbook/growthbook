@@ -1090,6 +1090,37 @@ export function getEffectiveRevisionHoldout(
     : (feature.holdout ?? null);
 }
 
+// The holdout a revert restores. Unlike getEffectiveRevisionHoldout, an absent
+// value means "no holdout" rather than carrying the live one forward — carrying
+// forward makes a holdout attached after this revision un-revertable, which
+// reads as a revert that silently does nothing.
+export function getRevertTargetHoldout(
+  revision: Pick<RevisionFields, "holdout">,
+): Exclude<RevisionFields["holdout"], undefined> {
+  return revision.holdout ?? null;
+}
+
+// An open draft that is already the feature's live version: a publish advanced
+// the feature but never marked the revision published. Publishing it reconciles.
+export function isStrandedLiveRevision({
+  featureVersion,
+  revisionVersion,
+  revisionStatus,
+  hasChanges,
+}: {
+  featureVersion: number;
+  revisionVersion: number;
+  revisionStatus: string;
+  hasChanges: boolean;
+}): boolean {
+  return (
+    !hasChanges &&
+    revisionVersion === featureVersion &&
+    revisionStatus !== "published" &&
+    revisionStatus !== "discarded"
+  );
+}
+
 // Per-field backfill for old/sparse revisions before passing to autoMerge.
 // Fields not listed here are left as-is; sparse absence is meaningful for those.
 const revisionFieldFillers: Partial<{
@@ -1843,10 +1874,15 @@ export function autoMerge(
       result.archived = revision.archived;
     }
 
-    // holdout
+    // holdout — compared against live, not base. Membership lives on the feature
+    // document, and a base revision snapshot can predate an attach that happened
+    // outside a publish, in which case a draft's removal equals the stale base
+    // and the change would be dropped. `live` is canonical (see
+    // liveRevisionFromFeature), which also keeps this in step with
+    // draftDiffersFromLive.
     if (
       "holdout" in revision &&
-      !isEqual(revision.holdout, base.holdout ?? null)
+      !isEqual(revision.holdout ?? null, live.holdout ?? null)
     ) {
       result.holdout = revision.holdout;
     }
@@ -2022,13 +2058,16 @@ export function autoMerge(
     }
   }
 
-  // holdout (nullable object, same conflict pattern as archived)
+  // holdout (nullable object, same conflict pattern as archived) — differing
+  // from live is what makes it a change, since membership lives on the feature
+  // document and a base snapshot can predate an attach made outside a publish.
+  // base is then only consulted to tell a conflict from a clean change.
   if ("holdout" in revision) {
-    const revVal = revision.holdout;
+    const revVal = revision.holdout ?? null;
     const baseVal = base.holdout ?? null;
     const liveVal = live.holdout ?? null;
-    if (!isEqual(revVal, baseVal) && !isEqual(revVal, liveVal)) {
-      if (!isEqual(liveVal, baseVal) && !isEqual(liveVal, revVal)) {
+    if (!isEqual(revVal, liveVal)) {
+      if (!isEqual(liveVal, baseVal)) {
         const conflictInfo: MergeConflict = {
           name: "Holdout",
           key: "holdout",
@@ -2155,8 +2194,9 @@ export function validateAndFixCondition(
   applySuggestion: (suggestion: string) => void,
   throwOnSuggestion: boolean = true,
   groupMap?: GroupMap,
+  skipSavedGroupCycleCheck: boolean = false,
 ): ValidateConditionReturn {
-  const res = validateCondition(condition, groupMap);
+  const res = validateCondition(condition, groupMap, skipSavedGroupCycleCheck);
   if (res.success) return res;
   if (res.suggestedValue) {
     applySuggestion(res.suggestedValue);

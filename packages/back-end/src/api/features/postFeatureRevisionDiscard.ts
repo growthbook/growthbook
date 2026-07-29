@@ -40,7 +40,12 @@ export async function discardFeatureRevision(
     throw new BadRequestError(`Cannot discard a ${revision.status} revision`);
   }
 
-  await discardRevision(req.context, revision, req.context.auditUser);
+  await discardRevision(
+    req.context,
+    revision,
+    req.context.auditUser,
+    feature.version,
+  );
   await clearPendingFeatureDraftsForRevision(
     req.context,
     feature.id,

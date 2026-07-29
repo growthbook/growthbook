@@ -172,6 +172,37 @@ describe("mapV2ApiRuleToFeatureRule", () => {
         hashAttribute: "userId",
       });
     });
+
+    // GET→edit→PUT must persist id/seed/hashVersion verbatim (else re-bucketing).
+    it("preserves id, seed, and hashVersion on round-trip", () => {
+      const out = mapV2ApiRuleToFeatureRule({
+        id: "fr_explicit",
+        type: "rollout",
+        value: "v",
+        coverage: 0.5,
+        hashAttribute: "userId",
+        seed: "my-seed",
+        hashVersion: 2,
+      } as ApiRuleV2Input);
+      expect(out).toMatchObject({
+        id: "fr_explicit",
+        seed: "my-seed",
+        hashVersion: 2,
+        hashAttribute: "userId",
+      });
+    });
+
+    // Absent seed stays absent — the write-time backfill owns the default.
+    it("does not invent a seed when the caller omits one", () => {
+      const out = mapV2ApiRuleToFeatureRule({
+        type: "rollout",
+        value: "v",
+        coverage: 0.5,
+        hashAttribute: "userId",
+      } as ApiRuleV2Input);
+      expect(out).not.toHaveProperty("seed");
+      expect(out).not.toHaveProperty("hashVersion");
+    });
   });
 
   describe("experiment-ref rule", () => {

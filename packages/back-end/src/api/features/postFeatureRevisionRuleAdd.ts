@@ -1,5 +1,4 @@
 import cloneDeep from "lodash/cloneDeep";
-import omit from "lodash/omit";
 import { v4 as uuidv4 } from "uuid";
 import {
   RevisionRampCreateAction,
@@ -20,6 +19,7 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { CreateProps } from "shared/types/base-model";
 import { getLatestPhaseVariations } from "shared/experiments";
 import {
+  addIdsToFlatRules,
   assertFeatureValuesValid,
   toApiRevision,
 } from "back-end/src/services/features";
@@ -229,6 +229,10 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
 
     const rule = buildRuleFromInput(ruleInput, uuidv4());
 
+    // Seed a new rollout off its own rule id so stacked rollouts hash
+    // independently (same chokepoint the v2 add endpoint uses).
+    addIdsToFlatRules([rule], feature.id);
+
     // Enforce the feature's JSON schema on the new rule's values (no-op for
     // config-backed values). Opt out with ?skipSchemaValidation=true.
     assertFeatureValuesValid(req.context, feature, { rules: [rule] });
@@ -421,15 +425,10 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
     }
     if (linkedHoldoutId && linkedExperimentId) {
       try {
-        const holdout =
-          await req.context.models.holdout.getById(linkedHoldoutId);
-        if (holdout?.linkedExperiments?.[linkedExperimentId]) {
-          await req.context.models.holdout.updateById(linkedHoldoutId, {
-            linkedExperiments: omit(holdout.linkedExperiments, [
-              linkedExperimentId,
-            ]),
-          });
-        }
+        await req.context.models.holdout.removeExperimentFromHoldout(
+          linkedHoldoutId,
+          linkedExperimentId,
+        );
       } catch {
         // best effort
       }
