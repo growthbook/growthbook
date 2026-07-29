@@ -3024,7 +3024,14 @@ async function restorePublishedFeatureDoc(
     revision,
     result,
   );
-  const restoreKeys = new Set([...Object.keys(changes), "version"]);
+  const restoreKeys = new Set([
+    ...Object.keys(changes),
+    "version",
+    // updateFeature derives this rather than taking it from `changes`, and it
+    // only ever appends — so restoring the rules alone would leave the feature
+    // listing experiments whose own back-reference the rewind just removed.
+    "linkedExperiments",
+  ]);
   // A holdout removal lands via removeHoldoutFromFeature rather than `changes`,
   // so name the key explicitly whenever this publish transitioned it.
   if (result.holdout !== undefined) restoreKeys.add("holdout");
