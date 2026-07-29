@@ -300,7 +300,10 @@ export default function RoleForm({
                           ) : null}
                           {parts.length ? (
                             <Box ml="5" mt="1">
-                              <Link onClick={() => toggleExpanded(policy)}>
+                              <Link
+                                aria-expanded={expanded}
+                                onClick={() => toggleExpanded(policy)}
+                              >
                                 <Flex align="center" gap="1">
                                   {expanded ? <PiMinusBold /> : <PiPlusBold />}
                                   {expanded
@@ -350,12 +353,10 @@ export default function RoleForm({
         <Box
           py="3"
           className="bg-main-color"
-          style={{
-            position: "sticky",
-            bottom: 0,
-            width: "100%",
-            borderTop: "1px solid var(--slate-a5)",
-          }}
+          position="sticky"
+          bottom="0"
+          width="100%"
+          style={{ borderTop: "1px solid var(--slate-a5)" }}
         >
           <Flex className="container-fluid pagecontents" align="center" gap="3">
             {error ? (
