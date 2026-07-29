@@ -2237,7 +2237,20 @@ export async function reverseHoldoutExperimentLinkage(
     plan.holdoutId,
     plan.toLink,
   );
-  await setExperimentHoldoutIds(context, plan.prevExperimentHoldoutIds);
+  // The experiment write is the step most likely to have failed on the way in
+  // (updateExperiment serializes the whole experiment for its update event, which
+  // throws on some legacy docs). Letting that abort the reversal would strand the
+  // feature at the published version with its revision still a draft — the exact
+  // split the rewind exists to prevent — so it is logged rather than thrown, and
+  // the rest of the rewind proceeds.
+  try {
+    await setExperimentHoldoutIds(context, plan.prevExperimentHoldoutIds);
+  } catch (e) {
+    logger.error(
+      e,
+      `Failed to restore experiment holdoutIds while rewinding publish for holdout ${plan.holdoutId}`,
+    );
+  }
 }
 
 // The linkage a holdout transition is about to write, captured before the forward
@@ -3397,17 +3410,20 @@ export async function publishRevision({
 
     // Planned here for the same reason: computing it is read-only, so the rewind
     // is registrable before the first linkage write.
-    const experimentLinkagePlan =
-      result.holdout === undefined && result.rules === undefined
-        ? null
-        : await planHoldoutExperimentLinkage(
-            context,
-            feature,
-            (result.holdout !== undefined
-              ? result.holdout?.id
-              : feature.holdout?.id) ?? null,
-            result.rules ?? feature.rules ?? [],
-          );
+    //
+    // Deliberately not gated on the merge carrying a rule or holdout change:
+    // linkage is reconciled against published state, and a publish with no delta
+    // is exactly the case where state can be out of sync (reconciling a revision
+    // an earlier failed publish left stranded). The plan short-circuits when the
+    // feature has no holdout, so this costs nothing for most publishes.
+    const experimentLinkagePlan = await planHoldoutExperimentLinkage(
+      context,
+      feature,
+      (result.holdout !== undefined
+        ? result.holdout?.id
+        : feature.holdout?.id) ?? null,
+      result.rules ?? feature.rules ?? [],
+    );
 
     updatedFeature = await applyRevisionChanges(
       context,
