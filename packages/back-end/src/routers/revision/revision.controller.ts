@@ -37,6 +37,7 @@ import {
   maybeAutoPublishRevision,
   canEnableAutoPublishOnApproval,
 } from "back-end/src/revisions/revisionActions";
+import { canAdvanceRevision } from "back-end/src/revisions/revisionAuthority";
 
 // Commenting is participation, not authority over the entity: the addComments
 // atom is what gates it everywhere else (feature and experiment discussions), so
@@ -478,14 +479,7 @@ export const postSubmit = async (
     });
   }
 
-  if (
-    !canDoRevisionAction(
-      existingRevision.target.type,
-      "draft",
-      context,
-      existingRevision.target.snapshot as Record<string, unknown>,
-    )
-  ) {
+  if (!(await canAdvanceRevision(context, existingRevision))) {
     context.permissions.throwPermissionError();
   }
 
@@ -1377,18 +1371,10 @@ export const postClose = async (
     });
   }
 
-  if (existingRevision.authorId !== userId) {
-    // Also allow draft authors to close
-    if (
-      !canDoRevisionAction(
-        existingRevision.target.type,
-        "draft",
-        context,
-        existingRevision.target.snapshot as Record<string, unknown>,
-      )
-    ) {
-      context.permissions.throwPermissionError();
-    }
+  // Covers the author, draft authority, and the narrow atoms over a draft that
+  // only does what they cover — same shape as the feature discard gate.
+  if (!(await canAdvanceRevision(context, existingRevision))) {
+    context.permissions.throwPermissionError();
   }
 
   const revision = await revisionModel.close(id, userId, reason);
