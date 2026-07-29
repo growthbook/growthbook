@@ -1,7 +1,9 @@
 import clsx from "clsx";
 import { useState } from "react";
+import { Box } from "@radix-ui/themes";
 import { Variation, VariationWithIndex } from "shared/types/experiment";
 import Dropdown from "@/components/Dropdown/Dropdown";
+import VariationLabel from "@/ui/VariationLabel";
 
 export interface Props {
   variations: Variation[];
@@ -44,23 +46,16 @@ export default function VariationChooser({
     );
   }
   if (filteredVariations.length <= 1) {
+    const lastVariation = filteredVariations[filteredVariations.length - 1];
     title = (
       <div className="d-inline-flex align-items-center">
-        <div
-          className={`variation variation${
-            filteredVariations[filteredVariations.length - 1]?.index
-          } with-variation-label d-flex align-items-center`}
-        >
-          <span className="label" style={{ width: 20, height: 20 }}>
-            {filteredVariations[filteredVariations.length - 1]?.index}
-          </span>
-          <span
-            className="d-inline-block text-ellipsis hover"
-            style={{ maxWidth: 150 }}
-          >
-            {filteredVariations[filteredVariations.length - 1]?.name}
-          </span>
-        </div>
+        <Box style={{ maxWidth: 170 }} minWidth="0">
+          <VariationLabel
+            number={lastVariation?.index ?? 0}
+            name={lastVariation?.name ?? ""}
+            size="small"
+          />
+        </Box>
       </div>
     );
   }
@@ -183,25 +178,13 @@ export default function VariationChooser({
                   setOpen(false);
                 }}
               >
-                <div
-                  className={`variation variation${variation.index} with-variation-label d-flex align-items-center`}
-                >
-                  <span
-                    className="label"
-                    style={{ width: 20, height: 20, flex: "none" }}
-                  >
-                    {variation.index}
-                  </span>
-                  <span
-                    className="d-inline-block"
-                    style={{
-                      width: 150,
-                      lineHeight: "14px",
-                    }}
-                  >
-                    {variation.name}
-                  </span>
-                </div>
+                <Box style={{ maxWidth: 170 }} minWidth="0">
+                  <VariationLabel
+                    number={variation.index}
+                    name={variation.name}
+                    size="small"
+                  />
+                </Box>
               </div>
             </div>
           );
