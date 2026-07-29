@@ -1143,7 +1143,7 @@ export default function ReviewAndPublish({
               {/* Fixed-height row matching the 32px md avatar so the label
                     centers against it */}
               <Flex align="center" style={{ height: 32 }}>
-                <Heading as="h4" size="small" mb="0">
+                <Heading as="h4" size="sm" mb="0">
                   Add a comment
                 </Heading>
               </Flex>
@@ -1293,7 +1293,7 @@ export default function ReviewAndPublish({
                 {headerStatusIcon}
               </Box>
             )}
-            <Heading as="h4" size="small">
+            <Heading as="h4" size="sm">
               <span style={{ color: `var(--${headerStatusColor}-11)` }}>
                 {headerStatusLabel}
               </span>
@@ -1307,13 +1307,7 @@ export default function ReviewAndPublish({
           {generatedByRow}
           {contributorIds.length > 0 && (
             <Box mb="3">
-              <Text
-                size="medium"
-                weight="medium"
-                color="text-high"
-                as="div"
-                mb="2"
-              >
+              <Text size="md" weight="medium" color="text-high" as="div" mb="2">
                 Contributors
               </Text>
               <Flex direction="column" gap="2">
@@ -1334,13 +1328,7 @@ export default function ReviewAndPublish({
 
           {reviewers.length > 0 && (
             <Box mb="3">
-              <Text
-                size="medium"
-                weight="medium"
-                color="text-high"
-                as="div"
-                mb="2"
-              >
+              <Text size="md" weight="medium" color="text-high" as="div" mb="2">
                 Reviewers
               </Text>
               <Flex direction="column" gap="2">
@@ -1871,7 +1859,7 @@ export default function ReviewAndPublish({
       <Box mb="3">
         {immediateStartExperiments.length > 0 && (
           <Box mb={scheduledExperiments.length > 0 ? "3" : "0"}>
-            <Heading as="h4" size="small" mb="2">
+            <Heading as="h4" size="sm" mb="2">
               Start running experiments upon publishing:
             </Heading>
             {immediateStartExperiments.map((experiment) => (
@@ -1892,7 +1880,7 @@ export default function ReviewAndPublish({
         )}
         {scheduledExperiments.length > 0 && (
           <Box>
-            <Heading as="h4" size="small" mb="2">
+            <Heading as="h4" size="sm" mb="2">
               Approve scheduled start for experiments:
             </Heading>
             {scheduledExperiments.map((experiment) => (
@@ -2144,7 +2132,7 @@ export default function ReviewAndPublish({
   // ── Left column: all of the changes, then history ──
   const changesColumn = experimentsStep ? (
     <Box>
-      <Heading as="h3" size="medium" mb="3">
+      <Heading as="h3" size="md" mb="3">
         Review &amp; {onlyScheduledSelected ? "Schedule" : "Publish"}
       </Heading>
       <Text as="p" mb="3">
@@ -2220,7 +2208,7 @@ export default function ReviewAndPublish({
               {revisionStatusIcon(revision.status)}
             </Box>
           )}
-          <Heading as="h4" size="small">
+          <Heading as="h4" size="sm">
             <span style={{ color: `var(--${statusColor}-11)` }}>
               {revisionStatusLabel(revision.status)}
             </span>
@@ -2296,13 +2284,7 @@ export default function ReviewAndPublish({
         {generatedByRow}
         {contributorIds.length > 0 && (
           <Box mb="3">
-            <Text
-              size="medium"
-              weight="medium"
-              color="text-high"
-              as="div"
-              mb="2"
-            >
+            <Text size="md" weight="medium" color="text-high" as="div" mb="2">
               Contributors
             </Text>
             <Flex direction="column" gap="2">
@@ -2324,18 +2306,12 @@ export default function ReviewAndPublish({
         {requireReviews &&
           (reviewers.length > 0 || revision.status === "pending-review") && (
             <Box mb="3">
-              <Text
-                size="medium"
-                weight="medium"
-                color="text-high"
-                as="div"
-                mb="2"
-              >
+              <Text size="md" weight="medium" color="text-high" as="div" mb="2">
                 Reviewers
               </Text>
               {reviewers.length === 0 &&
                 revision.status === "pending-review" && (
-                  <Text size="small" color="text-mid" as="div">
+                  <Text size="sm" color="text-mid" as="div">
                     No reviews yet.
                   </Text>
                 )}
@@ -2554,7 +2530,7 @@ export default function ReviewAndPublish({
                   ) : (
                     // Approved revisions can only defer to a date — "when
                     // approved" would just publish now, so show it as text.
-                    <Text size="medium">on a specific date</Text>
+                    <Text size="md">on a specific date</Text>
                   )}
                 </Flex>
                 {autoPublishArmed && effectivePublishMode === "date" && (
@@ -2630,7 +2606,7 @@ export default function ReviewAndPublish({
                       </>
                     ) : (
                       <PremiumTooltip commercialFeature="scheduled-revisions">
-                        <Text size="small" as="div">
+                        <Text size="sm" as="div">
                           Upgrade to publish on a specific date.
                         </Text>
                       </PremiumTooltip>
@@ -2808,7 +2784,7 @@ export default function ReviewAndPublish({
                       )}
 
                       {!requireReviews && !experimentsStep && !blockInfo && (
-                        <Text size="small" color="text-mid" as="p">
+                        <Text size="sm" color="text-mid" as="p">
                           No approval necessary — these changes can be published
                           directly.
                         </Text>

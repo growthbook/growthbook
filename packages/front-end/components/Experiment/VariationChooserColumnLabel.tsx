@@ -183,7 +183,7 @@ export default function VariationChooserColumnLabel({
         <VariationLabel
           number={selectedVariation.index}
           name={selectedVariation.name}
-          size="small"
+          size="sm"
           disableTooltip
         />
       </Box>
@@ -258,7 +258,7 @@ export default function VariationChooserColumnLabel({
     >
       <DropdownMenuGroup>
         <DropdownMenuLabel
-          textSize="1"
+          textSize="sm"
           textStyle={{ textTransform: "uppercase", fontWeight: 600 }}
         >
           Show Variations

@@ -295,7 +295,7 @@ export function RowFilterInput({
               <>
                 {multiValueInput && useValueOptions ? (
                   <MultiSelectField
-                    size="legacy"
+                    legacyHeight
                     value={filter.values || []}
                     onChange={(v) => {
                       updateRowFilter({
@@ -313,7 +313,7 @@ export function RowFilterInput({
                   />
                 ) : multiValueInput ? (
                   <StringArrayField
-                    size="legacy"
+                    legacyHeight
                     value={filter.values || []}
                     onChange={(v) => {
                       updateRowFilter({

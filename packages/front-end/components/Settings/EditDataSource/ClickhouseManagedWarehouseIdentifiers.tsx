@@ -43,7 +43,7 @@ export default function ClickhouseManagedWarehouseIdentifiers({
 
   return (
     <Box>
-      <Heading as="h3" size="medium">
+      <Heading as="h3" size="md">
         Identifiers
       </Heading>
       <Text as="p" color="text-mid">

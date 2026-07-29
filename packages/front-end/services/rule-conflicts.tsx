@@ -1653,12 +1653,12 @@ export function ConflictCallout({
         {open && hasDetails && (
           <Flex mt="1" direction="column" gap="1">
             {conflicts.hard.map((c, i) => (
-              <Text as="div" size="small" key={`h${i}`}>
+              <Text as="div" size="sm" key={`h${i}`}>
                 - {hardSentence(c)}
               </Text>
             ))}
             {conflicts.soft.map((c, i) => (
-              <Text as="div" size="small" key={`s${i}`}>
+              <Text as="div" size="sm" key={`s${i}`}>
                 - {softSentence(c)}
               </Text>
             ))}

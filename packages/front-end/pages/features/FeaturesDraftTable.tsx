@@ -271,7 +271,7 @@ export default function FeaturesDraftTable() {
                           ),
                         }}
                       />
-                      <Text size="medium">
+                      <Text size="md">
                         {revisionStatusLabel(featureAndRevision.status)}
                       </Text>
                     </Flex>

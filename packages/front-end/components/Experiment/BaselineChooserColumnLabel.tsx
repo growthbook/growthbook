@@ -197,7 +197,7 @@ export default function BaselineChooserColumnLabel({
               <VariationLabel
                 number={baselineVariation.index}
                 name={baselineVariation.name}
-                size="small"
+                size="sm"
                 disableTooltip
               />
             </Box>
@@ -229,7 +229,7 @@ export default function BaselineChooserColumnLabel({
     >
       <DropdownMenuGroup>
         <DropdownMenuLabel
-          textSize="1"
+          textSize="sm"
           textStyle={{ textTransform: "uppercase", fontWeight: 600 }}
         >
           Baseline

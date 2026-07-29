@@ -8,7 +8,7 @@ import {
   PiWarningOctagonFill,
 } from "react-icons/pi";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
+import { radixSize, Size as SharedSize } from "@/ui/sizes";
 
 // "attention" is an orange severity tier between "warning" (amber) and "error"
 // (red). It defaults to the error octagon icon and gets role="alert", but is
@@ -23,7 +23,7 @@ export type Status =
   | "success"
   | "attention";
 export type RadixColor = TextProps["color"];
-export type Size = "sm" | "md";
+export type Size = SharedSize<"sm" | "md">;
 
 export function getRadixColor(status: Status): TextProps["color"] {
   switch (status) {
@@ -39,15 +39,6 @@ export function getRadixColor(status: Status): TextProps["color"] {
       return "green";
     case "attention":
       return "orange";
-  }
-}
-
-export function getRadixSize(size: Size): Responsive<"1" | "2"> {
-  switch (size) {
-    case "sm":
-      return "1";
-    case "md":
-      return "2";
   }
 }
 
@@ -90,7 +81,7 @@ export default forwardRef<
   {
     children: string | string[] | ReactNode;
     status: Status;
-    size?: "sm" | "md";
+    size?: Size;
     icon?: ReactNode | null;
   } & MarginProps
 >(function HelperText(
@@ -104,7 +95,7 @@ export default forwardRef<
   })();
 
   return (
-    <Text color={getRadixColor(status)} size={getRadixSize(size)}>
+    <Text color={getRadixColor(status)} size={radixSize(size)}>
       <Flex gap="1" {...otherProps} ref={ref}>
         {renderedIcon && (
           <div style={{ flex: "0 0 auto", position: "relative", top: -1.5 }}>

@@ -170,7 +170,7 @@ export default function EditContextualBanditFeatureValuesModal({
                 <Box className={`variation with-variation-label variation${i}`}>
                   <span className="label">{i}</span>
                 </Box>
-                <Text weight="semibold" size="large">
+                <Text weight="semibold" size="lg">
                   {v.name}
                 </Text>
               </Flex>

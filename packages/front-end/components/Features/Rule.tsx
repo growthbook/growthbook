@@ -531,7 +531,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         ruleCtas.push(
           <Button
             key="ramp-start"
-            size="xs"
+            size="sm"
             variant="solid"
             onClick={async () => {
               await apiCall(
@@ -551,7 +551,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         ruleCtas.push(
           <Button
             key="ramp-resume"
-            size="xs"
+            size="sm"
             variant="solid"
             onClick={async () => {
               await apiCall(
@@ -578,7 +578,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         ruleCtas.push(
           <Button
             key="ramp-approve"
-            size="xs"
+            size="sm"
             variant="solid"
             loading={rampApproveLoading}
             onClick={async () => {
@@ -623,14 +623,14 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             key="ramp-restart"
             body="The scheduled end date has already passed. Edit the schedule to remove or update the end date before restarting."
           >
-            <Button size="xs" variant="solid" disabled>
+            <Button size="sm" variant="solid" disabled>
               Restart
             </Button>
           </Tooltip>
         ) : (
           <Button
             key="ramp-restart"
-            size="xs"
+            size="sm"
             variant="solid"
             onClick={async () => {
               await apiCall(
@@ -734,7 +734,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               gap="2"
               style={{ flex: "0 1 auto", flexWrap: "wrap" }}
             >
-              <Heading as="h4" size="medium" weight="medium" mb="0">
+              <Heading as="h4" size="md" weight="medium" mb="0">
                 {linkedExperiment ? (
                   <>
                     {linkedExperiment.type === "multi-armed-bandit"
@@ -1612,7 +1612,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     mb="2"
                     action={
                       <Button
-                        size="xs"
+                        size="sm"
                         variant="ghost"
                         color="inherit"
                         onClick={() => setRampApproveError("")}

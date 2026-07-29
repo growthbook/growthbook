@@ -27,27 +27,27 @@ export function AttributeOptionTooltipContent({
         href={`/attributes/${option.value}`}
         target="_blank"
         weight="bold"
-        size="2"
+        size="md"
       >
         <span style={{ overflowWrap: "anywhere" }} className="mr-1">
           {option.label}
         </span>
         <PiArrowSquareOut />
       </Link>
-      <Text size="small" as="div">
-        <Text size="small" as="span" weight="semibold">
+      <Text size="sm" as="div">
+        <Text size="sm" as="span" weight="semibold">
           Type:{" "}
         </Text>
         {option.datatype ?? "unknown"}
       </Text>
       {option.hashAttribute === true && (
-        <Text size="small" as="div" weight="semibold">
+        <Text size="sm" as="div" weight="semibold">
           Identifier
         </Text>
       )}
       {option.tags && option.tags.length > 0 && (
         <div>
-          <Text size="small" as="div" weight="semibold">
+          <Text size="sm" as="div" weight="semibold">
             Tags:
           </Text>
           <SortedTags
@@ -60,7 +60,7 @@ export function AttributeOptionTooltipContent({
       )}
       {option.description && (
         <div>
-          <Text size="small" as="div" weight="semibold">
+          <Text size="sm" as="div" weight="semibold">
             Description:
           </Text>
           <Markdown style={{ fontSize: 12 }}>{option.description}</Markdown>

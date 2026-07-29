@@ -129,11 +129,11 @@ export default function BanditDecisionMetricSettings({
 
       {showConversionWindowSection && (
         <Box my="5">
-          <Text size="medium" weight="semibold">
+          <Text size="md" weight="semibold">
             Decision Metric Conversion Window Override
           </Text>
           {goalMetricWindow?.windowUnit && goalMetricWindow?.windowValue && (
-            <Text color="text-mid" size="small" as="p" my="1">
+            <Text color="text-mid" size="sm" as="p" my="1">
               Metric default: {goalMetricWindow.windowValue}{" "}
               {goalMetricWindow.windowValue === 1
                 ? goalMetricWindow.windowUnit.slice(0, -1)
@@ -190,7 +190,7 @@ export default function BanditDecisionMetricSettings({
             <Checkbox
               description="Use the Decision Metric's default conversion window"
               label="Disable Conversion Window Override"
-              labelSize="1"
+              labelSize="sm"
               size="sm"
               value={disableBanditConversionWindow}
               setValue={setDisableBanditConversionWindow}

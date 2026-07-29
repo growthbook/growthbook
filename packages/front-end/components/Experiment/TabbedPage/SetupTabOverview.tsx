@@ -154,7 +154,7 @@ export default function SetupTabOverview({
       ) : null}
       <div>
         <Flex justify="between" align="baseline" mb="3">
-          <Heading color="text-high" as="h2" size="large" mb="0">
+          <Heading color="text-high" as="h2" size="lg" mb="0">
             Overview
           </Heading>
           <Flex align="center" gap="4">
@@ -207,7 +207,7 @@ export default function SetupTabOverview({
         {isHoldout && holdout && holdoutHasSchedule && editSchedule ? (
           <Frame id="holdout-schedule" style={{ scrollMarginTop: "100px" }}>
             <Flex align="center" justify="between" className="text-dark">
-              <Heading color="text-high" mb="0" as="h4" size="small">
+              <Heading color="text-high" mb="0" as="h4" size="sm">
                 Holdout Schedule
               </Heading>
               <Flex align="center" gap="2">
@@ -251,7 +251,7 @@ export default function SetupTabOverview({
         {!isBandit && !isHoldout && (
           <Frame>
             <Flex align="start" justify="between">
-              <Heading color="text-high" as="h4" size="small" mb="0">
+              <Heading color="text-high" as="h4" size="sm" mb="0">
                 Hypothesis
               </Heading>
               {canEditExperiment && (
@@ -345,7 +345,7 @@ export default function SetupTabOverview({
                   }}
                 >
                   <Flex align="center" justify="between" className="text-dark">
-                    <Heading color="text-high" mb="0" as="h4" size="small">
+                    <Heading color="text-high" mb="0" as="h4" size="sm">
                       Description
                     </Heading>
                     <Flex align="center" gap="2">

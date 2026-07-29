@@ -138,7 +138,7 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
         {canEdit && (
           <div className="col-auto">
             <Button
-              size="xs"
+              size="sm"
               variant="outline"
               loading={refreshing || !!factTable.columnRefreshPending}
               onClick={async () => {

@@ -72,12 +72,12 @@ function BlockTypePopoverContent({
         <Avatar radius="small" color="indigo" variant="soft" size="sm">
           {blockInfo.icon}
         </Avatar>
-        <Text size="large" weight="semibold" color="text-high">
+        <Text size="lg" weight="semibold" color="text-high">
           {blockInfo.name}
         </Text>
       </Flex>
       {blockInfo.description && (
-        <Text as="div" size="medium" color="text-mid">
+        <Text as="div" size="md" color="text-mid">
           {blockInfo.description}
         </Text>
       )}
@@ -180,7 +180,7 @@ export default function DashboardEditorSidebar({
           >
             <Text
               weight="medium"
-              size="small"
+              size="sm"
               color="text-high"
               textTransform="uppercase"
             >
@@ -226,7 +226,7 @@ export default function DashboardEditorSidebar({
                       >
                         {BLOCK_TYPE_INFO[bType].icon}
                       </Avatar>
-                      <Text size="medium" weight="regular" color="text-high">
+                      <Text size="md" weight="regular" color="text-high">
                         {BLOCK_TYPE_INFO[bType].name}
                       </Text>
                       <div style={{ flex: 1 }} />
@@ -300,7 +300,7 @@ export default function DashboardEditorSidebar({
         ) : !blockNavigatorEnabled ? (
           <div style={{ width: "440px" }}>
             <Box px="4" pt="4">
-              <Text size="large" weight="semibold">
+              <Text size="lg" weight="semibold">
                 Add a Block
               </Text>
             </Box>

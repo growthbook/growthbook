@@ -88,7 +88,7 @@ export default function EditHoldoutInfoModal({
         />
       </div>
       <MultiSelectField
-        size="legacy"
+        legacyHeight
         label={
           <>
             Projects

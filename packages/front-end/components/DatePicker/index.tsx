@@ -457,7 +457,7 @@ export default function DatePicker({
                     color="red"
                     disabled={disabled || !bufferedDate}
                     variant="ghost"
-                    size="sm"
+                    size="md"
                     onClick={() => {
                       setBufferedDate("");
                       setDate(undefined);

@@ -171,7 +171,7 @@ const getTooltipContents = (
           {d.helperText}
         </HelperText>
       ) : null}
-      <Table size="1">
+      <Table size="sm">
         <TableHeader style={{ fontSize: "12px" }}>
           <TableRow style={{ color: "var(--color-text-mid)" }}>
             <TableColumnHeader pl="0">Variation</TableColumnHeader>

@@ -2206,7 +2206,7 @@ export default function FactMetricModal({
                         <div className="mt-2">
                           {availableSlices.length > 0 ? (
                             <MultiSelectField
-                              size="legacy"
+                              legacyHeight
                               value={form.watch("metricAutoSlices") || []}
                               onChange={(metricAutoSlices) => {
                                 form.setValue(

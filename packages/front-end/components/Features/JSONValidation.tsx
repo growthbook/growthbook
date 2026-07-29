@@ -58,12 +58,12 @@ export default function JSONValidation({
     return (
       <Box>
         <Flex align="center" gap="1" mb="1">
-          <Heading as="h3" size="medium" mb="0">
+          <Heading as="h3" size="md" mb="0">
             Schema Validation
           </Heading>
           <Badge label="Provided by config" color="violet" variant="soft" />
         </Flex>
-        <Text as="p" size="small" color="text-low" fontStyle="italic">
+        <Text as="p" size="sm" color="text-low" fontStyle="italic">
           This flag&apos;s default value is backed by the{" "}
           <Link href={`/configs/${configBackedKey}`}>
             <code>{configBackedKey}</code>
@@ -100,7 +100,7 @@ export default function JSONValidation({
         />
       )}
       <Flex align="center" gap="1" mb="1">
-        <Heading as="h3" size="medium" mb="0">
+        <Heading as="h3" size="md" mb="0">
           Schema Validation
         </Heading>
         {hasJsonValidator && (
@@ -132,7 +132,7 @@ export default function JSONValidation({
         </div>
       </Flex>
       {!validationEnabled && (
-        <Text as="p" size="small" color="text-low" fontStyle="italic">
+        <Text as="p" size="sm" color="text-low" fontStyle="italic">
           Prevent typos and mistakes by specifying validation rules using JSON
           Schema or our Simple Validation Builder
         </Text>

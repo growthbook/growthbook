@@ -255,15 +255,15 @@ function EventForwarderConfigField({
 
   return (
     <Box>
-      <Text size="small" weight="medium" color="text-mid" mb="1">
+      <Text size="sm" weight="medium" color="text-mid" mb="1">
         {optional ? `${label} (optional)` : label}
       </Text>
       {trimmed ? (
-        <Text as="div" size="small" weight="regular" color="text-high">
+        <Text as="div" size="sm" weight="regular" color="text-high">
           {trimmed}
         </Text>
       ) : (
-        <Text color="text-low" size="small">
+        <Text color="text-low" size="sm">
           {optional ? "Not set" : "None"}
         </Text>
       )}
@@ -489,7 +489,7 @@ function EventForwarderSetupIndicator() {
       }}
     >
       <LoadingSpinner style={{ width: "12px", height: "12px" }} />
-      <Text size="small">Setting up</Text>
+      <Text size="sm">Setting up</Text>
     </Box>
   );
 }
@@ -555,7 +555,7 @@ export default function EventForwarder({
     <Box>
       <Flex align="center" justify="between" gap="3" mb="2">
         <Flex align="center" gap="2">
-          <Heading as="h3" size="medium" mb="0">
+          <Heading as="h3" size="md" mb="0">
             Event Forwarder
           </Heading>
           {eventForwarderConfig ? (
@@ -735,7 +735,7 @@ export default function EventForwarder({
 
             {isProvisioning ? (
               <Callout status="info">
-                <Text color="text-mid" size="medium">
+                <Text color="text-mid" size="md">
                   This page will update automatically once provisioning
                   completes.
                 </Text>

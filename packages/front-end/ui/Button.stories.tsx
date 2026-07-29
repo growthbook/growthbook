@@ -21,10 +21,10 @@ export default function ButtonStories() {
           size="legacy"
           value={size}
           options={[
-            { label: "extra sm", value: "xs" },
             { label: "small", value: "sm" },
             { label: "medium", value: "md" },
             { label: "large", value: "lg" },
+            { label: "extra large", value: "xl" },
           ]}
           sort={false}
           onChange={(v: Size) => setSize(v)}

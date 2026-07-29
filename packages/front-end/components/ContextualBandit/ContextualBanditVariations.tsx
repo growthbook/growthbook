@@ -40,7 +40,7 @@ export default function ContextualBanditVariations({
   return (
     <Box>
       <Flex justify="between" align="center" mb="3" mx="1" gap="3">
-        <Heading color="text-high" as="h4" size="small" mb="0">
+        <Heading color="text-high" as="h4" size="sm" mb="0">
           Variations
         </Heading>
         {canEdit && editVariations ? (
@@ -82,14 +82,14 @@ export default function ContextualBanditVariations({
                     <Box>
                       <span className="circle-label label">{i}</span>
                     </Box>
-                    <Heading as="h4" size="small" mb="0">
+                    <Heading as="h4" size="sm" mb="0">
                       {v.name}
                     </Heading>
                   </Flex>
                 </Box>
                 {hasDescriptions ? (
                   <Box mb="2">
-                    <Text color="text-mid" size="small">
+                    <Text color="text-mid" size="sm">
                       {v.description || "--"}
                     </Text>
                   </Box>

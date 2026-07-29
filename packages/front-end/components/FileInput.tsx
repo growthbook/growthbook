@@ -50,7 +50,7 @@ const FileInput: FC<FileInputProps> = ({
         <Button
           color="gray"
           variant="outline"
-          size="xs"
+          size="sm"
           mt="-2px"
           mr="1"
           onClick={handleClick}

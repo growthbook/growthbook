@@ -62,7 +62,7 @@ export default function GraphTypeSelector() {
 
   return (
     <Select
-      size="small"
+      size="md"
       value={draftExploreState.chartType}
       placeholder="Select value"
       setValue={(v) => changeChartType(v as (typeof chartTypeValues)[number])}

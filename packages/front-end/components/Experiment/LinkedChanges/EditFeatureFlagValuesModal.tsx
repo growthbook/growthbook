@@ -540,7 +540,7 @@ export default function EditFeatureFlagValuesModal({
                 >
                   <Button
                     variant="ghost"
-                    size="xs"
+                    size="sm"
                     onClick={setEqualWeights}
                     icon={<PiArrowsClockwise size={12} />}
                   >
@@ -666,7 +666,7 @@ export default function EditFeatureFlagValuesModal({
                         >
                           <span className="label">{i}</span>
                         </Box>
-                        <Text weight="semibold" size="large">
+                        <Text weight="semibold" size="lg">
                           {row.name}
                         </Text>
                       </Flex>
