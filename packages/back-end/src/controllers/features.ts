@@ -4168,7 +4168,8 @@ export async function putSafeRolloutStatus(
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  // `environment` is retained for audit context and reset-review scoping.
+  // `environment` names the one environment this status flip reaches — it scopes
+  // the publish gate below as well as audit context and reset-review scoping.
   const { status, environment, ruleId } = req.body;
   const { org } = context;
   const feature = await getFeature(context, id);
@@ -4179,15 +4180,13 @@ export async function putSafeRolloutStatus(
   // Authoring gate, then landing authority — both before the revision is
   // created, so a blocked publish leaves no orphaned revision behind. This
   // endpoint always lands the change when no review is required.
-  if (!context.permissions.canEditFeatureDrafts(feature)) {
-    context.permissions.throwPermissionError();
-  }
-  if (
-    !context.permissions.canPublishFeature(
-      feature,
-      getEnvironmentIdsFromOrg(context.org),
-    )
-  ) {
+  // Flipping a safe-rollout's status is a live write in the one environment the
+  // rule lives in — the revision below is just the mechanism. `type:
+  // "safe-rollout"` is deprecated in favour of ramp schedules, so this takes the
+  // plain publish gate rather than a bespoke policy: requiring draft authority
+  // too, and publish across every org environment, locked out any env-scoped
+  // publisher.
+  if (!context.permissions.canPublishFeature(feature, [environment])) {
     context.permissions.throwPermissionError();
   }
 
