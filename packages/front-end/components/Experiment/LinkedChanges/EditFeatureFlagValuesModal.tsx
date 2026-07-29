@@ -44,7 +44,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import Callout from "@/ui/Callout";
-import VariationNumber from "@/ui/VariationNumber";
+import FieldAlignedVariationNumber from "@/components/Experiment/FieldAlignedVariationNumber";
 import VariationLabel from "@/ui/VariationLabel";
 import {
   decimalToPercent,
@@ -560,19 +560,7 @@ export default function EditFeatureFlagValuesModal({
                 return (
                   <Box key={field.id}>
                     <Flex direction="row" gap="3" align="start">
-                      <Box>
-                        {/* Invisible label-height spacer so the number lines up
-                            with the Name input, not the label above it. */}
-                        <label
-                          aria-hidden="true"
-                          style={{ visibility: "hidden" }}
-                        >
-                          &nbsp;
-                        </label>
-                        <Flex align="center" height="35px">
-                          <VariationNumber number={i} />
-                        </Flex>
-                      </Box>
+                      <FieldAlignedVariationNumber number={i} />
                       <Flex
                         direction="column"
                         gap="3"

@@ -2,12 +2,12 @@ import { FC } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import VariationNumber from "@/ui/VariationNumber";
+import FieldAlignedVariationNumber from "@/components/Experiment/FieldAlignedVariationNumber";
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -72,16 +72,7 @@ const EditVariationMetadataModal: FC<Props> = ({
       cta="Save"
     >
       <Flex direction="row" gap="3" align="start">
-        <Box>
-          {/* Invisible label-height spacer so the number lines up with the Name
-              input, not the label above it. */}
-          <label aria-hidden="true" style={{ visibility: "hidden" }}>
-            &nbsp;
-          </label>
-          <Flex align="center" height="35px">
-            <VariationNumber number={variationIndex} />
-          </Flex>
-        </Box>
+        <FieldAlignedVariationNumber number={variationIndex} />
         <Flex direction="column" gap="3" style={{ flex: 1, minWidth: 0 }}>
           <Field
             label="Name"
