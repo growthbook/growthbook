@@ -49,6 +49,7 @@ const TextInputRow: FC<{
   const [localValue, setLocalValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   const existingFilter = syntaxFilters.find(
     (f) => f.field === field && f.operator === operator,
@@ -103,10 +104,18 @@ const TextInputRow: FC<{
           placeholder={placeholder}
           value={localValue}
           onChange={(e) => setLocalValue(e.target.value)}
-          onBlur={() => commit(localValue)}
+          onFocus={() => {
+            if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+          }}
+          onBlur={() => {
+            blurTimerRef.current = setTimeout(() => commit(localValue), 300);
+          }}
           onKeyDown={(e) => {
             e.stopPropagation();
-            if (e.key === "Enter") commit(localValue);
+            if (e.key === "Enter") {
+              if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+              commit(localValue);
+            }
           }}
           style={{ minWidth: 0 }}
         />

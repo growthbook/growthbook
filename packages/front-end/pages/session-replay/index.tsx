@@ -643,6 +643,17 @@ export default function SessionReplayPage() {
                         </span>
                       </Text>
                     </Box>
+                    {session.urlFirst && (
+                      <Text
+                        size="small"
+                        color="text-mid"
+                        weight="medium"
+                        truncate={true}
+                        style={{ marginTop: 2 }}
+                      >
+                        URL: {session.urlFirst}
+                      </Text>
+                    )}
                     <Flex gap="2" mt="1" align="center" wrap="wrap">
                       <Text color="text-low" size="small">
                         ⌁ {session.keyEventCount.toLocaleString()} key events
@@ -1043,179 +1054,41 @@ export default function SessionReplayPage() {
                   )}
                   {metadata && (
                     <>
-                      {metadata.browser && (
-                        <Flex
-                          align="center"
-                          justify="between"
-                          gap="2"
-                          style={{
-                            padding: "0 16px",
-                            height: 49,
-                            borderBottom: "1px solid var(--slate-a3)",
-                            flexShrink: 0,
-                          }}
-                        >
-                          <Text size="small" weight="regular" color="text-low">
-                            Browser
-                          </Text>
-                          <Text
-                            size="medium"
-                            weight="semibold"
-                            color="text-high"
-                          >
-                            {metadata.browser}
-                          </Text>
-                        </Flex>
-                      )}
-                      {metadata.device && (
-                        <Flex
-                          align="center"
-                          justify="between"
-                          gap="2"
-                          style={{
-                            padding: "0 16px",
-                            height: 49,
-                            borderBottom: "1px solid var(--slate-a3)",
-                            flexShrink: 0,
-                          }}
-                        >
-                          <Text size="small" weight="regular" color="text-low">
-                            Device
-                          </Text>
-                          <Text
-                            size="medium"
-                            weight="semibold"
-                            color="text-high"
-                          >
-                            {metadata.device}
-                          </Text>
-                        </Flex>
-                      )}
-                      {metadata.country && (
-                        <Flex
-                          align="center"
-                          justify="between"
-                          gap="2"
-                          style={{
-                            padding: "0 16px",
-                            height: 49,
-                            borderBottom: "1px solid var(--slate-a3)",
-                            flexShrink: 0,
-                          }}
-                        >
-                          <Text size="small" weight="regular" color="text-low">
-                            Country
-                          </Text>
-                          <Text
-                            size="medium"
-                            weight="semibold"
-                            color="text-high"
-                          >
-                            {metadata.country}
-                          </Text>
-                        </Flex>
-                      )}
-                      {metadata.userAgent && (
-                        <Flex
-                          align="center"
-                          justify="between"
-                          gap="2"
-                          style={{
-                            padding: "0 16px",
-                            height: 49,
-                            borderBottom: "1px solid var(--slate-a3)",
-                            flexShrink: 0,
-                          }}
-                        >
-                          <Text
-                            size="small"
-                            weight="regular"
-                            color="text-low"
-                            style={{ flexShrink: 0 }}
-                          >
-                            User agent
-                          </Text>
-                          <Text
-                            size="small"
-                            weight="regular"
-                            color="text-high"
-                            truncate={true}
-                            style={{ fontFamily: "monospace" }}
-                          >
-                            {metadata.userAgent}
-                          </Text>
-                        </Flex>
-                      )}
-                      {metadata.viewportWidth > 0 && (
-                        <Flex
-                          align="center"
-                          justify="between"
-                          gap="2"
-                          style={{
-                            padding: "0 16px",
-                            height: 49,
-                            borderBottom: "1px solid var(--slate-a3)",
-                            flexShrink: 0,
-                          }}
-                        >
-                          <Text size="small" weight="regular" color="text-low">
-                            Viewport
-                          </Text>
-                          <Text
-                            size="medium"
-                            weight="semibold"
-                            color="text-high"
-                          >
-                            {metadata.viewportWidth} × {metadata.viewportHeight}
-                          </Text>
-                        </Flex>
-                      )}
-                      {metadata.urlFirst && (
-                        <Flex
-                          align="center"
-                          justify="between"
-                          gap="2"
-                          style={{
-                            padding: "0 16px",
-                            height: 49,
-                            borderBottom: "1px solid var(--slate-a3)",
-                            flexShrink: 0,
-                          }}
-                        >
-                          <Text
-                            size="small"
-                            weight="regular"
-                            color="text-low"
-                            style={{ flexShrink: 0 }}
-                          >
-                            Landing URL
-                          </Text>
-                          <Text
-                            size="small"
-                            weight="regular"
-                            color="text-high"
-                            truncate={true}
-                            style={{ fontFamily: "monospace" }}
-                          >
-                            {metadata.urlFirst}
-                          </Text>
-                        </Flex>
-                      )}
-                      {Object.entries(metadata.attributes)
+                      {(
+                        [
+                          ["Browser", metadata.browser],
+                          ["Device", metadata.device],
+                          ["Country", metadata.country],
+                          ["User agent", metadata.userAgent],
+                          [
+                            "Viewport",
+                            metadata.viewportWidth > 0
+                              ? `${metadata.viewportWidth} × ${metadata.viewportHeight}`
+                              : "",
+                          ],
+                          ["Landing URL", metadata.urlFirst],
+                          ...Object.entries(metadata.attributes),
+                        ] as [string, string][]
+                      )
                         .filter(
                           ([, v]) => v !== null && v !== undefined && v !== "",
                         )
-                        .map(([key, value]) => (
+                        .map(([label, value]) => (
                           <Flex
-                            key={key}
+                            key={label}
                             align="center"
                             justify="between"
                             gap="2"
+                            title={`${label}: ${value} — click to copy`}
+                            onClick={() =>
+                              void navigator.clipboard.writeText(value)
+                            }
                             style={{
                               padding: "0 16px",
                               height: 49,
                               borderBottom: "1px solid var(--slate-a3)",
                               flexShrink: 0,
+                              cursor: "pointer",
                             }}
                           >
                             <Text
@@ -1224,13 +1097,14 @@ export default function SessionReplayPage() {
                               color="text-low"
                               style={{ flexShrink: 0 }}
                             >
-                              {key}
+                              {label}
                             </Text>
                             <Text
-                              size="medium"
-                              weight="semibold"
+                              size="small"
+                              weight="medium"
                               color="text-high"
                               truncate={true}
+                              style={{ maxWidth: 160 }}
                             >
                               {value}
                             </Text>
