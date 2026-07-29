@@ -610,4 +610,53 @@ describe("growthbookTrackingPlugin", () => {
 
     gb.destroy();
   });
+
+  it("counts one exposure per bucketing unit, not per user", async () => {
+    const gb = new GrowthBookClient({
+      clientKey: "test",
+      plugins: [growthbookTrackingPlugin()],
+    });
+    gb.initSync({
+      payload: {
+        features: {
+          feature: { defaultValue: true },
+        },
+      },
+    });
+
+    const experiment: Experiment<boolean> = {
+      key: "my-experiment",
+      variations: [false, true],
+      hashAttribute: "company_id",
+      hashVersion: 2,
+    };
+
+    // Two users in the same account bucket into the experiment together
+    const attributes = (user_id: string) => ({ user_id, company_id: "acme" });
+    for (const user of ["1", "2"]) {
+      const scoped = gb.createScopedInstance({ attributes: attributes(user) });
+      scoped.evalFeature("feature");
+      scoped.runInlineExperiment(experiment);
+    }
+
+    await sleep(150);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+
+    // One exposure for the account, but feature usage for each user
+    expect(
+      body.filter(
+        (e: { event_name: string }) => e.event_name === EVENT_EXPERIMENT_VIEWED,
+      ),
+    ).toHaveLength(1);
+    expect(
+      body
+        .filter(
+          (e: { event_name: string }) =>
+            e.event_name === EVENT_FEATURE_EVALUATED,
+        )
+        .map((e: { user_id: string }) => e.user_id),
+    ).toEqual(["1", "2"]);
+
+    gb.destroy();
+  });
 });

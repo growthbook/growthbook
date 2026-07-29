@@ -256,22 +256,25 @@ export function growthbookTrackingPlugin({
           return;
         }
 
-        const payload = getEventPayload(data);
-
         // De-dupe Feature Evaluated and Experiment Viewed events
         if (
           eventName === EVENT_FEATURE_EVALUATED ||
           eventName === EVENT_EXPERIMENT_VIEWED
         ) {
-          // A client instance is shared by all users, so the key must include
-          // who the event is about. Feature Evaluated carries no identifier in
-          // its properties; other bucketing units need `dedupeKeyAttributes`.
+          // Build the key for de-duping
           const dedupeKeyData: Record<string, unknown> = {
             eventName,
             properties,
-            user_id: payload.user_id,
-            device_id: payload.device_id,
           };
+          // Feature Evaluated has no unit identity, unlike Experiment Viewed
+          if (eventName === EVENT_FEATURE_EVALUATED) {
+            dedupeKeyData.identity = [
+              data.attributes.user_id,
+              data.attributes.device_id,
+              data.attributes.anonymous_id,
+              data.attributes.id,
+            ];
+          }
           for (const key of dedupeKeyAttributes) {
             dedupeKeyData["attr:" + key] = data.attributes[key];
           }
@@ -291,6 +294,8 @@ export function growthbookTrackingPlugin({
             oldest && eventCache.delete(oldest);
           }
         }
+
+        const payload = getEventPayload(data);
 
         debug &&
           console.log(
