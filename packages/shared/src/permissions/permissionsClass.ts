@@ -1258,13 +1258,22 @@ export class Permissions {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
-  // #6489 moved this off the datasource's runQueries onto "can work with this
-  // feature". `manageFeatures` was that atom pre-split; the draft atom is its
-  // closest single successor — project-scoped, and held by the same people.
+  /**
+   * Diagnostics read the flag and write nothing, so anyone with a reason to
+   * understand it qualifies: authors, whoever lands it, and reviewers — a
+   * reviewer judging a change needs the same picture the author had.
+   *
+   * NO_ENVIRONMENT_BINDING is deliberate: there's no write, so there's no
+   * environment footprint to narrow an env-limited publisher against.
+   */
   public canRunFeatureDiagnosticsQueries = (
     feature: Pick<FeatureInterface, "project">,
   ): boolean => {
-    return this.canEditFeatureDrafts(feature);
+    return (
+      this.canEditFeatureDrafts(feature) ||
+      this.canPublishFeature(feature, NO_ENVIRONMENT_BINDING) ||
+      this.canReviewFeatureDrafts(feature)
+    );
   };
 
   public canViewSqlExplorerQueries = (
