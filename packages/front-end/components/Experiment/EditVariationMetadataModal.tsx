@@ -7,6 +7,7 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import VariationNumber from "@/ui/VariationNumber";
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -71,12 +72,15 @@ const EditVariationMetadataModal: FC<Props> = ({
       cta="Save"
     >
       <Flex direction="row" gap="3" align="start">
-        <Box style={{ paddingTop: 28 }}>
-          <Box
-            className={`variation with-variation-label variation${variationIndex}`}
-          >
-            <span className="label">{variationIndex}</span>
-          </Box>
+        <Box>
+          {/* Invisible label-height spacer so the number lines up with the Name
+              input, not the label above it. */}
+          <label aria-hidden="true" style={{ visibility: "hidden" }}>
+            &nbsp;
+          </label>
+          <Flex align="center" height="35px">
+            <VariationNumber number={variationIndex} />
+          </Flex>
         </Box>
         <Flex direction="column" gap="3" style={{ flex: 1, minWidth: 0 }}>
           <Field
