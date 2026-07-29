@@ -90,7 +90,11 @@ import {
 } from "back-end/src/util/features";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
-import { getErrorMessage, NotFoundError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  getErrorMessage,
+  NotFoundError,
+} from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
 import {
@@ -1876,7 +1880,7 @@ export async function assertNoLinkedHoldoutExperiments(
     .map((exp) => `"${exp.name}"`);
   if (stillInHoldout.length) {
     const plural = stillInHoldout.length > 1;
-    throw new Error(
+    throw new BadRequestError(
       `Cannot remove the holdout while experiment${plural ? "s" : ""} ${stillInHoldout.join(
         ", ",
       )} ${plural ? "are" : "is"} in the rules for this feature and in the holdout. ` +
@@ -1943,7 +1947,7 @@ export async function assertHoldoutChangeAllowed(
     hasBandits ||
     hasSafeRollouts
   ) {
-    throw new Error(
+    throw new BadRequestError(
       "Cannot change holdout when there are running linked experiments in different holdouts, safe rollout rules, or multi-armed bandit rules",
     );
   }

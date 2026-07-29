@@ -1,6 +1,7 @@
 import { HoldoutInterface } from "shared/validators";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
 export async function getHoldoutAvailableForProject({
   context,
@@ -17,14 +18,16 @@ export async function getHoldoutAvailableForProject({
     ? await context.models.holdout.getByIdForLinkage(holdoutId)
     : await context.models.holdout.getById(holdoutId);
   if (!holdout) {
-    throw new Error("Holdout not found");
+    // Also the read-scope failure mode: an unreadable Holdout is indistinguishable
+    // from a missing one, deliberately.
+    throw new NotFoundError("Holdout not found");
   }
 
   const available =
     holdout.projects.length === 0 ||
     (!!project && holdout.projects.includes(project));
   if (!available) {
-    throw new Error(
+    throw new BadRequestError(
       `Holdout "${holdout.name}" is not available in the selected Project.`,
     );
   }

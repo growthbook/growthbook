@@ -46,7 +46,11 @@ import {
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { auditDetailsCreate } from "back-end/src/services/audit";
-import { SoftWarningError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  InternalServerError,
+  SoftWarningError,
+} from "back-end/src/util/errors";
 import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
@@ -258,7 +262,7 @@ export const createHoldout = async (
     });
 
     if (!holdout) {
-      throw new Error("Failed to create holdout");
+      throw new InternalServerError("Failed to create holdout");
     }
 
     if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
@@ -573,7 +577,7 @@ export const editStatus = async (
   } else if (req.body.status === "running") {
     // check to see if already in analysis phase
     if (!phases[0]) {
-      throw new Error("Holdout does not have a phase");
+      throw new BadRequestError("Holdout does not have a phase");
     }
     if (
       !phases[1] ||

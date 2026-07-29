@@ -2,6 +2,7 @@ import { HoldoutInterface, holdoutValidator } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { ExperimentInterface } from "shared/types/experiment";
 import { getCollection } from "back-end/src/util/mongo.util";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { MakeModelClass } from "./BaseModel";
 import { getExperimentById } from "./ExperimentModel";
 
@@ -67,7 +68,7 @@ export class HoldoutModel extends BaseClass {
       existing.experimentId,
     );
     if (!holdoutExperiment) {
-      throw new Error("Holdout experiment not found");
+      throw new NotFoundError("Holdout experiment not found");
     }
 
     const { startAt, startAnalysisPeriodAt, stopAt } =
@@ -81,7 +82,7 @@ export class HoldoutModel extends BaseClass {
       holdoutExperiment.status === "draft" &&
       new Date(startAt) < now
     ) {
-      throw new Error("Scheduled start date cannot be in the past");
+      throw new BadRequestError("Scheduled start date cannot be in the past");
     }
     if (
       startAnalysisPeriodAt &&
@@ -89,14 +90,16 @@ export class HoldoutModel extends BaseClass {
       !existing.analysisStartDate &&
       new Date(startAnalysisPeriodAt) < now
     ) {
-      throw new Error("Scheduled analysis start date cannot be in the past");
+      throw new BadRequestError(
+        "Scheduled analysis start date cannot be in the past",
+      );
     }
     if (
       stopAt &&
       holdoutExperiment.status !== "stopped" &&
       new Date(stopAt) < now
     ) {
-      throw new Error("Scheduled stop date cannot be in the past");
+      throw new BadRequestError("Scheduled stop date cannot be in the past");
     }
 
     // Check date dependencies
@@ -105,7 +108,7 @@ export class HoldoutModel extends BaseClass {
       stopAt &&
       (!startAt || !startAnalysisPeriodAt)
     ) {
-      throw new Error(
+      throw new BadRequestError(
         "To set a stop date, you must also set a start date and an analysis start date",
       );
     }
@@ -114,7 +117,7 @@ export class HoldoutModel extends BaseClass {
       startAnalysisPeriodAt &&
       !startAt
     ) {
-      throw new Error(
+      throw new BadRequestError(
         "To set an analysis start date, you must first set a start date",
       );
     }
@@ -125,7 +128,7 @@ export class HoldoutModel extends BaseClass {
       stopAt &&
       !startAnalysisPeriodAt
     ) {
-      throw new Error(
+      throw new BadRequestError(
         "To set a stop date, you must first set an analysis start date",
       );
     }
@@ -145,7 +148,7 @@ export class HoldoutModel extends BaseClass {
         !existing.analysisStartDate &&
         startAnalysisPeriodAt > stopAt);
     if (dateError) {
-      throw new Error("Scheduled dates must be consecutive");
+      throw new BadRequestError("Scheduled dates must be consecutive");
     }
   }
 
@@ -336,7 +339,7 @@ export class HoldoutModel extends BaseClass {
   private async getLinkageTarget(holdoutId: string): Promise<HoldoutInterface> {
     const holdout = await this.getByIdForLinkage(holdoutId);
     if (!holdout) {
-      throw new Error("Holdout not found");
+      throw new NotFoundError("Holdout not found");
     }
     return holdout;
   }
