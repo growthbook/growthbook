@@ -1,0 +1,45 @@
+---
+title: Experiment skills
+og:description: "The GrowthBook Agent Skills for experiments: brainstorm, design, launch, analyze, and stop A/B tests from your AI agent, grounded in your own metrics and past results."
+sidebarTitle: Experiment skills
+---
+
+These [Agent Skills](/integrations/ai-agents/agent-skills) take an A/B test from idea to decision, all from your AI agent. Install the plugin and run [`/growthbook:gb-setup`](/integrations/ai-agents/agent-skills#installation) first.
+
+The example prompts can be typed verbatim, or your agent may run these skills automatically when it detects matching intent.
+
+
+<Frame caption="GrowthBook's Head of Experimentation, Luke Sonnet, runs an experiment end to end using the skills.">
+<iframe width="560" height="315" style={{aspectRatio: "16/9", width: "100%", height: "auto", marginBottom: "1rem"}} src="https://www.youtube.com/embed/FJG9Q5YsnVs" title="YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen></iframe>
+</Frame>
+
+## Prerequisites
+
+- **A datasource and at least one metric**, [configured in the GrowthBook UI](/app/experiment-configuration). The skills reference metrics by ID. They don't create datasources or metrics.
+- The experiment skills target standard A/B tests. **Multi-armed bandits aren't supported yet**: the skills stop and point you to the app rather than misinterpret a bandit.
+
+## The experiment lifecycle
+
+The five skills below form a chain from ideation to decision. Each one routes to the next when you're ready.
+
+| Skill                   | What it does                                                                                                                                    | Example prompt                                        |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `experiment-brainstorm` | Propose new test ideas grounded in your team's past stopped-experiment history. Read-only.                                                      | "What should we test next on the checkout page?"      |
+| `experiment-design`     | Walk through hypothesis, variations, primary metric, guardrails, and sample size to produce a launchable spec. Read-only.                       | "Help me design an A/B test for the new pricing page" |
+| `experiment-launch`     | Create the experiment, create or reuse the feature flag, wire the experiment-ref rule, and start it.                                            | "Launch the pricing experiment we just designed"      |
+| `experiment-analyze`    | Refresh the snapshot if it's stale, then interpret results: lifts, confidence intervals, guardrails, and a data-quality (SRM) check. Read-only. | "What are the results of `exp_abc123`?"               |
+| `experiment-stop`       | Stop a running experiment, optionally declaring a winner and rolling it out to 100% of eligible traffic.                                        | "Stop the pricing test and ship the winner"           |
+
+Related concepts: [Experiment configuration](/app/experiment-configuration), [Experiment results](/app/experiment-results), [Decision framework](/app/experiment-decisions).
+
+## From experiment to cleanup
+
+After you stop an experiment, the feature flag it ran through usually still needs tidying: inlining the winning value at your code sites and removing the flag. Hand off to [`flag-cleanup`](/integrations/ai-agents/agent-skills/feature-flags#operations), which walks through code-site inlining and a two-step archive-then-delete.
+
+## Next steps
+
+- [Feature flag skills](/integrations/ai-agents/agent-skills/feature-flags): create, target, and clean up the flags your experiments run on
+- [Agent Skills overview](/integrations/ai-agents/agent-skills): install and setup
+- [Experimentation documentation](/app/experiment-configuration): the underlying concepts
+
+[Join our community Slack for additional tips and tricks](https://join.slack.com/t/growthbookusers/shared_invite/zt-2xw8fu279-Y~hwnfCEf7WrEI9qScHURQ)

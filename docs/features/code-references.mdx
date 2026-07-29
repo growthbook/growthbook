@@ -1,0 +1,55 @@
+---
+title: Code References
+og:description: See where feature flags are used in your codebase by scanning with a CLI tool or GitHub Action.
+sidebarTitle: Code References
+slug: /features/code-references
+---
+
+import { MaxWidthImage } from "/snippets/MaxWidthImage.jsx";
+
+<Frame>
+<iframe width="560" height="315" style={{aspectRatio: "16/9", width: "100%", height: "auto"}} src="https://www.youtube-nocookie.com/embed/3GU_DJIlz6U?si=rk03YRqafkuwmq1g" title="YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen></iframe>
+</Frame>
+
+# Code References
+
+Code References lets you see exactly where feature flags are used in your codebase. A CLI tool scans your repository and sends the results to GrowthBook, which then surfaces this information on each feature's page. This helps you find the exact lines of code that reference a flag — useful when cleaning up stale flags or understanding a flag's scope.
+
+<MaxWidthImage border>
+  <Frame>![Code References](/static/images/features/features-code-refs.png)</Frame>
+</MaxWidthImage>
+
+<Tip>
+Code References also improves [Stale Feature Detection](/features/stale-detection) accuracy by providing concrete evidence of whether a flag is still referenced in code.
+</Tip>
+
+## Getting Started
+
+For GitHub users, a streamlined GitHub Action integrates with code references:
+
+- [GrowthBook Code References GitHub Action](https://github.com/marketplace/actions/growthbook-code-references)
+
+For other platforms, use the CLI tool or Docker image:
+
+- [GrowthBook gb-find-code-refs CLI utility](https://github.com/growthbook/gb-find-code-refs)
+- [Dockerized version of gb-find-code-refs](https://hub.docker.com/r/growthbook/gb-find-code-refs)
+
+## Enabling Code References in GrowthBook
+
+To enable code references, navigate to your General Settings page and scroll to **Configure Code References**.
+
+### Branch Filtering
+
+Specify which branch names (comma-separated) to show code references for. By default, code references from all branches are displayed.
+
+For example, if your team only needs references from `main` and `qa`, set this option to `main, qa`.
+
+### Platform Links
+
+GrowthBook can link directly to your codebase on GitHub or GitLab. Select your platform in the settings and code references will automatically include links to the relevant files and lines.
+
+If your platform isn't supported, let us know in the [Slack community](https://slack.growthbook.io?ref=coderefs).
+
+## Viewing Code References
+
+Once enabled, you can view Code References on a specific feature page, under the Code Refs tab.

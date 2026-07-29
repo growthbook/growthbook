@@ -1,0 +1,161 @@
+---
+title: Publishing & Approval Flows
+og:description: Learn about drafts, revisions, merge conflicts, and requiring approvals for feature flag and saved group changes
+sidebarTitle: Publishing & Approval Flows
+slug: /features/publishing-and-approval-flows
+---
+
+import { MaxWidthImage } from "/snippets/MaxWidthImage.jsx";
+import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
+
+When you make changes to a feature flag or [saved group](/features/targeting#saved-groups) in GrowthBook, those changes go through a publishing workflow before they reach your users. This page covers the full lifecycle: drafts, publishing, revisions, merge conflicts, and optional approval flows.
+
+The same revision and approval model applies to both feature flags and saved groups. The sections below describe the flow for feature flags first; the [Saved Groups](#saved-groups) section at the end calls out where the saved group experience differs.
+
+## Drafts and Publishing
+
+When you change a feature's definition (e.g., the default value or rules), GrowthBook automatically creates a new draft revision. This draft is unpublished and only visible within the GrowthBook UI, not to your users.
+
+Continue adding changes to the draft, and when you're ready, publish them all at once with an optional commit message.
+
+<Frame>![Draft Modal](/static/images/features/feature-publishing-2.png)</Frame>
+
+## Revisions
+
+Once published, a revision becomes locked and can no longer be changed.
+
+To undo changes and revert to a previous state, use the **Revision** dropdown to select the version you want to revert to, then click **Revert**. You can review the changes that will be applied before submitting.
+
+<MaxWidthImage border>
+  <Frame>![Feature Revisions](/static/images/features/revision-dropdown-2.png)</Frame>
+</MaxWidthImage>
+
+## Merge Conflicts
+
+Your draft can diverge from the live version of a feature if someone else publishes changes while you're still editing. GrowthBook can merge some changes automatically (e.g., if you change a rule in "dev" and someone else changes a rule in "production"). For changes that can't be resolved automatically, you must fix the conflicts before publishing your draft.
+
+The conflict resolution process works similarly to version control systems like Git. For each conflict, GrowthBook shows a diff and lets you choose how to proceed.
+
+In the example below, the Default Value was set to `foo` when you first created your draft. In your draft, you changed the value to `bar`. At the same time, someone else published a new version, changing the value to `hi!!`. So, now you have to choose which change you want to keep.
+
+<MaxWidthImage border>
+  <Frame>![Resolve Conflicts](/static/images/features/resolve-conflicts-2.png)</Frame>
+</MaxWidthImage>
+
+## Approval Flows
+
+<CommercialFeature feature="require-approvals" />
+
+With Approval flows, you can require approval before publishing any change to an existing feature flag. Approval flows help reduce errors by making sure changes to features have been viewed and approved by someone else in your organization.
+
+### Settings
+
+Enable Approval Flows for your organization on the settings page. Select the environments that require approvals, or leave the field blank to require approvals on all environments. To force-reset the review when a change is made after approval, toggle on **Reset review on changes**.
+
+<Frame>![Approval flow organization settings](/static/images/features/approval-flows/org-settings.png)</Frame>
+
+### Requesting a Review
+
+When Approval Flows are enabled, you must request a review before publishing changes. Add a detailed comment describing the changes so reviewers can understand the intent of your request.
+
+<MaxWidthImage border>
+  <Frame>![Requesting a review for feature changes](/static/images/features/approval-flows/request-approval-to-publish.png)</Frame>
+</MaxWidthImage>
+
+Requested reviews appear in the **Drafts** tab on the Features overview page with a **Pending Review** status. Sort by date updated to see your most recent request at the top.
+
+<MaxWidthImage border>
+  <Frame>![Pending review list in the Drafts tab](/static/images/features/approval-flows/drafts-pending-review-list.png)</Frame>
+</MaxWidthImage>
+
+### Reviewing
+
+Anyone with "Edit" or "Add" permissions for feature flags (see [Permissions](/account/user-permissions)) can serve as a reviewer, except the user who created the request.
+
+Click the feature, then click **Review and Approve** to open the review modal.
+
+<MaxWidthImage border>
+  <Frame>![Review and Approve button on a feature](/static/images/features/approval-flows/review-and-approve-button.png)</Frame>
+</MaxWidthImage>
+
+From here, you can see the diff between the currently published changes as well as the comments.
+
+<MaxWidthImage maxWidth={600}>
+  <Frame>![Diff view showing changes between published and draft versions](/static/images/features/approval-flows/review-draft-changes-diff-2.png)</Frame>
+</MaxWidthImage>
+
+Click **Next** to write your review in the comment box and select a status:
+
+- **Comment** — Add a note without formally reviewing the changes
+- **Request Changes** — Flag issues that need to be addressed before approval
+- **Approve** — Confirm that everything looks correct
+
+<MaxWidthImage border maxWidth={600}>
+  <Frame>![Review status options: Comment, Request Changes, Approve](/static/images/features/approval-flows/review-status-options.png)</Frame>
+</MaxWidthImage>
+
+Once the changes are **Approved**, they can be published.
+
+<MaxWidthImage border>
+  <Frame>![Approved draft ready to publish](/static/images/features/approval-flows/approved-ready-to-publish.png)</Frame>
+</MaxWidthImage>
+
+### Publishing with Approvals
+
+Anyone with permission to add or edit feature flags can publish changes once they are marked as **Approved**. Admins can bypass the review requirement by selecting the checkbox at the top of the modal.
+
+<MaxWidthImage border maxWidth={600}>
+  <Frame>![Publishing approved changes with admin bypass option](/static/images/features/approval-flows/publish-with-admin-bypass.png)</Frame>
+</MaxWidthImage>
+
+Once published, a green "Live" badge confirms the version is published and active.
+
+<Frame>![Green badge indicating the published version is live](/static/images/features/approval-flows/revision-live-badge.png)</Frame>
+
+### Visualize Changes with Compare Revisions
+
+Get a detailed diff of the changes between published and draft versions by clicking the **Compare Revisions** button.
+
+<Frame>![Compare Revisions button](/static/images/features/approval-flows/compare-revisions-diff.png)</Frame>
+
+## Saved Groups
+
+Saved groups follow the same draft → review → publish lifecycle as feature flags. Every change you make to a saved group — editing values or conditions, updating metadata, or archiving it — is tracked as a revision so you can review, compare, and roll back changes over time.
+
+### Saved Group Revisions
+
+When you edit a saved group, GrowthBook creates a draft revision. Drafts are visible to everyone with access to the saved group, but they don't affect SDK evaluations until they're published — so you can stage and review your changes before they reach your users.
+
+From the saved group detail page you can:
+
+- **Switch revisions** — Use the revision dropdown to view the live revision or any open draft. The dropdown shows the author, last update date, and review status for each revision.
+- **Create a new draft** — Click **New Draft** from the live revision to start a new set of changes.
+- **Compare revisions** — Click **Compare revisions** to see a side-by-side diff of any two revisions.
+- **Revert to a previous revision** — Open an older merged revision and click **Revert to Previous** to apply its state as a new draft.
+- **Discard a draft** — Authors can discard their own draft if they no longer want to publish it.
+- **Fix merge conflicts** — If another user publishes changes while your draft is open, click **Fix conflicts** to resolve them before publishing. The conflict resolution flow works the same way it does for features.
+
+### Saved Group Approval Flows
+
+<CommercialFeature feature="require-approvals" />
+
+You can require approvals for saved group changes independently from feature flag approvals.
+
+#### Settings
+
+Enable saved group approvals from **Settings → General → Approval Flows**. The Saved Groups section has its own toggle, separate from the Features section:
+
+- **Require approval to modify Saved Groups** — When enabled, every change to a saved group must be reviewed and approved by someone else before it goes live.
+- **Require approval for** — Approval is always required for changes to values and conditions. Use the **Metadata changes** checkbox to also require approval for edits to the description, owner, project, or tags.
+- **Reset review on changes** — If a draft is modified after it has been approved, the approval is revoked and a new review is required before publishing.
+- **Require approval from a non-editor** — Anyone who edited the draft is blocked from approving it, ensuring a separate reviewer must approve before publishing.
+
+#### Requesting and Reviewing
+
+When approvals are enabled, the **Review & Publish** button on a saved group draft becomes **Request Approval to Publish**. After you submit, reviewers see the request in the saved group's revision list with a **Pending Review** status and can open the **View Approval Request** modal to view the diff, leave comments, and choose **Comment**, **Request Changes**, or **Approve**. As with features, anyone with permission to edit saved groups can review — except the user who created the request when **Require approval from a non-editor** is enabled.
+
+Once approved, anyone with permission to edit saved groups can publish the revision. Admins, and users with `bypassApprovalChecks` on every project the group belongs to, can publish without going through review.
+
+#### Archiving and Unarchiving
+
+Archiving (and unarchiving) a saved group always flows through the revision system. When approval flows are enabled, archive and unarchive actions create a revision that must be approved before it takes effect. Saved groups with active references in features, experiments, or other saved groups cannot be archived until those references are removed.

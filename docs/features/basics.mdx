@@ -1,0 +1,68 @@
+---
+title: Feature Flag Fundamentals
+og:description: Learn about the basics of feature flags.
+sidebarTitle: Fundamentals
+slug: /features/basics
+---
+
+import { MaxWidthImage } from "/snippets/MaxWidthImage.jsx";
+import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
+
+This page covers the core concepts you'll need to create and configure feature flags in GrowthBook.
+
+## Feature Keys
+
+Every feature is defined by a unique **key**. This is what your engineering team references in code when checking the value of a feature. Feature keys **cannot** be changed after creation, so take care when choosing one. If you make a mistake, delete the feature and create a new one.
+
+<Frame>![Create Feature modal in GrowthBook](/static/images/features/feature-create-feature-2.png)</Frame>
+
+<Warning>
+**Naming Conventions**
+
+Feature keys must only include letters, numbers, hyphens (-), and underscores (\_).
+</Warning>
+
+## Feature State
+
+Feature flags can be enabled or disabled. When a flag is disabled, GrowthBook excludes the feature from the API response. The feature evaluates to `null` and ignores all targeting and rules. In your app, the SDK will render the feature with the fallback value.
+
+Here's an example from the JavaScript SDK:
+
+```js
+const showNewCheckout = gb.isOn('new-checkout')
+// Renders false if the feature is disabled
+
+const buttonColor = gb.getFeatureValue('button-color', 'red')
+// Renders 'red' if the feature is disabled
+```
+
+## Feature Types
+
+Features can be a simple ON/OFF flag or a more complex data type (string, number, or JSON).
+
+| Type        | Values               | Best for                                               | Example                                       |
+| ----------- | -------------------- | ------------------------------------------------------ | --------------------------------------------- |
+| **Boolean** | `true` / `false`     | Simple on/off toggles, kill switches, gradual rollouts | `show-onboarding-checklist`                   |
+| **String**  | Any string           | Remote config, multivariate A/B tests                  | `button-color` set to `"red"`, `"blue"`, etc. |
+| **Number**  | Any integer or float | Numeric configuration values                           | `results-per-page` set to `10`, `25`, `50`    |
+| **JSON**    | Any JSON object      | Complex configuration, multiple values in one flag     | `{"maxRetries": 3, "timeout": 5000}`          |
+
+**Boolean** flags are the most common. They're limited to two variations in A/B tests (on/off), so if you need more variations, like testing three different button colors, use a string, number, or JSON flag instead.
+
+**JSON** flags also support JSON Schema validation, which lets you enforce the structure of the value before it reaches your application.
+
+<CommercialFeature feature="json-validation" />
+
+## Default Values
+
+Each feature has a default value that's used when there are no matching rules for the user. A feature that is enabled on an environment with no rules uses the default value. Default values match the feature type.
+
+Default values can be overridden by [**Rules**](/features/rules), which let you target specific users, roll out to a percentage of traffic, or run A/B experiments.
+
+## What's Next
+
+Now that you understand keys, types, and default values, the next concepts to explore are:
+
+- **[Environments](/features/environments)** — Control where a feature is active (e.g., enabled in dev but not production). Each environment has its own SDK connection and independent set of rules.
+- **[Rules](/features/rules)** — Override default values by targeting specific users, rolling out to a percentage of traffic, or running A/B experiments. See [Choosing a Rule Type](/features/rules#choosing-a-rule-type) for help picking the right approach.
+- **[Targeting Conditions](/features/targeting)** — Define _who_ sees a rule using attributes like user ID, country, or plan type.

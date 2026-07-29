@@ -1,0 +1,78 @@
+---
+title: Visual Editor
+og:description: Design, preview, and run A/B tests on your live site from a Chrome side panel — with AI-generated variations or a point-and-click editor, no code required.
+sidebarTitle: Visual Editor
+id: visual-editor
+slug: /app/visual
+---
+
+import { MaxWidthImage } from "/snippets/MaxWidthImage.jsx";
+import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
+
+<CommercialFeature feature="visual-editor" />
+
+GrowthBook's AI-based Visual Editor is a no-code way to build and launch experiments on your website. Describe the change you want in natural language, review what the editor proposes, and ship a real A/B test without writing code or waiting on a deploy.
+
+<Tip>
+**Early Beta Access**
+
+The Visual Editor is currently in beta and available through our early access program. Interested in trying it? 👉 [Sign up here](https://www.growthbook.io/events/early-access-ai-visual-editor).
+</Tip>
+
+<img
+  src="/static/images/visual-editor/ve-ai-main.png"
+  alt="Editing a page in the Visual Editor side panel"
+  style={{ float: "right", width: "100%", maxWidth: "320px", marginLeft: "24px", marginBottom: "16px" }}
+/>
+
+The Visual Editor is a **Chrome side-panel extension**. You open it next to your site, pick the page you want to test, and make changes two ways:
+
+- **[AI mode](/app/visual/ai-mode)** — describe the change in plain language ("make the hero headline shorter and the CTA green") and the editor proposes the edits for you to preview and accept.
+- **[Manual mode](/app/visual/manual-mode)** — point and click to select any element and edit its content, typography, layout, background, classes, and more with structured controls.
+- **[Figma & image import](/app/visual/design-import)** _(beta)_ — turn a Figma frame or a mockup image into a high-fidelity, testable component the editor builds and places on the page for you.
+
+To actually render your variations on your live site, a developer integrates one of GrowthBook's front-end SDKs — the [Script Tag](/lib/script-tag), [JavaScript](/lib/js), or [ReactJS](/lib/react) SDK — or renders them on a CDN with an [Edge SDK](/lib/edge/cloudflare). See [Running on your site](/app/visual/running-on-your-site).
+
+<Note>
+**Looking for the old in-page editor?**
+
+The Visual Editor is now a Chrome side panel. If you're using an older version of the GrowthBook DevTools extension with the in-page overlay editor, see the [Legacy (in-page) editor docs](/app/visual/legacy).
+
+</Note>
+
+## Benefits
+
+- **Prompt-driven editing**: Describe changes to text, images, buttons, spacing, and more in [AI mode](/app/visual/ai-mode). Pin an element when you want the AI to focus on a specific spot on the page.
+- **Run experiments without dedicated eng time**: Draft and QA variations in the browser; your site still needs the GrowthBook SDK for production delivery. See [Running on your site](/app/visual/running-on-your-site).
+- **Manual precision**: Fine-tune typography, spacing, links, and visibility with structured controls when you know exactly what you want. See [Manual mode](/app/visual/manual-mode).
+- **Transparent by design**: Preview links, a debug panel, and warnings when you edit a live experiment. See [Preview and QA](/app/visual/preview-and-qa).
+
+<Info>
+**Join the Visual Editor community on Slack**
+
+Connect with the GrowthBook team and other beta users for help, feedback, and early updates. [Join the Visual Editor beta channel on Slack](https://growthbookusers.slack.com/archives/C0BBMTLJUUT).
+
+</Info>
+
+## Quick start
+
+1. [Install and connect](/app/visual/install-and-connect) the Chrome extension (~30 seconds).
+2. Open the side panel on the page you want to test and start editing in [AI mode](/app/visual/ai-mode) or [Manual mode](/app/visual/manual-mode).
+3. [Set up the SDK](/app/visual/running-on-your-site) on your site so variations render for real users.
+
+Hitting a snag? See [Troubleshooting](/app/visual/troubleshooting).
+
+## Requirements
+
+Your app must be a **front-end web app in a browser** (not native mobile or desktop). For other platforms, use [Feature Flags](/app/features) in code.
+
+<Warning>
+**Client-side rendering can interfere with visual changes**
+
+Heavily client-side-rendered apps (React, Vue, Svelte) may flicker or fight the SDK when the framework re-renders the DOM. See [Running on your site → Strategy 4](/app/visual/running-on-your-site#strategy-4-consider-whether-visual-testing-is-the-right-tool) for details and alternatives.
+
+</Warning>
+
+### SDK setup
+
+Visual experiments only render if your SDK Connection has **Include Visual Experiments** enabled and the correct SDK is installed on your site. See [Running on your site](/app/visual/running-on-your-site#create-an-sdk-connection) for the full setup.

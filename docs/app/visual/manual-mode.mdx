@@ -1,0 +1,187 @@
+---
+title: Manual Mode — Point-and-Click A/B Test Editor
+og:description: Edit any element of your website with structured controls for content, typography, background, spacing, and visibility. Full reference for GrowthBook's manual visual editor.
+sidebarTitle: Manual mode
+slug: /app/visual/manual-mode
+---
+
+import { MaxWidthImage } from "/snippets/MaxWidthImage.jsx";
+import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
+
+<CommercialFeature feature="visual-editor" />
+
+Manual mode is the point-and-click editor inside the [Visual Editor side panel](/app/visual). Click an element on your page, and you get structured controls for everything you can change on it — content, typography, background and border, spacing, and visibility — plus an escape hatch for arbitrary CSS and JavaScript.
+
+Manual mode is the right choice when:
+
+- You know exactly what you want to change and you want pixel-level control.
+- You're fine-tuning a variation that started in [AI mode](/app/visual/ai-mode).
+- The change is too narrow to be worth a prompt (e.g., "make this padding 12px").
+- You want to copy a specific style from a design spec.
+
+## Picking an element
+
+Switch to the **Manual** tab in the side panel. With the panel open, hover any element on your page — it highlights with a blue overlay. Click to select it.
+
+A sticky bar at the top of the side panel shows what's currently selected (its tag, classes, and a short selector path). You can:
+
+- **Pick a different element** — click another element on the page, or click the picker icon in the sticky bar.
+- **Navigate nearby** — use the "tree" icon to navigate to nearby elements. See below
+- **Deselect** — click the x on the right side of the selected bar or pick another element to deselect the current one.
+
+### Detailed Selector
+
+<MaxWidthImage maxWidth={300}>
+  <Frame>![The GrowthBook Visual Editor detailed selector](/static/images/visual-editor/ve-detailed-selector.png)</Frame>
+</MaxWidthImage>
+
+Sometimes clicking on an element selects a parent or child instead of the one you want. In that case, use the sticky bar's
+selector path to select the exact element. The path shows the current element and its parent elements, sibling elements, and
+children. Hover over the path to see it selected on the page.
+
+## Property groups
+
+Once you've selected an element, the panel fills with collapsible property groups. Each group corresponds to a category of change.
+
+### Content
+
+<div style={{display: 'flex', gap: '16px', flexWrap: 'wrap'}}>
+  <MaxWidthImage maxWidth={300}>
+    <Frame>![The GrowthBook Visual Editor HTML options](/static/images/visual-editor/ve-text-editor.png)</Frame>
+  </MaxWidthImage>
+  <MaxWidthImage maxWidth={300}>
+    <Frame>![The GrowthBook Visual Editor HTML editor](/static/images/visual-editor/ve-text-editor-html.png)</Frame>
+  </MaxWidthImage>
+</div>
+
+Edit what the element actually says and links to:
+
+- **Inner HTML** — change the visible text or markup inside the element. Multiline-supported.
+
+If the selected element has HTML inside of it, you'll be presented with two modes for editing content: edit as text and flatten the HTML, or edit as HTML.
+
+### Links
+
+<MaxWidthImage maxWidth={400}>
+  <Frame>![The GrowthBook Visual Editor Link Editor](/static/images/visual-editor/ve-link-editor.png)</Frame>
+</MaxWidthImage>
+
+If the selected element is a link (`<a>`), you'll get additional controls for editing the URL and link behavior. It will
+let you set the `href`, and the option to open in a new tab (`target="_blank"`). If the link opens in a new tab, it will add `rel="noopener noreferrer"` attribute for security.
+
+### Classes
+
+<MaxWidthImage maxWidth={400}>
+  <Frame>![The GrowthBook Visual Editor Class Editor](/static/images/visual-editor/ve-class-editor.png)</Frame>
+</MaxWidthImage>
+
+The **Classes** field shows the element's current classes and allows you to add or remove classes. This is a quick way to apply existing styles from your CSS without needing to copy individual properties.
+
+### Typography
+
+<MaxWidthImage maxWidth={400}>
+  <Frame>![The GrowthBook Visual Editor Typography editor](/static/images/visual-editor/ve-typeography.png)</Frame>
+</MaxWidthImage>
+
+Controls for text styling:
+
+- **Font size** — with a unit selector (`px`, `em`, `rem`, `%`)
+- **Font weight** — preset weights and custom numeric input
+- **Color** — color picker plus hex input
+- **Alignment** — left / center / right / justify (segmented control)
+- **Line height** — unitless, `px`, `em`, `rem`, or `%`. Empty unit (`-`) means unitless, which is the CSS recommendation for line-height.
+- **Letter spacing** — `px`, `em`
+- **Text decoration** — none / underline / strikethrough / overline
+
+Alignment and text decoration share a single row to keep the panel compact.
+
+### Background & Border
+
+<MaxWidthImage maxWidth={400}>
+  <Frame>![The GrowthBook Visual Editor Background and Border](/static/images/visual-editor/ve-background-borders.png)</Frame>
+</MaxWidthImage>
+
+For containers, cards, and any visually styled element:
+
+- **Background color** — color picker with a clear option
+- **Border** — width, style (solid / dashed / dotted / none), and color. The color swatch is positioned so the native color picker doesn't render off-screen for elements near the right edge of the viewport.
+- **Box shadow** — None / Small / Medium / Large presets. The presets follow common design-system scales; for custom shadows, use Global CSS.
+- **Background image** — paste a URL or use one of the [image flows](/app/visual/images). Hidden on `<img>` elements (use Content → image replace instead).
+
+#### Background Images
+
+<MaxWidthImage maxWidth={400}>
+  <Frame>![The GrowthBook Visual Editor Background Images](/static/images/visual-editor/ve-background-image.png)</Frame>
+</MaxWidthImage>
+
+The background image area allows you to set a background image on any element. This is similar to the `<img>` replacement, but has a few more options for fitting that background images have.
+
+### Layout
+
+<MaxWidthImage maxWidth={400}>
+  <Frame>![The GrowthBook Visual Editor Layout](/static/images/visual-editor/ve-layout.png)</Frame>
+</MaxWidthImage>
+
+The Layout group includes controls for choosing the display mode and adjusting spacing with padding and margin editors.
+
+- **Display type** — choose between `block`, `inline-block`, `inline`, `flex`, `grid`, and `none`. Setting to `none` is a quick way to hide an element without removing it from the DOM.
+- **spacing** — click and drag horizontally over a value to scrub it up or down (similar to Figma) for padding and margin.
+- **Width & Height** — Select the width, max-width, height and max-height for your element. With unit selectors. Setting to `auto` removes the mutation.
+
+Manual mode writes per-side longhands (`padding-top`, `margin-right`, etc.) and clears any shorthand `padding`/`margin` declaration, so the CSS cascade behaves predictably.
+
+### Visibility
+
+- **Hide this element** — a quick toggle that sets `display: none`.
+- **Opacity** — slider from 0% to 100% plus a number input. Setting to 100% removes the mutation (no point keeping `opacity: 1` on the element).
+
+## Global CSS and Custom JavaScript
+
+For changes that don't fit cleanly into a single element's property groups, use the top-level **CSS** and **JS** tabs:
+
+### Global CSS
+
+Inject a CSS block that runs alongside the variation. Useful for:
+
+- Page-wide background color or font changes
+- Hover states that the structured controls can't express
+- Animations
+- `@media` queries for responsive tweaks (the only way to scope changes per breakpoint today)
+
+The CSS is inserted into a `<style>` tag scoped to the variation and removed when the user is bucketed back to control.
+
+### Custom JavaScript
+
+Inject a JavaScript block. Use sparingly — it's an escape hatch for changes that genuinely need imperative code (e.g., DOM nodes that don't exist until the user clicks something).
+
+Custom JS runs as early as possible, often before the page has finished loading. If you're targeting elements that load late, wait for them:
+
+```js
+function waitFor(selector) {
+  return new Promise(resolve => {
+    const el = document.querySelector(selector);
+    if (el) return resolve(el);
+    const observer = new MutationObserver(() => {
+      const el = document.querySelector(selector);
+      if (el) {
+        observer.disconnect();
+        resolve(el);
+      }
+    });
+    observer.observe(document, { childList: true, subtree: true });
+  });
+}
+
+waitFor(".my-element").then((el) => {
+  el.innerHTML = "Hello World!";
+});
+```
+
+Custom JS requires extra CSP changes on your site — see [Content Security Policy](/app/visual/running-on-your-site#content-security-policy-csp) on the Running on your site page.
+
+## Next steps
+
+- **[AI mode](/app/visual/ai-mode)** — draft variations from a prompt, then fine-tune here.
+- **[Images](/app/visual/images)** — upload, AI-generate, and reuse images across experiments.
+- **[Preview and QA](/app/visual/preview-and-qa)** — preview links, debug panel, live-experiment warning.
+- **[Troubleshooting](/app/visual/troubleshooting)** — when a variation isn't behaving as expected.

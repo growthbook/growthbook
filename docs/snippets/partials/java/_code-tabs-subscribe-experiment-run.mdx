@@ -1,0 +1,52 @@
+<CodeGroup>
+
+```java Java
+String featuresJson = featuresRepository.getFeaturesJson();
+String userAttributesJson = user.toJson();
+
+ExperimentRunCallback experimentRunCallback = new ExperimentRunCallback() {
+    @Override
+    public void onRun(ExperimentResult experimentResult) {
+        // TODO: something with the experiment result
+    }
+};
+
+GBContext context = GBContext
+    .builder()
+    .featuresJson(featuresJson)
+    .attributesJson(userAttributesJson)
+    .build();
+
+GrowthBook growthBook = new GrowthBook(context);
+
+growthBook.subscribe(experimentRunCallback);
+```
+
+
+
+```kotlin Kotlin
+val featuresJson = featuresRepository.getFeaturesJson()
+val userAttributes = """
+    {
+        "id": "user-abc123",
+        "country": "canada"
+    }
+""".trimIndent()
+
+val experimentRunCallback = object : ExperimentRunCallback {
+    override fun onRun(experimentResult: ExperimentResult<*>?) {
+        TODO("Something with the experiment result")
+    }
+}
+
+val context = GBContext
+    .builder()
+    .featuresJson(featuresJson)
+    .attributesJson(userAttributes)
+    .build()
+
+val growthBook = GrowthBook(context)
+
+growthBook.subscribe(experimentRunCallback)
+```
+</CodeGroup>

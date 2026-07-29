@@ -1,0 +1,212 @@
+---
+title: AI Mode — Generate A/B Test Variations With AI
+og:description: Use natural language to generate A/B test variations with GrowthBook's AI-powered visual editor. Describe a change, preview the proposed edits, and accept or edit them — no CSS selectors required.
+sidebarTitle: AI mode
+slug: /app/visual/ai-mode
+---
+
+import { MaxWidthImage } from "/snippets/MaxWidthImage.jsx";
+import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
+
+<CommercialFeature feature="ai-suggestions" />
+
+AI mode is the fastest way to draft an A/B test variation in the [Visual Editor](/app/visual). You describe what you want in plain English ("make the hero headline more urgent and the primary button green"), and the AI proposes specific DOM-level changes — element selectors, new content, new styles — that you can preview, accept, edit, or reject one at a time.
+
+<MaxWidthImage maxWidth={300}>
+  <Frame>![The GrowthBook Visual Editor AI Editor](/static/images/visual-editor/ve-ai-chat.png)</Frame>
+</MaxWidthImage>
+
+It's especially good for:
+
+- Multi-property changes ("make this card more premium") without touching each control
+- Change text content without needing to find the right content field in the property panel
+- Less technical users who don't want to think about CSS selectors
+
+You can mix AI mode and [Manual mode](/app/visual/manual-mode) freely within the same variation — accept the AI's draft, then jump into Manual mode to fine-tune.
+
+## Prerequisites
+
+Before AI mode is usable on your account:
+
+1. **An org admin needs to configure an AI provider.** Go to **Settings → AI** in GrowthBook and add an OpenAI, Google, or xAI API key. See [AI Integrations](/integrations/ai) for the full setup.
+2. **Your plan must include AI features.** AI mode is part of the `ai-suggestions` commercial feature. Pro and Enterprise plans include it; Free does not.
+3. **You need to be connected** to your GrowthBook account in the [Visual Editor side panel](/app/visual/install-and-connect).
+
+If AI mode is greyed out in the side panel, the most common cause is that no AI provider key is configured yet for the organization.
+
+## Opening AI mode
+
+After you open the side panel and target a URL, you'll see two top-level tabs: **AI** and **Manual**. AI is selected by default.
+
+The AI panel has three parts:
+
+- A **prompt box** at the top of the panel where you describe what you want.
+- A **chat log** that fills in as you make requests — each turn shows what you asked, followed by an assistant card with the proposed changes.
+- The **Changes panel** at the bottom of the side panel, which lists every change accepted so far for the current variation.
+
+When the chat log is empty, the prompt area also surfaces a few **suggested prompts** and **quick actions** to help you get started.
+
+## Writing good prompts
+
+The AI does its best work when prompts are concrete about _what_ and _where_, but loose about _how_.
+
+**Good:**
+
+- `Change the hero headline to something more urgent and benefit-led`
+- `Make the primary CTA button bright green and a little larger`
+- `Hide the secondary nav links on the right`
+- `Swap the hero image for one showing a person using a laptop in a coffee shop`
+- `Give me three alternative headlines for the product card`
+
+**Less good:**
+
+- `Make the page better` — too vague; the AI will guess and the result will be unfocused.
+
+A few tips that consistently improve results:
+
+- **Name the element by what it is, not how it's coded.** "The hero headline" works; ".hero h1" rarely needs to be in the prompt.
+- **Describe intent.** "More urgent," "more premium," "more playful" gives the AI a direction.
+- **Ask for variants.** "Give me three options" or "draft a few alternatives" produces multiple suggestions in one turn.
+- **Chain prompts.** A second prompt can refine the first ("the green is too neon — make it more muted").
+
+<Tip>
+**"Set the title" targets the H1**
+
+If you say something like "set the title to X," the AI targets the visible `<h1>` (or the most prominent heading) — not `document.title`. To change the browser tab title, say so explicitly: "change the page's browser tab title to X."
+
+</Tip>
+
+## Suggested prompts and quick actions
+
+When the chat log is empty, the panel shows two helpers:
+
+- **Suggested prompts** — short example prompts you can click to send as-is. These are tuned to common A/B test ideas.
+- **Quick actions** — one-click shortcuts for the most common patterns (e.g., "Generate a new image," "Suggest three headlines").
+
+Both are designed to help less technical users get past the blank prompt box.
+
+## Adding element context to a prompt
+
+Below the prompt box is a **Select element** button (with an `@` icon). Click it and then click any element on the page — that element gets pinned to your prompt as **context**. A small chip appears above the prompt box showing what you picked. You can pin multiple elements, and remove individual chips with the **×** on each chip.
+
+When you send a prompt with elements pinned, the AI treats those elements as the **authoritative target** for the change. Your prompt describes _what to do_; the chips tell the AI _where to do it_.
+
+This is one of the most powerful features of AI mode, and it's worth using whenever:
+
+- **The page has ambiguous elements.** Multiple headlines, multiple "Submit" buttons, repeated card components. Saying "change the headline" is ambiguous; picking the specific headline first removes the guesswork.
+- **You want to isolate a change.** Without context, the AI looks across the whole page and may propose changes to elements you didn't intend to touch. Pinning the element you care about scopes the change to just that element.
+- **The AI keeps targeting the wrong element.** If a previous turn picked the wrong target, pin the right one and re-prompt — the chip overrides whatever the AI inferred from the prompt text alone.
+- **You're working on a specific component.** Pin the card, ask for "three alternative layouts for this card," and every proposal will be scoped to the card you picked.
+
+### Example: ambiguous headlines
+
+A pricing page has two headlines — a hero headline at the top and a feature-section headline lower down. A prompt like _"make the headline more urgent"_ is ambiguous; the AI will pick one based on heuristics and may pick the wrong one.
+
+Instead:
+
+1. Click **Select element**, then click the hero headline. A chip appears.
+2. Type the prompt: _"Make it more urgent and benefit-led."_
+3. Send.
+
+The AI now operates only on the element you pinned. No guessing.
+
+### Example: scope a change to a single card
+
+A product grid has nine identical cards. You want to test a "featured" treatment on just one of them:
+
+1. Click **Select element**, then click the card you want to feature. A chip appears.
+2. Type the prompt: _"Make this card stand out — bold border, slightly larger, a 'Featured' badge in the top-right corner."_
+3. Send.
+
+Without context, the AI might apply the change to all nine cards (or worse, propose CSS that targets the parent grid). With the card pinned, the change is surgical.
+
+### Picking multiple elements
+
+You can pin more than one element. Useful when:
+
+- You want the same change applied to several specific elements ("make these three buttons match the primary style").
+- You're describing a relationship ("move this image so it sits next to this paragraph").
+
+Each picked element gets its own chip. Remove any chip with the **×** to drop it from the prompt's context without re-picking from scratch.
+
+### Combining with the chat history
+
+Element context is sticky within a turn but not across turns — once you send a prompt, the chips clear and the AI's understanding of "this element" carries forward through the chat history. So a typical flow is:
+
+1. Pin the hero headline → prompt: "make it more urgent." Send.
+2. (No need to re-pin.) Prompt: "now also make it slightly larger." Send. The AI still knows you mean the hero headline.
+3. To switch targets, click **Select element** again and pick a different one.
+
+## Reviewing proposed changes
+
+When the AI returns, it adds an assistant card to the chat log. The card contains:
+
+- A short summary of what was changed and why.
+- One or more **diff cards** — each represents a single DOM change (a text edit, a style change, an attribute change, etc.). The diff card shows the element it targets and what's being set.
+
+Each proposed change is **previewed live on the page** as soon as it lands — you don't have to accept first to see the result.
+
+For each change you can:
+
+- **Accept** — the change moves into the Changes panel as part of the current variation.
+- **Reject** — the preview is reverted and the change is dropped.
+- **Edit** — open the change in Manual mode to tweak values before accepting.
+
+Reject doesn't end the conversation. You can ask for a different version ("more subtle — keep the original color, just bump the size") and the AI will produce a new proposal.
+
+## Selector grounding
+
+When the AI proposes a change, it picks a CSS selector and validates it against the actual page DOM. If the selector doesn't match a real element, the change is rejected before it ever reaches you.
+
+This matters for two reasons:
+
+- **Reliability** — the AI can't propose changes against elements that don't exist or that match nothing.
+- **Stability** — the AI prefers stable selectors (semantic tags, stable classes, `data-*` attributes) over brittle ones (positional `nth-child` chains, random hash-suffix classes). The variation is more likely to keep working as your site evolves.
+
+If a proposal looks wrong, you can usually fix it by either (a) saying so in the next prompt ("you targeted the footer headline — I meant the hero"), or (b) picking the right element manually first and re-asking — the editor uses the selected element as additional context.
+
+## Multi-turn conversations
+
+The chat log keeps the full thread for the current variation. You can layer changes:
+
+```
+You: change the hero headline to something more urgent
+AI:  [proposes new headline]
+You: also make the headline larger
+AI:  [proposes a font-size change on the same element]
+You: actually undo the size change and just bold it instead
+AI:  [reverts size, proposes font-weight]
+```
+
+Each new turn sees the prior turns, so refinements work. If you want a clean slate, start a new variation.
+
+## Image generation
+
+If you ask the AI to swap a hero image, generate product imagery, or anything else that requires a new image, AI mode hands off to the image-generation flow. You'll pick from one or more configured image models, optionally use the existing image as a visual reference, and accept the result into the changeset the same way as any other change.
+
+See [Images](/app/visual/images) for a full walk-through, including the list of supported image models and which ones accept reference images.
+
+## What gets sent to the AI
+
+For each prompt, the back-end sends to the configured AI provider:
+
+- Your prompt text
+- A simplified snapshot of the relevant DOM (typically the elements visible in the viewport, plus any selected element)
+- The URL of the page being edited
+- Optionally, a small system prompt that biases the model toward stable, accessible changes
+
+Your GrowthBook experiment metadata, metric values, user data, and SDK payloads are **not** sent. The connection uses your org's configured AI provider key — see [AI Integrations](/integrations/ai) for the full data-sent inventory.
+
+## Limits and caveats
+
+- **Single-page scope.** AI mode reasons about the page currently loaded in the Visual Editor's target URL. It can't propose changes against pages it hasn't seen.
+- **Selectors can still drift.** Even with selector grounding, large site rewrites or design-system changes can break previously-stable selectors. Run a sanity check on long-running visual experiments after major releases.
+- **Quality varies by model.** The org admin picks the underlying model in AI Settings — bigger/newer models generally produce better proposals at higher cost. The same prompt will produce different output across `gpt-4o-mini`, `gemini-2.5-pro`, and `grok-2`.
+- **AI mode is not a substitute for review.** Always preview the variation on a real page (and ideally a real preview link) before publishing.
+
+## Next steps
+
+- **[Manual mode](/app/visual/manual-mode)** — fine-tune AI-proposed changes with structured controls.
+- **[Images](/app/visual/images)** — full guide to uploading, generating, and reusing images.
+- **[Preview and QA](/app/visual/preview-and-qa)** — QA the variation before publishing.
+- **[AI Integrations](/integrations/ai)** — overall AI features across GrowthBook (summaries, SQL gen, hypothesis checking, etc.).
