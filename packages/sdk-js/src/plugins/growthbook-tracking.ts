@@ -214,6 +214,9 @@ export function growthbookTrackingPlugin({
     // LRU cache for events to avoid duplicates
     const eventCache = new Set<string>();
 
+    // One instance serves many users, so the cache is not per-user on its own
+    const isMultiUser = "createScopedInstance" in gb;
+
     if ("setEventLogger" in gb) {
       let _q: EventPayload[] = [];
       let timer: NodeJS.Timeout | null = null;
@@ -266,16 +269,18 @@ export function growthbookTrackingPlugin({
             eventName,
             properties,
           };
-          // Feature Evaluated has no unit identity, unlike Experiment Viewed
-          if (eventName === EVENT_FEATURE_EVALUATED) {
-            dedupeKeyData.identity = [
-              data.attributes.user_id,
-              data.attributes.device_id,
-              data.attributes.anonymous_id,
-              data.attributes.id,
-            ];
-          }
-          for (const key of dedupeKeyAttributes) {
+          // Feature Evaluated has no unit identity, unlike Experiment Viewed.
+          // Defaults to every attribute, mirroring `cacheKeyAttributes`.
+          const featureEvaluatedIdentityAttributes =
+            isMultiUser &&
+            eventName === EVENT_FEATURE_EVALUATED &&
+            !dedupeKeyAttributes.length
+              ? Object.keys(data.attributes)
+              : [];
+          for (const key of [
+            ...dedupeKeyAttributes,
+            ...featureEvaluatedIdentityAttributes,
+          ]) {
             dedupeKeyData["attr:" + key] = data.attributes[key];
           }
 

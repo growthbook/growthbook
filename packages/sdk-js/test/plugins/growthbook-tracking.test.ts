@@ -611,6 +611,42 @@ describe("growthbookTrackingPlugin", () => {
     gb.destroy();
   });
 
+  it("de-dupes feature usage per user for any bucketing unit", async () => {
+    const gb = new GrowthBookClient({
+      clientKey: "test",
+      plugins: [growthbookTrackingPlugin()],
+    });
+    gb.initSync({
+      payload: {
+        features: {
+          feature: { defaultValue: true },
+        },
+      },
+    });
+
+    // Bucketing unit is none of the payload's known identity fields
+    for (const spaceId of ["a", "b"]) {
+      gb.createScopedInstance({ attributes: { spaceId } }).evalFeature(
+        "feature",
+      );
+    }
+
+    await sleep(150);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(
+      body.map((e: { context_json: { spaceId: string } }) => e.context_json),
+    ).toEqual([{ spaceId: "a" }, { spaceId: "b" }]);
+
+    // A later request for a unit already seen is still a duplicate
+    gb.createScopedInstance({ attributes: { spaceId: "a" } }).evalFeature(
+      "feature",
+    );
+    await sleep(150);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    gb.destroy();
+  });
+
   it("counts one exposure per bucketing unit, not per user", async () => {
     const gb = new GrowthBookClient({
       clientKey: "test",
