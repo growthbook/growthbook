@@ -252,7 +252,7 @@ export function VariationBox({
       key={i}
       p="5"
       pb="3"
-      className={`appbox mb-0 position-relative variation variation${i}`}
+      className="appbox mb-0 position-relative variation"
       style={{
         minWidth,
         maxWidth: capWidth ? MAX_VARIATION_WIDTH + "px" : undefined,

@@ -64,7 +64,7 @@ export default function ContextualBanditVariations({
             key={v.id}
             p="5"
             pb="3"
-            className={`appbox mb-0 position-relative variation variation${i}`}
+            className="appbox mb-0 position-relative variation"
           >
             <Box
               className={`variation variation${i} with-variation-color`}
