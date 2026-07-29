@@ -13,3 +13,6 @@ packages/back-end/src/templates/javascript.js
 packages/shared/types/*.js
 docs/static/scripts/reo.js
 eslint-suppressions.json
+
+# Claude Code agent worktrees — full checkouts; not ours to format
+.claude/
