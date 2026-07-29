@@ -14,6 +14,7 @@ import {
   FeatureUsageQuery,
 } from "shared/types/datasource";
 import { FactTableColumnType } from "shared/types/fact-table";
+import { FeatureInterface } from "shared/types/feature";
 import { QueryStatistics, QueryType } from "shared/types/query";
 import { formatQueryExecutionErrorForApi } from "shared/util";
 import { determineColumnTypes } from "back-end/src/util/sql";
@@ -272,14 +273,14 @@ export async function runUserExposureQuery(
 export async function runFeatureEvalDiagnosticsQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
-  feature: string,
+  feature: Pick<FeatureInterface, "id" | "project">,
 ): Promise<{
   rows?: FeatureEvalDiagnosticsQueryResponseRows;
   statistics?: QueryStatistics;
   error?: string;
   sql?: string;
 }> {
-  if (!context.permissions.canRunFeatureDiagnosticsQueries(datasource)) {
+  if (!context.permissions.canRunFeatureDiagnosticsQueries(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -296,7 +297,7 @@ export async function runFeatureEvalDiagnosticsQuery(
   }
 
   const sql = integration.getFeatureEvalDiagnosticsQuery({
-    feature,
+    feature: feature.id,
   });
 
   try {
