@@ -104,13 +104,12 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
                 </td>
                 <td data-title="Shipped Variation">
                   {variation ? (
-                    <Box style={{ maxWidth: 150 }} minWidth="0">
-                      <VariationLabel
-                        number={variationIndex}
-                        name={variation.name}
-                        size="medium"
-                      />
-                    </Box>
+                    <VariationLabel
+                      number={variationIndex}
+                      name={variation.name}
+                      size="medium"
+                      maxWidth={150}
+                    />
                   ) : (
                     <span>--</span>
                   )}

@@ -1,6 +1,5 @@
 import clsx from "clsx";
 import { useState } from "react";
-import { Box } from "@radix-ui/themes";
 import { Variation, VariationWithIndex } from "shared/types/experiment";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import VariationLabel from "@/ui/VariationLabel";
@@ -49,13 +48,12 @@ export default function VariationChooser({
     const lastVariation = filteredVariations[filteredVariations.length - 1];
     title = (
       <div className="d-inline-flex align-items-center">
-        <Box style={{ maxWidth: 170 }} minWidth="0">
-          <VariationLabel
-            number={lastVariation?.index ?? 0}
-            name={lastVariation?.name ?? ""}
-            size="small"
-          />
-        </Box>
+        <VariationLabel
+          number={lastVariation?.index ?? 0}
+          name={lastVariation?.name ?? ""}
+          size="small"
+          maxWidth={170}
+        />
       </div>
     );
   }
@@ -178,13 +176,12 @@ export default function VariationChooser({
                   setOpen(false);
                 }}
               >
-                <Box style={{ maxWidth: 170 }} minWidth="0">
-                  <VariationLabel
-                    number={variation.index}
-                    name={variation.name}
-                    size="small"
-                  />
-                </Box>
+                <VariationLabel
+                  number={variation.index}
+                  name={variation.name}
+                  size="small"
+                  maxWidth={170}
+                />
               </div>
             </div>
           );

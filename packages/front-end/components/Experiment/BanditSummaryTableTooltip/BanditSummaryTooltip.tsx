@@ -214,14 +214,13 @@ export default function BanditSummaryTooltip({
             className="variation-label mt-2 d-flex justify-content-between"
             style={{ gap: 8 }}
           >
-            <div style={{ maxWidth: 300, minWidth: 0 }}>
-              <VariationLabel
-                number={data.variation.index}
-                name={data.variation.name}
-                size="medium"
-                disableTooltip
-              />
-            </div>
+            <VariationLabel
+              number={data.variation.index}
+              name={data.variation.name}
+              size="medium"
+              maxWidth={300}
+              disableTooltip
+            />
           </div>
 
           <div

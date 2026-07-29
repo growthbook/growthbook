@@ -668,13 +668,12 @@ export default function EditFeatureFlagValuesModal({
                 <Box key={field.id}>
                   <Flex justify="between" width="100%" mb="3">
                     <Flex align="center" direction="row" gap="2">
-                      <Box style={{ maxWidth: 320 }} minWidth="0">
-                        <VariationLabel
-                          number={i}
-                          name={row.name}
-                          size="large"
-                        />
-                      </Box>
+                      <VariationLabel
+                        number={i}
+                        name={row.name}
+                        size="large"
+                        maxWidth={320}
+                      />
                       <Box as="span">&middot;</Box>
                       <Text color="text-mid">
                         {decimalToPercent(rowWeight)}% Split

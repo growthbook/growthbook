@@ -47,13 +47,13 @@ export default function ExperimentImpactTab({
           anyNullImpact = true;
         }
         variations.push(
-          <Box
-            key={`var-experiment${ei}-variation${i}`}
-            className="my-1"
-            style={{ maxWidth: 200 }}
-            minWidth="0"
-          >
-            <VariationLabel number={i} name={v.name} size="medium" />
+          <Box key={`var-experiment${ei}-variation${i}`} className="my-1">
+            <VariationLabel
+              number={i}
+              name={v.name}
+              size="medium"
+              maxWidth={200}
+            />
           </Box>,
         );
         impactsScaled.push(

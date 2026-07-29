@@ -425,14 +425,13 @@ const HoldoutTimeline: React.FC<{
                         Shipped:
                       </Text>
                       {tooltipData.shippedVariation ? (
-                        <Box style={{ maxWidth: 150 }} minWidth="0">
-                          <VariationLabel
-                            number={tooltipData.shippedVariation.index}
-                            name={tooltipData.shippedVariation.name}
-                            size="medium"
-                            disableTooltip
-                          />
-                        </Box>
+                        <VariationLabel
+                          number={tooltipData.shippedVariation.index}
+                          name={tooltipData.shippedVariation.name}
+                          size="medium"
+                          maxWidth={150}
+                          disableTooltip
+                        />
                       ) : (
                         <span>--</span>
                       )}

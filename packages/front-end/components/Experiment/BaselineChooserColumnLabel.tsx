@@ -138,9 +138,11 @@ export default function BaselineChooserColumnLabel({
             setDropdownOpen(false);
           }}
         >
-          <Box style={{ maxWidth: 200, minWidth: 0 }}>
-            <VariationLabel number={variation.index} name={variation.name} />
-          </Box>
+          <VariationLabel
+            number={variation.index}
+            name={variation.name}
+            maxWidth={200}
+          />
         </DropdownMenuItem>
       );
     });
