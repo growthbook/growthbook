@@ -883,6 +883,9 @@ export async function createInitialRevision(
     environmentsEnabled,
     prerequisites: feature.prerequisites || [],
     archived: feature.archived ?? false,
+    // A feature can be created already attached to a holdout; omitting it here
+    // left revision 1 disagreeing with the feature document.
+    holdout: feature.holdout ?? null,
     metadata: {
       description: feature.description,
       owner: feature.owner,

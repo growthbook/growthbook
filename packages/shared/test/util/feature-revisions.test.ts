@@ -523,6 +523,37 @@ describe("autoMerge with new envelopes", () => {
       }
     });
 
+    // Same drift, on holdout: membership lives on the feature document, so a
+    // base snapshot predating an attach made outside a publish would otherwise
+    // equal the draft's removal and drop it.
+    it("detects a holdout removal even when the base snapshot drifted to match it", () => {
+      const holdout = { id: "hld_1", value: "false" };
+      const driftedBase: RevisionFields = {
+        version: 2,
+        defaultValue: "OFF",
+        rules: {},
+        holdout: null, // stale snapshot, predates the attach
+      };
+      const liveFeatureModel: RevisionFields = {
+        version: 2,
+        defaultValue: "OFF",
+        rules: {},
+        holdout, // what's actually live
+      };
+      const revision: RevisionFields = {
+        version: 4,
+        defaultValue: "OFF",
+        rules: {},
+        holdout: null, // draft removes it
+      };
+      const result = autoMerge(liveFeatureModel, driftedBase, revision, [], {});
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.result.holdout).toBeNull();
+        expect(mergeResultHasChanges(result)).toBe(true);
+      }
+    });
+
     it("includes metadata changes", () => {
       const revision: RevisionFields = {
         version: 4,

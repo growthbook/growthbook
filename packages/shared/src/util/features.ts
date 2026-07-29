@@ -1864,10 +1864,15 @@ export function autoMerge(
       result.archived = revision.archived;
     }
 
-    // holdout
+    // holdout — compared against live, not base. Membership lives on the feature
+    // document, and a base revision snapshot can predate an attach that happened
+    // outside a publish, in which case a draft's removal equals the stale base
+    // and the change would be dropped. `live` is canonical (see
+    // liveRevisionFromFeature), which also keeps this in step with
+    // draftDiffersFromLive.
     if (
       "holdout" in revision &&
-      !isEqual(revision.holdout, base.holdout ?? null)
+      !isEqual(revision.holdout ?? null, live.holdout ?? null)
     ) {
       result.holdout = revision.holdout;
     }
@@ -2043,13 +2048,16 @@ export function autoMerge(
     }
   }
 
-  // holdout (nullable object, same conflict pattern as archived)
+  // holdout (nullable object, same conflict pattern as archived) — differing
+  // from live is what makes it a change, since membership lives on the feature
+  // document and a base snapshot can predate an attach made outside a publish.
+  // base is then only consulted to tell a conflict from a clean change.
   if ("holdout" in revision) {
-    const revVal = revision.holdout;
+    const revVal = revision.holdout ?? null;
     const baseVal = base.holdout ?? null;
     const liveVal = live.holdout ?? null;
-    if (!isEqual(revVal, baseVal) && !isEqual(revVal, liveVal)) {
-      if (!isEqual(liveVal, baseVal) && !isEqual(liveVal, revVal)) {
+    if (!isEqual(revVal, liveVal)) {
+      if (!isEqual(liveVal, baseVal)) {
         const conflictInfo: MergeConflict = {
           name: "Holdout",
           key: "holdout",
