@@ -20,6 +20,7 @@ import {
   hashStrings,
   sha256,
   generateFeaturesPayload,
+  validateFeatureRuleValues,
 } from "back-end/src/services/features";
 import { getCurrentEnabledState } from "back-end/src/util/scheduleRules";
 import {
@@ -3807,5 +3808,31 @@ describe("inheritStoredRolloutSeeds", () => {
     addIdsToFlatRules(inbound as FeatureInterface["rules"], "feat_1");
     expect((inbound[0] as { seed?: string }).seed).toBe("feat_1");
     expect((inbound[0] as { seed?: string }).seed).not.toBe(inbound[0].id);
+  });
+});
+
+describe("validateFeatureRuleValues", () => {
+  const numberFeature: Pick<FeatureInterface, "valueType" | "jsonSchema"> = {
+    valueType: "number",
+    jsonSchema: {
+      schemaType: "schema",
+      schema: JSON.stringify({ type: "number", minimum: 1, maximum: 10 }),
+      simple: { type: "primitive", fields: [] },
+      date: new Date(),
+      enabled: true,
+    },
+  };
+
+  it("throws on an out-of-range value in a contextual-bandit-ref rule", () => {
+    expect(() =>
+      validateFeatureRuleValues(numberFeature, {
+        id: "a",
+        type: "contextual-bandit-ref",
+        variations: [
+          { variationId: "0", value: "5" },
+          { variationId: "1", value: "999" },
+        ],
+      } as never),
+    ).toThrow();
   });
 });
