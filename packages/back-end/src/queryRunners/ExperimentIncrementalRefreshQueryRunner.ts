@@ -79,6 +79,14 @@ export const INCREMENTAL_UNITS_TABLE_PREFIX = "gb_units";
 export const INCREMENTAL_METRICS_TABLE_PREFIX = "gb_metrics";
 export const INCREMENTAL_CUPED_TABLE_PREFIX = "gb_cuped";
 
+const getRandomTableSuffix = () => Math.random().toString(36).substring(2, 10);
+
+/** Extracts the table name from a full table name. Needs because of the dialect differences. */
+function tableNameFromFullName(fullName: string) {
+  const segments = fullName.replace(/`/g, "").split(".");
+  return segments[segments.length - 1];
+}
+
 export type ExperimentIncrementalRefreshQueryParams = {
   snapshotType: SnapshotType;
   snapshotSettings: ExperimentSnapshotSettings;
@@ -214,17 +222,15 @@ export function getIncrementalRefreshMetricSources({
 
 const startExperimentIncrementalRefreshQueries = async (
   context: ApiReqContext,
-  params: ExperimentIncrementalRefreshQueryParams,
+  params: ExperimentIncrementalRefreshQueryParams & { phase: number },
   integration: SourceIntegrationInterface,
   startQuery: (
     params: StartQueryParams<RowsType, ProcessedRowsType>,
   ) => Promise<QueryPointer>,
   experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null,
 ): Promise<Queries> => {
-  const snapshotSettings = params.snapshotSettings;
-  const queryParentId = params.queryParentId;
-  const experimentId = params.experimentId;
-  const metricMap = params.metricMap;
+  const { snapshotSettings, queryParentId, experimentId, phase, metricMap } =
+    params;
 
   const { org } = context;
 
@@ -254,26 +260,34 @@ const startExperimentIncrementalRefreshQueries = async (
 
   const queries: Queries = [];
 
-  const unitsTableName = `${INCREMENTAL_UNITS_TABLE_PREFIX}_${experimentId}`;
-  const unitsTableFullName =
-    integration.generateTablePath &&
-    integration.generateTablePath(
-      unitsTableName,
-      settings.pipelineSettings?.writeDataset,
-      settings.pipelineSettings?.writeDatabase,
-      true,
+  const existingModel =
+    await context.models.incrementalRefresh.getByExperimentIdAndPhase(
+      experimentId,
+      phase,
     );
+  const persistedUnitsTableFullName = existingModel?.unitsTableFullName ?? null;
+  const unitsTableName = persistedUnitsTableFullName
+    ? tableNameFromFullName(persistedUnitsTableFullName)
+    : `${INCREMENTAL_UNITS_TABLE_PREFIX}_${experimentId}_${getRandomTableSuffix()}`;
+  const unitsTableFullName =
+    persistedUnitsTableFullName ??
+    (integration.generateTablePath &&
+      integration.generateTablePath(
+        unitsTableName,
+        settings.pipelineSettings?.writeDataset,
+        settings.pipelineSettings?.writeDatabase,
+        true,
+      ));
   if (!unitsTableFullName) {
     throw new Error(
       "Unable to generate table; table path generator not specified.",
     );
   }
 
-  const randomId = Math.random().toString(36).substring(2, 10);
   const unitsTempTableFullName =
     integration.generateTablePath &&
     integration.generateTablePath(
-      `${INCREMENTAL_UNITS_TABLE_PREFIX}_${experimentId}_temp_${randomId}`,
+      `${INCREMENTAL_UNITS_TABLE_PREFIX}_${experimentId}_temp_${getRandomTableSuffix()}`,
       settings.pipelineSettings?.writeDataset,
       settings.pipelineSettings?.writeDatabase,
       true,
@@ -284,9 +298,7 @@ const startExperimentIncrementalRefreshQueries = async (
     );
   }
 
-  const incrementalRefreshModel = params.fullRefresh
-    ? null
-    : await context.models.incrementalRefresh.getByExperimentId(experimentId);
+  const incrementalRefreshModel = params.fullRefresh ? null : existingModel;
 
   const executionId = params.queryParentId;
 
@@ -316,6 +328,7 @@ const startExperimentIncrementalRefreshQueries = async (
       const current =
         await context.models.incrementalRefresh.getCurrentExecutionSnapshotId(
           experimentId,
+          phase,
         );
       if (current !== executionId) {
         throw new Error(
@@ -520,6 +533,7 @@ const startExperimentIncrementalRefreshQueries = async (
         const lockHeld =
           await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
             experimentId,
+            phase,
             executionId,
             {
               unitsTableFullName: unitsTableFullName,
@@ -711,7 +725,7 @@ const startExperimentIncrementalRefreshQueries = async (
       existingCovariateSource?.tableFullName ??
       (integration.generateTablePath &&
         integration.generateTablePath(
-          `${INCREMENTAL_METRICS_TABLE_PREFIX}_${group.groupId}_covariate`,
+          `${INCREMENTAL_METRICS_TABLE_PREFIX}_${experimentId}_${group.groupId}_covariate`,
           settings.pipelineSettings?.writeDataset,
           settings.pipelineSettings?.writeDatabase,
           true,
@@ -814,8 +828,9 @@ const startExperimentIncrementalRefreshQueries = async (
           ),
         onSuccess: async () => {
           const incrementalRefresh =
-            await context.models.incrementalRefresh.getByExperimentId(
+            await context.models.incrementalRefresh.getByExperimentIdAndPhase(
               experimentId,
+              phase,
             );
           const lastSuccessfulMaxTimestamp =
             incrementalRefresh?.unitsMaxTimestamp ?? null;
@@ -842,6 +857,7 @@ const startExperimentIncrementalRefreshQueries = async (
           const lockHeld =
             await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
               experimentId,
+              phase,
               executionId,
               {
                 metricCovariateSources: runningCovariateSourceData,
@@ -918,9 +934,14 @@ const startExperimentIncrementalRefreshQueries = async (
         // Note: onFailure is not awaited by QueryRunner, so we must catch
         // errors here to avoid unhandled promise rejections.
         context.models.incrementalRefresh
-          .updateByExperimentIdIfCurrentExecution(experimentId, executionId, {
-            metricSources: runningSourceData,
-          })
+          .updateByExperimentIdIfCurrentExecution(
+            experimentId,
+            phase,
+            executionId,
+            {
+              metricSources: runningSourceData,
+            },
+          )
           .catch((e) =>
             context.logger.error(
               e,
@@ -965,6 +986,7 @@ const startExperimentIncrementalRefreshQueries = async (
           const lockHeld =
             await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
               experimentId,
+              phase,
               executionId,
               {
                 metricSources: runningSourceData,
@@ -1180,7 +1202,11 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 
   protected override onHeartbeat(): void {
     this.context.models.incrementalRefresh
-      .touchLockHeartbeat(this.model.experiment, this.model.id)
+      .touchLockHeartbeat(
+        this.model.experiment,
+        this.model.phase,
+        this.model.id,
+      )
       .catch((e) =>
         this.context.logger.warn(
           e,
@@ -1202,8 +1228,9 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 
     const incrementalRefreshModel = params.fullRefresh
       ? null
-      : await this.context.models.incrementalRefresh.getByExperimentId(
+      : await this.context.models.incrementalRefresh.getByExperimentIdAndPhase(
           params.experimentId,
+          this.model.phase,
         );
 
     const experiment = await getExperimentById(
@@ -1235,7 +1262,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 
     return await startExperimentIncrementalRefreshQueries(
       this.context,
-      params,
+      { ...params, phase: this.model.phase },
       this.integration,
       this.startQuery.bind(this),
       this.experimentUpdateExecutionLogger,
@@ -1396,6 +1423,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
         await this.context.models.incrementalRefresh
           .updateByExperimentIdIfCurrentExecution(
             this.model.experiment,
+            this.model.phase,
             this.model.id,
             { materializedBySnapshotId: this.model.id },
           )
@@ -1408,7 +1436,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       }
 
       await this.context.models.incrementalRefresh
-        .releaseLock(this.model.experiment, this.model.id)
+        .releaseLock(this.model.experiment, this.model.phase, this.model.id)
         .catch((e) =>
           this.context.logger.warn(
             e,

@@ -206,6 +206,7 @@ import {
   ExperimentIncrementalPipelineRequiresFullRefreshError,
 } from "back-end/src/util/errors";
 import {
+  legacyDocDescribesPhase,
   assertIncrementalRefreshPrerequisites,
   exploratoryOverallRequiresFullRefresh,
 } from "back-end/src/enterprise/services/data-pipeline";
@@ -1615,18 +1616,6 @@ export async function planSnapshot({
     throw new Error("Could not load data source");
   }
 
-  const incrementalRefreshModel = useCache
-    ? await context.models.incrementalRefresh.getByExperimentId(experiment.id)
-    : null;
-
-  const {
-    fullRefresh: standardFullRefresh,
-    fullRefreshReason: standardFullRefreshReason,
-  } = resolveFullRefresh(useCache, incrementalRefreshModel);
-  const fullRefresh = type === "standard" ? standardFullRefresh : false;
-  const fullRefreshReason =
-    type === "standard" ? standardFullRefreshReason : null;
-
   const requestedPrecomputedUnitDimensionIds =
     experiment.precomputedUnitDimensionIds ?? [];
   const eligiblePrecomputedUnitDimensionIds =
@@ -1639,7 +1628,7 @@ export async function planSnapshot({
         })
       : [];
 
-  const snapshotSettings = getSnapshotSettings({
+  const snapshotSettingsArgs = {
     experiment,
     phaseIndex,
     orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
@@ -1654,11 +1643,56 @@ export async function planSnapshot({
     metricGroups,
     reweight,
     datasource,
-    incrementalRefreshModel,
     useStickyBucketing:
       organization.settings?.useStickyBucketing &&
       !experiment.disableStickyBucketing,
     eligiblePrecomputedUnitDimensionIds,
+  };
+
+  const phaseDoc = useCache
+    ? await context.models.incrementalRefresh.getByExperimentIdAndPhase(
+        experiment.id,
+        phaseIndex,
+      )
+    : null;
+
+  // A pre-phase document belongs to the phase whose settings hash it matches,
+  // not to whatever phase is latest now. The hashed fields do not depend on the
+  // state document, so probing with a null model yields the same hash the real
+  // settings will carry.
+  let matchedLegacyDoc: IncrementalRefreshInterface | null = null;
+  if (useCache && !phaseDoc) {
+    const legacyDoc =
+      await context.models.incrementalRefresh.getLegacyByExperimentIdWithoutPhase(
+        experiment.id,
+      );
+    if (
+      legacyDoc &&
+      legacyDocDescribesPhase({
+        legacyDoc,
+        snapshotSettings: getSnapshotSettings({
+          ...snapshotSettingsArgs,
+          incrementalRefreshModel: null,
+        }),
+      })
+    ) {
+      matchedLegacyDoc = legacyDoc;
+    }
+  }
+
+  const incrementalRefreshModel = phaseDoc ?? matchedLegacyDoc;
+
+  const {
+    fullRefresh: standardFullRefresh,
+    fullRefreshReason: standardFullRefreshReason,
+  } = resolveFullRefresh(useCache, incrementalRefreshModel);
+  const fullRefresh = type === "standard" ? standardFullRefresh : false;
+  const fullRefreshReason =
+    type === "standard" ? standardFullRefreshReason : null;
+
+  const snapshotSettings = getSnapshotSettings({
+    ...snapshotSettingsArgs,
+    incrementalRefreshModel,
   });
 
   const data: ExperimentSnapshotInterface = {
@@ -1796,9 +1830,26 @@ export async function createSnapshotFromPlan({
 
   let hasIncrementalRefreshLock = false;
   if (needsIncrementalRefreshLock) {
+    const legacyDoc =
+      await context.models.incrementalRefresh.getLegacyByExperimentIdWithoutPhase(
+        experiment.id,
+      );
+    if (
+      legacyDoc &&
+      legacyDocDescribesPhase({
+        legacyDoc,
+        snapshotSettings: plan.snapshot.settings,
+      })
+    ) {
+      await context.models.incrementalRefresh.adoptLegacyDocToPhase(
+        experiment.id,
+        plan.snapshot.phase,
+      );
+    }
     hasIncrementalRefreshLock =
       await context.models.incrementalRefresh.acquireLock(
         experiment.id,
+        plan.snapshot.phase,
         plan.snapshot.id,
       );
     if (!hasIncrementalRefreshLock) {
@@ -1973,7 +2024,7 @@ export async function createSnapshotFromPlan({
   } catch (e) {
     if (hasIncrementalRefreshLock) {
       await context.models.incrementalRefresh
-        .releaseLock(experiment.id, plan.snapshot.id)
+        .releaseLock(experiment.id, plan.snapshot.phase, plan.snapshot.id)
         .catch((releaseErr) =>
           context.logger.warn(
             releaseErr,

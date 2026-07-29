@@ -822,7 +822,13 @@ export async function getExperimentIncrementalRefresh(
   }
 
   const incrementalRefresh =
-    await context.models.incrementalRefresh.getByExperimentId(id);
+    (await context.models.incrementalRefresh.getByExperimentIdAndPhase(
+      id,
+      experiment.phases.length - 1,
+    )) ??
+    (await context.models.incrementalRefresh.getLegacyByExperimentIdWithoutPhase(
+      id,
+    ));
 
   return res.status(200).json({
     status: 200,
@@ -2680,6 +2686,12 @@ export async function deleteExperimentPhase(
 
   await updateSnapshotsOnPhaseDelete(context, id, phaseIndex);
 
+  await context.models.incrementalRefresh.deleteByExperimentIdAndPhase(
+    id,
+    phaseIndex,
+  );
+  await context.models.incrementalRefresh.decrementPhasesAbove(id, phaseIndex);
+
   // Add audit entry
   await req.audit({
     event: "experiment.phase.delete",
@@ -3251,7 +3263,7 @@ export async function cancelSnapshot(
 
   // Release the incremental refresh lock if this snapshot held it.
   await context.models.incrementalRefresh
-    .releaseLock(experiment.id, snapshot.id)
+    .releaseLock(experiment.id, snapshot.phase, snapshot.id)
     .catch((e) =>
       logger.warn(e, "Failed to release incremental lock on snapshot cancel"),
     );

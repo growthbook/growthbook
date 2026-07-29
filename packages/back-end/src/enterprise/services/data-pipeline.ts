@@ -115,6 +115,26 @@ export function getExperimentSettingsHashForIncrementalRefresh(
   return hashObject(settingsForHash);
 }
 
+/**
+ * A pre-phase document is claimed by the phase whose settings hash it matches;
+ * the hash includes that phase's startDate. Two phases with an identical hash
+ * have identical analysis windows, so reusing the document is harmless.
+ */
+export function legacyDocDescribesPhase({
+  legacyDoc,
+  snapshotSettings,
+}: {
+  legacyDoc: IncrementalRefreshInterface;
+  snapshotSettings: ExperimentSnapshotSettings;
+}): boolean {
+  const storedHash = legacyDoc.experimentSettingsHash;
+  if (!storedHash) return false;
+  return (
+    storedHash ===
+    getExperimentSettingsHashForIncrementalRefresh(snapshotSettings)
+  );
+}
+
 type ComputedSettingsForSnapshot = NonNullable<
   MetricForSnapshot["computedSettings"]
 >;

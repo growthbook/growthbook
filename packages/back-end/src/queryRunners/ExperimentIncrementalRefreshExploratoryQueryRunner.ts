@@ -58,15 +58,15 @@ export type ExperimentIncrementalRefreshExploratoryQueryParams = {
 
 export const startExperimentIncrementalRefreshExploratoryQueries = async (
   context: ApiReqContext,
-  params: ExperimentIncrementalRefreshExploratoryQueryParams,
+  params: ExperimentIncrementalRefreshExploratoryQueryParams & {
+    phase: number;
+  },
   integration: SourceIntegrationInterface,
   startQuery: (
     params: StartQueryParams<RowsType, ProcessedRowsType>,
   ) => Promise<QueryPointer>,
 ): Promise<Queries> => {
-  const snapshotSettings = params.snapshotSettings;
-  const experimentId = params.experimentId;
-  const metricMap = params.metricMap;
+  const { snapshotSettings, experimentId, phase, metricMap } = params;
 
   const { org } = context;
 
@@ -96,7 +96,10 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   const queries: Queries = [];
 
   const incrementalRefreshModel =
-    await context.models.incrementalRefresh.getByExperimentId(experimentId);
+    await context.models.incrementalRefresh.getByExperimentIdAndPhase(
+      experimentId,
+      phase,
+    );
 
   if (!incrementalRefreshModel) {
     throw new Error(
@@ -148,6 +151,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       const current =
         await context.models.incrementalRefresh.getCurrentExecutionSnapshotId(
           experimentId,
+          phase,
         );
       if (current !== executionId) {
         throw new Error(
@@ -365,7 +369,11 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
 
   protected override onHeartbeat(): void {
     this.context.models.incrementalRefresh
-      .touchLockHeartbeat(this.model.experiment, this.model.id)
+      .touchLockHeartbeat(
+        this.model.experiment,
+        this.model.phase,
+        this.model.id,
+      )
       .catch((e) =>
         this.context.logger.warn(
           e,
@@ -386,8 +394,9 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
     }
 
     const incrementalRefreshModel =
-      await this.context.models.incrementalRefresh.getByExperimentId(
+      await this.context.models.incrementalRefresh.getByExperimentIdAndPhase(
         params.experimentId,
+        this.model.phase,
       );
 
     const experiment = await getExperimentById(
@@ -410,7 +419,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
 
     return startExperimentIncrementalRefreshExploratoryQueries(
       this.context,
-      params,
+      { ...params, phase: this.model.phase },
       this.integration,
       this.startQuery.bind(this),
     );
@@ -501,7 +510,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
     // the shared pipeline tables while an incremental refresh is mutating them.
     if (updates.status !== "running") {
       await this.context.models.incrementalRefresh
-        .releaseLock(this.model.experiment, this.model.id)
+        .releaseLock(this.model.experiment, this.model.phase, this.model.id)
         .catch((e) =>
           this.context.logger.warn(
             e,

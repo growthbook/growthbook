@@ -21,39 +21,26 @@ const BaseClass = MakeModelClass({
   globallyUniquePrimaryKeys: true,
   additionalIndexes: [
     {
-      fields: { organization: 1, experimentId: 1 },
+      fields: { organization: 1, experimentId: 1, phase: 1 },
       unique: true,
     },
   ],
+  indexesToRemove: ["organization_1_experimentId_1"],
 });
 
 export class IncrementalRefreshModel extends BaseClass {
-  public async getByExperimentId(experimentId: string) {
-    return this._findOne({ experimentId });
+  public async getByExperimentIdAndPhase(experimentId: string, phase: number) {
+    return this._findOne({ experimentId, phase });
   }
-  public async upsertByExperimentId(
-    experimentId: string,
-    data: UpdateProps<IncrementalRefreshInterface>,
-  ) {
-    const existing = await this._findOne({ experimentId });
-    if (existing) {
-      return this.update(existing, data);
-    }
-    return this.create({
-      experimentId,
-      unitsTableFullName: null,
-      unitsMaxTimestamp: null,
-      unitsDimensions: [],
-      metricSources: [],
-      metricCovariateSources: [],
-      experimentSettingsHash: null,
-      currentExecutionSnapshotId: null,
-      ...data,
-    });
+
+  /** Legacy document, that we can use to migrate to the phase-scoped document. */
+  public async getLegacyByExperimentIdWithoutPhase(experimentId: string) {
+    return this._findOne({ experimentId, phase: { $exists: false } });
   }
 
   public async acquireLock(
     experimentId: string,
+    phase: number,
     snapshotId: string,
   ): Promise<boolean> {
     const staleThreshold = new Date(Date.now() - INCREMENTAL_LOCK_STALE_MS);
@@ -62,6 +49,7 @@ export class IncrementalRefreshModel extends BaseClass {
         {
           organization: this.context.org.id,
           experimentId,
+          phase,
           $or: [
             // Unlocked
             { currentExecutionSnapshotId: null },
@@ -82,6 +70,7 @@ export class IncrementalRefreshModel extends BaseClass {
             id: uniqid("ir_"),
             organization: this.context.org.id,
             experimentId,
+            phase,
             dateCreated: new Date(),
             unitsTableFullName: null,
             unitsMaxTimestamp: null,
@@ -112,11 +101,16 @@ export class IncrementalRefreshModel extends BaseClass {
     }
   }
 
-  public async releaseLock(experimentId: string, snapshotId: string) {
+  public async releaseLock(
+    experimentId: string,
+    phase: number,
+    snapshotId: string,
+  ) {
     await this._dangerousGetCollection().updateOne(
       {
         organization: this.context.org.id,
         experimentId,
+        phase,
         currentExecutionSnapshotId: snapshotId,
       },
       {
@@ -129,11 +123,16 @@ export class IncrementalRefreshModel extends BaseClass {
     );
   }
 
-  public async touchLockHeartbeat(experimentId: string, snapshotId: string) {
+  public async touchLockHeartbeat(
+    experimentId: string,
+    phase: number,
+    snapshotId: string,
+  ) {
     await this._dangerousGetCollection().updateOne(
       {
         organization: this.context.org.id,
         experimentId,
+        phase,
         currentExecutionSnapshotId: snapshotId,
       },
       { $set: { lockHeartbeatAt: new Date(), dateUpdated: new Date() } },
@@ -142,13 +141,15 @@ export class IncrementalRefreshModel extends BaseClass {
 
   public async getCurrentExecutionSnapshotId(
     experimentId: string,
+    phase: number,
   ): Promise<string | null> {
-    const doc = await this._findOne({ experimentId });
+    const doc = await this._findOne({ experimentId, phase });
     return doc?.currentExecutionSnapshotId ?? null;
   }
 
   public async updateByExperimentIdIfCurrentExecution(
     experimentId: string,
+    phase: number,
     executionId: string,
     data: UpdateProps<IncrementalRefreshInterface>,
   ): Promise<boolean> {
@@ -156,11 +157,50 @@ export class IncrementalRefreshModel extends BaseClass {
       {
         organization: this.context.org.id,
         experimentId,
+        phase,
         currentExecutionSnapshotId: executionId,
       },
       { $set: { ...data, dateUpdated: new Date() } },
     );
     return result.matchedCount > 0;
+  }
+
+  /**
+   * Adopt a legacy document (no phase field) onto the given phase index.
+   * Callers must first confirm the document describes this phase by matching its
+   * experimentSettingsHash against the phase's settings.
+   */
+  public async adoptLegacyDocToPhase(experimentId: string, phase: number) {
+    await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        experimentId,
+        phase: { $exists: false },
+      },
+      { $set: { phase, dateUpdated: new Date() } },
+    );
+  }
+
+  public async deleteByExperimentIdAndPhase(
+    experimentId: string,
+    phase: number,
+  ) {
+    await this._dangerousGetCollection().deleteOne({
+      organization: this.context.org.id,
+      experimentId,
+      phase,
+    });
+  }
+
+  public async decrementPhasesAbove(experimentId: string, phase: number) {
+    await this._dangerousGetCollection().updateMany(
+      {
+        organization: this.context.org.id,
+        experimentId,
+        phase: { $gt: phase },
+      },
+      { $inc: { phase: -1 } },
+    );
   }
   protected canRead(_doc: IncrementalRefreshInterface) {
     return true;
