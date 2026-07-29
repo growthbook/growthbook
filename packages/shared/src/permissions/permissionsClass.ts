@@ -838,9 +838,14 @@ export class Permissions {
   ): boolean => {
     // We allow changing columns even for managed fact tables
     const changedKeys = Object.keys(updates);
+    // The Event Forwarder exception never covers changing managedBy itself —
+    // promoting the table to an official resource still needs the permission.
+    const changesManagedBy =
+      updates.managedBy !== undefined &&
+      updates.managedBy !== existing.managedBy;
     const requireManagedByCheck =
       changedKeys.some((k) => k !== "columns") &&
-      !isEventForwarderManagedFactTable(existing);
+      (changesManagedBy || !isEventForwarderManagedFactTable(existing));
 
     if (requireManagedByCheck && (existing.managedBy || updates.managedBy)) {
       if (!this.canUpdateOfficialResources(existing, updates)) {

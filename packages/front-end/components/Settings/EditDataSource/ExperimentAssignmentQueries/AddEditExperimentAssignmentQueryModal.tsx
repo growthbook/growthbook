@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import { FaExternalLinkAlt } from "react-icons/fa";
+import { isEventForwarderManagedExposureQuery } from "shared/util";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/ui/StringArrayField";
@@ -81,6 +82,15 @@ export const AddEditExperimentAssignmentQueryModal: FC<
     if (isManaged && exposureQuery) {
       value.userIdType = exposureQuery.userIdType;
       value.managedBy = exposureQuery.managedBy;
+    } else if (
+      exposureQuery &&
+      isEventForwarderManagedExposureQuery(exposureQuery) &&
+      value.userIdType !== exposureQuery.userIdType
+    ) {
+      // Re-pointing a managed query at a different identifier hands it to the
+      // user. Leaving managedBy: "api" would make attribute reconciliation
+      // treat that identifier as Event Forwarder owned and delete it.
+      value.managedBy = "";
     }
     await onSave(value);
 
