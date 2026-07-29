@@ -2,6 +2,8 @@ import {
   validateFeatureValue,
   getConfigBackingPatch,
   getConfigBackingKey,
+  normalizeTargetingInUpdates,
+  rulesEqualIgnoringScopeEncoding,
 } from "shared/util";
 import { isEqual } from "lodash";
 import { updateFeatureV2Validator } from "shared/validators";
@@ -28,6 +30,7 @@ import {
   getApiFeatureObjV2,
   getNextScheduledUpdate,
   getSavedGroupMap,
+  inheritStoredRolloutSeeds,
 } from "back-end/src/services/features";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { getEnabledEnvironments } from "back-end/src/util/features";
@@ -44,6 +47,8 @@ import {
   assertConfigSchemaCompat,
   assertValidHoldout,
   assertValidProjectId,
+  assertValidProjectIds,
+  assertValidRuleProjectIds,
   assertValidRuleConfigKeys,
   assertValidBaseConfig,
   assertValidDefaultValueConfig,
@@ -66,6 +71,8 @@ export const updateFeatureV2 = createApiRequestHandler(
     archived,
     description,
     project,
+    targetingAllProjects,
+    targetingProjects,
     tags,
     customFields,
   } = req.body;
@@ -103,6 +110,7 @@ export const updateFeatureV2 = createApiRequestHandler(
   }
 
   await assertValidProjectId(project, req.context);
+  await assertValidProjectIds(targetingProjects, req.context);
 
   const projectChanged = project !== undefined && project !== feature.project;
   const customFieldsChanged = shouldValidateCustomFieldsOnUpdate({
@@ -215,7 +223,13 @@ export const updateFeatureV2 = createApiRequestHandler(
         }))
       : null;
 
-  await assertValidHoldout(req.body.holdout, req.context);
+  if (req.body.holdout !== undefined || req.body.project !== undefined) {
+    await assertValidHoldout(
+      req.body.holdout !== undefined ? req.body.holdout : feature.holdout,
+      req.context,
+      req.body.project ?? feature.project,
+    );
+  }
 
   // Block a config-backed default value coexisting with an enabled JSON schema
   // (either inbound or already on the flag), using the effective post-update
@@ -240,6 +254,7 @@ export const updateFeatureV2 = createApiRequestHandler(
     inboundFlatRules = req.body.rules.map((rule) =>
       mapV2ApiRuleToFeatureRule(rule, feature),
     );
+    await assertValidRuleProjectIds(inboundFlatRules, req.context);
     // Request-supplied config keys must exist, be live, and belong to the
     // default config's family — same gate as the revision rule endpoints.
     await assertValidRuleConfigKeys(
@@ -254,6 +269,8 @@ export const updateFeatureV2 = createApiRequestHandler(
       effectiveBaseConfig,
       effectiveProject,
     );
+    // Inherit stored seed/hashVersion first so the backfill can't re-bucket a legacy rollout.
+    inheritStoredRolloutSeeds(inboundFlatRules, feature.rules ?? []);
     addIdsToFlatRules(inboundFlatRules, feature.id);
     // `mapV2ApiRuleToFeatureRule` doesn't validate values; enforce the schema
     // here (against the effective schema, opt-out via ?skipSchemaValidation).
@@ -290,6 +307,8 @@ export const updateFeatureV2 = createApiRequestHandler(
     ...(archived != null ? { archived } : {}),
     ...(description != null ? { description } : {}),
     ...(project != null ? { project } : {}),
+    ...(targetingAllProjects != null ? { targetingAllProjects } : {}),
+    ...(targetingProjects != null ? { targetingProjects } : {}),
     ...(tags != null ? { tags } : {}),
     ...(storedDefault !== undefined ? { defaultValue: storedDefault } : {}),
     ...(req.body.baseConfig !== undefined
@@ -299,6 +318,7 @@ export const updateFeatureV2 = createApiRequestHandler(
     ...(jsonSchema != null ? { jsonSchema } : {}),
     ...(customFields != null ? { customFields } : {}),
   };
+  normalizeTargetingInUpdates(updates, feature);
 
   if (
     updates.defaultValue != null ||
@@ -359,7 +379,7 @@ export const updateFeatureV2 = createApiRequestHandler(
   const hasRuleChanges =
     defaultValueChanged ||
     (inboundFlatRules != null &&
-      !isEqual(inboundFlatRules, feature.rules ?? []));
+      !rulesEqualIgnoringScopeEncoding(inboundFlatRules, feature.rules ?? []));
   const hasEnvEnabledChanges = Object.keys(changedEnvEnabled).length > 0;
   const hasMetadataChanges = Object.keys(metadataChanges).length > 0;
   const hasPrereqChanges = newPrerequisites !== null;

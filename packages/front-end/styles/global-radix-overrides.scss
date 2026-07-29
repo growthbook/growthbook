@@ -300,15 +300,15 @@
   }
 }
 
-// Revision dropdown trigger (bordered box).
 .dropdown-trigger-select-style {
   box-sizing: border-box;
   width: 100%;
   overflow: hidden;
+  height: 36px;
   padding: var(--space-2) var(--space-3);
   background-color: var(--color-surface);
   box-shadow: inset 0 0 0 1px var(--gray-a7);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-3);
   color: var(--gray-12);
   cursor: pointer;
   text-align: start;
@@ -319,12 +319,15 @@
     box-shadow: inset 0 0 0 1px var(--gray-a8);
   }
 
-  &:where(:focus-visible) {
-    outline: 2px solid var(--focus-8);
+  &:where(:focus-visible),
+  &:where([data-state="open"]) {
+    outline: 2px solid var(--violet-8);
     outline-offset: -1px;
   }
 
   &.dropdown-trigger-header {
+    height: 30px;
+    border-radius: var(--radius-2);
     box-shadow: inset 0 0 0 1px var(--gray-a5);
 
     &:where(:hover),
@@ -334,7 +337,6 @@
   }
 }
 
-// Radio
 .rt-RadioGroupItem {
   cursor: pointer;
   &.disabled {
@@ -384,6 +386,67 @@
   &.error {
     box-shadow: inset 0 0 0 1px var(--red-8);
   }
+
+  &[data-state="open"] {
+    outline: 2px solid var(--focus-8);
+    outline-offset: -1px;
+  }
+}
+
+.gb-select--x-small .rt-SelectTrigger {
+  height: 24px;
+  border-radius: var(--radius-2);
+}
+
+.gb-select--small .rt-SelectTrigger {
+  height: 32px;
+  border-radius: var(--radius-2);
+}
+
+.gb-select--legacy .rt-SelectTrigger {
+  height: 36px;
+  border-radius: var(--radius-2);
+}
+
+.gb-select--medium .rt-SelectTrigger {
+  height: 40px;
+  border-radius: var(--radius-3);
+}
+
+// TextField
+.rt-TextFieldRoot {
+  &.error {
+    box-shadow: inset 0 0 0 1px var(--red-8);
+  }
+
+  &.warning {
+    box-shadow: inset 0 0 0 1px var(--amber-8);
+  }
+
+  &:focus-within {
+    outline: 2px solid var(--focus-8);
+    outline-offset: -1px;
+  }
+}
+
+.gb-text-field--x-small .rt-TextFieldRoot {
+  height: 24px;
+  border-radius: var(--radius-2);
+}
+
+.gb-text-field--small .rt-TextFieldRoot {
+  height: 32px;
+  border-radius: var(--radius-2);
+}
+
+.gb-text-field--legacy .rt-TextFieldRoot {
+  height: 36px;
+  border-radius: var(--radius-2);
+}
+
+.gb-text-field--medium .rt-TextFieldRoot {
+  height: 40px;
+  border-radius: var(--radius-3);
 }
 
 // Slider

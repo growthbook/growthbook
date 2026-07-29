@@ -5,10 +5,7 @@ import {
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { FaPlus } from "react-icons/fa";
-import {
-  getActiveFeatureUsageQuery,
-  isEventForwarderManagedFeatureUsageQuery,
-} from "shared/util";
+import { getActiveFeatureUsageQuery } from "shared/util";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -42,13 +39,11 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
     [dataSource.settings?.queries?.featureUsage],
   );
 
-  const isManagedQuery = useMemo(
-    () =>
-      featureUsageQuery
-        ? isEventForwarderManagedFeatureUsageQuery(featureUsageQuery)
-        : false,
-    [featureUsageQuery],
-  );
+  // The Event Forwarder managed feature usage query is intentionally editable
+  // and deletable for now. Restore
+  // `isEventForwarderManagedFeatureUsageQuery(featureUsageQuery)` to lock it
+  // again.
+  const isManagedQuery = false;
 
   const handleActionDeleteClicked = useCallback(
     () => async () => {

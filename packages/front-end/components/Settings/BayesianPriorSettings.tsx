@@ -52,6 +52,7 @@ export default function BayesianPriorSettings({
               <div className="row">
                 <div className="col">
                   <Field
+                    size="legacy"
                     label="Prior Mean"
                     type="number"
                     step="any"
@@ -66,6 +67,7 @@ export default function BayesianPriorSettings({
                 </div>
                 <div className="col">
                   <Field
+                    size="legacy"
                     label="Prior Standard Deviation"
                     type="number"
                     step="any"

@@ -34,25 +34,9 @@ jobs:
       - name: Install buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Configure AWS credentials for GrowthBook Cloud
-        uses: aws-actions/configure-aws-credentials@v5
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
       - name: Tag image as latest in DockerHub
         run: |
           docker buildx imagetools create -t growthbook/growthbook:latest growthbook/growthbook:git-${{ steps.sha.outputs.short }}
-
-      - name: Tag image as latest in ECR
-        run: |
-          ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
-          docker buildx imagetools create -t $ECR_REGISTRY/growthbook:latest $ECR_REGISTRY/growthbook:git-${{ steps.sha.outputs.short }}
 
   # Deploy the back-end for GrowthBook Cloud
   prod:

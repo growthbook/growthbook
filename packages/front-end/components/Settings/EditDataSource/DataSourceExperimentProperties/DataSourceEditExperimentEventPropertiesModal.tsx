@@ -64,21 +64,25 @@ export const DataSourceEditExperimentEventPropertiesModal: FC<
             <div className="">
               <h4 className="font-weight-bold">Experiments</h4>
               <Field
+                size="legacy"
                 label="View Experiment Event"
                 placeholder="$experiment_started"
                 {...form.register("experimentEvent")}
               />
               <Field
+                size="legacy"
                 label="Experiment Id Property"
                 placeholder="Experiment name"
                 {...form.register("experimentIdProperty")}
               />
               <Field
+                size="legacy"
                 label="Variation Id Property"
                 placeholder="Variant name"
                 {...form.register("variationIdProperty")}
               />
               <Field
+                size="legacy"
                 label="Extra UserId Property (optional)"
                 placeholder=""
                 {...form.register("extraUserIdProperty")}

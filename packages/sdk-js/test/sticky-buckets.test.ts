@@ -917,4 +917,117 @@ describe("sticky-buckets", () => {
       expect(sbs.getKey("foo", "bar")).toBe("test_foo||bar");
     });
   });
+
+  describe("BrowserCookieStickyBucketService cookie domain handling", () => {
+    // jsdom's document.cookie can't model host-only vs domain-scoped cookies,
+    // so use a jar that follows real browser scoping rules
+    type FakeCookie = {
+      name: string;
+      value: string;
+      hostOnly: boolean;
+      scope: string;
+    };
+    class FakeCookieJar {
+      host = "www.example.com";
+      store = new Map<string, FakeCookie>();
+      private storeKey(c: FakeCookie): string {
+        return `${c.name}|${c.hostOnly ? "host" : "domain"}|${c.scope}`;
+      }
+      private matches(c: FakeCookie): boolean {
+        if (c.hostOnly) return this.host === c.scope;
+        return this.host === c.scope || this.host.endsWith("." + c.scope);
+      }
+      private build(
+        name: string,
+        value: string,
+        attrs: { domain?: string } = {},
+      ): FakeCookie | null {
+        const domain = (attrs.domain || "").replace(/^\./, "");
+        if (!domain) {
+          return { name, value, hostOnly: true, scope: this.host };
+        }
+        // Browsers reject a domain the current host isn't a member of
+        const allowed =
+          this.host === domain || this.host.endsWith("." + domain);
+        if (!allowed) return null;
+        return { name, value, hostOnly: false, scope: domain };
+      }
+      get(name: string): string | undefined;
+      get(): { [key: string]: string };
+      get(name?: string) {
+        const visible = [...this.store.values()].filter((c) => this.matches(c));
+        if (name === undefined) {
+          return Object.fromEntries(visible.map((c) => [c.name, c.value]));
+        }
+        // First matching cookie wins, like document.cookie parsing
+        const found = visible.filter((c) => c.name === name);
+        return found.length ? found[0].value : undefined;
+      }
+      set(name: string, value: string, attrs: { domain?: string } = {}) {
+        const cookie = this.build(name, value, attrs);
+        if (!cookie) return undefined;
+        this.store.set(this.storeKey(cookie), cookie);
+        return value;
+      }
+      remove(name: string, attrs: { domain?: string } = {}) {
+        const cookie = this.build(name, "", attrs);
+        cookie && this.store.delete(this.storeKey(cookie));
+      }
+      count(name: string): number {
+        return [...this.store.values()].filter(
+          (c) => c.name === name && this.matches(c),
+        ).length;
+      }
+    }
+
+    const doc = (color: string) => ({
+      attributeName: "deviceId",
+      attributeValue: "d123",
+      assignments: { exp1__0: color },
+    });
+
+    it("migrates a legacy host-only sticky cookie to the domain scope", async () => {
+      const jar = new FakeCookieJar();
+      const service = new BrowserCookieStickyBucketService({
+        jsCookie: jar,
+        cookieAttributes: { expires: 180, domain: ".example.com" },
+      });
+      const key = service.getKey("deviceId", "d123");
+
+      // Old install wrote a host-only cookie before the domain was configured
+      jar.set(key, JSON.stringify(doc("red")));
+
+      await service.saveAssignmentsSync(doc("blue"));
+
+      // Exactly one cookie remains (the domain-scoped one) and it's the
+      // new assignment - the stale host-only cookie must not shadow it
+      expect(jar.count(key)).toBe(1);
+      expect(service.getAssignmentsSync("deviceId", "d123")).toEqual(
+        doc("blue"),
+      );
+
+      // And it's readable on a sibling subdomain
+      jar.host = "app.example.com";
+      expect(service.getAssignmentsSync("deviceId", "d123")).toEqual(
+        doc("blue"),
+      );
+    });
+
+    it("falls back to a host-only cookie when the domain is invalid", async () => {
+      const jar = new FakeCookieJar();
+      const service = new BrowserCookieStickyBucketService({
+        jsCookie: jar,
+        cookieAttributes: { expires: 180, domain: ".other.com" },
+      });
+
+      await service.saveAssignmentsSync(doc("blue"));
+
+      // The domain write is rejected by the browser; assignments must still
+      // persist on this host instead of being recomputed on later loads
+      expect(jar.count(service.getKey("deviceId", "d123"))).toBe(1);
+      expect(service.getAssignmentsSync("deviceId", "d123")).toEqual(
+        doc("blue"),
+      );
+    });
+  });
 });

@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import isEqual from "lodash/isEqual";
 import { getValidDate } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { v4 as uuidv4 } from "uuid";
@@ -31,8 +32,12 @@ import {
   hasArchivedExperiments,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { deleteHoldoutAndExperiment } from "back-end/src/services/holdouts";
 import {
+  assertHoldoutScopeCoversLinked,
+  deleteHoldoutAndExperiment,
+} from "back-end/src/services/holdouts";
+import {
+  assertNoLinkedHoldoutExperiments,
   getFeature,
   getFeaturesByIds,
   removeHoldoutFromFeature,
@@ -45,7 +50,11 @@ import {
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { auditDetailsCreate } from "back-end/src/services/audit";
-import { SoftWarningError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  InternalServerError,
+  SoftWarningError,
+} from "back-end/src/util/errors";
 import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
@@ -257,7 +266,7 @@ export const createHoldout = async (
     });
 
     if (!holdout) {
-      throw new Error("Failed to create holdout");
+      throw new InternalServerError("Failed to create holdout");
     }
 
     if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
@@ -458,6 +467,12 @@ export const updateHoldout = async (
     }
   }
 
+  // Only when the scope actually changes — a Holdout already holding a stranded
+  // link (created before this guard existed) must stay editable so it can be fixed.
+  if (updates.projects && !isEqual(updates.projects, holdout.projects)) {
+    await assertHoldoutScopeCoversLinked(context, holdout, updates.projects);
+  }
+
   const updatedHoldout = await context.models.holdout.update(holdout, updates);
   return res.status(200).json({ status: 200, holdout: updatedHoldout });
 };
@@ -572,7 +587,7 @@ export const editStatus = async (
   } else if (req.body.status === "running") {
     // check to see if already in analysis phase
     if (!phases[0]) {
-      throw new Error("Holdout does not have a phase");
+      throw new BadRequestError("Holdout does not have a phase");
     }
     if (
       !phases[1] ||
@@ -736,6 +751,12 @@ export const deleteHoldoutFeature = async (
   ) {
     context.permissions.throwPermissionError();
   }
+
+  // Same invariant as the revision-based removal path: don't strip the holdout
+  // off a feature while a linked experiment still belongs to it, or the
+  // experiment would be left held-out with no feature gating it. Detach the
+  // experiment (remove its rule, or remove it from the holdout) first.
+  await assertNoLinkedHoldoutExperiments(context, holdout.id, feature.rules);
 
   await removeHoldoutFromFeature(context, feature);
 

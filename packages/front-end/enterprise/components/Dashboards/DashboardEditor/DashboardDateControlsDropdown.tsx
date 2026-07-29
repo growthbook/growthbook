@@ -185,7 +185,7 @@ export default function DashboardDateControlsDropdown({
           }}
         />
         <Select
-          size="2"
+          size="small"
           disabled={disabled}
           style={{ width: 112 }}
           value={activeDateRange.lookbackUnit || "day"}

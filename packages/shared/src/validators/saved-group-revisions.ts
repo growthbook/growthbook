@@ -341,11 +341,6 @@ export const postSavedGroupRevisionPublishValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      mergeNow: z
-        .boolean()
-        .optional()
-        .describe("Deprecated — pass `ignoreWarnings: true` instead.")
-        .meta({ deprecated: true }),
       bypassApproval: bypassApprovalPublishBodyField,
       ignoreWarnings: ignoreWarningsBodyField,
     })
