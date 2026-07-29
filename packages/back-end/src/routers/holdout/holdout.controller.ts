@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import isEqual from "lodash/isEqual";
 import { getValidDate } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { v4 as uuidv4 } from "uuid";
@@ -31,7 +32,10 @@ import {
   hasArchivedExperiments,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { deleteHoldoutAndExperiment } from "back-end/src/services/holdouts";
+import {
+  assertHoldoutScopeCoversLinked,
+  deleteHoldoutAndExperiment,
+} from "back-end/src/services/holdouts";
 import {
   assertNoLinkedHoldoutExperiments,
   getFeature,
@@ -461,6 +465,12 @@ export const updateHoldout = async (
     } else {
       updates.nextScheduledStatusUpdate = null;
     }
+  }
+
+  // Only when the scope actually changes — a Holdout already holding a stranded
+  // link (created before this guard existed) must stay editable so it can be fixed.
+  if (updates.projects && !isEqual(updates.projects, holdout.projects)) {
+    await assertHoldoutScopeCoversLinked(context, holdout, updates.projects);
   }
 
   const updatedHoldout = await context.models.holdout.update(holdout, updates);
