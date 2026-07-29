@@ -1,4 +1,4 @@
-import { ColumnInterface } from "shared/types/fact-table";
+import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
 import {
   DataSourceInterface,
   GrowthbookClickhouseDataSource,
@@ -10,6 +10,7 @@ import {
   normalizePersistedColumn,
   getMostRecentUpdateOccurrence,
   normalizeJSONFieldsInput,
+  resolveUserIdTypesForColumnRefresh,
   stripIncompatibleFields,
 } from "back-end/src/util/factTable";
 
@@ -460,6 +461,101 @@ describe("deriveUserIdTypesFromColumns", () => {
       const ds = makeStandardDatasource([{ userIdType: "user_id" }]);
       const cols = [makeColumn("revenue"), makeColumn("country")];
       expect(deriveUserIdTypesFromColumns(ds, cols)).toEqual([]);
+    });
+  });
+});
+
+describe("resolveUserIdTypesForColumnRefresh", () => {
+  function makeFactTable(
+    managedBy: FactTableInterface["managedBy"],
+    userIdTypes: string[],
+  ): Pick<FactTableInterface, "managedBy" | "userIdTypes"> {
+    return { managedBy, userIdTypes };
+  }
+
+  describe("growthbook_clickhouse datasource", () => {
+    it("always derives from columns, even for API-managed tables (#5358)", () => {
+      const ds = makeClickhouseDatasource([
+        { columnName: "user_id", type: "identifier" },
+        { columnName: "device_id", type: "identifier" },
+      ]);
+      const columns = [makeColumn("user_id"), makeColumn("device_id")];
+      // Stale stored selection must be overwritten by the derived set.
+      const factTable = makeFactTable("api", ["user_id"]);
+      expect(
+        resolveUserIdTypesForColumnRefresh({
+          datasource: ds,
+          factTable,
+          columns,
+        }),
+      ).toEqual(["user_id", "device_id"]);
+    });
+
+    it("derives from columns for unmanaged tables", () => {
+      const ds = makeClickhouseDatasource([
+        { columnName: "user_id", type: "identifier" },
+      ]);
+      const columns = [makeColumn("user_id"), makeColumn("device_id")];
+      const factTable = makeFactTable("", []);
+      expect(
+        resolveUserIdTypesForColumnRefresh({
+          datasource: ds,
+          factTable,
+          columns,
+        }),
+      ).toEqual(["user_id"]);
+    });
+  });
+
+  describe("customer-owned (non-ClickHouse) datasources", () => {
+    it("preserves the caller's userIdTypes for API-managed tables", () => {
+      const ds = makeStandardDatasource([
+        { userIdType: "visitor_id" },
+        { userIdType: "user_id" },
+      ]);
+      // SQL returns a user_id column that name-matches a datasource identifier
+      // type, but the caller only declared visitor_id.
+      const columns = [makeColumn("visitor_id"), makeColumn("user_id")];
+      const factTable = makeFactTable("api", ["visitor_id"]);
+      expect(
+        resolveUserIdTypesForColumnRefresh({
+          datasource: ds,
+          factTable,
+          columns,
+        }),
+      ).toEqual(["visitor_id"]);
+    });
+
+    it("derives from columns for unmanaged tables", () => {
+      const ds = makeStandardDatasource([
+        { userIdType: "visitor_id" },
+        { userIdType: "user_id" },
+      ]);
+      const columns = [makeColumn("visitor_id"), makeColumn("user_id")];
+      const factTable = makeFactTable("", ["visitor_id"]);
+      expect(
+        resolveUserIdTypesForColumnRefresh({
+          datasource: ds,
+          factTable,
+          columns,
+        }),
+      ).toEqual(["visitor_id", "user_id"]);
+    });
+
+    it("derives from columns for admin-managed tables", () => {
+      const ds = makeStandardDatasource([
+        { userIdType: "visitor_id" },
+        { userIdType: "user_id" },
+      ]);
+      const columns = [makeColumn("visitor_id"), makeColumn("user_id")];
+      const factTable = makeFactTable("admin", ["visitor_id"]);
+      expect(
+        resolveUserIdTypesForColumnRefresh({
+          datasource: ds,
+          factTable,
+          columns,
+        }),
+      ).toEqual(["visitor_id", "user_id"]);
     });
   });
 });

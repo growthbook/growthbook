@@ -4,9 +4,11 @@ import {
   AggregatedFactTableSettings,
   ColumnInterface,
   CreateColumnProps,
+  FactTableInterface,
   JSONColumnFields,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
+import { isManagedWarehouse } from "shared/util";
 
 /**
  * Clears datatype-incompatible props. Empty datatype skips checks while
@@ -111,6 +113,40 @@ export function deriveUserIdTypesFromColumns(
   return (datasource.settings?.userIdTypes || [])
     .map((u) => u.userIdType)
     .filter((id) => activeColumns.has(id));
+}
+
+/**
+ * Decides a fact table's userIdTypes after a column refresh.
+ *
+ * Managed Warehouse (growthbook_clickhouse) owns its identifier mapping and
+ * syncs it from the datasource, so we always re-derive from the columns, even
+ * for API-managed tables (see #5358).
+ *
+ * On customer-owned warehouses an API-managed table's userIdTypes are declared
+ * explicitly by the caller. Auto-deriving there would silently re-add any
+ * column whose name happens to match another datasource identifier type, so we
+ * preserve the caller's selection instead.
+ *
+ * Everything else keeps the UI behavior of deriving identifiers by column name.
+ */
+export function resolveUserIdTypesForColumnRefresh({
+  datasource,
+  factTable,
+  columns,
+}: {
+  datasource: DataSourceInterface;
+  factTable: Pick<FactTableInterface, "managedBy" | "userIdTypes">;
+  columns: ColumnInterface[];
+}): string[] {
+  if (isManagedWarehouse(datasource)) {
+    return deriveUserIdTypesFromColumns(datasource, columns);
+  }
+
+  if (factTable.managedBy === "api") {
+    return factTable.userIdTypes;
+  }
+
+  return deriveUserIdTypesFromColumns(datasource, columns);
 }
 
 export function columnsHaveAutoSlices(

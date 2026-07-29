@@ -24,8 +24,8 @@ import { determineColumnTypes } from "back-end/src/util/sql";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import {
-  deriveUserIdTypesFromColumns,
   normalizePersistedColumn,
+  resolveUserIdTypesForColumnRefresh,
 } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 
@@ -129,7 +129,11 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
     updates.columns = columns;
     updates.columnsError = null;
 
-    updates.userIdTypes = deriveUserIdTypesFromColumns(datasource, columns);
+    updates.userIdTypes = resolveUserIdTypesForColumnRefresh({
+      datasource,
+      factTable,
+      columns,
+    });
   } catch (e) {
     updates.columnsError = e.message;
   }

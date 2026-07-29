@@ -43,7 +43,7 @@ import {
   queueFactTableColumnsRefresh,
 } from "back-end/src/jobs/refreshFactTableColumns";
 import {
-  deriveUserIdTypesFromColumns,
+  resolveUserIdTypesForColumnRefresh,
   validateAggregatedFactTableSettings,
   getNextUpdateOccurrence,
 } from "back-end/src/util/factTable";
@@ -368,10 +368,11 @@ export const putFactTable = async (
       columnRefreshPending: needsBackgroundRefresh,
     };
 
-    columnRefreshResults.userIdTypes = deriveUserIdTypesFromColumns(
+    columnRefreshResults.userIdTypes = resolveUserIdTypesForColumnRefresh({
       datasource,
+      factTable,
       columns,
-    );
+    });
   }
 
   if (data.aggregatedFactTableSettings) {
