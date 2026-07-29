@@ -25,9 +25,11 @@ type LoginHeroContent = {
 export default function Welcome({
   onSuccess,
   firstTime = false,
+  registrationDisabled = false,
 }: {
   onSuccess: (token: string, projectId?: string) => void;
   firstTime?: boolean;
+  registrationDisabled?: boolean;
 }): ReactElement {
   const [state, setState] = useState<
     "login" | "register" | "forgot" | "forgotSuccess" | "firsttime"
@@ -43,17 +45,21 @@ export default function Welcome({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [welcomeMsgIndex] = useState(Math.floor(Math.random() * 4));
-  const { pathname } = useRouter();
+  const router = useRouter();
+  const { pathname } = router;
+  const isInvitation = pathname === "/invitation";
+  const invitationKey =
+    typeof router.query.key === "string" ? router.query.key : undefined;
   const hero = useFeatureValue<LoginHeroContent | null>(
     "login-page-content",
     null,
   );
 
   useEffect(() => {
-    if (pathname === "/invitation") {
+    if (isInvitation) {
       setState("register");
     }
-  }, [pathname]);
+  }, [isInvitation]);
 
   const welcomeMsg = [
     <>Welcome to GrowthBook!</>,
@@ -82,7 +88,13 @@ export default function Welcome({
               "Content-Type": "application/json",
             },
             credentials: "include",
-            body: JSON.stringify(data),
+            body: JSON.stringify({
+              ...data,
+              inviteKey:
+                state === "register" && isInvitation
+                  ? invitationKey
+                  : undefined,
+            }),
           });
           const json: {
             status: number;
@@ -201,6 +213,10 @@ export default function Welcome({
   );
 
   const email = form.watch("email");
+  const canRegister =
+    state === "register" && (!registrationDisabled || isInvitation);
+  const showRegistrationDisabled =
+    state === "register" && registrationDisabled && !isInvitation;
 
   return (
     <>
@@ -226,18 +242,34 @@ export default function Welcome({
           {state === "register" && (
             <div>
               <h3 className="h2">Register</h3>
-              <p>
-                Already have an account?{" "}
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setState("login");
-                  }}
-                >
-                  Log In
-                </a>
-              </p>
+              {showRegistrationDisabled ? (
+                <Callout status="warning" mb="3">
+                  Registration is disabled. Please contact your administrator
+                  for an invitation.{" "}
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setState("login");
+                    }}
+                  >
+                    Log In
+                  </a>
+                </Callout>
+              ) : (
+                <p>
+                  Already have an account?{" "}
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setState("login");
+                    }}
+                  >
+                    Log In
+                  </a>
+                </p>
+              )}
             </div>
           )}
           {state === "firsttime" && (
@@ -307,7 +339,7 @@ export default function Welcome({
               {...form.register("companyname")}
             />
           )}
-          {(state === "register" || state === "firsttime") && (
+          {(canRegister || state === "firsttime") && (
             <Field
               size="legacy"
               label="Name"
@@ -319,7 +351,7 @@ export default function Welcome({
             />
           )}
           {(state === "login" ||
-            state === "register" ||
+            canRegister ||
             state === "forgot" ||
             state === "firsttime") && (
             <Field
@@ -332,9 +364,7 @@ export default function Welcome({
               autoComplete="username"
             />
           )}
-          {(state === "login" ||
-            state === "register" ||
-            state === "firsttime") && (
+          {(state === "login" || canRegister || state === "firsttime") && (
             <Field
               size="legacy"
               label="Password"
@@ -365,29 +395,35 @@ export default function Welcome({
               {error}
             </Callout>
           )}
-          <Button
-            type="submit"
-            size="lg"
-            loading={loading}
-            style={{ width: "100%" }}
-            mt="5"
-            mb="5"
-          >
-            {cta}
-          </Button>
+          {!showRegistrationDisabled && (
+            <Button
+              type="submit"
+              size="lg"
+              loading={loading}
+              style={{ width: "100%" }}
+              mt="5"
+              mb="5"
+            >
+              {cta}
+            </Button>
+          )}
           {state === "login" && (
             <Flex justify="center" align="center">
               <Text color="text-mid" weight="regular" align="center">
-                Don&apos;t have an account yet?{" "}
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setState("register");
-                  }}
-                >
-                  Start for free
-                </a>
+                {!registrationDisabled && (
+                  <>
+                    Don&apos;t have an account yet?{" "}
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setState("register");
+                      }}
+                    >
+                      Start for free
+                    </a>
+                  </>
+                )}
               </Text>
             </Flex>
           )}

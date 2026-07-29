@@ -7,9 +7,14 @@ import {
 } from "back-end/src/models/ForgotPasswordModel";
 import {
   createOrganization,
+  findOrganizationByInviteKey,
   hasOrganization,
 } from "back-end/src/models/OrganizationModel";
-import { IS_CLOUD, IS_LOCALHOST } from "back-end/src/util/secrets";
+import {
+  DISABLE_REGISTRATION,
+  IS_CLOUD,
+  IS_LOCALHOST,
+} from "back-end/src/util/secrets";
 import {
   deleteAuthCookies,
   getAuthConnection,
@@ -229,11 +234,14 @@ export async function postLogin(
 }
 
 export async function postRegister(
-  // eslint-disable-next-line
-  req: Request<any, any, { email: unknown; name: unknown; password: unknown }>,
+  req: Request<
+    Record<string, never>,
+    unknown,
+    { email: unknown; name: unknown; password: unknown; inviteKey: unknown }
+  >,
   res: Response,
 ) {
-  const { email, name, password } = req.body;
+  const { email, name, password, inviteKey } = req.body;
 
   if (
     typeof email !== "string" ||
@@ -241,6 +249,26 @@ export async function postRegister(
     typeof password !== "string"
   ) {
     throw new Error("Invalid arguments");
+  }
+
+  if (DISABLE_REGISTRATION) {
+    const invitedOrganization =
+      typeof inviteKey === "string"
+        ? await findOrganizationByInviteKey(inviteKey)
+        : null;
+    const invite = invitedOrganization?.invites.find(
+      (invite) =>
+        invite.key === inviteKey &&
+        invite.email.toLowerCase() === email.toLowerCase(),
+    );
+
+    if (!invite) {
+      return res.status(403).json({
+        status: 403,
+        message:
+          "Registration is disabled. Please contact your administrator for an invitation.",
+      });
+    }
   }
 
   validatePasswordFormat(password);

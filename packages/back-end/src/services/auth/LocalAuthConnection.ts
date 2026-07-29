@@ -3,7 +3,7 @@ import { expressjwt } from "express-jwt";
 import jwt from "jsonwebtoken";
 import { UnauthenticatedResponse } from "shared/types/sso-connection";
 import { UserInterface } from "shared/types/user";
-import { JWT_SECRET } from "back-end/src/util/secrets";
+import { DISABLE_REGISTRATION, JWT_SECRET } from "back-end/src/util/secrets";
 import {
   AuthRefreshModel,
   createRefreshToken,
@@ -53,6 +53,7 @@ export class LocalAuthConnection implements AuthConnection {
     return {
       showLogin: true,
       newInstallation,
+      registrationDisabled: DISABLE_REGISTRATION,
     };
   }
   async processCallback(
