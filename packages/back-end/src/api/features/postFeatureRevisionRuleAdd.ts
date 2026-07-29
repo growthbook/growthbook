@@ -208,7 +208,6 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       // Use target revision holdout to check compatibility.
       // Linking writes are deferred until after custom-hook prevalidation below.
       const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
-      // Validation only: linkage itself is derived from published rules at publish.
       await resolveHoldoutExperimentToLink({
         context: req.context,
         feature,

@@ -2897,17 +2897,13 @@ export async function toExperimentApiInterface(
     precomputedUnitDimensionIds: experiment.precomputedUnitDimensionIds ?? [],
     defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
-    // `statusUpdateSchedule` is a nested Mongoose path, so a document with no
-    // schedule hydrates it as `{}` rather than undefined — truthy, with no
-    // `startAt`. Keying off `startAt` instead of the object keeps that from
-    // throwing, which would fail any write that serializes the experiment for
-    // its update event.
+    // Nested Mongoose path: a document with no schedule hydrates it as `{}`, so
+    // key off `startAt` rather than the object.
     statusUpdateSchedule: experiment.statusUpdateSchedule?.startAt
       ? {
           startAt: experiment.statusUpdateSchedule.startAt.toISOString(),
         }
-      : // An explicit null means "cleared" and is distinct from absent, so it is
-        // preserved; a hydrated `{}` collapses to absent.
+      : // null means "cleared", distinct from absent.
         experiment.statusUpdateSchedule === null
         ? null
         : undefined,

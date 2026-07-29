@@ -2986,7 +2986,6 @@ export async function postFeatureRule(
       throw new Error(`Could not find experiment "${rule.experimentId}"`);
     }
     if (experiment) {
-      // Validation only: linkage is derived from published rules at publish.
       await resolveHoldoutExperimentToLink({
         context,
         feature,
@@ -3497,7 +3496,6 @@ export async function postFeatureExperimentRefRule(
   // to check compatibility
   const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
 
-  // Validation only: linkage is derived from published rules at publish.
   await resolveHoldoutExperimentToLink({
     context,
     feature,

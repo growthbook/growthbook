@@ -2080,59 +2080,39 @@ export async function applyHoldoutSideEffects(
     );
   }
 
-  // Feature side only. The experiments in its rules are reconciled from
-  // published state by planHoldoutExperimentLinkage, which owns that half for
-  // every direction (join, leave, and a rules-only change).
+  // Feature side only; planHoldoutExperimentLinkage owns the experiment half.
   if (newHoldoutId) {
     await context.models.holdout.addFeatureToHoldout(newHoldoutId, feature.id);
   }
 }
 
-/**
- * The `linkedExperiments` writes a publish is about to make for one feature,
- * plus the experiment `holdoutId`s they overwrite. Read-only to compute, so the
- * rewind can be registered before any of it is applied.
- */
 export type HoldoutExperimentLinkagePlan = {
   holdoutId: string;
   toLink: string[];
   toUnlink: string[];
-  // Pre-publish values, so the reversal converges to them instead of guessing.
   // "" is the clear sentinel `updateExperiment` expects.
   prevExperimentHoldoutIds: Record<string, string>;
 };
 
-/**
- * Work out how a holdout's experiment linkage should change given what this
- * feature is publishing.
- *
- * Linkage is derived from published rules rather than written when a rule is
- * added to a draft, so a draft that is edited or discarded leaves nothing to
- * unwind. This runs for a rules-only publish too — that is how an
- * experiment-ref rule added to an already-held feature gets enrolled.
- */
+// Derived from published rules, so an edited or discarded draft leaves nothing
+// to unwind.
 export async function planHoldoutExperimentLinkage(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
-  // Post-publish holdout and rules for this feature.
   holdoutId: string | null,
   publishedRules: FeatureRule[],
 ): Promise<HoldoutExperimentLinkagePlan[]> {
   const plans: HoldoutExperimentLinkagePlan[] = [];
 
-  // Leaving a holdout (or moving to another) has to drop what this feature
-  // contributed to the old one. Nothing else does: the transition path unlinks
-  // only the feature, and the guard that would force detaching experiments first
-  // reads post-publish rules — so a draft that removes the holdout and the rule
-  // together sails past it.
+  // Nothing else drops what this feature contributed to the holdout it is
+  // leaving: the transition unlinks only the feature, and the guard that would
+  // force detaching experiments first reads post-publish rules.
   const prevHoldoutId = feature.holdout?.id ?? null;
   if (prevHoldoutId && prevHoldoutId !== holdoutId) {
     const leaving = await planLinkageForHoldout(
       context,
       feature,
       prevHoldoutId,
-      // No rules under the old holdout any more, so everything this feature
-      // brought is a candidate to unlink.
       [],
       feature.rules ?? [],
     );
@@ -2158,15 +2138,14 @@ async function planLinkageForHoldout(
   feature: FeatureInterface,
   holdoutId: string,
   publishedRules: FeatureRule[],
-  // The feature's pre-publish rules — the bound on what it may withdraw.
+  // Bounds what this feature may withdraw.
   previousRules: FeatureRule[],
 ): Promise<HoldoutExperimentLinkagePlan | null> {
   const holdout = await context.models.holdout.getByIdForLinkage(holdoutId);
   if (!holdout) return null;
 
-  // Only this holdout's OTHER features can justify keeping a link, and only
-  // their live rules count — an unpublished draft elsewhere has no linkage of
-  // its own to protect, which is what makes this decidable from published state.
+  // Only other features' LIVE rules count: an unpublished draft elsewhere has no
+  // linkage of its own to protect, which is what keeps this decidable.
   const otherFeatureIds = Object.keys(holdout.linkedFeatures).filter(
     (id) => id !== feature.id,
   );
@@ -2178,9 +2157,6 @@ async function planLinkageForHoldout(
   const { toLink, toUnlink } = computeHoldoutExperimentLinkageDelta({
     publishedRules,
     previousRules,
-    // Always a real holdout here; the "leaving" case expresses itself by passing
-    // no rules, which yields an empty desired set.
-    hasHoldout: true,
     linkedExperimentIds: Object.keys(holdout.linkedExperiments),
     experimentIdsReferencedElsewhere,
   });
@@ -2192,9 +2168,8 @@ async function planLinkageForHoldout(
       const exp = await getExperimentById(context, id);
       if (!exp) return;
       prevExperimentHoldoutIds[id] = exp.holdoutId ?? "";
-      // Enforced here rather than at rule-add so it can't be bypassed by moving
-      // the experiment afterwards; the plan is read-only, so this refuses the
-      // publish before anything is written.
+      // Also checked at rule-add; re-checked here so moving the experiment
+      // afterwards can't bypass it.
       if (toLink.includes(id)) {
         assertHoldoutAvailableForProject(holdout, exp.project);
       }
@@ -2239,8 +2214,8 @@ export async function applyHoldoutExperimentLinkage(
   });
 }
 
-// Converges back to the planned pre-image rather than inverting each write, so a
-// forward pass that failed partway still lands on the pre-publish state.
+// Converges to the pre-image rather than inverting each write, so a forward pass
+// that failed partway still lands on the pre-publish state.
 export async function reverseHoldoutExperimentLinkage(
   context: ReqContext | ApiReqContext,
   plan: HoldoutExperimentLinkagePlan,
@@ -2253,20 +2228,10 @@ export async function reverseHoldoutExperimentLinkage(
     plan.holdoutId,
     plan.toLink,
   );
-  // The experiment write is the step most likely to have failed on the way in
-  // (updateExperiment serializes the whole experiment for its update event, which
-  // throws on some legacy docs). Letting that abort the reversal would strand the
-  // feature at the published version with its revision still a draft — the exact
-  // split the rewind exists to prevent — so it is logged rather than thrown, and
-  // the rest of the rewind proceeds.
-  try {
-    await setExperimentHoldoutIds(context, plan.prevExperimentHoldoutIds);
-  } catch (e) {
-    logger.error(
-      e,
-      `Failed to restore experiment holdoutIds while rewinding publish for holdout ${plan.holdoutId}`,
-    );
-  }
+  // Throws on failure: publishRevision treats this as a satellite and carries on
+  // to the feature document, while bulk compensation records it and reports the
+  // item stuck rather than cleanly rolled back.
+  await setExperimentHoldoutIds(context, plan.prevExperimentHoldoutIds);
 }
 
 // The linkage a holdout transition is about to write, captured before the forward
@@ -3342,12 +3307,8 @@ export async function publishRevision({
   const updateActions = (revision.rampActions ?? []).filter(
     (a) => a.mode === "update",
   );
-  // `critical` marks the steps that decide what is live and what the UI shows —
-  // the feature document, and the revision status that follows it. A satellite
-  // (ramp schedules, holdout linkage) that cannot be reversed is logged and
-  // skipped: abandoning the document restore because a satellite failed leaves
-  // the feature published on a revision still marked draft, which is the worst
-  // available outcome and the one this rewind exists to avoid.
+  // `critical` = decides what is live (the feature document, then the revision
+  // status). A satellite that can't be reversed must not abandon those.
   type Rewind = {
     what: string;
     undo: () => Promise<unknown>;
@@ -3387,14 +3348,9 @@ export async function publishRevision({
         ? null
         : await captureHoldoutLinkagePreImage(context, feature, result.holdout);
 
-    // Planned here for the same reason: computing it is read-only, so the rewind
-    // is registrable before the first linkage write.
-    //
-    // Deliberately not gated on the merge carrying a rule or holdout change:
-    // linkage is reconciled against published state, and a publish with no delta
-    // is exactly the case where state can be out of sync (reconciling a revision
-    // an earlier failed publish left stranded). The plan short-circuits when the
-    // feature has no holdout, so this costs nothing for most publishes.
+    // Not gated on the merge carrying a change: a publish with no delta is
+    // exactly when state can be out of sync (reconciling a stranded revision).
+    // Short-circuits when the feature has no holdout.
     const experimentLinkagePlans = await planHoldoutExperimentLinkage(
       context,
       feature,
@@ -3457,9 +3413,6 @@ export async function publishRevision({
       );
     }
 
-    // Experiment linkage is derived from published rules, so it has to run for a
-    // rules-only publish too — that is how a rule added to an already-held
-    // feature gets enrolled, and how a removed one gets dropped.
     for (const plan of experimentLinkagePlans) {
       rewinds.push({
         what: `holdout experiment linkage (${plan.holdoutId})`,
@@ -3497,8 +3450,7 @@ export async function publishRevision({
     if (revisionStatusRewind) unwind.push(revisionStatusRewind);
     let criticalFailed = false;
     for (const { what, undo, critical } of unwind) {
-      // Once the document could not be restored, reopening the revision would
-      // make it contradict a feature that is still published.
+      // Reopening the revision now would contradict a still-published feature.
       if (criticalFailed) {
         logger.error(
           `Skipping rewind of ${what} for feature ${feature.id} revision ${revision.version}: an earlier critical step could not be reversed`,

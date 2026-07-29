@@ -273,7 +273,6 @@ export class HoldoutModel extends BaseClass {
     await this.addExperimentsToHoldout(holdoutId, [experimentId]);
   }
 
-  // Batch form, so a publish reconciling several rules writes once.
   public async addExperimentsToHoldout(
     holdoutId: string,
     experimentIds: string[],

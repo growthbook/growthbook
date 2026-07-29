@@ -92,11 +92,6 @@ type FeatureDesiredState = {
    * nothing for compensation to reverse.
    */
   holdoutLinkage?: HoldoutLinkagePreImage | null;
-  /**
-   * Experiment-linkage plans for the holdouts this revision joins or leaves,
-   * computed read-only at plan time so compensation can reverse exactly what was
-   * written. Empty when the published rules already match.
-   */
   holdoutExperimentLinkage?: HoldoutExperimentLinkagePlan[];
 };
 
@@ -419,7 +414,6 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
 
     if (mergeResult.holdout !== undefined) {
       // Guard already ran above (before any mutation) — skip the re-check.
-      // Feature side only; experiments are reconciled below.
       await applyHoldoutSideEffects(
         context,
         { ...feature, rules: mergeResult.rules ?? feature.rules },
@@ -428,8 +422,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       );
     }
 
-    // Experiment linkage is derived from published rules, so it runs for a
-    // rules-only publish too (mirrors publishRevision).
+    // Runs for a rules-only publish too (mirrors publishRevision).
     desired.holdoutExperimentLinkage = await planHoldoutExperimentLinkage(
       context,
       feature,

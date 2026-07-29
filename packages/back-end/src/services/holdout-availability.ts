@@ -3,8 +3,6 @@ import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
-// A Holdout with no Projects is global; otherwise the linked entity's Project
-// must be one of them.
 export function isHoldoutAvailableForProject(
   holdout: Pick<HoldoutInterface, "projects">,
   project: string | undefined,

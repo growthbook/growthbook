@@ -48,7 +48,6 @@ describe("computeHoldoutExperimentLinkageDelta", () => {
       computeHoldoutExperimentLinkageDelta({
         publishedRules: [expRule("exp_a"), expRule("exp_b")],
         previousRules: [expRule("exp_a")],
-        hasHoldout: true,
         linkedExperimentIds: ["exp_a"],
         experimentIdsReferencedElsewhere: [],
       }),
@@ -60,7 +59,6 @@ describe("computeHoldoutExperimentLinkageDelta", () => {
       computeHoldoutExperimentLinkageDelta({
         publishedRules: [expRule("exp_a")],
         previousRules: [expRule("exp_a"), expRule("exp_b")],
-        hasHoldout: true,
         linkedExperimentIds: ["exp_a", "exp_b"],
         experimentIdsReferencedElsewhere: [],
       }),
@@ -75,19 +73,18 @@ describe("computeHoldoutExperimentLinkageDelta", () => {
       computeHoldoutExperimentLinkageDelta({
         publishedRules: [],
         previousRules: [expRule("exp_a"), expRule("exp_b")],
-        hasHoldout: true,
         linkedExperimentIds: ["exp_a", "exp_b"],
         experimentIdsReferencedElsewhere: ["exp_a"],
       }),
     ).toEqual({ toLink: [], toUnlink: ["exp_b"] });
   });
 
+  // Leaving the holdout is expressed by publishing no rules under it.
   it("unlinks everything unreferenced when the feature leaves the holdout", () => {
     expect(
       computeHoldoutExperimentLinkageDelta({
-        publishedRules: [expRule("exp_a")],
+        publishedRules: [],
         previousRules: [expRule("exp_a"), expRule("exp_b")],
-        hasHoldout: false,
         linkedExperimentIds: ["exp_a", "exp_b"],
         experimentIdsReferencedElsewhere: [],
       }),
@@ -99,7 +96,6 @@ describe("computeHoldoutExperimentLinkageDelta", () => {
       computeHoldoutExperimentLinkageDelta({
         publishedRules: [expRule("exp_a")],
         previousRules: [expRule("exp_a")],
-        hasHoldout: true,
         linkedExperimentIds: ["exp_a"],
         experimentIdsReferencedElsewhere: [],
       }),
@@ -111,7 +107,6 @@ describe("computeHoldoutExperimentLinkageDelta", () => {
       computeHoldoutExperimentLinkageDelta({
         publishedRules: [forceRule("r1")],
         previousRules: [forceRule("r1")],
-        hasHoldout: true,
         linkedExperimentIds: [],
         experimentIdsReferencedElsewhere: [],
       }),
@@ -126,7 +121,6 @@ describe("computeHoldoutExperimentLinkageDelta", () => {
       computeHoldoutExperimentLinkageDelta({
         publishedRules: [expRule("exp_mine")],
         previousRules: [expRule("exp_mine")],
-        hasHoldout: true,
         linkedExperimentIds: ["exp_mine", "exp_added_directly"],
         experimentIdsReferencedElsewhere: [],
       }),
@@ -138,7 +132,6 @@ describe("computeHoldoutExperimentLinkageDelta", () => {
       computeHoldoutExperimentLinkageDelta({
         publishedRules: [],
         previousRules: [expRule("exp_mine")],
-        hasHoldout: false,
         linkedExperimentIds: ["exp_mine", "exp_added_directly"],
         experimentIdsReferencedElsewhere: [],
       }),

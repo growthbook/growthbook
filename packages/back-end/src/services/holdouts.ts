@@ -38,9 +38,8 @@ export async function canLinkExperimentToHoldoutFromFeatures(
  *
  * `effectiveHoldout` is the holdout the rule will publish under, resolved by the
  * caller (the live `feature.holdout`, or the target revision's holdout when
- * posting to a different draft). Validation only — the linkage itself is derived
- * from published rules at publish time, so an abandoned draft leaves nothing to
- * unwind. The publish re-checks these constraints against live state.
+ * posting to a different draft). Validation only; the publish re-checks these
+ * against live state.
  *
  * Incompatibilities throw via `makeError`, so REST handlers can surface a 400
  * (`BadRequestError`) while controllers get a plain `Error` (the default).
@@ -75,8 +74,7 @@ export async function resolveHoldoutExperimentToLink({
     // Not yet linked: validate it can join the holdout, then signal the caller
     // to perform the link.
     if (!experiment.holdoutId) {
-      // Re-checked at publish, where it is what actually gates the linkage —
-      // here so the rule is refused at edit time rather than at publish.
+      // Re-checked at publish, which is what actually gates the linkage.
       const holdout = await context.models.holdout.getByIdForLinkage(
         effectiveHoldout.id,
       );
@@ -93,11 +91,9 @@ export async function resolveHoldoutExperimentToLink({
           `Cannot add experiment rule: this feature flag uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status ?? "unknown"}").`,
         );
       }
-      // A link to THIS feature never counts: linkedFeatures is deliberately
-      // sticky (see syncFeatureExperimentLinkages — "removal is user-driven"),
-      // so an earlier draft on this same feature leaves one behind even when
-      // discarded. Counting it made re-adding the rule impossible, with advice
-      // the UI gives no way to follow.
+      // Self-links never count: linkedFeatures is deliberately sticky (see
+      // syncFeatureExperimentLinkages), so a discarded draft on this same feature
+      // leaves one behind, and counting it blocked re-adding the rule.
       const expHasLinkedChanges =
         (experiment.linkedFeatures?.some((fid) => fid !== feature.id) ??
           false) ||

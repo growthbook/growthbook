@@ -149,7 +149,6 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       // Legacy revisions store holdout sparsely, so absence carries the
       // feature's holdout forward. Linking writes are deferred until after
       // custom-hook prevalidation below.
-      // Validation only: linkage itself is derived from published rules at publish.
       await resolveHoldoutExperimentToLink({
         context: req.context,
         feature,

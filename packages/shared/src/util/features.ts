@@ -3858,50 +3858,44 @@ export function getApiFeatureAllEnvs(feature: ApiFeature) {
   return Object.keys(feature.environments);
 }
 
-// Experiment ids an `experiment-ref` rule set enrolls in a holdout.
-export function getExperimentIdsFromRules(rules: FeatureRule[]): string[] {
+// Accepts legacy v1 (Record<env, rules>) as well as v2 arrays: raw-doc readers
+// hand over v1 shapes until the migration completes.
+export function getExperimentIdsFromRules(rules: unknown): string[] {
   return Array.from(
-    new Set(rules.filter(isExperimentRefRule).map((r) => r.experimentId)),
+    new Set(
+      naiveFlattenV1Rules(rules)
+        .filter(isExperimentRefRule)
+        .map((r) => r.experimentId)
+        .filter(Boolean),
+    ),
   );
 }
 
 /**
- * The holdout `linkedExperiments` delta a publish should apply for one feature,
- * derived from published state only.
- *
- * Unlinking is doubly constrained, because the holdout's experiment list is NOT
- * merely a projection of feature rules — an experiment can be added to a holdout
- * directly, with no feature referencing it. So a candidate must both have been
- * contributed by THIS feature (present in its previous rules) and be referenced
- * by nothing else. Anything else in the list belongs to another writer and is
- * left alone.
+ * Unlinking is doubly bounded: a holdout's experiment list is not only a
+ * projection of feature rules — experiments can be added to a holdout directly —
+ * so a candidate must both have been contributed by THIS feature and be
+ * referenced by nothing else. Anything else belongs to another writer.
  */
 export function computeHoldoutExperimentLinkageDelta({
   publishedRules,
   previousRules,
-  hasHoldout,
   linkedExperimentIds,
   experimentIdsReferencedElsewhere,
 }: {
   publishedRules: FeatureRule[];
-  // The feature's rules before this publish: the only experiments it can be said
-  // to have contributed, and so the only ones it may withdraw.
   previousRules: FeatureRule[];
-  // False when this publish leaves the feature with no holdout.
-  hasHoldout: boolean;
-  // The holdout's current `linkedExperiments` keys.
   linkedExperimentIds: string[];
-  // Experiment ids the holdout's OTHER features still reference in live rules.
   experimentIdsReferencedElsewhere: string[];
 }): { toLink: string[]; toUnlink: string[] } {
-  const desired = hasHoldout ? getExperimentIdsFromRules(publishedRules) : [];
+  const desired = getExperimentIdsFromRules(publishedRules);
   const desiredSet = new Set(desired);
-  const linkedSet = new Set(linkedExperimentIds);
+  const linked = new Set(linkedExperimentIds);
   const elsewhere = new Set(experimentIdsReferencedElsewhere);
   const contributed = new Set(getExperimentIdsFromRules(previousRules));
 
   return {
-    toLink: desired.filter((id) => !linkedSet.has(id)),
+    toLink: desired.filter((id) => !linked.has(id)),
     toUnlink: linkedExperimentIds.filter(
       (id) => contributed.has(id) && !desiredSet.has(id) && !elsewhere.has(id),
     ),
