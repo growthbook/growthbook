@@ -3473,8 +3473,14 @@ export async function publishRevision({
     // Say so in the response: continuing past a satellite keeps the feature and
     // its revision consistent, but whatever could not be reversed is left behind
     // and the caller is the only one positioned to act on it.
-    if (unreversed.length && err instanceof Error) {
-      err.message += ` (could not be rolled back: ${unreversed.join(", ")} — see server logs)`;
+    if (unreversed.length) {
+      const residue = `(could not be rolled back: ${unreversed.join(", ")} — see server logs)`;
+      // Appending keeps the original error's class, and so its status code.
+      if (err instanceof Error) {
+        err.message += ` ${residue}`;
+        throw err;
+      }
+      throw new Error(`${getErrorMessage(err)} ${residue}`);
     }
     throw err;
   }
