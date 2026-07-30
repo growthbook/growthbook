@@ -768,6 +768,9 @@ export function computeNextProcessAt(schedule: {
       return schedule.startDate ?? null;
     case "paused":
       return cutoff;
+    case "pending":
+    case "completed":
+    case "rolled-back":
     default:
       return null;
   }

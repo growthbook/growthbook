@@ -297,6 +297,24 @@ describe("holdout publish", () => {
       .set("Authorization", "Bearer foo");
 
     expect(res.status).toBe(200);
+
+    // Nothing is linked yet: an abandoned draft must leave no enrollment behind.
+    const draftExperiment = await mongoose.connection
+      .collection("experiments")
+      .findOne({ id: "exp_new" });
+    expect(draftExperiment?.holdoutId ?? "").toBe("");
+    const draftHoldout = await mongoose.connection
+      .collection("holdouts")
+      .findOne({ id: "hld_existing" });
+    expect(draftHoldout?.linkedExperiments?.exp_new).toBeFalsy();
+
+    const publishRes = await request(app)
+      .post("/api/v1/features/flag_existing_holdout/revisions/2/publish")
+      .send({})
+      .set("Authorization", "Bearer foo");
+    expect(publishRes.status).toBe(200);
+
+    // Publishing links it, still without holdout access.
     const experiment = await mongoose.connection
       .collection("experiments")
       .findOne({ id: "exp_new" });
