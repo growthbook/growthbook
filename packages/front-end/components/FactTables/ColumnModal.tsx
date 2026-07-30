@@ -1,6 +1,7 @@
 import {
   CreateColumnProps,
   ColumnInterface,
+  JSONColumnFields,
   NumberFormat,
   FactTableInterface,
   UpdateColumnProps,
@@ -28,7 +29,7 @@ import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Checkbox from "@/ui/Checkbox";
 import RadixButton from "@/ui/Button";
@@ -45,6 +46,20 @@ export interface Props {
   factTable: FactTableInterface;
   existing?: ColumnInterface;
   close: () => void;
+}
+
+// Form values allow an omitted json field datatype; a persisted column always
+// carries one, defaulting to "" until detection fills it in.
+function toPersistedJSONFields(
+  jsonFields: CreateColumnProps["jsonFields"],
+): JSONColumnFields | undefined {
+  if (!jsonFields) return undefined;
+  return Object.fromEntries(
+    Object.entries(jsonFields).map(([field, value]) => [
+      field,
+      { ...value, datatype: value.datatype ?? "" },
+    ]),
+  );
 }
 
 export default function ColumnModal({ existing, factTable, close }: Props) {
@@ -239,8 +254,8 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     name: form.watch("name") || form.watch("column"),
     description: form.watch("description") || "",
     numberFormat: form.watch("numberFormat") || "",
-    datatype: form.watch("datatype"),
-    jsonFields: form.watch("jsonFields"),
+    datatype: form.watch("datatype") ?? "",
+    jsonFields: toPersistedJSONFields(form.watch("jsonFields")),
     alwaysInlineFilter: form.watch("alwaysInlineFilter"),
     isAutoSliceColumn: form.watch("isAutoSliceColumn"),
     autoSlices: form.watch("autoSlices"),
@@ -280,7 +295,16 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             const updatedFactTable = {
               ...factTable,
               columns: factTable.columns.map((c) =>
-                c.column === existing.column ? { ...c, ...data } : c,
+                c.column === existing.column
+                  ? {
+                      ...c,
+                      ...data,
+                      datatype: data.datatype ?? c.datatype,
+                      jsonFields: data.jsonFields
+                        ? toPersistedJSONFields(data.jsonFields)
+                        : c.jsonFields,
+                    }
+                  : c,
               ),
             };
             if (!canInlineFilterColumn(updatedFactTable, existing.column)) {
@@ -323,13 +347,15 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         </Callout>
       )}
       <Field
+        size="legacy"
         label="Column"
         {...form.register("column")}
         disabled={!!existing}
       />
       <SelectField
+        size="legacy"
         label="Data Type"
-        value={form.watch("datatype")}
+        value={form.watch("datatype") ?? ""}
         onChange={(f) => form.setValue("datatype", f as FactTableColumnType)}
         initialOption="Unknown"
         required
@@ -367,6 +393,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       />
       {form.watch("datatype") === "number" && (
         <SelectField
+          size="legacy"
           label="Number Format"
           value={form.watch("numberFormat") || ""}
           helpText="Used to properly format numbers in the UI"
@@ -462,6 +489,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                           />
                           <div style={{ minWidth: 115 }}>
                             <SelectField
+                              size="legacy"
                               value={newJSONField.value}
                               onChange={(f) =>
                                 setNewJSONField({
@@ -539,6 +567,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       )}
 
       <Field
+        size="legacy"
         label="Display Name"
         {...form.register("name")}
         placeholder={form.watch("column")}
@@ -866,6 +895,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                         <Flex mt="2" gap="2" align="center">
                           <div style={{ flex: 1 }}>
                             <Field
+                              size="legacy"
                               style={{ height: 28 }}
                               value={newSliceValue}
                               onChange={(e) => setNewSliceValue(e.target.value)}
@@ -937,6 +967,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                         </div>
                       )}
                       <MultiSelectField
+                        size="legacy"
                         value={form.watch("autoSlices") || []}
                         onChange={(values) => {
                           if (values.length > maxMetricSliceLevels) {

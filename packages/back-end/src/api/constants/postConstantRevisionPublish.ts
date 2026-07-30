@@ -22,6 +22,7 @@ import {
   buildMergeDesiredState,
   isRevisionDiverged,
 } from "back-end/src/revisions/util";
+import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
@@ -80,45 +81,13 @@ export const postConstantRevisionPublish = createApiRequestHandler(
   // that were bypassed. The approval and stale-base checks below stay in place
   // as the enforcement backstop; the adapter-collected guard gates are enforced
   // solely here.
-  const version = req.params.version;
-  const gates: PublishGate[] = [];
-  if (approvalRequired && revision.status !== "approved") {
-    gates.push({
-      type: "approval-required",
-      severity: "blocker",
-      messages: [
-        `Requires approval before publishing (status: "${revision.status}").`,
-      ],
-      override: null,
-      requiresPermission: "bypassApprovalChecks",
-      resolution: {
-        action: "request-review",
-        method: "POST",
-        path: `/constants-revisions/${constant.key}/${version}/request-review`,
-      },
-    });
-  }
-  if (
-    req.organization.settings?.requireRebaseBeforePublish &&
-    isRevisionDiverged(
-      adapter,
-      revision.target.snapshot as Record<string, unknown>,
-      constant as unknown as Record<string, unknown>,
-    )
-  ) {
-    gates.push({
-      type: "stale-base",
-      severity: "blocker",
-      messages: ["This revision was created against an older version."],
-      override: "ignoreWarnings",
-      requiresPermission: "bypassApprovalChecks",
-      resolution: {
-        action: "rebase",
-        method: "POST",
-        path: `/constants-revisions/${constant.key}/${version}/rebase`,
-      },
-    });
-  }
+  const gates: PublishGate[] = collectRevisionGovernanceGates({
+    context: req.context,
+    adapter,
+    targetType: "constant",
+    entity: constant as unknown as Record<string, unknown>,
+    revision,
+  });
   gates.push(
     ...((await adapter.collectPublishGates?.(
       req.context,

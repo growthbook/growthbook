@@ -122,7 +122,7 @@ export async function clearRuleRampSchedule(
     // across applicable envs (falls back to all applicable envs if the rule
     // isn't present on live or draft).
     const orgEnvs = getEnvironments(organization);
-    const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
+    const applicableEnvs = getApplicableEnvIds(orgEnvs, feature);
     const changedEnvironments = environment
       ? [environment]
       : resolvedRule

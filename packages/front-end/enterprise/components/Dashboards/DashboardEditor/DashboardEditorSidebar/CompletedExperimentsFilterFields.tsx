@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { ExplorationDateRange } from "shared/validators";
 import { DashboardInterface, globalFilterIsSet } from "shared/enterprise";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";
 import SidebarExperimentFilters from "@/components/Search/SidebarExperimentFilters";

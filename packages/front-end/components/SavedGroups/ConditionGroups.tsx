@@ -37,7 +37,7 @@ import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
 
 export interface Props {
   groups: SavedGroupWithoutValues[];
-  mutate: () => void;
+  mutate: () => void | Promise<void>;
 }
 
 export default function ConditionGroups({ groups, mutate }: Props) {
@@ -171,6 +171,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
             current={savedGroupForm}
             type="condition"
             approvalFlowRequired={approvalFlowRequired}
+            mutate={mutate}
           />
         )}
         <Flex align="center" justify="between" mb="1">
@@ -193,6 +194,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
             <Flex align="center" justify="between" gap="3" mb="4">
               <Box style={{ width: "40%" }}>
                 <Field
+                  size="legacy"
                   placeholder="Search..."
                   type="search"
                   {...searchInputProps}

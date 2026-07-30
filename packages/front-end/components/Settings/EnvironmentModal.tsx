@@ -6,7 +6,7 @@ import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import useOrgLimits from "@/hooks/useOrgLimits";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Modal from "@/components/Modal";
@@ -155,6 +155,7 @@ export default function EnvironmentModal({
     >
       {!existing.id && (
         <SelectField
+          size="legacy"
           value={form.watch("id") || ""}
           options={newEnvironmentOptions}
           sort={false}
@@ -200,6 +201,7 @@ export default function EnvironmentModal({
         </PremiumCallout>
       )}
       <Field
+        size="legacy"
         label="Description"
         {...form.register("description")}
         placeholder=""
@@ -208,6 +210,7 @@ export default function EnvironmentModal({
       {!existing.id && (
         <div className="mb-3">
           <SelectField
+            size="legacy"
             label="Parent"
             value={form.watch("parent") || ""}
             onChange={(value) => {
@@ -235,6 +238,7 @@ export default function EnvironmentModal({
       )}
       <div className="mb-4">
         <MultiSelectField
+          size="legacy"
           label="Projects"
           placeholder="All Projects"
           value={form.watch("projects") || []}

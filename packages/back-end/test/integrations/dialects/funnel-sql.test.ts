@@ -365,6 +365,25 @@ describe("buildFunnelSql — launch subset (real dialects)", () => {
     expect(sql).not.toMatch(/HAVING\s+MIN\s+step1_ts\s+IGNORE\s+NULLS/i);
   });
 
+  it("Redshift emits LISTAGG-based array helpers and DATEDIFF", () => {
+    const { sql, stepCount } = buildFunnelSql(
+      config,
+      factTableMap,
+      redshiftDialect,
+    );
+    expect(stepCount).toBe(3);
+    expect(sql).toMatch(/DATEDIFF\s*\(\s*millisecond/i);
+    expect(sql).toMatch(/DATEADD\s*\(\s*second/i);
+    expect(sql).toMatch(/SPLIT_TO_ARRAY\s*\(\s*LISTAGG\s*\(/i);
+    expect(sql).toMatch(/SPLIT_PART\s*\(\s*MIN\s*\(/i);
+    expect(sql).toContain("::float");
+    expect(sql).toContain("::timestamp");
+    // Must not contain Postgres-specific forms.
+    expect(sql).not.toMatch(/EXTRACT\(\s*EPOCH/i);
+    expect(sql).not.toMatch(/unnest\(/i);
+    expect(sql).not.toMatch(/ARRAY_AGG\(/i);
+  });
+
   it("multi-fact-table funnel with a breakdown types the dimension NULL for the UNION", () => {
     // Two fact tables → UNION ALL of the per-table events CTEs. With a
     // breakdown dimension, the non-initial fact table must emit a typed NULL

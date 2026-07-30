@@ -157,6 +157,7 @@ const EditDOMMutationsModal: FC<{
                 <Flex justify="start" gap="6">
                   <Box flexBasis="50%">
                     <Field
+                      size="legacy"
                       label="Selector"
                       labelClassName="mb-1"
                       helpText="CSS selector for the element to modify"
@@ -172,6 +173,7 @@ const EditDOMMutationsModal: FC<{
                   </Box>
                   <Box flexBasis="25%">
                     <SelectField
+                      size="legacy"
                       label="Action"
                       labelClassName="mb-1"
                       options={[
@@ -191,6 +193,7 @@ const EditDOMMutationsModal: FC<{
                   </Box>
                   <Box flexBasis="25%">
                     <Field
+                      size="legacy"
                       label="Attribute"
                       labelClassName="mb-1"
                       value={domChanges?.attribute}
@@ -211,6 +214,7 @@ const EditDOMMutationsModal: FC<{
                   </Box>
                 </Flex>
                 <Field
+                  size="legacy"
                   label="Value"
                   labelClassName="mb-1"
                   textarea
@@ -245,6 +249,7 @@ const EditDOMMutationsModal: FC<{
                   <Flex gap="6">
                     <Box flexBasis="50%">
                       <Field
+                        size="legacy"
                         label="Insert Before Selector"
                         labelClassName="mb-1"
                         value={domChanges?.insertBeforeSelector || ""}
@@ -268,6 +273,7 @@ const EditDOMMutationsModal: FC<{
                     </Box>
                     <Box flexBasis="50%">
                       <Field
+                        size="legacy"
                         label="Parent Selector"
                         labelClassName="mb-1"
                         value={domChanges?.parentSelector || ""}
@@ -367,6 +373,7 @@ const EditDOMMutationsModal: FC<{
           </h4>
 
           <Field
+            size="legacy"
             textarea
             minRows={5}
             value={newVisualChange.css}
@@ -392,6 +399,7 @@ const EditDOMMutationsModal: FC<{
           </h4>
 
           <Field
+            size="legacy"
             textarea
             minRows={5}
             value={newVisualChange.js}

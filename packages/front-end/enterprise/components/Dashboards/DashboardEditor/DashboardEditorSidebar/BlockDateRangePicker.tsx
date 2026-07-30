@@ -157,7 +157,7 @@ export default function BlockDateRangePicker({
 
   const presetSelect = (
     <Select
-      size="2"
+      size="small"
       value={value.predefined}
       placeholder="Select range"
       disabled={disabled}
@@ -212,7 +212,7 @@ export default function BlockDateRangePicker({
           />
           <Box style={{ flex: 1 }}>
             <Select
-              size="2"
+              size="small"
               value={value.lookbackUnit ?? "day"}
               disabled={disabled}
               setValue={(v) =>

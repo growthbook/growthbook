@@ -122,6 +122,18 @@ export class DashboardModel extends BaseClass {
     return this._find({ experimentId: null });
   }
 
+  // Every dashboard in the org, ignoring the caller's read permissions. Only
+  // for authoritative dependency scans (e.g. blocking deletion of a fact table
+  // column a dashboard still references), where missing a dashboard the caller
+  // cannot read would let the delete through and leave that dashboard
+  // generating SQL for a column that no longer exists. Never return these to
+  // the caller.
+  public async dangerousGetAllForDependencyScan(): Promise<
+    DashboardInterface[]
+  > {
+    return this._find({}, { bypassReadPermissionChecks: true });
+  }
+
   public static async getDashboardsToUpdate(): Promise<
     Array<{
       id: string;
@@ -880,6 +892,14 @@ export function migrateBlock(
       }
       return migrated;
     }
+    case "metric-explorer":
+    case "markdown":
+    case "experiment-metadata":
+    case "experiment-traffic":
+    case "metric-exploration":
+    case "fact-table-exploration":
+    case "data-source-exploration":
+    case "funnel-exploration":
     default:
       return doc;
   }
@@ -900,6 +920,21 @@ function toBlockApiInterface(
           endDate: getValidDate(block.analysisSettings.endDate).toISOString(),
         },
       };
+    case "experiment-metric":
+    case "experiment-dimension":
+    case "experiment-time-series":
+    case "sql-explorer":
+    case "markdown":
+    case "experiment-metadata":
+    case "metric-experiments":
+    case "experiments-scaled-impact":
+    case "experiments-win-rate":
+    case "experiments-status":
+    case "experiment-traffic":
+    case "metric-exploration":
+    case "fact-table-exploration":
+    case "data-source-exploration":
+    case "funnel-exploration":
     default:
       return block;
   }
@@ -923,6 +958,20 @@ export function fromBlockApiInterface(
         ...apiBlock,
         blockConfig: apiBlock.blockConfig ?? [],
       };
+    case "experiment-metric":
+    case "experiment-dimension":
+    case "experiment-time-series":
+    case "markdown":
+    case "experiment-metadata":
+    case "metric-experiments":
+    case "experiments-scaled-impact":
+    case "experiments-win-rate":
+    case "experiments-status":
+    case "experiment-traffic":
+    case "metric-exploration":
+    case "fact-table-exploration":
+    case "data-source-exploration":
+    case "funnel-exploration":
     default:
       return apiBlock;
   }

@@ -392,6 +392,7 @@ function generateRowFilterSQL(
         stringMatch: helpers.stringMatch,
         jsonExtract: helpers.jsonExtract,
         evalBoolean: helpers.evalBoolean,
+        identifierQuote: helpers.identifierQuote,
       });
       return sql;
     })
@@ -414,7 +415,7 @@ function getCappingSettings(
 }
 
 // Generate dimension expression
-function generateDimensionExpression(
+export function generateDimensionExpression(
   dimension: ProductAnalyticsDimension,
   dimensionIndex: number,
   factTableGroup: FactTableGroup,
@@ -439,6 +440,8 @@ function generateDimensionExpression(
         dimension.column || "",
         factTable,
         helpers.jsonExtract,
+        "",
+        helpers.identifierQuote,
       );
       return `CASE 
         WHEN ${columnExpr} IN (SELECT value FROM ${topCTE}) THEN ${columnExpr}
@@ -450,6 +453,8 @@ function generateDimensionExpression(
         dimension.column,
         factTable,
         helpers.jsonExtract,
+        "",
+        helpers.identifierQuote,
       );
       const valueList = dimension.values
         .map((v) => `'${helpers.escapeStringLiteral(v)}'`)
@@ -532,7 +537,16 @@ function getEventValueExpr(
   let rawValue: string;
   if (columnRef.column === "$$distinctUsers") {
     if (columnRef.aggregateFilter && columnRef.aggregateFilterColumn) {
-      rawValue = columnRef.aggregateFilterColumn;
+      // Same expansion as an ordinary value column below, so a virtual column
+      // inlines its expression instead of emitting a name the warehouse cannot
+      // resolve. A plain column returns its own name, as before.
+      rawValue = getColumnExpression(
+        columnRef.aggregateFilterColumn,
+        factTable,
+        helpers.jsonExtract,
+        "",
+        helpers.identifierQuote,
+      );
     } else {
       rawValue = "1";
     }
@@ -544,7 +558,15 @@ function getEventValueExpr(
       "day",
     );
   } else {
-    rawValue = columnRef.column;
+    // Expand virtual (computed) columns into their SQL expression, and resolve
+    // JSON columns. A plain column just returns its own name here.
+    rawValue = getColumnExpression(
+      columnRef.column,
+      factTable,
+      helpers.jsonExtract,
+      "",
+      helpers.identifierQuote,
+    );
   }
 
   if (cap) {
@@ -805,6 +827,8 @@ function generateDynamicDimensionCTE(
     dimension.column || "",
     factTableGroup.factTable,
     helpers.jsonExtract,
+    "",
+    helpers.identifierQuote,
   );
 
   return {
@@ -1254,6 +1278,7 @@ export const FUNNEL_SUPPORTED_DATASOURCE_TYPES: readonly DataSourceType[] = [
   "athena",
   "presto",
   "databricks",
+  "redshift",
 ];
 
 export function isFunnelSupportedDatasourceType(type: DataSourceType): boolean {

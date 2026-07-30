@@ -25,6 +25,7 @@ import {
   deleteFactTable,
   updateFactTable,
 } from "back-end/src/models/FactTableModel";
+import { normalizeJSONFieldsInput } from "back-end/src/util/factTable";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   decryptEventForwarderConfigModel,
@@ -262,8 +263,8 @@ export function mergeEventForwarderFactTableColumnFromDesired(
     name: desired.name ?? existing?.name ?? "",
     description: desired.description ?? existing?.description ?? "",
     numberFormat: desired.numberFormat ?? existing?.numberFormat ?? "",
-    datatype: desired.datatype,
-    jsonFields: desired.jsonFields,
+    datatype: desired.datatype ?? "",
+    jsonFields: normalizeJSONFieldsInput(desired.jsonFields),
     dateCreated: existing?.dateCreated ?? now,
     dateUpdated: now,
     deleted: false,
@@ -386,7 +387,7 @@ export async function ensureEventForwarderEventsFactTable(
     id: getEventForwarderEventsFactTableId(datasource.id),
     name: getEventForwarderEventsFactTableName(datasource.name),
     description:
-      "This fact table was auto-generated when the event forwarder was enabled and is read-only. As you make changes to attributes, we'll automatically update the Fact Table's SQL to reflect the changes. If you&apos;d like to customize this Fact Table, you can duplicate it and edit the copy.",
+      "This fact table was auto-generated when the Event Forwarder was enabled. As you make changes to attributes, we'll automatically update the Fact Table's SQL to reflect the changes.",
     owner: "",
     tags: [],
     projects: datasource.projects ?? [],

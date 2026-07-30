@@ -585,7 +585,12 @@ const MetricsList = (): React.ReactElement => {
       </Box>
       <Flex justify="between" mb="3" gap="3" align="center">
         <Box className="relative" width="40%">
-          <Field placeholder="Search..." type="search" {...searchInputProps} />
+          <Field
+            size="legacy"
+            placeholder="Search..."
+            type="search"
+            {...searchInputProps}
+          />
         </Box>
         <MetricSearchFilters
           combinedMetrics={combinedMetrics}

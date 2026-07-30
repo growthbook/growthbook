@@ -36,6 +36,7 @@ const openApiTags = [
   "constant-revisions",
   "configs",
   "config-revisions",
+  "releases",
   "custom-hooks",
   "organizations",
   "members",
@@ -170,6 +171,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
     display: "Config Revisions",
     description:
       '**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nDraft revisions for configs, including value and schema edits, schema import (JSON Schema / TypeScript / inferred), approvals, and lifecycle (publish, discard, revert). Publishing a schema change cascades the "base wins" normalization to descendant configs; a publish that removes or retypes fields descendants still use soft-blocks with a 422 unless the request body sets `ignoreWarnings: true`. Pass `version: "new"` on edit endpoints to auto-create a draft.',
+  },
+  releases: {
+    display: "Releases",
+    description:
+      "**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nCoordinated multi-entity publishing: publish a set of revisions across Feature Flags, Saved Groups, configs, and constants as one all-or-nothing operation, validated against the combined end-state instead of each in-between state. Requires the `releases` commercial feature.",
   },
   "custom-hooks": {
     display: "Custom Hooks",
@@ -676,11 +682,13 @@ curl https://api.growthbook.io/api/v1/features \
       stripDefaultedFromRequired(jsonSchema);
       Object.entries(jsonSchema.properties ?? {}).forEach(([name, schema]) => {
         const isRequired = (jsonSchema.required ?? []).includes(name);
-        // Hoist x- extension fields from schema to parameter level
+        // Hoist x- extension fields — plus serialization fields like
+        // `explode`/`style`, which schemas can set via .meta() but belong on
+        // the parameter — from schema to parameter level
         const schemaObj = schema as Record<string, unknown>;
         const extensions: Record<string, unknown> = {};
         for (const key of Object.keys(schemaObj)) {
-          if (key.startsWith("x-")) {
+          if (key.startsWith("x-") || key === "explode" || key === "style") {
             extensions[key] = schemaObj[key];
             delete schemaObj[key];
           }

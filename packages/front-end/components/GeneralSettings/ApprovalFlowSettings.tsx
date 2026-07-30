@@ -10,7 +10,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import Frame from "@/ui/Frame";
 import Checkbox from "@/ui/Checkbox";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Link from "@/ui/Link";
 
 export default function ApprovalFlowSettings() {
@@ -70,6 +70,26 @@ export default function ApprovalFlowSettings() {
     });
   }, [requireReviewsWatched]);
 
+  // Org-wide targeting review governance. The UI edits the all-projects default
+  // rule; any project-specific override rules (API-only for now) are preserved.
+  const targetingReviewRules = form.watch("targetingReviewMode") || [];
+  const orgWideTargetingRule = targetingReviewRules.find(
+    (r) => (r.projects?.length ?? 0) === 0,
+  );
+  const targetingStrict = orgWideTargetingRule
+    ? orgWideTargetingRule.mode === "strict"
+    : true;
+  const setTargetingMode = (strict: boolean) => {
+    const mode: "strict" | "loose" = strict ? "strict" : "loose";
+    const perProject = targetingReviewRules.filter(
+      (r) => (r.projects?.length ?? 0) > 0,
+    );
+    form.setValue("targetingReviewMode", [
+      ...perProject,
+      { projects: [], mode },
+    ]);
+  };
+
   return (
     <Frame>
       <Flex gap="4">
@@ -116,6 +136,7 @@ export default function ApprovalFlowSettings() {
                         <Flex direction="column" gap="3" mb="3">
                           {showProjectScope[i] ? (
                             <MultiSelectField
+                              size="legacy"
                               id={`projects-${i}`}
                               label="Projects"
                               labelClassName="font-weight-semibold"
@@ -146,6 +167,7 @@ export default function ApprovalFlowSettings() {
                           )}
                           {showEnvScope[i] ? (
                             <MultiSelectField
+                              size="legacy"
                               id={`environments-${i}`}
                               label="Specific environments"
                               labelClassName="font-weight-semibold"
@@ -297,6 +319,15 @@ export default function ApprovalFlowSettings() {
                     )}
                   </Box>
                 ))}
+                <Box mt="4">
+                  <Checkbox
+                    id="toggle-targeting-review-mode"
+                    label="Apply approval requirements from Targeting Projects"
+                    description="When a Feature Flag is delivered into Targeting Projects, its changes must also satisfy those Projects' approval requirements before publishing. When off, only the primary Project governs approvals."
+                    value={targetingStrict}
+                    setValue={setTargetingMode}
+                  />
+                </Box>
               </>
             )}
           </Frame>

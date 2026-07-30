@@ -23,6 +23,7 @@ const ValueTypeField: FC<{
 
   return (
     <SelectField
+      size="legacy"
       label="Value Type"
       value={value}
       onChange={(v) => onChange(v as FeatureAuthoringType)}

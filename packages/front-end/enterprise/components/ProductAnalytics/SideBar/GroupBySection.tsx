@@ -171,6 +171,7 @@ export default function GroupBySection() {
           >
             <Flex direction="row" gap="2" align="center">
               <SelectField
+                size="legacy"
                 containerStyle={{ flex: 1, minWidth: 0 }}
                 value={dim.column || ""}
                 onChange={(val) =>
@@ -228,6 +229,7 @@ export default function GroupBySection() {
                   Max values
                 </Text>
                 <Field
+                  size="legacy"
                   type="number"
                   min="1"
                   max="20"

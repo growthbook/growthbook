@@ -6,6 +6,9 @@ import { MetricInterface } from "shared/types/metric";
 import {
   getMetricsForDefinitions,
   getMetricsByOrganization,
+  METRIC_DEFINITION_EXCLUDED_FIELDS,
+  METRIC_QUERY_STATUS_FIELDS,
+  FIELDS_NOT_REQUIRING_DATE_UPDATED,
 } from "back-end/src/models/MetricModel";
 import { usingFileConfig, getConfigMetrics } from "back-end/src/init/config";
 import { ReqContext } from "back-end/types/request";
@@ -221,5 +224,25 @@ describe("getMetricsByOrganization includeArchived", () => {
       "met_active",
       "met_archived",
     ]);
+  });
+});
+
+// The definitions endpoint serves 304s from a version counter, and two metric
+// write paths skip the bump: updateMetricQueriesAndStatus (no touch at all)
+// and updateMetric (gated on dateUpdated being stamped). Both are safe only
+// while every field they can skip is excluded from the definitions payload —
+// a field leaving METRIC_DEFINITION_EXCLUDED_FIELDS while still skipping the
+// bump would serve stale 304s.
+describe("definitions version exclusion invariants", () => {
+  it("keeps updateMetricQueriesAndStatus's writable fields out of the definitions payload", () => {
+    for (const field of METRIC_QUERY_STATUS_FIELDS) {
+      expect(METRIC_DEFINITION_EXCLUDED_FIELDS).toContain(field);
+    }
+  });
+
+  it("keeps every field that skips dateUpdated out of the definitions payload", () => {
+    for (const field of FIELDS_NOT_REQUIRING_DATE_UPDATED) {
+      expect(METRIC_DEFINITION_EXCLUDED_FIELDS).toContain(field);
+    }
   });
 });

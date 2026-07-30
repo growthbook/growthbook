@@ -74,6 +74,10 @@ export default function FeaturesDraftTable() {
       case "changes-requested":
         dateAndStatus = parseInt(`1${dateAndStatus}`);
         break;
+      case "discarded":
+      case "published":
+      case "pending-parent":
+        break;
     }
     return {
       // Composite ID so MiniSearch never sees duplicate IDs when a feature has
@@ -166,6 +170,7 @@ export default function FeaturesDraftTable() {
         <Flex gap="4" align="center" justify="between" mb="4" wrap="wrap">
           <Box style={{ flexBasis: 300, flexShrink: 0 }}>
             <Field
+              size="legacy"
               placeholder="Search..."
               type="search"
               containerClassName="mb-0"
