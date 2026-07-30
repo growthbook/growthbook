@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
 import {
   MergeResultChanges,
@@ -9,8 +10,6 @@ import { FeatureRevisionInterface } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
-import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
-import { getEnabledEnvironments } from "back-end/src/util/features";
 
 /**
  * Who may move a feature draft along, and who may land it.
@@ -24,33 +23,26 @@ import { getEnabledEnvironments } from "back-end/src/util/features";
  * check fails.
  */
 
-function allEnabledEnvs(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-): string[] {
-  return Array.from(
-    getEnabledEnvironments(feature, getEnvironmentIdsFromOrg(context.org)),
-  );
-}
-
+/**
+ * These gate DRAFT-advance paths only — request review, recall, discard — which
+ * publish nothing, so they ask for the atom in the feature's project and not over
+ * any environment. Same footprint the revert-draft endpoint uses to create the
+ * draft in the first place; landing it is checked separately against the merge
+ * footprint. An env list here would let an env-limited reverter create a draft it
+ * could then neither advance nor discard.
+ */
 function hasRevertAuthority(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
 ): boolean {
-  return context.permissions.canRevertFeature(
-    feature,
-    allEnabledEnvs(context, feature),
-  );
+  return context.permissions.canRevertFeature(feature, NO_ENVIRONMENT_BINDING);
 }
 
 function hasDeleteAuthority(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
 ): boolean {
-  return context.permissions.canDeleteFeature(
-    feature,
-    allEnabledEnvs(context, feature),
-  );
+  return context.permissions.canDeleteFeature(feature, NO_ENVIRONMENT_BINDING);
 }
 
 /** The caller opened this draft, or has contributed changes to it. */

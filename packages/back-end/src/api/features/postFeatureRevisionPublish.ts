@@ -1,5 +1,6 @@
 import { postFeatureRevisionPublishValidator } from "shared/validators";
 import { isStrandedLiveRevision } from "shared/util";
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { ApiRequestLocals } from "back-end/types/api";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -52,7 +53,26 @@ export async function publishFeatureRevision(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  // Publish is gated per-env by canPublishFeature below; no manage required.
+  // Coarse authority check, before anything expensive or observable. The precise
+  // per-environment check runs below, once the merge footprint is known — but a
+  // caller holding none of the three landing atoms in this project cannot pass it
+  // under any footprint, so refusing here costs an authorized caller nothing. It
+  // keeps an unauthorized one from running the org's sandboxed validation hooks
+  // and from reading the governance-gate enumeration that gate collection
+  // returns in its 422.
+  if (
+    !req.context.permissions.canPublishFeature(
+      feature,
+      NO_ENVIRONMENT_BINDING,
+    ) &&
+    !req.context.permissions.canRevertFeature(
+      feature,
+      NO_ENVIRONMENT_BINDING,
+    ) &&
+    !req.context.permissions.canDeleteFeature(feature, NO_ENVIRONMENT_BINDING)
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
 
   const revision = await getRevision({
     context: req.context,

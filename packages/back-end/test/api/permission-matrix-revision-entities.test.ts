@@ -182,6 +182,34 @@ const CASES: Case[] = [
     run: (e, id, v) =>
       api.post(`/api/v1/${e.base}-revisions/${id}/${v}/discard`, {}),
   },
+  {
+    // Staging a revert publishes nothing, so draft authority reaches it — and so
+    // does revert authority on its own, which is the point of the atom.
+    name: "stage a revert as a draft",
+    allowed: ["drafter", "reverter", "editor", "full"],
+    needsPriorPublished: true,
+    run: (e, id, v) =>
+      api.post(`/api/v1/${e.base}-revisions/${id}/${v}/revert`, {
+        strategy: "draft",
+      }),
+  },
+  {
+    // Landing one is the only case that asserts what a reverter MAY put in front
+    // of users. Every other case asserts it is refused, so the atom would look
+    // correct even if it granted nothing at all.
+    //
+    // Publish authority is NOT enough, even though a publisher could reach the
+    // same end state by drafting the old values: under `revertsBypassApproval` a
+    // revert can skip review, so it is its own capability rather than a weaker
+    // publish.
+    name: "revert straight to published",
+    allowed: ["reverter", "full"],
+    needsPriorPublished: true,
+    run: (e, id, v) =>
+      api.post(`/api/v1/${e.base}-revisions/${id}/${v}/revert`, {
+        strategy: "publish",
+      }),
+  },
 ];
 
 /** A fresh entity per case, so no case can be affected by an earlier one. */
@@ -230,13 +258,20 @@ async function seedPriorPublishedRevision(
   e: Entity,
   id: string,
 ): Promise<number> {
-  const first = await seedDraft(e, id);
-  await seedEdit(e, id, first, e.editBody);
-  await seedPublish(e, id, first);
-  const second = await seedDraft(e, id);
-  await seedEdit(e, id, second, e.editBody2);
-  await seedPublish(e, id, second);
-  return first;
+  const version = await seedDraft(e, id);
+  await seedEdit(e, id, version, e.editBody);
+  await seedPublish(e, id, version);
+  // Move the live state off that revision with a direct write, so reverting to
+  // it restores something the entity no longer has. Cheaper than publishing a
+  // second revision, and it changes the same field the revert compares.
+  as("admin");
+  const res = await api.post(`/api/v1/${e.base}/${id}`, e.editBody2);
+  if (res.status >= 400) {
+    throw new Error(
+      `live-move seed failed: ${res.status} ${JSON.stringify(res.body)}`,
+    );
+  }
+  return version;
 }
 
 async function seedPublish(
