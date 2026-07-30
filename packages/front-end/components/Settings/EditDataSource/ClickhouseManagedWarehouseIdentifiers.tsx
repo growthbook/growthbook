@@ -117,7 +117,7 @@ export default function ClickhouseManagedWarehouseIdentifiers({
         ) : null}
       </Callout>
       {dataSource.settings.useJsonColumns ? (
-        <Box mt="4">
+        <Box mt="4" maxWidth="420px">
           <Select
             label={
               <Text as="label" weight="semibold">
@@ -133,7 +133,6 @@ export default function ClickhouseManagedWarehouseIdentifiers({
               }
             }}
             disabled={!canEdit}
-            style={{ maxWidth: 420 }}
           >
             <SelectItem value="device_id">
               device_id &mdash; anonymous or device IDs (default)

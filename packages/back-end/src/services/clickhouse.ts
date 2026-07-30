@@ -32,6 +32,7 @@ import {
   dangerouslyGetGrowthbookDatasourceBypassPermission,
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
+import { getCollection } from "back-end/src/util/mongo.util";
 import { syncJsonErgonomicsInClickhouse } from "back-end/src/services/licenseServerManagedClickhouse";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
@@ -531,28 +532,28 @@ export async function setManagedWarehouseIdAttributeIdentifier(
     );
   }
 
-  // Merge onto a fresh read rather than the request-start snapshot: this is a
-  // full-settings write, so a stale spread could revert a concurrent update
-  // (an attribute sync's derived metadata, a provisioning flag flip).
-  const fresh =
-    await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
-  if (
-    !fresh ||
-    fresh.type !== "growthbook_clickhouse" ||
-    fresh.id !== datasource.id
-  ) {
-    throw new Error("Cannot find datasource");
-  }
-  await updateDataSource(
-    context,
-    fresh,
-    { settings: { ...fresh.settings, idAttributeIdentifier: identifier } },
-    { skipExposureQueryValidation: true },
+  // Targeted single-key $set (the sweep job's pattern): a full settings write
+  // from a snapshot could revert a concurrent update (an attribute sync's
+  // derived metadata, a provisioning flag flip), while a dot-path write can't
+  // clobber anything. Filter-guarded so a same-value PUT leaves the doc alone.
+  await getCollection("datasources").updateOne(
+    {
+      organization: context.org.id,
+      id: datasource.id,
+      "settings.idAttributeIdentifier": { $ne: identifier },
+    },
+    {
+      $set: {
+        "settings.idAttributeIdentifier": identifier,
+        dateUpdated: new Date(),
+      },
+    },
   );
 
   // Always re-sync — even when the flag already matches — and let the sync
   // re-fetch the doc it derives from. A retry after a failed regeneration then
   // heals the persisted SQL instead of short-circuiting on the already-persisted
-  // flag, and the sync's own full-settings write bases on the freshest state.
+  // flag, and the audit entry / definitions-version bump for the resulting
+  // generated-SQL change happen through the sync's own updateDataSource.
   await syncManagedWarehouseIdentifiers(context);
 }
