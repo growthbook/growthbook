@@ -38,13 +38,13 @@ const defaultLimits = {
 };
 
 export const setupApp = () => {
-  // These specs drive the real Express app against an in-memory Mongo, so one
-  // test is several round trips, and each spec forks its OWN mongod. In a full
-  // local run that is ~25 mongod processes competing with a worker per core: a
-  // file that takes 4s alone has been seen taking 32s, and a 60ms test blowing a
-  // 20s budget. Nothing here is racy — the budget just has to cover contention.
-  // The root fix is one shared server via globalSetup, not a bigger number.
-  jest.setTimeout(60000);
+  // These specs boot the real Express app against an in-memory Mongo, so a
+  // single test is app setup plus several round trips. Jest's 5s default is a
+  // unit-test budget and several of these files legitimately run for 40s+, so
+  // individual tests overshoot it on a loaded machine without anything being
+  // racy. Measured, not guessed: at the default, timeouts land on a different
+  // spec each run.
+  jest.setTimeout(20000);
 
   let mongodb;
   let reqContext;

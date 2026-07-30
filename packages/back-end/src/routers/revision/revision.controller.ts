@@ -37,7 +37,10 @@ import {
   maybeAutoPublishRevision,
   canEnableAutoPublishOnApproval,
 } from "back-end/src/revisions/revisionActions";
-import { canAdvanceRevision } from "back-end/src/revisions/revisionAuthority";
+import {
+  canAdvanceRevision,
+  canRebaseRevision,
+} from "back-end/src/revisions/revisionAuthority";
 
 // Commenting is participation, not authority over the entity: the addComments
 // atom is what gates it everywhere else (feature and experiment discussions), so
@@ -896,28 +899,30 @@ export const postRebase = async (
     return res.status(404).json({ message: "Entity not found" });
   }
 
+  const baseSnapshot = revision.target.snapshot as Record<string, unknown>;
+  const existingOps = normalizeProposedChanges(revision.target.proposedChanges);
+  const liveSnapshot = entity as Record<string, unknown>;
+  const updatableFields = getAdapter(revision.target.type).getUpdatableFields();
+
   if (
-    !canDoRevisionAction(
-      revision.target.type,
-      "draft",
+    !(await canRebaseRevision({
       context,
-      entity as Record<string, unknown>,
-    )
+      revision,
+      baseSnapshot,
+      liveSnapshot,
+      updatableFields,
+    }))
   ) {
     context.permissions.throwPermissionError();
   }
 
   // Recalculate merge result against the current live state to ensure the
   // resolution the client is submitting is still valid.
-  const baseSnapshot = revision.target.snapshot as Record<string, unknown>;
-  const existingOps = normalizeProposedChanges(revision.target.proposedChanges);
-  const liveSnapshot = entity as Record<string, unknown>;
-
   const mergeResult = checkMergeConflicts(
     baseSnapshot,
     liveSnapshot,
     existingOps,
-    getAdapter(revision.target.type).getUpdatableFields(),
+    updatableFields,
   );
 
   // Optimistic-lock: verify the client's view of the conflict set still

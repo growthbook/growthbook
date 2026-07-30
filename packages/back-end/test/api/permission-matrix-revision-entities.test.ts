@@ -52,6 +52,8 @@ type Entity = {
   /** Field-edit path segment + body on a draft revision. */
   editSegment: string;
   editBody: Record<string, unknown>;
+  /** A second, different edit — lets two published revisions differ. */
+  editBody2: Record<string, unknown>;
   /** A direct write to the live entity that isn't an archive. */
   renameBody: Record<string, unknown>;
 };
@@ -69,6 +71,7 @@ const ENTITIES: Entity[] = [
     idOf: (b) => b.key as string,
     editSegment: "value",
     editBody: { value: '{"timeout":45}' },
+    editBody2: { value: '{"timeout":60}' },
     renameBody: { name: "Renamed" },
   },
   {
@@ -82,6 +85,7 @@ const ENTITIES: Entity[] = [
     idOf: (b) => b.key as string,
     editSegment: "value",
     editBody: { value: { timeout: 45 } },
+    editBody2: { value: { timeout: 60 } },
     renameBody: { name: "Renamed" },
   },
   {
@@ -97,6 +101,7 @@ const ENTITIES: Entity[] = [
     idOf: (b) => b.id as string,
     editSegment: "values",
     editBody: { values: ["u1", "u2", "u3"] },
+    editBody2: { values: ["u1", "u2", "u3", "u4"] },
     renameBody: { name: "Renamed" },
   },
 ];
@@ -104,6 +109,8 @@ const ENTITIES: Entity[] = [
 type Case = {
   name: string;
   allowed: Persona[];
+  needsEdit?: boolean;
+  needsReviewRequest?: boolean;
   run: (
     e: Entity,
     id: string,
@@ -152,6 +159,29 @@ const CASES: Case[] = [
     allowed: ["deleter", "full"],
     run: (e, id) => api.post(`/api/v1/${e.base}/${id}/archive`, {}),
   },
+  {
+    name: "publish a draft",
+    allowed: ["publisher", "creatorPublisher", "editor", "full"],
+    needsEdit: true,
+    run: (e, id, v) =>
+      api.post(`/api/v1/${e.base}-revisions/${id}/${v}/publish`, {}),
+  },
+  {
+    name: "submit a review verdict",
+    allowed: ["reviewer", "full"],
+    needsReviewRequest: true,
+    run: (e, id, v) =>
+      api.post(`/api/v1/${e.base}-revisions/${id}/${v}/submit-review`, {
+        decision: "approve",
+      }),
+  },
+  {
+    name: "discard a draft",
+    allowed: ["drafter", "editor", "full"],
+    needsEdit: true,
+    run: (e, id, v) =>
+      api.post(`/api/v1/${e.base}-revisions/${id}/${v}/discard`, {}),
+  },
 ];
 
 /** A fresh entity per case, so no case can be affected by an earlier one. */
@@ -173,6 +203,77 @@ async function seed(e: Entity): Promise<string> {
   return e.idOf({ ...body, ...doc });
 }
 
+/** Give the draft content, so publishing it is not a no-op. */
+async function seedEdit(
+  e: Entity,
+  id: string,
+  version: number,
+  body: Record<string, unknown> = e.editBody,
+): Promise<void> {
+  as("admin");
+  const res = await api.put(
+    `/api/v1/${e.base}-revisions/${id}/${version}/${e.editSegment}`,
+    body,
+  );
+  if (res.status >= 400) {
+    throw new Error(
+      `edit seed failed: ${res.status} ${JSON.stringify(res.body)}`,
+    );
+  }
+}
+
+/**
+ * Publish two differing revisions as admin and return the FIRST one's version,
+ * so reverting to it restores a state the entity no longer has.
+ */
+async function seedPriorPublishedRevision(
+  e: Entity,
+  id: string,
+): Promise<number> {
+  const first = await seedDraft(e, id);
+  await seedEdit(e, id, first, e.editBody);
+  await seedPublish(e, id, first);
+  const second = await seedDraft(e, id);
+  await seedEdit(e, id, second, e.editBody2);
+  await seedPublish(e, id, second);
+  return first;
+}
+
+async function seedPublish(
+  e: Entity,
+  id: string,
+  version: number,
+): Promise<void> {
+  as("admin");
+  const res = await api.post(
+    `/api/v1/${e.base}-revisions/${id}/${version}/publish`,
+    {},
+  );
+  if (res.status >= 400) {
+    throw new Error(
+      `publish seed failed: ${res.status} ${JSON.stringify(res.body)}`,
+    );
+  }
+}
+
+/** Move the draft to pending-review, so a verdict can be submitted on it. */
+async function seedReviewRequest(
+  e: Entity,
+  id: string,
+  version: number,
+): Promise<void> {
+  as("admin");
+  const res = await api.post(
+    `/api/v1/${e.base}-revisions/${id}/${version}/request-review`,
+    {},
+  );
+  if (res.status >= 400) {
+    throw new Error(
+      `review-request seed failed: ${res.status} ${JSON.stringify(res.body)}`,
+    );
+  }
+}
+
 async function seedDraft(e: Entity, id: string): Promise<number> {
   as("admin");
   const res = await api.post(`/api/v1/${e.base}-revisions/${id}`, {});
@@ -188,23 +289,63 @@ async function seedDraft(e: Entity, id: string): Promise<number> {
   return body.revision?.version ?? body.version ?? 1;
 }
 
+/**
+ * Carry the body into the assertion: a 400 from a malformed request would
+ * otherwise look like a permission result and make the case vacuous.
+ */
+function expectVerdict(
+  res: { status: number; body?: unknown },
+  isAllowed: boolean,
+): void {
+  const actual = `${res.status} ${JSON.stringify(res.body ?? {}).slice(0, 200)}`;
+  if (isAllowed) {
+    expect(actual).toMatch(/^[123]\d\d /);
+  } else {
+    expect(actual).toMatch(/^403 /);
+  }
+}
+
 describe.each(ENTITIES)("permission matrix — $label", (entity: Entity) => {
-  describe.each(CASES)("$name", ({ allowed, run, needsDraft }: Case) => {
-    it.each(PERSONA_IDS)("%s", async (persona) => {
-      const id = await seed(entity);
-      const version = needsDraft ? await seedDraft(entity, id) : 0;
+  describe.each(CASES)(
+    "$name",
+    ({
+      allowed,
+      run,
+      needsDraft,
+      needsEdit,
+      needsReviewRequest,
+      needsPriorPublished,
+    }: Case) => {
+      it.each(PERSONA_IDS)("%s", async (persona) => {
+        const id = await seed(entity);
+        if (needsPriorPublished) {
+          const target = await seedPriorPublishedRevision(entity, id);
+          as(persona);
+          const priorRes = await run(entity, id, target);
+          expectVerdict(priorRes, allowed.includes(persona));
+          return;
+        }
+        const wantsDraft = needsDraft || needsEdit || needsReviewRequest;
+        const version = wantsDraft ? await seedDraft(entity, id) : 0;
+        if (needsEdit || needsReviewRequest) {
+          await seedEdit(entity, id, version);
+        }
+        if (needsReviewRequest) {
+          await seedReviewRequest(entity, id, version);
+        }
 
-      as(persona);
-      const res = await run(entity, id, version);
-      // Carry the body into the assertion: a 400 from a malformed request would
-      // otherwise look like a permission result and make the case vacuous.
-      const actual = `${res.status} ${JSON.stringify(res.body ?? {}).slice(0, 200)}`;
+        as(persona);
+        const res = await run(entity, id, version);
+        // Carry the body into the assertion: a 400 from a malformed request would
+        // otherwise look like a permission result and make the case vacuous.
+        const actual = `${res.status} ${JSON.stringify(res.body ?? {}).slice(0, 200)}`;
 
-      if (allowed.includes(persona)) {
-        expect(actual).toMatch(/^[123]\d\d /);
-      } else {
-        expect(actual).toMatch(/^403 /);
-      }
-    });
-  });
+        if (allowed.includes(persona)) {
+          expect(actual).toMatch(/^[123]\d\d /);
+        } else {
+          expect(actual).toMatch(/^403 /);
+        }
+      });
+    },
+  );
 });

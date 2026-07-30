@@ -1,7 +1,10 @@
 import type { Revision } from "shared/enterprise";
 import type { RevisionAction } from "shared/permissions";
 import type { Context } from "back-end/src/models/BaseModel";
-import { canAdvanceRevision } from "back-end/src/revisions/revisionAuthority";
+import {
+  canAdvanceRevision,
+  canRebaseRevision,
+} from "back-end/src/revisions/revisionAuthority";
 import { assertCanPublishRevision } from "back-end/src/revisions/revisionActions";
 
 /**
@@ -232,5 +235,91 @@ describe("assertCanPublishRevision", () => {
       // Publish gets it past the archive gate only alongside delete.
       expect(await attempt(["publish", "delete"], mixed)).toBe(true);
     });
+  });
+});
+
+describe("canRebaseRevision", () => {
+  const updatableFields = new Set(["values", "archived", "description"]);
+  const base = { values: ["u1"], description: "d" };
+
+  function attempt({
+    granted,
+    live,
+    revision = makeRevision(),
+  }: {
+    granted: RevisionAction[];
+    live: Record<string, unknown>;
+    revision?: Revision;
+  }) {
+    return canRebaseRevision({
+      context: makeContext({ granted }),
+      revision,
+      baseSnapshot: base,
+      liveSnapshot: live,
+      updatableFields,
+    });
+  }
+
+  const archiveDraft = makeRevision({
+    target: {
+      type: "saved-group",
+      id: "grp1",
+      snapshot: SNAPSHOT,
+      proposedChanges: [{ op: "replace", path: "/archived", value: true }],
+    },
+  });
+
+  it("draft authority covers a rebase that pulls changes in", async () => {
+    expect(
+      await attempt({ granted: ["draft"], live: { ...base, values: ["u2"] } }),
+    ).toBe(true);
+  });
+
+  it("lets a narrow atom re-anchor a draft it could already advance", async () => {
+    expect(
+      await attempt({
+        granted: ["delete"],
+        live: base,
+        revision: archiveDraft,
+      }),
+    ).toBe(true);
+  });
+
+  it("refuses a narrow atom once the rebase would pull something in", async () => {
+    // The whole point: rebasing must not become a way to sweep someone else's
+    // change into a draft the thin atom is allowed to land.
+    expect(
+      await attempt({
+        granted: ["delete"],
+        live: { ...base, values: ["someone else"] },
+        revision: archiveDraft,
+      }),
+    ).toBe(false);
+  });
+
+  it("notices a live change in a field the draft never touches", async () => {
+    // checkMergeConflicts would report neither a conflict nor a changed field
+    // here, yet the rebase adopts `description` from live.
+    expect(
+      await attempt({
+        granted: ["delete"],
+        live: { ...base, description: "edited by someone else" },
+        revision: archiveDraft,
+      }),
+    ).toBe(false);
+  });
+
+  it("refuses a narrow atom over a draft it could not advance anyway", async () => {
+    expect(await attempt({ granted: ["delete"], live: base })).toBe(false);
+  });
+
+  it("treats absent and null as the same value", async () => {
+    expect(
+      await attempt({
+        granted: ["delete"],
+        live: { ...base, archived: null },
+        revision: archiveDraft,
+      }),
+    ).toBe(true);
   });
 });
