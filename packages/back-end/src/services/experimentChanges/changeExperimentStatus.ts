@@ -773,6 +773,10 @@ export async function stopExperiment({
     isEnding = true;
   }
 
+  if (experiment.nextScheduledStatusUpdate) {
+    changes.nextScheduledStatusUpdate = null;
+  }
+
   if (experiment.type === "multi-armed-bandit") {
     changes.banditStage = "paused";
     changes.banditStageDateStarted = new Date();
