@@ -118,6 +118,7 @@ export function getFactMetricCTE(
         evalBoolean: dialect.evalBoolean,
         castToTimestamp: dialect.castToTimestamp,
         sliceInfo,
+        identifierQuote: dialect.identifierQuote,
       });
 
       const column =
@@ -177,6 +178,7 @@ export function getFactMetricCTE(
         evalBoolean: dialect.evalBoolean,
         castToTimestamp: dialect.castToTimestamp,
         sliceInfo,
+        identifierQuote: dialect.identifierQuote,
       });
       const column =
         filters.length > 0

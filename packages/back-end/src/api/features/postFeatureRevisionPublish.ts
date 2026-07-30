@@ -1,4 +1,5 @@
 import { postFeatureRevisionPublishValidator } from "shared/validators";
+import { isStrandedLiveRevision } from "shared/util";
 import type { ApiRequestLocals } from "back-end/types/api";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -77,7 +78,13 @@ export async function publishFeatureRevision(
     revision,
   });
   const { environmentIds, mergeResult: mergeChanges } = plan;
-  if (!plan.hasChanges) {
+  const isStranded = isStrandedLiveRevision({
+    featureVersion: feature.version,
+    revisionVersion: revision.version,
+    revisionStatus: revision.status,
+    hasChanges: plan.hasChanges,
+  });
+  if (!plan.hasChanges && !isStranded) {
     throw new BadRequestError(
       "Cannot publish: no changes detected in this revision",
     );

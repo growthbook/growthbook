@@ -124,7 +124,8 @@ export async function discardIfJustCreated(
 ): Promise<void> {
   if (!created) return;
   try {
-    await discardRevision(context, revision, context.auditUser);
+    // Only ever discards a draft it just created, which can't be the live version.
+    await discardRevision(context, revision, context.auditUser, null);
   } catch (err) {
     logger.warn(
       { err, featureId: revision.featureId, version: revision.version },

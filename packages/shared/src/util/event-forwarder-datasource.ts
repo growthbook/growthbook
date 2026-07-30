@@ -63,6 +63,18 @@ export function getEventForwarderSinkTypeForDatasource(datasource: {
       return "bigquery";
     case "snowflake":
       return "snowflake";
+    case "growthbook_clickhouse":
+    case "redshift":
+    case "athena":
+    case "google_analytics":
+    case "postgres":
+    case "mysql":
+    case "mssql":
+    case "clickhouse":
+    case "presto":
+    case "databricks":
+    case "mixpanel":
+    case "vertica":
     default:
       return null;
   }
@@ -84,6 +96,18 @@ export function getEventForwarderDatasourceParams(
       return params as BigQueryConnectionParams;
     case "snowflake":
       return params as SnowflakeConnectionParams;
+    case "growthbook_clickhouse":
+    case "redshift":
+    case "athena":
+    case "google_analytics":
+    case "postgres":
+    case "mysql":
+    case "mssql":
+    case "clickhouse":
+    case "presto":
+    case "databricks":
+    case "mixpanel":
+    case "vertica":
     default:
       return undefined;
   }
@@ -131,37 +155,6 @@ export function isHashAttributeUserIdType(
       attribute.property.toLowerCase() === sourceAttribute &&
       attributeMatchesDatasourceProjects(attribute, datasourceProjects),
   );
-}
-
-export function isEventForwarderAllowedUserIdTypesChange(
-  existing: UserIdType[],
-  updated: UserIdType[],
-): boolean {
-  // Only Event Forwarder managed identifier types (prefixed with `ef_`) are
-  // locked. User-created identifier types that happen to use the same hash
-  // attribute remain editable / deletable.
-  const lockedExisting = existing.filter((item) =>
-    isEventForwarderManagedIdentifierId(item.userIdType),
-  );
-
-  return lockedExisting.every((locked) => {
-    const match = updated.find(
-      (item) =>
-        item.userIdType.toLowerCase() === locked.userIdType.toLowerCase(),
-    );
-    if (!match || match.userIdType !== locked.userIdType) {
-      return false;
-    }
-
-    const lockedAttributes = locked.attributes ?? [];
-    const updatedAttributes = match.attributes ?? [];
-    return (
-      lockedAttributes.length === updatedAttributes.length &&
-      lockedAttributes.every(
-        (attribute, index) => attribute === updatedAttributes[index],
-      )
-    );
-  });
 }
 
 export function getUserIdTypesToAdd(

@@ -11,7 +11,9 @@ const packageJson = require("../package.json");
 const type = process.argv[2];
 
 if (!type) {
-  console.error("Error: Version bump type is required (major, minor, or patch)");
+  console.error(
+    "Error: Version bump type is required (major, minor, or patch)",
+  );
   process.exit(1);
 }
 
@@ -34,7 +36,10 @@ switch (type) {
     patch++;
     break;
   default:
-    console.error("Invalid version bump type (allowed: major, minor, patch)", type);
+    console.error(
+      "Invalid version bump type (allowed: major, minor, patch)",
+      type,
+    );
     process.exit(1);
 }
 

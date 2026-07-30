@@ -293,6 +293,9 @@ function attributeDatatypeToFactColumnType(
     case "number[]":
     case "secureString[]":
       return "other";
+    case "string":
+    case "enum":
+    case "secureString":
     default:
       // string, secureString, enum, "" — all treated as string.
       return "string";
@@ -329,10 +332,14 @@ export function getManagedWarehouseAttributesJsonFields(
 
 /**
  * Version of the JSON-ergonomics setup (per-org user settings + typed attribute
- * ALIAS columns). Persisted per warehouse as `settings.jsonErgonomicsVersion`
- * once applied; bump to make the backfill sweep re-apply everywhere.
+ * ALIAS columns + the generated fact-table/exposure SQL the sweep's sync
+ * persists). Persisted per warehouse as `settings.jsonErgonomicsVersion` once
+ * applied; bump to make the backfill sweep re-apply everywhere.
+ *
+ * v2: built-in identifier columns fall back to their folded `attributes` JSON
+ * paths in generated SQL (pre-plugin integrations never populate the columns).
  */
-export const MANAGED_WAREHOUSE_JSON_ERGONOMICS_VERSION = 1;
+export const MANAGED_WAREHOUSE_JSON_ERGONOMICS_VERSION = 2;
 
 /**
  * Attributes to expose as typed `attributes.<property>` ALIAS columns on the
@@ -539,10 +546,34 @@ function migratedColumnSelectExpr(col: MaterializedColumn): string {
   return `${expr} AS ${chIdentifier(col.columnName)}`;
 }
 
-// The full SELECT-list alias clause for a migrated warehouse: custom identifiers
-// (join-key aliases) followed by preserved dimensions, each aliased out of `attributes`.
-// Empty when there's nothing to alias. Callers must pass dimensions already deduped
-// against the identifiers via `dedupeMigratedDimensions`.
+// Fall back to the `attributes` JSON for the built-in identifier columns. The SDK
+// tracking plugin folds these attribute keys into the columns at ingest (user_id
+// <- user_id; device_id <- device_id || anonymous_id || id, see parseAttributes /
+// BUILTIN_ATTRIBUTE_TO_IDENTIFIER) and strips them from `attributes` — but events
+// from integrations that predate the plugin carry the values only inside the JSON,
+// leaving the columns empty. REPLACE each column with a coalesce through the same
+// keys in the same precedence, so both eras resolve (folded rows can't
+// double-resolve: their JSON no longer contains the keys).
+function builtinIdentifierReplaceClause(): string {
+  // nullIf-wrapped so empty strings fall through, matching the plugin's falsy
+  // `||` chain — a JSON `device_id: ""` must not shadow a populated `id`.
+  const path = (key: string) =>
+    `nullIf(${MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN}.${chIdentifier(
+      key,
+    )}::Nullable(String), '')`;
+  return ` REPLACE (
+  coalesce(nullIf(user_id, ''), ${path("user_id")}) AS user_id,
+  coalesce(nullIf(device_id, ''), ${path("device_id")}, ${path(
+    "anonymous_id",
+  )}, ${path("id")}) AS device_id
+)`;
+}
+
+// The full SELECT-list decoration for a JSON-columns warehouse, placed directly
+// after `SELECT *`: the built-in identifier fallback REPLACE, then custom
+// identifiers (join-key aliases) and preserved dimensions, each aliased out of
+// `attributes`. Callers must pass dimensions already deduped against the
+// identifiers via `dedupeMigratedDimensions`.
 function attributeAliasClause(
   customIdentifiers: string[],
   dimensions: MaterializedColumn[],
@@ -551,16 +582,17 @@ function attributeAliasClause(
     ...customIdentifiers.map(customIdentifierSelectExpr),
     ...dimensions.map(migratedColumnSelectExpr),
   ];
-  if (!exprs.length) return "";
-  return ",\n  " + exprs.join(",\n  ");
+  const aliases = exprs.length ? ",\n  " + exprs.join(",\n  ") : "";
+  return builtinIdentifierReplaceClause() + aliases;
 }
 
 /**
- * The SELECT-list alias clause (custom identifiers + preserved dimensions) for a
- * MIGRATED managed warehouse, derived from datasource settings alone. Lets callers
- * without the org attribute schema — e.g. Product Analytics `data_source` explorations
- * that query a per-org table directly — re-expose former columns the same way the
- * `ch_events` fact table does, so bare references keep resolving.
+ * The SELECT-list decoration (built-in identifier fallback + custom identifiers +
+ * preserved dimensions) for a MIGRATED managed warehouse, derived from datasource
+ * settings alone. Lets callers without the org attribute schema — e.g. Product
+ * Analytics `data_source` explorations that query a per-org table directly —
+ * re-expose former columns the same way the `ch_events` fact table does, so bare
+ * references keep resolving.
  *
  * Returns "" unless `useJsonColumns` is set: on a pre-migration warehouse these columns
  * are still physical, so `SELECT *, attributes.x AS x` would duplicate a column. Only
