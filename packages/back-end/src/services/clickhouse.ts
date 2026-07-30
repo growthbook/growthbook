@@ -10,6 +10,7 @@ import {
   isManagedWarehouseMigrating,
   MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
   MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
+  ManagedWarehouseIdAttributeIdentifier,
 } from "shared/util";
 import { DataSourceInterface } from "shared/types/datasource";
 import { SDKAttributeSchema } from "shared/types/organization";
@@ -250,6 +251,10 @@ export async function syncManagedWarehouseIdentifiers(
   // names (so bare references keep resolving).
   const extraIdentifiers = datasource.settings.migratedIdentifiers || [];
   const migratedColumns = datasource.settings.migratedColumns || [];
+  const idAttributeIdentifier =
+    datasource.settings.idAttributeIdentifier === "user_id"
+      ? "user_id"
+      : "device_id";
 
   const newUserIdTypes = getManagedWarehouseUserIdTypes(
     attributeSchema,
@@ -287,6 +292,7 @@ export async function syncManagedWarehouseIdentifiers(
             attributeSchema,
             extraIdentifiers,
             migratedColumns,
+            idAttributeIdentifier,
           ),
         },
       },
@@ -383,6 +389,7 @@ export async function syncManagedWarehouseIdentifiers(
     attributeSchema,
     extraIdentifiers,
     migratedColumns,
+    idAttributeIdentifier,
   );
 
   // Skip the write when nothing changed (e.g. a tag/description-only edit on an
@@ -502,4 +509,46 @@ export async function removeManagedWarehouseLegacyIdentifier(
       "Failed to sync typed attribute columns after removing legacy identifier",
     ),
   );
+}
+
+// Change which built-in identifier the `id` attribute folds into in generated SQL
+// (see GrowthbookClickhouseSettings.idAttributeIdentifier), then regenerate the
+// exposure queries and fact-table SQL from the new mapping. Query-time only — no
+// ClickHouse DDL changes — so flipping it back fully reverts. Experiments assigned
+// on the `id` attribute read their exposures through the other identifier's
+// Experiment Assignment Query after a flip and need to be re-pointed.
+export async function setManagedWarehouseIdAttributeIdentifier(
+  context: ReqContext | ApiReqContext,
+  datasource: DataSourceInterface,
+  identifier: ManagedWarehouseIdAttributeIdentifier,
+): Promise<void> {
+  if (
+    datasource.type !== "growthbook_clickhouse" ||
+    !datasource.settings.useJsonColumns
+  ) {
+    throw new Error(
+      "The id attribute mapping can only be changed on a JSON-columns Managed Warehouse",
+    );
+  }
+
+  if ((datasource.settings.idAttributeIdentifier ?? "device_id") === identifier)
+    return;
+
+  const updatedSettings = {
+    ...datasource.settings,
+    idAttributeIdentifier: identifier,
+  };
+  await updateDataSource(
+    context,
+    datasource,
+    { settings: updatedSettings },
+    { skipExposureQueryValidation: true },
+  );
+
+  // Reconcile the same datasource we just updated (with the new mapping), rather
+  // than letting the sync re-select a warehouse by org.
+  await syncManagedWarehouseIdentifiers(context, undefined, {
+    ...datasource,
+    settings: updatedSettings,
+  });
 }

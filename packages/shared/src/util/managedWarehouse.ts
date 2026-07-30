@@ -432,6 +432,21 @@ const BUILTIN_ATTRIBUTE_TO_IDENTIFIER: Record<string, string> = {
   id: "device_id",
 };
 
+/**
+ * Per-org override for what the `id` attribute means (`settings.idAttributeIdentifier`):
+ * "device_id" (default, the plugin contract above) or "user_id" for orgs whose
+ * Ingestion API events carry a logged-in user ID under the `id` key. An explicit
+ * input to the SQL derivation — every builder that folds built-ins takes it, and
+ * the ergonomics sweep treats it as a freshness-guard input.
+ */
+export type ManagedWarehouseIdAttributeIdentifier = "user_id" | "device_id";
+
+function getIdAttributeIdentifier(
+  settings: Pick<GrowthbookClickhouseSettings, "idAttributeIdentifier">,
+): ManagedWarehouseIdAttributeIdentifier {
+  return settings.idAttributeIdentifier === "user_id" ? "user_id" : "device_id";
+}
+
 // Resolve the managed-warehouse identifier column (which doubles as the exposure
 // query's userIdType) that a hash attribute maps to. Legacy materialized-column
 // warehouses return the stored SQL column, or null when the attribute isn't an
@@ -451,6 +466,7 @@ export function getManagedWarehouseIdentifierForAttribute({
     )?.columnName;
     return column ?? null;
   }
+  if (attribute === "id") return getIdAttributeIdentifier(settings);
   return BUILTIN_ATTRIBUTE_TO_IDENTIFIER[attribute] ?? attribute;
 }
 
@@ -551,18 +567,31 @@ function migratedColumnSelectExpr(col: MaterializedColumn): string {
 // leaving the columns empty. REPLACE each column with a coalesce through the same
 // keys in the same precedence, so both eras resolve (folded rows can't
 // double-resolve: their JSON no longer contains the keys).
-function builtinIdentifierReplaceClause(): string {
+//
+// `idAttributeIdentifier` moves the `attributes.id` fallback (always last in its
+// chain, mirroring the plugin's precedence) between the two columns — each key
+// feeds exactly one identifier, so a value can never resolve under both.
+function builtinIdentifierReplaceClause(
+  idAttributeIdentifier: ManagedWarehouseIdAttributeIdentifier,
+): string {
   // nullIf-wrapped so empty strings fall through, matching the plugin's falsy
   // `||` chain — a JSON `device_id: ""` must not shadow a populated `id`.
   const path = (key: string) =>
     `nullIf(${MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN}.${chIdentifier(
       key,
     )}::Nullable(String), '')`;
+  const userIdSources = [`nullIf(user_id, '')`, path("user_id")];
+  const deviceIdSources = [
+    `nullIf(device_id, '')`,
+    path("device_id"),
+    path("anonymous_id"),
+  ];
+  (idAttributeIdentifier === "user_id" ? userIdSources : deviceIdSources).push(
+    path("id"),
+  );
   return ` REPLACE (
-  coalesce(nullIf(user_id, ''), ${path("user_id")}) AS user_id,
-  coalesce(nullIf(device_id, ''), ${path("device_id")}, ${path(
-    "anonymous_id",
-  )}, ${path("id")}) AS device_id
+  coalesce(${userIdSources.join(", ")}) AS user_id,
+  coalesce(${deviceIdSources.join(", ")}) AS device_id
 )`;
 }
 
@@ -574,13 +603,14 @@ function builtinIdentifierReplaceClause(): string {
 function attributeAliasClause(
   customIdentifiers: string[],
   dimensions: MaterializedColumn[],
+  idAttributeIdentifier: ManagedWarehouseIdAttributeIdentifier,
 ): string {
   const exprs = [
     ...customIdentifiers.map(customIdentifierSelectExpr),
     ...dimensions.map(migratedColumnSelectExpr),
   ];
   const aliases = exprs.length ? ",\n  " + exprs.join(",\n  ") : "";
-  return builtinIdentifierReplaceClause() + aliases;
+  return builtinIdentifierReplaceClause(idAttributeIdentifier) + aliases;
 }
 
 /**
@@ -617,6 +647,7 @@ export function buildManagedWarehouseAttributeAliasClause(
   return attributeAliasClause(
     customIdentifiers,
     dedupeMigratedDimensions(customIdentifiers, s.migratedColumns || []),
+    getIdAttributeIdentifier(s),
   );
 }
 
@@ -627,6 +658,7 @@ export function buildManagedWarehouseEventsFactTableSql(
   attributeSchema: SDKAttributeSchema | undefined,
   extraIdentifiers: string[] = [],
   migratedColumns: MaterializedColumn[] = [],
+  idAttributeIdentifier: ManagedWarehouseIdAttributeIdentifier = "device_id",
 ): string {
   const customIdentifiers = getManagedWarehouseCustomIdentifiers(
     attributeSchema,
@@ -636,7 +668,11 @@ export function buildManagedWarehouseEventsFactTableSql(
     customIdentifiers,
     migratedColumns,
   );
-  return `SELECT *${attributeAliasClause(customIdentifiers, dimensionAliases)}
+  return `SELECT *${attributeAliasClause(
+    customIdentifiers,
+    dimensionAliases,
+    idAttributeIdentifier,
+  )}
 FROM ${MANAGED_WAREHOUSE_EVENTS_TABLE}
 WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`;
 }
@@ -646,6 +682,7 @@ export function buildManagedWarehouseExposureQueries(
   attributeSchema: SDKAttributeSchema | undefined,
   extraIdentifiers: string[] = [],
   migratedColumns: MaterializedColumn[] = [],
+  idAttributeIdentifier: ManagedWarehouseIdAttributeIdentifier = "device_id",
 ): ExposureQuery[] {
   const customIdentifiers = getManagedWarehouseCustomIdentifiers(
     attributeSchema,
@@ -658,6 +695,7 @@ export function buildManagedWarehouseExposureQueries(
   const query = `SELECT *${attributeAliasClause(
     customIdentifiers,
     dimensionAliases,
+    idAttributeIdentifier,
   )}
 FROM ${MANAGED_WAREHOUSE_EXPERIMENT_VIEWS_TABLE}
 WHERE
