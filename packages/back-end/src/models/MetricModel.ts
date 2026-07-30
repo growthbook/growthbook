@@ -645,19 +645,10 @@ export async function updateMetric(
   metric: MetricInterface,
   updates: Partial<MetricInterface>,
 ) {
-  // Compare against the stored values (not just which keys were submitted) so
-  // resubmitting a field with its current value doesn't bump the definitions
-  // version — the front-end resends the whole form on every save. Fields in
-  // FIELDS_NOT_REQUIRING_DATE_UPDATED (queries/analysis/analysisError/
-  // runStarted) are excluded: they're not part of the definitions payload,
-  // but they DO change on every analysis run (see updateModel in
-  // LegacyMetricAnalysisQueryRunner), so comparing their values would bump
-  // the version on routine analysis completion.
-  const changedDefinitionFields = Object.entries(updates).some(
-    ([k, v]) =>
-      !FIELDS_NOT_REQUIRING_DATE_UPDATED.includes(k as keyof MetricInterface) &&
-      !isEqual(metric[k as keyof MetricInterface], v),
-  );
+  // Diffed against the actual pre-write DB state below (not this `updates`
+  // object) — keep the as-submitted shape before addDateUpdatedToUpdates
+  // merges in a fresh `dateUpdated` that would otherwise always look changed.
+  const submittedUpdates = updates;
 
   updates = addDateUpdatedToUpdates(updates);
 
@@ -678,17 +669,24 @@ export async function updateMetric(
 
   validatePriorSettings(updates.priorSettings);
 
-  // If using config.yml, need to do an `upsert` since it might not exist in mongo yet
+  // Use findOneAndUpdate (rather than updateOne) so the definitions-version
+  // bump decision below is based on the document's actual state at the
+  // instant of this write, not the possibly-stale `metric` argument passed
+  // in by the caller — see updateFactTable for the full race-condition
+  // rationale (two concurrent updates could otherwise each diff against a
+  // stale copy and both wrongly conclude nothing changed).
+  let before;
   if (metric.managedBy === "config") {
-    await MetricModel.updateOne(
+    // If using config.yml, need to do an `upsert` since it might not exist in mongo yet
+    before = await MetricModel.findOneAndUpdate(
       { id: metric.id, organization: context.org.id },
       {
         $set: updates,
       },
-      { upsert: true },
+      { upsert: true, new: false },
     );
   } else {
-    await MetricModel.updateOne(
+    before = await MetricModel.findOneAndUpdate(
       {
         id: metric.id,
         organization: context.org.id,
@@ -696,8 +694,24 @@ export async function updateMetric(
       {
         $set: updates,
       },
+      { new: false },
     );
   }
+
+  // Compare against the stored values (not just which keys were submitted) so
+  // resubmitting a field with its current value doesn't bump the definitions
+  // version — the front-end resends the whole form on every save. Fields in
+  // FIELDS_NOT_REQUIRING_DATE_UPDATED (queries/analysis/analysisError/
+  // runStarted) are excluded: they're not part of the definitions payload,
+  // but they DO change on every analysis run (see updateModel in
+  // LegacyMetricAnalysisQueryRunner), so comparing their values would bump
+  // the version on routine analysis completion.
+  const beforeInterface = before ? toInterface(before) : metric;
+  const changedDefinitionFields = Object.entries(submittedUpdates).some(
+    ([k, v]) =>
+      !FIELDS_NOT_REQUIRING_DATE_UPDATED.includes(k as keyof MetricInterface) &&
+      !isEqual(beforeInterface[k as keyof MetricInterface], v),
+  );
 
   await addTagsDiff(context.org.id, metric.tags || [], updates.tags || []);
 
