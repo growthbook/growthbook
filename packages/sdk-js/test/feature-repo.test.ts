@@ -626,6 +626,59 @@ describe("feature-repo", () => {
     cleanup();
   });
 
+  it("closes the connection when EventSource setup fails after construction", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const [, cleanup] = mockApi(apiPayload, true);
+    const warn = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    // Constructor succeeds (opening a connection), but listener setup throws
+    const closed: string[] = [];
+    setPolyfills({
+      EventSource: class {
+        url: string;
+        constructor(url: string) {
+          this.url = url;
+        }
+        addEventListener() {
+          throw new Error("addEventListener not implemented");
+        }
+        close() {
+          closed.push(this.url);
+        }
+      },
+    });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    const res = await growthbook.init({ streaming: true });
+
+    // The half-built connection must be closed, not just dereferenced
+    expect(closed).toEqual(["https://fakeapi.sample.io/sub/sdk-abc123"]);
+    expect(res.success).toEqual(true);
+    expect(growthbook.evalFeature("foo").value).toEqual("api");
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("addEventListener not implemented"),
+    );
+
+    setPolyfills({ EventSource });
+    warn.mockRestore();
+    growthbook.destroy();
+    cleanup();
+  });
+
   it("warns when streaming is enabled without an EventSource polyfill", async () => {
     const apiPayload = {
       features: {

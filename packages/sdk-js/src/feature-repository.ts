@@ -556,7 +556,19 @@ function enableChannel(channel: ScopedChannel) {
       channel.errors = 0;
     };
   } catch (e) {
-    // An incompatible EventSource must not take the feature payload down with it
+    // An incompatible EventSource must not take the feature payload down with it.
+    // The constructor may have already opened a connection, so close it before
+    // dropping the only reference we have to it.
+    try {
+      if (channel.src) {
+        // Close first; detaching handlers is best-effort and may throw again
+        channel.src.close();
+        channel.src.onerror = null;
+        channel.src.onopen = null;
+      }
+    } catch (closeError) {
+      // Ignore cleanup errors from incompatible implementations
+    }
     channel.src = null;
     channel.state = "disabled";
     warnStreamingUnavailable(
