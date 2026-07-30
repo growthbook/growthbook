@@ -75,6 +75,27 @@ export const createColumnPropsValidator = z
     isAutoSliceColumn: z.boolean().optional(),
     autoSlices: z.array(z.string()).optional(),
     lockedAutoSlices: z.array(z.string()).optional(),
+    // Virtual (computed) column inputs.
+    isVirtual: z.boolean().optional(),
+    sql: z.string().optional(),
+  })
+  .strict();
+
+// Input for the internal "create virtual column" route. Intentionally a
+// narrow subset of `createColumnPropsValidator`: it omits auto-slice fields
+// (`isAutoSliceColumn`/`autoSlices`/`lockedAutoSlices`) — an enterprise
+// feature that is not premium-gated on this path — as well as fields only
+// meaningful for SQL-detected columns (`deleted`, `alwaysInlineFilter`,
+// `topValues`). `sql` and `datatype` are required; the handler forces
+// `isVirtual: true`, so it is not accepted from the caller.
+export const createVirtualColumnPropsValidator = z
+  .object({
+    column: z.string(),
+    name: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    numberFormat: numberFormatValidator.optional(),
+    datatype: factTableColumnTypeValidator,
+    sql: z.string(),
   })
   .strict();
 
@@ -91,6 +112,20 @@ export const updateColumnPropsValidator = z
     isAutoSliceColumn: z.boolean().optional(),
     autoSlices: z.array(z.string()).optional(),
     lockedAutoSlices: z.array(z.string()).optional(),
+    // Only a virtual column's expression is editable. `isVirtual` (a column's
+    // origin) is intentionally omitted so a SQL-detected column can never be
+    // flipped to virtual via the update route.
+    sql: z.string().optional(),
+  })
+  .strict();
+
+export const testVirtualColumnPropsValidator = z
+  .object({
+    sql: z.string(),
+    datatype: factTableColumnTypeValidator,
+    // The column id to use as the SELECT alias in the test query, so the
+    // preview matches the real column name. Sanitized server-side.
+    columnId: z.string().optional(),
   })
   .strict();
 
@@ -350,16 +385,13 @@ export const apiFactTableColumnValidator = namedSchema(
       column: z
         .string()
         .describe("The actual column name in the database/SQL query"),
-      datatype: z.enum([
-        "number",
-        "string",
-        "date",
-        "boolean",
-        "json",
-        "binary",
-        "other",
-        "",
-      ]),
+      datatype: factTableColumnTypeValidator.describe(
+        "The column's data type (can be an override of the warehouse-reported datatype, for JSON string columns for example).",
+      ),
+      dataTypeFromWarehouse: factTableColumnTypeValidator
+        .describe("The warehouse-reported datatype.")
+        .readonly()
+        .optional(),
       numberFormat: z
         .enum([
           "",
@@ -421,6 +453,19 @@ export const apiFactTableColumnValidator = namedSchema(
           "Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results.",
         )
         .optional(),
+      isVirtual: z
+        .boolean()
+        .describe(
+          "Whether this is a virtual (computed) column defined by a SQL expression rather than detected from the fact table SQL. Can be set when creating a column, but a column's origin cannot be changed afterwards — sending a value that contradicts an existing column is rejected.",
+        )
+        .optional()
+        .meta({ default: false }),
+      sql: z
+        .string()
+        .describe(
+          "For virtual columns, the SQL expression that computes the column value. Only valid on a virtual column; when omitted from an update, the existing expression is preserved.",
+        )
+        .optional(),
       dateCreated: z
         .string()
         .meta({ format: "date-time" })
@@ -438,6 +483,11 @@ export const apiFactTableColumnValidator = namedSchema(
 export const apiFactTableColumnInputValidator = componentSchema(
   "FactTableColumnInput",
   apiFactTableColumnValidator
+    .omit({
+      dataTypeFromWarehouse: true,
+      dateCreated: true,
+      dateUpdated: true,
+    })
     .extend({
       datatype: apiFactTableColumnValidator.shape.datatype
         .describe(
@@ -494,6 +544,8 @@ export const apiFactTableValidator = namedSchema(
 );
 
 export type ApiFactTable = z.infer<typeof apiFactTableValidator>;
+
+export type ApiFactTableColumn = z.infer<typeof apiFactTableColumnValidator>;
 
 // Corresponds to schemas/FactTableFilter.yaml
 export const apiFactTableFilterValidator = namedSchema(
@@ -938,6 +990,119 @@ export const deleteFactTableFilterValidator = {
   method: "delete" as const,
   path: "/fact-tables/:factTableId/filters/:id",
   exampleRequest: { params: { factTableId: "abc123", id: "abc123" } },
+};
+
+// The public API can only create/update/delete virtual (computed) columns.
+// SQL-detected columns are managed by column auto-detection, so a real
+// datatype (never "") and a SQL expression are required.
+const virtualColumnDatatype = z.enum([
+  "number",
+  "string",
+  "date",
+  "boolean",
+  "json",
+  "binary",
+  "other",
+]);
+
+const postFactTableVirtualColumnBody = z
+  .object({
+    column: z
+      .string()
+      .describe(
+        "The column identifier used in generated SQL. Must contain only letters, numbers, and underscores and end with `_vc`.",
+      )
+      .meta({ example: "revenue_vc" }),
+    name: z.string().describe("Display name for the column").optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    numberFormat: numberFormatValidator.optional(),
+    datatype: virtualColumnDatatype.describe(
+      "The data type of the computed column",
+    ),
+    sql: z
+      .string()
+      .describe("The SQL expression that computes the column value")
+      .meta({ example: "price * quantity" }),
+  })
+  .strict();
+
+const updateFactTableVirtualColumnBody = z
+  .object({
+    name: z.string().describe("Display name for the column").optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    numberFormat: numberFormatValidator.optional(),
+    datatype: virtualColumnDatatype
+      .describe("The data type of the computed column")
+      .optional(),
+    sql: z
+      .string()
+      .describe("The SQL expression that computes the column value")
+      .optional(),
+  })
+  .strict();
+
+export const postFactTableVirtualColumnValidator = {
+  bodySchema: postFactTableVirtualColumnBody,
+  querySchema: z.never(),
+  paramsSchema: factTableIdParams,
+  responseSchema: z
+    .object({
+      factTableColumn: apiFactTableColumnValidator,
+    })
+    .strict(),
+  summary: "Create a virtual (computed) column on a fact table",
+  operationId: "postFactTableVirtualColumn",
+  tags: ["fact-tables"],
+  method: "post" as const,
+  path: "/fact-tables/:factTableId/virtual-columns",
+  exampleRequest: {
+    params: { factTableId: "abc123" },
+    body: {
+      column: "revenue_vc",
+      datatype: "number" as const,
+      sql: "price * quantity",
+    },
+  },
+};
+
+export const updateFactTableVirtualColumnValidator = {
+  bodySchema: updateFactTableVirtualColumnBody,
+  querySchema: z.never(),
+  paramsSchema: factTableIdAndIdParams,
+  responseSchema: z
+    .object({
+      factTableColumn: apiFactTableColumnValidator,
+    })
+    .strict(),
+  summary: "Update a virtual (computed) column on a fact table",
+  operationId: "updateFactTableVirtualColumn",
+  tags: ["fact-tables"],
+  method: "post" as const,
+  path: "/fact-tables/:factTableId/virtual-columns/:id",
+  exampleRequest: {
+    params: { factTableId: "abc123", id: "revenue_vc" },
+    body: { sql: "price * quantity * 1.1" },
+  },
+};
+
+export const deleteFactTableVirtualColumnValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: factTableIdAndIdParams,
+  responseSchema: z
+    .object({
+      deletedId: z
+        .string()
+        .describe("The id of the deleted virtual column")
+        .meta({ example: "revenue_vc" }),
+    })
+    .strict(),
+  summary: "Delete a virtual (computed) column from a fact table",
+  operationId: "deleteFactTableVirtualColumn",
+  tags: ["fact-tables"],
+  method: "delete" as const,
+  path: "/fact-tables/:factTableId/virtual-columns/:id",
+  exampleRequest: { params: { factTableId: "abc123", id: "revenue_vc" } },
 };
 
 export const getAggregatedFactTablesValidator = {

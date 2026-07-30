@@ -265,12 +265,23 @@ describe("getManagedWarehouseUserIdTypes", () => {
 describe("buildManagedWarehouseEventsFactTableSql", () => {
   it("selects all columns with no JSON aliases for the default schema", () => {
     const sql = buildManagedWarehouseEventsFactTableSql(defaultSchema);
-    expect(sql).toContain("SELECT *");
+    expect(sql).toContain("SELECT * REPLACE (");
     expect(sql).toContain("FROM events");
     expect(sql).toContain(
       "WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'",
     );
-    expect(sql).not.toContain("attributes.");
+    // Only the built-in fallback REPLACE, no alias list after it.
+    expect(sql).toContain(")\nFROM events");
+  });
+
+  it("falls back to the attributes JSON for the built-in identifier columns", () => {
+    const sql = buildManagedWarehouseEventsFactTableSql(defaultSchema);
+    expect(sql).toContain(
+      "coalesce(nullIf(user_id, ''), nullIf(attributes.user_id::Nullable(String), '')) AS user_id",
+    );
+    expect(sql).toContain(
+      "coalesce(nullIf(device_id, ''), nullIf(attributes.device_id::Nullable(String), ''), nullIf(attributes.anonymous_id::Nullable(String), ''), nullIf(attributes.id::Nullable(String), '')) AS device_id",
+    );
   });
 
   it("aliases custom identifiers out of the attributes JSON column", () => {
@@ -727,14 +738,22 @@ describe("buildManagedWarehouseAttributeAliasClause", () => {
     ],
   };
 
+  // The clause every JSON warehouse gets, even with nothing custom to alias.
+  const builtinOnlyClause = buildManagedWarehouseAttributeAliasClause({
+    useJsonColumns: true,
+    userIdTypes: [
+      { userIdType: "user_id", description: "" },
+      { userIdType: "device_id", description: "" },
+    ],
+  } as GrowthbookClickhouseSettings);
+
   it("aliases custom identifiers and preserved dimensions for a migrated warehouse", () => {
     const clause = buildManagedWarehouseAttributeAliasClause(migratedSettings);
-    // custom identifier (not the built-ins)
+    // custom identifier (the built-ins live in the REPLACE, not the alias list)
     expect(clause).toContain(
       "attributes.company_id::Nullable(String) AS company_id",
     );
-    expect(clause).not.toContain("AS user_id");
-    expect(clause).not.toContain("AS device_id");
+    expect(clause).toContain("REPLACE (");
     // dimensions (numeric coerces via toFloat64OrNull)
     expect(clause).toContain("attributes.plan::Nullable(String) AS plan");
     expect(clause).toContain(
@@ -751,16 +770,13 @@ describe("buildManagedWarehouseAttributeAliasClause", () => {
     ).toBe("");
   });
 
-  it("returns empty when there are no custom identifiers or dimensions", () => {
-    expect(
-      buildManagedWarehouseAttributeAliasClause({
-        useJsonColumns: true,
-        userIdTypes: [
-          { userIdType: "user_id", description: "" },
-          { userIdType: "device_id", description: "" },
-        ],
-      } as GrowthbookClickhouseSettings),
-    ).toBe("");
+  it("emits only the built-in fallback when there are no custom identifiers or dimensions", () => {
+    expect(builtinOnlyClause).toContain("REPLACE (");
+    expect(builtinOnlyClause).toContain(
+      "coalesce(nullIf(user_id, ''), nullIf(attributes.user_id::Nullable(String), '')) AS user_id",
+    );
+    // No alias list after the REPLACE.
+    expect(builtinOnlyClause.trimEnd().endsWith(")")).toBe(true);
   });
 
   it("does not alias a dimension that collides with a custom identifier", () => {
@@ -793,7 +809,8 @@ describe("buildManagedWarehouseAttributeAliasClause", () => {
       ],
     } as GrowthbookClickhouseSettings);
     // geo_country is a physical column post-migration; aliasing it would duplicate it.
-    expect(clause).toBe("");
+    expect(clause).not.toContain("geo_country");
+    expect(clause).toBe(builtinOnlyClause);
   });
 
   it("drops a custom identifier whose name collides with a real SELECT * column", () => {
@@ -801,6 +818,7 @@ describe("buildManagedWarehouseAttributeAliasClause", () => {
       useJsonColumns: true,
       userIdTypes: [{ userIdType: "session_id", description: "" }],
     } as GrowthbookClickhouseSettings);
-    expect(clause).toBe("");
+    expect(clause).not.toContain("session_id");
+    expect(clause).toBe(builtinOnlyClause);
   });
 });

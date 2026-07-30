@@ -1,5 +1,22 @@
 import { ColumnInterface } from "shared/types/fact-table";
-import { selectColumnsForTopValues } from "back-end/src/jobs/refreshFactTableColumns";
+import { DataSourceInterface } from "shared/types/datasource";
+import { TestQueryResult } from "shared/types/integrations";
+import {
+  runRefreshColumnsQuery,
+  selectColumnsForTopValues,
+} from "back-end/src/jobs/refreshFactTableColumns";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import { ReqContext } from "back-end/types/request";
+
+jest.mock("back-end/src/services/datasource", () => ({
+  getSourceIntegrationObject: jest.fn(),
+}));
+
+const getSourceIntegrationObjectMock =
+  getSourceIntegrationObject as jest.MockedFunction<
+    typeof getSourceIntegrationObject
+  >;
 
 function makeCol(
   column: string,
@@ -16,6 +33,36 @@ function makeCol(
     dateUpdated: new Date(),
     ...overrides,
   };
+}
+
+async function refreshColumns({
+  column,
+  result,
+}: {
+  column: ColumnInterface;
+  result: TestQueryResult;
+}): Promise<ColumnInterface[]> {
+  // @ts-expect-error - this test only needs the query methods
+  const integration: SourceIntegrationInterface = {
+    getTestQuery: jest.fn().mockReturnValue("SELECT * FROM fact_table"),
+    runTestQuery: jest.fn().mockResolvedValue(result),
+  };
+  getSourceIntegrationObjectMock.mockReturnValue(integration);
+
+  // @ts-expect-error - this test only needs permissions and organization settings
+  const context: ReqContext = {
+    permissions: { canRunFactQueries: () => true },
+    org: {},
+  };
+  // @ts-expect-error - this test does not read datasource fields
+  const datasource: DataSourceInterface = {};
+
+  return runRefreshColumnsQuery(context, datasource, {
+    sql: "SELECT * FROM fact_table",
+    eventName: "",
+    columns: [column],
+    userIdTypes: [],
+  });
 }
 
 describe("selectColumnsForTopValues", () => {
@@ -147,5 +194,43 @@ describe("selectColumnsForTopValues", () => {
       userIdTypes: ["user_id"],
     });
     expect(result.map((c) => c.column)).toEqual(["country"]);
+  });
+});
+
+describe("runRefreshColumnsQuery", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("keeps the last warehouse datatype when the query response has no metadata", async () => {
+    const columns = await refreshColumns({
+      column: makeCol("payload", {
+        datatype: "json",
+        dataTypeFromWarehouse: "string",
+      }),
+      result: {
+        results: [{ payload: '{"id": 1}' }],
+        duration: 1,
+      },
+    });
+
+    expect(columns[0].dataTypeFromWarehouse).toBe("string");
+  });
+
+  it("marks a missing column deleted without clearing its warehouse datatype", async () => {
+    const columns = await refreshColumns({
+      column: makeCol("payload", {
+        dataTypeFromWarehouse: "string",
+      }),
+      result: {
+        results: [],
+        duration: 1,
+      },
+    });
+
+    expect(columns[0]).toMatchObject({
+      deleted: true,
+      dataTypeFromWarehouse: "string",
+    });
   });
 });
