@@ -451,6 +451,9 @@ export async function executeExperimentStart(
     changes.statusUpdateSchedule = {
       ...(sched.startAt ? { startAt: sched.startAt } : {}),
       ...(stopAt ? { stopAt } : {}),
+      ...(sched.scheduledStopPlan
+        ? { scheduledStopPlan: sched.scheduledStopPlan }
+        : {}),
     };
   }
 
