@@ -175,10 +175,12 @@ function OrganizationRow({
           <Box mt="3">
             <SelectField
               size="small"
+              legacyLabelFormatting={false}
               label="Data region"
               value={clickhouseRegion}
               onChange={(value) => setClickhouseRegion(value as DataRegion)}
               options={DATA_REGION_OPTIONS}
+              helpText="Where this org's event data is stored. This cannot be changed later."
             />
           </Box>
         </Modal>
