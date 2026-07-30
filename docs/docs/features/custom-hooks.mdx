@@ -29,6 +29,8 @@ The same mechanism applies to [Configs](/features/configs): the `validateConfig`
 
 A config-scoped hook always covers the whole family: it runs for the scoped config _and_ every config that inherits from it — via `parent` or `extends`, transitively. Family membership is evaluated against the lineage being published, so a config that is re-parented into the family is validated by the family's hooks on that same publish. Descendant pages list inherited family hooks alongside their own.
 
+Managing a Global, Project, or Config-scoped hook takes the **Custom Hooks** permission (`manageCustomHooks`, an admin-level policy). A hook scoped to a single Feature Flag or Experiment instead takes edit rights on that resource, so a flag's owner can manage its validation without org-wide hook access.
+
 A hook's scope (`entityType`/`entityId`) can be changed after creation via the REST API — retargeting requires permission on both the old and the new target. Pass `entityType: null, entityId: null` to turn an entity-scoped hook into a global/project one.
 
 ### Limits

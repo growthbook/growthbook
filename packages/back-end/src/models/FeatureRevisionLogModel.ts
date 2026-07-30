@@ -59,14 +59,12 @@ export class FeatureRevisionLogModel extends BaseClass {
     if (!feature) {
       throw new Error("Feature not found for FeatureRevisionLog");
     }
-    // An entry is the RECORD of an action that was already gated, and every
-    // writer is fire-and-forget. Re-deriving authority per action class asks for
-    // rights the actor never needed and then drops the entry silently when they
-    // differ: a reviewer's changes-requested cancels a pending schedule, which
-    // is a publish-class action. So any authority over the flag suffices —
-    // including commenting, which is its own permission. Environments are
-    // unbound: the action's own gate scoped it, and the record is not
-    // environment-specific.
+    // An entry is the RECORD of an already-gated action, and every writer is
+    // fire-and-forget — a per-action-class check asks for rights the actor never
+    // needed, then drops the entry silently when they differ (a reviewer's
+    // changes-requested cancels a pending schedule, which is publish-class). Any
+    // authority over the flag suffices; environments are unbound because the
+    // record isn't environment-specific.
     const permissions = this.context.permissions;
     return (
       permissions.canCreateFeature(feature, NO_ENVIRONMENT_BINDING) ||

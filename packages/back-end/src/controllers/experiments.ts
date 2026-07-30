@@ -4394,10 +4394,9 @@ export async function deleteExperimentLinkedFeature(
   }
 
   // Also require feature-side edit rights — unlinking cancels a queued
-  // autopublish that the feature team may be managing. Cancelling a pending
-  // change is edit-class, not publish-class; nothing reaches the payload here.
-  // Same rule as the contextual-bandit twin (api/contextual-bandits/
-  // deleteLinkedFeature.ts), which performs the same $pull.
+  // autopublish that the feature team may be managing. Edit-class, not publish:
+  // nothing reaches the payload. Same as the contextual-bandit twin, which
+  // performs the same $pull.
   const feature = await getFeature(context, featureId);
   if (feature && !context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();

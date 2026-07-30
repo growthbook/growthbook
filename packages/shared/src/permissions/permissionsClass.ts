@@ -1617,12 +1617,10 @@ export class Permissions {
     return this.checkProjectFilterPermission(customHook, "manageCustomHooks");
   };
 
-  // A hook constrains which future writes are allowed; it serves no value to any
-  // user, so it is not publish-class. Keeping it draft-class also separates who
-  // writes the rules from who lands changes — a publisher who could edit hooks
-  // could remove the check standing in the way of their own publish. Org- and
-  // config-scoped hooks take `manageCustomHooks`; the experiment twin below is
-  // update-class for the same reason.
+  // A hook constrains which future writes are allowed and serves no value to any
+  // user, so it is not publish-class — and draft-class keeps whoever writes the
+  // rules distinct from whoever lands changes. Org/config hooks take
+  // `manageCustomHooks`.
   public canManageFeatureCustomHooks = (
     feature: Pick<FeatureInterface, "project">,
   ): boolean => {

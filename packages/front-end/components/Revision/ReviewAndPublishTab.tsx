@@ -555,11 +555,9 @@ function ReviewAndPublishRevision<T>({
     (isAuthor && narrowAtom) ||
     ((canRevertEntity ?? canEditEntity) && draftStagesRevert) ||
     (!!canDeleteEntity && draftIsPureArchive);
-  // Publish authority, or the narrow atom that could land this exact change in one
-  // step: a pure revert under revert authority, a pure archive under delete
-  // authority. Staging either as a draft must not require an atom that landing it
-  // directly doesn't. Archiving needs delete on top whatever else it carries;
-  // unarchiving is an ordinary publish.
+  // Publish authority, or a narrow atom that could land this exact change in one
+  // step: a pure revert under revert, a pure archive under delete. Archiving needs
+  // delete whatever else it carries; unarchiving is an ordinary publish.
   const canPublishOrEdit =
     (!draftArchives || !!canDeleteEntity) &&
     ((canPublishEntity ?? canEditEntity) ||

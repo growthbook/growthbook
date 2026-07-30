@@ -823,6 +823,8 @@ export abstract class BaseModel<
    * for authority the triggering action never needed, and these paths are
    * best-effort — a refusal is swallowed, leaving the row orphaned with nobody
    * told. Never use this for a delete the user asked for directly.
+   * The by-id variant resolves through `getById`, which returns null for a doc
+   * the caller cannot READ, so it no-ops rather than deleting.
    */
   public async dangerousDeleteBypassPermission(
     existing: z.infer<T>,

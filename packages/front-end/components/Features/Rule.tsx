@@ -521,7 +521,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       (isSimpleSchedule
         ? !!rampSchedule.cutoffDate &&
           ["running", "paused"].includes(rampSchedule.status)
-        : !isSyntheticRamp);
+        : // A pending detach replaces the runtime actions with a draft-class
+          // "cancel removal", so there is nothing here for a publisher.
+          !isSyntheticRamp && !hasPendingDetach);
 
     const ruleTags: React.ReactNode[] = [];
     const ruleCtas: React.ReactNode[] = [];
