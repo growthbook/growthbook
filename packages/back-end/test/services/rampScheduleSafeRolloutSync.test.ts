@@ -278,8 +278,10 @@ describe("restartSchedule SafeRollout floor reset", () => {
             updateById: rampUpdateById,
             getById: rampGetById,
             // 0-step terminal schedules in these fixtures hit the auto-delete
-            // path inside advanceUntilBlocked; stub deleteById so it's a no-op.
-            deleteById: jest.fn().mockResolvedValue(undefined),
+            // path inside advanceUntilBlocked; stub the delete so it's a no-op.
+            dangerousDeleteByIdBypassPermission: jest
+              .fn()
+              .mockResolvedValue(undefined),
           },
           safeRollout: {
             getById: jest.fn().mockResolvedValue(safeRollout),

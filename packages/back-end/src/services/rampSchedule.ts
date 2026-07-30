@@ -2510,7 +2510,9 @@ export async function advanceUntilBlocked(
     !current.cutoffDate
   ) {
     await completeRollout(ctx, current);
-    await ctx.models.rampSchedules.deleteById(current.id);
+    await ctx.models.rampSchedules.dangerousDeleteByIdBypassPermission(
+      current.id,
+    );
     return;
   }
 

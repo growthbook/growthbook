@@ -3004,7 +3004,11 @@ describe("advanceUntilBlocked", () => {
       environments: [],
       permissions: {},
       models: {
-        rampSchedules: { updateById, getById: jest.fn(), deleteById },
+        rampSchedules: {
+          updateById,
+          getById: jest.fn(),
+          dangerousDeleteByIdBypassPermission: deleteById,
+        },
         safeRollout: { getById: jest.fn().mockResolvedValue(null) },
       },
     };
@@ -3035,7 +3039,11 @@ describe("advanceUntilBlocked", () => {
       environments: [],
       permissions: {},
       models: {
-        rampSchedules: { updateById, getById: jest.fn(), deleteById },
+        rampSchedules: {
+          updateById,
+          getById: jest.fn(),
+          dangerousDeleteByIdBypassPermission: deleteById,
+        },
         safeRollout: { getById: jest.fn().mockResolvedValue(null) },
       },
     };
@@ -3070,7 +3078,11 @@ describe("advanceUntilBlocked", () => {
       environments: [],
       permissions: {},
       models: {
-        rampSchedules: { updateById, getById: jest.fn(), deleteById },
+        rampSchedules: {
+          updateById,
+          getById: jest.fn(),
+          dangerousDeleteByIdBypassPermission: deleteById,
+        },
         safeRollout: { getById: jest.fn().mockResolvedValue(null) },
       },
     };
@@ -3529,7 +3541,7 @@ describe("startReadyScheduleNow", () => {
         rampSchedules: {
           updateById,
           getById,
-          deleteById,
+          dangerousDeleteByIdBypassPermission: deleteById,
           acquireAdvanceLock: jest.fn().mockResolvedValue(true),
           releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
           touchAdvanceLockHeartbeat: jest.fn().mockResolvedValue(true),

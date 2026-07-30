@@ -2265,7 +2265,9 @@ export async function rollbackCreatedRampSchedules(
   const failed: string[] = [];
   for (const id of scheduleIds) {
     try {
-      await context.models.rampSchedules.deleteById(id);
+      await context.models.rampSchedules.dangerousDeleteByIdBypassPermission(
+        id,
+      );
     } catch (deleteErr) {
       failed.push(id);
       logger.error(
@@ -2839,7 +2841,9 @@ async function applyDetachRampActions(
               "stopped",
             );
           }
-          await context.models.rampSchedules.deleteById(existing.id);
+          await context.models.rampSchedules.dangerousDeleteByIdBypassPermission(
+            existing.id,
+          );
         } else {
           await context.models.rampSchedules.updateById(existing.id, {
             targets: remainingTargets,
@@ -2917,7 +2921,9 @@ async function cleanupOrphanedRampSchedules(
             "stopped",
           );
         }
-        await context.models?.rampSchedules?.deleteById?.(ramp.id);
+        await context.models?.rampSchedules?.dangerousDeleteByIdBypassPermission?.(
+          ramp.id,
+        );
       } else if (remainingTargets.length !== originalTargets.length) {
         // Some targets were orphaned by the delete; prune them so the schedule
         // doesn't fail trying to resolve a deleted ruleId on its next fire.
@@ -3242,7 +3248,9 @@ export async function publishRevision({
         undo: () =>
           Promise.all(
             preCreatedScheduleIds.map((id) =>
-              context.models.rampSchedules.deleteById(id),
+              context.models.rampSchedules.dangerousDeleteByIdBypassPermission(
+                id,
+              ),
             ),
           ),
       });

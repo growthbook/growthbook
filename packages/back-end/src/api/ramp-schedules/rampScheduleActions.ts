@@ -666,7 +666,9 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
             "stopped",
           );
         }
-        await req.context.models.rampSchedules.deleteById(fresh.id);
+        await req.context.models.rampSchedules.dangerousDeleteByIdBypassPermission(
+          fresh.id,
+        );
         return { deleted: true, rampScheduleId: fresh.id };
       }
 

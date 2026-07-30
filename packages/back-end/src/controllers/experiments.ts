@@ -43,7 +43,6 @@ import {
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import isEqual from "lodash/isEqual";
-import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   AuthRequest,
@@ -4395,15 +4394,12 @@ export async function deleteExperimentLinkedFeature(
   }
 
   // Also require feature-side edit rights — unlinking cancels a queued
-  // autopublish that the feature team may be managing.
+  // autopublish that the feature team may be managing. Cancelling a pending
+  // change is edit-class, not publish-class; nothing reaches the payload here.
+  // Same rule as the contextual-bandit twin (api/contextual-bandits/
+  // deleteLinkedFeature.ts), which performs the same $pull.
   const feature = await getFeature(context, featureId);
-  if (
-    feature &&
-    !context.permissions.canPublishFeature(
-      feature,
-      getEnvironmentIdsFromOrg(context.org),
-    )
-  ) {
+  if (feature && !context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 

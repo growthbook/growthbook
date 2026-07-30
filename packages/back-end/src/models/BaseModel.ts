@@ -817,6 +817,30 @@ export abstract class BaseModel<
     await this._deleteOne(existing, writeOptions);
     return existing;
   }
+  /**
+   * For cascades and compensating rollbacks: a delete implied by an action the
+   * caller was already authorized to take. Re-checking the acting user here asks
+   * for authority the triggering action never needed, and these paths are
+   * best-effort — a refusal is swallowed, leaving the row orphaned with nobody
+   * told. Never use this for a delete the user asked for directly.
+   */
+  public async dangerousDeleteBypassPermission(
+    existing: z.infer<T>,
+    writeOptions?: WriteOptions,
+  ): Promise<z.infer<T> | undefined> {
+    await this._deleteOne(existing, writeOptions, true);
+    return existing;
+  }
+  public async dangerousDeleteByIdBypassPermission(
+    id: string,
+    writeOptions?: WriteOptions,
+  ): Promise<z.infer<T> | undefined> {
+    this._assertHasIdField();
+    const existing = await this.getById(id);
+    if (!existing) return;
+    await this._deleteOne(existing, writeOptions, true);
+    return existing;
+  }
 
   /***************
    * Internal methods that can be used by subclasses
@@ -1329,8 +1353,12 @@ export abstract class BaseModel<
     return result;
   }
 
-  protected async _deleteOne(doc: z.infer<T>, writeOptions?: WriteOptions) {
-    if (!this.canDelete(doc)) {
+  protected async _deleteOne(
+    doc: z.infer<T>,
+    writeOptions?: WriteOptions,
+    forceCanDelete?: boolean,
+  ) {
+    if (!forceCanDelete && !this.canDelete(doc)) {
       throw new PermissionError(
         "You do not have access to delete this resource",
       );
