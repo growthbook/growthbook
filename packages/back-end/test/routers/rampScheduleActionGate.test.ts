@@ -96,6 +96,16 @@ describe("postRampScheduleAction publish gate", () => {
     ]);
   });
 
+  it("exempts refresh-monitoring, which reads data rather than moving the rollout", async () => {
+    // It gates on the datasource's query permission instead; with no monitored
+    // steps the case answers 409, which proves the publish gate did not fire.
+    const { canPublishFeature } = arrange({ canPublish: false });
+    const res = makeRes();
+    await postRampScheduleAction(makeReq("refresh-monitoring"), res);
+    expect(canPublishFeature).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(409);
+  });
+
   it("lets a publisher past the gate", async () => {
     arrange({ canPublish: true });
     const res = makeRes();

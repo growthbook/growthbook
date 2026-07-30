@@ -320,7 +320,12 @@ export const postRampScheduleAction = async (
       .json({ status: 404, message: "Ramp schedule not found" });
   }
 
-  await assertCanControlRampSchedule(context, schedule);
+  // Every action here changes what users are served, so it takes publish
+  // authority — except queuing a monitoring snapshot, which reads data and gates
+  // on the datasource's query permission in its own case below.
+  if (req.params.action !== "refresh-monitoring") {
+    await assertCanControlRampSchedule(context, schedule);
+  }
 
   let updated: RampScheduleInterface;
 

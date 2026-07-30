@@ -1443,7 +1443,9 @@ export const refreshMonitoringRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
-  await assertCanControlRampSchedule(req.context, schedule);
+  // No publish gate: queuing a snapshot reads data and does not move the
+  // rollout. It gates on the datasource's query permission below, which is the
+  // contract this endpoint documents.
 
   if (["completed", "rolled-back"].includes(schedule.status)) {
     throw new ConflictError(
