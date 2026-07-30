@@ -267,6 +267,7 @@ const getYVal = (
       return variation.probability ?? 0;
     case "weights":
       return variation.weight ?? 0;
+    case undefined:
     default:
       return undefined;
   }
