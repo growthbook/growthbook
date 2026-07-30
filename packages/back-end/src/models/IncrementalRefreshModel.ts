@@ -14,6 +14,16 @@ export const COLLECTION_NAME = "incrementalrefresh";
 // of a refresh.
 export const INCREMENTAL_LOCK_STALE_MS = 10 * 60 * 1000;
 
+function isDuplicateKeyError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  if ("code" in error && error.code === 11000) return true;
+  return (
+    "message" in error &&
+    typeof error.message === "string" &&
+    error.message.includes("11000")
+  );
+}
+
 const BaseClass = MakeModelClass({
   schema: incrementalRefreshValidator,
   collectionName: COLLECTION_NAME,
@@ -38,34 +48,95 @@ export class IncrementalRefreshModel extends BaseClass {
     return this._findOne({ experimentId, phase: { $exists: false } });
   }
 
-  public async acquireLock(
+  /**
+   * The document a running snapshot locked, found by the stable snapshot id it
+   * was locked with. Phase is a mutable positional index that a concurrent
+   * phase deletion can renumber, so a runner must re-read its own row by the
+   * lock identity rather than by phase.
+   */
+  public async getByCurrentExecutionSnapshotId(
     experimentId: string,
-    phase: number,
     snapshotId: string,
-  ): Promise<boolean> {
+  ) {
+    return this._findOne({
+      experimentId,
+      currentExecutionSnapshotId: snapshotId,
+    });
+  }
+
+  public async acquireLock({
+    experimentId,
+    phase,
+    snapshotId,
+    legacyExperimentSettingsHash,
+  }: {
+    experimentId: string;
+    phase: number;
+    snapshotId: string;
+    legacyExperimentSettingsHash: string;
+  }): Promise<boolean> {
     const staleThreshold = new Date(Date.now() - INCREMENTAL_LOCK_STALE_MS);
+    const collection = this._dangerousGetCollection();
+    const lockAvailable = [
+      { currentExecutionSnapshotId: null },
+      { lockHeartbeatAt: { $lt: staleThreshold, $ne: null } },
+      { lockHeartbeatAt: null, dateUpdated: { $lt: staleThreshold } },
+    ];
+    const lockFields = {
+      currentExecutionSnapshotId: snapshotId,
+      lockHeartbeatAt: new Date(),
+      dateUpdated: new Date(),
+    };
+
     try {
-      const result = await this._dangerousGetCollection().updateOne(
+      const existingPhase = await collection.updateOne(
         {
           organization: this.context.org.id,
           experimentId,
           phase,
+          $or: lockAvailable,
+        },
+        { $set: lockFields },
+      );
+      if (existingPhase.matchedCount > 0) return true;
+
+      const legacyPhase = await collection.updateOne(
+        {
+          organization: this.context.org.id,
+          experimentId,
+          phase: { $exists: false },
+          experimentSettingsHash: legacyExperimentSettingsHash,
+          $or: lockAvailable,
+        },
+        { $set: { phase, ...lockFields } },
+      );
+      if (legacyPhase.matchedCount > 0) return true;
+
+      const conflictingDoc = await collection.findOne(
+        {
+          organization: this.context.org.id,
+          experimentId,
           $or: [
-            // Unlocked
-            { currentExecutionSnapshotId: null },
-            // Heartbeat stale → holder crashed or stalled (non-null only;
-            // null/missing heartbeats use the dateUpdated fallback below)
-            { lockHeartbeatAt: { $lt: staleThreshold, $ne: null } },
-            // Legacy docs without a heartbeat: fall back to dateUpdated
-            { lockHeartbeatAt: null, dateUpdated: { $lt: staleThreshold } },
+            { phase },
+            {
+              phase: { $exists: false },
+              experimentSettingsHash: legacyExperimentSettingsHash,
+            },
           ],
         },
+        { projection: { _id: 1 } },
+      );
+      if (conflictingDoc) return false;
+
+      const insertedPhase = await collection.updateOne(
         {
-          $set: {
-            currentExecutionSnapshotId: snapshotId,
-            lockHeartbeatAt: new Date(),
-            dateUpdated: new Date(),
-          },
+          organization: this.context.org.id,
+          experimentId,
+          phase,
+          $or: lockAvailable,
+        },
+        {
+          $set: lockFields,
           $setOnInsert: {
             id: uniqid("ir_"),
             organization: this.context.org.id,
@@ -82,35 +153,22 @@ export class IncrementalRefreshModel extends BaseClass {
         },
         { upsert: true },
       );
-      // upsertedCount > 0 means we created a new doc with the lock
-      // modifiedCount > 0 means we updated an existing unlocked doc
-      return (result.upsertedCount ?? 0) > 0 || (result.modifiedCount ?? 0) > 0;
+      return (
+        (insertedPhase.upsertedCount ?? 0) > 0 ||
+        (insertedPhase.matchedCount ?? 0) > 0
+      );
     } catch (error) {
-      // Duplicate key error from concurrent upserts — another process won the race
-      if (
-        error &&
-        typeof error === "object" &&
-        (("code" in error && error.code === 11000) ||
-          ("message" in error &&
-            typeof error.message === "string" &&
-            error.message.includes("11000")))
-      ) {
-        return false;
-      }
+      // Another process minted or acquired this phase first.
+      if (isDuplicateKeyError(error)) return false;
       throw error;
     }
   }
 
-  public async releaseLock(
-    experimentId: string,
-    phase: number,
-    snapshotId: string,
-  ) {
+  public async releaseLock(experimentId: string, snapshotId: string) {
     await this._dangerousGetCollection().updateOne(
       {
         organization: this.context.org.id,
         experimentId,
-        phase,
         currentExecutionSnapshotId: snapshotId,
       },
       {
@@ -123,33 +181,30 @@ export class IncrementalRefreshModel extends BaseClass {
     );
   }
 
-  public async touchLockHeartbeat(
-    experimentId: string,
-    phase: number,
-    snapshotId: string,
-  ) {
+  public async touchLockHeartbeat(experimentId: string, snapshotId: string) {
     await this._dangerousGetCollection().updateOne(
       {
         organization: this.context.org.id,
         experimentId,
-        phase,
         currentExecutionSnapshotId: snapshotId,
       },
       { $set: { lockHeartbeatAt: new Date(), dateUpdated: new Date() } },
     );
   }
 
-  public async getCurrentExecutionSnapshotId(
+  public async isCurrentExecutionSnapshot(
     experimentId: string,
-    phase: number,
-  ): Promise<string | null> {
-    const doc = await this._findOne({ experimentId, phase });
-    return doc?.currentExecutionSnapshotId ?? null;
+    snapshotId: string,
+  ): Promise<boolean> {
+    const doc = await this._findOne({
+      experimentId,
+      currentExecutionSnapshotId: snapshotId,
+    });
+    return doc !== null;
   }
 
   public async updateByExperimentIdIfCurrentExecution(
     experimentId: string,
-    phase: number,
     executionId: string,
     data: UpdateProps<IncrementalRefreshInterface>,
   ): Promise<boolean> {
@@ -157,28 +212,11 @@ export class IncrementalRefreshModel extends BaseClass {
       {
         organization: this.context.org.id,
         experimentId,
-        phase,
         currentExecutionSnapshotId: executionId,
       },
       { $set: { ...data, dateUpdated: new Date() } },
     );
     return result.matchedCount > 0;
-  }
-
-  /**
-   * Adopt a legacy document (no phase field) onto the given phase index.
-   * Callers must first confirm the document describes this phase by matching its
-   * experimentSettingsHash against the phase's settings.
-   */
-  public async adoptLegacyDocToPhase(experimentId: string, phase: number) {
-    await this._dangerousGetCollection().updateOne(
-      {
-        organization: this.context.org.id,
-        experimentId,
-        phase: { $exists: false },
-      },
-      { $set: { phase, dateUpdated: new Date() } },
-    );
   }
 
   public async deleteByExperimentIdAndPhase(
@@ -192,14 +230,71 @@ export class IncrementalRefreshModel extends BaseClass {
     });
   }
 
-  public async decrementPhasesAbove(experimentId: string, phase: number) {
-    await this._dangerousGetCollection().updateMany(
-      {
-        organization: this.context.org.id,
-        experimentId,
-        phase: { $gt: phase },
-      },
-      { $inc: { phase: -1 } },
+  /**
+   * Whether a live snapshot currently holds the lock for this phase. A lock is
+   * live when it names an execution and its heartbeat has not gone stale. This
+   * is the exact negation of the availability predicate in `acquireLock`.
+   */
+  public async isPhaseLockActive(
+    experimentId: string,
+    phase: number,
+  ): Promise<boolean> {
+    const staleThreshold = new Date(Date.now() - INCREMENTAL_LOCK_STALE_MS);
+    const doc = await this._dangerousGetCollection().findOne({
+      organization: this.context.org.id,
+      experimentId,
+      phase,
+      currentExecutionSnapshotId: { $ne: null },
+      $or: [
+        { lockHeartbeatAt: { $gte: staleThreshold } },
+        { lockHeartbeatAt: null, dateUpdated: { $gte: staleThreshold } },
+      ],
+    });
+    return doc !== null;
+  }
+
+  /**
+   * Collapse the phase-scoped documents back to a contiguous `0..n-1` sequence
+   * after a phase deletion leaves a gap. Renumbering competes with a concurrent
+   * `acquireLock` that may mint a document into a slot mid-shuffle, so each move
+   * is guarded by the document's current phase and the pass re-drives until a
+   * fresh read is already contiguous, tolerating the duplicate-key error a
+   * colliding mint raises. Legacy phase-less documents are left untouched.
+   */
+  public async compactPhases(experimentId: string): Promise<void> {
+    const collection = this._dangerousGetCollection();
+    const maxAttempts = 20;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const docs = await collection
+        .find(
+          {
+            organization: this.context.org.id,
+            experimentId,
+            phase: { $exists: true },
+          },
+          { projection: { phase: 1 } },
+        )
+        .sort({ phase: 1 })
+        .toArray();
+
+      if (docs.every((doc, index) => doc.phase === index)) return;
+
+      for (let index = 0; index < docs.length; index++) {
+        const doc = docs[index];
+        if (doc.phase === index) continue;
+        try {
+          await collection.updateOne(
+            { _id: doc._id, phase: doc.phase },
+            { $set: { phase: index, dateUpdated: new Date() } },
+          );
+        } catch (error) {
+          if (isDuplicateKeyError(error)) break;
+          throw error;
+        }
+      }
+    }
+    throw new Error(
+      "Could not renumber incremental refresh phases after phase deletion; a refresh may be running concurrently.",
     );
   }
   protected canRead(_doc: IncrementalRefreshInterface) {

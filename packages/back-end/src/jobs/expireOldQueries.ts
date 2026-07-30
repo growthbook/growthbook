@@ -89,7 +89,7 @@ const expireOldQueries = async () => {
     // This is safe because releaseLock filters on currentExecutionSnapshotId,
     // so it only releases the lock if this specific snapshot still holds it.
     await context.models.incrementalRefresh
-      .releaseLock(snapshot.experiment, snapshot.phase, snapshot.id)
+      .releaseLock(snapshot.experiment, snapshot.id)
       .catch((e) =>
         logger.warn(
           e,
@@ -338,7 +338,7 @@ async function reapStalledSnapshots() {
     }
 
     await context.models.incrementalRefresh
-      .releaseLock(snapshot.experiment, snapshot.phase, snapshot.id)
+      .releaseLock(snapshot.experiment, snapshot.id)
       .catch((e) =>
         logger.warn(
           e,

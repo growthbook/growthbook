@@ -222,15 +222,14 @@ export function getIncrementalRefreshMetricSources({
 
 const startExperimentIncrementalRefreshQueries = async (
   context: ApiReqContext,
-  params: ExperimentIncrementalRefreshQueryParams & { phase: number },
+  params: ExperimentIncrementalRefreshQueryParams,
   integration: SourceIntegrationInterface,
   startQuery: (
     params: StartQueryParams<RowsType, ProcessedRowsType>,
   ) => Promise<QueryPointer>,
   experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null,
 ): Promise<Queries> => {
-  const { snapshotSettings, queryParentId, experimentId, phase, metricMap } =
-    params;
+  const { snapshotSettings, queryParentId, experimentId, metricMap } = params;
 
   const { org } = context;
 
@@ -261,9 +260,9 @@ const startExperimentIncrementalRefreshQueries = async (
   const queries: Queries = [];
 
   const existingModel =
-    await context.models.incrementalRefresh.getByExperimentIdAndPhase(
+    await context.models.incrementalRefresh.getByCurrentExecutionSnapshotId(
       experimentId,
-      phase,
+      queryParentId,
     );
   const persistedUnitsTableFullName = existingModel?.unitsTableFullName ?? null;
   const unitsTableName = persistedUnitsTableFullName
@@ -325,12 +324,12 @@ const startExperimentIncrementalRefreshQueries = async (
       setExternalId: ExternalIdCallback,
       queryMetadata: RunQueryMetadata,
     ): Promise<R> => {
-      const current =
-        await context.models.incrementalRefresh.getCurrentExecutionSnapshotId(
+      const lockHeld =
+        await context.models.incrementalRefresh.isCurrentExecutionSnapshot(
           experimentId,
-          phase,
+          executionId,
         );
-      if (current !== executionId) {
+      if (!lockHeld) {
         throw new Error(
           "Incremental refresh lock was lost to another snapshot; aborting to avoid corrupting shared pipeline tables.",
         );
@@ -533,7 +532,6 @@ const startExperimentIncrementalRefreshQueries = async (
         const lockHeld =
           await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
             experimentId,
-            phase,
             executionId,
             {
               unitsTableFullName: unitsTableFullName,
@@ -828,9 +826,9 @@ const startExperimentIncrementalRefreshQueries = async (
           ),
         onSuccess: async () => {
           const incrementalRefresh =
-            await context.models.incrementalRefresh.getByExperimentIdAndPhase(
+            await context.models.incrementalRefresh.getByCurrentExecutionSnapshotId(
               experimentId,
-              phase,
+              queryParentId,
             );
           const lastSuccessfulMaxTimestamp =
             incrementalRefresh?.unitsMaxTimestamp ?? null;
@@ -857,7 +855,6 @@ const startExperimentIncrementalRefreshQueries = async (
           const lockHeld =
             await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
               experimentId,
-              phase,
               executionId,
               {
                 metricCovariateSources: runningCovariateSourceData,
@@ -934,14 +931,9 @@ const startExperimentIncrementalRefreshQueries = async (
         // Note: onFailure is not awaited by QueryRunner, so we must catch
         // errors here to avoid unhandled promise rejections.
         context.models.incrementalRefresh
-          .updateByExperimentIdIfCurrentExecution(
-            experimentId,
-            phase,
-            executionId,
-            {
-              metricSources: runningSourceData,
-            },
-          )
+          .updateByExperimentIdIfCurrentExecution(experimentId, executionId, {
+            metricSources: runningSourceData,
+          })
           .catch((e) =>
             context.logger.error(
               e,
@@ -986,7 +978,6 @@ const startExperimentIncrementalRefreshQueries = async (
           const lockHeld =
             await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
               experimentId,
-              phase,
               executionId,
               {
                 metricSources: runningSourceData,
@@ -1202,11 +1193,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 
   protected override onHeartbeat(): void {
     this.context.models.incrementalRefresh
-      .touchLockHeartbeat(
-        this.model.experiment,
-        this.model.phase,
-        this.model.id,
-      )
+      .touchLockHeartbeat(this.model.experiment, this.model.id)
       .catch((e) =>
         this.context.logger.warn(
           e,
@@ -1228,9 +1215,9 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 
     const incrementalRefreshModel = params.fullRefresh
       ? null
-      : await this.context.models.incrementalRefresh.getByExperimentIdAndPhase(
+      : await this.context.models.incrementalRefresh.getByCurrentExecutionSnapshotId(
           params.experimentId,
-          this.model.phase,
+          this.model.id,
         );
 
     const experiment = await getExperimentById(
@@ -1262,7 +1249,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 
     return await startExperimentIncrementalRefreshQueries(
       this.context,
-      { ...params, phase: this.model.phase },
+      params,
       this.integration,
       this.startQuery.bind(this),
       this.experimentUpdateExecutionLogger,
@@ -1423,7 +1410,6 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
         await this.context.models.incrementalRefresh
           .updateByExperimentIdIfCurrentExecution(
             this.model.experiment,
-            this.model.phase,
             this.model.id,
             { materializedBySnapshotId: this.model.id },
           )
@@ -1436,7 +1422,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       }
 
       await this.context.models.incrementalRefresh
-        .releaseLock(this.model.experiment, this.model.phase, this.model.id)
+        .releaseLock(this.model.experiment, this.model.id)
         .catch((e) =>
           this.context.logger.warn(
             e,

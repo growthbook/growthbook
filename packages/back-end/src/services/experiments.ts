@@ -206,6 +206,7 @@ import {
   ExperimentIncrementalPipelineRequiresFullRefreshError,
 } from "back-end/src/util/errors";
 import {
+  getExperimentSettingsHashForIncrementalRefresh,
   legacyDocDescribesPhase,
   assertIncrementalRefreshPrerequisites,
   exploratoryOverallRequiresFullRefresh,
@@ -1830,28 +1831,16 @@ export async function createSnapshotFromPlan({
 
   let hasIncrementalRefreshLock = false;
   if (needsIncrementalRefreshLock) {
-    const legacyDoc =
-      await context.models.incrementalRefresh.getLegacyByExperimentIdWithoutPhase(
-        experiment.id,
-      );
-    if (
-      legacyDoc &&
-      legacyDocDescribesPhase({
-        legacyDoc,
-        snapshotSettings: plan.snapshot.settings,
-      })
-    ) {
-      await context.models.incrementalRefresh.adoptLegacyDocToPhase(
-        experiment.id,
-        plan.snapshot.phase,
-      );
-    }
     hasIncrementalRefreshLock =
-      await context.models.incrementalRefresh.acquireLock(
-        experiment.id,
-        plan.snapshot.phase,
-        plan.snapshot.id,
-      );
+      await context.models.incrementalRefresh.acquireLock({
+        experimentId: experiment.id,
+        phase: plan.snapshot.phase,
+        snapshotId: plan.snapshot.id,
+        legacyExperimentSettingsHash:
+          getExperimentSettingsHashForIncrementalRefresh(
+            plan.snapshot.settings,
+          ),
+      });
     if (!hasIncrementalRefreshLock) {
       throw new ConcurrentIncrementalRefreshError(
         "There is already an update in progress for this experiment.",
@@ -2024,7 +2013,7 @@ export async function createSnapshotFromPlan({
   } catch (e) {
     if (hasIncrementalRefreshLock) {
       await context.models.incrementalRefresh
-        .releaseLock(experiment.id, plan.snapshot.phase, plan.snapshot.id)
+        .releaseLock(experiment.id, plan.snapshot.id)
         .catch((releaseErr) =>
           context.logger.warn(
             releaseErr,

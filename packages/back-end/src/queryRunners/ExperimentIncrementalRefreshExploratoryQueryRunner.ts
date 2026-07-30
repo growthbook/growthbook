@@ -58,15 +58,13 @@ export type ExperimentIncrementalRefreshExploratoryQueryParams = {
 
 export const startExperimentIncrementalRefreshExploratoryQueries = async (
   context: ApiReqContext,
-  params: ExperimentIncrementalRefreshExploratoryQueryParams & {
-    phase: number;
-  },
+  params: ExperimentIncrementalRefreshExploratoryQueryParams,
   integration: SourceIntegrationInterface,
   startQuery: (
     params: StartQueryParams<RowsType, ProcessedRowsType>,
   ) => Promise<QueryPointer>,
 ): Promise<Queries> => {
-  const { snapshotSettings, experimentId, phase, metricMap } = params;
+  const { snapshotSettings, experimentId, metricMap } = params;
 
   const { org } = context;
 
@@ -96,9 +94,9 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   const queries: Queries = [];
 
   const incrementalRefreshModel =
-    await context.models.incrementalRefresh.getByExperimentIdAndPhase(
+    await context.models.incrementalRefresh.getByCurrentExecutionSnapshotId(
       experimentId,
-      phase,
+      params.queryParentId,
     );
 
   if (!incrementalRefreshModel) {
@@ -148,12 +146,12 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   const fenced =
     <A extends unknown[], R>(run: (...args: A) => Promise<R>) =>
     async (...args: A): Promise<R> => {
-      const current =
-        await context.models.incrementalRefresh.getCurrentExecutionSnapshotId(
+      const lockHeld =
+        await context.models.incrementalRefresh.isCurrentExecutionSnapshot(
           experimentId,
-          phase,
+          executionId,
         );
-      if (current !== executionId) {
+      if (!lockHeld) {
         throw new Error(
           "Incremental refresh lock was lost to another snapshot; aborting exploratory analysis to avoid reading half-rebuilt pipeline tables.",
         );
@@ -369,11 +367,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
 
   protected override onHeartbeat(): void {
     this.context.models.incrementalRefresh
-      .touchLockHeartbeat(
-        this.model.experiment,
-        this.model.phase,
-        this.model.id,
-      )
+      .touchLockHeartbeat(this.model.experiment, this.model.id)
       .catch((e) =>
         this.context.logger.warn(
           e,
@@ -394,9 +388,9 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
     }
 
     const incrementalRefreshModel =
-      await this.context.models.incrementalRefresh.getByExperimentIdAndPhase(
+      await this.context.models.incrementalRefresh.getByCurrentExecutionSnapshotId(
         params.experimentId,
-        this.model.phase,
+        this.model.id,
       );
 
     const experiment = await getExperimentById(
@@ -419,7 +413,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
 
     return startExperimentIncrementalRefreshExploratoryQueries(
       this.context,
-      { ...params, phase: this.model.phase },
+      params,
       this.integration,
       this.startQuery.bind(this),
     );
@@ -510,7 +504,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
     // the shared pipeline tables while an incremental refresh is mutating them.
     if (updates.status !== "running") {
       await this.context.models.incrementalRefresh
-        .releaseLock(this.model.experiment, this.model.phase, this.model.id)
+        .releaseLock(this.model.experiment, this.model.id)
         .catch((e) =>
           this.context.logger.warn(
             e,

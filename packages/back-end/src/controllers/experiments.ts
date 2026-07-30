@@ -135,6 +135,7 @@ import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
+import { legacyDocDescribesPhase } from "back-end/src/enterprise/services/data-pipeline";
 import {
   getFeature,
   getFeaturesByIds,
@@ -821,14 +822,38 @@ export async function getExperimentIncrementalRefresh(
     });
   }
 
-  const incrementalRefresh =
-    (await context.models.incrementalRefresh.getByExperimentIdAndPhase(
+  const phase = experiment.phases.length - 1;
+  let incrementalRefresh =
+    await context.models.incrementalRefresh.getByExperimentIdAndPhase(
       id,
-      experiment.phases.length - 1,
-    )) ??
-    (await context.models.incrementalRefresh.getLegacyByExperimentIdWithoutPhase(
-      id,
-    ));
+      phase,
+    );
+
+  if (!incrementalRefresh) {
+    const legacyDoc =
+      await context.models.incrementalRefresh.getLegacyByExperimentIdWithoutPhase(
+        id,
+      );
+    const snapshot = legacyDoc
+      ? await getLatestSuccessfulSnapshot({
+          context,
+          experiment: id,
+          phase,
+          type: "standard",
+        })
+      : null;
+
+    if (
+      legacyDoc &&
+      snapshot &&
+      legacyDocDescribesPhase({
+        legacyDoc,
+        snapshotSettings: snapshot.settings,
+      })
+    ) {
+      incrementalRefresh = legacyDoc;
+    }
+  }
 
   return res.status(200).json({
     status: 200,
@@ -2668,6 +2693,20 @@ export async function deleteExperimentPhase(
     throw new Error("Invalid phase id");
   }
 
+  // Deleting the phase document out from under a running refresh would strand
+  // its lock, so refuse while that phase is actively refreshing. Checked before
+  // any mutation so a rejected delete leaves the experiment untouched.
+  if (
+    await context.models.incrementalRefresh.isPhaseLockActive(id, phaseIndex)
+  ) {
+    res.status(409).json({
+      status: 409,
+      message:
+        "An incremental refresh is running for this phase. Wait for it to finish before deleting the phase.",
+    });
+    return;
+  }
+
   // Remove an element from an array without mutating the original
   changes.phases = experiment.phases.filter((phase, i) => i !== phaseIndex);
 
@@ -2690,7 +2729,7 @@ export async function deleteExperimentPhase(
     id,
     phaseIndex,
   );
-  await context.models.incrementalRefresh.decrementPhasesAbove(id, phaseIndex);
+  await context.models.incrementalRefresh.compactPhases(id);
 
   // Add audit entry
   await req.audit({
@@ -3263,7 +3302,7 @@ export async function cancelSnapshot(
 
   // Release the incremental refresh lock if this snapshot held it.
   await context.models.incrementalRefresh
-    .releaseLock(experiment.id, snapshot.phase, snapshot.id)
+    .releaseLock(experiment.id, snapshot.id)
     .catch((e) =>
       logger.warn(e, "Failed to release incremental lock on snapshot cancel"),
     );
