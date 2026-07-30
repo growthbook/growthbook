@@ -516,7 +516,7 @@ export default function ConstantDetailPage(): React.ReactElement {
             <RevisionSummaryCard
               allRevisions={allRevisions}
               selectedRevision={selectedRevision}
-              entityNoun="constant"
+              entityNoun="Constant"
               hasRevisions={allRevisions.length > 0}
               canEditTitle={canDraft}
               canEditDescription={canDraft}
@@ -589,7 +589,7 @@ export default function ConstantDetailPage(): React.ReactElement {
             currentState={constant}
             diffConfig={REVISION_CONSTANT_DIFF_CONFIG}
             entityName={constant.name}
-            entityNoun="constant"
+            entityNoun="Constant"
             requiresApproval={selectedRevisionRequiresApproval}
             canEditEntity={permissionsUtil.canRevisionAction(
               "constant",

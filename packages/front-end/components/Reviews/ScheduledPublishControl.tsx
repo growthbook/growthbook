@@ -85,7 +85,8 @@ export default function ScheduledPublishControl({
   schedulePublishPath: string;
   // POST endpoint for arming/disarming "publish when approved". Body { enabled }.
   toggleAutoPublishPath: string;
-  // Noun for the lock scope option ("this {entityNoun}"), e.g. "saved group",
+  // Noun for the lock scope option ("this {entityNoun}"), e.g. "Saved Group" —
+  // a named resource keeps its Title Case mid-sentence,
   // "feature".
   entityNoun: string;
   // The viewer has publish authority over this entity.

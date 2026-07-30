@@ -1739,7 +1739,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                 <RevisionSummaryCard
                   allRevisions={allRevisions}
                   selectedRevision={selectedRevision}
-                  entityNoun="config"
+                  entityNoun="Config"
                   hasRevisions={allRevisions.length > 0}
                   canEditTitle={canDraft && !isLocked}
                   canEditDescription={canDraft && !isLocked}
@@ -2133,7 +2133,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                 currentState={config}
                 diffConfig={REVISION_CONFIG_DIFF_CONFIG}
                 entityName={config.name}
-                entityNoun="config"
+                entityNoun="Config"
                 requiresApproval={selectedRevisionRequiresApproval}
                 canEditEntity={canDraft}
                 canRevertEntity={permissionsUtil.canRevisionAction(

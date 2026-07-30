@@ -63,16 +63,19 @@ export async function canAdvanceRevision(
 }
 
 /**
- * Whether rebasing would pull nothing into the draft — the live state has not
- * moved from the snapshot the draft was built on, so the rebase only re-anchors
- * the base version.
+ * Whether the live state still matches the snapshot the draft was built on, so a
+ * rebase would pull nothing in and only re-anchor the base version.
+ *
+ * Deliberately NOT named like `featureDraftAuthority`'s `rebasePullsInNothing`,
+ * which answers the same question from a MergeResult. The two are not
+ * interchangeable — see below for why this one cannot use that basis.
  *
  * Asked of base-vs-live directly, not of the merge result: `checkMergeConflicts`
  * only examines fields the DRAFT proposes, so a field the live state changed and
  * the draft never touches produces no conflict and no `fieldsChanged` entry — yet
  * a rebase adopts it. That field is exactly what a narrow atom must not sweep in.
  */
-export function rebasePullsInNothing({
+export function liveMatchesRevisionBase({
   baseSnapshot,
   liveSnapshot,
   updatableFields,
@@ -114,7 +117,9 @@ export async function canRebaseRevision({
   ) {
     return true;
   }
-  if (!rebasePullsInNothing({ baseSnapshot, liveSnapshot, updatableFields })) {
+  if (
+    !liveMatchesRevisionBase({ baseSnapshot, liveSnapshot, updatableFields })
+  ) {
     return false;
   }
   return canAdvanceRevision(context, revision);
