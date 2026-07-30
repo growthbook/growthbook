@@ -39,6 +39,7 @@ import {
   updateRampSteps,
   assertCanControlRampSchedule,
 } from "back-end/src/services/rampSchedule";
+import { assertCanRefreshRampMonitoring } from "back-end/src/services/rampMonitoringAuthority";
 import { evaluateCurrentStep } from "back-end/src/services/rampScheduleEvaluator";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
@@ -1483,6 +1484,11 @@ export const refreshMonitoringRampSchedule = createApiRequestHandler({
   let safeRollout = schedule.safeRolloutId
     ? await req.context.models.safeRollout.getById(schedule.safeRolloutId)
     : null;
+
+  // Before the lazy ensure below, which WRITES: an under-privileged caller must
+  // not create a monitoring experiment on its way to a 403. The authoritative
+  // check still runs after, against whatever datasource the ensure settles on.
+  await assertCanRefreshRampMonitoring(req.context, schedule, safeRollout);
 
   if (!safeRollout && currentStep?.monitored) {
     // Serialize against the tick, which runs the same ensure — otherwise both

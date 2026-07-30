@@ -24,6 +24,7 @@ jest.mock("back-end/src/models/DataSourceModel", () => ({
 import { postRampScheduleAction } from "back-end/src/routers/ramp-schedule/ramp-schedule.controller";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 
 /**
  * Every ramp state action — pause, resume, advance, rewind, complete — mutates
@@ -51,24 +52,48 @@ function makeRes(): Response {
   } as unknown as Response;
 }
 
-function arrange({ canPublish }: { canPublish: boolean }) {
+function arrange({
+  canPublish,
+  canQueryDatasource = true,
+  monitored = false,
+}: {
+  canPublish: boolean;
+  canQueryDatasource?: boolean;
+  monitored?: boolean;
+}) {
   const canPublishFeature = jest.fn(() => canPublish);
+  const canCreateExperimentSnapshot = jest.fn(() => canQueryDatasource);
+  // A schedule whose monitoring is configured is what makes the refresh path
+  // reach its lazy SafeRollout create.
+  // The refresh path answers 409 for a schedule with no monitored step, before
+  // it reaches the lazy create — so the gate under test needs a real one.
+  const schedule = monitored
+    ? {
+        ...SCHEDULE,
+        currentStepIndex: 0,
+        steps: [{ monitored: true, actions: [] }],
+        monitoringConfig: { datasourceId: "ds_1" },
+      }
+    : SCHEDULE;
   (getContextFromReq as jest.Mock).mockReturnValue({
     permissions: {
       canPublishFeature,
+      canCreateExperimentSnapshot,
       throwPermissionError: () => {
         throw new PermissionError("permission denied");
       },
     },
     models: {
       rampSchedules: {
-        getById: jest.fn(async () => SCHEDULE),
+        getById: jest.fn(async () => schedule),
         publishEnvironments: jest.fn(() => ["production"]),
       },
+      safeRollout: { getById: jest.fn(async () => null) },
     },
   });
   (getFeature as jest.Mock).mockResolvedValue({ project: "prj_1" });
-  return { canPublishFeature };
+  (getDataSourceById as jest.Mock).mockResolvedValue({ id: "ds_1" });
+  return { canPublishFeature, canCreateExperimentSnapshot };
 }
 
 function makeReq(action: string) {
@@ -94,6 +119,25 @@ describe("postRampScheduleAction publish gate", () => {
     expect(canPublishFeature).toHaveBeenCalledWith({ project: "prj_1" }, [
       "production",
     ]);
+  });
+
+  it("refuses refresh-monitoring before the write that creates a monitoring experiment", async () => {
+    // The datasource check used to be the only gate on this path and it sat
+    // AFTER a lazy SafeRollout create, so an under-privileged caller reached a
+    // write on its way to a 403. This pins the ORDER, not just the refusal:
+    // the services/rampSchedule mock exposes only the two assertions, so
+    // reaching the ensure would raise a TypeError instead of PermissionError.
+    const { canPublishFeature, canCreateExperimentSnapshot } = arrange({
+      canPublish: false,
+      canQueryDatasource: false,
+      monitored: true,
+    });
+    await expect(
+      postRampScheduleAction(makeReq("refresh-monitoring"), makeRes()),
+    ).rejects.toThrow(PermissionError);
+    expect(canCreateExperimentSnapshot).toHaveBeenCalled();
+    // Still not a publish gate — the refusal comes from the datasource.
+    expect(canPublishFeature).not.toHaveBeenCalled();
   });
 
   it("exempts refresh-monitoring, which reads data rather than moving the rollout", async () => {
