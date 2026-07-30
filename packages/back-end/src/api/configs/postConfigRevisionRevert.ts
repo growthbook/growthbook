@@ -226,7 +226,12 @@ export const postConfigRevisionRevert = createApiRequestHandler(
         "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
       current: config.archived,
     }) &&
-    !req.context.permissions.canRevisionAction("config", "delete", config)
+    !req.context.permissions.canRevisionAction(
+      "config",
+      "delete",
+      config,
+      configPublishEnvironments(req.context, config),
+    )
   ) {
     req.context.permissions.throwPermissionError();
   }
