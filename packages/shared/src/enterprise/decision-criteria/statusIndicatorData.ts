@@ -103,6 +103,7 @@ export function getStatusIndicatorData(
           detailedStatus: "Didn't finish",
           sortOrder: 1,
         };
+      case undefined:
       default:
         return {
           color: "amber",

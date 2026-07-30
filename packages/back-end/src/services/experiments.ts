@@ -97,6 +97,7 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
+  SnapshotQueryRunnerKind,
   SnapshotTriggeredBy,
   SnapshotType,
   SnapshotBanditSettings,
@@ -1269,7 +1270,7 @@ export type ExperimentSnapshotQueryRunner =
   | ExperimentIncrementalRefreshQueryRunner
   | ExperimentIncrementalRefreshExploratoryQueryRunner;
 
-export type SnapshotQueryRunnerKind =
+type SnapshotQueryRunnerFamily =
   | "results"
   | "incremental"
   | "incremental-exploratory";
@@ -1287,7 +1288,7 @@ export function resolveSnapshotRunner({
   hasSnapshotDimensions: boolean;
   hasMaterializedUnitsTable: boolean;
 }): {
-  runnerKind: SnapshotQueryRunnerKind;
+  runnerFamily: SnapshotQueryRunnerFamily;
   incrementalFallbackReason: string | null;
 } {
   if (
@@ -1296,7 +1297,7 @@ export function resolveSnapshotRunner({
       experiment.id,
     )
   ) {
-    return { runnerKind: "results", incrementalFallbackReason: null };
+    return { runnerFamily: "results", incrementalFallbackReason: null };
   }
 
   const unsupportedTypeReason = getUnsupportedIncrementalExperimentTypeReason(
@@ -1304,7 +1305,7 @@ export function resolveSnapshotRunner({
   );
   if (unsupportedTypeReason) {
     return {
-      runnerKind: "results",
+      runnerFamily: "results",
       incrementalFallbackReason: unsupportedTypeReason,
     };
   }
@@ -1314,20 +1315,40 @@ export function resolveSnapshotRunner({
     // Results have materialized the units table.
     if (!hasMaterializedUnitsTable) {
       return {
-        runnerKind: "results",
+        runnerFamily: "results",
         incrementalFallbackReason:
           "No materialized units table yet for Overall Results.",
       };
     }
     return {
-      runnerKind: hasSnapshotDimensions
+      runnerFamily: hasSnapshotDimensions
         ? "incremental-exploratory"
         : "incremental",
       incrementalFallbackReason: null,
     };
   }
 
-  return { runnerKind: "incremental", incrementalFallbackReason: null };
+  return { runnerFamily: "incremental", incrementalFallbackReason: null };
+}
+
+function getSnapshotQueryRunnerKind({
+  runnerFamily,
+  fullRefresh,
+}: {
+  runnerFamily: SnapshotQueryRunnerFamily;
+  fullRefresh: boolean;
+}): SnapshotQueryRunnerKind {
+  switch (runnerFamily) {
+    case "results":
+      return "results";
+    case "incremental":
+      return fullRefresh ? "incremental-full" : "incremental-update";
+    case "incremental-exploratory":
+      return "incremental-exploratory";
+    default:
+      runnerFamily satisfies never;
+      throw new Error(`Unknown snapshot runner family: ${runnerFamily}`);
+  }
 }
 
 /**
@@ -1399,7 +1420,7 @@ async function resolveIncrementalPrerequisiteFailure({
 }: {
   error: unknown;
   decision: {
-    runnerKind: SnapshotQueryRunnerKind;
+    runnerFamily: SnapshotQueryRunnerFamily;
     incrementalFallbackReason: string | null;
   };
   experiment: ExperimentInterface;
@@ -1410,7 +1431,7 @@ async function resolveIncrementalPrerequisiteFailure({
   prerequisites: IncrementalRefreshPrerequisiteArgs;
   throwOnErrorInsteadOfFallback: boolean;
 }): Promise<{
-  runnerKind: SnapshotQueryRunnerKind;
+  runnerFamily: SnapshotQueryRunnerFamily;
   incrementalFallbackReason: string | null;
   fullRefresh: boolean;
   fullRefreshReason: string | null;
@@ -1446,7 +1467,7 @@ async function resolveIncrementalPrerequisiteFailure({
         `Experiment ${experiment.id} does not support incremental refresh even as a full refresh: ${fullRefreshValidationError}`,
       );
       return {
-        runnerKind: "results",
+        runnerFamily: "results",
         incrementalFallbackReason: fullRefreshValidationError,
         fullRefresh,
         fullRefreshReason,
@@ -1465,7 +1486,7 @@ async function resolveIncrementalPrerequisiteFailure({
     `Experiment ${experiment.id} does not support incremental refresh: ${validationError}`,
   );
   return {
-    runnerKind: "results",
+    runnerFamily: "results",
     incrementalFallbackReason: validationError,
     fullRefresh,
     fullRefreshReason,
@@ -1501,7 +1522,7 @@ async function planSnapshotQueryRunner({
   triggeredBy: SnapshotTriggeredBy;
   throwOnErrorInsteadOfFallback: boolean;
 }): Promise<{
-  runnerKind: SnapshotQueryRunnerKind;
+  runnerFamily: SnapshotQueryRunnerFamily;
   incrementalFallbackReason: string | null;
   fullRefresh: boolean;
   fullRefreshReason: string | null;
@@ -1514,14 +1535,14 @@ async function planSnapshotQueryRunner({
     hasMaterializedUnitsTable: !!incrementalRefreshModel?.unitsTableFullName,
   });
 
-  if (decision.runnerKind === "results") {
+  if (decision.runnerFamily === "results") {
     return { ...decision, fullRefresh, fullRefreshReason };
   }
 
   // Dimension breakdowns read the Overall Results units table. If experiment
   // settings drifted, Overall Results must rebuild that table first.
   if (
-    decision.runnerKind === "incremental-exploratory" &&
+    decision.runnerFamily === "incremental-exploratory" &&
     incrementalRefreshModel &&
     exploratoryOverallRequiresFullRefresh({
       snapshotSettings,
@@ -1536,7 +1557,7 @@ async function planSnapshotQueryRunner({
     }
 
     return {
-      runnerKind: "results",
+      runnerFamily: "results",
       incrementalFallbackReason:
         "Overall Results need a full refresh; running non-incremental update instead of reading stale data.",
       fullRefresh,
@@ -1579,8 +1600,9 @@ async function planSnapshotQueryRunner({
 }
 
 export type PlannedExperimentSnapshot = {
-  snapshot: ExperimentSnapshotInterface;
-  runnerKind: SnapshotQueryRunnerKind;
+  snapshot: ExperimentSnapshotInterface & {
+    runnerKind: SnapshotQueryRunnerKind;
+  };
   useCache: boolean;
   fullRefresh: boolean;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
@@ -1764,7 +1786,7 @@ export async function planSnapshot({
     ),
   });
 
-  if (runnerPlan.runnerKind === "incremental-exploratory") {
+  if (runnerPlan.runnerFamily === "incremental-exploratory") {
     // The snapshot whose run materialized the tables this breakdown reads is
     // the source of its freshness date. Absent for legacy docs that predate the
     // field; the UI falls back to the breakdown's own dateCreated in that case.
@@ -1784,9 +1806,16 @@ export async function planSnapshot({
     }
   }
 
+  const snapshot = {
+    ...data,
+    runnerKind: getSnapshotQueryRunnerKind({
+      runnerFamily: runnerPlan.runnerFamily,
+      fullRefresh: runnerPlan.fullRefresh,
+    }),
+  };
+
   return {
-    snapshot: data,
-    runnerKind: runnerPlan.runnerKind,
+    snapshot,
     incrementalFallbackReason: runnerPlan.incrementalFallbackReason,
     useCache,
     fullRefresh: runnerPlan.fullRefresh,
@@ -1813,17 +1842,18 @@ export async function createSnapshotFromPlan({
     throw new Error("Could not load data source");
   }
   const integration = getSourceIntegrationObject(context, datasource, true);
+  const { runnerKind } = plan.snapshot;
 
-  // Both incremental runner kinds need exclusive access to the per-experiment
-  // pipeline tables: "incremental" mutates them (DROP/CREATE/RENAME on the
-  // units + metric-source tables), and "incremental-exploratory" reads them.
-  // Locking both prevents concurrent triggers (e.g. scheduled auto-refresh +
-  // manual Update) from racing on those tables and producing empty or
-  // malformed results. The "results" runner writes only to per-snapshot
-  // ephemeral tables, so it does not need this lock.
+  // Incremental full/update mutate the per-experiment pipeline tables
+  // (DROP/CREATE/RENAME on units + metric-source tables). Exploratory reads
+  // those tables. Lock all three so concurrent triggers (scheduled
+  // auto-refresh + manual Update) cannot race and produce empty or malformed
+  // results. The results runner only writes per-snapshot ephemeral tables, so
+  // it does not need this lock.
   const needsIncrementalRefreshLock =
-    plan.runnerKind === "incremental" ||
-    plan.runnerKind === "incremental-exploratory";
+    runnerKind === "incremental-full" ||
+    runnerKind === "incremental-update" ||
+    runnerKind === "incremental-exploratory";
 
   let hasIncrementalRefreshLock = false;
   if (needsIncrementalRefreshLock) {
@@ -1877,7 +1907,7 @@ export async function createSnapshotFromPlan({
     createdSnapshotId = snapshot.id;
 
     const experimentUpdateLog: ExperimentUpdateLogPlan = {
-      runnerKind: plan.runnerKind,
+      runnerKind,
       incrementalFallbackReason: plan.incrementalFallbackReason,
       useCache: plan.useCache,
       fullRefresh: plan.fullRefresh,
@@ -1902,7 +1932,7 @@ export async function createSnapshotFromPlan({
     );
 
     let queryRunner: ExperimentSnapshotQueryRunner;
-    switch (plan.runnerKind) {
+    switch (runnerKind) {
       case "incremental-exploratory":
         queryRunner = new ExperimentIncrementalRefreshExploratoryQueryRunner(
           context,
@@ -1911,7 +1941,8 @@ export async function createSnapshotFromPlan({
           false, // TODO(incremental-refresh): allow cache + cache override for exploratory queries
         );
         break;
-      case "incremental":
+      case "incremental-full":
+      case "incremental-update":
         queryRunner = new ExperimentIncrementalRefreshQueryRunner(
           context,
           snapshot,
@@ -1928,8 +1959,8 @@ export async function createSnapshotFromPlan({
         );
         break;
       default:
-        plan.runnerKind satisfies never;
-        throw new Error(`Unknown snapshot runner kind: ${plan.runnerKind}`);
+        runnerKind satisfies never;
+        throw new Error(`Unknown snapshot runner kind: ${runnerKind}`);
     }
 
     queryRunner.setExperimentUpdateExecutionLogger(
@@ -1949,16 +1980,19 @@ export async function createSnapshotFromPlan({
       },
     };
 
-    if (plan.runnerKind === "incremental") {
+    if (
+      runnerKind === "incremental-full" ||
+      runnerKind === "incremental-update"
+    ) {
       await (
         queryRunner as ExperimentIncrementalRefreshQueryRunner
       ).startAnalysis({
         ...analysisProps,
         experimentId: experiment.id,
         incrementalRefreshStartTime: new Date(),
-        fullRefresh: plan.fullRefresh,
+        fullRefresh: runnerKind === "incremental-full",
       });
-    } else if (plan.runnerKind === "incremental-exploratory") {
+    } else if (runnerKind === "incremental-exploratory") {
       await (
         queryRunner as ExperimentIncrementalRefreshExploratoryQueryRunner
       ).startAnalysis({

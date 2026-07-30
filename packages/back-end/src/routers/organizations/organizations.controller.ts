@@ -76,6 +76,7 @@ import {
   APP_ORIGIN,
   IS_CLOUD,
   IS_MULTI_ORG,
+  PROHIBITED_ORGANIZATION_NAME_REGEX,
 } from "back-end/src/util/secrets";
 import {
   sendInviteEmail,
@@ -1534,6 +1535,11 @@ export async function signup(
   try {
     if (company.length < 3) {
       throw Error("Company length must be at least 3 characters");
+    }
+    if (IS_CLOUD && PROHIBITED_ORGANIZATION_NAME_REGEX?.test(company)) {
+      throw Error(
+        "Unable to create organization. Please contact support@growthbook.io",
+      );
     }
     if (!req.userId) {
       throw Error("Must be logged in");
