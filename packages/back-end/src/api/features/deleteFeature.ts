@@ -50,7 +50,7 @@ export async function deleteFeatureHandler(
   // Deleting a live (non-archived) feature is a production-affecting action.
   // Archived features can be deleted freely; unarchived ones require the org
   // to have opted in to unrestricted REST API writes. The project-scoped
-  // bypassApprovalFlags permission intentionally does NOT authorize this path:
+  // FlagsBypassApprovals permission intentionally does NOT authorize this path:
   // it is a review-workflow bypass, not a destructive-action override.
   if (!feature.archived) {
     if (!canUseRestApiBypassSetting(req)) {

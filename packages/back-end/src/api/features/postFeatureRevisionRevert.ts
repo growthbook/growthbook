@@ -328,7 +328,7 @@ export async function revertFeatureRevision(
   }
 
   // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
-  // calls should behave like dashboard actions) or bypassApprovalFlags.
+  // calls should behave like dashboard actions) or FlagsBypassApprovals.
   const canBypass =
     canUseRestApiBypass ||
     context.permissions.canBypassFlagApprovalChecks(feature, "feature");
@@ -358,7 +358,7 @@ export async function revertFeatureRevision(
       throw new BadRequestError(
         "This revert requires approval before changes can be published. " +
           "Enable 'REST API always bypasses approval requirements' in organization settings, " +
-          "or use a role/token that grants bypassApprovalFlags on this project.",
+          "or use a role/token that grants FlagsBypassApprovals on this project.",
       );
     }
   }

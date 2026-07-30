@@ -39,9 +39,9 @@ export type BulkPublishItemRef = {
 export type BulkPublishFlags = {
   /** Acknowledge-class gates: guards, stale-base, warn-mode schema failures. */
   ignoreWarnings: boolean;
-  /** Validation-class gates; honored only with bypassApprovalFlags. */
+  /** Validation-class gates; honored only with FlagsBypassApprovals. */
   skipSchemaValidation: boolean;
-  /** Custom-hook rejections; honored only with bypassApprovalFlags. */
+  /** Custom-hook rejections; honored only with FlagsBypassApprovals. */
   skipHooks: boolean;
   /** The org REST-bypass setting applies to this caller (key/PAT, not JWT). */
   restApiBypassesReviews: boolean;

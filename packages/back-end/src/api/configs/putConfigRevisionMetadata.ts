@@ -42,7 +42,6 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
   }
   // Staging a project move needs draft authority on the destination too; the
   // publish path re-checks it against the destination when the move lands.
-  // rights on the source. Publish re-checks the destination when the move lands.
   if (
     typeof project !== "undefined" &&
     project !== config.project &&

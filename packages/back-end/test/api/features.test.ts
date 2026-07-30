@@ -854,8 +854,8 @@ describe("features API", () => {
       );
     });
 
-    it("role-based bypassApprovalFlags permission bypasses when restApiBypassesReviews=false", async () => {
-      // Tokens/roles that grant bypassApprovalFlags for the feature's project
+    it("role-based FlagsBypassApprovals permission bypasses when restApiBypassesReviews=false", async () => {
+      // Tokens/roles that grant FlagsBypassApprovals for the feature's project
       // can still publish through the REST API even when the org-level
       // restApiBypassesReviews setting is disabled.
       setupUpdateTest(

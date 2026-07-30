@@ -99,7 +99,7 @@ export async function toggleFeatureCore(
   // Callers bypass the review gate via either the org-level
   // restApiBypassesReviews setting (API keys/PATs only — JWT-backed REST
   // calls should behave like dashboard actions) or a role/token that grants
-  // the bypassApprovalFlags permission on this feature's project.
+  // the FlagsBypassApprovals permission on this feature's project.
   const canBypass =
     canUseRestApiBypass ||
     context.permissions.canBypassFlagApprovalChecks(feature, "feature");
@@ -138,7 +138,7 @@ export async function toggleFeatureCore(
     throw new PermissionError(
       `This feature requires a review before publishing changes to: ${envList}. ` +
         "Enable 'REST API always bypasses approval requirements' in organization settings, " +
-        "or use a role/token that grants bypassApprovalFlags on this project.",
+        "or use a role/token that grants FlagsBypassApprovals on this project.",
     );
   }
 

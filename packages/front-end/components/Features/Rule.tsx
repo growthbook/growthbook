@@ -512,6 +512,17 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const isSyntheticRamp =
       !!rampSchedule && rampSchedule.id.startsWith("pending-");
 
+    // Runtime ramp controls are the only kebab items a publish-only role can
+    // reach, so the menu opens for one only when the schedule actually offers
+    // one — mirrors the two Schedule groups' own conditions.
+    const hasRampRuntimeItems =
+      canControlRamp &&
+      !!rampSchedule &&
+      (isSimpleSchedule
+        ? !!rampSchedule.cutoffDate &&
+          ["running", "paused"].includes(rampSchedule.status)
+        : !isSyntheticRamp);
+
     const ruleTags: React.ReactNode[] = [];
     const ruleCtas: React.ReactNode[] = [];
 
@@ -849,7 +860,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               {/* Shown when rule-edit OR ramp runtime actions are available.
                 Under a scheduled-publish lock the rule-edit group is hidden but
                 ramp/schedule actions remain. */}
-              {canEdit &&
+              {(canEdit || hasRampRuntimeItems) &&
                 !rampControlsLocked &&
                 (!locked || !!rampSchedule) && (
                   <DropdownMenu
@@ -870,7 +881,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     menuPlacement="end"
                     variant="soft"
                   >
-                    {!locked && (
+                    {canEdit && !locked && (
                       <DropdownMenuGroup>
                         <DropdownMenuItem
                           onClick={() => {
@@ -925,7 +936,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         </DropdownMenuItem>
                       </DropdownMenuGroup>
                     )}
-                    {!locked &&
+                    {canEdit &&
+                      !locked &&
                       (onMoveUp ||
                         onMoveDown ||
                         onMoveToTop ||
@@ -978,7 +990,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           </DropdownMenuGroup>
                         </>
                       )}
-                    {rampSchedule &&
+                    {canControlRamp &&
                       isSimpleSchedule &&
                       !!rampSchedule.cutoffDate &&
                       ["running", "paused"].includes(rampSchedule.status) && (
@@ -1002,7 +1014,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           </DropdownMenuGroup>
                         </>
                       )}
-                    {!locked &&
+                    {canEdit &&
+                      !locked &&
                       rampSchedule &&
                       isSimpleSchedule &&
                       !!rampSchedule.cutoffDate &&
@@ -1047,6 +1060,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           {hasPendingDetach ? (
                             // Canceling a pending removal edits the draft, so it's
                             // gated by the edit-lock; runtime actions below are not.
+                            canEdit &&
                             !locked && (
                               <DropdownMenuItem
                                 onClick={async () => {
@@ -1386,7 +1400,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         </DropdownMenuGroup>
                       </>
                     )}
-                    {!locked && (
+                    {canEdit && !locked && (
                       <DropdownMenuGroup>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem

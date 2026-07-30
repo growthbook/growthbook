@@ -306,7 +306,7 @@ describe("classifyPublishGate", () => {
     it("does not force-merge on an unrelated permission", () => {
       const otherPermissionStaleBase: PublishGate = {
         ...staleBaseGate,
-        requiresPermission: "publishFlags",
+        requiresPermission: "publishFeatures",
       };
       expect(
         classifyPublishGate(

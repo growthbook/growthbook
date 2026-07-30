@@ -1081,7 +1081,7 @@ export async function assertScopedOverridesChangeAllowed(
       {
         project: config.project || "",
       },
-      "constant",
+      "config",
     )
   ) {
     return;

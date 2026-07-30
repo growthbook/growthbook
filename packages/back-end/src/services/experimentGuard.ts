@@ -338,7 +338,7 @@ export async function evaluateConfigExperimentGuardConflicts(
 // Enforce the experiment guard for a config publish. `armed` = a deferred merge
 // (scheduled publish or auto-publish-on-approval), whose override is the arm-time
 // fingerprint on the revision; unarmed = a direct manual publish, which honors an
-// explicit synchronous override (`?ignoreWarnings=true` or bypassApprovalFlags).
+// explicit synchronous override (`?ignoreWarnings=true` or FlagsBypassApprovals).
 // Throws SoftWarningError (422) for an un-acknowledged direct publish, or
 // TerminalPublishError for a deferred merge whose fingerprint has diverged.
 export async function assertConfigExperimentGuard(
@@ -439,7 +439,7 @@ export async function assertScopedOverridesExperimentGuard(
 // on the revision (compared at merge time), or undefined when there is nothing to
 // acknowledge (guard off / no live conflict / metadata-only revision). Throws
 // SoftWarningError when live conflicts exist and the armer did not acknowledge
-// them (?ignoreWarnings=true or bypassApprovalFlags) — arming must be an
+// them (?ignoreWarnings=true or FlagsBypassApprovals) — arming must be an
 // explicit, recorded override. `proposedChanges` (the revision's staged ops, when
 // known) lets a metadata-only revision skip the guard, matching the merge-time
 // gate so a rename doesn't need acknowledgment to be scheduled.

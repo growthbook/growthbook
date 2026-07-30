@@ -745,8 +745,7 @@ export async function postFeatures(
           getEnvironmentIdsFromOrg(context.org),
         ),
       ),
-    ) ||
-    !context.permissions.canEditFeatureDrafts({ project: otherProps.project })
+    )
   ) {
     context.permissions.throwPermissionError();
   }
@@ -2368,7 +2367,7 @@ export async function postFeatureRevert(
     throw new Error("Can only revert to previously published revisions");
   }
 
-  // Revert is its own capability (revertFlags), gated per-change below.
+  // Revert is its own capability (revertFeatures), gated per-change below.
 
   // Intentionally no assertRegisteredAttributes() call here — reverting
   // restores a previously-published state as-is, which may reference

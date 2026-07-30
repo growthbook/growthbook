@@ -46,7 +46,7 @@ describe("Role permissions", () => {
     const p = getPermissions("noaccess");
     expect(p.canAddComment(projects)).toBe(false);
     expect(
-      ["feature", "config", "constant"].every((m) =>
+      ["feature", "config", "constant"].some((m) =>
         p.canBypassFlagApprovalChecks(
           projectResource,
           m as "feature" | "config" | "constant",
@@ -180,7 +180,7 @@ describe("Role permissions", () => {
     const p = getPermissions("readonly");
     expect(p.canAddComment(projects)).toBe(false);
     expect(
-      ["feature", "config", "constant"].every((m) =>
+      ["feature", "config", "constant"].some((m) =>
         p.canBypassFlagApprovalChecks(
           projectResource,
           m as "feature" | "config" | "constant",
@@ -315,7 +315,7 @@ describe("Role permissions", () => {
     const p = getPermissions("visualEditor");
     expect(p.canAddComment(projects)).toBe(false);
     expect(
-      ["feature", "config", "constant"].every((m) =>
+      ["feature", "config", "constant"].some((m) =>
         p.canBypassFlagApprovalChecks(
           projectResource,
           m as "feature" | "config" | "constant",
@@ -450,7 +450,7 @@ describe("Role permissions", () => {
     const p = getPermissions("collaborator");
     expect(p.canAddComment(projects)).toBe(true);
     expect(
-      ["feature", "config", "constant"].every((m) =>
+      ["feature", "config", "constant"].some((m) =>
         p.canBypassFlagApprovalChecks(
           projectResource,
           m as "feature" | "config" | "constant",
@@ -585,7 +585,7 @@ describe("Role permissions", () => {
     const p = getPermissions("engineer");
     expect(p.canAddComment(projects)).toBe(true);
     expect(
-      ["feature", "config", "constant"].every((m) =>
+      ["feature", "config", "constant"].some((m) =>
         p.canBypassFlagApprovalChecks(
           projectResource,
           m as "feature" | "config" | "constant",
@@ -720,7 +720,7 @@ describe("Role permissions", () => {
     const p = getPermissions("analyst");
     expect(p.canAddComment(projects)).toBe(true);
     expect(
-      ["feature", "config", "constant"].every((m) =>
+      ["feature", "config", "constant"].some((m) =>
         p.canBypassFlagApprovalChecks(
           projectResource,
           m as "feature" | "config" | "constant",
@@ -855,7 +855,7 @@ describe("Role permissions", () => {
     const p = getPermissions("experimenter");
     expect(p.canAddComment(projects)).toBe(true);
     expect(
-      ["feature", "config", "constant"].every((m) =>
+      ["feature", "config", "constant"].some((m) =>
         p.canBypassFlagApprovalChecks(
           projectResource,
           m as "feature" | "config" | "constant",

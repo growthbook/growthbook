@@ -18,7 +18,6 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useEnvironments } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -117,9 +116,9 @@ export default function ConstantDetailPage(): React.ReactElement {
   const { projects, mutateDefinitions } = useDefinitions();
   const { organization, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
-  const publishEnvironments = constantPublishEnvironments(
-    useEnvironments().map((e) => e.id),
-  );
+  // Same call the back end makes: a constant's value is not environment-scoped,
+  // so publishing one carries no environment footprint.
+  const publishEnvironments = constantPublishEnvironments();
 
   const [editInfoOpen, setEditInfoOpen] = useState(false);
   const [editValueOpen, setEditValueOpen] = useState(false);
@@ -603,6 +602,12 @@ export default function ConstantDetailPage(): React.ReactElement {
               "revert",
               constant,
               publishEnvironments,
+            )}
+            canDeleteEntity={permissionsUtil.canRevisionAction(
+              "constant",
+              "delete",
+              constant,
+              NO_ENVIRONMENT_BINDING,
             )}
             canCommentOnEntity={permissionsUtil.canAddComment(
               constant.project ? [constant.project] : [],

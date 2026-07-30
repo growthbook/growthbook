@@ -187,13 +187,13 @@ export const skipSchemaValidationBodyField = z
   .boolean()
   .optional()
   .describe(
-    "Force past schema-validation failures: JSON-schema validation of the value(s) written, cross-field invariants, and downstream schema breaks (a change that makes a dependent config or config-backed feature value violate its schema). Does NOT clear a custom validation-hook rejection — use `skipHooks` for that. Only honored for callers with org-wide bypass authority (the `bypassApprovalFlags` permission on all projects); ignored otherwise. Validation is enforced by default.",
+    "Force past schema-validation failures: JSON-schema validation of the value(s) written, cross-field invariants, and downstream schema breaks (a change that makes a dependent config or config-backed feature value violate its schema). Does NOT clear a custom validation-hook rejection — use `skipHooks` for that. Only honored for callers with org-wide bypass authority (the `FlagsBypassApprovals` permission on all projects); ignored otherwise. Validation is enforced by default.",
   );
 export const skipHooksBodyField = z
   .boolean()
   .optional()
   .describe(
-    "Force past a custom validation hook that rejected the change (a hook that threw). Separate from `skipSchemaValidation` — a hook failure is not a schema error. Only honored for callers with org-wide bypass authority (the `bypassApprovalFlags` permission on all projects); ignored otherwise.",
+    "Force past a custom validation hook that rejected the change (a hook that threw). Separate from `skipSchemaValidation` — a hook failure is not a schema error. Only honored for callers with org-wide bypass authority (the `FlagsBypassApprovals` permission on all projects); ignored otherwise.",
   );
 export const publishOverrideBodyFields = {
   ignoreWarnings: ignoreWarningsBodyField,
@@ -209,7 +209,7 @@ export const bypassApprovalPublishBodyField = z
   .boolean()
   .optional()
   .describe(
-    "Has no effect and is accepted only for backwards compatibility. Callers holding the entity's bypass-approval permission (`bypassApprovalFlags`, or `bypassApprovalSavedGroups` for saved groups) — or under the org-level REST bypass setting — bypass approval requirements automatically; all other callers must have the revision approved before publishing.",
+    "Has no effect and is accepted only for backwards compatibility. Callers holding the entity's bypass-approval permission (`FlagsBypassApprovals`, or `SavedGroupsBypassApprovals` for saved groups) — or under the org-level REST bypass setting — bypass approval requirements automatically; all other callers must have the revision approved before publishing.",
   );
 
 // Reported on a SUCCESSFUL publish when a gate that would otherwise have blocked

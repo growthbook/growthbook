@@ -386,7 +386,7 @@ describe("dispatchInternal", () => {
     let received: { permission: string; project: unknown } | undefined;
     _setRoutesForTests([
       makeRoute("post", "/guarded", (req) => {
-        req.checkPermissions("manageFlags", "proj_1");
+        req.checkPermissions("editFeatureDrafts", "proj_1");
         return { ok: true };
       }),
     ]);
@@ -410,7 +410,7 @@ describe("dispatchInternal", () => {
       message: "You do not have permission to complete that action.",
     });
     expect(received).toEqual({
-      permission: "manageFlags",
+      permission: "editFeatureDrafts",
       project: "proj_1",
     });
   });

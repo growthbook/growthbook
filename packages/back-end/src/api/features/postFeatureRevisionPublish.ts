@@ -103,7 +103,7 @@ export async function publishFeatureRevision(
   const forceMergeRequested = req.body.ignoreWarnings === true;
 
   // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
-  // calls should behave like dashboard actions) or bypassApprovalFlags.
+  // calls should behave like dashboard actions) or FlagsBypassApprovals.
   const canBypass =
     canUseRestApiBypass ||
     req.context.permissions.canBypassFlagApprovalChecks(feature, "feature");
@@ -167,7 +167,7 @@ export async function publishFeatureRevision(
     throw new BadRequestError(
       `This revision requires approval before publishing (status: "${revision.status}"). ` +
         "Enable 'REST API always bypasses approval requirements' in organization settings, " +
-        "or use a role/token that grants bypassApprovalFlags on this project.",
+        "or use a role/token that grants FlagsBypassApprovals on this project.",
     );
   }
 

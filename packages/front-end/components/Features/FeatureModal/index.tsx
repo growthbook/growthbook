@@ -216,8 +216,7 @@ export default function FeatureModal({
 
   const projectOptions = useProjectOptions(
     (project) =>
-      permissionsUtil.canCreateFeature({ project }, NO_ENVIRONMENT_BINDING) &&
-      permissionsUtil.canEditFeatureDrafts({ project }),
+      permissionsUtil.canCreateFeature({ project }, NO_ENVIRONMENT_BINDING),
     project ? [project] : [],
   );
   const canCreateWithoutProject =

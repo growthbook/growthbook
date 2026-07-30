@@ -2142,6 +2142,12 @@ export default function ConfigDetailPage(): React.ReactElement {
                   config,
                   configPublishEnvironments(config),
                 )}
+                canDeleteEntity={permissionsUtil.canRevisionAction(
+                  "config",
+                  "delete",
+                  config,
+                  configPublishEnvironments(config),
+                )}
                 canCommentOnEntity={permissionsUtil.canAddComment(
                   config.project ? [config.project] : [],
                 )}

@@ -5293,9 +5293,9 @@ describe("PermissionsUtilClass.canByPassApprovalChecks", () => {
       projects: {},
     });
 
-    expect(permissions.canBypassFlagApprovalChecks({ project: "" })).toEqual(
-      false,
-    );
+    expect(
+      permissions.canBypassFlagApprovalChecks({ project: "" }, "feature"),
+    ).toEqual(false);
     expect(
       permissions.canBypassSavedGroupApprovalChecks({ project: "" }),
     ).toEqual(false);
@@ -5311,9 +5311,9 @@ describe("PermissionsUtilClass.canByPassApprovalChecks", () => {
       projects: {},
     });
 
-    expect(permissions.canBypassFlagApprovalChecks({ project: "" })).toEqual(
-      true,
-    );
+    expect(
+      permissions.canBypassFlagApprovalChecks({ project: "" }, "feature"),
+    ).toEqual(true);
     expect(
       permissions.canBypassSavedGroupApprovalChecks({ project: "" }),
     ).toEqual(true);
@@ -5336,7 +5336,7 @@ describe("PermissionsUtilClass.canByPassApprovalChecks", () => {
     });
 
     expect(
-      permissions.canBypassFlagApprovalChecks({ project: "abc123" }),
+      permissions.canBypassFlagApprovalChecks({ project: "abc123" }, "feature"),
     ).toEqual(true);
     // Project Admin held the single pre-split atom, which covered saved groups.
     expect(
@@ -5361,7 +5361,10 @@ describe("PermissionsUtilClass.canByPassApprovalChecks", () => {
     });
 
     expect(
-      permissions.canBypassFlagApprovalChecks({ project: "other_project" }),
+      permissions.canBypassFlagApprovalChecks(
+        { project: "other_project" },
+        "feature",
+      ),
     ).toEqual(false);
     expect(
       permissions.canBypassSavedGroupApprovalChecks({
@@ -6407,9 +6410,9 @@ describe("PermissionsUtilClass.canCreateFeature check", () => {
 });
 
 // The move-aware `canUpdateFeature` is gone: there is no edit verb. Authoring a
-// change is `editFlagDrafts` (project-scoped, so a move has no second project
+// change is `editFeatureDrafts` (project-scoped, so a move has no second project
 // to check), and landing it — including into a different project — is
-// `publishFlags`, checked against both the source and destination at each
+// `publishFeatures`, checked against both the source and destination at each
 // publish site. Those paths are covered by the publish tests.
 
 describe("PermissionsUtilClass.canDeleteFeature check", () => {

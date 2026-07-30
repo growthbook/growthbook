@@ -1087,6 +1087,11 @@ export default function EditSavedGroupPage() {
               "revert",
               savedGroup,
             )}
+            canDeleteEntity={permissionsUtil.canRevisionAction(
+              "saved-group",
+              "delete",
+              savedGroup,
+            )}
             canCommentOnEntity={permissionsUtil.canAddComment(
               savedGroup.projects ?? [],
             )}

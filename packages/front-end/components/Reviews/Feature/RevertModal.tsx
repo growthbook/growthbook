@@ -129,7 +129,7 @@ export default function RevertModal({
   );
 
   // Mirrors the two endpoints this modal calls. Reverting is its own authority:
-  // the direct revert is gated on revertFlags rather than publish, and revert
+  // the direct revert is gated on revertFeatures rather than publish, and revert
   // authority alone is enough to propose one as a draft — so a revert-only role
   // can roll back without any edit or publish rights.
   const canRevert = permissionsUtil.canRevertFeature(feature, affectedEnvs);

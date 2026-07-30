@@ -10,6 +10,7 @@ import {
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   findPublishLockingScheduledRevision,
+  normalizeProposedChanges,
 } from "shared/enterprise";
 import type { PublishGovernanceResult } from "shared/util";
 import { datetime } from "shared/dates";
@@ -149,6 +150,7 @@ export interface ReviewAndPublishTabProps<T> {
   // Reverting is its own authority, so a revert-only role holds no edit rights.
   // Defaults to canEditEntity for callers that don't distinguish them.
   canRevertEntity?: boolean;
+  canDeleteEntity?: boolean;
   // Commenting is participation, gated by addComments rather than by authority
   // over the entity. Defaults to canEditEntity for callers that don't pass it.
   canCommentOnEntity?: boolean;
@@ -206,6 +208,7 @@ function ReviewAndPublishRevision<T>({
   requiresApproval,
   canEditEntity,
   canRevertEntity,
+  canDeleteEntity,
   canCommentOnEntity,
   canReviewEntity,
   canManageDraftsEntity,
@@ -531,16 +534,31 @@ function ReviewAndPublishRevision<T>({
   // Advancing a draft (request review / recall / discard) is not editing its
   // content. Mirrors the server's canAdvanceRevision, which re-checks purity.
   const draftStagesRevert = !!revision.revertedFrom;
+  // Delete authority reaches a draft that only archives the entity — the server
+  // proves purity, the client goes on the provenance it can see.
+  const draftStagesArchive = normalizeProposedChanges(
+    revision.target.proposedChanges,
+  ).some(
+    (op) =>
+      op.path === "/archived" &&
+      (op.op === "replace" || op.op === "add") &&
+      op.value === true,
+  );
+  const narrowAtom = (canRevertEntity ?? canEditEntity) || !!canDeleteEntity;
   const canAdvanceDraft =
     canDraftOrEdit ||
-    (isAuthor && (canRevertEntity ?? canEditEntity)) ||
-    ((canRevertEntity ?? canEditEntity) && draftStagesRevert);
+    (isAuthor && narrowAtom) ||
+    ((canRevertEntity ?? canEditEntity) && draftStagesRevert) ||
+    (!!canDeleteEntity && draftStagesArchive);
   // Publish authority, or the narrow atom that could land this exact change in
   // one step: a pure revert under revert authority. Staging a revert as a draft
   // must not require an atom that landing it directly doesn't.
+  // Landing an archive is delete-class on top of publish (assertCanPublishRevision
+  // gates it first), because an archived flag stops serving everywhere.
   const canPublishOrEdit =
-    (canPublishEntity ?? canEditEntity) ||
-    (draftStagesRevert && (canRevertEntity ?? canEditEntity));
+    ((canPublishEntity ?? canEditEntity) ||
+      (draftStagesRevert && (canRevertEntity ?? canEditEntity))) &&
+    (!draftStagesArchive || !!canDeleteEntity);
   // Whether the viewer holds any authority at all — for the overflow menu and
   // the no-permission notice. Each individual action gates on its own atom.
   const hasAnyAuthority =
@@ -1077,7 +1095,7 @@ function ReviewAndPublishRevision<T>({
                     Retract review
                   </DropdownMenuItem>
                 )}
-                {canDraftOrEdit && (
+                {canAdvanceDraft && (
                   <DropdownMenuItem
                     color="red"
                     disabled={submitting}
@@ -1130,7 +1148,7 @@ function ReviewAndPublishRevision<T>({
         {revision.status === "discarded" ? (
           <Button
             onClick={() => setConfirmReopen(true)}
-            disabled={!canDraftOrEdit}
+            disabled={!canAdvanceDraft}
             style={{ width: "100%" }}
           >
             Reopen as draft
@@ -1244,7 +1262,7 @@ function ReviewAndPublishRevision<T>({
                 variant="soft"
                 onClick={doSubmit}
                 loading={submitting}
-                disabled={!state.ctaEnabled || !canDraftOrEdit}
+                disabled={!state.ctaEnabled || !canAdvanceDraft}
                 style={{ width: "100%" }}
               >
                 {state.ctaLabel}

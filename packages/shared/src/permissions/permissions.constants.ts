@@ -13,7 +13,7 @@ export const POLICIES = [
   "FlagsBypassApprovals",
   "ArchetypesFullAccess",
   // Deprecated: merged into the Flags family. Kept resolvable for back-compat
-  // (JIT-migrated to Flags* on load) and hidden from the role editor.
+  // and hidden from the role editor; they resolve through the map below.
   "FeaturesFullAccess",
   "FeaturesBypassApprovals",
   "ConstantsFullAccess",
@@ -170,10 +170,9 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "bypassApprovalConstants",
   ],
   ArchetypesFullAccess: ["readData", "manageArchetype"],
-  // Deprecated: merged into the Flags family. Mapped to the equivalent Flags
-  // atoms to preserve legacy access exactly; hidden from the role editor and
-  // JIT-migrated to Flags* on org load. (Legacy Features access never included
-  // publish, so these omit publishFlags/revertFlags.)
+  // Deprecated: mapped to this entity's own atoms to preserve legacy access
+  // exactly. Legacy Features access never included publish, so publish/revert
+  // are omitted.
   FeaturesFullAccess: [
     "readData",
     "createFeatures",

@@ -573,7 +573,7 @@ async function _runCustomHooks(
   );
 
   // A hard hook error (a hook threw) blocks unless the caller passes the
-  // privileged skipHooks (which already requires the bypassApprovalFlags
+  // privileged skipHooks (which already requires the FlagsBypassApprovals
   // permission). Its own flag, not skipSchemaValidation — a hook failure isn't a
   // schema error. This is the assert-path equivalent of the custom-hook gate the
   // REST publish handlers emit.

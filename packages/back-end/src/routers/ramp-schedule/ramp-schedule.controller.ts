@@ -420,7 +420,7 @@ export const postRampScheduleAction = async (
         return res.status(409).json({
           status: 409,
           message:
-            "This step requires approval before advancing. Use approve-step first, or pass force: true to bypass (requires bypassApprovalFlags).",
+            "This step requires approval before advancing. Use approve-step first, or pass force: true to bypass (requires FlagsBypassApprovals).",
         });
       }
       if (approvalPending && forceAdvance) {
@@ -435,7 +435,7 @@ export const postRampScheduleAction = async (
           return res.status(403).json({
             status: 403,
             message:
-              "Permission denied: bypassApprovalFlags required on the linked feature",
+              "Permission denied: FlagsBypassApprovals required on the linked feature",
           });
         }
       }
@@ -463,7 +463,7 @@ export const postRampScheduleAction = async (
             fresh.stepApproval?.stepIndex !== fresh.currentStepIndex;
           if (freshApprovalPending && !forceAdvance) {
             throw new ConflictError(
-              "This step requires approval before advancing. Use approve-step first, or pass force: true to bypass (requires bypassApprovalFlags).",
+              "This step requires approval before advancing. Use approve-step first, or pass force: true to bypass (requires FlagsBypassApprovals).",
             );
           }
           if (freshApprovalPending && forceAdvance) {
@@ -476,7 +476,7 @@ export const postRampScheduleAction = async (
               )
             ) {
               throw new PermissionError(
-                "Permission denied: bypassApprovalFlags required on the linked feature",
+                "Permission denied: FlagsBypassApprovals required on the linked feature",
               );
             }
           }

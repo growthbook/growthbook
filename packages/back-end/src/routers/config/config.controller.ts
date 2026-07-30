@@ -975,7 +975,7 @@ export const putConfig = async (
 
   // Block publishing past a locked config's pinned revision (creating/editing
   // drafts stays allowed). Guard before creating or claiming a merge so a blocked
-  // publish leaves nothing behind. Unlock (bypassApprovalFlags) to publish.
+  // publish leaves nothing behind. Unlock (FlagsBypassApprovals) to publish.
   const willPublish =
     wantsMerge && (!approvalRequired || bypassApproval || autoPublish);
   if (willPublish) {
@@ -1210,7 +1210,7 @@ export const deleteConfig = async (
   }
   // A locked config is frozen at its published revision; deleting it would
   // destroy that pinned revision. Refuse, matching the REST delete endpoint
-  // (lock removal is separately gated behind bypassApprovalFlags).
+  // (lock removal is separately gated behind FlagsBypassApprovals).
   assertConfigNotLocked(existing);
   // Require the config to be archived first (mirrors constants): archive is
   // reversible and flows through approvals; delete isn't.
@@ -1272,7 +1272,7 @@ export const lockConfig = async (
 };
 
 // Clear the lock so changes can be published again. Requires the elevated
-// bypassApprovalFlags permission — the same trust that skips the review queue.
+// FlagsBypassApprovals permission — the same trust that skips the review queue.
 export const unlockConfig = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200; config: ConfigInterface }>,
@@ -1306,7 +1306,7 @@ export const unlockConfig = async (
 
 // Toggle the per-config experiment guard. Asymmetric like lock/unlock: turning it
 // ON takes publish authority, turning it OFF (removing a protection) needs the
-// elevated bypassApprovalFlags. The flag lives outside the revision merge
+// elevated FlagsBypassApprovals. The flag lives outside the revision merge
 // allowlist, so it's written directly after the auth check.
 export const setConfigExperimentGuard = async (
   req: AuthRequest<{ enabled: boolean }, { id: string }>,

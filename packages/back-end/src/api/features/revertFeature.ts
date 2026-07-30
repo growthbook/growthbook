@@ -56,7 +56,7 @@ export async function revertFeatureCore(
   const environmentIds = environments.map((e) => e.id);
   const allEnvironmentIds = getEnvironmentIdsFromOrg(organization);
 
-  // Revert is gated per-change below via canRevertFeature (revertFlags).
+  // Revert is gated per-change below via canRevertFeature (revertFeatures).
 
   const { revision: version, comment } = body;
 
@@ -249,7 +249,7 @@ export async function revertFeatureCore(
   }
 
   // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
-  // calls should behave like dashboard actions), bypassApprovalFlags, or the
+  // calls should behave like dashboard actions), FlagsBypassApprovals, or the
   // org-wide "reverts bypass approval" setting (publish perms already enforced
   // per-change above, so any publisher may revert without approval).
   const canBypass =
@@ -280,7 +280,7 @@ export async function revertFeatureCore(
       throw new PermissionError(
         "This revert requires approval before changes can be published. " +
           "Enable 'REST API always bypasses approval requirements' in organization settings, " +
-          "or use a role/token that grants bypassApprovalFlags on this project.",
+          "or use a role/token that grants FlagsBypassApprovals on this project.",
       );
     }
   }

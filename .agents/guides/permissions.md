@@ -351,7 +351,7 @@ if (!permissionsUtil.canEditFeatureDrafts(feature)) {
 }
 
 // Bad - check raw permission without context
-if (!permissions.editFlagDrafts) {
+if (!permissions.editFeatureDrafts) {
   return <NoAccess />;
 }
 ```

@@ -102,9 +102,6 @@ export const REVISION_PERMISSIONS: Record<
   },
 };
 
-/** Every entity that shares the Feature Flag policy vocabulary. */
-export const FLAG_MODELS = ["feature", "config", "constant"] as const;
-
 /** The bypass-approval atom for an entity, named as data (gate metadata). */
 export function bypassApprovalPermission(model: RevisionModel): Permission {
   return REVISION_PERMISSIONS[model].bypass.permission;

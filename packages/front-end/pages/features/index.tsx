@@ -610,30 +610,29 @@ export default function FeaturesPage() {
   );
 
   const canCreateFeatures = useMemo(() => {
-    // If a specific project is selected, check permissions for that project
+    // Create authority alone, matching the endpoint: a create-only role can
+    // create a flag even though it can't draft changes to one afterwards.
     if (project) {
-      return permissionsUtil.canEditFeatureDrafts({ project });
+      return permissionsUtil.canCreateFeature(
+        { project },
+        NO_ENVIRONMENT_BINDING,
+      );
     }
     // "All Projects" selected. Check the global (no-project) permission first so
     // a user who can create features at the org level (e.g. an admin) isn't
     // blocked by a non-creatable project. Otherwise the read-only sample-data
     // project would disable the button whenever it's the only project.
     if (
-      permissionsUtil.canCreateFeature(
-        { project: "" },
-        NO_ENVIRONMENT_BINDING,
-      ) &&
-      permissionsUtil.canEditFeatureDrafts({ project: "" })
+      permissionsUtil.canCreateFeature({ project: "" }, NO_ENVIRONMENT_BINDING)
     ) {
       return true;
     }
     // Otherwise, allow if they can create in at least one specific project.
-    return (projects ?? []).some(
-      (p) =>
-        permissionsUtil.canCreateFeature(
-          { project: p.id },
-          NO_ENVIRONMENT_BINDING,
-        ) && permissionsUtil.canEditFeatureDrafts({ project: p.id }),
+    return (projects ?? []).some((p) =>
+      permissionsUtil.canCreateFeature(
+        { project: p.id },
+        NO_ENVIRONMENT_BINDING,
+      ),
     );
   }, [project, projects, permissionsUtil]);
 

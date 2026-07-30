@@ -42,7 +42,7 @@ const rebaseOrg = {
   settings: { requireRebaseBeforePublish: true },
 } as unknown as OrganizationInterface;
 
-// Admin grants manageConfigs (edit) + bypassApprovalFlags, so a clean publish
+// Admin grants manageConfigs (edit) + FlagsBypassApprovals, so a clean publish
 // isn't blocked by an approval/stale-base gate — isolating the gates under test.
 function makeContext(
   opts: { ignoreWarnings?: boolean; skipSchemaValidation?: boolean } = {},
@@ -65,7 +65,7 @@ function makeContext(
 // Engineer context: ConfigsFullAccess (edit) but NOT FeaturesBypassApprovals,
 // so it can publish a config revision yet cannot silently bypass a soft
 // schema-break gate — isolating the gate so it actually blocks (an admin would
-// bypass it via bypassApprovalFlags). `ignoreWarnings` is baked onto the
+// bypass it via FlagsBypassApprovals). `ignoreWarnings` is baked onto the
 // context's own request (context.ignoreWarnings reads context.req, not the HTTP
 // body the mock middleware discards).
 function makeEngineerContext(
@@ -352,7 +352,7 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish (archive schema-b
     expect(gate).toBeDefined();
     expect(gate.severity).toBe("warning");
     // Schema-break is validation-class: cleared only by the privileged
-    // skipSchemaValidation flag (which needs bypassApprovalFlags).
+    // skipSchemaValidation flag (which needs FlagsBypassApprovals).
     expect(gate.override).toBe("skipSchemaValidation");
     expect(gate.requiresPermission).toBe("bypassApprovalConfigs");
     const gateText = gate.messages.join("\n");
@@ -369,7 +369,7 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish (archive schema-b
       .set("Authorization", "Bearer foo");
     expect(stillBlocked.status).toBe(422);
 
-    // skipSchemaValidation from an engineer (no bypassApprovalFlags) is ignored.
+    // skipSchemaValidation from an engineer (no FlagsBypassApprovals) is ignored.
     setReqContext(makeEngineerContext({ skipSchemaValidation: true }));
     const engSkip = await request(app)
       .post(`/api/v1/configs-revisions/svc_arch/${version}/publish`)
@@ -377,7 +377,7 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish (archive schema-b
       .set("Authorization", "Bearer foo");
     expect(engSkip.status).toBe(422);
 
-    // Admin (bypassApprovalFlags) + skipSchemaValidation → bypassed (200).
+    // Admin (FlagsBypassApprovals) + skipSchemaValidation → bypassed (200).
     setReqContext(makeContext({ skipSchemaValidation: true }));
     const okRes = await request(app)
       .post(`/api/v1/configs-revisions/svc_arch/${version}/publish`)
@@ -461,7 +461,7 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish (archive schema-b
 
 describe("POST /api/v1/configs-revisions/:key/:version/publish (requireRebaseBeforePublish)", () => {
   it("blocks a diverged draft with a stale-base gate that only ignoreWarnings force-merges past", async () => {
-    // Rebase org, admin (bypassApprovalFlags) but NO ignoreWarnings on the
+    // Rebase org, admin (FlagsBypassApprovals) but NO ignoreWarnings on the
     // context yet — the bypass permission alone must not skip the rebase.
     setReqContext(makeRebaseContext());
 

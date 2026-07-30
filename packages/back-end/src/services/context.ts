@@ -475,7 +475,7 @@ export class ReqContextClass {
   // (no req) never skip — they must produce conforming data.
   //
   // Gated: turning off hard validation is only honored for callers with org-wide
-  // bypass authority (`bypassApprovalFlags` on all projects). A project-scoped
+  // bypass authority (`FlagsBypassApprovals` on all projects). A project-scoped
   // writer can't silently ship non-conforming data — the flag is ignored and
   // validation still runs (a 4xx, the secure default). Schema validation is new,
   // so nothing depends on an ungated bypass.
@@ -502,7 +502,7 @@ export class ReqContextClass {
 
   // Force past a custom validation hook that rejected the change. Its own flag
   // (not skipSchemaValidation — a hook failure isn't a schema error), honored
-  // only for callers with org-wide bypass authority (the bypassApprovalFlags
+  // only for callers with org-wide bypass authority (the FlagsBypassApprovals
   // permission on all projects); ignored otherwise.
   public get skipHooks(): boolean {
     if (!this.req) return false;

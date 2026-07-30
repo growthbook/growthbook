@@ -284,7 +284,7 @@ The experiment and flag exist; only the rule revision is stuck in draft. Halt an
 >
 > **B. Org-wide bypass** — an admin enables "REST API always bypasses approval requirements" in **Settings → General → Approvals**. After that, re-run me.
 >
-> **C. Per-token bypass** — use credentials whose role grants `bypassApprovalFlags` on this project (Admin or custom role), then re-run me.
+> **C. Per-token bypass** — use credentials whose role grants `FlagsBypassApprovals` on this project (Admin or custom role), then re-run me.
 
 If the user picks **A**, request review on the draft and stop:
 

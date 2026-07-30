@@ -454,7 +454,7 @@ export type ApiConstant = z.infer<typeof apiConstantValidator>;
 const bypassApprovalField = z
   .boolean()
   .describe(
-    "Set to true to skip the approval flow when the org requires approvals for this constant's project. Requires the `bypassApprovalFlags` permission (or the org-level REST bypass setting). When approvals aren't required, this flag has no effect.",
+    "Set to true to skip the approval flow when the org requires approvals for this constant's project. Requires the `FlagsBypassApprovals` permission (or the org-level REST bypass setting). When approvals aren't required, this flag has no effect.",
   )
   .optional();
 
