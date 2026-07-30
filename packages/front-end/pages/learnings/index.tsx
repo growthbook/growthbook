@@ -2,7 +2,7 @@ import React, { useCallback, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
 import { ComputedExperimentInterface } from "shared/types/experiment";
-import { InsightWithCanManage } from "shared/validators";
+import { LearningWithCanManage } from "shared/validators";
 import { useRouter } from "next/router";
 import { PiSparkleFill } from "react-icons/pi";
 import Heading from "@/ui/Heading";
@@ -22,8 +22,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import { useExperimentSearch, experimentDate } from "@/services/experiments";
 import useApi from "@/hooks/useApi";
 import { useAISettings } from "@/hooks/useOrgSettings";
-import FindInsightsModal from "@/components/Insights/FindInsightsModal";
-import SavedInsightsList from "@/components/Insights/SavedInsightsList";
+import FindLearningsModal from "@/components/Learnings/FindLearningsModal";
+import SavedLearningsList from "@/components/Learnings/SavedLearningsList";
 
 const LearningsPage = (): React.ReactElement => {
   const router = useRouter();
@@ -41,7 +41,7 @@ const LearningsPage = (): React.ReactElement => {
       ? new Date(router.query["endDate"] as string)
       : new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000), // 7 days in the future
   );
-  const [findInsightsOpen, setFindInsightsOpen] = useState(false);
+  const [findLearningsOpen, setFindLearningsOpen] = useState(false);
 
   function updateURL({
     startDate,
@@ -93,10 +93,10 @@ const LearningsPage = (): React.ReactElement => {
     [items],
   );
 
-  const { data: insightsData, mutate: mutateInsights } = useApi<{
-    insights: InsightWithCanManage[];
-  }>(`/insights?project=${project || ""}`);
-  const insights = insightsData?.insights || [];
+  const { data: learningsData, mutate: mutateLearnings } = useApi<{
+    learnings: LearningWithCanManage[];
+  }>(`/learnings?project=${project || ""}`);
+  const learnings = learningsData?.learnings || [];
 
   if (error) {
     return <Callout status="error">An error occurred: {error.message}</Callout>;
@@ -106,7 +106,7 @@ const LearningsPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const canFindInsights = aiEnabled && stoppedExperiments.length >= 2;
+  const canFindLearnings = aiEnabled && stoppedExperiments.length >= 2;
 
   return (
     <>
@@ -131,7 +131,7 @@ const LearningsPage = (): React.ReactElement => {
                 <TabsTrigger value="results">Experiment Results</TabsTrigger>
                 <TabsTrigger value="saved">
                   Saved Learnings
-                  {insights.length > 0 ? ` (${insights.length})` : ""}
+                  {learnings.length > 0 ? ` (${learnings.length})` : ""}
                 </TabsTrigger>
               </TabsList>
 
@@ -147,7 +147,7 @@ const LearningsPage = (): React.ReactElement => {
                       >
                         <Box>
                           <Text size="medium" weight="semibold" as="div">
-                            Find insights across these experiments
+                            Find learnings across these experiments
                           </Text>
                           <Text size="medium" color="text-mid" as="div">
                             Let AI scan the {stoppedExperiments.length} filtered
@@ -158,10 +158,10 @@ const LearningsPage = (): React.ReactElement => {
                           </Text>
                         </Box>
                         <Button
-                          onClick={() => setFindInsightsOpen(true)}
-                          disabled={!canFindInsights}
+                          onClick={() => setFindLearningsOpen(true)}
+                          disabled={!canFindLearnings}
                         >
-                          <PiSparkleFill /> Find Insights
+                          <PiSparkleFill /> Find Learnings
                         </Button>
                       </Flex>
                       {!aiEnabled && (
@@ -176,7 +176,7 @@ const LearningsPage = (): React.ReactElement => {
                         <Box mt="2">
                           <Text size="small" color="text-mid" as="div">
                             Adjust filters so at least 2 stopped experiments
-                            match to find cross-experiment insights.
+                            match to find cross-experiment learnings.
                           </Text>
                         </Box>
                       )}
@@ -251,11 +251,11 @@ const LearningsPage = (): React.ReactElement => {
                 </TabsContent>
 
                 <TabsContent value="saved">
-                  <SavedInsightsList
-                    insights={insights}
+                  <SavedLearningsList
+                    learnings={learnings}
                     experiments={allExperiments}
                     newLearningProjects={project ? [project] : []}
-                    mutate={mutateInsights}
+                    mutate={mutateLearnings}
                   />
                 </TabsContent>
               </Box>
@@ -264,12 +264,12 @@ const LearningsPage = (): React.ReactElement => {
         </div>
       </div>
 
-      {findInsightsOpen && (
-        <FindInsightsModal
+      {findLearningsOpen && (
+        <FindLearningsModal
           experiments={stoppedExperiments}
           saveProjects={project ? [project] : []}
-          close={() => setFindInsightsOpen(false)}
-          onSaved={() => mutateInsights()}
+          close={() => setFindLearningsOpen(false)}
+          onSaved={() => mutateLearnings()}
         />
       )}
     </>

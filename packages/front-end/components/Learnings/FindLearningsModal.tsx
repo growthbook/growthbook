@@ -1,6 +1,6 @@
 import { FC, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { AiInsightSuggestion } from "shared/validators";
+import { AiLearningSuggestion } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiSparkleFill } from "react-icons/pi";
 import Markdown from "@/components/Markdown/Markdown";
@@ -15,15 +15,15 @@ import { useAuth } from "@/services/auth";
 import ExperimentChips from "./ExperimentChips";
 
 type SuggestionState = {
-  suggestion: AiInsightSuggestion;
+  suggestion: AiLearningSuggestion;
   saved: boolean;
   saving: boolean;
   error?: string;
 };
 
-const FindInsightsModal: FC<{
+const FindLearningsModal: FC<{
   experiments: ExperimentInterfaceStringDates[];
-  /** Project ids to attach to any insights the user saves. */
+  /** Project ids to attach to any learnings the user saves. */
   saveProjects?: string[];
   close: () => void;
   onSaved?: () => void;
@@ -55,7 +55,7 @@ const FindInsightsModal: FC<{
 
   // Guard against React strict-mode double invocation in dev and any other
   // accidental re-runs for the same set of experiments while this modal
-  // instance is open. The user explicitly clicks "Find insights" to open
+  // instance is open. The user explicitly clicks "Find learnings" to open
   // the modal; we never want a passive event (tab switch, focus return) to
   // re-trigger AI generation.
   const lastFetchedKey = useRef<string | null>(null);
@@ -72,22 +72,22 @@ const FindInsightsModal: FC<{
         const ids = experimentIdsKey ? experimentIdsKey.split(",") : [];
         const res = await apiCall<{
           status: number;
-          insights?: AiInsightSuggestion[];
+          learnings?: AiLearningSuggestion[];
           message?: string;
           numExperimentsRequested?: number;
           numExperimentsAnalyzed?: number;
-        }>("/insights/find", {
+        }>("/learnings/find", {
           method: "POST",
           body: JSON.stringify({
             experimentIds: ids,
           }),
         });
         if (cancelled) return;
-        if (res.status !== 200 || !res.insights) {
-          setError(res.message || "Could not generate insights");
+        if (res.status !== 200 || !res.learnings) {
+          setError(res.message || "Could not generate learnings");
         } else {
           setSuggestions(
-            res.insights.map((s) => ({
+            res.learnings.map((s) => ({
               suggestion: s,
               saved: false,
               saving: false,
@@ -109,7 +109,7 @@ const FindInsightsModal: FC<{
       } catch (e) {
         if (cancelled) return;
         setError(
-          e instanceof Error ? e.message : "Failed to generate insights",
+          e instanceof Error ? e.message : "Failed to generate learnings",
         );
       } finally {
         if (!cancelled) setLoading(false);
@@ -135,14 +135,15 @@ const FindInsightsModal: FC<{
       ),
     );
     try {
-      await apiCall("/insights", {
+      await apiCall("/learnings", {
         method: "POST",
         body: JSON.stringify({
           title: item.suggestion.title,
           text: item.suggestion.text,
           tags: item.suggestion.tags || [],
           supportingExperimentIds: item.suggestion.supportingExperimentIds,
-          contraryEvidence: item.suggestion.contraryExperimentIds || [],
+          contradictingExperimentIds:
+            item.suggestion.contradictingExperimentIds || [],
           projects: saveProjects || [],
           source: "ai",
         }),
@@ -175,12 +176,12 @@ const FindInsightsModal: FC<{
         if (!open) close();
       }}
       size="lg"
-      trackingEventModalType="find-insights"
+      trackingEventModalType="find-learnings"
     >
       <Modal.Header>
         <Modal.Title>
           <Flex align="center" gap="2">
-            <PiSparkleFill /> Find Insights Across Experiments
+            <PiSparkleFill /> Find Learnings Across Experiments
           </Flex>
         </Modal.Title>
       </Modal.Header>
@@ -214,7 +215,7 @@ const FindInsightsModal: FC<{
           <Box>
             <Box mb="3">
               <Text size="medium" color="text-mid" as="div">
-                Found {suggestions.length} potential insight
+                Found {suggestions.length} potential learning
                 {suggestions.length === 1 ? "" : "s"}. Review each one and save
                 the ones you want to keep.
               </Text>
@@ -274,7 +275,9 @@ const FindInsightsModal: FC<{
                     />
                     <ExperimentChips
                       label="Contrary evidence"
-                      experimentIds={s.suggestion.contraryExperimentIds || []}
+                      experimentIds={
+                        s.suggestion.contradictingExperimentIds || []
+                      }
                       experimentMap={experimentMap}
                       variant="contrary"
                     />
@@ -303,4 +306,4 @@ const FindInsightsModal: FC<{
   );
 };
 
-export default FindInsightsModal;
+export default FindLearningsModal;

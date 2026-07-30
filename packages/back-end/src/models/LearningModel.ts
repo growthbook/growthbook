@@ -1,10 +1,10 @@
 import { CreateProps } from "shared/types/base-model";
 import {
-  ApiInsight,
-  ApiSearchInsightResult,
-  InsightInterface,
-  apiCreateInsightBody,
-  insightValidator,
+  ApiLearning,
+  ApiSearchLearningResult,
+  LearningInterface,
+  apiCreateLearningBody,
+  learningValidator,
 } from "shared/validators";
 import { DEFAULT_LEARNING_STATUSES } from "shared/constants";
 import {
@@ -16,58 +16,58 @@ import { logger } from "back-end/src/util/logger";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
-  insightApiSpec,
-  searchInsightsEndpoint,
-} from "back-end/src/api/specs/insight.spec";
+  learningApiSpec,
+  searchLearningsEndpoint,
+} from "back-end/src/api/specs/learning.spec";
 import { MakeModelClass } from "./BaseModel";
 
-export function getInsightTextForEmbedding(
-  insight: Pick<InsightInterface, "title" | "text">,
+export function getLearningTextForEmbedding(
+  learning: Pick<LearningInterface, "title" | "text">,
 ): string {
-  return `Title: ${insight.title}\nText: ${insight.text}`;
+  return `Title: ${learning.title}\nText: ${learning.text}`;
 }
 
 const BaseClass = MakeModelClass({
-  schema: insightValidator,
-  collectionName: "insights",
-  idPrefix: "insight_",
+  schema: learningValidator,
+  collectionName: "learnings",
+  idPrefix: "lrn_",
   auditLog: {
-    entity: "insight",
-    createEvent: "insight.create",
-    updateEvent: "insight.update",
-    deleteEvent: "insight.delete",
+    entity: "learning",
+    createEvent: "learning.create",
+    updateEvent: "learning.update",
+    deleteEvent: "learning.delete",
   },
   globallyUniquePrimaryKeys: true,
   defaultValues: {
     tags: [],
     authors: [],
     supportingExperimentIds: [],
-    contraryEvidence: [],
+    contradictingExperimentIds: [],
     projects: [],
     status: "",
     source: "manual",
   },
   apiConfig: {
-    modelKey: "insights",
-    openApiSpec: insightApiSpec,
+    modelKey: "learnings",
+    openApiSpec: learningApiSpec,
     customHandlers: [
       defineCustomApiHandler({
-        ...searchInsightsEndpoint,
+        ...searchLearningsEndpoint,
         reqHandler: async (
           req,
-        ): Promise<{ insights: ApiSearchInsightResult[] }> => {
-          const model = req.context.models.insights;
+        ): Promise<{ learnings: ApiSearchLearningResult[] }> => {
+          const model = req.context.models.learnings;
           const ranked = await model.searchByQuery({
             query: req.body.query,
             limit: req.body.limit,
             projectId: req.body.projectId,
           });
           const apiDocs = await resolveOwnerEmails(
-            ranked.map((r) => model.toApiInterface(r.insight)),
+            ranked.map((r) => model.toApiInterface(r.learning)),
             req.context,
           );
           return {
-            insights: apiDocs.map((doc, i) => ({
+            learnings: apiDocs.map((doc, i) => ({
               ...doc,
               similarity: ranked[i].similarity,
             })),
@@ -78,53 +78,42 @@ const BaseClass = MakeModelClass({
   },
 });
 
-export class InsightModel extends BaseClass {
-  protected migrate(doc: unknown): InsightInterface {
-    const insight = doc as InsightInterface;
-    return {
-      ...insight,
-      // Normalize legacy null/missing status to the "" no-status sentinel
-      status: insight.status ?? "",
-      // Docs predating the provenance field were all human-curated
-      source: insight.source ?? "manual",
-    };
-  }
-
+export class LearningModel extends BaseClass {
   // Expose the update permission so API responses can tell the front-end
-  // whether the requesting user may edit/delete each insight (instead of
+  // whether the requesting user may edit/delete each learning (instead of
   // the client re-implementing this logic).
-  public canManageInsight(doc: InsightInterface): boolean {
+  public canManageLearning(doc: LearningInterface): boolean {
     return this.canUpdate(doc);
   }
 
-  protected canRead(doc: InsightInterface): boolean {
+  protected canRead(doc: LearningInterface): boolean {
     return this.context.permissions.canReadMultiProjectResource(doc.projects);
   }
 
-  protected canCreate(doc: InsightInterface): boolean {
+  protected canCreate(doc: LearningInterface): boolean {
     const projects = doc.projects && doc.projects.length ? doc.projects : [""];
     return projects.some((project) =>
       this.context.permissions.canCreateExperiment({ project }),
     );
   }
 
-  // Only the owner or an org-settings admin can edit/delete a saved insight.
+  // Only the owner or an org-settings admin can edit/delete a saved learning.
   // Everyone with read access can still comment via the discussion thread.
-  protected canUpdate(doc: InsightInterface): boolean {
+  protected canUpdate(doc: LearningInterface): boolean {
     if (doc.owner && doc.owner === this.context.userId) return true;
     if (this.context.superAdmin) return true;
     return this.context.permissions.canManageOrgSettings();
   }
 
-  protected canDelete(doc: InsightInterface): boolean {
+  protected canDelete(doc: LearningInterface): boolean {
     return this.canUpdate(doc);
   }
 
   // Validate the learning status against the org's configured list on create
   // and whenever it changes. Runs for both internal and external API paths.
   protected async customValidation(
-    doc: InsightInterface,
-    existing?: InsightInterface,
+    doc: LearningInterface,
+    existing?: LearningInterface,
   ): Promise<void> {
     if (!doc.status) return;
     if (existing && existing.status === doc.status) return;
@@ -139,13 +128,13 @@ export class InsightModel extends BaseClass {
 
   public async getByExperimentId(
     experimentId: string,
-  ): Promise<InsightInterface[]> {
+  ): Promise<LearningInterface[]> {
     return this._find({ supportingExperimentIds: experimentId });
   }
 
   // --- External REST API ---
 
-  public toApiInterface(doc: InsightInterface): ApiInsight {
+  public toApiInterface(doc: LearningInterface): ApiLearning {
     return {
       id: doc.id,
       dateCreated: doc.dateCreated.toISOString(),
@@ -156,7 +145,7 @@ export class InsightModel extends BaseClass {
       text: doc.text,
       tags: doc.tags || [],
       supportingExperimentIds: doc.supportingExperimentIds || [],
-      contraryEvidence: doc.contraryEvidence || [],
+      contradictingExperimentIds: doc.contradictingExperimentIds || [],
       projects: doc.projects || [],
       status: doc.status || "",
       source: doc.source || "manual",
@@ -168,25 +157,25 @@ export class InsightModel extends BaseClass {
   // to the PAT user when the request is made with a personal access token.
   protected async processApiCreateBody(
     rawBody: unknown,
-  ): Promise<CreateProps<InsightInterface>> {
-    const body = apiCreateInsightBody.parse(rawBody);
+  ): Promise<CreateProps<LearningInterface>> {
+    const body = apiCreateLearningBody.parse(rawBody);
     return {
       title: body.title,
       text: body.text ?? "",
       tags: body.tags ?? [],
       supportingExperimentIds: body.supportingExperimentIds ?? [],
-      contraryEvidence: body.contraryEvidence ?? [],
+      contradictingExperimentIds: body.contradictingExperimentIds ?? [],
       projects: body.projects ?? [],
       status: body.status ?? "",
       owner: body.owner,
       authors: this.context.userId ? [this.context.userId] : [],
       source: "api",
-    } as CreateProps<InsightInterface>;
+    } as CreateProps<LearningInterface>;
   }
 
   public override async handleApiList(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiList"]>[0],
-  ): Promise<ApiInsight[]> {
+  ): Promise<ApiLearning[]> {
     const { projectId, experimentId, tag, status } = req.query;
 
     const base = experimentId
@@ -208,7 +197,7 @@ export class InsightModel extends BaseClass {
     );
   }
 
-  // Embedding-ranked search over saved insights. Returns the insights the
+  // Embedding-ranked search over saved learnings. Returns the learnings the
   // caller can read, ordered by cosine similarity to the query.
   public async searchByQuery({
     query,
@@ -218,7 +207,7 @@ export class InsightModel extends BaseClass {
     query: string;
     limit?: number;
     projectId?: string;
-  }): Promise<{ insight: InsightInterface; similarity: number }[]> {
+  }): Promise<{ learning: LearningInterface; similarity: number }[]> {
     // Enforce the same premium, AI-enabled, and rate-limit gates as the find
     // flow — otherwise external search could keep spending embeddings after
     // the org is throttled.
@@ -236,64 +225,64 @@ export class InsightModel extends BaseClass {
     });
     if (!queryEmbedding?.length) return [];
 
-    const vectors = await this.context.models.vectors.getByInsightIds(
+    const vectors = await this.context.models.vectors.getByLearningIds(
       candidates.map((i) => i.id),
     );
     const embeddingById = new Map(vectors.map((v) => [v.joinId, v.embeddings]));
 
     return candidates
-      .map((insight) => {
-        const embedding = embeddingById.get(insight.id);
+      .map((learning) => {
+        const embedding = embeddingById.get(learning.id);
         const similarity =
           embedding && embedding.length === queryEmbedding.length
             ? cosineSimilarity(queryEmbedding, embedding)
             : -1; // missing/mismatched embedding sinks to the bottom
-        return { insight, similarity };
+        return { learning, similarity };
       })
       .filter((r) => r.similarity >= 0)
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, limit);
   }
 
-  // Maintain an embedding per insight (in the vectors collection) so the AI
+  // Maintain an embedding per learning (in the vectors collection) so the AI
   // finder and search can rank/dedup by cosine similarity. Best-effort: a
-  // failure here must never block saving the insight.
-  private async upsertEmbedding(doc: InsightInterface): Promise<void> {
+  // failure here must never block saving the learning.
+  private async upsertEmbedding(doc: LearningInterface): Promise<void> {
     if (!this.context.org.settings?.aiEnabled) return;
     try {
       const embeddings = await generateEmbeddings({
         context: this.context,
-        input: [getInsightTextForEmbedding(doc)],
+        input: [getLearningTextForEmbedding(doc)],
       });
       if (embeddings[0]?.length) {
-        await this.context.models.vectors.addOrUpdateInsightVector(doc.id, {
+        await this.context.models.vectors.addOrUpdateLearningVector(doc.id, {
           embeddings: embeddings[0],
         });
       }
     } catch (e) {
-      logger.error(e, `Error generating embedding for insight ${doc.id}`);
+      logger.error(e, `Error generating embedding for learning ${doc.id}`);
     }
   }
 
-  protected async afterCreate(doc: InsightInterface): Promise<void> {
+  protected async afterCreate(doc: LearningInterface): Promise<void> {
     await this.upsertEmbedding(doc);
   }
 
   protected async afterUpdate(
-    _existing: InsightInterface,
-    updates: Partial<InsightInterface>,
-    newDoc: InsightInterface,
+    _existing: LearningInterface,
+    updates: Partial<LearningInterface>,
+    newDoc: LearningInterface,
   ): Promise<void> {
     if (updates.title !== undefined || updates.text !== undefined) {
       await this.upsertEmbedding(newDoc);
     }
   }
 
-  protected async afterDelete(doc: InsightInterface): Promise<void> {
+  protected async afterDelete(doc: LearningInterface): Promise<void> {
     try {
-      await this.context.models.vectors.deleteByJoinId(doc.id, "insight");
+      await this.context.models.vectors.deleteByJoinId(doc.id, "learning");
     } catch (e) {
-      logger.error(e, `Error deleting embedding for insight ${doc.id}`);
+      logger.error(e, `Error deleting embedding for learning ${doc.id}`);
     }
   }
 }

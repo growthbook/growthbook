@@ -386,8 +386,8 @@ tags:
   - name: RampScheduleTemplates
     x-displayName: Ramp Schedule Templates
     description: Reusable step configurations for ramp schedules.
-  - name: Insights
-    x-displayName: Insights
+  - name: Learnings
+    x-displayName: Learnings
     description: >-
       Saved learnings captured across experiments, including AI-discovered
       patterns.
@@ -627,9 +627,9 @@ tags:
     description: >-
       <SchemaDefinition schemaRef="#/components/schemas/InformationSchemaTable"
       />
-  - name: Insight_model
-    x-displayName: Insight
-    description: <SchemaDefinition schemaRef="#/components/schemas/Insight" />
+  - name: Learning_model
+    x-displayName: Learning
+    description: <SchemaDefinition schemaRef="#/components/schemas/Learning" />
   - name: LookbackOverride_model
     x-displayName: Lookback Override
     description: <SchemaDefinition schemaRef="#/components/schemas/LookbackOverride" />
@@ -46405,12 +46405,12 @@ paths:
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/ramp-schedules/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/insights/{id}:
+  /v1/learnings/{id}:
     get:
-      operationId: getInsight
-      summary: Get a single insight
+      operationId: getLearning
+      summary: Get a single learning
       tags:
-        - Insights
+        - Learnings
       parameters:
         - name: id
           in: path
@@ -46426,21 +46426,21 @@ paths:
               schema:
                 type: object
                 properties:
-                  insight:
-                    $ref: '#/components/schemas/Insight'
+                  learning:
+                    $ref: '#/components/schemas/Learning'
                 required:
-                  - insight
+                  - learning
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
           source: |-
-            curl -X GET 'https://api.growthbook.io/api/v1/insights/{id}' \
+            curl -X GET 'https://api.growthbook.io/api/v1/learnings/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
     delete:
-      operationId: deleteInsight
-      summary: Delete a single insight
+      operationId: deleteLearning
+      summary: Delete a single learning
       tags:
-        - Insights
+        - Learnings
       parameters:
         - name: id
           in: path
@@ -46464,13 +46464,13 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: |-
-            curl -X DELETE 'https://api.growthbook.io/api/v1/insights/{id}' \
+            curl -X DELETE 'https://api.growthbook.io/api/v1/learnings/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
     put:
-      operationId: updateInsight
-      summary: Update a single insight
+      operationId: updateLearning
+      summary: Update a single learning
       tags:
-        - Insights
+        - Learnings
       parameters:
         - name: id
           in: path
@@ -46497,7 +46497,7 @@ paths:
                   type: array
                   items:
                     type: string
-                contraryEvidence:
+                contradictingExperimentIds:
                   type: array
                   items:
                     type: string
@@ -46520,22 +46520,22 @@ paths:
               schema:
                 type: object
                 properties:
-                  insight:
-                    $ref: '#/components/schemas/Insight'
+                  learning:
+                    $ref: '#/components/schemas/Learning'
                 required:
-                  - insight
+                  - learning
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
           source: |-
-            curl -X PUT 'https://api.growthbook.io/api/v1/insights/{id}' \
+            curl -X PUT 'https://api.growthbook.io/api/v1/learnings/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/insights:
+  /v1/learnings:
     post:
-      operationId: createInsight
-      summary: Create a single insight
+      operationId: createLearning
+      summary: Create a single learning
       tags:
-        - Insights
+        - Learnings
       requestBody:
         required: true
         content:
@@ -46555,7 +46555,7 @@ paths:
                   type: array
                   items:
                     type: string
-                contraryEvidence:
+                contradictingExperimentIds:
                   type: array
                   items:
                     type: string
@@ -46587,21 +46587,21 @@ paths:
               schema:
                 type: object
                 properties:
-                  insight:
-                    $ref: '#/components/schemas/Insight'
+                  learning:
+                    $ref: '#/components/schemas/Learning'
                 required:
-                  - insight
+                  - learning
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
           source: |-
-            curl -X POST 'https://api.growthbook.io/api/v1/insights' \
+            curl -X POST 'https://api.growthbook.io/api/v1/learnings' \
               -H 'Authorization: Bearer YOUR_API_KEY'
     get:
-      operationId: listInsights
-      summary: Get all insights
+      operationId: listLearnings
+      summary: Get all learnings
       tags:
-        - Insights
+        - Learnings
       parameters:
         - name: projectId
           in: query
@@ -46610,9 +46610,9 @@ paths:
             type: string
         - name: experimentId
           in: query
-          description: Only return insights that reference this experiment
+          description: Only return learnings that reference this experiment
           schema:
-            description: Only return insights that reference this experiment
+            description: Only return learnings that reference this experiment
             type: string
         - name: tag
           in: query
@@ -46632,24 +46632,24 @@ paths:
               schema:
                 type: object
                 properties:
-                  insights:
+                  learnings:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Insight'
+                      $ref: '#/components/schemas/Learning'
                 required:
-                  - insights
+                  - learnings
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
           source: |-
-            curl -X GET 'https://api.growthbook.io/api/v1/insights' \
+            curl -X GET 'https://api.growthbook.io/api/v1/learnings' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/insights/search:
+  /v1/learnings/search:
     post:
-      operationId: searchInsights
-      summary: Semantically search saved insights (learnings) by a query
+      operationId: searchLearnings
+      summary: Semantically search saved learnings (learnings) by a query
       tags:
-        - Insights
+        - Learnings
       requestBody:
         required: true
         content:
@@ -46658,7 +46658,7 @@ paths:
               type: object
               properties:
                 query:
-                  description: Natural-language query to rank insights against
+                  description: Natural-language query to rank learnings against
                   type: string
                 limit:
                   type: integer
@@ -46677,17 +46677,17 @@ paths:
               schema:
                 type: object
                 properties:
-                  insights:
+                  learnings:
                     type: array
                     items:
-                      $ref: '#/components/schemas/insights'
+                      $ref: '#/components/schemas/learnings'
                 required:
-                  - insights
+                  - learnings
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
           source: |-
-            curl -X POST 'https://api.growthbook.io/api/v1/insights/search' \
+            curl -X POST 'https://api.growthbook.io/api/v1/learnings/search' \
               -H 'Authorization: Bearer YOUR_API_KEY'
 components:
   parameters:
@@ -61479,7 +61479,7 @@ components:
         - steps
         - order
       additionalProperties: false
-    Insight:
+    Learning:
       type: object
       properties:
         id:
@@ -61514,7 +61514,7 @@ components:
           type: array
           items:
             type: string
-        contraryEvidence:
+        contradictingExperimentIds:
           type: array
           items:
             type: string
@@ -61540,7 +61540,7 @@ components:
         - text
         - tags
         - supportingExperimentIds
-        - contraryEvidence
+        - contradictingExperimentIds
         - projects
         - status
         - source
@@ -65491,7 +65491,7 @@ components:
       required:
         - mode
       additionalProperties: false
-    insights:
+    learnings:
       type: object
       properties:
         id:
@@ -65526,7 +65526,7 @@ components:
           type: array
           items:
             type: string
-        contraryEvidence:
+        contradictingExperimentIds:
           type: array
           items:
             type: string
@@ -65543,7 +65543,7 @@ components:
             - manual
             - api
         similarity:
-          description: Cosine similarity of the insight to the query (0-1)
+          description: Cosine similarity of the learning to the query (0-1)
           type: number
       required:
         - id
@@ -65555,7 +65555,7 @@ components:
         - text
         - tags
         - supportingExperimentIds
-        - contraryEvidence
+        - contradictingExperimentIds
         - projects
         - status
         - source
@@ -65636,7 +65636,7 @@ x-tagGroups:
       - ExperimentTemplates
       - AnalyticsExplorations
       - RampScheduleTemplates
-      - Insights
+      - Learnings
   - name: Models
     tags:
       - AggregatedFactTable_model
@@ -65707,7 +65707,7 @@ x-tagGroups:
       - FeatureWithRevisionsV2_model
       - InformationSchema_model
       - InformationSchemaTable_model
-      - Insight_model
+      - Learning_model
       - LookbackOverride_model
       - Member_model
       - Metric_model

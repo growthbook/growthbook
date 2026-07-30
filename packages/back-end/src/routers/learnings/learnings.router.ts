@@ -2,11 +2,11 @@ import express from "express";
 import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import * as rawInsightsController from "./insights.controller";
+import * as rawLearningsController from "./learnings.controller";
 
 const router = express.Router();
 
-const InsightsController = wrapController(rawInsightsController);
+const LearningsController = wrapController(rawLearningsController);
 
 const idParams = z.object({ id: z.string() }).strict();
 
@@ -15,13 +15,13 @@ router.get(
   validateRequestMiddleware({
     query: z.object({ project: z.string().optional() }).strict(),
   }),
-  InsightsController.getInsights,
+  LearningsController.getLearnings,
 );
 
 router.get(
   "/:id",
   validateRequestMiddleware({ params: idParams }),
-  InsightsController.getInsight,
+  LearningsController.getLearning,
 );
 
 router.post(
@@ -33,14 +33,14 @@ router.post(
         text: z.string(),
         tags: z.array(z.string()).optional(),
         supportingExperimentIds: z.array(z.string()),
-        contraryEvidence: z.array(z.string()).optional(),
+        contradictingExperimentIds: z.array(z.string()).optional(),
         projects: z.array(z.string()).optional(),
         status: z.string().optional(),
         source: z.enum(["ai", "manual"]).optional(),
       })
       .strict(),
   }),
-  InsightsController.postInsight,
+  LearningsController.postLearning,
 );
 
 router.put(
@@ -53,19 +53,19 @@ router.put(
         text: z.string().optional(),
         tags: z.array(z.string()).optional(),
         supportingExperimentIds: z.array(z.string()).optional(),
-        contraryEvidence: z.array(z.string()).optional(),
+        contradictingExperimentIds: z.array(z.string()).optional(),
         projects: z.array(z.string()).optional(),
         status: z.string().optional(),
       })
       .strict(),
   }),
-  InsightsController.putInsight,
+  LearningsController.putLearning,
 );
 
 router.delete(
   "/:id",
   validateRequestMiddleware({ params: idParams }),
-  InsightsController.deleteInsight,
+  LearningsController.deleteLearning,
 );
 
 router.post(
@@ -77,7 +77,7 @@ router.post(
       })
       .strict(),
   }),
-  InsightsController.postFindInsights,
+  LearningsController.postFindLearnings,
 );
 
-export { router as insightsRouter };
+export { router as learningsRouter };

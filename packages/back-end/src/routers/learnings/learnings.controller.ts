@@ -1,9 +1,8 @@
-import { createHash } from "crypto";
 import type { Response } from "express";
 import {
-  InsightInterface,
-  aiInsightSuggestionsResponseValidator,
-  AiInsightSuggestion,
+  LearningInterface,
+  aiLearningSuggestionsResponseValidator,
+  AiLearningSuggestion,
 } from "shared/validators";
 import { ExperimentInterface } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
@@ -11,7 +10,7 @@ import { ExperimentMetricInterface } from "shared/experiments";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { getInsightTextForEmbedding } from "back-end/src/models/InsightModel";
+import { getLearningTextForEmbedding } from "back-end/src/models/LearningModel";
 import {
   cosineSimilarity,
   generateEmbeddings,
@@ -24,78 +23,78 @@ import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getAllTags } from "back-end/src/models/TagModel";
 import { logger } from "back-end/src/util/logger";
 
-type InsightWithCanManage = InsightInterface & { canManage: boolean };
+type LearningWithCanManage = LearningInterface & { canManage: boolean };
 
-type ListInsightsResponse = {
+type ListLearningsResponse = {
   status: 200;
-  insights: InsightWithCanManage[];
+  learnings: LearningWithCanManage[];
 };
 
-export const getInsights = async (
+export const getLearnings = async (
   req: AuthRequest<unknown, unknown, { project?: string }>,
-  res: Response<ListInsightsResponse>,
+  res: Response<ListLearningsResponse>,
 ) => {
   const context = getContextFromReq(req);
   const project =
     typeof req.query?.project === "string" ? req.query.project : "";
 
-  const allInsights = await context.models.insights.getAll();
+  const allLearnings = await context.models.learnings.getAll();
 
-  // Scope to the current project. Insights with no projects live in
+  // Scope to the current project. Learnings with no projects live in
   // "All projects" and are always included (same convention as metrics,
   // segments, and other multi-project resources).
-  const insights = project
-    ? allInsights.filter(
+  const learnings = project
+    ? allLearnings.filter(
         (i) => !i.projects?.length || i.projects.includes(project),
       )
-    : allInsights;
+    : allLearnings;
 
   res.status(200).json({
     status: 200,
-    insights: insights.map((i) => ({
+    learnings: learnings.map((i) => ({
       ...i,
-      canManage: context.models.insights.canManageInsight(i),
+      canManage: context.models.learnings.canManageLearning(i),
     })),
   });
 };
 
-export const getInsight = async (
+export const getLearning = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200; insight: InsightWithCanManage }>,
+  res: Response<{ status: 200; learning: LearningWithCanManage }>,
 ) => {
   const context = getContextFromReq(req);
-  const insight = await context.models.insights.getById(req.params.id);
-  if (!insight) {
-    throw new Error("Insight not found");
+  const learning = await context.models.learnings.getById(req.params.id);
+  if (!learning) {
+    throw new Error("Learning not found");
   }
   res.status(200).json({
     status: 200,
-    insight: {
-      ...insight,
-      canManage: context.models.insights.canManageInsight(insight),
+    learning: {
+      ...learning,
+      canManage: context.models.learnings.canManageLearning(learning),
     },
   });
 };
 
-type CreateInsightRequest = AuthRequest<{
+type CreateLearningRequest = AuthRequest<{
   title: string;
   text: string;
   tags?: string[];
   supportingExperimentIds: string[];
-  contraryEvidence?: string[];
+  contradictingExperimentIds?: string[];
   projects?: string[];
   status?: string;
   source?: "ai" | "manual";
 }>;
 
-type CreateInsightResponse = {
+type CreateLearningResponse = {
   status: 200;
-  insight: InsightInterface;
+  learning: LearningInterface;
 };
 
-export const postInsight = async (
-  req: CreateInsightRequest,
-  res: Response<CreateInsightResponse>,
+export const postLearning = async (
+  req: CreateLearningRequest,
+  res: Response<CreateLearningResponse>,
 ) => {
   const context = getContextFromReq(req);
   const {
@@ -103,7 +102,7 @@ export const postInsight = async (
     text,
     tags,
     supportingExperimentIds,
-    contraryEvidence,
+    contradictingExperimentIds,
     projects,
     status,
     source,
@@ -111,44 +110,44 @@ export const postInsight = async (
 
   // Status validation and the "" no-status sentinel are enforced by the
   // model, shared with the external API path.
-  const insight = await context.models.insights.create({
+  const learning = await context.models.learnings.create({
     owner: context.userId,
     authors: context.userId ? [context.userId] : [],
     title,
     text,
     tags: tags || [],
     supportingExperimentIds: supportingExperimentIds || [],
-    contraryEvidence: contraryEvidence || [],
+    contradictingExperimentIds: contradictingExperimentIds || [],
     projects: projects || [],
     status: status || "",
     source: source || "manual",
   });
 
-  res.status(200).json({ status: 200, insight });
+  res.status(200).json({ status: 200, learning });
 };
 
-type UpdateInsightRequest = AuthRequest<
+type UpdateLearningRequest = AuthRequest<
   {
     title?: string;
     text?: string;
     tags?: string[];
     supportingExperimentIds?: string[];
-    contraryEvidence?: string[];
+    contradictingExperimentIds?: string[];
     projects?: string[];
     status?: string;
   },
   { id: string }
 >;
 
-export const putInsight = async (
-  req: UpdateInsightRequest,
-  res: Response<{ status: 200; insight: InsightInterface }>,
+export const putLearning = async (
+  req: UpdateLearningRequest,
+  res: Response<{ status: 200; learning: LearningInterface }>,
 ) => {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const existing = await context.models.insights.getById(id);
+  const existing = await context.models.learnings.getById(id);
   if (!existing) {
-    throw new Error("Insight not found");
+    throw new Error("Learning not found");
   }
 
   // Append the current user to authors if this is a meaningful edit they
@@ -164,34 +163,34 @@ export const putInsight = async (
   // Status validation is enforced by the model (shared with the external API).
   const updates = { ...req.body, authors: nextAuthors };
 
-  const updated = await context.models.insights.update(existing, updates);
-  res.status(200).json({ status: 200, insight: updated });
+  const updated = await context.models.learnings.update(existing, updates);
+  res.status(200).json({ status: 200, learning: updated });
 };
 
-export const deleteInsight = async (
+export const deleteLearning = async (
   req: AuthRequest<Record<string, never>, { id: string }>,
   res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const existing = await context.models.insights.getById(id);
+  const existing = await context.models.learnings.getById(id);
   if (!existing) {
-    throw new Error("Insight not found");
+    throw new Error("Learning not found");
   }
-  await context.models.insights.delete(existing);
+  await context.models.learnings.delete(existing);
   res.status(200).json({ status: 200 });
 };
 
-// --- AI: Find Insights across experiments ---
+// --- AI: Find Learnings across experiments ---
 
-type FindInsightsRequest = AuthRequest<{
+type FindLearningsRequest = AuthRequest<{
   experimentIds: string[];
 }>;
 
-type FindInsightsResponse =
+type FindLearningsResponse =
   | {
       status: 200;
-      insights: AiInsightSuggestion[];
+      learnings: AiLearningSuggestion[];
       numExperimentsRequested: number;
       numExperimentsAnalyzed: number;
     }
@@ -206,18 +205,18 @@ type FindInsightsResponse =
 // most recently-stopped experiments and tell the front-end via
 // numExperimentsRequested/numExperimentsAnalyzed.
 const MAX_EXPERIMENTS_FOR_AI = 50;
-const MAX_SAVED_INSIGHTS_IN_PROMPT = 100;
+const MAX_SAVED_LEARNINGS_IN_PROMPT = 100;
 const MAX_ORG_TAGS_IN_PROMPT = 100;
 // Per-field character caps for the experiment summaries sent to the AI
 const MAX_HYPOTHESIS_CHARS = 600;
 const MAX_DESCRIPTION_CHARS = 1500;
 const MAX_ANALYSIS_CHARS = 2000;
 const MAX_VARIATION_DESCRIPTION_CHARS = 300;
-const MAX_SAVED_INSIGHT_TEXT_CHARS = 600;
-// Candidates at or above this cosine similarity to a saved insight are
+const MAX_SAVED_LEARNING_TEXT_CHARS = 600;
+// Candidates at or above this cosine similarity to a saved learning are
 // dropped as duplicates (prompt-level dedup is soft; this is the hard check)
 const SIMILARITY_DEDUP_THRESHOLD = 0.85;
-// Saved insights normally get embeddings via InsightModel hooks; backfill at
+// Saved learnings normally get embeddings via LearningModel hooks; backfill at
 // most this many missing ones inline per request
 const MAX_SAVED_VECTOR_BACKFILL = 50;
 
@@ -309,43 +308,43 @@ function summarizeExperimentForAI(
   };
 }
 
-// Hard dedup of AI candidates against saved insights using embedding cosine
-// similarity. Saved-insight embeddings are maintained by InsightModel hooks;
-// any missing ones (e.g. insights saved before embeddings existed, or while
+// Hard dedup of AI candidates against saved learnings using embedding cosine
+// similarity. Saved-learning embeddings are maintained by LearningModel hooks;
+// any missing ones (e.g. learnings saved before embeddings existed, or while
 // AI was disabled) are backfilled inline up to a cap.
 async function filterCandidatesBySimilarity(
   context: ReqContext,
-  candidates: AiInsightSuggestion[],
-  savedInsights: InsightInterface[],
-): Promise<AiInsightSuggestion[]> {
-  if (!candidates.length || !savedInsights.length) return candidates;
+  candidates: AiLearningSuggestion[],
+  savedLearnings: LearningInterface[],
+): Promise<AiLearningSuggestion[]> {
+  if (!candidates.length || !savedLearnings.length) return candidates;
 
-  const vectors = await context.models.vectors.getByInsightIds(
-    savedInsights.map((i) => i.id),
+  const vectors = await context.models.vectors.getByLearningIds(
+    savedLearnings.map((i) => i.id),
   );
   const savedEmbeddings = new Map(vectors.map((v) => [v.joinId, v.embeddings]));
 
-  const missing = savedInsights
+  const missing = savedLearnings
     .filter((i) => !savedEmbeddings.has(i.id))
     .slice(0, MAX_SAVED_VECTOR_BACKFILL);
   if (missing.length) {
     const embeddings = await generateEmbeddings({
       context,
-      input: missing.map((i) => getInsightTextForEmbedding(i)),
+      input: missing.map((i) => getLearningTextForEmbedding(i)),
     });
     await Promise.all(
-      missing.map(async (insight, i) => {
+      missing.map(async (learning, i) => {
         const embedding = embeddings[i];
         if (!embedding?.length) return;
-        savedEmbeddings.set(insight.id, embedding);
+        savedEmbeddings.set(learning.id, embedding);
         try {
-          await context.models.vectors.addOrUpdateInsightVector(insight.id, {
+          await context.models.vectors.addOrUpdateLearningVector(learning.id, {
             embeddings: embedding,
           });
         } catch (e) {
           logger.error(
             e,
-            `Error storing backfilled embedding for insight ${insight.id}`,
+            `Error storing backfilled embedding for learning ${learning.id}`,
           );
         }
       }),
@@ -357,7 +356,7 @@ async function filterCandidatesBySimilarity(
 
   const candidateEmbeddings = await generateEmbeddings({
     context,
-    input: candidates.map((c) => getInsightTextForEmbedding(c)),
+    input: candidates.map((c) => getLearningTextForEmbedding(c)),
   });
 
   return candidates.filter((candidate, i) => {
@@ -371,16 +370,16 @@ async function filterCandidatesBySimilarity(
     );
     if (isDuplicate) {
       logger.info(
-        `Dropping AI insight candidate "${candidate.title}" as a near-duplicate of a saved insight`,
+        `Dropping AI learning candidate "${candidate.title}" as a near-duplicate of a saved learning`,
       );
     }
     return !isDuplicate;
   });
 }
 
-export const postFindInsights = async (
-  req: FindInsightsRequest,
-  res: Response<FindInsightsResponse>,
+export const postFindLearnings = async (
+  req: FindLearningsRequest,
+  res: Response<FindLearningsResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -395,7 +394,7 @@ export const postFindInsights = async (
     return res.status(400).json({
       status: 400,
       message:
-        "At least 2 experiments are required to look for cross-experiment insights",
+        "At least 2 experiments are required to look for cross-experiment learnings",
     });
   }
 
@@ -417,55 +416,20 @@ export const postFindInsights = async (
   const numExperimentsAnalyzed = experiments.length;
   if (numExperimentsAnalyzed < numExperimentsRequested) {
     logger.info(
-      `find-insights: capping analysis to ${numExperimentsAnalyzed} of ${numExperimentsRequested} experiments for org ${context.org.id}`,
+      `find-learnings: capping analysis to ${numExperimentsAnalyzed} of ${numExperimentsRequested} experiments for org ${context.org.id}`,
     );
   }
 
-  // Pull existing saved insights for deduplication (both the prompt-level
+  // Pull existing saved learnings for deduplication (both the prompt-level
   // instruction and the post-generation embedding check).
-  const existingInsights = await context.models.insights.getAll();
+  const existingLearnings = await context.models.learnings.getAll();
 
   // Organization-specific context configured under General Settings →
-  // Experiment Settings → Find Insights Context.
-  const findInsightsPromptConfig = await context.models.aiPrompts.getAIPrompt(
-    "find-insights-context",
+  // Experiment Settings → Find Learnings Context.
+  const findLearningsPromptConfig = await context.models.aiPrompts.getAIPrompt(
+    "find-learnings-context",
   );
-  const customContext = (findInsightsPromptConfig.prompt || "").trim();
-
-  // Serve from cache when the same experiment set was analyzed recently and
-  // the saved insights / prompt config haven't changed. The key fingerprints
-  // the exact set of insights this user can read (id + version), not just a
-  // count — otherwise two users in the same org with different read access
-  // could collide on the same key and one could receive suggestions that were
-  // deduplicated against the other's (unreadable) insights.
-  const insightsFingerprint = existingInsights
-    .map((i) => `${i.id}:${i.dateUpdated?.getTime() || 0}`)
-    .sort();
-  const cacheKey = createHash("sha256")
-    .update(
-      JSON.stringify({
-        experimentIds: experiments.map((e) => e.id).sort(),
-        insightsFingerprint,
-        customContext,
-        overrideModel: findInsightsPromptConfig.overrideModel || "",
-      }),
-    )
-    .digest("hex");
-
-  try {
-    const cached =
-      await context.models.insightsFindCache.getValidByKey(cacheKey);
-    if (cached) {
-      return res.status(200).json({
-        status: 200,
-        insights: cached.suggestions,
-        numExperimentsRequested,
-        numExperimentsAnalyzed: cached.numExperimentsAnalyzed,
-      });
-    }
-  } catch (e) {
-    logger.error(e, "find-insights: error reading result cache");
-  }
+  const customContext = (findLearningsPromptConfig.prompt || "").trim();
 
   // Enrich each experiment with compact quantitative results from its latest
   // snapshot. Best-effort: if this fails we still run the prompt with the
@@ -495,37 +459,37 @@ export const postFindInsights = async (
       });
     }
   } catch (e) {
-    logger.error(e, "find-insights: error loading snapshot results");
+    logger.error(e, "find-learnings: error loading snapshot results");
   }
 
   const summaries = experiments.map((exp) =>
     summarizeExperimentForAI(exp, resultsByExperimentId.get(exp.id)),
   );
 
-  // Saved-insight summaries for the prompt: title/text/tags only, most
+  // Saved-learning summaries for the prompt: title/text/tags only, most
   // recently updated first, capped
-  const existingSummaries = [...existingInsights]
+  const existingSummaries = [...existingLearnings]
     .sort(
       (a, b) =>
         (b.dateUpdated?.getTime() || 0) - (a.dateUpdated?.getTime() || 0),
     )
-    .slice(0, MAX_SAVED_INSIGHTS_IN_PROMPT)
+    .slice(0, MAX_SAVED_LEARNINGS_IN_PROMPT)
     .map((i) => ({
       title: i.title,
-      text: truncateForAI(i.text, MAX_SAVED_INSIGHT_TEXT_CHARS),
+      text: truncateForAI(i.text, MAX_SAVED_LEARNING_TEXT_CHARS),
       tags: i.tags || [],
     }));
 
   let instructions =
-    "You are an expert experimentation analyst. Your job is to read a set of A/B experiments and identify common themes, patterns, or insights that span multiple experiments. " +
+    "You are an expert experimentation analyst. Your job is to read a set of A/B experiments and identify common themes, patterns, or learnings that span multiple experiments. " +
     "Look for things like: shared psychological or design tactics that tend to work (or not work), audience preferences (e.g. color, copy tone, emotional appeals, urgency, social proof), recurring product behaviors, or patterns in what causes wins vs. losses. " +
-    "Only surface insights that are supported by at least 2 of the experiments provided. " +
+    "Only surface learnings that are supported by at least 2 of the experiments provided. " +
     "Some experiments include metricResults: per-variation outcomes for the experiment's goal metrics, with the relative lift, the Bayesian chance to win (0-1), and/or the frequentist p-value. Use these to weigh evidence — a large, statistically significant effect is much stronger support than a small or inconclusive one. " +
-    "For each insight, return a short title, a paragraph (or two) of markdown explaining the pattern and what the evidence is, 1-5 lowercase hyphenated tags categorizing it, the list of experiment ids that support it, and the list of experiment ids whose outcomes run counter to the insight (contraryExperimentIds). " +
-    "Contrary evidence should include experiments in the input set whose results materially disagree with the insight — e.g. the pattern was tried and did NOT win, or produced the opposite effect. If no contrary evidence exists in the input set, return an empty list for contraryExperimentIds. Do not include the same experiment as both supporting and contrary. " +
-    "Use only experiment ids from the input set. Return at most 8 insights, ordered from most to least confident. " +
+    "For each learning, return a short title, a paragraph (or two) of markdown explaining the pattern and what the evidence is, 1-5 lowercase hyphenated tags categorizing it, the list of experiment ids that support it, and the list of experiment ids whose outcomes run counter to the learning (contradictingExperimentIds). " +
+    "Contrary evidence should include experiments in the input set whose results materially disagree with the learning — e.g. the pattern was tried and did NOT win, or produced the opposite effect. If no contrary evidence exists in the input set, return an empty list for contradictingExperimentIds. Do not include the same experiment as both supporting and contrary. " +
+    "Use only experiment ids from the input set. Return at most 8 learnings, ordered from most to least confident. " +
     "If no meaningful cross-experiment patterns exist, return an empty list. " +
-    "IMPORTANT: A list of insights that the team has ALREADY SAVED is provided. Do not duplicate or paraphrase those — only surface genuinely new patterns. If a candidate insight overlaps meaningfully with a saved one, omit it.";
+    "IMPORTANT: A list of learnings that the team has ALREADY SAVED is provided. Do not duplicate or paraphrase those — only surface genuinely new patterns. If a candidate learning overlaps meaningfully with a saved one, omit it.";
 
   // Encourage reuse of the org's existing tag vocabulary so the tag filter
   // doesn't fragment into near-duplicates over time.
@@ -538,19 +502,19 @@ export const postFindInsights = async (
         tagNames.join(", ");
     }
   } catch (e) {
-    logger.error(e, "find-insights: error loading org tags");
+    logger.error(e, "find-learnings: error loading org tags");
   }
 
   if (customContext) {
     instructions +=
-      "\n\nAdditional organization-specific context about the product, audience, and what counts as a meaningful insight:\n" +
+      "\n\nAdditional organization-specific context about the product, audience, and what counts as a meaningful learning:\n" +
       customContext;
   }
 
   const prompt =
     "Here are the experiments to analyze (as JSON). Each has an id, name, hypothesis, description, tags, status, results, an AI-written or human-written analysis summary, the variations tested, and (when available) metricResults with per-variation goal metric outcomes:\n\n" +
     JSON.stringify(summaries) +
-    "\n\nHere are the insights the team has ALREADY saved (do not duplicate these):\n\n" +
+    "\n\nHere are the learnings the team has ALREADY saved (do not duplicate these):\n\n" +
     JSON.stringify(existingSummaries);
 
   try {
@@ -558,66 +522,56 @@ export const postFindInsights = async (
       context,
       instructions,
       prompt,
-      type: "find-insights-context",
+      type: "find-learnings-context",
       isDefaultPrompt: !customContext,
-      overrideModel: findInsightsPromptConfig.overrideModel,
+      overrideModel: findLearningsPromptConfig.overrideModel,
       temperature: 0.4,
-      zodObjectSchema: aiInsightSuggestionsResponseValidator,
+      zodObjectSchema: aiLearningSuggestionsResponseValidator,
     });
 
     // Filter to ids that actually exist in the input set (defense against AI
     // hallucinating ids), and ensure an experiment never appears on both lists.
     const validIds = new Set(experiments.map((e) => e.id));
-    const cleaned = (aiResponse.insights || [])
+    const cleaned = (aiResponse.learnings || [])
       .map((i) => {
         const supporting = (i.supportingExperimentIds || []).filter((id) =>
           validIds.has(id),
         );
         const supportingSet = new Set(supporting);
-        const contrary = (i.contraryExperimentIds || []).filter(
+        const contrary = (i.contradictingExperimentIds || []).filter(
           (id) => validIds.has(id) && !supportingSet.has(id),
         );
         return {
           ...i,
           supportingExperimentIds: supporting,
-          contraryExperimentIds: contrary,
+          contradictingExperimentIds: contrary,
         };
       })
       .filter((i) => i.supportingExperimentIds.length >= 2);
 
-    // Hard dedup against saved insights via embeddings. Best-effort: fall
+    // Hard dedup against saved learnings via embeddings. Best-effort: fall
     // back to the prompt-level dedup if embeddings fail.
     let deduped = cleaned;
     try {
       deduped = await filterCandidatesBySimilarity(
         context,
         cleaned,
-        existingInsights,
+        existingLearnings,
       );
     } catch (e) {
-      logger.error(e, "find-insights: error running embedding dedup");
-    }
-
-    try {
-      await context.models.insightsFindCache.set(cacheKey, {
-        suggestions: deduped,
-        numExperimentsRequested,
-        numExperimentsAnalyzed,
-      });
-    } catch (e) {
-      logger.error(e, "find-insights: error writing result cache");
+      logger.error(e, "find-learnings: error running embedding dedup");
     }
 
     return res.status(200).json({
       status: 200,
-      insights: deduped,
+      learnings: deduped,
       numExperimentsRequested,
       numExperimentsAnalyzed,
     });
   } catch (e) {
     return res.status(500).json({
       status: 500,
-      message: e instanceof Error ? e.message : "Failed to generate insights",
+      message: e instanceof Error ? e.message : "Failed to generate learnings",
     });
   }
 };

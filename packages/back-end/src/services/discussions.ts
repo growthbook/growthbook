@@ -102,14 +102,14 @@ export async function getProjectsByParentId(
       return metric.projects || [];
     }
 
-    case "insight": {
-      const insight = await context.models.insights.getById(parentId);
+    case "learning": {
+      const learning = await context.models.learnings.getById(parentId);
 
-      if (!insight) {
-        throw new Error("Insight not found");
+      if (!learning) {
+        throw new Error("Learning not found");
       }
 
-      return insight.projects || [];
+      return learning.projects || [];
     }
   }
 }

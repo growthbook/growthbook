@@ -6,7 +6,7 @@ import Text from "@/ui/Text";
 
 /**
  * Labeled list of experiment links, used for the "Supporting experiments"
- * and "Contrary evidence" sections of insight cards. Falls back to the raw
+ * and "Contrary evidence" sections of learning cards. Falls back to the raw
  * id when an experiment isn't in the map (e.g. archived or unreadable).
  */
 const ExperimentChips: FC<{

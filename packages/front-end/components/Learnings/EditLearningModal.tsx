@@ -1,7 +1,7 @@
 import { FC, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { InsightInterfaceStringDates } from "shared/validators";
+import { LearningInterfaceStringDates } from "shared/validators";
 import { DEFAULT_LEARNING_STATUSES } from "shared/constants";
 import Field from "@/components/Forms/Field";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
@@ -14,16 +14,16 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 
-const EditInsightModal: FC<{
+const EditLearningModal: FC<{
   /** Undefined => create mode, otherwise edit existing. */
-  insight?: InsightInterfaceStringDates;
+  learning?: LearningInterfaceStringDates;
   experiments: ExperimentInterfaceStringDates[];
   /** Default projects to apply when creating from scratch (e.g. current project context). */
   defaultProjects?: string[];
   close: () => void;
   onSaved: () => void;
-}> = ({ insight, experiments, defaultProjects, close, onSaved }) => {
-  const isNew = !insight;
+}> = ({ learning, experiments, defaultProjects, close, onSaved }) => {
+  const isNew = !learning;
   const { apiCall } = useAuth();
   const { projects: orgProjects } = useDefinitions();
   const orgSettings = useOrgSettings();
@@ -31,19 +31,19 @@ const EditInsightModal: FC<{
   // so the dropdown is never empty for new saved learnings.
   const learningStatuses =
     orgSettings.learningStatuses ?? DEFAULT_LEARNING_STATUSES;
-  const [title, setTitle] = useState(insight?.title ?? "");
-  const [text, setText] = useState(insight?.text ?? "");
-  const [tags, setTags] = useState<string[]>(insight?.tags || []);
+  const [title, setTitle] = useState(learning?.title ?? "");
+  const [text, setText] = useState(learning?.text ?? "");
+  const [tags, setTags] = useState<string[]>(learning?.tags || []);
   const [projects, setProjects] = useState<string[]>(
-    insight?.projects || defaultProjects || [],
+    learning?.projects || defaultProjects || [],
   );
   const [supportingIds, setSupportingIds] = useState<string[]>(
-    insight?.supportingExperimentIds || [],
+    learning?.supportingExperimentIds || [],
   );
   const [contraryIds, setContraryIds] = useState<string[]>(
-    insight?.contraryEvidence || [],
+    learning?.contradictingExperimentIds || [],
   );
-  const [status, setStatus] = useState<string>(insight?.status ?? "");
+  const [status, setStatus] = useState<string>(learning?.status ?? "");
 
   const statusOptions = useMemo(() => {
     const opts = [{ label: "No status", value: "" }];
@@ -101,10 +101,10 @@ const EditInsightModal: FC<{
     <ModalStandard
       open={true}
       close={close}
-      header={isNew ? "New saved learning" : "Edit insight"}
+      header={isNew ? "New saved learning" : "Edit learning"}
       cta={isNew ? "Create" : "Save"}
       ctaEnabled={title.trim().length > 0}
-      trackingEventModalType={isNew ? "new-insight" : "edit-insight"}
+      trackingEventModalType={isNew ? "new-learning" : "edit-learning"}
       submit={async () => {
         const body = {
           title: title.trim(),
@@ -112,16 +112,16 @@ const EditInsightModal: FC<{
           tags,
           projects,
           supportingExperimentIds: supportingIds,
-          contraryEvidence: contraryIds,
+          contradictingExperimentIds: contraryIds,
           status,
         };
         if (isNew) {
-          await apiCall(`/insights`, {
+          await apiCall(`/learnings`, {
             method: "POST",
             body: JSON.stringify(body),
           });
         } else {
-          await apiCall(`/insights/${insight!.id}`, {
+          await apiCall(`/learnings/${learning!.id}`, {
             method: "PUT",
             body: JSON.stringify(body),
           });
@@ -163,7 +163,7 @@ const EditInsightModal: FC<{
           <MarkdownInput
             value={text}
             setValue={setText}
-            placeholder="Describe the insight and the evidence behind it"
+            placeholder="Describe the learning and the evidence behind it"
             showButtons={false}
             hidePreview={false}
           />
@@ -188,7 +188,7 @@ const EditInsightModal: FC<{
       <Box mb="4">
         <MultiSelectField
           label="Supporting experiments"
-          placeholder="Select experiments that support this insight"
+          placeholder="Select experiments that support this learning"
           value={supportingIds}
           options={supportingOpts}
           onChange={setSupportingIds}
@@ -197,7 +197,7 @@ const EditInsightModal: FC<{
       <Box mb="4">
         <MultiSelectField
           label="Contrary evidence"
-          placeholder="Select experiments that run counter to this insight"
+          placeholder="Select experiments that run counter to this learning"
           value={contraryIds}
           options={contraryOpts}
           onChange={setContraryIds}
@@ -207,4 +207,4 @@ const EditInsightModal: FC<{
   );
 };
 
-export default EditInsightModal;
+export default EditLearningModal;

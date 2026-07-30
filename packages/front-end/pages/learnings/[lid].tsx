@@ -7,7 +7,7 @@ import {
   PiSparkleFill,
   PiTrash,
 } from "react-icons/pi";
-import { InsightWithCanManage } from "shared/validators";
+import { LearningWithCanManage } from "shared/validators";
 import { date, getValidDate } from "shared/dates";
 import { DEFAULT_LEARNING_STATUSES } from "shared/constants";
 import useApi from "@/hooks/useApi";
@@ -20,8 +20,8 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
 import ConfirmModal from "@/components/ConfirmModal";
 import DiscussionThread from "@/components/DiscussionThread";
-import EditInsightModal from "@/components/Insights/EditInsightModal";
-import ExperimentChips from "@/components/Insights/ExperimentChips";
+import EditLearningModal from "@/components/Learnings/EditLearningModal";
+import ExperimentChips from "@/components/Learnings/ExperimentChips";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -29,10 +29,10 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 
-const InsightPage = (): React.ReactElement => {
+const LearningPage = (): React.ReactElement => {
   const router = useRouter();
   const { lid } = router.query;
-  const insightId = typeof lid === "string" ? lid : "";
+  const learningId = typeof lid === "string" ? lid : "";
 
   const { apiCall } = useAuth();
   const { getOwnerDisplay } = useUser();
@@ -41,9 +41,9 @@ const InsightPage = (): React.ReactElement => {
   const learningStatuses =
     orgSettings.learningStatuses ?? DEFAULT_LEARNING_STATUSES;
 
-  const { data, error, mutate } = useApi<{ insight: InsightWithCanManage }>(
-    `/insights/${insightId}`,
-    { shouldRun: () => !!insightId },
+  const { data, error, mutate } = useApi<{ learning: LearningWithCanManage }>(
+    `/learnings/${learningId}`,
+    { shouldRun: () => !!learningId },
   );
 
   // All readable experiments (across projects) so supporting/contrary ids
@@ -69,17 +69,17 @@ const InsightPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const insight = data.insight;
-  const status = insight.status
-    ? learningStatuses.find((s) => s.id === insight.status)
+  const learning = data.learning;
+  const status = learning.status
+    ? learningStatuses.find((s) => s.id === learning.status)
     : undefined;
-  const ownerName = getOwnerDisplay(insight.owner) || "Unknown";
+  const ownerName = getOwnerDisplay(learning.owner) || "Unknown";
   const edited =
-    getValidDate(insight.dateUpdated).getTime() -
-      getValidDate(insight.dateCreated).getTime() >
+    getValidDate(learning.dateUpdated).getTime() -
+      getValidDate(learning.dateCreated).getTime() >
     1000;
-  const editorNames = (insight.authors || [])
-    .filter((u) => u && u !== insight.owner)
+  const editorNames = (learning.authors || [])
+    .filter((u) => u && u !== learning.owner)
     .map((u) => getOwnerDisplay(u) || "Unknown");
 
   return (
@@ -94,9 +94,9 @@ const InsightPage = (): React.ReactElement => {
       <Flex justify="between" align="start" gap="3" mb="2">
         <Flex gap="2" align="center" wrap="wrap">
           <Heading as="h1" size="x-large" weight="medium" mb="0">
-            {insight.title}
+            {learning.title}
           </Heading>
-          {insight.source === "ai" && (
+          {learning.source === "ai" && (
             <Badge
               label={
                 <Flex gap="1" align="center">
@@ -108,9 +108,9 @@ const InsightPage = (): React.ReactElement => {
               size="sm"
             />
           )}
-          {insight.status && (
+          {learning.status && (
             <Badge
-              label={status?.label || insight.status}
+              label={status?.label || learning.status}
               color={status?.color || "gray"}
               variant="soft"
               size="sm"
@@ -120,13 +120,13 @@ const InsightPage = (): React.ReactElement => {
             />
           )}
         </Flex>
-        {insight.canManage && (
+        {learning.canManage && (
           <Flex gap="1">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setEditing(true)}
-              aria-label="Edit insight"
+              aria-label="Edit learning"
             >
               <PiPencilSimple />
             </Button>
@@ -134,7 +134,7 @@ const InsightPage = (): React.ReactElement => {
               variant="ghost"
               size="sm"
               onClick={() => setConfirmingDelete(true)}
-              aria-label="Delete insight"
+              aria-label="Delete learning"
             >
               <PiTrash />
             </Button>
@@ -143,19 +143,19 @@ const InsightPage = (): React.ReactElement => {
       </Flex>
       <Box mb="4">
         <Text size="small" color="text-mid" as="div">
-          Created {date(insight.dateCreated)} by {ownerName}
-          {edited ? ` · edited ${date(insight.dateUpdated)}` : ""}
+          Created {date(learning.dateCreated)} by {ownerName}
+          {edited ? ` · edited ${date(learning.dateUpdated)}` : ""}
           {editorNames.length > 0
             ? ` · also edited by ${editorNames.join(", ")}`
             : ""}
         </Text>
-        {insight.projects && insight.projects.length > 0 && (
+        {learning.projects && learning.projects.length > 0 && (
           <Box mt="1">
             <Flex gap="2" wrap="wrap" align="center">
               <Text size="small" color="text-mid">
                 Projects:
               </Text>
-              {insight.projects.map((p) => (
+              {learning.projects.map((p) => (
                 <Badge
                   key={p}
                   label={getProjectById(p)?.name || p}
@@ -183,12 +183,12 @@ const InsightPage = (): React.ReactElement => {
         }}
       >
         <Box mb="3">
-          <Markdown>{insight.text}</Markdown>
+          <Markdown>{learning.text}</Markdown>
         </Box>
-        {insight.tags && insight.tags.length > 0 && (
+        {learning.tags && learning.tags.length > 0 && (
           <Box mb="3">
             <Flex gap="2" wrap="wrap">
-              {insight.tags.map((t) => (
+              {learning.tags.map((t) => (
                 <Badge
                   key={t}
                   label={t}
@@ -203,12 +203,12 @@ const InsightPage = (): React.ReactElement => {
         <Flex direction="column" gap="3">
           <ExperimentChips
             label="Supporting experiments"
-            experimentIds={insight.supportingExperimentIds}
+            experimentIds={learning.supportingExperimentIds}
             experimentMap={experimentMap}
           />
           <ExperimentChips
             label="Contrary evidence"
-            experimentIds={insight.contraryEvidence || []}
+            experimentIds={learning.contradictingExperimentIds || []}
             experimentMap={experimentMap}
             variant="contrary"
           />
@@ -216,16 +216,16 @@ const InsightPage = (): React.ReactElement => {
       </Box>
       <Box mb="4">
         <DiscussionThread
-          type="insight"
-          id={insight.id}
-          projects={insight.projects || []}
+          type="learning"
+          id={learning.id}
+          projects={learning.projects || []}
           showTitle={true}
           title="Discussion"
         />
       </Box>
       {editing && (
-        <EditInsightModal
-          insight={insight}
+        <EditLearningModal
+          learning={learning}
           experiments={experiments}
           close={() => setEditing(false)}
           onSaved={() => {
@@ -235,7 +235,7 @@ const InsightPage = (): React.ReactElement => {
         />
       )}
       <ConfirmModal
-        title="Delete this insight?"
+        title="Delete this learning?"
         subtitle="This action cannot be undone."
         yesText="Yes, delete it"
         noText="Cancel"
@@ -244,11 +244,11 @@ const InsightPage = (): React.ReactElement => {
         onConfirm={async () => {
           setDeleteError(null);
           try {
-            await apiCall(`/insights/${insight.id}`, { method: "DELETE" });
+            await apiCall(`/learnings/${learning.id}`, { method: "DELETE" });
             router.push("/learnings#saved");
           } catch (e) {
             setDeleteError(
-              e instanceof Error ? e.message : "Could not delete insight",
+              e instanceof Error ? e.message : "Could not delete learning",
             );
             setConfirmingDelete(false);
           }
@@ -258,4 +258,4 @@ const InsightPage = (): React.ReactElement => {
   );
 };
 
-export default InsightPage;
+export default LearningPage;

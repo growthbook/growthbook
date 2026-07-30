@@ -85,8 +85,7 @@ import { ContextualBanditEventModel } from "back-end/src/enterprise/models/Conte
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RevisionModel } from "back-end/src/models/RevisionModel";
 import { AIConversationModel } from "back-end/src/models/AIConversationModel";
-import { InsightModel } from "back-end/src/models/InsightModel";
-import { InsightsFindCacheModel } from "back-end/src/models/InsightsFindCacheModel";
+import { LearningModel } from "back-end/src/models/LearningModel";
 import { EventForwarderConfigModel } from "back-end/src/models/EventForwarderConfigModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
@@ -151,8 +150,7 @@ export type ModelName =
   | "rampSchedules"
   | "rampScheduleTemplates"
   | "aiConversations"
-  | "insights"
-  | "insightsFindCache"
+  | "learnings"
   | "contextualBandits"
   | "contextualBanditQueries"
   | "contextualBanditSnapshots"
@@ -206,8 +204,7 @@ export const modelClasses = {
   rampSchedules: RampScheduleModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
-  insights: InsightModel,
-  insightsFindCache: InsightsFindCacheModel,
+  learnings: LearningModel,
   contextualBandits: ContextualBanditModel,
   contextualBanditQueries: ContextualBanditQueryModel,
   contextualBanditSnapshots: ContextualBanditSnapshotModel,
@@ -351,8 +348,7 @@ export class ReqContextClass {
       rampSchedules: new RampScheduleModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
-      insights: new InsightModel(this),
-      insightsFindCache: new InsightsFindCacheModel(this),
+      learnings: new LearningModel(this),
       contextualBandits: new ContextualBanditModel(this),
       contextualBanditQueries: new ContextualBanditQueryModel(this),
       contextualBanditSnapshots: new ContextualBanditSnapshotModel(this),
