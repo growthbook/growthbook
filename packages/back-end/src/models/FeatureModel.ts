@@ -11,6 +11,8 @@ import {
   PermissionError,
   stemRuleId,
   resolveTargetingProjectIds,
+  computeHoldoutExperimentLinkageDelta,
+  getExperimentIdsFromRules,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -88,7 +90,10 @@ import {
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
 } from "back-end/src/util/features";
-import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
+import {
+  assertHoldoutAvailableForProject,
+  getHoldoutAvailableForProject,
+} from "back-end/src/services/holdout-availability";
 import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
 import {
   BadRequestError,
@@ -2064,10 +2069,8 @@ export async function applyHoldoutSideEffects(
   // holdout fails with no membership mutated (no partial transition).
   await assertHoldoutLinkageResolvable(context, newHoldout, feature.project);
 
-  // Remove feature from the old holdout. The guard (assertHoldoutChangeAllowed)
-  // has already refused this move if any linked experiment still belongs to the
-  // old holdout, so there's nothing to cascade here — the experiment side is
-  // detached explicitly by the user first.
+  // Feature side only: planHoldoutExperimentLinkage withdraws the experiments
+  // this feature contributed to the holdout it is leaving.
   if (prevHoldoutId) {
     await context.models.holdout.removeFeatureFromHoldout(
       prevHoldoutId,
@@ -2075,38 +2078,179 @@ export async function applyHoldoutSideEffects(
     );
   }
 
-  // Link feature (and experiments in its rules) to the new holdout.
+  // Feature side only; planHoldoutExperimentLinkage owns the experiment half.
   if (newHoldoutId) {
-    const ruleExperimentIds = Array.from(
-      new Set(
-        (feature.rules ?? [])
-          .filter((rule) => rule.type === "experiment-ref")
-          .map((rule) => rule.experimentId),
-      ),
-    );
-
-    await context.models.holdout.addFeatureToHoldout(
-      newHoldoutId,
-      feature.id,
-      ruleExperimentIds,
-    );
-
-    if (ruleExperimentIds.length) {
-      const linkedExperiments = await Promise.all(
-        ruleExperimentIds.map((eid) => getExperimentById(context, eid)),
-      );
-      await Promise.all(
-        linkedExperiments.map(async (exp) => {
-          if (!exp) return;
-          return updateExperiment({
-            context,
-            experiment: exp,
-            changes: { holdoutId: newHoldoutId },
-          });
-        }),
-      );
-    }
+    await context.models.holdout.addFeatureToHoldout(newHoldoutId, feature.id);
   }
+}
+
+export type HoldoutExperimentLinkagePlan = {
+  holdoutId: string;
+  toLink: string[];
+  toUnlink: string[];
+  // "" is the clear sentinel `updateExperiment` expects.
+  prevExperimentHoldoutIds: Record<string, string>;
+};
+
+// Derived from published rules, so an edited or discarded draft leaves nothing
+// to unwind.
+export async function planHoldoutExperimentLinkage(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  holdoutId: string | null,
+  publishedRules: FeatureRule[],
+): Promise<HoldoutExperimentLinkagePlan[]> {
+  const plans: HoldoutExperimentLinkagePlan[] = [];
+
+  // Nothing else drops what this feature contributed to the holdout it is
+  // leaving: the transition unlinks only the feature, and the guard that would
+  // force detaching experiments first reads post-publish rules.
+  const prevHoldoutId = feature.holdout?.id ?? null;
+  if (prevHoldoutId && prevHoldoutId !== holdoutId) {
+    const leaving = await planLinkageForHoldout(
+      context,
+      feature,
+      prevHoldoutId,
+      {
+        mode: "withdraw",
+        previousRules: feature.rules ?? [],
+      },
+    );
+    if (leaving) plans.push(leaving);
+  }
+
+  if (holdoutId) {
+    const joining = await planLinkageForHoldout(context, feature, holdoutId, {
+      mode: "reconcile",
+      publishedRules,
+      previousRules: feature.rules ?? [],
+    });
+    if (joining) plans.push(joining);
+  }
+
+  return plans;
+}
+
+async function planLinkageForHoldout(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  holdoutId: string,
+  // `previousRules` bounds what this feature may withdraw; `withdraw` publishes
+  // no rules under this holdout, so everything it contributed is a candidate.
+  args:
+    | {
+        mode: "reconcile";
+        publishedRules: FeatureRule[];
+        previousRules: FeatureRule[];
+      }
+    | { mode: "withdraw"; previousRules: FeatureRule[] },
+): Promise<HoldoutExperimentLinkagePlan | null> {
+  const holdout = await context.models.holdout.getByIdForLinkage(holdoutId);
+  if (!holdout) return null;
+
+  const publishedRules = args.mode === "reconcile" ? args.publishedRules : [];
+  const linkedExperimentIds = Object.keys(holdout.linkedExperiments);
+  const delta = (experimentIdsReferencedElsewhere: string[]) =>
+    computeHoldoutExperimentLinkageDelta({
+      publishedRules,
+      previousRules: args.previousRules,
+      linkedExperimentIds,
+      experimentIdsReferencedElsewhere,
+    });
+
+  // Costed before the fan-out below: a holdout can hold a lot of features, and
+  // only a withdrawal needs to know what they reference.
+  const { toLink, toUnlink: candidates } = delta([]);
+  if (!toLink.length && !candidates.length) return null;
+
+  let toUnlink = candidates;
+  if (candidates.length) {
+    // Only other features' LIVE rules count: an unpublished draft elsewhere has
+    // no linkage of its own to protect, which is what keeps this decidable.
+    // TODO: consider querying with a rules[] projection if performance becomes
+    // an issue — only `rules` and `holdout` are read here.
+    const otherFeatures = await getFeaturesByIds(
+      context,
+      Object.keys(holdout.linkedFeatures).filter((id) => id !== feature.id),
+    );
+    toUnlink = delta(
+      otherFeatures
+        .filter((f) => f.holdout?.id === holdoutId)
+        .flatMap((f) => getExperimentIdsFromRules(f.rules ?? [])),
+    ).toUnlink;
+    if (!toLink.length && !toUnlink.length) return null;
+  }
+
+  const prevExperimentHoldoutIds: Record<string, string> = {};
+  await Promise.all(
+    [...toLink, ...toUnlink].map(async (id) => {
+      const exp = await getExperimentById(context, id);
+      if (!exp) return;
+      prevExperimentHoldoutIds[id] = exp.holdoutId ?? "";
+      // Also checked at rule-add; re-checked here so moving the experiment
+      // afterwards can't bypass it.
+      if (toLink.includes(id)) {
+        assertHoldoutAvailableForProject(holdout, exp.project);
+      }
+    }),
+  );
+
+  return { holdoutId, toLink, toUnlink, prevExperimentHoldoutIds };
+}
+
+async function setExperimentHoldoutIds(
+  context: ReqContext | ApiReqContext,
+  targets: Record<string, string>,
+) {
+  await Promise.all(
+    Object.entries(targets).map(async ([id, next]) => {
+      const exp = await getExperimentById(context, id);
+      if (!exp || (exp.holdoutId ?? "") === next) return;
+      await updateExperiment({
+        context,
+        experiment: exp,
+        changes: { holdoutId: next },
+      });
+    }),
+  );
+}
+
+export async function applyHoldoutExperimentLinkage(
+  context: ReqContext | ApiReqContext,
+  plan: HoldoutExperimentLinkagePlan,
+) {
+  await context.models.holdout.addExperimentsToHoldout(
+    plan.holdoutId,
+    plan.toLink,
+  );
+  await context.models.holdout.removeExperimentsFromHoldout(
+    plan.holdoutId,
+    plan.toUnlink,
+  );
+  await setExperimentHoldoutIds(context, {
+    ...Object.fromEntries(plan.toLink.map((id) => [id, plan.holdoutId])),
+    ...Object.fromEntries(plan.toUnlink.map((id) => [id, ""])),
+  });
+}
+
+// Converges to the pre-image rather than inverting each write, so a forward pass
+// that failed partway still lands on the pre-publish state.
+export async function reverseHoldoutExperimentLinkage(
+  context: ReqContext | ApiReqContext,
+  plan: HoldoutExperimentLinkagePlan,
+) {
+  await context.models.holdout.addExperimentsToHoldout(
+    plan.holdoutId,
+    plan.toUnlink,
+  );
+  await context.models.holdout.removeExperimentsFromHoldout(
+    plan.holdoutId,
+    plan.toLink,
+  );
+  // Throws on failure: publishRevision treats this as a satellite and carries on
+  // to the feature document, while bulk compensation records it and reports the
+  // item stuck rather than cleanly rolled back.
+  await setExperimentHoldoutIds(context, plan.prevExperimentHoldoutIds);
 }
 
 // The linkage a holdout transition is about to write, captured before the forward
@@ -2121,40 +2265,16 @@ export type HoldoutLinkagePreImage = {
   prevFeatureEntry: { id: string; dateAdded: Date } | null;
   newHoldoutId: string | null;
   addsFeature: boolean;
-  addsExperimentIds: string[];
-  // Keyed by experiment id; "" is the clear sentinel `updateExperiment` expects.
-  experimentHoldoutIds: Record<string, string>;
 };
 
 export async function captureHoldoutLinkagePreImage(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   newHoldout: { id: string } | null,
-  // Post-publish rules, so the captured experiment set matches the forward pass.
-  rules: FeatureRule[],
 ): Promise<HoldoutLinkagePreImage | null> {
   const prevHoldoutId = feature.holdout?.id ?? null;
   const newHoldoutId = newHoldout?.id ?? null;
   if (newHoldoutId === prevHoldoutId) return null;
-
-  const experimentHoldoutIds: Record<string, string> = {};
-  if (newHoldoutId) {
-    const ruleExperimentIds = Array.from(
-      new Set(
-        rules
-          .filter((rule) => rule.type === "experiment-ref")
-          .map((rule) => rule.experimentId),
-      ),
-    );
-    // `getExperimentById` is read-filtered, so this sees exactly the experiments
-    // the forward pass will restamp.
-    const experiments = await Promise.all(
-      ruleExperimentIds.map((id) => getExperimentById(context, id)),
-    );
-    for (const exp of experiments) {
-      if (exp) experimentHoldoutIds[exp.id] = exp.holdoutId ?? "";
-    }
-  }
 
   const newHoldoutDoc = newHoldoutId
     ? await context.models.holdout.getByIdForLinkage(newHoldoutId)
@@ -2171,10 +2291,6 @@ export async function captureHoldoutLinkagePreImage(
     // Only what this publish adds: an entry that was already there belongs to
     // another writer and must survive the rewind.
     addsFeature: !!newHoldoutDoc && !newHoldoutDoc.linkedFeatures[feature.id],
-    addsExperimentIds: Object.keys(experimentHoldoutIds).filter(
-      (id) => !newHoldoutDoc?.linkedExperiments[id],
-    ),
-    experimentHoldoutIds,
   };
 }
 
@@ -2188,21 +2304,7 @@ export async function rewindHoldoutLinkage(
   if (pre.newHoldoutId) {
     await context.models.holdout.removeLinkageFromHoldout(pre.newHoldoutId, {
       featureId: pre.addsFeature ? pre.featureId : null,
-      experimentIds: pre.addsExperimentIds,
     });
-  }
-
-  for (const [experimentId, holdoutId] of Object.entries(
-    pre.experimentHoldoutIds,
-  )) {
-    const experiment = await getExperimentById(context, experimentId);
-    if (!experiment) continue;
-    const current = experiment.holdoutId ?? "";
-    if (current === holdoutId) continue;
-    // Undo only our own write: anything else is a later writer's intent, and
-    // the same ownership rule the bulk publisher's compensation uses.
-    if (current !== (pre.newHoldoutId ?? "")) continue;
-    await updateExperiment({ context, experiment, changes: { holdoutId } });
   }
 
   if (pre.prevHoldoutId && pre.prevFeatureEntry) {
@@ -3230,7 +3332,13 @@ export async function publishRevision({
   const updateActions = (revision.rampActions ?? []).filter(
     (a) => a.mode === "update",
   );
-  type Rewind = { what: string; undo: () => Promise<unknown> };
+  // `critical` = decides what is live (the feature document, then the revision
+  // status). A satellite that can't be reversed must not abandon those.
+  type Rewind = {
+    what: string;
+    undo: () => Promise<unknown>;
+    critical?: boolean;
+  };
   const rewinds: Rewind[] = [];
   let revisionStatusRewind: Rewind | null = null;
 
@@ -3265,12 +3373,19 @@ export async function publishRevision({
     const holdoutPreImage =
       result.holdout === undefined
         ? null
-        : await captureHoldoutLinkagePreImage(
-            context,
-            feature,
-            result.holdout,
-            result.rules ?? feature.rules ?? [],
-          );
+        : await captureHoldoutLinkagePreImage(context, feature, result.holdout);
+
+    // Not gated on the merge carrying a change: a publish with no delta is
+    // exactly when state can be out of sync (reconciling a stranded revision).
+    // Short-circuits when the feature has no holdout.
+    const experimentLinkagePlans = await planHoldoutExperimentLinkage(
+      context,
+      feature,
+      (result.holdout !== undefined
+        ? result.holdout?.id
+        : feature.holdout?.id) ?? null,
+      result.rules ?? feature.rules ?? [],
+    );
 
     updatedFeature = await applyRevisionChanges(
       context,
@@ -3281,6 +3396,7 @@ export async function publishRevision({
 
     rewinds.push({
       what: "feature document",
+      critical: true,
       undo: async () => {
         // Paired with the rules restore: a reverted rule set must not leave the
         // experiments it added still pointing back at this feature.
@@ -3312,17 +3428,18 @@ export async function publishRevision({
         });
       }
 
-      // Guard already ran above (before any mutation) — skip the re-check.
-      // Pass the POST-publish rules: side effects enroll the experiments in
-      // the feature's rules, and a draft can add the holdout and the
-      // experiment-ref rule together — the pre-publish rules would miss it
-      // (the deferred half of the eager-link-at-rule-add flow).
-      await applyHoldoutSideEffects(
-        context,
-        { ...feature, rules: result.rules ?? feature.rules },
-        result.holdout,
-        { skipGuard: true },
-      );
+      // Guard already ran above, before any mutation.
+      await applyHoldoutSideEffects(context, feature, result.holdout, {
+        skipGuard: true,
+      });
+    }
+
+    for (const plan of experimentLinkagePlans) {
+      rewinds.push({
+        what: `holdout experiment linkage (${plan.holdoutId})`,
+        undo: () => reverseHoldoutExperimentLinkage(context, plan),
+      });
+      await applyHoldoutExperimentLinkage(context, plan);
     }
 
     const publishStamp = await markRevisionAsPublished(
@@ -3334,6 +3451,7 @@ export async function publishRevision({
     );
     revisionStatusRewind = {
       what: "revision status",
+      critical: true,
       undo: async () => {
         const reopened = await restoreFeatureRevisionAfterFailedBulkPublish(
           revision,
@@ -3351,16 +3469,39 @@ export async function publishRevision({
     // the feature doc it advanced stays published.
     const unwind = [...rewinds].reverse();
     if (revisionStatusRewind) unwind.push(revisionStatusRewind);
-    for (const { what, undo } of unwind) {
+    let criticalFailed = false;
+    const unreversed: string[] = [];
+    for (const { what, undo, critical } of unwind) {
+      // Reopening the revision now would contradict a still-published feature.
+      if (criticalFailed) {
+        logger.error(
+          `Skipping rewind of ${what} for feature ${feature.id} revision ${revision.version}: an earlier critical step could not be reversed`,
+        );
+        unreversed.push(what);
+        continue;
+      }
       try {
         await undo();
       } catch (rewindErr) {
+        if (critical) criticalFailed = true;
+        unreversed.push(what);
         logger.error(
           rewindErr,
-          `Failed to rewind ${what} for feature ${feature.id} revision ${revision.version} after a failed publish — stopping rewind, everything not yet rewound stays at the published state`,
+          `Failed to rewind ${what} for feature ${feature.id} revision ${revision.version} after a failed publish${critical ? " — the feature stays at the published state" : " (satellite; continuing)"}`,
         );
-        break;
       }
+    }
+    // Say so in the response: continuing past a satellite keeps the feature and
+    // its revision consistent, but whatever could not be reversed is left behind
+    // and the caller is the only one positioned to act on it.
+    if (unreversed.length) {
+      const residue = `(could not be rolled back: ${unreversed.join(", ")} — see server logs)`;
+      // Appending keeps the original error's class, and so its status code.
+      if (err instanceof Error) {
+        err.message += ` ${residue}`;
+        throw err;
+      }
+      throw new Error(`${getErrorMessage(err)} ${residue}`);
     }
     throw err;
   }

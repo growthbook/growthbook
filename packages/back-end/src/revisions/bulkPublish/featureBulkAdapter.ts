@@ -8,6 +8,8 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { SafeRolloutInterface } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
 import {
+  applyHoldoutExperimentLinkage,
+  type HoldoutExperimentLinkagePlan,
   applyHoldoutSideEffects,
   assertHoldoutChangeAllowed,
   applyRampCreateActionsForRevision,
@@ -18,6 +20,8 @@ import {
   finalizeRampActionsAfterPublish,
   getFeature,
   type HoldoutLinkagePreImage,
+  planHoldoutExperimentLinkage,
+  reverseHoldoutExperimentLinkage,
   rewindHoldoutLinkage,
   rollbackCreatedRampSchedules,
   updateFeature,
@@ -93,6 +97,7 @@ type FeatureDesiredState = {
    * nothing for compensation to reverse.
    */
   holdoutLinkage?: HoldoutLinkagePreImage | null;
+  holdoutExperimentLinkage?: HoldoutExperimentLinkagePlan[];
 };
 
 function toRef(revision: FeatureRevisionInterface): BulkRevisionRef {
@@ -377,9 +382,20 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         context,
         feature,
         mergeResult.holdout,
-        mergeResult.rules ?? feature.rules ?? [],
       );
     }
+
+    // Same pre-mutation rule: planning is read-only, and its project check must
+    // refuse the publish before feature.version moves. Covers a rules-only
+    // publish too (mirrors publishRevision).
+    desired.holdoutExperimentLinkage = await planHoldoutExperimentLinkage(
+      context,
+      feature,
+      (mergeResult.holdout !== undefined
+        ? mergeResult.holdout?.id
+        : feature.holdout?.id) ?? null,
+      mergeResult.rules ?? feature.rules ?? [],
+    );
 
     // Ramp `create` actions run BEFORE the feature write: a schedule-creation
     // failure gates the publish, and the ids are stashed for compensation.
@@ -437,15 +453,14 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     }
 
     if (mergeResult.holdout !== undefined) {
-      // Guard already ran above (before any mutation) — skip the re-check.
-      // Pass the POST-publish rules so experiments added in the same revision
-      // are enrolled (mirrors publishRevision).
-      await applyHoldoutSideEffects(
-        context,
-        { ...feature, rules: mergeResult.rules ?? feature.rules },
-        mergeResult.holdout,
-        { skipGuard: true },
-      );
+      // Guard already ran above, before any mutation.
+      await applyHoldoutSideEffects(context, feature, mergeResult.holdout, {
+        skipGuard: true,
+      });
+    }
+
+    for (const plan of desired.holdoutExperimentLinkage ?? []) {
+      await applyHoldoutExperimentLinkage(context, plan);
     }
   },
 
@@ -515,6 +530,19 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     // stamp the old holdout onto experiments this revision newly added. Every
     // step converges on a captured value, so it is an idempotent no-op if the
     // forward write never landed and repairs the half if it landed partway.
+    for (const plan of desired.holdoutExperimentLinkage ?? []) {
+      try {
+        await reverseHoldoutExperimentLinkage(context, plan);
+      } catch (e) {
+        reversalFailures.push("holdout experiments");
+        logger.error(
+          e,
+          `bulk publish compensation: failed to reverse experiment linkage for holdout ${plan.holdoutId} on feature ${feature.id}`,
+        );
+      }
+    }
+    assertNoReversalFailures();
+
     if (desired.holdoutLinkage) {
       try {
         await rewindHoldoutLinkage(context, desired.holdoutLinkage);
