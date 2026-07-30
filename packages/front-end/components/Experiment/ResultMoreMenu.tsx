@@ -32,25 +32,29 @@ export function canShowRefreshMenuItem({
   forceRefresh,
   datasource,
   canRunExperimentQueries,
-  isExperimentIncludedInIncrementalRefresh,
-  dimension,
 }: {
   forceRefresh?: () => Promise<void>;
   datasource?: DataSourceInterfaceWithParams | null;
   canRunExperimentQueries: boolean;
-  isExperimentIncludedInIncrementalRefresh: boolean;
-  dimension?: string;
 }): boolean {
   if (!forceRefresh) return false;
   if (!datasource) return false;
   if (!canRunExperimentQueries) return false;
+  return true;
+}
 
-  // allowFullRefresh mirrors component logic
-  const allowFullRefresh =
-    !isExperimentIncludedInIncrementalRefresh ||
-    (!dimension && isExperimentIncludedInIncrementalRefresh);
-
-  return allowFullRefresh;
+export function shouldOfferMenuRefresh({
+  isIncremental,
+  dimension,
+  overallNeedsFullRefresh,
+}: {
+  isIncremental: boolean;
+  dimension?: string;
+  overallNeedsFullRefresh: boolean;
+}): boolean {
+  if (isIncremental && dimension) return false;
+  if (overallNeedsFullRefresh) return false;
+  return true;
 }
 
 export function isExperimentExcludedFromIncrementalRefresh({
@@ -411,8 +415,6 @@ export default function ResultMoreMenu({
               (datasource &&
                 permissionsUtil.canRunExperimentQueries(datasource)) ??
               false,
-            isExperimentIncludedInIncrementalRefresh: runsIncrementalRefresh,
-            dimension,
           }) && (
             <DropdownMenuItem
               onClick={handleForceRefresh}

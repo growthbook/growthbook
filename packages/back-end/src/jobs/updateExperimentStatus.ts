@@ -143,6 +143,7 @@ const updateSingleExperimentStatus = async (
         break;
       }
       // TODO(schedule-status-updates): handle "stop" once stopAt is supported
+      case "stop":
       default:
         logger.info(
           `Skipping status update: Experiment ${experiment.id} has unsupported scheduled type ${scheduled.type}`,

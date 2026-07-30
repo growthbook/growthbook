@@ -94,6 +94,7 @@ function EditModal({ template, onClose, onSave }: EditModalProps) {
 
   return (
     <Modal
+      useRadixButton={false}
       open
       trackingEventModalType="ramp-schedule-template-edit"
       close={onClose}
@@ -129,10 +130,12 @@ function EditModal({ template, onClose, onSave }: EditModalProps) {
     >
       <Box mb="5">
         <Field
+          size="legacy"
           label="Template name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
+          markRequired
         />
       </Box>
       <Box mb="5">

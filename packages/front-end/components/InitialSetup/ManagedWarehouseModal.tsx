@@ -92,6 +92,7 @@ export default function ManagedWarehouseModal({
 
   return (
     <Modal
+      useRadixButton={false}
       open={true}
       header={
         <>
@@ -144,6 +145,7 @@ export default function ManagedWarehouseModal({
       </div>
 
       <SelectField
+        size="legacy"
         label="Data Region"
         value="us-east-1"
         onChange={() => {}}

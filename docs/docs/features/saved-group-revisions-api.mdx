@@ -6,11 +6,10 @@ slug: /features/saved-group-revisions-api
 ---
 
 import CommercialFeature from '@site/src/components/CommercialFeature';
-import Pill from '@site/src/components/Pill';
 
-# Saved Group Revisions API <Pill>beta</Pill>
+# Saved Group Revisions API
 
-The saved group revisions REST API is the programmatic counterpart to the UI workflow described in [Publishing & Approval Flows](/features/publishing-and-approval-flows#saved-groups). Every change goes through the same draft → review → publish lifecycle, so a draft you start via REST can be reviewed in the UI (and vice versa). Endpoint shapes may change in minor ways before GA.
+The saved group revisions REST API is the programmatic counterpart to the UI workflow described in [Publishing & Approval Flows](/features/publishing-and-approval-flows#saved-groups). Every change goes through the same draft → review → publish lifecycle, so a draft you start via REST can be reviewed in the UI (and vice versa).
 
 If you just need to read or replace a saved group atomically — and your org does not require approvals — keep using [`POST /saved-groups/{id}`](/api/#operation/updateSavedGroup) with the `bypassApproval: true` flag. The endpoints below are for callers who need to stage changes, run approvals, or coordinate with the UI revision flow.
 

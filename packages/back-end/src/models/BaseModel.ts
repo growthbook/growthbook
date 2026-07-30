@@ -2,7 +2,12 @@
 
 import { v4 as uuidv4 } from "uuid";
 import mongoose, { FilterQuery } from "mongoose";
-import { AnyBulkWriteOperation, Collection } from "mongodb";
+import {
+  AnyBulkWriteOperation,
+  Collection,
+  Document,
+  UpdateFilter,
+} from "mongodb";
 import omit from "lodash/omit";
 import { z } from "zod";
 import { isEqual, pick } from "lodash";
@@ -31,6 +36,11 @@ import {
 } from "back-end/src/api/ApiModel";
 import { CrudAction } from "back-end/src/api/apiModelHandlers";
 import { dbSafeBulkWrite } from "back-end/src/util/mongo.util";
+import {
+  DefinitionsVersionScope,
+  definitionsScope,
+  touchDefinitionsVersion,
+} from "back-end/src/models/DefinitionsVersionModel";
 import { generateId } from "back-end/src/util/uuid";
 import {
   resolveOwnerEmail,
@@ -124,6 +134,61 @@ const updateSchema = <
     .strict() as unknown as UpdateZodObject<T, PKey, readonly string[]>;
 };
 
+// Drop `undefined` for top-level schema fields that can't be absent (required,
+// or .nullable() without .optional()). Matches ORM "ignore undefined" semantics
+// and keeps bulkWrite aligned with update().
+const dropNonClearableUndefined = (
+  schema: z.ZodObject<z.ZodRawShape>,
+  fields: Record<string, unknown>,
+): void => {
+  for (const [k, v] of Object.entries(fields)) {
+    if (
+      v === undefined &&
+      k in schema.shape &&
+      !z.safeParse(schema.shape[k], undefined).success
+    ) {
+      delete fields[k];
+    }
+  }
+};
+
+// Explicitly-undefined $set fields mean "clear this field" — translate them to
+// $unset, since ignoreUndefined would otherwise silently drop them
+const translateUndefinedSetToUnset = (
+  update: UpdateFilter<Document>,
+): UpdateFilter<Document> => {
+  const { $set, $unset, ...rest } = update;
+  if (!$set) return update;
+  const setFields: Record<string, unknown> = {};
+  const unsetFields: Record<string, unknown> = { ...$unset };
+  for (const [k, v] of Object.entries($set)) {
+    if (v === undefined) unsetFields[k] = "";
+    else setFields[k] = v;
+  }
+  return {
+    ...rest,
+    ...(Object.keys(setFields).length ? { $set: setFields } : {}),
+    ...(Object.keys(unsetFields).length ? { $unset: unsetFields } : {}),
+  } as UpdateFilter<Document>;
+};
+
+const normalizeUpdateOneDocument = (
+  schema: z.ZodObject<z.ZodRawShape>,
+  update: UpdateFilter<Document>,
+): UpdateFilter<Document> => {
+  const { $set, $unset, ...rest } = update;
+  if (!$set || typeof $set !== "object" || Array.isArray($set)) {
+    return translateUndefinedSetToUnset(update);
+  }
+  const setFields = { ...($set as Record<string, unknown>) };
+  dropNonClearableUndefined(schema, setFields);
+  return translateUndefinedSetToUnset({
+    ...rest,
+    ...($unset ? { $unset } : {}),
+    $set: setFields,
+  });
+};
+
 // DeepPartial makes all properties (including nested) optional
 type DeepPartial<T> = T extends object
   ? {
@@ -163,12 +228,42 @@ export interface ModelConfig<
   auditLog?: AuditLogConfig<Entity>;
   globallyUniquePrimaryKeys?: boolean;
   skipDateUpdatedFields?: (keyof z.infer<T>)[];
+  // When true, successful writes bump the org's definitions version (see
+  // `touchDefinitionsVersion`) so the cached `/organization/definitions`
+  // response is invalidated. Covers create/update/delete routed through the
+  // BaseModel write methods (including the `dangerous*BypassPermission`
+  // variants) and `bulkWrite`. Raw `_dangerousGetCollection()` writes bypass
+  // this hook and need a manual `touchDefinitionsVersion` call;
+  // `_dangerousBulkWriteCrossOrganization` throws when this flag is set.
+  affectsDefinitionsVersion?: boolean;
+  // Scopes the definitions-version bump (only meaningful with
+  // `affectsDefinitionsVersion`). The response is permission-filtered by
+  // project, so set this to the field holding the doc's project(s) — a
+  // `string[]` (empty = all projects) or a single `project` string ("" =
+  // global) — and writes bump only the affected projects' counters instead of
+  // the org-wide one. Omit for org-wide models, or when the response is not
+  // project-filtered (e.g. it returns all rows regardless of project); those
+  // bump globally. On an update the bump covers the union of the old and new
+  // values so a project reassignment invalidates readers of either side.
+  definitionsVersionProjectField?: keyof z.infer<T>;
+  // Fields that must NOT bump the definitions version when they are the only
+  // change — e.g. values the `/organization/definitions` response projects out.
+  // Unlike `skipDateUpdatedFields`, `dateUpdated` still moves for these.
+  definitionsVersionExcludedFields?: (keyof z.infer<T>)[];
   skipAuditLogFields?: (keyof z.infer<T>)[];
   readonlyFields?: (keyof z.infer<T>)[];
   additionalIndexes?: {
     fields: Partial<Record<IndexableFieldPath<z.infer<T>>, 1 | -1>>;
     unique?: boolean;
     sparse?: boolean;
+    // TTL: seconds after the indexed Date field before Mongo deletes the doc (0 = at that time).
+    expireAfterSeconds?: number;
+    // Explicit index name (required for partial indexes so they can be matched
+    // for removal and so dup-key errors can be identified).
+    name?: string;
+    // Build a partial index — only documents matching this filter are indexed.
+    // Enables e.g. a unique constraint scoped to a subset of rows.
+    partialFilterExpression?: Record<string, unknown>;
   }[];
   // NB: Names of indexes to remove
   indexesToRemove?: string[];
@@ -183,6 +278,11 @@ const indexesUpdated: Set<string> = new Set();
 
 // Global map to track pending index operations
 const pendingIndexOperations = new Map<string, Promise<string | void>[]>();
+
+// Per-schema cache of top-level fields that accept undefined but reject null.
+// Legacy writes serialized undefined as BSON null; reads strip those nulls so
+// they look unset, without requiring a data migration.
+const nullIntolerantOptionalFields = new WeakMap<object, ReadonlySet<string>>();
 
 // Helper function to wait for all pending index operations to complete
 export async function waitForIndexes(): Promise<void> {
@@ -263,7 +363,19 @@ export abstract class BaseModel<
 
   protected getPrimaryKeyFilter(doc: z.infer<T>) {
     const keys = this.getPKey();
-    return pick(doc, keys);
+    const filter = pick(doc, keys);
+    for (const key of keys) {
+      // With ignoreUndefined, an undefined key would be dropped from the
+      // filter entirely, matching an arbitrary document in the org
+      if ((filter as Record<string, unknown>)[key as string] === undefined) {
+        throw new Error(
+          `Missing primary key field "${String(key)}" on ${
+            this.config.collectionName
+          } document`,
+        );
+      }
+    }
+    return filter;
   }
 
   // String id for audit log entity (single key: value; composite: JSON)
@@ -315,7 +427,14 @@ export abstract class BaseModel<
     }
     return filtered;
   }
-  protected migrate(legacyDoc: unknown): z.infer<T> {
+  /**
+   * Passes projected-out fields so migrations can distinguish omitted values
+   * from unset values.
+   */
+  protected migrate(
+    legacyDoc: unknown,
+    omittedFields?: ReadonlySet<string>,
+  ): z.infer<T> {
     return legacyDoc as z.infer<T>;
   }
   protected toApiInterface(doc: z.infer<T>): z.infer<ApiT> {
@@ -553,6 +672,12 @@ export abstract class BaseModel<
   ): Promise<z.infer<T>> {
     return this._createOne(props, writeOptions, true);
   }
+  // Undefined handling: passing `field: undefined` requests that the field
+  // become absent. It's honored (as a $unset) only for fields whose schema
+  // permits absence (.optional()/.nullish()); for fields that can't be
+  // undefined (required, or .nullable() without .optional()) it's treated as
+  // "no change" and ignored. Omitting a key entirely is always "no change". To
+  // set a .nullable() field to null, pass `null`.
   public update(
     existing: z.infer<T>,
     updates: PKeyUpdateProps<T, PKey, PK>,
@@ -639,9 +764,9 @@ export abstract class BaseModel<
       )) as Record<string, unknown> | null;
       if (!raw) return null;
 
-      const existing = this.migrate(
-        this._removeMongooseFields(raw),
-      ) as z.infer<T>;
+      const existing = this._stripLegacyNullFields(
+        this.migrate(this._removeMongooseFields(raw)) as z.infer<T>,
+      );
 
       // Read gate mirrors getById/_findOne; canUpdate is enforced in _updateOne.
       await this.populateForeignRefs([existing]);
@@ -752,12 +877,14 @@ export abstract class BaseModel<
       bypassReadPermissionChecks?: boolean;
       bypassSanitization?: boolean;
       // Note: projection does not work when using config.yml
-      projection?: Partial<Record<keyof z.infer<T>, 0 | 1>>;
+      // Note: exclusion-only, so projection: { field: 1 } is not supported at the moment.
+      projection?: Partial<Record<keyof z.infer<T>, 0>>;
       dangerousCrossOrganization?: boolean;
     } = {},
   ) {
     const fullQuery = this.applyBaseQuery(query, dangerousCrossOrganization);
     let rawDocs;
+    let omittedFields: ReadonlySet<string> | undefined;
 
     if (this.useConfigFile()) {
       const docs =
@@ -782,6 +909,7 @@ export abstract class BaseModel<
       const cursor = this._dangerousGetCollection().find(fullQuery);
       if (projection) {
         cursor.project(projection);
+        omittedFields = new Set(Object.keys(projection));
       }
       sort &&
         cursor.sort(
@@ -795,7 +923,9 @@ export abstract class BaseModel<
     if (!rawDocs.length) return [];
 
     const migrated = rawDocs.map((d) =>
-      this.migrate(this._removeMongooseFields(d)),
+      this._stripLegacyNullFields(
+        this.migrate(this._removeMongooseFields(d), omittedFields),
+      ),
     );
     const filtered = bypassReadPermissionChecks
       ? migrated
@@ -819,7 +949,9 @@ export abstract class BaseModel<
       : await this._dangerousGetCollection().findOne(fullQuery);
     if (!doc) return null;
 
-    const migrated = this.migrate(this._removeMongooseFields(doc));
+    const migrated = this._stripLegacyNullFields(
+      this.migrate(this._removeMongooseFields(doc)),
+    );
 
     await this.populateForeignRefs([migrated]);
     if (!this.canRead(migrated)) {
@@ -882,7 +1014,7 @@ export abstract class BaseModel<
       generatedIds.uid = this._generateUid();
     }
 
-    const doc = {
+    let doc = {
       ...generatedIds,
       ...props,
       organization: this.context.org.id,
@@ -906,7 +1038,13 @@ export abstract class BaseModel<
 
     await this.beforeCreate(doc, writeOptions);
 
-    await this._dangerousGetCollection().insertOne(doc);
+    // insertOne mutates `doc` in place to add Mongo's `_id`. Scrub it (and the
+    // mongoose version key) with the same helper reads use, so these internals
+    // don't leak into the return value, audit log details, or hooks.
+    await this._dangerousGetCollection().insertOne(doc, {
+      ignoreUndefined: true,
+    });
+    doc = this._removeMongooseFields(doc) as z.infer<T>;
 
     if (this._auditLogger) {
       await this._auditLogger.logCreate(this.context, doc);
@@ -920,7 +1058,32 @@ export abstract class BaseModel<
       await this.context.registerTags(doc.tags);
     }
 
+    if (this.config.affectsDefinitionsVersion) {
+      await touchDefinitionsVersion(
+        this.context.org.id,
+        this.definitionsVersionScope(doc),
+      );
+    }
+
     return doc;
+  }
+
+  // Which readers a definitions-version bump should invalidate, derived from the
+  // configured project field across the given docs (pass old + new on an update
+  // so a project reassignment covers both sides). Defaults to "global".
+  private definitionsVersionScope(
+    ...docs: (z.infer<T> | undefined)[]
+  ): DefinitionsVersionScope {
+    const field = this.config.definitionsVersionProjectField;
+    if (!field) return "global";
+    return definitionsScope(
+      ...docs.map((doc) => {
+        const value = doc?.[field];
+        if (Array.isArray(value)) return value as string[];
+        if (typeof value === "string") return value ? [value] : undefined;
+        return undefined;
+      }),
+    );
   }
 
   protected async _updateOne(
@@ -945,6 +1108,21 @@ export abstract class BaseModel<
     ) {
       updates.owner = await resolveOwnerToUserId(updates.owner, this.context);
     }
+
+    // An explicit `undefined` requests that a field become absent. This is
+    // honored only where the schema permits absence (.optional()/.nullish()),
+    // where it becomes a $unset below. For a field that can't be undefined
+    // (required, or .nullable() without .optional()) absence is impossible, so
+    // the undefined is treated as "no change" and dropped rather than erroring
+    // — matching how ORMs ignore undefined, and sparing partial-update
+    // call-sites that spread possibly-undefined values. To clear a .nullable()
+    // field to null, pass `null` explicitly. Dropped before the diff so the key
+    // never reaches newDoc or the write, keeping the returned doc equal to a
+    // subsequent read.
+    dropNonClearableUndefined(
+      this.config.schema,
+      updates as Record<string, unknown>,
+    );
 
     // Only consider updates that actually change the value
     const updatedFields = Object.entries(updates)
@@ -1013,9 +1191,8 @@ export abstract class BaseModel<
         organization: this.context.org.id,
         ...(options?.guard ?? {}),
       },
-      {
-        $set: allUpdates,
-      },
+      translateUndefinedSetToUnset({ $set: allUpdates }),
+      { ignoreUndefined: true },
     );
 
     // CAS miss: guarded fields changed since the read. Bail before audit/hooks
@@ -1048,6 +1225,24 @@ export abstract class BaseModel<
       await this.context.registerTags(newDoc.tags);
     }
 
+    // Gate on setDateUpdated so a no-meaningful-change / skipDateUpdatedFields
+    // update doesn't churn the version, and skip when every changed field is
+    // excluded (e.g. values the response projects out) — both tank the ETag hit
+    // rate without changing the response.
+    const bumpsDefinitionsVersion = updatedFields.some(
+      (field) => !this.config.definitionsVersionExcludedFields?.includes(field),
+    );
+    if (
+      this.config.affectsDefinitionsVersion &&
+      setDateUpdated &&
+      bumpsDefinitionsVersion
+    ) {
+      await touchDefinitionsVersion(
+        this.context.org.id,
+        this.definitionsVersionScope(doc, newDoc),
+      );
+    }
+
     return newDoc;
   }
 
@@ -1065,11 +1260,21 @@ export abstract class BaseModel<
   protected async _dangerousBulkWriteCrossOrganization(
     operations: AnyBulkWriteOperation[],
   ) {
-    return dbSafeBulkWrite(this._dangerousGetCollection(), operations);
+    if (this.config.affectsDefinitionsVersion) {
+      // Tripwire: ops span orgs, so there is no single org whose definitions
+      // version we can bump. Call touchDefinitionsVersion for each affected
+      // org manually if a definitions model ever needs this.
+      throw new Error(
+        "_dangerousBulkWriteCrossOrganization is not supported on models with affectsDefinitionsVersion",
+      );
+    }
+    return dbSafeBulkWrite(this._dangerousGetCollection(), operations, {
+      ignoreUndefined: true,
+    });
   }
 
   protected async bulkWrite(operations: AnyBulkWriteOperation[]) {
-    return dbSafeBulkWrite(
+    const result = await dbSafeBulkWrite(
       this._dangerousGetCollection(),
       operations.map((op) => {
         if ("insertOne" in op) {
@@ -1083,10 +1288,24 @@ export abstract class BaseModel<
             },
           };
         } else if ("updateOne" in op) {
+          const filter = this.applyBaseQuery(op.updateOne.filter);
+          // With ignoreUndefined, an undefined value would be dropped from
+          // the filter entirely, broadening which documents match
+          if (Object.values(filter).some((v) => v === undefined)) {
+            throw new Error(
+              "bulkWrite updateOne filter must not contain undefined values",
+            );
+          }
           return {
             updateOne: {
               ...op.updateOne,
-              filter: this.applyBaseQuery(op.updateOne.filter),
+              filter,
+              update: Array.isArray(op.updateOne.update)
+                ? op.updateOne.update
+                : normalizeUpdateOneDocument(
+                    this.config.schema,
+                    op.updateOne.update,
+                  ),
             },
           };
         }
@@ -1094,7 +1313,15 @@ export abstract class BaseModel<
           "Unsupported bulkWrite operation type in BaseModel#bulkWrite",
         );
       }),
+      { ignoreUndefined: true },
     );
+    if (this.config.affectsDefinitionsVersion) {
+      // Ops are raw, so per-doc projects aren't reliably known here — bump
+      // globally (a safe superset). No affectsDefinitionsVersion model uses
+      // bulkWrite today; revisit if one needs project-scoped bumps.
+      await touchDefinitionsVersion(this.context.org.id, "global");
+    }
+    return result;
   }
 
   protected async _deleteOne(doc: z.infer<T>, writeOptions?: WriteOptions) {
@@ -1118,6 +1345,13 @@ export abstract class BaseModel<
     }
 
     await this.afterDelete(doc, writeOptions);
+
+    if (this.config.affectsDefinitionsVersion) {
+      await touchDefinitionsVersion(
+        this.context.org.id,
+        this.definitionsVersionScope(doc),
+      );
+    }
   }
 
   protected detectForeignKey(
@@ -1280,6 +1514,13 @@ export abstract class BaseModel<
           .createIndex(index.fields as { [key: string]: number }, {
             unique: !!index.unique,
             sparse: !!index.sparse,
+            ...(index.name ? { name: index.name } : {}),
+            ...(index.expireAfterSeconds !== undefined
+              ? { expireAfterSeconds: index.expireAfterSeconds }
+              : {}),
+            ...(index.partialFilterExpression
+              ? { partialFilterExpression: index.partialFilterExpression }
+              : {}),
           })
           .catch((err) => {
             logger.error(
@@ -1354,6 +1595,32 @@ export abstract class BaseModel<
   private _removeMongooseFields(doc: any) {
     return omit(doc, ["__v", "_id"]) as unknown;
   }
+
+  private _getNullIntolerantOptionalFields(): ReadonlySet<string> {
+    const cached = nullIntolerantOptionalFields.get(this.config.schema);
+    if (cached) return cached;
+    const fields = new Set<string>();
+    for (const [key, fieldSchema] of Object.entries(this.config.schema.shape)) {
+      if (
+        !z.safeParse(fieldSchema, null).success &&
+        z.safeParse(fieldSchema, undefined).success
+      ) {
+        fields.add(key);
+      }
+    }
+    nullIntolerantOptionalFields.set(this.config.schema, fields);
+    return fields;
+  }
+
+  // Mutates in place: doc is always a fresh copy from _removeMongooseFields
+  private _stripLegacyNullFields(doc: z.infer<T>): z.infer<T> {
+    for (const key of this._getNullIntolerantOptionalFields()) {
+      if ((doc as Record<string, unknown>)[key] === null) {
+        delete (doc as Record<string, unknown>)[key];
+      }
+    }
+    return doc;
+  }
 }
 
 /**
@@ -1369,6 +1636,15 @@ type MergedCrudOverrides<
   create: { bodySchema: CB };
   update: { bodySchema: UB };
 };
+
+// Collections whose BaseModel bumps the definitions version on write.
+// Populated at module-import time by MakeModelClass; used by the coverage
+// guard test to assert every collection the definitions endpoint reads is
+// covered (see services/definitions.ts).
+const definitionsVersionCollections = new Set<string>();
+export function getDefinitionsVersionCollections(): string[] {
+  return [...definitionsVersionCollections];
+}
 
 export const MakeModelClass = <
   T extends BaseSchemaWithPrimaryKey<PKey>,
@@ -1389,6 +1665,10 @@ export const MakeModelClass = <
     };
   } & { pKey?: PK },
 ) => {
+  if (config.affectsDefinitionsVersion) {
+    definitionsVersionCollections.add(config.collectionName);
+  }
+
   const createValidator = createSchema<T, PKey>(config.schema);
   const updateValidator = updateSchema<T, PKey>(
     config.schema,

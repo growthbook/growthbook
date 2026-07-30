@@ -6,7 +6,7 @@ import {
   UpdateFactFilterProps,
 } from "shared/types/fact-table";
 import { useForm } from "react-hook-form";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FaAngleDown, FaAngleRight, FaPlay } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
@@ -18,6 +18,7 @@ import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/components/Button";
 import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 import FactTableSchema from "./FactTableSchema";
 
 export interface Props {
@@ -70,8 +71,34 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
     return result.result;
   };
 
+  // Ref to the Filter SQL textarea so clicking a column inserts it at the cursor.
+  const sqlRef = useRef<HTMLTextAreaElement | null>(null);
+  const { ref: registerSqlRef, ...valueField } = form.register("value");
+
+  const insertColumn = (column: string) => {
+    const el = sqlRef.current;
+    const current = form.watch("value");
+    if (el && typeof el.selectionStart === "number") {
+      const start = el.selectionStart;
+      const end = el.selectionEnd ?? start;
+      form.setValue(
+        "value",
+        current.slice(0, start) + column + current.slice(end),
+      );
+      // Restore focus and place the cursor just after the inserted text.
+      window.requestAnimationFrame(() => {
+        el.focus();
+        const pos = start + column.length;
+        el.setSelectionRange(pos, pos);
+      });
+    } else {
+      form.setValue("value", current ? `${current} ${column}` : column);
+    }
+  };
+
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       close={close}
@@ -124,7 +151,12 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
     >
       <div className="row">
         <div className="col">
-          <Field label="Name" {...form.register("name")} required />
+          <Field
+            size="legacy"
+            label="Name"
+            {...form.register("name")}
+            required
+          />
 
           {showDescription ? (
             <div className="form-group">
@@ -149,6 +181,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
           )}
 
           <Field
+            size="legacy"
             label="Filter SQL"
             required
             textarea
@@ -159,6 +192,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
                 into the WHERE clause.{" "}
                 <a
                   href="#"
+                  style={{ whiteSpace: "nowrap" }}
                   onClick={(e) => {
                     e.preventDefault();
                     setShowExamples(!showExamples);
@@ -169,11 +203,15 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
                 </a>
               </>
             }
-            {...form.register("value")}
+            {...valueField}
+            ref={(el: HTMLTextAreaElement | null) => {
+              registerSqlRef(el);
+              sqlRef.current = el;
+            }}
           />
 
           {showExamples && (
-            <div className="alert alert-info">
+            <Callout status="info">
               <div className="mb-2">Here are some examples of Filter SQL:</div>
               <table className="table gbtable">
                 <tbody>
@@ -200,7 +238,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
                   </tr>
                 </tbody>
               </table>
-            </div>
+            </Callout>
           )}
 
           <Button
@@ -220,7 +258,10 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
           <div className="col-auto border-left">
             <div className="mb-3">
               <label>Available Columns</label>
-              <FactTableSchema factTable={factTable} />
+              <FactTableSchema
+                factTable={factTable}
+                onColumnClick={insertColumn}
+              />
             </div>
           </div>
         ) : null}

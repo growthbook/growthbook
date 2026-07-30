@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { v4 as uuidv4 } from "uuid";
 import { ManagedBy } from "shared/validators";
+import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { OrganizationInterface } from "shared/types/organization";
 import {
   findVercelInstallationByInstallationId,
@@ -41,10 +42,16 @@ import {
   trackLoginForUser,
 } from "back-end/src/services/users";
 import {
+  licenseInit,
   postCancelSubscriptionToLicenseServer,
   postNewVercelSubscriptionToLicenseServer,
 } from "back-end/src/enterprise";
+import {
+  getLicenseMetaData,
+  getUserCodesForOrg,
+} from "back-end/src/services/licenseData";
 import { getLicenseByKey } from "back-end/src/enterprise/models/licenseModel";
+import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import {
   userAuthenticationValidator,
   systemAuthenticationValidator,
@@ -64,6 +71,7 @@ const STARTER_BILLING_PLAN: BillingPlan = {
   details: [
     { label: "Feature Flags & Evaluations", value: "Unlimited" },
     { label: "Experiments", value: "Unlimited" },
+    { label: "Projects", value: "Limit 1" },
     { label: "Seats", value: "Up to 3" },
   ],
 };
@@ -80,6 +88,7 @@ function getProBillingPlan(perSeatCost: number): BillingPlan {
     details: [
       { label: "Feature Flags & Evaluations", value: "Unlimited" },
       { label: "Experiments", value: "Unlimited" },
+      { label: "Projects", value: "Unlimited" },
       { label: "Seats", value: `$${perSeatCost}/seat/month` },
       {
         label: "Advanced Flags",
@@ -186,6 +195,14 @@ const getOrgFromInstallationResource = async <T>(
   const org = await findOrganizationById(integration.organization);
 
   if (!org) throw new Error("Invalid installation!");
+
+  // Vercel routes mount before the auth middleware that normally warms the
+  // license cache; without this, paid orgs resolve as starter. Errors
+  // propagate (like every other warm site) — a retryable failure beats
+  // enforcing free-tier limits or minting admin members on a paid org.
+  if (org.licenseKey) {
+    await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
+  }
 
   return {
     org,
@@ -460,30 +477,62 @@ export async function provisionResource(req: Request, res: Response) {
 
   if (!billingPlan) return res.status(400).send("Invalid billing plan!");
 
-  if (!integration.billingPlanId) {
+  if (
+    !integration.billingPlanId &&
+    billingPlanId?.startsWith("pro-billing-plan") &&
+    // A limit-rejected retry re-enters here; the key from the first attempt
+    // means the subscription already exists
+    !org.licenseKey
+  ) {
     // The installation doesn't have a billing plan yet, so we need to create a new one
-    if (billingPlanId?.startsWith("pro-billing-plan")) {
-      try {
-        // Get fresh org with updated name
-        const updatedOrg = await getOrganizationById(org.id);
+    try {
+      // Get fresh org with updated name
+      const updatedOrg = await getOrganizationById(org.id);
 
-        if (!updatedOrg) {
-          throw new Error("Organization not found");
-        }
-        const result = await postNewVercelSubscriptionToLicenseServer(
-          updatedOrg,
-          req.params.installation_id,
-          user?.name || "",
-        );
-        await updateOrganization(org.id, { licenseKey: result.id });
-      } catch (e) {
-        throw new Error(
-          `Unable to create new subscription. Reason: ${e.message} || "Unknown`,
-        );
+      if (!updatedOrg) {
+        throw new Error("Organization not found");
       }
+      const result = await postNewVercelSubscriptionToLicenseServer(
+        updatedOrg,
+        req.params.installation_id,
+        user?.name || "",
+      );
+      await updateOrganization(org.id, { licenseKey: result.id });
+      // Keep the in-memory org in sync so the limit checks below see the
+      // new pro plan (context holds this same reference)
+      org.licenseKey = result.id;
+    } catch (e) {
+      throw new Error(
+        `Unable to create new subscription. Reason: ${e.message} || "Unknown`,
+      );
     }
+  }
 
-    // Then, update the integration with the new billing plan
+  // Each resource creates a project. Check the limit after the subscription
+  // step (so a first-time pro provision resolves its new license) but before
+  // persisting the billing plan or creating the resource, with a message
+  // that's actionable inside Vercel's UI.
+  const maxProjects = context.limits.getMaxProjects();
+  if (maxProjects !== null) {
+    const projects = await context.getProjects();
+    const projectCount = projects.filter(
+      (p) =>
+        !isDemoDatasourceProject({ projectId: p.id, organizationId: org.id }),
+    ).length;
+    if (projectCount >= maxProjects) {
+      return res
+        .status(400)
+        .send(
+          `Your GrowthBook plan supports ${maxProjects} project${
+            maxProjects === 1 ? "" : "s"
+          }. Upgrade your GrowthBook billing plan in Vercel to add more resources.`,
+        );
+    }
+  }
+
+  if (!integration.billingPlanId) {
+    // Persist only after the limit check so a rejected provision stays
+    // retryable with a different billing plan
     await integrationModel.update(integration, {
       billingPlanId,
     });
@@ -702,11 +751,14 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
 
   const user = await findOrCreateUser(userEmail);
 
-  // This is idempotent.
+  // This is idempotent. Vercel orgs are stamped free at creation (all-admin);
+  // experimenter only applies once the plan supports roles.
   await addMemberToOrg({
     organization: org,
     userId: user.id,
-    role: "experimenter",
+    role: getEffectiveOrgLimits(org).orgSupportsRoles()
+      ? "experimenter"
+      : "admin",
     projectRoles: [],
     managedByIdp: false,
     environments: [],

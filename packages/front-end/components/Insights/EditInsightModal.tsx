@@ -5,7 +5,7 @@ import { InsightInterfaceStringDates } from "shared/validators";
 import { DEFAULT_LEARNING_STATUSES } from "shared/constants";
 import Field from "@/components/Forms/Field";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
 import TagsInput from "@/components/Tags/TagsInput";
 import Badge from "@/ui/Badge";

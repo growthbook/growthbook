@@ -3,6 +3,7 @@ import { ReactElement } from "react";
 import { FaCheck } from "react-icons/fa";
 import { FiArrowRight } from "react-icons/fi";
 import Button from "@/components/Button";
+import Callout from "@/ui/Callout";
 
 export type Props = {
   current: boolean;
@@ -66,10 +67,10 @@ export default function GetStartedStep({
           </div>
           <div className="card-text mb-3">{text}</div>
           {permissionsError && (
-            <div className="alert alert-info">
+            <Callout status="info">
               <strong>Notice:</strong> You don&apos;t have the required
               permissions to complete this step.
-            </div>
+            </Callout>
           )}
           <Button
             color={finished ? "outline-primary" : current ? "primary" : "link"}

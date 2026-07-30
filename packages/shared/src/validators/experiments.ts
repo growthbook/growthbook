@@ -10,6 +10,9 @@ import {
   savedGroupTargeting,
   paginationQueryFields,
   apiPaginationFieldsValidator,
+  ignoreWarningsBodyField,
+  booleanQueryField,
+  csvQueryField,
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
 import {
@@ -174,6 +177,7 @@ export const experimentNotification = [
   "srm",
   "no-data",
   "significance",
+  "underpowered",
 ] as const;
 export type ExperimentNotification = (typeof experimentNotification)[number];
 
@@ -205,6 +209,17 @@ export type ExperimentType = (typeof experimentType)[number];
 
 export const banditStageType = ["explore", "exploit", "paused"] as const;
 export type BanditStageType = (typeof banditStageType)[number];
+
+// The implementation (linked-change) types the app's experiment "Type" filter
+// recognizes — distinct from the top-level `experiment.type` field (standard
+// vs bandit vs holdout). The back-end normalizer
+// (normalizeImplementationTypeToken in services/experimentFilters) also
+// accepts plural and differently-cased forms of these tokens.
+export const experimentImplementationTypes = [
+  "feature",
+  "visualChange",
+  "redirect",
+] as const;
 
 export const decisionFrameworkMetricOverrides = z.object({
   id: z.string(),
@@ -353,7 +368,7 @@ export const statusUpdateScheduleValidator = z.object({
   startAt: z.date(),
 });
 
-const nextScheduledStatusUpdateValidator = z.object({
+export const nextScheduledStatusUpdateValidator = z.object({
   type: z.enum(["start", "stop"]),
   date: z.date(),
   // Number of times the scheduled job has failed to apply this update.
@@ -980,6 +995,12 @@ const apiMetricOverrideEntryInput = z
 // Variation for input payloads
 const apiVariationInput = z.object({
   id: z.string().optional(),
+  variationId: z
+    .string()
+    .describe(
+      "Alias for `id`. Mirrors the GET response. `id` takes precedence.",
+    )
+    .optional(),
   key: z.string(),
   name: z.string(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
@@ -994,6 +1015,7 @@ const apiVariationInput = z.object({
     )
     .optional(),
 });
+export type ApiVariationInput = z.infer<typeof apiVariationInput>;
 
 // Phase for input payloads
 const apiPhaseInput = z.object({
@@ -1020,8 +1042,20 @@ const apiPhaseInput = z.object({
       }),
     )
     .optional(),
-  reason: z.string().optional(),
-  condition: z.string().optional(),
+  reason: z
+    .string()
+    .describe("Deprecated: use `reasonForStopping`. Takes precedence if set.")
+    .meta({ deprecated: true })
+    .optional(),
+  condition: z
+    .string()
+    .describe("Deprecated: use `targetingCondition`. Takes precedence if set.")
+    .meta({ deprecated: true })
+    .optional(),
+  targetingCondition: z
+    .string()
+    .describe("Targeting condition as a JSON string. Mirrors the GET response.")
+    .optional(),
   savedGroupTargeting: z
     .array(
       z.object({
@@ -1030,7 +1064,15 @@ const apiPhaseInput = z.object({
       }),
     )
     .optional(),
-  variationWeights: z.array(z.number()).optional(),
+  variationWeights: z
+    .array(z.number())
+    .describe("Deprecated: use `trafficSplit`. Takes precedence if set.")
+    .meta({ deprecated: true })
+    .optional(),
+  trafficSplit: z
+    .array(z.object({ variationId: z.string(), weight: z.number() }))
+    .describe("Per-variation weights. Mirrors the GET response.")
+    .optional(),
 });
 
 // PostExperimentPayload.yaml
@@ -1158,6 +1200,7 @@ const postExperimentBody = z
       .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
     statusUpdateSchedule: apiStatusUpdateSchedule.optional(),
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
 
@@ -1280,8 +1323,26 @@ const updateExperimentBody = z
               }),
             )
             .optional(),
-          reason: z.string().optional(),
-          condition: z.string().optional(),
+          reason: z
+            .string()
+            .describe(
+              "Deprecated: use `reasonForStopping`. Takes precedence if set.",
+            )
+            .meta({ deprecated: true })
+            .optional(),
+          condition: z
+            .string()
+            .describe(
+              "Deprecated: use `targetingCondition`. Takes precedence if set.",
+            )
+            .meta({ deprecated: true })
+            .optional(),
+          targetingCondition: z
+            .string()
+            .describe(
+              "Targeting condition as a JSON string. Mirrors the GET response.",
+            )
+            .optional(),
           savedGroupTargeting: z
             .array(
               z.object({
@@ -1290,7 +1351,17 @@ const updateExperimentBody = z
               }),
             )
             .optional(),
-          variationWeights: z.array(z.number()).optional(),
+          variationWeights: z
+            .array(z.number())
+            .describe(
+              "Deprecated: use `trafficSplit`. Takes precedence if set.",
+            )
+            .meta({ deprecated: true })
+            .optional(),
+          trafficSplit: z
+            .array(z.object({ variationId: z.string(), weight: z.number() }))
+            .describe("Per-variation weights. Mirrors the GET response.")
+            .optional(),
         }),
       )
       .optional(),
@@ -1345,6 +1416,7 @@ const updateExperimentBody = z
       )
       .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
 
@@ -1356,6 +1428,7 @@ const postExperimentStartBody = z
         "If true, skips validating the experiment satisifies all pre-launch checklist items",
       )
       .optional(),
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict()
   .optional();
@@ -1412,6 +1485,7 @@ const postExperimentStopBody = z
         "Optional ISO datetime for ending the latest phase. Defaults to the current date and time.",
       )
       .optional(),
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
 
@@ -1428,6 +1502,7 @@ const postExperimentModifyTemporaryRolloutBody = z
         "Variation ID (e.g. var_abc123) to release to 100% of traffic eligible for this experiment. Required if enableTemporaryRollout is true.",
       )
       .optional(),
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
 
@@ -1453,6 +1528,16 @@ const idAndVariationParams = z
 // Route validators
 // ---------------------------------------------------------------------------
 
+// Sorting is applied in the API handler after the (in-memory) permission
+// filter, so sortable fields need no backing index. `name` sorts
+// case-insensitively.
+export const sortableExperimentFields = [
+  "dateCreated",
+  "dateUpdated",
+  "name",
+] as const;
+export type SortableExperimentField = (typeof sortableExperimentFields)[number];
+
 export const listExperimentsValidator = {
   bodySchema: z.never(),
   querySchema: z
@@ -1473,6 +1558,49 @@ export const listExperimentsValidator = {
         .meta({ deprecated: true }),
 
       status: z.enum(experimentStatus).optional(),
+      q: z
+        .string()
+        .describe(
+          "Raw experiment search/filter string (same syntax as the app's experiment list filters, e.g. `status:running tag:checkout`). Negation (`!`) and operators (`~`, `^`, `>`, `<`, `=`) are not supported and return a 400",
+        )
+        .optional(),
+      owner: ownerInputField
+        .describe("Filter by comma-separated owner ids, names, or emails")
+        .optional(),
+      result: csvQueryField(
+        experimentResultsType,
+        "Filter by comma-separated results (won, lost, inconclusive, dnf). Matches the experiment's recorded result — set when an experiment is stopped and retained if it's later restarted, so running experiments can match too",
+      ),
+      tag: z.string().describe("Filter by comma-separated tags").optional(),
+      implementationType: csvQueryField(
+        experimentImplementationTypes,
+        "Filter by comma-separated implementation types (feature, visualChange, redirect) — the kinds of changes linked to the experiment. To filter standard experiments vs bandits, use `bandits` instead",
+      ),
+      metricId: z
+        .string()
+        .describe(
+          "Filter by comma-separated metric ids. Matches experiments that use a metric as a goal, secondary, or guardrail metric",
+        )
+        .optional(),
+      bandits: z
+        .enum(["true", "false"])
+        .describe(
+          "When true, return only multi-armed bandits; when false, exclude them",
+        )
+        .optional(),
+      archived: booleanQueryField.describe(
+        "Filter by archived status. Set to `true` to return only archived experiments, `false` to exclude them. If omitted, both archived and non-archived experiments are returned.",
+      ),
+      sortBy: z
+        .enum(sortableExperimentFields)
+        .describe("Field to sort the results by")
+        .optional()
+        .meta({ default: "dateCreated" }),
+      sortOrder: z
+        .enum(["asc", "desc"])
+        .describe("Sort direction (used with `sortBy`)")
+        .optional()
+        .meta({ default: "asc" }),
     })
     .strict(),
   paramsSchema: z.never(),

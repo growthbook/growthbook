@@ -56,6 +56,7 @@ export default function ResetPasswordPage(): ReactElement {
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       autoCloseOnSubmit={false}

@@ -4,16 +4,19 @@ import {
   SDKAttributeFormat,
   SDKAttributeType,
 } from "shared/types/organization";
+import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import React from "react";
+import { Box } from "@radix-ui/themes";
 import { useAttributeSchema } from "@/services/features";
+import { useAttributeReferences } from "@/hooks/useAttributeReferences";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -21,6 +24,7 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import AttributeReferencesList from "./AttributeReferencesList";
 import SDKCapabilityWarning from "./SDKCapabilityWarning";
 import TagsField from "./FeatureModal/TagsField";
 
@@ -44,7 +48,7 @@ export default function AttributeModal({ close, attribute }: Props) {
   const permissionsUtil = usePermissionsUtil();
   const { refreshOrganization } = useUser();
 
-  const { apiCall } = useAuth();
+  const { apiCall, orgId } = useAuth();
 
   const schema = useAttributeSchema(true);
   const current = schema.find((s) => s.property === attribute);
@@ -54,7 +58,12 @@ export default function AttributeModal({ close, attribute }: Props) {
       property: attribute || "",
       description: current?.description || "",
       datatype: current?.datatype || "string",
-      projects: attribute ? current?.projects || [] : project ? [project] : [],
+      projects: attribute
+        ? current?.projects || []
+        : getDefaultProjectsForNewResource({
+            project,
+            organizationId: orgId || undefined,
+          }),
       format: ((current?.format as unknown) !== "none"
         ? current?.format || ""
         : "") as SDKAttributeFormat,
@@ -76,11 +85,31 @@ export default function AttributeModal({ close, attribute }: Props) {
   const propertyChanged = !!attribute && form.watch("property") !== attribute;
   const datatypeChanged = !!attribute && datatype !== current?.datatype;
 
+  const isArrayDatatype = datatype.endsWith("[]");
+  // Enum options constrain both scalar enums and array (list) attributes.
+  const supportsEnumOptions = datatype === "enum" || isArrayDatatype;
+
   const hashAttributeDataTypes: SDKAttributeType[] = [
     "string",
     "number",
     "secureString",
   ];
+
+  // Constraining an in-use attribute (converting to enum or a restricted list, or tightening
+  // its allowed values) restricts how existing conditions can be edited, so surface
+  // where it's referenced as a heads-up. Fires on both datatype and enum-value edits.
+  const isConstrainedType =
+    datatype === "enum" || (isArrayDatatype && !!form.watch("enum"));
+  const enumChanged = (form.watch("enum") || "") !== (current?.enum || "");
+  const constrainingChange =
+    !!attribute && isConstrainedType && (datatypeChanged || enumChanged);
+  const { references } = useAttributeReferences(
+    constrainingChange && attribute ? [attribute] : [],
+  );
+  const refs = attribute ? references?.[attribute] : undefined;
+  const refCount = refs
+    ? refs.features.length + refs.experiments.length + refs.savedGroups.length
+    : 0;
 
   const permissionRequired = (project: string) => {
     return attribute
@@ -119,6 +148,7 @@ export default function AttributeModal({ close, attribute }: Props) {
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       close={close}
@@ -131,7 +161,8 @@ export default function AttributeModal({ close, attribute }: Props) {
           value.format = "";
           value.disableEqualityConditions = false;
         }
-        if (value.datatype !== "enum") {
+        // Enum options are valid for scalar enums and list attributes; clear them otherwise.
+        if (value.datatype !== "enum" && !value.datatype.endsWith("[]")) {
           value.enum = "";
         }
         if (!hashAttributeDataTypes.includes(value.datatype)) {
@@ -179,6 +210,7 @@ export default function AttributeModal({ close, attribute }: Props) {
       })}
     >
       <Field
+        size="legacy"
         label={
           <>
             Attribute{" "}
@@ -219,6 +251,7 @@ export default function AttributeModal({ close, attribute }: Props) {
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField
+            size="legacy"
             label={
               <>
                 Projects{" "}
@@ -230,7 +263,7 @@ export default function AttributeModal({ close, attribute }: Props) {
               </>
             }
             placeholder={
-              canCreateWithoutProject ? "All projects" : "Select projects..."
+              canCreateWithoutProject ? "All Projects" : "Select projects..."
             }
             value={form.watch("projects") || []}
             options={projectOptions}
@@ -241,6 +274,7 @@ export default function AttributeModal({ close, attribute }: Props) {
         </div>
       )}
       <SelectField
+        size="legacy"
         label="Data Type"
         value={datatype}
         onChange={(datatype: SDKAttributeType) =>
@@ -320,6 +354,7 @@ export default function AttributeModal({ close, attribute }: Props) {
       {datatype === "string" && (
         <>
           <SelectField
+            size="legacy"
             label="String Format"
             value={form.watch(`format`) || ""}
             onChange={(v) => form.setValue(`format`, v as SDKAttributeFormat)}
@@ -353,16 +388,46 @@ export default function AttributeModal({ close, attribute }: Props) {
           )}
         </>
       )}
-      {datatype === "enum" && (
+      {supportsEnumOptions && (
         <Field
-          label="Enum Options"
+          size="legacy"
+          label={datatype === "enum" ? "Enum Options" : "Allowed Values"}
           textarea
           minRows={1}
-          required
+          required={datatype === "enum"}
           {...form.register(`enum`)}
-          helpText="Comma-separated list of all possible values"
+          helpText={
+            datatype === "enum"
+              ? "Comma-separated list of all possible values"
+              : "Optional. Restrict this list to a fixed set of values (comma-separated). Leave blank to allow any values."
+          }
         />
       )}
+      {constrainingChange ? (
+        <>
+          <Callout status="warning" mt="2" mb="2">
+            <strong>
+              Include every value already used in targeting before saving.
+            </strong>{" "}
+            Conditions referencing a value outside the list — or using an
+            operator no longer offered — keep running but become hard to edit.
+            <span style={{ display: "block", marginTop: "var(--space-2)" }}>
+              The change is applied in place: no new attribute is created,
+              existing conditions keep evaluating, and features are not updated
+              automatically.
+            </span>
+          </Callout>
+          {refCount > 0 && refs ? (
+            <Box mb="3">
+              <AttributeReferencesList
+                features={refs.features}
+                experiments={refs.experiments}
+                conditionGroups={refs.savedGroups}
+              />
+            </Box>
+          ) : null}
+        </>
+      ) : null}
       {hashAttributeDataTypes.includes(datatype) && (
         <Checkbox
           label="Unique Identifier"

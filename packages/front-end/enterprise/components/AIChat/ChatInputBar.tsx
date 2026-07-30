@@ -66,6 +66,7 @@ export default function ChatInputBar({
     >
       <Flex gap="2" width="100%" align="center" justify="center">
         <Field
+          size="legacy"
           placeholder={placeholder}
           containerStyle={{ maxWidth: "800px", flex: 1 }}
           ref={inputRef}

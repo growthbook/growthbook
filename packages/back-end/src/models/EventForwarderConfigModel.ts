@@ -4,6 +4,7 @@ import {
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { createModelAuditLogger } from "back-end/src/services/audit";
+import { touchDefinitionsVersion } from "./DefinitionsVersionModel";
 import { MakeModelClass } from "./BaseModel";
 
 const eventForwarderConfigAudit = createModelAuditLogger({
@@ -16,6 +17,9 @@ const eventForwarderConfigAudit = createModelAuditLogger({
 const BaseClass = MakeModelClass({
   schema: eventForwarderConfigValidator,
   collectionName: "eventForwarderConfigs",
+  // The definitions response embeds this config (with status metadata) in
+  // each datasource via getDataSourceWithParams.
+  affectsDefinitionsVersion: true,
   idPrefix: "efc_",
   additionalIndexes: [
     {
@@ -57,7 +61,10 @@ export class EventForwarderConfigModel extends BaseClass {
   }
 
   protected canDelete(doc: EventForwarderConfigInterface): boolean {
-    return this.context.permissions.canDeleteEventForwarderConfig(doc);
+    return (
+      this.context.superAdmin ||
+      this.context.permissions.canDeleteEventForwarderConfig(doc)
+    );
   }
 
   /** User-facing lookup; respects `canRead` (requires `readData` on the row's projects). */
@@ -107,5 +114,8 @@ export class EventForwarderConfigModel extends BaseClass {
     await eventForwarderConfigAudit.logDelete(this.context, existing);
 
     await this.afterDelete(existing);
+
+    // Raw write bypasses the BaseModel affectsDefinitionsVersion hook.
+    await touchDefinitionsVersion(this.context.org.id);
   }
 }

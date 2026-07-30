@@ -9,6 +9,16 @@
       "source": "/GrowthBookStatsEngine.pdf",
       "destination": "/statistics/overview#bayesian-statistics",
       "permanent": false
+    },
+    {
+      "source": "/bandits/contextual-bandit-via-api",
+      "destination": "/contextual-bandits/contextual-bandit-via-api",
+      "permanent": false
+    },
+    {
+      "source": "/feature-flag-experiments",
+      "destination": "/features/feature-flag-experiments",
+      "permanent": false
     }
   ]
 }

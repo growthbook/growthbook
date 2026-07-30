@@ -3,7 +3,7 @@ import {
   PiCaretDown,
   PiCaretRight,
   PiCheckCircleFill,
-  PiWarningFill,
+  PiXCircleFill,
 } from "react-icons/pi";
 import { useState } from "react";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -69,10 +69,10 @@ export default function EnvironmentStatesGrid({ environmentStates }: Props) {
                   <Box
                     flexShrink="0"
                     style={{
-                      color: isActive ? "var(--green-11)" : "var(--amber-11)",
+                      color: isActive ? "var(--green-11)" : "var(--slate-9)",
                     }}
                   >
-                    {isActive ? <PiCheckCircleFill /> : <PiWarningFill />}
+                    {isActive ? <PiCheckCircleFill /> : <PiXCircleFill />}
                   </Box>
                   <Box className="text-ellipsis" title={env} minWidth="0">
                     <Text weight="medium">{env}</Text>

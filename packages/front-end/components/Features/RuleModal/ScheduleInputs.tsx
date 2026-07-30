@@ -14,6 +14,9 @@ interface Props {
   state: RampSectionState;
   setState: (s: RampSectionState) => void;
   disabled?: boolean;
+  // Lock only the Start row (e.g. an already-running schedule whose end date can
+  // still be edited but whose start has already passed).
+  disableStart?: boolean;
 }
 
 /** Auto-generate a human-readable schedule name based on start/end dates. */
@@ -80,8 +83,14 @@ function formatOptionLabel(
   );
 }
 
-export default function ScheduleInputs({ state, setState, disabled }: Props) {
+export default function ScheduleInputs({
+  state,
+  setState,
+  disabled,
+  disableStart,
+}: Props) {
   const endTriggerValue = state.endScheduleAt ? "specific-time" : "never";
+  const startDisabled = disabled || disableStart;
 
   function patchState(patch: Partial<RampSectionState>) {
     setState({ ...state, ...patch });
@@ -123,12 +132,13 @@ export default function ScheduleInputs({ state, setState, disabled }: Props) {
           </Text>
         </Box>
         <SelectField
+          size="legacy"
           value={state.startDate ? "specific-time" : "immediately"}
           options={START_OPTIONS}
           onChange={handleStartChange}
-          disabled={disabled}
+          disabled={startDisabled}
           containerClassName="mb-0"
-          containerStyle={{ minHeight: 38, width: 150 }}
+          containerStyle={{ width: 150 }}
           useMultilineLabels
           formatOptionLabel={formatOptionLabel}
         />
@@ -139,7 +149,7 @@ export default function ScheduleInputs({ state, setState, disabled }: Props) {
             precision="datetime"
             containerClassName="mb-0"
             scheduleEndDate={state.endScheduleAt || undefined}
-            disabled={disabled}
+            disabled={startDisabled}
           />
         )}
       </Flex>
@@ -152,12 +162,13 @@ export default function ScheduleInputs({ state, setState, disabled }: Props) {
           </Text>
         </Box>
         <SelectField
+          size="legacy"
           value={endTriggerValue}
           options={END_OPTIONS}
           onChange={handleEndChange}
           disabled={disabled}
           containerClassName="mb-0"
-          containerStyle={{ minHeight: 38, width: 150 }}
+          containerStyle={{ width: 150 }}
           useMultilineLabels
           formatOptionLabel={formatOptionLabel}
         />

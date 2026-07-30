@@ -154,27 +154,43 @@ async function generateViaMultimodalText(
   const { context, model, prompt, count, referenceImage } = params;
   const provider = getImageProvider(context, meta);
   const sdkModelId = resolveImageModelIdForSdk(model);
-  // These Gemini models don't accept `n` — fire `count` parallel calls
-  // and settle-all so one transient failure doesn't waste the others.
-  const userContent: Array<
+  // The reference image (if any) is the same on every call.
+  const baseContent: Array<
     | { type: "text"; text: string }
     | { type: "image"; image: Uint8Array; mediaType: string }
   > = [];
   if (referenceImage) {
-    userContent.push({
+    baseContent.push({
       type: "image",
       image: Buffer.from(referenceImage.data, "base64"),
       mediaType: referenceImage.mimeType,
     });
   }
-  userContent.push({ type: "text", text: prompt });
 
-  const callOnce = async (): Promise<GeneratedImage[]> => {
+  // When the user asks for several options at once, nudge each parallel call
+  // toward a distinct result — with identical inputs Gemini collapses to near
+  // duplicates (especially in img2img). The first call is the faithful take;
+  // each subsequent one varies a different lever. Only applied when count > 1.
+  const VARIATION_NUDGES = [
+    "",
+    "\n\nVariation: use a noticeably different composition and camera angle.",
+    "\n\nVariation: use a different color palette and lighting mood.",
+    "\n\nVariation: take a more minimal, alternative styling approach.",
+  ];
+
+  // These Gemini models don't accept `n` — fire `count` parallel calls and
+  // settle-all so one transient failure doesn't waste the others.
+  const callOnce = async (index: number): Promise<GeneratedImage[]> => {
+    const variation = count > 1 ? (VARIATION_NUDGES[index] ?? "") : "";
+    const content = [
+      ...baseContent,
+      { type: "text" as const, text: prompt + variation },
+    ];
     const result = await generateText({
       model: (provider as ReturnType<typeof createGoogleGenerativeAI>)(
         sdkModelId,
       ),
-      messages: [{ role: "user", content: userContent }],
+      messages: [{ role: "user", content }],
       providerOptions: {
         google: {
           // Without this Gemini returns a text description instead of bytes.
@@ -204,7 +220,7 @@ async function generateViaMultimodalText(
   };
 
   const settled = await Promise.allSettled(
-    Array.from({ length: count }, () => callOnce()),
+    Array.from({ length: count }, (_, i) => callOnce(i)),
   );
 
   const out: GeneratedImage[] = [];

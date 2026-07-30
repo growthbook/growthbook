@@ -10,7 +10,6 @@ import {
   useState,
 } from "react";
 import { RxInfoCircled } from "react-icons/rx";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { Box, Flex, Popover } from "@radix-ui/themes";
 import { extent } from "@visx/vendor/d3-array";
 import { ExperimentReportVariation } from "shared/types/report";
@@ -24,7 +23,7 @@ import {
 } from "shared/types/stats";
 import { getValidDate } from "shared/dates";
 import { filterInvalidMetricTimeSeries } from "shared/util";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import { ExperimentMetricDefinition, isFactMetric } from "shared/experiments";
 import { PiPencilSimpleFill } from "react-icons/pi";
 import AnalysisResultSummary from "@/ui/AnalysisResultSummary";
 import { useAnalysisResultSummary } from "@/ui/hooks/useAnalysisResultSummary";
@@ -41,6 +40,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
+import Callout from "@/ui/Callout";
 import StatusColumn from "./StatusColumn";
 
 export type ResultsTableProps = {
@@ -63,7 +63,7 @@ export type ResultsTableProps = {
     maxRows,
   }: {
     label: string | ReactNode;
-    metric: ExperimentMetricInterface;
+    metric: ExperimentMetricDefinition;
     row: ExperimentTableRow;
     maxRows?: number;
   }) => string | ReactElement;
@@ -428,10 +428,9 @@ export default function ResultsTable({
                                   })}
                                 </div>
                               ) : null}
-                              <div className="alert alert-danger px-2 py-1 mb-1 ml-1">
-                                <FaExclamationTriangle className="mr-1" />
+                              <Callout status="error" mb="1" ml="1" size="sm">
                                 Query error
-                              </div>
+                              </Callout>
                             </>
                           ),
                         });

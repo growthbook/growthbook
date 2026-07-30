@@ -15,7 +15,23 @@ export type ExperimentMetadata = {
 // FeatureRule extended with optional metadata for experiment-ref rules
 export type FeatureDefinitionRule = FeatureRule & {
   metadata?: ExperimentMetadata;
+  contextualBanditRef?: string;
+  contextualVariations?: unknown[];
 };
+
+export type ContextualBanditDefinition = {
+  banditVersion?: number;
+  contexts: {
+    leafId: number;
+    condition: Record<string, unknown>;
+    weights: number[];
+  }[];
+};
+
+export type ContextualBanditDefinitions = Record<
+  string,
+  ContextualBanditDefinition
+>;
 
 export type AutoExperimentWithMetadata = AutoExperiment & {
   metadata?: ExperimentMetadata;

@@ -68,7 +68,9 @@ export default function InstallationCodeSnippet({
           <>
             Add the GrowthBook snippet to your Google Tag Manager as a Custom
             HTML tag.{" "}
-            <DocLink docSection="gtmSetup">View Documentation</DocLink>
+            <DocLink useRadix={false} docSection="gtmSetup">
+              View Documentation
+            </DocLink>
             <Code language="html" code={nocodeSnippet} />
           </>
         );

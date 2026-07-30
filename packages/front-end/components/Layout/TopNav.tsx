@@ -419,13 +419,14 @@ const TopNav: FC<{
       </Head>
       {editUserOpen && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           close={() => setEditUserOpen(false)}
           submit={onSubmitEditProfile}
           header="Edit Profile"
           open={true}
         >
-          <Field label="Name" {...form.register("name")} />
+          <Field size="legacy" label="Name" {...form.register("name")} />
           <Checkbox
             id="allowCelebration"
             label="Allow celebration"

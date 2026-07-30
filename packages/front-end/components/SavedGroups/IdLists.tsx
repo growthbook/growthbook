@@ -40,7 +40,7 @@ import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
 
 export interface Props {
   groups: SavedGroupWithoutValues[];
-  mutate: () => void;
+  mutate: () => void | Promise<void>;
 }
 
 export default function IdLists({ groups, mutate }: Props) {
@@ -64,11 +64,15 @@ export default function IdLists({ groups, mutate }: Props) {
     return groups.filter((g) => g.type === "list");
   }, [groups]);
 
-  const filteredIdLists = project
-    ? idLists.filter((list) =>
-        isProjectListValidForProject(list.projects, project),
-      )
-    : idLists;
+  const filteredIdLists = useMemo(
+    () =>
+      project
+        ? idLists.filter((list) =>
+            isProjectListValidForProject(list.projects, project),
+          )
+        : idLists,
+    [idLists, project],
+  );
 
   const { hasLargeSavedGroupFeature, unsupportedConnections, connections } =
     useLargeSavedGroupSupport();
@@ -116,6 +120,9 @@ export default function IdLists({ groups, mutate }: Props) {
     filterResults: !showArchived
       ? (items) => items.filter((g) => !g.archived)
       : undefined,
+    // The `has:draft` filter reads async-loaded draft states; declare the dep so
+    // results recompute when they arrive (even when `filterResults` is stable).
+    searchTermFilterDeps: [draftHook.draftStates],
     searchTermFilters: {
       is: (item) => {
         const is: string[] = [];
@@ -185,6 +192,7 @@ export default function IdLists({ groups, mutate }: Props) {
             current={savedGroupForm}
             type="list"
             approvalFlowRequired={approvalFlowRequired}
+            mutate={mutate}
           />
         )}
         <Flex align="center" justify="between" mb="1">
@@ -219,6 +227,7 @@ export default function IdLists({ groups, mutate }: Props) {
             <Flex align="center" justify="between" gap="3" mb="4">
               <Box style={{ width: "40%" }}>
                 <Field
+                  size="legacy"
                   placeholder="Search..."
                   type="search"
                   {...searchInputProps}

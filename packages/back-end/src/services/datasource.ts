@@ -1,6 +1,6 @@
 import { AES, enc } from "crypto-js";
 import { isReadOnlySQL } from "shared/sql";
-import { TemplateVariables } from "shared/types/sql";
+import { SqlIdentifierQuote, TemplateVariables } from "shared/types/sql";
 import {
   FeatureEvalDiagnosticsQueryResponseRows,
   QueryResponseColumnData,
@@ -14,9 +14,9 @@ import {
   FeatureUsageQuery,
 } from "shared/types/datasource";
 import { FactTableColumnType } from "shared/types/fact-table";
-import { QueryStatistics } from "shared/types/query";
+import { FeatureInterface } from "shared/types/feature";
+import { QueryStatistics, QueryType } from "shared/types/query";
 import { formatQueryExecutionErrorForApi } from "shared/util";
-import { SQLExecutionError } from "back-end/src/util/errors";
 import { determineColumnTypes } from "back-end/src/util/sql";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import GoogleAnalytics from "back-end/src/integrations/GoogleAnalytics";
@@ -33,9 +33,14 @@ import Mixpanel from "back-end/src/integrations/Mixpanel";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import Mysql from "back-end/src/integrations/Mysql";
 import Mssql from "back-end/src/integrations/Mssql";
+import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+import { SQLExecutionError } from "back-end/src/util/errors";
+
+// freeFormQuery runs user-authored SQL; we should only use it for this scenario
+const FREE_FORM_QUERY_TYPE: QueryType = "freeFormQuery";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string,
@@ -142,6 +147,20 @@ export function getSourceIntegrationObject(
   return obj;
 }
 
+// The identifier-quote character (`"` or backtick) for an integration's SQL
+// dialect. This is the authoritative source — each dialect declares its own
+// `identifierQuote` — used off the query path (virtual-column dependency scans,
+// test-query building) to expand/detect quoted column identifiers correctly.
+// Non-SQL sources (e.g. Mixpanel) cannot back a fact table, so the standard
+// double quote is a safe fallback.
+export function getIntegrationIdentifierQuote(
+  integration: SourceIntegrationInterface,
+): SqlIdentifierQuote {
+  return integration instanceof SqlIntegration
+    ? integration.getSqlDialect().identifierQuote
+    : '"';
+}
+
 export async function testDataSourceConnection(
   context: ReqContext,
   datasource: DataSourceInterface,
@@ -183,7 +202,7 @@ export async function runFreeFormQuery(
     const { results, duration, columns } = await integration.runTestQuery(
       sql,
       ["timestamp"],
-      "freeFormQuery",
+      FREE_FORM_QUERY_TYPE,
     );
 
     // Build a type map from SQL engine metadata
@@ -270,13 +289,14 @@ export async function runUserExposureQuery(
 export async function runFeatureEvalDiagnosticsQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
-  feature: string,
+  feature: Pick<FeatureInterface, "id" | "project">,
 ): Promise<{
   rows?: FeatureEvalDiagnosticsQueryResponseRows;
   statistics?: QueryStatistics;
+  error?: string;
   sql?: string;
 }> {
-  if (!context.permissions.canRunFeatureDiagnosticsQueries(datasource)) {
+  if (!context.permissions.canRunFeatureDiagnosticsQueries(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -293,7 +313,7 @@ export async function runFeatureEvalDiagnosticsQuery(
   }
 
   const sql = integration.getFeatureEvalDiagnosticsQuery({
-    feature,
+    feature: feature.id,
   });
 
   try {
@@ -305,7 +325,7 @@ export async function runFeatureEvalDiagnosticsQuery(
       sql,
     };
   } catch (e) {
-    throw new SQLExecutionError(e.message, sql);
+    throw new SQLExecutionError(formatQueryExecutionErrorForApi(e), sql);
   }
 }
 

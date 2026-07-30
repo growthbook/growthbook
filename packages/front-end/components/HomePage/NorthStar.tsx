@@ -154,6 +154,7 @@ const NorthStar: FC<{
       )}
       {openNorthStarModal && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           close={() => setOpenNorthStarModal(false)}
           overflowAuto={false}
@@ -196,7 +197,7 @@ const NorthStar: FC<{
               noManual={true}
             />
           </div>
-          <Field label="Title" {...form.register("title")} />
+          <Field size="legacy" label="Title" {...form.register("title")} />
           {/*<Field*/}
           {/*  label="Date window"*/}
           {/*  initialOption="90"*/}

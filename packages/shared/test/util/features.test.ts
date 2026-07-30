@@ -37,6 +37,9 @@ import {
   categorizeUnregisteredAttributes,
   getRequireRegisteredAttributesSettings,
   ruleAppliesToEnv,
+  ruleProjectScope,
+  ruleServedToConnection,
+  rulesEqualIgnoringScopeEncoding,
   ruleFootprint,
   getRulesForEnvironment,
   getRevertValueValidationWarnings,
@@ -46,6 +49,7 @@ import {
   resolveSparseJSONValue,
   stripDefaultsForSparse,
   expandSparseToFull,
+  draftHasChangesOutsideTargetRef,
 } from "../../src/util";
 import type { RampScheduleInterface } from "../../src/validators/ramp-schedule";
 
@@ -1271,6 +1275,40 @@ describe("simpleToJSONSchema", () => {
       type: "object",
       properties: expectedProperties,
       required: ["a_string", "a_float"],
+      additionalProperties: false,
+    });
+  });
+  it("honors a field's raw jsonSchema, superseding the simple type", () => {
+    const schema: SimpleSchema = {
+      type: "object",
+      fields: [
+        {
+          key: "kv",
+          type: "string",
+          description: "",
+          required: true,
+          enum: [],
+          default: "",
+          jsonSchema: JSON.stringify({ type: "object" }),
+        },
+        {
+          key: "ship",
+          type: "string",
+          description: "how it ships",
+          required: true,
+          enum: [],
+          default: "",
+          jsonSchema: JSON.stringify({ type: ["string", "null"] }),
+        },
+      ],
+    };
+    expect(JSON.parse(simpleToJSONSchema(schema))).toEqual({
+      type: "object",
+      properties: {
+        kv: { type: "object" },
+        ship: { type: ["string", "null"], description: "how it ships" },
+      },
+      required: ["kv", "ship"],
       additionalProperties: false,
     });
   });
@@ -2907,6 +2945,51 @@ describe("check revision needs review", () => {
       }),
     ).toEqual(false);
   });
+
+  it("an all-projects feature is governed by a strict targeting project's review rule", () => {
+    // A rule requiring review only for project "eu" (strict by default). The
+    // feature's primary is "" and doesn't match it.
+    const settings: OrganizationSettings = {
+      requireReviews: [
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: false,
+          environments: [],
+          projects: ["eu"],
+        },
+      ],
+    };
+    // Not all-projects: only the primary governs → "eu" rule never applies.
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision,
+        revision,
+        allEnvironments: ["prod", "dev", "staging"],
+        settings,
+      }),
+    ).toEqual(false);
+    // targetingAllProjects reaches "eu", so its strict review rule applies.
+    expect(
+      checkIfRevisionNeedsReview({
+        feature: { ...feature, targetingAllProjects: true },
+        baseRevision,
+        revision,
+        allEnvironments: ["prod", "dev", "staging"],
+        settings,
+      }),
+    ).toEqual(true);
+    // Staged all-projects (via revision metadata) is honored too.
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision,
+        revision: { ...revision, metadata: { targetingAllProjects: true } },
+        allEnvironments: ["prod", "dev", "staging"],
+        settings,
+      }),
+    ).toEqual(true);
+  });
 });
 
 describe("reset review on change", () => {
@@ -3115,6 +3198,110 @@ describe("ruleAppliesToEnv", () => {
     expect(ruleAppliesToEnv(rule, "production")).toBe(false);
     expect(ruleAppliesToEnv(rule, "dev")).toBe(false);
     expect(ruleAppliesToEnv(rule, "staging")).toBe(false);
+  });
+});
+
+describe("ruleProjectScope / ruleServedToConnection", () => {
+  const baseRule = {
+    type: "force" as const,
+    id: "r1",
+    description: "",
+    enabled: true,
+    allEnvironments: true,
+    value: "x",
+  };
+  const scoped = (projects: string[]) =>
+    ({ ...baseRule, allProjects: false, projects }) as FeatureRule;
+
+  describe("ruleProjectScope", () => {
+    it("null (all) for allProjects, and for the legacy/default absent state", () => {
+      expect(
+        ruleProjectScope({ ...baseRule, allProjects: true } as FeatureRule),
+      ).toBeNull();
+      expect(ruleProjectScope(baseRule as FeatureRule)).toBeNull();
+    });
+    it("returns the explicit list, and [] (no project) for a scoped-empty rule", () => {
+      expect(ruleProjectScope(scoped(["p1", "p2"]))).toEqual(["p1", "p2"]);
+      expect(ruleProjectScope(scoped([]))).toEqual([]);
+    });
+    it("allProjects:false with no projects list is [] (no project), never all", () => {
+      // A REST round-trip could send allProjects:false without an explicit list;
+      // it must not silently widen the rule to every project.
+      expect(
+        ruleProjectScope({ ...baseRule, allProjects: false } as FeatureRule),
+      ).toEqual([]);
+    });
+  });
+
+  describe("ruleServedToConnection", () => {
+    it("unscoped rule + feature delivering everywhere + all-projects connection", () => {
+      expect(ruleServedToConnection(baseRule as FeatureRule, null, [])).toBe(
+        true,
+      );
+    });
+    it("serves only where rule scope, delivery set, and served set overlap", () => {
+      // feature delivers p1,p2; connection serves p1
+      expect(ruleServedToConnection(scoped(["p1"]), ["p1", "p2"], ["p1"])).toBe(
+        true,
+      );
+      expect(ruleServedToConnection(scoped(["p2"]), ["p1", "p2"], ["p1"])).toBe(
+        false,
+      );
+    });
+    it("SCRUBS a rule scoped outside the feature's delivery set (the orphan case)", () => {
+      // rule still references p1, but the feature no longer delivers to p1
+      expect(ruleServedToConnection(scoped(["p1"]), ["p2"], [])).toBe(false);
+      expect(ruleServedToConnection(scoped(["p1"]), ["p2"], ["p1", "p2"])).toBe(
+        false,
+      );
+    });
+    it("LEAK-SAFE: a scoped-empty rule is served nowhere", () => {
+      expect(ruleServedToConnection(scoped([]), ["p1", "p2"], [])).toBe(false);
+      expect(ruleServedToConnection(scoped([]), null, [])).toBe(false);
+    });
+    it("unscoped rule follows the feature delivery set into the served set", () => {
+      expect(ruleServedToConnection(baseRule as FeatureRule, ["p1"], [])).toBe(
+        true,
+      );
+      expect(
+        ruleServedToConnection(baseRule as FeatureRule, ["p1"], ["p2"]),
+      ).toBe(false);
+    });
+  });
+
+  describe("rulesEqualIgnoringScopeEncoding", () => {
+    it("treats a legacy rule and its allProjects:true round-trip as equal", () => {
+      const stored = [baseRule as FeatureRule];
+      const roundTripped = [
+        { ...baseRule, allProjects: true, projects: undefined } as FeatureRule,
+      ];
+      expect(rulesEqualIgnoringScopeEncoding(stored, roundTripped)).toBe(true);
+    });
+    it("ignores undefined-valued keys (Mongo drops them, the mapper stamps them)", () => {
+      const stored = [baseRule as FeatureRule];
+      const stamped = [{ ...baseRule, environments: undefined } as FeatureRule];
+      expect(rulesEqualIgnoringScopeEncoding(stored, stamped)).toBe(true);
+    });
+    it("still detects a real project-scope change", () => {
+      expect(
+        rulesEqualIgnoringScopeEncoding([scoped(["p1"])], [scoped(["p2"])]),
+      ).toBe(false);
+      // all → specific is a real change
+      expect(
+        rulesEqualIgnoringScopeEncoding(
+          [baseRule as FeatureRule],
+          [scoped(["p1"])],
+        ),
+      ).toBe(false);
+    });
+    it("still detects a non-scope change", () => {
+      expect(
+        rulesEqualIgnoringScopeEncoding(
+          [baseRule as FeatureRule],
+          [{ ...baseRule, value: "y" } as FeatureRule],
+        ),
+      ).toBe(false);
+    });
   });
 });
 
@@ -4150,6 +4337,28 @@ describe("sparse JSON rule helpers", () => {
       expect(stripDefaultsForSparse("[1,2]", def)).toBe("[1,2]");
       expect(stripDefaultsForSparse('{"a":"x"}', "not json")).toBe('{"a":"x"}');
     });
+
+    it("keeps only $extends refs not already in the default", () => {
+      expect(
+        JSON.parse(
+          stripDefaultsForSparse(
+            JSON.stringify({ $extends: ["@const:foo", "@const:bar"], b: 2 }),
+            JSON.stringify({ $extends: ["@const:foo"], a: 1 }),
+          ),
+        ),
+      ).toEqual({ $extends: ["@const:bar"], b: 2 });
+    });
+
+    it("drops $extends entirely when identical to the default's", () => {
+      expect(
+        JSON.parse(
+          stripDefaultsForSparse(
+            JSON.stringify({ $extends: ["@const:foo"], a: 1 }),
+            JSON.stringify({ $extends: ["@const:foo"], a: 1 }),
+          ),
+        ),
+      ).toEqual({});
+    });
   });
 
   describe("expandSparseToFull", () => {
@@ -4174,5 +4383,143 @@ describe("sparse JSON rule helpers", () => {
     it("returns the input unchanged when either side isn't a plain object", () => {
       expect(expandSparseToFull("[1,2]", def)).toBe("[1,2]");
     });
+
+    it("unions $extends refs instead of clobbering the default's", () => {
+      expect(
+        JSON.parse(
+          expandSparseToFull(
+            JSON.stringify({ $extends: ["@const:bar"], b: 2 }),
+            JSON.stringify({ $extends: ["@const:foo"], a: 1 }),
+          ),
+        ),
+      ).toEqual({ $extends: ["@const:foo", "@const:bar"], a: 1, b: 2 });
+    });
+
+    it("round-trips $extends with stripDefaultsForSparse", () => {
+      const def2 = JSON.stringify({ $extends: ["@const:foo"], a: 1 });
+      const full = JSON.stringify({
+        $extends: ["@const:foo", "@const:bar"],
+        a: 1,
+        b: 2,
+      });
+      const patch = stripDefaultsForSparse(full, def2);
+      expect(JSON.parse(patch)).toEqual({ $extends: ["@const:bar"], b: 2 });
+      expect(JSON.parse(expandSparseToFull(patch, def2))).toEqual({
+        $extends: ["@const:foo", "@const:bar"],
+        a: 1,
+        b: 2,
+      });
+    });
+
+    it("preserves an inline-object $extends entry through a round-trip", () => {
+      // Inline objects are positional, so the toggle keeps the $extends array
+      // verbatim rather than ref-diffing it.
+      const def2 = JSON.stringify({ $extends: ["@const:foo"], a: 1 });
+      const full = JSON.stringify({
+        $extends: ["@const:foo", { b: 2 }],
+        a: 1,
+        c: 3,
+      });
+      const patch = stripDefaultsForSparse(full, def2);
+      // $extends kept verbatim; own keys still diffed (a stripped, c kept)
+      expect(JSON.parse(patch)).toEqual({
+        $extends: ["@const:foo", { b: 2 }],
+        c: 3,
+      });
+      expect(JSON.parse(expandSparseToFull(patch, def2))).toEqual(
+        JSON.parse(full),
+      );
+    });
+  });
+});
+
+describe("draftHasChangesOutsideTargetRef", () => {
+  const makeRev = (overrides: Partial<RevisionFields>): RevisionFields => ({
+    defaultValue: "control",
+    rules: {},
+    version: 1,
+    environmentsEnabled: { production: true },
+    prerequisites: [],
+    archived: false,
+    metadata: {},
+    holdout: null,
+    rampActions: [],
+    ...overrides,
+  });
+
+  const targetRule = {
+    id: "tr_1",
+    type: "contextual-bandit-ref",
+    contextualBanditId: "cb_1",
+    description: "",
+    enabled: true,
+  } as unknown as FeatureRule;
+
+  const isTarget = (rule: FeatureRule): boolean =>
+    rule.type === "contextual-bandit-ref" &&
+    (rule as unknown as { contextualBanditId?: string }).contextualBanditId ===
+      "cb_1";
+
+  it("returns false when the draft only adds the target ref rule", () => {
+    const live = makeRev({ rules: { production: [] } });
+    const draft = makeRev({ rules: { production: [targetRule] } });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(false);
+  });
+
+  it("returns false when live and draft are identical", () => {
+    const live = makeRev({ rules: { production: [targetRule] } });
+    const draft = makeRev({ rules: { production: [targetRule] } });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(false);
+  });
+
+  it("returns true when defaultValue changes alongside the target ref", () => {
+    const live = makeRev({
+      defaultValue: "control",
+      rules: { production: [] },
+    });
+    const draft = makeRev({
+      defaultValue: "treatment",
+      rules: { production: [targetRule] },
+    });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(true);
+  });
+
+  it("returns true when a non-target rule is added", () => {
+    const otherRule = {
+      id: "fr_1",
+      type: "force",
+      description: "",
+      enabled: true,
+      value: "treatment",
+    } as unknown as FeatureRule;
+    const live = makeRev({ rules: { production: [] } });
+    const draft = makeRev({
+      rules: { production: [targetRule, otherRule] },
+    });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(true);
+  });
+
+  it("ignores a different ref id (only the matched target is stripped)", () => {
+    const otherCbRule = {
+      id: "tr_2",
+      type: "contextual-bandit-ref",
+      contextualBanditId: "cb_2",
+      description: "",
+      enabled: true,
+    } as unknown as FeatureRule;
+    const live = makeRev({ rules: { production: [otherCbRule] } });
+    const draft = makeRev({
+      rules: { production: [otherCbRule, targetRule] },
+    });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(false);
+  });
+
+  it("returns true when prerequisites change", () => {
+    const live = makeRev({ rules: { production: [targetRule] } });
+    const draft = makeRev({
+      rules: { production: [targetRule] },
+      prerequisites: [{ id: "feat_x", condition: '{"value": true}' }],
+    });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(true);
   });
 });

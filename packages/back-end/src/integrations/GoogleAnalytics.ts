@@ -133,7 +133,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   ): Promise<DropTableQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getExperimentMetricQuery(_: ExperimentMetricQueryParams): string {
+  getSnapshotMetricQuery(_: ExperimentMetricQueryParams): string {
     throw new Error("Method not implemented.");
   }
   getExperimentAggregateUnitsQuery(
@@ -148,7 +148,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   ): Promise<ExperimentAggregateUnitsQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  runExperimentMetricQuery(
+  runSnapshotMetricQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
     _queryMetadata?: QueryMetadata,

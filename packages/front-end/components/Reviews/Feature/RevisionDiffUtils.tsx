@@ -13,9 +13,8 @@ import {
   PiGitDiff,
   PiSparkle,
   PiBracketsCurly,
-  PiPencilSimpleFill,
 } from "react-icons/pi";
-import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
+import { Box, Flex, Grid } from "@radix-ui/themes";
 import { datetime, getValidDate } from "shared/dates";
 import {
   MergeConflict,
@@ -36,8 +35,8 @@ import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import EventUser from "@/components/Avatar/EventUser";
+import RevisionDescription from "@/components/Reviews/RevisionDescription";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Markdown from "@/components/Markdown/Markdown";
 import CommentComposer from "@/components/Comments/CommentComposer";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
@@ -179,7 +178,7 @@ export function DiffFormatToggle({
 // Height-capped wrapper with a fade-out and a "Show more"/"Show less" toggle
 // (same affordance as the Notes panel). Only collapses when the content
 // actually overflows; a ResizeObserver re-checks as content reflows.
-function CollapsedSection({
+export function CollapsedSection({
   maxHeight,
   children,
 }: {
@@ -356,11 +355,15 @@ function formattedNodeToText(root: HTMLElement): string {
 // currently being *viewed*.
 export function CopyAsButton({
   entityName,
+  entityNoun = "feature",
   diffs,
   raw,
   formattedRef,
 }: {
   entityName: string;
+  // Noun for the copy wording ("Changes to <noun> …") + the copy formats'
+  // entityType. Defaults to "feature" so the feature flow is unchanged.
+  entityNoun?: string;
   diffs: FeatureRevisionDiff[];
   // Whole before/after object of the primary entity, when available. Powers the
   // "Full JSON" and "LLM" formats.
@@ -380,9 +383,15 @@ export function CopyAsButton({
     if (format === "formatted") {
       const root = formattedRef?.current;
       const rendered = root ? formattedNodeToText(root) : "";
-      if (rendered) return `Changes to feature "${entityName}":\n\n${rendered}`;
+      if (rendered)
+        return `Changes to ${entityNoun} "${entityName}":\n\n${rendered}`;
     }
-    return formatDiffForCopy(format, { entityName, diffs, raw });
+    return formatDiffForCopy(format, {
+      entityName,
+      entityType: entityNoun,
+      diffs,
+      raw,
+    });
   };
 
   const formatIcons: Record<CopyDiffFormat, React.ReactNode> = {
@@ -1346,76 +1355,27 @@ function RevisionCommentItem({
     return null;
   }, [data]);
 
-  const [editing, setEditing] = useState(false);
-  // Optimistic value so the saved note shows immediately (revisionComment from
-  // the parent stays stale until it re-fetches).
-  const [localComment, setLocalComment] = useState<string | null>(null);
+  const comment = revisionComment ?? logEntry?.comment ?? "";
 
-  const comment = localComment ?? revisionComment ?? logEntry?.comment ?? "";
-
-  // Read-only surfaces with no comment render nothing (no empty box).
-  const canEditNotes = isDraft && canEdit;
-
-  // ── Size-aware overflow controls for the read-only Notes body ──
-  // Show a "Show more"/"Show less" toggle only when the rendered Markdown
-  // exceeds NOTES_MAX_COLLAPSED_HEIGHT. ResizeObserver re-checks when the
-  // content height changes (e.g. images load, viewport changes).
-  const NOTES_MAX_COLLAPSED_HEIGHT = 200;
-  const [notesExpanded, setNotesExpanded] = useState(false);
-  const [notesOverflow, setNotesOverflow] = useState(false);
-  const notesContentRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = notesContentRef.current;
-    if (!el) return;
-    const check = () => {
-      setNotesOverflow(el.scrollHeight > NOTES_MAX_COLLAPSED_HEIGHT + 1);
-    };
-    check();
-    const ro = new ResizeObserver(check);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [comment, editing]);
-
-  if (!comment && !canEditNotes) return null;
-
+  // Thin wrapper: the shared RevisionDescription owns the card/heading/pencil +
+  // markdown body + Show-more/less + the inline CommentComposer edit. This
+  // component keeps the feature-specific bits — the log fetch (for editor
+  // attribution + a comment fallback) and the feature comment endpoint.
   return (
-    <Box mb="5" className="appbox">
-      <Flex
-        align="center"
-        gap="2"
-        px="4"
-        style={{ borderBottom: "1px solid var(--gray-a4)", minHeight: 40 }}
-      >
-        <Flex align="center" gap="2">
-          <Heading as="h5" size="small" color="text-mid" mb="0">
-            Revision description
-          </Heading>
-          {isDraft && canEdit && !editing && (
-            <IconButton
-              variant="ghost"
-              color="violet"
-              size="2"
-              radius="full"
-              mx="1"
-              onClick={() => setEditing(true)}
-              aria-label="Edit description"
-            >
-              <PiPencilSimpleFill />
-            </IconButton>
-          )}
-        </Flex>
-        {showLabel && (
-          <Text size="small" color="text-mid">
-            <OverflowText
-              maxWidth={200}
-              title={revisionLabelText(version, title)}
-            >
-              <RevisionLabel version={version} title={title} />
-            </OverflowText>
-          </Text>
-        )}
-        {logEntry?.user && (
-          <Flex align="center" gap="1" ml="auto">
+    <RevisionDescription
+      description={comment}
+      canEdit={!!isDraft && !!canEdit}
+      onEdit={async (next) => {
+        await apiCall(`/feature/${featureId}/${version}/comment`, {
+          method: "PUT",
+          body: JSON.stringify({ comment: next }),
+        });
+        await mutate();
+        onSaved?.();
+      }}
+      editorMeta={
+        logEntry?.user ? (
+          <>
             <EventUser
               user={logEntry.user}
               display="avatar-name-email"
@@ -1428,75 +1388,22 @@ function RevisionCommentItem({
                 {datetime(logEntry.timestamp)}
               </Text>
             )}
-          </Flex>
-        )}
-      </Flex>
-
-      <Box p="4">
-        {editing ? (
-          <CommentComposer
-            cta="Save"
-            placeholder="Describe this revision..."
-            initialValue={comment}
-            autofocus
-            onCancel={() => setEditing(false)}
-            onSubmit={async (next) => {
-              await apiCall(`/feature/${featureId}/${version}/comment`, {
-                method: "PUT",
-                body: JSON.stringify({ comment: next }),
-              });
-              setLocalComment(next);
-              setEditing(false);
-              await mutate();
-              onSaved?.();
-            }}
-          />
-        ) : comment ? (
-          <>
-            <Box
-              style={
-                !notesExpanded && notesOverflow
-                  ? {
-                      position: "relative",
-                      maxHeight: NOTES_MAX_COLLAPSED_HEIGHT,
-                      overflow: "hidden",
-                    }
-                  : { position: "relative" }
-              }
-            >
-              <Box ref={notesContentRef}>
-                <Markdown className="speech-bubble">{comment}</Markdown>
-              </Box>
-              {!notesExpanded && notesOverflow && (
-                <Box
-                  style={{
-                    position: "absolute",
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    height: 64,
-                    background:
-                      "linear-gradient(transparent, var(--color-panel-solid))",
-                    pointerEvents: "none",
-                  }}
-                />
-              )}
-            </Box>
-            {notesOverflow && (
-              <Box mt="2">
-                <Link onClick={() => setNotesExpanded((v) => !v)}>
-                  {notesExpanded ? "Show less" : "Show more"}
-                </Link>
-              </Box>
-            )}
           </>
-        ) : (
-          <Text size="medium" as="div" color="text-low" fontStyle="italic">
-            No description yet.
+        ) : undefined
+      }
+      label={
+        showLabel ? (
+          <Text size="small" color="text-mid">
+            <OverflowText
+              maxWidth={200}
+              title={revisionLabelText(version, title)}
+            >
+              <RevisionLabel version={version} title={title} />
+            </OverflowText>
           </Text>
-        )}
-      </Box>
-    </Box>
+        ) : undefined
+      }
+    />
   );
 }
 
@@ -1544,7 +1451,7 @@ export function RevisionCommentSection({
 }
 
 // Section-title humanizer shared by the formatted render.
-function formatSectionTitle(title: string): string {
+export function formatSectionTitle(title: string): string {
   if (title === "Default Value") return "Default value";
   if (title.startsWith("Rules - ")) {
     const env = title.slice("Rules - ".length);
@@ -1553,17 +1460,28 @@ function formatSectionTitle(title: string): string {
   return title;
 }
 
+// Minimal section shape the formatted render needs. Both the feature
+// (FeatureRevisionDiff) and the generic (DiffItem-derived) flows produce this,
+// so FormattedChanges is entity-agnostic and shared across both surfaces.
+export type FormattedChangeItem = {
+  title: string;
+  a: string;
+  b: string;
+  customRender?: React.ReactNode;
+  titleSuffix?: React.ReactNode;
+};
+
 // The human-readable "Formatted changes" view: one card per changed section
 // using its rich customRender, falling back to a JSON diff when a section has
 // no human render. Extracted so it can be rendered both visibly and in a hidden
 // node whose innerText powers the "Copy as → Formatted changes" action.
 // `jsonFallback={false}` (the review Conversation tab) swaps that fallback for a
 // link to the Changes tab, keeping this view strictly human-readable.
-function FormattedChanges({
+export function FormattedChanges({
   diffs,
   jsonFallback = true,
 }: {
-  diffs: FeatureRevisionDiff[];
+  diffs: FormattedChangeItem[];
   jsonFallback?: boolean;
 }) {
   return (

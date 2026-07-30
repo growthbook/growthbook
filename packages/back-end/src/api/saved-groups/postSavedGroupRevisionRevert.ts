@@ -14,6 +14,7 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
+import { assertSavedGroupArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
@@ -129,6 +130,15 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
           "or use a role/token that grants bypassApprovalChecks.",
       );
     }
+    // Reverting to a historically-archived state re-archives the group; soft-warn
+    // (bypassably) if it still has live dependents. Only the archive transition.
+    if (fieldsToUpdate.archived === true && !savedGroup.archived) {
+      await assertSavedGroupArchiveDependentsGuard(
+        req.context,
+        { id: savedGroup.id },
+        { armed: false },
+      );
+    }
   }
 
   await ensureLiveRevisionExists(
@@ -167,18 +177,11 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
     };
   }
 
-  // Apply changes to the live entity first, then record the revert as a single
-  // already-merged revision. A draft-then-merge would be two non-transactional
-  // writes: if the merge failed after applyChanges landed, the draft would be
-  // stranded and could never be published ("no changes detected" against the
-  // now-updated entity). createMerged closes that window.
-  await adapter.applyChanges(
-    req.context,
-    savedGroup as unknown as Record<string, unknown>,
-    fieldsToUpdate,
-    { isRevert: true },
-  );
-
+  // Record the already-merged revert revision FIRST, then apply it to the live
+  // entity. If the apply fails, delete the just-created revision so we never
+  // leave a "reverted" record with no corresponding live change. (The revision
+  // is created in its terminal `merged` state, so there's no concurrent-discard
+  // vector — this is a clean abort rather than a claim-then-CAS.)
   const merged = await req.context.models.revisions.createMerged({
     type: "saved-group",
     id: savedGroup.id,
@@ -188,6 +191,22 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
     title,
     revertedFrom: targetRevision.id,
   });
+
+  try {
+    await adapter.applyChanges(
+      req.context,
+      savedGroup as unknown as Record<string, unknown>,
+      fieldsToUpdate,
+      { isRevert: true },
+    );
+  } catch (e) {
+    try {
+      await req.context.models.revisions.deleteById(merged.id);
+    } catch {
+      // ignore — surface the original applyChanges error
+    }
+    throw e;
+  }
 
   await dispatchSavedGroupRevisionEvent(req.context, merged, {
     type: "reverted",

@@ -138,11 +138,7 @@ const LearningsPage = (): React.ReactElement => {
               <Box pt="4">
                 <TabsContent value="results">
                   <Box mb="4">
-                    <Callout
-                      status="info"
-                      icon={<PiSparkleFill />}
-                      contentsAs="div"
-                    >
+                    <Callout status="info" icon={<PiSparkleFill />}>
                       <Flex
                         align="center"
                         justify="between"

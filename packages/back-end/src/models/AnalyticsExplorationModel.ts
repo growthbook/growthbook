@@ -25,6 +25,7 @@ import analyticsExplorationApiSpec, {
   postMetricExplorationEndpoint,
   postFactTableExplorationEndpoint,
   postDataSourceExplorationEndpoint,
+  postFunnelExplorationEndpoint,
 } from "back-end/src/api/specs/analytics-exploration.spec";
 import { MakeModelClass } from "./BaseModel";
 
@@ -95,11 +96,24 @@ const BaseClass = MakeModelClass({
       makeExplorationHandler(postMetricExplorationEndpoint),
       makeExplorationHandler(postFactTableExplorationEndpoint),
       makeExplorationHandler(postDataSourceExplorationEndpoint),
+      makeExplorationHandler(postFunnelExplorationEndpoint),
     ],
   },
 });
 
 export class AnalyticsExplorationModel extends BaseClass {
+  // Every saved exploration in the org, ignoring the caller's read permissions.
+  // Only for authoritative dependency scans (e.g. blocking deletion of a fact
+  // table column an exploration still references), where missing an exploration
+  // the caller cannot read would let the delete through and leave that
+  // exploration generating SQL for a column that no longer exists. Never return
+  // these to the caller.
+  public async dangerousGetAllForDependencyScan(): Promise<
+    ProductAnalyticsExploration[]
+  > {
+    return this._find({}, { bypassReadPermissionChecks: true });
+  }
+
   public getConfigHashes(config: ExplorationConfig) {
     const dataset = config.dataset;
     if (!dataset) return null;
@@ -131,13 +145,24 @@ export class AnalyticsExplorationModel extends BaseClass {
         path: dataset.type === "data_source" ? dataset.path : null,
         timestampColumn:
           dataset.type === "data_source" ? dataset.timestampColumn : null,
+        // Funnel-specific keys: unit and concurrency window affect query
+        // results but live at the dataset level rather than per-step.
+        funnelUnit: dataset.type === "funnel" ? dataset.unit : null,
+        funnelConcurrencyWindowSeconds:
+          dataset.type === "funnel"
+            ? (dataset.concurrencyWindowSeconds ?? 0)
+            : null,
       }),
     );
 
-    // Value hashes
-    const valueHashes = dataset.values.map((value) => {
-      return md5(JSON.stringify(value));
-    });
+    // Value hashes. Funnels treat the whole steps array as one logical
+    // "value" (decision in the funnels plan): a single hash invalidates
+    // the cache on any step change. Per-step incremental refresh is a
+    // future optimization.
+    const valueHashes =
+      dataset.type === "funnel"
+        ? [md5(JSON.stringify(dataset.steps))]
+        : dataset.values.map((value) => md5(JSON.stringify(value)));
 
     return {
       generalSettingsHash,

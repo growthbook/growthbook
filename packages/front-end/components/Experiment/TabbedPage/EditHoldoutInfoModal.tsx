@@ -11,7 +11,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
 import SelectOwner from "@/components/Owner/SelectOwner";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { FocusSelector } from "./EditExperimentInfoModal";
 
 interface Props {
@@ -45,6 +45,7 @@ export default function EditHoldoutInfoModal({
 
   return (
     <Modal
+      useRadixButton={false}
       open={true}
       close={() => setShowEditInfoModal(false)}
       trackingEventModalType="edit-experiment-info"
@@ -68,6 +69,7 @@ export default function EditHoldoutInfoModal({
       })}
     >
       <Field
+        size="legacy"
         autoFocus={focusSelector === "name"}
         label="Experiment Name"
         {...form.register("name")}
@@ -86,6 +88,7 @@ export default function EditHoldoutInfoModal({
         />
       </div>
       <MultiSelectField
+        size="legacy"
         label={
           <>
             Projects
@@ -97,7 +100,7 @@ export default function EditHoldoutInfoModal({
             />
           </>
         }
-        placeholder="All projects"
+        placeholder="All Projects"
         autoFocus={focusSelector === "projects"}
         value={form.watch("projects") || []}
         options={useProjectOptions(

@@ -29,6 +29,10 @@ export default {
     plan: "pro",
     displayName: "Code References",
   },
+  "contextual-bandits": {
+    plan: "enterprise",
+    displayName: "Contextual Bandits",
+  },
   "custom-hooks": {
     plan: "enterprise",
     displayName: "Custom Hooks",
@@ -72,6 +76,10 @@ export default {
   "experiment-impact": {
     plan: "enterprise",
     displayName: "Experiment Impact",
+  },
+  "feature-configs": {
+    plan: "enterprise",
+    displayName: "Feature Configs",
   },
   "hash-secure-attributes": {
     plan: "pro",
@@ -192,6 +200,10 @@ export default {
   "regression-adjustment": {
     plan: "pro",
     displayName: "CUPED",
+  },
+  releases: {
+    plan: "enterprise",
+    displayName: "Releases",
   },
   "remote-evaluation": {
     plan: "pro",

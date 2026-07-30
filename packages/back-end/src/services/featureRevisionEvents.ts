@@ -5,9 +5,11 @@ import {
   ResourceEvents,
 } from "shared/types/events/base-types";
 import { FeatureRevisionUpdatedPayload } from "shared/validators";
+import { resolveTargetingProjectIds } from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
+import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { logger } from "back-end/src/util/logger";
 import {
   revisionToApiInterface,
@@ -37,6 +39,37 @@ type ExtraPayload<T extends FeatureRevisionEvent> = Omit<
   RevisionBaseKeys
 >;
 
+// Re-read a just-published revision so event payloads carry the published
+// status (publishRevision updates the stored document, not the in-memory
+// object). Never throws: by the time this runs the publish has already
+// committed, so a failed read must not fail the request — fall back to the
+// caller's in-memory revision instead. The in-memory object is still a draft,
+// so correct its status on the fallback since publication already succeeded —
+// a `revision.published` event that reported "draft" would misinform consumers.
+export async function getPublishedRevisionForEvents(
+  ctx: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  fallback: FeatureRevisionInterface,
+): Promise<FeatureRevisionInterface> {
+  const publishedFallback: FeatureRevisionInterface = {
+    ...fallback,
+    status: "published",
+  };
+  try {
+    const updated = await getRevision({
+      context: ctx,
+      organization: feature.organization,
+      featureId: feature.id,
+      feature,
+      version: fallback.version,
+    });
+    return updated ?? publishedFallback;
+  } catch (e) {
+    logger.error(e, "Error re-reading revision after publish for events");
+    return publishedFallback;
+  }
+}
+
 // Dispatch a `feature.revision.*` webhook event. Pulls projects/environments/tags
 // from the parent feature so downstream Slack/webhook filters work the same as
 // regular feature events. Failures are logged and swallowed — events are
@@ -53,7 +86,8 @@ export async function dispatchFeatureRevisionEvent<
 ): Promise<void> {
   try {
     const apiRevision = toApiRevision(revision, ctx, feature);
-    const projects = feature.project ? [feature.project] : [];
+    const allProjectIds = await ctx.getAllProjectIds();
+    const projects = resolveTargetingProjectIds(feature, allProjectIds);
     const tags = feature.tags ?? [];
     const environments = deriveRevisionEventEnvironments(
       feature,

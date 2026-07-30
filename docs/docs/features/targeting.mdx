@@ -67,6 +67,18 @@ GrowthBook supports the following attribute data types:
 | **Array of Numbers**        | List of numeric values                                 | `[1, 2, 3, 5, 8]`                  |
 | **Array of Secure Strings** | Multiple hashed string values for secure targeting     | `["user123", "user456"]`           |
 
+#### Constrained List Attributes
+
+Array attributes (**Array of Strings**, **Array of Numbers**, **Array of Secure Strings**) can optionally be restricted to a fixed set of allowed values. When creating or editing an array attribute under **SDK Configurations → Attributes**, fill in the **Allowed Values** field with a comma-separated list — a user can still hold multiple values at once (e.g. `["admin", "editor"]`), but each must be one of the allowed values.
+
+Once restricted, targeting conditions on that attribute use a typeahead multi-select that only accepts the allowed values (no free-form entry) and offer the `includes any of` / `includes none of` operators. Leave **Allowed Values** blank to keep the list unrestricted.
+
+#### Changing an Attribute's Data Type
+
+You can change an attribute's data type in place (including String → Enum) by editing it under **SDK Configurations → Attributes**. You do **not** need to create a new attribute or re-point features — the change is applied in place and existing targeting conditions keep evaluating, since values are stored as-is and the SDK does not enforce data types.
+
+When converting to a constrained type (Enum, or an array with Allowed Values), make sure the allowed values include every value already used in existing conditions. Conditions that reference an out-of-list value, or that use an operator no longer offered for the new type, keep running but become harder to edit. The edit modal lists the features, experiments, and condition groups that reference the attribute so you can audit them first.
+
 #### Semantic Version Targeting
 
 GrowthBook supports semantic version string comparisons, so that `1.0.10` is correctly treated as greater than `1.0.9`.

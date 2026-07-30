@@ -16,7 +16,7 @@ import Text from "@/ui/Text";
 import ConfirmModal from "@/components/ConfirmModal";
 import CollapsibleDiscussion from "@/components/CollapsibleDiscussion";
 import Field from "@/components/Forms/Field";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
 import {
   FilterDropdown,

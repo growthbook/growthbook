@@ -339,6 +339,10 @@ describe("covariate insert SQL builders", () => {
 
   const baseParams = {
     settings,
+    exposureQuery: {
+      query: exposureQuery.query,
+      userIdType: exposureQuery.userIdType,
+    },
     activationMetric: null,
     factTableMap,
     factTableId: FT_ID,

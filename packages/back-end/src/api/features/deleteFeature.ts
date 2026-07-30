@@ -3,6 +3,7 @@ import { deleteFeatureValidator } from "shared/validators";
 import type { ApiRequestLocals } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { deleteFeature, getFeature } from "back-end/src/models/FeatureModel";
+import { assertFeatureDeletable } from "back-end/src/services/features";
 import { auditDetailsDelete } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { getEnabledEnvironments } from "back-end/src/util/features";
@@ -49,6 +50,11 @@ export async function deleteFeatureHandler(
       );
     }
   }
+
+  // Reference integrity: deleting a feature that other live features gate on as
+  // a prerequisite dangles their gate and drops them from the SDK payload, so
+  // block regardless of archived state or REST bypass.
+  await assertFeatureDeletable(req.context, feature.id);
 
   await deleteFeature(req.context, feature);
 

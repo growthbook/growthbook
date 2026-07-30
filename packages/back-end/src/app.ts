@@ -26,6 +26,7 @@ import {
   ENVIRONMENT,
   EXPRESS_TRUST_PROXY_OPTS,
   IS_CLOUD,
+  OAUTH_AS_ENABLED,
   SENTRY_DSN,
 } from "./util/secrets";
 import {
@@ -33,10 +34,15 @@ import {
   getExperimentsScript,
 } from "./controllers/config";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
+import { trackRequestCompletion } from "./services/growthbook";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
 import scimRouter from "./scim/scim.router";
 import { getBuild } from "./util/build";
+import {
+  oauthAsAuthedRouter,
+  oauthAsPublicRouter,
+} from "./routers/oauth-as/oauth-as.router";
 
 // Begin Controllers
 import * as authControllerRaw from "./controllers/auth";
@@ -105,7 +111,13 @@ import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
 import { aiRouter } from "./routers/ai/ai.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
-import { ApiError, shouldSkipErrorLog, SoftWarningError } from "./util/errors";
+import {
+  ApiError,
+  ExperimentIncrementalPipelineRequiresFullRefreshError,
+  shouldSkipErrorLog,
+  SoftWarningError,
+  SQLExecutionError,
+} from "./util/errors";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
 import { uploadRouter } from "./routers/upload/upload.router";
@@ -117,6 +129,14 @@ import { ArchetypeRouter } from "./routers/archetype/archetype.router";
 import { insightsRouter } from "./routers/insights/insights.router";
 import { AttributeRouter } from "./routers/attributes/attributes.router";
 import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router";
+import {
+  constantsRouter,
+  constantDraftStatesRouter,
+} from "./routers/constant/constant.router";
+import {
+  configsRouter,
+  configDraftStatesRouter,
+} from "./routers/config/config.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
@@ -144,6 +164,7 @@ import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
 import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
+import { sessionReplayRouter } from "./routers/session-replay/session-replay.router";
 import { agentRouter } from "./routers/agent/agent.router";
 
 const app = express();
@@ -262,9 +283,10 @@ app.get("/", (req, res) => {
     res.json({
       name: "GrowthBook API",
       production: ENVIRONMENT === "production",
-      api_host:
+      api_host: (
         process.env.API_HOST ||
-        req.protocol + "://" + req.hostname + ":" + app.get("port"),
+        req.protocol + "://" + req.hostname + ":" + app.get("port")
+      ).replace(/\/+$/, ""),
       app_origin: APP_ORIGIN,
       config_source: usingFileConfig() ? "file" : "db",
       email_enabled: isEmailEnabled(),
@@ -391,6 +413,24 @@ app.get(
 );
 
 // Secret API routes (no JWT or CORS)
+const GROWTHBOOK_TRACKING_HEADERS = [
+  "X-GB-Session-Id",
+  "X-GB-Device-Id",
+  "X-GB-Page-Id",
+  "X-GB-Page-Url",
+  "X-GB-Page-Path",
+  "X-GB-Anonymous-Id",
+] as const;
+
+const INTERNAL_API_ALLOWED_HEADERS = [
+  "Content-Type",
+  "Authorization",
+  "X-Organization",
+  "X-SSO-Connection-ID",
+  "x-no-compression",
+  ...GROWTHBOOK_TRACKING_HEADERS,
+];
+
 // Routes register themselves with version prefixes (/v1/..., /v2/...) so we
 // mount the router at /api — yielding /api/v1/<route> and /api/v2/<route>.
 app.use(
@@ -400,12 +440,7 @@ app.use(
   cors({
     origin: "*",
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-Organization",
-      "X-SSO-Connection-ID",
-    ],
+    allowedHeaders: [...INTERNAL_API_ALLOWED_HEADERS],
     credentials: false,
     maxAge: 86400,
   }),
@@ -454,6 +489,7 @@ app.use(
   cors({
     credentials: true,
     origin: origins,
+    allowedHeaders: [...INTERNAL_API_ALLOWED_HEADERS],
   }),
 );
 
@@ -479,12 +515,22 @@ app.post("/auth/refresh", authController.postRefresh);
 app.post("/auth/logout", authController.postLogout);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
 
+// OAuth 2.1 Authorization Server (public) — discovery, DCR, token, revoke.
+// CORS is per-route on the router; don't add app-wide cors(*) here.
+if (OAUTH_AS_ENABLED) {
+  app.use(oauthAsPublicRouter);
+}
+
 // All other routes require a valid JWT
 const auth = getAuthConnection();
 app.use(auth.middleware as RequestHandler);
 
 // Add logged in user props to the request
 app.use(asyncHandler(processJWT as unknown as RequestHandler));
+
+// Track request completion for GrowthBook telemetry — only routes past this
+// point can have `req.gb` set, so earlier (public/SDK) routes never pay for it
+app.use(trackRequestCompletion as unknown as RequestHandler);
 
 // Add logged in user props to the logger
 app.use(((
@@ -531,6 +577,11 @@ const requireUserIdHandler: RequestHandler = async (req, res, next) => {
   next();
 };
 app.use(asyncHandler(requireUserIdHandler));
+
+// OAuth consent helpers (authenticated)
+if (OAUTH_AS_ENABLED) {
+  app.use(oauthAsAuthedRouter);
+}
 
 // Organization and Settings
 app.use(organizationsRouter);
@@ -619,6 +670,11 @@ app.use("/insights", insightsRouter);
 app.use("/attribute", AttributeRouter);
 
 app.use("/custom-fields", customFieldsRouter);
+
+app.use("/constants", constantsRouter);
+app.use("/constants-draft-states", constantDraftStatesRouter);
+app.use("/configs", configsRouter);
+app.use("/configs-draft-states", configDraftStatesRouter);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);
@@ -952,6 +1008,10 @@ app.post(
   "/feature/:id/:version/experiment",
   featuresController.postFeatureExperimentRefRule,
 );
+app.post(
+  "/feature/:id/:version/contextual-bandit",
+  featuresController.postFeatureContextualBanditRefRule,
+);
 app.delete(
   "/experiment/:id/linked-feature/:featureId",
   experimentsController.deleteExperimentLinkedFeature,
@@ -1059,20 +1119,12 @@ app.post(
   datasourcesController.fetchBigQueryDatasets,
 );
 app.post(
-  "/datasource/:datasourceId/materializedColumn",
-  datasourcesController.postMaterializedColumn,
-);
-app.put(
-  "/datasource/:datasourceId/materializedColumn/:matColumnName",
-  datasourcesController.updateMaterializedColumn,
-);
-app.delete(
-  "/datasource/:datasourceId/materializedColumn/:matColumnName",
-  datasourcesController.deleteMaterializedColumn,
-);
-app.post(
   "/datasource/:datasourceId/recreate-managed-warehouse",
   datasourcesController.postRecreateManagedWarehouse,
+);
+app.post(
+  "/datasource/:datasourceId/managed-warehouse/remove-legacy-identifier",
+  datasourcesController.postRemoveManagedWarehouseLegacyIdentifier,
 );
 
 if (IS_CLOUD) {
@@ -1168,6 +1220,8 @@ app.get(
   discussionsController.getDiscussionCounts,
 );
 app.use("/upload", uploadRouter);
+
+app.use("/session-replay", sessionReplayRouter);
 
 // Teams
 app.use("/teams", teamRouter);
@@ -1283,6 +1337,7 @@ const errorHandler: ErrorRequestHandler = (
     warnings?: string[];
     code?: string;
     details?: unknown;
+    sql?: string;
   } = {
     status: status,
     message: err.message || "An error occurred",
@@ -1292,9 +1347,16 @@ const errorHandler: ErrorRequestHandler = (
   if (err instanceof SoftWarningError) {
     body.warnings = err.warnings;
   }
-  // Structured errors carry a machine-readable code + details (same contract
-  // the REST API exposes) so the front-end can render richer error states.
-  if (err instanceof ApiError) {
+  // Surface the rendered SQL so the front-end can display it alongside the error
+  if (err instanceof SQLExecutionError) {
+    body.sql = err.query;
+  }
+  // Structured errors carry a machine-readable code + details so the front-end
+  // can render richer error states.
+  if (
+    err instanceof ApiError ||
+    err instanceof ExperimentIncrementalPipelineRequiresFullRefreshError
+  ) {
     body.code = err.code;
     body.details = err.details;
   }

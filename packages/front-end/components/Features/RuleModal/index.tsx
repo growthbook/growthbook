@@ -13,6 +13,7 @@ import {
   generateVariationId,
   isProjectListValidForProject,
   getReviewSetting,
+  getTargetingProjectIds,
   stemRuleId,
   parsePlainJSONObject,
   stripDefaultsForSparse,
@@ -28,6 +29,7 @@ import {
   SafeRolloutInterface,
   SafeRolloutRule,
   RampScheduleInterface,
+  RampScheduleTemplateInterface,
   RampStepAction,
 } from "shared/validators";
 import {
@@ -54,6 +56,7 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import useApi from "@/hooks/useApi";
 import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVersionSelector";
 import Modal from "@/components/Modal";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
@@ -79,6 +82,7 @@ import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
+import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { useTemplates } from "@/hooks/useTemplates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
 import RampScheduleSection from "@/components/Features/RuleModal/RampScheduleSection";
@@ -128,6 +132,27 @@ function buildRampStartActionsFromRule(
       patch,
     },
   ];
+}
+
+// A future-dated or approval-gated ramp publishes its rule disabled (zero
+// traffic) until the schedule activates or is approved. Only applies pre-start:
+// once the schedule is running the ramp owns the rule's enabled state, so a
+// later edit must not re-disable a live rollout (requiresStartApproval stays set
+// after start — e.g. a running 0-step approval schedule).
+function shouldPublishRuleDisabled(
+  ramp: Record<string, unknown> | undefined,
+  existingScheduleStatus?: string,
+): boolean {
+  if (!ramp) return false;
+  const preStart =
+    existingScheduleStatus === undefined ||
+    existingScheduleStatus === "pending" ||
+    existingScheduleStatus === "ready";
+  if (!preStart) return false;
+  return (
+    ("startDate" in ramp && !!ramp.startDate) ||
+    ("requiresStartApproval" in ramp && !!ramp.requiresStartApproval)
+  );
 }
 export interface Props {
   close: () => void;
@@ -228,6 +253,12 @@ export default function RuleModal({
         ),
       )
     : undefined;
+
+  // Prefetch templates on modal open so they're resolved before the ramp step
+  // mounts RampScheduleSection.
+  const { data: rampTemplatesData } = useApi<{
+    rampScheduleTemplates: RampScheduleTemplateInterface[];
+  }>("/ramp-schedule-templates");
 
   // Check if there's a pending detach action for this rule in the draft.
   // When true, the ramp section should open as "off" so users don't think
@@ -332,6 +363,19 @@ export default function RuleModal({
       ? selectedDraft
       : feature.version;
 
+  // Holdout a newly-created experiment should join: the holdout of the draft the
+  // rule is being added to (revision.holdout), not just the live feature's — so
+  // a holdout added in that same draft is picked up. Falls back to the merged
+  // feature's holdout when the target revision isn't in context (e.g. a new
+  // draft branched from the viewed version carries that holdout forward).
+  const revisionsCtx = useFeatureRevisionsContext();
+  const targetHoldoutId = useMemo(() => {
+    const targetRev = revisionsCtx?.revisions.find(
+      (r) => r.version === targetVersion,
+    );
+    return (targetRev ? targetRev.holdout : feature.holdout)?.id;
+  }, [revisionsCtx, targetVersion, feature.holdout]);
+
   const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
     const raw = settings?.requireReviews;
     if (raw === true) return "all";
@@ -378,6 +422,10 @@ export default function RuleModal({
   const defaultValues = {
     ...defaultRuleValues,
     ...convertRuleToFormValues(rule),
+    // A duplicated rollout starts seedless so it buckets independently; the Seed
+    // field stays editable to reuse the original's cohort. Safe-rollout has its
+    // own "Same seed" checkbox, so it's excluded here.
+    ...(mode === "duplicate" && rule?.type === "rollout" ? { seed: "" } : {}),
     // Pre-set the ID for new rollout rules so ramp creation can reference it
     // without a second round-trip. Back-end preserves a truthy id from the client.
     ...(mode === "create" && !rule ? { id: pregenRuleId } : {}),
@@ -489,6 +537,18 @@ export default function RuleModal({
       // New rules: pre-select the active env tab (or empty if "All" fallback).
       return environment ? [environment] : [];
     },
+  );
+
+  // Rule-level project scope. Absent `allProjects`/`projects` (legacy/default)
+  // means "all projects"; `allProjects === false` with a `projects` list scopes
+  // the rule. On duplicate/edit, seed from the existing rule.
+  const existingRuleAllProjects =
+    rule === undefined || rule.allProjects !== false;
+  const [scopeAllProjects, setScopeAllProjects] = useState<boolean>(
+    () => existingRuleAllProjects,
+  );
+  const [selectedProjects, setSelectedProjects] = useState<string[]>(() =>
+    Array.isArray(rule?.projects) ? (rule?.projects ?? []) : [],
   );
 
   const defaultHasSchedule = (defaultValues.scheduleRules || []).some(
@@ -874,6 +934,15 @@ export default function RuleModal({
       };
     }
 
+    // An all-projects rule carries no explicit list, so project-deletion
+    // cleanup can never later empty it into "all". A scoped rule keeps its
+    // (possibly empty = "no project") list.
+    if (scopeAllProjects) {
+      values = { ...values, allProjects: true, projects: [] };
+    } else {
+      values = { ...values, allProjects: false, projects: selectedProjects };
+    }
+
     // Loop through each scheduleRule and convert the timestamp to an ISOString()
     if (values.scheduleRules?.length) {
       values.scheduleRules?.forEach((scheduleRule: ScheduleRule) => {
@@ -1047,9 +1116,7 @@ export default function RuleModal({
           statsEngine: values.statsEngine ?? undefined,
           type: values.experimentType,
           holdoutId:
-            values.experimentType === "standard"
-              ? feature.holdout?.id
-              : undefined,
+            values.experimentType === "standard" ? targetHoldoutId : undefined,
         };
 
         if (values?.customFields) {
@@ -1108,6 +1175,8 @@ export default function RuleModal({
           id: values.id,
           allEnvironments: values.allEnvironments ?? false,
           environments: values.environments,
+          allProjects: values.allProjects ?? true,
+          projects: values.projects,
           condition: "",
           savedGroups: [],
           enabled: values.enabled ?? true,
@@ -1168,12 +1237,24 @@ export default function RuleModal({
           safeRolloutFields.maxDuration.unit = "days";
         }
       } else if (values.type === "force") {
-        // Force rules don't support hashAttribute or seed; strip them from the form
-        // They're only in the form state to be ready if converted to rollout
+        // Force rules don't support hashAttribute, seed, or hashVersion; strip
+        // them from the form. They're only in the form state to be ready if
+        // converted to rollout. hashVersion in particular is computed for the
+        // hashing widget regardless of rule type, so without this a force-rule
+        // edit (e.g. just changing a schedule's cutoff date) shows a spurious
+        // "Hash Version: unset → 2" change in the draft.
         // eslint-disable-next-line
         delete (values as any).hashAttribute;
         // eslint-disable-next-line
         delete (values as any).seed;
+        delete (values as { hashVersion?: number }).hashVersion;
+      } else if (values.type === "rollout") {
+        // An empty seed means "stamp this rule's own id" (the default for
+        // duplicates) — omit it rather than submitting "".
+        if (!values.seed) {
+          // eslint-disable-next-line
+          delete (values as any).seed;
+        }
       }
       if (
         values.scheduleRules &&
@@ -1348,6 +1429,9 @@ export default function RuleModal({
                     rampState.monitoring,
                     rampState.steps,
                   ),
+                  requiresStartApproval: rampState.requiresStartApproval
+                    ? true
+                    : null,
                   ...(rampState.lockFeature
                     ? { lockdownConfig: { mode: "locked" as const } }
                     : { lockdownConfig: { mode: "none" as const } }),
@@ -1356,7 +1440,12 @@ export default function RuleModal({
                 !isNoOpSchedule &&
                 rampState.mode === "edit" &&
                 ruleRampSchedule?.id &&
-                ruleRampSchedule.status !== "running"
+                // Multi-step ramps can't be edited once running (re-capturing
+                // steps/startDate mid-ramp is unsafe). Simple schedules have no
+                // step machinery — editing a running one only changes its
+                // cutoffDate/name, which the publish-time applier handles safely
+                // (FeatureModel.createRampSchedulesForRevision) — so allow it.
+                (isScheduleMode || ruleRampSchedule.status !== "running")
               ) {
                 rampScheduleInline = {
                   mode: "update",
@@ -1408,6 +1497,9 @@ export default function RuleModal({
                     rampState.monitoring,
                     rampState.steps,
                   ),
+                  requiresStartApproval: rampState.requiresStartApproval
+                    ? true
+                    : null,
                   ...(rampState.lockFeature
                     ? { lockdownConfig: { mode: "locked" as const } }
                     : { lockdownConfig: { mode: "none" as const } }),
@@ -1470,12 +1562,11 @@ export default function RuleModal({
           // advances, but the rule must have them set immediately for the period
           // between publish and ramp-start (or if the ramp never starts).
 
-          // Future-dated schedule → publish the rule as disabled so it
-          // remains hidden until the schedule activates.
           if (
-            rampScheduleInline &&
-            "startDate" in rampScheduleInline &&
-            rampScheduleInline.startDate
+            shouldPublishRuleDisabled(
+              rampScheduleInline,
+              ruleRampSchedule?.status,
+            )
           ) {
             values = { ...values, enabled: false };
           }
@@ -1551,6 +1642,9 @@ export default function RuleModal({
                 rampState.monitoring,
                 rampState.steps,
               ),
+              requiresStartApproval: rampState.requiresStartApproval
+                ? true
+                : null,
               ...(rampState.lockFeature
                 ? { lockdownConfig: { mode: "locked" as const } }
                 : { lockdownConfig: { mode: "none" as const } }),
@@ -1558,14 +1652,7 @@ export default function RuleModal({
           }
         }
 
-        // Schedule with a start date → create rule disabled; the backend
-        // enables it via onActivatingRevisionPublished when the draft is
-        // published (immediately if the date has passed, or via poller if future).
-        if (
-          rampScheduleInline &&
-          "startDate" in rampScheduleInline &&
-          rampScheduleInline.startDate
-        ) {
+        if (shouldPublishRuleDisabled(rampScheduleInline)) {
           values = { ...values, enabled: false };
         }
 
@@ -1625,7 +1712,6 @@ export default function RuleModal({
         }
         ctaEnabled={!!overviewRuleType}
         header="New Rule"
-        useRadixButton={true}
         submit={submitOverview}
         autoCloseOnSubmit={false}
       >
@@ -1701,6 +1787,7 @@ export default function RuleModal({
               </Box>
               {hasCommercialFeature("safe-rollout") ? (
                 <Button
+                  color="inherit"
                   variant="soft"
                   size="xs"
                   onClick={() => {
@@ -1726,7 +1813,7 @@ export default function RuleModal({
                   commercialFeature="safe-rollout"
                   usePortal={true}
                 >
-                  <Button variant="soft" size="xs" disabled>
+                  <Button color="inherit" variant="soft" size="xs" disabled>
                     Show me
                   </Button>
                 </PremiumTooltip>
@@ -1788,6 +1875,15 @@ export default function RuleModal({
     disabledEnvironmentIds,
   };
 
+  const projectScopeProps = {
+    allProjects: scopeAllProjects,
+    setAllProjects: setScopeAllProjects,
+    selectedProjects,
+    setSelectedProjects,
+    // Limit scoping to the feature's delivery set (null = all projects).
+    allowedProjectIds: getTargetingProjectIds(feature),
+  };
+
   // Resolved env list used by child components that care about which envs the
   // rule currently covers (prereq cycle checks, targeting previews, etc).
   // When `allEnvironments` is on, treat every applicable env as in-scope.
@@ -1840,7 +1936,6 @@ export default function RuleModal({
           mode === "create" ? () => setNewRuleOverviewPage(true) : undefined
         }
         submit={submit}
-        useRadixButton={true}
         bodyPrefix={
           <DraftSelectorForChanges
             feature={feature}
@@ -1875,6 +1970,7 @@ export default function RuleModal({
               scheduleType={scheduleType}
               setScheduleType={setScheduleType}
               envScope={envScopeProps!}
+              projectScope={projectScopeProps}
               isLiveRule={isLiveRule}
               isNew={mode === "create"}
               onRuleCyclicChange={onRuleCyclicChange}
@@ -1889,6 +1985,7 @@ export default function RuleModal({
               state={rampSectionState}
               setState={setRampSectionState}
               pendingDetach={hasPendingDetach}
+              preloadedTemplates={rampTemplatesData?.rampScheduleTemplates}
               embedded
               readOnly={!!ruleRampSchedule && !rampIsEditable}
               hideNameField={true}
@@ -1924,6 +2021,7 @@ export default function RuleModal({
             mode={mode}
             isDraft={!safeRollout?.startedAt}
             envScope={envScopeProps}
+            projectScope={projectScopeProps}
             onRuleCyclicChange={onRuleCyclicChange}
           />
         )}
@@ -1939,6 +2037,7 @@ export default function RuleModal({
             scheduleToggleEnabled={scheduleToggleEnabled}
             setScheduleToggleEnabled={setScheduleToggleEnabled}
             envScope={envScopeProps!}
+            projectScope={projectScopeProps}
           />
         ) : null}
 
@@ -1949,6 +2048,7 @@ export default function RuleModal({
             existingRule={mode === "edit"}
             changeRuleType={changeRuleType}
             envScope={envScopeProps!}
+            projectScope={projectScopeProps}
           />
         ) : null}
 
@@ -2014,6 +2114,7 @@ export default function RuleModal({
                     form.setValue("customFields", customFields)
                   }
                   envScope={i === 0 ? envScopeProps : undefined}
+                  projectScope={i === 0 ? projectScopeProps : undefined}
                   onRuleCyclicChange={onRuleCyclicChange}
                 />
               </Page>
@@ -2074,6 +2175,7 @@ export default function RuleModal({
                     setDisableBanditConversionWindow
                   }
                   envScope={i === 0 ? envScopeProps : undefined}
+                  projectScope={i === 0 ? projectScopeProps : undefined}
                   onRuleCyclicChange={onRuleCyclicChange}
                 />
               </Page>

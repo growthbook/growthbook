@@ -33,6 +33,8 @@ import {
   categorizeUnregisteredAttributes,
   extractConditionAttributeKeys,
   getRequireRegisteredAttributesSettings,
+  formatJsonMultilineObjects,
+  getTargetingProjectIds,
   type RequireRegisteredAttributesSettings,
 } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -237,7 +239,7 @@ export function useFeatureSearch({
     [contentSearchPrefixes],
   );
   const { getOwnerDisplay } = useUser();
-  const { getProjectById } = useDefinitions();
+  const { getProjectById, projects } = useDefinitions();
 
   const features = useAddComputedFields(
     allFeatures,
@@ -272,6 +274,8 @@ export function useFeatureSearch({
       rampStates,
       dependencyIndex,
       experimentStates,
+      projects,
+      getProjectById,
     ],
     searchTermFilters: {
       is: (item) => {
@@ -316,10 +320,16 @@ export function useFeatureSearch({
         return has;
       },
       key: (item) => item.id,
-      project: (item: ComputedFeatureInterface) => [
-        item.project,
-        item.projectName,
-      ],
+      // Match the governance project plus any targeting projects (all
+      // projects when targetingAllProjects), by id and resolved name, so
+      // `project:` discovery mirrors where the feature is actually delivered.
+      project: (item: ComputedFeatureInterface) => {
+        const ids = getTargetingProjectIds(item) ?? projects.map((p) => p.id);
+        return [
+          ...ids,
+          ...ids.map((id) => (id ? getProjectById(id)?.name : undefined)),
+        ];
+      },
       created: (item) => new Date(item.dateCreated),
       updated: (item) => new Date(item.dateUpdated),
       experiment: (item) => item.linkedExperiments || [],
@@ -398,12 +408,12 @@ export function formatJSON(value: string): string | undefined {
     // Use dirty-json for small files to handle malformed JSON
     try {
       const parsed = dJSON.parse(value);
-      formatted = stringify(parsed);
+      formatted = formatJsonMultilineObjects(parsed);
     } catch (e) {
       // Fallback to native JSON.parse if dirty-json fails
       try {
         const parsed = JSON.parse(value);
-        formatted = stringify(parsed);
+        formatted = formatJsonMultilineObjects(parsed);
       } catch (e2) {
         // Ignore
       }
@@ -412,7 +422,7 @@ export function formatJSON(value: string): string | undefined {
     // For medium+ files, only use native JSON.parse (much faster)
     try {
       const parsed = JSON.parse(value);
-      formatted = stringify(parsed);
+      formatted = formatJsonMultilineObjects(parsed);
     } catch (e) {
       // Invalid JSON - skip formatting to avoid blocking UI
     }
@@ -785,6 +795,20 @@ export function validateFeatureRule(
       if (newValue !== v.value) {
         hasChanges = true;
         (ruleCopy as ExperimentRefRule).variations[i].value = newValue;
+      }
+    });
+  } else if (rule.type === "contextual-bandit-ref") {
+    rule.variations.forEach((v, i) => {
+      const newValue = validateFeatureValue(
+        feature,
+        v.value,
+        "Variation #" + i,
+      );
+      if (newValue !== v.value) {
+        hasChanges = true;
+        (ruleCopy as unknown as { variations: { value: string }[] }).variations[
+          i
+        ].value = newValue;
       }
     });
   } else if (rule.type === "safe-rollout") {
@@ -1507,7 +1531,8 @@ export function useAttributeMap(
         datatype: getAttributeDataType(schema.datatype),
         array: !!schema.datatype.match(/\[\]$/),
         enum:
-          schema.datatype === "enum" && schema.enum
+          (schema.datatype === "enum" || schema.datatype.endsWith("[]")) &&
+          schema.enum
             ? schema.enum.split(",").map((x) => x.trim())
             : schema.format === "isoCountryCode"
               ? ALL_COUNTRY_CODES
@@ -1556,7 +1581,7 @@ export function getExperimentDefinitionFromFeature(
     variations,
     phases: [
       {
-        coverage: expRule.coverage || 1,
+        coverage: expRule.coverage ?? 1,
         variationWeights,
         variations: variations.map((v) => ({
           id: v.id,
@@ -1637,7 +1662,8 @@ export function getDefaultOperator(attribute: AttributeData) {
   if (attribute.datatype === "boolean") {
     return "$true";
   } else if (attribute.array) {
-    return "$includes";
+    // Enum-constrained lists use set operators so the restricted MultiSelect shows.
+    return attribute.enum.length ? "$in" : "$includes";
   } else if (attribute.format === "version") {
     return "$veq";
   } else if (attribute.disableEqualityConditions) {

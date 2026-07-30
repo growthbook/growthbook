@@ -74,6 +74,14 @@ export const apiSettingsValidator = namedSchema(
           autopublishOnApproval: z.boolean().optional(),
         }),
       ),
+      targetingReviewMode: z
+        .array(
+          z.object({
+            projects: z.array(z.string()),
+            mode: z.enum(["strict", "loose"]),
+          }),
+        )
+        .optional(),
       restApiBypassesReviews: z.boolean().optional(),
       requireRebaseBeforePublish: z.boolean().optional(),
       revertsBypassApproval: z.boolean().optional(),
@@ -89,6 +97,8 @@ export const apiSettingsValidator = namedSchema(
       experimentMaxLengthDays: z.coerce.number().nullable().optional(),
       preferredEnvironment: z.string().nullable().optional(),
       maxMetricSliceLevels: z.coerce.number().optional(),
+      topValuesLookbackValue: z.coerce.number().optional(),
+      topValuesLookbackUnit: z.enum(["days"]).optional(),
     })
     .strict(),
 );

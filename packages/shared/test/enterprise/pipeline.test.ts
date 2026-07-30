@@ -1,9 +1,12 @@
 import {
   getExperimentSourceSnapshotRef,
+  getIncrementalFullRefreshReasons,
   getIncrementalPipelineUnsupportedReason,
   isExperimentIncrementalEnabled,
   isNewerOverallResultsDataAvailable,
+  overallResultsBuiltWithoutIncrementalPipeline,
 } from "shared/enterprise";
+import type { IncrementalFullRefreshComparable } from "shared/enterprise";
 import type { ExperimentMetricInterface } from "shared/experiments";
 import type { DataSourcePipelineSettings } from "shared/types/datasource";
 import type { FactMetricInterface } from "shared/types/fact-table";
@@ -519,5 +522,301 @@ describe("getIncrementalPipelineUnsupportedReason", () => {
     ).toBe(
       "Legacy metrics aren't supported with Incremental Pipeline mode. Convert them or remove non-Fact Metrics.",
     );
+  });
+});
+
+const makeComparable = (
+  overrides: Partial<IncrementalFullRefreshComparable> = {},
+): IncrementalFullRefreshComparable => ({
+  activationMetric: null,
+  attributionModel: "firstExposure",
+  queryFilter: "",
+  segment: "",
+  skipPartialData: false,
+  datasourceId: "ds_123",
+  exposureQueryId: "eq_1",
+  startDate: new Date("2024-01-01T00:00:00.000Z"),
+  regressionAdjustmentEnabled: false,
+  experimentId: "exp_1",
+  ...overrides,
+});
+
+describe("getIncrementalFullRefreshReasons", () => {
+  it("returns an empty array when nothing changed", () => {
+    const base = makeComparable();
+    expect(getIncrementalFullRefreshReasons(base, base)).toEqual([]);
+  });
+
+  it("returns a reason when activationMetric changed", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ activationMetric: "m_act" }),
+        makeComparable({ activationMetric: null }),
+      ),
+    ).toEqual(["Activation metric changed"]);
+  });
+
+  it("returns a reason when attributionModel changed", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ attributionModel: "experimentDuration" }),
+        makeComparable({ attributionModel: "firstExposure" }),
+      ),
+    ).toEqual(["Attribution model changed"]);
+  });
+
+  it("returns a reason when queryFilter changed", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ queryFilter: "country = 'US'" }),
+        makeComparable({ queryFilter: "" }),
+      ),
+    ).toEqual(["Query filter changed"]);
+  });
+
+  it("returns a reason when segment changed", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ segment: "seg_new" }),
+        makeComparable({ segment: "" }),
+      ),
+    ).toEqual(["Segment changed"]);
+  });
+
+  it("returns a reason when skipPartialData changed", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ skipPartialData: true }),
+        makeComparable({ skipPartialData: false }),
+      ),
+    ).toEqual(["In-progress conversion behavior changed"]);
+  });
+
+  it("returns a reason when exposureQueryId changed", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ exposureQueryId: "eq_new" }),
+        makeComparable({ exposureQueryId: "eq_1" }),
+      ),
+    ).toEqual(["Experiment assignment query changed"]);
+  });
+
+  it("returns a reason when startDate changed", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ startDate: new Date("2024-02-01T00:00:00.000Z") }),
+        makeComparable({ startDate: new Date("2024-01-01T00:00:00.000Z") }),
+      ),
+    ).toEqual(["Analysis start date changed"]);
+  });
+
+  it("treats startDate string and Date as equal when they represent the same moment", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({
+          startDate: "2024-01-01T00:00:00.000Z" as unknown as Date,
+        }),
+        makeComparable({ startDate: new Date("2024-01-01T00:00:00.000Z") }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("returns a reason when regressionAdjustmentEnabled changed", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ regressionAdjustmentEnabled: true }),
+        makeComparable({ regressionAdjustmentEnabled: false }),
+      ),
+    ).toEqual(["CUPED settings changed"]);
+  });
+
+  it("returns a reason when datasourceId changed", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ datasourceId: "ds_new" }),
+        makeComparable({ datasourceId: "ds_123" }),
+      ),
+    ).toEqual(["Data source changed"]);
+  });
+
+  it("returns no reason when only experimentId differs because it is an invariant hash field", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ experimentId: "exp_other" }),
+        makeComparable({ experimentId: "exp_1" }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("returns multiple reasons in field order when several fields changed", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({
+          activationMetric: "m_act",
+          segment: "seg_new",
+          regressionAdjustmentEnabled: true,
+        }),
+        makeComparable(),
+      ),
+    ).toEqual([
+      "Activation metric changed",
+      "Segment changed",
+      "CUPED settings changed",
+    ]);
+  });
+
+  it("treats undefined vs null as equal for a string field", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ segment: undefined }),
+        makeComparable({ segment: null }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("treats null vs empty string as equal for a string field", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ queryFilter: null }),
+        makeComparable({ queryFilter: "" }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("treats undefined vs empty string as equal for a string field", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ activationMetric: undefined }),
+        makeComparable({ activationMetric: "" }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("treats undefined vs 'firstExposure' for attributionModel as equal", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ attributionModel: undefined }),
+        makeComparable({ attributionModel: "firstExposure" }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("treats null vs 'firstExposure' for attributionModel as equal", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ attributionModel: null }),
+        makeComparable({ attributionModel: "firstExposure" }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("flags 'firstExposure' vs 'experimentDuration' for attributionModel", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ attributionModel: "firstExposure" }),
+        makeComparable({ attributionModel: "experimentDuration" }),
+      ),
+    ).toEqual(["Attribution model changed"]);
+  });
+
+  it("treats startDate Date and ISO string for the same moment as equal", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({
+          startDate: "2024-01-01T00:00:00.000Z" as unknown as Date,
+        }),
+        makeComparable({ startDate: new Date("2024-01-01T00:00:00.000Z") }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("flags startDate when the moments differ", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({
+          startDate: "2024-02-01T00:00:00.000Z" as unknown as Date,
+        }),
+        makeComparable({ startDate: new Date("2024-01-01T00:00:00.000Z") }),
+      ),
+    ).toEqual(["Analysis start date changed"]);
+  });
+
+  it("treats both-absent startDate as equal", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ startDate: undefined }),
+        makeComparable({ startDate: undefined }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("flags queryFilter 'a' vs 'b' as changed", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ queryFilter: "a" }),
+        makeComparable({ queryFilter: "b" }),
+      ),
+    ).toEqual(["Query filter changed"]);
+  });
+
+  it("treats queryFilter 'a' vs 'a' as equal", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ queryFilter: "a" }),
+        makeComparable({ queryFilter: "a" }),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("overallResultsBuiltWithoutIncrementalPipeline", () => {
+  it("returns true when the latest overall snapshot differs from the materializer", () => {
+    expect(
+      overallResultsBuiltWithoutIncrementalPipeline({
+        unitsTableFullName: "proj.ds.gb_units_exp_1",
+        materializedBySnapshotId: "snp_old",
+        latestOverallSnapshotId: "snp_new",
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false when the latest overall snapshot built the units table", () => {
+    expect(
+      overallResultsBuiltWithoutIncrementalPipeline({
+        unitsTableFullName: "proj.ds.gb_units_exp_1",
+        materializedBySnapshotId: "snp_1",
+        latestOverallSnapshotId: "snp_1",
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when there is no units table", () => {
+    expect(
+      overallResultsBuiltWithoutIncrementalPipeline({
+        unitsTableFullName: null,
+        materializedBySnapshotId: "snp_old",
+        latestOverallSnapshotId: "snp_new",
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when materializedBySnapshotId is absent (legacy)", () => {
+    expect(
+      overallResultsBuiltWithoutIncrementalPipeline({
+        unitsTableFullName: "proj.ds.gb_units_exp_1",
+        materializedBySnapshotId: undefined,
+        latestOverallSnapshotId: "snp_new",
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when there is no latest overall snapshot id", () => {
+    expect(
+      overallResultsBuiltWithoutIncrementalPipeline({
+        unitsTableFullName: "proj.ds.gb_units_exp_1",
+        materializedBySnapshotId: "snp_old",
+        latestOverallSnapshotId: null,
+      }),
+    ).toBe(false);
   });
 });

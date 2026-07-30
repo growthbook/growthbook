@@ -1,9 +1,11 @@
 import mongoose, { FilterQuery } from "mongoose";
 import { evalCondition } from "@growthbook/growthbook";
 import { ExperimentMetricInterface } from "shared/experiments";
+import omit from "lodash/omit";
 import {
   InsertMetricProps,
   LegacyMetricInterface,
+  MetricDefinitionInterface,
   MetricInterface,
 } from "shared/types/metric";
 import { getConfigMetrics, usingFileConfig } from "back-end/src/init/config";
@@ -24,6 +26,10 @@ import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";
 import { addTagsDiff } from "./TagModel";
+import {
+  definitionsScope,
+  touchDefinitionsVersion,
+} from "./DefinitionsVersionModel";
 
 const audit = createModelAuditLogger({
   entity: "metric",
@@ -196,6 +202,10 @@ export async function insertMetric(
 
   const created = toInterface(await MetricModel.create(metricWithOrganization));
   await audit.logCreate(context, created);
+  await touchDefinitionsVersion(
+    context.org.id,
+    definitionsScope(created.projects),
+  );
   return created;
 }
 
@@ -232,6 +242,10 @@ export async function insertMetrics(
   for (const metric of created) {
     await audit.logAutocreate(context, metric);
   }
+  await touchDefinitionsVersion(
+    context.org.id,
+    definitionsScope(...created.map((m) => m.projects)),
+  );
   return created;
 }
 
@@ -271,6 +285,10 @@ export async function deleteMetricById(
   });
 
   await audit.logDelete(context, metric);
+  await touchDefinitionsVersion(
+    context.org.id,
+    definitionsScope(metric.projects),
+  );
 }
 
 /**
@@ -279,6 +297,20 @@ export async function deleteMetricById(
  * @param organization
  * @param user
  */
+export async function projectHasMetrics(
+  context: ReqContext | ApiReqContext,
+  projectId: string,
+): Promise<boolean> {
+  const metric = await getCollection(COLLECTION).findOne(
+    {
+      organization: context.org.id,
+      projects: [projectId],
+    },
+    { projection: { _id: 1 } },
+  );
+  return !!metric;
+}
+
 export async function deleteAllMetricsForAProject({
   projectId,
   context,
@@ -318,7 +350,8 @@ export async function getMetricMap(
 async function findMetrics(
   context: ReqContext | ApiReqContext,
   additionalQuery?: FilterQuery<LegacyMetricInterface>,
-) {
+  excludeFields?: readonly (keyof MetricInterface)[],
+): Promise<MetricInterface[]> {
   const metrics: MetricInterface[] = [];
   const metricIds = new Set<string>();
 
@@ -327,7 +360,9 @@ async function findMetrics(
     getConfigMetrics(context)
       .filter((m) => !additionalQuery || evalCondition(m, additionalQuery))
       .forEach((m) => {
-        metrics.push(m);
+        metrics.push(
+          excludeFields ? (omit(m, excludeFields) as MetricInterface) : m,
+        );
         metricIds.add(m.id);
       });
 
@@ -337,17 +372,20 @@ async function findMetrics(
     }
   }
 
+  // `analysis` is never needed when finding multiple metrics and can get
+  // quite large, so it's always excluded
+  const projection: Record<string, 0> = { analysis: 0 };
+  excludeFields?.forEach((f) => {
+    projection[f] = 0;
+  });
+
   const docs = await getCollection(COLLECTION)
     .find(
       {
         ...additionalQuery,
         organization: context.org.id,
       },
-      {
-        // This is never needed when finding multiple metrics
-        // This field can get quite large, so it's best to exclude it
-        projection: { analysis: 0 },
-      },
+      { projection },
     )
     .toArray();
   docs.forEach((doc) => {
@@ -368,14 +406,42 @@ export async function getMetricsByOrganization(
   options?: {
     datasourceId?: string;
     projectId?: string;
+    includeArchived?: boolean;
   },
 ) {
   const query: FilterQuery<LegacyMetricInterface> = {
     ...(options?.datasourceId && { datasource: options.datasourceId }),
     ...(options?.projectId && projectFilterQuery(options.projectId)),
+    ...(options?.includeArchived === false && {
+      status: { $ne: "archived" },
+    }),
   };
 
   return findMetrics(context, query);
+}
+
+// Exported for MetricModel.test.ts, which enforces that this stays a superset
+// of FIELDS_NOT_REQUIRING_DATE_UPDATED and METRIC_QUERY_STATUS_FIELDS — the
+// write paths that skip the definitions-version bump.
+export const METRIC_DEFINITION_EXCLUDED_FIELDS = [
+  "sql",
+  "templateVariables",
+  "conditions",
+  "queries",
+  "analysis",
+  "analysisError",
+  // Not part of the definitions payload; kept in sync with
+  // FIELDS_NOT_REQUIRING_DATE_UPDATED so skipping the definitions-version
+  // touch aligns with skipping dateUpdated.
+  "runStarted",
+] as const;
+
+// Slimmed version of getMetricsByOrganization for the definitions endpoint.
+// Heavy fields are excluded at the DB layer to keep the payload small.
+export async function getMetricsForDefinitions(
+  context: ReqContext | ApiReqContext,
+): Promise<MetricDefinitionInterface[]> {
+  return findMetrics(context, undefined, METRIC_DEFINITION_EXCLUDED_FIELDS);
 }
 
 export async function getMetricsByDatasource(
@@ -510,6 +576,7 @@ export async function removeProjectFromMetrics(
       $set: { dateUpdated: new Date() },
     },
   );
+  await touchDefinitionsVersion(organization);
 }
 
 export async function getMetricsUsingSegment(
@@ -526,7 +593,7 @@ const FILE_CONFIG_UPDATEABLE_FIELDS: (keyof MetricInterface)[] = [
   "runStarted",
 ];
 
-const FIELDS_NOT_REQUIRING_DATE_UPDATED: (keyof MetricInterface)[] = [
+export const FIELDS_NOT_REQUIRING_DATE_UPDATED: (keyof MetricInterface)[] = [
   "analysis",
   "analysisError",
   "queries",
@@ -550,9 +617,16 @@ function addDateUpdatedToUpdates(
   return updates;
 }
 
+// The fields updateMetricQueriesAndStatus may write. It skips the
+// definitions-version bump entirely, which is safe only while every field here
+// is excluded from the definitions payload (enforced by MetricModel.test.ts).
+export const METRIC_QUERY_STATUS_FIELDS = ["queries", "analysisError"] as const;
+
 export async function updateMetricQueriesAndStatus(
   metric: MetricInterface,
-  updates: Partial<Pick<MetricInterface, "queries" | "analysisError">>,
+  updates: Partial<
+    Pick<MetricInterface, (typeof METRIC_QUERY_STATUS_FIELDS)[number]>
+  >,
 ) {
   await MetricModel.updateOne(
     {
@@ -571,6 +645,11 @@ export async function updateMetric(
   updates: Partial<MetricInterface>,
 ) {
   updates = addDateUpdatedToUpdates(updates);
+
+  // dateUpdated is only stamped when a payload-relevant field changed, so use
+  // it to decide whether to bump the definitions version (avoids churning the
+  // cache when only queries/analysis/runStarted change — see updateMetricQueriesAndStatus).
+  const changedDefinitionFields = "dateUpdated" in updates;
 
   const safeUpdates = (Object.keys(updates) as (keyof MetricInterface)[]).every(
     (k) => FILE_CONFIG_UPDATEABLE_FIELDS.includes(k),
@@ -613,6 +692,13 @@ export async function updateMetric(
   await addTagsDiff(context.org.id, metric.tags || [], updates.tags || []);
 
   await audit.logUpdate(context, metric, { ...metric, ...updates });
+
+  if (changedDefinitionFields) {
+    await touchDefinitionsVersion(
+      context.org.id,
+      definitionsScope(metric.projects, updates.projects ?? metric.projects),
+    );
+  }
 }
 
 export async function removeSegmentFromAllMetrics(
@@ -626,6 +712,7 @@ export async function removeSegmentFromAllMetrics(
       $set: updates,
     },
   );
+  await touchDefinitionsVersion(organization);
 }
 
 export async function removeTagInMetrics(organization: string, tag: string) {
@@ -636,6 +723,7 @@ export async function removeTagInMetrics(organization: string, tag: string) {
       $pull: { tags: tag },
     },
   );
+  await touchDefinitionsVersion(organization);
 }
 
 export async function generateMetricEmbeddings(

@@ -411,6 +411,7 @@ function SafeRolloutMetricDrilldownModal({
 
   return (
     <Modal
+      useRadixButton={false}
       open={true}
       header={<MetricName metric={metric} officialBadgePosition="right" />}
       subHeader={
@@ -451,7 +452,9 @@ function SafeRolloutMetricDrilldownModal({
         goalMetrics={[]}
         secondaryMetrics={resultGroup === "secondary" ? signalMetricIds : []}
         statsEngine="frequentist"
-        localDifferenceType="relative"
+        // Safe rollout snapshots are always analyzed with an absolute
+        // differenceType, so the results must be rendered as absolute too.
+        localDifferenceType="absolute"
         preloadedTimeSeries={timeSeries}
         valueColumnWidth={170}
         labelMaxWidth={120}
@@ -535,7 +538,7 @@ export function MetricSection({
         metricDefaults,
         minSampleSize: getMinSampleSizeForMetric(row.metric),
         statsEngine: "frequentist",
-        differenceType: "relative",
+        differenceType: "absolute",
         ciUpper: 0.975,
         ciLower: 0.025,
         pValueThreshold: 0.05,

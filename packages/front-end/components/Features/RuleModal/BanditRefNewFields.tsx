@@ -1,12 +1,11 @@
 import { useFormContext } from "react-hook-form";
+import { useEffect } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   FeatureInterface,
   FeaturePrerequisite,
   SavedGroupTargeting,
 } from "shared/types/feature";
-import { useEffect } from "react";
-import { FaExclamationTriangle } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import { Box, Separator } from "@radix-ui/themes";
@@ -46,6 +45,10 @@ import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
+import RuleProjectScopeField, {
+  type ProjectScopeProps,
+} from "@/components/Features/RuleModal/ProjectScopeField";
+import Callout from "@/ui/Callout";
 
 export default function BanditRefNewFields({
   step,
@@ -73,6 +76,7 @@ export default function BanditRefNewFields({
   disableBanditConversionWindow,
   setDisableBanditConversionWindow,
   envScope,
+  projectScope,
   onRuleCyclicChange,
 }: {
   step: number;
@@ -99,6 +103,7 @@ export default function BanditRefNewFields({
   disableBanditConversionWindow: boolean;
   setDisableBanditConversionWindow: (v: boolean) => void;
   envScope?: EnvScopeProps;
+  projectScope?: ProjectScopeProps;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
@@ -108,20 +113,22 @@ export default function BanditRefNewFields({
     "regression-adjustment",
   );
 
-  const { datasources, getDatasourceById } = useDefinitions();
+  const { datasources, getDatasourceById, getExperimentMetricById } =
+    useDefinitions();
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
     : null;
 
   const exposureQueries = datasource?.settings?.queries?.exposure;
-  const exposureQueryId = form.getValues("exposureQueryId");
+  const exposureQueryId = form.watch("exposureQueryId");
 
   useEffect(() => {
-    if (!exposureQueries?.find((q) => q.id === exposureQueryId)) {
-      form.setValue("exposureQueryId", exposureQueries?.[0]?.id ?? "");
+    if (!exposureQueries?.length) return;
+    if (!exposureQueries.find((q) => q.id === exposureQueryId)) {
+      form.setValue("exposureQueryId", exposureQueries[0]?.id ?? "");
     }
-  }, [form, exposureQueries, exposureQueryId]);
+  }, [exposureQueries, exposureQueryId, form]);
 
   const attributeSchema = useAttributeSchema(false, project);
   const hasHashAttributes =
@@ -141,6 +148,7 @@ export default function BanditRefNewFields({
       {step === 0 ? (
         <>
           <Field
+            size="legacy"
             required={true}
             minLength={2}
             label="Bandit Name"
@@ -148,6 +156,7 @@ export default function BanditRefNewFields({
           />
 
           <Field
+            size="legacy"
             label="Tracking Key"
             {...form.register(`trackingKey`)}
             placeholder={feature?.id || ""}
@@ -155,6 +164,7 @@ export default function BanditRefNewFields({
           />
 
           <Field
+            size="legacy"
             label="Description"
             textarea
             minRows={1}
@@ -164,6 +174,7 @@ export default function BanditRefNewFields({
           />
 
           {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
+          {projectScope && <RuleProjectScopeField {...projectScope} mb="5" />}
         </>
       ) : null}
 
@@ -178,6 +189,7 @@ export default function BanditRefNewFields({
               variation to assign
             </Text>
             <SelectField
+              size="legacy"
               withRadixThemedPortal
               containerClassName="flex-1"
               options={attributeSchema
@@ -221,6 +233,7 @@ export default function BanditRefNewFields({
 
           <FeatureVariationsInput
             simple={true}
+            hideCoverage={false}
             label="Traffic Percent & Variations"
             defaultValue={feature ? getFeatureDefaultValue(feature) : undefined}
             valueType={feature?.valueType ?? "string"}
@@ -268,11 +281,10 @@ export default function BanditRefNewFields({
             onRuleCyclicChange={onRuleCyclicChange}
           />
           {isCyclic ? (
-            <div className="alert alert-danger">
-              <FaExclamationTriangle /> A prerequisite (
-              <code>{cyclicFeatureId}</code>) creates a circular dependency.
-              Remove this prerequisite to continue.
-            </div>
+            <Callout status="error" mt="3">
+              A prerequisite (<code>{cyclicFeatureId}</code>) creates a circular
+              dependency. Remove this prerequisite to continue.
+            </Callout>
           ) : null}
         </>
       ) : null}
@@ -281,12 +293,28 @@ export default function BanditRefNewFields({
         <>
           <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
             <SelectField
+              size="legacy"
               label="Data Source"
               labelClassName="font-weight-bold"
               value={form.watch("datasource") ?? ""}
-              onChange={(newDatasource) =>
-                form.setValue("datasource", newDatasource)
-              }
+              onChange={(newDatasource) => {
+                form.setValue("datasource", newDatasource);
+                if (!newDatasource) {
+                  form.setValue("goalMetrics", []);
+                  return;
+                }
+                const isValidMetric = (id: string) =>
+                  getExperimentMetricById(id)?.datasource === newDatasource;
+                const goalMetrics = (form.watch("goalMetrics") ?? []).filter(
+                  isValidMetric,
+                );
+                if (
+                  goalMetrics.length !==
+                  (form.watch("goalMetrics") ?? []).length
+                ) {
+                  form.setValue("goalMetrics", goalMetrics);
+                }
+              }}
               options={datasources.map((d) => {
                 const isDefaultDataSource = d.id === settings.defaultDataSource;
                 return {
@@ -301,6 +329,7 @@ export default function BanditRefNewFields({
 
             {datasource?.properties?.exposureQueries && exposureQueries ? (
               <SelectField
+                size="legacy"
                 label={
                   <>
                     Experiment Assignment Table{" "}
@@ -311,14 +340,14 @@ export default function BanditRefNewFields({
                 value={form.watch("exposureQueryId") ?? ""}
                 onChange={(v) => form.setValue("exposureQueryId", v)}
                 required
-                options={exposureQueries?.map((q) => {
+                options={exposureQueries.map((q) => {
                   return {
                     label: q.name,
                     value: q.id,
                   };
                 })}
                 formatOptionLabel={({ label, value }) => {
-                  const userIdType = exposureQueries?.find(
+                  const userIdType = exposureQueries.find(
                     (e) => e.id === value,
                   )?.userIdType;
                   return (
@@ -346,7 +375,7 @@ export default function BanditRefNewFields({
           {settings?.useStickyBucketing && (
             <Switch
               label="Disable Sticky Bucketing"
-              description={`Permit users in low-performing variations to switch variations in future update periods.`}
+              description="Permit users in low-performing variations to switch variations in future update periods."
               value={!!form.watch("disableStickyBucketing")}
               onChange={(v) => {
                 form.setValue("disableStickyBucketing", v);
@@ -421,6 +450,7 @@ export default function BanditRefNewFields({
               />
 
               <SelectField
+                size="legacy"
                 className="mb-4"
                 label={
                   <PremiumTooltip commercialFeature="regression-adjustment">

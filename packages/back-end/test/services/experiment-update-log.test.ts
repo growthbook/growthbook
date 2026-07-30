@@ -11,11 +11,11 @@ describe("ExperimentUpdateExecutionLogger", () => {
   });
 
   const plan = {
-    runnerKind: "incremental" as const,
+    runnerKind: "incremental-full" as const,
     useCache: false,
     fullRefresh: true,
     fullRefreshReason:
-      "No prior incremental refresh state for this experiment.",
+      "No prior Incremental Pipeline state for this experiment.",
     incrementalFallbackReason: null,
   };
 

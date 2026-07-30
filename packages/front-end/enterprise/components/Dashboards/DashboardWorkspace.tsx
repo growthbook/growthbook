@@ -6,10 +6,15 @@ import {
   DashboardBlockInterface,
   DashboardBlockType,
   CREATE_BLOCK_TYPE,
-  dashboardBlockHasIds,
   getBlockData,
   getInitialConfigByBlockType,
   DASHBOARD_GRID_COLS,
+  isDashboardGlobalControlSupportedBlock,
+  autoEnrollDashboardBlocksInDateControl,
+  blockUsesDashboardDateControl,
+  getEffectiveExplorationConfig,
+  resolveBlockComparison,
+  resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
 import { LayoutItem } from "react-grid-layout";
 import { Container, Flex, IconButton, Text } from "@radix-ui/themes";
@@ -28,9 +33,11 @@ import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { useExploreData } from "@/enterprise/components/ProductAnalytics/useExploreData";
 import DashboardEditor, {
   DASHBOARD_TOPBAR_HEIGHT,
   GENERAL_DASHBOARD_BLOCK_TYPES,
+  getGridKeyForBlock,
   isBlockTypeAllowed,
 } from "./DashboardEditor";
 import { SubmitDashboard, UpdateDashboardArgs } from "./DashboardsTab";
@@ -53,6 +60,7 @@ interface Props {
   onConsumeInitialEditBlockIndex?: () => void;
   updateTemporaryDashboard?: (update: {
     blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+    globalControls?: DashboardInterface["globalControls"];
   }) => void;
 }
 export default function DashboardWorkspace({
@@ -83,8 +91,10 @@ export default function DashboardWorkspace({
   useEffect(() => {
     if (dashboard) {
       setBlocks(dashboard.blocks);
+      setGlobalControls(dashboard.globalControls);
     } else {
       setBlocks([]);
+      setGlobalControls(undefined);
     }
   }, [dashboard]);
   const { metricGroups, datasources } = useDefinitions();
@@ -117,6 +127,44 @@ export default function DashboardWorkspace({
   const [blocks, setBlocks] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
   >(dashboard.blocks);
+  const [globalControls, setGlobalControls] = useState<
+    DashboardInterface["globalControls"]
+  >(dashboard.globalControls);
+  const { fetchData: fetchExplorationData } = useExploreData();
+  const updateTemporaryDashboardResults = async (
+    controls: DashboardInterface["globalControls"] = globalControls,
+    blocksToRefresh: DashboardBlockInterfaceOrData<DashboardBlockInterface>[] = blocks,
+  ) => {
+    const nextBlocks = await Promise.all(
+      blocksToRefresh.map(async (block) => {
+        if (!blockUsesDashboardDateControl(block)) return block;
+
+        const config = getEffectiveExplorationConfig(block, {
+          globalControls: controls,
+        });
+        const comparison = resolveBlockComparison(block, dashboard);
+        const result = await fetchExplorationData(config, {
+          cache: "never",
+          previousTimeFrame: comparison
+            ? resolveComparisonPreviousTimeFrame(config.dateRange, comparison)
+            : null,
+        });
+        if (!result.data) {
+          throw new Error(result.error ?? "Failed to update dashboard block");
+        }
+
+        return {
+          ...block,
+          explorerAnalysisId: result.data.id,
+          comparisonExplorerAnalysisId:
+            result.comparison?.exploration?.id ?? undefined,
+        };
+      }),
+    );
+
+    setBlocks(nextBlocks);
+    updateTemporaryDashboard?.({ blocks: nextBlocks });
+  };
   const setBlocksAndSubmit = useMemo(() => {
     return async (
       blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
@@ -146,6 +194,47 @@ export default function DashboardWorkspace({
     submit,
     dashboard.id,
     dashboardFirstSave,
+    updateTemporaryDashboard,
+  ]);
+
+  const setGlobalControlsAndSubmit = useMemo(() => {
+    return async (
+      globalControls: DashboardInterface["globalControls"],
+      controlBlocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+    ) => {
+      const nextControlBlocks =
+        controlBlocks ??
+        (globalControls?.dateRange
+          ? autoEnrollDashboardBlocksInDateControl(blocks)
+          : undefined);
+      setHasMadeChanges(true);
+      setGlobalControls(globalControls);
+      if (nextControlBlocks) {
+        setBlocks(nextControlBlocks);
+      }
+
+      if (dashboardFirstSave) {
+        updateTemporaryDashboard?.({
+          ...(nextControlBlocks ? { blocks: nextControlBlocks } : {}),
+          globalControls,
+        });
+      } else {
+        await submit({
+          method: "PUT",
+          dashboardId: dashboard.id,
+          data: {
+            ...(nextControlBlocks ? { blocks: nextControlBlocks } : {}),
+            globalControls,
+          },
+        });
+      }
+    };
+  }, [
+    dashboard.id,
+    dashboardFirstSave,
+    blocks,
+    setBlocks,
+    submit,
     updateTemporaryDashboard,
   ]);
 
@@ -188,6 +277,16 @@ export default function DashboardWorkspace({
     DashboardBlockInterfaceOrData<DashboardBlockInterface> | undefined
   >(undefined);
 
+  useEffect(() => {
+    if (!globalControls?.dateRange) return;
+    setStagedAddBlock((block) =>
+      block ? autoEnrollDashboardBlocksInDateControl([block])[0] : block,
+    );
+    setStagedEditBlock((block) =>
+      block ? autoEnrollDashboardBlocksInDateControl([block])[0] : block,
+    );
+  }, [globalControls?.dateRange]);
+
   // Whenever a block becomes staged (via add, duplicate, or edit), make sure
   // the editing drawer is open so the user can actually configure/save it.
   // Without this, paths like duplicateBlock - which only set addBlockIndex +
@@ -227,7 +326,8 @@ export default function DashboardWorkspace({
     const isExplorationBlock =
       bType === "metric-exploration" ||
       bType === "fact-table-exploration" ||
-      bType === "data-source-exploration";
+      bType === "data-source-exploration" ||
+      bType === "funnel-exploration";
     // TypeScript can't correlate block type with its config in a discriminated union
     const createBlock = CREATE_BLOCK_TYPE[bType] as (args: {
       experiment: ExperimentInterfaceStringDates;
@@ -244,7 +344,17 @@ export default function DashboardWorkspace({
         : undefined,
     });
 
-    setStagedAddBlock(blockData);
+    setStagedAddBlock(
+      isDashboardGlobalControlSupportedBlock(blockData)
+        ? {
+            ...blockData,
+            globalControlSettings: {
+              ...blockData.globalControlSettings,
+              dateRange: true,
+            },
+          }
+        : blockData,
+    );
     setAddBlockIndex(index);
     setEditSidebarDirty(true);
   };
@@ -442,6 +552,8 @@ export default function DashboardWorkspace({
               }
               title={dashboard.title}
               blocks={effectiveBlocks}
+              globalControlBlocks={blocks}
+              globalControls={globalControls}
               isEditing={true}
               isGeneralDashboard={isGeneralDashboard}
               enableAutoUpdates={dashboard.enableAutoUpdates}
@@ -474,9 +586,8 @@ export default function DashboardWorkspace({
                     return;
                   const byId = new Map(layouts.map((l) => [l.i, l] as const));
                   let changed = false;
-                  const next = blocks.map((b) => {
-                    if (!dashboardBlockHasIds(b)) return b;
-                    const l = byId.get(b.id);
+                  const next = blocks.map((b, index) => {
+                    const l = byId.get(getGridKeyForBlock(b, index));
                     if (!l) return b;
                     const w = Math.min(l.w, DASHBOARD_GRID_COLS);
                     const h = Math.max(1, l.h);
@@ -509,6 +620,10 @@ export default function DashboardWorkspace({
                 deleteBlock: deleteBlock,
               }}
               mutate={mutate}
+              onGlobalControlsChange={setGlobalControlsAndSubmit}
+              updateTemporaryDashboardResults={
+                dashboardFirstSave ? updateTemporaryDashboardResults : undefined
+              }
             />
           </div>
           <Flex
@@ -554,6 +669,7 @@ export default function DashboardWorkspace({
               experiment={experiment}
               projects={dashboard.projects || []}
               isGeneralDashboard={isGeneralDashboard}
+              dashboardGlobalControls={globalControls}
               open={editSidebarExpanded}
               cancel={clearEditingState}
               submit={() => {

@@ -61,7 +61,11 @@ export default {
             "features/rules", // Rules (overview, choosing a rule type, all rule types)
             "features/targeting", // Targeting Conditions (attributes, conditions, saved groups)
             "features/safe-rollouts", // Safe Rollouts
+            "features/ramp-schedules", // Ramp Schedules
             "features/prerequisites", // Prerequisite Features
+            "features/constants", // Constants (reusable referenced values)
+            "features/configs", // Configs (typed, validated, composable shapes)
+            "features/feature-flag-experiments", // Feature Flag Experiments (experiment rule type)
           ],
         },
         {
@@ -71,7 +75,7 @@ export default {
           collapsed: false,
           items: [
             "features/publishing-and-approval-flows", // Publishing & Approval Flows (NEW)
-            "features/saved-group-revisions-api", // Saved Group Revisions API (BETA)
+            "features/saved-group-revisions-api", // Saved Group Revisions API
             "features/json-schema-validation", // JSON Schema Validation
             "features/stale-detection", // Stale Feature Detection
             "features/code-references", // Code References
@@ -322,113 +326,153 @@ export default {
       },
       items: [
         {
-          type: "doc",
-          id: "feature-flag-experiments",
-          label: "Feature Flag Experiments",
-        },
-        {
-          type: "doc",
-          id: "visual-editor",
-          label: "Visual Editor",
-        },
-        {
-          type: "doc",
-          id: "running-experiments/url-redirects",
-          label: "URL Redirects",
-        },
-
-        {
-          type: "doc",
-          id: "experimentation-analysis/experiment-configuration",
-          label: "Experiment Settings",
-        },
-
-        {
-          type: "doc",
-          id: "running-experiments/experiment-templates",
-          label: "Experiment Templates",
-        },
-
-        {
-          type: "doc",
-          id: "experimentation-analysis/experiment-results",
-          label: "Experiment Results",
-        },
-        {
-          type: "doc",
-          id: "experimentation-analysis/experiment-time-series",
-          label: "Experiment Time Series",
-        },
-        {
-          type: "doc",
-          id: "experimentation-analysis/decision-framework",
-          label: "Experiment Decision Framework",
-        },
-        {
-          type: "doc",
-          id: "running-experiments/making-changes",
-          label: "Make Changes to Experiments",
-        },
-        {
           type: "category",
-          label: "Bandits",
-          collapsed: true,
+          label: "Creating Experiments",
+          collapsible: true,
+          collapsed: false,
           items: [
             {
               type: "doc",
-              id: "bandits/overview",
-              label: "Overview",
+              id: "experimentation-analysis/experiment-configuration",
+              label: "Experiment Configuration",
             },
             {
               type: "doc",
-              id: "bandits/config",
-              label: "Configuring Bandits",
+              id: "running-experiments/experiment-templates",
+              label: "Experiment Templates",
             },
             {
               type: "doc",
-              id: "bandits/results",
-              label: "Understanding Results",
+              id: "running-experiments/pre-launch-checklist",
+              label: "Pre-Launch Checklists",
+            },
+            {
+              type: "doc",
+              id: "statistics/power",
+              label: "Power Analysis",
+            },
+            {
+              type: "doc",
+              id: "importing-experiments",
+              label: "Importing External Experiments",
             },
           ],
         },
         {
-          type: "doc",
-          id: "running-experiments/running-holdouts",
-          label: "Holdouts",
-        },
-        {
-          type: "doc",
-          id: "sticky-bucketing",
-          label: "Sticky Bucketing",
-        },
-        {
-          type: "doc",
-          id: "experimentation-analysis/cluster-experiments",
-          label: "Cluster Experiments",
-        },
-        {
-          type: "doc",
-          id: "experimentation-analysis/dimensions",
-          label: "Dimensions",
-        },
-        {
-          type: "doc",
-          id: "running-experiments/pre-launch-checklist",
-          label: "Pre-Launch Checklists",
-        },
-        {
-          type: "doc",
-          id: "experimentation-analysis/experiment-dashboards",
-          label: "Experiment Dashboards",
-        },
-        {
-          type: "doc",
-          id: "importing-experiments",
-          label: "Importing External Experiments",
+          type: "category",
+          label: "Delivery Methods",
+          collapsible: true,
+          collapsed: false,
+          items: [
+            {
+              type: "doc",
+              id: "features/feature-flag-experiments",
+              label: "Feature Flags",
+            },
+            {
+              type: "category",
+              label: "Visual Editor",
+              className: "beta",
+              link: {
+                type: "doc",
+                id: "visual-editor",
+              },
+              items: [
+                {
+                  type: "doc",
+                  id: "visual-editor/install-and-connect",
+                  label: "Install and connect",
+                },
+                {
+                  type: "doc",
+                  id: "visual-editor/ai-mode",
+                  label: "AI mode",
+                },
+                {
+                  type: "doc",
+                  id: "visual-editor/manual-mode",
+                  label: "Manual mode",
+                },
+                {
+                  type: "doc",
+                  id: "visual-editor/images",
+                  label: "Images",
+                },
+                {
+                  type: "doc",
+                  id: "visual-editor/design-import",
+                  label: "Figma & image import",
+                },
+                {
+                  type: "doc",
+                  id: "visual-editor/running-on-your-site",
+                  label: "Running on your site",
+                },
+                {
+                  type: "doc",
+                  id: "visual-editor/preview-and-qa",
+                  label: "Preview and QA",
+                },
+                {
+                  type: "doc",
+                  id: "visual-editor/troubleshooting",
+                  label: "Troubleshooting",
+                },
+                {
+                  type: "doc",
+                  id: "visual-editor/legacy",
+                  label: "Legacy (in-page) editor",
+                },
+              ],
+            },
+            {
+              type: "doc",
+              id: "running-experiments/url-redirects",
+              label: "URL Redirects",
+            },
+          ],
         },
         {
           type: "category",
-          label: "Statistics",
+          label: "Analysis & Decisions",
+          collapsible: true,
+          collapsed: false,
+          items: [
+            {
+              type: "doc",
+              id: "running-experiments/making-changes",
+              label: "Make Changes to Experiments",
+            },
+            {
+              type: "doc",
+              id: "experimentation-analysis/experiment-results",
+              label: "Experiment Results",
+            },
+            {
+              type: "doc",
+              id: "experimentation-analysis/experiment-time-series",
+              label: "Experiment Time Series",
+            },
+            {
+              type: "doc",
+              id: "experimentation-analysis/decision-framework",
+              label: "Experiment Decision Framework",
+            },
+            {
+              type: "doc",
+              id: "experimentation-analysis/experiment-dashboards",
+              label: "Experiment Dashboards",
+            },
+            {
+              type: "doc",
+              id: "experimentation-analysis/dimensions",
+              label: "Dimensions",
+            },
+          ],
+        },
+        {
+          type: "category",
+          label: "Advanced & Statistics",
           collapsed: true,
           items: [
             {
@@ -468,10 +512,64 @@ export default {
             },
             {
               type: "doc",
-              id: "statistics/power",
-              label: "Power Analysis",
+              id: "sticky-bucketing",
+              label: "Sticky Bucketing",
+            },
+            {
+              type: "doc",
+              id: "experimentation-analysis/cluster-experiments",
+              label: "Cluster Experiments",
             },
           ],
+        },
+        {
+          type: "category",
+          label: "Bandits",
+          collapsed: true,
+          items: [
+            {
+              type: "doc",
+              id: "bandits/overview",
+              label: "Overview",
+            },
+            {
+              type: "doc",
+              id: "bandits/config",
+              label: "Configuring Bandits",
+            },
+            {
+              type: "doc",
+              id: "bandits/results",
+              label: "Understanding Results",
+            },
+          ],
+        },
+        // {
+        //   type: "category",
+        //   label: "Contextual Bandits",
+        //   collapsed: true,
+        //   items: [
+        //     {
+        //       type: "doc",
+        //       id: "contextual-bandits/overview",
+        //       label: "Overview",
+        //     },
+        //     {
+        //       type: "doc",
+        //       id: "contextual-bandits/config",
+        //       label: "Setting up a Contextual Bandit",
+        //     },
+        //     {
+        //       type: "doc",
+        //       id: "contextual-bandits/contextual-bandit-via-api",
+        //       label: "Driving a Contextual Bandit via API",
+        //     },
+        //   ],
+        // },
+        {
+          type: "doc",
+          id: "running-experiments/running-holdouts",
+          label: "Holdouts",
         },
       ],
     },
@@ -846,6 +944,11 @@ export default {
           type: "doc",
           id: "kb/glossary",
           label: "Glossary",
+        },
+        {
+          type: "doc",
+          id: "command-palette",
+          label: "Command Palette",
         },
       ],
     },

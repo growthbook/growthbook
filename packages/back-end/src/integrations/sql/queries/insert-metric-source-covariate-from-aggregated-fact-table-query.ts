@@ -1,7 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
 import { format } from "shared/sql";
 import { isRatioMetric } from "shared/experiments";
-import type { DataSourceInterface } from "shared/types/datasource";
 import type { ExperimentMetricInterface } from "shared/experiments";
 import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import type { FactMetricInterface } from "shared/types/fact-table";
@@ -12,7 +11,6 @@ import type {
 import type { SqlDialect } from "shared/types/sql";
 
 import { snapToUtcDayStart } from "shared/dates";
-import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { parseExperimentFactMetricsParams } from "back-end/src/integrations/sql/fact-metrics/parse-experiment-fact-metrics-params";
 import { getMetricSourceCovariateTableColumns } from "back-end/src/integrations/sql/fact-metrics/metric-source-covariate-table-schema";
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
@@ -26,16 +24,10 @@ import { toDateLiteral } from "back-end/src/integrations/sql/primitives/to-date-
 // resolveCovariateInsertPath.
 export function getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
   dialect: SqlDialect,
-  datasource: DataSourceInterface,
   params: InsertMetricSourceCovariateFromAggregatedFactTableQueryParams,
 ): string {
-  const exposureQuery = getExposureQuery(
-    datasource,
-    params.settings.exposureQueryId || "",
-    undefined,
-  );
   // Aggregated table is keyed on the exposure id type, so no identity join.
-  const baseIdType = exposureQuery.userIdType;
+  const baseIdType = params.exposureQuery.userIdType;
 
   // Capping is applied later in the statistics query.
   const sortedMetrics = cloneDeep(params.metrics)
