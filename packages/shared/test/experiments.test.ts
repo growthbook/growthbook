@@ -694,6 +694,30 @@ describe("Experiments", () => {
             );
           }
         });
+        it("pads minute-precision values to whole seconds", () => {
+          // DateFilterInput stores `yyyy-MM-dd'T'HH:mm` for the ordering
+          // operators. ClickHouse rejects a seconds-less DateTime literal.
+          const operators = [">", "<", ">=", "<=", "!="] as const;
+          for (const operator of operators) {
+            expect(
+              getRowFilterSQL({
+                factTable,
+                rowFilter: {
+                  column: dateColumn.column,
+                  operator,
+                  values: ["2024-01-01T17:00"],
+                },
+                escapeStringLiteral,
+                jsonExtract,
+                evalBoolean,
+                stringMatch,
+                castToTimestamp,
+              }),
+            ).toStrictEqual(
+              `(CAST(${dateColumn.column} AS TIMESTAMP) ${operator} CAST('2024-01-01 17:00:00' AS TIMESTAMP))`,
+            );
+          }
+        });
         it("compares date-only values against the start of the day for < and >=", () => {
           const call = (operator: "<" | ">=") =>
             getRowFilterSQL({

@@ -670,14 +670,24 @@ export function getColumnRefWhereClause({
  * `2024-01-01 17:00:00`. Date-only values (`2024-01-01`) and manually-typed
  * `2024-01-01 09:00:00` values pass through unchanged. The value is already
  * UTC — this only adjusts the text, it does not shift the instant.
+ *
+ * Minute-precision values are padded to whole seconds. `DateFilterInput` stores
+ * `yyyy-MM-dd'T'HH:mm` (the native `datetime-local` shape), and strict dialects
+ * reject that as a timestamp literal — ClickHouse fails the whole query with
+ * "Cannot parse time component of DateTime 12:11". Seconds are the only missing
+ * piece, so supply them rather than making callers store a wider format.
  */
 export function normalizeRowFilterDateValue(value: string): string {
-  return value
+  const normalized = value
     .trim()
     .replace("T", " ")
     .replace(/\.\d+/, "")
     .replace(/Z$/, "")
     .trim();
+
+  // Only pads `YYYY-MM-DD HH:MM`; a date-only value stays date-only so the
+  // calendar-day handling in getRowFilterSQL keeps treating it as a whole day.
+  return normalized.replace(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2})$/, "$1:00");
 }
 
 /**
