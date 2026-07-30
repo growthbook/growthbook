@@ -616,11 +616,13 @@ export default function FactTablePage() {
             <Text as="div" mb="2" color="text-mid">
               Virtual Columns let you define computed columns from your existing
               fact table columns — arithmetic on numbers, concatenation on
-              strings, date math, or any SQL expression. Once created, a virtual
-              column works like any other column: use it in metrics, row
-              filters, and slices. The expression is added to the generated SQL
-              for you, so there&apos;s no need to edit the fact table&apos;s SQL
-              query.
+              strings, date math, or any expression that can be computed from a
+              single row. Once created, a virtual column can be used in Fact
+              Metrics, row filters, and slices. The expression is added to the
+              generated SQL for you, so there&apos;s no need to edit the fact
+              table&apos;s SQL query. Aggregates such as <code>SUM()</code> are
+              not supported here — aggregate in the fact table&apos;s SQL query,
+              or choose an aggregation on the Fact Metric.
             </Text>
             <div className="appbox p-3 flex-1">
               <VirtualColumnList factTable={factTable} />

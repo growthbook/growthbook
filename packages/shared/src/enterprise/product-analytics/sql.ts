@@ -537,7 +537,16 @@ function getEventValueExpr(
   let rawValue: string;
   if (columnRef.column === "$$distinctUsers") {
     if (columnRef.aggregateFilter && columnRef.aggregateFilterColumn) {
-      rawValue = columnRef.aggregateFilterColumn;
+      // Same expansion as an ordinary value column below, so a virtual column
+      // inlines its expression instead of emitting a name the warehouse cannot
+      // resolve. A plain column returns its own name, as before.
+      rawValue = getColumnExpression(
+        columnRef.aggregateFilterColumn,
+        factTable,
+        helpers.jsonExtract,
+        "",
+        helpers.identifierQuote,
+      );
     } else {
       rawValue = "1";
     }
