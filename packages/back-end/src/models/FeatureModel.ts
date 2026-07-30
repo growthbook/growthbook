@@ -2113,20 +2113,20 @@ export async function planHoldoutExperimentLinkage(
       context,
       feature,
       prevHoldoutId,
-      [],
-      feature.rules ?? [],
+      {
+        mode: "withdraw",
+        previousRules: feature.rules ?? [],
+      },
     );
     if (leaving) plans.push(leaving);
   }
 
   if (holdoutId) {
-    const joining = await planLinkageForHoldout(
-      context,
-      feature,
-      holdoutId,
+    const joining = await planLinkageForHoldout(context, feature, holdoutId, {
+      mode: "reconcile",
       publishedRules,
-      feature.rules ?? [],
-    );
+      previousRules: feature.rules ?? [],
+    });
     if (joining) plans.push(joining);
   }
 
@@ -2137,30 +2137,49 @@ async function planLinkageForHoldout(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   holdoutId: string,
-  publishedRules: FeatureRule[],
-  // Bounds what this feature may withdraw.
-  previousRules: FeatureRule[],
+  // `previousRules` bounds what this feature may withdraw; `withdraw` publishes
+  // no rules under this holdout, so everything it contributed is a candidate.
+  args:
+    | {
+        mode: "reconcile";
+        publishedRules: FeatureRule[];
+        previousRules: FeatureRule[];
+      }
+    | { mode: "withdraw"; previousRules: FeatureRule[] },
 ): Promise<HoldoutExperimentLinkagePlan | null> {
   const holdout = await context.models.holdout.getByIdForLinkage(holdoutId);
   if (!holdout) return null;
 
-  // Only other features' LIVE rules count: an unpublished draft elsewhere has no
-  // linkage of its own to protect, which is what keeps this decidable.
-  const otherFeatureIds = Object.keys(holdout.linkedFeatures).filter(
-    (id) => id !== feature.id,
-  );
-  const otherFeatures = await getFeaturesByIds(context, otherFeatureIds);
-  const experimentIdsReferencedElsewhere = otherFeatures
-    .filter((f) => f.holdout?.id === holdoutId)
-    .flatMap((f) => getExperimentIdsFromRules(f.rules ?? []));
+  const publishedRules = args.mode === "reconcile" ? args.publishedRules : [];
+  const linkedExperimentIds = Object.keys(holdout.linkedExperiments);
+  const delta = (experimentIdsReferencedElsewhere: string[]) =>
+    computeHoldoutExperimentLinkageDelta({
+      publishedRules,
+      previousRules: args.previousRules,
+      linkedExperimentIds,
+      experimentIdsReferencedElsewhere,
+    });
 
-  const { toLink, toUnlink } = computeHoldoutExperimentLinkageDelta({
-    publishedRules,
-    previousRules,
-    linkedExperimentIds: Object.keys(holdout.linkedExperiments),
-    experimentIdsReferencedElsewhere,
-  });
-  if (!toLink.length && !toUnlink.length) return null;
+  // Costed before the fan-out below: a holdout can hold a lot of features, and
+  // only a withdrawal needs to know what they reference.
+  const { toLink, toUnlink: candidates } = delta([]);
+  if (!toLink.length && !candidates.length) return null;
+
+  let toUnlink = candidates;
+  if (candidates.length) {
+    // Only other features' LIVE rules count: an unpublished draft elsewhere has
+    // no linkage of its own to protect, which is what keeps this decidable.
+    const otherFeatures = await getFeaturesByIds(
+      context,
+      Object.keys(holdout.linkedFeatures).filter((id) => id !== feature.id),
+    );
+    toUnlink = delta(
+      otherFeatures
+        .filter((f) => f.holdout?.id === holdoutId)
+        .flatMap((f) => getExperimentIdsFromRules(f.rules ?? [])),
+    ).toUnlink;
+    if (!toLink.length && !toUnlink.length) return null;
+  }
 
   const prevExperimentHoldoutIds: Record<string, string> = {};
   await Promise.all(
