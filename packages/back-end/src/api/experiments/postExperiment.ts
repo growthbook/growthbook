@@ -1,6 +1,5 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
-  ExperimentInterface,
   ExperimentInterfaceExcludingHoldouts,
   ExperimentTemplateInterface,
   postExperimentValidator,
@@ -14,11 +13,10 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   postExperimentApiPayloadToInterface,
   toExperimentApiInterface,
-  validateStatusUpdateSchedule,
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
-import { validateScheduledStopPlan } from "back-end/src/services/experimentScheduling";
+import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import {
@@ -279,13 +277,6 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       );
     }
 
-    if (payload.statusUpdateSchedule) {
-      validateStatusUpdateSchedule(
-        payload.type ?? "standard",
-        payload.statusUpdateSchedule,
-      );
-    }
-
     // Opt-in attribute registration check (org-level setting). Applies to the
     // experiment's hashAttribute/fallbackAttribute and every phase's condition.
     assertRegisteredAttributes(
@@ -318,19 +309,20 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       datasource,
     );
 
-    const newScheduledStopPlan =
-      newExperiment.statusUpdateSchedule?.scheduledStopPlan;
-    if (newScheduledStopPlan) {
-      const hasScheduledEnd = !!(
-        newExperiment.statusUpdateSchedule?.stopAt ||
-        newExperiment.statusUpdateSchedule?.stopAfter
-      );
-      validateScheduledStopPlan(
-        req.context,
-        newExperiment as ExperimentInterface,
-        newScheduledStopPlan,
-        hasScheduledEnd,
-      );
+    // Same validation as PUT /schedule; existingSchedule is null on create.
+    if (payload.statusUpdateSchedule) {
+      validateScheduleUpdate({
+        context: req.context,
+        experimentType: payload.type ?? "standard",
+        status: newExperiment.status,
+        archived: !!newExperiment.archived,
+        phaseStart:
+          newExperiment.phases[newExperiment.phases.length - 1]?.dateStarted,
+        existingSchedule: null,
+        variations: newExperiment.variations,
+        goalMetrics: newExperiment.goalMetrics,
+        incoming: payload.statusUpdateSchedule,
+      });
     }
 
     const experiment = await createExperiment({

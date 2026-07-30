@@ -65,10 +65,9 @@ import {
   validateVariationIds,
   validateExperimentData,
   fillEmptyVariationKeys,
-  validateStatusUpdateSchedule,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
-import { validateScheduledStopPlan } from "back-end/src/services/experimentScheduling";
+import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
 import {
   approveScheduledExperimentStart,
   startExperiment,
@@ -1792,15 +1791,6 @@ export async function postExperiment(
     }
   }
 
-  if (data.statusUpdateSchedule) {
-    const effectiveType = data.type ?? experiment.type ?? "standard";
-    validateStatusUpdateSchedule(
-      effectiveType,
-      data.statusUpdateSchedule,
-      experiment,
-    );
-  }
-
   const keys: (keyof ExperimentInterface)[] = [
     "trackingKey",
     "owner",
@@ -1899,22 +1889,20 @@ export async function postExperiment(
 
   normalizeStatusUpdateScheduleChanges(experiment, changes);
 
-  const changedScheduledStopPlan =
-    changes.statusUpdateSchedule?.scheduledStopPlan;
-  if (changedScheduledStopPlan) {
-    const effectiveSchedule =
-      "statusUpdateSchedule" in changes
-        ? changes.statusUpdateSchedule
-        : experiment.statusUpdateSchedule;
-    const hasScheduledEnd = !!(
-      effectiveSchedule?.stopAt || effectiveSchedule?.stopAfter
-    );
-    validateScheduledStopPlan(
+  // Same validation as PUT /schedule, against the stored schedule and the
+  // post-update variations/metrics.
+  if (data.statusUpdateSchedule) {
+    validateScheduleUpdate({
       context,
-      { ...experiment, ...changes },
-      changedScheduledStopPlan,
-      hasScheduledEnd,
-    );
+      experimentType: data.type ?? experiment.type ?? "standard",
+      status: experiment.status,
+      archived: !!experiment.archived,
+      phaseStart: experiment.phases[experiment.phases.length - 1]?.dateStarted,
+      existingSchedule: experiment.statusUpdateSchedule,
+      variations: changes.variations ?? experiment.variations,
+      goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
+      incoming: data.statusUpdateSchedule,
+    });
   }
 
   // Coerce lookbackOverride date value when type is "date"

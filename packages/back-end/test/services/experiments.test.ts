@@ -8,6 +8,11 @@ import {
 import { DataSourceInterface } from "shared/types/datasource";
 import { ExperimentInterface, Variation } from "shared/types/experiment";
 import { OrganizationInterface } from "shared/types/organization";
+import { Context } from "back-end/src/models/BaseModel";
+import {
+  ScheduleUpdateInput,
+  validateScheduleUpdate,
+} from "back-end/src/services/experimentScheduling";
 import {
   applyVariationWeightsToLatestPhase,
   fillEmptyVariationKeys,
@@ -18,7 +23,6 @@ import {
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
   updateExperimentApiPayloadToInterface,
-  validateStatusUpdateSchedule,
   validateVariationIds,
 } from "back-end/src/services/experiments";
 
@@ -1980,141 +1984,152 @@ describe("fillEmptyVariationKeys", () => {
   });
 });
 
-describe("validateStatusUpdateSchedule", () => {
-  const makeExisting = (opts: {
-    schedule?: { startAt?: string; stopAt?: string };
+describe("validateScheduleUpdate", () => {
+  // The stop-plan branch (which dereferences context) is never hit by these
+  // date-focused cases, so a bare context is safe.
+  const context = {} as Context;
+
+  const run = (opts: {
+    experimentType?: ExperimentInterface["type"];
     status?: ExperimentInterface["status"];
+    archived?: boolean;
     phaseStart?: Date;
-  }): Pick<
-    ExperimentInterface,
-    "statusUpdateSchedule" | "status" | "phases"
-  > => ({
-    statusUpdateSchedule: opts.schedule
-      ? {
-          ...(opts.schedule.startAt
-            ? { startAt: new Date(opts.schedule.startAt) }
-            : {}),
-          ...(opts.schedule.stopAt
-            ? { stopAt: new Date(opts.schedule.stopAt) }
-            : {}),
-        }
-      : undefined,
-    status: opts.status ?? "draft",
-    phases: (opts.phaseStart
-      ? [{ dateStarted: opts.phaseStart }]
-      : []) as ExperimentInterface["phases"],
+    existingSchedule?: { startAt?: string; stopAt?: string } | null;
+    incoming: ScheduleUpdateInput;
+  }): string[] =>
+    validateScheduleUpdate({
+      context,
+      experimentType: opts.experimentType ?? "standard",
+      status: opts.status ?? "draft",
+      archived: opts.archived ?? false,
+      phaseStart: opts.phaseStart,
+      existingSchedule: opts.existingSchedule
+        ? {
+            ...(opts.existingSchedule.startAt
+              ? { startAt: new Date(opts.existingSchedule.startAt) }
+              : {}),
+            ...(opts.existingSchedule.stopAt
+              ? { stopAt: new Date(opts.existingSchedule.stopAt) }
+              : {}),
+          }
+        : null,
+      variations: [],
+      goalMetrics: [],
+      incoming: opts.incoming,
+    });
+
+  it("throws when experiment type is bandit", () => {
+    expect(() =>
+      run({
+        experimentType: "multi-armed-bandit",
+        incoming: { startAt: "2099-01-01T00:00:00Z" },
+      }),
+    ).toThrow("Scheduling is not supported for Bandit experiments.");
   });
 
-  it("throws when experiment type is bandit and a schedule is provided", () => {
+  it("throws when the experiment is archived", () => {
     expect(() =>
-      validateStatusUpdateSchedule("multi-armed-bandit", {
-        startAt: "2099-01-01T00:00:00Z",
+      run({ archived: true, incoming: { startAt: "2099-01-01T00:00:00Z" } }),
+    ).toThrow(
+      "Cannot change the schedule of a stopped or archived experiment.",
+    );
+  });
+
+  it("throws when the experiment is stopped", () => {
+    expect(() =>
+      run({
+        status: "stopped",
+        incoming: { startAt: "2099-01-01T00:00:00Z" },
       }),
-    ).toThrow("Bandit experiments do not support scheduled starts.");
+    ).toThrow(
+      "Cannot change the schedule of a stopped or archived experiment.",
+    );
   });
 
   it("throws when startAt is in the past", () => {
     expect(() =>
-      validateStatusUpdateSchedule("standard", {
-        startAt: "2000-01-01T00:00:00Z",
-      }),
-    ).toThrow("statusUpdateSchedule.startAt must be in the future");
-  });
-
-  it("throws when effective type changes to bandit and a schedule exists", () => {
-    const effectiveType = "multi-armed-bandit";
-    expect(() =>
-      validateStatusUpdateSchedule(effectiveType, {
-        startAt: "2099-01-01T00:00:00Z",
-      }),
-    ).toThrow("Bandit experiments do not support scheduled starts.");
+      run({ incoming: { startAt: "2000-01-01T00:00:00Z" } }),
+    ).toThrow("startAt must be in the future.");
   });
 
   it("does not throw for a valid future startAt on a standard experiment", () => {
     expect(() =>
-      validateStatusUpdateSchedule("standard", {
-        startAt: "2099-01-01T00:00:00Z",
-      }),
+      run({ incoming: { startAt: "2099-01-01T00:00:00Z" } }),
     ).not.toThrow();
   });
 
   it("throws when stopAt is not after startAt", () => {
     expect(() =>
-      validateStatusUpdateSchedule("standard", {
-        startAt: "2099-06-01T00:00:00Z",
-        stopAt: "2099-05-01T00:00:00Z",
+      run({
+        incoming: {
+          startAt: "2099-06-01T00:00:00Z",
+          stopAt: "2099-05-01T00:00:00Z",
+        },
       }),
-    ).toThrow("statusUpdateSchedule.stopAt must be after startAt");
+    ).toThrow("stopAt must be after startAt.");
   });
 
   it("does not re-check a past startAt that is unchanged from the stored value", () => {
     // An end-date/shipping edit on an already-scheduled experiment re-submits the
     // stored (now-past) startAt; it should not trip the future-start check.
     expect(() =>
-      validateStatusUpdateSchedule(
-        "standard",
-        { startAt: "2000-01-01T00:00:00Z" },
-        makeExisting({ schedule: { startAt: "2000-01-01T00:00:00Z" } }),
-      ),
+      run({
+        incoming: { startAt: "2000-01-01T00:00:00Z" },
+        existingSchedule: { startAt: "2000-01-01T00:00:00Z" },
+      }),
     ).not.toThrow();
   });
 
   it("throws when a new stopAt is in the past", () => {
-    expect(() =>
-      validateStatusUpdateSchedule("standard", {
-        stopAt: "2000-01-01T00:00:00Z",
-      }),
-    ).toThrow("statusUpdateSchedule.stopAt must be in the future");
+    expect(() => run({ incoming: { stopAt: "2000-01-01T00:00:00Z" } })).toThrow(
+      "stopAt must be in the future",
+    );
   });
 
   it("throws when stopAt is changed to a different past date", () => {
     expect(() =>
-      validateStatusUpdateSchedule(
-        "standard",
-        { stopAt: "2000-02-01T00:00:00Z" },
-        makeExisting({ schedule: { stopAt: "2000-01-01T00:00:00Z" } }),
-      ),
-    ).toThrow("statusUpdateSchedule.stopAt must be in the future");
+      run({
+        incoming: { stopAt: "2000-02-01T00:00:00Z" },
+        existingSchedule: { stopAt: "2000-01-01T00:00:00Z" },
+      }),
+    ).toThrow("stopAt must be in the future");
   });
 
   it("does not re-check a past stopAt that is unchanged from the stored value", () => {
     // e.g. a notify-mode end already fired and kept the experiment running; an
     // unrelated edit re-submits the stored (now-past) stopAt.
     expect(() =>
-      validateStatusUpdateSchedule(
-        "standard",
-        { stopAt: "2000-01-01T00:00:00Z" },
-        makeExisting({ schedule: { stopAt: "2000-01-01T00:00:00Z" } }),
-      ),
+      run({
+        incoming: { stopAt: "2000-01-01T00:00:00Z" },
+        existingSchedule: { stopAt: "2000-01-01T00:00:00Z" },
+      }),
     ).not.toThrow();
   });
 
   it("does not throw for a future stopAt", () => {
     expect(() =>
-      validateStatusUpdateSchedule("standard", {
-        stopAt: "2099-01-01T00:00:00Z",
-      }),
+      run({ incoming: { stopAt: "2099-01-01T00:00:00Z" } }),
     ).not.toThrow();
   });
 
   it("throws when a running stopAfter resolves to the past", () => {
     const start = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
     expect(() =>
-      validateStatusUpdateSchedule(
-        "standard",
-        { stopAfter: { value: 30, unit: "days" } },
-        makeExisting({ status: "running", phaseStart: start }),
-      ),
+      run({
+        status: "running",
+        phaseStart: start,
+        incoming: { stopAfter: { value: 30, unit: "days" } },
+      }),
     ).toThrow("which has already passed");
   });
 
   it("does not throw when a running stopAfter resolves to the future", () => {
     expect(() =>
-      validateStatusUpdateSchedule(
-        "standard",
-        { stopAfter: { value: 30, unit: "days" } },
-        makeExisting({ status: "running", phaseStart: new Date() }),
-      ),
+      run({
+        status: "running",
+        phaseStart: new Date(),
+        incoming: { stopAfter: { value: 30, unit: "days" } },
+      }),
     ).not.toThrow();
   });
 
@@ -2123,11 +2138,11 @@ describe("validateStatusUpdateSchedule", () => {
     // not be evaluated against the (absent) phase start here.
     const start = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
     expect(() =>
-      validateStatusUpdateSchedule(
-        "standard",
-        { stopAfter: { value: 30, unit: "days" } },
-        makeExisting({ status: "draft", phaseStart: start }),
-      ),
+      run({
+        status: "draft",
+        phaseStart: start,
+        incoming: { stopAfter: { value: 30, unit: "days" } },
+      }),
     ).not.toThrow();
   });
 });

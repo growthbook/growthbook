@@ -1,6 +1,10 @@
 import { ExperimentInterface } from "shared/types/experiment";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
-import { ScheduledStopPlan, ScheduleStopAfter } from "shared/validators";
+import {
+  ExperimentType,
+  ScheduledStopPlan,
+  ScheduleStopAfter,
+} from "shared/validators";
 import { getValidDate, resolveScheduledStop } from "shared/dates";
 import {
   buildTiebreakerLiftMap,
@@ -22,8 +26,7 @@ import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { stopExperiment } from "./experimentChanges/changeExperimentStatus";
 
-// Mirrors the UI gate: auto-ship needs both the commercial feature and the
-// org's decision-framework toggle enabled.
+// Auto-ship needs both the commercial feature and the org's decision-framework toggle.
 function canAutoShip(context: Context): boolean {
   return (
     orgHasPremiumFeature(context.org, "decision-framework") &&
@@ -54,10 +57,8 @@ async function getTiebreakerLiftMap(
 
   const metric = await getExperimentMetricById(context, metricId);
 
-  // Key by the SNAPSHOT's own variation ids, which are index-aligned with the
-  // analysis results. The current experiment.variations order may have been
-  // reordered/edited since this snapshot, so keying by it would misattribute
-  // lift to the wrong variation.
+  // Key by the snapshot's own variation ids (index-aligned with the analysis
+  // results); experiment.variations may have been reordered since.
   const snapshotVariationIds = snapshot.settings.variations.map((v) => v.id);
 
   return buildTiebreakerLiftMap({
@@ -116,9 +117,8 @@ async function computeScheduledVerdict(
     return inconclusive;
   }
 
-  // The experiment is ending regardless, so evaluate the decision criteria on
-  // the results as they stand, skipping the target-power (MDE) gate that
-  // would apply mid-experiment.
+  // The experiment is ending regardless, so evaluate on the results as they
+  // stand, skipping the target-power (MDE) gate that applies mid-experiment.
   const resultStatus = getDecisionFrameworkStatus({
     resultsStatus,
     decisionCriteria,
@@ -142,9 +142,8 @@ async function computeScheduledVerdict(
       const winnerIndex = experiment.variations.findIndex(
         (v) => v.id === decision.variationId,
       );
-      // A stale snapshot can reference a variation id that no longer exists on
-      // the experiment (findIndex → -1). Never report "won" without a valid
-      // index — that would make stopExperiment throw. Degrade to inconclusive.
+      // A stale snapshot can reference a deleted variation (findIndex → -1);
+      // reporting "won" without a valid index would make stopExperiment throw.
       if (winnerIndex >= 0) {
         return {
           results: "won",
@@ -172,9 +171,8 @@ async function computeScheduledVerdict(
 const variationExists = (experiment: ExperimentInterface, id?: string) =>
   !!id && experiment.variations.some((v) => v.id === id);
 
-// Returns the configured variation only if it still exists. A variation
-// deleted after config-time validation (drift) yields null so callers keep the
-// experiment running rather than force-shipping an unrelated variation.
+// Returns the configured variation only if it still exists; a variation deleted
+// after config-time validation yields null so callers keep the experiment running.
 const resolveForceShipTarget = (
   experiment: ExperimentInterface,
   id?: string,
@@ -199,8 +197,6 @@ export async function applyScheduledExperimentStop({
   const mode = plan?.mode ?? "notify";
   const tiebreakerMetricId = plan?.tiebreakerMetricId;
 
-  // Rendered as Markdown in the "Results Summary" banners (StoppedExperimentBanner,
-  // legacy StatusBanner, CompletedExperimentList), unlike the phase-level `reason`.
   const nameFor = (id?: string | null) =>
     experiment.variations.find((v) => v.id === id)?.name ??
     "the selected variation";
@@ -283,9 +279,8 @@ export async function applyScheduledExperimentStop({
       context,
       input: {
         experimentId: experiment.id,
-        // With a verdict, record it as metadata; without EDF there's no
-        // statistical basis for a winner, so stay inconclusive while still
-        // releasing the configured variation as a temporary rollout.
+        // Record the verdict as metadata when available; without EDF stay
+        // inconclusive but still release the configured variation.
         results: verdict?.results ?? "inconclusive",
         winner: verdict?.winnerIndex,
         releasedVariationId: forceShipTarget,
@@ -334,27 +329,123 @@ export async function applyScheduledExperimentStop({
   };
 }
 
-function assertSchedulable(experiment: ExperimentInterface) {
-  if (experiment.type === "multi-armed-bandit") {
+// Raw schedule fields as they arrive from any write path; dates may be strings
+// (API/controller payloads) or Dates (full-replace).
+export type ScheduleUpdateInput = {
+  startAt?: string | Date | null;
+  stopAt?: string | Date | null;
+  stopAfter?: ScheduleStopAfter | null;
+  scheduledStopPlan?: ScheduledStopPlan | null;
+};
+
+// Shared schedule validation for every write path. Throws BadRequestError on
+// hard errors; returns soft warnings from the stop-plan check. `existingSchedule`
+// is the stored schedule (null on create) and drives the "changed" guards;
+// `variations`/`goalMetrics` are the effective (post-update) values.
+export function validateScheduleUpdate({
+  context,
+  experimentType,
+  status,
+  archived,
+  phaseStart,
+  existingSchedule,
+  variations,
+  goalMetrics,
+  incoming,
+}: {
+  context: Context;
+  experimentType: ExperimentType;
+  status: ExperimentInterface["status"];
+  archived: boolean;
+  phaseStart?: Date | string | null;
+  existingSchedule?: {
+    startAt?: Date | string | null;
+    stopAt?: Date | string | null;
+  } | null;
+  variations: ExperimentInterface["variations"];
+  goalMetrics: string[];
+  incoming: ScheduleUpdateInput;
+}): string[] {
+  if (experimentType === "multi-armed-bandit") {
     throw new BadRequestError(
       "Scheduling is not supported for Bandit experiments.",
     );
   }
-  if (experiment.archived || experiment.status === "stopped") {
+  if (archived || status === "stopped") {
     throw new BadRequestError(
       "Cannot change the schedule of a stopped or archived experiment.",
     );
   }
+
+  const now = new Date();
+  const running = status === "running";
+
+  // A start can only be (re)scheduled into the future, but skip the check when
+  // it's unchanged so end/plan edits don't trip on a now-past start.
+  const startAtDate = incoming.startAt ? getValidDate(incoming.startAt) : null;
+  if (startAtDate) {
+    const existingStartAt = existingSchedule?.startAt ?? null;
+    const startAtChanged =
+      !existingStartAt ||
+      getValidDate(existingStartAt).getTime() !== startAtDate.getTime();
+    if (startAtChanged && startAtDate <= now) {
+      throw new BadRequestError("startAt must be in the future.");
+    }
+  }
+
+  // Resolve a relative stopAfter now for a running experiment; defer it for a draft.
+  const { stopAt: resolvedStopAt, stopAfter: deferredStopAfter } =
+    resolveScheduledStop({
+      stopAt: incoming.stopAt,
+      stopAfter: incoming.stopAfter,
+      base: phaseStart ? getValidDate(phaseStart) : now,
+      active: running,
+      now,
+    });
+
+  if (resolvedStopAt && startAtDate && resolvedStopAt <= startAtDate) {
+    throw new BadRequestError("stopAt must be after startAt.");
+  }
+
+  // A past stop is never staged. An absolute stopAt is rejected only when newly
+  // set or changed, so unrelated edits that resubmit a passed end don't trip; a
+  // relative stopAfter resolving into the past is always rejected.
+  if (resolvedStopAt && resolvedStopAt <= now) {
+    const existingStopAt = existingSchedule?.stopAt ?? null;
+    const stopAtUnchanged =
+      !!incoming.stopAt &&
+      !!existingStopAt &&
+      getValidDate(existingStopAt).getTime() === resolvedStopAt.getTime();
+    if (!stopAtUnchanged) {
+      throw new BadRequestError(
+        incoming.stopAt
+          ? "stopAt must be in the future. Choose a future end date, or stop the experiment manually."
+          : `stopAfter of ${incoming.stopAfter?.value} ${incoming.stopAfter?.unit} resolves to ${resolvedStopAt.toISOString()}, which has already passed. Choose a longer duration or a future stopAt, or stop the experiment manually.`,
+      );
+    }
+  }
+
+  // Validate the plan against the end this request is setting, not the stored one.
+  const warnings: string[] = [];
+  if (incoming.scheduledStopPlan) {
+    const hasScheduledEnd = !!(resolvedStopAt || deferredStopAfter);
+    warnings.push(
+      ...validateScheduledStopPlan(
+        context,
+        { variations, goalMetrics },
+        incoming.scheduledStopPlan,
+        hasScheduledEnd,
+      ),
+    );
+  }
+  return warnings;
 }
 
-// Validate the scheduled-stop plan against the experiment and the scheduled end
-// this update is setting. Throws on hard config errors; returns soft warnings
-// (feature not enabled, no scheduled end, tiebreaker not a goal metric).
-// Exported so the create/update experiment body paths run the same checks as
-// the dedicated PUT /schedule endpoint and can't diverge.
+// Validate the scheduled-stop plan against the experiment and the end this update
+// is setting. Throws on hard config errors; returns soft warnings.
 export function validateScheduledStopPlan(
   context: Context,
-  experiment: ExperimentInterface,
+  experiment: Pick<ExperimentInterface, "variations" | "goalMetrics">,
   plan: ScheduledStopPlan,
   hasScheduledEnd: boolean,
 ): string[] {
@@ -362,15 +453,13 @@ export function validateScheduledStopPlan(
   const mode = plan.mode;
   const hasEDF = canAutoShip(context);
 
-  // Auto-ship needs the decision framework to pick a winner; without it, the
-  // end date degrades to the soft "keep running + notify" behavior.
+  // Auto-ship needs the decision framework to pick a winner.
   if (mode === "auto-ship" && !hasEDF) {
     throw new BadRequestError(
       "Auto-ship requires the Decision Framework (Pro+ and enabled in org settings)",
     );
   }
-  // force-ship/stop work without the decision framework, but the analytical
-  // verdict (won/lost/inconclusive) is only recorded when it's available.
+  // force-ship/stop work without EDF, but no win/loss verdict is recorded.
   if ((mode === "force-ship" || mode === "stop") && !hasEDF) {
     warnings.push(
       `The Decision Framework isn't available, so no win/loss verdict will be recorded; the experiment will still ${
@@ -380,15 +469,13 @@ export function validateScheduledStopPlan(
       } at the end date.`,
     );
   }
-  // Every mode except the soft default only acts at a scheduled end — never on
-  // a manual stop — so throw if there's no scheduled end for it to attach to.
+  // Every mode except "notify" only acts at a scheduled end.
   if (mode !== "notify" && !hasScheduledEnd) {
     throw new BadRequestError(
       `You must set a scheduled end date (stopAt or stopAfter) to use ${mode}.`,
     );
   }
-  // A specific variation must be set + valid when force-shipping — either as
-  // the top-level "force-ship" mode or as an auto-ship fallback.
+  // A valid variation must be set when force-shipping (top-level or auto-ship fallback).
   const requiresVariation =
     mode === "force-ship" ||
     (mode === "auto-ship" && plan.fallback === "force-ship");
@@ -415,11 +502,9 @@ export function validateScheduledStopPlan(
   return warnings;
 }
 
-// Full-replace of an experiment's schedule (start + end) and scheduled-stop plan
-// in a single write. The arguments represent the COMPLETE desired state: any
-// value left undefined/null is cleared. A relative `stopAfter` is resolved now
-// for a running experiment and deferred for a draft (resolved at start by
-// executeExperimentStart). Hard config errors throw; soft issues are warnings.
+// Full-replace of an experiment's schedule and scheduled-stop plan in a single
+// write; the arguments are the complete desired state, so anything left
+// undefined/null is cleared. Hard config errors throw; soft issues are warnings.
 export async function setExperimentSchedule({
   context,
   experiment,
@@ -435,27 +520,23 @@ export async function setExperimentSchedule({
   stopAfter?: ScheduleStopAfter | null;
   scheduledStopPlan?: ScheduledStopPlan | null;
 }): Promise<{ experiment: ExperimentInterface; warnings: string[] }> {
-  assertSchedulable(experiment);
-  const warnings: string[] = [];
   const running = experiment.status === "running";
-
-  const startAtDate = startAt ? getValidDate(startAt) : null;
-
-  // A start can only be (re)scheduled into the future. Skip the check when the
-  // start is unchanged so end/plan edits on an already-scheduled experiment
-  // don't trip on a start that's now in the past.
-  if (startAtDate) {
-    const existingStartAt = experiment.statusUpdateSchedule?.startAt;
-    const startAtChanged =
-      !existingStartAt ||
-      getValidDate(existingStartAt).getTime() !== startAtDate.getTime();
-    if (startAtChanged && startAtDate <= new Date()) {
-      throw new BadRequestError("startAt must be in the future.");
-    }
-  }
-
   const dateStarted =
     experiment.phases[experiment.phases.length - 1]?.dateStarted;
+
+  const warnings = validateScheduleUpdate({
+    context,
+    experimentType: experiment.type ?? "standard",
+    status: experiment.status,
+    archived: !!experiment.archived,
+    phaseStart: dateStarted,
+    existingSchedule: experiment.statusUpdateSchedule,
+    variations: experiment.variations,
+    goalMetrics: experiment.goalMetrics,
+    incoming: { startAt, stopAt, stopAfter, scheduledStopPlan },
+  });
+
+  const startAtDate = startAt ? getValidDate(startAt) : null;
   const {
     stopAt: resolvedStopAt,
     stopAfter: deferredStopAfter,
@@ -467,43 +548,15 @@ export async function setExperimentSchedule({
     active: running,
   });
 
-  if (resolvedStopAt && startAtDate && resolvedStopAt <= startAtDate) {
-    throw new BadRequestError("stopAt must be after startAt.");
-  }
-  // A past stop is never staged for the scheduler. Unchanged past stopAts are
-  // rejected too: once an end has passed and been acted on, changing the plan
-  // requires committing to a new end.
-  if (resolvedStopAt && resolvedStopAt <= new Date()) {
-    throw new BadRequestError(
-      stopAfter
-        ? `stopAfter of ${stopAfter.value} ${stopAfter.unit} resolves to ${resolvedStopAt.toISOString()}, which has already passed. Choose a longer duration or a future stopAt, or stop the experiment manually.`
-        : "stopAt must be in the future. Choose a future end date, or stop the experiment manually.",
-    );
-  }
-
-  // Validate the plan against the end we're setting in THIS request, not the
-  // stale stored one.
   const hasScheduledEnd = !!(resolvedStopAt || deferredStopAfter);
-  if (scheduledStopPlan) {
-    warnings.push(
-      ...validateScheduledStopPlan(
-        context,
-        experiment,
-        scheduledStopPlan,
-        hasScheduledEnd,
-      ),
-    );
-  }
 
   const scheduleDates = {
     ...(startAtDate ? { startAt: startAtDate } : {}),
     ...(resolvedStopAt ? { stopAt: resolvedStopAt } : {}),
     ...(deferredStopAfter ? { stopAfter: deferredStopAfter } : {}),
   };
-  // The stop plan only ever fires at a scheduled end, so it's persisted only
-  // when there is one. A plan on a start-only schedule (or no schedule) is
-  // inert — only "notify" is valid without an end — so it's dropped rather than
-  // stored on its own.
+  // The stop plan is persisted only when there's a scheduled end for it to fire
+  // at; a plan on a start-only schedule is inert, so it's dropped.
   const schedule =
     Object.keys(scheduleDates).length > 0
       ? {
@@ -516,10 +569,8 @@ export async function setExperimentSchedule({
 
   const changes: Partial<ExperimentInterface> = {
     statusUpdateSchedule: schedule,
-    // Running experiments stage the stop immediately; drafts stage nothing here
-    // (a scheduled start is staged later via the start endpoint). Either way any
-    // previously-staged action is reset so it must be re-staged from the new
-    // schedule.
+    // Running experiments stage the stop now; drafts stage nothing here. Either
+    // way any previously-staged action is reset to match the new schedule.
     nextScheduledStatusUpdate: stagedStop,
   };
 

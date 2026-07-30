@@ -13,11 +13,10 @@ import {
   normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
   updateExperimentApiPayloadToInterface,
-  validateStatusUpdateSchedule,
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
-import { validateScheduledStopPlan } from "back-end/src/services/experimentScheduling";
+import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
 import {
   startExperiment,
   validateExperimentChange,
@@ -303,15 +302,6 @@ export const updateExperiment = createApiRequestHandler(
     );
   }
 
-  if (req.body.statusUpdateSchedule) {
-    const effectiveType = req.body.type ?? experiment.type ?? "standard";
-    validateStatusUpdateSchedule(
-      effectiveType,
-      req.body.statusUpdateSchedule,
-      experiment,
-    );
-  }
-
   const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
   const changes = updateExperimentApiPayloadToInterface(
     {
@@ -325,25 +315,20 @@ export const updateExperiment = createApiRequestHandler(
 
   normalizeStatusUpdateScheduleChanges(experiment, changes);
 
-  // Run the same scheduled-stop-plan validation as PUT /schedule so this body
-  // path can't set an invalid config (e.g. a force-ship fallbackVariationId that
-  // doesn't match a variation). Validate against the post-update schedule + variations.
-  const changedScheduledStopPlan =
-    changes.statusUpdateSchedule?.scheduledStopPlan;
-  if (changedScheduledStopPlan) {
-    const effectiveSchedule =
-      "statusUpdateSchedule" in changes
-        ? changes.statusUpdateSchedule
-        : experiment.statusUpdateSchedule;
-    const hasScheduledEnd = !!(
-      effectiveSchedule?.stopAt || effectiveSchedule?.stopAfter
-    );
-    validateScheduledStopPlan(
-      req.context,
-      { ...experiment, ...changes },
-      changedScheduledStopPlan,
-      hasScheduledEnd,
-    );
+  // Same validation as PUT /schedule, against the stored schedule and the
+  // post-update variations/metrics.
+  if (req.body.statusUpdateSchedule) {
+    validateScheduleUpdate({
+      context: req.context,
+      experimentType: req.body.type ?? experiment.type ?? "standard",
+      status: experiment.status,
+      archived: !!experiment.archived,
+      phaseStart: experiment.phases[experiment.phases.length - 1]?.dateStarted,
+      existingSchedule: experiment.statusUpdateSchedule,
+      variations: changes.variations ?? experiment.variations,
+      goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
+      incoming: req.body.statusUpdateSchedule,
+    });
   }
 
   const isStartingFromDraft =

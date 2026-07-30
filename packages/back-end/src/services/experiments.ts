@@ -84,7 +84,6 @@ import {
   ApiExperimentMetric,
   ApiExperimentResults,
   ApiMetric,
-  ExperimentType,
   ScheduledStopPlan,
 } from "shared/validators";
 import { Dimension } from "shared/types/integrations";
@@ -4408,81 +4407,6 @@ function resolveExperimentUpdateVariationsAndPhases(
   };
 }
 
-export function validateStatusUpdateSchedule(
-  experimentType: ExperimentType,
-  incomingStatusUpdateSchedule: ExperimentInterfaceStringDates["statusUpdateSchedule"],
-  existingExperiment?: Pick<
-    ExperimentInterface,
-    "statusUpdateSchedule" | "status" | "phases"
-  > | null,
-): void {
-  if (experimentType === "multi-armed-bandit" && incomingStatusUpdateSchedule) {
-    throw new Error("Bandit experiments do not support scheduled starts.");
-  }
-  if (!incomingStatusUpdateSchedule) return;
-
-  const existingStartAt =
-    existingExperiment?.statusUpdateSchedule?.startAt ?? null;
-  const existingStopAt =
-    existingExperiment?.statusUpdateSchedule?.stopAt ?? null;
-  const running = existingExperiment?.status === "running";
-  const phaseStart =
-    existingExperiment?.phases[existingExperiment.phases.length - 1]
-      ?.dateStarted ?? null;
-
-  // Only require a future start when the start is actually being (re)scheduled,
-  // so end date / shipping edits on an already-started experiment don't trip on
-  // a start that's now in the past.
-  const startAtChanged =
-    !existingStartAt ||
-    getValidDate(incomingStatusUpdateSchedule.startAt ?? 0).getTime() !==
-      getValidDate(existingStartAt).getTime();
-  if (
-    incomingStatusUpdateSchedule.startAt &&
-    startAtChanged &&
-    getValidDate(incomingStatusUpdateSchedule.startAt) <= new Date()
-  ) {
-    throw new Error("statusUpdateSchedule.startAt must be in the future");
-  }
-  // A past stop is never staged for the scheduler. Unchanged past stopAts are
-  // allowed so unrelated edits on an already-ended schedule don't trip.
-  const stopAtChanged =
-    !existingStopAt ||
-    getValidDate(incomingStatusUpdateSchedule.stopAt ?? 0).getTime() !==
-      getValidDate(existingStopAt).getTime();
-  if (
-    incomingStatusUpdateSchedule.stopAt &&
-    stopAtChanged &&
-    getValidDate(incomingStatusUpdateSchedule.stopAt) <= new Date()
-  ) {
-    throw new Error("statusUpdateSchedule.stopAt must be in the future");
-  }
-  if (
-    incomingStatusUpdateSchedule.stopAt &&
-    incomingStatusUpdateSchedule.startAt &&
-    getValidDate(incomingStatusUpdateSchedule.stopAt) <=
-      getValidDate(incomingStatusUpdateSchedule.startAt)
-  ) {
-    throw new Error("statusUpdateSchedule.stopAt must be after startAt");
-  }
-
-  // A relative stopAfter resolves off the phase start, so on a running
-  // experiment it can land in the past — which is never staged for the
-  // scheduler. Reject it up front (absolute past stopAts are caught above).
-  if (running && incomingStatusUpdateSchedule.stopAfter && phaseStart) {
-    const { stopAt } = resolveScheduledStop({
-      stopAfter: incomingStatusUpdateSchedule.stopAfter,
-      base: getValidDate(phaseStart),
-      active: true,
-    });
-    if (stopAt && stopAt <= new Date()) {
-      throw new Error(
-        `statusUpdateSchedule.stopAfter of ${incomingStatusUpdateSchedule.stopAfter.value} ${incomingStatusUpdateSchedule.stopAfter.unit} resolves to ${stopAt.toISOString()}, which has already passed. Choose a longer duration or a future stopAt, or stop the experiment manually.`,
-      );
-    }
-  }
-}
-
 /**
  * Normalize `statusUpdateSchedule` / `nextScheduledStatusUpdate` on an in-progress
  * Changeset:
@@ -4521,7 +4445,7 @@ export function normalizeStatusUpdateScheduleChanges(
       });
 
       // Past stopAts (whether absolute or a stopAfter that resolves into the
-      // past) are never staged for the scheduler; validateStatusUpdateSchedule
+      // past) are never staged for the scheduler; validateScheduleUpdate
       // rejects them up front, so here we just build the normalized schedule.
       // The stop plan only fires at a scheduled end, so it's kept only when
       // there is one; an inert plan on a start-only schedule is dropped.
