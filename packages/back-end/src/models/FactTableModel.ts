@@ -378,6 +378,15 @@ export async function updateFactTable(
     context.permissions.throwPermissionError();
   }
 
+  // Bail on a no-op save before writing anything — the front-end resubmits the
+  // whole form on every save, and some API clients re-PUT the same definition
+  // on a schedule. Not writing means there is nothing to invalidate, so the
+  // write and the definitions-version bump stay in lockstep.
+  const changed = Object.entries(changes).some(
+    ([k, v]) => !isEqual(factTable[k as keyof FactTableInterface], v),
+  );
+  if (!changed) return;
+
   // Clean up auto slices from metrics if columns were deleted or modified
   if (changes.columns) {
     const removedColumns = detectRemovedColumns(
@@ -394,12 +403,7 @@ export async function updateFactTable(
     }
   }
 
-  // Use findOneAndUpdate (rather than updateOne) so the "before" snapshot
-  // below reflects the document as MongoDB saw it at the instant of this
-  // write, not whatever was read earlier by the caller — two concurrent
-  // updates could otherwise each diff against a stale copy and both wrongly
-  // conclude nothing changed, skipping a bump that should have happened.
-  const before = await FactTableModel.findOneAndUpdate(
+  await FactTableModel.updateOne(
     {
       id: factTable.id,
       organization: factTable.organization,
@@ -410,19 +414,9 @@ export async function updateFactTable(
         dateUpdated: new Date(),
       },
     },
-    { new: false },
   );
 
   await audit.logUpdate(context, factTable, { ...factTable, ...changes });
-
-  // Skip the bump when nothing actually changed (e.g. a no-op save, or a
-  // client re-PUTting the same definition) — an unconditional touch here
-  // tanks the ETag hit rate for no reason. Mirrors updateFactTableColumns.
-  const beforeInterface = before ? toInterface(before) : factTable;
-  const changedDefinitionFields = Object.entries(changes).some(
-    ([k, v]) => !isEqual(beforeInterface[k as keyof FactTableInterface], v),
-  );
-  if (!changedDefinitionFields) return;
 
   await touchDefinitionsVersion(
     factTable.organization,
@@ -847,17 +841,21 @@ export async function updateFactFilter(
     throw new Error("This fact filter is managed by the API");
   }
 
+  // Bail on a no-op save before writing — see updateFactTable. Returning here
+  // also avoids rewriting the whole filters array from a snapshot a concurrent
+  // write may already have superseded.
+  const changed = Object.entries(changes).some(
+    ([k, v]) => !isEqual(existingFilter[k as keyof FactFilterInterface], v),
+  );
+  if (!changed) return;
+
   filters[filterIndex] = {
     ...existingFilter,
     ...changes,
     dateUpdated: new Date(),
   };
 
-  // Use findOneAndUpdate (rather than updateOne) so the "before" snapshot
-  // below reflects the document as MongoDB saw it at the instant of this
-  // write, not the possibly-stale `factTable` passed in by the caller — see
-  // updateFactTable for the full race-condition rationale.
-  const before = await FactTableModel.findOneAndUpdate(
+  await FactTableModel.updateOne(
     {
       id: factTable.id,
       organization: factTable.organization,
@@ -868,18 +866,7 @@ export async function updateFactFilter(
         filters: filters,
       },
     },
-    { new: false },
   );
-
-  // Skip the bump when nothing actually changed — mirrors updateFactTable.
-  const beforeFilter =
-    (before ? toInterface(before) : factTable).filters.find(
-      (f) => f.id === filterId,
-    ) ?? existingFilter;
-  const changedDefinitionFields = Object.entries(changes).some(
-    ([k, v]) => !isEqual(beforeFilter[k as keyof FactFilterInterface], v),
-  );
-  if (!changedDefinitionFields) return;
 
   await touchDefinitionsVersion(
     factTable.organization,
