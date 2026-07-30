@@ -258,10 +258,12 @@ export async function runRefreshColumnsQuery(
 
   const typeMap = new Map<string, FactTableColumnType>();
   const jsonMap = new Map<string, JSONColumnFields>();
+  const warehouseTypeMap = new Map<string, FactTableColumnType>();
 
   result.columns?.forEach((col) => {
     // If the underlying SQL engine returned the datatype, use it
     if (col.dataType !== undefined) {
+      warehouseTypeMap.set(col.name, col.dataType);
       // For JSON, only return if we have the field information, otherwise skip
       // so we can infer from the returned data
       if (
@@ -321,6 +323,15 @@ export async function runRefreshColumnsQuery(
         col.dateUpdated = new Date();
       }
 
+      const warehouseType = warehouseTypeMap.get(col.column);
+      if (
+        warehouseType !== undefined &&
+        col.dataTypeFromWarehouse !== warehouseType
+      ) {
+        col.dataTypeFromWarehouse = warehouseType;
+        col.dateUpdated = new Date();
+      }
+
       // If we now know the datatype, update it
       if (col.datatype === "" && type !== "") {
         col.datatype = type;
@@ -352,6 +363,7 @@ export async function runRefreshColumnsQuery(
       columns.push({
         column,
         datatype,
+        dataTypeFromWarehouse: warehouseTypeMap.get(column),
         jsonFields: jsonMap.get(column),
         dateCreated: new Date(),
         dateUpdated: new Date(),

@@ -41,6 +41,7 @@ export interface ColumnInterface {
   description: string;
   column: string;
   datatype: FactTableColumnType;
+  dataTypeFromWarehouse?: FactTableColumnType;
   numberFormat: NumberFormat;
   alwaysInlineFilter?: boolean;
   topValues?: string[];

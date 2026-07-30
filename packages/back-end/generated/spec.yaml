@@ -54729,6 +54729,22 @@ components:
           description: The actual column name in the database/SQL query
           type: string
         datatype:
+          description: >-
+            The column's data type (can be an override of the warehouse-reported
+            datatype, for JSON string columns for example).
+          type: string
+          enum:
+            - number
+            - string
+            - date
+            - boolean
+            - json
+            - binary
+            - other
+            - ''
+        dataTypeFromWarehouse:
+          readOnly: true
+          description: The warehouse-reported datatype.
           type: string
           enum:
             - number
@@ -54928,14 +54944,6 @@ components:
             For virtual columns, the SQL expression that computes the column
             value. Only valid on a virtual column; when omitted from an update,
             the existing expression is preserved.
-          type: string
-        dateCreated:
-          readOnly: true
-          format: date-time
-          type: string
-        dateUpdated:
-          readOnly: true
-          format: date-time
           type: string
       required:
         - column
