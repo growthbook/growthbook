@@ -88,7 +88,11 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import { getLicense, licenseInit } from "back-end/src/enterprise";
+import {
+  getAccountPlan,
+  getLicense,
+  licenseInit,
+} from "back-end/src/enterprise";
 import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { findVercelInstallationByInstallationId } from "back-end/src/models/VercelNativeIntegrationModel";
@@ -439,6 +443,34 @@ export function getNumberOfUniqueMembersAndInvites(
   return numMembers + numInvites;
 }
 
+async function assertOrganizationHasAvailableSeats(
+  organization: OrganizationInterface,
+  additionalSeats: number,
+) {
+  if (additionalSeats <= 0) return;
+
+  const license =
+    getLicense(organization.licenseKey) ||
+    (await licenseInit(organization, getUserCodesForOrg, getLicenseMetaData));
+  const seatsInUse = getNumberOfUniqueMembersAndInvites(organization);
+
+  if (license?.hardCap && seatsInUse + additionalSeats > (license.seats || 0)) {
+    throw new Error(
+      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit.",
+    );
+  }
+
+  if (
+    IS_CLOUD &&
+    getAccountPlan(organization) === "starter" &&
+    seatsInUse + additionalSeats > (organization.freeSeats ?? 3)
+  ) {
+    throw new PaymentRequiredError(
+      "You've reached the free seat limit. Upgrade your plan to add more team members.",
+    );
+  }
+}
+
 export async function removeMember(
   organization: OrganizationInterface,
   id: string,
@@ -547,6 +579,7 @@ export async function addMemberToOrg({
   if (organization.members.find((m) => m.id === userId)) {
     return;
   }
+
   // If member is also a pending member, remove
   let pendingMembers: PendingMember[] = organization?.pendingMembers || [];
   pendingMembers = pendingMembers.filter((m) => m.id !== userId);
@@ -558,6 +591,8 @@ export async function addMemberToOrg({
   ) {
     throw new Error("Invalid role");
   }
+  await assertOrganizationHasAvailableSeats(organization, 1);
+
   // Role limits are gated where a human picks a role; automated joins keep
   // the configured default so they never throw or escalate to admin.
 
@@ -817,6 +852,7 @@ export async function inviteUser({
     throw new Error("Invalid role");
   }
   assertRoleAssignmentAllowed(organization, role);
+  await assertOrganizationHasAvailableSeats(organization, 1);
 
   // Generate random key for invite
   const buffer: Buffer = await new Promise((resolve, reject) => {

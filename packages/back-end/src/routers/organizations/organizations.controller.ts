@@ -1396,17 +1396,6 @@ export async function postInvite(
     });
   }
 
-  const license = getLicense();
-  if (
-    license &&
-    license.hardCap &&
-    getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
-  ) {
-    throw new Error(
-      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit.",
-    );
-  }
-
   const { emailSent, inviteUrl } = await inviteUser({
     organization: org,
     email,
@@ -2313,17 +2302,6 @@ export async function addOrphanedUser(
       status: e.status || 400,
       message: e.message,
     });
-  }
-
-  const license = getLicense();
-  if (
-    license &&
-    license.hardCap &&
-    getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
-  ) {
-    throw new Error(
-      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit.",
-    );
   }
 
   await addMemberToOrg({
