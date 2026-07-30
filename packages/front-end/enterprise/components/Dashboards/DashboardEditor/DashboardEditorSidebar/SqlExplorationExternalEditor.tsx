@@ -19,6 +19,7 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Modal from "@/ui/Modal";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import PylonChatVisibility from "@/components/Auth/PylonChatVisibility";
 import useApi from "@/hooks/useApi";
 import {
   ExplorerProvider,
@@ -30,7 +31,7 @@ import {
   ExplorerDraftConfig,
 } from "@/enterprise/components/ProductAnalytics/util";
 
-function FullscreenModal({
+function SqlExplorationEditorModal({
   close,
   actions,
   children,
@@ -96,7 +97,7 @@ function SqlExplorationModalContent({
   }, [error, loading, onUpdateRequested]);
 
   return (
-    <FullscreenModal
+    <SqlExplorationEditorModal
       close={close}
       actions={
         <Button
@@ -118,7 +119,7 @@ function SqlExplorationModalContent({
             }
           }}
         >
-          Update Query
+          Update Block
         </Button>
       }
     >
@@ -127,7 +128,7 @@ function SqlExplorationModalContent({
         hideDataSourceSelector
         hideSidebarHeaderActions
       />
-    </FullscreenModal>
+    </SqlExplorationEditorModal>
   );
 }
 
@@ -167,21 +168,21 @@ function SqlExplorationModal({
     (block.comparisonExplorerAnalysisId && !comparisonData && !comparisonError)
   ) {
     return (
-      <FullscreenModal close={close}>
+      <SqlExplorationEditorModal close={close}>
         <LoadingOverlay />
-      </FullscreenModal>
+      </SqlExplorationEditorModal>
     );
   }
 
   if (error || comparisonError) {
     return (
-      <FullscreenModal close={close}>
+      <SqlExplorationEditorModal close={close}>
         <Box p="5">
           <Callout status="error">
             Failed to load the existing dashboard block analysis.
           </Callout>
         </Box>
-      </FullscreenModal>
+      </SqlExplorationEditorModal>
     );
   }
 
@@ -287,6 +288,7 @@ export default function SqlExplorationExternalEditor({
 
   return (
     <>
+      <PylonChatVisibility hidden={open} />
       <Button
         size="sm"
         variant="outline"
