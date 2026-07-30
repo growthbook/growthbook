@@ -237,11 +237,11 @@ Then, configure the polyfill and enable streaming during init:
 
 ```js
 const { setPolyfills } = require("@growthbook/growthbook");
+// Note the destructuring - `eventsource` v3+ uses a named export
+const { EventSource } = require("eventsource");
 
 // Configure GrowthBook to use the eventsource library
-setPolyfills({
-  EventSource: require("eventsource"),
-});
+setPolyfills({ EventSource });
 
 const gbClient = new GrowthBookClient({
   clientKey: "sdk-abc123"
@@ -250,6 +250,12 @@ const gbClient = new GrowthBookClient({
 // Enable streaming in the init call
 await gbClient.init({ streaming: true });
 ```
+
+:::caution
+
+`setPolyfills({ EventSource: require("eventsource") })` (without destructuring) works only on `eventsource` v2 and below. On v3+ it passes the module object rather than the constructor, which prevents streaming from starting. If streaming is enabled but features never update, check this first — the SDK logs a warning when it detects that streaming could not be started.
+
+:::
 
 This will make an initial network request to download the features payload from the GrowthBook API. Then, it will open a streaming connection to listen to updates.
 
@@ -303,8 +309,8 @@ configureCache({
   cacheKey: "gbFeaturesCache",
   // Consider features stale after this much time (60 seconds default)
   staleTTL: 1000 * 60,
-  // Cached features older than this will be ignored (24 hours default)
-  maxAge: 1000 * 60 * 60 * 24,
+  // Cached features older than this will be ignored (4 hours default)
+  maxAge: 1000 * 60 * 60 * 4,
   // Set to `true` to completely disable both in-memory and persistent caching
   disableCache: false,
 })

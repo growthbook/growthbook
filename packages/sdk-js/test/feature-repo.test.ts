@@ -586,6 +586,116 @@ describe("feature-repo", () => {
     event.clear();
   });
 
+  it("keeps the payload when the EventSource polyfill is not a constructor", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const [, cleanup] = mockApi(apiPayload, true);
+    const warn = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    // Simulates `require("eventsource")` on v3+, which returns the module instead of the constructor
+    setPolyfills({ EventSource: { EventSource } });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    const res = await growthbook.init({ streaming: true });
+
+    // Streaming can't start, but that must not discard the payload we just fetched
+    expect(res.success).toEqual(true);
+    expect(res.source).toEqual("network");
+    expect(growthbook.evalFeature("foo").value).toEqual("api");
+    expect(growthbook.getPayload()).toEqual(apiPayload);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("Streaming is enabled, but not active"),
+    );
+
+    setPolyfills({ EventSource });
+    warn.mockRestore();
+    growthbook.destroy();
+    cleanup();
+  });
+
+  it("warns when streaming is enabled without an EventSource polyfill", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const [, cleanup] = mockApi(apiPayload, true);
+    const warn = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    setPolyfills({ EventSource: undefined });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    const res = await growthbook.init({ streaming: true });
+
+    expect(res.success).toEqual(true);
+    expect(growthbook.evalFeature("foo").value).toEqual("api");
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("no EventSource implementation is available"),
+    );
+
+    setPolyfills({ EventSource });
+    warn.mockRestore();
+    growthbook.destroy();
+    cleanup();
+  });
+
+  it("warns when the host does not report SSE support", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    // No x-sse-support response header
+    const [, cleanup] = mockApi(apiPayload, false);
+    const warn = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    const res = await growthbook.init({ streaming: true });
+
+    expect(res.success).toEqual(true);
+    expect(growthbook.evalFeature("foo").value).toEqual("api");
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("did not report SSE support"),
+    );
+
+    warn.mockRestore();
+    growthbook.destroy();
+    cleanup();
+  });
+
   it("updates features based on SSE", async () => {
     const [f, cleanup] = mockApi(
       {
