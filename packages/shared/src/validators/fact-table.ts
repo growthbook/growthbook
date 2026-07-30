@@ -350,16 +350,13 @@ export const apiFactTableColumnValidator = namedSchema(
       column: z
         .string()
         .describe("The actual column name in the database/SQL query"),
-      datatype: z.enum([
-        "number",
-        "string",
-        "date",
-        "boolean",
-        "json",
-        "binary",
-        "other",
-        "",
-      ]),
+      datatype: factTableColumnTypeValidator.describe(
+        "The column's data type (can be an override of the warehouse-reported datatype, for JSON string columns for example).",
+      ),
+      dataTypeFromWarehouse: factTableColumnTypeValidator
+        .describe("The warehouse-reported datatype.")
+        .readonly()
+        .optional(),
       numberFormat: z
         .enum([
           "",
@@ -438,6 +435,11 @@ export const apiFactTableColumnValidator = namedSchema(
 export const apiFactTableColumnInputValidator = componentSchema(
   "FactTableColumnInput",
   apiFactTableColumnValidator
+    .omit({
+      dataTypeFromWarehouse: true,
+      dateCreated: true,
+      dateUpdated: true,
+    })
     .extend({
       datatype: apiFactTableColumnValidator.shape.datatype
         .describe(

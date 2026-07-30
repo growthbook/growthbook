@@ -64,6 +64,7 @@ const factTableSchema = new mongoose.Schema({
       column: String,
       numberFormat: String,
       datatype: String,
+      dataTypeFromWarehouse: String,
       jsonFields: {},
       deleted: Boolean,
       alwaysInlineFilter: Boolean,
