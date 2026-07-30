@@ -4059,11 +4059,15 @@ function apiScheduleToInterface(
     ...(s.stopAt ? { stopAt: getValidDate(s.stopAt) } : {}),
     ...(s.stopAfter ? { stopAfter: s.stopAfter } : {}),
   };
-  // The stop plan is inert without schedule dates, so drop it when they're absent.
   if (Object.keys(dates).length === 0) return null;
+  // The stop plan only fires at a scheduled end, so keep it only when there is
+  // one; an inert plan on a start-only schedule is dropped.
+  const hasScheduledEnd = !!(s.stopAt || s.stopAfter);
   return {
     ...dates,
-    ...(s.scheduledStopPlan ? { scheduledStopPlan: s.scheduledStopPlan } : {}),
+    ...(hasScheduledEnd && s.scheduledStopPlan
+      ? { scheduledStopPlan: s.scheduledStopPlan }
+      : {}),
   };
 }
 
@@ -4519,15 +4523,15 @@ export function normalizeStatusUpdateScheduleChanges(
       // Past stopAts (whether absolute or a stopAfter that resolves into the
       // past) are never staged for the scheduler; validateStatusUpdateSchedule
       // rejects them up front, so here we just build the normalized schedule.
-      // The stop plan rides with the schedule dates; without any dates the plan
-      // is inert (notify-only) and is dropped along with the schedule.
+      // The stop plan only fires at a scheduled end, so it's kept only when
+      // there is one; an inert plan on a start-only schedule is dropped.
       changes.statusUpdateSchedule =
         startAt || stopAt || stopAfter
           ? {
               ...(startAt ? { startAt } : {}),
               ...(stopAt ? { stopAt } : {}),
               ...(stopAfter ? { stopAfter } : {}),
-              ...(incoming?.scheduledStopPlan
+              ...((stopAt || stopAfter) && incoming?.scheduledStopPlan
                 ? { scheduledStopPlan: incoming.scheduledStopPlan }
                 : {}),
             }

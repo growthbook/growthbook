@@ -1834,6 +1834,26 @@ describe("normalizeStatusUpdateScheduleChanges", () => {
 
     expect(changes.statusUpdateSchedule).toBeNull();
   });
+
+  it("drops the nested scheduledStopPlan on a start-only schedule (no end)", () => {
+    const future = new Date("2099-06-01T12:00:00Z");
+    const experiment = makeExperiment({ status: "draft" });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: {
+        startAt: future,
+        scheduledStopPlan: { mode: "notify", fallback: "notify" },
+      } as ExperimentInterface["statusUpdateSchedule"],
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    const sched = changes.statusUpdateSchedule as {
+      startAt?: Date;
+      scheduledStopPlan?: unknown;
+    };
+    expect(sched.startAt).toEqual(future);
+    expect(sched.scheduledStopPlan).toBeUndefined();
+  });
 });
 
 describe("fillEmptyVariationKeys", () => {

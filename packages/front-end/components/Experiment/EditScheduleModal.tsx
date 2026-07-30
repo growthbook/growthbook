@@ -365,15 +365,15 @@ export default function EditScheduleModal({
                 mode: "notify" as const,
                 fallback: DEFAULT_SCHEDULED_STOP_FALLBACK,
               };
-          // The stop plan lives with the schedule that triggers it; without any
-          // schedule dates the whole schedule (and its inert plan) is cleared.
+          // The stop plan only fires at a scheduled end, so it's attached only
+          // when there is one; a start-only schedule carries no (inert) plan.
           const schedule =
             data.startAt || stopAt || stopAfter
               ? {
                   startAt: data.startAt || undefined,
                   stopAt,
                   stopAfter,
-                  scheduledStopPlan,
+                  ...(hasEndDate ? { scheduledStopPlan } : {}),
                 }
               : null;
           await apiCall(`/experiment/${experiment.id}`, {

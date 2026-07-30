@@ -13619,10 +13619,6 @@ paths:
                   items:
                     type: string
                 statusUpdateSchedule:
-                  description: >-
-                    Scheduled start/end for an experiment. All fields optional;
-                    the end may be an absolute `stopAt` or a deferred relative
-                    `stopAfter`, but not both.
                   type: object
                   properties:
                     startAt:
@@ -14303,7 +14299,9 @@ paths:
                         Scheduled start/end. Set to `null` to remove. Provide
                         any of `startAt`, `stopAt`, or `stopAfter` (a deferred
                         relative end resolved at start). End-of-experiment
-                        automation is set via the nested `scheduledStopPlan`.
+                        automation is set via the nested `scheduledStopPlan`,
+                        which is required whenever a `stopAt` or `stopAfter` is
+                        set.
                       type: object
                       properties:
                         startAt:
@@ -14775,12 +14773,13 @@ paths:
         state: any omitted field is cleared (omit `startAt` to remove a
         scheduled start; send an empty body to clear the whole schedule).
         Provide either `stopAt` or `stopAfter`, not both; a relative `stopAfter`
-        resolves to a concrete stop when the experiment starts. The scheduled
-        end must be in the future: a `stopAt` (or a `stopAfter` that resolves)
-        in the past is rejected — including one whose end date has already
-        passed and been acted on, so changing the plan after a soft end requires
-        committing to a new end date. Auto-ship shipping requires the Decision
-        Framework.
+        resolves to a concrete stop when the experiment starts. Setting a
+        scheduled end (`stopAt` or `stopAfter`) requires a `scheduledStopPlan`
+        (any mode, including `notify`). The scheduled end must be in the future:
+        a `stopAt` (or a `stopAfter` that resolves) in the past is rejected —
+        including one whose end date has already passed and been acted on, so
+        changing the plan after a soft end requires committing to a new end
+        date. Auto-ship shipping requires the Decision Framework.
       tags:
         - experiments
       parameters:

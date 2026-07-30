@@ -870,8 +870,9 @@ const apiStatusUpdateSchedule = z
     scheduledStopPlan: apiScheduledStopPlanValidator
       .optional()
       .describe(
-        "End-of-experiment automation applied at the scheduled end. Only " +
-          "meaningful when a `stopAt` or `stopAfter` is set.",
+        "End-of-experiment automation applied at the scheduled end. Required " +
+          "whenever a `stopAt` or `stopAfter` is set (any mode, including " +
+          "`notify`).",
       ),
   })
   .refine((s) => !(s.stopAt && s.stopAfter), {
@@ -882,6 +883,26 @@ const apiStatusUpdateSchedule = z
     "Scheduled start/end for an experiment. All fields optional; the end may be " +
       "an absolute `stopAt` or a deferred relative `stopAfter`, but not both.",
   );
+
+// Setting a scheduled end via the REST API requires the caller to make an
+// explicit end-of-experiment decision, so a `scheduledStopPlan` (any mode,
+// including `notify`) must accompany a `stopAt`/`stopAfter`. Request-only: the
+// Experiment response schema reuses the base object above without this refine.
+const requireStopPlanWithEnd = (s: {
+  stopAt?: string;
+  stopAfter?: unknown;
+  scheduledStopPlan?: unknown;
+}) => !((s.stopAt || s.stopAfter) && !s.scheduledStopPlan);
+const requireStopPlanRefine = {
+  message:
+    "scheduledStopPlan is required when a scheduled end (stopAt or stopAfter) is set.",
+  path: ["scheduledStopPlan"] as string[],
+};
+
+const apiStatusUpdateScheduleInput = apiStatusUpdateSchedule.refine(
+  requireStopPlanWithEnd,
+  requireStopPlanRefine,
+);
 
 // Corresponds to schemas/Experiment.yaml
 const apiExperimentShape = z.object({
@@ -1307,7 +1328,7 @@ const postExperimentBody = z
       )
       .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
-    statusUpdateSchedule: apiStatusUpdateSchedule.optional(),
+    statusUpdateSchedule: apiStatusUpdateScheduleInput.optional(),
     ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
@@ -1511,9 +1532,9 @@ const updateExperimentBody = z
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
     customMetricSlices: apiCustomMetricSlices.optional(),
-    statusUpdateSchedule: apiStatusUpdateSchedule
+    statusUpdateSchedule: apiStatusUpdateScheduleInput
       .describe(
-        "Scheduled start/end. Set to `null` to remove. Provide any of `startAt`, `stopAt`, or `stopAfter` (a deferred relative end resolved at start). End-of-experiment automation is set via the nested `scheduledStopPlan`.",
+        "Scheduled start/end. Set to `null` to remove. Provide any of `startAt`, `stopAt`, or `stopAfter` (a deferred relative end resolved at start). End-of-experiment automation is set via the nested `scheduledStopPlan`, which is required whenever a `stopAt` or `stopAfter` is set.",
       )
       .nullable()
       .optional(),
@@ -1968,13 +1989,17 @@ const putExperimentScheduleBody = z
       ),
     scheduledStopPlan: apiScheduledStopPlanValidator
       .optional()
-      .describe("End-of-experiment automation. Omit to reset to notify-only."),
+      .describe(
+        "End-of-experiment automation. Required whenever a `stopAt` or " +
+          "`stopAfter` is set (any mode, including `notify`).",
+      ),
   })
   .strict()
   .refine((b) => !(b.stopAt && b.stopAfter), {
     message: "Provide either stopAt or stopAfter, not both.",
     path: ["stopAfter"],
-  });
+  })
+  .refine(requireStopPlanWithEnd, requireStopPlanRefine);
 
 export const putExperimentScheduleValidator = {
   bodySchema: putExperimentScheduleBody,
@@ -1988,7 +2013,7 @@ export const putExperimentScheduleValidator = {
     .strict(),
   summary: "Set an experiment's schedule and shipping automation",
   description:
-    "Full-replace of the experiment's scheduled start/end and end-of-experiment shipping automation. The body is the complete desired state: any omitted field is cleared (omit `startAt` to remove a scheduled start; send an empty body to clear the whole schedule). Provide either `stopAt` or `stopAfter`, not both; a relative `stopAfter` resolves to a concrete stop when the experiment starts. The scheduled end must be in the future: a `stopAt` (or a `stopAfter` that resolves) in the past is rejected — including one whose end date has already passed and been acted on, so changing the plan after a soft end requires committing to a new end date. Auto-ship shipping requires the Decision Framework.",
+    "Full-replace of the experiment's scheduled start/end and end-of-experiment shipping automation. The body is the complete desired state: any omitted field is cleared (omit `startAt` to remove a scheduled start; send an empty body to clear the whole schedule). Provide either `stopAt` or `stopAfter`, not both; a relative `stopAfter` resolves to a concrete stop when the experiment starts. Setting a scheduled end (`stopAt` or `stopAfter`) requires a `scheduledStopPlan` (any mode, including `notify`). The scheduled end must be in the future: a `stopAt` (or a `stopAfter` that resolves) in the past is rejected — including one whose end date has already passed and been acted on, so changing the plan after a soft end requires committing to a new end date. Auto-ship shipping requires the Decision Framework.",
   operationId: "putExperimentSchedule",
   tags: ["experiments"],
   method: "put" as const,

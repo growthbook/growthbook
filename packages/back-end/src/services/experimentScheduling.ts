@@ -500,14 +500,17 @@ export async function setExperimentSchedule({
     ...(resolvedStopAt ? { stopAt: resolvedStopAt } : {}),
     ...(deferredStopAfter ? { stopAfter: deferredStopAfter } : {}),
   };
-  // The stop plan lives with the schedule that triggers it. A plan without any
-  // schedule dates is inert (only "notify" is valid there), so it's dropped
-  // along with the schedule rather than persisted on its own.
+  // The stop plan only ever fires at a scheduled end, so it's persisted only
+  // when there is one. A plan on a start-only schedule (or no schedule) is
+  // inert — only "notify" is valid without an end — so it's dropped rather than
+  // stored on its own.
   const schedule =
     Object.keys(scheduleDates).length > 0
       ? {
           ...scheduleDates,
-          ...(scheduledStopPlan ? { scheduledStopPlan } : {}),
+          ...(hasScheduledEnd && scheduledStopPlan
+            ? { scheduledStopPlan }
+            : {}),
         }
       : null;
 
