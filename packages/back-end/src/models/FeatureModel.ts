@@ -3449,23 +3449,32 @@ export async function publishRevision({
     const unwind = [...rewinds].reverse();
     if (revisionStatusRewind) unwind.push(revisionStatusRewind);
     let criticalFailed = false;
+    const unreversed: string[] = [];
     for (const { what, undo, critical } of unwind) {
       // Reopening the revision now would contradict a still-published feature.
       if (criticalFailed) {
         logger.error(
           `Skipping rewind of ${what} for feature ${feature.id} revision ${revision.version}: an earlier critical step could not be reversed`,
         );
+        unreversed.push(what);
         continue;
       }
       try {
         await undo();
       } catch (rewindErr) {
         if (critical) criticalFailed = true;
+        unreversed.push(what);
         logger.error(
           rewindErr,
           `Failed to rewind ${what} for feature ${feature.id} revision ${revision.version} after a failed publish${critical ? " — the feature stays at the published state" : " (satellite; continuing)"}`,
         );
       }
+    }
+    // Say so in the response: continuing past a satellite keeps the feature and
+    // its revision consistent, but whatever could not be reversed is left behind
+    // and the caller is the only one positioned to act on it.
+    if (unreversed.length && err instanceof Error) {
+      err.message += ` (could not be rolled back: ${unreversed.join(", ")} — see server logs)`;
     }
     throw err;
   }
