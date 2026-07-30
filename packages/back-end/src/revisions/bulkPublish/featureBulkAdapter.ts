@@ -357,6 +357,18 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       );
     }
 
+    // Same pre-mutation rule: planning is read-only, and its project check must
+    // refuse the publish before feature.version moves. Covers a rules-only
+    // publish too (mirrors publishRevision).
+    desired.holdoutExperimentLinkage = await planHoldoutExperimentLinkage(
+      context,
+      feature,
+      (mergeResult.holdout !== undefined
+        ? mergeResult.holdout?.id
+        : feature.holdout?.id) ?? null,
+      mergeResult.rules ?? feature.rules ?? [],
+    );
+
     // Ramp `create` actions run BEFORE the feature write: a schedule-creation
     // failure gates the publish, and the ids are stashed for compensation.
     desired.createdRampScheduleIds = await applyRampCreateActionsForRevision(
@@ -413,25 +425,13 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     }
 
     if (mergeResult.holdout !== undefined) {
-      // Guard already ran above (before any mutation) — skip the re-check.
-      await applyHoldoutSideEffects(
-        context,
-        { ...feature, rules: mergeResult.rules ?? feature.rules },
-        mergeResult.holdout,
-        { skipGuard: true },
-      );
+      // Guard already ran above, before any mutation.
+      await applyHoldoutSideEffects(context, feature, mergeResult.holdout, {
+        skipGuard: true,
+      });
     }
 
-    // Runs for a rules-only publish too (mirrors publishRevision).
-    desired.holdoutExperimentLinkage = await planHoldoutExperimentLinkage(
-      context,
-      feature,
-      (mergeResult.holdout !== undefined
-        ? mergeResult.holdout?.id
-        : feature.holdout?.id) ?? null,
-      mergeResult.rules ?? feature.rules ?? [],
-    );
-    for (const plan of desired.holdoutExperimentLinkage) {
+    for (const plan of desired.holdoutExperimentLinkage ?? []) {
       await applyHoldoutExperimentLinkage(context, plan);
     }
   },

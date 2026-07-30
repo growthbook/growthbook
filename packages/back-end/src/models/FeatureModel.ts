@@ -2069,10 +2069,8 @@ export async function applyHoldoutSideEffects(
   // holdout fails with no membership mutated (no partial transition).
   await assertHoldoutLinkageResolvable(context, newHoldout, feature.project);
 
-  // Remove feature from the old holdout. The guard (assertHoldoutChangeAllowed)
-  // has already refused this move if any linked experiment still belongs to the
-  // old holdout, so there's nothing to cascade here — the experiment side is
-  // detached explicitly by the user first.
+  // Feature side only: planHoldoutExperimentLinkage withdraws the experiments
+  // this feature contributed to the holdout it is leaving.
   if (prevHoldoutId) {
     await context.models.holdout.removeFeatureFromHoldout(
       prevHoldoutId,
@@ -3422,16 +3420,10 @@ export async function publishRevision({
         });
       }
 
-      // Guard already ran above (before any mutation) — skip the re-check.
-      // Pass the POST-publish rules: side effects enroll the experiments in
-      // the feature's rules, and a draft can add the holdout and the
-      // experiment-ref rule together.
-      await applyHoldoutSideEffects(
-        context,
-        { ...feature, rules: result.rules ?? feature.rules },
-        result.holdout,
-        { skipGuard: true },
-      );
+      // Guard already ran above, before any mutation.
+      await applyHoldoutSideEffects(context, feature, result.holdout, {
+        skipGuard: true,
+      });
     }
 
     for (const plan of experimentLinkagePlans) {
