@@ -23,35 +23,6 @@ const EDITABLE_AUTHOR_ACTIONS = new Set([
 // effect on the revision's status — use `undoReview` for that.
 const DELETABLE_AUTHOR_ACTIONS = new Set(["Comment"]);
 
-// An entry is the record of an action, so writing it takes exactly the action's
-// own authority: approve and you may log the approval; may not approve and you
-// may do neither. Keyed by the `action` each writer in FeatureRevisionModel
-// stores. Anything unlisted falls back to "may act on this flag at all" — a new
-// action must not silently lose its log entry, which is the failure this table
-// exists to prevent.
-const REVIEW_CLASS_ACTIONS = new Set([
-  "Approved",
-  "Requested Changes",
-  "Comment",
-  "Undo Review",
-]);
-
-const PUBLISH_CLASS_ACTIONS = new Set([
-  "publish",
-  "re-publish",
-  "schedule publish",
-  "update scheduled publish",
-  "cancel scheduled publish",
-]);
-
-const DRAFT_CLASS_ACTIONS = new Set([
-  "new revision",
-  "Review Requested",
-  "Recall Review",
-  "reopen",
-  "discard",
-]);
-
 const BaseClass = MakeModelClass({
   schema: featureRevisionLogValidator,
   collectionName: COLLECTION_NAME,
@@ -88,34 +59,23 @@ export class FeatureRevisionLogModel extends BaseClass {
     if (!feature) {
       throw new Error("Feature not found for FeatureRevisionLog");
     }
-    // Environments are deliberately unbound throughout: the action's own gate
-    // scopes it, and the record of it isn't environment-specific.
+    // An entry is the RECORD of an action that was already gated, and every
+    // writer is fire-and-forget. Re-deriving authority per action class asks for
+    // rights the actor never needed and then drops the entry silently when they
+    // differ: a reviewer's changes-requested cancels a pending schedule, which
+    // is a publish-class action. So any authority over the flag suffices —
+    // including commenting, which is its own permission. Environments are
+    // unbound: the action's own gate scoped it, and the record is not
+    // environment-specific.
     const permissions = this.context.permissions;
-
-    if (REVIEW_CLASS_ACTIONS.has(doc.action)) {
-      return permissions.canReviewFeatureDrafts(feature);
-    }
-    if (PUBLISH_CLASS_ACTIONS.has(doc.action)) {
-      return permissions.canPublishFeature(feature, NO_ENVIRONMENT_BINDING);
-    }
-    if (DRAFT_CLASS_ACTIONS.has(doc.action)) {
-      // Creating a flag writes its first "new revision" entry, so create
-      // authority counts alongside draft authority here.
-      return (
-        permissions.canCreateFeature(feature, NO_ENVIRONMENT_BINDING) ||
-        permissions.canEditFeatureDrafts(feature)
-      );
-    }
-    // Unlisted action — rule edits, toggles, archive, revert. Any authority to
-    // act on the flag suffices, so a newly added action can't silently lose its
-    // entry the way a reviewer's verdict did.
     return (
       permissions.canCreateFeature(feature, NO_ENVIRONMENT_BINDING) ||
       permissions.canEditFeatureDrafts(feature) ||
       permissions.canReviewFeatureDrafts(feature) ||
       permissions.canPublishFeature(feature, NO_ENVIRONMENT_BINDING) ||
       permissions.canRevertFeature(feature, NO_ENVIRONMENT_BINDING) ||
-      permissions.canDeleteFeature(feature, NO_ENVIRONMENT_BINDING)
+      permissions.canDeleteFeature(feature, NO_ENVIRONMENT_BINDING) ||
+      permissions.canAddComment(feature.project ? [feature.project] : [])
     );
   }
 
