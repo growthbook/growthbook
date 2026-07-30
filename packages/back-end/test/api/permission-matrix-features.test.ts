@@ -64,6 +64,14 @@ async function seedFeature() {
 type Case = {
   name: string;
   allowed: Persona[];
+  /**
+   * Who is still allowed once the persona is restricted to `dev`. Omit when the
+   * restriction changes nothing — either the action is project-scoped, or its
+   * environment footprint is empty or confined to dev. Spell it out when the
+   * footprint reaches production, which is the whole point of the dimension: an
+   * environment-scoped atom must refuse a change that lands outside its scope.
+   */
+  allowedDevOnly?: Persona[];
   run: () => Promise<{ status: number }>;
 };
 
@@ -84,6 +92,8 @@ const CASES: Case[] = [
     // Enabling an environment IS the live write, so it takes publish there too.
     name: "create a flag already enabled in an environment",
     allowed: ["creatorPublisher", "full"],
+    // Footprint is production, so nobody limited to dev may create it.
+    allowedDevOnly: [],
     run: () =>
       api.post("/api/v1/features", {
         id: `feat_live_${Date.now()}_${Math.floor(Math.random() * 1e6)}`,
@@ -104,6 +114,9 @@ const CASES: Case[] = [
     // new content straight to the payload.
     name: "land a change directly (v2 update)",
     allowed: ["editor", "full"],
+    // A defaultValue change lands in every enabled environment, production
+    // included, so a dev-limited editor cannot make it.
+    allowedDevOnly: [],
     run: () =>
       api.post(`/api/v2/features/${FEATURE_ID}`, { defaultValue: "true" }),
   },
@@ -126,25 +139,42 @@ const CASES: Case[] = [
   },
 ];
 
+/**
+ * Carry the body into the assertion: a 400 from a malformed request would
+ * otherwise look like a permission result and make the case vacuous. Allowed
+ * personas must actually succeed, not merely avoid a 403.
+ */
+function expectVerdict(
+  res: { status: number; body?: unknown },
+  isAllowed: boolean,
+): void {
+  const actual = `${res.status} ${JSON.stringify(res.body ?? {}).slice(0, 200)}`;
+  if (isAllowed) {
+    expect(actual).toMatch(/^[123]\d\d /);
+  } else {
+    expect(actual).toMatch(/^403 /);
+  }
+}
+
 describe("permission matrix — Feature Flags", () => {
   beforeEach(async () => {
     await seedFeature();
   });
 
-  describe.each(CASES)("$name", ({ allowed, run }) => {
+  describe.each(CASES)("$name", ({ allowed, allowedDevOnly, run }) => {
     it.each(PERSONA_IDS)("%s", async (persona) => {
       as(persona);
       const res = (await run()) as { status: number; body?: unknown };
-      // Carry the body into the assertion (as the entities matrix does): a 400
-      // from a malformed request would otherwise look like a permission result
-      // and make the case vacuous for everyone.
-      const actual = `${res.status} ${JSON.stringify(res.body ?? {}).slice(0, 200)}`;
-      // Allowed personas must actually succeed, not merely avoid a 403.
-      if (allowed.includes(persona)) {
-        expect(actual).toMatch(/^[123]\d\d /);
-      } else {
-        expect(actual).toMatch(/^403 /);
-      }
+      expectVerdict(res, allowed.includes(persona));
+    });
+
+    // The same case as a twin restricted to `dev`. Without this dimension an
+    // environment-scoped atom is only ever asked the project question, which is
+    // how three footprint bugs reached CI unnoticed.
+    it.each(PERSONA_IDS)("%s, limited to dev", async (persona) => {
+      as(persona, true);
+      const res = (await run()) as { status: number; body?: unknown };
+      expectVerdict(res, (allowedDevOnly ?? allowed).includes(persona));
     });
   });
 });

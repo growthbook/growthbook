@@ -12,6 +12,7 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { canRebaseRevision } from "back-end/src/revisions/revisionAuthority";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { isDraftStatus, loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
@@ -37,7 +38,19 @@ export const postConfigRevisionRebase = createApiRequestHandler(
   }
 
   const adapter = getAdapter("config");
-  if (!req.context.permissions.canRevisionAction("config", "draft", config)) {
+  // Draft authority covers any rebase; a narrow atom covers one that pulls
+  // nothing into a draft it could already advance, so a single-purpose role can
+  // satisfy "rebase before publishing" without a way to sweep someone else's
+  // changes in. Same rule the dashboard and the feature endpoint apply.
+  if (
+    !(await canRebaseRevision({
+      context: req.context,
+      revision,
+      baseSnapshot: revision.target.snapshot as Record<string, unknown>,
+      liveSnapshot: config as unknown as Record<string, unknown>,
+      updatableFields: getAdapter("config").getUpdatableFields(),
+    }))
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

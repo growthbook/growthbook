@@ -29,9 +29,11 @@ const { app, setReqContext } = setupApp();
 let seq = 0;
 const uniq = (p: string) => `${p}_${++seq}`;
 
-function as(persona: Persona | "admin") {
-  const userId = persona === "admin" ? "u_admin" : `u_${persona}`;
-  setReqContext(makePersonaContext(org, persona, userId));
+function as(persona: Persona | "admin", envLimited = false) {
+  const role =
+    persona === "admin" ? "admin" : envLimited ? `${persona}_dev` : persona;
+  const userId = persona === "admin" ? "u_admin" : `u_${role}`;
+  setReqContext(makePersonaContext(org, role, userId));
 }
 
 const api = {
@@ -124,6 +126,7 @@ const CASES: Case[] = [
     // None of these three reach an SDK payload until something references them,
     // so bringing one into being takes only create authority.
     name: "create",
+    envScopedAtom: true,
     allowed: ["creator", "creatorPublisher", "full"],
     run: (e) => api.post(`/api/v1/${e.base}`, e.createBody()),
   },
@@ -151,16 +154,19 @@ const CASES: Case[] = [
   },
   {
     name: "land a change directly",
+    envScopedAtom: true,
     allowed: ["editor", "full"],
     run: (e, id) => api.post(`/api/v1/${e.base}/${id}`, e.renameBody),
   },
   {
     name: "archive",
+    envScopedAtom: true,
     allowed: ["deleter", "full"],
     run: (e, id) => api.post(`/api/v1/${e.base}/${id}/archive`, {}),
   },
   {
     name: "publish a draft",
+    envScopedAtom: true,
     allowed: ["publisher", "creatorPublisher", "editor", "full"],
     needsEdit: true,
     run: (e, id, v) =>
@@ -181,6 +187,19 @@ const CASES: Case[] = [
     needsEdit: true,
     run: (e, id, v) =>
       api.post(`/api/v1/${e.base}-revisions/${id}/${v}/discard`, {}),
+  },
+  {
+    // Rebasing pulls the live change in, so only draft authority reaches it. A
+    // reverter or deleter must be refused: otherwise "rebase before publishing"
+    // becomes a way to sweep someone else's work into a draft the narrow atom is
+    // allowed to land. The no-op half of that rule is unit-tested.
+    name: "rebase a draft whose base has moved",
+    allowed: ["drafter", "editor", "full"],
+    needsStaleBase: true,
+    run: (e, id, v) =>
+      api.post(`/api/v1/${e.base}-revisions/${id}/${v}/rebase`, {
+        conflictResolutions: {},
+      }),
   },
   {
     // Staging a revert publishes nothing, so draft authority reaches it — and so
@@ -291,6 +310,48 @@ async function seedPublish(
   }
 }
 
+/**
+ * Leave the draft's base behind: edit the draft, then move the live state with a
+ * direct write. Rebasing now pulls that live change in, which is what a narrow
+ * atom must not be able to do.
+ */
+async function seedStaleBase(e: Entity, id: string, version: number) {
+  await seedEdit(e, id, version, e.editBody);
+  as("admin");
+  const res = await api.post(`/api/v1/${e.base}/${id}`, e.renameBody);
+  if (res.status >= 400) {
+    throw new Error(
+      `stale-base seed failed: ${res.status} ${JSON.stringify(res.body)}`,
+    );
+  }
+}
+
+/**
+ * A pure-revert draft standing on the current live state, so rebasing it pulls
+ * nothing in. Returns the draft's version.
+ */
+async function seedRevertDraft(e: Entity, id: string): Promise<number> {
+  const target = await seedPriorPublishedRevision(e, id);
+  as("admin");
+  const res = await api.post(
+    `/api/v1/${e.base}-revisions/${id}/${target}/revert`,
+    { strategy: "draft" },
+  );
+  if (res.status >= 400) {
+    throw new Error(
+      `revert-draft seed failed: ${res.status} ${JSON.stringify(res.body)}`,
+    );
+  }
+  const body = res.body as { revision?: { version?: number } };
+  const version = body.revision?.version;
+  if (!version) {
+    throw new Error(
+      `revert-draft seed returned no version: ${JSON.stringify(res.body)}`,
+    );
+  }
+  return version;
+}
+
 /** Move the draft to pending-review, so a verdict can be submitted on it. */
 async function seedReviewRequest(
   e: Entity,
@@ -350,37 +411,79 @@ describe.each(ENTITIES)("permission matrix — $label", (entity: Entity) => {
       needsEdit,
       needsReviewRequest,
       needsPriorPublished,
+      needsStaleBase,
+      envScopedAtom,
     }: Case) => {
-      it.each(PERSONA_IDS)("%s", async (persona) => {
+      const attempt = async (persona: Persona, envLimited: boolean) => {
         const id = await seed(entity);
         if (needsPriorPublished) {
           const target = await seedPriorPublishedRevision(entity, id);
-          as(persona);
+          as(persona, envLimited);
           const priorRes = await run(entity, id, target);
           expectVerdict(priorRes, allowed.includes(persona));
           return;
         }
-        const wantsDraft = needsDraft || needsEdit || needsReviewRequest;
+        const wantsDraft =
+          needsDraft || needsEdit || needsReviewRequest || needsStaleBase;
         const version = wantsDraft ? await seedDraft(entity, id) : 0;
         if (needsEdit || needsReviewRequest) {
           await seedEdit(entity, id, version);
+        }
+        if (needsStaleBase) {
+          await seedStaleBase(entity, id, version);
         }
         if (needsReviewRequest) {
           await seedReviewRequest(entity, id, version);
         }
 
-        as(persona);
+        as(persona, envLimited);
         const res = await run(entity, id, version);
-        // Carry the body into the assertion: a 400 from a malformed request would
-        // otherwise look like a permission result and make the case vacuous.
-        const actual = `${res.status} ${JSON.stringify(res.body ?? {}).slice(0, 200)}`;
+        expectVerdict(res, allowed.includes(persona));
+      };
 
-        if (allowed.includes(persona)) {
-          expect(actual).toMatch(/^[123]\d\d /);
-        } else {
-          expect(actual).toMatch(/^403 /);
-        }
-      });
+      it.each(PERSONA_IDS)("%s", (persona) => attempt(persona, false));
+
+      // An environment restriction must not bite here: none of these three
+      // entities carries a per-environment value, so the footprint is empty and
+      // the verdict is unchanged. Acquiring a footprint would be the bug. Left
+      // off the revert cases on purpose — staging publishes nothing, so the
+      // restriction is inapplicable rather than inert, and landing pins the same
+      // empty footprint `publish a draft` covers for a third of the round trips.
+      if (envScopedAtom) {
+        it.each(PERSONA_IDS)("%s, limited to dev", (persona) =>
+          attempt(persona, true),
+        );
+      }
     },
   );
+});
+
+/**
+ * `canRebaseRevision` is unit-tested in revisions/revisionAuthority.test.ts; this
+ * only has to prove the REST endpoint consults it rather than demanding the draft
+ * atom outright — which is what it did, leaving a reverter's pure revert
+ * unlandable under `requireRebaseBeforePublish` (publish 422s on the stale base,
+ * and the rebase that would clear it was a 403).
+ *
+ * One entity and the four personas that characterise the rule, instead of the
+ * full matrix: the setup is five round trips and the rule does not vary by entity.
+ */
+describe("a no-op rebase over a pure-revert draft", () => {
+  const constant = ENTITIES[0];
+
+  it.each([
+    ["reverter", true],
+    ["drafter", true],
+    ["deleter", false],
+    ["publisher", false],
+  ] as [Persona, boolean][])("%s -> allowed=%s", async (persona, isAllowed) => {
+    const id = await seed(constant);
+    const version = await seedRevertDraft(constant, id);
+    as(persona);
+    const res = await api.post(
+      `/api/v1/${constant.base}-revisions/${id}/${version}/rebase`,
+      { conflictResolutions: {} },
+    );
+    expectVerdict(res, isAllowed);
+  });
 });

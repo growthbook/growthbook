@@ -12,6 +12,7 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { canRebaseRevision } from "back-end/src/revisions/revisionAuthority";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { isDraftStatus, loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
@@ -41,12 +42,18 @@ export const postSavedGroupRevisionRebase = createApiRequestHandler(
   // Anyone with edit permission can unblock a stranded draft via rebase —
   // matches the internal /revision/:id/rebase semantics.
   const adapter = getAdapter("saved-group");
+  // Draft authority covers any rebase; a narrow atom covers one that pulls
+  // nothing into a draft it could already advance, so a single-purpose role can
+  // satisfy "rebase before publishing" without a way to sweep someone else's
+  // changes in. Same rule the dashboard and the feature endpoint apply.
   if (
-    !req.context.permissions.canRevisionAction(
-      "saved-group",
-      "draft",
-      savedGroup,
-    )
+    !(await canRebaseRevision({
+      context: req.context,
+      revision,
+      baseSnapshot: revision.target.snapshot as Record<string, unknown>,
+      liveSnapshot: savedGroup as unknown as Record<string, unknown>,
+      updatableFields: getAdapter("saved-group").getUpdatableFields(),
+    }))
   ) {
     req.context.permissions.throwPermissionError();
   }
