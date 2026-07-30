@@ -1090,6 +1090,37 @@ export function getEffectiveRevisionHoldout(
     : (feature.holdout ?? null);
 }
 
+// The holdout a revert restores. Unlike getEffectiveRevisionHoldout, an absent
+// value means "no holdout" rather than carrying the live one forward — carrying
+// forward makes a holdout attached after this revision un-revertable, which
+// reads as a revert that silently does nothing.
+export function getRevertTargetHoldout(
+  revision: Pick<RevisionFields, "holdout">,
+): Exclude<RevisionFields["holdout"], undefined> {
+  return revision.holdout ?? null;
+}
+
+// An open draft that is already the feature's live version: a publish advanced
+// the feature but never marked the revision published. Publishing it reconciles.
+export function isStrandedLiveRevision({
+  featureVersion,
+  revisionVersion,
+  revisionStatus,
+  hasChanges,
+}: {
+  featureVersion: number;
+  revisionVersion: number;
+  revisionStatus: string;
+  hasChanges: boolean;
+}): boolean {
+  return (
+    !hasChanges &&
+    revisionVersion === featureVersion &&
+    revisionStatus !== "published" &&
+    revisionStatus !== "discarded"
+  );
+}
+
 // Per-field backfill for old/sparse revisions before passing to autoMerge.
 // Fields not listed here are left as-is; sparse absence is meaningful for those.
 const revisionFieldFillers: Partial<{
@@ -1843,10 +1874,15 @@ export function autoMerge(
       result.archived = revision.archived;
     }
 
-    // holdout
+    // holdout — compared against live, not base. Membership lives on the feature
+    // document, and a base revision snapshot can predate an attach that happened
+    // outside a publish, in which case a draft's removal equals the stale base
+    // and the change would be dropped. `live` is canonical (see
+    // liveRevisionFromFeature), which also keeps this in step with
+    // draftDiffersFromLive.
     if (
       "holdout" in revision &&
-      !isEqual(revision.holdout, base.holdout ?? null)
+      !isEqual(revision.holdout ?? null, live.holdout ?? null)
     ) {
       result.holdout = revision.holdout;
     }
@@ -2022,13 +2058,16 @@ export function autoMerge(
     }
   }
 
-  // holdout (nullable object, same conflict pattern as archived)
+  // holdout (nullable object, same conflict pattern as archived) — differing
+  // from live is what makes it a change, since membership lives on the feature
+  // document and a base snapshot can predate an attach made outside a publish.
+  // base is then only consulted to tell a conflict from a clean change.
   if ("holdout" in revision) {
-    const revVal = revision.holdout;
+    const revVal = revision.holdout ?? null;
     const baseVal = base.holdout ?? null;
     const liveVal = live.holdout ?? null;
-    if (!isEqual(revVal, baseVal) && !isEqual(revVal, liveVal)) {
-      if (!isEqual(liveVal, baseVal) && !isEqual(liveVal, revVal)) {
+    if (!isEqual(revVal, liveVal)) {
+      if (!isEqual(liveVal, baseVal)) {
         const conflictInfo: MergeConflict = {
           name: "Holdout",
           key: "holdout",
@@ -3675,6 +3714,11 @@ export function inferSchemaField(
       }
       max = Math.max(max || 999, value);
       break;
+    case "bigint":
+    case "symbol":
+    case "undefined":
+    case "object":
+    case "function":
     default:
       throw new Error(`Invalid value type: ${typeof value}`);
   }
@@ -3817,4 +3861,48 @@ export function getApiFeatureEnabledEnvs(feature: ApiFeature) {
 
 export function getApiFeatureAllEnvs(feature: ApiFeature) {
   return Object.keys(feature.environments);
+}
+
+// Accepts legacy v1 (Record<env, rules>) as well as v2 arrays: raw-doc readers
+// hand over v1 shapes until the migration completes.
+export function getExperimentIdsFromRules(rules: unknown): string[] {
+  return Array.from(
+    new Set(
+      naiveFlattenV1Rules(rules)
+        .filter(isExperimentRefRule)
+        .map((r) => r.experimentId)
+        .filter(Boolean),
+    ),
+  );
+}
+
+/**
+ * Unlinking is doubly bounded: a holdout's experiment list is not only a
+ * projection of feature rules — experiments can be added to a holdout directly —
+ * so a candidate must both have been contributed by THIS feature and be
+ * referenced by nothing else. Anything else belongs to another writer.
+ */
+export function computeHoldoutExperimentLinkageDelta({
+  publishedRules,
+  previousRules,
+  linkedExperimentIds,
+  experimentIdsReferencedElsewhere,
+}: {
+  publishedRules: FeatureRule[];
+  previousRules: FeatureRule[];
+  linkedExperimentIds: string[];
+  experimentIdsReferencedElsewhere: string[];
+}): { toLink: string[]; toUnlink: string[] } {
+  const desired = getExperimentIdsFromRules(publishedRules);
+  const desiredSet = new Set(desired);
+  const linked = new Set(linkedExperimentIds);
+  const elsewhere = new Set(experimentIdsReferencedElsewhere);
+  const contributed = new Set(getExperimentIdsFromRules(previousRules));
+
+  return {
+    toLink: desired.filter((id) => !linked.has(id)),
+    toUnlink: linkedExperimentIds.filter(
+      (id) => contributed.has(id) && !desiredSet.has(id) && !elsewhere.has(id),
+    ),
+  };
 }

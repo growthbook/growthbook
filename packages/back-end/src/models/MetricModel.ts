@@ -26,6 +26,10 @@ import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";
 import { addTagsDiff } from "./TagModel";
+import {
+  definitionsScope,
+  touchDefinitionsVersion,
+} from "./DefinitionsVersionModel";
 
 const audit = createModelAuditLogger({
   entity: "metric",
@@ -198,6 +202,10 @@ export async function insertMetric(
 
   const created = toInterface(await MetricModel.create(metricWithOrganization));
   await audit.logCreate(context, created);
+  await touchDefinitionsVersion(
+    context.org.id,
+    definitionsScope(created.projects),
+  );
   return created;
 }
 
@@ -234,6 +242,10 @@ export async function insertMetrics(
   for (const metric of created) {
     await audit.logAutocreate(context, metric);
   }
+  await touchDefinitionsVersion(
+    context.org.id,
+    definitionsScope(...created.map((m) => m.projects)),
+  );
   return created;
 }
 
@@ -273,6 +285,10 @@ export async function deleteMetricById(
   });
 
   await audit.logDelete(context, metric);
+  await touchDefinitionsVersion(
+    context.org.id,
+    definitionsScope(metric.projects),
+  );
 }
 
 /**
@@ -404,13 +420,20 @@ export async function getMetricsByOrganization(
   return findMetrics(context, query);
 }
 
-const METRIC_DEFINITION_EXCLUDED_FIELDS = [
+// Exported for MetricModel.test.ts, which enforces that this stays a superset
+// of FIELDS_NOT_REQUIRING_DATE_UPDATED and METRIC_QUERY_STATUS_FIELDS — the
+// write paths that skip the definitions-version bump.
+export const METRIC_DEFINITION_EXCLUDED_FIELDS = [
   "sql",
   "templateVariables",
   "conditions",
   "queries",
   "analysis",
   "analysisError",
+  // Not part of the definitions payload; kept in sync with
+  // FIELDS_NOT_REQUIRING_DATE_UPDATED so skipping the definitions-version
+  // touch aligns with skipping dateUpdated.
+  "runStarted",
 ] as const;
 
 // Slimmed version of getMetricsByOrganization for the definitions endpoint.
@@ -553,6 +576,7 @@ export async function removeProjectFromMetrics(
       $set: { dateUpdated: new Date() },
     },
   );
+  await touchDefinitionsVersion(organization);
 }
 
 export async function getMetricsUsingSegment(
@@ -569,7 +593,7 @@ const FILE_CONFIG_UPDATEABLE_FIELDS: (keyof MetricInterface)[] = [
   "runStarted",
 ];
 
-const FIELDS_NOT_REQUIRING_DATE_UPDATED: (keyof MetricInterface)[] = [
+export const FIELDS_NOT_REQUIRING_DATE_UPDATED: (keyof MetricInterface)[] = [
   "analysis",
   "analysisError",
   "queries",
@@ -593,9 +617,16 @@ function addDateUpdatedToUpdates(
   return updates;
 }
 
+// The fields updateMetricQueriesAndStatus may write. It skips the
+// definitions-version bump entirely, which is safe only while every field here
+// is excluded from the definitions payload (enforced by MetricModel.test.ts).
+export const METRIC_QUERY_STATUS_FIELDS = ["queries", "analysisError"] as const;
+
 export async function updateMetricQueriesAndStatus(
   metric: MetricInterface,
-  updates: Partial<Pick<MetricInterface, "queries" | "analysisError">>,
+  updates: Partial<
+    Pick<MetricInterface, (typeof METRIC_QUERY_STATUS_FIELDS)[number]>
+  >,
 ) {
   await MetricModel.updateOne(
     {
@@ -614,6 +645,11 @@ export async function updateMetric(
   updates: Partial<MetricInterface>,
 ) {
   updates = addDateUpdatedToUpdates(updates);
+
+  // dateUpdated is only stamped when a payload-relevant field changed, so use
+  // it to decide whether to bump the definitions version (avoids churning the
+  // cache when only queries/analysis/runStarted change — see updateMetricQueriesAndStatus).
+  const changedDefinitionFields = "dateUpdated" in updates;
 
   const safeUpdates = (Object.keys(updates) as (keyof MetricInterface)[]).every(
     (k) => FILE_CONFIG_UPDATEABLE_FIELDS.includes(k),
@@ -656,6 +692,13 @@ export async function updateMetric(
   await addTagsDiff(context.org.id, metric.tags || [], updates.tags || []);
 
   await audit.logUpdate(context, metric, { ...metric, ...updates });
+
+  if (changedDefinitionFields) {
+    await touchDefinitionsVersion(
+      context.org.id,
+      definitionsScope(metric.projects, updates.projects ?? metric.projects),
+    );
+  }
 }
 
 export async function removeSegmentFromAllMetrics(
@@ -669,6 +712,7 @@ export async function removeSegmentFromAllMetrics(
       $set: updates,
     },
   );
+  await touchDefinitionsVersion(organization);
 }
 
 export async function removeTagInMetrics(organization: string, tag: string) {
@@ -679,6 +723,7 @@ export async function removeTagInMetrics(organization: string, tag: string) {
       $pull: { tags: tag },
     },
   );
+  await touchDefinitionsVersion(organization);
 }
 
 export async function generateMetricEmbeddings(

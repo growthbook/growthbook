@@ -5,7 +5,6 @@ export {
   getEventForwarderDatasourceParams,
   getEventForwarderSinkTypeForDatasource,
   getUserIdTypesToAdd,
-  isEventForwarderAllowedUserIdTypesChange,
   isEventForwarderManagedIdentifierId,
   isHashAttributeUserIdType,
   mergeUserIdTypes,

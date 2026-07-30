@@ -6,6 +6,10 @@ import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/
 const baseEscapeStringLiteral = (value: string) => value.replace(/'/g, `''`);
 
 export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
+  // Standard SQL quotes identifiers with double quotes. MySQL and BigQuery
+  // override this with a backtick.
+  identifierQuote: '"',
+
   escapeStringLiteral: baseEscapeStringLiteral,
 
   stringMatch: createLikeStringMatchFn({

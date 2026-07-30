@@ -40,13 +40,52 @@ const validation = {
   excludeFromSpec: true,
 };
 
+// How many suggestions we hand back, and the longest one we'll keep.
+// Enforced in code (see normalizeSuggestions) rather than in the schema.
+const MIN_SUGGESTIONS = 3;
+const MAX_SUGGESTIONS = 4;
+const MAX_SUGGESTION_LENGTH = 140;
+
+// Deliberately free of size constraints. Anthropic's structured-output
+// (`output_format`) JSON Schema subset rejects `minItems` values other than
+// 0 or 1, so an `.array(...).min(3)` here fails the whole request with
+// "output_format.schema: For 'array' type, 'minItems' values other than 0
+// or 1 are not supported" before the model ever runs. The 3-to-4 count and
+// the length limit are already stated in the instructions and the
+// description below, and we enforce them on the response instead — that
+// keeps the schema inside every provider's supported subset. Matches the
+// plain-`z.string()`/`z.array(z.string())` shape the AI edit endpoint uses.
 const outputSchema = z.object({
   suggestions: z
-    .array(z.string().min(8).max(140))
-    .min(3)
-    .max(4)
-    .describe("3 to 4 short, action-oriented test ideas for the current page."),
+    .array(z.string())
+    .describe(
+      "3 to 4 short, action-oriented test ideas for the current page. Each is a single imperative sentence under 14 words.",
+    ),
 });
+
+// The model is prompted for 3-4 clean suggestions, but nothing enforces
+// that at the protocol level now, so tidy the response before returning:
+// trim, drop blanks, drop duplicates, truncate anything overlong, and cap
+// the count. The MIN_SUGGESTIONS floor is applied by the caller, not here —
+// this just reports what survived cleaning.
+function normalizeSuggestions(suggestions: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of suggestions) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    const capped =
+      trimmed.length > MAX_SUGGESTION_LENGTH
+        ? trimmed.slice(0, MAX_SUGGESTION_LENGTH).trimEnd()
+        : trimmed;
+    const key = capped.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(capped);
+    if (out.length >= MAX_SUGGESTIONS) break;
+  }
+  return out;
+}
 
 const instructions = `You suggest 3 to 4 short, action-oriented A/B test prompts a user could try on a specific web page they're editing. Each prompt should be one sentence the user could send to the visual-editor AI (e.g. "Make the headline shorter and lead with the value prop").
 
@@ -201,5 +240,29 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
     overrideModel: visualEditorAIModel,
   });
 
-  return { suggestions: result.suggestions };
+  // All-or-nothing on the count. The old `.array(...).min(3)` schema gave us
+  // a floor for free — a short response failed validation, burned the one
+  // retry in parsePrompt, and then errored. We can't express that floor in
+  // the schema any more (see outputSchema), so enforce it here instead.
+  //
+  // Returning 1-2 items would render a conspicuously thin suggestion list in
+  // the side panel, so we'd rather hand back nothing: the extension already
+  // treats an empty list as "no server suggestions" and falls back to its own
+  // localized starter prompts, which reads as intentional. That also beats
+  // re-erroring — same visible outcome for the user, no wasted retry tokens.
+  const suggestions = normalizeSuggestions(result.suggestions);
+  if (suggestions.length < MIN_SUGGESTIONS) {
+    logger.warn(
+      {
+        orgId: req.organization.id,
+        visualChangesetId,
+        returned: result.suggestions.length,
+        usable: suggestions.length,
+      },
+      "[visual-editor-ai/suggestions] too few usable suggestions; returning none",
+    );
+    return { suggestions: [] };
+  }
+
+  return { suggestions };
 });

@@ -71,6 +71,13 @@ export const ALLOW_SELF_ORG_CREATION = stringToBoolean(
   true,
 );
 
+const prohibitedOrganizationNameRegex =
+  process.env.PROHIBITED_ORGANIZATION_NAME_REGEX;
+export const PROHIBITED_ORGANIZATION_NAME_REGEX =
+  prohibitedOrganizationNameRegex
+    ? new RegExp(prohibitedOrganizationNameRegex)
+    : null;
+
 export const UPLOAD_METHOD = (() => {
   const method = process.env.UPLOAD_METHOD;
   if (method && ["s3", "google-cloud"].includes(method)) {
