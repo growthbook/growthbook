@@ -2169,6 +2169,8 @@ async function planLinkageForHoldout(
   if (candidates.length) {
     // Only other features' LIVE rules count: an unpublished draft elsewhere has
     // no linkage of its own to protect, which is what keeps this decidable.
+    // TODO: consider querying with a rules[] projection if performance becomes
+    // an issue — only `rules` and `holdout` are read here.
     const otherFeatures = await getFeaturesByIds(
       context,
       Object.keys(holdout.linkedFeatures).filter((id) => id !== feature.id),
