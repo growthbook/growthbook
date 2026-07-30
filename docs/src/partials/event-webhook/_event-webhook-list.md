@@ -2015,12 +2015,13 @@ Triggered when an experiment is created
                     value: number;
                     unit: "hours" | "days";
                 } | undefined;
-            } | null) | undefined;
-            scheduledStopPlan?: ({
-                mode: "notify" | "auto-ship" | "force-ship" | "stop";
-                tiebreakerMetricId?: string | undefined;
-                fallback: "notify" | "force-ship";
-                fallbackVariationId?: string | undefined;
+                /** What happens at the scheduled end date. `notify` keeps the experiment running and just notifies (soft). `auto-ship` (requires the Decision Framework) ships the winning variation and stops; multi-winner ties break on `tiebreakerMetricId` (higher lift); with no clear winner, `fallback` either keeps running (`notify`) or ships `fallbackVariationId`. `force-ship` stops and rolls out `fallbackVariationId`. `stop` is a hard deadline that stops with no rollout. For `force-ship` and `stop`, the Decision Framework verdict (won/lost/inconclusive) is recorded as metadata when available. */
+                scheduledStopPlan?: {
+                    mode: "notify" | "auto-ship" | "force-ship" | "stop";
+                    tiebreakerMetricId?: string | undefined;
+                    fallback: "notify" | "force-ship";
+                    fallbackVariationId?: string | undefined;
+                } | undefined;
             } | null) | undefined;
             nextScheduledStatusUpdate?: ({
                 type: "start" | "stop";
@@ -2284,12 +2285,13 @@ Triggered when an experiment is updated
                     value: number;
                     unit: "hours" | "days";
                 } | undefined;
-            } | null) | undefined;
-            scheduledStopPlan?: ({
-                mode: "notify" | "auto-ship" | "force-ship" | "stop";
-                tiebreakerMetricId?: string | undefined;
-                fallback: "notify" | "force-ship";
-                fallbackVariationId?: string | undefined;
+                /** What happens at the scheduled end date. `notify` keeps the experiment running and just notifies (soft). `auto-ship` (requires the Decision Framework) ships the winning variation and stops; multi-winner ties break on `tiebreakerMetricId` (higher lift); with no clear winner, `fallback` either keeps running (`notify`) or ships `fallbackVariationId`. `force-ship` stops and rolls out `fallbackVariationId`. `stop` is a hard deadline that stops with no rollout. For `force-ship` and `stop`, the Decision Framework verdict (won/lost/inconclusive) is recorded as metadata when available. */
+                scheduledStopPlan?: {
+                    mode: "notify" | "auto-ship" | "force-ship" | "stop";
+                    tiebreakerMetricId?: string | undefined;
+                    fallback: "notify" | "force-ship";
+                    fallbackVariationId?: string | undefined;
+                } | undefined;
             } | null) | undefined;
             nextScheduledStatusUpdate?: ({
                 type: "start" | "stop";
@@ -2513,12 +2515,13 @@ Triggered when an experiment is updated
                     value: number;
                     unit: "hours" | "days";
                 } | undefined;
-            } | null) | undefined;
-            scheduledStopPlan?: ({
-                mode: "notify" | "auto-ship" | "force-ship" | "stop";
-                tiebreakerMetricId?: string | undefined;
-                fallback: "notify" | "force-ship";
-                fallbackVariationId?: string | undefined;
+                /** What happens at the scheduled end date. `notify` keeps the experiment running and just notifies (soft). `auto-ship` (requires the Decision Framework) ships the winning variation and stops; multi-winner ties break on `tiebreakerMetricId` (higher lift); with no clear winner, `fallback` either keeps running (`notify`) or ships `fallbackVariationId`. `force-ship` stops and rolls out `fallbackVariationId`. `stop` is a hard deadline that stops with no rollout. For `force-ship` and `stop`, the Decision Framework verdict (won/lost/inconclusive) is recorded as metadata when available. */
+                scheduledStopPlan?: {
+                    mode: "notify" | "auto-ship" | "force-ship" | "stop";
+                    tiebreakerMetricId?: string | undefined;
+                    fallback: "notify" | "force-ship";
+                    fallbackVariationId?: string | undefined;
+                } | undefined;
             } | null) | undefined;
             nextScheduledStatusUpdate?: ({
                 type: "start" | "stop";
@@ -2787,12 +2790,13 @@ Triggered when an experiment is deleted
                     value: number;
                     unit: "hours" | "days";
                 } | undefined;
-            } | null) | undefined;
-            scheduledStopPlan?: ({
-                mode: "notify" | "auto-ship" | "force-ship" | "stop";
-                tiebreakerMetricId?: string | undefined;
-                fallback: "notify" | "force-ship";
-                fallbackVariationId?: string | undefined;
+                /** What happens at the scheduled end date. `notify` keeps the experiment running and just notifies (soft). `auto-ship` (requires the Decision Framework) ships the winning variation and stops; multi-winner ties break on `tiebreakerMetricId` (higher lift); with no clear winner, `fallback` either keeps running (`notify`) or ships `fallbackVariationId`. `force-ship` stops and rolls out `fallbackVariationId`. `stop` is a hard deadline that stops with no rollout. For `force-ship` and `stop`, the Decision Framework verdict (won/lost/inconclusive) is recorded as metadata when available. */
+                scheduledStopPlan?: {
+                    mode: "notify" | "auto-ship" | "force-ship" | "stop";
+                    tiebreakerMetricId?: string | undefined;
+                    fallback: "notify" | "force-ship";
+                    fallbackVariationId?: string | undefined;
+                } | undefined;
             } | null) | undefined;
             nextScheduledStatusUpdate?: ({
                 type: "start" | "stop";
