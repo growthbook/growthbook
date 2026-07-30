@@ -151,14 +151,14 @@ export type ExperimentPhaseStringDates = Omit<
 };
 
 type NextScheduledStatusUpdateStringDates = Omit<
-  NextScheduledStatusUpdate,
+  NonNullable<ExperimentInterface["nextScheduledStatusUpdate"]>,
   "date"
 > & {
   date: string;
 };
 
 type StatusUpdateScheduleStringDates = Omit<
-  StatusUpdateSchedule,
+  NonNullable<ExperimentInterface["statusUpdateSchedule"]>,
   "startAt" | "stopAt"
 > & {
   startAt?: string;

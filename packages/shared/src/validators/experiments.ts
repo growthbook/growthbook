@@ -383,19 +383,6 @@ export const scheduleStopAfterValidator = z.object({
 });
 export type ScheduleStopAfter = z.infer<typeof scheduleStopAfterValidator>;
 
-export const statusUpdateScheduleValidator = z
-  .object({
-    startAt: z.date().optional(),
-    stopAt: z.date().optional(),
-    stopAfter: scheduleStopAfterValidator.optional().nullable(),
-  })
-  // Allowing both is ambiguous: stopAfter resolves to a stopAt at start and
-  // would clobber the explicit one.
-  .refine((s) => !(s.stopAt && s.stopAfter), {
-    message: "Provide either stopAt or stopAfter, not both.",
-    path: ["stopAfter"],
-  });
-
 // Enforced in the schema so every write path rejects an incomplete config,
 // not just the dedicated scheduled-stop-plan service.
 const forceShipCriteriaHasVariation = (c: {
@@ -422,6 +409,22 @@ export const scheduledStopPlanValidator = z
   })
   .refine(forceShipCriteriaHasVariation, forceShipVariationRefine);
 export type ScheduledStopPlan = z.infer<typeof scheduledStopPlanValidator>;
+
+export const statusUpdateScheduleValidator = z
+  .object({
+    startAt: z.date().optional(),
+    stopAt: z.date().optional(),
+    stopAfter: scheduleStopAfterValidator.optional().nullable(),
+    // The end-of-experiment automation is nested here so a stop plan can only
+    // exist alongside the schedule that triggers it.
+    scheduledStopPlan: scheduledStopPlanValidator.optional().nullable(),
+  })
+  // Allowing both is ambiguous: stopAfter resolves to a stopAt at start and
+  // would clobber the explicit one.
+  .refine((s) => !(s.stopAt && s.stopAfter), {
+    message: "Provide either stopAt or stopAfter, not both.",
+    path: ["stopAfter"],
+  });
 
 export const nextScheduledStatusUpdateValidator = z.object({
   type: z.enum(SCHEDULED_STATUS_UPDATE_TYPES),
@@ -512,7 +515,6 @@ export const experimentInterface = z
     nextScheduledStatusUpdate: nextScheduledStatusUpdateValidator
       .optional()
       .nullable(),
-    scheduledStopPlan: scheduledStopPlanValidator.optional().nullable(),
     precomputedUnitDimensionIds: z
       .array(z.string())
       .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
@@ -822,36 +824,6 @@ const apiScheduleStopAfter = z
       "experiment's actual start (or off `dateStarted` when already running).",
   );
 
-const apiStatusUpdateSchedule = z
-  .object({
-    startAt: z
-      .string()
-      .meta({ format: "date-time" })
-      .optional()
-      .describe(
-        "ISO datetime when the experiment should start. Must be in the future. " +
-          "Setting or clearing this field invalidates any existing staged start " +
-          "(`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule.",
-      ),
-    stopAt: z
-      .string()
-      .meta({ format: "date-time" })
-      .optional()
-      .describe(
-        "ISO datetime when the experiment should stop. Resolved from `stopAfter` " +
-          "at start when a relative end was set.",
-      ),
-    stopAfter: apiScheduleStopAfter.optional(),
-  })
-  .refine((s) => !(s.stopAt && s.stopAfter), {
-    message: "Provide either stopAt or stopAfter, not both.",
-    path: ["stopAfter"],
-  })
-  .describe(
-    "Scheduled start/end for an experiment. All fields optional; the end may be " +
-      "an absolute `stopAt` or a deferred relative `stopAfter`, but not both.",
-  );
-
 export const apiScheduledStopPlanValidator = namedSchema(
   "ScheduledStopPlan",
   z
@@ -874,6 +846,42 @@ export const apiScheduledStopPlanValidator = namedSchema(
         "(won/lost/inconclusive) is recorded as metadata when available.",
     ),
 );
+
+const apiStatusUpdateSchedule = z
+  .object({
+    startAt: z
+      .string()
+      .meta({ format: "date-time" })
+      .optional()
+      .describe(
+        "ISO datetime when the experiment should start. Must be in the future. " +
+          "Setting or clearing this field invalidates any existing staged start " +
+          "(`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule.",
+      ),
+    stopAt: z
+      .string()
+      .meta({ format: "date-time" })
+      .optional()
+      .describe(
+        "ISO datetime when the experiment should stop. Resolved from `stopAfter` " +
+          "at start when a relative end was set.",
+      ),
+    stopAfter: apiScheduleStopAfter.optional(),
+    scheduledStopPlan: apiScheduledStopPlanValidator
+      .optional()
+      .describe(
+        "End-of-experiment automation applied at the scheduled end. Only " +
+          "meaningful when a `stopAt` or `stopAfter` is set.",
+      ),
+  })
+  .refine((s) => !(s.stopAt && s.stopAfter), {
+    message: "Provide either stopAt or stopAfter, not both.",
+    path: ["stopAfter"],
+  })
+  .describe(
+    "Scheduled start/end for an experiment. All fields optional; the end may be " +
+      "an absolute `stopAt` or a deferred relative `stopAfter`, but not both.",
+  );
 
 // Corresponds to schemas/Experiment.yaml
 const apiExperimentShape = z.object({
@@ -925,7 +933,6 @@ const apiExperimentShape = z.object({
     .optional(),
   templateId: z.string().optional(),
   statusUpdateSchedule: apiStatusUpdateSchedule.nullable().optional(),
-  scheduledStopPlan: apiScheduledStopPlanValidator.nullable().optional(),
   nextScheduledStatusUpdate: z
     .object({
       type: z.enum(["start", "stop"]),
@@ -1301,7 +1308,6 @@ const postExperimentBody = z
       .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
     statusUpdateSchedule: apiStatusUpdateSchedule.optional(),
-    scheduledStopPlan: apiScheduledStopPlanValidator.optional(),
     ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
@@ -1507,13 +1513,7 @@ const updateExperimentBody = z
     customMetricSlices: apiCustomMetricSlices.optional(),
     statusUpdateSchedule: apiStatusUpdateSchedule
       .describe(
-        "Scheduled start/end. Set to `null` to remove. Provide any of `startAt`, `stopAt`, or `stopAfter` (a deferred relative end resolved at start).",
-      )
-      .nullable()
-      .optional(),
-    scheduledStopPlan: apiScheduledStopPlanValidator
-      .describe(
-        "End-of-experiment automation. Set to `null` to reset to notify-only.",
+        "Scheduled start/end. Set to `null` to remove. Provide any of `startAt`, `stopAt`, or `stopAfter` (a deferred relative end resolved at start). End-of-experiment automation is set via the nested `scheduledStopPlan`.",
       )
       .nullable()
       .optional(),

@@ -13659,9 +13659,9 @@ paths:
                         - value
                         - unit
                       additionalProperties: false
+                    scheduledStopPlan:
+                      $ref: '#/components/schemas/ScheduledStopPlan'
                   additionalProperties: false
-                scheduledStopPlan:
-                  $ref: '#/components/schemas/ScheduledStopPlan'
                 ignoreWarnings:
                   description: >-
                     Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
@@ -14302,7 +14302,8 @@ paths:
                     - description: >-
                         Scheduled start/end. Set to `null` to remove. Provide
                         any of `startAt`, `stopAt`, or `stopAfter` (a deferred
-                        relative end resolved at start).
+                        relative end resolved at start). End-of-experiment
+                        automation is set via the nested `scheduledStopPlan`.
                       type: object
                       properties:
                         startAt:
@@ -14340,11 +14341,9 @@ paths:
                             - value
                             - unit
                           additionalProperties: false
+                        scheduledStopPlan:
+                          $ref: '#/components/schemas/ScheduledStopPlan'
                       additionalProperties: false
-                    - type: 'null'
-                scheduledStopPlan:
-                  anyOf:
-                    - $ref: '#/components/schemas/ScheduledStopPlan'
                     - type: 'null'
                 precomputedUnitDimensionIds:
                   maxItems: 3
@@ -51347,11 +51346,9 @@ components:
                     - value
                     - unit
                   additionalProperties: false
+                scheduledStopPlan:
+                  $ref: '#/components/schemas/ScheduledStopPlan'
               additionalProperties: false
-            - type: 'null'
-        scheduledStopPlan:
-          anyOf:
-            - $ref: '#/components/schemas/ScheduledStopPlan'
             - type: 'null'
         nextScheduledStatusUpdate:
           anyOf:
@@ -52123,11 +52120,9 @@ components:
                         - value
                         - unit
                       additionalProperties: false
+                    scheduledStopPlan:
+                      $ref: '#/components/schemas/ScheduledStopPlan'
                   additionalProperties: false
-                - type: 'null'
-            scheduledStopPlan:
-              anyOf:
-                - $ref: '#/components/schemas/ScheduledStopPlan'
                 - type: 'null'
             nextScheduledStatusUpdate:
               anyOf:

@@ -113,7 +113,7 @@ export default function DecisionMakingSettings({
   }
 
   // Summarize the end-of-experiment scheduled-stop plan.
-  const plan = experiment.scheduledStopPlan;
+  const plan = experiment.statusUpdateSchedule?.scheduledStopPlan;
   const shippingVariationName = (id?: string) =>
     experiment.variations.find((v) => v.id === id)?.name ?? "a variation";
   let endSummary: string;

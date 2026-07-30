@@ -1829,7 +1829,6 @@ export async function postExperiment(
     "variations",
     "status",
     "statusUpdateSchedule",
-    "scheduledStopPlan",
     "results",
     "analysis",
     "winner",
@@ -1884,7 +1883,6 @@ export async function postExperiment(
       key === "lookbackOverride" ||
       key === "variations" ||
       key === "statusUpdateSchedule" ||
-      key === "scheduledStopPlan" ||
       key === "customFields" ||
       key === "customMetricSlices" ||
       key === "precomputedUnitDimensionIds"
@@ -1901,7 +1899,9 @@ export async function postExperiment(
 
   normalizeStatusUpdateScheduleChanges(experiment, changes);
 
-  if (changes.scheduledStopPlan) {
+  const changedScheduledStopPlan =
+    changes.statusUpdateSchedule?.scheduledStopPlan;
+  if (changedScheduledStopPlan) {
     const effectiveSchedule =
       "statusUpdateSchedule" in changes
         ? changes.statusUpdateSchedule
@@ -1912,7 +1912,7 @@ export async function postExperiment(
     validateScheduledStopPlan(
       context,
       { ...experiment, ...changes },
-      changes.scheduledStopPlan,
+      changedScheduledStopPlan,
       hasScheduledEnd,
     );
   }

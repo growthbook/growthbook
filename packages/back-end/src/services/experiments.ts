@@ -85,6 +85,7 @@ import {
   ApiExperimentResults,
   ApiMetric,
   ExperimentType,
+  ScheduledStopPlan,
 } from "shared/validators";
 import { Dimension } from "shared/types/integrations";
 import {
@@ -2935,10 +2936,12 @@ export async function toExperimentApiInterface(
         ...(s.startAt ? { startAt: s.startAt.toISOString() } : {}),
         ...(s.stopAt ? { stopAt: s.stopAt.toISOString() } : {}),
         ...(s.stopAfter ? { stopAfter: s.stopAfter } : {}),
+        ...(s.scheduledStopPlan
+          ? { scheduledStopPlan: s.scheduledStopPlan }
+          : {}),
       };
       return Object.keys(out).length > 0 ? out : null;
     })(),
-    scheduledStopPlan: experiment.scheduledStopPlan ?? null,
     nextScheduledStatusUpdate: experiment.nextScheduledStatusUpdate
       ? {
           type: experiment.nextScheduledStatusUpdate.type,
@@ -4044,18 +4047,24 @@ function apiScheduleToInterface(
         startAt?: string;
         stopAt?: string;
         stopAfter?: { value: number; unit: "hours" | "days" };
+        scheduledStopPlan?: ScheduledStopPlan;
       }
     | null
     | undefined,
 ): ExperimentInterface["statusUpdateSchedule"] {
   if (s === undefined) return undefined;
   if (s === null) return null;
-  const out = {
+  const dates = {
     ...(s.startAt ? { startAt: getValidDate(s.startAt) } : {}),
     ...(s.stopAt ? { stopAt: getValidDate(s.stopAt) } : {}),
     ...(s.stopAfter ? { stopAfter: s.stopAfter } : {}),
   };
-  return Object.keys(out).length > 0 ? out : null;
+  // The stop plan is inert without schedule dates, so drop it when they're absent.
+  if (Object.keys(dates).length === 0) return null;
+  return {
+    ...dates,
+    ...(s.scheduledStopPlan ? { scheduledStopPlan: s.scheduledStopPlan } : {}),
+  };
 }
 
 export function postExperimentApiPayloadToInterface(
@@ -4218,9 +4227,6 @@ export function postExperimentApiPayloadToInterface(
       ? { defaultDashboardId: payload.defaultDashboardId }
       : {}),
     statusUpdateSchedule: apiScheduleToInterface(payload.statusUpdateSchedule),
-    ...(payload.scheduledStopPlan
-      ? { scheduledStopPlan: payload.scheduledStopPlan }
-      : {}),
   };
 
   const { settings } = getScopedSettings({
@@ -4513,12 +4519,17 @@ export function normalizeStatusUpdateScheduleChanges(
       // Past stopAts (whether absolute or a stopAfter that resolves into the
       // past) are never staged for the scheduler; validateStatusUpdateSchedule
       // rejects them up front, so here we just build the normalized schedule.
+      // The stop plan rides with the schedule dates; without any dates the plan
+      // is inert (notify-only) and is dropped along with the schedule.
       changes.statusUpdateSchedule =
         startAt || stopAt || stopAfter
           ? {
               ...(startAt ? { startAt } : {}),
               ...(stopAt ? { stopAt } : {}),
               ...(stopAfter ? { stopAfter } : {}),
+              ...(incoming?.scheduledStopPlan
+                ? { scheduledStopPlan: incoming.scheduledStopPlan }
+                : {}),
             }
           : null;
 
@@ -4601,7 +4612,6 @@ export function updateExperimentApiPayloadToInterface(
     postStratificationEnabled,
     defaultDashboardId,
     statusUpdateSchedule,
-    scheduledStopPlan,
   } = payload;
 
   let changes: ExperimentInterface = {
@@ -4690,7 +4700,6 @@ export function updateExperimentApiPayloadToInterface(
       : {}),
     ...(defaultDashboardId !== undefined ? { defaultDashboardId } : {}),
     ...(statusUpdateSchedule !== undefined ? { statusUpdateSchedule } : {}),
-    ...(scheduledStopPlan !== undefined ? { scheduledStopPlan } : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 

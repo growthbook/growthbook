@@ -1800,6 +1800,40 @@ describe("normalizeStatusUpdateScheduleChanges", () => {
 
     expect(changes.nextScheduledStatusUpdate).toBeNull();
   });
+
+  it("carries the nested scheduledStopPlan through when the schedule has dates", () => {
+    const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const experiment = makeExperiment({ status: "running" });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: {
+        stopAt: future,
+        scheduledStopPlan: { mode: "stop", fallback: "notify" },
+      },
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    const sched = changes.statusUpdateSchedule as {
+      scheduledStopPlan?: { mode: string; fallback: string };
+    };
+    expect(sched.scheduledStopPlan).toEqual({
+      mode: "stop",
+      fallback: "notify",
+    });
+  });
+
+  it("drops the nested scheduledStopPlan when there are no schedule dates", () => {
+    const experiment = makeExperiment({ status: "running" });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: {
+        scheduledStopPlan: { mode: "notify", fallback: "notify" },
+      } as ExperimentInterface["statusUpdateSchedule"],
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.statusUpdateSchedule).toBeNull();
+  });
 });
 
 describe("fillEmptyVariationKeys", () => {

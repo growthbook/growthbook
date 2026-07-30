@@ -328,7 +328,9 @@ export const updateExperiment = createApiRequestHandler(
   // Run the same scheduled-stop-plan validation as PUT /schedule so this body
   // path can't set an invalid config (e.g. a force-ship fallbackVariationId that
   // doesn't match a variation). Validate against the post-update schedule + variations.
-  if (changes.scheduledStopPlan) {
+  const changedScheduledStopPlan =
+    changes.statusUpdateSchedule?.scheduledStopPlan;
+  if (changedScheduledStopPlan) {
     const effectiveSchedule =
       "statusUpdateSchedule" in changes
         ? changes.statusUpdateSchedule
@@ -339,7 +341,7 @@ export const updateExperiment = createApiRequestHandler(
     validateScheduledStopPlan(
       req.context,
       { ...experiment, ...changes },
-      changes.scheduledStopPlan,
+      changedScheduledStopPlan,
       hasScheduledEnd,
     );
   }

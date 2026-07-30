@@ -82,16 +82,18 @@ export default function EditScheduleModal({
     defaultValues: {
       startAt: experiment.statusUpdateSchedule?.startAt ?? "",
       stopAt: experiment.statusUpdateSchedule?.stopAt ?? "",
-      mode: (experiment.scheduledStopPlan?.mode ??
+      mode: (experiment.statusUpdateSchedule?.scheduledStopPlan?.mode ??
         "notify") as ScheduledStopMode,
       tiebreakerMetricId:
-        experiment.scheduledStopPlan?.tiebreakerMetricId ?? "",
-      fallback: (experiment.scheduledStopPlan?.fallback ??
+        experiment.statusUpdateSchedule?.scheduledStopPlan
+          ?.tiebreakerMetricId ?? "",
+      fallback: (experiment.statusUpdateSchedule?.scheduledStopPlan?.fallback ??
         DEFAULT_SCHEDULED_STOP_FALLBACK) as ScheduledStopFallback,
       // Default the fallback target to control (the first variation) so the
       // picker is never blank.
       fallbackVariationId:
-        experiment.scheduledStopPlan?.fallbackVariationId ??
+        experiment.statusUpdateSchedule?.scheduledStopPlan
+          ?.fallbackVariationId ??
         experiment.variations[0]?.id ??
         "",
     },
@@ -330,14 +332,6 @@ export default function EditScheduleModal({
             endMode === "after"
               ? { value: endAfterValue, unit: endAfterUnit }
               : undefined;
-          const schedule =
-            data.startAt || stopAt || stopAfter
-              ? {
-                  startAt: data.startAt || undefined,
-                  stopAt,
-                  stopAfter,
-                }
-              : null;
           // Shipping automation only fires at a scheduled end, so force
           // "notify" without an end date. Otherwise persist just the fields
           // relevant to the chosen mode so a stale value can't resurface when
@@ -371,11 +365,21 @@ export default function EditScheduleModal({
                 mode: "notify" as const,
                 fallback: DEFAULT_SCHEDULED_STOP_FALLBACK,
               };
+          // The stop plan lives with the schedule that triggers it; without any
+          // schedule dates the whole schedule (and its inert plan) is cleared.
+          const schedule =
+            data.startAt || stopAt || stopAfter
+              ? {
+                  startAt: data.startAt || undefined,
+                  stopAt,
+                  stopAfter,
+                  scheduledStopPlan,
+                }
+              : null;
           await apiCall(`/experiment/${experiment.id}`, {
             method: "POST",
             body: JSON.stringify({
               statusUpdateSchedule: schedule,
-              scheduledStopPlan,
             }),
           });
           mutate();

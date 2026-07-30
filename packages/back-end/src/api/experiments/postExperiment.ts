@@ -318,7 +318,9 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       datasource,
     );
 
-    if (newExperiment.scheduledStopPlan) {
+    const newScheduledStopPlan =
+      newExperiment.statusUpdateSchedule?.scheduledStopPlan;
+    if (newScheduledStopPlan) {
       const hasScheduledEnd = !!(
         newExperiment.statusUpdateSchedule?.stopAt ||
         newExperiment.statusUpdateSchedule?.stopAfter
@@ -326,7 +328,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       validateScheduledStopPlan(
         req.context,
         newExperiment as ExperimentInterface,
-        newExperiment.scheduledStopPlan,
+        newScheduledStopPlan,
         hasScheduledEnd,
       );
     }

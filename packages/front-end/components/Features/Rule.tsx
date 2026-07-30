@@ -522,7 +522,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       linkedExperiment.statusUpdateSchedule
     ) {
       const sched = linkedExperiment.statusUpdateSchedule;
-      const shipping = linkedExperiment.scheduledStopPlan;
+      const shipping = linkedExperiment.statusUpdateSchedule?.scheduledStopPlan;
 
       if (linkedExperiment.status === "draft" && sched.startAt) {
         ruleTags.push(

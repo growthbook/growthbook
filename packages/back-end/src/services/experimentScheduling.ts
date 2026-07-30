@@ -195,7 +195,7 @@ export async function applyScheduledExperimentStop({
   context: Context;
   experiment: ExperimentInterface;
 }): Promise<ScheduledStopOutcome> {
-  const plan = experiment.scheduledStopPlan;
+  const plan = experiment.statusUpdateSchedule?.scheduledStopPlan;
   const mode = plan?.mode ?? "notify";
   const tiebreakerMetricId = plan?.tiebreakerMetricId;
 
@@ -495,20 +495,29 @@ export async function setExperimentSchedule({
     );
   }
 
-  const schedule = {
+  const scheduleDates = {
     ...(startAtDate ? { startAt: startAtDate } : {}),
     ...(resolvedStopAt ? { stopAt: resolvedStopAt } : {}),
     ...(deferredStopAfter ? { stopAfter: deferredStopAfter } : {}),
   };
+  // The stop plan lives with the schedule that triggers it. A plan without any
+  // schedule dates is inert (only "notify" is valid there), so it's dropped
+  // along with the schedule rather than persisted on its own.
+  const schedule =
+    Object.keys(scheduleDates).length > 0
+      ? {
+          ...scheduleDates,
+          ...(scheduledStopPlan ? { scheduledStopPlan } : {}),
+        }
+      : null;
 
   const changes: Partial<ExperimentInterface> = {
-    statusUpdateSchedule: Object.keys(schedule).length > 0 ? schedule : null,
+    statusUpdateSchedule: schedule,
     // Running experiments stage the stop immediately; drafts stage nothing here
     // (a scheduled start is staged later via the start endpoint). Either way any
     // previously-staged action is reset so it must be re-staged from the new
     // schedule.
     nextScheduledStatusUpdate: stagedStop,
-    scheduledStopPlan: scheduledStopPlan ?? null,
   };
 
   const updated = await updateExperiment({ context, experiment, changes });
