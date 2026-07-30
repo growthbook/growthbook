@@ -1,6 +1,6 @@
 /*
 Track anonymous usage statistics
-- No identifiable information is sent.
+- No identifiable information is sent (organization name is hashed) aside from the IP address on the track event.
 - Helps us figure out how often features are used so we can prioritize development
 - For example, if people start creating a metric and then
   abandon the form, that tells us the UI needs improvement.
