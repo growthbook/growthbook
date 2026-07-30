@@ -14,6 +14,7 @@ import {
   rampSchedulePublishEnvironments,
   RULE_ID_ENV_SUFFIX_DELIMITER,
   stemRuleId,
+  isRampScheduleServing,
 } from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import {
@@ -417,7 +418,7 @@ export class RampScheduleModel extends BaseClass {
   // more authority than editing its steps does.
   protected canDelete(existing: RampScheduleInterface) {
     const project = this.getProject(existing);
-    const isServing = ["running", "paused"].includes(existing.status);
+    const isServing = isRampScheduleServing(existing);
     return (
       (!isServing &&
         this.context.permissions.canEditFeatureDrafts({ project })) ||

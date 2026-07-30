@@ -33,7 +33,10 @@ import {
   inheritStoredRolloutSeeds,
 } from "back-end/src/services/features";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
-import { getEnabledEnvironments } from "back-end/src/util/features";
+import {
+  getArchiveFootprint,
+  getEnabledEnvironments,
+} from "back-end/src/util/features";
 import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -335,7 +338,7 @@ export const updateFeatureV2 = createApiRequestHandler(
     }) &&
     !req.context.permissions.canDeleteFeature(
       { project: effectiveProject },
-      Array.from(getEnabledEnvironments(feature, orgEnvs)),
+      getArchiveFootprint(feature, req.context.org),
     )
   ) {
     req.context.permissions.throwPermissionError();

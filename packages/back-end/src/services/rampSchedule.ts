@@ -18,7 +18,11 @@ import {
   startApprovalPending,
 } from "shared/validators";
 import { ResourceEvents } from "shared/types/events/base-types";
-import { filterEnvironmentsByFeature, MergeResultChanges } from "shared/util";
+import {
+  filterEnvironmentsByFeature,
+  MergeResultChanges,
+  isRampScheduleServing,
+} from "shared/util";
 import uniqid from "uniqid";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/request";
@@ -2520,7 +2524,7 @@ export async function advanceUntilBlocked(
   if (
     current.cutoffDate &&
     current.cutoffDate <= now &&
-    ["running", "paused"].includes(current.status)
+    isRampScheduleServing(current)
   ) {
     await completeRollout(ctx, current, { disableActiveTargets: true });
     return;

@@ -200,6 +200,7 @@ import {
 import {
   buildFeatureLookups,
   getEnabledEnvironments,
+  getArchiveFootprint,
 } from "back-end/src/util/features";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -5616,10 +5617,7 @@ export async function postFeatureArchive(
   // Use the explicitly requested state if provided; fall back to toggling.
   const newArchivedState = archivedParam ?? !feature.archived;
 
-  const archiveEnvs = filterEnvironmentsByFeature(
-    getEnvironments(context.org),
-    feature,
-  ).map((e) => e.id);
+  const archiveEnvs = getArchiveFootprint(feature, context.org);
   // This endpoint only ever changes `archived`, so it's a pure archive by
   // construction — the landing authority stands on its own and doesn't need
   // draft rights alongside it. Same shape as revert: holding the authority for

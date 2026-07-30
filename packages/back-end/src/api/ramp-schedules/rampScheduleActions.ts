@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
-import { PermissionError } from "shared/util";
+import { PermissionError, isRampScheduleServing } from "shared/util";
 import {
   apiRampScheduleInterface,
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
@@ -710,7 +710,7 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
   if (!schedule) throw new Error("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
 
-  if (!["running", "paused"].includes(schedule.status)) {
+  if (!isRampScheduleServing(schedule)) {
     throw new Error(`Cannot advance a schedule in status "${schedule.status}"`);
   }
 
@@ -742,7 +742,7 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
     req.context,
     schedule.id,
     async (fresh) => {
-      if (!["running", "paused"].includes(fresh.status)) {
+      if (!isRampScheduleServing(fresh)) {
         throw new ConflictError(
           `Cannot advance: schedule changed to "${fresh.status}" while the request was in flight`,
         );

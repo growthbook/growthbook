@@ -3,7 +3,7 @@ import {
   RampScheduleInterface,
   isAwaitingStartApproval,
 } from "shared/validators";
-import { PermissionError } from "shared/util";
+import { PermissionError, isRampScheduleServing } from "shared/util";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -410,7 +410,7 @@ export const postRampScheduleAction = async (
     }
 
     case "advance": {
-      if (!["running", "paused"].includes(schedule.status)) {
+      if (!isRampScheduleServing(schedule)) {
         return res.status(400).json({
           status: 400,
           message: `Cannot advance a schedule in status "${schedule.status}"`,
@@ -448,7 +448,7 @@ export const postRampScheduleAction = async (
         context,
         schedule.id,
         async (fresh) => {
-          if (!["running", "paused"].includes(fresh.status)) {
+          if (!isRampScheduleServing(fresh)) {
             throw new ConflictError(
               `Cannot advance: schedule changed to "${fresh.status}" while the request was in flight`,
             );

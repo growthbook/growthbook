@@ -27,6 +27,7 @@ import {
   stripConfigExtends,
   deepMergePatch,
   getTargetingProjectIds,
+  filterEnvironmentsByFeature,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
@@ -65,6 +66,7 @@ import {
 } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 import { logger } from "back-end/src/util/logger";
@@ -329,6 +331,27 @@ export function isRuleEnabled(
   }
 
   return true;
+}
+
+/**
+ * Environments an archive takes the flag out of service in: the ones it both
+ * applies to and is enabled in. A disabled environment already omits the feature
+ * from its payload, so archiving changes nothing there — the same reason the
+ * review gate scopes an archive to its enabled environments. Shared by every
+ * path that can land an archive so they demand identical authority.
+ */
+export function getArchiveFootprint(
+  feature: FeatureInterface,
+  org: OrganizationInterface,
+): string[] {
+  return Array.from(
+    getEnabledEnvironments(
+      feature,
+      filterEnvironmentsByFeature(getEnvironments(org), feature).map(
+        (e) => e.id,
+      ),
+    ),
+  );
 }
 
 export function getEnabledEnvironments(

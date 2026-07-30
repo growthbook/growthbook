@@ -3047,6 +3047,17 @@ export function rampSchedulePublishEnvironments(
   return envs === "all" ? allEnvironments : envs;
 }
 
+/**
+ * Whether the schedule is acting on live traffic right now. Everything else —
+ * not started yet, or already finished — is inert, which is what separates a
+ * live ramp control from housekeeping.
+ */
+export function isRampScheduleServing(
+  schedule: Pick<RampScheduleInterface, "status">,
+): boolean {
+  return schedule.status === "running" || schedule.status === "paused";
+}
+
 export function getEnvsFromRampSchedule(
   schedule: Pick<
     RampScheduleInterface,

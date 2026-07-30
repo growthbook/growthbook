@@ -13,6 +13,7 @@ import {
   filterEnvironmentsByFeature,
   getReviewSetting,
   getTargetingProjectIds,
+  isRampScheduleServing,
 } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { RxCircleBackslash } from "react-icons/rx";
@@ -519,8 +520,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       canControlRamp &&
       !!rampSchedule &&
       (isSimpleSchedule
-        ? !!rampSchedule.cutoffDate &&
-          ["running", "paused"].includes(rampSchedule.status)
+        ? !!rampSchedule.cutoffDate && isRampScheduleServing(rampSchedule)
         : // A pending detach replaces the runtime actions with a draft-class
           // "cancel removal", so there is nothing here for a publisher.
           !isSyntheticRamp && !hasPendingDetach);
@@ -995,7 +995,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     {canControlRamp &&
                       isSimpleSchedule &&
                       !!rampSchedule.cutoffDate &&
-                      ["running", "paused"].includes(rampSchedule.status) && (
+                      isRampScheduleServing(rampSchedule) && (
                         <>
                           {!locked && <DropdownMenuSeparator />}
                           <DropdownMenuGroup label="Schedule">
@@ -1187,9 +1187,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                   </DropdownMenuItem>
                                 ))}
                               {/* Roll back / Jump ahead / Complete — active ramps */}
-                              {["running", "paused"].includes(
-                                rampSchedule.status,
-                              ) && (
+                              {isRampScheduleServing(rampSchedule) && (
                                 <>
                                   {rampSchedule.currentStepIndex >= 0 &&
                                     (() => {
