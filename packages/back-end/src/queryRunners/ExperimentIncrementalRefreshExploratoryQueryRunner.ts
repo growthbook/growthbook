@@ -41,6 +41,7 @@ import {
   RowsType,
   StartQueryParams,
   getMetricAwareQueryStatus,
+  getMetricQueryOwnership,
 } from "./QueryRunner";
 import { SnapshotResult } from "./ExperimentResultsQueryRunner";
 import {
@@ -438,14 +439,18 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
 
   // largely copied from ExperimentResultsQueryRunner
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
-    const { results: analysesResults, banditResult } =
-      await analyzeExperimentResults({
-        queryData: queryMap,
-        snapshotSettings: this.model.settings,
-        analysisSettings: this.model.analyses.map((a) => a.settings),
-        variationNames: this.variationNames,
-        metricMap: this.metricMap,
-      });
+    const {
+      results: analysesResults,
+      banditResult,
+      metricErrors,
+    } = await analyzeExperimentResults({
+      queryData: queryMap,
+      snapshotSettings: this.model.settings,
+      analysisSettings: this.model.analyses.map((a) => a.settings),
+      variationNames: this.variationNames,
+      metricMap: this.metricMap,
+      factMetricGroups: getMetricQueryOwnership(this.model.queries),
+    });
 
     const result: SnapshotResult = {
       analyses: this.model.analyses,
@@ -461,6 +466,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       analysis.results = results.dimensions || [];
       analysis.status = "success";
       analysis.error = "";
+      analysis.metricErrors = metricErrors[i];
 
       // TODO: do this once, not per analysis
       result.unknownVariations = results.unknownVariations || [];

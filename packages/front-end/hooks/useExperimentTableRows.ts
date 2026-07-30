@@ -25,6 +25,7 @@ import {
   isMetricGroupId,
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
+import { MetricError, SnapshotMetric } from "shared/types/experiment-snapshot";
 import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
@@ -38,6 +39,7 @@ const METRIC_SELECTOR_IDS = [
 import {
   applyMetricOverrides,
   ExperimentTableRow,
+  resolveMetricRowError,
 } from "@/services/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useTableSorting } from "@/hooks/useTableSorting";
@@ -71,6 +73,8 @@ export interface UseExperimentTableRowsParams {
   enableExpansion?: boolean;
   expandedMetrics: Record<string, boolean>;
   pValueThreshold: number;
+  // Structured per-metric errors from the snapshot analysis, keyed by metricId.
+  metricErrors?: Record<string, MetricError>;
 }
 
 export interface UseExperimentTableRowsReturn {
@@ -100,6 +104,7 @@ export function useExperimentTableRows({
   enableExpansion: _enableExpansion = true,
   expandedMetrics,
   pValueThreshold,
+  metricErrors,
 }: UseExperimentTableRowsParams): UseExperimentTableRowsReturn {
   const {
     getExperimentMetricById: _getExperimentMetricById,
@@ -297,6 +302,7 @@ export function useExperimentTableRows({
         getExperimentMetricById,
         getFactTableById,
         sliceTagsFilter,
+        metricErrors,
       });
     }
 
@@ -433,6 +439,7 @@ export function useExperimentTableRows({
     customMetricSlices,
     sortBy,
     customMetricOrder,
+    metricErrors,
   ]);
 
   // Apply sorting using the reusable useTableSorting hook
@@ -468,6 +475,7 @@ export function generateRowsForMetric({
   getExperimentMetricById,
   getFactTableById,
   sliceTagsFilter,
+  metricErrors,
 }: {
   metricId: string;
   resultGroup: "goal" | "secondary" | "guardrail";
@@ -485,6 +493,7 @@ export function generateRowsForMetric({
   getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
   getFactTableById: (id: string) => FactTableDefinition | null;
   sliceTagsFilter?: string[];
+  metricErrors?: Record<string, MetricError>;
 }): ExperimentTableRow[] {
   const resultsArray = Array.isArray(results) ? results : [results];
   const metric = getExperimentMetricById(metricId);
@@ -547,32 +556,40 @@ export function generateRowsForMetric({
     numSlices > 0 &&
     !sliceTagsFilter.includes("overall");
 
+  const parentVariations: SnapshotMetric[] = isLabelOnly
+    ? resultsArray[0].variations.map(() => ({
+        users: 0,
+        value: 0,
+        cr: 0,
+        errorMessage: "No data",
+      }))
+    : resultsArray[0].variations.map((v) => {
+        return (
+          v.metrics?.[metricId] || {
+            users: 0,
+            value: 0,
+            cr: 0,
+            errorMessage: "No data",
+          }
+        );
+      });
+
+  const metricError = resolveMetricRowError({
+    metricId,
+    metricErrors,
+  });
+
   const parentRow: ExperimentTableRow = {
     label: newMetric?.name,
     metric: newMetric,
     metricOverrideFields: overrideFields,
     rowClass: newMetric?.inverse ? "inverse" : "",
-    variations: isLabelOnly
-      ? resultsArray[0].variations.map(() => ({
-          users: 0,
-          value: 0,
-          cr: 0,
-          errorMessage: "No data",
-        }))
-      : resultsArray[0].variations.map((v) => {
-          return (
-            v.metrics?.[metricId] || {
-              users: 0,
-              value: 0,
-              cr: 0,
-              errorMessage: "No data",
-            }
-          );
-        }),
+    variations: parentVariations,
     metricSnapshotSettings,
     resultGroup,
     numSlices,
     labelOnly: isLabelOnly,
+    metricError,
   };
 
   const rows: ExperimentTableRow[] = [];
@@ -672,6 +689,10 @@ export function generateRowsForMetric({
         resultGroup,
         numSlices: 0,
         isSliceRow: true,
+        metricError: resolveMetricRowError({
+          metricId: slice.id,
+          metricErrors,
+        }),
         parentRowId: metricId,
         sliceLevels: slice.sliceLevels.map((dl) => ({
           column: dl.column,

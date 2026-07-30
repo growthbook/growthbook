@@ -910,6 +910,29 @@ export const apiExperimentResultsValidator = namedSchema(
       settings: apiExperimentAnalysisSettingsValidator,
       queryIds: z.array(z.string()),
       queryStatus: apiSnapshotQueryStatus.optional(),
+      metricErrors: z
+        .array(
+          z.object({
+            metricId: z.string(),
+            metricName: z.string().optional(),
+            type: z
+              .enum([
+                "query",
+                "build",
+                "analysis",
+                "dependency",
+                "config-drift",
+              ])
+              .describe(
+                "Which stage failed. `query` the metric's warehouse query failed, `build` its query could not be generated, `analysis` its statistics failed, `dependency` an upstream query it needed failed, `config-drift` the metric changed or was deleted after the query started.",
+              ),
+            message: z.string(),
+          }),
+        )
+        .describe(
+          "Metrics that produced no results, and why each one failed. A metric listed here is absent from `results`.",
+        )
+        .optional(),
       results: z.array(
         z.object({
           dimension: z.string(),

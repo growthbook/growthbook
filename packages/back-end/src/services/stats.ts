@@ -48,6 +48,7 @@ import {
   ExperimentSnapshotSettings,
   ExperimentSnapshotTraffic,
   ExperimentSnapshotTrafficDimension,
+  MetricError,
   SnapshotBanditSettings,
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
@@ -55,7 +56,11 @@ import { BanditResult } from "shared/types/experiment";
 import { checkSrm, chi2pvalue } from "back-end/src/util/stats";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { logger } from "back-end/src/util/logger";
-import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
+import {
+  BUILD_FAILURE_PREFIX,
+  DEPENDENCY_FAILURE_PREFIX,
+  QueryMap,
+} from "back-end/src/queryRunners/QueryRunner";
 import {
   filterParentQueryMap,
   parseUnitDimQueryName,
@@ -353,13 +358,111 @@ export function getMetricSettingsForStatsEngine(
   };
 }
 
+// Build a structured per-metric error from a failed query's raw error string,
+// chaining the root cause up to the metric. A cascade failure ("Dependencies
+// failed: …") becomes a `dependency` error; a build-time SQL-generation failure
+// ("Failed to build query: …") becomes a `build` error; anything else is a
+// runtime `query` error.
+export function buildMetricErrorFromQuery(rawError?: string): MetricError {
+  const raw = rawError ?? "";
+  if (raw.startsWith(DEPENDENCY_FAILURE_PREFIX)) {
+    const detail = raw
+      .slice(DEPENDENCY_FAILURE_PREFIX.length)
+      .replace(/^:?\s*/, "");
+    return {
+      type: "dependency",
+      message: detail ? `Dependency failed: ${detail}` : "Dependency failed",
+    };
+  }
+  if (raw.startsWith(BUILD_FAILURE_PREFIX)) {
+    // The runner already formats this as "Failed to build query: <detail>",
+    // so the raw string is the chained message we want to surface as-is.
+    return {
+      type: "build",
+      message: raw,
+    };
+  }
+  return {
+    type: "query",
+    message: raw ? `Query failed: ${raw}` : "Query failed",
+  };
+}
+
+// Structured per-metric error for a metric whose analysis raised inside gbstats.
+export function buildAnalysisMetricError(rawError: string): MetricError {
+  return {
+    type: "analysis",
+    message: `Analysis error: ${rawError}`,
+  };
+}
+
+// Collect per-analysis metric errors from gbstats into one map per requested
+// analysis. Older external stats servers may still return a whole-metric error;
+// apply that to every analysis to preserve compatibility.
+export function buildAnalysisMetricErrors(
+  result: ExperimentMetricAnalysis,
+  analysisCount: number,
+  logContext: { experimentId?: string; snapshotId?: string } = {},
+): Record<string, MetricError>[] {
+  const metricErrors = Array.from(
+    { length: analysisCount },
+    (): Record<string, MetricError> => ({}),
+  );
+  result.forEach(({ metric, analyses, error, traceback }) => {
+    // Backward compatibility for responses from an older external stats server.
+    if (error) {
+      if (traceback) {
+        logger.error(
+          { ...logContext, metricId: metric, traceback },
+          "Stats engine metric analysis failed",
+        );
+      }
+      metricErrors.forEach((errors) => {
+        errors[metric] = buildAnalysisMetricError(error);
+      });
+      return;
+    }
+    analyses.forEach((analysis, index) => {
+      if (!analysis.error || !metricErrors[index]) return;
+      if (analysis.traceback) {
+        logger.error(
+          {
+            ...logContext,
+            metricId: metric,
+            analysisIndex: index,
+            traceback: analysis.traceback,
+          },
+          "Stats engine metric analysis failed",
+        );
+      }
+      metricErrors[index][metric] = buildAnalysisMetricError(analysis.error);
+    });
+  });
+  return metricErrors;
+}
+
 export function getMetricsAndQueryDataForStatsEngine(
   queryData: QueryMap,
   metricMap: Map<string, ExperimentMetricInterface>,
   settings: ExperimentSnapshotSettings,
+  // Maps a fact-metric group query name (e.g. "group_0") to the metric ids in
+  // that group, so a failed/empty group query can be attributed to each of its
+  // constituent metrics (whose ids are otherwise only recoverable from the
+  // — now missing — result rows).
+  factMetricGroups?: Record<string, string[]>,
 ) {
   const queryResults: QueryResultsForStatsEngine[] = [];
   const metricSettings: Record<string, MetricSettingsForStatsEngine> = {};
+  const metricErrors: Record<string, MetricError> = {};
+  Object.values(factMetricGroups ?? {})
+    .flat()
+    .forEach((metricId) => {
+      if (metricMap.has(metricId)) return;
+      metricErrors[metricId] = {
+        type: "config-drift",
+        message: "Metric configuration changed after the query started",
+      };
+    });
   let unknownVariations: string[] = [];
   // Everything done in a single query (Mixpanel, Google Analytics)
   // Need to convert to the same format as SQL rows
@@ -411,13 +514,49 @@ export function getMetricsAndQueryDataForStatsEngine(
       if (parseUnitDimQueryName(key)) {
         return;
       }
+      const ownedMetricIds = factMetricGroups?.[key];
+      // Query ownership is the protocol for new snapshots. Query type and the
+      // historical group-name convention remain fallbacks for old snapshots.
+      const isMultiMetricQuery =
+        (ownedMetricIds?.length ?? 0) > 1 ||
+        query.queryType === "experimentMultiMetric" ||
+        query.queryType === "experimentIncrementalRefreshStatistics" ||
+        (ownedMetricIds === undefined && !!key.match(/group_/));
+
       // Multi-metric query
-      if (
-        key.match(/group_/) ||
-        query.queryType === "experimentIncrementalRefreshStatistics"
-      ) {
+      if (isMultiMetricQuery) {
         const rows = query.result as ExperimentFactMetricsQueryResponseRows;
-        if (!rows?.length) return;
+        if (!rows?.length) {
+          const groupMetricIds = (ownedMetricIds ?? []).filter((metricId) =>
+            metricMap.has(metricId),
+          );
+          groupMetricIds.forEach((metricId) => {
+            const metric = metricMap.get(metricId);
+            if (!metric) return;
+            metricSettings[metricId] = getMetricSettingsForStatsEngine(
+              metric,
+              metricMap,
+              settings,
+              true,
+            );
+          });
+          // A failed group query produced no rows. Attribute the failure to each
+          // constituent metric instead of silently dropping the whole group.
+          // (A query that succeeded with zero rows is a legitimately empty
+          // result, not an error, so we only attribute when status is failed.)
+          if (query.status === "failed") {
+            groupMetricIds.forEach((metricId) => {
+              metricErrors[metricId] = buildMetricErrorFromQuery(query.error);
+            });
+          } else if (groupMetricIds.length) {
+            queryResults.push({
+              metrics: groupMetricIds,
+              rows: [],
+              sql: query.query,
+            });
+          }
+          return;
+        }
         const metricIds: (string | null)[] = [];
         for (let i = 0; i < MAX_METRICS_PER_QUERY; i++) {
           const prefix = `m${i}_`;
@@ -447,17 +586,25 @@ export function getMetricsAndQueryDataForStatsEngine(
         return;
       }
 
-      // Single metric query, just return rows as-is
-      const metric = metricMap.get(key);
+      // Single metric query
+      const metricId = ownedMetricIds?.[0] ?? key;
+      const metric = metricMap.get(metricId);
       if (!metric) return;
-      metricSettings[key] = getMetricSettingsForStatsEngine(
+      metricSettings[metricId] = getMetricSettingsForStatsEngine(
         metric,
         metricMap,
         settings,
         false,
       );
+      // A failed single-metric query has no result. Record a per-metric error
+      // and do NOT push blank rows to gbstats (which would treat an empty
+      // result as a legitimate "no data" outcome rather than a failure).
+      if (query.status === "failed") {
+        metricErrors[metricId] = buildMetricErrorFromQuery(query.error);
+        return;
+      }
       queryResults.push({
-        metrics: [key],
+        metrics: [metricId],
         rows: (query.result ?? []) as ExperimentMetricQueryResponseRows,
         sql: query.query,
       });
@@ -467,6 +614,7 @@ export function getMetricsAndQueryDataForStatsEngine(
     queryResults,
     metricSettings,
     unknownVariations,
+    metricErrors,
   };
 }
 
@@ -621,7 +769,11 @@ export async function writeSnapshotAnalyses(
 
     const { snapshot, snapshotSettings } = params.context;
     const { analyses, queryResults } = params.params;
-    const { analysisObj, unknownVariations } = params.data;
+    const {
+      analysisObj,
+      unknownVariations,
+      metricErrors: queryMetricErrors,
+    } = params.data;
 
     if (result.error) {
       if (result.traceback) {
@@ -650,6 +802,13 @@ export async function writeSnapshotAnalyses(
       analysisObj.results = experimentReportResults[0]?.dimensions || [];
       analysisObj.status = "success";
       analysisObj.error = undefined;
+      analysisObj.metricErrors = {
+        ...queryMetricErrors,
+        ...buildAnalysisMetricErrors(result.results, 1, {
+          experimentId: snapshotSettings.experimentId,
+          snapshotId: snapshot,
+        })[0],
+      };
     }
 
     promises.push(async () =>
@@ -671,23 +830,27 @@ export async function analyzeExperimentResults({
   snapshotSettings,
   variationNames,
   metricMap,
+  factMetricGroups,
 }: {
   queryData: QueryMap;
   analysisSettings: ExperimentSnapshotAnalysisSettings[];
   snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
+  factMetricGroups?: Record<string, string[]>;
 }): Promise<{
   results: ExperimentReportResults[];
   banditResult?: BanditResult;
+  metricErrors: Record<string, MetricError>[];
 }> {
   const parentQueryData = filterParentQueryMap(queryData);
   const mdat = getMetricsAndQueryDataForStatsEngine(
     parentQueryData,
     metricMap,
     snapshotSettings,
+    factMetricGroups,
   );
-  const { queryResults, metricSettings } = mdat;
+  const { queryResults, metricSettings, metricErrors } = mdat;
   const { unknownVariations } = mdat;
 
   const params: ExperimentMetricAnalysisParams = {
@@ -716,7 +879,16 @@ export async function analyzeExperimentResults({
     unknownVariations,
     result: analysis,
   });
-  return { results, banditResult };
+  return {
+    results,
+    banditResult,
+    // Query/build/dependency failures (the metric never reached gbstats) plus
+    // analysis failures gbstats reported per metric. The two sets are disjoint:
+    // a metric whose query failed is never sent to the stats engine.
+    metricErrors: buildAnalysisMetricErrors(analysis, analysisSettings.length, {
+      experimentId: snapshotSettings.experimentId,
+    }).map((analysisErrors) => ({ ...metricErrors, ...analysisErrors })),
+  };
 }
 
 export function analyzeExperimentTraffic({

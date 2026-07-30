@@ -15,7 +15,7 @@ import {
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
 import { logger } from "back-end/src/util/logger";
-import { QueryRunner, QueryMap } from "./QueryRunner";
+import { QueryRunner, QueryMap, getMetricQueryOwnership } from "./QueryRunner";
 import {
   ExperimentResultsQueryParams,
   getExperimentResultsQueryStatus,
@@ -88,13 +88,19 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
     const { snapshotSettings, analysisSettings } =
       getSnapshotSettingsFromSafeRolloutArgs(this.model);
 
-    const { results: analysesResults } = await analyzeExperimentResults({
-      queryData: queryMap,
-      snapshotSettings: snapshotSettings,
-      analysisSettings: [analysisSettings],
-      variationNames: ["control", "variation"],
-      metricMap: this.metricMap,
-    });
+    // As in ExperimentResultsQueryRunner, the metric-analysis step is
+    // deliberately NOT isolated: a throw here means there are no metric results
+    // to persist, so it stays fatal to the snapshot. The traffic step below is
+    // isolated so it cannot discard results that did compute.
+    const { results: analysesResults, metricErrors } =
+      await analyzeExperimentResults({
+        queryData: queryMap,
+        snapshotSettings: snapshotSettings,
+        analysisSettings: [analysisSettings],
+        variationNames: ["control", "variation"],
+        metricMap: this.metricMap,
+        factMetricGroups: getMetricQueryOwnership(this.model.queries),
+      });
 
     const result: SafeRolloutSnapshotResult = {
       analyses: this.model.analyses,
@@ -109,6 +115,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
       analysis.results = results.dimensions || [];
       analysis.status = "success";
       analysis.error = "";
+      analysis.metricErrors = metricErrors[i];
 
       // TODO: do this once, not per analysis
       result.unknownVariations = results.unknownVariations || [];

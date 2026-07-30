@@ -511,6 +511,7 @@ export default function LegacyReportPage({
                     metricOverrides={report.args.metricOverrides || []}
                     reportDate={report.dateCreated}
                     results={report.results?.dimensions || []}
+                    metricErrors={report.results?.metricErrors}
                     queryStatusData={queryStatusData}
                     status={"stopped"}
                     startDate={getValidDate(
@@ -579,6 +580,7 @@ export default function LegacyReportPage({
                       variations={variations}
                       multipleExposures={report.results?.multipleExposures || 0}
                       results={report.results?.dimensions?.[0]}
+                      metricErrors={report.results?.metricErrors}
                       queryStatusData={queryStatusData}
                       reportDate={report.dateCreated}
                       startDate={getValidDate(

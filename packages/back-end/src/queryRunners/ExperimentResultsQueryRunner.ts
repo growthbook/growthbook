@@ -67,6 +67,7 @@ import {
   RowsType,
   StartQueryParams,
   getMetricAwareQueryStatus,
+  getMetricQueryOwnership,
 } from "./QueryRunner";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
 import { getUnitDimQueryName } from "./unitDimensionQueryNaming";
@@ -594,14 +595,24 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
-    const { results: analysesResults, banditResult } =
-      await analyzeExperimentResults({
-        queryData: queryMap,
-        snapshotSettings: this.model.settings,
-        analysisSettings: this.model.analyses.map((a) => a.settings),
-        variationNames: this.variationNames,
-        metricMap: this.metricMap,
-      });
+    // The metric-analysis step is deliberately NOT isolated: it is a single
+    // gbstats call covering every analysis, so a throw here means there are no
+    // metric results at all to persist (per-metric failures inside it are
+    // already isolated — see parseStatsEngineResult). It stays fatal so the
+    // snapshot reports an error rather than looking like a successful update
+    // with an empty results table.
+    const {
+      results: analysesResults,
+      banditResult,
+      metricErrors,
+    } = await analyzeExperimentResults({
+      queryData: queryMap,
+      snapshotSettings: this.model.settings,
+      analysisSettings: this.model.analyses.map((a) => a.settings),
+      variationNames: this.variationNames,
+      metricMap: this.metricMap,
+      factMetricGroups: getMetricQueryOwnership(this.model.queries),
+    });
 
     const result: SnapshotResult = {
       analyses: this.model.analyses,
@@ -617,6 +628,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       analysis.results = results.dimensions || [];
       analysis.status = "success";
       analysis.error = "";
+      // Structured per-metric errors for metrics that failed before producing
+      // any result (query/dependency failures). Surviving metrics still render.
+      analysis.metricErrors = metricErrors[i];
 
       // TODO: do this once, not per analysis
       result.unknownVariations = results.unknownVariations || [];

@@ -36,7 +36,10 @@ import Link from "@/ui/Link";
 import Button from "@/ui/Button";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
-import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import {
+  getIsExperimentIncludedInIncrementalRefresh,
+  getSnapshotMetricFailureSummary,
+} from "@/services/experiments";
 import { useIncrementalPipelineUnsupportedReason } from "@/hooks/useIncrementalPipelineUnsupportedReason";
 import { ExperimentTab } from "./TabbedPage";
 
@@ -142,6 +145,15 @@ const Results: FC<{
     useIncrementalPipelineUnsupportedReason(experiment);
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
+
+  // Surviving metrics are always analyzed now, so a snapshot can succeed with
+  // some metrics failed. Summarize that at the snapshot level so partial results
+  // are never mistaken for complete ones (the per-metric rows carry the detail).
+  const metricFailures = getSnapshotMetricFailureSummary({
+    metricErrors: analysis?.metricErrors,
+    snapshotMetricIds:
+      snapshot?.settings?.metricSettings?.map((m) => m.id) ?? [],
+  });
   const hasValidStatsEngine =
     !analysis?.settings ||
     (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine;
@@ -238,6 +250,14 @@ const Results: FC<{
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const hasQueries = queryStrings.length > 0;
+  const allMetricsFailed =
+    metricFailures.totalCount > 0 &&
+    metricFailures.failedCount >= metricFailures.totalCount;
+  const analysisErrorMessage =
+    analysis?.status === "error"
+      ? analysis.error || "Analysis could not be completed."
+      : "";
+  const snapshotErrored = (latest?.status ?? snapshot?.status) === "error";
   return (
     <>
       {!draftMode ? null : (
@@ -261,7 +281,7 @@ const Results: FC<{
         </Callout>
       )}
 
-      {status === "failed" && !hasData && !snapshotLoading && hasMetrics ? (
+      {snapshotErrored && !hasData && !snapshotLoading && hasMetrics ? (
         <Callout status="error" mx="3" my="4">
           The most recent update failed.
           {hasQueries ? (
@@ -276,10 +296,48 @@ const Results: FC<{
             ""
           )}
         </Callout>
+      ) : analysisErrorMessage && !snapshotLoading ? (
+        <Callout status="error" mx="3" my="4">
+          {analysisErrorMessage}
+        </Callout>
+      ) : metricFailures.failedCount > 0 && !snapshotLoading ? (
+        <Callout
+          // Every metric failing is worth an error, not a warning — there are no
+          // results to read. A snapshot whose queries all failed is covered by
+          // the callout above instead (its analysis never ran).
+          status={allMetricsFailed ? "error" : "warning"}
+          mx="3"
+          my="4"
+        >
+          {allMetricsFailed
+            ? `${
+                metricFailures.totalCount === 1
+                  ? "The only metric"
+                  : `All ${metricFailures.totalCount} metrics`
+              } failed to compute in the most recent update.`
+            : `${metricFailures.failedCount} of ${metricFailures.totalCount} metrics failed to compute in the most recent update. The results below are incomplete.`}{" "}
+          {allMetricsFailed ? (
+            hasQueries ? (
+              <>
+                <Link onClick={() => setQueriesModalOpen(true)}>
+                  View queries
+                </Link>
+                {" to see what went wrong."}
+              </>
+            ) : null
+          ) : (
+            <>See each metric&apos;s row for details.</>
+          )}
+        </Callout>
       ) : null}
 
       {(!hasData || !hasValidStatsEngine) &&
-        status !== "failed" && // failed is handled above
+        !snapshotErrored &&
+        // The all-metrics-failed error Callout above already explains this
+        // empty table; "Make sure your Experiment is tracking properly" would
+        // be actively wrong (the data arrived, the analysis failed).
+        !allMetricsFailed &&
+        !analysisErrorMessage &&
         status !== "running" &&
         !snapshot?.unknownVariations?.length &&
         hasMetrics &&

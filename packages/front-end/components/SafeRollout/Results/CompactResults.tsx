@@ -25,10 +25,13 @@ import {
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import { SafeRolloutReportResultDimension } from "shared/validators";
+import { MetricError } from "shared/types/experiment-snapshot";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   ExperimentTableRow,
+  getMetricErrorsForDisplay,
+  resolveMetricRowError,
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
@@ -63,6 +66,7 @@ const CompactResults: FC<{
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
+  metricErrors?: Record<string, MetricError>;
 }> = ({
   significanceThresholds,
   editMetrics,
@@ -87,10 +91,15 @@ const CompactResults: FC<{
   experimentType,
   ssrPolyfills,
   hideDetails,
+  metricErrors,
 }) => {
   const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
 
   const { pValueThreshold } = significanceThresholds;
+  const displayMetricErrors = getMetricErrorsForDisplay({
+    metricErrors,
+    failedQueryNames: queryStatusData?.failedNames,
+  });
 
   const { expandedGoals, expandedGuardrails } = useMemo(() => {
     const expandedGoals = expandMetricGroups(
@@ -141,6 +150,10 @@ const CompactResults: FC<{
         }),
         metricSnapshotSettings,
         resultGroup,
+        metricError: resolveMetricRowError({
+          metricId,
+          metricErrors: displayMetricErrors,
+        }),
       };
     }
 
@@ -167,6 +180,7 @@ const CompactResults: FC<{
     ready,
     ssrPolyfills,
     getExperimentMetricById,
+    displayMetricErrors,
   ]);
 
   const isBandit = experimentType === "multi-armed-bandit";

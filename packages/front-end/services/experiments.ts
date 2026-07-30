@@ -1,4 +1,5 @@
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
+import { MetricError, SnapshotMetric } from "shared/types/experiment-snapshot";
+import { Queries } from "shared/types/query";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import {
   ExperimentReportVariation,
@@ -168,6 +169,87 @@ export function experimentDate(exp: ExperimentInterfaceStringDates): string {
   );
 }
 
+export type SnapshotMetricFailureSummary = {
+  /** Distinct metrics that failed somewhere in the pipeline. */
+  failedCount: number;
+  /** Metrics the snapshot set out to analyze. */
+  totalCount: number;
+};
+
+/**
+ * Counts the metrics in the analysis's authoritative error map.
+ */
+export function getSnapshotMetricFailureSummary({
+  metricErrors,
+  snapshotMetricIds,
+}: {
+  metricErrors?: Record<string, MetricError>;
+  snapshotMetricIds: string[];
+}): SnapshotMetricFailureSummary {
+  const failed = new Set<string>(Object.keys(metricErrors ?? {}));
+
+  return {
+    failedCount: failed.size,
+    // Guard against an id that failed but is missing from the snapshot's metric
+    // list, so the summary can never read "3 of 2 metrics failed".
+    totalCount: Math.max(new Set(snapshotMetricIds).size, failed.size),
+  };
+}
+
+/**
+ * Resolves the structured error to render on a metric's row. Shared by the main
+ * and dimension row hooks so every results surface uses the same source.
+ */
+export function resolveMetricRowError({
+  metricId,
+  metricErrors,
+}: {
+  metricId: string;
+  metricErrors?: Record<string, MetricError>;
+}): MetricError | undefined {
+  return metricErrors?.[metricId];
+}
+
+/**
+ * Uses the persisted analysis map when present. For snapshots created before
+ * that map existed, reconstruct the old failed-query indication from query
+ * pointers (or their names when only aggregate status data is available).
+ */
+export function getMetricErrorsForDisplay({
+  metricErrors,
+  queries,
+  failedQueryNames,
+}: {
+  metricErrors?: Record<string, MetricError>;
+  queries?: Queries;
+  failedQueryNames?: string[];
+}): Record<string, MetricError> | undefined {
+  if (metricErrors !== undefined) return metricErrors;
+
+  const fallbackErrors: Record<string, MetricError> = {};
+  queries
+    ?.filter((query) => query.status === "failed")
+    .forEach((query) => {
+      const metricIds = query.metrics ?? [query.name];
+      metricIds.forEach((metricId) => {
+        fallbackErrors[metricId] = {
+          type: "query",
+          message: query.error
+            ? `Query failed: ${query.error}`
+            : "Query failed",
+        };
+      });
+    });
+  failedQueryNames?.forEach((metricId) => {
+    fallbackErrors[metricId] ??= {
+      type: "query",
+      message: "Query failed",
+    };
+  });
+
+  return Object.keys(fallbackErrors).length ? fallbackErrors : undefined;
+}
+
 /**
  * Returns the `statusUpdateSchedule.startAt` Date for an experiment if it
  * parses to a future date, otherwise null. Past-dated and missing schedules
@@ -192,6 +274,11 @@ export type ExperimentTableRow = {
   metricSnapshotSettings?: MetricSnapshotSettings;
   resultGroup: "goal" | "secondary" | "guardrail";
   error?: RowError;
+  // Structured per-metric error sourced from the snapshot analysis
+  // (`ExperimentSnapshotAnalysis.metricErrors`), carrying
+  // the chained root-cause message and its class so the UI can show specific
+  // copy instead of inferring failures by string-matching query names.
+  metricError?: MetricError;
   numSlices?: number;
   // Slice row properties
   isSliceRow?: boolean;

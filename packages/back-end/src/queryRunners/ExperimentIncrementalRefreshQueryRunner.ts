@@ -73,6 +73,7 @@ import {
   RowsType,
   StartQueryParams,
   getMetricAwareQueryStatus,
+  getMetricQueryOwnership,
 } from "./QueryRunner";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
 import {
@@ -1279,14 +1280,25 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 
   // largely copied from ExperimentResultsQueryRunner
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
-    const { results: analysesResults, banditResult } =
-      await analyzeExperimentResults({
-        queryData: queryMap,
-        snapshotSettings: this.model.settings,
-        analysisSettings: this.model.analyses.map((a) => a.settings),
-        variationNames: this.variationNames,
-        metricMap: this.metricMap,
-      });
+    // As in ExperimentResultsQueryRunner, the metric-analysis step is
+    // deliberately NOT isolated: a throw here means there are no metric results
+    // to persist, so it stays fatal to the snapshot. The health steps below are
+    // isolated so they cannot discard results that did compute.
+    const {
+      results: analysesResults,
+      banditResult,
+      metricErrors,
+    } = await analyzeExperimentResults({
+      queryData: queryMap,
+      snapshotSettings: this.model.settings,
+      analysisSettings: this.model.analyses.map((a) => a.settings),
+      variationNames: this.variationNames,
+      metricMap: this.metricMap,
+      // Attribute a failed statistics query to the metrics it computed.
+      // getMetricsAndQueryDataForStatsEngine already routes these queries
+      // through its group branch (by queryType), so it only needs the map.
+      factMetricGroups: getMetricQueryOwnership(this.model.queries),
+    });
 
     const result: SnapshotResult = {
       analyses: this.model.analyses,
@@ -1302,6 +1314,9 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       analysis.results = results.dimensions || [];
       analysis.status = "success";
       analysis.error = "";
+      // Structured per-metric errors for metrics that failed before producing
+      // any result (a failed statistics query). Surviving metrics still render.
+      analysis.metricErrors = metricErrors[i];
 
       // TODO: do this once, not per analysis
       result.unknownVariations = results.unknownVariations || [];

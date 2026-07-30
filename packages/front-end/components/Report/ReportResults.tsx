@@ -242,6 +242,7 @@ export default function ReportResults({
                 significanceThresholds={significanceThresholds}
                 key={snapshot.dimension}
                 results={analysis?.results ?? []}
+                metricErrors={analysis?.metricErrors}
                 queryStatusData={queryStatusData}
                 variations={variations}
                 // variationFilter={variationFilter}
@@ -282,6 +283,7 @@ export default function ReportResults({
                 variations={variations}
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={analysis.results[0]}
+                metricErrors={analysis.metricErrors}
                 queryStatusData={queryStatusData}
                 reportDate={snapshot.dateCreated}
                 startDate={getValidDate(phaseObj.dateStarted).toISOString()}

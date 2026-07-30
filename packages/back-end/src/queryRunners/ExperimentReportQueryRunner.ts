@@ -19,7 +19,7 @@ import {
   getExperimentResultsQueryStatus,
   startExperimentResultQueries,
 } from "./ExperimentResultsQueryRunner";
-import { QueryRunner, QueryMap } from "./QueryRunner";
+import { QueryRunner, QueryMap, getMetricQueryOwnership } from "./QueryRunner";
 
 export type SnapshotResult = {
   unknownVariations: string[];
@@ -101,14 +101,18 @@ export class ExperimentReportQueryRunner extends QueryRunner<
         );
 
       // todo: bandits? (probably not needed)
-      const { results } = await analyzeExperimentResults({
+      const { results, metricErrors } = await analyzeExperimentResults({
         variationNames: this.model.args.variations.map((v) => v.name),
         queryData: queryMap,
         metricMap: this.metricMap,
         snapshotSettings,
         analysisSettings: [analysisSettings],
+        factMetricGroups: getMetricQueryOwnership(this.model.queries),
       });
-      return results[0];
+      return {
+        ...results[0],
+        metricErrors: metricErrors[0],
+      };
     }
 
     throw new Error("Unsupported report type");
