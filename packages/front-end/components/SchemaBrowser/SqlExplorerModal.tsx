@@ -432,6 +432,13 @@ export default function SqlExplorerModal({
                 );
               }
               break;
+
+            case "today":
+            case "last7Days":
+            case "last30Days":
+            case "greaterThanOrEqualTo":
+            case "lessThanOrEqualTo":
+              break;
           }
         });
       }

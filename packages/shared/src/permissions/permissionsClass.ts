@@ -37,6 +37,7 @@ import { HoldoutInterface } from "../validators/holdout";
 import {
   PermissionError,
   getTargetingProjectIds,
+  isEventForwarderEventsFactTable,
   TargetingScopedEntity,
 } from "../util/";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
@@ -45,6 +46,21 @@ type NotificationEvent = {
   containsSecrets: boolean;
   projects: string[];
 };
+
+// The Event Forwarder Events fact table is `managedBy: "api"` but is
+// intentionally editable and deletable by users for now, so it skips the
+// manageOfficialResources checks below.
+function isEventForwarderManagedFactTable(
+  factTable: Partial<
+    Pick<FactTableInterface, "id" | "managedBy" | "datasource">
+  >,
+): boolean {
+  if (!factTable.id || !factTable.datasource) return false;
+  return isEventForwarderEventsFactTable(
+    { id: factTable.id, managedBy: factTable.managedBy },
+    factTable.datasource,
+  );
+}
 
 export class Permissions {
   private userPermissions: UserPermissions;
@@ -816,12 +832,20 @@ export class Permissions {
   };
 
   public canUpdateFactTable = (
-    existing: Pick<FactTableInterface, "projects" | "managedBy">,
+    existing: Pick<FactTableInterface, "projects" | "managedBy"> &
+      Partial<Pick<FactTableInterface, "id" | "datasource">>,
     updates: UpdateFactTableProps,
   ): boolean => {
     // We allow changing columns even for managed fact tables
     const changedKeys = Object.keys(updates);
-    const requireManagedByCheck = changedKeys.some((k) => k !== "columns");
+    // The Event Forwarder exception never covers changing managedBy itself —
+    // promoting the table to an official resource still needs the permission.
+    const changesManagedBy =
+      updates.managedBy !== undefined &&
+      updates.managedBy !== existing.managedBy;
+    const requireManagedByCheck =
+      changedKeys.some((k) => k !== "columns") &&
+      (changesManagedBy || !isEventForwarderManagedFactTable(existing));
 
     if (requireManagedByCheck && (existing.managedBy || updates.managedBy)) {
       if (!this.canUpdateOfficialResources(existing, updates)) {
@@ -837,9 +861,14 @@ export class Permissions {
   };
 
   public canDeleteFactTable = (
-    factTable: Pick<FactTableInterface, "projects" | "managedBy">,
+    factTable: Pick<FactTableInterface, "projects" | "managedBy"> &
+      Partial<Pick<FactTableInterface, "id" | "datasource">>,
   ): boolean => {
-    if (factTable.managedBy && ["admin", "api"].includes(factTable.managedBy)) {
+    if (
+      factTable.managedBy &&
+      ["admin", "api"].includes(factTable.managedBy) &&
+      !isEventForwarderManagedFactTable(factTable)
+    ) {
       if (!this.canDeleteOfficialResources(factTable)) {
         return false;
       }

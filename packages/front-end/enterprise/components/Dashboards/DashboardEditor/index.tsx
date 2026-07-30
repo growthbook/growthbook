@@ -354,8 +354,10 @@ function AddBlockDropdown({
 
         return (
           <Fragment key={`${subgroup}-${i}`}>
-            <DropdownMenuLabel className="font-weight-bold">
-              <Text color="text-high">{subgroup}</Text>
+            <DropdownMenuLabel>
+              <Text color="text-high" weight="semibold">
+                {subgroup}
+              </Text>
             </DropdownMenuLabel>
             {allowedBlockTypes.map((bType) => {
               if (BLOCK_TYPE_INFO[bType].deprecated) {

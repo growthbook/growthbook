@@ -129,10 +129,7 @@ import {
   assertCanAutoPublish,
   revisionRequiresReview,
 } from "back-end/src/services/features";
-import {
-  linkExperimentToHoldout,
-  resolveHoldoutExperimentToLink,
-} from "back-end/src/services/holdouts";
+import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
 import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
@@ -286,6 +283,7 @@ async function createOrUpdateDraftWithChanges(
   targetDraftVersion?: number,
   forceNewDraft?: boolean,
   autoComment?: string,
+  preInsertValidation?: (revision: FeatureRevisionInterface) => Promise<void>,
 ): Promise<FeatureRevisionInterface> {
   const { org } = context;
   const environments = getEnvironmentIdsFromOrg(context.org);
@@ -356,6 +354,7 @@ async function createOrUpdateDraftWithChanges(
     publish: false,
     comment: autoComment || "",
     org,
+    preInsertValidation,
   });
   return newRevision;
 }
@@ -2979,7 +2978,6 @@ export async function postFeatureRule(
   // Add holdout to existing experiment and experiment to holdout linkedExperiments
   // if the experiment is not running and has no linked implementations for
   // experiment-ref rules (writes deferred until after custom-hook prevalidation)
-  let holdoutExperimentToLink: ExperimentInterface | null = null;
   if (rule.type === "experiment-ref") {
     const experiment = await getExperimentById(context, rule.experimentId);
     // With a holdout in play the experiment must exist; without one, a missing
@@ -2988,7 +2986,7 @@ export async function postFeatureRule(
       throw new Error(`Could not find experiment "${rule.experimentId}"`);
     }
     if (experiment) {
-      holdoutExperimentToLink = await resolveHoldoutExperimentToLink({
+      await resolveHoldoutExperimentToLink({
         context,
         feature,
         experiment,
@@ -3149,21 +3147,6 @@ export async function postFeatureRule(
 
     if (!safeRollout) {
       throw new Error("Failed to create safe rollout");
-    }
-  }
-
-  // TODO(holdouts): remove code below (which makes this endpoint consistent with API routes)
-  // and instead only link when the holdout and experiment go live
-  if (holdoutExperimentToLink && effectiveHoldout?.id) {
-    // Link now only when the validated holdout is already live. A draft-only
-    // holdout defers to publish — applyHoldoutSideEffects enrolls the
-    // experiments in the merged rules when the holdout change lands.
-    if (feature.holdout?.id === effectiveHoldout.id) {
-      await linkExperimentToHoldout(
-        context,
-        holdoutExperimentToLink,
-        effectiveHoldout.id,
-      );
     }
   }
 
@@ -3513,12 +3496,11 @@ export async function postFeatureExperimentRefRule(
   // to check compatibility
   const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
 
-  const holdoutExperimentToLink = await resolveHoldoutExperimentToLink({
+  await resolveHoldoutExperimentToLink({
     context,
     feature,
     experiment,
     effectiveHoldout,
-    allowExistingLinkToThisFeature: true,
   });
 
   // One-way: any rule-footprint env that's currently off flips on. We never
@@ -3649,21 +3631,6 @@ export async function postFeatureExperimentRefRule(
     feature.id,
     experiment,
   );
-
-  // TODO(holdouts): remove code below (which makes this endpoint consistent with API routes)
-  // and instead only link when the holdout and experiment go live
-  if (holdoutExperimentToLink && effectiveHoldout?.id) {
-    // Link now only when the validated holdout is already live. A draft-only
-    // holdout defers to publish — applyHoldoutSideEffects enrolls the
-    // experiments in the merged rules when the holdout change lands.
-    if (feature.holdout?.id === effectiveHoldout.id) {
-      await linkExperimentToHoldout(
-        context,
-        holdoutExperimentToLink,
-        effectiveHoldout.id,
-      );
-    }
-  }
 
   res.status(200).json({
     status: 200,
@@ -5272,6 +5239,17 @@ export async function putFeature(
       autoPublish ? undefined : targetDraftVersion,
       autoPublish ? true : forceNewDraft,
       draftComment,
+      autoPublish
+        ? async (revision) => {
+            await prevalidatePublishRevision({
+              context,
+              feature,
+              revision,
+              result: envelopeChanges,
+              comment: draftComment,
+            });
+          }
+        : undefined,
     );
     let updatedFeature: FeatureInterface = feature;
     if (autoPublish) {
@@ -5282,6 +5260,7 @@ export async function putFeature(
         revision: draft,
         result: envelopeChanges,
         bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+        skipPrevalidateValidation: true,
       });
     }
     // Keep the tag autocomplete table in sync (side-effect; revision already captures the values).

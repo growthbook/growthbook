@@ -929,20 +929,7 @@ async function getLastRevision(
   return lastRevision ? toInterface(lastRevision, context, feature) : null;
 }
 
-export async function createRevision({
-  context,
-  feature,
-  user,
-  environments,
-  baseVersion,
-  changes,
-  publish,
-  comment,
-  title,
-  org,
-  canBypassApprovalChecks,
-  revertedFrom,
-}: {
+type PrepareFeatureRevisionParams = {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
   user: EventUser;
@@ -951,17 +938,26 @@ export async function createRevision({
   changes?: Partial<FeatureRevisionInterface>;
   // Not a `changes` field: a draft forked from a revert must not inherit the marker.
   revertedFrom?: number;
-  publish?: boolean;
   comment?: string;
   title?: string;
-  org: OrganizationInterface;
-  canBypassApprovalChecks?: boolean;
-}) {
-  // Read once to (a) seed the baseVersion default, (b) compute the initial
-  // version guess used for validation hooks, and (c) prime the first attempt
-  // of the retry loop below. The version is reassigned inside
-  // `createWithVersionRetry` on retry so concurrent creates can't collide
-  // on the (organization, featureId, version) unique index.
+};
+
+export async function prepareFeatureRevision({
+  context,
+  feature,
+  user,
+  environments,
+  baseVersion,
+  changes,
+  revertedFrom,
+  comment,
+  title,
+}: PrepareFeatureRevisionParams): Promise<{
+  revision: FeatureRevisionInterface;
+  baseRevision: FeatureRevisionInterface;
+  baseVersion: number;
+}> {
+  // createRevision may reassign this initial version if a concurrent insert wins.
   const lastRevision = await getLastRevision(context, feature);
   const newVersion = lastRevision ? lastRevision.version + 1 : 1;
 
@@ -1037,9 +1033,7 @@ export async function createRevision({
     throw new Error("can not find a base revision");
   }
   const status = "draft";
-  // Version is initially set to the best-guess `newVersion` so validation
-  // hooks see a realistic value. On a duplicate-key collision the retry loop
-  // below reassigns it before the actual insert.
+  // Preflight validation and the first insert attempt must use the same next version.
   const revision = {
     organization: feature.organization,
     featureId: feature.id,
@@ -1062,6 +1056,44 @@ export async function createRevision({
     holdout,
     ...(revertedFrom !== undefined ? { revertedFrom } : {}),
   } as FeatureRevisionInterface;
+
+  return { revision, baseRevision, baseVersion };
+}
+
+export async function createRevision({
+  context,
+  feature,
+  user,
+  environments,
+  baseVersion,
+  changes,
+  publish,
+  comment,
+  title,
+  org,
+  canBypassApprovalChecks,
+  revertedFrom,
+  preInsertValidation,
+}: PrepareFeatureRevisionParams & {
+  publish?: boolean;
+  org: OrganizationInterface;
+  canBypassApprovalChecks?: boolean;
+  preInsertValidation?: (revision: FeatureRevisionInterface) => Promise<void>;
+}) {
+  const prepared = await prepareFeatureRevision({
+    context,
+    feature,
+    user,
+    environments,
+    baseVersion,
+    changes,
+    revertedFrom,
+    comment,
+    title,
+  });
+  const { revision, baseRevision } = prepared;
+  baseVersion = prepared.baseVersion;
+
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
     baseRevision,
@@ -1078,15 +1110,14 @@ export async function createRevision({
     revision.status = "pending-review";
   }
 
-  // Validation hooks (no-op on cloud; custom user code on self-hosted) MUST
-  // run exactly once — keep them outside the retry loop so a duplicate-key
-  // race never causes a hook to fire twice.
-  await runValidateFeatureRevisionHooks({
-    context,
-    feature,
-    revision,
-    original: baseRevision,
-  });
+  if (!preInsertValidation) {
+    await runValidateFeatureRevisionHooks({
+      context,
+      feature,
+      revision,
+      original: baseRevision,
+    });
+  }
 
   // Retry the insert on duplicate-key collisions from the
   // (organization, featureId, version) unique index. The first attempt uses
@@ -1100,6 +1131,15 @@ export async function createRevision({
       revision.version = latest ? latest.version + 1 : 1;
     }
     firstAttempt = false;
+    if (preInsertValidation) {
+      await runValidateFeatureRevisionHooks({
+        context,
+        feature,
+        revision,
+        original: baseRevision,
+      });
+      await preInsertValidation(revision);
+    }
     return FeatureRevisionModel.create(revision);
   });
 
@@ -1114,13 +1154,13 @@ export async function createRevision({
       value: JSON.stringify({
         status: publish ? "published" : "draft",
         comment: comment || "",
-        defaultValue,
-        rules,
-        environmentsEnabled,
-        prerequisites,
-        archived,
-        metadata,
-        holdout,
+        defaultValue: revision.defaultValue,
+        rules: revision.rules,
+        environmentsEnabled: revision.environmentsEnabled,
+        prerequisites: revision.prerequisites,
+        archived: revision.archived,
+        metadata: revision.metadata,
+        holdout: revision.holdout,
       }),
     })
     .catch((e) => {

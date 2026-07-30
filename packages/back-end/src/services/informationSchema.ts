@@ -339,6 +339,16 @@ export function getTablePath(
     case "growthbook_clickhouse":
       return tableName; // Only return the table name
 
+    case "redshift":
+    case "athena":
+    case "google_analytics":
+    case "snowflake":
+    case "postgres":
+    case "mssql":
+    case "presto":
+    case "databricks":
+    case "mixpanel":
+    case "vertica":
     default:
       return returnValue;
   }
@@ -367,6 +377,16 @@ export function getSchemaPath(
     case "growthbook_clickhouse":
       return ""; // Only return the table name
 
+    case "redshift":
+    case "athena":
+    case "google_analytics":
+    case "snowflake":
+    case "postgres":
+    case "mssql":
+    case "presto":
+    case "databricks":
+    case "mixpanel":
+    case "vertica":
     default:
       return returnValue;
   }
@@ -392,6 +412,16 @@ export function getDatabasePath(
     case "growthbook_clickhouse":
       return ""; // Only return the table name
 
+    case "redshift":
+    case "athena":
+    case "google_analytics":
+    case "snowflake":
+    case "postgres":
+    case "mssql":
+    case "presto":
+    case "databricks":
+    case "mixpanel":
+    case "vertica":
     default:
       return catalog;
   }
