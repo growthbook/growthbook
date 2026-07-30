@@ -1,6 +1,7 @@
 import mongoose, { FilterQuery } from "mongoose";
 import { evalCondition } from "@growthbook/growthbook";
 import { ExperimentMetricInterface } from "shared/experiments";
+import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import {
   InsertMetricProps,
@@ -644,12 +645,14 @@ export async function updateMetric(
   metric: MetricInterface,
   updates: Partial<MetricInterface>,
 ) {
-  updates = addDateUpdatedToUpdates(updates);
+  // Compare against the stored values (not just which keys were submitted) so
+  // resubmitting a field with its current value doesn't bump the definitions
+  // version — the front-end resends the whole form on every save.
+  const changedDefinitionFields = Object.entries(updates).some(
+    ([k, v]) => !isEqual(metric[k as keyof MetricInterface], v),
+  );
 
-  // dateUpdated is only stamped when a payload-relevant field changed, so use
-  // it to decide whether to bump the definitions version (avoids churning the
-  // cache when only queries/analysis/runStarted change — see updateMetricQueriesAndStatus).
-  const changedDefinitionFields = "dateUpdated" in updates;
+  updates = addDateUpdatedToUpdates(updates);
 
   const safeUpdates = (Object.keys(updates) as (keyof MetricInterface)[]).every(
     (k) => FILE_CONFIG_UPDATEABLE_FIELDS.includes(k),

@@ -408,6 +408,15 @@ export async function updateFactTable(
   );
 
   await audit.logUpdate(context, factTable, { ...factTable, ...changes });
+
+  // Skip the bump when nothing actually changed (e.g. a no-op save, or a
+  // client re-PUTting the same definition) — an unconditional touch here
+  // tanks the ETag hit rate for no reason. Mirrors updateFactTableColumns.
+  const changedDefinitionFields = Object.entries(changes).some(
+    ([k, v]) => !isEqual(factTable[k as keyof FactTableInterface], v),
+  );
+  if (!changedDefinitionFields) return;
+
   await touchDefinitionsVersion(
     factTable.organization,
     definitionsScope(
@@ -821,16 +830,23 @@ export async function updateFactFilter(
   const filterIndex = filters.findIndex((f) => f.id === filterId);
   if (filterIndex < 0) throw new Error("Could not find filter with that id");
 
+  const existingFilter = filters[filterIndex];
+
   if (
     factTable.managedBy === "api" &&
-    filters[filterIndex]?.managedBy === "api" &&
+    existingFilter?.managedBy === "api" &&
     context.auditUser?.type !== "api_key"
   ) {
     throw new Error("This fact filter is managed by the API");
   }
 
+  // Skip the bump when nothing actually changed — mirrors updateFactTable.
+  const changedDefinitionFields = Object.entries(changes).some(
+    ([k, v]) => !isEqual(existingFilter[k as keyof FactFilterInterface], v),
+  );
+
   filters[filterIndex] = {
-    ...filters[filterIndex],
+    ...existingFilter,
     ...changes,
     dateUpdated: new Date(),
   };
@@ -847,6 +863,9 @@ export async function updateFactFilter(
       },
     },
   );
+
+  if (!changedDefinitionFields) return;
+
   await touchDefinitionsVersion(
     factTable.organization,
     definitionsScope(factTable.projects),
