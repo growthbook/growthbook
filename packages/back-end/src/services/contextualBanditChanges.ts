@@ -5,7 +5,7 @@ import {
   ContextualBanditUpdate,
   determineNextContextualBanditSchedule,
 } from "back-end/src/services/contextualBanditSchedule";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
@@ -16,37 +16,22 @@ import {
   PendingDraftPublishResult,
   publishPendingFeatureDraftsForContextualBandit,
 } from "back-end/src/services/experiment-feature";
-import { SDKPayloadKey } from "back-end/types/sdk-payload";
 
-/** SDK-payload keys affected by a CB status change; matches `contextual-bandit-ref` rules pointing at this CB. */
-function getPayloadKeysForContextualBandit(
+export async function refreshLinkedFeaturePayloads(
   context: ReqContext | ApiReqContext,
   cb: ContextualBanditInterface,
-): SDKPayloadKey[] {
-  const environments = getEnvironmentIdsFromOrg(context.org);
-  return getAffectedSDKPayloadKeys([], environments, (rule) => {
-    if (rule.enabled === false) return false;
-    return (
-      rule.type === "contextual-bandit-ref" && rule.contextualBanditId === cb.id
-    );
-  });
-}
-
-async function refreshLinkedFeaturePayloads(
-  context: ReqContext | ApiReqContext,
-  cb: ContextualBanditInterface,
-  auditEvent: "contextualBandit.start" | "contextualBandit.stop",
+  auditEvent:
+    | "contextualBandit.start"
+    | "contextualBandit.stop"
+    | "contextualBandit.refresh",
 ): Promise<void> {
-  const linkedFeatures = await getFeaturesByIds(
-    context,
-    cb.linkedFeatures ?? [],
-  );
-  if (!linkedFeatures.length) return;
+  const features = await getAllFeatures(context);
+  if (!features.length) return;
 
   const environments = getEnvironmentIdsFromOrg(context.org);
   const allProjectIds = await context.getAllProjectIds();
   const payloadKeys = getAffectedSDKPayloadKeys(
-    linkedFeatures,
+    features,
     environments,
     (rule) => {
       if (rule.enabled === false) return false;
@@ -64,8 +49,6 @@ async function refreshLinkedFeaturePayloads(
     auditContext: { event: auditEvent, model: "contextualBandit", id: cb.id },
   });
 }
-
-export { getPayloadKeysForContextualBandit };
 
 /** Core CB start (no permission checks). Publishes pending drafts BEFORE the status flip; throws with `failedFeatureDrafts` on failure. */
 export async function executeContextualBanditStart(
