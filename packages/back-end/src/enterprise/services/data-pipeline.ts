@@ -116,9 +116,8 @@ export function getExperimentSettingsHashForIncrementalRefresh(
 }
 
 /**
- * A pre-phase document is claimed by the phase whose settings hash it matches;
- * the hash includes that phase's startDate. Two phases with an identical hash
- * have identical analysis windows, so reusing the document is harmless.
+ * A incremental refresh doc without a phase belongs to the phase
+ * that matches the experiment's settings hash.
  */
 export function legacyDocDescribesPhase({
   legacyDoc,

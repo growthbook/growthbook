@@ -28,7 +28,7 @@ const incrementalRefresh = z
   .object({
     // Refs
     experimentId: z.string(),
-    // Optional just for legacy document. Should exist for all new docs.
+    // Legacy documents omit phase.
     phase: z.number().optional(),
 
     // Unit Source Settings

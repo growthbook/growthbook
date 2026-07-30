@@ -33,10 +33,7 @@ describe("IncrementalRefreshModel", () => {
       legacyExperimentSettingsHash,
     });
 
-  // A pre-phase document as written before phase isolation shipped: no
-  // `phase`, and a units table name with no random suffix. Built by seeding a
-  // phase-0 doc and rewriting those two fields, so it exercises the same read
-  // path as a real legacy row.
+  // Simulates a legacy document with no phase and its pre-phase table name.
   async function seedLegacyPhaselessDoc(
     experimentId: string,
     experimentSettingsHash = "legacy_settings_hash",
@@ -77,8 +74,6 @@ describe("IncrementalRefreshModel", () => {
 
   afterEach(async () => {
     jest.clearAllMocks();
-    // The model writes via the native driver, so the collection is not in
-    // mongoose.connection.collections; clear it directly.
     await collection().deleteMany({});
   });
 
@@ -126,9 +121,7 @@ describe("IncrementalRefreshModel", () => {
 
   it("locks each phase independently", async () => {
     expect(await acquireLock("exp_1", 0, "snap_0a")).toBe(true);
-    // Phase 0 is held, so a second executor cannot take it.
     expect(await acquireLock("exp_1", 0, "snap_0b")).toBe(false);
-    // Phase 1 is a different key and stays free.
     expect(await acquireLock("exp_1", 1, "snap_1")).toBe(true);
   });
 
@@ -204,7 +197,6 @@ describe("IncrementalRefreshModel", () => {
     await model.deleteByExperimentIdAndPhase("exp_1", 1);
     await model.compactPhases("exp_1");
 
-    // 0 stays, 2 -> 1, 3 -> 2, keyed by the snapshot that locked each doc.
     expect((await model.getByExperimentIdAndPhase("exp_1", 0))?.phase).toBe(0);
     expect((await model.getLockedBySnapshotId("exp_1", "snap_2"))?.phase).toBe(
       1,
@@ -214,7 +206,6 @@ describe("IncrementalRefreshModel", () => {
     );
     expect(await model.getByExperimentIdAndPhase("exp_1", 3)).toBeNull();
 
-    // Running it again on an already-contiguous set changes nothing.
     await model.compactPhases("exp_1");
     expect((await model.getLockedBySnapshotId("exp_1", "snap_3"))?.phase).toBe(
       2,
@@ -236,14 +227,12 @@ describe("IncrementalRefreshModel", () => {
   it("reports whether a phase lock is live", async () => {
     await acquireLock("exp_1", 0, "snap_0");
     expect(await model.isPhaseLockActive("exp_1", 0)).toBe(true);
-    // A phase with no document is not locked.
     expect(await model.isPhaseLockActive("exp_1", 1)).toBe(false);
 
     await model.releaseLock("exp_1", "snap_0");
     expect(await model.isPhaseLockActive("exp_1", 0)).toBe(false);
 
     await acquireLock("exp_1", 0, "snap_0b");
-    // A heartbeat older than the stale window is not a live lock.
     await collection().updateOne(
       { organization: "org_1", experimentId: "exp_1", phase: 0 },
       { $set: { lockHeartbeatAt: new Date(Date.now() - 11 * 60 * 1000) } },

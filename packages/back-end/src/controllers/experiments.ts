@@ -2693,9 +2693,7 @@ export async function deleteExperimentPhase(
     throw new Error("Invalid phase id");
   }
 
-  // Deleting the phase document out from under a running refresh would strand
-  // its lock, so refuse while that phase is actively refreshing. Checked before
-  // any mutation so a rejected delete leaves the experiment untouched.
+  // Make sure we do not allow deleting the phase while it is actively refreshing.
   if (
     await context.models.incrementalRefresh.isPhaseLockActive(id, phaseIndex)
   ) {

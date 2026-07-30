@@ -81,7 +81,6 @@ export const INCREMENTAL_CUPED_TABLE_PREFIX = "gb_cuped";
 
 const getRandomTableSuffix = () => Math.random().toString(36).substring(2, 10);
 
-/** Extracts the table name from a fully qualified table name. Needed because of dialect differences. */
 function tableNameFromFullName(fullName: string) {
   const segments = fullName.replace(/`/g, "").split(".");
   return segments[segments.length - 1];

@@ -4,6 +4,7 @@ import {
   IncrementalRefreshInterface,
   incrementalRefreshValidator,
 } from "shared/validators";
+import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "incrementalrefresh";
@@ -13,16 +14,6 @@ export const COLLECTION_NAME = "incrementalrefresh";
 // this only needs to cover slow polls / brief stalls — not the full runtime
 // of a refresh.
 export const INCREMENTAL_LOCK_STALE_MS = 10 * 60 * 1000;
-
-function isDuplicateKeyError(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false;
-  if ("code" in error && error.code === 11000) return true;
-  return (
-    "message" in error &&
-    typeof error.message === "string" &&
-    error.message.includes("11000")
-  );
-}
 
 const BaseClass = MakeModelClass({
   schema: incrementalRefreshValidator,
@@ -43,14 +34,12 @@ export class IncrementalRefreshModel extends BaseClass {
     return this._findOne({ experimentId, phase });
   }
 
-  /** Legacy document, that we can use to migrate to the phase-scoped document. */
   public async getLegacyByExperimentIdWithoutPhase(experimentId: string) {
     return this._findOne({ experimentId, phase: { $exists: false } });
   }
 
   /**
-   * IR row currently locked by this snapshot. Prefer over phase lookup in a
-   * running runner: phase can be renumbered by concurrent compactPhases.
+   * Finds a runner's lock by snapshot ID because phase can be renumbered.
    */
   public async getLockedBySnapshotId(experimentId: string, snapshotId: string) {
     return this._findOne({
@@ -153,7 +142,6 @@ export class IncrementalRefreshModel extends BaseClass {
         (insertedPhase.matchedCount ?? 0) > 0
       );
     } catch (error) {
-      // Another process minted or acquired this phase first.
       if (isDuplicateKeyError(error)) return false;
       throw error;
     }
@@ -222,11 +210,6 @@ export class IncrementalRefreshModel extends BaseClass {
     });
   }
 
-  /**
-   * Whether a live snapshot currently holds the lock for this phase. A lock is
-   * live when it names an execution and its heartbeat has not gone stale. This
-   * is the exact negation of the availability predicate in `acquireLock`.
-   */
   public async isPhaseLockActive(
     experimentId: string,
     phase: number,
@@ -246,17 +229,15 @@ export class IncrementalRefreshModel extends BaseClass {
   }
 
   /**
-   * Collapse the phase-scoped documents back to a contiguous `0..n-1` sequence
-   * after a phase deletion leaves a gap. Renumbering competes with a concurrent
-   * `acquireLock` that may mint a document into a slot mid-shuffle, so each move
-   * is guarded by the document's current phase and the pass re-drives until a
-   * fresh read is already contiguous, tolerating the duplicate-key error a
-   * colliding mint raises. Legacy phase-less documents are left untouched.
+   * Retries after duplicate-key conflicts with concurrent lock acquisition.
    */
   public async compactPhases(experimentId: string): Promise<void> {
     const collection = this._dangerousGetCollection();
-    const maxAttempts = 20;
+    const maxAttempts = 5;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (attempt > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
       const docs = await collection
         .find(
           {
