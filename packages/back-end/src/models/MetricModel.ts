@@ -647,9 +647,16 @@ export async function updateMetric(
 ) {
   // Compare against the stored values (not just which keys were submitted) so
   // resubmitting a field with its current value doesn't bump the definitions
-  // version — the front-end resends the whole form on every save.
+  // version — the front-end resends the whole form on every save. Fields in
+  // FIELDS_NOT_REQUIRING_DATE_UPDATED (queries/analysis/analysisError/
+  // runStarted) are excluded: they're not part of the definitions payload,
+  // but they DO change on every analysis run (see updateModel in
+  // LegacyMetricAnalysisQueryRunner), so comparing their values would bump
+  // the version on routine analysis completion.
   const changedDefinitionFields = Object.entries(updates).some(
-    ([k, v]) => !isEqual(metric[k as keyof MetricInterface], v),
+    ([k, v]) =>
+      !FIELDS_NOT_REQUIRING_DATE_UPDATED.includes(k as keyof MetricInterface) &&
+      !isEqual(metric[k as keyof MetricInterface], v),
   );
 
   updates = addDateUpdatedToUpdates(updates);
