@@ -47,6 +47,8 @@ import { LegacyExperimentPhase } from "shared/types/experiment";
 import { PValueCorrection } from "shared/types/stats";
 import { getScopedSettings } from "shared/settings";
 import {
+  addOrganizationInviteIfSeatAvailable,
+  addOrganizationMemberIfSeatAvailable,
   createOrganization,
   findAllOrganizations,
   findOrganizationById,
@@ -443,32 +445,43 @@ export function getNumberOfUniqueMembersAndInvites(
   return numMembers + numInvites;
 }
 
-async function assertOrganizationHasAvailableSeats(
-  organization: OrganizationInterface,
-  additionalSeats: number,
-) {
-  if (additionalSeats <= 0) return;
+type OrganizationSeatLimit = {
+  maxSeats: number;
+  error: () => Error;
+};
 
+async function getOrganizationSeatLimit(
+  organization: OrganizationInterface,
+): Promise<OrganizationSeatLimit | null> {
   const license =
     getLicense(organization.licenseKey) ||
     (await licenseInit(organization, getUserCodesForOrg, getLicenseMetaData));
-  const seatsInUse = getNumberOfUniqueMembersAndInvites(organization);
 
-  if (license?.hardCap && seatsInUse + additionalSeats > (license.seats || 0)) {
-    throw new Error(
-      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit.",
-    );
-  }
+  const hardCapLimit: OrganizationSeatLimit | null = license?.hardCap
+    ? {
+        maxSeats: license.seats || 0,
+        error: () =>
+          new Error(
+            "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit.",
+          ),
+      }
+    : null;
+  const starterLimit: OrganizationSeatLimit | null =
+    IS_CLOUD && getAccountPlan(organization) === "starter"
+      ? {
+          maxSeats: organization.freeSeats ?? 3,
+          error: () =>
+            new PaymentRequiredError(
+              "You've reached the free seat limit. Upgrade your plan to add more team members.",
+            ),
+        }
+      : null;
 
-  if (
-    IS_CLOUD &&
-    getAccountPlan(organization) === "starter" &&
-    seatsInUse + additionalSeats > (organization.freeSeats ?? 3)
-  ) {
-    throw new PaymentRequiredError(
-      "You've reached the free seat limit. Upgrade your plan to add more team members.",
-    );
-  }
+  if (!hardCapLimit) return starterLimit;
+  if (!starterLimit) return hardCapLimit;
+  return hardCapLimit.maxSeats <= starterLimit.maxSeats
+    ? hardCapLimit
+    : starterLimit;
 }
 
 export async function removeMember(
@@ -580,10 +593,6 @@ export async function addMemberToOrg({
     return;
   }
 
-  // If member is also a pending member, remove
-  let pendingMembers: PendingMember[] = organization?.pendingMembers || [];
-  pendingMembers = pendingMembers.filter((m) => m.id !== userId);
-
   // Ensure roles are valid
   if (
     !isRoleValid(role, organization) ||
@@ -591,34 +600,41 @@ export async function addMemberToOrg({
   ) {
     throw new Error("Invalid role");
   }
-  await assertOrganizationHasAvailableSeats(organization, 1);
 
   // Role limits are gated where a human picks a role; automated joins keep
   // the configured default so they never throw or escalate to admin.
 
-  const members: Member[] = [
-    ...organization.members,
-    {
-      id: userId,
-      role,
-      limitAccessByEnvironment,
-      environments,
-      projectRoles,
-      dateCreated: new Date(),
-      externalId,
-      managedByIdp,
-      teams,
-    },
-  ];
+  const member: Member = {
+    id: userId,
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+    dateCreated: new Date(),
+    externalId,
+    managedByIdp,
+    teams,
+  };
+  const seatLimit = await getOrganizationSeatLimit(organization);
+  const updatedOrganization = await addOrganizationMemberIfSeatAvailable(
+    organization.id,
+    member,
+    seatLimit?.maxSeats ?? null,
+  );
 
-  await updateOrganization(organization.id, {
-    members,
-    pendingMembers,
-  });
-
-  const updatedOrganization = cloneDeep(organization);
-  updatedOrganization.members = members;
-  updatedOrganization.pendingMembers = pendingMembers;
+  if (!updatedOrganization) {
+    const latestOrganization = await findOrganizationById(organization.id);
+    if (!latestOrganization) {
+      throw new Error("Unable to locate organization");
+    }
+    if (latestOrganization.members.some((existing) => existing.id === userId)) {
+      return;
+    }
+    if (seatLimit) {
+      throw seatLimit.error();
+    }
+    throw new Error("Unable to add organization member");
+  }
 
   await licenseInit(
     updatedOrganization,
@@ -852,7 +868,7 @@ export async function inviteUser({
     throw new Error("Invalid role");
   }
   assertRoleAssignmentAllowed(organization, role);
-  await assertOrganizationHasAvailableSeats(organization, 1);
+  const seatLimit = await getOrganizationSeatLimit(organization);
 
   // Generate random key for invite
   const buffer: Buffer = await new Promise((resolve, reject) => {
@@ -865,27 +881,41 @@ export async function inviteUser({
   });
   const key = buffer.toString("base64").replace(/[^a-zA-Z0-9]+/g, "");
 
-  // Save invite in Mongo
-  const invites: Invite[] = [
-    ...organization.invites,
-    {
-      email,
-      key,
-      dateCreated: new Date(),
-      role,
-      limitAccessByEnvironment,
-      environments,
-      projectRoles,
-      invitedBy,
-    },
-  ];
+  const invite: Invite = {
+    email,
+    key,
+    dateCreated: new Date(),
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+    invitedBy,
+  };
+  const updatedOrganization = await addOrganizationInviteIfSeatAvailable(
+    organization.id,
+    invite,
+    seatLimit?.maxSeats ?? null,
+  );
 
-  await updateOrganization(organization.id, {
-    invites,
-  });
-
-  const updatedOrganization = cloneDeep(organization);
-  updatedOrganization.invites = invites;
+  if (!updatedOrganization) {
+    const latestOrganization = await findOrganizationById(organization.id);
+    if (!latestOrganization) {
+      throw new Error("Unable to locate organization");
+    }
+    const latestInvite = latestOrganization.invites.find(
+      (existing) => existing.email.toLowerCase() === email,
+    );
+    if (latestInvite) {
+      return {
+        emailSent: true,
+        inviteUrl: getInviteUrl(latestInvite.key),
+      };
+    }
+    if (seatLimit) {
+      throw seatLimit.error();
+    }
+    throw new Error("Unable to add organization invite");
+  }
 
   await licenseInit(
     updatedOrganization,

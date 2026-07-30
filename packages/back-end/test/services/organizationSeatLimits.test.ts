@@ -5,6 +5,8 @@ import {
   licenseInit,
 } from "back-end/src/enterprise";
 import {
+  addOrganizationInviteIfSeatAvailable,
+  addOrganizationMemberIfSeatAvailable,
   findOrganizationById,
   findOrganizationByInviteKey,
   updateOrganization,
@@ -23,6 +25,8 @@ jest.mock("back-end/src/enterprise", () => ({
 }));
 
 jest.mock("back-end/src/models/OrganizationModel", () => ({
+  addOrganizationInviteIfSeatAvailable: jest.fn(),
+  addOrganizationMemberIfSeatAvailable: jest.fn(),
   createOrganization: jest.fn(),
   findAllOrganizations: jest.fn(),
   findOrganizationById: jest.fn(),
@@ -52,6 +56,12 @@ jest.mock("back-end/src/util/secrets", () => ({
 const mockedGetAccountPlan = jest.mocked(getAccountPlan);
 const mockedGetLicense = jest.mocked(getLicense);
 const mockedLicenseInit = jest.mocked(licenseInit);
+const mockedAddOrganizationInviteIfSeatAvailable = jest.mocked(
+  addOrganizationInviteIfSeatAvailable,
+);
+const mockedAddOrganizationMemberIfSeatAvailable = jest.mocked(
+  addOrganizationMemberIfSeatAvailable,
+);
 const mockedFindOrganizationByInviteKey = jest.mocked(
   findOrganizationByInviteKey,
 );
@@ -123,6 +133,8 @@ describe("organization seat limits", () => {
     mockedGetAccountPlan.mockReturnValue("enterprise");
     mockedGetLicense.mockReturnValue(null);
     mockedLicenseInit.mockResolvedValue(undefined);
+    mockedAddOrganizationInviteIfSeatAvailable.mockResolvedValue(null);
+    mockedAddOrganizationMemberIfSeatAvailable.mockResolvedValue(null);
     mockedUpdateOrganization.mockResolvedValue(undefined);
   });
 
@@ -137,6 +149,7 @@ describe("organization seat limits", () => {
       hardCap: true,
       plan: "enterprise",
     });
+    mockedFindOrganizationById.mockResolvedValue(organization);
 
     await expect(
       sendInvite(organization, "another@example.com"),
@@ -156,16 +169,19 @@ describe("organization seat limits", () => {
       hardCap: false,
       plan: "enterprise",
     });
+    mockedAddOrganizationInviteIfSeatAvailable.mockResolvedValue({
+      ...organization,
+      invites: [makeInvite("another@example.com")],
+    });
 
     await sendInvite(organization, "another@example.com");
 
-    expect(mockedUpdateOrganization).toHaveBeenCalledWith(
+    expect(mockedAddOrganizationInviteIfSeatAvailable).toHaveBeenCalledWith(
       organization.id,
       expect.objectContaining({
-        invites: expect.arrayContaining([
-          expect.objectContaining({ email: "another@example.com" }),
-        ]),
+        email: "another@example.com",
       }),
+      null,
     );
   });
 
@@ -174,6 +190,7 @@ describe("organization seat limits", () => {
       members: makeMembers(3),
     });
     mockedGetAccountPlan.mockReturnValue("starter");
+    mockedFindOrganizationById.mockResolvedValue(organization);
 
     await expect(
       sendInvite(organization, "another@example.com"),
@@ -192,10 +209,18 @@ describe("organization seat limits", () => {
       members: makeMembers(3),
     });
     mockedGetAccountPlan.mockReturnValue("starter");
+    mockedAddOrganizationInviteIfSeatAvailable.mockResolvedValue({
+      ...organization,
+      invites: [makeInvite("another@example.com")],
+    });
 
     await sendInvite(organization, "another@example.com");
 
-    expect(mockedUpdateOrganization).toHaveBeenCalled();
+    expect(mockedAddOrganizationInviteIfSeatAvailable).toHaveBeenCalledWith(
+      organization.id,
+      expect.objectContaining({ email: "another@example.com" }),
+      4,
+    );
   });
 
   it("allows an existing invite at the hard cap without consuming another seat", async () => {
@@ -231,6 +256,7 @@ describe("organization seat limits", () => {
       hardCap: true,
       plan: "enterprise",
     });
+    mockedFindOrganizationById.mockResolvedValue(organization);
 
     await expect(addMember(organization, "new_user")).rejects.toThrow(
       "You've reached the seat limit on your license.",
