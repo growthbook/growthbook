@@ -29,6 +29,7 @@ import {
 import { isPureRevertRevision } from "back-end/src/revisions/revertPurity";
 import {
   isArchiveTransition,
+  isPureArchiveRevision,
   proposedArchivedValue,
 } from "back-end/src/revisions/archiveTransition";
 import { decideScheduledPublishOutcome } from "back-end/src/revisions/publishFailurePolicy";
@@ -79,9 +80,11 @@ export function canTouchRevision(
 }
 
 /**
- * Publish authority, or revert authority for a revision that only restores a
- * previously-published state. Purity is checked only on the fallback, so
- * publishers are unaffected and pay no extra revision load.
+ * Publish authority, or a narrow atom over a revision that only does what that
+ * atom covers: revert authority for one that only restores a previously-
+ * published state, delete authority for one that only archives. Purity is
+ * checked only on the fallbacks, so publishers are unaffected and pay no extra
+ * revision load. Mirrors `assertCanPublishFeatureRevision`.
  */
 export async function assertCanPublishRevision(
   context: Context,
@@ -116,6 +119,23 @@ export async function assertCanPublishRevision(
 
   const canRevert = (adapter.canRevert ?? adapter.canUpdate)(context, snapshot);
   if (canRevert && (await isPureRevertRevision(context, revision))) return;
+
+  // Staging an archive as a draft must not require an atom that landing it in one
+  // step doesn't: archiving is delete-class, so delete authority alone lands a
+  // revision that archives and changes nothing else. Approval is a separate gate.
+  if (
+    context.permissions.canRevisionAction(
+      revision.target.type,
+      "delete",
+      snapshot,
+    ) &&
+    isPureArchiveRevision({
+      proposedChanges: revision.target.proposedChanges,
+      current: snapshot.archived as boolean | undefined,
+    })
+  ) {
+    return;
+  }
 
   context.permissions.throwPermissionError();
 }

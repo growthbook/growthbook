@@ -10,9 +10,13 @@ import {
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   findPublishLockingScheduledRevision,
-  normalizeProposedChanges,
 } from "shared/enterprise";
 import type { PublishGovernanceResult } from "shared/util";
+import {
+  isArchiveTransition,
+  isPureArchiveRevision,
+  proposedArchivedValue,
+} from "shared/util";
 import { datetime } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCaretDownBold, PiGitMergeBold, PiLockSimple } from "react-icons/pi";
@@ -534,31 +538,33 @@ function ReviewAndPublishRevision<T>({
   // Advancing a draft (request review / recall / discard) is not editing its
   // content. Mirrors the server's canAdvanceRevision, which re-checks purity.
   const draftStagesRevert = !!revision.revertedFrom;
-  // Delete authority reaches a draft that only archives the entity — the server
-  // proves purity, the client goes on the provenance it can see.
-  const draftStagesArchive = normalizeProposedChanges(
-    revision.target.proposedChanges,
-  ).some(
-    (op) =>
-      op.path === "/archived" &&
-      (op.op === "replace" || op.op === "add") &&
-      op.value === true,
-  );
+  // Same predicates the server applies, so the button and the endpoint agree:
+  // whether the draft archives the entity at all, and whether that's all it does.
+  const liveArchived = !!(currentState as { archived?: boolean }).archived;
+  const draftArchives = isArchiveTransition({
+    proposed: proposedArchivedValue(revision.target.proposedChanges),
+    current: liveArchived,
+  });
+  const draftIsPureArchive = isPureArchiveRevision({
+    proposedChanges: revision.target.proposedChanges,
+    current: liveArchived,
+  });
   const narrowAtom = (canRevertEntity ?? canEditEntity) || !!canDeleteEntity;
   const canAdvanceDraft =
     canDraftOrEdit ||
     (isAuthor && narrowAtom) ||
     ((canRevertEntity ?? canEditEntity) && draftStagesRevert) ||
-    (!!canDeleteEntity && draftStagesArchive);
-  // Publish authority, or the narrow atom that could land this exact change in
-  // one step: a pure revert under revert authority. Staging a revert as a draft
-  // must not require an atom that landing it directly doesn't.
-  // Landing an archive is delete-class on top of publish (assertCanPublishRevision
-  // gates it first), because an archived flag stops serving everywhere.
+    (!!canDeleteEntity && draftIsPureArchive);
+  // Publish authority, or the narrow atom that could land this exact change in one
+  // step: a pure revert under revert authority, a pure archive under delete
+  // authority. Staging either as a draft must not require an atom that landing it
+  // directly doesn't. Archiving needs delete on top whatever else it carries;
+  // unarchiving is an ordinary publish.
   const canPublishOrEdit =
+    (!draftArchives || !!canDeleteEntity) &&
     ((canPublishEntity ?? canEditEntity) ||
-      (draftStagesRevert && (canRevertEntity ?? canEditEntity))) &&
-    (!draftStagesArchive || !!canDeleteEntity);
+      (draftStagesRevert && (canRevertEntity ?? canEditEntity)) ||
+      (!!canDeleteEntity && draftIsPureArchive));
   // Whether the viewer holds any authority at all — for the overflow menu and
   // the no-permission notice. Each individual action gates on its own atom.
   const hasAnyAuthority =

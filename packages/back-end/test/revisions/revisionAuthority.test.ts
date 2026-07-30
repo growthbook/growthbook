@@ -2,6 +2,7 @@ import type { Revision } from "shared/enterprise";
 import type { RevisionAction } from "shared/permissions";
 import type { Context } from "back-end/src/models/BaseModel";
 import { canAdvanceRevision } from "back-end/src/revisions/revisionAuthority";
+import { assertCanPublishRevision } from "back-end/src/revisions/revisionActions";
 
 /**
  * Who may move a generic draft along (request review, recall, discard). Uses
@@ -28,6 +29,9 @@ function makeContext({
     permissions: {
       canRevisionAction: (_model: string, action: RevisionAction) =>
         granted.includes(action),
+      throwPermissionError: () => {
+        throw new Error("permission denied");
+      },
     },
     models: {
       revisions: {
@@ -147,6 +151,86 @@ describe("canAdvanceRevision", () => {
     it("does not reach a mixed draft", async () => {
       const context = makeContext({ granted: ["delete"] });
       expect(await canAdvanceRevision(context, makeRevision())).toBe(false);
+    });
+
+    it("does not reach a draft that archives AND changes content", async () => {
+      // Without the purity check, co-staging an archive op would hand a
+      // delete-only role authority over the content riding along with it.
+      const context = makeContext({ granted: ["delete"] });
+      expect(
+        await canAdvanceRevision(
+          context,
+          makeRevision({
+            target: {
+              type: "saved-group",
+              id: "grp1",
+              snapshot: SNAPSHOT,
+              proposedChanges: [
+                { op: "replace", path: "/archived", value: true },
+                { op: "replace", path: "/values", value: ["smuggled"] },
+              ],
+            },
+          }),
+        ),
+      ).toBe(false);
+    });
+  });
+});
+
+describe("assertCanPublishRevision", () => {
+  const archiveOps = [{ op: "replace", path: "/archived", value: true }];
+
+  async function attempt(
+    granted: RevisionAction[],
+    revision: Revision,
+  ): Promise<boolean> {
+    const context = makeContext({ granted });
+    try {
+      await assertCanPublishRevision(context, revision, SNAPSHOT);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  it("lands an ordinary revision on publish authority", async () => {
+    expect(await attempt(["publish"], makeRevision())).toBe(true);
+    expect(await attempt([], makeRevision())).toBe(false);
+  });
+
+  describe("an archiving revision", () => {
+    const archiveRevision = makeRevision({
+      target: {
+        type: "saved-group",
+        id: "grp1",
+        snapshot: SNAPSHOT,
+        proposedChanges: archiveOps,
+      },
+    });
+
+    it("lands on delete authority alone — archiving is delete-class", async () => {
+      expect(await attempt(["delete"], archiveRevision)).toBe(true);
+    });
+
+    it("is refused to a publisher who cannot delete", async () => {
+      expect(await attempt(["publish"], archiveRevision)).toBe(false);
+    });
+
+    it("does not let delete authority land content riding along", async () => {
+      const mixed = makeRevision({
+        target: {
+          type: "saved-group",
+          id: "grp1",
+          snapshot: SNAPSHOT,
+          proposedChanges: [
+            ...archiveOps,
+            { op: "replace", path: "/values", value: ["smuggled"] },
+          ],
+        },
+      });
+      expect(await attempt(["delete"], mixed)).toBe(false);
+      // Publish gets it past the archive gate only alongside delete.
+      expect(await attempt(["publish", "delete"], mixed)).toBe(true);
     });
   });
 });

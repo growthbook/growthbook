@@ -1,4 +1,3 @@
-import { normalizeProposedChanges } from "shared/enterprise";
 import { isArchiveTransition as isArchiveTransitionPredicate } from "shared/util";
 import type { Permissions, RevisionModel } from "shared/permissions";
 
@@ -12,7 +11,11 @@ import type { Permissions, RevisionModel } from "shared/permissions";
  */
 
 // Defined in shared so the client asks the same question.
-export { isArchiveTransition } from "shared/util";
+export {
+  isArchiveTransition,
+  isPureArchiveRevision,
+  proposedArchivedValue,
+} from "shared/util";
 
 /**
  * Authority to land an `archived` flip in either direction. `environments` is
@@ -80,20 +83,4 @@ export function canLandEntityUpdate({
       environments,
     }) || permissions.canRevisionAction(model, "revert", newDoc, environments)
   );
-}
-
-/**
- * The `archived` value a JSON-patch change set would land, or undefined when it
- * doesn't touch the field. Later ops win, matching patch application order.
- */
-export function proposedArchivedValue(
-  proposedChanges: unknown,
-): boolean | undefined {
-  let value: boolean | undefined;
-  for (const op of normalizeProposedChanges(proposedChanges)) {
-    if (op.path !== "/archived") continue;
-    if (op.op !== "replace" && op.op !== "add") continue;
-    if (typeof op.value === "boolean") value = op.value;
-  }
-  return value;
 }

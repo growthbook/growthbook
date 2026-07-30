@@ -6354,7 +6354,9 @@ describe("PermissionsUtilClass.canCreateFeature check", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateFeature({ project: "" })).toEqual(true);
+    expect(
+      permissions.canCreateFeature({ project: "" }, ["production"]),
+    ).toEqual(true);
   });
 
   it("canCreateFeature returns false for user with global 'analyst' role when trying to create a feature in all projects", () => {
@@ -6367,7 +6369,9 @@ describe("PermissionsUtilClass.canCreateFeature check", () => {
       projects: {},
     });
 
-    expect(permissions.canCreateFeature({ project: "" })).toEqual(false);
+    expect(
+      permissions.canCreateFeature({ project: "" }, ["production"]),
+    ).toEqual(false);
   });
 
   it("canCreateFeature returns true for user with global 'analyst' role when trying to create a feature in a project they have engineer permissions for", () => {
@@ -6386,7 +6390,9 @@ describe("PermissionsUtilClass.canCreateFeature check", () => {
       },
     });
 
-    expect(permissions.canCreateFeature({ project: "ABC123" })).toEqual(true);
+    expect(
+      permissions.canCreateFeature({ project: "ABC123" }, ["production"]),
+    ).toEqual(true);
   });
 
   it("canCreateFeature returns false for user with global 'engineer' role when trying to create a feature in a project they have analyst permissions for", () => {
@@ -6405,7 +6411,9 @@ describe("PermissionsUtilClass.canCreateFeature check", () => {
       },
     });
 
-    expect(permissions.canCreateFeature({ project: "ABC123" })).toEqual(false);
+    expect(
+      permissions.canCreateFeature({ project: "ABC123" }, ["production"]),
+    ).toEqual(false);
   });
 });
 
@@ -6453,7 +6461,9 @@ describe("PermissionsUtilClass.canDeleteFeature check", () => {
       projects: {},
     });
 
-    expect(permissions.canDeleteFeature({ project: "" })).toEqual(true);
+    expect(
+      permissions.canDeleteFeature({ project: "" }, ["production"]),
+    ).toEqual(true);
   });
 
   it("canDeleteFeature returns false for user with global 'analyst' role when trying to delete a feature in all projects", () => {
@@ -6466,7 +6476,9 @@ describe("PermissionsUtilClass.canDeleteFeature check", () => {
       projects: {},
     });
 
-    expect(permissions.canDeleteFeature({ project: "" })).toEqual(false);
+    expect(
+      permissions.canDeleteFeature({ project: "" }, ["production"]),
+    ).toEqual(false);
   });
 
   it("canDeleteFeature returns true for user with global 'analyst' role when trying to delete a feature in a project they have engineer permissions for", () => {
@@ -6485,7 +6497,9 @@ describe("PermissionsUtilClass.canDeleteFeature check", () => {
       },
     });
 
-    expect(permissions.canDeleteFeature({ project: "ABC123" })).toEqual(true);
+    expect(
+      permissions.canDeleteFeature({ project: "ABC123" }, ["production"]),
+    ).toEqual(true);
   });
 
   it("canDeleteFeature returns false for user with global 'engineer' role when trying to delete a feature in a project they have analyst permissions for", () => {
@@ -6504,6 +6518,8 @@ describe("PermissionsUtilClass.canDeleteFeature check", () => {
       },
     });
 
-    expect(permissions.canDeleteFeature({ project: "ABC123" })).toEqual(false);
+    expect(
+      permissions.canDeleteFeature({ project: "ABC123" }, ["production"]),
+    ).toEqual(false);
   });
 });

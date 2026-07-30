@@ -1,9 +1,6 @@
 import { Revision } from "shared/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
-import {
-  isArchiveTransition,
-  proposedArchivedValue,
-} from "back-end/src/revisions/archiveTransition";
+import { isPureArchiveRevision } from "back-end/src/revisions/archiveTransition";
 import { isPureRevertRevision } from "back-end/src/revisions/revertPurity";
 import { canDoRevisionAction } from "back-end/src/revisions/revisionActions";
 import { getAdapter } from "back-end/src/revisions";
@@ -52,8 +49,8 @@ export async function canAdvanceRevision(
 
   if (
     hasDelete &&
-    isArchiveTransition({
-      proposed: proposedArchivedValue(revision.target.proposedChanges),
+    isPureArchiveRevision({
+      proposedChanges: revision.target.proposedChanges,
       current: !!(snapshot as { archived?: boolean }).archived,
     })
   ) {

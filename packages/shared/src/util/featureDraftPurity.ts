@@ -2,6 +2,8 @@ import { isEqual } from "lodash";
 import type { RevisionMetadata } from "shared/validators";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+// Specific file, not the barrel, to avoid a runtime import cycle.
+import { normalizeProposedChanges } from "../revisions/helpers";
 import {
   MergeResultChanges,
   featureMetadataEnvelope,
@@ -233,4 +235,49 @@ export function isPureFeatureArchive({
       (draft[field] === undefined && INHERITED_WHEN_ABSENT.has(field)) ||
       isEqual(draft[field], liveValueFor(field, feature)),
   );
+}
+
+/**
+ * The `archived` value a JSON-patch change set would land, or undefined when it
+ * doesn't touch the field. Later ops win, matching patch application order.
+ */
+export function proposedArchivedValue(
+  proposedChanges: unknown,
+): boolean | undefined {
+  let value: boolean | undefined;
+  for (const op of normalizeProposedChanges(proposedChanges)) {
+    if (op.path !== "/archived") continue;
+    if (op.op !== "replace" && op.op !== "add") continue;
+    if (typeof op.value === "boolean") value = op.value;
+  }
+  return value;
+}
+
+/**
+ * The entity-generic twin of `isPureFeatureArchive`. Feature drafts carry typed
+ * fields; every other entity carries JSON Patch ops, so purity is "every op
+ * sets `archived`, and the result is an archive transition".
+ */
+export function isPureArchiveRevision({
+  proposedChanges,
+  current,
+}: {
+  proposedChanges: unknown;
+  current: boolean | undefined;
+}): boolean {
+  const ops = normalizeProposedChanges(proposedChanges);
+  if (!ops.length) return false;
+
+  const onlyArchiveOps = ops.every(
+    (op) =>
+      op.path === "/archived" &&
+      (op.op === "replace" || op.op === "add") &&
+      typeof op.value === "boolean",
+  );
+  if (!onlyArchiveOps) return false;
+
+  return isArchiveTransition({
+    proposed: proposedArchivedValue(ops),
+    current,
+  });
 }

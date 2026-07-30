@@ -6,6 +6,7 @@ import type {
 import {
   canLandArchivedState,
   isArchiveTransition,
+  isPureArchiveRevision,
   proposedArchivedValue,
 } from "back-end/src/revisions/archiveTransition";
 
@@ -92,6 +93,100 @@ describe("proposedArchivedValue", () => {
         op("replace", "/archived", true),
       ]),
     ).toBe(true);
+  });
+});
+
+describe("isPureArchiveRevision", () => {
+  const op = (op: string, path: string, value?: unknown) => ({
+    op,
+    path,
+    value,
+  });
+
+  it("is true for a change set that only archives", () => {
+    expect(
+      isPureArchiveRevision({
+        proposedChanges: [op("replace", "/archived", true)],
+        current: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("is false once anything else rides along", () => {
+    // The reason purity matters: delete authority alone lands this, so a bundled
+    // value change would go live under an atom that can't publish.
+    expect(
+      isPureArchiveRevision({
+        proposedChanges: [
+          op("replace", "/archived", true),
+          op("replace", "/value", "smuggled"),
+        ],
+        current: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("is false for an unarchive, which stays an ordinary publish", () => {
+    expect(
+      isPureArchiveRevision({
+        proposedChanges: [op("replace", "/archived", false)],
+        current: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("is false when the entity is already archived", () => {
+    expect(
+      isPureArchiveRevision({
+        proposedChanges: [op("replace", "/archived", true)],
+        current: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("is false for an empty or non-archived change set", () => {
+    expect(isPureArchiveRevision({ proposedChanges: [], current: false })).toBe(
+      false,
+    );
+    expect(
+      isPureArchiveRevision({
+        proposedChanges: [op("replace", "/value", "x")],
+        current: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("is false for ops that can't be proven to set archived", () => {
+    expect(
+      isPureArchiveRevision({
+        proposedChanges: [op("remove", "/archived")],
+        current: false,
+      }),
+    ).toBe(false);
+    expect(
+      isPureArchiveRevision({
+        proposedChanges: [op("replace", "/archived", "true")],
+        current: false,
+      }),
+    ).toBe(false);
+    expect(
+      isPureArchiveRevision({
+        proposedChanges: [op("replace", "/archived/nested", true)],
+        current: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("takes the last archived op, matching patch application order", () => {
+    expect(
+      isPureArchiveRevision({
+        proposedChanges: [
+          op("replace", "/archived", true),
+          op("replace", "/archived", false),
+        ],
+        current: false,
+      }),
+    ).toBe(false);
   });
 });
 
