@@ -952,6 +952,142 @@ describe("feature-repo", () => {
     cleanup();
   });
 
+  it("refreshes features on pollingInterval", async () => {
+    const features = {
+      foo: {
+        defaultValue: "initial",
+      },
+    };
+    const [f, cleanup] = mockApi({ features }, false, 0);
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    await growthbook.init({ pollingInterval: 50 });
+    expect(f.mock.calls.length).toEqual(1);
+    expect(growthbook.evalFeature("foo").value).toEqual("initial");
+
+    // Value changes in the API
+    features.foo.defaultValue = "polled";
+
+    // The poll should pick it up without any refreshFeatures() call
+    await sleep(120);
+    expect(f.mock.calls.length).toBeGreaterThan(1);
+    expect(growthbook.evalFeature("foo").value).toEqual("polled");
+
+    growthbook.destroy();
+    cleanup();
+  });
+
+  it("polls past staleTTL instead of being capped by the cache", async () => {
+    // staleTTL is 100 in beforeEach, so a 20ms poll would be a no-op if it went through the cache
+    const features = {
+      foo: {
+        defaultValue: "initial",
+      },
+    };
+    const [, cleanup] = mockApi({ features }, false, 0);
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    await growthbook.init({ pollingInterval: 20 });
+
+    features.foo.defaultValue = "polled";
+    await sleep(60);
+
+    expect(growthbook.evalFeature("foo").value).toEqual("polled");
+
+    growthbook.destroy();
+    cleanup();
+  });
+
+  it("does not poll when streaming is unavailable and pollingInterval is unset", async () => {
+    const features = {
+      foo: {
+        defaultValue: "initial",
+      },
+    };
+    // No x-sse-support, so no stream can start
+    const [f, cleanup] = mockApi({ features }, false, 0);
+    const warn = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    await growthbook.init({ streaming: true });
+    expect(f.mock.calls.length).toEqual(1);
+
+    // Polling is opt-in, so an unusable stream must not start background traffic
+    await sleep(150);
+    expect(f.mock.calls.length).toEqual(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("pollingInterval"),
+    );
+
+    warn.mockRestore();
+    growthbook.destroy();
+    cleanup();
+  });
+
+  it("does not poll when streaming is active", async () => {
+    const features = {
+      foo: {
+        defaultValue: "initial",
+      },
+    };
+    const [f, cleanup] = mockApi({ features }, true, 0);
+
+    const event = new MockEvent({
+      url: "https://fakeapi.sample.io/sub/qwerty1234",
+      setInterval: 500,
+      responses: [{ type: "features", data: JSON.stringify({ features }) }],
+    });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    await growthbook.init({ streaming: true, pollingInterval: 20 });
+    expect(f.mock.calls.length).toEqual(1);
+
+    // Streaming is active, so pollingInterval is ignored and no extra fetches happen
+    await sleep(100);
+    expect(f.mock.calls.length).toEqual(1);
+
+    growthbook.destroy();
+    cleanup();
+    event.clear();
+  });
+
+  it("stops polling once every instance is destroyed", async () => {
+    const [f, cleanup] = mockApi(
+      { features: { foo: { defaultValue: "initial" } } },
+      false,
+      0,
+    );
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    await growthbook.init({ pollingInterval: 20 });
+
+    await sleep(50);
+    growthbook.destroy();
+
+    const callsAtDestroy = f.mock.calls.length;
+    await sleep(80);
+    expect(f.mock.calls.length).toEqual(callsAtDestroy);
+
+    cleanup();
+  });
+
   it("updates features based on SSE", async () => {
     const [f, cleanup] = mockApi(
       {

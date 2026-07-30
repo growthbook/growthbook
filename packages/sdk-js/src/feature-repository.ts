@@ -20,6 +20,11 @@ type CacheEntry = {
   version: string;
   staleAt: Date;
 };
+type Poller = {
+  timer: ReturnType<typeof setTimeout> | null;
+  interval: number;
+  errors: number;
+};
 type ScopedChannel = {
   src: EventSource | null;
   cb: (event: MessageEvent<string>) => void;
@@ -115,6 +120,7 @@ let cacheInitialized = false;
 const cache: Map<string, CacheEntry> = new Map();
 const activeFetches: Map<string, Promise<FetchResponse>> = new Map();
 const streams: Map<string, ScopedChannel> = new Map();
+const pollers: Map<string, Poller> = new Map();
 const supportsSSE: Set<string> = new Set();
 const streamingWarnings: Set<string> = new Set();
 
@@ -171,7 +177,12 @@ function subscribe(instance: GrowthBook | GrowthBookClient): void {
   subscribedInstances.set(key, subs);
 }
 export function unsubscribe(instance: GrowthBook | GrowthBookClient): void {
-  subscribedInstances.forEach((s) => s.delete(instance));
+  subscribedInstances.forEach((s, key) => {
+    s.delete(instance);
+    // Nothing left to refresh, so stop polling this key
+    const poller = s.size ? undefined : pollers.get(key);
+    if (poller) destroyPoller(poller, key);
+  });
 }
 
 export function onHidden() {
@@ -197,7 +208,7 @@ function warnStreamingUnavailable(reason: string): void {
   if (streamingWarnings.has(reason)) return;
   streamingWarnings.add(reason);
   console.warn(
-    `[GrowthBook] Streaming is enabled, but not active: ${reason}. Features will not be updated in the background. See https://docs.growthbook.io/lib/node#refreshing-features`,
+    `[GrowthBook] Streaming is enabled, but not active: ${reason}. Features will not be updated in the background. Set \`pollingInterval\` to refresh on a timer instead, or see https://docs.growthbook.io/lib/node#refreshing-features`,
   );
 }
 
@@ -596,6 +607,54 @@ function destroyChannel(channel: ScopedChannel, key: string) {
   streams.delete(key);
 }
 
+// Refresh on a fixed interval. Deduped per key, so many instances sharing a clientKey poll once.
+function startPolling(
+  instance: GrowthBook | GrowthBookClient,
+  interval: number,
+): void {
+  const key = getKey(instance);
+  if (pollers.has(key)) return;
+
+  const poller: Poller = { timer: null, interval, errors: 0 };
+  pollers.set(key, poller);
+  scheduleNextPoll(instance, poller);
+}
+
+function scheduleNextPoll(
+  instance: GrowthBook | GrowthBookClient,
+  poller: Poller,
+): void {
+  // Back off on repeated errors, with jitter, capped at 5 minutes
+  const delay =
+    poller.errors > 0
+      ? Math.min(
+          poller.interval * Math.pow(2, poller.errors - 1) +
+            Math.random() * 1000,
+          300000,
+        )
+      : poller.interval;
+
+  const timer = setTimeout(() => {
+    // Bypass the cache so the interval, not staleTTL, decides how often we refresh
+    fetchFeatures(instance).then((res) => {
+      poller.errors = res.success ? 0 : poller.errors + 1;
+      // Don't reschedule if polling was stopped while the request was in flight
+      if (pollers.get(getKey(instance)) === poller) {
+        scheduleNextPoll(instance, poller);
+      }
+    });
+  }, delay) as ReturnType<typeof setTimeout> & { unref?: () => void };
+
+  // Never hold a short-lived process (serverless, CLI) open just to poll
+  if (timer.unref) timer.unref();
+  poller.timer = timer;
+}
+
+function destroyPoller(poller: Poller, key: string) {
+  if (poller.timer) clearTimeout(poller.timer);
+  pollers.delete(key);
+}
+
 export function clearAutoRefresh() {
   // Clear list of which keys are auto-updated
   supportsSSE.clear();
@@ -604,6 +663,9 @@ export function clearAutoRefresh() {
   // Stop listening for any SSE events
   streams.forEach(destroyChannel);
 
+  // Stop any background polling
+  pollers.forEach(destroyPoller);
+
   // Remove all references to GrowthBook instances
   subscribedInstances.clear();
 
@@ -611,19 +673,20 @@ export function clearAutoRefresh() {
   helpers.stopIdleListener();
 }
 
-export function startStreaming(
+export function startBackgroundSync(
   instance: GrowthBook | GrowthBookClient,
   options: InitOptions | InitSyncOptions,
 ) {
+  if (!options.streaming && !options.pollingInterval) return;
+
+  if (!instance.getClientKey()) {
+    throw new Error("Must specify clientKey to enable streaming or polling");
+  }
+
   if (options.streaming) {
-    if (!instance.getClientKey()) {
-      throw new Error("Must specify clientKey to enable streaming");
-    }
     if (options.payload) {
       startAutoRefresh(instance, true);
     }
-    subscribe(instance);
-
     if (!polyfills.EventSource) {
       warnStreamingUnavailable(
         "no EventSource implementation is available. In Node.js, install the `eventsource` package and pass it to setPolyfills({ EventSource })",
@@ -638,5 +701,16 @@ export function startStreaming(
         "the API host did not report SSE support (missing `x-sse-support` response header). This is also expected when the initial payload fetch fails",
       );
     }
+  }
+
+  subscribe(instance);
+
+  // An active stream already keeps us current, so only poll when it isn't running
+  if (
+    options.pollingInterval &&
+    cacheSettings.backgroundSync &&
+    !streams.has(getKey(instance))
+  ) {
+    startPolling(instance, options.pollingInterval);
   }
 }
