@@ -868,11 +868,21 @@ const apiExperimentSnapshotShape = z.object({
   id: z.string(),
   experiment: z.string(),
   status: z.string(),
+  error: z
+    .string()
+    .describe(
+      "Why this snapshot failed. Present only when status is `error`. Names the underlying cause, such as the warehouse error or the reason a metric's query could not be built.",
+    )
+    .optional(),
 });
 export const apiExperimentSnapshotValidator = namedSchema(
   "ExperimentSnapshot",
   apiExperimentSnapshotShape.strict(),
 );
+
+export type ApiExperimentSnapshot = z.infer<
+  typeof apiExperimentSnapshotValidator
+>;
 
 // Corresponds to schemas/ExperimentResults.yaml
 export const apiExperimentResultsValidator = namedSchema(

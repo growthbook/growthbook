@@ -66,6 +66,36 @@ describe("snapshots API", () => {
     });
   });
 
+  it("surfaces why a snapshot failed", async () => {
+    setReqContext({
+      org,
+      permissions: {
+        canReadSingleProjectResource: () => true,
+      },
+    });
+
+    const snapshot = snapshotFactory.build({
+      organization: org.id,
+      status: "error",
+      error: "Failed to build query: Unknown fact table",
+    });
+
+    findSnapshotById.mockReturnValueOnce(snapshot);
+    getExperimentById.mockReturnValueOnce({ id: snapshot.experiment });
+
+    const response = await request(app)
+      .get("/api/v1/snapshots/snp_1")
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(response.body.snapshot).toEqual({
+      id: snapshot.id,
+      experiment: snapshot.experiment,
+      status: "error",
+      error: "Failed to build query: Unknown fact table",
+    });
+  });
+
   it("checks permission on experiment when getting a snapshot", async () => {
     setReqContext({
       org,

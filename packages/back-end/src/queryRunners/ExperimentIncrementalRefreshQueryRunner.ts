@@ -74,6 +74,10 @@ import {
   StartQueryParams,
 } from "./QueryRunner";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
+import {
+  getIncrementalCrossStatisticsQueryName,
+  getIncrementalStatisticsQueryName,
+} from "./incrementalStatisticsQueryNaming";
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "gb_units";
 export const INCREMENTAL_METRICS_TABLE_PREFIX = "gb_metrics";
@@ -1006,29 +1010,41 @@ const startExperimentIncrementalRefreshQueries = async (
           ? []
           : eligibleDimensionsWithSlicesUnderMaxCells;
 
+      // Isolate a build-time SQL-generation failure to this group's statistics
+      // query (e.g. a fact-table misconfiguration surfaced while resolving the
+      // group's metrics) instead of letting the throw escape and fail the whole
+      // snapshot. The failed-query record flows through the normal status
+      // machinery (a total wipeout is handled as a snapshot error downstream).
+      const statisticsQueryName = getIncrementalStatisticsQueryName(
+        group.groupId,
+      );
       const statisticsQuery = await startQuery({
-        name: `statistics_${group.groupId}`,
+        name: statisticsQueryName,
         displayTitle: `Compute Statistics ${sourceName}`,
-        query: integration.getIncrementalRefreshStatisticsQuery({
-          settings: snapshotSettings,
-          exposureQuery: resolvedExposureQuery,
-          activationMetric: activationMetric,
-          factTableMap: params.factTableMap,
-          unitsSourceTableFullName: unitsTableFullName,
-          metrics: sameFtMetrics,
-          lastMaxTimestamp: existingSource?.maxTimestamp || null,
-          dimensionsForPrecomputation,
-          dimensionsForAnalysis: [],
-          metricSources: [
-            {
-              factTableId: group.factTableId,
-              tableFullName: metricSourceTableFullName,
-              ...(anyMetricHasCuped && metricSourceCovariateTableFullName
-                ? { covariateTableFullName: metricSourceCovariateTableFullName }
-                : {}),
-            },
-          ],
-        }),
+        query: () =>
+          integration.getIncrementalRefreshStatisticsQuery({
+            settings: snapshotSettings,
+            exposureQuery: resolvedExposureQuery,
+            activationMetric: activationMetric,
+            factTableMap: params.factTableMap,
+            unitsSourceTableFullName: unitsTableFullName,
+            metrics: sameFtMetrics,
+            lastMaxTimestamp: existingSource?.maxTimestamp || null,
+            dimensionsForPrecomputation,
+            dimensionsForAnalysis: [],
+            metricSources: [
+              {
+                factTableId: group.factTableId,
+                tableFullName: metricSourceTableFullName,
+                ...(anyMetricHasCuped && metricSourceCovariateTableFullName
+                  ? {
+                      covariateTableFullName:
+                        metricSourceCovariateTableFullName,
+                    }
+                  : {}),
+              },
+            ],
+          }),
         dependencies: [
           insertMetricsSourceDataQuery.query,
           ...(insertMetricCovariateDataQuery
@@ -1075,46 +1091,52 @@ const startExperimentIncrementalRefreshQueries = async (
       ? []
       : eligibleDimensionsWithSlicesUnderMaxCells;
 
+    // Same per-unit build isolation as the per-FT statistics query above.
+    const crossStatsQueryName = getIncrementalCrossStatisticsQueryName(
+      pipelineA.group.groupId,
+      pipelineB.group.groupId,
+    );
     const crossStatsQuery = await startQuery({
-      name: `statistics_cross_${pipelineA.group.groupId}__${pipelineB.group.groupId}`,
+      name: crossStatsQueryName,
       displayTitle: `Compute Cross-Fact Statistics ${sourceName}`,
-      query: integration.getIncrementalRefreshStatisticsQuery({
-        settings: snapshotSettings,
-        exposureQuery: resolvedExposureQuery,
-        activationMetric: activationMetric,
-        factTableMap: params.factTableMap,
-        unitsSourceTableFullName: unitsTableFullName,
-        metrics: subGroup.metrics.map((m) => m.metric),
-        // The earliest of the two caches' max timestamps gates which rows
-        // we can trust as fully populated. For simplicity we just pass
-        // null; the stats query reads whatever each cache holds and the
-        // ratio aggregation works regardless of catch-up state.
-        lastMaxTimestamp: null,
-        dimensionsForPrecomputation,
-        dimensionsForAnalysis: [],
-        // Cross-FT CUPED uses one covariate cache per pipeline — the
-        // numerator FT's cache carries `_value` covariates, the
-        // denominator FT's cache carries `_denominator_value` covariates,
-        // and the per-source covariate LEFT JOIN inside each
-        // `__joinedData{i}` picks the right side from each side's cache.
-        // Pipelines with no RA metrics omit `covariateTableFullName`.
-        metricSources: [
-          {
-            factTableId: pipelineA.group.factTableId,
-            tableFullName: pipelineA.tableFullName,
-            ...(pipelineA.covariateTableFullName
-              ? { covariateTableFullName: pipelineA.covariateTableFullName }
-              : {}),
-          },
-          {
-            factTableId: pipelineB.group.factTableId,
-            tableFullName: pipelineB.tableFullName,
-            ...(pipelineB.covariateTableFullName
-              ? { covariateTableFullName: pipelineB.covariateTableFullName }
-              : {}),
-          },
-        ],
-      }),
+      query: () =>
+        integration.getIncrementalRefreshStatisticsQuery({
+          settings: snapshotSettings,
+          exposureQuery: resolvedExposureQuery,
+          activationMetric: activationMetric,
+          factTableMap: params.factTableMap,
+          unitsSourceTableFullName: unitsTableFullName,
+          metrics: subGroup.metrics.map((m) => m.metric),
+          // The earliest of the two caches' max timestamps gates which rows
+          // we can trust as fully populated. For simplicity we just pass
+          // null; the stats query reads whatever each cache holds and the
+          // ratio aggregation works regardless of catch-up state.
+          lastMaxTimestamp: null,
+          dimensionsForPrecomputation,
+          dimensionsForAnalysis: [],
+          // Cross-FT CUPED uses one covariate cache per pipeline — the
+          // numerator FT's cache carries `_value` covariates, the
+          // denominator FT's cache carries `_denominator_value` covariates,
+          // and the per-source covariate LEFT JOIN inside each
+          // `__joinedData{i}` picks the right side from each side's cache.
+          // Pipelines with no RA metrics omit `covariateTableFullName`.
+          metricSources: [
+            {
+              factTableId: pipelineA.group.factTableId,
+              tableFullName: pipelineA.tableFullName,
+              ...(pipelineA.covariateTableFullName
+                ? { covariateTableFullName: pipelineA.covariateTableFullName }
+                : {}),
+            },
+            {
+              factTableId: pipelineB.group.factTableId,
+              tableFullName: pipelineB.tableFullName,
+              ...(pipelineB.covariateTableFullName
+                ? { covariateTableFullName: pipelineB.covariateTableFullName }
+                : {}),
+            },
+          ],
+        }),
       dependencies: [
         pipelineA.insertQuery.query,
         pipelineB.insertQuery.query,
@@ -1233,7 +1255,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       this.experimentUpdateExecutionLogger.execution.covariateSources = [];
     }
 
-    return await startExperimentIncrementalRefreshQueries(
+    return startExperimentIncrementalRefreshQueries(
       this.context,
       params,
       this.integration,

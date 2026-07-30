@@ -3,6 +3,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { createExperimentSnapshot } from "back-end/src/services/experiments";
+import { toApiExperimentSnapshot } from "back-end/src/api/snapshots/toApiExperimentSnapshot";
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
 import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -106,10 +107,6 @@ export const postExperimentSnapshot = createApiRequestHandler(
     }),
   });
   return {
-    snapshot: {
-      id: snapshot.id,
-      experiment: snapshot.experiment,
-      status: snapshot.status,
-    },
+    snapshot: toApiExperimentSnapshot(snapshot),
   };
 });
