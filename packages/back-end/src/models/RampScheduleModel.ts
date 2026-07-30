@@ -412,11 +412,20 @@ export class RampScheduleModel extends BaseClass {
       )
     );
   }
-  // Removing a schedule detaches it from a live rule, so it lands like a publish.
+  // Removing a schedule that is serving detaches it from a live rule, so it lands
+  // like a publish. A schedule that is not serving (pending/ready, or already
+  // finished) changes nothing users see, and deleting one must not take more
+  // authority than gutting its steps does — canUpdate above is draft-or-publish.
   protected canDelete(existing: RampScheduleInterface) {
-    return this.context.permissions.canPublishFeature(
-      { project: this.getProject(existing) },
-      this.publishEnvironments(existing),
+    const project = this.getProject(existing);
+    const isServing = ["running", "paused"].includes(existing.status);
+    return (
+      (!isServing &&
+        this.context.permissions.canEditFeatureDrafts({ project })) ||
+      this.context.permissions.canPublishFeature(
+        { project },
+        this.publishEnvironments(existing),
+      )
     );
   }
 

@@ -1,4 +1,3 @@
-import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { Response } from "express";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { CustomHookEntityType, CustomHookInterface } from "shared/validators";
@@ -165,13 +164,7 @@ export const testCustomHook = async (
   if (entityType === "feature" && entityId) {
     // Feature-scoped test: authorize against the target feature
     const feature = await getFeature(context, entityId);
-    if (
-      !feature ||
-      !context.permissions.canManageFeatureCustomHooks(
-        feature,
-        NO_ENVIRONMENT_BINDING,
-      )
-    ) {
+    if (!feature || !context.permissions.canManageFeatureCustomHooks(feature)) {
       context.permissions.throwPermissionError();
     }
   } else if (entityType === "experiment" && entityId) {

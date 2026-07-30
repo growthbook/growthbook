@@ -1,4 +1,3 @@
-import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
 import { CustomHookInterface } from "shared/validators";
 import {
@@ -80,10 +79,7 @@ function CustomHooksSection({
     { shouldRun: () => hasAccessToCustomHooks },
   );
 
-  const canManage = permissionsUtil.canManageFeatureCustomHooks(
-    feature,
-    NO_ENVIRONMENT_BINDING,
-  );
+  const canManage = permissionsUtil.canManageFeatureCustomHooks(feature);
 
   const applicableHooks = useMemo(
     () =>
