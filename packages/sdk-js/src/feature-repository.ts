@@ -571,6 +571,12 @@ function enableChannel(channel: ScopedChannel) {
     channel.src.onerror = () => onSSEError(channel);
     channel.src.onopen = () => {
       channel.errors = 0;
+      // Only now is streaming confirmed working, so it can take over from polling.
+      // Constructing an EventSource says nothing about whether it will connect, and
+      // an SSE connection blocked by a firewall or proxy is exactly why someone
+      // configured polling in the first place.
+      const poller = pollers.get(channel.key);
+      if (poller) destroyPoller(poller, channel.key);
     };
   } catch (e) {
     // An incompatible EventSource must not take the feature payload down with it.
@@ -608,22 +614,23 @@ function destroyChannel(channel: ScopedChannel, key: string) {
 }
 
 // Refresh on a fixed interval. Deduped per key, so many instances sharing a clientKey poll once.
-function startPolling(
-  instance: GrowthBook | GrowthBookClient,
-  interval: number,
-): void {
-  const key = getKey(instance);
+function startPolling(key: string, interval: number): void {
+  // Every invalid delay (negative, NaN, Infinity, sub-millisecond) is clamped to 1ms by
+  // setTimeout, which would turn a typo into a request loop
+  if (!Number.isFinite(interval) || interval < 1) {
+    console.warn(
+      `[GrowthBook] Ignoring invalid pollingInterval (${interval}). Expected a finite number of milliseconds >= 1.`,
+    );
+    return;
+  }
   if (pollers.has(key)) return;
 
   const poller: Poller = { timer: null, interval, errors: 0 };
   pollers.set(key, poller);
-  scheduleNextPoll(instance, poller);
+  scheduleNextPoll(key, poller);
 }
 
-function scheduleNextPoll(
-  instance: GrowthBook | GrowthBookClient,
-  poller: Poller,
-): void {
+function scheduleNextPoll(key: string, poller: Poller): void {
   // Back off on repeated errors, with jitter, capped at 5 minutes
   const delay =
     poller.errors > 0
@@ -635,12 +642,21 @@ function scheduleNextPoll(
       : poller.interval;
 
   const timer = setTimeout(() => {
+    // Resolve a subscriber at poll time. The instance that started polling may have been
+    // destroyed, which clears its options and would send us to the wrong host.
+    const subs = subscribedInstances.get(key);
+    const instance = subs && subs.values().next().value;
+    if (!instance) {
+      destroyPoller(poller, key);
+      return;
+    }
+
     // Bypass the cache so the interval, not staleTTL, decides how often we refresh
     fetchFeatures(instance).then((res) => {
       poller.errors = res.success ? 0 : poller.errors + 1;
       // Don't reschedule if polling was stopped while the request was in flight
-      if (pollers.get(getKey(instance)) === poller) {
-        scheduleNextPoll(instance, poller);
+      if (pollers.get(key) === poller) {
+        scheduleNextPoll(key, poller);
       }
     });
   }, delay) as ReturnType<typeof setTimeout> & { unref?: () => void };
@@ -677,7 +693,7 @@ export function startBackgroundSync(
   instance: GrowthBook | GrowthBookClient,
   options: InitOptions | InitSyncOptions,
 ) {
-  if (!options.streaming && !options.pollingInterval) return;
+  if (!options.streaming && options.pollingInterval === undefined) return;
 
   if (!instance.getClientKey()) {
     throw new Error("Must specify clientKey to enable streaming or polling");
@@ -705,12 +721,14 @@ export function startBackgroundSync(
 
   subscribe(instance);
 
-  // An active stream already keeps us current, so only poll when it isn't running
-  if (
-    options.pollingInterval &&
-    cacheSettings.backgroundSync &&
-    !streams.has(getKey(instance))
-  ) {
-    startPolling(instance, options.pollingInterval);
+  // Poll until streaming is confirmed working, at which point onopen retires the poller.
+  // Deliberately not gated on an existing stream: startAutoRefresh opens one whenever the
+  // host advertises SSE, so gating here would silently drop the polling that was asked for
+  // and leave nothing behind if that stream never connects.
+  // Checked against undefined rather than truthiness so that 0 reaches the validation
+  // warning in startPolling instead of silently disabling refreshes.
+  const key = getKey(instance);
+  if (options.pollingInterval !== undefined && cacheSettings.backgroundSync) {
+    startPolling(key, options.pollingInterval);
   }
 }
