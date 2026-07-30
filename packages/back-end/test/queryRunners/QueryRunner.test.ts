@@ -5,10 +5,21 @@ import {
   QueryMap,
   InterfaceWithQueries,
   getQueryFailureError,
+  getMetricAwareQueryStatus,
 } from "back-end/src/queryRunners/QueryRunner";
+import { TRAFFIC_QUERY_NAME } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { getUnitDimQueryName } from "back-end/src/queryRunners/unitDimensionQueryNaming";
+import {
+  getIncrementalCrossStatisticsQueryName,
+  getIncrementalStatisticsQueryName,
+} from "back-end/src/queryRunners/incrementalStatisticsQueryNaming";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
+  countRunningQueries,
   createFailedQuery,
+  createNewQuery,
+  createNewQueryFromCached,
+  getRecentQuery,
   getQueriesByIds,
   updateQuery,
 } from "back-end/src/models/QueryModel";
@@ -148,7 +159,178 @@ describe("getQueryFailureError", () => {
 
   it("returns the generic message when no failed query has an error", () => {
     const error = getQueryFailureError(makeFailedQueryMap(["a", { id: "q1" }]));
-    expect(error).toBe("Failed to run a majority of the database queries");
+    expect(error).toBe("Failed to run the database queries for this analysis");
+  });
+});
+
+describe("getMetricAwareQueryStatus", () => {
+  const SNAPSHOT_ID = "snp_1";
+
+  const pointer = (
+    name: string,
+    status: QueryStatus,
+    metrics?: string[],
+    metricScope?: "primary" | "dimension",
+    metricScopeId?: string,
+  ): Queries[number] => ({
+    query: `qry_${name}`,
+    name,
+    status,
+    metrics,
+    metricScope,
+    metricScopeId,
+  });
+
+  it("analyzes survivors when a majority of metric queries failed", () => {
+    const status = getMetricAwareQueryStatus([
+      pointer("query_a", "failed", ["met_a"]),
+      pointer("query_b", "failed", ["met_b"]),
+      pointer("query_c", "failed", ["met_c"]),
+      pointer("query_d", "succeeded", ["met_d"]),
+    ]);
+    // The old rule (>= half failed) would have returned "failed" and skipped
+    // analysis entirely, discarding met_d's results.
+    expect(status).toBe("partially-succeeded");
+  });
+
+  it("fails only when no metric query survived", () => {
+    const status = getMetricAwareQueryStatus([
+      pointer("query_a", "failed", ["met_a"]),
+      pointer("query_b", "failed", ["met_b"]),
+    ]);
+    expect(status).toBe("failed");
+  });
+
+  it("does not fail when only the traffic query failed", () => {
+    const status = getMetricAwareQueryStatus([
+      pointer("query_a", "succeeded", ["met_a"]),
+      pointer(TRAFFIC_QUERY_NAME, "failed"),
+    ]);
+    expect(status).toBe("partially-succeeded");
+  });
+
+  it("does not fail when only the shared units table and its drop failed", () => {
+    // These own no metric results directly; dependent metric queries cascade
+    // and are counted as metric failures in their own right.
+    const status = getMetricAwareQueryStatus([
+      pointer("query_a", "succeeded", ["met_a"]),
+      pointer(SNAPSHOT_ID, "failed"),
+      pointer(`drop_${SNAPSHOT_ID}`, "failed"),
+    ]);
+    expect(status).toBe("partially-succeeded");
+  });
+
+  it("ignores unit-dimension queries, which belong to their own analyses", () => {
+    const status = getMetricAwareQueryStatus([
+      pointer("query_a", "succeeded", ["met_a"]),
+      pointer(
+        getUnitDimQueryName("dim_1", "met_a"),
+        "failed",
+        ["met_a"],
+        "dimension",
+        "dim_1",
+      ),
+    ]);
+    expect(status).toBe("partially-succeeded");
+  });
+
+  it("waits while any query is still in flight", () => {
+    const status = getMetricAwareQueryStatus([
+      pointer("query_a", "failed", ["met_a"]),
+      pointer("query_b", "running", ["met_b"]),
+    ]);
+    expect(status).toBe("running");
+  });
+
+  it("reports success when nothing failed", () => {
+    const status = getMetricAwareQueryStatus([
+      pointer("query_a", "succeeded", ["met_a"]),
+      pointer(TRAFFIC_QUERY_NAME, "succeeded"),
+    ]);
+    expect(status).toBe("succeeded");
+  });
+
+  const statsA = getIncrementalStatisticsQueryName("ft_1_ab12340");
+  const statsB = getIncrementalStatisticsQueryName("ft_2_ab12341");
+  const statsCross = getIncrementalCrossStatisticsQueryName(
+    "ft_1_ab12340",
+    "ft_2_ab12341",
+  );
+
+  it("fails when every statistics query failed, even though the pipeline queries succeeded", () => {
+    // The base 50% rule returned "partially-succeeded" here, so analysis ran
+    // with no metric data and the snapshot carried no explanation.
+    const status = getMetricAwareQueryStatus([
+      pointer("create_metrics_source_ft_1_ab12340", "succeeded"),
+      pointer("insert_metrics_source_data_ft_1_ab12340", "succeeded"),
+      pointer("max_timestamp_metrics_source_ft_1_ab12340", "succeeded"),
+      pointer(statsA, "failed", ["met_a"]),
+    ]);
+    expect(status).toBe("failed");
+  });
+
+  it("analyzes survivors when one statistics query of several failed", () => {
+    const status = getMetricAwareQueryStatus([
+      pointer(statsA, "failed", ["met_a"]),
+      pointer(statsB, "succeeded", ["met_b"]),
+      pointer(statsCross, "failed", ["met_c"]),
+    ]);
+    expect(status).toBe("partially-succeeded");
+  });
+
+  it("does not fail when only an infrastructure query failed", () => {
+    const status = getMetricAwareQueryStatus([
+      pointer(statsA, "succeeded", ["met_a"]),
+      pointer("drop_metrics_covariate_table_ft_1_ab12340", "failed"),
+    ]);
+    expect(status).toBe("partially-succeeded");
+  });
+
+  it("waits while any query is still in flight", () => {
+    const status = getMetricAwareQueryStatus([
+      pointer(statsA, "failed", ["met_a"]),
+      pointer(statsB, "running", ["met_b"]),
+    ]);
+    expect(status).toBe("running");
+  });
+
+  it("reports success when nothing failed", () => {
+    const status = getMetricAwareQueryStatus([
+      pointer(statsA, "succeeded", ["met_a"]),
+      pointer("insert_metrics_source_data_ft_1_ab12340", "succeeded"),
+    ]);
+    expect(status).toBe("succeeded");
+  });
+
+  it("returns null for legacy pointers without ownership metadata", () => {
+    expect(
+      getMetricAwareQueryStatus([pointer("legacy_metric", "succeeded")]),
+    ).toBeNull();
+  });
+
+  it("evaluates one unit-dimension scope independently", () => {
+    expect(
+      getMetricAwareQueryStatus(
+        [
+          pointer(
+            "unitdim:country:met_a",
+            "failed",
+            ["met_a"],
+            "dimension",
+            "country",
+          ),
+          pointer(
+            "unitdim:browser:met_a",
+            "succeeded",
+            ["met_a"],
+            "dimension",
+            "browser",
+          ),
+        ],
+        "dimension",
+        "country",
+      ),
+    ).toBe("failed");
   });
 });
 
@@ -174,6 +356,7 @@ describe("startQuery build-time isolation", () => {
 
     const pointer = await runner.startQuery({
       name: "met_bad",
+      metrics: ["met_bad"],
       query: () => {
         throw new Error("Unknown fact table");
       },
@@ -188,6 +371,9 @@ describe("startQuery build-time isolation", () => {
       query: "qry_failed",
       status: "failed",
       error: "Failed to build query: Unknown fact table",
+      metrics: ["met_bad"],
+      metricScope: undefined,
+      metricScopeId: undefined,
     });
     // The failure is persisted as a terminal failed Query doc, never executed.
     expect(createFailedQuery as jest.Mock).toHaveBeenCalledWith(
@@ -199,6 +385,83 @@ describe("startQuery build-time isolation", () => {
       }),
     );
     expect(runner.executeQuerySpy).not.toHaveBeenCalled();
+  });
+
+  it("preserves metric ownership on a cached query pointer", async () => {
+    const runner = new TestQueryRunner(
+      createMockContext(),
+      {
+        id: "test-model",
+        organization: "test-org",
+        queries: [],
+        runStarted: new Date(),
+      },
+      createMockIntegration(),
+    );
+    (getRecentQuery as jest.Mock).mockResolvedValue(
+      createMockQuery("qry_cached", "succeeded"),
+    );
+    (createNewQueryFromCached as jest.Mock).mockResolvedValue(
+      createMockQuery("qry_copy", "succeeded"),
+    );
+
+    const pointer = await runner.startQuery({
+      name: "unitdim:country:group_0",
+      metrics: ["met_a", "met_b"],
+      metricScope: "dimension",
+      metricScopeId: "country",
+      query: "SELECT 1",
+      dependencies: [],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      run: jest.fn() as any,
+      queryType: "experimentMultiMetric",
+    });
+
+    expect(pointer).toEqual({
+      name: "unitdim:country:group_0",
+      query: "qry_copy",
+      status: "succeeded",
+      metrics: ["met_a", "met_b"],
+      metricScope: "dimension",
+      metricScopeId: "country",
+    });
+  });
+
+  it("preserves metric ownership on a fresh query pointer", async () => {
+    const runner = new TestQueryRunner(
+      createMockContext(),
+      {
+        id: "test-model",
+        organization: "test-org",
+        queries: [],
+        runStarted: new Date(),
+      },
+      createMockIntegration(),
+      false,
+    );
+    (countRunningQueries as jest.Mock).mockResolvedValue(0);
+    (createNewQuery as jest.Mock).mockResolvedValue(
+      createMockQuery("qry_fresh", "running"),
+    );
+
+    const pointer = await runner.startQuery({
+      name: "statistics_group_0",
+      metrics: ["met_a"],
+      query: "SELECT 1",
+      dependencies: [],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      run: jest.fn() as any,
+      queryType: "experimentIncrementalRefreshStatistics",
+    });
+
+    expect(pointer).toEqual({
+      name: "statistics_group_0",
+      query: "qry_fresh",
+      status: "running",
+      metrics: ["met_a"],
+      metricScope: undefined,
+      metricScopeId: undefined,
+    });
   });
 });
 
@@ -600,6 +863,7 @@ describe("QueryRunner", () => {
       public persistedQueries: Queries = [];
       public updateModelSpy = jest.fn();
       public onQueryFinishSpy = jest.fn();
+      public runAnalysisSpy = jest.fn();
 
       checkPermissions() {
         return true;
@@ -610,6 +874,7 @@ describe("QueryRunner", () => {
       }
 
       async runAnalysis() {
+        this.runAnalysisSpy();
         return { success: true };
       }
 
@@ -706,6 +971,35 @@ describe("QueryRunner", () => {
         jest.clearAllTimers();
         jest.useRealTimers();
       }
+    });
+
+    it("analyzes cached partial results immediately", async () => {
+      const model: InterfaceWithQueries = {
+        id: "test-model",
+        organization: "test-org",
+        queries: [],
+        runStarted: new Date(),
+      };
+      const runner = new RaceTestQueryRunner(
+        mockContext,
+        model,
+        mockIntegration,
+      );
+      const pointers: Queries = [
+        { name: "a", query: "qry_a", status: "failed" },
+        { name: "b", query: "qry_b", status: "succeeded" },
+        { name: "c", query: "qry_c", status: "succeeded" },
+      ];
+
+      await runner.startAnalysis({ pointers });
+
+      expect(runner.runAnalysisSpy).toHaveBeenCalledTimes(1);
+      expect(runner.updateModelSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "partially-succeeded",
+          result: { success: true },
+        }),
+      );
     });
 
     class FailingAnalysisQueryRunner extends RaceTestQueryRunner {

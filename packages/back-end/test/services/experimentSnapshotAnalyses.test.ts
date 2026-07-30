@@ -23,6 +23,7 @@ jest.mock("back-end/src/services/stats", () => ({
 
 jest.mock("back-end/src/queryRunners/QueryRunner", () => ({
   QueryRunner: class {},
+  getMetricAwareQueryStatus: jest.fn(() => null),
   getQueryMap: jest.fn(),
 }));
 

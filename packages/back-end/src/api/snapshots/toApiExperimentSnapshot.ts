@@ -1,5 +1,6 @@
 import { ApiExperimentSnapshot } from "shared/validators";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { getMetricAwareQueryStatus } from "back-end/src/queryRunners/QueryRunner";
 
 /**
  * Build the `ExperimentSnapshot` public API model.
@@ -17,5 +18,9 @@ export function toApiExperimentSnapshot(
     experiment: snapshot.experiment,
     status: snapshot.status,
     error: snapshot.error,
+    // `status` cannot express a partial run: it is "success" whenever anything
+    // analyzable survived. Absent for snapshots stored before queries recorded
+    // the metrics they own, where completeness is genuinely unknowable.
+    queryStatus: getMetricAwareQueryStatus(snapshot.queries) ?? undefined,
   };
 }

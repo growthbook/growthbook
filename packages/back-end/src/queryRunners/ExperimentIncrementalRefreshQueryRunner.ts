@@ -72,6 +72,7 @@ import {
   ProcessedRowsType,
   RowsType,
   StartQueryParams,
+  getMetricAwareQueryStatus,
 } from "./QueryRunner";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
 import {
@@ -1020,6 +1021,7 @@ const startExperimentIncrementalRefreshQueries = async (
       );
       const statisticsQuery = await startQuery({
         name: statisticsQueryName,
+        metrics: sameFtMetrics.map((metric) => metric.id),
         displayTitle: `Compute Statistics ${sourceName}`,
         query: () =>
           integration.getIncrementalRefreshStatisticsQuery({
@@ -1098,6 +1100,7 @@ const startExperimentIncrementalRefreshQueries = async (
     );
     const crossStatsQuery = await startQuery({
       name: crossStatsQueryName,
+      metrics: subGroup.metrics.map((metric) => metric.metric.id),
       displayTitle: `Compute Cross-Fact Statistics ${sourceName}`,
       query: () =>
         integration.getIncrementalRefreshStatisticsQuery({
@@ -1193,10 +1196,20 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 > {
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
-
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
       this.integration.datasource,
+    );
+  }
+
+  // A statistics-query failure is this pipeline's metric failure: every metric
+  // is computed by one of them. Failing only when none survived (rather than
+  // the base 50% rule) means a total wipeout reports the chained root cause
+  // instead of an analyzed-looking snapshot with no metric data.
+  protected override getOverallQueryStatus(): QueryStatus {
+    return (
+      getMetricAwareQueryStatus(this.model.queries) ??
+      super.getOverallQueryStatus()
     );
   }
 

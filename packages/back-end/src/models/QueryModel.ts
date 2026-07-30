@@ -14,6 +14,15 @@ export const queriesSchema = [
     query: String,
     status: String,
     name: String,
+    metrics: {
+      type: [String],
+      default: undefined,
+    },
+    metricScope: {
+      type: String,
+      enum: ["primary", "dimension"],
+    },
+    metricScopeId: String,
     error: String,
   },
 ];

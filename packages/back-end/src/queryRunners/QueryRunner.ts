@@ -60,6 +60,9 @@ export type ProcessedRowsType = Record<string, any>;
 export type StartQueryParams<Rows, ProcessedRows> = {
   name: string;
   displayTitle?: string;
+  metrics?: string[];
+  metricScope?: "primary" | "dimension";
+  metricScopeId?: string;
   // Either the already-built SQL, or a builder invoked inside startQuery. Pass a
   // builder when construction can throw (invalid metric/fact-table config): the
   // throw is caught and recorded as a terminal failed query for this unit
@@ -86,7 +89,7 @@ const INITIAL_CONCURRENCY_TIMEOUT = 250;
 const MAX_CONCURRENCY_TIMEOUT = 4000;
 
 const GENERIC_QUERY_FAILURE_ERROR =
-  "Failed to run a majority of the database queries";
+  "Failed to run the database queries for this analysis";
 
 // Prefix the dependency-cascade mechanism (startReadyQueries) writes onto a
 // query's error when it is marked failed because an upstream dependency failed
@@ -125,6 +128,65 @@ export function pickQueryFailureError(
 
 export function getQueryFailureError(queryMap: QueryMap): string {
   return pickQueryFailureError(Array.from(queryMap.values()));
+}
+
+// Aggregate status for runners whose queries include *metric-owning* queries
+// (one per legacy metric or per fact-metric group) alongside queries that own
+// no metric results (the shared units table, its drop, the traffic/SRM query).
+//
+// Replaces the base class's fixed "half the queries failed → failed" rule for
+// those runners. Any metric query that survived is worth analyzing, so we only
+// report `failed` when *no* metric query survived — the total-wipeout case (e.g.
+// a datasource outage cascading through the shared units table), where the
+// caller surfaces the chained root cause via `pickQueryFailureError`. Anything
+// less is `partially-succeeded`, which still runs the analysis and renders the
+// surviving metrics with per-metric inline errors for the rest. A failure that
+// owns no metric (traffic in particular) therefore can never force `failed`.
+export function getMetricAwareQueryStatus(
+  queries: Queries,
+  metricScope: "primary" | "dimension" = "primary",
+  metricScopeId?: string,
+): QueryStatus | null {
+  const metricQueries = queries.filter(
+    (query) =>
+      query.metrics?.length &&
+      (query.metricScope ?? "primary") === metricScope &&
+      (metricScopeId === undefined || query.metricScopeId === metricScopeId),
+  );
+  if (!metricQueries.length) return null;
+
+  // Anything still in flight could yet survive, so don't call it either way.
+  // (The base class short-circuits to `failed` here; waiting costs nothing but
+  // the time the remaining queries were going to take anyway.)
+  if (queries.some((q) => q.status === "running" || q.status === "queued")) {
+    return "running";
+  }
+
+  const anyFailed = queries.some((q) => q.status === "failed");
+  if (!anyFailed) return "succeeded";
+
+  const allMetricQueriesFailed = metricQueries.every(
+    (q) => q.status === "failed",
+  );
+  return allMetricQueriesFailed ? "failed" : "partially-succeeded";
+}
+
+export function getMetricQueryOwnership(
+  queries: Queries,
+  metricScope: "primary" | "dimension" = "primary",
+  metricScopeId?: string,
+): Record<string, string[]> {
+  return Object.fromEntries(
+    queries
+      .filter(
+        (query) =>
+          query.metrics?.length &&
+          (query.metricScope ?? "primary") === metricScope &&
+          (metricScopeId === undefined ||
+            query.metricScopeId === metricScopeId),
+      )
+      .map((query) => [query.name, query.metrics as string[]]),
+  );
 }
 
 export async function getQueryMap(
@@ -390,8 +452,10 @@ export abstract class QueryRunner<
     let result: Result | undefined = undefined;
 
     const queryStatus = this.getOverallQueryStatus();
-    if (queryStatus === "succeeded") {
-      logger.debug(this.model.id + " runner: Query already succeeded (cached)");
+    if (queryStatus === "succeeded" || queryStatus === "partially-succeeded") {
+      logger.debug(
+        `${this.model.id} runner: Cached queries ${queryStatus}, running analysis`,
+      );
       const queryMap = await this.getQueryMap(queries);
       try {
         this.experimentUpdateExecutionLogger?.endPhase("runQueries");
@@ -919,6 +983,9 @@ export abstract class QueryRunner<
     const {
       name,
       displayTitle,
+      metrics,
+      metricScope,
+      metricScopeId,
       query: queryOrBuilder,
       dependencies,
       runAtEnd,
@@ -959,6 +1026,9 @@ export abstract class QueryRunner<
         query: doc.id,
         status: "failed",
         error,
+        metrics,
+        metricScope,
+        metricScopeId,
       };
     }
 
@@ -1031,6 +1101,9 @@ export abstract class QueryRunner<
             name,
             query: copiedCachedDoc.id,
             status: copiedCachedDoc.status,
+            metrics,
+            metricScope,
+            metricScopeId,
           };
         }
       } catch (e) {
@@ -1082,6 +1155,9 @@ export abstract class QueryRunner<
       name,
       query: doc.id,
       status: doc.status,
+      metrics,
+      metricScope,
+      metricScopeId,
     };
   }
 
@@ -1104,6 +1180,12 @@ export abstract class QueryRunner<
     return numRunningQueries >= numericConcurrencyLimit;
   }
 
+  // Default aggregate: a runner whose queries are all equally load-bearing has
+  // nothing useful to salvage once half of them failed. Runners that emit
+  // metric-owning queries (experiment results, reports, safe rollouts) override
+  // this with `getMetricAwareQueryStatus` so surviving metrics are still
+  // analyzed; `AggregatedFactTableQueryRunner` overrides it with an all-or-
+  // nothing rule.
   protected getOverallQueryStatus(): QueryStatus {
     const failedQueries = this.model.queries.filter(
       (q) => q.status === "failed",

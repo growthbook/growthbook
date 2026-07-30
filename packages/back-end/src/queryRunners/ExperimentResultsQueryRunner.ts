@@ -66,6 +66,7 @@ import {
   ProcessedRowsType,
   RowsType,
   StartQueryParams,
+  getMetricAwareQueryStatus,
 } from "./QueryRunner";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
 import { getUnitDimQueryName } from "./unitDimensionQueryNaming";
@@ -95,6 +96,16 @@ export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
 // the metric-query classifier below both derive it from here so they can't drift.
 export function getDropUnitsTableQueryName(queryParentId: string): string {
   return `drop_${queryParentId}`;
+}
+
+// Aggregate query status for the runners built on `startExperimentResultQueries`
+// (experiment results, reports, safe rollouts): analyze whatever metric queries
+// survived, and only fail the whole run when none did. Legacy snapshots without
+// ownership metadata fall back to the runner's original aggregate policy.
+export function getExperimentResultsQueryStatus(
+  queries: Queries,
+): QueryStatus | null {
+  return getMetricAwareQueryStatus(queries);
 }
 
 export const startExperimentResultQueries = async (
@@ -307,6 +318,7 @@ export const startExperimentResultQueries = async (
     queries.push(
       await startQuery({
         name: m.id,
+        metrics: [m.id],
         query: () => integration.getSnapshotMetricQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query, setExternalId, queryMetadata) =>
@@ -354,6 +366,7 @@ export const startExperimentResultQueries = async (
     queries.push(
       await startQuery({
         name: getFactMetricGroupQueryName(i),
+        metrics: m.map((metric) => metric.id),
         query: () => getExperimentFactMetricsQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query, setExternalId, queryMetadata) =>
@@ -401,6 +414,9 @@ export const startExperimentResultQueries = async (
         queries.push(
           await startQuery({
             name: unitDimGroupName,
+            metrics: m.map((metric) => metric.id),
+            metricScope: "dimension",
+            metricScopeId: dimensionId,
             query: () => getExperimentFactMetricsQuery(queryParams),
             dependencies: [unitQuery.query],
             run: (query, setExternalId, queryMetadata) =>
@@ -448,6 +464,9 @@ export const startExperimentResultQueries = async (
         queries.push(
           await startQuery({
             name: unitDimMetricName,
+            metrics: [m.id],
+            metricScope: "dimension",
+            metricScopeId: dimensionId,
             query: () => integration.getSnapshotMetricQuery(queryParams),
             dependencies: [unitQuery.query],
             run: (query, setExternalId, queryMetadata) =>
@@ -538,6 +557,17 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
       this.integration.datasource,
+    );
+  }
+
+  // Analyze whatever metric queries survived instead of the base class's
+  // "half the queries failed → fail everything" rule. `queryParentId` is always
+  // the model id (see `createSnapshotFromPlan`), which is also the name of the
+  // shared units-table query.
+  protected override getOverallQueryStatus(): QueryStatus {
+    return (
+      getExperimentResultsQueryStatus(this.model.queries) ??
+      super.getOverallQueryStatus()
     );
   }
 
@@ -754,6 +784,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       await this.startQuery({
         queryType: "experimentResults",
         name: "results",
+        metrics: selectedMetrics.map((metric) => metric.id),
         query: query,
         dependencies: [],
         run: async () => {
