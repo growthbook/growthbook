@@ -181,6 +181,20 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       !isEqual(req.body.scopedOverrides, config.scopedOverrides ?? [])
     ) {
       const nextOverrides = req.body.scopedOverrides;
+      // Which flavors resolve per environment IS a served value, so changing it
+      // takes publish authority — the same gate the internal twin
+      // (setConfigScopedOverrides) applies. The value path below checks publish
+      // too, but a scoped-overrides-only request short-circuits before it.
+      if (
+        !req.context.permissions.canRevisionAction(
+          "config",
+          "publish",
+          config,
+          configPublishEnvironments(req.context, config),
+        )
+      ) {
+        req.context.permissions.throwPermissionError();
+      }
       assertConfigNotLocked(config);
       await assertScopedOverridesValid(
         req.context,

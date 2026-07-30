@@ -31,6 +31,7 @@ import {
   updateInterfaceEnvSettingsFromApiEnvSettings,
 } from "back-end/src/services/features";
 import { getEnabledEnvironments } from "back-end/src/util/features";
+import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
@@ -228,6 +229,22 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       ...(customFields != null ? { customFields } : {}),
     };
     normalizeTargetingInUpdates(updates, feature);
+
+    // Archiving takes the flag out of service, so it is delete-class wherever it
+    // lands — the same rule the archive endpoints and the revision publish path
+    // apply. Unarchiving returns it to service and stays an ordinary publish.
+    if (
+      isArchiveTransition({
+        proposed: updates.archived ?? undefined,
+        current: feature.archived,
+      }) &&
+      !req.context.permissions.canDeleteFeature(
+        { project: effectiveProject },
+        Array.from(getEnabledEnvironments(feature, orgEnvs)),
+      )
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
 
     if (
       updates.environmentSettings ||

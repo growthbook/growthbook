@@ -597,11 +597,11 @@ export default function EditSavedGroupPage() {
         >
           <>
             {addItemsDraftMode !== "publish" && (
-              <div className="form-group">
+              <Text as="p" mb="3" color="text-mid">
                 {approvalRequired
                   ? "Changes will be saved as a draft and must be reviewed before taking effect."
                   : "Changes will be saved as a draft revision."}
-              </div>
+              </Text>
             )}
             <SavedGroupDraftSelectorForChanges
               savedGroup={savedGroup}

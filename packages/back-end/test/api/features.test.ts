@@ -1,3 +1,4 @@
+import { PermissionError } from "shared/util";
 import request from "supertest";
 import { FeatureInterface } from "shared/types/feature";
 import {
@@ -124,7 +125,12 @@ describe("features API", () => {
     canPublishFeature: () => true,
     canEditFeatureDrafts: () => true,
     canCreateFeature: () => true,
+    // Archiving is delete-class, so the update paths consult this too.
+    canDeleteFeature: () => true,
     canBypassFlagApprovalChecks: () => false,
+    throwPermissionError: () => {
+      throw new PermissionError("permission denied");
+    },
     ...extra,
   });
 
@@ -870,6 +876,32 @@ describe("features API", () => {
       expect(createAndPublishRevision).toHaveBeenCalledWith(
         expect.objectContaining({ canBypassApprovalChecks: true }),
       );
+    });
+
+    it("refuses to archive without delete authority, even for a publisher", async () => {
+      // Archiving takes the flag out of service, so it is delete-class on every
+      // path that can land it — this endpoint included.
+      setupUpdateTest({}, { canDeleteFeature: () => false });
+
+      const response = await request(app)
+        .post("/api/v1/features/myfeature")
+        .send({ archived: true });
+
+      expect(response.status).toBe(403);
+    });
+
+    it("still lets a publisher unarchive without delete authority", async () => {
+      const existing = setupUpdateTest({}, { canDeleteFeature: () => false });
+      (getFeature as jest.Mock).mockResolvedValue({
+        ...existing,
+        archived: true,
+      });
+
+      const response = await request(app)
+        .post("/api/v1/features/myfeature")
+        .send({ archived: false });
+
+      expect(response.status).toBe(200);
     });
 
     it("throws when approvals required and neither restApiBypassesReviews nor role permission allow bypass", async () => {
