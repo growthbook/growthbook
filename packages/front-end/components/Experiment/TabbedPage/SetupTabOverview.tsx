@@ -245,17 +245,14 @@ export default function SetupTabOverview({
                   {scheduledEndPassed && (
                     <PiWarningFill color="var(--warning)" />
                   )}
-                  {experimentHasSchedule ? (
-                    <PiPencilSimpleFill />
-                  ) : (
-                    <PiPlus size="15" />
-                  )}
+                  {!experimentHasSchedule && <PiPlus size="15" />}
                   <Text weight="semibold">
                     {scheduledEndSummary ??
                       (experimentHasSchedule
                         ? "Edit Schedule"
                         : "Add Schedule End")}
                   </Text>
+                  {experimentHasSchedule && <PiPencilSimpleFill />}
                 </Flex>
               </Link>
             ) : null}
