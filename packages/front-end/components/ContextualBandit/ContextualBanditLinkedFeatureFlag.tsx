@@ -47,11 +47,28 @@ export default function ContextualBanditLinkedFeatureFlag({
     canUpdateLinkedFeature &&
     permissionsUtil.canManageFeatureDrafts(info.feature);
 
+  // Removal strips the rule off the feature and publishes, so it needs the same
+  // rights the API enforces, scoped to the environments the rule reaches.
+  const ruleEnvironments = Object.entries(info.environmentStates || {})
+    .filter(([, state]) => state !== "missing")
+    .map(([env]) => env);
+
+  const canRemoveLinkedFeature =
+    canEditFeatureDraft &&
+    permissionsUtil.canPublishFeature(info.feature, ruleEnvironments);
+
   const handleRemove = async () => {
+    const message =
+      info.state === "discarded"
+        ? "Remove this Feature Flag from the contextual bandit?"
+        : "Remove this Feature Flag from the contextual bandit? The contextual-bandit rule will be deleted from the Feature Flag and published.";
+    if (!confirm(message)) {
+      return;
+    }
     setRemoving(true);
     try {
       await apiCall(
-        `/api/v1/contextual-bandits/${cb.id}/linked-feature/${info.feature.id}`,
+        `/api/v1/contextual-bandits/${cb.id}/linked-feature/${info.feature.id}?autoPublish=true`,
         { method: "DELETE" },
       );
       mutate?.();
@@ -115,7 +132,7 @@ export default function ContextualBanditLinkedFeatureFlag({
     info.state !== "archived";
 
   const showRemoveButton =
-    canUpdateLinkedFeature &&
+    canRemoveLinkedFeature &&
     info.state !== "locked" &&
     info.state !== "archived";
 
@@ -174,7 +191,7 @@ export default function ContextualBanditLinkedFeatureFlag({
             <Link href={`/features/${info.feature?.id}`} target="_blank">
               Go to feature page <PiArrowSquareOut className="ml-1" />
             </Link>
-            {canUpdateLinkedFeature && (
+            {canEditFeatureDraft && (
               <>
                 {" · "}
                 <Link
