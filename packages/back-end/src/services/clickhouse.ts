@@ -531,24 +531,28 @@ export async function setManagedWarehouseIdAttributeIdentifier(
     );
   }
 
-  if ((datasource.settings.idAttributeIdentifier ?? "device_id") === identifier)
-    return;
-
-  const updatedSettings = {
-    ...datasource.settings,
-    idAttributeIdentifier: identifier,
-  };
+  // Merge onto a fresh read rather than the request-start snapshot: this is a
+  // full-settings write, so a stale spread could revert a concurrent update
+  // (an attribute sync's derived metadata, a provisioning flag flip).
+  const fresh =
+    await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
+  if (
+    !fresh ||
+    fresh.type !== "growthbook_clickhouse" ||
+    fresh.id !== datasource.id
+  ) {
+    throw new Error("Cannot find datasource");
+  }
   await updateDataSource(
     context,
-    datasource,
-    { settings: updatedSettings },
+    fresh,
+    { settings: { ...fresh.settings, idAttributeIdentifier: identifier } },
     { skipExposureQueryValidation: true },
   );
 
-  // Reconcile the same datasource we just updated (with the new mapping), rather
-  // than letting the sync re-select a warehouse by org.
-  await syncManagedWarehouseIdentifiers(context, undefined, {
-    ...datasource,
-    settings: updatedSettings,
-  });
+  // Always re-sync — even when the flag already matches — and let the sync
+  // re-fetch the doc it derives from. A retry after a failed regeneration then
+  // heals the persisted SQL instead of short-circuiting on the already-persisted
+  // flag, and the sync's own full-settings write bases on the freshest state.
+  await syncManagedWarehouseIdentifiers(context);
 }
