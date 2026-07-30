@@ -11,8 +11,8 @@ import {
 } from "back-end/src/services/datasource";
 import { ReqContext } from "back-end/types/request";
 
-// Independent of the app's classification table so a wrong table cannot make
-// this pass by agreeing with itself. Certs count as credentials.
+// Listed independently of the app's classification table so this cannot pass by
+// agreeing with itself. Certs count as credentials.
 const CREDENTIAL_FIELDS: Record<DataSourceType, string[]> = {
   postgres: ["password", "caCert", "clientCert", "clientKey"],
   redshift: ["password", "caCert", "clientCert", "clientKey"],

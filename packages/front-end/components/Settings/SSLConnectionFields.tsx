@@ -2,7 +2,6 @@ import { ChangeEventHandler, useState } from "react";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
-import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
 
 export interface Props {
   value: {
@@ -53,13 +52,17 @@ export default function SSLConnectionFields({
       {value.ssl && certs && (
         <div className="col-md-12 mb-3">
           <div className="p-2 bg-light border">
+            {existing && (
+              <small className="d-block text-muted mb-2">
+                Stored certificates are never sent back to the browser. Leave a
+                field blank to keep its current value.
+              </small>
+            )}
             <Field
               size="legacy"
               label="CA Cert (optional)"
               textarea
-              placeholder={
-                existing ? KEEP_EXISTING_PLACEHOLDER : certificatePlaceholder
-              }
+              placeholder={certificatePlaceholder}
               minRows={2}
               value={value.caCert || ""}
               name="caCert"
@@ -69,9 +72,7 @@ export default function SSLConnectionFields({
               size="legacy"
               label="Client Cert"
               textarea
-              placeholder={
-                existing ? KEEP_EXISTING_PLACEHOLDER : certificatePlaceholder
-              }
+              placeholder={certificatePlaceholder}
               minRows={2}
               value={value.clientCert || ""}
               name="clientCert"
@@ -81,9 +82,7 @@ export default function SSLConnectionFields({
               size="legacy"
               label="Client Key"
               textarea
-              placeholder={
-                existing ? KEEP_EXISTING_PLACEHOLDER : certificatePlaceholder
-              }
+              placeholder={certificatePlaceholder}
               minRows={2}
               value={value.clientKey || ""}
               name="clientKey"

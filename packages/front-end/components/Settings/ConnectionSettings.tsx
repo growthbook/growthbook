@@ -62,6 +62,10 @@ export default function ConnectionSettings({
 
   if (!datasource.type) return null;
 
+  // A decryption failure blanks every param, so there is nothing to keep and
+  // the credentials have to be re-entered.
+  const storedCredentials = existing && !datasource.decryptionError;
+
   let invalidType: never;
   let datasourceComponent = <></>;
   switch (datasource.type) {
@@ -71,7 +75,7 @@ export default function ConnectionSettings({
     case "athena":
       datasourceComponent = (
         <AthenaForm
-          existing={existing}
+          existing={storedCredentials}
           onParamChange={onParamChange}
           params={datasource?.params || {}}
           setParams={setParams}
@@ -81,7 +85,7 @@ export default function ConnectionSettings({
     case "presto":
       datasourceComponent = (
         <PrestoForm
-          existing={existing}
+          existing={storedCredentials}
           onParamChange={onParamChange}
           onManualParamChange={onManualParamChange}
           setParams={setParams}
@@ -92,7 +96,7 @@ export default function ConnectionSettings({
     case "databricks":
       datasourceComponent = (
         <DatabricksForm
-          existing={existing}
+          existing={storedCredentials}
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
@@ -102,7 +106,7 @@ export default function ConnectionSettings({
     case "redshift":
       datasourceComponent = (
         <PostgresForm
-          existing={existing}
+          existing={storedCredentials}
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
@@ -112,7 +116,7 @@ export default function ConnectionSettings({
     case "postgres":
       datasourceComponent = (
         <PostgresForm
-          existing={existing}
+          existing={storedCredentials}
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
@@ -122,7 +126,7 @@ export default function ConnectionSettings({
     case "vertica":
       datasourceComponent = (
         <PostgresForm
-          existing={existing}
+          existing={storedCredentials}
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
@@ -132,7 +136,7 @@ export default function ConnectionSettings({
     case "mysql":
       datasourceComponent = (
         <MysqlForm
-          existing={existing}
+          existing={storedCredentials}
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
@@ -142,7 +146,7 @@ export default function ConnectionSettings({
     case "mssql":
       datasourceComponent = (
         <MssqlForm
-          existing={existing}
+          existing={storedCredentials}
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
@@ -164,7 +168,7 @@ export default function ConnectionSettings({
     case "snowflake":
       datasourceComponent = (
         <SnowflakeForm
-          existing={existing}
+          existing={storedCredentials}
           onParamChange={onParamChange}
           onManualParamChange={onManualParamChange}
           params={datasource?.params || {}}
@@ -174,7 +178,7 @@ export default function ConnectionSettings({
     case "clickhouse":
       datasourceComponent = (
         <ClickHouseForm
-          existing={existing}
+          existing={storedCredentials}
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
@@ -184,7 +188,7 @@ export default function ConnectionSettings({
     case "bigquery":
       datasourceComponent = (
         <BigQueryForm
-          existing={existing}
+          existing={storedCredentials}
           setParams={setParams}
           params={datasource?.params || {}}
           onParamChange={onParamChange}
@@ -194,7 +198,7 @@ export default function ConnectionSettings({
     case "mixpanel":
       datasourceComponent = (
         <MixpanelForm
-          existing={existing}
+          existing={storedCredentials}
           onParamChange={onParamChange}
           onManualParamChange={onManualParamChange}
           params={datasource?.params || {}}

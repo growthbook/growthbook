@@ -82,13 +82,15 @@ describe("secretParamKeys", () => {
     ]);
   });
 
-  it("omits an object whose every nested field is public", () => {
+  // `FieldSensitivity` forces any non-string param to "public", so an object
+  // param can never be classified secret regardless of what it holds.
+  it("omits an object param", () => {
     expect(secretParamKeys("mssql")).toEqual(["password"]);
   });
 });
 
 describe("isSecretDatasourceParamKey", () => {
-  it("covers the credentials that were missing from the hand-written lists", () => {
+  it("covers credential keys across every datasource type", () => {
     [
       "serviceAccountJson",
       "clientKey",
