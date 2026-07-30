@@ -5,6 +5,7 @@ import {
   licenseInit,
 } from "back-end/src/enterprise";
 import {
+  acceptOrganizationInvite,
   addOrganizationInviteIfSeatAvailable,
   addOrganizationMemberIfSeatAvailable,
   findOrganizationById,
@@ -25,6 +26,7 @@ jest.mock("back-end/src/enterprise", () => ({
 }));
 
 jest.mock("back-end/src/models/OrganizationModel", () => ({
+  acceptOrganizationInvite: jest.fn(),
   addOrganizationInviteIfSeatAvailable: jest.fn(),
   addOrganizationMemberIfSeatAvailable: jest.fn(),
   createOrganization: jest.fn(),
@@ -56,6 +58,7 @@ jest.mock("back-end/src/util/secrets", () => ({
 const mockedGetAccountPlan = jest.mocked(getAccountPlan);
 const mockedGetLicense = jest.mocked(getLicense);
 const mockedLicenseInit = jest.mocked(licenseInit);
+const mockedAcceptOrganizationInvite = jest.mocked(acceptOrganizationInvite);
 const mockedAddOrganizationInviteIfSeatAvailable = jest.mocked(
   addOrganizationInviteIfSeatAvailable,
 );
@@ -133,6 +136,7 @@ describe("organization seat limits", () => {
     mockedGetAccountPlan.mockReturnValue("enterprise");
     mockedGetLicense.mockReturnValue(null);
     mockedLicenseInit.mockResolvedValue(undefined);
+    mockedAcceptOrganizationInvite.mockResolvedValue(null);
     mockedAddOrganizationInviteIfSeatAvailable.mockResolvedValue(null);
     mockedAddOrganizationMemberIfSeatAvailable.mockResolvedValue(null);
     mockedUpdateOrganization.mockResolvedValue(undefined);
@@ -304,19 +308,17 @@ describe("organization seat limits", () => {
       invites: [],
     });
     mockedFindOrganizationByInviteKey.mockResolvedValue(organization);
-    mockedFindOrganizationById.mockResolvedValue(updatedOrganization);
+    mockedAcceptOrganizationInvite.mockResolvedValue(updatedOrganization);
 
     await expect(
       acceptInvite(invite.key, "new_user", invite.email),
     ).resolves.toBe(updatedOrganization);
 
-    expect(mockedUpdateOrganization).toHaveBeenCalledWith(
+    expect(mockedAcceptOrganizationInvite).toHaveBeenCalledWith(
       organization.id,
+      invite.key,
       expect.objectContaining({
-        invites: [],
-        members: expect.arrayContaining([
-          expect.objectContaining({ id: "new_user" }),
-        ]),
+        id: "new_user",
       }),
     );
     expect(mockedGetLicense).not.toHaveBeenCalled();

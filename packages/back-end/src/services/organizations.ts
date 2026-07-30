@@ -47,6 +47,7 @@ import { LegacyExperimentPhase } from "shared/types/experiment";
 import { PValueCorrection } from "shared/types/stats";
 import { getScopedSettings } from "shared/settings";
 import {
+  acceptOrganizationInvite,
   addOrganizationInviteIfSeatAvailable,
   addOrganizationMemberIfSeatAvailable,
   createOrganization,
@@ -794,16 +795,9 @@ export async function acceptInvite(key: string, userId: string, email: string) {
     throw new Error("This invitation was sent to a different email address");
   }
 
-  // Remove invite
-  const invites = organization.invites.filter((invite) => invite.key !== key);
-  // Remove from pending members
-  const pendingMembers = (organization?.pendingMembers || []).filter(
-    (m) => m.id !== userId,
-  );
-
-  // Add to member list
-  const members: Member[] = [
-    ...organization.members,
+  const updatedOrganization = await acceptOrganizationInvite(
+    organization.id,
+    key,
     {
       id: userId,
       role: invite.role || "admin",
@@ -813,22 +807,25 @@ export async function acceptInvite(key: string, userId: string, email: string) {
       teams: invite.teams,
       dateCreated: new Date(),
     },
-  ];
+  );
 
-  await updateOrganization(organization.id, {
-    invites,
-    members,
-    pendingMembers,
-  });
-
-  // fetch a fresh instance of the org now that the members & invites lists have changed
-  const updatedOrg = await getOrganizationById(organization.id);
-
-  if (!updatedOrg) {
-    throw new Error("Unable to locate org");
+  if (!updatedOrganization) {
+    const latestOrganization = await findOrganizationById(organization.id);
+    if (!latestOrganization) {
+      throw new Error("Unable to locate organization");
+    }
+    if (latestOrganization.members.some((member) => member.id === userId)) {
+      throw new Error(
+        "Whoops! You're already a user, you can't accept a new invitation.",
+      );
+    }
+    if (!latestOrganization.invites.some((existing) => existing.key === key)) {
+      throw new Error("Could not find invitation with that key");
+    }
+    throw new Error("Unable to accept organization invitation");
   }
 
-  return updatedOrg;
+  return updatedOrganization;
 }
 
 export async function inviteUser({

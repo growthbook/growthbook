@@ -401,6 +401,30 @@ export async function addOrganizationInviteIfSeatAvailable(
   return doc ? toInterface(doc) : null;
 }
 
+export async function acceptOrganizationInvite(
+  organizationId: string,
+  inviteKey: string,
+  member: Member,
+) {
+  const doc = await OrganizationModel.findOneAndUpdate(
+    {
+      id: organizationId,
+      "invites.key": inviteKey,
+      "members.id": { $ne: member.id },
+    },
+    {
+      $pull: {
+        invites: { key: inviteKey },
+        pendingMembers: { id: member.id },
+      },
+      $push: { members: member },
+    },
+    { new: true },
+  );
+
+  return doc ? toInterface(doc) : null;
+}
+
 export async function getAllOrgMemberInfoInDb(): Promise<OrgMemberInfo[]> {
   if (IS_CLOUD) {
     throw new Error("getAllOrgMemberInfoInDb() is not supported on cloud");
