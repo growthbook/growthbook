@@ -81,7 +81,7 @@ export const INCREMENTAL_CUPED_TABLE_PREFIX = "gb_cuped";
 
 const getRandomTableSuffix = () => Math.random().toString(36).substring(2, 10);
 
-/** Extracts the table name from a full table name. Needs because of the dialect differences. */
+/** Extracts the table name from a fully qualified table name. Needed because of dialect differences. */
 function tableNameFromFullName(fullName: string) {
   const segments = fullName.replace(/`/g, "").split(".");
   return segments[segments.length - 1];
@@ -260,7 +260,7 @@ const startExperimentIncrementalRefreshQueries = async (
   const queries: Queries = [];
 
   const existingModel =
-    await context.models.incrementalRefresh.getByCurrentExecutionSnapshotId(
+    await context.models.incrementalRefresh.getLockedBySnapshotId(
       experimentId,
       queryParentId,
     );
@@ -325,7 +325,7 @@ const startExperimentIncrementalRefreshQueries = async (
       queryMetadata: RunQueryMetadata,
     ): Promise<R> => {
       const lockHeld =
-        await context.models.incrementalRefresh.isCurrentExecutionSnapshot(
+        await context.models.incrementalRefresh.isLockedBySnapshotId(
           experimentId,
           executionId,
         );
@@ -826,7 +826,7 @@ const startExperimentIncrementalRefreshQueries = async (
           ),
         onSuccess: async () => {
           const incrementalRefresh =
-            await context.models.incrementalRefresh.getByCurrentExecutionSnapshotId(
+            await context.models.incrementalRefresh.getLockedBySnapshotId(
               experimentId,
               queryParentId,
             );
@@ -1215,7 +1215,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 
     const incrementalRefreshModel = params.fullRefresh
       ? null
-      : await this.context.models.incrementalRefresh.getByCurrentExecutionSnapshotId(
+      : await this.context.models.incrementalRefresh.getLockedBySnapshotId(
           params.experimentId,
           this.model.id,
         );

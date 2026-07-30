@@ -206,19 +206,19 @@ describe("IncrementalRefreshModel", () => {
 
     // 0 stays, 2 -> 1, 3 -> 2, keyed by the snapshot that locked each doc.
     expect((await model.getByExperimentIdAndPhase("exp_1", 0))?.phase).toBe(0);
-    expect(
-      (await model.getByCurrentExecutionSnapshotId("exp_1", "snap_2"))?.phase,
-    ).toBe(1);
-    expect(
-      (await model.getByCurrentExecutionSnapshotId("exp_1", "snap_3"))?.phase,
-    ).toBe(2);
+    expect((await model.getLockedBySnapshotId("exp_1", "snap_2"))?.phase).toBe(
+      1,
+    );
+    expect((await model.getLockedBySnapshotId("exp_1", "snap_3"))?.phase).toBe(
+      2,
+    );
     expect(await model.getByExperimentIdAndPhase("exp_1", 3)).toBeNull();
 
     // Running it again on an already-contiguous set changes nothing.
     await model.compactPhases("exp_1");
-    expect(
-      (await model.getByCurrentExecutionSnapshotId("exp_1", "snap_3"))?.phase,
-    ).toBe(2);
+    expect((await model.getLockedBySnapshotId("exp_1", "snap_3"))?.phase).toBe(
+      2,
+    );
   });
 
   it("finds a locked document by snapshot id after its phase is renumbered", async () => {
@@ -228,7 +228,7 @@ describe("IncrementalRefreshModel", () => {
     await model.deleteByExperimentIdAndPhase("exp_1", 0);
     await model.compactPhases("exp_1");
 
-    const doc = await model.getByCurrentExecutionSnapshotId("exp_1", "snap_1");
+    const doc = await model.getLockedBySnapshotId("exp_1", "snap_1");
     expect(doc?.phase).toBe(0);
     expect(doc?.currentExecutionSnapshotId).toBe("snap_1");
   });

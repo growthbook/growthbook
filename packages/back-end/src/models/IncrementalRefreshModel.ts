@@ -49,15 +49,10 @@ export class IncrementalRefreshModel extends BaseClass {
   }
 
   /**
-   * The document a running snapshot locked, found by the stable snapshot id it
-   * was locked with. Phase is a mutable positional index that a concurrent
-   * phase deletion can renumber, so a runner must re-read its own row by the
-   * lock identity rather than by phase.
+   * IR row currently locked by this snapshot. Prefer over phase lookup in a
+   * running runner: phase can be renumbered by concurrent compactPhases.
    */
-  public async getByCurrentExecutionSnapshotId(
-    experimentId: string,
-    snapshotId: string,
-  ) {
+  public async getLockedBySnapshotId(experimentId: string, snapshotId: string) {
     return this._findOne({
       experimentId,
       currentExecutionSnapshotId: snapshotId,
@@ -192,14 +187,11 @@ export class IncrementalRefreshModel extends BaseClass {
     );
   }
 
-  public async isCurrentExecutionSnapshot(
+  public async isLockedBySnapshotId(
     experimentId: string,
     snapshotId: string,
   ): Promise<boolean> {
-    const doc = await this._findOne({
-      experimentId,
-      currentExecutionSnapshotId: snapshotId,
-    });
+    const doc = await this.getLockedBySnapshotId(experimentId, snapshotId);
     return doc !== null;
   }
 

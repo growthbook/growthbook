@@ -94,7 +94,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   const queries: Queries = [];
 
   const incrementalRefreshModel =
-    await context.models.incrementalRefresh.getByCurrentExecutionSnapshotId(
+    await context.models.incrementalRefresh.getLockedBySnapshotId(
       experimentId,
       params.queryParentId,
     );
@@ -147,7 +147,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     <A extends unknown[], R>(run: (...args: A) => Promise<R>) =>
     async (...args: A): Promise<R> => {
       const lockHeld =
-        await context.models.incrementalRefresh.isCurrentExecutionSnapshot(
+        await context.models.incrementalRefresh.isLockedBySnapshotId(
           experimentId,
           executionId,
         );
@@ -388,7 +388,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
     }
 
     const incrementalRefreshModel =
-      await this.context.models.incrementalRefresh.getByCurrentExecutionSnapshotId(
+      await this.context.models.incrementalRefresh.getLockedBySnapshotId(
         params.experimentId,
         this.model.id,
       );
