@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   createFactFilterPropsValidator,
   createColumnPropsValidator,
+  createVirtualColumnPropsValidator,
   createFactTablePropsValidator,
   numberFormatValidator,
   updateFactFilterPropsValidator,
@@ -11,6 +12,7 @@ import {
   metricTypeValidator,
   factTableColumnTypeValidator,
   testFactFilterPropsValidator,
+  testVirtualColumnPropsValidator,
   conversionWindowUnitValidator,
   cappingSettingsValidator,
   windowSettingsValidator,
@@ -49,6 +51,12 @@ export interface ColumnInterface {
   isAutoSliceColumn?: boolean;
   autoSlices?: string[];
   lockedAutoSlices?: string[];
+  // Virtual (computed) columns are user-defined SQL expressions over other
+  // columns in the fact table, rather than columns detected from the SQL.
+  isVirtual?: boolean;
+  // The raw SQL expression for a virtual column, e.g. "price * quantity".
+  // Inlined into generated SQL by getColumnExpression.
+  sql?: string;
 }
 
 export interface FactFilterInterface {
@@ -173,9 +181,15 @@ export type UpdateFactFilterProps = z.infer<
   typeof updateFactFilterPropsValidator
 >;
 export type TestFactFilterProps = z.infer<typeof testFactFilterPropsValidator>;
+export type TestVirtualColumnProps = z.infer<
+  typeof testVirtualColumnPropsValidator
+>;
 
 export type UpdateColumnProps = z.infer<typeof updateColumnPropsValidator>;
 export type CreateColumnProps = z.infer<typeof createColumnPropsValidator>;
+export type CreateVirtualColumnProps = z.infer<
+  typeof createVirtualColumnPropsValidator
+>;
 
 export type CreateFactMetricProps = CreateProps<FactMetricInterface>;
 export type UpdateFactMetricProps = UpdateProps<FactMetricInterface>;
