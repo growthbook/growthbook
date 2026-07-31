@@ -46,6 +46,13 @@ export default function ClickhouseManagedWarehouseIdentifiers({
       : "device_id";
   const [pendingIdIdentifier, setPendingIdIdentifier] =
     useState<ManagedWarehouseIdAttributeIdentifier | null>(null);
+  // Nothing to map unless the org actually assigns on `id`. Still shown when the
+  // setting is already non-default, so it stays visible and revertable.
+  const showIdAttributeMapping =
+    idAttributeIdentifier === "user_id" ||
+    (settings.attributeSchema ?? []).some(
+      (a) => a.property === "id" && a.hashAttribute && !a.archived,
+    );
 
   const removeIdentifier = async (identifier: string) => {
     await apiCall(
@@ -116,7 +123,7 @@ export default function ClickhouseManagedWarehouseIdentifiers({
           </>
         ) : null}
       </Callout>
-      {dataSource.settings.useJsonColumns ? (
+      {dataSource.settings.useJsonColumns && showIdAttributeMapping ? (
         <Box mt="4" maxWidth="420px">
           <Select
             label={
