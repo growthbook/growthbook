@@ -344,12 +344,9 @@ export function getParsedCondition(
   };
 }
 
-// A "ref" rule delegates its targeting to the entity it points at: an
-// experiment-ref to the linked experiment's latest phase, a
-// contextual-bandit-ref to the bandit itself. `getFeatureDefinition` reads
-// targeting from there and never from the rule, and the app neither renders nor
-// lets you edit rule-level targeting on either — so these rule types carry no
-// `condition` / `savedGroups` / `prerequisites` on either side of the API.
+// A "ref" rule takes its targeting from the entity it points at — the linked
+// experiment's latest phase, or the bandit — so it carries none of its own on
+// either side of the API.
 const REF_RULE_TARGETING_ERRORS: Record<string, string> = {
   "experiment-ref":
     "an experiment-ref rule. Targeting for an experiment rule comes from the " +
@@ -370,11 +367,9 @@ const LOG_TARGETING_KEYS = [
   "savedGroupTargeting",
 ];
 
-// Reject rule-level targeting on a ref rule instead of storing state nothing
-// reads. Both key spellings are accepted: the bulk feature endpoints name the
-// field `savedGroupTargeting`, the rule endpoints `savedGroups`. Empty values
-// count as absent, since internal callers pass whole `FeatureRule` objects that
-// may carry an empty `condition` from an older document.
+// Both key spellings are accepted (`savedGroupTargeting` on the bulk endpoints,
+// `savedGroups` on the rule ones). Empty counts as absent: internal callers pass
+// whole rules that may carry an empty `condition` from an older document.
 export function assertNoRefRuleTargeting(rule: {
   type?: string;
   condition?: string | null;
@@ -398,12 +393,9 @@ export function assertNoRefRuleTargeting(rule: {
   );
 }
 
-// Revision log entries store the change payload as a JSON string: for rule
-// actions either a single rule ("add rule" / "update rule") or an object
-// carrying a `rules` array ("new revision"). Older entries still hold ref-rule
-// targeting, which would render as a phantom "condition removed" step in the
-// log's diff view, so normalize on read. Returns the input unchanged when
-// there's nothing to strip (or the value isn't JSON).
+// Older log entries still hold ref-rule targeting, which the diff view would
+// render as a phantom "condition removed" step. The payload is a JSON string:
+// either one rule, or an object with a `rules` array.
 export function stripExperimentRefTargetingFromLogValue(value: string): string {
   // Most log entries (comments, verdicts, default-value edits) can't hold a ref
   // rule at all, and a "new revision" payload can run to hundreds of KB — so

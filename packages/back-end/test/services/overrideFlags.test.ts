@@ -1,11 +1,10 @@
 import { Request } from "express";
 import { ReqContextClass } from "back-end/src/services/context";
 
-// The override-flag getters are pure request-shape logic, so exercise them on
-// the prototype rather than standing up a full context (which needs Mongo).
-// `isRestApiRequest` is set by the `/api/v*` router's auth middleware for both
-// its API-key and JWT branches, so it — not the auth scheme — is what makes a
-// request body-only.
+// Pure request-shape logic, so exercise it on the prototype rather than standing
+// up a full context (which needs Mongo). `isRestApiRequest` is set by the
+// `/api/v*` router for both auth branches — that, not the auth scheme, is the
+// discriminator.
 function makeContext({
   isRestApiRequest,
   body = {},

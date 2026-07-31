@@ -268,13 +268,9 @@ describe("revision author serialization", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Ref rules (experiment-ref / contextual-bandit-ref) delegate targeting to the
-// entity they point at, so the REST response omits `condition`,
-// `savedGroupTargeting`, and `prerequisites` entirely rather than emitting
-// empty placeholders. Their request schemas don't declare those fields either,
-// which is what keeps a GET → PUT round-trip valid.
-// ---------------------------------------------------------------------------
+// Ref rules omit targeting from the REST response entirely rather than emitting
+// empty placeholders — matching their request schemas, which keeps a GET → PUT
+// round-trip valid.
 describe("normalizeRuleForApi ref-rule targeting", () => {
   const refRule = (type: "experiment-ref" | "contextual-bandit-ref") =>
     ({

@@ -313,11 +313,9 @@ const ruleCreateInputV2 = z.union([
 
 export type RuleCreateInputV2 = z.infer<typeof ruleCreateInputV2>;
 
-// One patch shape per rule type, so the docs say which fields belong to which
-// type instead of listing every field of every type in one blob. `type` stays
-// optional (it's only used to reject a type change), so a patch that omits it
-// resolves by which fields it carries; the handler keys off the STORED rule
-// type either way.
+// One patch shape per rule type, so the docs say which fields belong where.
+// `type` stays optional, so a typeless patch resolves by the fields it carries;
+// the handler keys off the STORED rule type either way.
 const commonPatchFields = {
   description: z.string().optional(),
   enabled: z.boolean().optional(),

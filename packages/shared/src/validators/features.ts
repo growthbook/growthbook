@@ -222,12 +222,9 @@ export type ContextualBanditRefVariation = z.infer<
   typeof contextualBanditRefVariation
 >;
 
-// `condition` / `savedGroups` / `prerequisites` are inherited from `baseRule`
-// but carry no meaning here: an experiment-ref rule delegates its targeting to
-// the linked experiment's current phase, so the API rejects them on write
-// (`assertNoRefRuleTargeting`) and the read-path migration drops any that
-// legacy documents still hold (`upgradeFeatureRule`). Same for
-// `contextualBanditRefRule` below.
+// Targeting inherited from `baseRule` is meaningless here — it lives on the
+// linked experiment's phase. Rejected on write (`assertNoRefRuleTargeting`) and
+// dropped on read (`upgradeFeatureRule`). Same below for contextual bandits.
 const experimentRefRule = baseRule
   .extend({
     type: z.literal("experiment-ref"),
@@ -894,11 +891,8 @@ export const apiFeatureBaseRuleValidator = namedSchema(
     .strict(),
 );
 
-// Ref rules (`experiment-ref`, `contextual-bandit-ref`) delegate targeting to
-// the entity they point at, so these fields are absent from both their response
-// and their request shapes — the API neither emits nor accepts them. One list
-// per spelling: the internal rule shape names the field `savedGroups`, the API
-// shape `savedGroupTargeting`.
+// Absent from ref rules' request and response shapes alike. One list per
+// spelling: `savedGroups` internally, `savedGroupTargeting` on the API.
 export const REF_RULE_TARGETING_FIELDS = [
   "condition",
   "savedGroups",

@@ -509,11 +509,9 @@ export const postFeatureRevisionRulesReorderValidator = {
   responseSchema: revisionResponse,
 };
 
-// One patch shape per rule type, so the docs say which fields belong to which
-// type instead of listing every field of every type in one blob. `type` stays
-// optional (it's only used to reject a type change), so a patch that omits it
-// resolves by which fields it carries; the handler keys off the STORED rule
-// type either way.
+// One patch shape per rule type, so the docs say which fields belong where.
+// `type` stays optional, so a typeless patch resolves by the fields it carries;
+// the handler keys off the STORED rule type either way.
 // Allow `null` on legacy schedule fields so callers can explicitly clear
 // them in a patch.
 const commonPatchFields = {

@@ -94,14 +94,10 @@ function assertLinkedFeatureRevisionOptions(
   }
 }
 
-// Assert an experiment-ref rule's `variations` cover the linked experiment's
-// current phase exactly. An uncovered arm silently serves `null` in the SDK
-// payload, and a stopped experiment missing its `releasedVariationId` drops the
-// rule from the payload entirely.
-//
-// Membership is a set check, not positional: the payload matches arms by id, so
-// order doesn't matter. (`validateExperimentFeatureVariations` below is
-// positional because it establishes the ids in the same request.)
+// Variations must cover the linked experiment's current phase exactly: an
+// uncovered arm serves `null`, and a stopped experiment missing its released
+// variation drops the rule from the payload. Membership is a set check, since
+// the payload matches arms by id.
 export function assertExperimentRefVariationsMatchExperiment({
   variations,
   experiment,

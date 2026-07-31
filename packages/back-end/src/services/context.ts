@@ -459,12 +459,10 @@ export class ReqContextClass {
     );
   }
 
-  // Body-only on the REST API, where every write endpoint declares these in its
-  // body schema. The app's own routes also accept the querystring form, because
-  // the front-end's soft-warning retry replays an arbitrary request by rewriting
-  // its URL (`appendIgnoreWarnings`) and can't safely reserialize an unknown body.
-  // Keyed on the route, not the auth scheme: `/api/v*` accepts JWTs too, and a
-  // documented endpoint must behave the same however the caller authenticated.
+  // Body-only on the REST API; the app's own routes also take the querystring,
+  // because the front-end's warning retry replays a request by rewriting its URL
+  // (`appendIgnoreWarnings`). Keyed on the route, not the auth scheme — `/api/v*`
+  // accepts JWTs too.
   private overrideFlag(field: string): boolean {
     if (this.bodyFlag(field)) return true;
     if (

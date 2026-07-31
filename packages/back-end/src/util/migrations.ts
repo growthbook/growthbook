@@ -357,12 +357,9 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
   // `isPlausibleFeatureRule` before relying on the rule shape.
   if (rule == null || typeof rule !== "object") return rule;
 
-  // An experiment-ref rule's targeting lives on the linked experiment's latest
-  // phase; `getFeatureDefinition` never reads the rule's own copies. Documents
-  // can still carry them, where they're invisible in the UI but still counted by
-  // saved-group usage, stale detection, and the Feature Flag list's targeting
-  // badges — so drop them on read. `contextual-bandit-ref` shares the contract
-  // but needs no strip: it's private beta, so no document predates the guard.
+  // Stored targeting on a ref rule is invisible in the UI but still counted by
+  // saved-group usage, stale detection, and the flag list's badges — so drop it
+  // on read. Contextual bandits need no strip: private beta predates nothing.
   if (
     rule.type === "experiment-ref" &&
     REF_RULE_TARGETING_FIELDS.some((key) => key in rule)

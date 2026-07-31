@@ -156,12 +156,10 @@ export const skipPaginationQueryField = {
     .optional(),
 };
 
-// Publish-override body flags, shared by every write endpoint on features,
-// configs, constants, Saved Groups, and experiments so the names, semantics,
-// and docs stay identical across entities. The body is the only form the REST
-// API accepts. They're read off the raw body at the context layer, so an
-// endpoint must declare them in its (strict) body schema to accept them —
-// which also documents them.
+// Shared by every write endpoint on features, configs, constants, Saved Groups,
+// and experiments, so the names and docs stay identical. Body-only on the REST
+// API, and read off the raw body — so a strict schema must declare them to
+// accept them.
 export const ignoreWarningsBodyField = z
   .boolean()
   .optional()
