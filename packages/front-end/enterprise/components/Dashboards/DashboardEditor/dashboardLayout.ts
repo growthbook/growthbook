@@ -51,13 +51,19 @@ function tryInsertInAnchorRow({
     anchorIndex >= 0 ? blocks[anchorIndex]?.layout : undefined;
   if (!anchorLayout) return null;
 
-  const rowBlocks = blocks.filter(
-    (existingBlock) => existingBlock.layout?.y === anchorLayout.y,
-  );
   const bounds = getBlockSizeBounds(block.type);
   const inferredWidth = block.layout?.w ?? anchorLayout.w;
   const inferredHeight = block.layout?.h ?? anchorLayout.h;
   if (inferredWidth < bounds.minW || inferredHeight < bounds.minH) return null;
+  const insertionBottom = anchorLayout.y + inferredHeight;
+  const rowBlocks = blocks.filter((existingBlock) => {
+    const layout = existingBlock.layout;
+    return (
+      layout &&
+      layout.y < insertionBottom &&
+      layout.y + layout.h > anchorLayout.y
+    );
+  });
 
   const precedingRowEnd = rowBlocks.reduce((maxX, existingBlock) => {
     if (!existingBlock.layout || existingBlock.layout.x >= anchorLayout.x) {
@@ -93,7 +99,9 @@ function tryInsertInAnchorRow({
 
   const blocksWithShiftedRow = blocks.map((existingBlock) => {
     if (
-      existingBlock.layout?.y !== anchorLayout.y ||
+      !existingBlock.layout ||
+      existingBlock.layout.y >= insertionBottom ||
+      existingBlock.layout.y + existingBlock.layout.h <= anchorLayout.y ||
       shiftX === 0 ||
       existingBlock.layout.x < firstOverlappingX
     ) {
@@ -123,39 +131,75 @@ function tryInsertInAnchorRow({
   );
 }
 
+function getVerticalBand(
+  blocks: DashboardBlock[],
+  anchor: NonNullable<DashboardBlock["layout"]>,
+) {
+  let top = anchor.y;
+  let bottom = anchor.y + anchor.h;
+  let expanded = true;
+
+  while (expanded) {
+    expanded = false;
+    blocks.forEach((block) => {
+      const layout = block.layout;
+      if (!layout || layout.y >= bottom || layout.y + layout.h <= top) return;
+      const nextTop = Math.min(top, layout.y);
+      const nextBottom = Math.max(bottom, layout.y + layout.h);
+      if (nextTop !== top || nextBottom !== bottom) {
+        top = nextTop;
+        bottom = nextBottom;
+        expanded = true;
+      }
+    });
+  }
+
+  return { top, bottom };
+}
+
 function insertInNewRow(
   blocks: DashboardBlock[],
   block: DashboardBlock,
   index: number,
+  placement?: Exclude<BlockInsertionPlacement, "gap">,
 ): DashboardBlock[] {
-  const precedingBlocks = blocks.slice(0, index);
-  const followingBlocks = blocks.slice(index);
   const bounds = getBlockSizeBounds(block.type);
   const w = block.layout?.w ?? bounds.w;
   const h = block.layout?.h ?? bounds.h;
-  const insertionY = precedingBlocks.reduce((maxY, existingBlock) => {
-    if (!existingBlock.layout) return maxY;
-    return Math.max(maxY, existingBlock.layout.y + existingBlock.layout.h);
-  }, 0);
-  const firstFollowingY = followingBlocks.reduce(
-    (minY, existingBlock) =>
-      existingBlock.layout ? Math.min(minY, existingBlock.layout.y) : minY,
-    Number.POSITIVE_INFINITY,
-  );
-  const shiftY = Math.max(0, insertionY + h - firstFollowingY);
-  const shiftedFollowingBlocks = followingBlocks.map((existingBlock) => {
-    if (!existingBlock.layout) return existingBlock;
+  const anchorIndex =
+    placement === "before"
+      ? index
+      : placement === "after"
+        ? index - 1
+        : undefined;
+  const anchorLayout =
+    anchorIndex !== undefined && anchorIndex >= 0
+      ? blocks[anchorIndex]?.layout
+      : undefined;
+  const band = anchorLayout ? getVerticalBand(blocks, anchorLayout) : null;
+  const insertionY = band
+    ? placement === "before"
+      ? band.top
+      : band.bottom
+    : blocks.reduce((maxY, existingBlock) => {
+        if (!existingBlock.layout) return maxY;
+        return Math.max(maxY, existingBlock.layout.y + existingBlock.layout.h);
+      }, 0);
+  const shiftedBlocks = blocks.map((existingBlock) => {
+    if (!band || !existingBlock.layout || existingBlock.layout.y < insertionY) {
+      return existingBlock;
+    }
     return {
       ...existingBlock,
       layout: {
         ...existingBlock.layout,
-        y: existingBlock.layout.y + shiftY,
+        y: existingBlock.layout.y + h,
       },
     };
   });
 
-  return [
-    ...precedingBlocks,
+  return insertAtIndex(
+    shiftedBlocks,
     {
       ...block,
       layout: {
@@ -165,8 +209,8 @@ function insertInNewRow(
         h,
       },
     },
-    ...shiftedFollowingBlocks,
-  ];
+    index,
+  );
 }
 
 export function insertBlockAtIndex(
@@ -192,7 +236,12 @@ export function insertBlockAtIndex(
     });
     if (rowInsertion) return rowInsertion;
   }
-  return insertInNewRow(blocks, block, index);
+  return insertInNewRow(
+    blocks,
+    block,
+    index,
+    placement === "before" || placement === "after" ? placement : undefined,
+  );
 }
 
 export function getHorizontalGridGaps(

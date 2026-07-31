@@ -749,10 +749,17 @@ function DashboardGrid({
   const [openGapKey, setOpenGapKey] = useState<string | null>(null);
   const [isGridInteracting, setIsGridInteracting] = useState(false);
 
-  const layout = useMemo(
-    () => buildRGLLayout(blocks, RGL_COLS[RGL_CANONICAL_BREAKPOINT]),
-    [blocks],
-  );
+  const layout = useMemo(() => {
+    const nextLayout = buildRGLLayout(
+      blocks,
+      RGL_COLS[RGL_CANONICAL_BREAKPOINT],
+    );
+    if (!isDefined(stagedBlockIndex) || isAddingBlock) return nextLayout;
+    return nextLayout.map((item, index) => ({
+      ...item,
+      static: index !== stagedBlockIndex,
+    }));
+  }, [blocks, isAddingBlock, stagedBlockIndex]);
   const gaps = useMemo(() => {
     if (
       !isEditing ||

@@ -617,6 +617,7 @@ export default function DashboardWorkspace({
                         block ? { ...block, layout: editedLayout } : block,
                       );
                     }
+                    return;
                   }
                   setBlocksAndSubmit(next);
                 },
