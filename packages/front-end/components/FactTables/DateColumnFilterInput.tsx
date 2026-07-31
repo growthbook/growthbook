@@ -40,7 +40,7 @@ export function DateColumnFilterInput({
     <Flex align="center" gap="2">
       {/* Fills the row when the caller doesn't fix a width (the explorer
           sidebar), and shrinks to `inputWidth` when it does. */}
-      <Box flexGrow="1" style={{ minWidth: 0 }}>
+      <Box flexGrow="1" minWidth="0">
         {isDateRangeOperator(operator) ? (
           <DateRangeFilterInput
             values={values}
