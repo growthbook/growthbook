@@ -2,12 +2,17 @@ import React, { FC, Fragment, useCallback, useState } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ApiContextualBanditQueryInterface } from "shared/validators";
 import { PiCaretRight, PiPlus } from "react-icons/pi";
-import { Box, Card, Flex } from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { Box, Card, Flex, IconButton } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import AddEditContextualBanditQueryModal from "@/components/ContextualBandit/AddEditContextualBanditQueryModal";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
@@ -45,6 +50,7 @@ export const ContextualBanditAssignmentQueries: FC<
     ApiContextualBanditQueryInterface | undefined
   >();
   const [openIds, setOpenIds] = useState<Record<string, boolean>>({});
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 
   const handleExpandCollapse = useCallback(
     (id: string) => () => {
@@ -163,29 +169,49 @@ export const ContextualBanditAssignmentQueries: FC<
 
               <Flex align="center">
                 {canEdit && (
-                  <MoreMenu>
-                    <button
-                      className="dropdown-item py-2"
-                      onClick={handleEdit(query)}
-                    >
-                      Edit Query
-                    </button>
-                    <hr className="dropdown-divider" />
-                    <span className="d-block">
-                      <DeleteButton
-                        onClick={handleDelete(query)}
-                        className="dropdown-item text-danger py-2"
-                        iconClassName="mr-2"
-                        style={{ borderRadius: 0 }}
-                        useIcon={false}
-                        displayName={query.name}
-                        deleteMessage={`Are you sure you want to delete contextual bandit assignment query ${query.name}? Any contextual bandit using it will no longer be able to analyze results.`}
-                        title="Delete"
-                        text="Delete"
-                        outline={false}
-                      />
-                    </span>
-                  </MoreMenu>
+                  <DropdownMenu
+                    trigger={
+                      <IconButton
+                        variant="ghost"
+                        color="gray"
+                        radius="full"
+                        size="2"
+                        highContrast
+                      >
+                        <BsThreeDotsVertical size={16} />
+                      </IconButton>
+                    }
+                    open={menuOpenId === query.id}
+                    onOpenChange={(o) => setMenuOpenId(o ? query.id : null)}
+                    menuPlacement="end"
+                  >
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setMenuOpenId(null);
+                          handleEdit(query)();
+                        }}
+                      >
+                        Edit
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        color="red"
+                        confirmation={{
+                          confirmationTitle: "Delete Query",
+                          cta: "Delete",
+                          getConfirmationContent: async () =>
+                            `Are you sure you want to delete contextual bandit assignment query ${query.name}? Any contextual bandit using it will no longer be able to analyze results.`,
+                          submit: handleDelete(query),
+                          closeDropdown: () => setMenuOpenId(null),
+                        }}
+                      >
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </DropdownMenu>
                 )}
 
                 <button
