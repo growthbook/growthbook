@@ -2,6 +2,7 @@ import { FC, useMemo } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { findCollidingUserIdTypeName } from "shared/util";
 import MultiSelectField from "@/ui/MultiSelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -14,8 +15,14 @@ type EditIdentifierTypeProps = {
   userIdType: string;
   description?: string;
   attributes?: string[];
-  /** Event forwarder provisions hash-attribute identifier types; only description is editable. */
+  /**
+   * Event Forwarder provisions hash-attribute identifier types. The name and
+   * description stay editable — renaming updates the managed exposure query — but
+   * the linked hash attribute is ours to manage.
+   */
   isEventForwarderManagedType?: boolean;
+  /** Index being edited, so a rename doesn't collide with itself. */
+  editingIndex?: number;
   onSave: (
     name: string,
     description: string,
@@ -30,11 +37,13 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
   description,
   attributes,
   isEventForwarderManagedType = false,
+  editingIndex,
   onSave,
   onCancel,
 }) => {
-  const existingIds = (dataSource.settings?.userIdTypes || []).map(
-    (item) => item.userIdType,
+  const existingUserIdTypes = useMemo(
+    () => dataSource.settings?.userIdTypes || [],
+    [dataSource.settings?.userIdTypes],
   );
 
   const { attributeSchema } = useOrgSettings();
@@ -78,9 +87,18 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
 
   const userEnteredUserIdType = form.watch("idType");
 
-  const isDuplicate = useMemo(() => {
-    return mode === "add" && existingIds.includes(userEnteredUserIdType);
-  }, [existingIds, mode, userEnteredUserIdType]);
+  // Case-insensitive, and matches the back-end check. On edit, the entry being
+  // renamed is excluded so it never collides with its own current name.
+  const collidingUserIdType = useMemo(() => {
+    if (!userEnteredUserIdType) {
+      return null;
+    }
+    return findCollidingUserIdTypeName(
+      existingUserIdTypes,
+      userEnteredUserIdType,
+      mode === "edit" ? editingIndex : undefined,
+    );
+  }, [editingIndex, existingUserIdTypes, mode, userEnteredUserIdType]);
 
   const saveEnabled = useMemo(() => {
     if (!userEnteredUserIdType) {
@@ -89,11 +107,11 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
     }
 
     // Disable if duplicate
-    return !isDuplicate;
-  }, [isDuplicate, userEnteredUserIdType]);
+    return (collidingUserIdType ?? null) === null;
+  }, [collidingUserIdType, userEnteredUserIdType]);
 
-  const fieldError = isDuplicate
-    ? `The user identifier ${userEnteredUserIdType} already exists`
+  const fieldError = collidingUserIdType
+    ? `The identifier type ${collidingUserIdType} already exists`
     : "";
 
   return (
@@ -114,10 +132,17 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
           label="Identifier Type"
           {...form.register("idType")}
           pattern="^[a-z_]+$"
-          readOnly={mode === "edit" || isEventForwarderManagedType}
+          // Event Forwarder managed types are renamable: we generate their
+          // assignment query, so we can rewrite its column alias. A user's own
+          // identifier type stays fixed — its hand-written SQL is not ours to edit.
+          readOnly={mode === "edit" && !isEventForwarderManagedType}
           required
           error={fieldError}
-          helpText="Only lowercase letters and underscores allowed. For example, 'user_id' or 'device_cookie'."
+          helpText={
+            isEventForwarderManagedType
+              ? "Only lowercase letters and underscores allowed. Renaming this also updates its Event Forwarder assignment query."
+              : "Only lowercase letters and underscores allowed. For example, 'user_id' or 'device_cookie'."
+          }
         />
         <Field
           size="legacy"

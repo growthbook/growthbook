@@ -183,6 +183,12 @@ export interface ExposureQuery {
   error?: string;
   /** Set to "api" for queries auto-created by Event Forwarder (not deletable in UI). */
   managedBy?: "" | "api";
+  /**
+   * Event Forwarder managed queries only: the SDK hash attribute this query reads
+   * values from. This is the stable link back to the attribute — `userIdType` is a
+   * display name users can rename, so never derive the source attribute from it.
+   */
+  sourceAttribute?: string;
 }
 
 export interface FeatureUsageQuery {
@@ -198,6 +204,14 @@ export interface UserIdType {
   userIdType: string;
   description?: string;
   attributes?: string[];
+  /** Set to "api" for identifier types auto-created by Event Forwarder. */
+  managedBy?: "" | "api";
+  /**
+   * Event Forwarder managed identifier types only: the SDK hash attribute that
+   * provides this identifier's value. Users may rename `userIdType`, so this is
+   * the only stable link to the attribute — match on it, not on the name.
+   */
+  sourceAttribute?: string;
 }
 
 export type DataSourceEvents = {

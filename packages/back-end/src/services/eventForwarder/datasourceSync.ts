@@ -1,11 +1,11 @@
 import {
   buildUserIdTypesFromAttributeSchema,
   mergeUserIdTypes,
-  isEventForwarderManagedExposureQuery,
+  isEventForwarderManagedUserIdType,
   reconcileEventForwarderManagedExposureQueries,
+  reconcileEventForwarderManagedUserIdTypes,
 } from "shared/util";
 import { SDKAttributeSchema } from "shared/types/organization";
-import { ExposureQuery, UserIdType } from "shared/types/datasource";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { EventForwarderConfigInterface } from "shared/validators";
@@ -17,39 +17,6 @@ import { buildExposureQueryParams } from "back-end/src/services/eventForwarder/s
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
-
-function normalizeUserIdType(value: string): string {
-  return value.toLowerCase();
-}
-
-function reconcileUserIdTypes(
-  existing: UserIdType[],
-  desired: UserIdType[],
-  ownedUserIdTypes: string[],
-): UserIdType[] {
-  const desiredIds = new Set(
-    desired.map((item) => normalizeUserIdType(item.userIdType)),
-  );
-  const ownedIds = new Set(ownedUserIdTypes.map(normalizeUserIdType));
-  const preserved = existing.filter((item) => {
-    const id = normalizeUserIdType(item.userIdType);
-    return !desiredIds.has(id) && !ownedIds.has(id);
-  });
-
-  return [...preserved, ...desired];
-}
-
-function getManagedExposureOwnership(exposureQueries: ExposureQuery[]): {
-  userIdTypes: string[];
-} {
-  const managed = (exposureQueries ?? []).filter(
-    isEventForwarderManagedExposureQuery,
-  );
-
-  return {
-    userIdTypes: managed.map((query) => query.userIdType),
-  };
-}
 
 function hasChanges<T>(before: T, after: T): boolean {
   return JSON.stringify(before) !== JSON.stringify(after);
@@ -115,20 +82,16 @@ export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQue
     attributeSchema,
     datasource.projects,
   );
-  const desiredUserIdTypeIds = desiredUserIdTypes.map(
-    (userIdType) => userIdType.userIdType,
-  );
   const existingUserIdTypes = datasource.settings?.userIdTypes ?? [];
   const existingExposure = datasource.settings?.queries?.exposure ?? [];
-  const managedExposure = getManagedExposureOwnership(existingExposure);
-  const ownedUserIdTypes = [
-    ...desiredUserIdTypeIds,
-    ...managedExposure.userIdTypes,
-  ];
-  const updatedUserIdTypes = reconcileUserIdTypes(
+  // Matches on the source attribute, so an identifier type a user renamed keeps
+  // its name here instead of being reverted to the attribute's property name.
+  const updatedUserIdTypes = reconcileEventForwarderManagedUserIdTypes(
     existingUserIdTypes,
     desiredUserIdTypes,
-    ownedUserIdTypes,
+  );
+  const managedUserIdTypes = updatedUserIdTypes.filter(
+    isEventForwarderManagedUserIdType,
   );
 
   const connectionParams = getSourceIntegrationObject(context, datasource)
@@ -148,7 +111,7 @@ export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQue
   } else {
     updatedExposure = reconcileEventForwarderManagedExposureQueries({
       existing: existingExposure,
-      userIdTypes: desiredUserIdTypeIds,
+      userIdTypes: managedUserIdTypes,
       params: sqlParams,
       attributeSchema,
     });

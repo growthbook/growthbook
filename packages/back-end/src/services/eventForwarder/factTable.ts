@@ -134,8 +134,7 @@ function buildEventForwarderEventsFactTableSqlForDatasource(
         tablePrefix: getBigQueryEventForwarderTablePrefix(decrypted),
         attributeSchema,
         datasourceProjects: datasource.projects,
-        userIdTypes:
-          datasource.settings?.userIdTypes?.map((u) => u.userIdType) ?? [],
+        userIdTypes: datasource.settings?.userIdTypes ?? [],
       });
     }
     case "snowflake": {
@@ -150,8 +149,7 @@ function buildEventForwarderEventsFactTableSqlForDatasource(
         tablePrefix: getSnowflakeEventForwarderTablePrefix(decrypted),
         attributeSchema,
         datasourceProjects: datasource.projects,
-        userIdTypes:
-          datasource.settings?.userIdTypes?.map((u) => u.userIdType) ?? [],
+        userIdTypes: datasource.settings?.userIdTypes ?? [],
       });
     }
     default:
@@ -159,7 +157,7 @@ function buildEventForwarderEventsFactTableSqlForDatasource(
   }
 }
 
-export async function syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange(
+export async function syncEventForwarderEventsFactTableMetadata(
   context: ReqContext,
   attributeSchema: SDKAttributeSchema,
   delayMs = EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
@@ -184,8 +182,8 @@ export async function syncEventForwarderEventsFactTableMetadataAfterAttributeSch
       continue;
     }
 
-    const userIdTypes =
-      datasource.settings?.userIdTypes?.map((u) => u.userIdType) ?? [];
+    const userIdTypes = datasource.settings?.userIdTypes ?? [];
+    const desiredUserIdTypeNames = userIdTypes.map((u) => u.userIdType);
     const desiredColumns = buildEventForwarderEventsFactTableColumns(
       userIdTypes,
       attributeSchema,
@@ -215,7 +213,13 @@ export async function syncEventForwarderEventsFactTableMetadataAfterAttributeSch
       datatype: column.datatype,
       jsonFields: column.jsonFields,
     }));
+    // The fact table's own userIdTypes are the identifier type names, so a rename
+    // has to land here too or joins against this table break.
+    const hasUserIdTypeChanges =
+      JSON.stringify(factTable.userIdTypes ?? []) !==
+      JSON.stringify(desiredUserIdTypeNames);
     const hasMetadataChanges =
+      hasUserIdTypeChanges ||
       JSON.stringify(comparableExistingColumns) !==
         JSON.stringify(comparableDesiredColumns) ||
       (desiredSql !== null && factTable.sql !== desiredSql);
@@ -240,6 +244,9 @@ export async function syncEventForwarderEventsFactTableMetadataAfterAttributeSch
         {
           ...(hasMetadataChanges && {
             columns,
+            ...(hasUserIdTypeChanges && {
+              userIdTypes: desiredUserIdTypeNames,
+            }),
             ...(desiredSql !== null && { sql: desiredSql }),
           }),
           ...(shouldMarkColumnRefreshPending && {
@@ -304,8 +311,7 @@ export async function ensureEventForwarderEventsFactTable(
     return existing.id;
   }
 
-  const userIdTypes =
-    datasource.settings?.userIdTypes?.map((u) => u.userIdType) ?? [];
+  const userIdTypes = datasource.settings?.userIdTypes ?? [];
   if (userIdTypes.length === 0) {
     logger.warn(
       {
@@ -392,7 +398,7 @@ export async function ensureEventForwarderEventsFactTable(
     tags: [],
     projects: datasource.projects ?? [],
     datasource: datasource.id,
-    userIdTypes,
+    userIdTypes: userIdTypes.map((u) => u.userIdType),
     sql,
     eventName: "",
     columns,

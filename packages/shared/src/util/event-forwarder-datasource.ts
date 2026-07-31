@@ -19,40 +19,66 @@ export type EventForwarderDatasourceParams =
 export const EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION =
   "Managed by Event Forwarder.";
 
-// Event Forwarder managed identifier types (and the exposure queries that feed
-// them) are prefixed so they never collide with identifier types / queries a
-// user already created for the same hash attribute. The prefix is applied once,
-// here, when building the identifier type from the attribute. The underlying
-// source attribute is recoverable by stripping the prefix, which the SQL
-// generators use so extraction still reads the real attribute.
-export const EVENT_FORWARDER_MANAGED_IDENTIFIER_ID_PREFIX = "ef_";
-
-export function buildEventForwarderManagedIdentifierId(
-  attributeProperty: string,
-): string {
-  // The prefix is applied unconditionally — even when the source attribute
-  // already starts with "ef_". This is intentional: an attribute literally
-  // named "ef_userId" must not collapse into the same managed id a user could
-  // have created themselves, and the source attribute is recovered by stripping
-  // exactly one prefix (see getEventForwarderManagedIdentifierSourceAttribute),
-  // so "ef_userId" -> "ef_ef_userId" -> "ef_userId" round-trips correctly.
-  return `${EVENT_FORWARDER_MANAGED_IDENTIFIER_ID_PREFIX}${attributeProperty}`;
-}
-
-export function isEventForwarderManagedIdentifierId(
-  userIdType: string,
+// Event Forwarder managed identifier types are named after the SDK hash
+// attribute they read, and the link to that attribute is stored explicitly on
+// `sourceAttribute`. Nothing is encoded in the name: users may rename a managed
+// identifier type, and every consumer (SQL generation, reconciliation, fact
+// table metadata) resolves the source attribute through the link instead.
+export function isEventForwarderManagedUserIdType(
+  userIdType: Pick<UserIdType, "managedBy">,
 ): boolean {
-  return userIdType.startsWith(EVENT_FORWARDER_MANAGED_IDENTIFIER_ID_PREFIX);
+  return userIdType.managedBy === "api";
 }
 
-// Resolves the source SDK attribute for a managed identifier id (e.g.
-// "ef_user_id" -> "user_id"). Non-managed identifier types are returned as-is.
-export function getEventForwarderManagedIdentifierSourceAttribute(
-  userIdType: string,
+// Resolves the SDK attribute a userIdType reads its value from. Managed types
+// carry an explicit link; user-created types are named after their own source.
+export function getEventForwarderUserIdTypeSourceAttribute(
+  userIdType: UserIdType,
 ): string {
-  return isEventForwarderManagedIdentifierId(userIdType)
-    ? userIdType.slice(EVENT_FORWARDER_MANAGED_IDENTIFIER_ID_PREFIX.length)
-    : userIdType;
+  if (isEventForwarderManagedUserIdType(userIdType)) {
+    return userIdType.sourceAttribute ?? userIdType.userIdType;
+  }
+  return userIdType.userIdType;
+}
+
+// Case-insensitive: identifier type names are compared case-insensitively
+// everywhere (warehouse column aliases and the sync paths both fold case), so
+// "User_Id" and "user_id" are the same name for collision purposes.
+export function normalizeUserIdTypeName(userIdType: string): string {
+  return userIdType.trim().toLowerCase();
+}
+
+/**
+ * Returns the name colliding with `candidate`, or null when it is free. Pass
+ * `ignoreIndex` when renaming an entry in place so it doesn't collide with itself.
+ */
+export function findCollidingUserIdTypeName(
+  userIdTypes: UserIdType[],
+  candidate: string,
+  ignoreIndex?: number,
+): string | null {
+  const normalized = normalizeUserIdTypeName(candidate);
+  const collision = userIdTypes.find(
+    (existing, index) =>
+      index !== ignoreIndex &&
+      normalizeUserIdTypeName(existing.userIdType) === normalized,
+  );
+  return collision?.userIdType ?? null;
+}
+
+/** Returns the first duplicated name in the list, or null when all are unique. */
+export function findDuplicateUserIdTypeName(
+  userIdTypes: UserIdType[],
+): string | null {
+  const seen = new Set<string>();
+  for (const { userIdType } of userIdTypes) {
+    const normalized = normalizeUserIdTypeName(userIdType);
+    if (seen.has(normalized)) {
+      return userIdType;
+    }
+    seen.add(normalized);
+  }
+  return null;
 }
 
 export function getEventForwarderSinkTypeForDatasource(datasource: {
@@ -133,36 +159,118 @@ export function buildUserIdTypesFromAttributeSchema(
     .filter((a) => a.hashAttribute && !a.archived)
     .filter((a) => attributeMatchesDatasourceProjects(a, datasourceProjects))
     .map((a) => ({
-      userIdType: buildEventForwarderManagedIdentifierId(a.property),
+      userIdType: a.property,
       description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
       attributes: [a.property],
+      managedBy: "api" as const,
+      sourceAttribute: a.property,
     }));
-}
-
-export function isHashAttributeUserIdType(
-  userIdType: string,
-  attributeSchema: SDKAttributeSchema,
-  datasourceProjects?: string[],
-): boolean {
-  // Managed identifier types are prefixed (e.g. "ef_user_id"); resolve back to
-  // the source attribute so the hash-attribute lookup still matches.
-  const sourceAttribute =
-    getEventForwarderManagedIdentifierSourceAttribute(userIdType).toLowerCase();
-  return attributeSchema.some(
-    (attribute) =>
-      attribute.hashAttribute &&
-      !attribute.archived &&
-      attribute.property.toLowerCase() === sourceAttribute &&
-      attributeMatchesDatasourceProjects(attribute, datasourceProjects),
-  );
 }
 
 export function getUserIdTypesToAdd(
   existing: UserIdType[],
   built: UserIdType[],
 ): UserIdType[] {
-  const existingIds = new Set(existing.map((u) => u.userIdType.toLowerCase()));
-  return built.filter((u) => !existingIds.has(u.userIdType.toLowerCase()));
+  const existingNames = new Set(
+    existing.map((u) => normalizeUserIdTypeName(u.userIdType)),
+  );
+  // A managed type already covering the attribute counts as present even after a
+  // rename, so a renamed identifier is never re-added under its original name.
+  const existingSources = new Set(
+    existing
+      .filter(isEventForwarderManagedUserIdType)
+      .map((u) =>
+        normalizeUserIdTypeName(getEventForwarderUserIdTypeSourceAttribute(u)),
+      ),
+  );
+  return built.filter(
+    (u) =>
+      !existingNames.has(normalizeUserIdTypeName(u.userIdType)) &&
+      !existingSources.has(
+        normalizeUserIdTypeName(getEventForwarderUserIdTypeSourceAttribute(u)),
+      ),
+  );
+}
+
+/**
+ * Reconciles the managed identifier types on a datasource against the ones the
+ * org's attribute schema currently calls for, matching on `sourceAttribute` so
+ * that user-renamed identifier types keep their names instead of being reverted.
+ *
+ * Non-managed identifier types are passed through untouched. Managed types whose
+ * source attribute is no longer a hash attribute (archived, un-flagged, or out of
+ * the datasource's Projects) are dropped.
+ */
+export function reconcileEventForwarderManagedUserIdTypes(
+  existing: UserIdType[],
+  desired: UserIdType[],
+): UserIdType[] {
+  const desiredBySource = new Map(
+    desired.map((entry) => [
+      normalizeUserIdTypeName(
+        getEventForwarderUserIdTypeSourceAttribute(entry),
+      ),
+      entry,
+    ]),
+  );
+  const claimedSources = new Set<string>();
+  const result: UserIdType[] = [];
+
+  for (const entry of existing) {
+    if (!isEventForwarderManagedUserIdType(entry)) {
+      result.push(entry);
+      continue;
+    }
+
+    const source = normalizeUserIdTypeName(
+      getEventForwarderUserIdTypeSourceAttribute(entry),
+    );
+    const wanted = desiredBySource.get(source);
+    if (!wanted) {
+      continue;
+    }
+
+    claimedSources.add(source);
+    // The name and description belong to the user once created; we only keep the
+    // link and the managed marker authoritative.
+    result.push({
+      ...entry,
+      managedBy: "api",
+      sourceAttribute: wanted.sourceAttribute,
+    });
+  }
+
+  for (const [source, wanted] of desiredBySource) {
+    if (claimedSources.has(source)) {
+      continue;
+    }
+
+    // Adopt, don't duplicate: if a user already created an identifier type under
+    // the name we want, take that entry over rather than adding a second entry
+    // with the same name. An entry already managed by another attribute is left
+    // alone — one identifier type per name wins, as the warehouse column would.
+    const collisionIndex = result.findIndex(
+      (entry) =>
+        normalizeUserIdTypeName(entry.userIdType) ===
+        normalizeUserIdTypeName(wanted.userIdType),
+    );
+    if (collisionIndex >= 0) {
+      const collision = result[collisionIndex];
+      if (!isEventForwarderManagedUserIdType(collision)) {
+        result[collisionIndex] = {
+          ...collision,
+          managedBy: "api",
+          sourceAttribute: wanted.sourceAttribute,
+          description: collision.description || wanted.description,
+        };
+      }
+      continue;
+    }
+
+    result.push(wanted);
+  }
+
+  return result;
 }
 
 export function mergeUserIdTypes(

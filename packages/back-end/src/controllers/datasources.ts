@@ -59,6 +59,11 @@ import {
   deleteEventForwarderConfigForDatasource,
 } from "back-end/src/services/eventForwarder/datasourceLifecycle";
 import {
+  applyEventForwarderIdentifierTypeUpdates,
+  syncEventForwarderAfterIdentifierTypesUpdate,
+  UserIdTypeRename,
+} from "back-end/src/services/eventForwarder/identifierTypes";
+import {
   getDataSourcesWithParams,
   getDataSourceWithParams,
 } from "back-end/src/services/datasourceResponse";
@@ -472,6 +477,7 @@ export async function putDataSource(
 
   try {
     const updates: Partial<DataSourceInterface> = { dateUpdated: new Date() };
+    let identifierTypeRenames: UserIdTypeRename[] = [];
 
     if (name) {
       updates.name = name;
@@ -482,10 +488,17 @@ export async function putDataSource(
     }
 
     if (settings) {
-      // Event Forwarder managed identifier types (`ef_` prefixed) used to be
-      // rejected here. They're intentionally editable and deletable for now —
-      // restore the guard if we need to lock them down again.
-      updates.settings = settings;
+      // Identifier types (including Event Forwarder managed ones) are editable
+      // and renamable. This rejects duplicate names and cascades a rename to the
+      // managed exposure query and identity joins before we persist.
+      const identifierTypeUpdates =
+        await applyEventForwarderIdentifierTypeUpdates({
+          context,
+          datasource,
+          settings,
+        });
+      updates.settings = identifierTypeUpdates.settings;
+      identifierTypeRenames = identifierTypeUpdates.renames;
     }
 
     if (projects) {
@@ -520,6 +533,14 @@ export async function putDataSource(
       ...datasource,
       ...updates,
     };
+
+    // Warehouse-side cascade for an identifier type rename: the Events fact
+    // table's userIdTypes, SQL, and column metadata. Never throws.
+    await syncEventForwarderAfterIdentifierTypesUpdate(
+      context,
+      updatedDatasource,
+      identifierTypeRenames,
+    );
 
     const integration = getSourceIntegrationObject(context, updatedDatasource);
     const eventForwarderDatasourceParams = getEventForwarderDatasourceParams(

@@ -4,6 +4,7 @@ import {
   DataSourceInterfaceWithParams,
   UserIdType,
 } from "shared/types/datasource";
+import { isEventForwarderManagedUserIdType } from "shared/util";
 import { FaPlus } from "react-icons/fa";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
@@ -34,15 +35,16 @@ export const DataSourceInlineEditIdentifierTypes: FC<
     [dataSource.settings?.userIdTypes],
   );
 
-  // Event Forwarder managed identifier types (prefixed with `ef_`) are
-  // intentionally editable and deletable for now. Restore
-  // `Boolean(dataSource.eventForwarderConfig) &&
-  // isEventForwarderManagedIdentifierId(userIdType)` to lock them again.
-  const isEventForwarderManagedType = false;
-
   const recordEditing = useMemo((): null | UserIdType => {
     return userIdTypes[editingIndex] || null;
   }, [editingIndex, userIdTypes]);
+
+  // Event Forwarder managed types keep their name and description editable — a
+  // rename cascades to the managed assignment query — but their linked hash
+  // attribute is managed for them.
+  const isEditingEventForwarderManagedType = recordEditing
+    ? isEventForwarderManagedUserIdType(recordEditing)
+    : false;
 
   const handleCancel = useCallback(() => {
     setUiMode("view");
@@ -75,7 +77,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
         const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
         const types = copy.settings?.userIdTypes ?? [];
         const editingManagedType =
-          uiMode === "edit" && isEventForwarderManagedType;
+          uiMode === "edit" && isEditingEventForwarderManagedType;
 
         if (idx >= types.length) {
           types.push({ userIdType, description, attributes });
@@ -84,8 +86,10 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           if (!existing) {
             return;
           }
+          // A managed type keeps its link and its GrowthBook-managed attributes;
+          // the name and description come from the form.
           types[idx] = editingManagedType
-            ? { ...existing, description }
+            ? { ...existing, userIdType, description }
             : {
                 userIdType,
                 description,
@@ -100,7 +104,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
 
         await onSave(copy);
       },
-    [dataSource, isEventForwarderManagedType, onSave, uiMode],
+    [dataSource, isEditingEventForwarderManagedType, onSave, uiMode],
   );
 
   const handleAdd = useCallback(() => {
@@ -131,8 +135,6 @@ export const DataSourceInlineEditIdentifierTypes: FC<
       <p>The different units you use to split traffic in an experiment.</p>
 
       {userIdTypes.map(({ userIdType, description, attributes }, idx) => {
-        const deleteDisabled = isEventForwarderManagedType;
-
         return (
           <Card key={userIdType} mt="3">
             <Flex align="start" justify="between" py="2" px="3" gap="3">
@@ -156,18 +158,15 @@ export const DataSourceInlineEditIdentifierTypes: FC<
               {/* region Identity Type actions */}
               {canEdit && (
                 <Flex gap="3">
-                  {!deleteDisabled && (
-                    <DeleteButton
-                      onClick={handleActionDeleteClicked(idx)}
-                      useIcon={false}
-                      displayName={userIdTypes[idx]?.userIdType}
-                      deleteMessage={`Are you sure you want to delete identifier type ${userIdTypes[idx]?.userIdType}?`}
-                      title="Delete"
-                      text="Delete"
-                      outline={false}
-                      disabled={deleteDisabled}
-                    />
-                  )}
+                  <DeleteButton
+                    onClick={handleActionDeleteClicked(idx)}
+                    useIcon={false}
+                    displayName={userIdTypes[idx]?.userIdType}
+                    deleteMessage={`Are you sure you want to delete identifier type ${userIdTypes[idx]?.userIdType}?`}
+                    title="Delete"
+                    text="Delete"
+                    outline={false}
+                  />
                   <Button
                     variant="ghost"
                     onClick={handleActionEditClicked(idx)}
@@ -200,7 +199,8 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           attributes={recordEditing?.attributes}
           onSave={handleSave(editingIndex)}
           dataSource={dataSource}
-          isEventForwarderManagedType={isEventForwarderManagedType}
+          isEventForwarderManagedType={isEditingEventForwarderManagedType}
+          editingIndex={editingIndex}
         />
       ) : null}
       {/* endregion Add/Edit modal */}

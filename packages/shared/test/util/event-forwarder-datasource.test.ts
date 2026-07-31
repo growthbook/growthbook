@@ -1,14 +1,16 @@
 import {
   EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
   attributeMatchesDatasourceProjects,
-  buildEventForwarderManagedIdentifierId,
   buildUserIdTypesFromAttributeSchema,
-  getEventForwarderManagedIdentifierSourceAttribute,
+  findCollidingUserIdTypeName,
+  findDuplicateUserIdTypeName,
   getEventForwarderDatasourceParams,
   getEventForwarderSinkTypeForDatasource,
+  getEventForwarderUserIdTypeSourceAttribute,
   getUserIdTypesToAdd,
-  isHashAttributeUserIdType,
+  isEventForwarderManagedUserIdType,
   mergeUserIdTypes,
+  reconcileEventForwarderManagedUserIdTypes,
   supportsEventForwarder,
 } from "../../src/util/event-forwarder-datasource";
 
@@ -116,9 +118,11 @@ describe("buildUserIdTypesFromAttributeSchema", () => {
 
     expect(result).toEqual([
       {
-        userIdType: "ef_id",
+        userIdType: "id",
         description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
         attributes: ["id"],
+        managedBy: "api",
+        sourceAttribute: "id",
       },
     ]);
   });
@@ -139,9 +143,11 @@ describe("buildUserIdTypesFromAttributeSchema", () => {
 
     expect(result).toEqual([
       {
-        userIdType: "ef_id",
+        userIdType: "id",
         description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
         attributes: ["id"],
+        managedBy: "api",
+        sourceAttribute: "id",
       },
     ]);
   });
@@ -162,41 +168,171 @@ describe("buildUserIdTypesFromAttributeSchema", () => {
   });
 });
 
-describe("buildEventForwarderManagedIdentifierId", () => {
-  it("prefixes the source attribute", () => {
-    expect(buildEventForwarderManagedIdentifierId("user_id")).toBe(
-      "ef_user_id",
+describe("isEventForwarderManagedUserIdType", () => {
+  it("identifies managed types by the marker, not by the name", () => {
+    expect(
+      isEventForwarderManagedUserIdType({ managedBy: "api" as const }),
+    ).toBe(true);
+    expect(isEventForwarderManagedUserIdType({ managedBy: "" as const })).toBe(
+      false,
+    );
+    expect(isEventForwarderManagedUserIdType({})).toBe(false);
+  });
+});
+
+describe("getEventForwarderUserIdTypeSourceAttribute", () => {
+  it("resolves a renamed managed type back to its source attribute", () => {
+    expect(
+      getEventForwarderUserIdTypeSourceAttribute({
+        userIdType: "logged_in_user",
+        managedBy: "api",
+        sourceAttribute: "user_id",
+      }),
+    ).toBe("user_id");
+  });
+
+  it("falls back to the name when a managed type has no link yet", () => {
+    expect(
+      getEventForwarderUserIdTypeSourceAttribute({
+        userIdType: "user_id",
+        managedBy: "api",
+      }),
+    ).toBe("user_id");
+  });
+
+  it("ignores a source attribute on a user-created type", () => {
+    expect(
+      getEventForwarderUserIdTypeSourceAttribute({
+        userIdType: "device_id",
+        sourceAttribute: "user_id",
+      }),
+    ).toBe("device_id");
+  });
+});
+
+describe("findCollidingUserIdTypeName", () => {
+  const userIdTypes = [{ userIdType: "user_id" }, { userIdType: "Device_ID" }];
+
+  it("matches case insensitively and returns the existing spelling", () => {
+    expect(findCollidingUserIdTypeName(userIdTypes, "USER_ID")).toBe("user_id");
+    expect(findCollidingUserIdTypeName(userIdTypes, "device_id")).toBe(
+      "Device_ID",
     );
   });
 
-  it("double-prefixes an attribute that already starts with the prefix so it stays distinct from a user-created identifier", () => {
-    expect(buildEventForwarderManagedIdentifierId("ef_userId")).toBe(
-      "ef_ef_userId",
-    );
+  it("returns null when the name is free", () => {
+    expect(findCollidingUserIdTypeName(userIdTypes, "anonymous_id")).toBe(null);
   });
 
-  it("round-trips back to the source attribute by stripping exactly one prefix", () => {
-    const managedId = buildEventForwarderManagedIdentifierId("ef_userId");
-    expect(getEventForwarderManagedIdentifierSourceAttribute(managedId)).toBe(
-      "ef_userId",
+  it("does not collide an entry being renamed with itself", () => {
+    expect(findCollidingUserIdTypeName(userIdTypes, "user_id", 0)).toBe(null);
+    expect(findCollidingUserIdTypeName(userIdTypes, "Device_ID", 0)).toBe(
+      "Device_ID",
     );
   });
 });
 
-describe("isHashAttributeUserIdType", () => {
-  const schema = [
-    { property: "user_id", datatype: "string" as const, hashAttribute: true },
-    { property: "id", datatype: "string" as const, hashAttribute: true },
-  ];
-
-  it("returns true when userIdType matches a hash attribute", () => {
-    expect(isHashAttributeUserIdType("user_id", schema)).toBe(true);
-    expect(isHashAttributeUserIdType("USER_ID", schema)).toBe(true);
+describe("findDuplicateUserIdTypeName", () => {
+  it("finds a case-insensitive duplicate", () => {
+    expect(
+      findDuplicateUserIdTypeName([
+        { userIdType: "user_id" },
+        { userIdType: "USER_ID" },
+      ]),
+    ).toBe("USER_ID");
   });
 
-  it("returns false for non-hash or unknown identifier types", () => {
-    expect(isHashAttributeUserIdType("device_id", schema)).toBe(false);
-    expect(isHashAttributeUserIdType("session_id", schema)).toBe(false);
+  it("returns null when all names are unique", () => {
+    expect(
+      findDuplicateUserIdTypeName([
+        { userIdType: "user_id" },
+        { userIdType: "device_id" },
+      ]),
+    ).toBe(null);
+  });
+});
+
+describe("reconcileEventForwarderManagedUserIdTypes", () => {
+  const desired = [
+    {
+      userIdType: "user_id",
+      description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+      attributes: ["user_id"],
+      managedBy: "api" as const,
+      sourceAttribute: "user_id",
+    },
+  ];
+
+  it("keeps a user-renamed managed type instead of reverting the name", () => {
+    const existing = [
+      {
+        userIdType: "logged_in_user",
+        description: "Renamed by the user",
+        attributes: ["user_id"],
+        managedBy: "api" as const,
+        sourceAttribute: "user_id",
+      },
+    ];
+
+    expect(
+      reconcileEventForwarderManagedUserIdTypes(existing, desired),
+    ).toEqual([
+      {
+        userIdType: "logged_in_user",
+        description: "Renamed by the user",
+        attributes: ["user_id"],
+        managedBy: "api",
+        sourceAttribute: "user_id",
+      },
+    ]);
+  });
+
+  it("adds managed types for newly eligible attributes", () => {
+    expect(reconcileEventForwarderManagedUserIdTypes([], desired)).toEqual(
+      desired,
+    );
+  });
+
+  it("drops managed types whose attribute is no longer eligible", () => {
+    const existing = [
+      {
+        userIdType: "company_id",
+        managedBy: "api" as const,
+        sourceAttribute: "company_id",
+      },
+    ];
+
+    expect(
+      reconcileEventForwarderManagedUserIdTypes(existing, desired),
+    ).toEqual(desired);
+  });
+
+  it("passes user-created types through untouched", () => {
+    const existing = [
+      { userIdType: "anonymous_id", description: "Mine", attributes: [] },
+    ];
+
+    expect(
+      reconcileEventForwarderManagedUserIdTypes(existing, desired),
+    ).toEqual([...existing, ...desired]);
+  });
+
+  it("adopts a same-named user-created type instead of duplicating the name", () => {
+    const existing = [
+      { userIdType: "user_id", description: "Mine", attributes: ["user_id"] },
+    ];
+
+    expect(
+      reconcileEventForwarderManagedUserIdTypes(existing, desired),
+    ).toEqual([
+      {
+        userIdType: "user_id",
+        description: "Mine",
+        attributes: ["user_id"],
+        managedBy: "api",
+        sourceAttribute: "user_id",
+      },
+    ]);
   });
 });
 
@@ -221,6 +357,25 @@ describe("getUserIdTypesToAdd", () => {
     expect(
       getUserIdTypesToAdd(existing, [{ userIdType: "id", description: "x" }]),
     ).toEqual([]);
+  });
+
+  it("does not re-add a managed type that the user renamed", () => {
+    const existing = [
+      {
+        userIdType: "logged_in_user",
+        managedBy: "api" as const,
+        sourceAttribute: "user_id",
+      },
+    ];
+    const built = [
+      {
+        userIdType: "user_id",
+        managedBy: "api" as const,
+        sourceAttribute: "user_id",
+      },
+    ];
+
+    expect(getUserIdTypesToAdd(existing, built)).toEqual([]);
   });
 
   it("treats userIdType names as case insensitive", () => {
