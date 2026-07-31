@@ -91,6 +91,10 @@ const SavedLearningsList: FC<{
   } = useSearch({
     items: learnings,
     localStorageKey: "learnings",
+    // The Experiment Library tab's useExperimentSearch owns the `q` URL param
+    // and writes to it. Without this, switching tabs would carry that tab's
+    // filter string (e.g. `metrics:met_123`) into this search box.
+    disableUrlSearchTerm: true,
     defaultSortField: "dateCreated",
     defaultSortDir: -1,
     searchFields: ["title^3", "text", "tags"],
