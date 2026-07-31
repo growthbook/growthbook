@@ -61,6 +61,37 @@ describe("applyPatch — force/rollout seed stamping", () => {
 // applicability is enforced by the schema (and shown in the docs) rather than
 // by prose. Targeting is absent from the experiment-ref member: an experiment
 // rule takes it from the linked experiment's phase.
+// Repointing a rule at a different experiment leaves the previous experiment's
+// arm ids in place, so the handler has to validate on an experimentId-only patch
+// too — not just when `variations` is supplied.
+describe("applyPatch — experiment-ref repointing", () => {
+  const rule = {
+    id: "fr_1",
+    type: "experiment-ref",
+    description: "",
+    enabled: true,
+    experimentId: "exp_old",
+    variations: [
+      { variationId: "v0", value: "false" },
+      { variationId: "v1", value: "true" },
+    ],
+  } as unknown as FeatureRule;
+
+  it("keeps the previous experiment's variations when only experimentId is patched", () => {
+    const patched = applyPatch(rule, {
+      experimentId: "exp_new",
+    } as unknown as RulePatchFields);
+
+    expect(patched).toMatchObject({
+      experimentId: "exp_new",
+      variations: [
+        { variationId: "v0", value: "false" },
+        { variationId: "v1", value: "true" },
+      ],
+    });
+  });
+});
+
 describe("rule patch schema — per-type shapes", () => {
   const body = (rule: Record<string, unknown>) =>
     putFeatureRevisionRuleValidator.bodySchema.safeParse({

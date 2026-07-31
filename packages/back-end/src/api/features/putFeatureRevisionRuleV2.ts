@@ -223,11 +223,12 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       }));
     }
 
-    // Variations are replaced wholesale, so validate the new set against the
-    // linked experiment's current phase.
+    // Validate against the linked experiment whenever the patch touches either
+    // side of the mapping: repointing `experimentId` alone keeps the previous
+    // experiment's arm ids.
     if (
       updatedRule.type === "experiment-ref" &&
-      patch.variations !== undefined
+      (patch.variations !== undefined || patch.experimentId !== undefined)
     ) {
       await resolveExperimentForRefRule(req.context, updatedRule);
     }
