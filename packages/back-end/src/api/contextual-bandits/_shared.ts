@@ -1,8 +1,12 @@
 import { ContextualBanditInterface } from "shared/validators";
-import { ContextualBanditRefRule } from "shared/types/feature";
+import {
+  ContextualBanditRefRule,
+  FeatureInterface,
+} from "shared/types/feature";
 import { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
 import {
+  assertValidRuleConfigKeys,
   composeConfigBacking,
   resolveProjectScopeFromInput,
   resolveScopeFromInput,
@@ -62,6 +66,25 @@ export function assertVariationsCoverBandit(
       `Missing a value for contextual bandit variation(s): ${missing.join(", ")}.`,
     );
   }
+}
+
+// Variation `config` keys go through the same relationship validation as
+// every other rule/variation `config` field (existence, archived, project
+// scope, flavor scoping, and membership in the feature's config family) —
+// mirrors the check `putFeatureRevisionRuleV2`/`postFeatureRevisionRuleAddV2`
+// run before composing a rule's config-backed value.
+export async function assertValidContextualBanditVariationConfigKeys(
+  context: ApiReqContext,
+  feature: Pick<FeatureInterface, "defaultValue" | "baseConfig" | "project">,
+  variations: VariationInput[],
+): Promise<void> {
+  await assertValidRuleConfigKeys(
+    context,
+    variations.map((v) => v.config),
+    feature.defaultValue,
+    feature.baseConfig,
+    feature.project,
+  );
 }
 
 export function buildContextualBanditRefRule(

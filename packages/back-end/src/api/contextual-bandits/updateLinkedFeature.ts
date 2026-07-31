@@ -3,6 +3,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { updateContextualBanditFeatureRule } from "back-end/src/enterprise/services/contextualBandits";
 import {
+  assertValidContextualBanditVariationConfigKeys,
   assertVariationsCoverBandit,
   buildContextualBanditRefRule,
   loadContextualBanditForRead,
@@ -30,6 +31,11 @@ export const updateContextualBanditLinkedFeature = createApiRequestHandler(
   }
 
   assertVariationsCoverBandit(contextualBandit, req.body.variations);
+  await assertValidContextualBanditVariationConfigKeys(
+    req.context,
+    feature,
+    req.body.variations,
+  );
 
   const result = await updateContextualBanditFeatureRule({
     context: req.context,

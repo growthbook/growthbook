@@ -7,6 +7,7 @@ import {
   targetRevisionHasContextualBanditRule,
 } from "back-end/src/enterprise/services/contextualBandits";
 import {
+  assertValidContextualBanditVariationConfigKeys,
   assertVariationsCoverBandit,
   buildContextualBanditRefRule,
   loadContextualBanditForRead,
@@ -55,6 +56,11 @@ export const addContextualBanditLinkedFeature = createApiRequestHandler(
   }
 
   assertVariationsCoverBandit(contextualBandit, variations);
+  await assertValidContextualBanditVariationConfigKeys(
+    req.context,
+    feature,
+    variations,
+  );
 
   const result = await linkFeatureToContextualBandit({
     context: req.context,
