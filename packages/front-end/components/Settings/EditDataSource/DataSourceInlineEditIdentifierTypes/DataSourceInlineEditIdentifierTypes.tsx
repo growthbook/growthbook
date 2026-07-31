@@ -136,7 +136,9 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           </Button>
         </Box>
       </Flex>
-      <p>The different units you use to split traffic in an experiment.</p>
+      <Text as="p" color="text-mid">
+        The different units you use to split traffic in an experiment.
+      </Text>
 
       {userIdTypes.map(({ userIdType, description, attributes }, idx) => {
         return (
