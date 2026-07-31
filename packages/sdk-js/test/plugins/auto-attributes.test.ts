@@ -55,7 +55,7 @@ describe("autoAttributesPlugin", () => {
     query: "",
     viewportWidth: expect.any(Number),
     viewportHeight: expect.any(Number),
-    session_replay_id: expect.any(String),
+    sessionReplayId: expect.any(String),
   };
 
   beforeEach(() => {
@@ -90,7 +90,7 @@ describe("autoAttributesPlugin", () => {
 
     expect(gb.getAttributes()).toEqual({
       id: expect.any(String),
-      session_replay_id: expect.any(String),
+      sessionReplayId: expect.any(String),
       browser: "chrome",
       deviceType: "desktop",
       url: "http://localhost/test?hello=world",
@@ -105,16 +105,16 @@ describe("autoAttributesPlugin", () => {
     gb.destroy();
   });
 
-  it("stores session_replay_id in sessionStorage", () => {
+  it("stores sessionReplayId in sessionStorage", () => {
     const plugin = autoAttributesPlugin();
     const gb = new GrowthBook({
       plugins: [plugin],
     });
 
     const stored = JSON.parse(sessionStorage.getItem("gb_session") || "{}") as {
-      session_replay_id?: string;
+      sessionReplayId?: string;
     };
-    expect(stored.session_replay_id).toBe(gb.getAttributes().session_replay_id);
+    expect(stored.sessionReplayId).toBe(gb.getAttributes().sessionReplayId);
 
     gb.destroy();
   });
@@ -125,24 +125,24 @@ describe("autoAttributesPlugin", () => {
     const gb = new GrowthBook({
       plugins: [plugin],
     });
-    const sessionReplayId = gb.getAttributes().session_replay_id;
+    const sessionReplayId = gb.getAttributes().sessionReplayId;
 
     dateNowSpy.mockReturnValue(1000 + SESSION_REPLAY_IDLE_TIMEOUT_MS - 1000);
     window.dispatchEvent(new Event("pointerdown"));
     dateNowSpy.mockReturnValue(1000 + SESSION_REPLAY_IDLE_TIMEOUT_MS + 1000);
     document.dispatchEvent(new Event("growthbookrefresh"));
 
-    expect(gb.getAttributes().session_replay_id).toBe(sessionReplayId);
+    expect(gb.getAttributes().sessionReplayId).toBe(sessionReplayId);
 
     gb.destroy();
     dateNowSpy.mockRestore();
   });
 
-  it("preserves customer session_id while owning session_replay_id", () => {
+  it("preserves customer session_id while owning sessionReplayId", () => {
     sessionStorage.setItem(
       "gb_session",
       JSON.stringify({
-        session_replay_id: "internal-replay-id",
+        sessionReplayId: "internal-replay-id",
         lastTouchedAt: Date.now(),
       }),
     );
@@ -151,7 +151,7 @@ describe("autoAttributesPlugin", () => {
     const gb = new GrowthBook({
       attributes: {
         session_id: "customer-session-id",
-        session_replay_id: "user-supplied-replay-id",
+        sessionReplayId: "user-supplied-replay-id",
       },
       plugins: [plugin],
     });
@@ -159,7 +159,7 @@ describe("autoAttributesPlugin", () => {
     expect(gb.getAttributes()).toEqual(
       expect.objectContaining({
         session_id: "customer-session-id",
-        session_replay_id: "internal-replay-id",
+        sessionReplayId: "internal-replay-id",
       }),
     );
 

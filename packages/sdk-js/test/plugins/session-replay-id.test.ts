@@ -7,11 +7,11 @@ import {
 const STORAGE_KEY = "gb_session";
 
 function readStoredState(): {
-  session_replay_id?: string;
+  sessionReplayId?: string;
   lastTouchedAt?: number;
 } {
   return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}") as {
-    session_replay_id?: string;
+    sessionReplayId?: string;
     lastTouchedAt?: number;
   };
 }
@@ -28,22 +28,22 @@ describe("session replay ID manager", () => {
     sessionStorage.removeItem(STORAGE_KEY);
   });
 
-  it("creates and stores a session_replay_id", () => {
+  it("creates and stores a sessionReplayId", () => {
     const sessionReplayId = getOrCreateSessionReplayId();
     const stored = readStoredState();
 
     expect(sessionReplayId).toEqual(expect.any(String));
     expect(stored).toEqual({
-      session_replay_id: sessionReplayId,
+      sessionReplayId: sessionReplayId,
       lastTouchedAt: 1000,
     });
   });
 
-  it("reuses and touches an existing session_replay_id inside the idle window", () => {
+  it("reuses and touches an existing sessionReplayId inside the idle window", () => {
     sessionStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
-        session_replay_id: "existing-replay-id",
+        sessionReplayId: "existing-replay-id",
         lastTouchedAt: 1000,
       }),
     );
@@ -53,7 +53,7 @@ describe("session replay ID manager", () => {
 
     expect(sessionReplayId).toBe("existing-replay-id");
     expect(readStoredState()).toEqual({
-      session_replay_id: "existing-replay-id",
+      sessionReplayId: "existing-replay-id",
       lastTouchedAt: 2000,
     });
   });
@@ -62,7 +62,7 @@ describe("session replay ID manager", () => {
     sessionStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
-        session_replay_id: "existing-replay-id",
+        sessionReplayId: "existing-replay-id",
         lastTouchedAt: 1000,
       }),
     );
@@ -72,16 +72,16 @@ describe("session replay ID manager", () => {
     expect(sessionReplayId).toEqual(expect.any(String));
     expect(sessionReplayId).not.toBe("existing-replay-id");
     expect(readStoredState()).toEqual({
-      session_replay_id: sessionReplayId,
+      sessionReplayId: sessionReplayId,
       lastTouchedAt: 1000,
     });
   });
 
-  it("rotates when the stored session_replay_id is stale", () => {
+  it("rotates when the stored sessionReplayId is stale", () => {
     sessionStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
-        session_replay_id: "stale-replay-id",
+        sessionReplayId: "stale-replay-id",
         lastTouchedAt: 1000,
       }),
     );
@@ -94,12 +94,12 @@ describe("session replay ID manager", () => {
     expect(sessionReplayId).toEqual(expect.any(String));
     expect(sessionReplayId).not.toBe("stale-replay-id");
     expect(readStoredState()).toEqual({
-      session_replay_id: sessionReplayId,
+      sessionReplayId: sessionReplayId,
       lastTouchedAt: 1000 + SESSION_REPLAY_IDLE_TIMEOUT_MS + 1,
     });
   });
 
-  it("migrates the legacy stored id field to session_replay_id", () => {
+  it("migrates the legacy stored id field to sessionReplayId", () => {
     sessionStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -113,7 +113,7 @@ describe("session replay ID manager", () => {
 
     expect(sessionReplayId).toBe("legacy-replay-id");
     expect(readStoredState()).toEqual({
-      session_replay_id: "legacy-replay-id",
+      sessionReplayId: "legacy-replay-id",
       lastTouchedAt: 2000,
     });
   });
@@ -136,7 +136,7 @@ describe("session replay ID manager", () => {
     sessionStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
-        session_replay_id: "existing-replay-id",
+        sessionReplayId: "existing-replay-id",
         lastTouchedAt: 1000,
       }),
     );
@@ -162,7 +162,7 @@ describe("session replay ID manager", () => {
     sessionStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
-        session_replay_id: "",
+        sessionReplayId: "",
         lastTouchedAt: 1000,
       }),
     );
@@ -205,7 +205,7 @@ describe("session replay ID manager", () => {
     sessionStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
-        session_replay_id: "",
+        sessionReplayId: "",
         lastTouchedAt: 1000,
       }),
     );
@@ -215,7 +215,7 @@ describe("session replay ID manager", () => {
     expect(sessionReplayId).toEqual(expect.any(String));
     expect(sessionReplayId).not.toBe("");
     expect(readStoredState()).toEqual({
-      session_replay_id: sessionReplayId,
+      sessionReplayId: sessionReplayId,
       lastTouchedAt: 1000,
     });
   });

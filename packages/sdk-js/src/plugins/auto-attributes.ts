@@ -112,7 +112,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     return {
       ...getDataLayerVariables(),
       [uuidKey]: _uuid,
-      session_replay_id: getOrCreateSessionReplayId(),
+      sessionReplayId: getOrCreateSessionReplayId(),
       ...getURLAttributes(url),
       pageTitle: document.title,
       viewportWidth: window.innerWidth || 0,

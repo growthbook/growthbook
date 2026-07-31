@@ -1,5 +1,5 @@
 type StoredSessionReplayState = {
-  session_replay_id: string;
+  sessionReplayId: string;
   lastTouchedAt: number;
 };
 
@@ -13,11 +13,7 @@ function normalizeStoredSessionReplayState(
 ): StoredSessionReplayState | null {
   const stored = value as Record<string, unknown> | null;
   const sessionReplayId =
-    typeof stored?.session_replay_id === "string"
-      ? stored.session_replay_id
-      : typeof stored?.id === "string"
-        ? stored.id
-        : "";
+    typeof stored?.sessionReplayId === "string" ? stored.sessionReplayId : "";
 
   if (
     !sessionReplayId ||
@@ -28,7 +24,7 @@ function normalizeStoredSessionReplayState(
   }
 
   return {
-    session_replay_id: sessionReplayId,
+    sessionReplayId,
     lastTouchedAt: stored.lastTouchedAt,
   };
 }
@@ -69,15 +65,15 @@ export function getOrCreateSessionReplayId(forceNew = false): string {
   if (stored && now - stored.lastTouchedAt < SESSION_REPLAY_IDLE_TIMEOUT_MS) {
     const touched = { ...stored, lastTouchedAt: now };
     persistSessionReplayState(touched);
-    return touched.session_replay_id;
+    return touched.sessionReplayId;
   }
 
   const fresh: StoredSessionReplayState = {
-    session_replay_id: genUUID(window.crypto),
+    sessionReplayId: genUUID(window.crypto),
     lastTouchedAt: now,
   };
   persistSessionReplayState(fresh);
-  return fresh.session_replay_id;
+  return fresh.sessionReplayId;
 }
 
 export function touchSessionReplayId(): void {
