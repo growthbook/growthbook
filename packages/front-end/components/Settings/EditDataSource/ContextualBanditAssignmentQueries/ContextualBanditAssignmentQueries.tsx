@@ -101,11 +101,6 @@ export const ContextualBanditAssignmentQueries: FC<
               Contextual Bandit Assignment Queries
             </Heading>
             <Badge label="BETA" color="gray" variant="solid" />
-            <Badge
-              label={contextualBanditQueries.length + ""}
-              color="gray"
-              radius="medium"
-            />
           </Flex>
         </Box>
 
