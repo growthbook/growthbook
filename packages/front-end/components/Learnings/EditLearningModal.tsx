@@ -1,5 +1,5 @@
 import { FC, useMemo, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { LearningInterfaceStringDates } from "shared/validators";
 import { DEFAULT_LEARNING_STATUSES } from "shared/constants";
@@ -8,7 +8,6 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import MultiSelectField from "@/ui/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
 import TagsInput from "@/components/Tags/TagsInput";
-import Badge from "@/ui/Badge";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -56,11 +55,6 @@ const EditLearningModal: FC<{
     }
     return opts;
   }, [learningStatuses, status]);
-
-  const selectedStatusObject = useMemo(
-    () => learningStatuses.find((s) => s.id === status),
-    [learningStatuses, status],
-  );
 
   const projectOptions = orgProjects.map((p) => ({
     label: p.name,
@@ -146,16 +140,6 @@ const EditLearningModal: FC<{
           onChange={(v) => setStatus(v)}
           sort={false}
         />
-        {selectedStatusObject && (
-          <Flex mt="2" gap="2" align="center">
-            <Badge
-              label={selectedStatusObject.label}
-              color={selectedStatusObject.color || "gray"}
-              variant="soft"
-              size="sm"
-            />
-          </Flex>
-        )}
       </Box>
       <Box mb="4">
         <label>Description</label>
@@ -196,7 +180,7 @@ const EditLearningModal: FC<{
       </Box>
       <Box mb="4">
         <MultiSelectField
-          label="Contrary evidence"
+          label="Contradicting experiments"
           placeholder="Select experiments that run counter to this learning"
           value={contraryIds}
           options={contraryOpts}

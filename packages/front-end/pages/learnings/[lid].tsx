@@ -1,12 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { Box, Flex } from "@radix-ui/themes";
-import {
-  PiArrowLeft,
-  PiPencilSimple,
-  PiSparkleFill,
-  PiTrash,
-} from "react-icons/pi";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { PiArrowLeft, PiSparkleFill } from "react-icons/pi";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { LearningWithCanManage } from "shared/validators";
 import { date, getValidDate } from "shared/dates";
 import { DEFAULT_LEARNING_STATUSES } from "shared/constants";
@@ -23,7 +19,7 @@ import DiscussionThread from "@/components/DiscussionThread";
 import EditLearningModal from "@/components/Learnings/EditLearningModal";
 import ExperimentChips from "@/components/Learnings/ExperimentChips";
 import Badge from "@/ui/Badge";
-import Button from "@/ui/Button";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
@@ -54,6 +50,7 @@ const LearningPage = (): React.ReactElement => {
     [experiments],
   );
 
+  const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -121,24 +118,41 @@ const LearningPage = (): React.ReactElement => {
           )}
         </Flex>
         {learning.canManage && (
-          <Flex gap="1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setEditing(true)}
-              aria-label="Edit learning"
+          <DropdownMenu
+            trigger={
+              <IconButton
+                variant="ghost"
+                color="gray"
+                radius="full"
+                size="2"
+                highContrast
+                aria-label="Learning actions"
+              >
+                <BsThreeDotsVertical size={16} />
+              </IconButton>
+            }
+            open={menuOpen}
+            onOpenChange={setMenuOpen}
+            menuPlacement="end"
+          >
+            <DropdownMenuItem
+              onClick={() => {
+                setEditing(true);
+                setMenuOpen(false);
+              }}
             >
-              <PiPencilSimple />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setConfirmingDelete(true)}
-              aria-label="Delete learning"
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              color="red"
+              onClick={() => {
+                setConfirmingDelete(true);
+                setMenuOpen(false);
+              }}
             >
-              <PiTrash />
-            </Button>
-          </Flex>
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenu>
         )}
       </Flex>
       <Box mb="4">
@@ -207,7 +221,7 @@ const LearningPage = (): React.ReactElement => {
             experimentMap={experimentMap}
           />
           <ExperimentChips
-            label="Contrary evidence"
+            label="Contradicting experiments"
             experimentIds={learning.contradictingExperimentIds || []}
             experimentMap={experimentMap}
             variant="contrary"

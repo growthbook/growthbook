@@ -10,15 +10,15 @@ import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Modal from "@/ui/Modal";
+import Checkbox from "@/ui/Checkbox";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useAuth } from "@/services/auth";
 import ExperimentChips from "./ExperimentChips";
 
 type SuggestionState = {
   suggestion: AiLearningSuggestion;
-  saved: boolean;
-  saving: boolean;
-  error?: string;
+  /** Checked suggestions are persisted when the modal is submitted. */
+  selected: boolean;
 };
 
 const FindLearningsModal: FC<{
@@ -89,8 +89,7 @@ const FindLearningsModal: FC<{
           setSuggestions(
             res.learnings.map((s) => ({
               suggestion: s,
-              saved: false,
-              saving: false,
+              selected: false,
             })),
           );
           if (
@@ -126,15 +125,22 @@ const FindLearningsModal: FC<{
     [experiments],
   );
 
-  async function saveSuggestion(index: number) {
-    const item = suggestions[index];
-    if (!item || item.saved || item.saving) return;
+  function toggleSuggestion(index: number) {
     setSuggestions((prev) =>
-      prev.map((s, i) =>
-        i === index ? { ...s, saving: true, error: undefined } : s,
-      ),
+      prev.map((s, i) => (i === index ? { ...s, selected: !s.selected } : s)),
     );
-    try {
+  }
+
+  const selectedCount = suggestions.filter((s) => s.selected).length;
+
+  // Saving happens on submit so selections stay reversible while reviewing.
+  async function saveSelected() {
+    const chosen = suggestions.filter((s) => s.selected);
+    if (!chosen.length) {
+      close();
+      return;
+    }
+    for (const item of chosen) {
       await apiCall("/learnings", {
         method: "POST",
         body: JSON.stringify({
@@ -148,25 +154,9 @@ const FindLearningsModal: FC<{
           source: "ai",
         }),
       });
-      setSuggestions((prev) =>
-        prev.map((s, i) =>
-          i === index ? { ...s, saved: true, saving: false } : s,
-        ),
-      );
-      if (onSaved) onSaved();
-    } catch (e) {
-      setSuggestions((prev) =>
-        prev.map((s, i) =>
-          i === index
-            ? {
-                ...s,
-                saving: false,
-                error: e instanceof Error ? e.message : "Could not save",
-              }
-            : s,
-        ),
-      );
     }
+    if (onSaved) onSaved();
+    close();
   }
 
   return (
@@ -216,8 +206,8 @@ const FindLearningsModal: FC<{
             <Box mb="3">
               <Text size="medium" color="text-mid" as="div">
                 Found {suggestions.length} potential learning
-                {suggestions.length === 1 ? "" : "s"}. Review each one and save
-                the ones you want to keep.
+                {suggestions.length === 1 ? "" : "s"}. Check the ones you want
+                to keep, then save.
               </Text>
             </Box>
             <Flex direction="column" gap="4">
@@ -231,23 +221,17 @@ const FindLearningsModal: FC<{
                     background: "var(--color-panel-solid)",
                   }}
                 >
-                  <Flex justify="between" align="start" gap="3" mb="2">
-                    <Heading as="h4" size="medium">
-                      {s.suggestion.title}
-                    </Heading>
-                    {s.saved ? (
-                      <Text size="medium" color="text-mid">
-                        Saved
-                      </Text>
-                    ) : (
-                      <Button
-                        size="sm"
-                        onClick={() => saveSuggestion(i)}
-                        disabled={s.saving}
-                      >
-                        {s.saving ? "Saving..." : "Save"}
-                      </Button>
-                    )}
+                  <Flex align="start" gap="3" mb="2">
+                    <Checkbox
+                      value={s.selected}
+                      setValue={() => toggleSuggestion(i)}
+                      label={
+                        <Heading as="h4" size="medium" mb="0">
+                          {s.suggestion.title}
+                        </Heading>
+                      }
+                      mb="0"
+                    />
                   </Flex>
                   <Box mb="3">
                     <Markdown>{s.suggestion.text}</Markdown>
@@ -274,7 +258,7 @@ const FindLearningsModal: FC<{
                       experimentMap={experimentMap}
                     />
                     <ExperimentChips
-                      label="Contrary evidence"
+                      label="Contradicting experiments"
                       experimentIds={
                         s.suggestion.contradictingExperimentIds || []
                       }
@@ -282,13 +266,6 @@ const FindLearningsModal: FC<{
                       variant="contrary"
                     />
                   </Flex>
-                  {s.error && (
-                    <Box mt="2">
-                      <Callout status="error" size="sm">
-                        {s.error}
-                      </Callout>
-                    </Box>
-                  )}
                 </Box>
               ))}
             </Flex>
@@ -297,10 +274,17 @@ const FindLearningsModal: FC<{
       </Modal.Body>
       <Modal.Footer>
         <Modal.Close>
-          <Button variant="solid" onClick={close}>
-            Done
+          <Button variant="ghost" onClick={close}>
+            Cancel
           </Button>
         </Modal.Close>
+        <Button
+          variant="solid"
+          disabled={selectedCount === 0}
+          onClick={saveSelected}
+        >
+          {selectedCount > 0 ? `Save ${selectedCount}` : "Save"}
+        </Button>
       </Modal.Footer>
     </Modal.Root>
   );

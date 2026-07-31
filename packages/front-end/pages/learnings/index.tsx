@@ -24,6 +24,7 @@ import useApi from "@/hooks/useApi";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import FindLearningsModal from "@/components/Learnings/FindLearningsModal";
 import SavedLearningsList from "@/components/Learnings/SavedLearningsList";
+import EditLearningModal from "@/components/Learnings/EditLearningModal";
 
 const LearningsPage = (): React.ReactElement => {
   const router = useRouter();
@@ -42,6 +43,7 @@ const LearningsPage = (): React.ReactElement => {
       : new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000), // 7 days in the future
   );
   const [findLearningsOpen, setFindLearningsOpen] = useState(false);
+  const [showNewLearning, setShowNewLearning] = useState(false);
 
   function updateURL({
     startDate,
@@ -112,9 +114,16 @@ const LearningsPage = (): React.ReactElement => {
     <>
       <div className="contents experiments container-fluid pagecontents">
         <div className="mb-3">
-          <Heading as="h1" size="2x-large" weight="medium" mb="4">
-            Experiment Learnings
-          </Heading>
+          <Flex align="center" justify="between" gap="3" mb="4" wrap="wrap">
+            <Heading as="h1" size="2x-large" weight="medium" mb="0">
+              Experiment Learnings
+            </Heading>
+            {allStoppedExperiments.length > 0 && (
+              <Button onClick={() => setShowNewLearning(true)}>
+                New Learning
+              </Button>
+            )}
+          </Flex>
 
           {allStoppedExperiments.length === 0 ? (
             <EmptyState
@@ -128,7 +137,7 @@ const LearningsPage = (): React.ReactElement => {
           ) : (
             <Tabs defaultValue="results" persistInURL={true}>
               <TabsList>
-                <TabsTrigger value="results">Experiment Results</TabsTrigger>
+                <TabsTrigger value="results">Experiment Library</TabsTrigger>
                 <TabsTrigger value="saved">
                   Saved Learnings
                   {learnings.length > 0 ? ` (${learnings.length})` : ""}
@@ -254,7 +263,6 @@ const LearningsPage = (): React.ReactElement => {
                   <SavedLearningsList
                     learnings={learnings}
                     experiments={allExperiments}
-                    newLearningProjects={project ? [project] : []}
                     mutate={mutateLearnings}
                   />
                 </TabsContent>
@@ -264,6 +272,17 @@ const LearningsPage = (): React.ReactElement => {
         </div>
       </div>
 
+      {showNewLearning && (
+        <EditLearningModal
+          experiments={allExperiments}
+          defaultProjects={project ? [project] : []}
+          close={() => setShowNewLearning(false)}
+          onSaved={() => {
+            setShowNewLearning(false);
+            mutateLearnings();
+          }}
+        />
+      )}
       {findLearningsOpen && (
         <FindLearningsModal
           experiments={stoppedExperiments}

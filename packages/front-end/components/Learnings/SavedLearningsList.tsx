@@ -1,6 +1,7 @@
 import { FC, useMemo, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
-import { PiPencilSimple, PiSparkleFill, PiTrash } from "react-icons/pi";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { PiSparkleFill } from "react-icons/pi";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { LearningWithCanManage } from "shared/validators";
 import { date, getValidDate } from "shared/dates";
@@ -9,6 +10,7 @@ import EmptyState from "@/components/EmptyState";
 import Markdown from "@/components/Markdown/Markdown";
 import Link from "@/ui/Link";
 import Button from "@/ui/Button";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
@@ -16,7 +18,6 @@ import Text from "@/ui/Text";
 import ConfirmModal from "@/components/ConfirmModal";
 import CollapsibleDiscussion from "@/components/CollapsibleDiscussion";
 import Field from "@/components/Forms/Field";
-import MultiSelectField from "@/ui/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
 import {
   FilterDropdown,
@@ -34,10 +35,8 @@ import ExperimentChips from "./ExperimentChips";
 const SavedLearningsList: FC<{
   learnings: LearningWithCanManage[];
   experiments: ExperimentInterfaceStringDates[];
-  /** Default projects to use for newly-created learnings. */
-  newLearningProjects?: string[];
   mutate: () => void;
-}> = ({ learnings, experiments, newLearningProjects, mutate }) => {
+}> = ({ learnings, experiments, mutate }) => {
   const { apiCall } = useAuth();
   const { getOwnerDisplay } = useUser();
   const { projects: orgProjects, getProjectById } = useDefinitions();
@@ -53,7 +52,6 @@ const SavedLearningsList: FC<{
   const [pendingEdit, setPendingEdit] = useState<LearningWithCanManage | null>(
     null,
   );
-  const [showNew, setShowNew] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
@@ -198,10 +196,54 @@ const SavedLearningsList: FC<{
     );
   };
 
-  const projectOptions = useMemo(
-    () => orgProjects.map((p) => ({ label: p.name, value: p.id })),
-    [orgProjects],
+  // Project filter, inline with the other filters (matches the experiment
+  // search/filter component).
+  const projectCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    learnings.forEach((i) => {
+      (i.projects || []).forEach((p) => {
+        counts.set(p, (counts.get(p) || 0) + 1);
+      });
+    });
+    return counts;
+  }, [learnings]);
+
+  const projectFilterItems: SearchFiltersItem[] = useMemo(
+    () =>
+      orgProjects
+        .filter((p) => projectCounts.get(p.id))
+        .map((p) => ({
+          id: `project-${p.id}`,
+          name: `${p.name} (${projectCounts.get(p.id)})`,
+          searchValue: p.id,
+        })),
+    [orgProjects, projectCounts],
   );
+
+  const projectSyntaxFilters: SyntaxFilter[] = useMemo(
+    () =>
+      selectedProjects.length > 0
+        ? [
+            {
+              field: "project",
+              values: selectedProjects,
+              operator: "" as const,
+              negated: false,
+            },
+          ]
+        : [],
+    [selectedProjects],
+  );
+
+  const handleProjectUpdateQuery = (f: SyntaxFilter) => {
+    const project = f.values[0];
+    if (!project) return;
+    setSelectedProjects((prev) =>
+      prev.includes(project)
+        ? prev.filter((x) => x !== project)
+        : [...prev, project],
+    );
+  };
 
   const filteredLearnings = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -275,24 +317,11 @@ const SavedLearningsList: FC<{
     return (
       <>
         <EmptyState
-          title="No saved learnings yet"
-          description="Use the Experiment Results tab to find common patterns across your experiments, save what you want to keep, or write one from scratch."
+          title="No saved Learnings yet"
+          description="Use the Experiment Library tab to find common patterns across your experiments, save what you want to keep, or write one from scratch."
           rightButton={null}
-          leftButton={
-            <Button onClick={() => setShowNew(true)}>New saved learning</Button>
-          }
+          leftButton={null}
         />
-        {showNew && (
-          <EditLearningModal
-            experiments={experiments}
-            defaultProjects={newLearningProjects}
-            close={() => setShowNew(false)}
-            onSaved={() => {
-              setShowNew(false);
-              mutate();
-            }}
-          />
-        )}
       </>
     );
   }
@@ -304,9 +333,6 @@ const SavedLearningsList: FC<{
           <Callout status="error">{error}</Callout>
         </Box>
       )}
-      <Flex justify="end" mb="3">
-        <Button onClick={() => setShowNew(true)}>New saved learning</Button>
-      </Flex>
       <Box mb="4">
         <Flex align="center" gap="3" justify="between" mb="3" wrap="wrap">
           <Flex align="center" gap="4" flexGrow="1" style={{ maxWidth: "60%" }}>
@@ -340,6 +366,17 @@ const SavedLearningsList: FC<{
                 updateQuery={handleStatusUpdateQuery}
               />
             )}
+            {projectFilterItems.length > 0 && (
+              <FilterDropdown
+                filter="project"
+                heading="Projects"
+                items={projectFilterItems}
+                syntaxFilters={projectSyntaxFilters}
+                open={openFilter}
+                setOpen={setOpenFilter}
+                updateQuery={handleProjectUpdateQuery}
+              />
+            )}
           </Flex>
           <Flex align="center" gap="4" style={{ fontSize: "0.8rem" }}>
             <Flex align="center">
@@ -365,17 +402,6 @@ const SavedLearningsList: FC<{
           </Flex>
         </Flex>
         <Flex gap="3" wrap="wrap" align="end">
-          {projectOptions.length > 0 && (
-            <Box style={{ minWidth: 200, flexGrow: 1, maxWidth: 360 }}>
-              <MultiSelectField
-                label="Projects"
-                placeholder="All projects"
-                value={selectedProjects}
-                options={projectOptions}
-                onChange={setSelectedProjects}
-              />
-            </Box>
-          )}
           {anyFilterActive && (
             <Box>
               <Button
@@ -467,24 +493,31 @@ const SavedLearningsList: FC<{
                     })()}
                 </Flex>
                 {allowManage && (
-                  <Flex gap="1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setPendingEdit(learning)}
-                      aria-label="Edit learning"
-                    >
-                      <PiPencilSimple />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
+                  <DropdownMenu
+                    trigger={
+                      <IconButton
+                        variant="ghost"
+                        color="gray"
+                        radius="full"
+                        size="2"
+                        highContrast
+                        aria-label="Learning actions"
+                      >
+                        <BsThreeDotsVertical size={16} />
+                      </IconButton>
+                    }
+                    menuPlacement="end"
+                  >
+                    <DropdownMenuItem onClick={() => setPendingEdit(learning)}>
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      color="red"
                       onClick={() => setPendingDelete(learning)}
-                      aria-label="Delete learning"
                     >
-                      <PiTrash />
-                    </Button>
-                  </Flex>
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenu>
                 )}
               </Flex>
               <Box mb="3">
@@ -560,7 +593,7 @@ const SavedLearningsList: FC<{
                   experimentMap={experimentMap}
                 />
                 <ExperimentChips
-                  label="Contrary evidence"
+                  label="Contradicting experiments"
                   experimentIds={learning.contradictingExperimentIds || []}
                   experimentMap={experimentMap}
                   variant="contrary"
@@ -585,17 +618,6 @@ const SavedLearningsList: FC<{
           close={() => setPendingEdit(null)}
           onSaved={() => {
             setPendingEdit(null);
-            mutate();
-          }}
-        />
-      )}
-      {showNew && (
-        <EditLearningModal
-          experiments={experiments}
-          defaultProjects={newLearningProjects}
-          close={() => setShowNew(false)}
-          onSaved={() => {
-            setShowNew(false);
             mutate();
           }}
         />
