@@ -321,7 +321,7 @@ const SavedLearningsList: FC<{
     return (
       <>
         <EmptyState
-          title="No saved Learnings yet"
+          title="No Learnings yet"
           description="Use the Experiment Library tab to find common patterns across your experiments, save what you want to keep, or write one from scratch."
           rightButton={null}
           leftButton={null}
@@ -342,7 +342,7 @@ const SavedLearningsList: FC<{
           <Flex align="center" gap="4" flexGrow="1" style={{ maxWidth: "60%" }}>
             <Box flexGrow="1">
               <Field
-                placeholder="Search saved learnings..."
+                placeholder="Search Learnings..."
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -429,7 +429,7 @@ const SavedLearningsList: FC<{
       {filteredLearnings.length === 0 ? (
         <Box py="4">
           <Text color="text-mid" as="div">
-            No saved learnings match your filters.
+            No Learnings match your filters.
           </Text>
         </Box>
       ) : null}

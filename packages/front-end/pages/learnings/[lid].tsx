@@ -87,7 +87,7 @@ const LearningPage = (): React.ReactElement => {
       <Box mb="3">
         <Link href="/learnings#saved">
           <Flex align="center" gap="1" display="inline-flex">
-            <PiArrowLeft /> Saved Learnings
+            <PiArrowLeft /> Learnings
           </Flex>
         </Link>
       </Box>

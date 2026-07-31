@@ -183,7 +183,7 @@ const LearningsPage = (): React.ReactElement => {
               <TabsList>
                 <TabsTrigger value="results">Experiment Library</TabsTrigger>
                 <TabsTrigger value="saved">
-                  Saved Learnings
+                  Learnings
                   {learnings.length > 0 ? ` (${learnings.length})` : ""}
                 </TabsTrigger>
               </TabsList>

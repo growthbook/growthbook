@@ -151,7 +151,7 @@ const RefreshLearningsModal: FC<{
             <Text size="medium" color="text-mid">
               {isSingle
                 ? "Checking this Learning against recently stopped experiments..."
-                : "Checking saved Learnings against recently stopped experiments..."}
+                : "Checking Learnings against recently stopped experiments..."}
             </Text>
           </Flex>
         )}
