@@ -1,6 +1,6 @@
 import React, { FC, useState } from "react";
 import { FaShippingFast } from "react-icons/fa";
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import clsx from "clsx";
 import { date, datetime } from "shared/dates";
 import {
@@ -296,15 +296,14 @@ const ExperimentWithMetricsTable: FC<Props> = ({
             key={`var-experiment${e.id}-variation${e.variationIndex}`}
             align="center"
             gap="1"
-            className="my-1"
+            my="1"
           >
-            <Box style={{ maxWidth: 200 }} minWidth="0">
-              <VariationLabel
-                number={e.variationIndex}
-                name={e.variationName}
-                size="medium"
-              />
-            </Box>
+            <VariationLabel
+              number={e.variationIndex}
+              name={e.variationName}
+              size="medium"
+              maxWidth="220px"
+            />
             {e.shipped ? (
               <Tooltip body={"Variation marked as the winner"}>
                 <FaShippingFast />

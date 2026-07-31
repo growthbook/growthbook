@@ -47,7 +47,7 @@ export default function ExperimentImpactTab({
           anyNullImpact = true;
         }
         variations.push(
-          <Box key={`var-experiment${ei}-variation${i}`} className="my-1">
+          <Box key={`var-experiment${ei}-variation${i}`} my="1">
             <VariationLabel
               number={i}
               name={v.name}

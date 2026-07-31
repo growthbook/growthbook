@@ -141,7 +141,7 @@ export default function BaselineChooserColumnLabel({
           <VariationLabel
             number={variation.index}
             name={variation.name}
-            maxWidth={200}
+            maxWidth="200px"
           />
         </DropdownMenuItem>
       );
