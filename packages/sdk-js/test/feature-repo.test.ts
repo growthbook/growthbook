@@ -1200,6 +1200,35 @@ describe("feature-repo", () => {
     cleanup();
   });
 
+  it("ignores a pollingInterval past the max setTimeout delay", async () => {
+    const [f, cleanup] = mockApi(
+      { features: { foo: { defaultValue: "initial" } } },
+      false,
+      0,
+    );
+    const warn = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    // Overflows setTimeout's signed 32-bit delay, which collapses to 1ms - so this
+    // would poll continuously rather than once a month
+    await growthbook.init({ pollingInterval: 2147483648 });
+
+    await sleep(80);
+    expect(f.mock.calls.length).toEqual(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("Ignoring invalid pollingInterval"),
+    );
+
+    warn.mockRestore();
+    growthbook.destroy();
+    cleanup();
+  });
+
   it("keeps polling when SSE is advertised but the stream never connects", async () => {
     const features = { foo: { defaultValue: "initial" } };
     // Advertises SSE support, but no MockEvent is registered for the /sub/ URL, so the

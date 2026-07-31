@@ -615,11 +615,11 @@ function destroyChannel(channel: ScopedChannel, key: string) {
 
 // Refresh on a fixed interval. Deduped per key, so many instances sharing a clientKey poll once.
 function startPolling(key: string, interval: number): void {
-  // Every invalid delay (negative, NaN, Infinity, sub-millisecond) is clamped to 1ms by
-  // setTimeout, which would turn a typo into a request loop
-  if (!Number.isFinite(interval) || interval < 1) {
+  // setTimeout collapses any out-of-range delay to 1ms - negative, NaN, Infinity,
+  // sub-millisecond, or past its signed 32-bit max - turning a typo into a request loop
+  if (!Number.isFinite(interval) || interval < 1 || interval > 2147483647) {
     console.warn(
-      `[GrowthBook] Ignoring invalid pollingInterval (${interval}). Expected a finite number of milliseconds >= 1.`,
+      `[GrowthBook] Ignoring invalid pollingInterval (${interval}). Expected a finite number of milliseconds between 1 and 2147483647.`,
     );
     return;
   }
