@@ -34,6 +34,10 @@ import EditLearningModal from "./EditLearningModal";
 import RefreshLearningsModal from "./RefreshLearningsModal";
 import ExperimentChips from "./ExperimentChips";
 
+// Sentinel for the "(No status)" bucket. Status ids are either the built-in
+// slugs or uniqid("lrnst_"), so this can't collide with a real id.
+const NO_STATUS_FILTER_VALUE = "none";
+
 const SavedLearningsList: FC<{
   learnings: LearningWithCanManage[];
   experiments: ExperimentInterfaceStringDates[];
@@ -101,8 +105,10 @@ const SavedLearningsList: FC<{
     filterResults,
     searchTermFilters: {
       tag: (i) => i.tags || [],
-      // "" is the no-status bucket, so it stays filterable as `status:""`
-      status: (i) => i.status || "",
+      // An empty status can't round-trip as a search token (`status:` has
+      // nothing after the colon and won't parse back), so the no-status
+      // bucket is addressed by the NO_STATUS_FILTER_VALUE sentinel.
+      status: (i) => i.status || NO_STATUS_FILTER_VALUE,
       project: (i) => i.projects || [],
       source: (i) => i.source,
     },
@@ -194,7 +200,7 @@ const SavedLearningsList: FC<{
           </span>
         </Flex>
       ),
-      searchValue: "",
+      searchValue: NO_STATUS_FILTER_VALUE,
     });
     return items;
   }, [learningStatuses, statusCounts]);
