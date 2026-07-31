@@ -4863,27 +4863,8 @@ export async function deleteFeatureRule(
     }
   }
 
-  if (rule.type === "contextual-bandit-ref" && rule.contextualBanditId) {
-    // syncFeatureContextualBanditLinkages reaches the same conclusion, but it is
-    // fire-and-forget; doing it inline keeps the response consistent with what
-    // the caller just deleted (same as experiment-ref above).
-    await context.models.contextualBandits.removePendingFeatureDraft(
-      rule.contextualBanditId,
-      feature.id,
-      revision.version,
-    );
-    const stillLive = (feature.rules ?? []).some(
-      (r) =>
-        r.type === "contextual-bandit-ref" &&
-        r.contextualBanditId === rule.contextualBanditId,
-    );
-    if (!stillLive) {
-      await context.models.contextualBandits.removeLinkedFeature(
-        rule.contextualBanditId,
-        feature.id,
-      );
-    }
-  }
+  // No contextual-bandit-ref branch to match the one above: the revision write
+  // reconciles bandit linkage off the remaining rules before returning.
 
   res.status(200).json({
     status: 200,

@@ -38,8 +38,11 @@ import {
   restoreFeatureRevisionAfterFailedBulkPublish,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
+  applyFeatureContextualBanditLinkage,
+  ContextualBanditLinkagePlan,
+  planFeatureContextualBanditLinkage,
   referencesAnyContextualBandit,
-  syncFeatureContextualBanditLinkages,
+  reverseFeatureContextualBanditLinkage,
 } from "back-end/src/util/featureContextualBanditSync";
 import { getMergeResultPublishEnvs } from "back-end/src/services/features";
 import {
@@ -98,6 +101,8 @@ type FeatureDesiredState = {
    */
   holdoutLinkage?: HoldoutLinkagePreImage | null;
   holdoutExperimentLinkage?: HoldoutExperimentLinkagePlan[];
+  /** Same contract as `holdoutExperimentLinkage`: captured pre-mutation, null when there is nothing to write. */
+  contextualBanditLinkage?: ContextualBanditLinkagePlan | null;
 };
 
 function toRef(revision: FeatureRevisionInterface): BulkRevisionRef {
@@ -374,6 +379,26 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       mergeResult.rules ?? feature.rules ?? [],
     );
 
+    // Also pre-mutation, so compensation has a pre-image to converge on. Rules
+    // on either side matter: one adding a bandit rule links the feature, one
+    // removing the last of them unlinks it.
+    if (
+      referencesAnyContextualBandit(feature.rules) ||
+      referencesAnyContextualBandit(mergeResult.rules)
+    ) {
+      const { openDrafts } = await getLinkageSyncRevisionSummaries(
+        raw.organization,
+        raw.featureId,
+      );
+      desired.contextualBanditLinkage =
+        await planFeatureContextualBanditLinkage(
+          context,
+          raw.featureId,
+          openDrafts.filter((d) => d.version !== raw.version),
+          mergeResult.rules ?? feature.rules ?? [],
+        );
+    }
+
     // Ramp `create` actions run BEFORE the feature write: a schedule-creation
     // failure gates the publish, and the ids are stashed for compensation.
     desired.createdRampScheduleIds = await applyRampCreateActionsForRevision(
@@ -438,6 +463,13 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
 
     for (const plan of desired.holdoutExperimentLinkage ?? []) {
       await applyHoldoutExperimentLinkage(context, plan);
+    }
+
+    if (desired.contextualBanditLinkage) {
+      await applyFeatureContextualBanditLinkage(
+        context,
+        desired.contextualBanditLinkage,
+      );
     }
   },
 
@@ -519,6 +551,22 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       }
     }
     assertNoReversalFailures();
+
+    if (desired.contextualBanditLinkage) {
+      try {
+        await reverseFeatureContextualBanditLinkage(
+          context,
+          desired.contextualBanditLinkage,
+        );
+      } catch (e) {
+        reversalFailures.push("contextual bandit linkage");
+        logger.error(
+          e,
+          `bulk publish compensation: failed to reverse contextual bandit linkage for feature ${feature.id}`,
+        );
+      }
+      assertNoReversalFailures();
+    }
 
     if (desired.holdoutLinkage) {
       try {
@@ -653,28 +701,6 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         raw.rules,
       ),
     );
-
-    // This adapter mirrors `publishRevision` rather than calling it, so the
-    // bandit linkage sync it runs on publish has to be mirrored too — otherwise
-    // a bandit rule released here stays filed as a pending draft.
-    if (
-      referencesAnyContextualBandit(feature.rules) ||
-      referencesAnyContextualBandit(updated.rules)
-    ) {
-      await bestEffort("contextual bandit linkage sync", async () => {
-        const { openDrafts, liveRevision } =
-          await getLinkageSyncRevisionSummaries(
-            raw.organization,
-            raw.featureId,
-          );
-        await syncFeatureContextualBanditLinkages(
-          context,
-          raw.featureId,
-          openDrafts,
-          liveRevision,
-        );
-      });
-    }
 
     if (
       desired.mergeResult.metadata?.tags !== undefined &&
