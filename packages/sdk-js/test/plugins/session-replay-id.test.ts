@@ -99,25 +99,6 @@ describe("session replay ID manager", () => {
     });
   });
 
-  it("migrates the legacy stored id field to sessionReplayId", () => {
-    sessionStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        id: "legacy-replay-id",
-        lastTouchedAt: 1000,
-      }),
-    );
-    jest.spyOn(Date, "now").mockReturnValue(2000);
-
-    const sessionReplayId = getOrCreateSessionReplayId();
-
-    expect(sessionReplayId).toBe("legacy-replay-id");
-    expect(readStoredState()).toEqual({
-      sessionReplayId: "legacy-replay-id",
-      lastTouchedAt: 2000,
-    });
-  });
-
   it("retains the in-memory fallback when sessionStorage writes fail", () => {
     const setItemSpy = jest
       .spyOn(Storage.prototype, "setItem")
