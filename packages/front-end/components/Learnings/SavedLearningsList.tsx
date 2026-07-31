@@ -517,6 +517,11 @@ const SavedLearningsList: FC<{
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       disabled={!aiEnabled}
+                      tooltip={
+                        aiEnabled
+                          ? "Re-checks this Learning against experiments that finished since it was last reviewed, and suggests updated wording plus any new supporting or contradicting experiments. Nothing changes until you review and apply."
+                          : "AI features are not enabled for this organization."
+                      }
                       onClick={() => setPendingRefresh(learning)}
                     >
                       Refresh against newer experiments

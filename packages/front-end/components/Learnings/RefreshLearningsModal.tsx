@@ -191,52 +191,60 @@ const RefreshLearningsModal: FC<{
                     background: "var(--color-panel-solid)",
                   }}
                 >
-                  <Flex align="start" gap="3" mb="2">
+                  {/* Checkbox sits in a left gutter; everything else is a
+                      single column aligned to the right of it. */}
+                  <Flex align="start" gap="3">
                     <Checkbox
                       value={s.selected}
                       setValue={() => toggle(i)}
-                      label={
-                        <Heading as="h4" size="medium" mb="0">
-                          {s.suggestion.title}
-                        </Heading>
-                      }
                       mb="0"
+                      aria-label={`Select ${s.suggestion.title}`}
                     />
-                  </Flex>
-                  {!s.suggestion.stillAccurate && (
-                    <Box mb="3">
-                      <Callout status="warning" size="sm">
-                        New evidence contradicts this Learning.
-                      </Callout>
+                    <Box flexGrow="1" style={{ minWidth: 0 }}>
+                      <Heading as="h4" size="medium" mb="2">
+                        {s.suggestion.title}
+                      </Heading>
+                      {!s.suggestion.stillAccurate && (
+                        <Box mb="3">
+                          <Callout status="warning" size="sm">
+                            New evidence contradicts this Learning.
+                          </Callout>
+                        </Box>
+                      )}
+                      {s.suggestion.summary && (
+                        <Box mb="3">
+                          <Text size="medium" color="text-mid" as="div">
+                            {s.suggestion.summary}
+                          </Text>
+                        </Box>
+                      )}
+                      {s.suggestion.updatedText !==
+                        s.suggestion.currentText && (
+                        <Box mb="3">
+                          <Text size="small" weight="semibold" color="text-mid">
+                            Updated description
+                          </Text>
+                          <Markdown>{s.suggestion.updatedText}</Markdown>
+                        </Box>
+                      )}
+                      <Flex direction="column" gap="3">
+                        <ExperimentChips
+                          label="New supporting experiments"
+                          experimentIds={
+                            s.suggestion.newSupportingExperimentIds
+                          }
+                          experimentMap={experimentMap}
+                        />
+                        <ExperimentChips
+                          label="New contradicting experiments"
+                          experimentIds={
+                            s.suggestion.newContradictingExperimentIds
+                          }
+                          experimentMap={experimentMap}
+                          variant="contrary"
+                        />
+                      </Flex>
                     </Box>
-                  )}
-                  {s.suggestion.summary && (
-                    <Box mb="3">
-                      <Text size="medium" color="text-mid" as="div">
-                        {s.suggestion.summary}
-                      </Text>
-                    </Box>
-                  )}
-                  {s.suggestion.updatedText !== s.suggestion.currentText && (
-                    <Box mb="3">
-                      <Text size="small" weight="semibold" color="text-mid">
-                        Updated description
-                      </Text>
-                      <Markdown>{s.suggestion.updatedText}</Markdown>
-                    </Box>
-                  )}
-                  <Flex direction="column" gap="3">
-                    <ExperimentChips
-                      label="New supporting experiments"
-                      experimentIds={s.suggestion.newSupportingExperimentIds}
-                      experimentMap={experimentMap}
-                    />
-                    <ExperimentChips
-                      label="New contradicting experiments"
-                      experimentIds={s.suggestion.newContradictingExperimentIds}
-                      experimentMap={experimentMap}
-                      variant="contrary"
-                    />
                   </Flex>
                 </Box>
               ))}

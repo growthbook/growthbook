@@ -18,6 +18,7 @@ import EmptyState from "@/components/EmptyState";
 import LinkButton from "@/ui/LinkButton";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import { useExperimentSearch, experimentDate } from "@/services/experiments";
 import useApi from "@/hooks/useApi";
@@ -145,18 +146,21 @@ const LearningsPage = (): React.ReactElement => {
             {allStoppedExperiments.length > 0 && (
               <Flex gap="2" align="center">
                 {learnings.length > 0 && (
-                  <Button
-                    variant="outline"
-                    disabled={!aiEnabled}
-                    title={
+                  <Tooltip
+                    body={
                       aiEnabled
-                        ? undefined
-                        : "AI features are not enabled for this organization"
+                        ? "Re-checks each saved Learning against experiments that finished since it was last reviewed, and suggests updated wording plus any new supporting or contradicting experiments. Nothing changes until you review and apply."
+                        : "AI features are not enabled for this organization. An admin can enable them in General Settings."
                     }
-                    onClick={() => setRefreshOpen(true)}
                   >
-                    <PiArrowsClockwise /> Refresh Learnings
-                  </Button>
+                    <Button
+                      variant="outline"
+                      disabled={!aiEnabled}
+                      onClick={() => setRefreshOpen(true)}
+                    >
+                      <PiArrowsClockwise /> Refresh Learnings
+                    </Button>
+                  </Tooltip>
                 )}
                 <Button onClick={() => setShowNewLearning(true)}>
                   New Learning
