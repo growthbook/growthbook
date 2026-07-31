@@ -500,7 +500,7 @@ describe("snapshot planning", () => {
     expect(
       context.models.incrementalRefresh.getLegacyByExperimentIdWithoutPhase,
     ).toHaveBeenCalledWith("exp_123");
-    expect(plan.runnerKind).toBe("incremental");
+    expect(plan.snapshot.runnerKind).toBe("incremental-update");
     expect(plan.fullRefresh).toBe(false);
     expect(plan.fullRefreshReason).toBeNull();
   });
@@ -547,7 +547,7 @@ describe("snapshot planning", () => {
     expect(
       context.models.incrementalRefresh.getLegacyByExperimentIdWithoutPhase,
     ).toHaveBeenCalledWith("exp_123");
-    expect(plan.runnerKind).toBe("incremental");
+    expect(plan.snapshot.runnerKind).toBe("incremental-full");
     expect(plan.fullRefresh).toBe(true);
     expect(plan.fullRefreshReason).toBe(
       "No prior Incremental Pipeline state for this experiment.",

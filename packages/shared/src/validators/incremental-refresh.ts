@@ -28,7 +28,7 @@ const incrementalRefresh = z
   .object({
     // Refs
     experimentId: z.string(),
-    // Legacy documents omit phase.
+    // Legacy documents don't have phase minted; but will after a refresh.
     phase: z.number().optional(),
 
     // Unit Source Settings
