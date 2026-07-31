@@ -7,7 +7,7 @@ import { LearningWithCanManage } from "shared/validators";
 import { date, getValidDate } from "shared/dates";
 import { DEFAULT_LEARNING_STATUSES } from "shared/constants";
 import useApi from "@/hooks/useApi";
-import useOrgSettings from "@/hooks/useOrgSettings";
+import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -17,6 +17,7 @@ import Markdown from "@/components/Markdown/Markdown";
 import ConfirmModal from "@/components/ConfirmModal";
 import DiscussionThread from "@/components/DiscussionThread";
 import EditLearningModal from "@/components/Learnings/EditLearningModal";
+import RefreshLearningsModal from "@/components/Learnings/RefreshLearningsModal";
 import ExperimentChips from "@/components/Learnings/ExperimentChips";
 import Badge from "@/ui/Badge";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
@@ -34,6 +35,7 @@ const LearningPage = (): React.ReactElement => {
   const { getOwnerDisplay } = useUser();
   const { getProjectById } = useDefinitions();
   const orgSettings = useOrgSettings();
+  const { aiEnabled } = useAISettings();
   const learningStatuses =
     orgSettings.learningStatuses ?? DEFAULT_LEARNING_STATUSES;
 
@@ -51,6 +53,7 @@ const LearningPage = (): React.ReactElement => {
   );
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [refreshOpen, setRefreshOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -142,6 +145,15 @@ const LearningPage = (): React.ReactElement => {
               }}
             >
               Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!aiEnabled}
+              onClick={() => {
+                setRefreshOpen(true);
+                setMenuOpen(false);
+              }}
+            >
+              Refresh against newer experiments
             </DropdownMenuItem>
             <DropdownMenuItem
               color="red"
@@ -237,6 +249,14 @@ const LearningPage = (): React.ReactElement => {
           title="Discussion"
         />
       </Box>
+      {refreshOpen && (
+        <RefreshLearningsModal
+          experiments={experiments}
+          learningIds={[learning.id]}
+          close={() => setRefreshOpen(false)}
+          onApplied={() => mutate()}
+        />
+      )}
       {editing && (
         <EditLearningModal
           learning={learning}

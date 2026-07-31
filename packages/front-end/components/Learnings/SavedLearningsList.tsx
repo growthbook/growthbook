@@ -28,8 +28,9 @@ import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import useOrgSettings from "@/hooks/useOrgSettings";
+import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import EditLearningModal from "./EditLearningModal";
+import RefreshLearningsModal from "./RefreshLearningsModal";
 import ExperimentChips from "./ExperimentChips";
 
 const SavedLearningsList: FC<{
@@ -41,6 +42,7 @@ const SavedLearningsList: FC<{
   const { getOwnerDisplay } = useUser();
   const { projects: orgProjects, getProjectById } = useDefinitions();
   const orgSettings = useOrgSettings();
+  const { aiEnabled } = useAISettings();
   const learningStatuses =
     orgSettings.learningStatuses ?? DEFAULT_LEARNING_STATUSES;
   const statusMap = useMemo(
@@ -52,6 +54,8 @@ const SavedLearningsList: FC<{
   const [pendingEdit, setPendingEdit] = useState<LearningWithCanManage | null>(
     null,
   );
+  const [pendingRefresh, setPendingRefresh] =
+    useState<LearningWithCanManage | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
@@ -512,6 +516,12 @@ const SavedLearningsList: FC<{
                       Edit
                     </DropdownMenuItem>
                     <DropdownMenuItem
+                      disabled={!aiEnabled}
+                      onClick={() => setPendingRefresh(learning)}
+                    >
+                      Refresh against newer experiments
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
                       color="red"
                       onClick={() => setPendingDelete(learning)}
                     >
@@ -611,6 +621,17 @@ const SavedLearningsList: FC<{
           );
         })}
       </Flex>
+      {pendingRefresh && (
+        <RefreshLearningsModal
+          experiments={experiments}
+          learningIds={[pendingRefresh.id]}
+          close={() => setPendingRefresh(null)}
+          onApplied={() => {
+            setPendingRefresh(null);
+            mutate();
+          }}
+        />
+      )}
       {pendingEdit && (
         <EditLearningModal
           learning={pendingEdit}

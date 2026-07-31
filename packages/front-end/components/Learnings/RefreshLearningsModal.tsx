@@ -25,9 +25,11 @@ type SuggestionState = {
  */
 const RefreshLearningsModal: FC<{
   experiments: ExperimentInterfaceStringDates[];
+  /** Limit the refresh to specific Learnings. Omit to check them all. */
+  learningIds?: string[];
   close: () => void;
   onApplied?: () => void;
-}> = ({ experiments, close, onApplied }) => {
+}> = ({ experiments, learningIds, close, onApplied }) => {
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +41,7 @@ const RefreshLearningsModal: FC<{
   } | null>(null);
 
   const experimentMap = new Map(experiments.map((e) => [e.id, e]));
+  const isSingle = learningIds?.length === 1;
 
   // Refresh is an expensive AI call — only ever fire it once per modal.
   const hasRun = useRef(false);
@@ -60,7 +63,7 @@ const RefreshLearningsModal: FC<{
           message?: string;
         }>("/learnings/refresh", {
           method: "POST",
-          body: JSON.stringify({}),
+          body: JSON.stringify(learningIds?.length ? { learningIds } : {}),
         });
         if (cancelled) return;
         if (res.status !== 200 || !res.suggestions) {
@@ -87,7 +90,7 @@ const RefreshLearningsModal: FC<{
     return () => {
       cancelled = true;
     };
-  }, [apiCall]);
+  }, [apiCall, learningIds]);
 
   function toggle(index: number) {
     setSuggestions((prev) =>
@@ -146,14 +149,18 @@ const RefreshLearningsModal: FC<{
           <Flex direction="column" align="center" gap="3" py="6">
             <LoadingSpinner />
             <Text size="medium" color="text-mid">
-              Checking saved Learnings against recently stopped experiments...
+              {isSingle
+                ? "Checking this Learning against recently stopped experiments..."
+                : "Checking saved Learnings against recently stopped experiments..."}
             </Text>
           </Flex>
         )}
         {!loading && error && <Callout status="error">{error}</Callout>}
         {!loading && !error && suggestions.length === 0 && (
           <Callout status="success">
-            All Learnings are up to date
+            {isSingle
+              ? "This Learning is up to date"
+              : "All Learnings are up to date"}
             {checked
               ? ` — checked ${checked.learnings} Learning${
                   checked.learnings === 1 ? "" : "s"
