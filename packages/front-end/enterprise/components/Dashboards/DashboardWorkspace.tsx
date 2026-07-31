@@ -705,7 +705,9 @@ export default function DashboardWorkspace({
               setBlocks={setBlocksAndSubmit}
               setStagedBlock={(block) => {
                 if (stagedInsert) {
-                  setStagedInsert({ ...stagedInsert, block });
+                  setStagedInsert(
+                    block ? { ...stagedInsert, block } : undefined,
+                  );
                 } else {
                   setStagedEditBlock(block);
                 }
