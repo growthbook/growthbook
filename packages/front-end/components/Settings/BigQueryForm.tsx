@@ -13,9 +13,10 @@ import { useCanKeepExistingCredentials } from "@/components/Forms/secretInput";
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;
   existing: boolean;
+  datasourceId?: string;
   setParams: (params: { [key: string]: string | boolean }) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
-}> = ({ params, setParams, existing, onParamChange }) => {
+}> = ({ params, setParams, existing, datasourceId, onParamChange }) => {
   const cloud = isCloud();
   const authType = cloud ? "json" : (params.authType ?? "json");
   const canKeepExistingCredentials = useCanKeepExistingCredentials(
@@ -40,6 +41,7 @@ const BigQueryForm: FC<{
             projectId: params.projectId,
             client_email: params.clientEmail,
             private_key: params.privateKey,
+            datasourceId,
           }),
         },
       );
@@ -183,7 +185,9 @@ const BigQueryForm: FC<{
             )}
             <Button
               disabled={
-                !params.projectId || !params.clientEmail || !params.privateKey
+                !params.projectId ||
+                !params.clientEmail ||
+                (!params.privateKey && !datasourceId)
               }
               color="primary"
               className="mt-2"

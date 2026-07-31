@@ -61,9 +61,11 @@ import {
 import {
   AutoFactTableSchemas,
   DataSourceInterface,
+  DataSourceType,
   DataSourceProperties,
   SchemaFormat,
 } from "shared/types/datasource";
+import type { DataSourceParamsForType } from "shared/util";
 import {
   AdditionalQueryMetadata,
   QueryType,
@@ -77,13 +79,18 @@ import { ReqContext } from "back-end/types/request";
 
 export type { MetricAnalysisParams };
 
-export interface SourceIntegrationInterface {
-  datasource: DataSourceInterface;
+type DataSourceByType = {
+  [DataSource in DataSourceInterface as DataSource["type"]]: DataSource;
+};
+
+export interface SourceIntegrationInterface<
+  T extends DataSourceType = DataSourceType,
+> {
+  datasource: DataSourceByType[T] & { type: T };
   context: ReqContext;
   additionalQueryMetadata?: AdditionalQueryMetadata;
   decryptionError: boolean;
-  // eslint-disable-next-line
-  params: any;
+  params: DataSourceParamsForType<T>;
   setAdditionalQueryMetadata?(
     additionalQueryMetadata: AdditionalQueryMetadata,
   ): void;

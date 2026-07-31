@@ -15,6 +15,11 @@ export type { EventForwarderDatasourceParams } from "./event-forwarder-datasourc
 export {
   secretParamKeys,
   redactSecretParams,
+  mergeDataSourceParams,
   isSecretDatasourceParamKey,
 } from "./datasource-params";
-export type { DataSourceParamsForType } from "./datasource-params";
+export type {
+  DataSourceParamsForType,
+  ParamClassification,
+  ParamSensitivity,
+} from "./datasource-params";

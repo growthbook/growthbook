@@ -3,30 +3,62 @@ import {
   DataSourceInterfaceWithParams,
 } from "shared/types/datasource";
 
-type ParamSensitivity = "secret" | "public";
+export type ParamSensitivity = "secret" | "public";
 
-type FieldSensitivity<V> = [NonNullable<V>] extends [string]
+type ParamScalar =
+  | string
+  | number
+  | boolean
+  | bigint
+  | symbol
+  | Date
+  | Uint8Array
+  | readonly unknown[];
+
+type FieldClassification<V> = [NonNullable<V>] extends [ParamScalar]
   ? ParamSensitivity
-  : "public";
+  : [NonNullable<V>] extends [object]
+    ? ParamClassification<NonNullable<V>>
+    : ParamSensitivity;
 
-type ParamClassification<T> = {
-  [K in keyof T]-?: FieldSensitivity<T[K]>;
+export type ParamClassification<T> = {
+  [K in keyof T]-?: FieldClassification<T[K]>;
 };
 
-export type DataSourceParamsForType<T extends DataSourceType> = Extract<
-  DataSourceInterfaceWithParams,
-  { type: T }
->["params"];
+type DataSourceParamsByType = {
+  [DataSource in DataSourceInterfaceWithParams as DataSource["type"]]: DataSource["params"];
+};
+
+export type DataSourceParamsForType<T extends DataSourceType> =
+  DataSourceParamsByType[T];
+
+type RedactedValue<Value, Classification> = Classification extends "secret"
+  ? ""
+  : Classification extends "public"
+    ? Value
+    : Classification extends object
+      ? Value extends object
+        ? RedactedObject<Value, Classification>
+        : Record<string, never>
+      : never;
+
+type RedactedObject<Params, Classification> = {
+  [Key in keyof Params as Key extends keyof Classification
+    ? Key
+    : never]: Key extends keyof Classification
+    ? RedactedValue<Params[Key], Classification[Key]>
+    : never;
+};
 
 type RedactedParams<T extends DataSourceType, P> = 0 extends 1 & P
   ? P
-  : Pick<P, Extract<keyof P, keyof DataSourceParamsForType<T>>>;
+  : P extends object
+    ? RedactedObject<P, ParamClassification<DataSourceParamsForType<T>>>
+    : Record<string, never>;
 
 // Postgres, Redshift, and Vertica share PostgresConnectionParams.
 // Feel free to split them out if needed.
-const POSTGRES_FAMILY: ParamClassification<
-  DataSourceParamsForType<"postgres">
-> = {
+const POSTGRES_FAMILY = {
   user: "public",
   host: "public",
   database: "public",
@@ -37,12 +69,10 @@ const POSTGRES_FAMILY: ParamClassification<
   caCert: "secret",
   clientCert: "secret",
   clientKey: "secret",
-};
+} satisfies ParamClassification<DataSourceParamsForType<"postgres">>;
 
 // Shared by self-hosted `clickhouse` and `growthbook_clickhouse`.
-const CLICKHOUSE_FAMILY: ParamClassification<
-  DataSourceParamsForType<"clickhouse">
-> = {
+const CLICKHOUSE_FAMILY = {
   host: "public",
   url: "public",
   port: "public",
@@ -51,11 +81,9 @@ const CLICKHOUSE_FAMILY: ParamClassification<
   password: "secret",
   database: "public",
   maxExecutionTime: "public",
-};
+} satisfies ParamClassification<DataSourceParamsForType<"clickhouse">>;
 
-const DATA_SOURCE_PARAM_SENSITIVITY: {
-  [T in DataSourceType]: ParamClassification<DataSourceParamsForType<T>>;
-} = {
+const DATA_SOURCE_PARAM_SENSITIVITY = {
   postgres: POSTGRES_FAMILY,
   redshift: POSTGRES_FAMILY,
   vertica: POSTGRES_FAMILY,
@@ -83,7 +111,10 @@ const DATA_SOURCE_PARAM_SENSITIVITY: {
     port: "public",
     defaultSchema: "public",
     requestTimeout: "public",
-    options: "public",
+    options: {
+      encrypt: "public",
+      trustServerCertificate: "public",
+    },
   },
 
   bigquery: {
@@ -176,10 +207,18 @@ const DATA_SOURCE_PARAM_SENSITIVITY: {
     viewId: "public",
     delimiter: "public",
   },
+} satisfies {
+  [T in DataSourceType]: ParamClassification<DataSourceParamsForType<T>>;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function redactValue(value: unknown, classification: unknown): unknown {
+  if (classification === "secret") return "";
+  if (classification === "public") return value;
+  return redactRecord(value, classification);
 }
 
 function redactRecord(params: unknown, classification: unknown): unknown {
@@ -187,17 +226,20 @@ function redactRecord(params: unknown, classification: unknown): unknown {
 
   const redacted: Record<string, unknown> = {};
   Object.entries(params).forEach(([key, value]) => {
-    const sensitivity = classification[key];
-    if (sensitivity === "secret") {
-      redacted[key] = "";
-    } else if (sensitivity === "public") {
-      redacted[key] = value;
+    if (!(key in classification)) return;
+
+    const redactedValue = redactValue(value, classification[key]);
+    if (redactedValue !== undefined) {
+      redacted[key] = redactedValue;
     }
-    // Unclassified keys are dropped so stale stored fields cannot reach a client.
   });
   return redacted;
 }
 
+export function redactSecretParams<T extends DataSourceType>(
+  type: T,
+  params: DataSourceParamsForType<T>,
+): DataSourceParamsForType<T>;
 export function redactSecretParams<
   T extends DataSourceType,
   P extends Partial<DataSourceParamsForType<T>>,
@@ -209,10 +251,61 @@ export function redactSecretParams(
   return redactRecord(params, DATA_SOURCE_PARAM_SENSITIVITY[type]);
 }
 
+function mergeRecord(
+  existing: unknown,
+  updates: unknown,
+  classification: unknown,
+): Record<string, unknown> {
+  const merged = isRecord(existing) ? { ...existing } : {};
+  if (!isRecord(updates) || !isRecord(classification)) return merged;
+
+  Object.entries(updates).forEach(([key, value]) => {
+    if (!(key in classification)) return;
+
+    const sensitivity = classification[key];
+    if (sensitivity === "secret") {
+      if (value) merged[key] = value;
+      return;
+    }
+    if (sensitivity === "public") {
+      merged[key] = value;
+      return;
+    }
+    merged[key] = mergeRecord(merged[key], value, sensitivity);
+  });
+
+  return merged;
+}
+
+export function mergeDataSourceParams<T extends DataSourceType>(
+  type: T,
+  existing: DataSourceParamsForType<T>,
+  updates: Partial<DataSourceParamsForType<T>>,
+): DataSourceParamsForType<T>;
+export function mergeDataSourceParams(
+  type: DataSourceType,
+  existing: unknown,
+  updates: unknown,
+): Record<string, unknown>;
+export function mergeDataSourceParams(
+  type: DataSourceType,
+  existing: unknown,
+  updates: unknown,
+): unknown {
+  return mergeRecord(existing, updates, DATA_SOURCE_PARAM_SENSITIVITY[type]);
+}
+
 function secretKeysOf(classification: object): string[] {
   return Object.entries(classification)
     .filter(([, sensitivity]) => sensitivity === "secret")
     .map(([key]) => key);
+}
+
+function allSecretKeyNames(classification: object): string[] {
+  return Object.entries(classification).flatMap(([key, sensitivity]) => {
+    if (sensitivity === "secret") return [key];
+    return isRecord(sensitivity) ? allSecretKeyNames(sensitivity) : [];
+  });
 }
 
 /** Param keys that `redactSecretParams` blanks for this datasource type. */
@@ -221,7 +314,7 @@ export function secretParamKeys(type: DataSourceType): string[] {
 }
 
 const SECRET_PARAM_KEYS = new Set(
-  Object.values(DATA_SOURCE_PARAM_SENSITIVITY).flatMap(secretKeysOf),
+  Object.values(DATA_SOURCE_PARAM_SENSITIVITY).flatMap(allSecretKeyNames),
 );
 
 // Names from untyped config files that predate the current interfaces.

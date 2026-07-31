@@ -1,5 +1,6 @@
 import {
   isSecretDatasourceParamKey,
+  mergeDataSourceParams,
   redactSecretParams,
   secretParamKeys,
 } from "shared/util";
@@ -50,11 +51,16 @@ describe("redactSecretParams", () => {
     expect(redacted).toEqual({ host: "db.example.com", password: "" });
   });
 
-  it("passes public object params through", () => {
+  it("recursively passes classified object params through and drops unknown fields", () => {
     const redacted = redactSecretParams("mssql", {
       server: "sql.example.com",
       password: "hunter2",
-      options: { encrypt: true, trustServerCertificate: false },
+      anotherNotSpecifiedParam: "this should be dropped",
+      options: {
+        encrypt: true,
+        trustServerCertificate: false,
+        accessToken: "must be dropped",
+      },
     });
 
     expect(redacted).toEqual({
@@ -71,6 +77,33 @@ describe("redactSecretParams", () => {
   });
 });
 
+describe("mergeDataSourceParams", () => {
+  it("preserves unsubmitted secrets while applying classified nested updates", () => {
+    const merged = mergeDataSourceParams(
+      "mssql",
+      {
+        server: "sql.example.com",
+        password: "stored password",
+        options: { encrypt: true, trustServerCertificate: false },
+      },
+      {
+        password: "",
+        options: {
+          encrypt: false,
+          trustServerCertificate: true,
+          accessToken: "must be dropped",
+        },
+      },
+    );
+
+    expect(merged).toEqual({
+      server: "sql.example.com",
+      password: "stored password",
+      options: { encrypt: false, trustServerCertificate: true },
+    });
+  });
+});
+
 describe("secretParamKeys", () => {
   it("lists the credential keys for a type", () => {
     expect(secretParamKeys("presto").sort()).toEqual([
@@ -82,9 +115,7 @@ describe("secretParamKeys", () => {
     ]);
   });
 
-  // `FieldSensitivity` forces any non-string param to "public", so an object
-  // param can never be classified secret regardless of what it holds.
-  it("omits an object param", () => {
+  it("only lists top-level credential keys", () => {
     expect(secretParamKeys("mssql")).toEqual(["password"]);
   });
 });

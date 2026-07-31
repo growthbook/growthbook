@@ -10,6 +10,7 @@ import {
 import {
   DataSourceInterface,
   DataSourceParams,
+  DataSourceType,
   ExposureQuery,
   FeatureUsageQuery,
 } from "shared/types/datasource";
@@ -18,8 +19,9 @@ import { FeatureInterface } from "shared/types/feature";
 import { QueryStatistics, QueryType } from "shared/types/query";
 import {
   formatQueryExecutionErrorForApi,
+  DataSourceParamsForType,
+  mergeDataSourceParams,
   redactSecretParams,
-  secretParamKeys,
 } from "shared/util";
 import { determineColumnTypes } from "back-end/src/util/sql";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
@@ -56,20 +58,21 @@ export function encryptParams(params: DataSourceParams): string {
   return AES.encrypt(JSON.stringify(params), ENCRYPTION_KEY).toString();
 }
 
-export function getNonSensitiveParams(integration: SourceIntegrationInterface) {
-  return redactSecretParams(integration.datasource.type, integration.params);
+export function getNonSensitiveParams<T extends DataSourceType>(
+  integration: SourceIntegrationInterface<T>,
+): DataSourceParamsForType<T> {
+  return redactSecretParams<T>(integration.datasource.type, integration.params);
 }
 
-export function mergeParams(
-  integration: SourceIntegrationInterface,
-  newParams: Partial<DataSourceParams>,
+export function mergeParams<T extends DataSourceType>(
+  integration: SourceIntegrationInterface<T>,
+  newParams: Partial<DataSourceParamsForType<T>>,
 ) {
-  const secretKeys = secretParamKeys(integration.datasource.type);
-  (Object.keys(newParams) as (keyof DataSourceParams)[]).forEach((k) => {
-    // If a secret value is left empty, keep the original value
-    if (secretKeys.includes(k) && !newParams[k]) return;
-    integration.params[k] = newParams[k];
-  });
+  integration.params = mergeDataSourceParams<T>(
+    integration.datasource.type,
+    integration.params,
+    newParams,
+  );
 }
 
 function getIntegrationObj(
@@ -124,6 +127,11 @@ export async function getIntegrationFromDatasourceId(
   );
 }
 
+export function getSourceIntegrationObject<D extends DataSourceInterface>(
+  context: ReqContext | ApiReqContext,
+  datasource: D,
+  throwOnDecryptionError?: boolean,
+): SourceIntegrationInterface<D["type"]>;
 export function getSourceIntegrationObject(
   context: ReqContext | ApiReqContext,
   datasource: DataSourceInterface,
