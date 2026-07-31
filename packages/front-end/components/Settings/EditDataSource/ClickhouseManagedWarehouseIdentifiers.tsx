@@ -150,9 +150,12 @@ export default function ClickhouseManagedWarehouseIdentifiers({
           </Select>
           {idAttributeIdentifier === "user_id" ? (
             <HelperText status="warning" mt="1">
-              Applies to Ingestion API events only&mdash;SDKs using the tracking
-              plugin always fold <code>id</code> into <code>device_id</code> on
-              the client, out of reach of this setting.
+              <span>
+                Applies to Ingestion API events only&mdash;SDKs using the
+                tracking plugin always fold <code>id</code> into{" "}
+                <code>device_id</code> on the client, out of reach of this
+                setting.
+              </span>
             </HelperText>
           ) : null}
         </Box>
