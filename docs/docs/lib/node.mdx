@@ -253,7 +253,16 @@ await gbClient.init({ streaming: true });
 
 :::caution
 
-`setPolyfills({ EventSource: require("eventsource") })` (without destructuring) works only on `eventsource` v2 and below. On v3+ it passes the module object rather than the constructor, which prevents streaming from starting. If streaming is enabled but features never update, check this first — the SDK logs a warning when it detects that streaming could not be started.
+Which import form you need depends on the `eventsource` version you have installed. The snippet above is for v3 and up, which is what a fresh `npm install eventsource` gives you:
+
+| `eventsource`                                    | Import                                           |
+| ------------------------------------------------ | ------------------------------------------------ |
+| v3 and up (v3 needs Node 18+, v4 needs Node 20+) | `const { EventSource } = require("eventsource")` |
+| v2 and below                                     | `const EventSource = require("eventsource")`     |
+
+v3.0.0 moved the constructor from the default export to a named export. Using the wrong form for your version passes the module object rather than the constructor, which prevents streaming from starting — and the two forms fail in opposite directions, so match the form to the version you actually have rather than copying whichever one you saw first.
+
+If streaming is enabled but features never update, check this before anything else — the SDK logs a warning naming the reason whenever it detects that streaming could not be started.
 
 :::
 

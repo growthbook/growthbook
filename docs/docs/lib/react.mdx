@@ -374,6 +374,12 @@ const { EventSource } = require("eventsource");
 setPolyfills({ EventSource });
 ```
 
+:::caution
+
+The destructured form above is for `eventsource` v3 and up, which needs Node 18+ (20+ on v4). On v2 and below the constructor is the default export, so use `const EventSource = require("eventsource")` instead. Passing the module object rather than the constructor prevents streaming from starting; the SDK logs a warning when it detects this.
+
+:::
+
 And finally, you can simply pass `streaming: true` into your init calls:
 
 ```ts
