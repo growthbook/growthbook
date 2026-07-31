@@ -240,8 +240,14 @@ role editor and pick individual policies — for example **Edit** without
 
 Feature Flags, Configs and Constants share one set of policies. Create, Archive
 & delete, Publish and Revert are environment-scoped, so a role restricted to
-specific environments holds them only there. Archiving is environment-scoped;
-deleting an already-archived flag is not.
+specific environments holds them only there. Archiving is scoped to the
+environments the flag actually serves in — archiving one that is disabled
+everywhere changes no payload — and deleting an already-archived flag is not
+environment-scoped at all.
+
+Moving one of these between projects takes the permission in **both** projects:
+taking it out of a project is as much a change to that project as editing it in
+place.
 
 #### Deactivating Roles
 
