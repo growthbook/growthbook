@@ -417,14 +417,14 @@ const DataSourcePage: FC = () => {
       <Box mt="4" mb="4">
         {supportsEvents && (
           <>
-            <div className="my-5">
+            <Box my="5">
               <DataSourceViewEditExperimentProperties
                 dataSource={d}
                 onSave={updateDataSourceSettings}
                 onCancel={() => undefined}
                 canEdit={canUpdateDataSourceSettings}
               />
-            </div>
+            </Box>
 
             {d.type === "mixpanel" && (
               <div>
@@ -608,10 +608,6 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           </>
         )}
       </Box>
-      <div className="row">
-        <div className="col-md-12"></div>
-      </div>
-
       {editConn && (
         <DataSourceForm
           existing={true}

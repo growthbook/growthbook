@@ -4,19 +4,18 @@ import {
   ExposureQuery,
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
-import { FaChevronRight, FaPlus } from "react-icons/fa";
-import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import { PiCaretRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";
+import { Box, Card, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { DimensionSlicesInterface } from "shared/types/dimension";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/ui/Button";
 import { UpdateDimensionMetadataModal } from "@/components/Settings/EditDataSource/DimensionMetadata/UpdateDimensionMetadata";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { CustomDimensionMetadata } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
@@ -127,8 +126,8 @@ export const ExperimentAssignmentQueries: FC<
         </Box>
 
         <Box>
-          <Button onClick={handleAdd} disabled={!canEdit}>
-            <FaPlus className="mr-1" /> Add
+          <Button onClick={handleAdd} disabled={!canEdit} icon={<PiPlus />}>
+            Add
           </Button>
         </Box>
       </Flex>
@@ -154,22 +153,6 @@ export const ExperimentAssignmentQueries: FC<
         // `isEventForwarderManagedExposureQuery(query)` here (and in the delete
         // handler above) to lock them again.
         const isManaged = false;
-        const deleteButton = (
-          <DeleteButton
-            useRadix={false}
-            onClick={handleActionDeleteClicked(idx)}
-            className="dropdown-item text-danger py-2"
-            iconClassName="mr-2"
-            style={{ borderRadius: 0 }}
-            useIcon={false}
-            displayName={query.name}
-            deleteMessage={`Are you sure you want to delete experiment assignment query ${query.name}?`}
-            title="Delete"
-            text="Delete"
-            outline={false}
-            disabled={isManaged}
-          />
-        );
 
         return (
           <Card mt="3" key={query.id}>
@@ -241,40 +224,66 @@ export const ExperimentAssignmentQueries: FC<
 
               <Flex align="center">
                 {canEdit && (
-                  <MoreMenu useRadix={false}>
-                    <button
-                      className="dropdown-item py-2"
+                  <DropdownMenu
+                    trigger={
+                      <IconButton
+                        variant="ghost"
+                        color="gray"
+                        radius="full"
+                        size="2"
+                        highContrast
+                      >
+                        <PiDotsThreeVertical size={18} />
+                      </IconButton>
+                    }
+                    menuPlacement="end"
+                    variant="soft"
+                  >
+                    <DropdownMenuItem
                       onClick={handleActionClicked(idx, "edit")}
                     >
                       Edit Query
-                    </button>
+                    </DropdownMenuItem>
                     {query.dimensions.length > 0 ? (
-                      <button
-                        className="dropdown-item py-2"
+                      <DropdownMenuItem
                         onClick={handleActionClicked(idx, "dimension")}
                       >
                         Edit Dimensions
-                      </button>
+                      </DropdownMenuItem>
                     ) : null}
                     {!isManaged && (
-                      <>
-                        <hr className="dropdown-divider" />
-                        <span className="d-block">{deleteButton}</span>
-                      </>
+                      <DropdownMenuItem
+                        color="red"
+                        confirmation={{
+                          submit: handleActionDeleteClicked(idx),
+                          confirmationTitle: `Delete ${query.name}`,
+                          cta: "Delete",
+                          getConfirmationContent: async () =>
+                            `Are you sure you want to delete experiment assignment query ${query.name}?`,
+                        }}
+                      >
+                        Delete
+                      </DropdownMenuItem>
                     )}
-                  </MoreMenu>
+                  </DropdownMenu>
                 )}
 
-                <button
-                  className="btn ml-3 text-dark"
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="2"
+                  highContrast
+                  ml="3"
+                  aria-label={isOpen ? "Collapse query" : "Expand query"}
                   onClick={handleExpandCollapseForIndex(idx)}
                 >
-                  <FaChevronRight
+                  <PiCaretRight
                     style={{
                       transform: `rotate(${isOpen ? "90deg" : "0deg"})`,
                     }}
                   />
-                </button>
+                </IconButton>
               </Flex>
 
               {/* endregion Actions*/}

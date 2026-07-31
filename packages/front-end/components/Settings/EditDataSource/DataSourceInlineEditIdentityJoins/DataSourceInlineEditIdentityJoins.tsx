@@ -1,5 +1,6 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
-import { FaChevronRight, FaPlus } from "react-icons/fa";
+import { FaChevronRight } from "react-icons/fa";
+import { PiPlus } from "react-icons/pi";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
@@ -121,8 +122,9 @@ export const DataSourceInlineEditIdentityJoins: FC<
                   variant="solid"
                   onClick={handleAdd}
                   disabled={addIsDisabled}
+                  icon={<PiPlus />}
                 >
-                  <FaPlus className="mr-1" /> Add
+                  Add
                 </Button>
               </Box>
             )}

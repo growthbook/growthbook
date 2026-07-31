@@ -1,19 +1,18 @@
 import React, { FC, Fragment, useCallback, useState } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ApiContextualBanditQueryInterface } from "shared/validators";
-import { PiCaretRight, PiPlus } from "react-icons/pi";
-import { Box, Card, Flex } from "@radix-ui/themes";
+import { PiCaretRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";
+import { Box, Card, Flex, IconButton } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import AddEditContextualBanditQueryModal from "@/components/ContextualBandit/AddEditContextualBanditQueryModal";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/ui/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import { useAuth } from "@/services/auth";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 
 type ContextualBanditAssignmentQueriesProps = {
   dataSource: DataSourceInterfaceWithParams;
@@ -168,33 +167,47 @@ export const ContextualBanditAssignmentQueries: FC<
 
               <Flex align="center">
                 {canEdit && (
-                  <MoreMenu>
-                    <button
-                      className="dropdown-item py-2"
-                      onClick={handleEdit(query)}
-                    >
+                  <DropdownMenu
+                    trigger={
+                      <IconButton
+                        variant="ghost"
+                        color="gray"
+                        radius="full"
+                        size="2"
+                        highContrast
+                      >
+                        <PiDotsThreeVertical size={18} />
+                      </IconButton>
+                    }
+                    menuPlacement="end"
+                    variant="soft"
+                  >
+                    <DropdownMenuItem onClick={handleEdit(query)}>
                       Edit Query
-                    </button>
-                    <hr className="dropdown-divider" />
-                    <span className="d-block">
-                      <DeleteButton
-                        onClick={handleDelete(query)}
-                        className="dropdown-item text-danger py-2"
-                        iconClassName="mr-2"
-                        style={{ borderRadius: 0 }}
-                        useIcon={false}
-                        displayName={query.name}
-                        deleteMessage={`Are you sure you want to delete contextual bandit assignment query ${query.name}? Any contextual bandit using it will no longer be able to analyze results.`}
-                        title="Delete"
-                        text="Delete"
-                        outline={false}
-                      />
-                    </span>
-                  </MoreMenu>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      color="red"
+                      confirmation={{
+                        submit: handleDelete(query),
+                        confirmationTitle: `Delete ${query.name}`,
+                        cta: "Delete",
+                        getConfirmationContent: async () =>
+                          `Are you sure you want to delete contextual bandit assignment query ${query.name}? Any contextual bandit using it will no longer be able to analyze results.`,
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenu>
                 )}
 
-                <button
-                  className="btn ml-3 text-dark"
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="2"
+                  highContrast
+                  ml="3"
+                  aria-label={isOpen ? "Collapse query" : "Expand query"}
                   onClick={handleExpandCollapse(query.id)}
                 >
                   <PiCaretRight
@@ -202,7 +215,7 @@ export const ContextualBanditAssignmentQueries: FC<
                       transform: `rotate(${isOpen ? "90deg" : "0deg"})`,
                     }}
                   />
-                </button>
+                </IconButton>
               </Flex>
             </Flex>
 
