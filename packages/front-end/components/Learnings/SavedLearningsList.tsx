@@ -318,7 +318,9 @@ const SavedLearningsList: FC<{
           </Flex>
           <Flex align="center" gap="4" style={{ fontSize: "0.8rem" }}>
             <Flex align="center">
-              <label className="mb-0 mr-2">From</label>
+              <Text as="label" mr="2" mb="0">
+                From
+              </Text>
               <DatePicker
                 date={startDate}
                 setDate={(d) => setStartDate(d)}
@@ -328,7 +330,9 @@ const SavedLearningsList: FC<{
               />
             </Flex>
             <Flex align="center">
-              <label className="mb-0 mr-2">To</label>
+              <Text as="label" mr="2" mb="0">
+                To
+              </Text>
               <DatePicker
                 date={endDate}
                 setDate={(d) => setEndDate(d)}

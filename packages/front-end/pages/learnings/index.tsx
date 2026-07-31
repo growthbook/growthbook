@@ -191,12 +191,7 @@ const LearningsPage = (): React.ReactElement => {
               <Box pt="4">
                 <TabsContent value="results">
                   <Box mb="5">
-                    <Flex
-                      align="center"
-                      gap="2"
-                      className="mb-3"
-                      justify="between"
-                    >
+                    <Flex align="center" gap="2" mb="3" justify="between">
                       <Box flexBasis="60%" flexShrink="1" flexGrow="0">
                         <Field
                           placeholder="Search..."
@@ -213,7 +208,9 @@ const LearningsPage = (): React.ReactElement => {
                           style={{ fontSize: "0.8rem" }}
                         >
                           <Flex align="center">
-                            <label className="mb-0 mr-2">From</label>
+                            <Text as="label" mr="2" mb="0">
+                              From
+                            </Text>
                             <DatePicker
                               date={startDate}
                               setDate={(sd) => {
@@ -228,7 +225,9 @@ const LearningsPage = (): React.ReactElement => {
                             />
                           </Flex>
                           <Flex align="center">
-                            <label className="mb-0 mr-2">To</label>
+                            <Text as="label" mr="2" mb="0">
+                              To
+                            </Text>
                             <DatePicker
                               date={endDate}
                               setDate={(ed) => {
@@ -268,11 +267,22 @@ const LearningsPage = (): React.ReactElement => {
                             Find learnings across these experiments
                           </Text>
                           <Text size="medium" color="text-mid" as="div">
-                            Let AI scan the {stoppedExperiments.length} filtered
-                            experiment
-                            {stoppedExperiments.length === 1 ? "" : "s"} for
-                            common themes, design tactics, and patterns you can
-                            reuse.
+                            {stoppedExperiments.length === 0 ? (
+                              <>
+                                AI can scan completed experiments for common
+                                themes and patterns you can reuse. Run more
+                                experiments or adjust the date range or remove
+                                filters.
+                              </>
+                            ) : (
+                              <>
+                                Let AI scan the {stoppedExperiments.length}{" "}
+                                filtered experiment
+                                {stoppedExperiments.length === 1 ? "" : "s"} for
+                                common themes, design tactics, and patterns you
+                                can reuse.
+                              </>
+                            )}
                           </Text>
                         </Box>
                         <Button
@@ -290,7 +300,7 @@ const LearningsPage = (): React.ReactElement => {
                           </Text>
                         </Box>
                       )}
-                      {aiEnabled && stoppedExperiments.length < 2 && (
+                      {aiEnabled && stoppedExperiments.length === 1 && (
                         <Box mt="2">
                           <Text size="small" color="text-mid" as="div">
                             Adjust filters so at least 2 stopped experiments

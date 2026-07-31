@@ -125,6 +125,10 @@ const FindLearningsModal: FC<{
     [experiments],
   );
 
+  function setAllSelected(selected: boolean) {
+    setSuggestions((prev) => prev.map((s) => ({ ...s, selected })));
+  }
+
   function toggleSuggestion(index: number) {
     setSuggestions((prev) =>
       prev.map((s, i) => (i === index ? { ...s, selected: !s.selected } : s)),
@@ -203,13 +207,27 @@ const FindLearningsModal: FC<{
         )}
         {!loading && !error && suggestions.length > 0 && (
           <Box>
-            <Box mb="3">
+            <Flex align="center" justify="between" gap="3" mb="3" wrap="wrap">
               <Text size="medium" color="text-mid" as="div">
                 Found {suggestions.length} potential learning
                 {suggestions.length === 1 ? "" : "s"}. Check the ones you want
                 to keep, then save.
               </Text>
-            </Box>
+              {suggestions.length > 1 && (
+                <Checkbox
+                  value={
+                    selectedCount === suggestions.length
+                      ? true
+                      : selectedCount > 0
+                        ? "indeterminate"
+                        : false
+                  }
+                  setValue={(v) => setAllSelected(!!v)}
+                  label="Select all"
+                  mb="0"
+                />
+              )}
+            </Flex>
             <Flex direction="column" gap="4">
               {suggestions.map((s, i) => (
                 <Box

@@ -245,6 +245,10 @@ function experimentRecency(exp: ExperimentInterface): number {
 type AIMetricResult = {
   variation: string;
   metric: string;
+  // Which direction of movement is good for this metric. "lower" for inverse
+  // metrics (bounce rate, unsubscribes, latency, …) where a positive lift is
+  // a regression, not a win.
+  betterDirection: "higher" | "lower";
   lift?: number;
   chanceToWin?: number;
   pValue?: number;
@@ -269,9 +273,11 @@ function summarizeSnapshotResultsForAI(
     goalMetricIds.forEach((metricId) => {
       const m = variation.metrics?.[metricId];
       if (!m) return;
+      const metric = metricMap.get(metricId);
       const row: AIMetricResult = {
         variation: variationName,
-        metric: metricMap.get(metricId)?.name || metricId,
+        metric: metric?.name || metricId,
+        betterDirection: metric?.inverse ? "lower" : "higher",
       };
       if (typeof m.expected === "number") {
         row.lift = roundForAI(m.expected);
@@ -287,6 +293,21 @@ function summarizeSnapshotResultsForAI(
     });
   });
   return rows.length ? rows : undefined;
+}
+
+// Replace any internal experiment ids the model left in prose with the
+// experiment name, so ids never surface in user-facing Learning text.
+function replaceExperimentIdsWithNames(
+  text: string,
+  idToName: Map<string, string>,
+): string {
+  let out = text;
+  for (const [id, name] of idToName) {
+    if (name && out.includes(id)) {
+      out = out.split(id).join(name);
+    }
+  }
+  return out;
 }
 
 // Build a compact, AI-friendly summary of an experiment to keep token usage low
@@ -497,9 +518,13 @@ export const postFindLearnings = async (
     "Look for things like: shared psychological or design tactics that tend to work (or not work), audience preferences (e.g. color, copy tone, emotional appeals, urgency, social proof), recurring product behaviors, or patterns in what causes wins vs. losses. " +
     "Only surface learnings that are supported by at least 2 of the experiments provided. " +
     "Some experiments include metricResults: per-variation outcomes for the experiment's goal metrics, with the relative lift, the Bayesian chance to win (0-1), and/or the frequentist p-value. Use these to weigh evidence — a large, statistically significant effect is much stronger support than a small or inconclusive one. " +
-    "For each learning, return a short title, a paragraph (or two) of markdown explaining the pattern and what the evidence is, 1-5 lowercase hyphenated tags categorizing it, the list of experiment ids that support it, and the list of experiment ids whose outcomes run counter to the learning (contradictingExperimentIds). " +
+    "Each metricResults row includes betterDirection ('higher' or 'lower'), indicating which way is good for that metric. A change is only an improvement when the lift moves the metric in its better direction: a positive lift on a 'lower' metric (e.g. bounce rate, unsubscribes) is a REGRESSION, not a win. Judge wins and losses by betterDirection, never by the sign of the lift alone. " +
+    "Be rigorous about evidence quality. Do NOT infer a pattern from inconclusive or underpowered experiments — an experiment with no statistically significant movement is 'no result', which is different from evidence of 'no effect'. Treat a result as supporting or contrary only when its metrics actually moved significantly. Prefer a few well-evidenced Learnings over many speculative ones. " +
+    "When multiple experiments involve the same goal metric (matched by metric name), treat that as a strong signal they may be related and evaluate them together. Judge whether they agree by reasoning about WHAT each variation changed, not by the raw direction the metric moved: two experiments can support the SAME underlying Learning even when the shared metric moved in OPPOSITE directions, as long as their treatments were opposite manipulations. For example, one test that simplifies the signup flow and raises signups and another that adds complexity to the signup flow and lowers signups BOTH support 'users prefer a simpler signup flow'. So do NOT treat opposite movement on a shared metric as contradictory by default — only count something as contrary evidence when a similar change produced a genuinely inconsistent effect. Corroborating shared-metric evidence like this should raise confidence and ranking. Do NOT require a shared metric, though — patterns that span experiments without a common goal metric (shared tactics, audiences, or product behaviors) are still valid Learnings. " +
+    "For each learning, return a short title, a paragraph (or two) of markdown explaining the pattern and what the evidence is (ending with a concrete, actionable recommendation for what the team should try or do next), a confidence level, 1-5 lowercase hyphenated tags categorizing it, the list of experiment ids that support it, and the list of experiment ids whose outcomes run counter to the learning (contradictingExperimentIds). " +
     "Contrary evidence should include experiments in the input set whose results materially disagree with the learning — e.g. the pattern was tried and did NOT win, or produced the opposite effect. If no contrary evidence exists in the input set, return an empty list for contradictingExperimentIds. Do not include the same experiment as both supporting and contrary. " +
-    "Use only experiment ids from the input set. Return at most 8 learnings, ordered from most to least confident. " +
+    "Use only experiment ids from the input set. Return at most 8 Learnings, ordered from most to least confident, with the confidence field reflecting how strongly the provided evidence supports each one. " +
+    "In the human-facing title and text, always refer to experiments by their name, never by their id. Experiment ids must appear only in the supportingExperimentIds and contradictingExperimentIds arrays — never in the prose. " +
     "If no meaningful cross-experiment patterns exist, return an empty list. " +
     "IMPORTANT: A list of learnings that the team has ALREADY SAVED is provided. Do not duplicate or paraphrase those — only surface genuinely new patterns. If a candidate learning overlaps meaningfully with a saved one, omit it.";
 
@@ -544,6 +569,10 @@ export const postFindLearnings = async (
     // Filter to ids that actually exist in the input set (defense against AI
     // hallucinating ids), and ensure an experiment never appears on both lists.
     const validIds = new Set(experiments.map((e) => e.id));
+    // Safety net: even with the prompt instruction, the model can occasionally
+    // reference an experiment by id in the prose. Swap any such id for its name
+    // so internal ids never surface in user-facing text.
+    const idToName = new Map(experiments.map((e) => [e.id, e.name]));
     const cleaned = (aiResponse.learnings || [])
       .map((i) => {
         const supporting = (i.supportingExperimentIds || []).filter((id) =>
@@ -555,6 +584,8 @@ export const postFindLearnings = async (
         );
         return {
           ...i,
+          title: replaceExperimentIdsWithNames(i.title, idToName),
+          text: replaceExperimentIdsWithNames(i.text, idToName),
           supportingExperimentIds: supporting,
           contradictingExperimentIds: contrary,
         };
