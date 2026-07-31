@@ -679,9 +679,27 @@ export const postRefreshLearnings = async (
 
   const { learningIds } = req.body;
   const allLearnings = await context.models.learnings.getAll();
-  const eligible = learningIds?.length
+  const requested = learningIds?.length
     ? allLearnings.filter((l) => learningIds.includes(l.id))
     : allLearnings;
+
+  // Refresh writes back to each Learning (the lastRefreshedAt stamp, and the
+  // suggestions exist only to be applied), so only consider Learnings the
+  // caller can actually update. Checking up front means a read-only user
+  // can't burn the org's AI budget on work whose writes would be dropped.
+  // Filtering per-Learning rather than once globally keeps this correct for
+  // project-scoped permissions.
+  const eligible = requested.filter((l) =>
+    context.permissions.canUpdateLearning(l, { projects: l.projects }),
+  );
+
+  if (requested.length && !eligible.length) {
+    return res.status(403).json({
+      status: 403,
+      message:
+        "You do not have permission to update these Learnings, so they cannot be refreshed.",
+    });
+  }
 
   // Least-recently-refreshed first (never-refreshed sorts first), so running
   // repeatedly works through the whole set instead of redoing the same slice.
@@ -821,6 +839,7 @@ export const postRefreshLearnings = async (
           lastRefreshedAt: new Date(),
         });
       } catch (e) {
+        // Permission was checked up front, so this is a genuine write error.
         logger.error(e, `refresh-learnings: error stamping ${id}`);
       }
     }),
