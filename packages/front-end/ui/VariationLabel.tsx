@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { Responsive } from "@radix-ui/themes/props";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import VariationNumber from "@/ui/VariationNumber";
@@ -9,7 +10,7 @@ export interface VariationLabelProps {
   name: string;
   size?: "small" | "medium" | "large";
   // Constrain the label width; the name truncates (with tooltip) to fit.
-  maxWidth?: number | string;
+  maxWidth?: Responsive<string>;
   // Set when rendered inside an element that already has a tooltip, to avoid nesting.
   disableTooltip?: boolean;
 }
@@ -77,14 +78,14 @@ export default function VariationLabel({
 
   if (disableTooltip) {
     return (
-      <Box ref={rootRef} minWidth="0" style={{ maxWidth }}>
+      <Box ref={rootRef} minWidth="0" maxWidth={maxWidth}>
         {content}
       </Box>
     );
   }
 
   return (
-    <Box ref={rootRef} minWidth="0" style={{ maxWidth }}>
+    <Box ref={rootRef} minWidth="0" maxWidth={maxWidth}>
       <Tooltip content={name} enabled={hideName || isTruncated} side="top">
         {hideName ? variationNumber : content}
       </Tooltip>

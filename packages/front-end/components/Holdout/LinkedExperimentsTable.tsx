@@ -108,7 +108,7 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
                       number={variationIndex}
                       name={variation.name}
                       size="medium"
-                      maxWidth={150}
+                      maxWidth="170px"
                     />
                   ) : (
                     <span>--</span>

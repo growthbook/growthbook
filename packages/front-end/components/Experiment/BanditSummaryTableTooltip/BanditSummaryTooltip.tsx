@@ -218,7 +218,7 @@ export default function BanditSummaryTooltip({
               number={data.variation.index}
               name={data.variation.name}
               size="medium"
-              maxWidth={300}
+              maxWidth="300px"
               disableTooltip
             />
           </div>

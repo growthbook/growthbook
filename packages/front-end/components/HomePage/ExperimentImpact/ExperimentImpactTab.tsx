@@ -52,7 +52,7 @@ export default function ExperimentImpactTab({
               number={i}
               name={v.name}
               size="medium"
-              maxWidth={200}
+              maxWidth="220px"
             />
           </Box>,
         );

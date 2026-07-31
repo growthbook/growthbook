@@ -1384,13 +1384,12 @@ export default function EditSingleBlock({
                       : []
                   }
                   formatOptionLabel={({ value, label }) => (
-                    <Box style={{ maxWidth: 150 }} minWidth="0">
-                      <VariationLabel
-                        number={parseInt(value)}
-                        name={label}
-                        size="medium"
-                      />
-                    </Box>
+                    <VariationLabel
+                      number={parseInt(value)}
+                      name={label}
+                      size="medium"
+                      maxWidth="170px"
+                    />
                   )}
                 />
               )}
@@ -1414,13 +1413,12 @@ export default function EditSingleBlock({
                         )
                       : -1;
                     return (
-                      <Box style={{ maxWidth: 150 }} minWidth="0">
-                        <VariationLabel
-                          number={varIndex}
-                          name={label}
-                          size="medium"
-                        />
-                      </Box>
+                      <VariationLabel
+                        number={varIndex}
+                        name={label}
+                        size="medium"
+                        maxWidth="170px"
+                      />
                     );
                   }}
                 />

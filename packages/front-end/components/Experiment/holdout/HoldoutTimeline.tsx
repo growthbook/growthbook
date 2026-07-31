@@ -429,7 +429,7 @@ const HoldoutTimeline: React.FC<{
                           number={tooltipData.shippedVariation.index}
                           name={tooltipData.shippedVariation.name}
                           size="medium"
-                          maxWidth={150}
+                          maxWidth="170px"
                           disableTooltip
                         />
                       ) : (

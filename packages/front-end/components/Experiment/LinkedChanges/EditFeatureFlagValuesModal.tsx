@@ -660,7 +660,7 @@ export default function EditFeatureFlagValuesModal({
                         number={i}
                         name={row.name}
                         size="large"
-                        maxWidth={320}
+                        maxWidth="320px"
                       />
                       <Box as="span">&middot;</Box>
                       <Text color="text-mid">
