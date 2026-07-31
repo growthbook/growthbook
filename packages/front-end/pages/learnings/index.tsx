@@ -164,51 +164,6 @@ const LearningsPage = (): React.ReactElement => {
 
               <Box pt="4">
                 <TabsContent value="results">
-                  <Box mb="4">
-                    <Callout status="info" icon={<PiSparkleFill />}>
-                      <Flex
-                        align="center"
-                        justify="between"
-                        gap="3"
-                        wrap="wrap"
-                      >
-                        <Box>
-                          <Text size="medium" weight="semibold" as="div">
-                            Find learnings across these experiments
-                          </Text>
-                          <Text size="medium" color="text-mid" as="div">
-                            Let AI scan the {stoppedExperiments.length} filtered
-                            experiment
-                            {stoppedExperiments.length === 1 ? "" : "s"} for
-                            common themes, design tactics, and patterns you can
-                            reuse.
-                          </Text>
-                        </Box>
-                        <Button
-                          onClick={() => setFindLearningsOpen(true)}
-                          disabled={!canFindLearnings}
-                        >
-                          <PiSparkleFill /> Find Learnings
-                        </Button>
-                      </Flex>
-                      {!aiEnabled && (
-                        <Box mt="2">
-                          <Text size="small" color="text-mid" as="div">
-                            AI features are not enabled for this organization.
-                            An admin can enable them in General Settings.
-                          </Text>
-                        </Box>
-                      )}
-                      {aiEnabled && stoppedExperiments.length < 2 && (
-                        <Box mt="2">
-                          <Text size="small" color="text-mid" as="div">
-                            Adjust filters so at least 2 stopped experiments
-                            match to find cross-experiment learnings.
-                          </Text>
-                        </Box>
-                      )}
-                    </Callout>
-                  </Box>
                   <Box mb="5">
                     <Flex
                       align="center"
@@ -273,6 +228,51 @@ const LearningsPage = (): React.ReactElement => {
                         allowDrafts={false}
                       />
                     </Box>
+                  </Box>
+                  <Box mb="4">
+                    <Callout status="info" icon={<PiSparkleFill />}>
+                      <Flex
+                        align="center"
+                        justify="between"
+                        gap="3"
+                        wrap="wrap"
+                      >
+                        <Box>
+                          <Text size="medium" weight="semibold" as="div">
+                            Find learnings across these experiments
+                          </Text>
+                          <Text size="medium" color="text-mid" as="div">
+                            Let AI scan the {stoppedExperiments.length} filtered
+                            experiment
+                            {stoppedExperiments.length === 1 ? "" : "s"} for
+                            common themes, design tactics, and patterns you can
+                            reuse.
+                          </Text>
+                        </Box>
+                        <Button
+                          onClick={() => setFindLearningsOpen(true)}
+                          disabled={!canFindLearnings}
+                        >
+                          <PiSparkleFill /> Find Learnings
+                        </Button>
+                      </Flex>
+                      {!aiEnabled && (
+                        <Box mt="2">
+                          <Text size="small" color="text-mid" as="div">
+                            AI features are not enabled for this organization.
+                            An admin can enable them in General Settings.
+                          </Text>
+                        </Box>
+                      )}
+                      {aiEnabled && stoppedExperiments.length < 2 && (
+                        <Box mt="2">
+                          <Text size="small" color="text-mid" as="div">
+                            Adjust filters so at least 2 stopped experiments
+                            match to find cross-experiment learnings.
+                          </Text>
+                        </Box>
+                      )}
+                    </Callout>
                   </Box>
                   <CompletedExperimentList experiments={stoppedExperiments} />
                 </TabsContent>
