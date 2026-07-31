@@ -289,22 +289,30 @@ describe("reconcileEventForwarderManagedUserIdTypes", () => {
     ).toEqual([...existing, ...desired]);
   });
 
-  it("adopts a same-named user-created type instead of duplicating the name", () => {
+  it("leaves a same-named user-created type alone instead of adopting it", () => {
     const existing = [
       { userIdType: "user_id", description: "Mine", attributes: ["user_id"] },
     ];
 
+    // Adopting it would make the user's own entry deletable once the attribute
+    // is archived, so we add nothing rather than taking it over.
     expect(
       reconcileEventForwarderManagedUserIdTypes(existing, desired),
-    ).toEqual([
-      {
-        userIdType: "user_id",
-        description: "Mine",
-        attributes: ["user_id"],
-        managedBy: "api",
-        sourceAttribute: "user_id",
-      },
-    ]);
+    ).toEqual(existing);
+  });
+
+  it("never deletes a user-created type when its same-named attribute goes away", () => {
+    const existing = [
+      { userIdType: "user_id", description: "Mine", attributes: ["user_id"] },
+    ];
+    const afterAdoptionAttempt = reconcileEventForwarderManagedUserIdTypes(
+      existing,
+      desired,
+    );
+
+    expect(
+      reconcileEventForwarderManagedUserIdTypes(afterAdoptionAttempt, []),
+    ).toEqual(existing);
   });
 });
 

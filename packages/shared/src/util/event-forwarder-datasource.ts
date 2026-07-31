@@ -176,9 +176,10 @@ export function getUserIdTypesToAdd(
  * org's attribute schema currently calls for, matching on `sourceAttribute` so
  * that user-renamed identifier types keep their names instead of being reverted.
  *
- * Non-managed identifier types are passed through untouched. Managed types whose
- * source attribute is no longer a hash attribute (archived, un-flagged, or out of
- * the datasource's Projects) are dropped.
+ * Non-managed identifier types are passed through untouched, and one is never
+ * promoted to managed — only types this function created are ever dropped again.
+ * Managed types whose source attribute is no longer a hash attribute (archived,
+ * un-flagged, or out of the datasource's Projects) are dropped.
  */
 export function reconcileEventForwarderManagedUserIdTypes(
   existing: UserIdType[],
@@ -224,25 +225,19 @@ export function reconcileEventForwarderManagedUserIdTypes(
       continue;
     }
 
-    // Adopt, don't duplicate: if a user already created an identifier type under
-    // the name we want, take that entry over rather than adding a second entry
-    // with the same name. An entry already managed by another attribute is left
-    // alone — one identifier type per name wins, as the warehouse column would.
-    const collisionIndex = result.findIndex(
+    // Never take over an identifier type we did not create. Adopting one would
+    // make a user's own entry deletable by the loop above as soon as its
+    // attribute is archived, taking any fact table or identity join that
+    // references the name with it. If the name is taken we simply add nothing:
+    // the existing entry already models that unit, and the Events fact table
+    // still projects a column for it (non-managed types resolve to their own
+    // name as the source attribute).
+    const nameIsTaken = result.some(
       (entry) =>
         normalizeUserIdTypeName(entry.userIdType) ===
         normalizeUserIdTypeName(wanted.userIdType),
     );
-    if (collisionIndex >= 0) {
-      const collision = result[collisionIndex];
-      if (!isEventForwarderManagedUserIdType(collision)) {
-        result[collisionIndex] = {
-          ...collision,
-          managedBy: "api",
-          sourceAttribute: wanted.sourceAttribute,
-          description: collision.description || wanted.description,
-        };
-      }
+    if (nameIsTaken) {
       continue;
     }
 
