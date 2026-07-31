@@ -15956,7 +15956,6 @@ paths:
             description: The linked feature id
             type: string
         - $ref: '#/components/parameters/autoPublish'
-        - $ref: '#/components/parameters/draftVersion'
       responses:
         '200':
           description: Resource deleted
@@ -46974,17 +46973,6 @@ components:
           - type: string
             const: '1'
           - type: boolean
-    draftVersion:
-      name: draftVersion
-      in: query
-      description: >-
-        Remove the rule from this existing draft revision instead of starting a
-        new one.
-      schema:
-        description: >-
-          Remove the rule from this existing draft revision instead of starting
-          a new one.
-        type: integer
     type:
       name: type
       in: query

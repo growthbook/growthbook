@@ -152,8 +152,7 @@ async function getRulesForTargetVersion(
 
 /**
  * Whether the revision a new link would land on already carries a rule for this
- * bandit. A `linkedFeatures` entry alone doesn't answer this — the rule may sit
- * on a different draft, or be gone while the linkage lingers.
+ * bandit.
  */
 export async function targetRevisionHasContextualBanditRule({
   context,
@@ -473,6 +472,7 @@ export async function updateContextualBanditFeatureRule({
   // apart, so refuse rather than silently collapsing them into each other.
   const baseline = omit(baselineRule, ["id"]);
   if (siblingRules.some((r) => !isEqual(omit(r, ["id"]), baseline))) {
+    // Note: this is unlikely to happen but we should guard against it anyways
     throw new BadRequestError(
       `Feature Flag ${feature.id} has multiple rules for this contextual bandit and they are not identical. Edit them individually on revision ${targetVersion} instead.`,
     );

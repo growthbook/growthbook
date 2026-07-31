@@ -58,13 +58,6 @@ export default function ContextualBanditLinkedFeatureFlag({
     permissionsUtil.canPublishFeature(info.feature, ruleEnvironments);
 
   const handleRemove = async () => {
-    const message =
-      info.state === "discarded"
-        ? "Remove this Feature Flag from the contextual bandit?"
-        : "Remove this Feature Flag from the contextual bandit? The contextual-bandit rule will be deleted from the Feature Flag and published.";
-    if (!confirm(message)) {
-      return;
-    }
     setRemoving(true);
     try {
       await apiCall(

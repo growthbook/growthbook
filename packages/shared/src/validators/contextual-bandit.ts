@@ -574,10 +574,6 @@ export const getContextualBanditLinkedFeaturesValidator = {
   path: "/contextual-bandits/:id/linked-features",
 };
 
-// Targeting for a `contextual-bandit-ref` rule comes from the bandit itself
-// (`condition`, `savedGroups`, `prerequisites`, `coverage`), so the rule-level
-// equivalents are never read when the SDK payload is built. They are omitted
-// here rather than accepted and silently ignored.
 const contextualBanditLinkedFeatureRuleFields = {
   variations: z
     .array(
@@ -617,17 +613,18 @@ const contextualBanditLinkedFeatureRuleFields = {
     ),
 };
 
+const contextualBanditLinkedFeatureDraftVersionField = z.coerce
+  .number()
+  .int()
+  .optional();
+
 export const addContextualBanditLinkedFeatureValidator = {
   bodySchema: z
     .object({
       ...contextualBanditLinkedFeatureRuleFields,
-      draftVersion: z
-        .number()
-        .int()
-        .optional()
-        .describe(
-          "Add the rule to this existing draft revision instead of starting a new one.",
-        ),
+      draftVersion: contextualBanditLinkedFeatureDraftVersionField.describe(
+        "Add the rule to this existing draft revision instead of starting a new one.",
+      ),
     })
     .strict(),
   querySchema: z.never(),
@@ -653,13 +650,9 @@ export const updateContextualBanditLinkedFeatureValidator = {
   bodySchema: z
     .object({
       ...contextualBanditLinkedFeatureRuleFields,
-      draftVersion: z
-        .number()
-        .int()
-        .optional()
-        .describe(
-          "Update the rule on this existing draft revision instead of starting a new one.",
-        ),
+      draftVersion: contextualBanditLinkedFeatureDraftVersionField.describe(
+        "Update the rule on this existing draft revision instead of starting a new one.",
+      ),
     })
     .strict(),
   querySchema: z.never(),
@@ -688,13 +681,6 @@ export const deleteContextualBanditLinkedFeatureValidator = {
       autoPublish: booleanQueryField.describe(
         "Publish the resulting revision immediately instead of leaving it as a draft.",
       ),
-      draftVersion: z.coerce
-        .number()
-        .int()
-        .optional()
-        .describe(
-          "Remove the rule from this existing draft revision instead of starting a new one.",
-        ),
     })
     .strict(),
   paramsSchema: contextualBanditIdAndFeatureParam,
