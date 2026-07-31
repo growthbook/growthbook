@@ -213,6 +213,42 @@ describe("getEventForwarderUserIdTypeSourceAttribute", () => {
       getEventForwarderUserIdTypeSourceAttribute({ userIdType: "device_id" }),
     ).toBe("device_id");
   });
+
+  it("recovers the attribute from a legacy ef_-prefixed managed name", () => {
+    expect(
+      getEventForwarderUserIdTypeSourceAttribute({
+        userIdType: "ef_user_id",
+        managedBy: "api",
+      }),
+    ).toBe("user_id");
+  });
+
+  it("strips exactly one legacy prefix", () => {
+    // The old code prefixed unconditionally, so an attribute literally named
+    // "ef_user_id" was stored as "ef_ef_user_id".
+    expect(
+      getEventForwarderUserIdTypeSourceAttribute({
+        userIdType: "ef_ef_user_id",
+        managedBy: "api",
+      }),
+    ).toBe("ef_user_id");
+  });
+
+  it("leaves an ef_ name alone on a user-created type", () => {
+    expect(
+      getEventForwarderUserIdTypeSourceAttribute({ userIdType: "ef_user_id" }),
+    ).toBe("ef_user_id");
+  });
+
+  it("prefers an explicit link over the legacy name", () => {
+    expect(
+      getEventForwarderUserIdTypeSourceAttribute({
+        userIdType: "ef_user_id",
+        managedBy: "api",
+        sourceAttribute: "device_id",
+      }),
+    ).toBe("device_id");
+  });
 });
 
 describe("findCollidingUserIdTypeName", () => {
@@ -370,6 +406,62 @@ describe("reconcileEventForwarderManagedUserIdTypes", () => {
     expect(reconcileEventForwarderManagedUserIdTypes(renamed, desired)).toEqual(
       renamed,
     );
+  });
+
+  it("links a legacy ef_-prefixed managed type instead of dropping it", () => {
+    const legacy = [
+      {
+        userIdType: "ef_user_id",
+        description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+        attributes: ["user_id"],
+        managedBy: "api" as const,
+      },
+    ];
+
+    const reconciled = reconcileEventForwarderManagedUserIdTypes(
+      legacy,
+      desired,
+    );
+
+    // One entry, not the legacy one dropped and "user_id" minted beside it.
+    expect(reconciled).toHaveLength(1);
+    expect(reconciled[0].userIdType).toBe("ef_user_id");
+    expect(reconciled[0].sourceAttribute).toBe("user_id");
+  });
+
+  it("is idempotent after linking a legacy managed type", () => {
+    const legacy = [
+      {
+        userIdType: "ef_user_id",
+        description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+        attributes: ["user_id"],
+        managedBy: "api" as const,
+      },
+    ];
+
+    const once = reconcileEventForwarderManagedUserIdTypes(legacy, desired);
+
+    expect(reconcileEventForwarderManagedUserIdTypes(once, desired)).toEqual(
+      once,
+    );
+  });
+
+  it("does not adopt a user-created ef_-prefixed type", () => {
+    const mine = [
+      {
+        userIdType: "ef_user_id",
+        description: "Mine",
+        attributes: ["something_else"],
+      },
+    ];
+
+    const reconciled = reconcileEventForwarderManagedUserIdTypes(mine, desired);
+
+    // No link is inferred from the name, so "user_id" is still unclaimed and
+    // gets its own managed entry.
+    expect(reconciled).toHaveLength(2);
+    expect(reconciled[0]).toEqual(mine[0]);
+    expect(reconciled[1].userIdType).toBe("user_id");
   });
 });
 

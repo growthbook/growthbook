@@ -440,6 +440,64 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
 
     expect(second).toEqual(first);
   });
+
+  it("preserves the id of a legacy ef_-prefixed managed query", () => {
+    const existing: ExposureQuery[] = [
+      {
+        // Written before the explicit link existed: no sourceAttribute, and the
+        // id is the prefixed identifier name rather than an exq_ id.
+        id: "ef_user_id",
+        userIdType: "ef_user_id",
+        name: "ef_user_id",
+        dimensions: ["country"],
+        hasNameCol: true,
+        managedBy: "api",
+        query: "SELECT stale",
+      },
+    ];
+
+    const reconciled = reconcileEventForwarderManagedExposureQueries({
+      existing,
+      // The identifier type reconcile keeps the legacy name and backfills the
+      // link, so that is what reaches this function.
+      userIdTypes: [managedUserIdType("ef_user_id", "user_id")],
+      params: bigqueryParams,
+      attributeSchema: [
+        { property: "user_id", datatype: "string", hashAttribute: true },
+      ],
+    });
+
+    expect(reconciled).toHaveLength(1);
+    // Dropping and re-minting would orphan every experiment, report, safe
+    // rollout, template, and ramp schedule referencing the old id.
+    expect(reconciled[0].id).toBe("ef_user_id");
+    expect(reconciled[0].sourceAttribute).toBe("user_id");
+    // The legacy name is the user's now, so the alias keeps it.
+    expect(reconciled[0].query).toContain("AS `ef_user_id`");
+    expect(reconciled[0].query).toContain('$."user_id"');
+    expect(reconciled[0].dimensions).toEqual(["country"]);
+    expect(reconciled[0].hasNameCol).toBe(true);
+  });
+
+  it("does not strip the ef_ prefix from a user-created query", () => {
+    const existing: ExposureQuery[] = [
+      {
+        id: "custom_query",
+        userIdType: "ef_user_id",
+        name: "Mine",
+        dimensions: [],
+        query: "SELECT ef_user_id",
+      },
+    ];
+
+    const reconciled = reconcileEventForwarderManagedExposureQueries({
+      existing,
+      userIdTypes: [],
+      params: bigqueryParams,
+    });
+
+    expect(reconciled).toEqual(existing);
+  });
 });
 
 describe("event-forwarder-warehouse-queries feature_usage table reference", () => {

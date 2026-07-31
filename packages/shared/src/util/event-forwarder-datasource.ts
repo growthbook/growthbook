@@ -45,12 +45,44 @@ export function isEventForwarderLinkedUserIdType(
   );
 }
 
+// Managed resources created before `sourceAttribute` existed encoded the link in
+// their name by prefixing the attribute with "ef_". Exactly one prefix was ever
+// applied, so stripping one recovers the attribute.
+const LEGACY_EVENT_FORWARDER_MANAGED_NAME_PREFIX = "ef_";
+
+/**
+ * Recovers the source attribute of a managed resource written before the
+ * explicit link existed. Read-only compatibility: nothing writes prefixed names
+ * any more, and this is the only place the prefix is still understood. Without
+ * it, reconciliation would fail to match a legacy record to its attribute, drop
+ * it, and mint a replacement under a new id — orphaning every experiment,
+ * report, safe rollout, template, and ramp schedule already referencing the old
+ * one. Only ever applied to `managedBy: "api"` resources with no
+ * `sourceAttribute`, so a user-created `ef_`-named identifier type is untouched.
+ */
+export function resolveLegacyEventForwarderManagedSourceAttribute(
+  name: string,
+): string {
+  return name.startsWith(LEGACY_EVENT_FORWARDER_MANAGED_NAME_PREFIX)
+    ? name.slice(LEGACY_EVENT_FORWARDER_MANAGED_NAME_PREFIX.length)
+    : name;
+}
+
 // Resolves the SDK attribute a userIdType reads its value from. Linked types
 // carry an explicit link; everything else is named after its own source.
 export function getEventForwarderUserIdTypeSourceAttribute(
   userIdType: UserIdType,
 ): string {
-  return userIdType.sourceAttribute ?? userIdType.userIdType;
+  const linked = userIdType.sourceAttribute ?? null;
+  if (linked !== null) {
+    return linked;
+  }
+  if (isEventForwarderManagedUserIdType(userIdType)) {
+    return resolveLegacyEventForwarderManagedSourceAttribute(
+      userIdType.userIdType,
+    );
+  }
+  return userIdType.userIdType;
 }
 
 // Case-insensitive: identifier type names are compared case-insensitively

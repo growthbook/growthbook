@@ -24,6 +24,7 @@ import {
 import {
   getEventForwarderUserIdTypeSourceAttribute,
   normalizeUserIdTypeName,
+  resolveLegacyEventForwarderManagedSourceAttribute,
 } from "./event-forwarder-datasource";
 
 export const EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE =
@@ -227,13 +228,22 @@ export function isEventForwarderManagedExposureQuery(
 }
 
 /**
- * The SDK attribute a managed query reads. Falls back to `userIdType` for queries
- * written before the link existed, where the two were always the same.
+ * The SDK attribute a managed query reads. For queries written before the link
+ * existed the attribute is recovered from the legacy `ef_`-prefixed identifier
+ * name, so reconciliation matches them to their attribute and preserves their id
+ * instead of dropping them and minting a replacement.
  */
 function getEventForwarderExposureQuerySourceAttribute(
   query: ExposureQuery,
 ): string {
-  return query.sourceAttribute ?? query.userIdType;
+  const linked = query.sourceAttribute ?? null;
+  if (linked !== null) {
+    return linked;
+  }
+  if (isEventForwarderManagedExposureQuery(query)) {
+    return resolveLegacyEventForwarderManagedSourceAttribute(query.userIdType);
+  }
+  return query.userIdType;
 }
 
 /**
