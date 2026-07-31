@@ -65,9 +65,9 @@ import {
   validateVariationIds,
   validateExperimentData,
   fillEmptyVariationKeys,
-  validateStatusUpdateSchedule,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
 import {
   approveScheduledExperimentStart,
   startExperiment,
@@ -1791,11 +1791,6 @@ export async function postExperiment(
     }
   }
 
-  if (data.statusUpdateSchedule) {
-    const effectiveType = data.type ?? experiment.type ?? "standard";
-    validateStatusUpdateSchedule(effectiveType, data.statusUpdateSchedule);
-  }
-
   const keys: (keyof ExperimentInterface)[] = [
     "trackingKey",
     "owner",
@@ -1893,6 +1888,22 @@ export async function postExperiment(
   });
 
   normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+  // Same validation as PUT /schedule, against the stored schedule and the
+  // post-update variations/metrics.
+  if (data.statusUpdateSchedule) {
+    validateScheduleUpdate({
+      context,
+      experimentType: data.type ?? experiment.type ?? "standard",
+      status: experiment.status,
+      archived: !!experiment.archived,
+      phaseStart: experiment.phases[experiment.phases.length - 1]?.dateStarted,
+      existingSchedule: experiment.statusUpdateSchedule,
+      variations: changes.variations ?? experiment.variations,
+      goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
+      incoming: data.statusUpdateSchedule,
+    });
+  }
 
   // Coerce lookbackOverride date value when type is "date"
   if (changes.lookbackOverride?.type === "date") {

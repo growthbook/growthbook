@@ -11,7 +11,7 @@ describe("ExperimentUpdateExecutionLogger", () => {
   });
 
   const plan = {
-    runnerKind: "incremental" as const,
+    runnerKind: "incremental-full" as const,
     useCache: false,
     fullRefresh: true,
     fullRefreshReason:

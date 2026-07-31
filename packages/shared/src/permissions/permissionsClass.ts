@@ -860,6 +860,28 @@ export class Permissions {
     );
   };
 
+  // Virtual columns carry a raw SQL expression that is inlined into generated
+  // queries, so creating, editing, testing, or deleting one is equivalent in
+  // power to editing the fact table's own SQL.
+  //
+  // `canUpdateFactTable` deliberately skips the managedBy check for
+  // `columns`-only updates, because column metadata is refreshed automatically
+  // even on managed fact tables. That carve-out predates virtual columns, when
+  // `columns` held metadata only. Routing virtual column writes through
+  // `canUpdateFactTable(ft, { columns: [] })` would therefore let a user
+  // without official-resource access inject SQL into a managed fact table, so
+  // apply both gates explicitly here.
+  public canManageFactTableVirtualColumn = (
+    factTable: Pick<FactTableInterface, "projects" | "managedBy">,
+  ): boolean => {
+    if (factTable.managedBy) {
+      if (!this.canUpdateOfficialResources(factTable, factTable)) {
+        return false;
+      }
+    }
+    return this.checkProjectFilterPermission(factTable, "manageFactTables");
+  };
+
   public canDeleteFactTable = (
     factTable: Pick<FactTableInterface, "projects" | "managedBy"> &
       Partial<Pick<FactTableInterface, "id" | "datasource">>,
