@@ -19,6 +19,8 @@ import {
   getAttributeFieldsExposedAsColumns,
   cleanupDateColumnValues,
   reshapeDateValuesOnOperatorChange,
+  FACT_TABLE_TIMESTAMP_COLUMN,
+  hideTimeColumn,
 } from "./rowFilterUtils";
 import { DateColumnFilterInput } from "./DateColumnFilterInput";
 
@@ -43,6 +45,14 @@ export function RowFilterInput({
         factTable.columns.forEach((col) => {
           if (factTable.userIdTypes?.includes(col.column)) return;
           if (col.deleted) return;
+          if (
+            hideTimeColumn({
+              column: col.column,
+              timeColumn: FACT_TABLE_TIMESTAMP_COLUMN,
+              selectedColumn: filter.column,
+            })
+          )
+            return;
 
           columnOptions.push({
             label: col.name || col.column,

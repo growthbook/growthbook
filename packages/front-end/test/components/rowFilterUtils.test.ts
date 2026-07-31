@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
 import {
   getAttributeFieldsExposedAsColumns,
@@ -6,7 +7,13 @@ import {
   reshapeDateValueForOperator,
   cleanupDateColumnValues,
   reshapeDateValuesOnOperatorChange,
+  hideTimeColumn,
+  parseRowFilterDateValue,
+  getAllowedOperators,
 } from "@/components/FactTables/rowFilterUtils";
+
+/** Wall-clock the picker would display for a parsed value. */
+const FMT = "yyyy-MM-dd HH:mm";
 
 function col(
   column: string,
@@ -171,5 +178,111 @@ describe("reshapeDateValuesOnOperatorChange", () => {
         true,
       ),
     ).toEqual(["2026-07-15T00:00", "2026-07-20T00:00"]);
+  });
+});
+
+describe("hideTimeColumn", () => {
+  it("hides the source's event-time column", () => {
+    expect(
+      hideTimeColumn({
+        column: "timestamp",
+        timeColumn: "timestamp",
+        selectedColumn: undefined,
+      }),
+    ).toBe(true);
+    expect(
+      hideTimeColumn({
+        column: "signup_date",
+        timeColumn: "timestamp",
+        selectedColumn: undefined,
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps the event-time column when a filter already targets it", () => {
+    expect(
+      hideTimeColumn({
+        column: "timestamp",
+        timeColumn: "timestamp",
+        selectedColumn: "timestamp",
+      }),
+    ).toBe(false);
+  });
+
+  it("hides nothing when the source has no event-time column", () => {
+    expect(
+      hideTimeColumn({
+        column: "timestamp",
+        timeColumn: undefined,
+        selectedColumn: undefined,
+      }),
+    ).toBe(false);
+    expect(
+      hideTimeColumn({
+        column: "timestamp",
+        timeColumn: "",
+        selectedColumn: undefined,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("parseRowFilterDateValue", () => {
+  it("round-trips the wall-clock the picker writes", () => {
+    expect(format(parseRowFilterDateValue("2026-07-15", true)!, FMT)).toBe(
+      "2026-07-15 00:00",
+    );
+    expect(
+      format(parseRowFilterDateValue("2026-07-15T09:30", false)!, FMT),
+    ).toBe("2026-07-15 09:30");
+  });
+
+  it("reads an API-supplied UTC instant as the same wall-clock", () => {
+    // Without normalizing, `new Date(...Z)` is an instant and re-formatting it
+    // for the browser would rewrite 14:30 to e.g. 07:30 in UTC-7.
+    for (const v of [
+      "2026-07-15T14:30:00Z",
+      "2026-07-15T14:30:00.000Z",
+      "2026-07-15 14:30:00",
+    ]) {
+      expect(format(parseRowFilterDateValue(v, false)!, FMT)).toBe(
+        "2026-07-15 14:30",
+      );
+    }
+  });
+
+  it("keeps the calendar day for a date-only picker, whatever the value carries", () => {
+    expect(
+      format(parseRowFilterDateValue("2026-07-15T23:30:00Z", true)!, FMT),
+    ).toBe("2026-07-15 00:00");
+  });
+
+  it("returns undefined for values the SQL layer would reject", () => {
+    expect(parseRowFilterDateValue(undefined, false)).toBeUndefined();
+    expect(parseRowFilterDateValue("", false)).toBeUndefined();
+    expect(parseRowFilterDateValue("foo", false)).toBeUndefined();
+    expect(parseRowFilterDateValue("2026-02-30", true)).toBeUndefined();
+  });
+});
+
+describe("getAllowedOperators", () => {
+  it("omits != and is_null for date columns", () => {
+    const ops = getAllowedOperators("date");
+    expect(ops).toEqual([
+      "=",
+      "<",
+      "<=",
+      ">",
+      ">=",
+      "between",
+      "not_between",
+      "not_null",
+    ]);
+  });
+
+  it("keeps is_null for the other datatypes", () => {
+    for (const datatype of ["string", "number", "boolean", "json", ""]) {
+      expect(getAllowedOperators(datatype)).toContain("is_null");
+    }
   });
 });

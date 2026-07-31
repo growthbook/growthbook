@@ -77,7 +77,10 @@ export default function ValueCard({
       dataset.columnTypes &&
       Object.keys(dataset.columnTypes).length > 0
     ) {
-      return columnTypesToColumnSource(dataset.columnTypes);
+      return columnTypesToColumnSource(
+        dataset.columnTypes,
+        dataset.timestampColumn,
+      );
     }
     return null;
   }, [factTable, dataset]);

@@ -1,7 +1,7 @@
 import { format } from "date-fns";
-import { getValidDateOffsetByUTC } from "shared/dates";
 import DatePicker from "@/components/DatePicker";
 import { useMergedUpdates } from "@/hooks/useMergedUpdates";
+import { parseRowFilterDateValue } from "./rowFilterUtils";
 
 /**
  * Date-range value input for the `between` / `not_between` row-filter operators.
@@ -13,9 +13,9 @@ import { useMergedUpdates } from "@/hooks/useMergedUpdates";
  * an existing range feel broken. `useMergedUpdates` composes the two same-tick
  * updates so both bounds stick.
  *
- * Bounds are stored as `yyyy-MM-dd` and read back via getValidDateOffsetByUTC
- * (the app-wide UTC wall-clock convention); getRowFilterSQL then compares them
- * as UTC midnight.
+ * Bounds are stored as `yyyy-MM-dd` UTC wall-clock (the app-wide convention for
+ * date fields that reach a warehouse query); getRowFilterSQL then compares them
+ * as UTC calendar days.
  */
 export function DateRangeFilterInput({
   values,
@@ -40,7 +40,7 @@ export function DateRangeFilterInput({
   // component (e.g. switched over from a `>` filter before it was reshaped)
   // lands on the right calendar day instead of being shifted by the tz offset.
   const parseBound = (v: string | undefined) =>
-    v ? getValidDateOffsetByUTC(v.slice(0, 10)) : undefined;
+    parseRowFilterDateValue(v, true);
 
   return (
     <DatePicker

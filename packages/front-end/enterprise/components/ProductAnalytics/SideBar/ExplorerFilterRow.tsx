@@ -21,6 +21,8 @@ import {
   getAttributeFieldsExposedAsColumns,
   cleanupDateColumnValues,
   reshapeDateValuesOnOperatorChange,
+  FACT_TABLE_TIMESTAMP_COLUMN,
+  hideTimeColumn,
 } from "@/components/FactTables/rowFilterUtils";
 import { DateColumnFilterInput } from "@/components/FactTables/DateColumnFilterInput";
 
@@ -34,6 +36,8 @@ export interface FilterColumnSource {
     datatype: string;
     topValues: string[];
   };
+  /** The source's event-time column, hidden from the column picker. */
+  timeColumn?: string;
 }
 
 export function factTableToColumnSource(
@@ -63,6 +67,7 @@ export function factTableToColumnSource(
     columns,
     savedFilters: factTable.filters.map((f) => ({ id: f.id, name: f.name })),
     getColumnInfo: (column) => getColumnInfo(factTable, column),
+    timeColumn: FACT_TABLE_TIMESTAMP_COLUMN,
   };
 }
 
@@ -71,6 +76,7 @@ export function columnTypesToColumnSource(
     string,
     "string" | "number" | "date" | "boolean" | "other"
   >,
+  timestampColumn?: string,
 ): FilterColumnSource {
   const columns = Object.entries(columnTypes).map(([col]) => ({
     label: col,
@@ -80,6 +86,7 @@ export function columnTypesToColumnSource(
   return {
     columns,
     savedFilters: [],
+    timeColumn: timestampColumn,
     getColumnInfo: (column) => {
       if (!column || !(column in columnTypes))
         return { datatype: "", topValues: [] };
@@ -113,7 +120,14 @@ export function ExplorerFilterRow({
   ) => void;
   onDelete: () => void;
 }) {
-  const columnOptions = [...columnSource.columns];
+  const columnOptions = columnSource.columns.filter(
+    (o) =>
+      !hideTimeColumn({
+        column: o.value,
+        timeColumn: columnSource.timeColumn,
+        selectedColumn: filter.column,
+      }),
+  );
 
   if (filter.column && !columnOptions.find((o) => o.value === filter.column)) {
     columnOptions.push({

@@ -665,11 +665,13 @@ export function getColumnRefWhereClause({
 
 /**
  * Normalize a stored `date`-column row-filter value into a timestamp literal
- * body the warehouse dialects can cast. The date picker stores a UTC ISO
- * instant (e.g. `2024-01-01T17:00:00.000Z`); this reshapes it to
- * `2024-01-01 17:00:00`. Date-only values (`2024-01-01`) and manually-typed
- * `2024-01-01 09:00:00` values pass through unchanged. The value is already
- * UTC — this only adjusts the text, it does not shift the instant.
+ * body the warehouse dialects can cast. Values are UTC wall-clock text, in any
+ * of the spellings `isValidRowFilterDateValue` accepts: the date picker writes
+ * `2024-01-01T17:00`, and an API caller can send `2024-01-01T17:00:00.000Z` or
+ * `2024-01-01 17:00:00`. All of them reshape to `2024-01-01 17:00:00`; date-only
+ * values (`2024-01-01`) pass through unchanged. This only rewrites the text —
+ * dropping the `Z` does not shift the instant, because the value was never a
+ * local-time instant to begin with.
  *
  * Minute-precision values are padded to whole seconds. `DateFilterInput` stores
  * `yyyy-MM-dd'T'HH:mm` (the native `datetime-local` shape), and strict dialects
