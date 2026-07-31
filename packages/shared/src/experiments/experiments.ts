@@ -772,8 +772,9 @@ export function getRowFilterSQL({
   stringMatch: StringMatchFn;
   evalBoolean: (col: string, value: boolean) => string;
   // Casts an expression to the dialect's TIMESTAMP type. When provided, `date`
-  // columns compared with </<=/>/>=/=/!=/in/not_in cast both the column and the
-  // value literal so the comparison is temporal (UTC) rather than lexicographic.
+  // columns compared with </<=/>/>=/=/!=/between/not_between/in/not_in cast both
+  // the column and the value literal so the comparison is temporal (UTC) rather
+  // than lexicographic.
   castToTimestamp?: (column: string) => string;
   showSourceComment?: boolean;
   identifierQuote?: SqlIdentifierQuote;
