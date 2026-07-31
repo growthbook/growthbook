@@ -131,10 +131,18 @@ export class LearningModel extends BaseClass {
     }
   }
 
+  // Learnings that reference this experiment in either direction. A
+  // contradicting reference still means the Learning is about that
+  // experiment, and is often the more interesting one to surface.
   public async getByExperimentId(
     experimentId: string,
   ): Promise<LearningInterface[]> {
-    return this._find({ supportingExperimentIds: experimentId });
+    return this._find({
+      $or: [
+        { supportingExperimentIds: experimentId },
+        { contradictingExperimentIds: experimentId },
+      ],
+    });
   }
 
   // --- External REST API ---
