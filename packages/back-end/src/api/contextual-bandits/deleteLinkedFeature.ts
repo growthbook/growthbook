@@ -41,6 +41,7 @@ export const deleteContextualBanditLinkedFeature = createApiRequestHandler(
     eventAudit: req.eventAudit,
     audit: req.audit,
     autoPublish: stringToBoolean(req.query.autoPublish?.toString()),
+    draftVersion: req.query.draftVersion,
   });
 
   return {

@@ -681,6 +681,9 @@ export const deleteContextualBanditLinkedFeatureValidator = {
       autoPublish: booleanQueryField.describe(
         "Publish the resulting revision immediately instead of leaving it as a draft.",
       ),
+      draftVersion: contextualBanditLinkedFeatureDraftVersionField.describe(
+        "Remove the rule from this existing draft revision instead of live. Required when the rule hasn't been published yet — omitting it targets the live revision, which has nothing to remove.",
+      ),
     })
     .strict(),
   paramsSchema: contextualBanditIdAndFeatureParam,

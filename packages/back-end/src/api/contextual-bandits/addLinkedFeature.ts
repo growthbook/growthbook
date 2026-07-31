@@ -60,6 +60,7 @@ export const addContextualBanditLinkedFeature = createApiRequestHandler(
     req.context,
     feature,
     variations,
+    draftVersion,
   );
 
   const result = await linkFeatureToContextualBandit({

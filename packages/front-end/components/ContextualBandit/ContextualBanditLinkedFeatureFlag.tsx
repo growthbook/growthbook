@@ -57,11 +57,15 @@ export default function ContextualBanditLinkedFeatureFlag({
     canEditFeatureDraft &&
     permissionsUtil.canPublishFeature(info.feature, ruleEnvironments);
 
-  const handleRemove = async () => {
+  const handleRemove = async (draftRevisionVersion?: number) => {
     setRemoving(true);
     try {
+      const params = new URLSearchParams({ autoPublish: "true" });
+      if (draftRevisionVersion != null) {
+        params.set("draftVersion", String(draftRevisionVersion));
+      }
       await apiCall(
-        `/api/v1/contextual-bandits/${cb.id}/linked-feature/${info.feature.id}?autoPublish=true`,
+        `/api/v1/contextual-bandits/${cb.id}/linked-feature/${info.feature.id}?${params.toString()}`,
         { method: "DELETE" },
       );
       mutate?.();
@@ -146,7 +150,11 @@ export default function ContextualBanditLinkedFeatureFlag({
         feature={info.feature}
         canEdit={showEditButton || showRemoveButton}
         onEdit={showEditButton ? () => setEditModalOpen(true) : undefined}
-        onDelete={showRemoveButton ? handleRemove : undefined}
+        onDelete={
+          showRemoveButton
+            ? () => handleRemove(info.draftRevisionVersion)
+            : undefined
+        }
         additionalBadge={(() => {
           if (info.state === "archived") {
             return <Badge label="Archived" radius="full" color="gray" />;
@@ -188,7 +196,7 @@ export default function ContextualBanditLinkedFeatureFlag({
               <>
                 {" · "}
                 <Link
-                  onClick={handleRemove}
+                  onClick={() => handleRemove()}
                   style={{ cursor: removing ? "wait" : "pointer" }}
                 >
                   Remove from contextual bandit

@@ -5,6 +5,7 @@ import {
 } from "shared/types/feature";
 import { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
+import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import {
   assertValidRuleConfigKeys,
   composeConfigBacking,
@@ -75,13 +76,40 @@ export function assertVariationsCoverBandit(
 // run before composing a rule's config-backed value.
 export async function assertValidContextualBanditVariationConfigKeys(
   context: ApiReqContext,
-  feature: Pick<FeatureInterface, "defaultValue" | "baseConfig" | "project">,
+  feature: Pick<
+    FeatureInterface,
+    | "id"
+    | "organization"
+    | "version"
+    | "defaultValue"
+    | "baseConfig"
+    | "project"
+    | "environmentSettings"
+  >,
   variations: VariationInput[],
+  draftVersion?: number,
 ): Promise<void> {
+  let effectiveDefaultValue = feature.defaultValue;
+  if (draftVersion != null && draftVersion !== feature.version) {
+    const revision = await getRevision({
+      context,
+      organization: feature.organization,
+      featureId: feature.id,
+      feature,
+      version: draftVersion,
+    });
+    if (!revision) {
+      throw new BadRequestError(
+        `Cannot find revision ${draftVersion} for feature ${feature.id}.`,
+      );
+    }
+    effectiveDefaultValue = revision.defaultValue ?? feature.defaultValue;
+  }
+
   await assertValidRuleConfigKeys(
     context,
     variations.map((v) => v.config),
-    feature.defaultValue,
+    effectiveDefaultValue,
     feature.baseConfig,
     feature.project,
   );
