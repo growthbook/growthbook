@@ -264,7 +264,7 @@ const SavedLearningsList: FC<{
       <Box mb="4">
         <Flex align="center" gap="3" justify="between" mb="3" wrap="wrap">
           <Flex align="center" gap="3" flexGrow="1" style={{ maxWidth: "75%" }}>
-            <Box flexShrink="1" style={{ flexBasis: 240, minWidth: 140 }}>
+            <Box flexShrink="1" style={{ flexBasis: 300, minWidth: 140 }}>
               <Field
                 placeholder="Search Learnings..."
                 type="search"
