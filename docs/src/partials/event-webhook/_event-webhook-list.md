@@ -6432,9 +6432,9 @@ Triggered when a config is created
                 /** Human-readable error shown when the rule is violated. */
                 message: string;
             }[] | undefined;
-            /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+            /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
             locked?: boolean | undefined;
-            /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+            /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
             experimentGuard?: boolean | undefined;
             /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
             lockedRevision?: {
@@ -6541,9 +6541,9 @@ Triggered when a config is updated
                 /** Human-readable error shown when the rule is violated. */
                 message: string;
             }[] | undefined;
-            /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+            /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
             locked?: boolean | undefined;
-            /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+            /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
             experimentGuard?: boolean | undefined;
             /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
             lockedRevision?: {
@@ -6610,9 +6610,9 @@ Triggered when a config is updated
                 /** Human-readable error shown when the rule is violated. */
                 message: string;
             }[] | undefined;
-            /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+            /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
             locked?: boolean | undefined;
-            /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+            /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
             experimentGuard?: boolean | undefined;
             /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
             lockedRevision?: {
@@ -6724,9 +6724,9 @@ Triggered when a config is deleted
                 /** Human-readable error shown when the rule is violated. */
                 message: string;
             }[] | undefined;
-            /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+            /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
             locked?: boolean | undefined;
-            /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+            /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
             experimentGuard?: boolean | undefined;
             /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
             lockedRevision?: {
@@ -6863,9 +6863,9 @@ Triggered when a new draft revision is created for a config
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -6932,9 +6932,9 @@ Triggered when a new draft revision is created for a config
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -7076,9 +7076,9 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -7145,9 +7145,9 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -7290,9 +7290,9 @@ Triggered when a draft revision is submitted for review
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -7359,9 +7359,9 @@ Triggered when a draft revision is submitted for review
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -7503,9 +7503,9 @@ Triggered when a draft revision is approved by a reviewer
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -7572,9 +7572,9 @@ Triggered when a draft revision is approved by a reviewer
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -7722,9 +7722,9 @@ Triggered when a reviewer requests changes on a draft revision
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -7791,9 +7791,9 @@ Triggered when a reviewer requests changes on a draft revision
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -7941,9 +7941,9 @@ Triggered when a comment is added to a draft revision
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -8010,9 +8010,9 @@ Triggered when a comment is added to a draft revision
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -8160,9 +8160,9 @@ Triggered when a draft revision is discarded
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -8229,9 +8229,9 @@ Triggered when a draft revision is discarded
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -8373,9 +8373,9 @@ Triggered when a draft revision is rebased onto the latest live state
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -8442,9 +8442,9 @@ Triggered when a draft revision is rebased onto the latest live state
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -8586,9 +8586,9 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -8655,9 +8655,9 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -8800,9 +8800,9 @@ Triggered when a config is reverted to a previous published revision
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -8869,9 +8869,9 @@ Triggered when a config is reverted to a previous published revision
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -9015,9 +9015,9 @@ Triggered when a discarded revision is reopened
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -9084,9 +9084,9 @@ Triggered when a discarded revision is reopened
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -9228,9 +9228,9 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {
@@ -9297,9 +9297,9 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                     /** Human-readable error shown when the rule is violated. */
                     message: string;
                 }[] | undefined;
-                /** Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited. */
+                /** Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it. */
                 locked?: boolean | undefined;
-                /** Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`. */
+                /** Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access. */
                 experimentGuard?: boolean | undefined;
                 /** The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds. */
                 lockedRevision?: {

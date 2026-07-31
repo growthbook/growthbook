@@ -292,7 +292,7 @@ export const apiFeatureRevisionV2Validator = namedSchema(
       scheduledPublishBypassApproval: z
         .boolean()
         .describe(
-          "When true, this schedule was armed by an admin via the bypass-approval override. It cannot be edited inline (only canceled and re-armed) and anyone with publish authority may cancel it.",
+          "Whether the schedule was created for an unapproved draft by a caller with Bypass draft approvals access. This kind of schedule cannot be edited; cancel it and create a new schedule instead. Anyone with Publish access can cancel it.",
         )
         .optional(),
       scheduledPublishLastError: z
@@ -778,7 +778,7 @@ export const postFeatureV2Validator = {
   responseSchema: featureV2ResponseSchema,
   summary: "Create a single feature",
   description:
-    "Creates a new feature. Rules are supplied as a top-level `rules` array; each rule includes `allEnvironments` / `environments` scope fields.\n\n" +
+    "Creates a new Feature Flag. The caller needs Create access in its Project and Publish access for each environment where it starts enabled. Rules are supplied as a top-level `rules` array; each rule includes `allEnvironments` / `environments` scope fields.\n\n" +
     "### Config-backed features (Config mode)\n\n" +
     'A JSON feature can be backed by a shared **config** — the config supplies the base JSON value and schema, and the feature\'s *rule* values become override *patches* merged on top (nested objects deep-merge; arrays and scalars replace). The default value is exactly a config with no overrides (see below). Config backing is set exclusively through dedicated fields — never a raw `$extends: ["@config:…"]` inside a value string (that is rejected). `@const:` references inside values still work.\n\n' +
     '- **Top-level (`baseConfig`):** set `valueType: "json"` and `baseConfig: "<configKey>"` to put the flag in Config mode. The config must be live. This is the family root and the base the default value patches.\n' +
@@ -835,7 +835,7 @@ export const updateFeatureV2Validator = {
   responseSchema: featureV2ResponseSchema,
   summary: "Partially update a feature",
   description:
-    "Updates any combination of a feature's metadata, default value, environment state, and rules. Other top-level fields are patch-merged: omit a field to leave it unchanged. The `rules` field, when supplied, replaces the entire `rules` array atomically in a single revision (v1 PUT applied per-environment patches; v2 swaps the full flat array). To preserve existing rules during a partial edit, GET the feature first, mutate the returned `rules` array, and PUT the full array back. Safe-rollout rules round-trip via their `safeRolloutId`; use `POST /v2/features/:id/revisions/:version/rules` to create new ones. Returns 403 if approval rules are enabled for an affected environment and the bypass setting is off.",
+    "Updates the Feature Flag and immediately publishes a new revision. The caller needs Edit access in the Feature Flag's Project and Publish access for every affected environment. When approval is required, use the revision endpoints instead, unless the caller can bypass draft approvals.\n\nOther top-level fields are patch-merged: omit a field to leave it unchanged. The `rules` field, when supplied, replaces the entire `rules` array in one operation. To preserve existing rules, fetch the Feature Flag, update the returned `rules` array, and send the complete array back. Safe-rollout rules round-trip through `safeRolloutId`; use `POST /v2/features/:id/revisions/:version/rules` to create new ones.",
   operationId: "updateFeatureV2",
   tags: ["features-v2"],
   method: "post" as const,
@@ -857,7 +857,7 @@ export const deleteFeatureV2Validator = {
     .strict(),
   summary: "Deletes a single feature",
   description:
-    'Permanently deletes a feature and all of its revisions.\n\nArchived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled.\n',
+    'Permanently deletes a Feature Flag and all of its revisions. The caller needs Archive & delete access. Deleting a live Feature Flag also requires Publish access for every environment where it is enabled and the organization setting "REST API always bypasses approval requirements". Otherwise, archive the Feature Flag before deleting it.',
   operationId: "deleteFeatureV2",
   tags: ["features-v2"],
   method: "delete" as const,
@@ -891,7 +891,7 @@ export const toggleFeatureV2Validator = {
   responseSchema: featureV2ResponseSchema,
   summary: "Toggle a feature in one or more environments",
   description:
-    "Enables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean.",
+    "Enables or disables a Feature Flag in one or more environments and immediately publishes the change. The caller needs Publish access for every environment in the request. When approval is required, use a draft revision instead, unless the caller can bypass draft approvals.",
   operationId: "toggleFeatureV2",
   tags: ["features-v2"],
   method: "post" as const,
@@ -912,7 +912,7 @@ export const revertFeatureV2Validator = {
   responseSchema: featureV2ResponseSchema,
   summary: "Revert a feature to a specific revision",
   description:
-    'Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it, leaving a clear audit trail of the revert in the revision history.\n\nReturns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and neither the "REST API always bypasses approval requirements" nor the "Allow reverts without approval" org setting is enabled.\n\nReturns 422 with a list of `warnings` if the restored values no longer validate against the feature\'s current value type or JSON schema (e.g. reverting to a config the current schema can no longer read). Re-submit with `"ignoreWarnings": true` in the request body to revert anyway.\n',
+    'Restores a previously published revision and immediately publishes the result as a new revision. The caller needs Revert access for every affected environment. When approval is required, the request is allowed only if the organization enables either "REST API always bypasses approval requirements" or "Allow reverts without approval".\n\nIf the restored values no longer match the Feature Flag\'s current value type or JSON schema, the API returns 422 with `warnings`. Send `"ignoreWarnings": true` to acknowledge those warnings and continue.',
   operationId: "revertFeatureV2",
   tags: ["features-v2"],
   method: "post" as const,

@@ -522,13 +522,26 @@ The API may return the following error status codes:
 - **402** - Request Failed - The parameters are valid, but the request failed
 - **403** - Forbidden - Provided API key does not have the required access
 - **404** - Not Found - Unknown API route or requested resource
-- **422** - Soft Warning - The request failed, but can be re-submitted with \`"ignoreWarnings": true\` in the request body to proceed anyway. Blocked publishes include a \`gates\` array, one entry per blocking gate, each carrying a uniform set of fields: \`type\`, \`severity\`, \`messages\`, \`override\` (the body flag that clears it — \`ignoreWarnings\` for acknowledge-class warnings, or the privileged \`skipSchemaValidation\` (schema/invariant/schema-break) / \`skipHooks\` (custom-hook rejections), or \`null\` when no flag applies), \`requiresPermission\` (a permission the override needs, or \`null\`), and \`resolution\` (the non-flag way out as a callable \`{ action, method, path }\` route, or \`null\`). So one response lists every way past every gate. A gate with \`override: null\` (approval required) clears by getting the revision approved, or implicitly for callers holding the entity's bypass-approval permission (\`FlagsBypassApprovals\`, or \`bypassApprovalSavedGroups\` for saved groups); a locked config clears by calling its \`resolution\` unlock route. On a SUCCESSFUL publish (200), if a gate that would have blocked was bypassed by the caller's authority, the response includes a \`bypassedGates\` array (\`{ type, outcome: "bypassed", via }\`, where \`via\` is \`ignoreWarnings\`, \`skipSchemaValidation\`, \`skipHooks\`, \`bypassApprovalPermission\`, or \`restApiBypassesReviews\`); the key is omitted when nothing was bypassed.
+- **422** - Unprocessable Entity - The request is valid, but a warning, validation rule, approval requirement, or another publishing gate blocked it. Do not assume that \`ignoreWarnings\` clears every 422 response.
 - **429** - Too Many Requests - You exceeded the rate limit of 60 requests per minute. Try again later.
 - **5XX** - Server Error - Something went wrong on GrowthBook's end (these are rare)
 
 The response body will be a JSON object with the following properties:
 
 - **message** - Information about the error
+
+### Publishing gates
+
+Publish responses include a \`gates\` array that explains every blocker:
+
+- \`type\`, \`severity\`, and \`messages\` identify the problem.
+- \`override\` names the request-body field that can bypass it. This is \`ignoreWarnings\` for warnings, \`skipSchemaValidation\` for schema and invariant failures, or \`skipHooks\` for Custom Hook rejections. A value of \`null\` means there is no request-body override.
+- \`requiresPermission\` identifies any additional permission needed to use the override.
+- \`resolution\` provides an API action, method, and path when the blocker must be resolved another way.
+
+For example, an approval gate is cleared by approving the revision or by using a caller with **Bypass draft approvals** access. A Config lock is cleared through the unlock route in \`resolution\`.
+
+When a successful publish bypasses a gate, the response includes \`bypassedGates\`. Each entry reports the gate \`type\` and how it was bypassed in \`via\`, which is one of \`ignoreWarnings\`, \`skipSchemaValidation\`, \`skipHooks\`, \`bypassApprovalPermission\`, or \`restApiBypassesReviews\`. This field is omitted when no gates were bypassed.
 `,
     },
     servers: [

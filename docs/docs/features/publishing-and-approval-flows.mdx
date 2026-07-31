@@ -72,7 +72,10 @@ Requested reviews appear in the **Drafts** tab on the Features overview page wit
 
 ### Reviewing
 
-Anyone with the Review permission for feature flags (see [Permissions](/account/user-permissions)) can serve as a reviewer, except the user who created the request.
+A reviewer needs the **Review** permission for Feature Flags. The person who
+created the draft cannot approve it. If **Require approval from a non-editor** is
+enabled, anyone who contributed to the draft is also prevented from approving
+it. See [Permissions](/account/user-permissions) for details.
 
 Click the feature, then click **Review and Approve** to open the review modal.
 
@@ -104,7 +107,9 @@ Once the changes are **Approved**, they can be published.
 
 ### Publishing with Approvals
 
-Anyone with permission to publish feature flags can publish changes once they are marked as **Approved**. Users with the bypass-approvals permission can skip the review requirement by selecting the checkbox at the top of the modal.
+After approval, anyone with **Publish** access to the affected environments can
+publish the draft. A user with **Bypass draft approvals** can publish without an
+approval.
 
 <MaxWidthImage border maxWidth={600}>
   ![Publishing approved changes with admin bypass option](/images/features/approval-flows/publish-with-admin-bypass.png)
@@ -154,10 +159,21 @@ Enable saved group approvals from **Settings → General → Approval Flows**. T
 
 #### Requesting and Reviewing
 
-When approvals are enabled, the **Review & Publish** button on a saved group draft becomes **Request Approval to Publish**. After you submit, reviewers see the request in the saved group's revision list with a **Pending Review** status and can open the **View Approval Request** modal to view the diff, leave comments, and choose **Comment**, **Request Changes**, or **Approve**. As with features, anyone with the Review permission for saved groups can review — except the user who created the request when **Require approval from a non-editor** is enabled.
+When approvals are enabled, **Review & Publish** becomes **Request Approval to
+Publish**. The request appears in the Saved Group's revision list with a
+**Pending Review** status. A user with **Review** access can open the request,
+inspect the diff, comment, request changes, or approve it. The draft's creator
+cannot approve it. When **Require approval from a non-editor** is enabled, other
+contributors cannot approve it either.
 
-Once approved, anyone with permission to publish saved groups can publish the revision. Users with the saved-group bypass-approvals permission on every project the group belongs to can publish without going through review.
+After approval, a user with **Publish** access in every Project assigned to the
+Saved Group can publish it. **Bypass draft approvals** allows the same user to
+publish without an approval.
 
 #### Archiving and Unarchiving
 
-Archiving (and unarchiving) a saved group always flows through the revision system. When approval flows are enabled, archive and unarchive actions create a revision that must be approved before it takes effect. Saved groups with active references in features, experiments, or other saved groups cannot be archived until those references are removed.
+Archiving and unarchiving a Saved Group always creates a revision. When approval
+flows are enabled, that revision must be approved before it takes effect.
+Archiving requires **Archive & delete** access; unarchiving requires **Publish**
+access. A Saved Group with active references from Feature Flags, experiments, or
+other Saved Groups cannot be archived until those references are removed.

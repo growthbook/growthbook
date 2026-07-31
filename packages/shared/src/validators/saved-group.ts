@@ -147,7 +147,7 @@ const postSavedGroupBody = z
     bypassApproval: z
       .boolean()
       .describe(
-        "Set to true to skip the approval flow when the org requires approvals on saved groups. Requires the `bypassApprovalSavedGroups` permission on every project the saved group belongs to. When the org does not require approvals, this flag has no effect.",
+        "Set to true to create the live Saved Group without approval. The caller must have Bypass draft approvals access in every assigned Project. This field has no effect when approval is not required.",
       )
       .optional(),
   })
@@ -174,7 +174,7 @@ const updateSavedGroupBody = z
     bypassApproval: z
       .boolean()
       .describe(
-        "Set to true to skip the approval flow when the org requires approvals on saved groups. Requires the `bypassApprovalSavedGroups` permission on the saved group's existing projects. When the org does not require approvals, this flag has no effect.",
+        "Set to true to update the live Saved Group without approval. The caller must have Bypass draft approvals access in every current and destination Project. This field has no effect when approval is not required.",
       )
       .optional(),
   })
@@ -280,7 +280,7 @@ export const archiveSavedGroupValidator = {
     .strict(),
   summary: "Archive a single saved group",
   description:
-    'Archives a saved group. When live features, experiments, or other saved groups still reference it, the request returns a 422 listing the blocking gates — re-submit with `"ignoreWarnings": true` in the request body to acknowledge the affected references and proceed. If the organization requires approval for saved-group changes, the request returns an approval-required gate instead: route the change through a draft revision (`POST /saved-groups/{id}/revisions`), or use a role or token with the bypass-approvals permission. Any gate the caller\'s authority bypasses is reported in `bypassedGates` on success.',
+    'Archives a Saved Group. If it is still referenced by a Feature Flag, experiment, or another Saved Group, the API returns 422 with the affected references. Send `"ignoreWarnings": true` to acknowledge those references and continue. When approval is required, create and publish an archive revision instead, or use a caller with Bypass draft approvals access. A successful response lists any skipped gates in `bypassedGates`.',
   operationId: "archiveSavedGroup",
   tags: ["saved-groups"],
   method: "post" as const,
@@ -300,7 +300,7 @@ export const unarchiveSavedGroupValidator = {
     .strict(),
   summary: "Unarchive a single saved group",
   description:
-    "Unarchives a saved group. Unarchiving never drops a dependent, but if the organization requires approval for saved-group changes the request returns an approval-required gate — route the change through a draft revision (`POST /saved-groups/{id}/revisions`), or use a role or token with the bypass-approvals permission. Any gate the caller's authority bypasses is reported in `bypassedGates`.",
+    "Unarchives a Saved Group. When approval is required, create and publish an unarchive revision instead, or use a caller with Bypass draft approvals access. A successful response lists any skipped gates in `bypassedGates`.",
   operationId: "unarchiveSavedGroup",
   tags: ["saved-groups"],
   method: "post" as const,

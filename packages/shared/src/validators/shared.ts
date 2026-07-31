@@ -181,19 +181,19 @@ export const ignoreWarningsBodyField = z
   .boolean()
   .optional()
   .describe(
-    "Acknowledge and proceed past ACKNOWLEDGE-class warnings: a value served to a running experiment, a locked dependent, and dependents dropped by an archive. A blocked request lists what this would acknowledge in `warnings`. Does NOT clear validation-class failures (schema errors, cross-field invariants, downstream schema breaks, or custom-hook rejections) — those require `skipSchemaValidation` — EXCEPT when the org disables 'block publishing on JSON schema errors' (warn mode), where schema, invariant, and schema-break failures become soft and this flag clears them (custom-hook rejections still need `skipSchemaValidation`). On publish endpoints this also force-merges a draft whose base is stale, when you hold the bypass-approval permission.",
+    "Set to true to acknowledge the warnings listed in a blocked response and continue. This covers experiment guards, locked dependents, and references affected by an archive. When the organization treats schema failures as warnings, it also covers schema and invariant warnings. It never bypasses a rejected Custom Hook. On revision publish endpoints, it can also force-publish an out-of-date draft when the caller has Bypass draft approvals access.",
   );
 export const skipSchemaValidationBodyField = z
   .boolean()
   .optional()
   .describe(
-    "Force past schema-validation failures: JSON-schema validation of the value(s) written, cross-field invariants, and downstream schema breaks (a change that makes a dependent config or config-backed feature value violate its schema). Does NOT clear a custom validation-hook rejection — use `skipHooks` for that. Only honored for callers with org-wide bypass authority (the `FlagsBypassApprovals` permission on all projects); ignored otherwise. Validation is enforced by default.",
+    "Set to true to publish despite schema validation errors, failed invariants, or schema changes that invalidate dependent resources. This does not bypass a rejected Custom Hook; use `skipHooks` for that. The caller must have Bypass draft approvals access for Feature Flags, Configs, and Constants in every Project. Otherwise, this field is ignored.",
   );
 export const skipHooksBodyField = z
   .boolean()
   .optional()
   .describe(
-    "Force past a custom validation hook that rejected the change (a hook that threw). Separate from `skipSchemaValidation` — a hook failure is not a schema error. Only honored for callers with org-wide bypass authority (the `FlagsBypassApprovals` permission on all projects); ignored otherwise.",
+    "Set to true to publish despite a Custom Hook rejection. This does not bypass schema validation; use `skipSchemaValidation` for that. The caller must have Bypass draft approvals access for Feature Flags, Configs, and Constants in every Project. Otherwise, this field is ignored.",
   );
 export const publishOverrideBodyFields = {
   ignoreWarnings: ignoreWarningsBodyField,
@@ -209,7 +209,7 @@ export const bypassApprovalPublishBodyField = z
   .boolean()
   .optional()
   .describe(
-    "Has no effect and is accepted only for backwards compatibility. Callers holding the entity's bypass-approval permission (`FlagsBypassApprovals`, or `SavedGroupsBypassApprovals` for saved groups) — or under the org-level REST bypass setting — bypass approval requirements automatically; all other callers must have the revision approved before publishing.",
+    "Deprecated and ignored. Approval is bypassed automatically when the caller has Bypass draft approvals access for this resource or when the organization enables the REST API approval bypass. Otherwise, the revision must be approved before it can be published.",
   );
 
 // Reported on a SUCCESSFUL publish when a gate that would otherwise have blocked
@@ -228,7 +228,7 @@ export const publishBypassedGatesField = z
         via: z
           .string()
           .describe(
-            'The bypass source: an override flag ("ignoreWarnings", or the privileged "skipSchemaValidation" / "skipHooks"), the caller\'s bypass-approval permission for the entity ("bypassApprovalPermission"), or the org setting ("restApiBypassesReviews").',
+            "How the gate was bypassed. The value identifies a request field (`ignoreWarnings`, `skipSchemaValidation`, or `skipHooks`), the caller's permission (`bypassApprovalPermission`), or the organization setting (`restApiBypassesReviews`).",
           ),
       })
       .strict(),

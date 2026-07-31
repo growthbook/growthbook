@@ -440,13 +440,13 @@ export const apiConfigValidator = namedSchema(
       locked: z
         .boolean()
         .describe(
-          "Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `FlagsBypassApprovals` permission). Drafts may still be created and edited.",
+          "Whether this Config is locked to a published revision. Drafts can still be created and edited while locked, but no change can be published until a user with Bypass draft approvals access unlocks it.",
         )
         .optional(),
       experimentGuard: z
         .boolean()
         .describe(
-          "Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `FlagsBypassApprovals`). Turning it off requires `FlagsBypassApprovals`.",
+          "Whether the experiment guard is enabled. When enabled, publishing a value used by a running experiment returns a warning that must be acknowledged with `ignoreWarnings: true`. Disabling the guard requires Bypass draft approvals access.",
         )
         .optional(),
       lockedRevision: z
@@ -476,7 +476,7 @@ export type ApiConfig = z.infer<typeof apiConfigValidator>;
 const bypassApprovalField = z
   .boolean()
   .describe(
-    "Set to true to skip the approval flow when the org requires approvals for this config's project. Requires the `FlagsBypassApprovals` permission (or the org-level REST bypass setting). When approvals aren't required, this flag has no effect.",
+    "Set to true to write directly to the live Config without approval. The caller must have Bypass draft approvals access in the Config's Project, unless the organization enables the REST API approval bypass. This field has no effect when approval is not required.",
   )
   .optional();
 
@@ -578,7 +578,7 @@ const updateConfigApiBody = z
     experimentGuard: z
       .boolean()
       .describe(
-        "Enable or disable the experiment guard on this config. Turning it OFF requires the `FlagsBypassApprovals` permission.",
+        "Enable or disable the experiment guard for this Config. Disabling it requires Bypass draft approvals access.",
       )
       .optional(),
     invariants: z
@@ -982,7 +982,7 @@ export const lockConfigValidator = {
   responseSchema: apiConfigResponse,
   summary: "Lock a config at its current published revision",
   description:
-    "Freezes the config at its current published (merged) revision. While locked, no change can be published past that revision — publish, revert-to-publish, direct update, scheduled publish, and archive are all blocked (drafts may still be created and edited). The pinned revision is returned as `lockedRevision` for reproducible build pinning. Unlocking requires the `FlagsBypassApprovals` permission.",
+    "Locks the Config to its current published revision. Drafts can still be created and edited, but direct updates, publishes, scheduled publishes, reverts, and archives are blocked. The response returns the pinned revision in `lockedRevision`. Unlocking requires Bypass draft approvals access.",
   operationId: "lockConfig",
   tags: ["configs"],
   method: "post" as const,
@@ -997,7 +997,7 @@ export const unlockConfigValidator = {
   responseSchema: apiConfigResponse,
   summary: "Unlock a config",
   description:
-    "Clears the lock so changes can be published again. Requires the `FlagsBypassApprovals` permission on the config's project.",
+    "Removes the Config lock so changes can be published again. The caller must have Bypass draft approvals access in the Config's Project.",
   operationId: "unlockConfig",
   tags: ["configs"],
   method: "post" as const,
