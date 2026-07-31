@@ -357,9 +357,8 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
   // `isPlausibleFeatureRule` before relying on the rule shape.
   if (rule == null || typeof rule !== "object") return rule;
 
-  // Stored targeting on a ref rule is invisible in the UI but still counted by
-  // saved-group usage, stale detection, and the flag list's badges — so drop it
-  // on read. Contextual bandits need no strip: private beta predates nothing.
+  // Unread at delivery, but stored targeting still counts toward saved-group
+  // usage, stale detection, and the flag list's badges.
   if (
     rule.type === "experiment-ref" &&
     REF_RULE_TARGETING_FIELDS.some((key) => key in rule)

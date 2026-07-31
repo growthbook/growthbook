@@ -57,13 +57,10 @@ describe("applyPatch — force/rollout seed stamping", () => {
   });
 });
 
-// The PUT body schema is a union of per-type patch shapes, so field
-// applicability is enforced by the schema (and shown in the docs) rather than
-// by prose. Targeting is absent from the experiment-ref member: an experiment
-// rule takes it from the linked experiment's phase.
-// Repointing a rule at a different experiment leaves the previous experiment's
-// arm ids in place, so the handler has to validate on an experimentId-only patch
-// too — not just when `variations` is supplied.
+// The PUT body is a union of per-type patch shapes, so the schema enforces field
+// applicability. Targeting is absent from the experiment-ref member.
+// Repointing leaves the previous experiment's arm ids in place, so the handler
+// must validate an experimentId-only patch too.
 describe("applyPatch — experiment-ref repointing", () => {
   const rule = {
     id: "fr_1",

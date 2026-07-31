@@ -531,6 +531,21 @@ app.use(asyncHandler(processJWT as unknown as RequestHandler));
 // point can have `req.gb` set, so earlier (public/SDK) routes never pay for it
 app.use(trackRequestCompletion as unknown as RequestHandler);
 
+// The app's soft-warning retry replays a request by rewriting its URL
+// (`appendIgnoreWarnings`), so fold that flag into the body — the override flags
+// are body-only everywhere else. App routes only; `/api/v*` is mounted above.
+app.use(((req: Request, _res, next) => {
+  if (
+    req.query?.ignoreWarnings === "true" &&
+    req.body &&
+    typeof req.body === "object" &&
+    !Array.isArray(req.body)
+  ) {
+    (req.body as Record<string, unknown>).ignoreWarnings = true;
+  }
+  next();
+}) as RequestHandler);
+
 // Add logged in user props to the logger
 app.use(((
   req: AuthRequest,

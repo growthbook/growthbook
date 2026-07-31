@@ -537,9 +537,6 @@ const v2RuleRolloutBase = z.object({
   hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
 });
 
-// No `condition` / `savedGroupTargeting` / `prerequisites`: an experiment rule
-// takes its targeting from the linked experiment's current phase, so the API
-// rejects them here (see `assertNoRefRuleTargeting`).
 const v2RuleExperimentRefBase = z.object({
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   id: z.string().optional(),

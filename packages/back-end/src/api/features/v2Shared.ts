@@ -289,8 +289,7 @@ export function mapV2ApiRuleToFeatureRule(
       ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
     };
   }
-  // Declared after the experiment-ref return: that shape has no targeting, and
-  // an experiment rule takes it from the linked experiment's current phase.
+  // Declared after the experiment-ref return, whose shape has no targeting.
   const targeting = {
     condition: ruleInput.condition ?? "",
     savedGroups: ruleInput.savedGroupTargeting?.map((s) => ({

@@ -47,7 +47,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
-import { NotFoundError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
   assertCanAutoPublish,
   getDraftRevision,
@@ -95,10 +95,9 @@ function assertLinkedFeatureRevisionOptions(
   }
 }
 
-// A ref rule's variations must cover the linked entity's arms exactly: an
-// uncovered arm serves `null`, and a stopped experiment missing its released
-// variation drops the rule from the payload. Membership is a set check, since
-// the payload matches arms by id.
+// Arms must be covered exactly: an uncovered one serves `null`, and a stopped
+// experiment missing its released variation drops the rule from the payload.
+// Checked as a set — the payload matches arms by id, so order is free.
 export function assertVariationsCoverArms({
   variations,
   armIds,
@@ -109,7 +108,7 @@ export function assertVariationsCoverArms({
   entityLabel: string;
 }): void {
   if (variations.length !== armIds.length) {
-    throw new Error(
+    throw new BadRequestError(
       `Expected ${armIds.length} variation(s) for ${entityLabel} but ${variations.length} were specified. Provide exactly one value per variation.`,
     );
   }
@@ -118,12 +117,12 @@ export function assertVariationsCoverArms({
   const seen = new Set<string>();
   for (const { variationId } of variations) {
     if (!valid.has(variationId)) {
-      throw new Error(
+      throw new BadRequestError(
         `variationId "${variationId}" is not a variation of ${entityLabel}. Valid ids: ${armIds.join(", ")}`,
       );
     }
     if (seen.has(variationId)) {
-      throw new Error(
+      throw new BadRequestError(
         `variationId "${variationId}" is specified more than once`,
       );
     }
@@ -138,8 +137,7 @@ export function assertExperimentRefVariationsMatchExperiment({
   variations: Pick<ExperimentRefVariation, "variationId">[];
   experiment: Pick<ExperimentInterface, "id" | "variations" | "phases">;
 }): void {
-  // Phase variations carry a `status`, but "active" is its only value today. A
-  // future non-active status needs filtering here.
+  // A future non-active variation `status` would need filtering here.
   assertVariationsCoverArms({
     variations,
     armIds: getLatestPhaseVariations(experiment).map((v) => v.id),
@@ -147,8 +145,7 @@ export function assertExperimentRefVariationsMatchExperiment({
   });
 }
 
-// Batched twin for the bulk feature endpoints, which write a whole rule array:
-// one query per distinct experiment rather than one per rule.
+// One query per distinct experiment, for callers writing a whole rule array.
 export async function assertExperimentRefRulesMatchExperiments(
   context: ReqContext | ApiReqContext,
   rules: FeatureRule[],
@@ -176,9 +173,7 @@ export async function assertExperimentRefRulesMatchExperiments(
   }
 }
 
-// Resolve a ref rule's linked experiment and check its variations in one step —
-// the six rule-write endpoints all need exactly this pair, and the resolved
-// experiment is returned for callers that go on to use it (holdout linking).
+// Returns the experiment for callers that need it afterward (holdout linking).
 export async function resolveExperimentForRefRule(
   context: ReqContext | ApiReqContext,
   rule: {

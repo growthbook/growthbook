@@ -3453,8 +3453,7 @@ export async function postFeatureExperimentRefRule(
     context.permissions.throwPermissionError();
   }
 
-  // Ref rules take their targeting from the linked entity, so they can't carry
-  // their own; variations must cover the experiment's current phase.
+  // Ref rules can't carry their own targeting.
   assertNoRefRuleTargeting(rule);
 
   const experiment = await getExperimentById(context, rule.experimentId);

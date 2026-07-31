@@ -223,9 +223,7 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       }));
     }
 
-    // Validate against the linked experiment whenever the patch touches either
-    // side of the mapping: repointing `experimentId` alone keeps the previous
-    // experiment's arm ids.
+    // Repointing `experimentId` alone keeps the previous experiment's arm ids.
     if (
       updatedRule.type === "experiment-ref" &&
       (patch.variations !== undefined || patch.experimentId !== undefined)

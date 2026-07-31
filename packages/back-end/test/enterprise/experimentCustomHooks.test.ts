@@ -39,8 +39,7 @@ function makeContext(body: Record<string, unknown> = {}) {
     org: ORG,
     auditUser: { type: "api_key", apiKey: "key_test" },
     role: "admin",
-    // On the REST API the override flags are body-only, so context.ignoreWarnings
-    // reads req.body (the querystring aliases were removed).
+    // The override flags are body-only, so context.ignoreWarnings reads req.body.
     req: { query: {}, body, headers: {} } as unknown as Request,
   });
 }

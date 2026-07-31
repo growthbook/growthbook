@@ -114,10 +114,8 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     );
 
     if (ruleInput.type === "experiment-ref") {
-      // Always resolve the experiment: the rule's variations are validated
-      // against its current phase, and holdout compatibility must be checked
-      // in both directions (the experiment may belong to a holdout even when
-      // this Feature Flag does not).
+      // Resolved unconditionally: holdout compatibility must be checked in both
+      // directions (the experiment may belong to a holdout when the flag doesn't).
       const experiment = await getExperimentById(
         req.context,
         ruleInput.experimentId,

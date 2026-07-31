@@ -19,7 +19,6 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import { FeatureInterface } from "shared/types/feature";
 import { UserInterface } from "shared/types/user";
-import { stringToBoolean } from "shared/util";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   BadRequestError,
@@ -459,22 +458,12 @@ export class ReqContextClass {
     );
   }
 
-  // Body-only on the REST API; the app's own routes also take the querystring,
-  // because the front-end's warning retry replays a request by rewriting its URL
-  // (`appendIgnoreWarnings`). Keyed on the route, not the auth scheme — `/api/v*`
-  // accepts JWTs too.
+  // The app's `?ignoreWarnings=true` is folded into the body in `app.ts`.
   private overrideFlag(field: string): boolean {
-    if (this.bodyFlag(field)) return true;
-    if (
-      (this.req as { isRestApiRequest?: boolean } | undefined)?.isRestApiRequest
-    )
-      return false;
-    const v = this.req?.query?.[field];
-    return typeof v === "string" && stringToBoolean(v);
+    return this.bodyFlag(field);
   }
 
-  // The privileged overrides additionally require org-wide bypass authority; a
-  // project-scoped writer can't silently skip validation or a rejected hook.
+  // A project-scoped writer can't skip validation or a rejected hook.
   private privilegedOverrideFlag(field: string): boolean {
     if (!this.overrideFlag(field)) return false;
     return this.permissions.canBypassApprovalChecks({ project: undefined });

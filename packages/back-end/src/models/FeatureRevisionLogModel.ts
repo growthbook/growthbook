@@ -46,10 +46,7 @@ const BaseClass = MakeModelClass({
 });
 
 export class FeatureRevisionLogModel extends BaseClass {
-  // Entries written before experiment-ref rules stopped carrying their own
-  // targeting still hold `condition`/`savedGroups`/`prerequisites` in their
-  // payload. Strip them so the log's diff view doesn't render a change nobody
-  // made. See `stripExperimentRefTargetingFromLogValue`.
+  // See `stripExperimentRefTargetingFromLogValue`.
   protected migrate(legacyDoc: unknown): FeatureRevisionLogInterface {
     const doc = legacyDoc as FeatureRevisionLogInterface;
     if (typeof doc?.value !== "string") return doc;

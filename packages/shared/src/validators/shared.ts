@@ -156,10 +156,8 @@ export const skipPaginationQueryField = {
     .optional(),
 };
 
-// Shared by every write endpoint on features, configs, constants, Saved Groups,
-// and experiments, so the names and docs stay identical. Body-only on the REST
-// API, and read off the raw body — so a strict schema must declare them to
-// accept them.
+// Read off the raw body at the context layer, so a strict body schema has to
+// declare them to accept them — which also documents them.
 export const ignoreWarningsBodyField = z
   .boolean()
   .optional()

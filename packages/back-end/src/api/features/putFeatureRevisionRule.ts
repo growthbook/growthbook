@@ -86,8 +86,7 @@ export function applyPatch(
     assertNoRefRuleTargeting({ type, ...patch });
     const updated: ExperimentRefRule = {
       ...(existing as ExperimentRefRule),
-      // A patch that only clears targeting passes the guard above; drop the
-      // keys rather than writing them back onto a rule that ignores them.
+      // An empty-targeting patch passes the guard above; drop the keys anyway.
       ...omit(commonUpdates, REF_RULE_TARGETING_FIELDS),
       ...(patch.experimentId !== undefined && {
         experimentId: patch.experimentId,
@@ -209,8 +208,7 @@ export const putFeatureRevisionRule = createApiRequestHandler(
   const { environment, schedule } = req.body;
   assertValidEnvironment(req.context, environment);
   const inlineRampSchedule = req.body.rampSchedule;
-  // The body schema is a per-type union; `applyPatch` and the checks below key
-  // off the STORED rule type, so widen to the flat field view.
+  // `applyPatch` keys off the STORED rule type, so widen to the flat view.
   const patch = req.body.rule as RulePatchFields;
 
   const { revision, created } = await resolveOrCreateRevision(
@@ -299,9 +297,7 @@ export const putFeatureRevisionRule = createApiRequestHandler(
     }
     const updatedRule = applyPatch(oldRule, patch);
 
-    // Validate against the linked experiment whenever the patch touches either
-    // side of the mapping: repointing `experimentId` alone keeps the previous
-    // experiment's arm ids.
+    // Repointing `experimentId` alone keeps the previous experiment's arm ids.
     if (
       updatedRule.type === "experiment-ref" &&
       (patch.variations !== undefined || patch.experimentId !== undefined)

@@ -268,9 +268,8 @@ describe("revision author serialization", () => {
   });
 });
 
-// Ref rules omit targeting from the REST response entirely rather than emitting
-// empty placeholders — matching their request schemas, which keeps a GET → PUT
-// round-trip valid.
+// Ref rules omit targeting rather than emitting empty placeholders, matching
+// their request schemas so a GET → PUT round-trip stays valid.
 describe("normalizeRuleForApi ref-rule targeting", () => {
   const refRule = (type: "experiment-ref" | "contextual-bandit-ref") =>
     ({
@@ -283,7 +282,7 @@ describe("normalizeRuleForApi ref-rule targeting", () => {
       ...(type === "experiment-ref"
         ? { experimentId: "exp_1" }
         : { contextualBanditId: "cb_1" }),
-      // Legacy documents can still carry these; they must not reach the API.
+      // Stored documents can carry these; they must not reach the API.
       condition: '{"country": "US"}',
       savedGroups: [{ match: "all", ids: ["grp_1"] }],
       prerequisites: [{ id: "parent", condition: "{}" }],

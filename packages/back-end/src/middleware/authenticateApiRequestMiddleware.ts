@@ -39,10 +39,6 @@ export default function authenticateApiRequestMiddleware(
   res: Response & { log: Request["log"] },
   next: NextFunction,
 ) {
-  // Mounted only on the `/api/v*` router, so this marks the whole REST surface
-  // — both the API-key and the JWT auth branches below.
-  req.isRestApiRequest = true;
-
   // Get secret key from Authorization header and store in req
   const authHeader = req.headers.authorization;
   if (!authHeader) {

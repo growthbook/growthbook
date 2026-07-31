@@ -2152,9 +2152,8 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
     scheduleRules: rule.scheduleRules,
     scheduleType: rule.scheduleType,
   };
-  // Spread only by the non-ref cases below: a ref rule takes its targeting from
-  // the entity it points at and emits none of these fields, not even empty ones.
-  // Its input schemas don't accept them either, keeping a GET → PUT round-trip valid.
+  // Spread only by the non-ref cases: a ref rule emits no targeting at all, not
+  // even empty fields, which keeps a GET → PUT round-trip valid.
   const targeting = {
     condition: rule.condition || "",
     savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
@@ -2671,9 +2670,7 @@ export function getApiFeatureObj({
   // Strip `@config:` from a rule value string; `@const:` refs pass through.
   const scrubValue = (v: string | undefined): string | undefined =>
     v === undefined ? v : (stripConfigExtends(v) ?? v);
-  // Ref rules delegate targeting to the entity they point at, so they emit no
-  // targeting fields at all — neither the canonical API names nor the internal
-  // ones the raw spread would otherwise leak (matches `normalizeRuleForApi`).
+  // Omits the internal names too, which the raw spread would otherwise leak.
   const normalizeRuleForFeatureEnv = (rule: FeatureRule): ApiFeatureRule =>
     ({
       ...(isRefRuleType(rule.type)
@@ -3205,8 +3202,6 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
     ? { ...feature, jsonSchema: undefined }
     : feature;
   return rules.map((r) => {
-    // Experiment-ref rules don't carry a rule-level condition (it lives on the
-    // linked experiment's phase), so the field isn't on that input shape.
     const conditionRes = validateCondition(
       "condition" in r ? r.condition : undefined,
     );

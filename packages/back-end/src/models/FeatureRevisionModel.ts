@@ -267,10 +267,8 @@ export function buildFeatureRevisionInterface(
         .revisionDate || revision.dateCreated;
   }
 
-  // Legacy inline log entries (new ones live in `featurerevisionlog`, which
-  // strips these in its own `migrate`) can carry experiment-ref targeting that
-  // the rules themselves no longer keep — drop it so the log's diff view
-  // doesn't render a change nobody made.
+  // Legacy inline log; new entries live in `featurerevisionlog`, which strips
+  // these in its own `migrate`.
   if (revision.log) {
     revision.log = revision.log.map((entry) => ({
       ...entry,
@@ -1378,8 +1376,7 @@ export async function updateRevision(
       ...(clearRevertedFrom ? { $unset: { revertedFrom: 1 } } : {}),
       ...contributorUpdate,
     },
-    // No caller reads `log`, and it can be large on pre-log-collection
-    // revisions — matching every other query in this file.
+    // No caller reads `log`, and it can be large.
     { new: true, projection: { log: 0 } },
   );
 

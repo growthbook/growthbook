@@ -372,9 +372,7 @@ const commonRuleFields = {
   scheduleType: z.enum(["none", "schedule", "ramp"]).optional(),
 };
 
-// Rule-level targeting. Absent from the experiment-ref shapes: an experiment
-// rule takes its targeting from the linked experiment's current phase, and the
-// API neither emits nor accepts it on the rule.
+// Rule-level targeting. Absent from the experiment-ref shapes below.
 const targetingRuleFields = {
   condition: z.string().optional(),
   savedGroups: z.array(savedGroupTargeting).optional(),
@@ -580,9 +578,7 @@ const rulePatchSchema = z.union([
   ),
 ]);
 
-// Flat view of the same fields for `applyPatch`, which keys off the STORED rule
-// type rather than the patch's own (optional) `type`. Every union member above
-// is a subset of this, so the handler can widen the parsed patch to it.
+// Flat view for `applyPatch`: every union member above is a subset of this.
 export const rulePatchFields = z.object({
   ...commonPatchFields,
   ...targetingRuleFields,

@@ -8,8 +8,7 @@ import { setupApp } from "./api.setup";
 // Coverage for the publish-gate collector on the config revision-publish
 // endpoint (POST /api/v1/configs-revisions/:key/:version/publish):
 //  1. The override flags (`ignoreWarnings`, `skipSchemaValidation`) are accepted
-//     in the body by the strict schema. They are body-only on the REST API — see
-//     `overrideFlags.test.ts` for the querystring being ignored there.
+//     in the body by the strict schema.
 //  2. A locked config surfaces a structured 422 `config-locked` gate that names
 //     the lock, has no override, and is NOT cleared by `ignoreWarnings: true`.
 //  3. The beta `mergeNow` flag was removed from the config publish surface and

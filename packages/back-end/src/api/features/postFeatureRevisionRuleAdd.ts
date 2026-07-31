@@ -83,8 +83,7 @@ export function buildRuleFromInput(
     return rule;
   }
 
-  // Declared after the experiment-ref return: that shape has no targeting, and
-  // an experiment rule takes it from the linked experiment's current phase.
+  // Declared after the experiment-ref return, whose shape has no targeting.
   const targeting = {
     condition: input.condition,
     savedGroups: input.savedGroups,
@@ -181,8 +180,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       );
     }
 
-    // Resolve the experiment to validate the rule's variations against its
-    // current phase, and to enforce experiment/holdout compatibility.
+    // Also enforces experiment/holdout compatibility.
     if (ruleInput.type === "experiment-ref") {
       const experiment = await getExperimentById(
         req.context,

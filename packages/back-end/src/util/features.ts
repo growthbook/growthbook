@@ -344,9 +344,7 @@ export function getParsedCondition(
   };
 }
 
-// A "ref" rule takes its targeting from the entity it points at — the linked
-// experiment's latest phase, or the bandit — so it carries none of its own on
-// either side of the API.
+// A ref rule's targeting lives on the entity it points at, not on the rule.
 const REF_RULE_TARGETING_ERRORS: Record<string, string> = {
   "experiment-ref":
     "an experiment-ref rule. Targeting for an experiment rule comes from the " +
@@ -360,16 +358,15 @@ export function isRefRuleType(type: string): boolean {
   return type in REF_RULE_TARGETING_ERRORS;
 }
 
-// Both spellings, since the guard accepts either: the bulk feature endpoints
-// name the field `savedGroupTargeting`, the rule endpoints `savedGroups`.
+// Both spellings: `savedGroupTargeting` on the bulk endpoints, `savedGroups`
+// on the rule ones.
 const LOG_TARGETING_KEYS = [
   ...REF_RULE_TARGETING_FIELDS,
   "savedGroupTargeting",
 ];
 
-// Both key spellings are accepted (`savedGroupTargeting` on the bulk endpoints,
-// `savedGroups` on the rule ones). Empty counts as absent: internal callers pass
-// whole rules that may carry an empty `condition` from an older document.
+// Empty counts as absent: internal callers pass whole rules that may carry an
+// empty `condition`.
 export function assertNoRefRuleTargeting(rule: {
   type?: string;
   condition?: string | null;
@@ -393,13 +390,11 @@ export function assertNoRefRuleTargeting(rule: {
   );
 }
 
-// Older log entries still hold ref-rule targeting, which the diff view would
-// render as a phantom "condition removed" step. The payload is a JSON string:
-// either one rule, or an object with a `rules` array.
+// Strips ref-rule targeting a log payload may hold, so the diff view doesn't
+// show a change nobody made. The payload is one rule, or `{ rules: [...] }`.
 export function stripExperimentRefTargetingFromLogValue(value: string): string {
-  // Most log entries (comments, verdicts, default-value edits) can't hold a ref
-  // rule at all, and a "new revision" payload can run to hundreds of KB — so
-  // rule out the parse with a substring scan first.
+  // Most entries can't hold a rule at all, and a payload can run to hundreds
+  // of KB, so rule out the parse first.
   if (!value.includes('"experiment-ref"')) return value;
 
   let parsed: unknown;
