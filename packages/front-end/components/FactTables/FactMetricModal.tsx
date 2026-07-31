@@ -201,7 +201,9 @@ function getColumnOptions({
 }): GroupedValue[] {
   const numericColumnOptions: SingleValue[] = getNumericColumns(factTable).map(
     (col) => ({
-      label: showColumnsAsSums ? `SUM(${col.name})` : col.name,
+      label:
+        (showColumnsAsSums ? `SUM(${col.name})` : col.name) +
+        (col.isVirtual ? " (virtual)" : ""),
       value: col.column,
     }),
   );
@@ -233,7 +235,7 @@ function getColumnOptions({
   if (stringColumns) {
     stringColumnOptions.push(
       ...stringColumns.map((col) => ({
-        label: col.name,
+        label: col.name + (col.isVirtual ? " (virtual)" : ""),
         value: col.column,
       })),
     );
@@ -246,7 +248,7 @@ function getColumnOptions({
   if (booleanColumns) {
     booleanColumnOptions.push(
       ...booleanColumns.map((col) => ({
-        label: col.name,
+        label: col.name + (col.isVirtual ? " (virtual)" : ""),
         value: col.column,
       })),
     );

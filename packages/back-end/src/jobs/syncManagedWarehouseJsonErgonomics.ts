@@ -94,6 +94,7 @@ const syncManagedWarehouseJsonErgonomics = async (job: SyncJob) => {
         org.settings?.attributeSchema ?? [],
         ds.settings.migratedIdentifiers ?? [],
         ds.settings.migratedColumns ?? [],
+        ds.settings.idAttributeIdentifier ?? "device_id",
       ]);
     if (
       derivationInputs(context.org, datasource) !==

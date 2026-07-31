@@ -3744,6 +3744,10 @@ input:disabled {
 }
 
 // react-grid-layout overrides for dashboard blocks
+.dashboard-grid-container {
+  position: relative;
+}
+
 .dashboard-grid {
   position: relative;
 
@@ -3755,6 +3759,10 @@ input:disabled {
     height: 100%;
     width: 100%;
     position: relative;
+
+    &.is-grid-interaction-disabled .react-resizable-handle {
+      display: none !important;
+    }
   }
 
   // RGL adds .react-resizable-handle on every item; only show it while the
@@ -3788,6 +3796,35 @@ input:disabled {
     border: 2px dashed var(--violet-9);
     border-radius: 6px;
     opacity: 1 !important;
+  }
+}
+
+.dashboard-grid-add-block-gap {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed transparent;
+  border-radius: 6px;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+
+  button {
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+
+  &:hover,
+  &:focus-within,
+  &.is-open {
+    background: var(--violet-a2);
+    border-color: var(--violet-a7);
+
+    button {
+      opacity: 1;
+    }
   }
 }
 
