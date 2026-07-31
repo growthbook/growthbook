@@ -35,7 +35,16 @@ export const gbContext: Context = {
       {
         experimentId: experiment.key,
         variationId: result.key,
-        userContextAttributes: user?.attributes,
+        userContextAttributes: {
+          attributes: {
+            // hardcoded sublist of attributes without PII
+            accountPlan: user?.attributes?.accountPlan,
+            device_id: user?.attributes?.device_id,
+            page_id: user?.attributes?.page_id,
+            anonymous_id: user?.attributes?.anonymous_id,
+            role: user?.attributes?.role,
+          },
+        },
       },
       true,
     );
