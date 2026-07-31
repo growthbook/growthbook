@@ -9,7 +9,7 @@ import {
 import {
   apiPaginationFieldsValidator,
   paginationQueryFields,
-  ignoreWarningsBodyField,
+  publishOverrideBodyFields,
   publishBypassedGatesField,
 } from "./shared";
 
@@ -117,6 +117,7 @@ export type ApiSavedGroup = z.infer<typeof apiSavedGroupValidator>;
 // Post body from postSavedGroup.yaml requestBody
 const postSavedGroupBody = z
   .object({
+    ...publishOverrideBodyFields,
     name: z.string().describe("The display name of the Saved Group"),
     type: z
       .enum(["condition", "list"])
@@ -156,6 +157,7 @@ const postSavedGroupBody = z
 // Update body from updateSavedGroup.yaml requestBody
 const updateSavedGroupBody = z
   .object({
+    ...publishOverrideBodyFields,
     name: z.string().describe("The display name of the Saved Group").optional(),
     condition: z
       .string()
@@ -269,7 +271,11 @@ export const updateSavedGroupValidator = {
 };
 
 export const archiveSavedGroupValidator = {
-  bodySchema: z.object({ ignoreWarnings: ignoreWarningsBodyField }).strict(),
+  bodySchema: z
+    .object({
+      ...publishOverrideBodyFields,
+    })
+    .strict(),
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: z
@@ -289,7 +295,7 @@ export const archiveSavedGroupValidator = {
 };
 
 export const unarchiveSavedGroupValidator = {
-  bodySchema: z.never(),
+  bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: z
@@ -309,7 +315,7 @@ export const unarchiveSavedGroupValidator = {
 };
 
 export const deleteSavedGroupValidator = {
-  bodySchema: z.never(),
+  bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: z

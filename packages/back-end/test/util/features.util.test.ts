@@ -1,4 +1,8 @@
-import { applyEnvironmentInheritance } from "../../src/util/features";
+import {
+  applyEnvironmentInheritance,
+  assertNoRefRuleTargeting,
+  stripExperimentRefTargetingFromLogValue,
+} from "../../src/util/features";
 
 describe("feature utils", () => {
   describe("applyEnvironmentInheritance", () => {
@@ -276,6 +280,141 @@ describe("feature utils", () => {
         );
         expect(result.staging).toEqual({ enabled: true });
       });
+    });
+  });
+
+  describe("assertNoRefRuleTargeting", () => {
+    const rule = { type: "experiment-ref" };
+
+    it("rejects targeting on a contextual-bandit-ref rule too, naming the bandit", () => {
+      expect(() =>
+        assertNoRefRuleTargeting({
+          type: "contextual-bandit-ref",
+          condition: '{"country": "US"}',
+        }),
+      ).toThrow(
+        /condition cannot be set on a contextual-bandit-ref rule\. Targeting for a contextual bandit rule comes from the linked bandit/,
+      );
+    });
+
+    it.each([
+      ["condition", { condition: '{"country": "US"}' }],
+      ["savedGroups", { savedGroups: [{ match: "all", ids: ["grp_1"] }] }],
+      [
+        "savedGroupTargeting",
+        { savedGroupTargeting: [{ matchType: "all", savedGroups: ["grp_1"] }] },
+      ],
+      ["prerequisites", { prerequisites: [{ id: "parent", condition: "{}" }] }],
+    ])("rejects %s", (field, patch) => {
+      expect(() => assertNoRefRuleTargeting({ ...rule, ...patch })).toThrow(
+        new RegExp(`${field} cannot be set on an experiment-ref rule`),
+      );
+    });
+
+    it("names every offending field at once", () => {
+      expect(() =>
+        assertNoRefRuleTargeting({
+          ...rule,
+          condition: '{"country": "US"}',
+          prerequisites: [{ id: "parent", condition: "{}" }],
+        }),
+      ).toThrow(/condition, prerequisites cannot be set/);
+    });
+
+    it("tolerates empty targeting so GET → PUT round-trips still work", () => {
+      expect(() =>
+        assertNoRefRuleTargeting({
+          ...rule,
+          condition: "",
+          savedGroups: [],
+          savedGroupTargeting: [],
+          prerequisites: [],
+        }),
+      ).not.toThrow();
+      // An empty condition object is what the app writes for "no targeting".
+      expect(() =>
+        assertNoRefRuleTargeting({ ...rule, condition: "{}" }),
+      ).not.toThrow();
+    });
+
+    it("tolerates empty targeting on a contextual-bandit-ref rule", () => {
+      expect(() =>
+        assertNoRefRuleTargeting({
+          type: "contextual-bandit-ref",
+          condition: "",
+          savedGroups: [],
+        }),
+      ).not.toThrow();
+    });
+
+    it("ignores other rule types", () => {
+      expect(() =>
+        assertNoRefRuleTargeting({
+          type: "force",
+          condition: '{"country": "US"}',
+          prerequisites: [{ id: "parent", condition: "{}" }],
+        }),
+      ).not.toThrow();
+    });
+  });
+
+  describe("stripExperimentRefTargetingFromLogValue", () => {
+    it("strips targeting from a bare rule payload (add/update rule entries)", () => {
+      const value = JSON.stringify({
+        id: "fr_1",
+        type: "experiment-ref",
+        experimentId: "exp_1",
+        condition: '{"country": "US"}',
+        savedGroups: [{ match: "all", ids: ["grp_1"] }],
+        prerequisites: [{ id: "parent", condition: "{}" }],
+        scheduleRules: [{ timestamp: null, enabled: true }],
+      });
+      expect(
+        JSON.parse(stripExperimentRefTargetingFromLogValue(value)),
+      ).toEqual({
+        id: "fr_1",
+        type: "experiment-ref",
+        experimentId: "exp_1",
+        scheduleRules: [{ timestamp: null, enabled: true }],
+      });
+    });
+
+    it("strips targeting inside a rules array (new revision entries)", () => {
+      const value = JSON.stringify({
+        comment: "c",
+        rules: [
+          { id: "fr_1", type: "force", value: "true", condition: '{"a": 1}' },
+          {
+            id: "fr_2",
+            type: "experiment-ref",
+            experimentId: "exp_1",
+            condition: '{"a": 1}',
+          },
+        ],
+      });
+      expect(
+        JSON.parse(stripExperimentRefTargetingFromLogValue(value)),
+      ).toEqual({
+        comment: "c",
+        rules: [
+          { id: "fr_1", type: "force", value: "true", condition: '{"a": 1}' },
+          { id: "fr_2", type: "experiment-ref", experimentId: "exp_1" },
+        ],
+      });
+    });
+
+    it("returns the input unchanged when there is nothing to strip", () => {
+      const clean = JSON.stringify({ comment: "hello" });
+      expect(stripExperimentRefTargetingFromLogValue(clean)).toBe(clean);
+    });
+
+    it("passes through values that aren't JSON objects", () => {
+      expect(stripExperimentRefTargetingFromLogValue("not json")).toBe(
+        "not json",
+      );
+      expect(stripExperimentRefTargetingFromLogValue('"a comment"')).toBe(
+        '"a comment"',
+      );
     });
   });
 });

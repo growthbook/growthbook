@@ -12,7 +12,10 @@ import {
   resetReviewOnChange,
   checkIfRevisionNeedsReview,
 } from "shared/util";
-import { isVariationWeightsSumValid } from "shared/experiments";
+import {
+  getLatestPhaseVariations,
+  isVariationWeightsSumValid,
+} from "shared/experiments";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
 import { Variation } from "shared/types/experiment";
@@ -37,9 +40,13 @@ import {
   discardRevision,
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { removePendingFeatureDraftFromExperiment } from "back-end/src/models/ExperimentModel";
+import {
+  getExperimentById,
+  removePendingFeatureDraftFromExperiment,
+} from "back-end/src/models/ExperimentModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
+import { NotFoundError } from "back-end/src/util/errors";
 import {
   assertCanAutoPublish,
   getDraftRevision,
@@ -85,6 +92,69 @@ function assertLinkedFeatureRevisionOptions(
       `Feature ${featureId}: revisionOptions must set at least one of targetVersion, autoPublish, or forceNewDraft`,
     );
   }
+}
+
+// Assert an experiment-ref rule's `variations` cover the linked experiment's
+// current phase exactly. An uncovered arm silently serves `null` in the SDK
+// payload, and a stopped experiment missing its `releasedVariationId` drops the
+// rule from the payload entirely.
+//
+// Membership is a set check, not positional: the payload matches arms by id, so
+// order doesn't matter. (`validateExperimentFeatureVariations` below is
+// positional because it establishes the ids in the same request.)
+export function assertExperimentRefVariationsMatchExperiment({
+  variations,
+  experiment,
+}: {
+  variations: Pick<ExperimentRefVariation, "variationId">[];
+  experiment: Pick<ExperimentInterface, "id" | "variations" | "phases">;
+}): void {
+  // Phase variations carry a `status`, but "active" is its only value today. A
+  // future non-active status needs filtering here.
+  const expected = getLatestPhaseVariations(experiment);
+
+  if (variations.length !== expected.length) {
+    throw new Error(
+      `Experiment has ${expected.length} variation(s) but ${variations.length} were specified. Provide exactly one value per variation.`,
+    );
+  }
+
+  const expectedIds = new Set(expected.map((v) => v.id));
+  const seen = new Set<string>();
+  for (const { variationId } of variations) {
+    if (!expectedIds.has(variationId)) {
+      throw new Error(
+        `variationId "${variationId}" is not a variation of experiment "${experiment.id}". Valid ids: ${[...expectedIds].join(", ")}`,
+      );
+    }
+    if (seen.has(variationId)) {
+      throw new Error(
+        `variationId "${variationId}" is specified more than once`,
+      );
+    }
+    seen.add(variationId);
+  }
+}
+
+// Resolve a ref rule's linked experiment and check its variations in one step —
+// the six rule-write endpoints all need exactly this pair, and the resolved
+// experiment is returned for callers that go on to use it (holdout linking).
+export async function resolveExperimentForRefRule(
+  context: ReqContext | ApiReqContext,
+  rule: {
+    experimentId: string;
+    variations: Pick<ExperimentRefVariation, "variationId">[];
+  },
+): Promise<ExperimentInterface> {
+  const experiment = await getExperimentById(context, rule.experimentId);
+  if (!experiment) {
+    throw new NotFoundError(`Could not find experiment "${rule.experimentId}"`);
+  }
+  assertExperimentRefVariationsMatchExperiment({
+    variations: rule.variations,
+    experiment,
+  });
+  return experiment;
 }
 
 export function validateExperimentFeatureVariations({

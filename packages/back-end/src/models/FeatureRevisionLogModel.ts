@@ -3,6 +3,7 @@ import {
   FeatureRevisionLogInterface,
   featureRevisionLogValidator,
 } from "back-end/src/validators/feature-revision-log";
+import { stripExperimentRefTargetingFromLogValue } from "back-end/src/util/features";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "featurerevisionlog";
@@ -45,6 +46,19 @@ const BaseClass = MakeModelClass({
 });
 
 export class FeatureRevisionLogModel extends BaseClass {
+  // Entries written before experiment-ref rules stopped carrying their own
+  // targeting still hold `condition`/`savedGroups`/`prerequisites` in their
+  // payload. Strip them so the log's diff view doesn't render a change nobody
+  // made. See `stripExperimentRefTargetingFromLogValue`.
+  protected migrate(legacyDoc: unknown): FeatureRevisionLogInterface {
+    const doc = legacyDoc as FeatureRevisionLogInterface;
+    if (typeof doc?.value !== "string") return doc;
+    return {
+      ...doc,
+      value: stripExperimentRefTargetingFromLogValue(doc.value),
+    };
+  }
+
   protected canRead(doc: FeatureRevisionLogInterface): boolean {
     const { feature } = this.getForeignRefs(doc);
 

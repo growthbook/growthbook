@@ -117,7 +117,7 @@ async function collectConfigValueErrors(
 // the config analog of `assertFeatureValuesValid`. Block-vs-warn is governed by
 // the org's `blockPublishOnSchemaError` (default true = block): when false,
 // writes are never blocked here (the mismatch is surfaced as `incompatibleFields`
-// on reads instead). Opt out per-request with ?skipSchemaValidation=true.
+// on reads instead). Opt out per-request with `"skipSchemaValidation": true`.
 export async function assertConfigValueValid(
   context: Context,
   leaf: ConfigLeaf,
@@ -397,7 +397,7 @@ export async function assertConfigValueValidForPublish(
   if (!errors.length) return;
   // Default to blocking when the setting is absent.
   if (context.org.settings?.blockPublishOnSchemaError === false) {
-    // Warn mode: a bypassable soft warning (?ignoreWarnings=true), consistent
+    // Warn mode: a bypassable soft warning (`"ignoreWarnings": true`), consistent
     // with the rest of the publish flow.
     if (context.ignoreWarnings) return;
     throw new SoftWarningError(
@@ -468,7 +468,7 @@ export async function assertConfigInvariantsValid(
 // conform to the config's effective schema, and the patch merged onto the
 // config's resolved value must satisfy the config's invariants. Blocking follows
 // the org's `blockPublishOnSchemaError` (bypassable soft warning when false);
-// opt out with ?skipSchemaValidation=true.
+// opt out with `"skipSchemaValidation": true`.
 // A config-backed feature's default value must be EXACTLY a config — config
 // selection lives in `defaultValueConfig` (the base or a descendant), and inline
 // overrides/extensions on the default aren't allowed. Shared values belong in the

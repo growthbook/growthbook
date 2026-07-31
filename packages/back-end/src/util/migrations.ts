@@ -1,4 +1,6 @@
+import { REF_RULE_TARGETING_FIELDS } from "shared/validators";
 import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -354,6 +356,20 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
   // feature. Pass nullish through; downstream callers filter via
   // `isPlausibleFeatureRule` before relying on the rule shape.
   if (rule == null || typeof rule !== "object") return rule;
+
+  // An experiment-ref rule's targeting lives on the linked experiment's latest
+  // phase; `getFeatureDefinition` never reads the rule's own copies. Documents
+  // can still carry them, where they're invisible in the UI but still counted by
+  // saved-group usage, stale detection, and the Feature Flag list's targeting
+  // badges — so drop them on read. `contextual-bandit-ref` shares the contract
+  // but needs no strip: it's private beta, so no document predates the guard.
+  if (
+    rule.type === "experiment-ref" &&
+    REF_RULE_TARGETING_FIELDS.some((key) => key in rule)
+  ) {
+    return omit(rule, REF_RULE_TARGETING_FIELDS) as FeatureRule;
+  }
+
   // Old style experiment rule without coverage
   if (rule.type === "experiment" && !("coverage" in rule)) {
     const weights = rule.values

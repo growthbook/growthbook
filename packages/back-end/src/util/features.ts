@@ -30,7 +30,7 @@ import {
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
-import { cloneDeep, isNil, pick } from "lodash";
+import { cloneDeep, isNil, omit, pick } from "lodash";
 import md5 from "md5";
 import {
   ExperimentMetadata,
@@ -43,6 +43,7 @@ import {
   HoldoutInterface,
   ContextualBanditInterface,
   VariationWeightPair,
+  REF_RULE_TARGETING_FIELDS,
 } from "shared/validators";
 import {
   expandNestedSavedGroups,
@@ -67,6 +68,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
+import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { getApplicableEnvIds } from "./flattenRules";
 import { getCurrentEnabledState } from "./scheduleRules";
@@ -305,6 +307,104 @@ export function getParsedCondition(
   return {
     $and: conditions,
   };
+}
+
+// A "ref" rule delegates its targeting to the entity it points at: an
+// experiment-ref to the linked experiment's latest phase, a
+// contextual-bandit-ref to the bandit itself. `getFeatureDefinition` reads
+// targeting from there and never from the rule, and the app neither renders nor
+// lets you edit rule-level targeting on either — so these rule types carry no
+// `condition` / `savedGroups` / `prerequisites` on either side of the API.
+const REF_RULE_TARGETING_ERRORS: Record<string, string> = {
+  "experiment-ref":
+    "an experiment-ref rule. Targeting for an experiment rule comes from the " +
+    "linked experiment's current phase — set it on the experiment instead.",
+  "contextual-bandit-ref":
+    "a contextual-bandit-ref rule. Targeting for a contextual bandit rule " +
+    "comes from the linked bandit — set it on the bandit instead.",
+};
+
+export function isRefRuleType(type: string): boolean {
+  return type in REF_RULE_TARGETING_ERRORS;
+}
+
+// Both spellings, since the guard accepts either: the bulk feature endpoints
+// name the field `savedGroupTargeting`, the rule endpoints `savedGroups`.
+const LOG_TARGETING_KEYS = [
+  ...REF_RULE_TARGETING_FIELDS,
+  "savedGroupTargeting",
+];
+
+// Reject rule-level targeting on a ref rule instead of storing state nothing
+// reads. Both key spellings are accepted: the bulk feature endpoints name the
+// field `savedGroupTargeting`, the rule endpoints `savedGroups`. Empty values
+// count as absent, since internal callers pass whole `FeatureRule` objects that
+// may carry an empty `condition` from an older document.
+export function assertNoRefRuleTargeting(rule: {
+  type?: string;
+  condition?: string | null;
+  savedGroups?: unknown[] | null;
+  savedGroupTargeting?: unknown[] | null;
+  prerequisites?: unknown[] | null;
+}): void {
+  const suffix = rule.type ? REF_RULE_TARGETING_ERRORS[rule.type] : undefined;
+  if (!suffix) return;
+
+  const offending = LOG_TARGETING_KEYS.filter((key) => {
+    const value = (rule as Record<string, unknown>)[key];
+    if (key === "condition") return !!value && value !== "{}";
+    return Array.isArray(value) && value.length > 0;
+  });
+
+  if (!offending.length) return;
+
+  throw new BadRequestError(
+    `${offending.join(", ")} cannot be set on ${suffix}`,
+  );
+}
+
+// Revision log entries store the change payload as a JSON string: for rule
+// actions either a single rule ("add rule" / "update rule") or an object
+// carrying a `rules` array ("new revision"). Older entries still hold ref-rule
+// targeting, which would render as a phantom "condition removed" step in the
+// log's diff view, so normalize on read. Returns the input unchanged when
+// there's nothing to strip (or the value isn't JSON).
+export function stripExperimentRefTargetingFromLogValue(value: string): string {
+  // Most log entries (comments, verdicts, default-value edits) can't hold a ref
+  // rule at all, and a "new revision" payload can run to hundreds of KB — so
+  // rule out the parse with a substring scan first.
+  if (!value.includes('"experiment-ref"')) return value;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return value;
+  }
+  if (parsed === null || typeof parsed !== "object") return value;
+
+  let changed = false;
+  const stripRule = (rule: unknown): unknown => {
+    if (rule === null || typeof rule !== "object") return rule;
+    const r = rule as Record<string, unknown>;
+    if (r.type !== "experiment-ref") return r;
+    if (LOG_TARGETING_KEYS.every((k) => r[k] === undefined)) return r;
+    changed = true;
+    return omit(r, LOG_TARGETING_KEYS);
+  };
+
+  let stripped: unknown;
+  if (Array.isArray(parsed)) {
+    stripped = parsed.map(stripRule);
+  } else {
+    const obj = parsed as Record<string, unknown>;
+    stripped = {
+      ...(stripRule(obj) as Record<string, unknown>),
+      ...(Array.isArray(obj.rules) ? { rules: obj.rules.map(stripRule) } : {}),
+    };
+  }
+
+  return changed ? JSON.stringify(stripped) : value;
 }
 
 export function isRuleEnabled(

@@ -181,6 +181,7 @@ import {
   setRevisionScheduledPublish,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
+  assertNoRefRuleTargeting,
   buildFeatureLookups,
   getEnabledEnvironments,
 } from "back-end/src/util/features";
@@ -224,6 +225,7 @@ import {
   validateExperimentChange,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
+  assertExperimentRefVariationsMatchExperiment,
   formatPendingDraftFailureMessage,
   PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
@@ -2935,6 +2937,23 @@ export async function postFeatureRule(
     context.permissions.throwPermissionError();
   }
 
+  // Ref rules (experiment-ref / contextual-bandit-ref) take their targeting
+  // from the linked entity, so they can't carry their own.
+  assertNoRefRuleTargeting(rule);
+
+  // Resolved once and reused by the holdout linking below.
+  let linkedExperiment: ExperimentInterface | null = null;
+  if (rule.type === "experiment-ref") {
+    linkedExperiment = await getExperimentById(context, rule.experimentId);
+    if (!linkedExperiment) {
+      throw new Error(`Could not find experiment "${rule.experimentId}"`);
+    }
+    assertExperimentRefVariationsMatchExperiment({
+      variations: rule.variations,
+      experiment: linkedExperiment,
+    });
+  }
+
   // Opt-in attribute registration check before any side effects (safe-rollout
   // create, holdout linking, revision update).
   assertRegisteredAttributes(
@@ -2978,21 +2997,13 @@ export async function postFeatureRule(
   // Add holdout to existing experiment and experiment to holdout linkedExperiments
   // if the experiment is not running and has no linked implementations for
   // experiment-ref rules (writes deferred until after custom-hook prevalidation)
-  if (rule.type === "experiment-ref") {
-    const experiment = await getExperimentById(context, rule.experimentId);
-    // With a holdout in play the experiment must exist; without one, a missing
-    // experiment is left for downstream validation (preserves prior behavior).
-    if (effectiveHoldout?.id && !experiment) {
-      throw new Error(`Could not find experiment "${rule.experimentId}"`);
-    }
-    if (experiment) {
-      await resolveHoldoutExperimentToLink({
-        context,
-        feature,
-        experiment,
-        effectiveHoldout,
-      });
-    }
+  if (linkedExperiment) {
+    await resolveHoldoutExperimentToLink({
+      context,
+      feature,
+      experiment: linkedExperiment,
+      effectiveHoldout,
+    });
   }
 
   const resetReview = resetReviewOnChange({
@@ -3441,10 +3452,18 @@ export async function postFeatureExperimentRefRule(
     context.permissions.throwPermissionError();
   }
 
+  // Ref rules take their targeting from the linked entity, so they can't carry
+  // their own; variations must cover the experiment's current phase.
+  assertNoRefRuleTargeting(rule);
+
   const experiment = await getExperimentById(context, rule.experimentId);
   if (!experiment) {
     throw new Error("Invalid experiment selected");
   }
+  assertExperimentRefVariationsMatchExperiment({
+    variations: rule.variations,
+    experiment,
+  });
 
   // allEnvironments:true strips any stale environments[]; false passes the
   // explicit list through. Legacy callers that send neither default to every
@@ -3667,6 +3686,9 @@ export async function postFeatureContextualBanditRefRule(
   ) {
     throw new Error("Invalid contextual bandit rule");
   }
+
+  // A contextual-bandit-ref rule takes its targeting from the bandit.
+  assertNoRefRuleTargeting(rule);
 
   if (!environments.length) {
     throw new Error(
@@ -4263,6 +4285,27 @@ export async function putFeatureRule(
     !context.permissions.canManageFeatureDrafts(feature)
   ) {
     context.permissions.throwPermissionError();
+  }
+
+  // Ref rules (experiment-ref / contextual-bandit-ref) take their targeting
+  // from the linked entity, so they can't carry their own.
+  assertNoRefRuleTargeting(rule);
+
+  // The body is a partial rule, so only validate when the caller actually
+  // sends variations (the app always sends the full rule).
+  if (
+    rule.type === "experiment-ref" &&
+    rule.experimentId &&
+    rule.variations !== undefined
+  ) {
+    const experiment = await getExperimentById(context, rule.experimentId);
+    if (!experiment) {
+      throw new Error(`Could not find experiment "${rule.experimentId}"`);
+    }
+    assertExperimentRefVariationsMatchExperiment({
+      variations: rule.variations,
+      experiment,
+    });
   }
 
   if (rule.type === "safe-rollout") {

@@ -14,6 +14,7 @@ import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { BadRequestError } from "back-end/src/util/errors";
+import { assertNoRefRuleTargeting } from "back-end/src/util/features";
 import type { ApiFeatureEnvSettings } from "./postFeature";
 
 // A flag can't carry its own JSON schema while it's a config-backed ("Config
@@ -254,6 +255,7 @@ export function mapV2ApiRuleToFeatureRule(
 ): FeatureRule {
   const { allEnvironments, environments, allProjects, projects, ...ruleInput } =
     r;
+  assertNoRefRuleTargeting(ruleInput);
   const { allEnvironments: resolvedAllEnvs, environments: resolvedEnvs } =
     resolveScopeFromInput(allEnvironments, environments);
   const { allProjects: resolvedAllProjects, projects: resolvedProjects } =
@@ -262,17 +264,11 @@ export function mapV2ApiRuleToFeatureRule(
     id: ruleInput.id ?? "",
     description: ruleInput.description ?? "",
     enabled: ruleInput.enabled ?? true,
-    condition: ruleInput.condition ?? "",
-    savedGroups: ruleInput.savedGroupTargeting?.map((s) => ({
-      match: s.matchType,
-      ids: s.savedGroups,
-    })),
     allEnvironments: resolvedAllEnvs,
     environments: resolvedEnvs,
     allProjects: resolvedAllProjects,
     projects: resolvedProjects,
   };
-
   if (ruleInput.type === "experiment-ref") {
     return {
       ...baseRule,
@@ -293,10 +289,21 @@ export function mapV2ApiRuleToFeatureRule(
       ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
     };
   }
+  // Declared after the experiment-ref return: that shape has no targeting, and
+  // an experiment rule takes it from the linked experiment's current phase.
+  const targeting = {
+    condition: ruleInput.condition ?? "",
+    savedGroups: ruleInput.savedGroupTargeting?.map((s) => ({
+      match: s.matchType,
+      ids: s.savedGroups,
+    })),
+  };
+
   if (ruleInput.type === "rollout") {
     assertNoRawConfigExtends(ruleInput.value, "Rule value");
     return {
       ...baseRule,
+      ...targeting,
       type: "rollout" as const,
       value:
         ruleInput.config !== undefined
@@ -333,6 +340,7 @@ export function mapV2ApiRuleToFeatureRule(
     >;
     return {
       ...baseRule,
+      ...targeting,
       type: "safe-rollout" as const,
       controlValue: ruleInput.controlValue,
       variationValue: ruleInput.variationValue,
@@ -346,6 +354,7 @@ export function mapV2ApiRuleToFeatureRule(
   assertNoRawConfigExtends(ruleInput.value, "Rule value");
   return {
     ...baseRule,
+    ...targeting,
     type: "force" as const,
     value:
       ruleInput.config !== undefined

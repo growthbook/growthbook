@@ -3,7 +3,6 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
-  ignoreWarningsBodyField,
   publishOverrideBodyFields,
   bypassApprovalPublishBodyField,
   publishBypassedGatesField,
@@ -284,7 +283,11 @@ export const postConstantRevisionValidator = {
   tags: ["constant-revisions"],
   paramsSchema: constantKeyParams,
   bodySchema: z
-    .object({ title: z.string().optional(), comment: z.string().optional() })
+    .object({
+      ...publishOverrideBodyFields,
+      title: z.string().optional(),
+      comment: z.string().optional(),
+    })
     .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
@@ -299,7 +302,12 @@ export const postConstantRevisionDiscardValidator = {
     "Permanently discards a draft revision. Only open revisions (not merged or already-discarded) can be discarded.",
   tags: ["constant-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({ reason: z.string().optional() }).strict(),
+  bodySchema: z
+    .object({
+      ...publishOverrideBodyFields,
+      reason: z.string().optional(),
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -357,6 +365,7 @@ export const postConstantRevisionRebaseValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       // No `union` strategy: constants have no list/array field to merge (their
       // content is a scalar `value` + an `environmentValues` map).
       conflictResolutions: z
@@ -381,8 +390,8 @@ export const postConstantRevisionRequestReviewValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       autoPublishOnApproval: z.boolean().optional(),
-      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -400,6 +409,7 @@ export const postConstantRevisionSubmitReviewValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       decision: z.enum(reviewDecision),
       comment: z.string().optional(),
       skipAutoPublish: z.boolean().optional(),
@@ -424,6 +434,7 @@ export const putConstantRevisionMetadataValidator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       ...newDraftMetadataFields,
       name: z.string().optional(),
       owner: ownerInputField.optional(),
@@ -446,6 +457,7 @@ export const putConstantRevisionValueValidator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       ...newDraftMetadataFields,
       value: z
         .string()
@@ -473,7 +485,11 @@ export const putConstantRevisionArchiveValidator = {
   tags: ["constant-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z
-    .object({ ...newDraftMetadataFields, archived: z.boolean() })
+    .object({
+      ...publishOverrideBodyFields,
+      ...newDraftMetadataFields,
+      archived: z.boolean(),
+    })
     .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,

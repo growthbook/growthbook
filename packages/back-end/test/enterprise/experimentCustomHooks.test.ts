@@ -34,13 +34,14 @@ const ORG = {
 
 const EXISTING_ID = "exp_hooks_existing";
 
-function makeContext(query: Record<string, string> = {}) {
+function makeContext(body: Record<string, unknown> = {}) {
   return new ReqContextClass({
     org: ORG,
     auditUser: { type: "api_key", apiKey: "key_test" },
     role: "admin",
-    // context.ignoreWarnings reads req.query
-    req: { query, headers: {} } as unknown as Request,
+    // On the REST API the override flags are body-only, so context.ignoreWarnings
+    // reads req.body (the querystring aliases were removed).
+    req: { query: {}, body, headers: {} } as unknown as Request,
   });
 }
 
@@ -263,12 +264,12 @@ describe("experiment custom hooks", () => {
     expect((await findExperiment(EXISTING_ID))?.name).toBe("Original Name");
 
     await runValidateExperimentHooks({
-      context: makeContext({ ignoreWarnings: "true" }),
+      context: makeContext({ ignoreWarnings: true }),
       experiment: { ...experiment, name: "Updated Name" },
       original: experiment,
     });
     const updated = await updateExperiment({
-      context: makeContext({ ignoreWarnings: "true" }),
+      context: makeContext({ ignoreWarnings: true }),
       experiment,
       changes: { name: "Updated Name" },
     });

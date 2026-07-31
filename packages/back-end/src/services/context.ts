@@ -445,18 +445,9 @@ export class ReqContextClass {
   }
 
   // True to skip soft warnings; background jobs (no req) always ignore.
-  // Body-canonical (`{ "ignoreWarnings": true }`) with the querystring form
-  // kept as a deprecated alias — the flag is request disposition, but callers
-  // (agents especially) discover and retry flags far more reliably in the body
-  // schema. Strict zod body schemas mostly limit the flag to endpoints that
-  // declare the field, but not fully: `z.never()` bodies and internal routes
-  // skip body validation, so this getter can still see the raw flag there.
   public get ignoreWarnings(): boolean {
     if (!this.req) return true;
-    if (this.bodyFlag("ignoreWarnings")) return true;
-    const v = this.req.query?.ignoreWarnings;
-    if (typeof v !== "string") return false;
-    return stringToBoolean(v);
+    return this.overrideFlag("ignoreWarnings");
   }
 
   private bodyFlag(field: string): boolean {
@@ -468,25 +459,34 @@ export class ReqContextClass {
     );
   }
 
-  // Opt-in escape hatch to skip JSON-schema / value-shape conformance checks on
-  // write paths (body-canonical `{ "skipSchemaValidation": true }`, with the
-  // querystring form as a deprecated alias). Validation is enforced by
-  // default; this only relaxes it when a caller explicitly asks. Background jobs
-  // (no req) never skip — they must produce conforming data.
-  //
-  // Gated: turning off hard validation is only honored for callers with org-wide
-  // bypass authority (`bypassApprovalChecks` on all projects). A project-scoped
-  // writer can't silently ship non-conforming data — the flag is ignored and
-  // validation still runs (a 4xx, the secure default). Schema validation is new,
-  // so nothing depends on an ungated bypass.
-  public get skipSchemaValidation(): boolean {
-    if (!this.req) return false;
-    const queryValue = this.req.query?.skipSchemaValidation;
-    const requested =
-      this.bodyFlag("skipSchemaValidation") ||
-      (typeof queryValue === "string" && stringToBoolean(queryValue));
-    if (!requested) return false;
+  // Body-only on the REST API, where every write endpoint declares these in its
+  // body schema. The app's own routes also accept the querystring form, because
+  // the front-end's soft-warning retry replays an arbitrary request by rewriting
+  // its URL (`appendIgnoreWarnings`) and can't safely reserialize an unknown body.
+  // Keyed on the route, not the auth scheme: `/api/v*` accepts JWTs too, and a
+  // documented endpoint must behave the same however the caller authenticated.
+  private overrideFlag(field: string): boolean {
+    if (this.bodyFlag(field)) return true;
+    if (
+      (this.req as { isRestApiRequest?: boolean } | undefined)?.isRestApiRequest
+    )
+      return false;
+    const v = this.req?.query?.[field];
+    return typeof v === "string" && stringToBoolean(v);
+  }
+
+  // The privileged overrides additionally require org-wide bypass authority; a
+  // project-scoped writer can't silently skip validation or a rejected hook.
+  private privilegedOverrideFlag(field: string): boolean {
+    if (!this.overrideFlag(field)) return false;
     return this.permissions.canBypassApprovalChecks({ project: undefined });
+  }
+
+  // Opt-in escape hatch to skip JSON-schema / value-shape conformance checks on
+  // write paths. Validation is enforced by default; background jobs (no req)
+  // never skip — they must produce conforming data.
+  public get skipSchemaValidation(): boolean {
+    return this.privilegedOverrideFlag("skipSchemaValidation");
   }
 
   // Force past a custom validation hook that rejected the change. Its own flag
@@ -494,13 +494,7 @@ export class ReqContextClass {
   // only for callers with org-wide bypass authority (the bypassApprovalChecks
   // permission on all projects); ignored otherwise.
   public get skipHooks(): boolean {
-    if (!this.req) return false;
-    const queryValue = this.req.query?.skipHooks;
-    const requested =
-      this.bodyFlag("skipHooks") ||
-      (typeof queryValue === "string" && stringToBoolean(queryValue));
-    if (!requested) return false;
-    return this.permissions.canBypassApprovalChecks({ project: undefined });
+    return this.privilegedOverrideFlag("skipHooks");
   }
 
   public throwBadRequestError(message: string): never {

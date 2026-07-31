@@ -49,13 +49,14 @@ const ORG = {
 
 const FEATURE_ID = "feat_hooks_test";
 
-function makeContext(query: Record<string, string> = {}) {
+function makeContext(body: Record<string, unknown> = {}) {
   return new ReqContextClass({
     org: ORG,
     auditUser: { type: "api_key", apiKey: "key_test" },
     role: "admin",
-    // context.ignoreWarnings reads req.query
-    req: { query, headers: {} } as unknown as Request,
+    // On the REST API the override flags are body-only, so context.ignoreWarnings
+    // reads req.body (the querystring aliases were removed).
+    req: { query: {}, body, headers: {} } as unknown as Request,
   });
 }
 
@@ -208,13 +209,14 @@ describe("rule-add custom hook prevalidation", () => {
     ).toBe(0);
 
     // Pre-fix, the ignoreWarnings retry produced a second safeRollout doc; now exactly one
-    setReqContext(makeContext({ ignoreWarnings: "true" }));
+    const retryBody = { ...SAFE_ROLLOUT_RULE_BODY, ignoreWarnings: true };
+    setReqContext(makeContext(retryBody));
     const retried = await request(app)
       .post(
-        `/api/v1/features/${FEATURE_ID}/revisions/${revision.version}/rules?ignoreWarnings=true`,
+        `/api/v1/features/${FEATURE_ID}/revisions/${revision.version}/rules`,
       )
       .set("Authorization", "Bearer foo")
-      .send(SAFE_ROLLOUT_RULE_BODY);
+      .send(retryBody);
 
     expect(retried.status).toBe(200);
     expect(

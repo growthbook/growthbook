@@ -16,7 +16,6 @@ import type {
 import { getEffectiveRevisionHoldout, resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { CreateProps } from "shared/types/base-model";
-import { getLatestPhaseVariations } from "shared/experiments";
 import {
   addIdsToFlatRules,
   assertFeatureValuesValid,
@@ -32,6 +31,7 @@ import {
   prevalidateRevisionUpdate,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
+import { assertNoRefRuleTargeting } from "back-end/src/util/features";
 import { generateId } from "back-end/src/util/uuid";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import {
@@ -39,6 +39,7 @@ import {
   InternalServerError,
   NotFoundError,
 } from "back-end/src/util/errors";
+import { assertExperimentRefVariationsMatchExperiment } from "back-end/src/services/experiment-feature";
 import {
   assertValidEnvironment,
   discardIfJustCreated,
@@ -57,14 +58,13 @@ export function buildRuleFromInput(
   input: RuleCreateInput,
   id: string,
 ): FeatureRule {
+  assertNoRefRuleTargeting(input);
+
   const base = {
     id,
     allEnvironments: false,
     description: input.description ?? "",
     enabled: input.enabled ?? true,
-    condition: input.condition,
-    savedGroups: input.savedGroups,
-    prerequisites: input.prerequisites,
     scheduleRules: input.scheduleRules,
     scheduleType: input.scheduleType,
   };
@@ -75,7 +75,7 @@ export function buildRuleFromInput(
       type: "experiment-ref",
       experimentId: input.experimentId,
       variations: input.variations.map((v) => ({
-        variationId: v.variationId ?? "",
+        variationId: v.variationId,
         value: v.value,
       })),
       ...(input.sparse !== undefined && { sparse: input.sparse }),
@@ -83,9 +83,18 @@ export function buildRuleFromInput(
     return rule;
   }
 
+  // Declared after the experiment-ref return: that shape has no targeting, and
+  // an experiment rule takes it from the linked experiment's current phase.
+  const targeting = {
+    condition: input.condition,
+    savedGroups: input.savedGroups,
+    prerequisites: input.prerequisites,
+  };
+
   if (input.type === "safe-rollout") {
     const rule: SafeRolloutRule = {
       ...base,
+      ...targeting,
       type: "safe-rollout",
       controlValue: input.controlValue,
       variationValue: input.variationValue,
@@ -114,6 +123,7 @@ export function buildRuleFromInput(
     }
     const rule: RolloutRule = {
       ...base,
+      ...targeting,
       type: "rollout",
       value: input.value,
       coverage: input.coverage ?? 1,
@@ -127,6 +137,7 @@ export function buildRuleFromInput(
 
   const rule: ForceRule = {
     ...base,
+    ...targeting,
     type: "force",
     value: input.value,
     ...(input.sparse !== undefined && { sparse: input.sparse }),
@@ -170,18 +181,9 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       );
     }
 
-    // Fill missing variationIds from the linked experiment by index. For
-    // holdout-bound features, also enforces experiment/holdout compatibility.
+    // Resolve the experiment to validate the rule's variations against its
+    // current phase, and to enforce experiment/holdout compatibility.
     if (ruleInput.type === "experiment-ref") {
-      const anyMissing = ruleInput.variations.some((v) => !v.variationId);
-      const allMissing = ruleInput.variations.every((v) => !v.variationId);
-      if (anyMissing && !allMissing) {
-        throw new BadRequestError(
-          "Either provide variationId for all variations or none; mixed inputs are not allowed.",
-        );
-      }
-      // Always resolve the experiment to check for missing variations
-      // and to check for holdout compatibility
       const experiment = await getExperimentById(
         req.context,
         ruleInput.experimentId,
@@ -192,18 +194,10 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
         );
       }
 
-      if (anyMissing) {
-        const phaseVariations = getLatestPhaseVariations(experiment);
-        if (phaseVariations.length < ruleInput.variations.length) {
-          throw new BadRequestError(
-            `Experiment has ${phaseVariations.length} variation(s) but ${ruleInput.variations.length} were specified`,
-          );
-        }
-        ruleInput.variations = ruleInput.variations.map((v, i) => ({
-          variationId: phaseVariations[i].id,
-          value: v.value,
-        }));
-      }
+      assertExperimentRefVariationsMatchExperiment({
+        variations: ruleInput.variations,
+        experiment,
+      });
 
       // Use target revision holdout to check compatibility.
       // Linking writes are deferred until after custom-hook prevalidation below.
@@ -224,7 +218,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
     addIdsToFlatRules([rule], feature.id);
 
     // Enforce the feature's JSON schema on the new rule's values (no-op for
-    // config-backed values). Opt out with ?skipSchemaValidation=true.
+    // config-backed values). Opt out with `"skipSchemaValidation": true`.
     assertFeatureValuesValid(req.context, feature, { rules: [rule] });
 
     // Validate condition JSON and references before any DB writes.

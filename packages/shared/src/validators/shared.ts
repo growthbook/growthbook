@@ -156,27 +156,12 @@ export const skipPaginationQueryField = {
     .optional(),
 };
 
-// Query flags shared by value-writing + publishing endpoints (features, configs)
-// whose values are checked against a JSON/field schema. Both are read off the
-// raw query at the context layer, so any endpoint that honors them must declare
-// them here to keep them in the validated query (and in the API docs).
-// DEPRECATED aliases: the body forms below are canonical.
-export const schemaValidationQueryFields = {
-  skipSchemaValidation: booleanQueryField
-    .describe(
-      "Deprecated — pass `skipSchemaValidation` in the request body instead.",
-    )
-    .meta({ deprecated: true }),
-  ignoreWarnings: booleanQueryField
-    .describe("Deprecated — pass `ignoreWarnings` in the request body instead.")
-    .meta({ deprecated: true }),
-};
-
-// Publish-override body flags, shared by every publish-class endpoint so the
-// names, semantics, and docs stay identical across entities. Body-canonical
-// (the querystring forms above are deprecated aliases); read off the raw body
-// at the context layer, so any endpoint that honors them must declare them in
-// its (strict) body schema to accept them — which also documents them.
+// Publish-override body flags, shared by every write endpoint on features,
+// configs, constants, Saved Groups, and experiments so the names, semantics,
+// and docs stay identical across entities. The body is the only form the REST
+// API accepts. They're read off the raw body at the context layer, so an
+// endpoint must declare them in its (strict) body schema to accept them —
+// which also documents them.
 export const ignoreWarningsBodyField = z
   .boolean()
   .optional()

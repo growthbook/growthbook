@@ -296,7 +296,8 @@ export default function LinkFeatureToContextualBanditModal({
           ...(ruleAllEnvironments
             ? {}
             : { environments: ruleSelectedEnvironments }),
-          condition: "",
+          // No targeting fields: a contextual-bandit-ref rule takes its
+          // targeting from the bandit, and the API rejects them on the rule.
           enabled: true,
           scheduleRules: [],
           contextualBanditId: cb.id,

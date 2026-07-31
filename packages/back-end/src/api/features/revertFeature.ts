@@ -240,7 +240,7 @@ export async function revertFeatureCore(
   }
 
   // Flag restored values the current schema/value-type can no longer read as a
-  // bypassable soft warning (?ignoreWarnings=true) instead of publishing blind.
+  // bypassable soft warning (`"ignoreWarnings": true`) instead of publishing blind.
   const valueWarnings = getRevertValueValidationWarnings(feature, changes);
   if (valueWarnings.length && !context.ignoreWarnings) {
     throw new SoftWarningError(

@@ -4,6 +4,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import {
   eventUserToApiEventUser,
+  normalizeRuleForApi,
   revisionToApiInterface,
   revisionToApiInterfaceV2,
 } from "back-end/src/services/features";
@@ -264,5 +265,56 @@ describe("revision author serialization", () => {
     const api = revisionToApiInterfaceV2(revWith(null, null));
     expect(api.createdBy).toBeUndefined();
     expect(api.publishedBy).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ref rules (experiment-ref / contextual-bandit-ref) delegate targeting to the
+// entity they point at, so the REST response omits `condition`,
+// `savedGroupTargeting`, and `prerequisites` entirely rather than emitting
+// empty placeholders. Their request schemas don't declare those fields either,
+// which is what keeps a GET → PUT round-trip valid.
+// ---------------------------------------------------------------------------
+describe("normalizeRuleForApi ref-rule targeting", () => {
+  const refRule = (type: "experiment-ref" | "contextual-bandit-ref") =>
+    ({
+      id: "fr_ref",
+      type,
+      description: "",
+      enabled: true,
+      allEnvironments: true,
+      variations: [{ variationId: "v0", value: "false" }],
+      ...(type === "experiment-ref"
+        ? { experimentId: "exp_1" }
+        : { contextualBanditId: "cb_1" }),
+      // Legacy documents can still carry these; they must not reach the API.
+      condition: '{"country": "US"}',
+      savedGroups: [{ match: "all", ids: ["grp_1"] }],
+      prerequisites: [{ id: "parent", condition: "{}" }],
+    }) as unknown as FeatureRule;
+
+  it.each(["experiment-ref", "contextual-bandit-ref"] as const)(
+    "omits targeting on a %s rule",
+    (type) => {
+      const api = normalizeRuleForApi(refRule(type)) as Record<string, unknown>;
+      expect(api.type).toBe(type);
+      expect(api).not.toHaveProperty("condition");
+      expect(api).not.toHaveProperty("savedGroupTargeting");
+      expect(api).not.toHaveProperty("prerequisites");
+      // Everything else still round-trips.
+      expect(api.id).toBe("fr_ref");
+      expect(api.enabled).toBe(true);
+    },
+  );
+
+  it("still emits targeting on rule types that own it", () => {
+    const api = normalizeRuleForApi(
+      rule("fr_force", {
+        condition: '{"country": "US"}',
+      }),
+    ) as Record<string, unknown>;
+    expect(api.condition).toBe('{"country": "US"}');
+    expect(api.savedGroupTargeting).toEqual([]);
+    expect(api.prerequisites).toEqual([]);
   });
 });

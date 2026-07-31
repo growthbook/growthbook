@@ -112,7 +112,7 @@ function formatImpactLine(impact: ConfigSchemaChangeImpact): string {
  * Soft publish gate: warn when a proposed root schema/lineage change removes or
  * retypes fields that descendants still override or reference, or would drop a
  * descendant's contract-differing declaration via the cascade. Bypassable with
- * `?ignoreWarnings=true`. Always soft on a synchronous publish, regardless of
+ * `"ignoreWarnings": true`. Always soft on a synchronous publish, regardless of
  * `blockPublishOnSchemaError`: the warning is about OTHER configs' state, not
  * the written value, so it must never hard-block an ancestor's own legitimate
  * publish — and for the same reason it ignores `skipSchemaValidation`.

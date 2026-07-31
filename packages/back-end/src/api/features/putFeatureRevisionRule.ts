@@ -1,4 +1,5 @@
 import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
 import { ruleAppliesToEnv, resetReviewOnChange } from "shared/util";
 import {
   RevisionRampCreateAction,
@@ -8,10 +9,13 @@ import {
   ForceRule,
   SafeRolloutRule,
   FeatureRule,
-  RulePatchInput,
+  RulePatchFields,
   putFeatureRevisionRuleValidator,
+  REF_RULE_TARGETING_FIELDS,
 } from "shared/validators";
 import { RevisionChanges } from "shared/types/feature-revision";
+import { assertNoRefRuleTargeting } from "back-end/src/util/features";
+import { resolveExperimentForRefRule } from "back-end/src/services/experiment-feature";
 import { updateRuleAtEnvIndex } from "back-end/src/util/revisionRuleOps";
 import {
   addIdsToFlatRules,
@@ -40,7 +44,7 @@ import {
 
 export function applyPatch(
   existing: FeatureRule,
-  patch: RulePatchInput,
+  patch: RulePatchFields,
 ): FeatureRule {
   const type = existing.type;
 
@@ -79,9 +83,12 @@ export function applyPatch(
         "value, coverage, and controlValue cannot be set on an experiment-ref rule",
       );
     }
+    assertNoRefRuleTargeting({ type, ...patch });
     const updated: ExperimentRefRule = {
       ...(existing as ExperimentRefRule),
-      ...commonUpdates,
+      // A patch that only clears targeting passes the guard above; drop the
+      // keys rather than writing them back onto a rule that ignores them.
+      ...omit(commonUpdates, REF_RULE_TARGETING_FIELDS),
       ...(patch.experimentId !== undefined && {
         experimentId: patch.experimentId,
       }),
@@ -202,7 +209,9 @@ export const putFeatureRevisionRule = createApiRequestHandler(
   const { environment, schedule } = req.body;
   assertValidEnvironment(req.context, environment);
   const inlineRampSchedule = req.body.rampSchedule;
-  const patch = req.body.rule;
+  // The body schema is a per-type union; `applyPatch` and the checks below key
+  // off the STORED rule type, so widen to the flat field view.
+  const patch = req.body.rule as RulePatchFields;
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,
@@ -290,12 +299,21 @@ export const putFeatureRevisionRule = createApiRequestHandler(
     }
     const updatedRule = applyPatch(oldRule, patch);
 
+    // Variations are replaced wholesale, so validate the new set against the
+    // linked experiment's current phase.
+    if (
+      updatedRule.type === "experiment-ref" &&
+      patch.variations !== undefined
+    ) {
+      await resolveExperimentForRefRule(req.context, updatedRule);
+    }
+
     // A coverage patch can convert a force rule to a rollout, which arrives
     // seedless. Existing rollouts already carry a seed and are left untouched.
     addIdsToFlatRules([updatedRule as FeatureRule], feature.id);
 
     // Enforce the feature's JSON schema on the patched rule values (no-op for
-    // config-backed values). Opt out with ?skipSchemaValidation=true.
+    // config-backed values). Opt out with `"skipSchemaValidation": true`.
     assertFeatureValuesValid(req.context, feature, {
       rules: [updatedRule as FeatureRule],
     });
@@ -309,7 +327,7 @@ export const putFeatureRevisionRule = createApiRequestHandler(
         patch.prerequisites !== undefined ? updatedRule.prerequisites : [],
     });
     // Attribute registration check: only validate the fields the caller
-    // actually patched. patch is the Zod-typed RulePatchInput, so condition
+    // actually patched. patch is the Zod-typed RulePatchFields, so condition
     // and hashAttribute are already string | undefined. fallbackAttribute
     // isn't on the patch schema at all.
     const changedAttributes: {

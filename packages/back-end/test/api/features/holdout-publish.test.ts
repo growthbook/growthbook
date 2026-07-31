@@ -286,7 +286,6 @@ describe("holdout publish", () => {
         environment: "production",
         rule: {
           type: "experiment-ref",
-          condition: "",
           experimentId: "exp_new",
           variations: [
             { variationId: "v0", value: "false" },

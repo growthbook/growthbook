@@ -39,6 +39,10 @@ export type ApiRequestLocals = PermissionFunctions & {
   audit: (data: AuditInterfaceInput) => Promise<void>;
   context: ApiReqContext;
   isJwtAuth?: boolean;
+  // Set for every request served by the `/api/v*` router, whether it
+  // authenticated with an API key or a JWT. The override flags are body-only
+  // here; see `ReqContextClass.overrideFlag`.
+  isRestApiRequest?: boolean;
 };
 
 type ApiErrorResponseBase = {

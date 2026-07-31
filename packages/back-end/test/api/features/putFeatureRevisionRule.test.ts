@@ -1,5 +1,6 @@
 import type { FeatureRule } from "shared/types/feature";
-import type { RulePatchInput } from "shared/validators";
+import type { RulePatchFields } from "shared/validators";
+import { putFeatureRevisionRuleValidator } from "shared/validators";
 import { applyPatch } from "back-end/src/api/features/putFeatureRevisionRule";
 import { addIdsToFlatRules } from "back-end/src/services/features";
 
@@ -15,7 +16,7 @@ describe("applyPatch — force/rollout seed stamping", () => {
     enabled: true,
   } as unknown as FeatureRule;
 
-  const patch = (p: Record<string, unknown>) => p as unknown as RulePatchInput;
+  const patch = (p: Record<string, unknown>) => p as unknown as RulePatchFields;
   const stamp = (r: unknown) => addIdsToFlatRules([r as FeatureRule], "feat_1");
   const seedOf = (r: unknown) => (r as { seed?: string }).seed;
 
@@ -53,5 +54,58 @@ describe("applyPatch — force/rollout seed stamping", () => {
     );
     stamp(converted);
     expect(seedOf(converted)).toBe("custom");
+  });
+});
+
+// The PUT body schema is a union of per-type patch shapes, so field
+// applicability is enforced by the schema (and shown in the docs) rather than
+// by prose. Targeting is absent from the experiment-ref member: an experiment
+// rule takes it from the linked experiment's phase.
+describe("rule patch schema — per-type shapes", () => {
+  const body = (rule: Record<string, unknown>) =>
+    putFeatureRevisionRuleValidator.bodySchema.safeParse({
+      environment: "production",
+      rule,
+    });
+
+  it.each([
+    ["condition", { condition: '{"country": "US"}' }],
+    ["savedGroups", { savedGroups: [{ match: "all", ids: ["grp_1"] }] }],
+    ["prerequisites", { prerequisites: [{ id: "parent", condition: "{}" }] }],
+  ])("rejects %s on an experiment-ref patch", (_field, targeting) => {
+    expect(
+      body({ type: "experiment-ref", experimentId: "exp_1", ...targeting })
+        .success,
+    ).toBe(false);
+  });
+
+  it("accepts an experiment-ref patch of its own fields", () => {
+    expect(
+      body({
+        type: "experiment-ref",
+        experimentId: "exp_1",
+        variations: [{ variationId: "v0", value: "false" }],
+      }).success,
+    ).toBe(true);
+  });
+
+  it("still accepts targeting on force/rollout and safe-rollout patches", () => {
+    expect(
+      body({ type: "force", condition: '{"country": "US"}' }).success,
+    ).toBe(true);
+    expect(
+      body({ type: "safe-rollout", condition: '{"country": "US"}' }).success,
+    ).toBe(true);
+  });
+
+  it("rejects fields belonging to another rule type", () => {
+    expect(body({ type: "force", variations: [] }).success).toBe(false);
+    expect(body({ type: "experiment-ref", coverage: 0.5 }).success).toBe(false);
+  });
+
+  it("accepts a typeless patch, resolving by the fields it carries", () => {
+    expect(body({ enabled: false }).success).toBe(true);
+    expect(body({ coverage: 0.5 }).success).toBe(true);
+    expect(body({ variations: [] }).success).toBe(true);
   });
 });

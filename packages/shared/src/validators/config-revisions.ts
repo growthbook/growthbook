@@ -4,7 +4,6 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
-  schemaValidationQueryFields,
   publishOverrideBodyFields,
   bypassApprovalPublishBodyField,
   publishBypassedGatesField,
@@ -282,7 +281,11 @@ export const postConfigRevisionValidator = {
   tags: ["config-revisions"],
   paramsSchema: configKeyParams,
   bodySchema: z
-    .object({ title: z.string().optional(), comment: z.string().optional() })
+    .object({
+      ...publishOverrideBodyFields,
+      title: z.string().optional(),
+      comment: z.string().optional(),
+    })
     .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
@@ -297,7 +300,12 @@ export const postConfigRevisionDiscardValidator = {
     "Permanently discards a draft revision. Only open revisions (not merged or already-discarded) can be discarded.",
   tags: ["config-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({ reason: z.string().optional() }).strict(),
+  bodySchema: z
+    .object({
+      ...publishOverrideBodyFields,
+      reason: z.string().optional(),
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -317,7 +325,7 @@ export const postConfigRevisionPublishValidator = {
       ...publishOverrideBodyFields,
     })
     .strict(),
-  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
+  querySchema: z.never(),
   responseSchema: revisionResponse.extend({
     bypassedGates: publishBypassedGatesField,
   }),
@@ -340,7 +348,7 @@ export const postConfigRevisionRevertValidator = {
       ...publishOverrideBodyFields,
     })
     .strict(),
-  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
+  querySchema: z.never(),
   responseSchema: revisionResponse,
 };
 
@@ -355,6 +363,7 @@ export const postConfigRevisionRebaseValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       conflictResolutions: z
         .record(z.string(), z.enum(["overwrite", "discard", "union"]))
         .optional(),
@@ -402,6 +411,7 @@ export const postConfigRevisionSubmitReviewValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       decision: z.enum(reviewDecision),
       comment: z.string().optional(),
       skipAutoPublish: z.boolean().optional(),
@@ -444,7 +454,11 @@ export const postConfigRevisionReopenValidator = {
     "Returns a previously discarded revision to `draft` status so it can be edited and published again. Only discarded revisions can be reopened.",
   tags: ["config-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z
+    .object({
+      ...publishOverrideBodyFields,
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -458,7 +472,11 @@ export const postConfigRevisionRecallReviewValidator = {
     "Pulls a revision in review (`pending-review`, `changes-requested`, or `approved`) back to `draft`, clearing existing reviews and disarming any auto-publish-on-approval.",
   tags: ["config-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z
+    .object({
+      ...publishOverrideBodyFields,
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -497,7 +515,7 @@ export const putConfigRevisionMetadataValidator = {
       ...publishOverrideBodyFields,
     })
     .strict(),
-  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
+  querySchema: z.never(),
   // Warnings channel: a lineage change can strip identical re-declarations of
   // the new ancestors' fields from the staged schema ("base wins").
   responseSchema: revisionResponseWithWarnings,
@@ -529,7 +547,7 @@ export const putConfigRevisionValueValidator = {
       ...publishOverrideBodyFields,
     })
     .strict(),
-  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
+  querySchema: z.never(),
   responseSchema: revisionResponseWithWarnings,
 };
 
@@ -559,7 +577,7 @@ export const putConfigRevisionSchemaValidator = {
       ...publishOverrideBodyFields,
     })
     .strict(),
-  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
+  querySchema: z.never(),
   responseSchema: revisionResponseWithWarnings,
 };
 
@@ -592,7 +610,7 @@ export const putConfigRevisionProjectionValidator = {
       ...publishOverrideBodyFields,
     })
     .strict(),
-  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
+  querySchema: z.never(),
   responseSchema: revisionResponseWithWarnings,
 };
 
@@ -605,7 +623,7 @@ export const deleteConfigRevisionProjectionValidator = {
     'Stages removal of the `source` projection from `renderProjections` on the draft (the canonical schema is unchanged). Published through the normal flow. Pass `version: "new"` to auto-create a draft.',
   tags: ["config-revisions"],
   paramsSchema: revisionParams,
-  bodySchema: z.never(),
+  bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
   querySchema: z
     .object({
       source: z

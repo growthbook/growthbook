@@ -26,7 +26,7 @@ import {
   stepHoldConditions,
 } from "./ramp-schedule";
 
-import { namedSchema } from "./openapi-helpers";
+import { componentSchema, namedSchema } from "./openapi-helpers";
 
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
@@ -222,6 +222,12 @@ export type ContextualBanditRefVariation = z.infer<
   typeof contextualBanditRefVariation
 >;
 
+// `condition` / `savedGroups` / `prerequisites` are inherited from `baseRule`
+// but carry no meaning here: an experiment-ref rule delegates its targeting to
+// the linked experiment's current phase, so the API rejects them on write
+// (`assertNoRefRuleTargeting`) and the read-path migration drops any that
+// legacy documents still hold (`upgradeFeatureRule`). Same for
+// `contextualBanditRefRule` below.
 const experimentRefRule = baseRule
   .extend({
     type: z.literal("experiment-ref"),
@@ -888,6 +894,29 @@ export const apiFeatureBaseRuleValidator = namedSchema(
     .strict(),
 );
 
+// Ref rules (`experiment-ref`, `contextual-bandit-ref`) delegate targeting to
+// the entity they point at, so these fields are absent from both their response
+// and their request shapes — the API neither emits nor accepts them. One list
+// per spelling: the internal rule shape names the field `savedGroups`, the API
+// shape `savedGroupTargeting`.
+export const REF_RULE_TARGETING_FIELDS = [
+  "condition",
+  "savedGroups",
+  "prerequisites",
+] as const;
+
+export const REF_RULE_API_TARGETING_FIELDS = [
+  "condition",
+  "savedGroupTargeting",
+  "prerequisites",
+] as const;
+
+export const REF_RULE_OMITTED_TARGETING = {
+  condition: true,
+  savedGroupTargeting: true,
+  prerequisites: true,
+} as const;
+
 // ---- FeatureForceRule (schemas/FeatureForceRule.yaml) ----
 export const apiFeatureForceRuleValidator = namedSchema(
   "FeatureForceRule",
@@ -990,9 +1019,9 @@ export const apiFeatureExperimentRefRuleValidator = namedSchema(
   "FeatureExperimentRefRule",
   z.intersection(
     apiFeatureBaseRuleValidator
-      .omit({})
+      .omit(REF_RULE_OMITTED_TARGETING)
       .describe(
-        "Common fields shared by all feature rule types. Specific rule types extend\nthis base with their own required properties (value, coverage, etc.).\n",
+        "Common fields shared by all feature rule types, minus rule-level targeting: a ref rule takes its targeting from the entity it points at (the linked experiment's current phase, or the contextual bandit), so it carries no `condition`, `savedGroupTargeting`, or `prerequisites`.\n",
       ),
     z.object({
       type: z.literal("experiment-ref"),
@@ -1017,9 +1046,9 @@ export const apiFeatureContextualBanditRefRuleValidator = namedSchema(
   "FeatureContextualBanditRefRule",
   z.intersection(
     apiFeatureBaseRuleValidator
-      .omit({})
+      .omit(REF_RULE_OMITTED_TARGETING)
       .describe(
-        "Common fields shared by all feature rule types. Specific rule types extend\nthis base with their own required properties (value, coverage, etc.).\n",
+        "Common fields shared by all feature rule types, minus rule-level targeting: a ref rule takes its targeting from the entity it points at (the linked experiment's current phase, or the contextual bandit), so it carries no `condition`, `savedGroupTargeting`, or `prerequisites`.\n",
       ),
     z.object({
       type: z.literal("contextual-bandit-ref"),
@@ -1443,15 +1472,15 @@ const postFeatureRolloutRule = z.object({
     .optional(),
 });
 
+// No `condition` / `savedGroupTargeting` / `prerequisites`: an experiment rule
+// takes its targeting from the linked experiment's current phase, so the API
+// rejects them here (see `assertNoRefRuleTargeting`).
 const postFeatureExperimentRefRule = z.object({
   ...postFeatureRuleProjectScopeShape,
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   id: z.string().optional(),
   enabled: z.boolean().describe("Enabled by default").optional(),
   type: z.literal("experiment-ref"),
-  condition: z.string().optional(),
-  savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
-  prerequisites: z.array(postFeaturePrerequisite).optional(),
   scheduleRules: z.array(apiScheduleRuleValidator).optional(),
   variations: z.array(
     z.object({
@@ -1511,10 +1540,16 @@ const postFeatureExperimentRule = z.object({
 });
 
 const postFeatureRule = z.union([
-  postFeatureForceRule,
-  postFeatureRolloutRule,
-  postFeatureExperimentRefRule,
-  postFeatureExperimentRule,
+  componentSchema("Environment Force Rule V1", postFeatureForceRule),
+  componentSchema("Environment Rollout Rule V1", postFeatureRolloutRule),
+  componentSchema(
+    "Environment Experiment Rule V1",
+    postFeatureExperimentRefRule,
+  ),
+  componentSchema(
+    "Environment Inline Experiment Rule V1",
+    postFeatureExperimentRule,
+  ),
 ]);
 
 const postFeatureEnvironment = z.object({
@@ -1556,6 +1591,7 @@ const featureResponseSchema = z
 // ---- PostFeaturePayload ----
 const postFeatureBody = z
   .object({
+    ...publishOverrideBodyFields,
     id: z
       .string()
       .min(1)
@@ -1622,6 +1658,7 @@ const postFeatureBody = z
 // ---- UpdateFeaturePayload ----
 const updateFeatureBody = z
   .object({
+    ...publishOverrideBodyFields,
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
@@ -1793,7 +1830,7 @@ export const updateFeatureValidator = {
 };
 
 export const deleteFeatureValidator = {
-  bodySchema: z.never(),
+  bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: z
@@ -1819,6 +1856,7 @@ export const deleteFeatureValidator = {
 export const toggleFeatureValidator = {
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       reason: z.string().optional(),
       environments: z.record(
         z.string(),
