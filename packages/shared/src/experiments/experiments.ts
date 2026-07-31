@@ -678,6 +678,10 @@ export function getColumnRefWhereClause({
  * reject that as a timestamp literal — ClickHouse fails the whole query with
  * "Cannot parse time component of DateTime 12:11". Seconds are the only missing
  * piece, so supply them rather than making callers store a wider format.
+ *
+ * Dropping the fractional part never loses information, because
+ * `isValidRowFilterDateValue` only accepts an all-zero fraction — anything finer
+ * than a second is rejected upstream rather than silently truncated here.
  */
 export function normalizeRowFilterDateValue(value: string): string {
   const normalized = value
@@ -698,17 +702,30 @@ export function normalizeRowFilterDateValue(value: string): string {
  * picker), so we validate before emitting `CAST(<value> AS TIMESTAMP)` — an
  * unparseable literal like `foo` would fail the warehouse query. Accepts
  * `YYYY-MM-DD` optionally followed by a time (space or `T` separator, optional
- * seconds / fractional seconds / trailing `Z`) that is also a real calendar date.
+ * seconds / trailing `Z`) that is also a real calendar date.
+ *
+ * A fractional-seconds part is accepted only when it is all zeros — the common
+ * `Date.toISOString()` shape, where dropping it is lossless. Anything finer than
+ * a second is rejected rather than truncated, because the comparison cannot honour
+ * it: `castToTimestamp` targets second-precision types on some dialects
+ * (ClickHouse `DateTime`, MySQL `DATETIME`) and is applied to the *column* as well
+ * as the value, so a sub-second literal would be matched against a column already
+ * truncated to whole seconds. Truncating the value silently moved the boundary by
+ * up to a second; rejecting surfaces it as a filter that matches no rows instead.
  */
 export function isValidRowFilterDateValue(value: string): boolean {
   const trimmed = value.trim();
   const match = trimmed.match(
-    /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?Z?)?$/,
+    /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?(?:\.(\d+))?Z?)?$/,
   );
   if (!match) {
     return false;
   }
-  const [, year, month, day, hour = "0", minute = "0", second = "0"] = match;
+  const [, year, month, day, hour = "0", minute = "0", second = "0", fraction] =
+    match;
+  if (fraction && /[^0]/.test(fraction)) {
+    return false;
+  }
   // `new Date(...)` silently normalizes out-of-range components (e.g. Feb 30
   // becomes Mar 1-2) instead of rejecting them, so confirm the parsed value
   // round-trips to the same components before trusting it.

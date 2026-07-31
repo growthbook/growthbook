@@ -939,6 +939,45 @@ describe("Experiments", () => {
             ).toStrictEqual("(1 = 0)");
           }
         });
+        it("accepts an all-zero fractional part but rejects sub-second precision", () => {
+          const call = (value: string) =>
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: ">",
+                values: [value],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            });
+
+          // `Date.toISOString()` always emits a fraction; dropping an all-zero
+          // one doesn't move the boundary.
+          for (const value of [
+            "2024-01-01T17:00:00.000Z",
+            "2024-01-01T17:00:00.0",
+            "2024-01-01 17:00:00.000",
+          ]) {
+            expect(call(value)).toStrictEqual(
+              `(CAST(${dateColumn.column} AS TIMESTAMP) > CAST('2024-01-01 17:00:00' AS TIMESTAMP))`,
+            );
+          }
+
+          // Anything finer than a second can't be honoured — the column is cast
+          // to the same (sometimes second-precision) type — so match no rows
+          // rather than silently comparing against a truncated boundary.
+          for (const value of [
+            "2024-01-01T17:00:00.500Z",
+            "2024-01-01T17:00:00.001",
+            "2024-01-01 17:00:00.5",
+          ]) {
+            expect(call(value)).toStrictEqual("(1 = 0)");
+          }
+        });
         it("matches no rows when only some date in/not_in values are unparseable", () => {
           for (const operator of ["in", "not_in"] as const) {
             expect(
