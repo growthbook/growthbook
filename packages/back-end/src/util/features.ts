@@ -1103,10 +1103,7 @@ export function getFeatureDefinition({
             rule.seed = cb.seed;
           }
           rule.hashVersion = 2;
-          // Contextual bandit weights (leaf and aggregate) are retrained each
-          // epoch, so a sticky-bucket assignment would lock users to stale
-          // weights. Disable it for all consumers, not just CB-capable ones —
-          // the aggregate-weight (MAB) fallback reweights over time too.
+          // contextual bandits do not currently use sticky bucketing
           rule.disableStickyBucketing = true;
 
           if (cb.status === "stopped") {
