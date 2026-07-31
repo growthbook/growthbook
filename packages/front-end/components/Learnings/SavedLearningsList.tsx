@@ -197,6 +197,28 @@ const SavedLearningsList: FC<{
 
   // Project filter, inline with the other filters (matches the experiment
   // search/filter component).
+  // Source filter — how each Learning was created (AI-discovered,
+  // hand-written, or via the API).
+  const sourceFilterItems: SearchFiltersItem[] = useMemo(() => {
+    const labels: Record<string, string> = {
+      ai: "AI-suggested",
+      manual: "Written manually",
+      api: "Created via API",
+    };
+    const counts = new Map<string, number>();
+    learnings.forEach((i) => {
+      const key = i.source || "manual";
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([value, count]) => ({
+        id: `source-${value}`,
+        name: `${labels[value] || value} (${count})`,
+        searchValue: value,
+      }));
+  }, [learnings]);
+
   const projectCounts = useMemo(() => {
     const counts = new Map<string, number>();
     learnings.forEach((i) => {
@@ -241,8 +263,8 @@ const SavedLearningsList: FC<{
       )}
       <Box mb="4">
         <Flex align="center" gap="3" justify="between" mb="3" wrap="wrap">
-          <Flex align="center" gap="4" flexGrow="1" style={{ maxWidth: "60%" }}>
-            <Box flexGrow="1">
+          <Flex align="center" gap="3" flexGrow="1" style={{ maxWidth: "75%" }}>
+            <Box flexShrink="1" style={{ flexBasis: 240, minWidth: 140 }}>
               <Field
                 placeholder="Search Learnings..."
                 type="search"
@@ -276,6 +298,17 @@ const SavedLearningsList: FC<{
                 filter="project"
                 heading="Projects"
                 items={projectFilterItems}
+                syntaxFilters={syntaxFilters}
+                open={dropdownFilterOpen}
+                setOpen={setDropdownFilterOpen}
+                updateQuery={updateQuery}
+              />
+            )}
+            {sourceFilterItems.length > 1 && (
+              <FilterDropdown
+                filter="source"
+                heading="Source"
+                items={sourceFilterItems}
                 syntaxFilters={syntaxFilters}
                 open={dropdownFilterOpen}
                 setOpen={setDropdownFilterOpen}
