@@ -19,6 +19,12 @@ type SuggestionState = {
   suggestion: AiLearningSuggestion;
   /** Checked suggestions are persisted when the modal is submitted. */
   selected: boolean;
+  /**
+   * Set once this suggestion has been POSTed. Creating a Learning isn't
+   * idempotent, so after a partial failure a retry must skip these or it
+   * would create duplicates.
+   */
+  saved?: boolean;
 };
 
 const FindLearningsModal: FC<{
@@ -32,6 +38,7 @@ const FindLearningsModal: FC<{
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<SuggestionState[]>([]);
+  const [saving, setSaving] = useState(false);
   // When the back-end caps very large sets, it analyzes the most recent N
   // and reports both numbers so we can tell the user.
   const [analyzedCounts, setAnalyzedCounts] = useState<{
@@ -126,7 +133,9 @@ const FindLearningsModal: FC<{
   );
 
   function setAllSelected(selected: boolean) {
-    setSuggestions((prev) => prev.map((s) => ({ ...s, selected })));
+    setSuggestions((prev) =>
+      prev.map((s) => (s.saved ? s : { ...s, selected })),
+    );
   }
 
   function toggleSuggestion(index: number) {
@@ -135,32 +144,56 @@ const FindLearningsModal: FC<{
     );
   }
 
-  const selectedCount = suggestions.filter((s) => s.selected).length;
+  const selectedCount = suggestions.filter(
+    (s) => s.selected && !s.saved,
+  ).length;
 
   // Saving happens on submit so selections stay reversible while reviewing.
   async function saveSelected() {
-    const chosen = suggestions.filter((s) => s.selected);
+    // Skip anything already persisted by an earlier, partially-failed attempt.
+    const chosen = suggestions
+      .map((s, i) => ({ s, i }))
+      .filter(({ s }) => s.selected && !s.saved);
     if (!chosen.length) {
       close();
       return;
     }
-    for (const item of chosen) {
-      await apiCall("/learnings", {
-        method: "POST",
-        body: JSON.stringify({
-          title: item.suggestion.title,
-          text: item.suggestion.text,
-          tags: item.suggestion.tags || [],
-          supportingExperimentIds: item.suggestion.supportingExperimentIds,
-          contradictingExperimentIds:
-            item.suggestion.contradictingExperimentIds || [],
-          projects: saveProjects || [],
-          source: "ai",
-        }),
-      });
+
+    setSaving(true);
+    setError(null);
+    let savedAny = false;
+    try {
+      for (const { s: item, i } of chosen) {
+        await apiCall("/learnings", {
+          method: "POST",
+          body: JSON.stringify({
+            title: item.suggestion.title,
+            text: item.suggestion.text,
+            tags: item.suggestion.tags || [],
+            supportingExperimentIds: item.suggestion.supportingExperimentIds,
+            contradictingExperimentIds:
+              item.suggestion.contradictingExperimentIds || [],
+            projects: saveProjects || [],
+            source: "ai",
+          }),
+        });
+        savedAny = true;
+        // Mark as we go so a retry after a mid-loop failure doesn't re-post
+        // the ones that already succeeded.
+        setSuggestions((prev) =>
+          prev.map((p, idx) => (idx === i ? { ...p, saved: true } : p)),
+        );
+      }
+      if (onSaved) onSaved();
+      close();
+    } catch (e) {
+      // Surface the failure and keep the modal open so the user can retry;
+      // already-saved suggestions are marked and won't be posted again.
+      setError(e instanceof Error ? e.message : "Could not save Learnings");
+      setSaving(false);
+      // Let the parent pick up whatever did get saved before the failure.
+      if (savedAny && onSaved) onSaved();
     }
-    if (onSaved) onSaved();
-    close();
   }
 
   return (
@@ -243,15 +276,23 @@ const FindLearningsModal: FC<{
                       single column aligned to the right of it. */}
                   <Flex align="start" gap="3">
                     <Checkbox
-                      value={s.selected}
+                      value={s.saved ? true : s.selected}
+                      disabled={s.saved}
                       setValue={() => toggleSuggestion(i)}
                       mb="0"
                       aria-label={`Select ${s.suggestion.title}`}
                     />
                     <Box flexGrow="1" style={{ minWidth: 0 }}>
-                      <Heading as="h4" size="medium" mb="2">
-                        {s.suggestion.title}
-                      </Heading>
+                      <Flex align="center" gap="2" mb="2" wrap="wrap">
+                        <Heading as="h4" size="medium" mb="0">
+                          {s.suggestion.title}
+                        </Heading>
+                        {s.saved && (
+                          <Text size="small" color="text-mid">
+                            Saved
+                          </Text>
+                        )}
+                      </Flex>
                       <Box mb="3">
                         <Markdown>{s.suggestion.text}</Markdown>
                       </Box>
@@ -301,10 +342,14 @@ const FindLearningsModal: FC<{
         </Modal.Close>
         <Button
           variant="solid"
-          disabled={selectedCount === 0}
+          disabled={selectedCount === 0 || saving}
           onClick={saveSelected}
         >
-          {selectedCount > 0 ? `Save ${selectedCount}` : "Save"}
+          {saving
+            ? "Saving..."
+            : selectedCount > 0
+              ? `Save ${selectedCount}`
+              : "Save"}
         </Button>
       </Modal.Footer>
     </Modal.Root>
