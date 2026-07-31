@@ -28,6 +28,10 @@ $text-colors:
     border: 1px solid var(--slate-a11);
     border-radius: 50%;
     box-sizing: border-box;
+
+    .number {
+      display: inline-block;
+    }
   }
 
   @for $i from 0 through 99 {
