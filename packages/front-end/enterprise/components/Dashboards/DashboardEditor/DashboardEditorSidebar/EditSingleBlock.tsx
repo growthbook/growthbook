@@ -44,6 +44,7 @@ import {
 } from "@/components/Experiment/ResultsFilter/ResultsFilter";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
+import VariationLabel from "@/ui/VariationLabel";
 import Link from "@/ui/Link";
 import MultiSelectField from "@/ui/MultiSelectField";
 import TagsInput from "@/components/Tags/TagsInput";
@@ -1383,25 +1384,12 @@ export default function EditSingleBlock({
                       : []
                   }
                   formatOptionLabel={({ value, label }) => (
-                    <div
-                      className={`variation variation${value} with-variation-label d-flex align-items-center`}
-                    >
-                      <span
-                        className="label"
-                        style={{ width: 20, height: 20, flex: "none" }}
-                      >
-                        {value}
-                      </span>
-                      <span
-                        className="d-inline-block"
-                        style={{
-                          width: 150,
-                          lineHeight: "14px",
-                        }}
-                      >
-                        {label}
-                      </span>
-                    </div>
+                    <VariationLabel
+                      number={parseInt(value)}
+                      name={label}
+                      size="medium"
+                      maxWidth="170px"
+                    />
                   )}
                 />
               )}
@@ -1425,25 +1413,12 @@ export default function EditSingleBlock({
                         )
                       : -1;
                     return (
-                      <div
-                        className={`variation variation${varIndex} with-variation-label d-flex align-items-center`}
-                      >
-                        <span
-                          className="label"
-                          style={{ width: 20, height: 20, flex: "none" }}
-                        >
-                          {varIndex}
-                        </span>
-                        <span
-                          className="d-inline-block"
-                          style={{
-                            width: 150,
-                            lineHeight: "14px",
-                          }}
-                        >
-                          {label}
-                        </span>
-                      </div>
+                      <VariationLabel
+                        number={varIndex}
+                        name={label}
+                        size="medium"
+                        maxWidth="170px"
+                      />
                     );
                   }}
                 />
