@@ -157,7 +157,7 @@ describe("IncrementalRefreshModel", () => {
     ).toBeNull();
   });
 
-  it("deletes a phase and compacts higher phases without touching lower or legacy docs", async () => {
+  it("deletes a phase and shifts higher phases without touching lower or legacy docs", async () => {
     await seedLegacyPhaselessDoc("exp_1");
     await acquireLock("exp_1", 2, "snap_2");
     await acquireLock("exp_1", 1, "snap_1");
@@ -167,7 +167,7 @@ describe("IncrementalRefreshModel", () => {
     });
 
     await model.deleteByExperimentIdAndPhase("exp_1", 1);
-    await model.compactPhases("exp_1");
+    await model.shiftPhasesDownAfterDelete("exp_1", 1);
     const updated = await model.updateByExperimentIdIfCurrentExecution(
       "exp_1",
       "snap_2",
@@ -188,14 +188,14 @@ describe("IncrementalRefreshModel", () => {
     ).not.toBeNull();
   });
 
-  it("compacts a multi-phase gap back to a contiguous sequence and is idempotent", async () => {
+  it("shifts every higher phase down by one", async () => {
     await acquireLock("exp_1", 0, "snap_0");
     await acquireLock("exp_1", 1, "snap_1");
     await acquireLock("exp_1", 2, "snap_2");
     await acquireLock("exp_1", 3, "snap_3");
 
     await model.deleteByExperimentIdAndPhase("exp_1", 1);
-    await model.compactPhases("exp_1");
+    await model.shiftPhasesDownAfterDelete("exp_1", 1);
 
     expect((await model.getByExperimentIdAndPhase("exp_1", 0))?.phase).toBe(0);
     expect((await model.getLockedBySnapshotId("exp_1", "snap_2"))?.phase).toBe(
@@ -205,11 +205,38 @@ describe("IncrementalRefreshModel", () => {
       2,
     );
     expect(await model.getByExperimentIdAndPhase("exp_1", 3)).toBeNull();
+  });
 
-    await model.compactPhases("exp_1");
+  // Phases that never ran on the incremental path have no state document, so
+  // the surviving phases are sparse. Closing the gaps instead of shifting by
+  // one would hand a document to a phase it does not describe.
+  it("keeps sparse phases aligned instead of closing the gap", async () => {
+    await acquireLock("exp_1", 0, "snap_0");
+    await acquireLock("exp_1", 3, "snap_3");
+
+    await model.deleteByExperimentIdAndPhase("exp_1", 0);
+    await model.shiftPhasesDownAfterDelete("exp_1", 0);
+
     expect((await model.getLockedBySnapshotId("exp_1", "snap_3"))?.phase).toBe(
       2,
     );
+    expect(await model.getByExperimentIdAndPhase("exp_1", 1)).toBeNull();
+  });
+
+  it("drops a document it cannot relabel rather than misattributing it", async () => {
+    await acquireLock("exp_1", 1, "snap_1");
+    await acquireLock("exp_1", 2, "snap_2");
+
+    await model.deleteByExperimentIdAndPhase("exp_1", 1);
+    // A refresh claims the freed slot before the shift reaches it.
+    await acquireLock("exp_1", 1, "snap_racer");
+    await model.shiftPhasesDownAfterDelete("exp_1", 1);
+
+    expect(await model.getLockedBySnapshotId("exp_1", "snap_2")).toBeNull();
+    expect(
+      (await model.getByExperimentIdAndPhase("exp_1", 1))
+        ?.currentExecutionSnapshotId,
+    ).toBe("snap_racer");
   });
 
   it("finds a locked document by snapshot id after its phase is renumbered", async () => {
@@ -217,27 +244,79 @@ describe("IncrementalRefreshModel", () => {
     await acquireLock("exp_1", 1, "snap_1");
 
     await model.deleteByExperimentIdAndPhase("exp_1", 0);
-    await model.compactPhases("exp_1");
+    await model.shiftPhasesDownAfterDelete("exp_1", 0);
 
     const doc = await model.getLockedBySnapshotId("exp_1", "snap_1");
     expect(doc?.phase).toBe(0);
     expect(doc?.currentExecutionSnapshotId).toBe("snap_1");
   });
 
-  it("reports whether a phase lock is live", async () => {
+  it("renumbers in a single pass with no retry delay", async () => {
     await acquireLock("exp_1", 0, "snap_0");
-    expect(await model.isPhaseLockActive("exp_1", 0)).toBe(true);
-    expect(await model.isPhaseLockActive("exp_1", 1)).toBe(false);
+    await acquireLock("exp_1", 1, "snap_1");
+    await acquireLock("exp_1", 2, "snap_2");
+    await model.deleteByExperimentIdAndPhase("exp_1", 1);
+
+    const start = Date.now();
+    await model.shiftPhasesDownAfterDelete("exp_1", 1);
+    const elapsed = Date.now() - start;
+
+    expect((await model.getLockedBySnapshotId("exp_1", "snap_2"))?.phase).toBe(
+      1,
+    );
+    expect(elapsed).toBeLessThan(500);
+  });
+
+  it("claims a free phase slot and locks out a concurrent refresh", async () => {
+    expect(await model.acquirePhaseSlotForMutation("exp_1", 0, "del_0")).toBe(
+      true,
+    );
+
+    expect(await acquireLock("exp_1", 0, "snap_racer")).toBe(false);
+    expect(await model.getLockedBySnapshotId("exp_1", "snap_racer")).toBeNull();
+  });
+
+  it("refuses to claim a phase slot while a refresh holds the lock", async () => {
+    await acquireLock("exp_1", 0, "snap_0");
+
+    expect(await model.acquirePhaseSlotForMutation("exp_1", 0, "del_0")).toBe(
+      false,
+    );
+    expect(
+      (await model.getLockedBySnapshotId("exp_1", "snap_0"))
+        ?.currentExecutionSnapshotId,
+    ).toBe("snap_0");
 
     await model.releaseLock("exp_1", "snap_0");
-    expect(await model.isPhaseLockActive("exp_1", 0)).toBe(false);
+    expect(await model.acquirePhaseSlotForMutation("exp_1", 0, "del_0")).toBe(
+      true,
+    );
+  });
 
-    await acquireLock("exp_1", 0, "snap_0b");
+  it("claims a phase slot without adopting a matching legacy document", async () => {
+    await seedLegacyPhaselessDoc("exp_1", "matching_settings_hash");
+
+    expect(await model.acquirePhaseSlotForMutation("exp_1", 0, "del_0")).toBe(
+      true,
+    );
+
+    const legacy = await model.getLegacyByExperimentIdWithoutPhase("exp_1");
+    expect(legacy?.unitsTableFullName).toBe(legacyUnitsTable("exp_1"));
+    expect(
+      (await model.getByExperimentIdAndPhase("exp_1", 0))?.unitsTableFullName,
+    ).toBeNull();
+  });
+
+  it("reclaims a phase slot whose holder went stale", async () => {
+    await acquireLock("exp_1", 0, "snap_0");
     await collection().updateOne(
       { organization: "org_1", experimentId: "exp_1", phase: 0 },
       { $set: { lockHeartbeatAt: new Date(Date.now() - 11 * 60 * 1000) } },
     );
-    expect(await model.isPhaseLockActive("exp_1", 0)).toBe(false);
+
+    expect(await model.acquirePhaseSlotForMutation("exp_1", 0, "del_0")).toBe(
+      true,
+    );
   });
 
   it("scopes phase lookups to a single experiment", async () => {

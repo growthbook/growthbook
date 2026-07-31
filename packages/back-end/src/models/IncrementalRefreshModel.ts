@@ -5,6 +5,7 @@ import {
   incrementalRefreshValidator,
 } from "shared/validators";
 import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
+import { logger } from "back-end/src/util/logger";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "incrementalrefresh";
@@ -48,6 +49,31 @@ export class IncrementalRefreshModel extends BaseClass {
     });
   }
 
+  private getAvailableLockFilter() {
+    const staleThreshold = new Date(Date.now() - INCREMENTAL_LOCK_STALE_MS);
+    return [
+      { currentExecutionSnapshotId: null },
+      { lockHeartbeatAt: { $lt: staleThreshold, $ne: null } },
+      { lockHeartbeatAt: null, dateUpdated: { $lt: staleThreshold } },
+    ];
+  }
+
+  private newPhaseDoc(experimentId: string, phase: number) {
+    return {
+      id: uniqid("ir_"),
+      organization: this.context.org.id,
+      experimentId,
+      phase,
+      dateCreated: new Date(),
+      unitsTableFullName: null,
+      unitsMaxTimestamp: null,
+      unitsDimensions: [],
+      metricSources: [],
+      metricCovariateSources: [],
+      experimentSettingsHash: null,
+    };
+  }
+
   public async acquireLock({
     experimentId,
     phase,
@@ -59,13 +85,8 @@ export class IncrementalRefreshModel extends BaseClass {
     snapshotId: string;
     legacyExperimentSettingsHash: string;
   }): Promise<boolean> {
-    const staleThreshold = new Date(Date.now() - INCREMENTAL_LOCK_STALE_MS);
     const collection = this._dangerousGetCollection();
-    const lockAvailable = [
-      { currentExecutionSnapshotId: null },
-      { lockHeartbeatAt: { $lt: staleThreshold, $ne: null } },
-      { lockHeartbeatAt: null, dateUpdated: { $lt: staleThreshold } },
-    ];
+    const lockAvailable = this.getAvailableLockFilter();
     const lockFields = {
       currentExecutionSnapshotId: snapshotId,
       lockHeartbeatAt: new Date(),
@@ -121,25 +142,60 @@ export class IncrementalRefreshModel extends BaseClass {
         },
         {
           $set: lockFields,
-          $setOnInsert: {
-            id: uniqid("ir_"),
-            organization: this.context.org.id,
-            experimentId,
-            phase,
-            dateCreated: new Date(),
-            unitsTableFullName: null,
-            unitsMaxTimestamp: null,
-            unitsDimensions: [],
-            metricSources: [],
-            metricCovariateSources: [],
-            experimentSettingsHash: null,
-          },
+          $setOnInsert: this.newPhaseDoc(experimentId, phase),
         },
         { upsert: true },
       );
       return (
         (insertedPhase.upsertedCount ?? 0) > 0 ||
         (insertedPhase.matchedCount ?? 0) > 0
+      );
+    } catch (error) {
+      if (isDuplicateKeyError(error)) return false;
+      throw error;
+    }
+  }
+
+  public async acquirePhaseSlotForMutation(
+    experimentId: string,
+    phase: number,
+    token: string,
+  ): Promise<boolean> {
+    const collection = this._dangerousGetCollection();
+    const claimFilter = {
+      organization: this.context.org.id,
+      experimentId,
+      phase,
+      $or: this.getAvailableLockFilter(),
+    };
+    const claimFields = {
+      currentExecutionSnapshotId: token,
+      lockHeartbeatAt: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    try {
+      const existing = await collection.updateOne(claimFilter, {
+        $set: claimFields,
+      });
+      if (existing.matchedCount > 0) return true;
+
+      const heldByRefresh = await collection.findOne(
+        { organization: this.context.org.id, experimentId, phase },
+        { projection: { _id: 1 } },
+      );
+      if (heldByRefresh) return false;
+
+      const claimed = await collection.updateOne(
+        claimFilter,
+        {
+          $set: claimFields,
+          $setOnInsert: this.newPhaseDoc(experimentId, phase),
+        },
+        { upsert: true },
+      );
+      return (
+        (claimed.upsertedCount ?? 0) > 0 || (claimed.matchedCount ?? 0) > 0
       );
     } catch (error) {
       if (isDuplicateKeyError(error)) return false;
@@ -210,65 +266,39 @@ export class IncrementalRefreshModel extends BaseClass {
     });
   }
 
-  public async isPhaseLockActive(
+  public async shiftPhasesDownAfterDelete(
     experimentId: string,
-    phase: number,
-  ): Promise<boolean> {
-    const staleThreshold = new Date(Date.now() - INCREMENTAL_LOCK_STALE_MS);
-    const doc = await this._dangerousGetCollection().findOne({
-      organization: this.context.org.id,
-      experimentId,
-      phase,
-      currentExecutionSnapshotId: { $ne: null },
-      $or: [
-        { lockHeartbeatAt: { $gte: staleThreshold } },
-        { lockHeartbeatAt: null, dateUpdated: { $gte: staleThreshold } },
-      ],
-    });
-    return doc !== null;
-  }
-
-  /**
-   * Retries after duplicate-key conflicts with concurrent lock acquisition.
-   */
-  public async compactPhases(experimentId: string): Promise<void> {
+    deletedPhase: number,
+  ): Promise<void> {
     const collection = this._dangerousGetCollection();
-    const maxAttempts = 5;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      if (attempt > 0) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      }
-      const docs = await collection
-        .find(
-          {
-            organization: this.context.org.id,
-            experimentId,
-            phase: { $exists: true },
-          },
-          { projection: { phase: 1 } },
-        )
-        .sort({ phase: 1 })
-        .toArray();
+    const docs = await collection
+      .find(
+        {
+          organization: this.context.org.id,
+          experimentId,
+          phase: { $gt: deletedPhase },
+        },
+        { projection: { phase: 1 } },
+      )
+      .sort({ phase: 1 })
+      .toArray();
 
-      if (docs.every((doc, index) => doc.phase === index)) return;
-
-      for (let index = 0; index < docs.length; index++) {
-        const doc = docs[index];
-        if (doc.phase === index) continue;
-        try {
-          await collection.updateOne(
-            { _id: doc._id, phase: doc.phase },
-            { $set: { phase: index, dateUpdated: new Date() } },
-          );
-        } catch (error) {
-          if (isDuplicateKeyError(error)) break;
-          throw error;
-        }
+    for (const doc of docs) {
+      try {
+        const moved = await collection.updateOne(
+          { _id: doc._id, phase: doc.phase },
+          { $set: { phase: doc.phase - 1, dateUpdated: new Date() } },
+        );
+        if (moved.matchedCount === 1) continue;
+      } catch (error) {
+        if (!isDuplicateKeyError(error)) throw error;
       }
+      await collection.deleteOne({ _id: doc._id });
+      logger.warn(
+        { experimentId, phase: doc.phase, deletedPhase },
+        "Dropped an incremental refresh state document that could not be renumbered after a phase delete",
+      );
     }
-    throw new Error(
-      "Could not renumber incremental refresh phases after phase deletion; a refresh may be running concurrently.",
-    );
   }
   protected canRead(_doc: IncrementalRefreshInterface) {
     return true;

@@ -1,4 +1,5 @@
 import { Response } from "express";
+import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -2693,18 +2694,6 @@ export async function deleteExperimentPhase(
     throw new Error("Invalid phase id");
   }
 
-  // Make sure we do not allow deleting the phase while it is actively refreshing.
-  if (
-    await context.models.incrementalRefresh.isPhaseLockActive(id, phaseIndex)
-  ) {
-    res.status(409).json({
-      status: 409,
-      message:
-        "An incremental refresh is running for this phase. Wait for it to finish before deleting the phase.",
-    });
-    return;
-  }
-
   // Remove an element from an array without mutating the original
   changes.phases = experiment.phases.filter((phase, i) => i !== phaseIndex);
 
@@ -2714,30 +2703,64 @@ export async function deleteExperimentPhase(
       changes.banditStage = "paused";
     }
   }
+
   await validateExperimentChange({ context, experiment, changes });
-  const updated = await updateExperiment({
-    context,
-    experiment,
-    changes,
-  });
 
-  await updateSnapshotsOnPhaseDelete(context, id, phaseIndex);
+  const mutationToken = uniqid("irdel_");
+  const claimed =
+    await context.models.incrementalRefresh.acquirePhaseSlotForMutation(
+      id,
+      phaseIndex,
+      mutationToken,
+    );
+  if (!claimed) {
+    res.status(409).json({
+      status: 409,
+      message:
+        "An incremental refresh is running for this phase. Wait for it to finish before deleting the phase.",
+    });
+    return;
+  }
 
-  await context.models.incrementalRefresh.deleteByExperimentIdAndPhase(
-    id,
-    phaseIndex,
-  );
-  await context.models.incrementalRefresh.compactPhases(id);
+  try {
+    const updated = await updateExperiment({
+      context,
+      experiment,
+      changes,
+    });
 
-  // Add audit entry
-  await req.audit({
-    event: "experiment.phase.delete",
-    entity: {
-      object: "experiment",
-      id: experiment.id,
-    },
-    details: auditDetailsUpdate(experiment, updated),
-  });
+    await updateSnapshotsOnPhaseDelete(context, id, phaseIndex);
+
+    await context.models.incrementalRefresh.deleteByExperimentIdAndPhase(
+      id,
+      phaseIndex,
+    );
+    await context.models.incrementalRefresh.shiftPhasesDownAfterDelete(
+      id,
+      phaseIndex,
+    );
+
+    // Add audit entry
+    await req.audit({
+      event: "experiment.phase.delete",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsUpdate(experiment, updated),
+    });
+  } finally {
+    // A no-op once the claimed document is deleted. Matters when the delete
+    // bailed part way, so the claim does not block refreshes until it goes stale.
+    await context.models.incrementalRefresh
+      .releaseLock(id, mutationToken)
+      .catch((e) =>
+        logger.warn(
+          e,
+          "Failed to release the incremental refresh phase mutation claim",
+        ),
+      );
+  }
 
   res.status(200).json({
     status: 200,
