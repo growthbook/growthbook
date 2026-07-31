@@ -814,7 +814,6 @@ function DashboardGrid({
       // LegacyRef signature without changing runtime behaviour.
       ref={containerRef as unknown as React.RefObject<HTMLDivElement>}
       className={clsx("dashboard-grid-container", { "is-editing": isEditing })}
-      style={{ position: "relative" }}
     >
       {mounted && (
         <ResponsiveGridLayout

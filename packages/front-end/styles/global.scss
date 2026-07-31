@@ -3781,6 +3781,10 @@ input:disabled {
 }
 
 // react-grid-layout overrides for dashboard blocks
+.dashboard-grid-container {
+  position: relative;
+}
+
 .dashboard-grid {
   position: relative;
 
