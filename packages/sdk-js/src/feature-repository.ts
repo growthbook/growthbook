@@ -576,7 +576,9 @@ function enableChannel(channel: ScopedChannel) {
     // A channel with no EventSource must not sit in the map, where the existing-key
     // guard would block streaming from ever being retried for this key. Done here so
     // it also covers the reconnect and visibility paths, which have no other cleanup.
-    streams.delete(channel.key);
+    // Identity-checked because a pending re-connect can outlive clearAutoRefresh, and
+    // must not evict the healthy channel that replaced it.
+    if (streams.get(channel.key) === channel) streams.delete(channel.key);
     warnStreamingUnavailable(
       `the EventSource implementation threw an error (${
         e ? (e as Error).message : "unknown error"
