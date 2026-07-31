@@ -155,7 +155,9 @@ const EditLearningModal: FC<{
       </Box>
       <Box mb="4">
         <label>Tags</label>
-        <TagsInput value={tags} onChange={setTags} />
+        {/* TagsInput autofocuses by default and would steal focus from the
+            Title field, which mounts first. */}
+        <TagsInput value={tags} onChange={setTags} autoFocus={false} />
       </Box>
       {orgProjects.length > 0 && (
         <Box mb="4">
