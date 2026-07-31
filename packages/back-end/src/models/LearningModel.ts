@@ -87,6 +87,12 @@ export class LearningModel extends BaseClass {
     return this.canUpdate(doc, {});
   }
 
+  // Enterprise-only. BaseModel enforces this on create/update; reads stay
+  // available so an org that downgrades can still see what it captured.
+  protected hasPremiumFeature(): boolean {
+    return this.context.hasPremiumFeature("learnings");
+  }
+
   protected canRead(doc: LearningInterface): boolean {
     return this.context.permissions.canReadMultiProjectResource(doc.projects);
   }
@@ -207,6 +213,11 @@ export class LearningModel extends BaseClass {
     limit?: number;
     projectId?: string;
   }): Promise<{ learning: LearningInterface; similarity: number }[]> {
+    if (!this.context.hasPremiumFeature("learnings")) {
+      this.context.throwPlanDoesNotAllowError(
+        "Learnings requires an Enterprise plan.",
+      );
+    }
     // Enforce the same premium, AI-enabled, and rate-limit gates as the find
     // flow — otherwise external search could keep spending embeddings after
     // the org is throttled.

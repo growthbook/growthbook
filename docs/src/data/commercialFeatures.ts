@@ -105,6 +105,10 @@ export default {
     plan: "enterprise",
     displayName: "Large Saved Groups",
   },
+  learnings: {
+    plan: "enterprise",
+    displayName: "Learnings",
+  },
   livechat: {
     plan: "pro",
     displayName: "Livechat",

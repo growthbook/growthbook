@@ -388,8 +388,15 @@ export const postFindLearnings = async (
 ) => {
   const context = getContextFromReq(req);
 
-  // Premium feature, AI-enabled, and rate-limit gates (writes the error
-  // response itself when a gate fails).
+  if (!context.hasPremiumFeature("learnings")) {
+    return res.status(403).json({
+      status: 403,
+      message: "Learnings requires an Enterprise plan.",
+    });
+  }
+
+  // AI-enabled and rate-limit gates (writes the error response itself when a
+  // gate fails).
   if (!(await runAccessGates(context, res))) {
     return;
   }
@@ -617,6 +624,14 @@ export const postRefreshLearnings = async (
   res: Response<RefreshLearningsResponse>,
 ) => {
   const context = getContextFromReq(req);
+
+  if (!context.hasPremiumFeature("learnings")) {
+    return res.status(403).json({
+      status: 403,
+      message: "Learnings requires an Enterprise plan.",
+    });
+  }
+
   if (!(await runAccessGates(context, res))) {
     return;
   }

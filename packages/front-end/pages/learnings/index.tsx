@@ -22,6 +22,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import { useExperimentSearch, experimentDate } from "@/services/experiments";
 import useApi from "@/hooks/useApi";
 import { useAISettings } from "@/hooks/useOrgSettings";
+import { useUser } from "@/services/UserContext";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
 import FindLearningsModal from "@/components/Learnings/FindLearningsModal";
 import SavedLearningsList from "@/components/Learnings/SavedLearningsList";
 import EditLearningModal from "@/components/Learnings/EditLearningModal";
@@ -31,6 +33,8 @@ const LearningsPage = (): React.ReactElement => {
   const router = useRouter();
   const { ready, project } = useDefinitions();
   const { aiEnabled } = useAISettings();
+  const { hasCommercialFeature } = useUser();
+  const hasLearningsFeature = hasCommercialFeature("learnings");
 
   const today = new Date();
   const [startDate, setStartDate] = useState<Date>(
@@ -99,8 +103,26 @@ const LearningsPage = (): React.ReactElement => {
 
   const { data: learningsData, mutate: mutateLearnings } = useApi<{
     learnings: LearningWithCanManage[];
-  }>(`/learnings?project=${project || ""}`);
+  }>(`/learnings?project=${project || ""}`, {
+    shouldRun: () => hasLearningsFeature,
+  });
   const learnings = learningsData?.learnings || [];
+
+  if (!hasLearningsFeature) {
+    return (
+      <div className="contents container-fluid pagecontents">
+        <Heading as="h1" size="2x-large" weight="medium" mb="4">
+          Experiment Learnings
+        </Heading>
+        <PremiumEmptyState
+          title="Experiment Learnings"
+          description="Capture what you have learned across experiments and let AI surface cross-experiment patterns worth reusing."
+          commercialFeature="learnings"
+          learnMoreLink="https://docs.growthbook.io/app/experiment-learnings"
+        />
+      </div>
+    );
+  }
 
   if (error) {
     return <Callout status="error">An error occurred: {error.message}</Callout>;
