@@ -230,7 +230,7 @@ export function isEventForwarderManagedExposureQuery(
  * The SDK attribute a managed query reads. Falls back to `userIdType` for queries
  * written before the link existed, where the two were always the same.
  */
-export function getEventForwarderExposureQuerySourceAttribute(
+function getEventForwarderExposureQuerySourceAttribute(
   query: ExposureQuery,
 ): string {
   return query.sourceAttribute ?? query.userIdType;

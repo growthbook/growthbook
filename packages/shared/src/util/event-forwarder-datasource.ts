@@ -48,37 +48,16 @@ export function normalizeUserIdTypeName(userIdType: string): string {
   return userIdType.trim().toLowerCase();
 }
 
-/**
- * Returns the name colliding with `candidate`, or null when it is free. Pass
- * `ignoreIndex` when renaming an entry in place so it doesn't collide with itself.
- */
+/** Returns the name colliding with `candidate`, or null when it is free. */
 export function findCollidingUserIdTypeName(
   userIdTypes: UserIdType[],
   candidate: string,
-  ignoreIndex?: number,
 ): string | null {
   const normalized = normalizeUserIdTypeName(candidate);
   const collision = userIdTypes.find(
-    (existing, index) =>
-      index !== ignoreIndex &&
-      normalizeUserIdTypeName(existing.userIdType) === normalized,
+    (existing) => normalizeUserIdTypeName(existing.userIdType) === normalized,
   );
   return collision?.userIdType ?? null;
-}
-
-/** Returns the first duplicated name in the list, or null when all are unique. */
-export function findDuplicateUserIdTypeName(
-  userIdTypes: UserIdType[],
-): string | null {
-  const seen = new Set<string>();
-  for (const { userIdType } of userIdTypes) {
-    const normalized = normalizeUserIdTypeName(userIdType);
-    if (seen.has(normalized)) {
-      return userIdType;
-    }
-    seen.add(normalized);
-  }
-  return null;
 }
 
 export function getEventForwarderSinkTypeForDatasource(datasource: {

@@ -39,9 +39,8 @@ export const DataSourceInlineEditIdentifierTypes: FC<
     return userIdTypes[editingIndex] || null;
   }, [editingIndex, userIdTypes]);
 
-  // Event Forwarder managed types keep their name and description editable — a
-  // rename cascades to the managed assignment query — but their linked hash
-  // attribute is managed for them.
+  // Names are fixed once created. For Event Forwarder managed types only the
+  // description is editable; the linked hash attribute is managed for them.
   const isEditingEventForwarderManagedType = recordEditing
     ? isEventForwarderManagedUserIdType(recordEditing)
     : false;
@@ -86,10 +85,10 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           if (!existing) {
             return;
           }
-          // A managed type keeps its link and its GrowthBook-managed attributes;
-          // the name and description come from the form.
+          // A managed type keeps its name, link, and GrowthBook-managed
+          // attributes; only the description comes from the form.
           types[idx] = editingManagedType
-            ? { ...existing, userIdType, description }
+            ? { ...existing, description }
             : {
                 userIdType,
                 description,
@@ -200,7 +199,6 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           onSave={handleSave(editingIndex)}
           dataSource={dataSource}
           isEventForwarderManagedType={isEditingEventForwarderManagedType}
-          editingIndex={editingIndex}
         />
       ) : null}
       {/* endregion Add/Edit modal */}

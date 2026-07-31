@@ -3,7 +3,6 @@ import {
   attributeMatchesDatasourceProjects,
   buildUserIdTypesFromAttributeSchema,
   findCollidingUserIdTypeName,
-  findDuplicateUserIdTypeName,
   getEventForwarderDatasourceParams,
   getEventForwarderSinkTypeForDatasource,
   getEventForwarderUserIdTypeSourceAttribute,
@@ -222,33 +221,6 @@ describe("findCollidingUserIdTypeName", () => {
 
   it("returns null when the name is free", () => {
     expect(findCollidingUserIdTypeName(userIdTypes, "anonymous_id")).toBe(null);
-  });
-
-  it("does not collide an entry being renamed with itself", () => {
-    expect(findCollidingUserIdTypeName(userIdTypes, "user_id", 0)).toBe(null);
-    expect(findCollidingUserIdTypeName(userIdTypes, "Device_ID", 0)).toBe(
-      "Device_ID",
-    );
-  });
-});
-
-describe("findDuplicateUserIdTypeName", () => {
-  it("finds a case-insensitive duplicate", () => {
-    expect(
-      findDuplicateUserIdTypeName([
-        { userIdType: "user_id" },
-        { userIdType: "USER_ID" },
-      ]),
-    ).toBe("USER_ID");
-  });
-
-  it("returns null when all names are unique", () => {
-    expect(
-      findDuplicateUserIdTypeName([
-        { userIdType: "user_id" },
-        { userIdType: "device_id" },
-      ]),
-    ).toBe(null);
   });
 });
 

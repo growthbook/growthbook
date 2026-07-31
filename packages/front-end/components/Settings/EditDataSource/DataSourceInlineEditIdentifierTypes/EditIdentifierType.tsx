@@ -15,14 +15,8 @@ type EditIdentifierTypeProps = {
   userIdType: string;
   description?: string;
   attributes?: string[];
-  /**
-   * Event Forwarder provisions hash-attribute identifier types. The name and
-   * description stay editable — renaming updates the managed exposure query — but
-   * the linked hash attribute is ours to manage.
-   */
+  /** Event forwarder provisions hash-attribute identifier types; only description is editable. */
   isEventForwarderManagedType?: boolean;
-  /** Index being edited, so a rename doesn't collide with itself. */
-  editingIndex?: number;
   onSave: (
     name: string,
     description: string,
@@ -37,7 +31,6 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
   description,
   attributes,
   isEventForwarderManagedType = false,
-  editingIndex,
   onSave,
   onCancel,
 }) => {
@@ -87,18 +80,18 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
 
   const userEnteredUserIdType = form.watch("idType");
 
-  // Case-insensitive, and matches the back-end check. On edit, the entry being
-  // renamed is excluded so it never collides with its own current name.
+  // Names are fixed once created, so this only guards new entries. Case-insensitive
+  // to match the back-end check: two names differing only in case would collide as
+  // one warehouse column.
   const collidingUserIdType = useMemo(() => {
-    if (!userEnteredUserIdType) {
+    if (mode !== "add" || !userEnteredUserIdType) {
       return null;
     }
     return findCollidingUserIdTypeName(
       existingUserIdTypes,
       userEnteredUserIdType,
-      mode === "edit" ? editingIndex : undefined,
     );
-  }, [editingIndex, existingUserIdTypes, mode, userEnteredUserIdType]);
+  }, [existingUserIdTypes, mode, userEnteredUserIdType]);
 
   const saveEnabled = useMemo(() => {
     if (!userEnteredUserIdType) {
@@ -132,17 +125,10 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
           label="Identifier Type"
           {...form.register("idType")}
           pattern="^[a-z_]+$"
-          // Event Forwarder managed types are renamable: we generate their
-          // assignment query, so we can rewrite its column alias. A user's own
-          // identifier type stays fixed — its hand-written SQL is not ours to edit.
-          readOnly={mode === "edit" && !isEventForwarderManagedType}
+          readOnly={mode === "edit" || isEventForwarderManagedType}
           required
           error={fieldError}
-          helpText={
-            isEventForwarderManagedType
-              ? "Only lowercase letters and underscores allowed. Renaming this also updates its Event Forwarder assignment query."
-              : "Only lowercase letters and underscores allowed. For example, 'user_id' or 'device_cookie'."
-          }
+          helpText="Only lowercase letters and underscores allowed. For example, 'user_id' or 'device_cookie'."
         />
         <Field
           size="legacy"
