@@ -221,50 +221,53 @@ const FindLearningsModal: FC<{
                     background: "var(--color-panel-solid)",
                   }}
                 >
-                  <Flex align="start" gap="3" mb="2">
+                  {/* Checkbox sits in a left gutter; everything else is a
+                      single column aligned to the right of it. */}
+                  <Flex align="start" gap="3">
                     <Checkbox
                       value={s.selected}
                       setValue={() => toggleSuggestion(i)}
-                      label={
-                        <Heading as="h4" size="medium" mb="0">
-                          {s.suggestion.title}
-                        </Heading>
-                      }
                       mb="0"
+                      aria-label={`Select ${s.suggestion.title}`}
                     />
-                  </Flex>
-                  <Box mb="3">
-                    <Markdown>{s.suggestion.text}</Markdown>
-                  </Box>
-                  {s.suggestion.tags && s.suggestion.tags.length > 0 && (
-                    <Box mb="3">
-                      <Flex gap="2" wrap="wrap">
-                        {s.suggestion.tags.map((t) => (
-                          <Badge
-                            key={t}
-                            label={t}
-                            color="violet"
-                            variant="soft"
-                            size="sm"
-                          />
-                        ))}
+                    <Box flexGrow="1" style={{ minWidth: 0 }}>
+                      <Heading as="h4" size="medium" mb="2">
+                        {s.suggestion.title}
+                      </Heading>
+                      <Box mb="3">
+                        <Markdown>{s.suggestion.text}</Markdown>
+                      </Box>
+                      {s.suggestion.tags && s.suggestion.tags.length > 0 && (
+                        <Box mb="3">
+                          <Flex gap="2" wrap="wrap">
+                            {s.suggestion.tags.map((t) => (
+                              <Badge
+                                key={t}
+                                label={t}
+                                color="violet"
+                                variant="soft"
+                                size="sm"
+                              />
+                            ))}
+                          </Flex>
+                        </Box>
+                      )}
+                      <Flex direction="column" gap="3">
+                        <ExperimentChips
+                          label="Supporting experiments"
+                          experimentIds={s.suggestion.supportingExperimentIds}
+                          experimentMap={experimentMap}
+                        />
+                        <ExperimentChips
+                          label="Contradicting experiments"
+                          experimentIds={
+                            s.suggestion.contradictingExperimentIds || []
+                          }
+                          experimentMap={experimentMap}
+                          variant="contrary"
+                        />
                       </Flex>
                     </Box>
-                  )}
-                  <Flex direction="column" gap="3">
-                    <ExperimentChips
-                      label="Supporting experiments"
-                      experimentIds={s.suggestion.supportingExperimentIds}
-                      experimentMap={experimentMap}
-                    />
-                    <ExperimentChips
-                      label="Contradicting experiments"
-                      experimentIds={
-                        s.suggestion.contradictingExperimentIds || []
-                      }
-                      experimentMap={experimentMap}
-                      variant="contrary"
-                    />
                   </Flex>
                 </Box>
               ))}
