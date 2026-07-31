@@ -1,4 +1,4 @@
-import { FC, useMemo, useState } from "react";
+import { FC, useCallback, useMemo, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiSparkleFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -22,8 +22,9 @@ import DatePicker from "@/components/DatePicker";
 import {
   FilterDropdown,
   SearchFiltersItem,
+  useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
-import { SyntaxFilter } from "@/services/search";
+import { useSearch } from "@/services/search";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -58,14 +59,57 @@ const SavedLearningsList: FC<{
     useState<LearningWithCanManage | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [search, setSearch] = useState("");
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
-  // Each entry is a status id, or "" (empty string) for the "(No status)" bucket.
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  // Date range isn't expressible as a search token, so it stays local state
+  // and is applied through useSearch's filterResults (same as the Experiment
+  // Library tab).
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
-  const [openFilter, setOpenFilter] = useState<string>("");
+
+  const filterResults = useCallback(
+    (items: LearningWithCanManage[]) => {
+      if (!startDate && !endDate) return items;
+      return items.filter((i) => {
+        const created = getValidDate(i.dateCreated);
+        if (startDate && created < startDate) return false;
+        if (endDate && created > endDate) return false;
+        return true;
+      });
+    },
+    [startDate, endDate],
+  );
+
+  // Search + filter tokens live in one query string, so selecting a filter
+  // writes `tag:foo` into the search box and hand-typed tokens work too —
+  // matching every other filtered list in the app.
+  const {
+    items: filteredLearnings,
+    searchInputProps,
+    syntaxFilters,
+    setSearchValue,
+    clear: clearSearch,
+    isFiltered,
+  } = useSearch({
+    items: learnings,
+    localStorageKey: "learnings",
+    defaultSortField: "dateCreated",
+    defaultSortDir: -1,
+    searchFields: ["title^3", "text", "tags"],
+    filterResults,
+    searchTermFilters: {
+      tag: (i) => i.tags || [],
+      // "" is the no-status bucket, so it stays filterable as `status:""`
+      status: (i) => i.status || "",
+      project: (i) => i.projects || [],
+      source: (i) => i.source,
+    },
+  });
+
+  const { dropdownFilterOpen, setDropdownFilterOpen, updateQuery } =
+    useSearchFiltersBase({
+      searchInputProps,
+      syntaxFilters,
+      setSearchValue,
+    });
 
   const experimentMap = new Map(experiments.map((e) => [e.id, e]));
 
@@ -104,32 +148,6 @@ const SavedLearningsList: FC<{
       })),
     [allTags],
   );
-
-  // FilterDropdown reads selection from a SyntaxFilter[] and reports clicks via
-  // updateQuery. We mirror our local selectedTags state through that contract so
-  // the dropdown shows checkmarks and toggles correctly.
-  const tagSyntaxFilters: SyntaxFilter[] = useMemo(
-    () =>
-      selectedTags.length > 0
-        ? [
-            {
-              field: "tag",
-              values: selectedTags,
-              operator: "" as const,
-              negated: false,
-            },
-          ]
-        : [],
-    [selectedTags],
-  );
-
-  const handleTagUpdateQuery = (f: SyntaxFilter) => {
-    const tag = f.values[0];
-    if (!tag) return;
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((x) => x !== tag) : [...prev, tag],
-    );
-  };
 
   // Status filter — built from the org-configured learning statuses, plus a
   // synthetic "(No status)" bucket that matches learnings with no status set.
@@ -177,29 +195,6 @@ const SavedLearningsList: FC<{
     return items;
   }, [learningStatuses, statusCounts]);
 
-  const statusSyntaxFilters: SyntaxFilter[] = useMemo(
-    () =>
-      selectedStatuses.length > 0
-        ? [
-            {
-              field: "status",
-              values: selectedStatuses,
-              operator: "" as const,
-              negated: false,
-            },
-          ]
-        : [],
-    [selectedStatuses],
-  );
-
-  const handleStatusUpdateQuery = (f: SyntaxFilter) => {
-    if (f.values.length === 0) return;
-    const value = f.values[0];
-    setSelectedStatuses((prev) =>
-      prev.includes(value) ? prev.filter((x) => x !== value) : [...prev, value],
-    );
-  };
-
   // Project filter, inline with the other filters (matches the experiment
   // search/filter component).
   const projectCounts = useMemo(() => {
@@ -223,99 +218,6 @@ const SavedLearningsList: FC<{
         })),
     [orgProjects, projectCounts],
   );
-
-  const projectSyntaxFilters: SyntaxFilter[] = useMemo(
-    () =>
-      selectedProjects.length > 0
-        ? [
-            {
-              field: "project",
-              values: selectedProjects,
-              operator: "" as const,
-              negated: false,
-            },
-          ]
-        : [],
-    [selectedProjects],
-  );
-
-  const handleProjectUpdateQuery = (f: SyntaxFilter) => {
-    const project = f.values[0];
-    if (!project) return;
-    setSelectedProjects((prev) =>
-      prev.includes(project)
-        ? prev.filter((x) => x !== project)
-        : [...prev, project],
-    );
-  };
-
-  const filteredLearnings = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const selectedTagSet = new Set(selectedTags);
-    const selectedProjectSet = new Set(selectedProjects);
-    const selectedStatusSet = new Set(selectedStatuses);
-
-    return learnings.filter((i) => {
-      // Tag filter (AND across selected tags)
-      if (selectedTagSet.size > 0) {
-        const tagSet = new Set(i.tags || []);
-        for (const t of selectedTagSet) {
-          if (!tagSet.has(t)) return false;
-        }
-      }
-
-      // Project filter — match if the learning has at least one of the selected
-      // projects, OR if it has no projects (lives in "All projects")
-      if (selectedProjectSet.size > 0) {
-        const learningProjects = i.projects || [];
-        if (learningProjects.length > 0) {
-          const overlaps = learningProjects.some((p) =>
-            selectedProjectSet.has(p),
-          );
-          if (!overlaps) return false;
-        }
-      }
-
-      // Status filter (OR across selected statuses). Empty string is the
-      // "(No status)" bucket — matches learnings with no status set.
-      if (selectedStatusSet.size > 0) {
-        const key = i.status || "";
-        if (!selectedStatusSet.has(key)) return false;
-      }
-
-      // Date range — filter on dateCreated
-      if (startDate || endDate) {
-        const created = getValidDate(i.dateCreated);
-        if (startDate && created < startDate) return false;
-        if (endDate && created > endDate) return false;
-      }
-
-      // Text search
-      if (q) {
-        const hay = [i.title || "", i.text || "", ...(i.tags || [])]
-          .join(" ")
-          .toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [
-    learnings,
-    search,
-    selectedTags,
-    selectedProjects,
-    selectedStatuses,
-    startDate,
-    endDate,
-  ]);
-
-  const anyFilterActive =
-    !!search ||
-    selectedTags.length > 0 ||
-    selectedProjects.length > 0 ||
-    selectedStatuses.length > 0 ||
-    !!startDate ||
-    !!endDate;
 
   if (learnings.length === 0) {
     return (
@@ -344,8 +246,7 @@ const SavedLearningsList: FC<{
               <Field
                 placeholder="Search Learnings..."
                 type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                {...searchInputProps}
               />
             </Box>
             {tagFilterItems.length > 0 && (
@@ -353,10 +254,10 @@ const SavedLearningsList: FC<{
                 filter="tag"
                 heading="Tags"
                 items={tagFilterItems}
-                syntaxFilters={tagSyntaxFilters}
-                open={openFilter}
-                setOpen={setOpenFilter}
-                updateQuery={handleTagUpdateQuery}
+                syntaxFilters={syntaxFilters}
+                open={dropdownFilterOpen}
+                setOpen={setDropdownFilterOpen}
+                updateQuery={updateQuery}
               />
             )}
             {statusFilterItems.length > 0 && (
@@ -364,10 +265,10 @@ const SavedLearningsList: FC<{
                 filter="status"
                 heading="Status"
                 items={statusFilterItems}
-                syntaxFilters={statusSyntaxFilters}
-                open={openFilter}
-                setOpen={setOpenFilter}
-                updateQuery={handleStatusUpdateQuery}
+                syntaxFilters={syntaxFilters}
+                open={dropdownFilterOpen}
+                setOpen={setDropdownFilterOpen}
+                updateQuery={updateQuery}
               />
             )}
             {projectFilterItems.length > 0 && (
@@ -375,10 +276,10 @@ const SavedLearningsList: FC<{
                 filter="project"
                 heading="Projects"
                 items={projectFilterItems}
-                syntaxFilters={projectSyntaxFilters}
-                open={openFilter}
-                setOpen={setOpenFilter}
-                updateQuery={handleProjectUpdateQuery}
+                syntaxFilters={syntaxFilters}
+                open={dropdownFilterOpen}
+                setOpen={setDropdownFilterOpen}
+                updateQuery={updateQuery}
               />
             )}
           </Flex>
@@ -406,16 +307,13 @@ const SavedLearningsList: FC<{
           </Flex>
         </Flex>
         <Flex gap="3" wrap="wrap" align="end">
-          {anyFilterActive && (
+          {(isFiltered || startDate || endDate) && (
             <Box>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  setSearch("");
-                  setSelectedTags([]);
-                  setSelectedProjects([]);
-                  setSelectedStatuses([]);
+                  clearSearch();
                   setStartDate(undefined);
                   setEndDate(undefined);
                 }}
@@ -569,18 +467,25 @@ const SavedLearningsList: FC<{
                 <Box mb="3">
                   <Flex gap="2" wrap="wrap">
                     {learning.tags.map((t) => {
-                      const active = selectedTags.includes(t);
+                      const active = syntaxFilters.some(
+                        (f) =>
+                          f.field === "tag" &&
+                          f.values.some(
+                            (v) => v.toLowerCase() === t.toLowerCase(),
+                          ),
+                      );
                       return (
                         <button
                           key={t}
                           type="button"
-                          onClick={() => {
-                            setSelectedTags((prev) =>
-                              prev.includes(t)
-                                ? prev.filter((x) => x !== t)
-                                : [...prev, t],
-                            );
-                          }}
+                          onClick={() =>
+                            updateQuery({
+                              field: "tag",
+                              values: [t],
+                              operator: "",
+                              negated: false,
+                            })
+                          }
                           style={{
                             background: "none",
                             border: "none",
