@@ -91,22 +91,20 @@ export class LearningModel extends BaseClass {
   }
 
   protected canCreate(doc: LearningInterface): boolean {
-    const projects = doc.projects && doc.projects.length ? doc.projects : [""];
-    return projects.some((project) =>
-      this.context.permissions.canCreateExperiment({ project }),
-    );
+    return this.context.permissions.canCreateLearning(doc);
   }
 
-  // Only the owner or an org-settings admin can edit/delete a saved learning.
-  // Everyone with read access can still comment via the discussion thread.
-  protected canUpdate(doc: LearningInterface): boolean {
-    if (doc.owner && doc.owner === this.context.userId) return true;
-    if (this.context.superAdmin) return true;
-    return this.context.permissions.canManageOrgSettings();
+  protected canUpdate(
+    existing: LearningInterface,
+    updates: Partial<LearningInterface>,
+  ): boolean {
+    return this.context.permissions.canUpdateLearning(existing, {
+      projects: updates.projects ?? existing.projects,
+    });
   }
 
   protected canDelete(doc: LearningInterface): boolean {
-    return this.canUpdate(doc);
+    return this.context.permissions.canDeleteLearning(doc);
   }
 
   // Validate the learning status against the org's configured list on create
