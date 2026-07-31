@@ -73,7 +73,7 @@ import {
   useDashboardSnapshot,
   DashboardSnapshotContext,
 } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
-import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
+import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor/dashboardBlockTypes";
 import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/util";
 import MetricExplorerSettings from "./MetricExplorerSettings";
 import ProductAnalyticsExplorerSettings from "./ProductAnalyticsExplorerSettings";
