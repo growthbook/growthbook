@@ -49,7 +49,6 @@ export default function ContextualBanditOverviewModal({
         {...form.register("trackingKey")}
       />
       <div className="form-group">
-        <label>Owner</label>
         <SelectOwner
           value={form.watch("owner")}
           onChange={(v) => form.setValue("owner", v)}
