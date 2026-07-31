@@ -5,7 +5,7 @@ import {
   UserIdType,
 } from "shared/types/datasource";
 import { isEventForwarderManagedUserIdType } from "shared/util";
-import { FaPlus } from "react-icons/fa";
+import { PiPlus } from "react-icons/pi";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { EditIdentifierType } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/EditIdentifierType";
@@ -126,8 +126,13 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           <Badge label={userIdTypes.length + ""} color="gray" radius="medium" />
         </Flex>
         <Box>
-          <Button variant="solid" onClick={handleAdd} disabled={!canEdit}>
-            <FaPlus className="mr-1" /> Add
+          <Button
+            variant="solid"
+            icon={<PiPlus />}
+            onClick={handleAdd}
+            disabled={!canEdit}
+          >
+            Add
           </Button>
         </Box>
       </Flex>
