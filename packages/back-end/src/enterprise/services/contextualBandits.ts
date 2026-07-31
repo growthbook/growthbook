@@ -76,9 +76,19 @@ export async function getContextualBanditLinkedFeatureInfo(
   context: ReqContext | ApiReqContext,
   contextualBandit: ContextualBanditInterface,
 ) {
+  // `linkedFeatures` is live-only, so a feature whose rule still sits in an
+  // unpublished draft would be missing from the list the UI renders and the
+  // start flow gates on. Pending drafts cover exactly that case.
+  const linkedFeatureIds = Array.from(
+    new Set([
+      ...(contextualBandit.linkedFeatures ?? []),
+      ...(contextualBandit.pendingFeatureDrafts ?? []).map((d) => d.featureId),
+    ]),
+  );
+
   return getRefLinkedFeatureInfo({
     context,
-    linkedFeatureIds: contextualBandit.linkedFeatures || [],
+    linkedFeatureIds,
     refIsDraft: contextualBandit.status === "draft",
     matchRule: (rule) =>
       rule.type === "contextual-bandit-ref" &&
@@ -394,13 +404,6 @@ export async function linkFeatureToContextualBandit({
     );
   }
 
-  if (!contextualBandit.linkedFeatures?.includes(feature.id)) {
-    await context.models.contextualBandits.addLinkedFeature(
-      contextualBandit.id,
-      feature.id,
-    );
-  }
-
   return {
     version: updatedRevision.version,
     published,
@@ -557,17 +560,12 @@ export async function updateContextualBanditFeatureRule({
     });
     published = true;
   } else {
+    // Editing through a draft leaves whatever is live untouched, so an existing
+    // `linkedFeatures` entry stays as-is and this only queues the draft.
     await context.models.contextualBandits.addPendingFeatureDraft(
       contextualBandit.id,
       feature.id,
       updatedRevision.version,
-    );
-  }
-
-  if (!contextualBandit.linkedFeatures?.includes(feature.id)) {
-    await context.models.contextualBandits.addLinkedFeature(
-      contextualBandit.id,
-      feature.id,
     );
   }
 
@@ -576,9 +574,10 @@ export async function updateContextualBanditFeatureRule({
 
 /**
  * Mirror image of `linkFeatureToContextualBandit`: strip every
- * `contextual-bandit-ref` rule pointing at this bandit off the feature and drop
- * the linkage. Leaving the rule behind would not stick — the next revision write
- * re-adds the link via `syncFeatureContextualBanditLinkages`.
+ * `contextual-bandit-ref` rule pointing at this bandit off the feature. The
+ * linkage only comes off once the removal is live — a staged removal leaves the
+ * feature linked and queues the draft, and `syncFeatureContextualBanditLinkages`
+ * would restore the link anyway while the live revision still has the rule.
  */
 export async function unlinkFeatureFromContextualBandit({
   context,
@@ -591,8 +590,7 @@ export async function unlinkFeatureFromContextualBandit({
   draftVersion,
 }: ContextualBanditFeatureLinkOptions & {
   featureId: string;
-  /** Null when the feature was deleted out from under the bandit. */
-  feature: FeatureInterface | null;
+  feature: FeatureInterface;
 }): Promise<{
   removedRuleIds: string[];
   revisionVersion: number | null;
@@ -601,18 +599,11 @@ export async function unlinkFeatureFromContextualBandit({
   const { org, environments } = context;
   const cbModel = context.models.contextualBandits;
 
-  const detachLinkage = async () => {
-    await cbModel.removeLinkedFeature(contextualBandit.id, featureId);
-    await cbModel.removePendingFeatureDraft(contextualBandit.id, featureId);
-  };
-
   const isRuleForBandit = (r: FeatureRule) =>
     isRuleForContextualBandit(r, contextualBandit.id);
 
-  if (!feature) {
-    await detachLinkage();
-    return { removedRuleIds: [], revisionVersion: null, published: false };
-  }
+  /** Live rules are the only thing `linkedFeatures` may be derived from. */
+  const liveHasBanditRule = () => (feature.rules ?? []).some(isRuleForBandit);
 
   if (
     !context.permissions.canUpdateFeature(feature, {}) ||
@@ -631,7 +622,17 @@ export async function unlinkFeatureFromContextualBandit({
     targetVersion,
   );
   if (!baseRules.some(isRuleForBandit)) {
-    await detachLinkage();
+    // Nothing to remove on the revision we were pointed at, so just clean up the
+    // bookkeeping for it. The bandit can still be live from an earlier publish,
+    // in which case the feature stays linked.
+    await cbModel.removePendingFeatureDraft(
+      contextualBandit.id,
+      featureId,
+      targetVersion,
+    );
+    if (!liveHasBanditRule()) {
+      await cbModel.removeLinkedFeature(contextualBandit.id, featureId);
+    }
     return { removedRuleIds: [], revisionVersion: null, published: false };
   }
 
@@ -703,10 +704,13 @@ export async function unlinkFeatureFromContextualBandit({
     published = true;
   }
 
-  await cbModel.removeLinkedFeature(contextualBandit.id, featureId);
   if (autoPublish) {
+    // Publishing drops the linkage itself, since the rule is gone from live.
     await cbModel.removePendingFeatureDraft(contextualBandit.id, featureId);
   } else {
+    // The removal is only staged: the live feature keeps serving the rule, so the
+    // feature stays linked until this draft publishes. Queueing it means starting
+    // the bandit publishes the removal rather than resurrecting the linkage.
     await cbModel.addPendingFeatureDraft(
       contextualBandit.id,
       featureId,

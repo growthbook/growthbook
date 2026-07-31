@@ -471,6 +471,26 @@ export class ContextualBanditModel extends BaseClass {
     return this._find({ contextualBanditQueryId });
   }
 
+  /** Drops `featureId` from every bandit outside `keepIds` — i.e. those the feature's live revision no longer references. */
+  public async clearStaleLinkedFeatures(
+    featureId: string,
+    keepIds: string[],
+  ): Promise<void> {
+    const keep = new Set(keepIds);
+    const contextualBandits = await this._find({ linkedFeatures: featureId });
+    await Promise.all(
+      contextualBandits
+        .filter((cb: ContextualBanditInterface) => !keep.has(cb.id))
+        .map((cb: ContextualBanditInterface) =>
+          this.update(cb, {
+            linkedFeatures: (cb.linkedFeatures ?? []).filter(
+              (f) => f !== featureId,
+            ),
+          }),
+        ),
+    );
+  }
+
   public async clearStalePendingFeatureDrafts(
     featureId: string,
     keepIds: string[],

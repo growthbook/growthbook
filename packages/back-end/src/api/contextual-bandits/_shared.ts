@@ -35,11 +35,6 @@ type VariationInput = {
   config?: string | null;
 };
 
-/**
- * The bandit serves every arm, so a rule that only defines some of them would
- * emit nulls into the SDK payload. The UI seeds the full set from the bandit;
- * API callers get an explicit error instead.
- */
 export function assertVariationsCoverBandit(
   contextualBandit: ContextualBanditInterface,
   variations: VariationInput[],
@@ -93,7 +88,8 @@ export function buildContextualBanditRefRule(
     contextualBanditId: contextualBandit.id,
     description: body.description ?? "",
     enabled: body.enabled ?? true,
-    // Targeting is inherited from the bandit, so these stay empty.
+    // TODO: remove when bandit ref rule migrates to not have
+    // this field which we already ignore anyways.
     condition: "",
     scheduleRules: [],
     allEnvironments: scope.allEnvironments,

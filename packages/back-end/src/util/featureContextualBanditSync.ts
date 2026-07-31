@@ -5,6 +5,13 @@ import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 
+/** Cheap guard so publishes that have nothing to do with bandits skip the sync's revision reads. */
+export function referencesAnyContextualBandit(
+  rules: FeatureRevisionInterface["rules"] | unknown,
+): boolean {
+  return getContextualBanditIdsFromRules(rules).length > 0;
+}
+
 function getContextualBanditIdsFromRules(
   rules: FeatureRevisionInterface["rules"] | unknown,
 ): string[] {
@@ -24,7 +31,16 @@ function getContextualBanditIdsFromRules(
     .filter((id): id is string => !!id);
 }
 
-/** Fire-and-forget reconciliation of `linkedFeatures` / `pendingFeatureDrafts` on CBs after a feature revision write. */
+/**
+ * Fire-and-forget reconciliation of `linkedFeatures` / `pendingFeatureDrafts` on
+ * CBs after a feature revision write. The two arrays answer different questions
+ * and a feature can legitimately sit in both:
+ *
+ * - `linkedFeatures`: the feature's **live** revision serves a rule for this
+ *   bandit, so the bandit is (or would be, once started) reaching users there.
+ * - `pendingFeatureDrafts`: open drafts touching this bandit's rules, keyed by
+ *   revision version. These are the drafts the bandit publishes on start.
+ */
 export async function syncFeatureContextualBanditLinkages(
   context: ReqContext | ApiReqContext,
   featureId: string,
@@ -57,8 +73,13 @@ export async function syncFeatureContextualBanditLinkages(
         const cb = await cbModel.getById(cbId);
         if (!cb) return;
 
-        if (!cb.linkedFeatures?.includes(featureId)) {
+        // A draft reference alone doesn't count as linked — the rule isn't
+        // serving anyone until the draft publishes, and until then it's tracked
+        // as a pending draft instead.
+        if (liveCbIds.has(cbId)) {
           await cbModel.addLinkedFeature(cbId, featureId);
+        } else {
+          await cbModel.removeLinkedFeature(cbId, featureId);
         }
 
         const desired = draftVersionsByCb.get(cbId) ?? new Set<number>();
@@ -82,10 +103,13 @@ export async function syncFeatureContextualBanditLinkages(
       10,
     );
 
+    // Bandits no longer referenced by any revision never made it into the loop
+    // above, so drop the feature from them here.
     await cbModel.clearStalePendingFeatureDrafts(
       featureId,
       Array.from(allCbIds),
     );
+    await cbModel.clearStaleLinkedFeatures(featureId, Array.from(liveCbIds));
   } catch (e) {
     logger.error(e, "syncFeatureContextualBanditLinkages failed");
   }

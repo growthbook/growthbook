@@ -32,10 +32,15 @@ import {
   claimFeatureRevisionAsPublished,
   emitFeatureRevisionPublishedSideEffects,
   featureRevisionId,
+  getLinkageSyncRevisionSummaries,
   getRevision,
   hasPublishLockingScheduledSibling,
   restoreFeatureRevisionAfterFailedBulkPublish,
 } from "back-end/src/models/FeatureRevisionModel";
+import {
+  referencesAnyContextualBandit,
+  syncFeatureContextualBanditLinkages,
+} from "back-end/src/util/featureContextualBanditSync";
 import { getMergeResultPublishEnvs } from "back-end/src/services/features";
 import {
   collectFeaturePublishGates,
@@ -648,6 +653,28 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         raw.rules,
       ),
     );
+
+    // This adapter mirrors `publishRevision` rather than calling it, so the
+    // bandit linkage sync it runs on publish has to be mirrored too — otherwise
+    // a bandit rule released here stays filed as a pending draft.
+    if (
+      referencesAnyContextualBandit(feature.rules) ||
+      referencesAnyContextualBandit(updated.rules)
+    ) {
+      await bestEffort("contextual bandit linkage sync", async () => {
+        const { openDrafts, liveRevision } =
+          await getLinkageSyncRevisionSummaries(
+            raw.organization,
+            raw.featureId,
+          );
+        await syncFeatureContextualBanditLinkages(
+          context,
+          raw.featureId,
+          openDrafts,
+          liveRevision,
+        );
+      });
+    }
 
     if (
       desired.mergeResult.metadata?.tags !== undefined &&

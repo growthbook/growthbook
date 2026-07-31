@@ -101,6 +101,10 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import {
+  referencesAnyContextualBandit,
+  syncFeatureContextualBanditLinkages,
+} from "back-end/src/util/featureContextualBanditSync";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
 import {
   makeBlockingGate,
@@ -144,6 +148,7 @@ import {
   createInitialRevision,
   createRevisionFromLegacyDraft,
   deleteAllRevisionsForFeature,
+  getLinkageSyncRevisionSummaries,
   getRevision,
   hasPublishLockingScheduledSibling,
   markRevisionAsPublished,
@@ -3512,6 +3517,37 @@ export async function publishRevision({
       err,
       `Failed to clear pending feature drafts for feature ${feature.id} revision ${revision.version} after publish`,
     );
+  }
+
+  // Publishing is the moment a bandit rule goes live, which is what
+  // `linkedFeatures` tracks — and it retires the draft this revision was queued
+  // as.
+  // Rules on either side of the publish matter: one adding a bandit rule links
+  // the feature, one removing the last of them unlinks it.
+  if (
+    referencesAnyContextualBandit(feature.rules) ||
+    referencesAnyContextualBandit(updatedFeature.rules)
+  ) {
+    try {
+      // Reads the revisions back rather than trusting `revision.rules`, since
+      // what went live is the merge result.
+      const { openDrafts, liveRevision } =
+        await getLinkageSyncRevisionSummaries(
+          revision.organization,
+          revision.featureId,
+        );
+      await syncFeatureContextualBanditLinkages(
+        context,
+        revision.featureId,
+        openDrafts,
+        liveRevision,
+      );
+    } catch (err) {
+      logger.error(
+        err,
+        `Failed to sync contextual bandit linkages for feature ${feature.id} revision ${revision.version} after publish`,
+      );
+    }
   }
 
   // Apply deferred update actions after publish succeeds.

@@ -11,8 +11,15 @@ import {
   unlinkFeatureFromContextualBandit,
   updateContextualBanditFeatureRule,
 } from "back-end/src/enterprise/services/contextualBandits";
-import { getDraftRevision } from "back-end/src/services/features";
-import { updateRevision } from "back-end/src/models/FeatureRevisionModel";
+import {
+  getDraftRevision,
+  getLiveAndBaseRevisionsForFeature,
+} from "back-end/src/services/features";
+import {
+  getRevision,
+  updateRevision,
+} from "back-end/src/models/FeatureRevisionModel";
+import { publishRevision } from "back-end/src/models/FeatureModel";
 
 jest.mock("back-end/src/services/features", () => ({
   generateRuleId: jest.fn(() => "fr_new"),
@@ -72,6 +79,14 @@ const getDraftRevisionMock = getDraftRevision as jest.MockedFunction<
 const updateRevisionMock = updateRevision as jest.MockedFunction<
   typeof updateRevision
 >;
+const getRevisionMock = getRevision as jest.MockedFunction<typeof getRevision>;
+const publishRevisionMock = publishRevision as jest.MockedFunction<
+  typeof publishRevision
+>;
+const getLiveAndBaseRevisionsMock =
+  getLiveAndBaseRevisionsForFeature as jest.MockedFunction<
+    typeof getLiveAndBaseRevisionsForFeature
+  >;
 
 const cbModel = {
   addLinkedFeature: jest.fn(),
@@ -190,6 +205,13 @@ beforeEach(() => {
     async (_context, _feature, revision, changes) =>
       ({ ...revision, ...changes }) as FeatureRevisionInterface,
   );
+  // Publishing merges the draft against an unchanged live/base pair, which
+  // `autoMerge` (not mocked) resolves without conflicts.
+  const liveRevision = makeRevision({ version: 3, status: "published" });
+  getLiveAndBaseRevisionsMock.mockResolvedValue({
+    live: liveRevision,
+    base: liveRevision,
+  });
 });
 
 describe("linkFeatureToContextualBandit", () => {
@@ -223,8 +245,30 @@ describe("linkFeatureToContextualBandit", () => {
       "feat_1",
       4,
     );
-    expect(cbModel.addLinkedFeature).toHaveBeenCalledWith("cb_1", "feat_1");
+    // Only a draft references the bandit so far, so the feature isn't linked yet.
+    expect(cbModel.addLinkedFeature).not.toHaveBeenCalled();
     expect(result).toEqual({ version: 4, published: false, ruleId: "fr_new" });
+  });
+
+  it("publishes instead of queueing a draft, leaving the linkage to the publish", async () => {
+    getDraftRevisionMock.mockResolvedValue(makeRevision());
+
+    const result = await linkFeatureToContextualBandit({
+      context: makeContext(),
+      contextualBandit: makeCb(),
+      feature: makeFeature(),
+      rule: makeRule(),
+      eventAudit: { type: "dashboard" },
+      audit,
+      autoPublish: true,
+    });
+
+    // `publishRevision` syncs linkages off the now-live rules, so the service
+    // deliberately writes neither array here.
+    expect(publishRevisionMock).toHaveBeenCalled();
+    expect(cbModel.addLinkedFeature).not.toHaveBeenCalled();
+    expect(cbModel.addPendingFeatureDraft).not.toHaveBeenCalled();
+    expect(result.published).toBe(true);
   });
 
   it("scopes the rule and the publish check to an explicit environment list", async () => {
@@ -378,7 +422,7 @@ describe("updateContextualBanditFeatureRule", () => {
 });
 
 describe("unlinkFeatureFromContextualBandit", () => {
-  it("removes only the rules pointing at this bandit and drops the linkage", async () => {
+  it("removes only the rules pointing at this bandit", async () => {
     const liveRule = cbRefRule("fr_1", "cb_1");
     const otherBanditRule = cbRefRule("fr_3", "cb_2");
     const forceRule = {
@@ -406,9 +450,10 @@ describe("unlinkFeatureFromContextualBandit", () => {
     const changes = changesFromUpdateRevision();
     expect(changes.rules?.map((r) => r.id)).toEqual(["fr_2", "fr_3"]);
 
-    expect(cbModel.removeLinkedFeature).toHaveBeenCalledWith("cb_1", "feat_1");
-    // The removal only exists in a draft, so it has to stay queued for the
-    // publish that happens when the bandit starts.
+    // The live revision still serves the rule, so the feature stays linked; the
+    // removal only exists in a draft and has to stay queued for the publish that
+    // happens when the bandit starts.
+    expect(cbModel.removeLinkedFeature).not.toHaveBeenCalled();
     expect(cbModel.addPendingFeatureDraft).toHaveBeenCalledWith(
       "cb_1",
       "feat_1",
@@ -444,18 +489,53 @@ describe("unlinkFeatureFromContextualBandit", () => {
     });
   });
 
-  it("detaches the linkage when the feature no longer exists", async () => {
-    const result = await unlinkFeatureFromContextualBandit({
+  it("keeps the linkage when the targeted draft has no rule but live still does", async () => {
+    const liveRule = cbRefRule("fr_1", "cb_1");
+    getDraftRevisionMock.mockResolvedValue(makeRevision());
+    getRevisionMock.mockResolvedValue(makeRevision({ rules: [] }));
+
+    await unlinkFeatureFromContextualBandit({
       context: makeContext(),
       contextualBandit: makeCb({ linkedFeatures: ["feat_1"] }),
       featureId: "feat_1",
-      feature: null,
+      feature: makeFeature({ rules: [liveRule] }),
       eventAudit: { type: "dashboard" },
       audit,
+      draftVersion: 4,
     });
 
-    expect(getDraftRevisionMock).not.toHaveBeenCalled();
-    expect(cbModel.removeLinkedFeature).toHaveBeenCalledWith("cb_1", "feat_1");
-    expect(result.revisionVersion).toBeNull();
+    expect(updateRevisionMock).not.toHaveBeenCalled();
+    expect(cbModel.removeLinkedFeature).not.toHaveBeenCalled();
+    // Only this draft's queue entry goes away, not every draft for the feature.
+    expect(cbModel.removePendingFeatureDraft).toHaveBeenCalledWith(
+      "cb_1",
+      "feat_1",
+      4,
+    );
+  });
+
+  it("clears the queue and leaves the unlink to the publish", async () => {
+    const liveRule = cbRefRule("fr_1", "cb_1");
+    getDraftRevisionMock.mockResolvedValue(makeRevision({ rules: [liveRule] }));
+
+    await unlinkFeatureFromContextualBandit({
+      context: makeContext(),
+      contextualBandit: makeCb({ linkedFeatures: ["feat_1"] }),
+      featureId: "feat_1",
+      feature: makeFeature({ rules: [liveRule] }),
+      eventAudit: { type: "dashboard" },
+      audit,
+      autoPublish: true,
+    });
+
+    expect(publishRevisionMock).toHaveBeenCalled();
+    expect(cbModel.removePendingFeatureDraft).toHaveBeenCalledWith(
+      "cb_1",
+      "feat_1",
+    );
+    // Removing the rule from live is what drops the linkage, and that happens
+    // inside the publish.
+    expect(cbModel.removeLinkedFeature).not.toHaveBeenCalled();
+    expect(cbModel.addPendingFeatureDraft).not.toHaveBeenCalled();
   });
 });

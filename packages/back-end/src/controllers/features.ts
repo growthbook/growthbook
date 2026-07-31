@@ -4864,8 +4864,9 @@ export async function deleteFeatureRule(
   }
 
   if (rule.type === "contextual-bandit-ref" && rule.contextualBanditId) {
-    // syncFeatureContextualBanditLinkages only ever adds linkedFeatures, so the
-    // user-driven removal has to happen here (same as experiment-ref above).
+    // syncFeatureContextualBanditLinkages reaches the same conclusion, but it is
+    // fire-and-forget; doing it inline keeps the response consistent with what
+    // the caller just deleted (same as experiment-ref above).
     await context.models.contextualBandits.removePendingFeatureDraft(
       rule.contextualBanditId,
       feature.id,
