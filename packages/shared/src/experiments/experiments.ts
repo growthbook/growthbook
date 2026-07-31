@@ -15,6 +15,7 @@ import {
   MetricInterface,
 } from "shared/types/metric";
 import {
+  ColumnInterface,
   ColumnRef,
   FactMetricInterface,
   FactTableColumnType,
@@ -53,7 +54,11 @@ import {
   StatsEngine,
 } from "shared/types/stats";
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { StringMatchFn, TemplateVariables } from "shared/types/sql";
+import {
+  SqlIdentifierQuote,
+  StringMatchFn,
+  TemplateVariables,
+} from "shared/types/sql";
 import { stringToBoolean } from "../util";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
@@ -129,13 +134,417 @@ export function canInlineFilterColumn(
   return true;
 }
 
+// Standard SQL quotes identifiers with double quotes; only MySQL, BigQuery,
+// and Databricks (Spark) use backticks. When the active data source's dialect
+// is unknown we assume the standard, which is correct for every dialect except
+// those three.
+export const DEFAULT_IDENTIFIER_QUOTE: SqlIdentifierQuote = '"';
+
+function isBareIdentifierChar(c: string): boolean {
+  return (
+    (c >= "a" && c <= "z") ||
+    (c >= "A" && c <= "Z") ||
+    (c >= "0" && c <= "9") ||
+    c === "_"
+  );
+}
+
+// Walk a SQL string and rewrite bare or quoted references to any of `names`,
+// correctly skipping spans where a matching token must NOT be treated as a
+// column reference:
+//   - single-quoted string literals ('' escapes a quote),
+//   - `--` line comments and `/* */` block comments,
+//   - dollar-quoted string bodies ($tag$...$tag$, Postgres),
+//   - and, depending on the dialect, the "other" quote character: whichever of
+//     " or ` is NOT the dialect's identifier quote delimits string literals.
+//
+// `identifierQuote` says which quote character delimits identifiers for the
+// active data source. A span in that quote is a *quoted identifier* (so
+// `"margin_vc"` / `` `margin_vc` `` can reference a column); a span in the
+// opposite quote is a string literal and is left alone. This matters because
+// e.g. `"margin_vc"` is a quoted identifier in Postgres but a string literal
+// in MySQL.
+//
+// `replacer(name, quoted)` returns the replacement for a matched identifier;
+// `quoted` tells it whether the match came from a quoted-identifier span so it
+// can re-quote when qualifying. Identifiers preceded by `.` (ignoring
+// whitespace, so `m.price` and `m . price` both count) are skipped so
+// already-qualified names are not re-qualified. Single
+// pass — inserted replacement text is never re-scanned, so an inserted
+// `m.price` is never re-qualified into `m.m.price`.
+function replaceSqlIdentifiers(
+  sql: string,
+  names: string[],
+  replacer: (name: string, quoted: boolean) => string,
+  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+): string {
+  if (!names.length) return sql;
+  const nameSet = new Set(names);
+  // Whichever quote is not the identifier quote delimits string literals.
+  const stringQuote = identifierQuote === '"' ? "`" : '"';
+
+  let out = "";
+  let i = 0;
+  const n = sql.length;
+
+  // Consume a quote-delimited span starting at `i` (which is the opening
+  // quote), honoring doubled-quote escapes. Returns the end index (exclusive)
+  // and the unescaped inner text, plus whether a closing quote was found.
+  const readQuoted = (quote: string) => {
+    let j = i + 1;
+    let inner = "";
+    let closed = false;
+    while (j < n) {
+      if (sql[j] === quote) {
+        if (sql[j + 1] === quote) {
+          inner += quote;
+          j += 2;
+          continue;
+        }
+        j++;
+        closed = true;
+        break;
+      }
+      inner += sql[j];
+      j++;
+    }
+    return { end: j, inner, closed };
+  };
+
+  // Whether the identifier about to be emitted is already qualified by a
+  // preceding `.`. SQL allows whitespace around the dot (`m . price`), so skip
+  // any trailing whitespace before looking for the qualifier.
+  const isAlreadyQualified = () => {
+    let k = out.length - 1;
+    while (k >= 0 && /\s/.test(out[k])) k--;
+    return k >= 0 && out[k] === ".";
+  };
+
+  while (i < n) {
+    const c = sql[i];
+
+    // Single-quoted string literal.
+    if (c === "'") {
+      const { end } = readQuoted("'");
+      out += sql.slice(i, end);
+      i = end;
+      continue;
+    }
+
+    // Line comment: -- ... to end of line.
+    if (c === "-" && sql[i + 1] === "-") {
+      let j = i + 2;
+      while (j < n && sql[j] !== "\n") j++;
+      out += sql.slice(i, j);
+      i = j;
+      continue;
+    }
+
+    // Block comment: /* ... */.
+    if (c === "/" && sql[i + 1] === "*") {
+      let j = i + 2;
+      while (j < n && !(sql[j] === "*" && sql[j + 1] === "/")) j++;
+      j = Math.min(n, j + 2);
+      out += sql.slice(i, j);
+      i = j;
+      continue;
+    }
+
+    // Dollar-quoted string ($tag$...$tag$). Only treated as a string when a
+    // valid closing delimiter exists; otherwise `$` is an ordinary character
+    // (e.g. a positional parameter or `col$1`).
+    if (c === "$") {
+      const open = sql.slice(i).match(/^\$([A-Za-z_][A-Za-z0-9_]*)?\$/);
+      if (open) {
+        const delim = open[0];
+        const close = sql.indexOf(delim, i + delim.length);
+        if (close !== -1) {
+          const end = close + delim.length;
+          out += sql.slice(i, end);
+          i = end;
+          continue;
+        }
+      }
+      out += c;
+      i++;
+      continue;
+    }
+
+    // Quoted identifier in the dialect's identifier quote.
+    if (c === identifierQuote) {
+      const { end, inner, closed } = readQuoted(identifierQuote);
+      if (closed && !isAlreadyQualified() && nameSet.has(inner)) {
+        out += replacer(inner, true);
+      } else {
+        out += sql.slice(i, end);
+      }
+      i = end;
+      continue;
+    }
+
+    // A span in the opposite quote is a string literal for this dialect; skip.
+    if (c === stringQuote) {
+      const { end } = readQuoted(stringQuote);
+      out += sql.slice(i, end);
+      i = end;
+      continue;
+    }
+
+    // Bare identifier run.
+    if (isBareIdentifierChar(c)) {
+      let j = i;
+      while (j < n && isBareIdentifierChar(sql[j])) j++;
+      const token = sql.slice(i, j);
+      // A run starting with a digit is a numeric literal, not an identifier.
+      const startsWithDigit = c >= "0" && c <= "9";
+      if (!startsWithDigit && !isAlreadyQualified() && nameSet.has(token)) {
+        out += replacer(token, false);
+      } else {
+        out += token;
+      }
+      i = j;
+      continue;
+    }
+
+    out += c;
+    i++;
+  }
+
+  return out;
+}
+
+// A virtual column's expression is inlined into generated SQL as `(<sql>)`, so
+// the expression must not be able to break out of those parentheses. Validate
+// that it is a single self-contained scalar expression: no statement
+// separator, no unbalanced parenthesis, and no unterminated literal or comment
+// that would swallow the closing paren (and whatever follows it) in the
+// generated query. Lexical rules mirror `replaceSqlIdentifiers` so literals and
+// comments are consistently ignored.
+//
+// This is a structural guard, not a capability guard: a balanced expression may
+// still contain a subquery, which is the same read access the fact table's own
+// SQL already has. Returns an error message, or null when the expression is
+// structurally safe.
+export function validateVirtualColumnExpression(
+  sql: string,
+  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+): string | null {
+  const stringQuote = identifierQuote === '"' ? "`" : '"';
+  const n = sql.length;
+  let i = 0;
+  let depth = 0;
+
+  // Consume a quote-delimited span starting at the opening quote at `i`,
+  // honoring doubled-quote escapes. Returns the end index (exclusive) and
+  // whether a closing quote was found.
+  const readQuoted = (quote: string) => {
+    let j = i + 1;
+    let closed = false;
+    while (j < n) {
+      if (sql[j] === quote) {
+        if (sql[j + 1] === quote) {
+          j += 2;
+          continue;
+        }
+        j++;
+        closed = true;
+        break;
+      }
+      j++;
+    }
+    return { end: j, closed };
+  };
+
+  while (i < n) {
+    const c = sql[i];
+
+    if (c === "'" || c === stringQuote || c === identifierQuote) {
+      const { end, closed } = readQuoted(c);
+      if (!closed) {
+        return "SQL expression has an unterminated quoted string or identifier";
+      }
+      i = end;
+      continue;
+    }
+
+    // Line comment: must be terminated by a newline, otherwise it would
+    // comment out the closing paren of the inlined expression.
+    if (c === "-" && sql[i + 1] === "-") {
+      const j = sql.indexOf("\n", i + 2);
+      if (j === -1) {
+        return "SQL expression ends in a line comment; remove it or add a newline after it";
+      }
+      i = j + 1;
+      continue;
+    }
+
+    // Block comment: must be closed.
+    if (c === "/" && sql[i + 1] === "*") {
+      const j = sql.indexOf("*/", i + 2);
+      if (j === -1) {
+        return "SQL expression has an unterminated block comment";
+      }
+      i = j + 2;
+      continue;
+    }
+
+    // Dollar-quoted string ($tag$...$tag$). Only a string when a valid closing
+    // delimiter exists; otherwise `$` is an ordinary character.
+    if (c === "$") {
+      const open = sql.slice(i).match(/^\$([A-Za-z_][A-Za-z0-9_]*)?\$/);
+      if (open) {
+        const delim = open[0];
+        const close = sql.indexOf(delim, i + delim.length);
+        if (close !== -1) {
+          i = close + delim.length;
+          continue;
+        }
+      }
+      i++;
+      continue;
+    }
+
+    if (c === ";") {
+      return "SQL expression cannot contain ';' — it must be a single expression, not a statement";
+    }
+
+    if (c === "(") depth++;
+    if (c === ")") {
+      depth--;
+      // Going negative means the expression closes a paren it never opened, so
+      // it would escape the wrapping parentheses in the generated query.
+      if (depth < 0) {
+        return "SQL expression has an unbalanced ')'";
+      }
+    }
+
+    i++;
+  }
+
+  if (depth !== 0) {
+    return "SQL expression has an unbalanced '('";
+  }
+
+  return null;
+}
+
+// Resolve a virtual column's expression into valid SQL for the current query
+// context. Any fact table column name appearing in the expression is rewritten:
+// a real column becomes `alias.<col>` (bare when no alias), and a nested virtual
+// column is expanded recursively — so chains (margin -> margin_pct) produce
+// fully-inlined SQL. String literals and comments are skipped; quoted
+// identifiers (per `identifierQuote`) are matched and re-quoted when qualified.
+// `seen` guards against cyclic definitions.
+function resolveVirtualColumnSql(
+  col: Pick<ColumnInterface, "column" | "sql">,
+  factTable: Pick<FactTableInterface, "columns">,
+  alias: string,
+  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+  seen: Set<string> = new Set(),
+): string {
+  const sql = col.sql || "";
+  if (seen.has(col.column)) return sql;
+  const nextSeen = new Set(seen).add(col.column);
+
+  const names = factTable.columns
+    .map((c) => c.column)
+    .filter((name) => name !== col.column);
+
+  return replaceSqlIdentifiers(
+    sql,
+    names,
+    (name, quoted) => {
+      const target = factTable.columns.find((c) => c.column === name);
+      if (target?.isVirtual && target.sql) {
+        return `(${resolveVirtualColumnSql(
+          target,
+          factTable,
+          alias,
+          identifierQuote,
+          nextSeen,
+        )})`;
+      }
+      const ref = quoted ? `${identifierQuote}${name}${identifierQuote}` : name;
+      return alias ? `${alias}.${ref}` : ref;
+    },
+    identifierQuote,
+  );
+}
+
+// Expand any virtual column references in a raw SQL fragment (e.g. a saved
+// filter or ad-hoc sql_expr row filter) by replacing each virtual column id
+// with its fully-resolved expression. Real-column-only fragments are returned
+// unchanged (fast path when the fact table has no virtual columns).
+export function expandVirtualColumnsInSql(
+  sql: string,
+  factTable: Pick<FactTableInterface, "columns">,
+  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+): string {
+  const virtualCols = factTable.columns.filter(
+    (c) => c.isVirtual && c.sql && !c.deleted,
+  );
+  if (!virtualCols.length) return sql;
+
+  return replaceSqlIdentifiers(
+    sql,
+    virtualCols.map((c) => c.column),
+    (name) => {
+      const c = virtualCols.find((v) => v.column === name);
+      return c
+        ? `(${resolveVirtualColumnSql(c, factTable, "", identifierQuote)})`
+        : name;
+    },
+    identifierQuote,
+  );
+}
+
+// Whether a SQL expression references a given column identifier. String
+// literals and comments are skipped, so a name inside a string literal (e.g.
+// `status = 'margin_vc'`) does not count as a reference, while a quoted
+// identifier (per `identifierQuote`) does. Computed on demand — no dependency
+// state is persisted.
+export function sqlReferencesColumn(
+  sql: string,
+  column: string,
+  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+): boolean {
+  let found = false;
+  replaceSqlIdentifiers(
+    sql,
+    [column],
+    (name) => {
+      found = true;
+      return name;
+    },
+    identifierQuote,
+  );
+  return found;
+}
+
 export function getColumnExpression(
   column: string,
   factTable: Pick<FactTableInterface, "columns">,
   // todo: add stringification for dimension cols that may not be string type
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
   alias: string = "",
+  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
 ): string {
+  // Virtual (computed) columns inline their stored SQL expression wherever they
+  // are referenced (metric value SELECT, row-filter WHERE, slice WHERE, ...).
+  // `!c.deleted` matches `expandVirtualColumnsInSql`: a soft-deleted virtual
+  // column must not keep contributing its expression to generated SQL.
+  const virtualCol = factTable.columns.find(
+    (c) => c.column === column && c.isVirtual && c.sql && !c.deleted,
+  );
+  if (virtualCol?.sql) {
+    return `(${resolveVirtualColumnSql(
+      virtualCol,
+      factTable,
+      alias,
+      identifierQuote,
+    )})`;
+  }
+
   const parts = column.split(".");
   if (parts.length > 1) {
     const col = factTable.columns.find((c) => c.column === parts[0]);
@@ -165,6 +574,7 @@ export function getColumnRefWhereClause({
   evalBoolean,
   showSourceComment = false,
   sliceInfo,
+  identifierQuote = DEFAULT_IDENTIFIER_QUOTE,
 }: {
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
   columnRef: ColumnRef;
@@ -174,6 +584,7 @@ export function getColumnRefWhereClause({
   evalBoolean: (col: string, value: boolean) => string;
   showSourceComment?: boolean;
   sliceInfo?: SliceMetricInfo;
+  identifierQuote?: SqlIdentifierQuote;
 }): string[] {
   const where = new Set<string>();
 
@@ -190,6 +601,8 @@ export function getColumnRefWhereClause({
           sliceLevel.column,
           factTable,
           jsonExtract,
+          "",
+          identifierQuote,
         );
 
         if (
@@ -237,6 +650,7 @@ export function getColumnRefWhereClause({
       stringMatch,
       evalBoolean,
       showSourceComment,
+      identifierQuote,
     });
     if (filterSQL) {
       where.add(filterSQL);
@@ -254,6 +668,7 @@ export function getRowFilterSQL({
   stringMatch,
   evalBoolean,
   showSourceComment = false,
+  identifierQuote = DEFAULT_IDENTIFIER_QUOTE,
 }: {
   rowFilter: RowFilter;
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
@@ -262,6 +677,7 @@ export function getRowFilterSQL({
   stringMatch: StringMatchFn;
   evalBoolean: (col: string, value: boolean) => string;
   showSourceComment?: boolean;
+  identifierQuote?: SqlIdentifierQuote;
 }): string | null {
   // Some operators do not require a column
   if (rowFilter.operator === "saved_filter") {
@@ -270,7 +686,10 @@ export function getRowFilterSQL({
     );
     if (filter) {
       const comment = showSourceComment ? `-- Filter: ${filter.name}\n` : "";
-      return comment + `(${filter.value})`;
+      return (
+        comment +
+        `(${expandVirtualColumnsInSql(filter.value, factTable, identifierQuote)})`
+      );
     }
     return null;
   }
@@ -278,7 +697,11 @@ export function getRowFilterSQL({
     if (!rowFilter.values?.[0]) {
       return null;
     }
-    return `(${rowFilter.values?.[0] || ""})`;
+    return `(${expandVirtualColumnsInSql(
+      rowFilter.values?.[0] || "",
+      factTable,
+      identifierQuote,
+    )})`;
   }
 
   if (!rowFilter.column) {
@@ -288,6 +711,8 @@ export function getRowFilterSQL({
     rowFilter.column,
     factTable,
     jsonExtract,
+    "",
+    identifierQuote,
   );
   const columnType = getSelectedColumnDatatype({
     factTable,

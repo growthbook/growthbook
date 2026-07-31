@@ -1,35 +1,10 @@
 {
-  "packages/back-end/src/enterprise/models/DashboardModel.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 3
-    }
-  },
-  "packages/back-end/src/enterprise/services/agent-handler.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
   "packages/back-end/src/events/handlers/legacy.ts": {
     "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 1
     }
   },
-  "packages/back-end/src/jobs/updateExperimentStatus.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
   "packages/back-end/src/services/features.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
-  "packages/back-end/src/services/informationSchema.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 3
-    }
-  },
-  "packages/back-end/src/services/rampSchedule.ts": {
     "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 1
     }
@@ -98,11 +73,6 @@
   "packages/front-end/components/AutoGenerateMetricsModal.tsx": {
     "no-restricted-syntax": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/Configs/fieldSchema.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 3
     }
   },
   "packages/front-end/components/Configs/invariantConditions.ts": {
@@ -175,7 +145,7 @@
   },
   "packages/front-end/components/DecisionCriteria/DecisionCriteriaSelectorModal.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/DecisionCriteria/DecisionCriteriaTable.tsx": {
@@ -251,9 +221,6 @@
     }
   },
   "packages/front-end/components/Experiment/BanditDateGraph.tsx": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    },
     "no-restricted-syntax": {
       "count": 1
     }
@@ -329,11 +296,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Experiment/ExperimentDateGraph.tsx": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/ExperimentGraph.tsx": {
     "no-restricted-syntax": {
       "count": 1
@@ -350,9 +312,6 @@
     }
   },
   "packages/front-end/components/Experiment/ExperimentTimeSeriesGraph.tsx": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -1446,11 +1405,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Reviews/Feature/ReviewAndPublish.tsx": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Reviews/RevisionStatusBadge.tsx": {
     "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 3
@@ -1537,9 +1491,6 @@
     }
   },
   "packages/front-end/components/SchemaBrowser/SqlExplorerModal.tsx": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     },
@@ -2208,9 +2159,6 @@
     }
   },
   "packages/front-end/pages/features/FeaturesDraftTable.tsx": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    },
     "no-restricted-syntax": {
       "count": 1
     }
@@ -2329,52 +2277,12 @@
       "count": 1
     }
   },
-  "packages/front-end/services/initial-resources.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
-  "packages/front-end/services/rule-conflicts.tsx": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
   "packages/front-end/test/components/Forms/MultiSelectField.test.tsx": {
     "no-restricted-syntax": {
       "count": 21
     }
   },
-  "packages/shared/src/enterprise/decision-criteria/statusIndicatorData.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
-  "packages/shared/src/revisions/helpers.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
-  "packages/shared/src/util/config-schema/typescript.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
-  "packages/shared/src/util/event-forwarder-datasource.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 2
-    }
-  },
-  "packages/shared/src/util/event-forwarder-fact-table.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 3
-    }
-  },
   "packages/shared/src/util/features.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 2
-    }
-  },
-  "packages/shared/src/util/managedWarehouse.ts": {
     "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 1
     }

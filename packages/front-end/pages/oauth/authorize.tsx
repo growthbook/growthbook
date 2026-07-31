@@ -10,6 +10,7 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
+import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
@@ -31,11 +32,10 @@ const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 // this page the app cannot fake: the code always goes to a redirect_uri
 // pre-registered by the client.
 //
-// `isLocal` decides whether it is worth the user's attention. Loopback and
+// `isLocal` decides whether it is worth mentioning at all. Loopback and
 // custom-scheme targets hand the code to something already running on this
-// machine, so a remote attacker never receives it and showing a bare
-// "localhost:8787" is noise. A remote host is the case that matters, and is
-// the only one surfaced.
+// machine, so a bare "localhost:8787" is noise. Only a remote host is
+// surfaced, and only as an informational note.
 function describeRedirectTarget(
   redirectUri?: string,
 ): { host: string; isLocal: boolean } | null {
@@ -271,6 +271,11 @@ export default function OAuthAuthorizePage() {
             Name provided by the application. GrowthBook does not verify
             application identity.
           </Text>
+          {redirectTarget && !redirectTarget.isLocal ? (
+            <HelperText status="info" size="sm" mt="2">
+              Your authorization code will be sent to {redirectTarget.host}
+            </HelperText>
+          ) : null}
         </Flex>
       ) : (
         <Heading as="h1" size="x-large" mb="4">
@@ -281,16 +286,6 @@ export default function OAuthAuthorizePage() {
       {error ? (
         <Callout status="error" mb="4">
           {error}
-        </Callout>
-      ) : null}
-
-      {redirectTarget && !redirectTarget.isLocal ? (
-        <Callout status="warning" mb="4">
-          Your authorization code will be sent to{" "}
-          <Text as="span" size="inherit" weight="semibold">
-            {redirectTarget.host}
-          </Text>
-          . Continue only if you recognize that destination.
         </Callout>
       ) : null}
 

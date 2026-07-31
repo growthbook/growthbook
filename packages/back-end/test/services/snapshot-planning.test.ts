@@ -319,7 +319,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     // useCache: false → full refresh, with a free-form reason explaining why.
     expect(plan.fullRefresh).toBe(true);
     expect(plan.fullRefreshReason).toBe("Full refresh explicitly requested.");
@@ -405,7 +405,7 @@ describe("snapshot planning", () => {
     });
 
     expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalled();
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe("metric not compatible");
   });
 
@@ -444,7 +444,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("incremental");
+    expect(plan.snapshot.runnerKind).toBe("incremental-full");
     // The incremental runner must not discard the computed full refresh, or it
     // would attempt an incremental update against a non-existent units table.
     expect(plan.fullRefresh).toBe(true);
@@ -683,7 +683,7 @@ describe("snapshot planning", () => {
     expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledWith(
       expect.objectContaining({ analysisType: "main-update" }),
     );
-    expect(plan.runnerKind).toBe("incremental");
+    expect(plan.snapshot.runnerKind).toBe("incremental-update");
     expect(plan.fullRefresh).toBe(false);
     expect(plan.incrementalFallbackReason).toBeNull();
 
@@ -759,7 +759,7 @@ describe("snapshot planning", () => {
     expect(assertIncrementalRefreshPrerequisitesMock).not.toHaveBeenCalledWith(
       expect.objectContaining({ analysisType: "main-fullRefresh" }),
     );
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe(staleConfigMessage);
     expect(plan.fullRefresh).toBe(false);
     expect(plan.fullRefreshReason).toBeNull();
@@ -807,7 +807,7 @@ describe("snapshot planning", () => {
     expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledWith(
       expect.objectContaining({ analysisType: "main-update" }),
     );
-    expect(plan.runnerKind).toBe("incremental");
+    expect(plan.snapshot.runnerKind).toBe("incremental-update");
     expect(plan.fullRefresh).toBe(false);
     expect(plan.fullRefreshReason).toBeNull();
     expect(plan.incrementalFallbackReason).toBeNull();
@@ -869,7 +869,7 @@ describe("snapshot planning", () => {
     );
     // The incremental runner is kept and promoted to a full refresh instead of
     // silently downgrading to the non-incremental results runner.
-    expect(plan.runnerKind).toBe("incremental");
+    expect(plan.snapshot.runnerKind).toBe("incremental-full");
     expect(plan.fullRefresh).toBe(true);
     expect(plan.fullRefreshReason).toBe(staleConfigMessage);
     expect(plan.incrementalFallbackReason).toBeNull();
@@ -918,7 +918,7 @@ describe("snapshot planning", () => {
     });
 
     expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledTimes(2);
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe("metric not compatible");
     expect(plan.fullRefresh).toBe(false);
     expect(plan.fullRefreshReason).toBeNull();
@@ -962,7 +962,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("incremental-exploratory");
+    expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
     expect(findSnapshotByIdMock).toHaveBeenCalledWith(
       context,
       materializedBySnapshotId,
@@ -1003,7 +1003,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("incremental-exploratory");
+    expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
     expect(findSnapshotByIdMock).not.toHaveBeenCalled();
     expect(getLatestSuccessfulSnapshotMock).not.toHaveBeenCalled();
     expect(plan.snapshot.sourceSnapshotId).toBeUndefined();
@@ -1107,7 +1107,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe("metric not compatible");
   });
 
@@ -1146,7 +1146,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("incremental-exploratory");
+    expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
   });
 
   it("throws ExperimentIncrementalPipelineRequiresFullRefreshError when the Overall units table requires a full refresh and prompting enabled", async () => {
@@ -1198,7 +1198,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe(
       "Overall Results need a full refresh; running non-incremental update instead of reading stale data.",
     );
