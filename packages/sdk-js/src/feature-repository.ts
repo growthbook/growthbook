@@ -509,6 +509,10 @@ function startAutoRefresh(
     };
     streams.set(key, channel);
     enableChannel(channel);
+
+    // A channel that never opened must not sit in the map, where the guard above
+    // would block streaming from ever being retried for this key
+    if (!channel.src) streams.delete(key);
   }
 }
 
@@ -616,7 +620,12 @@ export function startStreaming(
       warnStreamingUnavailable(
         "no EventSource implementation is available. In Node.js, install the `eventsource` package and pass it to setPolyfills({ EventSource })",
       );
-    } else if (cacheSettings.backgroundSync && !streams.has(getKey(instance))) {
+    } else if (
+      cacheSettings.backgroundSync &&
+      !supportsSSE.has(getKey(instance))
+    ) {
+      // Keyed on supportsSSE rather than an absent stream, so an EventSource that
+      // failed to start (already warned about above) doesn't also get blamed here
       warnStreamingUnavailable(
         "the API host did not report SSE support (missing `x-sse-support` response header). This is also expected when the initial payload fetch fails",
       );
