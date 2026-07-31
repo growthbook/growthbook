@@ -428,7 +428,10 @@ export default function ContextualBanditDetailPage({
         </div>
       </div>
 
-      <Tabs defaultValue="overview" persistInURL={true}>
+      <Tabs
+        defaultValue={cb.status === "running" ? "results" : "overview"}
+        persistInURL={true}
+      >
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           {showResultsTab ? (
