@@ -33,6 +33,25 @@ const numberFormatter = Intl.NumberFormat();
 
 type ComparisonMode = "weights" | "means" | "units";
 
+const EMPTY_SNAPSHOT_NOTICE =
+  "Contextual bandit results are not available for this snapshot yet. Run or refresh results to compute weights per context.";
+const EXPLORING_NOTICE =
+  "This Contextual Bandit is in its exploratory stage. Updating results recomputes stats but does not change variation weights — weights stay evenly split until the exploratory stage ends.";
+const EMPTY_SNAPSHOT_EXPLORING_NOTICE =
+  "This Contextual Bandit is in its exploratory stage, so weights stay evenly split until the exploratory stage ends. Run or refresh results to compute stats. ";
+
+function getResultsNotice(
+  hasTableData: boolean,
+  isExploring: boolean,
+): string | null {
+  if (!hasTableData) {
+    return isExploring
+      ? EMPTY_SNAPSHOT_EXPLORING_NOTICE
+      : EMPTY_SNAPSHOT_NOTICE;
+  }
+  return isExploring ? EXPLORING_NOTICE : null;
+}
+
 function shouldShowUpdateMessage(message: string | null | undefined): boolean {
   if (!message?.trim()) return false;
   return message.trim().toLowerCase() !== "successfully updated";
@@ -302,6 +321,11 @@ export default function ContextualBanditResultsTable({
   const showQueries =
     !!queryLatest && (status === "failed" || status === "partially-succeeded");
 
+  // Single info notice that covers both the empty-snapshot and exploratory-stage
+  // states (and their overlap), so the user never sees two stacked callouts.
+  const isExploring = cb.stage === "explore";
+  const resultsNotice = getResultsNotice(hasTableData, isExploring);
+
   const comparisonColumns: HeatmapColumn[] = useMemo(
     () =>
       variations.map((v, index) => ({
@@ -422,11 +446,9 @@ export default function ContextualBanditResultsTable({
         {headerActions}
       </Flex>
 
-      {cb.stage === "explore" ? (
+      {resultsNotice ? (
         <Callout status="info" mb="3">
-          This Contextual Bandit is in its exploratory stage. Updating results
-          recomputes stats but does not change variation weights — weights stay
-          evenly split until the exploratory stage ends.
+          {resultsNotice}
         </Callout>
       ) : null}
 
@@ -436,12 +458,7 @@ export default function ContextualBanditResultsTable({
         </Callout>
       ) : null}
 
-      {!hasTableData ? (
-        <Callout status="info">
-          Contextual bandit results are not available for this snapshot yet. Run
-          or refresh results to compute weights per context.
-        </Callout>
-      ) : (
+      {hasTableData ? (
         <>
           <OverallWeights
             variations={variations}
@@ -494,7 +511,7 @@ export default function ContextualBanditResultsTable({
             formatValue={(value) => formatModeValue(value, mode)}
           />
         </>
-      )}
+      ) : null}
 
       {queriesModalOpen && showQueries && (
         <AsyncQueriesModal
