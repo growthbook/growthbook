@@ -1,9 +1,4 @@
-import {
-  GrowthBookClient,
-  setPolyfills,
-  EVENT_EXPERIMENT_VIEWED,
-  EVENT_FEATURE_EVALUATED,
-} from "@growthbook/growthbook";
+import { GrowthBookClient, setPolyfills } from "@growthbook/growthbook";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { EventSource } from "eventsource";
 import { NextFunction, Request, Response } from "express";
@@ -47,35 +42,6 @@ function createGrowthBookClient(): GrowthBookClient<AppFeatures> {
         dedupeKeyAttributes: ["id", "organizationId"],
       }),
     ],
-    onFeatureUsage: (key, result, userContext) => {
-      client.logEvent(
-        EVENT_FEATURE_EVALUATED,
-        {
-          feature: key,
-          source: result.source,
-          value: result.value,
-          ruleId:
-            result.source === "defaultValue" ? "$default" : result.ruleId || "",
-          variationId: result.experimentResult
-            ? result.experimentResult.key
-            : "",
-        },
-        userContext,
-      );
-    },
-  });
-
-  // GrowthBookClient does not pass eventLogger into the eval context (unlike the
-  // browser SDK), so route experiment callbacks through logEvent for the plugin.
-  client.setTrackingCallback((experiment, result, userContext) => {
-    client.logEvent(
-      EVENT_EXPERIMENT_VIEWED,
-      {
-        experimentId: experiment.key,
-        variationId: result.key,
-      },
-      userContext,
-    );
   });
 
   return client;
