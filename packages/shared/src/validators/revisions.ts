@@ -99,6 +99,11 @@ export const activityLogEntryValidator = z.object({
     "scheduled-publish",
     "scheduled-publish-updated",
     "scheduled-publish-canceled",
+    // An operator re-published a revision whose merge was claimed but whose
+    // entity write never landed. Doubles as the idempotency marker for that
+    // recovery: its presence is what stops a second concurrent retry from
+    // applying and dispatching again.
+    "merge-recovered",
   ]),
   description: z.string().nullish(),
   dateCreated: z.date(),

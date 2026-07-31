@@ -9,6 +9,7 @@ import {
   isScheduledPublishPending,
   isScheduledPublishDue,
 } from "shared/enterprise";
+import uniqid from "uniqid";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions";
 import {
@@ -323,6 +324,31 @@ export async function publishRevision(
         `Cannot publish a revision with status "${revision.status}"`,
       );
     }
+    // The merge was already claimed, so there is nothing left to claim in the
+    // merge itself — hence the claim here, guarded on `dateUpdated`. Two operators
+    // retrying at once would otherwise both apply and both dispatch. The loser's
+    // guard fails, it re-reads, sees the marker entry, and aborts.
+    const claimed = await context.models.revisions.updateWithCas(
+      revision.id,
+      ["dateUpdated"],
+      (existing) =>
+        (existing.activityLog ?? []).some((e) => e.action === "merge-recovered")
+          ? null
+          : {
+              activityLog: [
+                ...(existing.activityLog ?? []),
+                {
+                  id: uniqid("rvl_"),
+                  userId: context.userId || "",
+                  action: "merge-recovered" as const,
+                  description: "Re-published a merge that never landed",
+                  dateCreated: new Date(),
+                },
+              ],
+            },
+    );
+    if (!claimed) return revision;
+
     await adapter.applyChanges(context, entity, desiredState, {
       isRevert: !!revision.revertedFrom,
     });

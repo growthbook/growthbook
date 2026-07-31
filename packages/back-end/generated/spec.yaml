@@ -53167,6 +53167,7 @@ components:
             - scheduled-publish
             - scheduled-publish-updated
             - scheduled-publish-canceled
+            - merge-recovered
         description:
           anyOf:
             - type: string
@@ -53535,6 +53536,7 @@ components:
             - scheduled-publish
             - scheduled-publish-updated
             - scheduled-publish-canceled
+            - merge-recovered
         description:
           anyOf:
             - type: string
@@ -54169,6 +54171,7 @@ components:
             - scheduled-publish
             - scheduled-publish-updated
             - scheduled-publish-canceled
+            - merge-recovered
         description:
           anyOf:
             - type: string

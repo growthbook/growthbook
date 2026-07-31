@@ -55,32 +55,56 @@ export function canLandEntityUpdate({
 }: {
   permissions: Pick<Permissions, "canRevisionAction">;
   model: RevisionModel;
-  existing: { archived?: boolean };
+  existing: { project?: string; projects?: string[]; archived?: boolean };
   newDoc: { project?: string; projects?: string[]; archived?: boolean };
   environments?: string[];
 }): boolean {
-  if (
-    isArchiveTransitionPredicate({
-      proposed: newDoc.archived,
-      current: existing.archived,
-    })
-  ) {
-    return canLandArchivedState({
-      permissions,
-      model,
-      entity: newDoc,
-      archived: true,
-      environments,
-    });
-  }
+  const landing = (entity: {
+    project?: string;
+    projects?: string[];
+    archived?: boolean;
+  }): boolean => {
+    if (
+      isArchiveTransitionPredicate({
+        proposed: newDoc.archived,
+        current: existing.archived,
+      })
+    ) {
+      return canLandArchivedState({
+        permissions,
+        model,
+        entity,
+        archived: true,
+        environments,
+      });
+    }
 
-  return (
-    canLandArchivedState({
-      permissions,
-      model,
-      entity: newDoc,
-      archived: false,
-      environments,
-    }) || permissions.canRevisionAction(model, "revert", newDoc, environments)
-  );
+    return (
+      canLandArchivedState({
+        permissions,
+        model,
+        entity,
+        archived: false,
+        environments,
+      }) || permissions.canRevisionAction(model, "revert", entity, environments)
+    );
+  };
+
+  // A move takes authority on BOTH sides. Taking an entity out of a project is a
+  // write to that project, so read access there must not be enough to relocate it
+  // somewhere the caller can write — that would hand them an object they could
+  // not otherwise touch. Same rule the feature controller applies inline.
+  if (!sameProjectScope(existing, newDoc) && !landing(existing)) return false;
+
+  return landing(newDoc);
+}
+
+function sameProjectScope(
+  a: { project?: string; projects?: string[] },
+  b: { project?: string; projects?: string[] },
+): boolean {
+  if ((a.project ?? "") !== (b.project ?? "")) return false;
+  const listA = [...(a.projects ?? [])].sort();
+  const listB = [...(b.projects ?? [])].sort();
+  return listA.length === listB.length && listA.every((p, i) => p === listB[i]);
 }

@@ -1689,7 +1689,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   rs={rampSchedule}
                   pendingDetach={!!hasPendingDetach}
                   onJump={
-                    canEdit
+                    canControlRamp
                       ? async (targetStepIndex) => {
                           if (targetStepIndex === -1) {
                             await rollbackToStart();
@@ -1707,7 +1707,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       : undefined
                   }
                   onComplete={
-                    canEdit
+                    canControlRamp
                       ? async () => {
                           await apiCall(
                             `/ramp-schedule/${rampSchedule.id}/actions/complete`,
@@ -1718,7 +1718,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       : undefined
                   }
                   onCompleteAndDisable={
-                    canEdit
+                    canControlRamp
                       ? async () => {
                           await apiCall(
                             `/ramp-schedule/${rampSchedule.id}/actions/complete`,
