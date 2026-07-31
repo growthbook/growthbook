@@ -50,6 +50,7 @@ import RampScheduleTemplates from "@/components/GeneralSettings/RampScheduleTemp
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
+import LearningSettings from "@/components/GeneralSettings/LearningSettings";
 import AISettings from "@/components/GeneralSettings/AISettings";
 import {
   SETTINGS_TAB,
@@ -565,6 +566,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
               />
               <Frame mb="4">
                 <BanditSettings page="org-settings" />
+              </Frame>
+              <Frame mb="4">
+                <LearningSettings />
               </Frame>
             </TabsContent>
 
