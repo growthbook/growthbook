@@ -237,8 +237,17 @@ function getEventForwarderExposureQuerySourceAttribute(
 }
 
 /**
- * Reconciles managed exposure queries against the datasource's managed identifier
- * types, matching on `sourceAttribute`.
+ * Compares two exposure queries for sameness. Whitespace-insensitive so that
+ * reformatting alone does not read as a different query; otherwise exact.
+ */
+function isEquivalentExposureQuerySql(a: string, b: string): boolean {
+  const normalize = (sql: string) => sql.trim().replace(/\s+/g, " ");
+  return normalize(a) === normalize(b);
+}
+
+/**
+ * Reconciles managed exposure queries against the datasource's Event Forwarder
+ * linked identifier types, matching on `sourceAttribute`.
  *
  * Ownership split: GrowthBook owns `userIdType`, `name`, `sourceAttribute`, and
  * `query` (all regenerated here, so renaming an identifier type rewrites the
@@ -302,9 +311,26 @@ export function reconcileEventForwarderManagedExposureQueries({
   }
 
   for (const [source, wanted] of desiredBySource) {
-    if (!claimedSources.has(source)) {
-      result.push(wanted);
+    if (claimedSources.has(source)) {
+      continue;
     }
+
+    // The user may already have written this exact query against a reused
+    // identifier type. Adding a managed twin would give them two identical
+    // assignment queries, so skip. A query that merely shares the identifier but
+    // differs in SQL is left alone and the managed one is added alongside it.
+    const duplicatesUserQuery = existing.some(
+      (query) =>
+        !isEventForwarderManagedExposureQuery(query) &&
+        normalizeUserIdTypeName(query.userIdType) ===
+          normalizeUserIdTypeName(wanted.userIdType) &&
+        isEquivalentExposureQuerySql(query.query, wanted.query),
+    );
+    if (duplicatesUserQuery) {
+      continue;
+    }
+
+    result.push(wanted);
   }
 
   return result;

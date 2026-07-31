@@ -375,6 +375,55 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
     expect(reconciled[1].userIdType).toBe("user_id");
   });
 
+  it("skips the managed query when the user already wrote an identical one", () => {
+    const generated = generateEventForwarderExposureQueries(
+      [managedUserIdType("user_id", "user_id")],
+      bigqueryParams,
+    );
+    const existing: ExposureQuery[] = [
+      {
+        id: "exq_mine",
+        name: "My own query",
+        userIdType: "user_id",
+        dimensions: [],
+        // Same SQL, reformatted — whitespace alone should not read as different.
+        query: `  ${generated[0].query.replace(/\n/g, "\n  ")}  `,
+      },
+    ];
+
+    const reconciled = reconcileEventForwarderManagedExposureQueries({
+      existing,
+      userIdTypes: [managedUserIdType("user_id", "user_id")],
+      params: bigqueryParams,
+    });
+
+    expect(reconciled).toEqual(existing);
+  });
+
+  it("adds the managed query alongside a user query whose SQL differs", () => {
+    const existing: ExposureQuery[] = [
+      {
+        id: "exq_mine",
+        name: "My own query",
+        userIdType: "user_id",
+        dimensions: [],
+        query: "SELECT user_id FROM my_own_table",
+      },
+    ];
+
+    const reconciled = reconcileEventForwarderManagedExposureQueries({
+      existing,
+      userIdTypes: [managedUserIdType("user_id", "user_id")],
+      params: bigqueryParams,
+    });
+
+    expect(reconciled).toHaveLength(2);
+    expect(reconciled[0]).toEqual(existing[0]);
+    expect(reconciled[1].managedBy).toBe("api");
+    // Points at the reused identifier type, not a prefixed name.
+    expect(reconciled[1].userIdType).toBe("user_id");
+  });
+
   it("is idempotent across repeated syncs", () => {
     const userIdTypes = [managedUserIdType("logged_in_user", "user_id")];
     const first = reconcileEventForwarderManagedExposureQueries({

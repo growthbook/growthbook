@@ -199,12 +199,18 @@ describe("getEventForwarderUserIdTypeSourceAttribute", () => {
     ).toBe("user_id");
   });
 
-  it("ignores a source attribute on a user-created type", () => {
+  it("honors the link on a reused user-created type", () => {
     expect(
       getEventForwarderUserIdTypeSourceAttribute({
-        userIdType: "device_id",
+        userIdType: "logged_in_user",
         sourceAttribute: "user_id",
       }),
+    ).toBe("user_id");
+  });
+
+  it("falls back to the name when there is no link", () => {
+    expect(
+      getEventForwarderUserIdTypeSourceAttribute({ userIdType: "device_id" }),
     ).toBe("device_id");
   });
 });
@@ -289,30 +295,81 @@ describe("reconcileEventForwarderManagedUserIdTypes", () => {
     ).toEqual([...existing, ...desired]);
   });
 
-  it("leaves a same-named user-created type alone instead of adopting it", () => {
+  it("reuses a same-named user-created type, backfilling the link and attribute", () => {
     const existing = [
-      { userIdType: "user_id", description: "Mine", attributes: ["user_id"] },
+      { userIdType: "user_id", description: "", attributes: [] },
     ];
 
-    // Adopting it would make the user's own entry deletable once the attribute
-    // is archived, so we add nothing rather than taking it over.
     expect(
       reconcileEventForwarderManagedUserIdTypes(existing, desired),
-    ).toEqual(existing);
+    ).toEqual([
+      {
+        userIdType: "user_id",
+        description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+        attributes: ["user_id"],
+        sourceAttribute: "user_id",
+      },
+    ]);
   });
 
-  it("never deletes a user-created type when its same-named attribute goes away", () => {
+  it("keeps a reused type's own description and attributes when already set", () => {
+    const existing = [
+      {
+        userIdType: "user_id",
+        description: "Mine",
+        attributes: ["user_id", "device_id"],
+      },
+    ];
+
+    expect(
+      reconcileEventForwarderManagedUserIdTypes(existing, desired),
+    ).toEqual([
+      {
+        userIdType: "user_id",
+        description: "Mine",
+        attributes: ["user_id", "device_id"],
+        sourceAttribute: "user_id",
+      },
+    ]);
+  });
+
+  it("does not mark a reused type managed, so it survives its attribute going away", () => {
     const existing = [
       { userIdType: "user_id", description: "Mine", attributes: ["user_id"] },
     ];
-    const afterAdoptionAttempt = reconcileEventForwarderManagedUserIdTypes(
-      existing,
-      desired,
-    );
+    const reused = reconcileEventForwarderManagedUserIdTypes(existing, desired);
 
-    expect(
-      reconcileEventForwarderManagedUserIdTypes(afterAdoptionAttempt, []),
-    ).toEqual(existing);
+    expect(reused[0].managedBy).toBe(undefined);
+    // Unlinked rather than deleted once the attribute is no longer eligible.
+    expect(reconcileEventForwarderManagedUserIdTypes(reused, [])).toEqual(
+      existing,
+    );
+  });
+
+  it("is idempotent across repeated reuse", () => {
+    const existing = [
+      { userIdType: "user_id", description: "", attributes: [] },
+    ];
+    const once = reconcileEventForwarderManagedUserIdTypes(existing, desired);
+
+    expect(reconcileEventForwarderManagedUserIdTypes(once, desired)).toEqual(
+      once,
+    );
+  });
+
+  it("does not add a second identifier type when a reused one was renamed", () => {
+    const renamed = [
+      {
+        userIdType: "logged_in_user",
+        description: "Mine",
+        attributes: ["user_id"],
+        sourceAttribute: "user_id",
+      },
+    ];
+
+    expect(reconcileEventForwarderManagedUserIdTypes(renamed, desired)).toEqual(
+      renamed,
+    );
   });
 });
 

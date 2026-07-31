@@ -30,15 +30,27 @@ export function isEventForwarderManagedUserIdType(
   return userIdType.managedBy === "api";
 }
 
-// Resolves the SDK attribute a userIdType reads its value from. Managed types
-// carry an explicit link; user-created types are named after their own source.
+/**
+ * Identifier types the Event Forwarder feeds warehouse queries for: the ones it
+ * created, plus user-created ones it reuses because they already model the same
+ * hash attribute. Reuse links but does not take ownership — only `managedBy`
+ * entries are ever deleted by reconciliation.
+ */
+export function isEventForwarderLinkedUserIdType(
+  userIdType: UserIdType,
+): boolean {
+  return (
+    isEventForwarderManagedUserIdType(userIdType) ||
+    (userIdType.sourceAttribute ?? null) !== null
+  );
+}
+
+// Resolves the SDK attribute a userIdType reads its value from. Linked types
+// carry an explicit link; everything else is named after its own source.
 export function getEventForwarderUserIdTypeSourceAttribute(
   userIdType: UserIdType,
 ): string {
-  if (isEventForwarderManagedUserIdType(userIdType)) {
-    return userIdType.sourceAttribute ?? userIdType.userIdType;
-  }
-  return userIdType.userIdType;
+  return userIdType.sourceAttribute ?? userIdType.userIdType;
 }
 
 // Case-insensitive: identifier type names are compared case-insensitively
@@ -171,6 +183,16 @@ export function getUserIdTypesToAdd(
   );
 }
 
+/** Drops the Event Forwarder link from a reused identifier type, keeping the rest. */
+function unlinkUserIdType(userIdType: UserIdType): UserIdType {
+  return {
+    userIdType: userIdType.userIdType,
+    description: userIdType.description,
+    attributes: userIdType.attributes,
+    managedBy: userIdType.managedBy,
+  };
+}
+
 /**
  * Reconciles the managed identifier types on a datasource against the ones the
  * org's attribute schema currently calls for, matching on `sourceAttribute` so
@@ -198,6 +220,21 @@ export function reconcileEventForwarderManagedUserIdTypes(
 
   for (const entry of existing) {
     if (!isEventForwarderManagedUserIdType(entry)) {
+      // A reused entry is the user's, so it is never dropped — but it still
+      // claims its attribute so we don't create a second identifier type for the
+      // same one, and it keeps its link across a rename. If the attribute is no
+      // longer eligible we unlink instead, which stops us feeding it queries.
+      if (isEventForwarderLinkedUserIdType(entry)) {
+        const reusedSource = normalizeUserIdTypeName(
+          getEventForwarderUserIdTypeSourceAttribute(entry),
+        );
+        if (desiredBySource.has(reusedSource)) {
+          claimedSources.add(reusedSource);
+        } else {
+          result.push(unlinkUserIdType(entry));
+          continue;
+        }
+      }
       result.push(entry);
       continue;
     }
@@ -225,19 +262,35 @@ export function reconcileEventForwarderManagedUserIdTypes(
       continue;
     }
 
-    // Never take over an identifier type we did not create. Adopting one would
-    // make a user's own entry deletable by the loop above as soon as its
-    // attribute is archived, taking any fact table or identity join that
-    // references the name with it. If the name is taken we simply add nothing:
-    // the existing entry already models that unit, and the Events fact table
-    // still projects a column for it (non-managed types resolve to their own
-    // name as the source attribute).
-    const nameIsTaken = result.some(
+    // Reuse, don't duplicate or take over. When a user already has an identifier
+    // type under this name it already models the same unit, so link it to the
+    // attribute and backfill the hash attribute and description if they are not
+    // set yet. `managedBy` is deliberately left alone: reuse must not make the
+    // user's own entry deletable by the loop above once the attribute is
+    // archived, which would take any fact table or identity join referencing the
+    // name with it.
+    const reuseIndex = result.findIndex(
       (entry) =>
         normalizeUserIdTypeName(entry.userIdType) ===
         normalizeUserIdTypeName(wanted.userIdType),
     );
-    if (nameIsTaken) {
+    if (reuseIndex >= 0) {
+      const reused = result[reuseIndex];
+      const sourceAttribute = wanted.sourceAttribute ?? wanted.userIdType;
+      const hasSourceAttribute = reused.attributes?.some(
+        (attribute) =>
+          normalizeUserIdTypeName(attribute) ===
+          normalizeUserIdTypeName(sourceAttribute),
+      );
+
+      result[reuseIndex] = {
+        ...reused,
+        sourceAttribute,
+        attributes: hasSourceAttribute
+          ? reused.attributes
+          : [...(reused.attributes ?? []), sourceAttribute],
+        description: reused.description || wanted.description,
+      };
       continue;
     }
 
