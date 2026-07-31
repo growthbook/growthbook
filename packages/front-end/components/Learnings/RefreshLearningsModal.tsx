@@ -39,6 +39,8 @@ const RefreshLearningsModal: FC<{
     learnings: number;
     experiments: number;
   } | null>(null);
+  // Set when the run hit the per-run cap and more Learnings are still queued.
+  const [remaining, setRemaining] = useState(0);
 
   const experimentMap = new Map(experiments.map((e) => [e.id, e]));
   const isSingle = learningIds?.length === 1;
@@ -60,6 +62,8 @@ const RefreshLearningsModal: FC<{
           suggestions?: LearningRefreshSuggestion[];
           numLearningsChecked?: number;
           numExperimentsConsidered?: number;
+          capped?: boolean;
+          numLearningsRemaining?: number;
           message?: string;
         }>("/learnings/refresh", {
           method: "POST",
@@ -76,6 +80,7 @@ const RefreshLearningsModal: FC<{
             learnings: res.numLearningsChecked ?? 0,
             experiments: res.numExperimentsConsidered ?? 0,
           });
+          setRemaining(res.capped ? (res.numLearningsRemaining ?? 0) : 0);
         }
       } catch (e) {
         if (cancelled) return;
@@ -156,6 +161,15 @@ const RefreshLearningsModal: FC<{
           </Flex>
         )}
         {!loading && error && <Callout status="error">{error}</Callout>}
+        {!loading && !error && remaining > 0 && (
+          <Box mb="3">
+            <Callout status="info">
+              Checked the {checked?.learnings} least recently reviewed
+              Learnings. {remaining} more {remaining === 1 ? "is" : "are"} still
+              queued — run Refresh again to continue.
+            </Callout>
+          </Box>
+        )}
         {!loading && !error && suggestions.length === 0 && (
           <Callout status="success">
             {isSingle

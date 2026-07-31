@@ -27,6 +27,7 @@ import { getLatestSnapshotMultipleExperiments } from "back-end/src/models/Experi
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getAllTags } from "back-end/src/models/TagModel";
 import { logger } from "back-end/src/util/logger";
+import { promiseAllChunks } from "back-end/src/util/promise";
 
 type LearningWithCanManage = LearningInterface & { canManage: boolean };
 
@@ -224,6 +225,11 @@ const SIMILARITY_DEDUP_THRESHOLD = 0.85;
 // Saved learnings normally get embeddings via LearningModel hooks; backfill at
 // most this many missing ones inline per request
 const MAX_SAVED_VECTOR_BACKFILL = 50;
+// Refresh runs one AI call per Learning, so an uncapped "refresh all" on a
+// large org would blow the HTTP timeout. Cap the run and tell the caller
+// there's more to do; concurrency keeps the capped run well inside the limit.
+const MAX_LEARNINGS_PER_REFRESH = 20;
+const REFRESH_CONCURRENCY = 4;
 
 function truncateForAI(s: string | undefined, maxChars: number): string {
   if (!s) return "";
@@ -631,6 +637,10 @@ type RefreshLearningsResponse =
       suggestions: LearningRefreshSuggestion[];
       numLearningsChecked: number;
       numExperimentsConsidered: number;
+      // True when more Learnings were eligible than this run processed, so the
+      // UI can invite the user to run it again.
+      capped: boolean;
+      numLearningsRemaining: number;
     }
   | { status: number; message: string; retryAfter?: number };
 
@@ -669,9 +679,20 @@ export const postRefreshLearnings = async (
 
   const { learningIds } = req.body;
   const allLearnings = await context.models.learnings.getAll();
-  const learnings = learningIds?.length
+  const eligible = learningIds?.length
     ? allLearnings.filter((l) => learningIds.includes(l.id))
     : allLearnings;
+
+  // Least-recently-refreshed first (never-refreshed sorts first), so running
+  // repeatedly works through the whole set instead of redoing the same slice.
+  const learnings = [...eligible]
+    .sort(
+      (a, b) =>
+        (a.lastRefreshedAt?.getTime() || 0) -
+        (b.lastRefreshedAt?.getTime() || 0),
+    )
+    .slice(0, MAX_LEARNINGS_PER_REFRESH);
+  const numLearningsRemaining = eligible.length - learnings.length;
 
   if (!learnings.length) {
     return res.status(200).json({
@@ -679,6 +700,8 @@ export const postRefreshLearnings = async (
       suggestions: [],
       numLearningsChecked: 0,
       numExperimentsConsidered: 0,
+      capped: false,
+      numLearningsRemaining: 0,
     });
   }
 
@@ -697,91 +720,96 @@ export const postRefreshLearnings = async (
   const refreshedIds: string[] = [];
   let numExperimentsConsidered = 0;
 
-  for (const learning of learnings) {
-    const cutoff = refreshCutoffFor(learning, experimentsById);
-    const cited = new Set([
-      ...learning.supportingExperimentIds,
-      ...learning.contradictingExperimentIds,
-    ]);
-    const candidates = stopped
-      .filter((e) => !cited.has(e.id) && experimentRecency(e) > cutoff)
-      .slice(0, MAX_EXPERIMENTS_FOR_AI);
+  // Run with bounded concurrency: each Learning is an independent AI call, so
+  // this cuts wall-clock without letting a big run stampede the provider.
+  await promiseAllChunks(
+    learnings.map((learning) => async () => {
+      const cutoff = refreshCutoffFor(learning, experimentsById);
+      const cited = new Set([
+        ...learning.supportingExperimentIds,
+        ...learning.contradictingExperimentIds,
+      ]);
+      const candidates = stopped
+        .filter((e) => !cited.has(e.id) && experimentRecency(e) > cutoff)
+        .slice(0, MAX_EXPERIMENTS_FOR_AI);
 
-    // Nothing new since the last check — still stamp it so the next run
-    // doesn't reconsider the same window.
-    if (!candidates.length) {
-      refreshedIds.push(learning.id);
-      continue;
-    }
-    numExperimentsConsidered += candidates.length;
-
-    let instructions =
-      "You are an expert experimentation analyst. You are given one saved Learning and a set of experiments that finished AFTER that Learning was last reviewed. " +
-      "Decide whether the new experiments support, contradict, or do not affect the Learning. " +
-      "Set stillAccurate to false only when the new evidence materially contradicts it. " +
-      "In updatedText, return the Learning's markdown revised to incorporate the new evidence — or the original text unchanged when nothing needs to change. " +
-      "Only cite experiment ids from the provided new-experiment set. Keep the summary to one sentence.";
-    if (customContext) {
-      instructions +=
-        "\n\nAdditional organization-specific context:\n" + customContext;
-    }
-
-    const prompt =
-      "Saved Learning (JSON):\n\n" +
-      JSON.stringify({
-        title: learning.title,
-        text: truncateForAI(learning.text, MAX_SAVED_LEARNING_TEXT_CHARS),
-        tags: learning.tags,
-      }) +
-      "\n\nExperiments that finished since it was last reviewed (JSON):\n\n" +
-      JSON.stringify(candidates.map((e) => summarizeExperimentForAI(e)));
-
-    try {
-      const ai = await parsePrompt({
-        context,
-        instructions,
-        prompt,
-        type: "find-learnings-context",
-        isDefaultPrompt: !customContext,
-        overrideModel: promptConfig.overrideModel,
-        temperature: 0.3,
-        zodObjectSchema: aiLearningRefreshValidator,
-      });
-
-      const validIds = new Set(candidates.map((e) => e.id));
-      const newSupporting = (ai.newSupportingExperimentIds || []).filter((id) =>
-        validIds.has(id),
-      );
-      const supportingSet = new Set(newSupporting);
-      const newContradicting = (ai.newContradictingExperimentIds || []).filter(
-        (id) => validIds.has(id) && !supportingSet.has(id),
-      );
-
-      // Only surface a suggestion when there is something to act on.
-      const hasChange =
-        !ai.stillAccurate ||
-        newSupporting.length > 0 ||
-        newContradicting.length > 0 ||
-        (ai.updatedText && ai.updatedText.trim() !== learning.text.trim());
-
-      if (hasChange) {
-        suggestions.push({
-          learningId: learning.id,
-          title: learning.title,
-          stillAccurate: ai.stillAccurate,
-          updatedText: ai.updatedText || learning.text,
-          currentText: learning.text,
-          newSupportingExperimentIds: newSupporting,
-          newContradictingExperimentIds: newContradicting,
-          summary: ai.summary || "",
-        });
+      // Nothing new since the last check — still stamp it so the next run
+      // doesn't reconsider the same window.
+      if (!candidates.length) {
+        refreshedIds.push(learning.id);
+        return;
       }
-      refreshedIds.push(learning.id);
-    } catch (e) {
-      // One failed Learning shouldn't abort the whole refresh
-      logger.error(e, `refresh-learnings: error refreshing ${learning.id}`);
-    }
-  }
+      numExperimentsConsidered += candidates.length;
+
+      let instructions =
+        "You are an expert experimentation analyst. You are given one saved Learning and a set of experiments that finished AFTER that Learning was last reviewed. " +
+        "Decide whether the new experiments support, contradict, or do not affect the Learning. " +
+        "Set stillAccurate to false only when the new evidence materially contradicts it. " +
+        "In updatedText, return the Learning's markdown revised to incorporate the new evidence — or the original text unchanged when nothing needs to change. " +
+        "Only cite experiment ids from the provided new-experiment set. Keep the summary to one sentence.";
+      if (customContext) {
+        instructions +=
+          "\n\nAdditional organization-specific context:\n" + customContext;
+      }
+
+      const prompt =
+        "Saved Learning (JSON):\n\n" +
+        JSON.stringify({
+          title: learning.title,
+          text: truncateForAI(learning.text, MAX_SAVED_LEARNING_TEXT_CHARS),
+          tags: learning.tags,
+        }) +
+        "\n\nExperiments that finished since it was last reviewed (JSON):\n\n" +
+        JSON.stringify(candidates.map((e) => summarizeExperimentForAI(e)));
+
+      try {
+        const ai = await parsePrompt({
+          context,
+          instructions,
+          prompt,
+          type: "find-learnings-context",
+          isDefaultPrompt: !customContext,
+          overrideModel: promptConfig.overrideModel,
+          temperature: 0.3,
+          zodObjectSchema: aiLearningRefreshValidator,
+        });
+
+        const validIds = new Set(candidates.map((e) => e.id));
+        const newSupporting = (ai.newSupportingExperimentIds || []).filter(
+          (id) => validIds.has(id),
+        );
+        const supportingSet = new Set(newSupporting);
+        const newContradicting = (
+          ai.newContradictingExperimentIds || []
+        ).filter((id) => validIds.has(id) && !supportingSet.has(id));
+
+        // Only surface a suggestion when there is something to act on.
+        const hasChange =
+          !ai.stillAccurate ||
+          newSupporting.length > 0 ||
+          newContradicting.length > 0 ||
+          (ai.updatedText && ai.updatedText.trim() !== learning.text.trim());
+
+        if (hasChange) {
+          suggestions.push({
+            learningId: learning.id,
+            title: learning.title,
+            stillAccurate: ai.stillAccurate,
+            updatedText: ai.updatedText || learning.text,
+            currentText: learning.text,
+            newSupportingExperimentIds: newSupporting,
+            newContradictingExperimentIds: newContradicting,
+            summary: ai.summary || "",
+          });
+        }
+        refreshedIds.push(learning.id);
+      } catch (e) {
+        // One failed Learning shouldn't abort the whole refresh
+        logger.error(e, `refresh-learnings: error refreshing ${learning.id}`);
+      }
+    }),
+    REFRESH_CONCURRENCY,
+  );
 
   // Stamp what we actually checked so the next run starts from here
   await Promise.all(
@@ -803,6 +831,8 @@ export const postRefreshLearnings = async (
     suggestions,
     numLearningsChecked: learnings.length,
     numExperimentsConsidered,
+    capped: numLearningsRemaining > 0,
+    numLearningsRemaining,
   });
 };
 
