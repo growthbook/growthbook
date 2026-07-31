@@ -1,10 +1,10 @@
 import { Box, Flex } from "@radix-ui/themes";
 import VariationNumber from "@/ui/VariationNumber";
 
-// Height of a standard `Field` text input (Bootstrap `.form-control`). The badge
+// Height of a standard legacy sized `Field` text input (Bootstrap `.form-control--legacy`). The badge
 // is vertically centered within this height so it lines up with the input rather
 // than the label rendered above it.
-const FIELD_INPUT_HEIGHT = "35px";
+const FIELD_INPUT_HEIGHT = "36px";
 
 /**
  * Renders a `VariationNumber` badge that lines up with a sibling `Field`'s input.
