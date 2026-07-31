@@ -578,45 +578,49 @@ export const getContextualBanditLinkedFeaturesValidator = {
 // (`condition`, `savedGroups`, `prerequisites`, `coverage`), so the rule-level
 // equivalents are never read when the SDK payload is built. They are omitted
 // here rather than accepted and silently ignored.
+const contextualBanditLinkedFeatureRuleFields = {
+  variations: z
+    .array(
+      z
+        .object({
+          variationId: z
+            .string()
+            .describe("Id of the Contextual Bandit variation."),
+          value: z
+            .string()
+            .describe("Feature value served for this variation."),
+          config: apiRuleConfigField,
+        })
+        .strict(),
+    )
+    .min(1)
+    .describe(
+      "One entry per Contextual Bandit variation. Every variation must be covered exactly once.",
+    ),
+  description: z.string().optional(),
+  enabled: z.boolean().optional(),
+  allEnvironments: z
+    .boolean()
+    .optional()
+    .describe("Apply the rule in every environment. Defaults to true."),
+  environments: z
+    .array(z.string())
+    .optional()
+    .describe("Environments to apply the rule in when not all."),
+  allProjects: z.boolean().optional(),
+  projects: z.array(z.string()).optional(),
+  autoPublish: z
+    .boolean()
+    .optional()
+    .describe(
+      "Publish the resulting revision immediately instead of leaving it as a draft.",
+    ),
+};
+
 export const addContextualBanditLinkedFeatureValidator = {
   bodySchema: z
     .object({
-      variations: z
-        .array(
-          z
-            .object({
-              variationId: z
-                .string()
-                .describe("Id of the Contextual Bandit variation."),
-              value: z
-                .string()
-                .describe("Feature value served for this variation."),
-              config: apiRuleConfigField,
-            })
-            .strict(),
-        )
-        .min(1)
-        .describe(
-          "One entry per Contextual Bandit variation. Every variation must be covered exactly once.",
-        ),
-      description: z.string().optional(),
-      enabled: z.boolean().optional(),
-      allEnvironments: z
-        .boolean()
-        .optional()
-        .describe("Apply the rule in every environment. Defaults to true."),
-      environments: z
-        .array(z.string())
-        .optional()
-        .describe("Environments to apply the rule in when not all."),
-      allProjects: z.boolean().optional(),
-      projects: z.array(z.string()).optional(),
-      autoPublish: z
-        .boolean()
-        .optional()
-        .describe(
-          "Publish the resulting revision immediately instead of leaving it as a draft.",
-        ),
+      ...contextualBanditLinkedFeatureRuleFields,
       draftVersion: z
         .number()
         .int()
@@ -642,6 +646,38 @@ export const addContextualBanditLinkedFeatureValidator = {
   operationId: "addContextualBanditLinkedFeature",
   tags: ["ContextualBandits"],
   method: "post" as const,
+  path: "/contextual-bandits/:id/linked-feature/:featureId",
+};
+
+export const updateContextualBanditLinkedFeatureValidator = {
+  bodySchema: z
+    .object({
+      ...contextualBanditLinkedFeatureRuleFields,
+      draftVersion: z
+        .number()
+        .int()
+        .optional()
+        .describe(
+          "Update the rule on this existing draft revision instead of starting a new one.",
+        ),
+    })
+    .strict(),
+  querySchema: z.never(),
+  paramsSchema: contextualBanditIdAndFeatureParam,
+  responseSchema: z
+    .object({
+      featureId: z.string(),
+      ruleIds: z.array(z.string()),
+      revisionVersion: z.number(),
+      published: z.boolean(),
+    })
+    .strict(),
+  summary: "Replace a Contextual Bandit's rule on a linked feature",
+  description:
+    "Replaces every `contextual-bandit-ref` rule pointing at this contextual bandit on the feature, keeping each rule's id and position in the rule list. Every field is replaced, so omitted optional fields revert to their defaults. Returns a 400 when the feature has no such rule on the target revision, or when it has several that are not identical to each other. The change lands in a draft revision that auto-publishes when the contextual bandit starts, unless `autoPublish` is set. Targeting (condition, saved groups, prerequisites, coverage) is inherited from the contextual bandit and cannot be set on the rule.",
+  operationId: "updateContextualBanditLinkedFeature",
+  tags: ["ContextualBandits"],
+  method: "put" as const,
   path: "/contextual-bandits/:id/linked-feature/:featureId",
 };
 

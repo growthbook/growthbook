@@ -9,6 +9,7 @@ import { ReqContext } from "back-end/types/api";
 import {
   linkFeatureToContextualBandit,
   unlinkFeatureFromContextualBandit,
+  updateContextualBanditFeatureRule,
 } from "back-end/src/enterprise/services/contextualBandits";
 import { getDraftRevision } from "back-end/src/services/features";
 import { updateRevision } from "back-end/src/models/FeatureRevisionModel";
@@ -274,6 +275,108 @@ describe("linkFeatureToContextualBandit", () => {
   });
 });
 
+describe("updateContextualBanditFeatureRule", () => {
+  const newVariations = [
+    { variationId: "v0", value: "updated-a" },
+    { variationId: "v1", value: "updated-b" },
+  ];
+
+  it("replaces every rule for this bandit in place and leaves the rest alone", async () => {
+    const banditRule = cbRefRule("fr_1", "cb_1");
+    const otherBanditRule = cbRefRule("fr_3", "cb_2");
+    getDraftRevisionMock.mockResolvedValue(
+      makeRevision({ rules: [banditRule, otherBanditRule] }),
+    );
+
+    const result = await updateContextualBanditFeatureRule({
+      context: makeContext(),
+      contextualBandit: makeCb({ linkedFeatures: ["feat_1"] }),
+      feature: makeFeature({ rules: [banditRule, otherBanditRule] }),
+      rule: makeRule({ variations: newVariations }),
+      eventAudit: { type: "dashboard" },
+      audit,
+    });
+
+    const changes = changesFromUpdateRevision();
+    expect(changes.rules?.map((r) => r.id)).toEqual(["fr_1", "fr_3"]);
+    expect(changes.rules?.[0]).toMatchObject({
+      id: "fr_1",
+      contextualBanditId: "cb_1",
+      variations: newVariations,
+    });
+    expect(changes.rules?.[1]).toEqual(otherBanditRule);
+
+    expect(result).toEqual({ version: 4, published: false, ruleIds: ["fr_1"] });
+    expect(cbModel.addPendingFeatureDraft).toHaveBeenCalledWith(
+      "cb_1",
+      "feat_1",
+      4,
+    );
+  });
+
+  it("replaces all of the bandit's rules when they are identical", async () => {
+    const rules = [cbRefRule("fr_1", "cb_1"), cbRefRule("fr_2", "cb_1")];
+    getDraftRevisionMock.mockResolvedValue(makeRevision({ rules }));
+
+    const result = await updateContextualBanditFeatureRule({
+      context: makeContext(),
+      contextualBandit: makeCb({ linkedFeatures: ["feat_1"] }),
+      feature: makeFeature({ rules }),
+      rule: makeRule({ variations: newVariations }),
+      eventAudit: { type: "dashboard" },
+      audit,
+    });
+
+    expect(result.ruleIds).toEqual(["fr_1", "fr_2"]);
+    expect(
+      changesFromUpdateRevision().rules?.map((r) => ({
+        id: r.id,
+        variations: (r as ContextualBanditRefRule).variations,
+      })),
+    ).toEqual([
+      { id: "fr_1", variations: newVariations },
+      { id: "fr_2", variations: newVariations },
+    ]);
+  });
+
+  it("rejects when the bandit's rules have drifted apart", async () => {
+    const rules = [
+      cbRefRule("fr_1", "cb_1"),
+      { ...cbRefRule("fr_2", "cb_1"), enabled: false } as FeatureRule,
+    ];
+
+    await expect(
+      updateContextualBanditFeatureRule({
+        context: makeContext(),
+        contextualBandit: makeCb({ linkedFeatures: ["feat_1"] }),
+        feature: makeFeature({ rules }),
+        rule: makeRule({ variations: newVariations }),
+        eventAudit: { type: "dashboard" },
+        audit,
+      }),
+    ).rejects.toThrow(/not identical/);
+
+    // Nothing is staged, so no draft is opened off live.
+    expect(getDraftRevisionMock).not.toHaveBeenCalled();
+    expect(updateRevisionMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects when the feature has no rule for this bandit", async () => {
+    await expect(
+      updateContextualBanditFeatureRule({
+        context: makeContext(),
+        contextualBandit: makeCb({ linkedFeatures: ["feat_1"] }),
+        feature: makeFeature({ rules: [cbRefRule("fr_3", "cb_2")] }),
+        rule: makeRule({ variations: newVariations }),
+        eventAudit: { type: "dashboard" },
+        audit,
+      }),
+    ).rejects.toThrow(/has no rule for this contextual bandit/);
+
+    expect(getDraftRevisionMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("unlinkFeatureFromContextualBandit", () => {
   it("removes only the rules pointing at this bandit and drops the linkage", async () => {
     const liveRule = cbRefRule("fr_1", "cb_1");
@@ -304,10 +407,14 @@ describe("unlinkFeatureFromContextualBandit", () => {
     expect(changes.rules?.map((r) => r.id)).toEqual(["fr_2", "fr_3"]);
 
     expect(cbModel.removeLinkedFeature).toHaveBeenCalledWith("cb_1", "feat_1");
-    expect(cbModel.removePendingFeatureDraft).toHaveBeenCalledWith(
+    // The removal only exists in a draft, so it has to stay queued for the
+    // publish that happens when the bandit starts.
+    expect(cbModel.addPendingFeatureDraft).toHaveBeenCalledWith(
       "cb_1",
       "feat_1",
+      4,
     );
+    expect(cbModel.removePendingFeatureDraft).not.toHaveBeenCalled();
     expect(result).toEqual({
       removedRuleIds: ["fr_1"],
       revisionVersion: 4,

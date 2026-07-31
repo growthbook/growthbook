@@ -2615,15 +2615,23 @@ export async function reopenRevision(
   // Sync linkages — the reopened revision's rules count as "open drafts" again.
   getLinkageSyncRevisionSummaries(revision.organization, revision.featureId)
     .then(({ openDrafts, liveRevision }) =>
-      syncFeatureExperimentLinkages(
-        context,
-        revision.featureId,
-        openDrafts,
-        liveRevision,
-      ),
+      Promise.all([
+        syncFeatureExperimentLinkages(
+          context,
+          revision.featureId,
+          openDrafts,
+          liveRevision,
+        ),
+        syncFeatureContextualBanditLinkages(
+          context,
+          revision.featureId,
+          openDrafts,
+          liveRevision,
+        ),
+      ]),
     )
     .catch((e) => {
-      logger.error(e, "syncFeatureExperimentLinkages failed in reopenRevision");
+      logger.error(e, "feature linkage sync failed in reopenRevision");
     });
 }
 

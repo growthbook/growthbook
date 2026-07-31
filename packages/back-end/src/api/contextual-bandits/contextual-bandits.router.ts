@@ -7,6 +7,7 @@ import { getContextualBanditEvent } from "./getEvent";
 import { getContextualBanditResults } from "./getResults";
 import { getContextualBanditLinkedFeatures } from "./getLinkedFeatures";
 import { addContextualBanditLinkedFeature } from "./addLinkedFeature";
+import { updateContextualBanditLinkedFeature } from "./updateLinkedFeature";
 import { deleteContextualBanditLinkedFeature } from "./deleteLinkedFeature";
 
 export const contextualBanditsRoutes: OpenApiRoute[] = [
@@ -18,5 +19,6 @@ export const contextualBanditsRoutes: OpenApiRoute[] = [
   getContextualBanditResults,
   getContextualBanditLinkedFeatures,
   addContextualBanditLinkedFeature,
+  updateContextualBanditLinkedFeature,
   deleteContextualBanditLinkedFeature,
 ];

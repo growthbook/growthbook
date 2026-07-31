@@ -15802,6 +15802,133 @@ paths:
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}/linked-feature/{featureId}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+    put:
+      operationId: updateContextualBanditLinkedFeature
+      summary: Replace a Contextual Bandit's rule on a linked feature
+      description: >-
+        Replaces every `contextual-bandit-ref` rule pointing at this contextual
+        bandit on the feature, keeping each rule's id and position in the rule
+        list. Every field is replaced, so omitted optional fields revert to
+        their defaults. Returns a 400 when the feature has no such rule on the
+        target revision, or when it has several that are not identical to each
+        other. The change lands in a draft revision that auto-publishes when the
+        contextual bandit starts, unless `autoPublish` is set. Targeting
+        (condition, saved groups, prerequisites, coverage) is inherited from the
+        contextual bandit and cannot be set on the rule.
+      tags:
+        - ContextualBandits
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The Contextual Bandit id
+          schema:
+            description: The Contextual Bandit id
+            type: string
+        - name: featureId
+          in: path
+          required: true
+          description: The linked feature id
+          schema:
+            description: The linked feature id
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                variations:
+                  description: >-
+                    One entry per Contextual Bandit variation. Every variation
+                    must be covered exactly once.
+                  minItems: 1
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      variationId:
+                        description: Id of the Contextual Bandit variation.
+                        type: string
+                      value:
+                        description: Feature value served for this variation.
+                        type: string
+                      config:
+                        description: >-
+                          Key of the config backing this value, or null when the
+                          value is not config-backed. The config supplies the
+                          base JSON (and its schema); the value is an override
+                          patch merged on top.
+                        anyOf:
+                          - type: string
+                          - type: 'null'
+                    required:
+                      - variationId
+                      - value
+                    additionalProperties: false
+                description:
+                  type: string
+                enabled:
+                  type: boolean
+                allEnvironments:
+                  description: Apply the rule in every environment. Defaults to true.
+                  type: boolean
+                environments:
+                  description: Environments to apply the rule in when not all.
+                  type: array
+                  items:
+                    type: string
+                allProjects:
+                  type: boolean
+                projects:
+                  type: array
+                  items:
+                    type: string
+                autoPublish:
+                  description: >-
+                    Publish the resulting revision immediately instead of
+                    leaving it as a draft.
+                  type: boolean
+                draftVersion:
+                  description: >-
+                    Update the rule on this existing draft revision instead of
+                    starting a new one.
+                  type: integer
+              required:
+                - variations
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  featureId:
+                    type: string
+                  ruleIds:
+                    type: array
+                    items:
+                      type: string
+                  revisionVersion:
+                    type: number
+                  published:
+                    type: boolean
+                required:
+                  - featureId
+                  - ruleIds
+                  - revisionVersion
+                  - published
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/contextual-bandits/{id}/linked-feature/{featureId}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     delete:
       operationId: deleteContextualBanditLinkedFeature
       summary: Unlink a feature from a Contextual Bandit
