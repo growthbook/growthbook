@@ -83,7 +83,8 @@ export class LearningModel extends BaseClass {
   // whether the requesting user may edit/delete each learning (instead of
   // the client re-implementing this logic).
   public canManageLearning(doc: LearningInterface): boolean {
-    return this.canUpdate(doc);
+    // No project change — just "can this user edit it as it stands".
+    return this.canUpdate(doc, {});
   }
 
   protected canRead(doc: LearningInterface): boolean {

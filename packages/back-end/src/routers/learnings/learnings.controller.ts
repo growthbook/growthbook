@@ -1,6 +1,8 @@
 import type { Response } from "express";
 import {
   LearningInterface,
+  LearningRefreshSuggestion,
+  aiLearningRefreshValidator,
   aiLearningSuggestionsResponseValidator,
   AiLearningSuggestion,
 } from "shared/validators";
@@ -17,7 +19,10 @@ import {
   parsePrompt,
 } from "back-end/src/enterprise/services/ai";
 import { runAccessGates } from "back-end/src/enterprise/services/ai-access";
-import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
+import {
+  getAllExperiments,
+  getExperimentsByIds,
+} from "back-end/src/models/ExperimentModel";
 import { getLatestSnapshotMultipleExperiments } from "back-end/src/models/ExperimentSnapshotModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getAllTags } from "back-end/src/models/TagModel";
@@ -574,4 +579,228 @@ export const postFindLearnings = async (
       message: e instanceof Error ? e.message : "Failed to generate learnings",
     });
   }
+};
+
+// --- AI: Refresh saved Learnings against newly-stopped experiments ---
+
+type RefreshLearningsRequest = AuthRequest<{
+  learningIds?: string[];
+}>;
+
+type RefreshLearningsResponse =
+  | {
+      status: 200;
+      suggestions: LearningRefreshSuggestion[];
+      numLearningsChecked: number;
+      numExperimentsConsidered: number;
+    }
+  | { status: number; message: string; retryAfter?: number };
+
+// Only re-check a Learning against experiments that stopped after the newest
+// experiment it already cites, or after its last refresh — whichever is later.
+function refreshCutoffFor(
+  learning: LearningInterface,
+  experimentsById: Map<string, ExperimentInterface>,
+): number {
+  const citedRecency = [
+    ...learning.supportingExperimentIds,
+    ...learning.contradictingExperimentIds,
+  ].reduce((max, id) => {
+    const exp = experimentsById.get(id);
+    return exp ? Math.max(max, experimentRecency(exp)) : max;
+  }, 0);
+  return Math.max(citedRecency, learning.lastRefreshedAt?.getTime() || 0);
+}
+
+export const postRefreshLearnings = async (
+  req: RefreshLearningsRequest,
+  res: Response<RefreshLearningsResponse>,
+) => {
+  const context = getContextFromReq(req);
+  if (!(await runAccessGates(context, res))) {
+    return;
+  }
+
+  const { learningIds } = req.body;
+  const allLearnings = await context.models.learnings.getAll();
+  const learnings = learningIds?.length
+    ? allLearnings.filter((l) => learningIds.includes(l.id))
+    : allLearnings;
+
+  if (!learnings.length) {
+    return res.status(200).json({
+      status: 200,
+      suggestions: [],
+      numLearningsChecked: 0,
+      numExperimentsConsidered: 0,
+    });
+  }
+
+  // Stopped experiments the user can read, most recent first
+  const stopped = (await getAllExperiments(context, { includeArchived: false }))
+    .filter((e) => e.status === "stopped")
+    .sort((a, b) => experimentRecency(b) - experimentRecency(a));
+  const experimentsById = new Map(stopped.map((e) => [e.id, e]));
+
+  const promptConfig = await context.models.aiPrompts.getAIPrompt(
+    "find-learnings-context",
+  );
+  const customContext = (promptConfig.prompt || "").trim();
+
+  const suggestions: LearningRefreshSuggestion[] = [];
+  const refreshedIds: string[] = [];
+  let numExperimentsConsidered = 0;
+
+  for (const learning of learnings) {
+    const cutoff = refreshCutoffFor(learning, experimentsById);
+    const cited = new Set([
+      ...learning.supportingExperimentIds,
+      ...learning.contradictingExperimentIds,
+    ]);
+    const candidates = stopped
+      .filter((e) => !cited.has(e.id) && experimentRecency(e) > cutoff)
+      .slice(0, MAX_EXPERIMENTS_FOR_AI);
+
+    // Nothing new since the last check — still stamp it so the next run
+    // doesn't reconsider the same window.
+    if (!candidates.length) {
+      refreshedIds.push(learning.id);
+      continue;
+    }
+    numExperimentsConsidered += candidates.length;
+
+    let instructions =
+      "You are an expert experimentation analyst. You are given one saved Learning and a set of experiments that finished AFTER that Learning was last reviewed. " +
+      "Decide whether the new experiments support, contradict, or do not affect the Learning. " +
+      "Set stillAccurate to false only when the new evidence materially contradicts it. " +
+      "In updatedText, return the Learning's markdown revised to incorporate the new evidence — or the original text unchanged when nothing needs to change. " +
+      "Only cite experiment ids from the provided new-experiment set. Keep the summary to one sentence.";
+    if (customContext) {
+      instructions +=
+        "\n\nAdditional organization-specific context:\n" + customContext;
+    }
+
+    const prompt =
+      "Saved Learning (JSON):\n\n" +
+      JSON.stringify({
+        title: learning.title,
+        text: truncateForAI(learning.text, MAX_SAVED_LEARNING_TEXT_CHARS),
+        tags: learning.tags,
+      }) +
+      "\n\nExperiments that finished since it was last reviewed (JSON):\n\n" +
+      JSON.stringify(candidates.map((e) => summarizeExperimentForAI(e)));
+
+    try {
+      const ai = await parsePrompt({
+        context,
+        instructions,
+        prompt,
+        type: "find-learnings-context",
+        isDefaultPrompt: !customContext,
+        overrideModel: promptConfig.overrideModel,
+        temperature: 0.3,
+        zodObjectSchema: aiLearningRefreshValidator,
+      });
+
+      const validIds = new Set(candidates.map((e) => e.id));
+      const newSupporting = (ai.newSupportingExperimentIds || []).filter((id) =>
+        validIds.has(id),
+      );
+      const supportingSet = new Set(newSupporting);
+      const newContradicting = (ai.newContradictingExperimentIds || []).filter(
+        (id) => validIds.has(id) && !supportingSet.has(id),
+      );
+
+      // Only surface a suggestion when there is something to act on.
+      const hasChange =
+        !ai.stillAccurate ||
+        newSupporting.length > 0 ||
+        newContradicting.length > 0 ||
+        (ai.updatedText && ai.updatedText.trim() !== learning.text.trim());
+
+      if (hasChange) {
+        suggestions.push({
+          learningId: learning.id,
+          title: learning.title,
+          stillAccurate: ai.stillAccurate,
+          updatedText: ai.updatedText || learning.text,
+          currentText: learning.text,
+          newSupportingExperimentIds: newSupporting,
+          newContradictingExperimentIds: newContradicting,
+          summary: ai.summary || "",
+        });
+      }
+      refreshedIds.push(learning.id);
+    } catch (e) {
+      // One failed Learning shouldn't abort the whole refresh
+      logger.error(e, `refresh-learnings: error refreshing ${learning.id}`);
+    }
+  }
+
+  // Stamp what we actually checked so the next run starts from here
+  await Promise.all(
+    refreshedIds.map(async (id) => {
+      const doc = learnings.find((l) => l.id === id);
+      if (!doc) return;
+      try {
+        await context.models.learnings.update(doc, {
+          lastRefreshedAt: new Date(),
+        });
+      } catch (e) {
+        logger.error(e, `refresh-learnings: error stamping ${id}`);
+      }
+    }),
+  );
+
+  return res.status(200).json({
+    status: 200,
+    suggestions,
+    numLearningsChecked: learnings.length,
+    numExperimentsConsidered,
+  });
+};
+
+// Apply one reviewed refresh suggestion to its Learning.
+export const postApplyLearningRefresh = async (
+  req: AuthRequest<
+    {
+      text?: string;
+      addSupportingExperimentIds?: string[];
+      addContradictingExperimentIds?: string[];
+    },
+    { id: string }
+  >,
+  res: Response<{ status: 200; learning: LearningInterface }>,
+) => {
+  const context = getContextFromReq(req);
+  const existing = await context.models.learnings.getById(req.params.id);
+  if (!existing) {
+    throw new Error("Learning not found");
+  }
+
+  const { text, addSupportingExperimentIds, addContradictingExperimentIds } =
+    req.body;
+
+  const supporting = new Set(existing.supportingExperimentIds);
+  (addSupportingExperimentIds || []).forEach((id) => supporting.add(id));
+  const contradicting = new Set(existing.contradictingExperimentIds);
+  (addContradictingExperimentIds || []).forEach((id) => {
+    if (!supporting.has(id)) contradicting.add(id);
+  });
+
+  const editor = context.userId;
+  const authors =
+    editor && !existing.authors.includes(editor)
+      ? [...existing.authors, editor]
+      : existing.authors;
+
+  const updated = await context.models.learnings.update(existing, {
+    ...(text !== undefined ? { text } : {}),
+    supportingExperimentIds: [...supporting],
+    contradictingExperimentIds: [...contradicting],
+    authors,
+    lastRefreshedAt: new Date(),
+  });
+
+  res.status(200).json({ status: 200, learning: updated });
 };

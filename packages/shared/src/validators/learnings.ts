@@ -31,6 +31,9 @@ export const learningValidator = z
     status: z.string(),
     // Provenance (see learningSourceValues). Immutable after creation.
     source: z.enum(learningSourceValues),
+    // Last time this Learning was checked against newly-stopped experiments
+    // by the refresh flow. Unset means it has never been refreshed.
+    lastRefreshedAt: z.date().optional(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
   })
@@ -76,9 +79,7 @@ export const updateLearningValidator = z
 
 // Shape returned by the AI when generating candidate learnings for review
 export const aiLearningSuggestionValidator = z.object({
-  title: z
-    .string()
-    .describe("A short, descriptive title for the learning or learning"),
+  title: z.string().describe("A short, descriptive title for the Learning"),
   text: z
     .string()
     .describe(
@@ -104,6 +105,44 @@ export const aiLearningSuggestionValidator = z.object({
 export const aiLearningSuggestionsResponseValidator = z.object({
   learnings: z.array(aiLearningSuggestionValidator),
 });
+
+// Shape returned by the AI when re-checking one saved Learning against
+// experiments that stopped since it was last refreshed.
+export const aiLearningRefreshValidator = z.object({
+  stillAccurate: z
+    .boolean()
+    .describe("Whether the saved Learning still holds given the new evidence"),
+  updatedText: z
+    .string()
+    .describe(
+      "A revised version of the Learning's markdown text incorporating the new evidence. Return the original text unchanged when nothing needs to change.",
+    ),
+  newSupportingExperimentIds: z
+    .array(z.string())
+    .describe("Ids from the new experiment set that support this Learning"),
+  newContradictingExperimentIds: z
+    .array(z.string())
+    .describe("Ids from the new experiment set that contradict this Learning"),
+  summary: z.string().describe("One sentence explaining what changed and why"),
+});
+
+export type AiLearningRefresh = z.infer<typeof aiLearningRefreshValidator>;
+
+// One proposed update, returned to the UI for review
+export const learningRefreshSuggestion = z.object({
+  learningId: z.string(),
+  title: z.string(),
+  stillAccurate: z.boolean(),
+  updatedText: z.string(),
+  currentText: z.string(),
+  newSupportingExperimentIds: z.array(z.string()),
+  newContradictingExperimentIds: z.array(z.string()),
+  summary: z.string(),
+});
+
+export type LearningRefreshSuggestion = z.infer<
+  typeof learningRefreshSuggestion
+>;
 
 export type AiLearningSuggestion = z.infer<
   typeof aiLearningSuggestionValidator

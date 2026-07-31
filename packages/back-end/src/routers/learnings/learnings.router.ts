@@ -80,4 +80,31 @@ router.post(
   LearningsController.postFindLearnings,
 );
 
+router.post(
+  "/refresh",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        learningIds: z.array(z.string()).optional(),
+      })
+      .strict(),
+  }),
+  LearningsController.postRefreshLearnings,
+);
+
+router.post(
+  "/:id/apply-refresh",
+  validateRequestMiddleware({
+    params: idParams,
+    body: z
+      .object({
+        text: z.string().optional(),
+        addSupportingExperimentIds: z.array(z.string()).optional(),
+        addContradictingExperimentIds: z.array(z.string()).optional(),
+      })
+      .strict(),
+  }),
+  LearningsController.postApplyLearningRefresh,
+);
+
 export { router as learningsRouter };

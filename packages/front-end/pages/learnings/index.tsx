@@ -4,7 +4,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { ComputedExperimentInterface } from "shared/types/experiment";
 import { LearningWithCanManage } from "shared/validators";
 import { useRouter } from "next/router";
-import { PiSparkleFill } from "react-icons/pi";
+import { PiArrowsClockwise, PiSparkleFill } from "react-icons/pi";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -25,6 +25,7 @@ import { useAISettings } from "@/hooks/useOrgSettings";
 import FindLearningsModal from "@/components/Learnings/FindLearningsModal";
 import SavedLearningsList from "@/components/Learnings/SavedLearningsList";
 import EditLearningModal from "@/components/Learnings/EditLearningModal";
+import RefreshLearningsModal from "@/components/Learnings/RefreshLearningsModal";
 
 const LearningsPage = (): React.ReactElement => {
   const router = useRouter();
@@ -44,6 +45,7 @@ const LearningsPage = (): React.ReactElement => {
   );
   const [findLearningsOpen, setFindLearningsOpen] = useState(false);
   const [showNewLearning, setShowNewLearning] = useState(false);
+  const [refreshOpen, setRefreshOpen] = useState(false);
 
   function updateURL({
     startDate,
@@ -119,9 +121,25 @@ const LearningsPage = (): React.ReactElement => {
               Experiment Learnings
             </Heading>
             {allStoppedExperiments.length > 0 && (
-              <Button onClick={() => setShowNewLearning(true)}>
-                New Learning
-              </Button>
+              <Flex gap="2" align="center">
+                {learnings.length > 0 && (
+                  <Button
+                    variant="outline"
+                    disabled={!aiEnabled}
+                    title={
+                      aiEnabled
+                        ? undefined
+                        : "AI features are not enabled for this organization"
+                    }
+                    onClick={() => setRefreshOpen(true)}
+                  >
+                    <PiArrowsClockwise /> Refresh Learnings
+                  </Button>
+                )}
+                <Button onClick={() => setShowNewLearning(true)}>
+                  New Learning
+                </Button>
+              </Flex>
             )}
           </Flex>
 
@@ -272,6 +290,13 @@ const LearningsPage = (): React.ReactElement => {
         </div>
       </div>
 
+      {refreshOpen && (
+        <RefreshLearningsModal
+          experiments={allExperiments}
+          close={() => setRefreshOpen(false)}
+          onApplied={() => mutateLearnings()}
+        />
+      )}
       {showNewLearning && (
         <EditLearningModal
           experiments={allExperiments}
