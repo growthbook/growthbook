@@ -17,7 +17,7 @@ import type {
   FunnelDataset,
   ExplorationDateRange,
 } from "shared/validators";
-import { isEqual } from "lodash";
+import { isEqual, omit } from "lodash";
 import { createParser } from "nuqs";
 import { canInlineFilterColumn } from "shared/experiments";
 import {
@@ -453,7 +453,7 @@ export function createEmptyDataset(type: DatasetType): ExplorationDataset {
       type,
       values: [],
       sql: "",
-      timestampColumn: "",
+      timestampColumn: null,
       columnTypes: {},
     };
   } else if (type === "funnel") {
@@ -787,7 +787,9 @@ export function removeIncompleteInputs(
 export function cleanConfigForSubmission(
   config: ExplorerDraftConfig,
 ): ExplorationConfig {
-  const { previousTimeFrame: _, ...configWithoutPrevious } = config;
+  const configWithoutPrevious = stripExplorerDraftFields(
+    normalizeTimelessSqlConfig(config),
+  );
   const cleanedDataset = removeIncompleteInputs(configWithoutPrevious.dataset);
   const cleanedDimensions = configWithoutPrevious.dimensions.filter((d) => {
     if (d.dimensionType === "date" || d.dimensionType === "slice") return true;
@@ -814,6 +816,47 @@ const CUMULATIVE_CHART_TYPES: Set<string> = new Set([
   "table",
 ]);
 
+export function isTimeSeriesChart(
+  chartType: ExplorationConfig["chartType"],
+): boolean {
+  return TIMESERIES_CHART_TYPES.has(chartType);
+}
+
+export function isTimelessSqlExploration(
+  config: Pick<ExplorationConfig, "dataset">,
+): boolean {
+  return (
+    config.dataset.type === "sql" && config.dataset.timestampColumn === null
+  );
+}
+
+export function normalizeTimelessSqlConfig(
+  config: ExplorerDraftConfig,
+): ExplorerDraftConfig {
+  if (!isTimelessSqlExploration(config)) return config;
+
+  const chartType = isTimeSeriesChart(config.chartType)
+    ? "bar"
+    : config.chartType;
+  const dimensions = config.dimensions.filter(
+    (dimension) => dimension.dimensionType !== "date",
+  );
+
+  if (
+    chartType === config.chartType &&
+    dimensions.length === config.dimensions.length &&
+    config.previousTimeFrame === undefined
+  ) {
+    return config;
+  }
+
+  return {
+    ...stripExplorerDraftFields(config),
+    chartType,
+    dimensions,
+  };
+}
+
 /** Returns the category of a chart type (timeseries or cumulative).
  *  Used to determine if a fetch or local update is needed. */
 function getChartCategory(chartType: ExplorationConfig["chartType"]): string {
@@ -830,6 +873,17 @@ export function toFetchKey(
     "previousTimeFrame" in config ? stripExplorerDraftFields(config) : config;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { showAs, ...rest } = base;
+  if (isTimelessSqlExploration(base) && base.dataset.type === "sql") {
+    return {
+      ...rest,
+      dateRange: null,
+      chartType: getChartCategory(base.chartType),
+      dataset: {
+        ...base.dataset,
+        values: base.dataset.values.map((value) => omit(value, "name")),
+      },
+    };
+  }
   if (base.dataset.type === "funnel") {
     // yAxisScale only affects how counts are rendered (percent vs raw);
     // same rows as chart-type-only changes — omit from the fetch identity.
@@ -851,8 +905,7 @@ export function toFetchKey(
     chartType: getChartCategory(base.chartType),
     dataset: {
       ...base.dataset,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      values: base.dataset.values.map(({ name, ...rest }) => rest),
+      values: base.dataset.values.map((value) => omit(value, "name")),
     },
   };
 }
@@ -948,7 +1001,10 @@ export function isSubmittableConfig(
   if (
     cleanedConfig.dataset.type === "sql" &&
     (!cleanedConfig.dataset.sql.trim() ||
-      !cleanedConfig.dataset.timestampColumn ||
+      (cleanedConfig.dataset.timestampColumn !== null &&
+        cleanedConfig.dataset.columnTypes[
+          cleanedConfig.dataset.timestampColumn
+        ] !== "date") ||
       Object.keys(cleanedConfig.dataset.columnTypes).length === 0)
   )
     return false;

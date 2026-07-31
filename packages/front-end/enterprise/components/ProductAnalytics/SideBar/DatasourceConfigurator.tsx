@@ -337,6 +337,7 @@ export default function DatasourceConfigurator({
                 timestampColumn={databaseDataset?.timestampColumn ?? ""}
                 columns={tableData.columns.map((column) => column.columnName)}
                 onChange={(timestampColumn) => {
+                  if (timestampColumn === null) return;
                   setDraftExploreState(
                     (prev) =>
                       ({

@@ -537,9 +537,23 @@ const funnelExplorationBlockInterface = baseBlockInterface.extend({
  * calls this never has to change. Returns null when comparison is off.
  */
 export function resolveBlockComparison(
-  block: { comparison?: BlockComparison },
+  block: {
+    comparison?: BlockComparison;
+    config?: {
+      dataset: {
+        type: string;
+        timestampColumn?: string | null;
+      };
+    };
+  },
   dashboard?: { comparison?: BlockComparison } | null,
 ): BlockComparison | null {
+  if (
+    block.config?.dataset.type === "sql" &&
+    block.config.dataset.timestampColumn === null
+  ) {
+    return null;
+  }
   if (dashboard?.comparison?.enabled) return dashboard.comparison;
   if (block.comparison?.enabled) return block.comparison;
   return null;

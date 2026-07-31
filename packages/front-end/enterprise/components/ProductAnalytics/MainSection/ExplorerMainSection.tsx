@@ -52,10 +52,6 @@ export default function ExplorerMainSection({
   const sqlConfigIsReady =
     draftExploreState.type === "sql" &&
     draftExploreState.dataset.sql.trim().length > 0 &&
-    draftExploreState.dataset.timestampColumn.length > 0 &&
-    draftExploreState.dataset.columnTypes[
-      draftExploreState.dataset.timestampColumn
-    ] === "date" &&
     Object.keys(draftExploreState.dataset.columnTypes).length > 0;
   const sqlEditorContext = useOptionalSqlEditorContext();
   const viewMode = sqlEditorContext?.viewMode ?? "chart";

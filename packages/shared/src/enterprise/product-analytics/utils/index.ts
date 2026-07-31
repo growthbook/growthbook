@@ -112,11 +112,13 @@ export function getInitialConfigByBlockType(
       return {
         ...DEFAULT_EXPLORE_STATE,
         type: "sql",
+        dimensions: [],
+        chartType: "bar",
         dataset: {
           type: "sql",
           values: [],
           sql: "",
-          timestampColumn: "",
+          timestampColumn: null,
           columnTypes: {},
         },
         datasource: datasourceId,

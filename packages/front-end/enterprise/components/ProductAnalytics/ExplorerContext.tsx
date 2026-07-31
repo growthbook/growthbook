@@ -38,7 +38,10 @@ import {
   getCommonColumns,
   getInitialInlineFilters,
   hasUnsatisfiedInlineFilters,
+  isTimelessSqlExploration,
+  isTimeSeriesChart,
   isSubmittableConfig,
+  normalizeTimelessSqlConfig,
   stripExplorerDraftFields,
   toFetchKey,
   validateDimensions,
@@ -104,7 +107,7 @@ export interface ExplorerContextValue {
   addValueToDataset: (datasetType: DatasetType) => void;
   updateValueInDataset: (index: number, value: ProductAnalyticsValue) => void;
   deleteValueFromDataset: (index: number) => void;
-  updateTimestampColumn: (column: string) => void;
+  updateTimestampColumn: (column: string | null) => void;
   changeChartType: (chartType: ExplorationConfig["chartType"]) => void;
   clearAllDatasets: (newDatasourceId?: string) => void;
   /** Funnel sidebar registers a handler; main empty-state CTA invokes before analyze. */
@@ -181,18 +184,19 @@ export function ExplorerProvider({
       getFactTableById,
       getFactMetricById,
     );
-    const normalizedInitial = clearInapplicableShowAs(
-      withUnits,
-      getFactMetricById,
+    const normalizedInitial = normalizeTimelessSqlConfig(
+      clearInapplicableShowAs(withUnits, getFactMetricById),
     );
     const normalizedSubmitted = initialSubmittedConfig
-      ? clearInapplicableShowAs(
-          fillMissingUnits(
-            initialSubmittedConfig,
-            getFactTableById,
+      ? normalizeTimelessSqlConfig(
+          clearInapplicableShowAs(
+            fillMissingUnits(
+              initialSubmittedConfig,
+              getFactTableById,
+              getFactMetricById,
+            ),
             getFactMetricById,
           ),
-          getFactMetricById,
         )
       : normalizedInitial;
     return {
@@ -268,7 +272,7 @@ export function ExplorerProvider({
           getFactMetricById,
         );
         const validatedState = validateDimensions(
-          showAsNormalized,
+          normalizeTimelessSqlConfig(showAsNormalized),
           getFactTableById,
           getFactMetricById,
         );
@@ -295,7 +299,9 @@ export function ExplorerProvider({
         getFactTableById,
         getFactMetricById,
       );
-      const normalized = clearInapplicableShowAs(filled, getFactMetricById);
+      const normalized = normalizeTimelessSqlConfig(
+        clearInapplicableShowAs(filled, getFactMetricById),
+      );
       if (normalized === prev.draftState) return prev;
       return { ...prev, draftState: normalized };
     });
@@ -373,10 +379,13 @@ export function ExplorerProvider({
   const setCompareEnabled = useCallback(
     (value: boolean) => {
       if (value) {
-        setDraftExploreState((prev) => ({
-          ...prev,
-          previousTimeFrame: buildComparisonDateRange(prev.dateRange),
-        }));
+        setDraftExploreState((prev) => {
+          if (isTimelessSqlExploration(prev)) return prev;
+          return {
+            ...prev,
+            previousTimeFrame: buildComparisonDateRange(prev.dateRange),
+          };
+        });
       } else {
         setDraftExploreState((prev) => {
           const { previousTimeFrame: _, ...rest } = prev;
@@ -429,7 +438,9 @@ export function ExplorerProvider({
     async (options?: { cache?: CacheOption; config?: ExplorerDraftConfig }) => {
       const sourceConfig = options?.config ?? draftExploreState;
       const configToSubmit = cleanConfigForSubmission(sourceConfig);
-      const previousForRequest = sourceConfig.previousTimeFrame ?? null;
+      const previousForRequest = isTimelessSqlExploration(sourceConfig)
+        ? null
+        : (sourceConfig.previousTimeFrame ?? null);
       if (!isSubmittableConfig(configToSubmit)) return;
 
       if (managedWarehouseUnavailable) {
@@ -893,22 +904,37 @@ export function ExplorerProvider({
   );
 
   const updateTimestampColumn = useCallback(
-    (column: string) => {
+    (column: string | null) => {
       setDraftExploreState((prev) => {
-        if (!prev.dataset) {
+        if (
+          prev.dataset.type !== "sql" &&
+          prev.dataset.type !== "data_source"
+        ) {
           return prev;
         }
+        if (prev.dataset.type === "data_source" && column === null) return prev;
         return {
           ...prev,
           dataset: { ...prev.dataset, timestampColumn: column },
         } as ExplorationConfig;
       });
+      if (column === null) {
+        setComparisonExploration(null);
+        setComparisonQuery(null);
+        setComparisonComputed(null);
+      }
     },
     [setDraftExploreState],
   );
 
   const changeChartType = useCallback(
     (chartType: ExplorationConfig["chartType"]) => {
+      if (
+        isTimelessSqlExploration(draftExploreState) &&
+        isTimeSeriesChart(chartType)
+      ) {
+        return;
+      }
       if (trackingSource && draftExploreState.chartType !== chartType) {
         track("Product Analytics Explorer: Chart Type Changed", {
           source: trackingSource,
@@ -938,12 +964,12 @@ export function ExplorerProvider({
           }
         } else {
           // Time-series charts (line, area) need date dimensions
-          const isTimeSeriesChart =
+          const timeSeriesChart =
             chartType === "line" ||
             chartType === "area" ||
             chartType === "timeseries-table";
 
-          if (!isTimeSeriesChart) {
+          if (!timeSeriesChart) {
             dimensions = dimensions.filter((d) => d.dimensionType !== "date");
           } else if (!dimensions.some((d) => d.dimensionType === "date")) {
             dimensions = [
@@ -959,12 +985,7 @@ export function ExplorerProvider({
         return { ...prev, chartType, dimensions, dataset } as ExplorationConfig;
       });
     },
-    [
-      setDraftExploreState,
-      trackingSource,
-      draftExploreState.chartType,
-      draftExploreState.type,
-    ],
+    [setDraftExploreState, trackingSource, draftExploreState],
   );
 
   const clearAllDatasets = useCallback(
@@ -1107,10 +1128,6 @@ export function ExplorerProvider({
           sql={draftExploreState.dataset.sql}
           initialViewMode={
             draftExploreState.dataset.sql.trim().length > 0 &&
-            draftExploreState.dataset.timestampColumn.length > 0 &&
-            draftExploreState.dataset.columnTypes[
-              draftExploreState.dataset.timestampColumn
-            ] === "date" &&
             Object.keys(draftExploreState.dataset.columnTypes).length > 0
               ? "chart"
               : "sql"

@@ -92,7 +92,10 @@ const sqlDatasetValidator = z
   .object({
     type: z.literal("sql"),
     sql: z.string(),
-    timestampColumn: z.string(),
+    timestampColumn: z.preprocess(
+      (value) => (value === "" ? null : value),
+      z.string().nullable(),
+    ),
     columnTypes: sqlDatasetColumnTypeValidator,
     values: z.array(sqlValueValidator),
   })

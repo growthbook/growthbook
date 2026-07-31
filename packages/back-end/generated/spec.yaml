@@ -37366,7 +37366,9 @@ paths:
                                       sql:
                                         type: string
                                       timestampColumn:
-                                        type: string
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
                                       columnTypes:
                                         type: object
                                         propertyNames:
@@ -44860,7 +44862,9 @@ paths:
                     sql:
                       type: string
                     timestampColumn:
-                      type: string
+                      anyOf:
+                        - type: string
+                        - type: 'null'
                     columnTypes:
                       type: object
                       propertyNames:
@@ -45236,7 +45240,9 @@ paths:
                                   sql:
                                     type: string
                                   timestampColumn:
-                                    type: string
+                                    anyOf:
+                                      - type: string
+                                      - type: 'null'
                                   columnTypes:
                                     type: object
                                     propertyNames:
@@ -61000,7 +61006,9 @@ components:
                           sql:
                             type: string
                           timestampColumn:
-                            type: string
+                            anyOf:
+                              - type: string
+                              - type: 'null'
                           columnTypes:
                             type: object
                             propertyNames:
@@ -64125,7 +64133,9 @@ components:
                     sql:
                       type: string
                     timestampColumn:
-                      type: string
+                      anyOf:
+                        - type: string
+                        - type: 'null'
                     columnTypes:
                       type: object
                       propertyNames:

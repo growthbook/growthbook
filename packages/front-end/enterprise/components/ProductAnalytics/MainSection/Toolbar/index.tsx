@@ -1,5 +1,7 @@
 import { Flex } from "@radix-ui/themes";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import { isTimelessSqlExploration } from "@/enterprise/components/ProductAnalytics/util";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Switch from "@/ui/Switch";
 import GraphTypeSelector from "./GraphTypeSelector";
 import FunnelGraphTypeSelector from "./FunnelGraphTypeSelector";
@@ -16,6 +18,7 @@ export default function Toolbar() {
     managedWarehouseUnavailable,
   } = useExplorerContext();
   const isFunnel = draftExploreState.dataset?.type === "funnel";
+  const dateControlsDisabled = isTimelessSqlExploration(draftExploreState);
 
   const showComparisonDateControls =
     compareEnabled &&
@@ -41,12 +44,23 @@ export default function Toolbar() {
         gap="3"
         style={{ flexGrow: 1, minWidth: 0 }}
       >
-        <Switch
-          label="Compare"
-          value={compareEnabled}
-          onChange={setCompareEnabled}
-          disabled={!submittedExploreState || managedWarehouseUnavailable}
-        />
+        <Tooltip
+          body="Update your SQL query to return a date or timestamp column to compare date ranges."
+          shouldDisplay={dateControlsDisabled}
+          usePortal
+          style={{ display: "inline-flex" }}
+        >
+          <Switch
+            label="Compare"
+            value={compareEnabled}
+            onChange={setCompareEnabled}
+            disabled={
+              dateControlsDisabled ||
+              !submittedExploreState ||
+              managedWarehouseUnavailable
+            }
+          />
+        </Tooltip>
         {showComparisonDateControls ? (
           <ComparisonDateControls
             groupBySlot={
@@ -59,7 +73,14 @@ export default function Toolbar() {
           />
         ) : (
           <>
-            <DateRangePicker />
+            <Tooltip
+              body="Update your SQL query to return a date or timestamp column to filter by date."
+              shouldDisplay={dateControlsDisabled}
+              usePortal
+              style={{ display: "inline-flex" }}
+            >
+              <DateRangePicker disabled={dateControlsDisabled} />
+            </Tooltip>
             {!isFunnel &&
               ["line", "area", "timeseries-table"].includes(
                 draftExploreState.chartType,

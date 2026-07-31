@@ -199,6 +199,10 @@ export class AnalyticsExplorationModel extends BaseClass {
       { sort: { dateCreated: -1 }, limit: 5 },
     );
 
+    if (dataset.type === "sql" && dataset.timestampColumn === null) {
+      return matches[0] ?? null;
+    }
+
     const requestedDates = calculateProductAnalyticsDateRange(config.dateRange);
 
     // 2. Find the analysis that best matches the requested date range

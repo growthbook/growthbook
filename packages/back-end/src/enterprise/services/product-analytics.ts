@@ -146,14 +146,34 @@ export async function runProductAnalyticsExploration(
     if (!isReadOnlySQL(dataset.sql)) {
       throw new BadRequestError("Only SELECT queries are allowed");
     }
-    if (!dataset.timestampColumn) {
-      throw new BadRequestError("Timestamp column is required");
-    }
-    if (!dataset.columnTypes[dataset.timestampColumn]) {
-      throw new BadRequestError("Timestamp column must exist in query results");
-    }
-    if (dataset.columnTypes[dataset.timestampColumn] !== "date") {
-      throw new BadRequestError("Timestamp column must be a date or timestamp");
+    if (dataset.timestampColumn !== null) {
+      if (!dataset.columnTypes[dataset.timestampColumn]) {
+        throw new BadRequestError(
+          "Timestamp column must exist in query results",
+        );
+      }
+      if (dataset.columnTypes[dataset.timestampColumn] !== "date") {
+        throw new BadRequestError(
+          "Timestamp column must be a date or timestamp",
+        );
+      }
+    } else {
+      if (
+        config.chartType === "line" ||
+        config.chartType === "area" ||
+        config.chartType === "timeseries-table"
+      ) {
+        throw new BadRequestError(
+          "Time-series charts require a timestamp column",
+        );
+      }
+      if (
+        config.dimensions.some(
+          (dimension) => dimension.dimensionType === "date",
+        )
+      ) {
+        throw new BadRequestError("Date dimensions require a timestamp column");
+      }
     }
   } else if (dataset.type === "funnel") {
     if (dataset.steps.length < 2) {

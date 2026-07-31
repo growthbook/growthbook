@@ -117,7 +117,13 @@ export function getTemporaryDashboardBlockId(index: number): string {
 export function isDashboardGlobalControlSupportedBlock(
   block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
 ): block is DashboardGlobalControlSupportedBlock {
-  return dashboardGlobalControlSupportedBlockTypes.has(block.type);
+  return (
+    dashboardGlobalControlSupportedBlockTypes.has(block.type) &&
+    !(
+      block.type === "sql-exploration" &&
+      block.config.dataset.timestampColumn === null
+    )
+  );
 }
 
 export function autoEnrollDashboardBlocksInDateControl<

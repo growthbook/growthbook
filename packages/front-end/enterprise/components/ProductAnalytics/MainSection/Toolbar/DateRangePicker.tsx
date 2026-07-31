@@ -473,12 +473,14 @@ export interface DateRangePickerProps {
   label?: ReactNode;
   /** Stack the preset dropdown and date field vertically, each spanning 100%. */
   fullWidth?: boolean;
+  disabled?: boolean;
 }
 
 export default function DateRangePicker({
   shouldWrap = false,
   label,
   fullWidth = false,
+  disabled = false,
 }: DateRangePickerProps = {}) {
   const { draftExploreState, setDraftExploreState } = useExplorerContext();
 
@@ -494,6 +496,7 @@ export default function DateRangePicker({
       shouldWrap={shouldWrap}
       label={label}
       fullWidth={fullWidth}
+      disabled={disabled}
     />
   );
 }

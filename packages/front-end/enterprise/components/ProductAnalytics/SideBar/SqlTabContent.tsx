@@ -64,9 +64,15 @@ export default function SqlTabContent() {
         }}
       >
         <TimestampColumnSelector
-          timestampColumn={dataset?.timestampColumn ?? ""}
+          timestampColumn={dataset?.timestampColumn ?? null}
           columns={timestampOptions.map(({ value }) => value)}
           onChange={updateTimestampColumn}
+          allowNone
+          selectTooltip={
+            timestampOptions.length === 0
+              ? "Update your SQL query to return a date or timestamp column to use date filtering, comparisons, and time-series charts."
+              : "Selecting a timestamp column enables date filtering, comparisons, and time-series charts."
+          }
         />
       </Flex>
       <Flex direction="column">

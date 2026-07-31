@@ -62,8 +62,6 @@ export default function useSqlQueryPreview({
     state.status !== "error" &&
     dataset !== null &&
     dataset.sql.trim().length > 0 &&
-    dataset.timestampColumn.length > 0 &&
-    dataset.columnTypes[dataset.timestampColumn] === "date" &&
     Object.keys(dataset.columnTypes).length > 0;
 
   useEffect(() => {
@@ -74,7 +72,7 @@ export default function useSqlQueryPreview({
     (
       sql: string,
       columnTypes: SqlDataset["columnTypes"],
-      timestampColumn: string,
+      timestampColumn: string | null,
     ) => {
       setDraftExploreState((prev) => {
         if (prev.dataset.type !== "sql") return prev;
@@ -145,15 +143,7 @@ export default function useSqlQueryPreview({
         const timestampColumn =
           inferredTimestamp && columnTypes[inferredTimestamp] === "date"
             ? inferredTimestamp
-            : (dateColumns[0] ?? "");
-
-        if (dateColumns.length === 0) {
-          const error =
-            "Your SQL query must return at least one date or timestamp column.";
-          setState({ status: "error", result, error });
-          onRunError?.();
-          return false;
-        }
+            : (dateColumns[0] ?? null);
 
         lastPreviewedSqlRef.current = sql;
         applyColumnMetadata(sql, columnTypes, timestampColumn);

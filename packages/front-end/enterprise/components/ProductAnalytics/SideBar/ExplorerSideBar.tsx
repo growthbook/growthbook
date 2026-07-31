@@ -28,6 +28,7 @@ import Switch from "@/ui/Switch";
 import {
   createEmptyValue,
   getInitialInlineFilters,
+  isTimelessSqlExploration,
   showAsAppliesTo,
   stripExplorerDraftFields,
 } from "@/enterprise/components/ProductAnalytics/util";
@@ -147,6 +148,7 @@ export default function ExplorerSideBar({
   const isTimeSeriesChart = ["line", "area", "timeseries-table"].includes(
     draftExploreState.chartType,
   );
+  const dateControlsDisabled = isTimelessSqlExploration(draftExploreState);
   const usesInheritedDashboardDateRange = Boolean(
     dashboardDateRange && useDashboardDateControl,
   );
@@ -317,12 +319,22 @@ export default function ExplorerSideBar({
           <Flex direction="column" gap="2">
             <Flex direction="row" align="center" justify="between" width="100%">
               <Text weight="medium">Chart Type</Text>
-              <Switch
-                label="Compare"
-                value={compareEnabled}
-                onChange={setCompareEnabled}
-                disabled={!submittedExploreState || managedWarehouseUnavailable}
-              />
+              <Tooltip
+                body="Update your SQL query to return a date or timestamp column to compare date ranges."
+                shouldDisplay={dateControlsDisabled}
+                usePortal
+              >
+                <Switch
+                  label="Compare"
+                  value={compareEnabled}
+                  onChange={setCompareEnabled}
+                  disabled={
+                    dateControlsDisabled ||
+                    !submittedExploreState ||
+                    managedWarehouseUnavailable
+                  }
+                />
+              </Tooltip>
             </Flex>
             {activeType === "funnel" ? (
               <FunnelGraphTypeSelector />
@@ -330,58 +342,75 @@ export default function ExplorerSideBar({
               <GraphTypeSelector />
             )}
           </Flex>
-          <Flex direction="column" gap="2" width="100%" style={{ minWidth: 0 }}>
-            <Flex justify="between" align="center" gap="2" width="100%">
-              <Text weight="medium">Date Range</Text>
-              {dashboardDateRange ? (
-                <Switch
-                  size="1"
-                  value={useDashboardDateControl}
-                  onChange={(checked) =>
-                    onGlobalControlSettingsChange?.({ dateRange: checked })
-                  }
-                  label={
-                    <Flex direction="row" align="center" gap="1">
-                      <Text size="small" weight="medium">
-                        Use dashboard date filter
-                      </Text>
-                      <Tooltip
-                        body={
-                          useDashboardDateControl
-                            ? "This block uses the dashboard date range."
-                            : "This block overrides the dashboard date filter."
-                        }
-                      />
-                    </Flex>
-                  }
-                />
-              ) : null}
-            </Flex>
-            {dashboardDateRange && useDashboardDateControl ? (
-              <Flex
-                p="2"
-                style={{
-                  border: "1px solid var(--gray-a3)",
-                  borderRadius: "var(--radius-3)",
-                  backgroundColor: "var(--gray-a2)",
-                }}
-              >
-                <Text size="medium" color="text-low">
-                  {formatExplorationDateRange(dashboardDateRange)}
-                </Text>
+          <Tooltip
+            body="Update your SQL query to return a date or timestamp column to filter by date."
+            shouldDisplay={dateControlsDisabled}
+            usePortal
+            style={{ display: "block", width: "100%" }}
+          >
+            <Flex
+              direction="column"
+              gap="2"
+              width="100%"
+              style={{ minWidth: 0 }}
+            >
+              <Flex justify="between" align="center" gap="2" width="100%">
+                <Text weight="medium">Date Range</Text>
+                {dashboardDateRange ? (
+                  <Switch
+                    size="1"
+                    value={useDashboardDateControl}
+                    disabled={dateControlsDisabled}
+                    onChange={(checked) =>
+                      onGlobalControlSettingsChange?.({ dateRange: checked })
+                    }
+                    label={
+                      <Flex direction="row" align="center" gap="1">
+                        <Text size="small" weight="medium">
+                          Use dashboard date filter
+                        </Text>
+                        <Tooltip
+                          body={
+                            useDashboardDateControl
+                              ? "This block uses the dashboard date range."
+                              : "This block overrides the dashboard date filter."
+                          }
+                        />
+                      </Flex>
+                    }
+                  />
+                ) : null}
               </Flex>
-            ) : showComparisonDateControls ? (
-              <ComparisonDateControls fullWidth />
-            ) : (
-              <DateRangePicker fullWidth />
-            )}
-          </Flex>
-          {isTimeSeriesChart && !usesInheritedDashboardDateRange && (
-            <Flex direction="column" gap="2" width="100%">
-              <Text weight="medium">Date Granularity</Text>
-              <GranularitySelector />
+              {!dateControlsDisabled &&
+              dashboardDateRange &&
+              useDashboardDateControl ? (
+                <Flex
+                  p="2"
+                  style={{
+                    border: "1px solid var(--gray-a3)",
+                    borderRadius: "var(--radius-3)",
+                    backgroundColor: "var(--gray-a2)",
+                  }}
+                >
+                  <Text size="medium" color="text-low">
+                    {formatExplorationDateRange(dashboardDateRange)}
+                  </Text>
+                </Flex>
+              ) : showComparisonDateControls ? (
+                <ComparisonDateControls fullWidth />
+              ) : (
+                <DateRangePicker fullWidth disabled={dateControlsDisabled} />
+              )}
             </Flex>
-          )}
+          </Tooltip>
+          {!dateControlsDisabled &&
+            isTimeSeriesChart &&
+            !usesInheritedDashboardDateRange && (
+              <Flex direction="column" gap="2" width="100%">
+                <Text weight="medium">Date Granularity</Text>
+                <GranularitySelector />
+              </Flex>
+            )}
         </Flex>
       )}
 

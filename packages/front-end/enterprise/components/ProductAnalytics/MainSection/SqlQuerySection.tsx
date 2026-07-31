@@ -26,7 +26,7 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import { useSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 import styles from "@/components/SchemaBrowser/EditSqlModal.module.scss";
 import useSqlQueryPreview, { PREVIEW_ROW_LIMIT } from "./useSqlQueryPreview";
-const SQL_PLACEHOLDER = `SELECT timestamp, user_id, event_name FROM events`;
+const SQL_PLACEHOLDER = `SELECT category, value FROM results`;
 
 function SqlQueryActions({
   aiTrigger,
@@ -217,8 +217,9 @@ export default function SqlQuerySection({
       body={
         <Flex direction="column" gap="2">
           <Text>
-            Write a read-only query that returns rows with at least one date or
-            timestamp column.
+            Write a read-only query that returns the rows you want to analyze.
+            Include a date or timestamp column to enable date filtering,
+            comparisons, and time-series charts.
           </Text>
           <Text>
             Use the Schema Browser on the side bar to explore what data is
