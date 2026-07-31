@@ -54,7 +54,7 @@ export async function setRevisionDefaultValue(
       );
     }
 
-    // Always normalize; enforce the schema unless ?skipSchemaValidation=true.
+    // Always normalize; enforce the schema unless `"skipSchemaValidation": true`.
     const defaultValue = validateFeatureValue(
       context.skipSchemaValidation
         ? { ...feature, jsonSchema: undefined }

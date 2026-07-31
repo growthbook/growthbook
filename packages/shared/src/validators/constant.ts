@@ -460,6 +460,7 @@ const bypassApprovalField = z
 
 const postConstantApiBody = z
   .object({
+    ...publishOverrideBodyFields,
     key: keyField.describe(
       "Stable reference handle (lowercase slug, unique per org), referenced as `@const:key`",
     ),
@@ -477,6 +478,7 @@ const postConstantApiBody = z
 
 const updateConstantApiBody = z
   .object({
+    ...publishOverrideBodyFields,
     name: z.string().optional(),
     value: z.string().optional(),
     environmentValues: z
@@ -626,7 +628,7 @@ export const unarchiveConstantValidator = {
 };
 
 export const deleteConstantValidator = {
-  bodySchema: z.never(),
+  bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
   querySchema: z.never(),
   paramsSchema: constantKeyParams,
   responseSchema: z.object({ deletedId: z.string() }).strict(),

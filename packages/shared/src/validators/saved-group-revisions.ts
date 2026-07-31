@@ -3,7 +3,7 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
-  ignoreWarningsBodyField,
+  publishOverrideBodyFields,
   bypassApprovalPublishBodyField,
   publishBypassedGatesField,
 } from "./shared";
@@ -304,6 +304,7 @@ export const postSavedGroupRevisionValidator = {
   paramsSchema: savedGroupIdParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       title: z.string().optional(),
       comment: z.string().optional(),
     })
@@ -323,6 +324,7 @@ export const postSavedGroupRevisionDiscardValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       reason: z.string().optional(),
     })
     .strict(),
@@ -341,8 +343,8 @@ export const postSavedGroupRevisionPublishValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       bypassApproval: bypassApprovalPublishBodyField,
-      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -362,6 +364,7 @@ export const postSavedGroupRevisionRevertValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       strategy: z.enum(["draft", "publish"]).optional(),
       title: z.string().optional(),
       comment: z.string().optional(),
@@ -382,6 +385,7 @@ export const postSavedGroupRevisionRebaseValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       conflictResolutions: z
         .record(z.string(), z.enum(["overwrite", "discard", "union"]))
         .optional(),
@@ -410,6 +414,7 @@ export const postSavedGroupRevisionRequestReviewValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       autoPublishOnApproval: z.boolean().optional(),
     })
     .strict(),
@@ -428,6 +433,7 @@ export const postSavedGroupRevisionSubmitReviewValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       decision: z.enum(reviewDecision),
       comment: z.string().optional(),
       skipAutoPublish: z.boolean().optional(),
@@ -452,6 +458,7 @@ export const putSavedGroupRevisionMetadataValidator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       ...newDraftMetadataFields,
       name: z.string().optional(),
       owner: ownerInputField.optional(),
@@ -474,6 +481,7 @@ export const putSavedGroupRevisionConditionValidator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       ...newDraftMetadataFields,
       condition: z
         .string()
@@ -495,6 +503,7 @@ export const putSavedGroupRevisionValuesValidator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       ...newDraftMetadataFields,
       values: z.array(z.string()),
     })
@@ -514,6 +523,7 @@ export const putSavedGroupRevisionArchiveValidator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       ...newDraftMetadataFields,
       archived: z.boolean(),
     })
@@ -533,6 +543,7 @@ export const postSavedGroupRevisionItemsAddValidator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       ...newDraftMetadataFields,
       items: z.array(z.string()),
     })
@@ -552,6 +563,7 @@ export const postSavedGroupRevisionItemsRemoveValidator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       ...newDraftMetadataFields,
       items: z.array(z.string()),
     })

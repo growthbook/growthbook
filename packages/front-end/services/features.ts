@@ -1040,6 +1040,8 @@ export function getDefaultRuleValue({
     };
   }
   if (ruleType === "experiment-ref") {
+    // No targeting: an experiment rule takes it from the linked experiment's
+    // current phase, and the API rejects it on the rule.
     return {
       type: "experiment-ref",
       description: "",
@@ -1047,7 +1049,6 @@ export function getDefaultRuleValue({
       id: "",
       allEnvironments: false,
       variations: [],
-      condition: "",
       enabled: true,
       scheduleRules: [
         {

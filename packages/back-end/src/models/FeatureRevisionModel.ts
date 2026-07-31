@@ -46,6 +46,7 @@ import {
   applyEnvironmentInheritance,
   buildInheritedChildrenByAncestor,
   expandRuleEnvsForInheritance,
+  stripExperimentRefTargetingFromLogValue,
 } from "back-end/src/util/features";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";
@@ -264,6 +265,15 @@ export function buildFeatureRevisionInterface(
     revision.datePublished =
       (revision as FeatureRevisionInterface & { revisionDate?: Date })
         .revisionDate || revision.dateCreated;
+  }
+
+  // Legacy inline log; new entries live in `featurerevisionlog`, which strips
+  // these in its own `migrate`.
+  if (revision.log) {
+    revision.log = revision.log.map((entry) => ({
+      ...entry,
+      value: stripExperimentRefTargetingFromLogValue(entry.value),
+    }));
   }
 
   const orgEnvs = getEnvironments(context.org);
@@ -1366,7 +1376,8 @@ export async function updateRevision(
       ...(clearRevertedFrom ? { $unset: { revertedFrom: 1 } } : {}),
       ...contributorUpdate,
     },
-    { new: true },
+    // No caller reads `log`, and it can be large.
+    { new: true, projection: { log: 0 } },
   );
 
   // Fire and forget - no route that updates the revision expects the log to be there immediately

@@ -3364,12 +3364,6 @@ describe("buildFeatureRulesFromApiEnvSettings", () => {
               prerequisites,
             },
             {
-              type: "experiment-ref",
-              experimentId: "exp_1",
-              variations: [{ variationId: "v0", value: "false" }],
-              prerequisites,
-            },
-            {
               type: "experiment",
               condition: "{}",
               values: [{ value: "true", weight: 1 }],
@@ -3380,13 +3374,46 @@ describe("buildFeatureRulesFromApiEnvSettings", () => {
       },
     );
 
-    expect(rules).toHaveLength(4);
+    expect(rules).toHaveLength(3);
     rules.forEach((rule) => {
       expect(rule.prerequisites).toEqual(prerequisites);
       expect(rule.allEnvironments).toBe(false);
       expect(rule.environments).toEqual(["production"]);
     });
   });
+
+  // Targeting on an experiment-ref rule comes from the linked experiment's
+  // phase, so the rule can't carry its own.
+  it.each(["condition", "savedGroupTargeting", "prerequisites"])(
+    "rejects %s on an experiment-ref rule",
+    (field) => {
+      const values: Record<string, unknown> = {
+        condition: '{"country": "US"}',
+        savedGroupTargeting: [{ matchType: "all", savedGroups: ["grp_1"] }],
+        prerequisites: [{ id: "parent-feature", condition: '{"value": true}' }],
+      };
+      expect(() =>
+        buildFeatureRulesFromApiEnvSettings(
+          mockContext,
+          baseFeature,
+          [{ id: "production" }],
+          {
+            production: {
+              enabled: true,
+              rules: [
+                {
+                  type: "experiment-ref",
+                  experimentId: "exp_1",
+                  variations: [{ variationId: "v0", value: "false" }],
+                  [field]: values[field],
+                },
+              ],
+            },
+          },
+        ),
+      ).toThrow(/cannot be set on an experiment-ref rule/);
+    },
+  );
 
   it("omits prerequisites when not provided", () => {
     const rules = buildFeatureRulesFromApiEnvSettings(

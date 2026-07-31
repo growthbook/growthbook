@@ -75,6 +75,7 @@ import {
   apiFeatureRevisionV2Validator,
   ApiFeatureWithRevisionsV2,
   ApiFeatureEnvironmentV2,
+  REF_RULE_TARGETING_FIELDS,
 } from "shared/validators";
 import {
   AttributeMap,
@@ -120,6 +121,8 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   applyNamespaceToPayload,
+  assertNoRefRuleTargeting,
+  isRefRuleType,
   buildPayloadMetadata,
   getEnabledEnvironments,
   getFeatureDefinition,
@@ -2145,10 +2148,14 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
     // would break PUT/DELETE round-trips. SDK payloads stem-strip instead;
     // see `getFeatureDefinition`.
     id: rule.id,
-    condition: rule.condition || "",
     enabled: !!rule.enabled,
     scheduleRules: rule.scheduleRules,
     scheduleType: rule.scheduleType,
+  };
+  // Spread only by the non-ref cases: a ref rule emits no targeting at all, not
+  // even empty fields, which keeps a GET → PUT round-trip valid.
+  const targeting = {
+    condition: rule.condition || "",
     savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
       matchType: s.match,
       savedGroups: s.ids,
@@ -2157,10 +2164,17 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
   };
   switch (rule.type) {
     case "force":
-      return { ...base, type: "force", value: rule.value, sparse: rule.sparse };
+      return {
+        ...base,
+        ...targeting,
+        type: "force",
+        value: rule.value,
+        sparse: rule.sparse,
+      };
     case "rollout":
       return {
         ...base,
+        ...targeting,
         type: "rollout",
         value: rule.value,
         sparse: rule.sparse,
@@ -2173,6 +2187,7 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
     case "experiment":
       return {
         ...base,
+        ...targeting,
         type: "experiment",
         coverage: rule.coverage ?? 1,
         trackingKey: rule.trackingKey,
@@ -2202,6 +2217,7 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
     case "safe-rollout":
       return {
         ...base,
+        ...targeting,
         type: "safe-rollout",
         controlValue: rule.controlValue,
         variationValue: rule.variationValue,
@@ -2654,19 +2670,24 @@ export function getApiFeatureObj({
   // Strip `@config:` from a rule value string; `@const:` refs pass through.
   const scrubValue = (v: string | undefined): string | undefined =>
     v === undefined ? v : (stripConfigExtends(v) ?? v);
+  // Omits the internal names too, which the raw spread would otherwise leak.
   const normalizeRuleForFeatureEnv = (rule: FeatureRule): ApiFeatureRule =>
     ({
-      ...rule,
+      ...(isRefRuleType(rule.type)
+        ? omit(rule, REF_RULE_TARGETING_FIELDS)
+        : {
+            ...rule,
+            condition: rule.condition || "",
+            savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
+              matchType: s.match,
+              savedGroups: s.ids,
+            })),
+            prerequisites: rule.prerequisites || [],
+          }),
       coverage:
         rule.type === "rollout" || rule.type === "experiment"
           ? (rule.coverage ?? 1)
           : 1,
-      condition: rule.condition || "",
-      savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
-        matchType: s.match,
-        savedGroups: s.ids,
-      })),
-      prerequisites: rule.prerequisites || [],
       enabled: !!rule.enabled,
       // Scrub `@config:` from every value-bearing field of this rule type.
       ...("value" in rule && typeof rule.value === "string"
@@ -3094,7 +3115,7 @@ export function validateFeatureRuleValues(
 }
 
 // Enforce JSON-schema validation for a feature's default value and/or rule
-// values. Validation is on by default; an explicit `?skipSchemaValidation=true`
+// values. Validation is on by default; an explicit `"skipSchemaValidation": true`
 // opts out (see context.skipSchemaValidation). Pass the EFFECTIVE feature —
 // i.e. one already carrying the inbound/draft `jsonSchema`, `valueType`, so a
 // request that changes the schema validates against the new schema.
@@ -3157,7 +3178,7 @@ export function assertFeatureValuesValidForPublish(
 
   // Default to blocking when the setting is absent.
   if (context.org.settings?.blockPublishOnSchemaError === false) {
-    // Warn mode: a bypassable soft warning (?ignoreWarnings=true), consistent
+    // Warn mode: a bypassable soft warning (`"ignoreWarnings": true`), consistent
     // with the rest of the publish flow.
     if (context.ignoreWarnings) return;
     throw new SoftWarningError(
@@ -3175,13 +3196,15 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
   rules: ApiFeatureEnvSettingsRules,
   existingRules?: FeatureRule[],
 ): FeatureRule[] => {
-  // Honor the opt-in `?skipSchemaValidation=true` escape hatch: drop the schema
+  // Honor the opt-in `"skipSchemaValidation": true` escape hatch: drop the schema
   // so values are still normalized (parse / dirty-json) but not schema-checked.
   const valFeature = context.skipSchemaValidation
     ? { ...feature, jsonSchema: undefined }
     : feature;
   return rules.map((r) => {
-    const conditionRes = validateCondition(r.condition);
+    const conditionRes = validateCondition(
+      "condition" in r ? r.condition : undefined,
+    );
     if (!conditionRes.success) {
       throw new Error(
         "Invalid targeting condition JSON: " + conditionRes.error,
@@ -3232,6 +3255,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
 
     switch (r.type) {
       case "experiment-ref": {
+        assertNoRefRuleTargeting(r);
         const experimentRefRule: ExperimentRefRule = {
           // missing id will be filled in by addIdsToRules
           ...projectScope,
@@ -3246,7 +3270,6 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
             value: validateFeatureValue(valFeature, v.value),
           })),
           ...(r.sparse !== undefined && { sparse: r.sparse }),
-          ...(r.prerequisites && { prerequisites: r.prerequisites }),
           ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
         };
         return experimentRefRule;

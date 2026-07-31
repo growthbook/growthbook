@@ -510,7 +510,7 @@ export function collectDependentFeatureBreaks({
 
 // Warn (never hard-block) when publishing a constant would make a dependent
 // config OR config-backed feature value violate its schema or invariants.
-// Bypassable soft warning on a direct publish (?ignoreWarnings=true or
+// Bypassable soft warning on a direct publish (`"ignoreWarnings": true` or
 // bypassApprovalChecks).
 //
 // All schema-break violations a proposed constant value would introduce —

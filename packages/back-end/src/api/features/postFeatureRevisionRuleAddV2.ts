@@ -11,7 +11,6 @@ import type { FeatureRule, SafeRolloutRule } from "shared/validators";
 import { getEffectiveRevisionHoldout, resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { CreateProps } from "shared/types/base-model";
-import { getLatestPhaseVariations } from "shared/experiments";
 import {
   toApiRevisionV2,
   addIdsToFlatRules,
@@ -35,6 +34,7 @@ import {
   InternalServerError,
   NotFoundError,
 } from "back-end/src/util/errors";
+import { assertExperimentRefVariationsMatchExperiment } from "back-end/src/services/experiment-feature";
 import {
   discardIfJustCreated,
   isDraftStatus,
@@ -114,16 +114,8 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     );
 
     if (ruleInput.type === "experiment-ref") {
-      const anyMissing = ruleInput.variations.some((v) => !v.variationId);
-      const allMissing = ruleInput.variations.every((v) => !v.variationId);
-      if (anyMissing && !allMissing) {
-        throw new BadRequestError(
-          "Either provide variationId for all variations or none; mixed inputs are not allowed.",
-        );
-      }
-      // Always resolve the experiment: holdout compatibility must be checked
-      // in both directions (the experiment may belong to a holdout even when
-      // this Feature Flag does not).
+      // Resolved unconditionally: holdout compatibility must be checked in both
+      // directions (the experiment may belong to a holdout when the flag doesn't).
       const experiment = await getExperimentById(
         req.context,
         ruleInput.experimentId,
@@ -133,18 +125,10 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
           `Could not find experiment "${ruleInput.experimentId}"`,
         );
 
-      if (anyMissing) {
-        const phaseVariations = getLatestPhaseVariations(experiment);
-        if (phaseVariations.length < ruleInput.variations.length) {
-          throw new BadRequestError(
-            `Experiment has ${phaseVariations.length} variation(s) but ${ruleInput.variations.length} were specified`,
-          );
-        }
-        ruleInput.variations = ruleInput.variations.map((v, i) => ({
-          variationId: phaseVariations[i].id,
-          value: v.value,
-        }));
-      }
+      assertExperimentRefVariationsMatchExperiment({
+        variations: ruleInput.variations,
+        experiment,
+      });
 
       // Legacy revisions store holdout sparsely, so absence carries the
       // feature's holdout forward. Linking writes are deferred until after
@@ -204,7 +188,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     addIdsToFlatRules([rule as FeatureRule], feature.id);
 
     // Enforce the feature's JSON schema on the new rule's values (no-op for
-    // config-backed values). Opt out with ?skipSchemaValidation=true.
+    // config-backed values). Opt out with `"skipSchemaValidation": true`.
     assertFeatureValuesValid(req.context, feature, {
       rules: [rule as FeatureRule],
     });

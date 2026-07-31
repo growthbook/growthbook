@@ -2,6 +2,7 @@ import { z } from "zod";
 import { validateFeatureValue, normalizeTargetingProjects } from "shared/util";
 import { postFeatureValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import { assertExperimentRefRulesMatchExperiments } from "back-end/src/services/experiment-feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerForCreate,
@@ -149,6 +150,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     req.body.environments ?? {},
   );
   await assertValidRuleProjectIds(feature.rules, req.context);
+  await assertExperimentRefRulesMatchExperiments(req.context, feature.rules);
 
   const jsonSchema = parseApiJsonSchema(
     req.context.org,

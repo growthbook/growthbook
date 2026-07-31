@@ -421,7 +421,6 @@ export default function FeatureFromExperimentModal({
           ...(ruleAllEnvironments
             ? {}
             : { environments: ruleSelectedEnvironments }),
-          condition: "",
           enabled: true,
           scheduleRules: [],
           experimentId: experiment.id,

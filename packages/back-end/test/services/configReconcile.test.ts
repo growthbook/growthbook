@@ -69,7 +69,7 @@ describe("assertConfigSchemaChangeSafeForDescendants", () => {
     expect(err.warnings).toHaveLength(1);
   });
 
-  it("passes with ignoreWarnings (the ?ignoreWarnings=true bypass)", async () => {
+  it("passes with ignoreWarnings", async () => {
     const context = makeContext({
       configs: [base, child],
       ignoreWarnings: true,

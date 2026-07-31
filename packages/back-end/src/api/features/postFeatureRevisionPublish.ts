@@ -134,8 +134,8 @@ export async function publishFeatureRevision(
   // the sequential backstop below. Approval, however, is also bypassed by the REST
   // setting (`canUseRestApiBypass`).
   const { blocking, bypassed } = evaluatePublishGates(gates, {
-    // On the interactive path also honor the query alias (`?ignoreWarnings=true`)
-    // via context.ignoreWarnings, matching the other entities. NOT on the armed
+    // On the interactive path honor the caller's `"ignoreWarnings": true` via
+    // context.ignoreWarnings, matching the other entities. NOT on the armed
     // path: a background context has ignoreWarnings always-true, and its
     // stale-base force-merge must stay gated on the body's persisted intent —
     // see forceMergeRequested above.

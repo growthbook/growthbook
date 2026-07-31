@@ -990,7 +990,7 @@ export const putConfig = async (
       // nothing is persisted (vs. committing the root and then throwing from the
       // post-write cascade — see assertConfigDescendantsReconcilable for the
       // accepted residual race), then soft-warn when the change removes or
-      // retypes fields descendants still use (?ignoreWarnings=true proceeds).
+      // retypes fields descendants still use (`"ignoreWarnings": true` proceeds).
       if (
         fieldsToUpdate.schema !== undefined ||
         fieldsToUpdate.parent !== undefined ||

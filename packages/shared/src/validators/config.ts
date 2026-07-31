@@ -9,11 +9,9 @@ import {
 import { simpleSchemaValidator } from "./features";
 import {
   apiPaginationFieldsValidator,
-  booleanQueryField,
   paginationQueryFields,
   publishBypassedGatesField,
   publishOverrideBodyFields,
-  schemaValidationQueryFields,
 } from "./shared";
 import { namedSchema } from "./openapi-helpers";
 
@@ -482,6 +480,7 @@ const bypassApprovalField = z
 
 const postConfigApiBody = z
   .object({
+    ...publishOverrideBodyFields,
     key: keyField.describe(
       "Stable reference handle (lowercase slug, unique per org), referenced as `@config:key`",
     ),
@@ -537,6 +536,7 @@ const postConfigApiBody = z
 
 const updateConfigApiBody = z
   .object({
+    ...publishOverrideBodyFields,
     name: z.string().optional(),
     parent: z
       .string()
@@ -831,6 +831,7 @@ const apiConfigSchemaVerifyValidator = namedSchema(
 export const verifyConfigSchemaValidator = {
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       schema: configSchemaSourceValidator.describe(
         "The schema to check against the config's stored schema — a JSON Schema document or typed-code source (`typescript`/`protobuf`/`python`/`go`/`rust`). Read-only: nothing is mutated.",
       ),
@@ -885,7 +886,7 @@ export const getConfigValidator = {
 
 export const postConfigValidator = {
   bodySchema: postConfigApiBody,
-  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
+  querySchema: z.never(),
   paramsSchema: z.never(),
   responseSchema: apiConfigResponseWithWarnings,
   summary: "Create a single config",
@@ -904,7 +905,7 @@ export const postConfigValidator = {
 
 export const updateConfigValidator = {
   bodySchema: updateConfigApiBody,
-  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
+  querySchema: z.never(),
   paramsSchema: configKeyParams,
   responseSchema: apiConfigResponseWithWarnings,
   summary: "Partially update a single config",
@@ -920,15 +921,7 @@ export const updateConfigValidator = {
 
 export const archiveConfigValidator = {
   bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
-  querySchema: z
-    .object({
-      ignoreWarnings: booleanQueryField
-        .describe(
-          "Deprecated — pass `ignoreWarnings` in the request body instead.",
-        )
-        .meta({ deprecated: true }),
-    })
-    .strict(),
+  querySchema: z.never(),
   paramsSchema: configKeyParams,
   responseSchema: apiConfigArchiveResponse,
   summary: "Archive a single config",
@@ -955,7 +948,7 @@ export const unarchiveConfigValidator = {
 };
 
 export const deleteConfigValidator = {
-  bodySchema: z.never(),
+  bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
   querySchema: z.never(),
   paramsSchema: configKeyParams,
   responseSchema: z.object({ deletedId: z.string() }).strict(),
@@ -970,6 +963,7 @@ export const deleteConfigValidator = {
 export const lockConfigValidator = {
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       reason: z
         .string()
         .max(MAX_DESCRIPTION_LENGTH)
@@ -991,7 +985,7 @@ export const lockConfigValidator = {
 };
 
 export const unlockConfigValidator = {
-  bodySchema: z.never(),
+  bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
   querySchema: z.never(),
   paramsSchema: configKeyParams,
   responseSchema: apiConfigResponse,

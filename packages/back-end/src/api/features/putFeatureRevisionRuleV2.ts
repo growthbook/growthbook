@@ -9,9 +9,9 @@ import {
   RevisionRampUpdateAction,
   SafeRolloutRule,
   FeatureRule,
-  RulePatchInput,
+  RulePatchFields,
   putFeatureRevisionRuleV2Validator,
-  RulePatchInputV2,
+  RulePatchFieldsV2,
 } from "shared/validators";
 import { RevisionChanges } from "shared/types/feature-revision";
 import {
@@ -24,6 +24,7 @@ import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvent
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { resolveExperimentForRefRule } from "back-end/src/services/experiment-feature";
 import {
   getRevision,
   updateRevision,
@@ -61,7 +62,7 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
 
   const { schedule } = req.body;
   const inlineRampSchedule = req.body.rampSchedule;
-  const patch = req.body.rule as RulePatchInputV2;
+  const patch = req.body.rule as RulePatchFieldsV2;
 
   if (inlineRampSchedule && (schedule?.startDate || schedule?.endDate)) {
     throw new BadRequestError(
@@ -167,7 +168,7 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
 
     // Apply patch including v2 scope fields.
     const { allEnvironments, environments, ...basePatch } = patch;
-    const updatedRule = applyPatch(oldRule, basePatch as RulePatchInput);
+    const updatedRule = applyPatch(oldRule, basePatch as RulePatchFields);
 
     // Apply scope changes if present. When the client sends only
     // `environments` (without `allEnvironments`), infer `allEnvironments:false`
@@ -222,13 +223,21 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       }));
     }
 
+    // Repointing `experimentId` alone keeps the previous experiment's arm ids.
+    if (
+      updatedRule.type === "experiment-ref" &&
+      (patch.variations !== undefined || patch.experimentId !== undefined)
+    ) {
+      await resolveExperimentForRefRule(req.context, updatedRule);
+    }
+
     // A coverage patch can convert a force rule to a rollout, which arrives
     // seedless. Existing rollouts already carry a seed and are left untouched.
     addIdsToFlatRules([updatedRule as FeatureRule], feature.id);
 
     // Enforce the feature's JSON schema on the patched rule values (no-op for
     // config-backed values, whose schema lives on the config). Opt out with
-    // ?skipSchemaValidation=true.
+    // `"skipSchemaValidation": true`.
     assertFeatureValuesValid(req.context, feature, {
       rules: [updatedRule as FeatureRule],
     });

@@ -7,7 +7,6 @@ import {
   apiPaginationFieldsValidator,
   publishOverrideBodyFields,
   bypassApprovalPublishBodyField,
-  ignoreWarningsBodyField,
   publishBypassedGatesField,
 } from "./shared";
 import {
@@ -19,6 +18,7 @@ import {
   FEATURE_V1_DEPRECATED,
 } from "./features";
 import { ownerInputField } from "./owner-field";
+import { componentSchema } from "./openapi-helpers";
 
 // ---- Shared param schemas ----
 
@@ -165,9 +165,9 @@ export const postFeatureRevisionValidator = {
   paramsSchema: idParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       comment: z.string().optional(),
       title: z.string().optional(),
-      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z
@@ -191,7 +191,11 @@ export const postFeatureRevisionDiscardValidator = {
   deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z
+    .object({
+      ...publishOverrideBodyFields,
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -233,6 +237,7 @@ export const postFeatureRevisionRevertValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       strategy: z.enum(["draft", "publish"]).optional(),
       comment: z.string().optional(),
       title: z.string().optional(),
@@ -287,10 +292,10 @@ export const postFeatureRevisionRebaseValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       conflictResolutions: z
         .record(z.string(), z.enum(["overwrite", "discard"]))
         .optional(),
-      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -310,6 +315,7 @@ export const postFeatureRevisionRequestReviewValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       comment: z.string().optional(),
       autoPublishOnApproval: z.boolean().optional(),
     })
@@ -331,6 +337,7 @@ export const postFeatureRevisionSubmitReviewValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       comment: z.string().optional(),
       action: z.enum(["approve", "request-changes", "comment"]).optional(),
       skipAutoPublish: z.boolean().optional(),
@@ -361,16 +368,21 @@ const scheduleShorthand = z
 const commonRuleFields = {
   description: z.string().optional(),
   enabled: z.boolean().optional(),
+  scheduleRules: z.array(scheduleRuleInput).optional(),
+  scheduleType: z.enum(["none", "schedule", "ramp"]).optional(),
+};
+
+// Rule-level targeting. Absent from the experiment-ref shapes below.
+const targetingRuleFields = {
   condition: z.string().optional(),
   savedGroups: z.array(savedGroupTargeting).optional(),
   prerequisites: z.array(featurePrerequisite).optional(),
-  scheduleRules: z.array(scheduleRuleInput).optional(),
-  scheduleType: z.enum(["none", "schedule", "ramp"]).optional(),
 };
 
 const forceRolloutCreateInput = z
   .object({
     ...commonRuleFields,
+    ...targetingRuleFields,
     type: z.enum(["force", "rollout"]).optional(),
     value: z.string(),
     sparse: z.boolean().optional(),
@@ -388,7 +400,14 @@ const experimentRefCreateInput = z
     experimentId: z.string(),
     variations: z.array(
       z
-        .object({ variationId: z.string().optional(), value: z.string() })
+        .object({
+          variationId: z
+            .string()
+            .describe(
+              "ID of the experiment variation this value applies to. Required: it must be one of the variations on the experiment's current phase, and every variation needs exactly one entry.",
+            ),
+          value: z.string(),
+        })
         .strict(),
     ),
     sparse: z.boolean().optional(),
@@ -398,6 +417,7 @@ const experimentRefCreateInput = z
 const safeRolloutCreateInput = z
   .object({
     ...commonRuleFields,
+    ...targetingRuleFields,
     type: z.literal("safe-rollout"),
     controlValue: z.string(),
     variationValue: z.string(),
@@ -434,9 +454,9 @@ const safeRolloutCreateInput = z
   .strict();
 
 const ruleCreateInput = z.union([
-  experimentRefCreateInput,
-  safeRolloutCreateInput,
-  forceRolloutCreateInput,
+  componentSchema("Experiment Rule V1", experimentRefCreateInput),
+  componentSchema("Safe Rollout Rule V1", safeRolloutCreateInput),
+  componentSchema("Targeting Rule V1", forceRolloutCreateInput),
 ]);
 
 export const postFeatureRevisionRuleAddValidator = {
@@ -477,44 +497,100 @@ export const postFeatureRevisionRulesReorderValidator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       environment: z.string(),
       ruleIds: z.array(z.string()),
       ...newDraftMetadataFields,
-      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
 
+// One patch shape per rule type, so the docs say which fields belong where.
+// `type` stays optional, so a typeless patch resolves by the fields it carries;
+// the handler keys off the STORED rule type either way.
 // Allow `null` on legacy schedule fields so callers can explicitly clear
 // them in a patch.
-const rulePatchSchema = z
-  .object({
-    description: z.string().optional(),
-    enabled: z.boolean().optional(),
-    condition: z.string().optional(),
-    savedGroups: z.array(savedGroupTargeting).optional(),
-    prerequisites: z.array(featurePrerequisite).optional(),
-    scheduleRules: z.array(scheduleRuleInput).nullable().optional(),
-    scheduleType: z.enum(["none", "schedule", "ramp"]).nullable().optional(),
-    type: z
-      .enum(["force", "rollout", "experiment-ref", "safe-rollout"])
-      .optional(),
-    value: z.string().optional(),
-    sparse: z.boolean().optional(),
-    coverage: z.number().min(0).max(1).optional(),
-    hashAttribute: z.string().optional(),
-    seed: z.string().optional(),
-    hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
-    experimentId: z.string().optional(),
-    variations: z
-      .array(z.object({ variationId: z.string(), value: z.string() }).strict())
-      .optional(),
-    controlValue: z.string().optional(),
-    variationValue: z.string().optional(),
-  })
-  .strict();
+const commonPatchFields = {
+  description: z.string().optional(),
+  enabled: z.boolean().optional(),
+  scheduleRules: z.array(scheduleRuleInput).nullable().optional(),
+  scheduleType: z.enum(["none", "schedule", "ramp"]).nullable().optional(),
+};
+
+const forceRolloutPatchFields = {
+  value: z.string().optional(),
+  sparse: z.boolean().optional(),
+  coverage: z.number().min(0).max(1).optional(),
+  hashAttribute: z.string().optional(),
+  seed: z.string().optional(),
+  hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
+};
+
+const experimentRefPatchFields = {
+  experimentId: z.string().optional(),
+  variations: z
+    .array(z.object({ variationId: z.string(), value: z.string() }).strict())
+    .optional(),
+  sparse: z.boolean().optional(),
+};
+
+const safeRolloutPatchFields = {
+  controlValue: z.string().optional(),
+  variationValue: z.string().optional(),
+  hashAttribute: z.string().optional(),
+  seed: z.string().optional(),
+};
+
+const rulePatchSchema = z.union([
+  componentSchema(
+    "Targeting Rule Patch V1",
+    z
+      .object({
+        ...commonPatchFields,
+        ...targetingRuleFields,
+        type: z.enum(["force", "rollout"]).optional(),
+        ...forceRolloutPatchFields,
+      })
+      .strict(),
+  ),
+  componentSchema(
+    "Experiment Rule Patch V1",
+    z
+      .object({
+        ...commonPatchFields,
+        type: z.literal("experiment-ref").optional(),
+        ...experimentRefPatchFields,
+      })
+      .strict(),
+  ),
+  componentSchema(
+    "Safe Rollout Rule Patch V1",
+    z
+      .object({
+        ...commonPatchFields,
+        ...targetingRuleFields,
+        type: z.literal("safe-rollout").optional(),
+        ...safeRolloutPatchFields,
+      })
+      .strict(),
+  ),
+]);
+
+// Flat view for `applyPatch`: every union member above is a subset of this.
+export const rulePatchFields = z.object({
+  ...commonPatchFields,
+  ...targetingRuleFields,
+  type: z
+    .enum(["force", "rollout", "experiment-ref", "safe-rollout"])
+    .optional(),
+  ...forceRolloutPatchFields,
+  ...experimentRefPatchFields,
+  ...safeRolloutPatchFields,
+});
+
+export type RulePatchFields = z.infer<typeof rulePatchFields>;
 
 export const putFeatureRevisionRuleValidator = {
   method: "put" as const,
@@ -522,7 +598,7 @@ export const putFeatureRevisionRuleValidator = {
   operationId: "putFeatureRevisionRule",
   summary: "Update a rule in a draft revision",
   description:
-    "**Deprecated.** Use [PUT /v2/features/:id/revisions/:version/rules/:ruleId](#operation/putFeatureRevisionRuleV2) instead, which locates rules by `ruleId` in the flat array without an `environment` parameter.\n\nPatches fields on an existing rule. The rule `type` cannot be changed — to convert types, delete and re-add. Fields that don't apply to the current rule type are rejected.",
+    "**Deprecated.** Use [PUT /v2/features/:id/revisions/:version/rules/:ruleId](#operation/putFeatureRevisionRuleV2) instead, which locates rules by `ruleId` in the flat array without an `environment` parameter.\n\nPatches fields on an existing rule. The rule `type` cannot be changed — to convert types, delete and re-add. The patch body is a union of per-type shapes, so fields that don't belong to the rule's type are rejected.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
@@ -554,9 +630,9 @@ export const deleteFeatureRevisionRuleValidator = {
   paramsSchema: ruleParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       environment: z.string(),
       ...newDraftMetadataFields,
-      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -576,7 +652,7 @@ export const putFeatureRevisionRuleRampScheduleValidator = {
   paramsSchema: ruleParams,
   bodySchema: standaloneRampScheduleInput.extend({
     ...newDraftMetadataFields,
-    ignoreWarnings: ignoreWarningsBodyField,
+    ...publishOverrideBodyFields,
   }),
   querySchema: z.never(),
   responseSchema: revisionResponse,
@@ -595,9 +671,9 @@ export const deleteFeatureRevisionRuleRampScheduleValidator = {
   paramsSchema: ruleParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       environment: z.string().optional().meta({ deprecated: true }),
       ...newDraftMetadataFields,
-      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -619,10 +695,10 @@ export const postFeatureRevisionToggleValidator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       environment: z.string(),
       enabled: z.boolean(),
       ...newDraftMetadataFields,
-      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -664,9 +740,9 @@ export const putFeatureRevisionPrerequisitesValidator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       prerequisites: z.array(featurePrerequisite),
       ...newDraftMetadataFields,
-      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -686,6 +762,7 @@ export const putFeatureRevisionMetadataValidator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       comment: z.string().optional(),
       title: z.string().optional(),
       description: z.string().optional(),
@@ -695,7 +772,6 @@ export const putFeatureRevisionMetadataValidator = {
       neverStale: z.boolean().optional(),
       customFields: z.record(z.string(), z.unknown()).optional(),
       jsonSchema: JSONSchemaDef.optional(),
-      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -715,9 +791,9 @@ export const putFeatureRevisionArchiveValidator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       archived: z.boolean(),
       ...newDraftMetadataFields,
-      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -737,12 +813,12 @@ export const putFeatureRevisionHoldoutValidator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       holdout: z
         .object({ id: z.string(), value: z.string() })
         .strict()
         .nullable(),
       ...newDraftMetadataFields,
-      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -783,4 +859,3 @@ export const listRevisionsValidator = {
 // ---- Exported types for use in back-end handlers ----
 
 export type RuleCreateInput = z.infer<typeof ruleCreateInput>;
-export type RulePatchInput = z.infer<typeof rulePatchSchema>;

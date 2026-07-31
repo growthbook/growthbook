@@ -12,7 +12,10 @@ import {
   resetReviewOnChange,
   checkIfRevisionNeedsReview,
 } from "shared/util";
-import { isVariationWeightsSumValid } from "shared/experiments";
+import {
+  getLatestPhaseVariations,
+  isVariationWeightsSumValid,
+} from "shared/experiments";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
 import { Variation } from "shared/types/experiment";
@@ -37,9 +40,14 @@ import {
   discardRevision,
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { removePendingFeatureDraftFromExperiment } from "back-end/src/models/ExperimentModel";
+import {
+  getExperimentById,
+  getExperimentsByIds,
+  removePendingFeatureDraftFromExperiment,
+} from "back-end/src/models/ExperimentModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
   assertCanAutoPublish,
   getDraftRevision,
@@ -85,6 +93,103 @@ function assertLinkedFeatureRevisionOptions(
       `Feature ${featureId}: revisionOptions must set at least one of targetVersion, autoPublish, or forceNewDraft`,
     );
   }
+}
+
+// Arms must be covered exactly: an uncovered one serves `null`, and a stopped
+// experiment missing its released variation drops the rule from the payload.
+// Checked as a set — the payload matches arms by id, so order is free.
+export function assertVariationsCoverArms({
+  variations,
+  armIds,
+  entityLabel,
+}: {
+  variations: Pick<ExperimentRefVariation, "variationId">[];
+  armIds: string[];
+  entityLabel: string;
+}): void {
+  if (variations.length !== armIds.length) {
+    throw new BadRequestError(
+      `Expected ${armIds.length} variation(s) for ${entityLabel} but ${variations.length} were specified. Provide exactly one value per variation.`,
+    );
+  }
+
+  const valid = new Set(armIds);
+  const seen = new Set<string>();
+  for (const { variationId } of variations) {
+    if (!valid.has(variationId)) {
+      throw new BadRequestError(
+        `variationId "${variationId}" is not a variation of ${entityLabel}. Valid ids: ${armIds.join(", ")}`,
+      );
+    }
+    if (seen.has(variationId)) {
+      throw new BadRequestError(
+        `variationId "${variationId}" is specified more than once`,
+      );
+    }
+    seen.add(variationId);
+  }
+}
+
+export function assertExperimentRefVariationsMatchExperiment({
+  variations,
+  experiment,
+}: {
+  variations: Pick<ExperimentRefVariation, "variationId">[];
+  experiment: Pick<ExperimentInterface, "id" | "variations" | "phases">;
+}): void {
+  // A future non-active variation `status` would need filtering here.
+  assertVariationsCoverArms({
+    variations,
+    armIds: getLatestPhaseVariations(experiment).map((v) => v.id),
+    entityLabel: `experiment "${experiment.id}"`,
+  });
+}
+
+// One query per distinct experiment, for callers writing a whole rule array.
+export async function assertExperimentRefRulesMatchExperiments(
+  context: ReqContext | ApiReqContext,
+  rules: FeatureRule[],
+): Promise<void> {
+  const refRules = rules.filter(
+    (r): r is ExperimentRefRule => r?.type === "experiment-ref",
+  );
+  if (!refRules.length) return;
+
+  const ids = [...new Set(refRules.map((r) => r.experimentId))];
+  const experiments = await getExperimentsByIds(context, ids);
+  const byId = new Map(experiments.map((e) => [e.id, e]));
+
+  for (const rule of refRules) {
+    const experiment = byId.get(rule.experimentId);
+    if (!experiment) {
+      throw new NotFoundError(
+        `Could not find experiment "${rule.experimentId}"`,
+      );
+    }
+    assertExperimentRefVariationsMatchExperiment({
+      variations: rule.variations,
+      experiment,
+    });
+  }
+}
+
+// Returns the experiment for callers that need it afterward (holdout linking).
+export async function resolveExperimentForRefRule(
+  context: ReqContext | ApiReqContext,
+  rule: {
+    experimentId: string;
+    variations: Pick<ExperimentRefVariation, "variationId">[];
+  },
+): Promise<ExperimentInterface> {
+  const experiment = await getExperimentById(context, rule.experimentId);
+  if (!experiment) {
+    throw new NotFoundError(`Could not find experiment "${rule.experimentId}"`);
+  }
+  assertExperimentRefVariationsMatchExperiment({
+    variations: rule.variations,
+    experiment,
+  });
+  return experiment;
 }
 
 export function validateExperimentFeatureVariations({

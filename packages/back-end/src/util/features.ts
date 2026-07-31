@@ -31,7 +31,7 @@ import {
 import { getLatestPhaseVariations } from "shared/experiments";
 import { resolveScheduleStopAfter } from "shared/dates";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
-import { cloneDeep, isNil, pick } from "lodash";
+import { cloneDeep, isNil, omit, pick } from "lodash";
 import md5 from "md5";
 import {
   ExperimentMetadata,
@@ -44,6 +44,7 @@ import {
   HoldoutInterface,
   ContextualBanditInterface,
   VariationWeightPair,
+  REF_RULE_TARGETING_FIELDS,
 } from "shared/validators";
 import {
   expandNestedSavedGroups,
@@ -68,6 +69,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
+import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { getApplicableEnvIds } from "./flattenRules";
 import { getCurrentEnabledState } from "./scheduleRules";
@@ -340,6 +342,91 @@ export function getParsedCondition(
   return {
     $and: conditions,
   };
+}
+
+// A ref rule's targeting lives on the entity it points at, not on the rule.
+const REF_RULE_TARGETING_ERRORS: Record<string, string> = {
+  "experiment-ref":
+    "an experiment-ref rule. Targeting for an experiment rule comes from the " +
+    "linked experiment's current phase — set it on the experiment instead.",
+  "contextual-bandit-ref":
+    "a contextual-bandit-ref rule. Targeting for a contextual bandit rule " +
+    "comes from the linked bandit — set it on the bandit instead.",
+};
+
+export function isRefRuleType(type: string): boolean {
+  return type in REF_RULE_TARGETING_ERRORS;
+}
+
+// Both spellings: `savedGroupTargeting` on the bulk endpoints, `savedGroups`
+// on the rule ones.
+const LOG_TARGETING_KEYS = [
+  ...REF_RULE_TARGETING_FIELDS,
+  "savedGroupTargeting",
+];
+
+// Empty counts as absent: internal callers pass whole rules that may carry an
+// empty `condition`.
+export function assertNoRefRuleTargeting(rule: {
+  type?: string;
+  condition?: string | null;
+  savedGroups?: unknown[] | null;
+  savedGroupTargeting?: unknown[] | null;
+  prerequisites?: unknown[] | null;
+}): void {
+  const suffix = rule.type ? REF_RULE_TARGETING_ERRORS[rule.type] : undefined;
+  if (!suffix) return;
+
+  const offending = LOG_TARGETING_KEYS.filter((key) => {
+    const value = (rule as Record<string, unknown>)[key];
+    if (key === "condition") return !!value && value !== "{}";
+    return Array.isArray(value) && value.length > 0;
+  });
+
+  if (!offending.length) return;
+
+  throw new BadRequestError(
+    `${offending.join(", ")} cannot be set on ${suffix}`,
+  );
+}
+
+// Strips ref-rule targeting a log payload may hold, so the diff view doesn't
+// show a change nobody made. The payload is one rule, or `{ rules: [...] }`.
+export function stripExperimentRefTargetingFromLogValue(value: string): string {
+  // Most entries can't hold a rule at all, and a payload can run to hundreds
+  // of KB, so rule out the parse first.
+  if (!value.includes('"experiment-ref"')) return value;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return value;
+  }
+  if (parsed === null || typeof parsed !== "object") return value;
+
+  let changed = false;
+  const stripRule = (rule: unknown): unknown => {
+    if (rule === null || typeof rule !== "object") return rule;
+    const r = rule as Record<string, unknown>;
+    if (r.type !== "experiment-ref") return r;
+    if (LOG_TARGETING_KEYS.every((k) => r[k] === undefined)) return r;
+    changed = true;
+    return omit(r, LOG_TARGETING_KEYS);
+  };
+
+  let stripped: unknown;
+  if (Array.isArray(parsed)) {
+    stripped = parsed.map(stripRule);
+  } else {
+    const obj = parsed as Record<string, unknown>;
+    stripped = {
+      ...(stripRule(obj) as Record<string, unknown>),
+      ...(Array.isArray(obj.rules) ? { rules: obj.rules.map(stripRule) } : {}),
+    };
+  }
+
+  return changed ? JSON.stringify(stripped) : value;
 }
 
 export function isRuleEnabled(

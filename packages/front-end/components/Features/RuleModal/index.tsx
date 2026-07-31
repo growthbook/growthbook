@@ -1177,8 +1177,6 @@ export default function RuleModal({
           environments: values.environments,
           allProjects: values.allProjects ?? true,
           projects: values.projects,
-          condition: "",
-          savedGroups: [],
           enabled: values.enabled ?? true,
           variations: values.values.map((v, i) => ({
             value: v.value,

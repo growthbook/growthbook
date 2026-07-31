@@ -8,6 +8,7 @@ import { isEqual, omit } from "lodash";
 import { updateFeatureValidator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { assertExperimentRefRulesMatchExperiments } from "back-end/src/services/experiment-feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerToUserId,
@@ -322,6 +323,10 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           })
         : [];
     await assertValidRuleProjectIds(inboundFlatRules, req.context);
+    await assertExperimentRefRulesMatchExperiments(
+      req.context,
+      inboundFlatRules,
+    );
     // Envs whose rule lists the caller is replacing. Envs present in the
     // payload with only `enabled` (no `rules` key) keep their current rules.
     const rulesTouchedEnvs = new Set(Object.keys(inboundRulesByEnv));

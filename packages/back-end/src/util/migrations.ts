@@ -1,4 +1,6 @@
+import { REF_RULE_TARGETING_FIELDS } from "shared/validators";
 import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -354,6 +356,16 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
   // feature. Pass nullish through; downstream callers filter via
   // `isPlausibleFeatureRule` before relying on the rule shape.
   if (rule == null || typeof rule !== "object") return rule;
+
+  // Unread at delivery, but stored targeting still counts toward saved-group
+  // usage, stale detection, and the flag list's badges.
+  if (
+    rule.type === "experiment-ref" &&
+    REF_RULE_TARGETING_FIELDS.some((key) => key in rule)
+  ) {
+    return omit(rule, REF_RULE_TARGETING_FIELDS) as FeatureRule;
+  }
+
   // Old style experiment rule without coverage
   if (rule.type === "experiment" && !("coverage" in rule)) {
     const weights = rule.values

@@ -297,7 +297,14 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
     expect(exp?.savedGroups).toEqual([]);
     expect(exp?.scheduleRules).toEqual([]);
     expect(exp?.values).toEqual([]);
-    expect(expRef?.savedGroups).toEqual([]);
+    // Exception to the parity above: a ref rule emits no targeting at all — it
+    // comes from the linked experiment's phase — so neither the internal
+    // `savedGroups` nor the canonical `savedGroupTargeting` / `prerequisites`
+    // survive, even when the stored doc seeded them. Everything else still does.
+    expect(expRef?.condition).toBeUndefined();
+    expect(expRef?.savedGroups).toBeUndefined();
+    expect(expRef?.savedGroupTargeting).toBeUndefined();
+    expect(expRef?.prerequisites).toBeUndefined();
     expect(expRef?.scheduleRules).toEqual([]);
     expect(expRef?.variations).toEqual([]);
   });

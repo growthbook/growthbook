@@ -1486,6 +1486,69 @@ describe("v0 Feature Migration", () => {
     });
   });
 
+  describe("experiment-ref targeting", () => {
+    const baseRule = {
+      type: "experiment-ref" as const,
+      id: "fr_exp",
+      description: "",
+      allEnvironments: true,
+      enabled: true,
+      experimentId: "exp_1",
+      variations: [{ variationId: "v0", value: "false" }],
+    };
+
+    it("strips rule-level targeting, which the experiment's phase owns", () => {
+      const legacy = {
+        ...baseRule,
+        condition: '{"country": "US"}',
+        savedGroups: [{ match: "all" as const, ids: ["grp_1"] }],
+        prerequisites: [{ id: "parent", condition: '{"value": true}' }],
+        scheduleRules: [
+          { timestamp: "2026-01-01T00:00:00.000Z", enabled: true },
+          { timestamp: null, enabled: false },
+        ],
+      };
+
+      // scheduleRules stay: they really do gate whether the rule is served.
+      expect(upgradeFeatureRule(cloneDeep(legacy))).toEqual({
+        ...baseRule,
+        scheduleRules: legacy.scheduleRules,
+      });
+    });
+
+    it("strips empty targeting too, so round-tripped rules converge", () => {
+      expect(
+        upgradeFeatureRule(
+          cloneDeep({
+            ...baseRule,
+            condition: "",
+            savedGroups: [],
+            prerequisites: [],
+          }),
+        ),
+      ).toEqual(baseRule);
+    });
+
+    it("leaves a rule without targeting untouched", () => {
+      expect(upgradeFeatureRule(cloneDeep(baseRule))).toEqual(baseRule);
+    });
+
+    it("leaves other rule types' targeting alone", () => {
+      const forceRule = {
+        type: "force" as const,
+        id: "fr_force",
+        description: "",
+        allEnvironments: true,
+        enabled: true,
+        value: "true",
+        condition: '{"country": "US"}',
+        savedGroups: [{ match: "all" as const, ids: ["grp_1"] }],
+        prerequisites: [{ id: "parent", condition: '{"value": true}' }],
+      };
+      expect(upgradeFeatureRule(cloneDeep(forceRule))).toEqual(forceRule);
+    });
+  });
+
   it("upgrades all rules", () => {
     const origRule: ExperimentRule = {
       type: "experiment",

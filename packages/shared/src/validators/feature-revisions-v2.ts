@@ -6,10 +6,8 @@ import {
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
   booleanQueryField,
-  schemaValidationQueryFields,
   publishOverrideBodyFields,
   bypassApprovalPublishBodyField,
-  ignoreWarningsBodyField,
   publishBypassedGatesField,
 } from "./shared";
 import {
@@ -137,6 +135,10 @@ const scheduleShorthand = z
 const commonRuleFields = {
   description: z.string().optional(),
   enabled: z.boolean().optional(),
+};
+
+// Rule-level targeting. Absent from the experiment-ref shapes below.
+const targetingRuleFields = {
   condition: z.string().optional(),
   savedGroups: z.array(savedGroupTargeting).optional(),
   prerequisites: z.array(featurePrerequisite).optional(),
@@ -163,6 +165,7 @@ const targetingRuleCreateInputV2 = namedSchema(
   z
     .object({
       ...commonRuleFields,
+      ...targetingRuleFields,
       ...ruleScopeInput,
       type: z
         .enum(["force", "rollout"])
@@ -225,7 +228,11 @@ const experimentRefCreateInputV2 = namedSchema(
       variations: z.array(
         z
           .object({
-            variationId: z.string().optional(),
+            variationId: z
+              .string()
+              .describe(
+                "ID of the experiment variation this value applies to. Required: it must be one of the variations on the experiment's current phase, and every variation needs exactly one entry.",
+              ),
             value: z.string(),
             config: z
               .string()
@@ -255,6 +262,7 @@ const safeRolloutCreateInputV2 = namedSchema(
   z
     .object({
       ...commonRuleFields,
+      ...targetingRuleFields,
       ...ruleScopeInput,
       type: z
         .literal("safe-rollout")
@@ -303,56 +311,110 @@ const ruleCreateInputV2 = z.union([
 
 export type RuleCreateInputV2 = z.infer<typeof ruleCreateInputV2>;
 
-const rulePatchSchemaV2 = z
-  .object({
-    description: z.string().optional(),
-    enabled: z.boolean().optional(),
-    condition: z.string().optional(),
-    savedGroups: z.array(savedGroupTargeting).optional(),
-    prerequisites: z.array(featurePrerequisite).optional(),
-    type: z
-      .enum(["force", "rollout", "experiment-ref", "safe-rollout"])
-      .optional(),
-    value: z.string().optional(),
-    config: z
-      .string()
-      .nullable()
-      .optional()
-      .describe(
-        "Force/rollout rules only. Key of a config to back the value (or null to detach). When set, `value` is a JSON override patch merged on top of the config. Omit to leave the existing config backing unchanged.",
-      ),
-    sparse: z.boolean().optional(),
-    coverage: z.number().min(0).max(1).optional(),
-    hashAttribute: z.string().optional(),
-    seed: z.string().optional(),
-    hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
-    experimentId: z.string().optional(),
-    variations: z
-      .array(
-        z
-          .object({
-            variationId: z.string(),
-            value: z.string(),
-            config: z
-              .string()
-              .nullable()
-              .optional()
-              .describe(
-                "Key of a config to back this variation value (or null to detach). When set, `value` is a JSON override patch merged on top of the config.",
-              ),
-          })
-          .strict(),
-      )
-      .optional(),
-    controlValue: z.string().optional(),
-    variationValue: z.string().optional(),
-    // V2: scope can be updated via patch
-    allEnvironments: z.boolean().optional(),
-    environments: z.array(z.string()).optional(),
-  })
-  .strict();
+// One patch shape per rule type, so the docs say which fields belong where.
+// `type` stays optional, so a typeless patch resolves by the fields it carries;
+// the handler keys off the STORED rule type either way.
+const commonPatchFields = {
+  description: z.string().optional(),
+  enabled: z.boolean().optional(),
+  // V2: scope can be updated via patch
+  allEnvironments: z.boolean().optional(),
+  environments: z.array(z.string()).optional(),
+};
 
-export type RulePatchInputV2 = z.infer<typeof rulePatchSchemaV2>;
+const forceRolloutPatchFields = {
+  value: z.string().optional(),
+  config: z
+    .string()
+    .nullable()
+    .optional()
+    .describe(
+      "Key of a config to back the value (or null to detach). When set, `value` is a JSON override patch merged on top of the config. Omit to leave the existing config backing unchanged.",
+    ),
+  sparse: z.boolean().optional(),
+  coverage: z.number().min(0).max(1).optional(),
+  hashAttribute: z.string().optional(),
+  seed: z.string().optional(),
+  hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
+};
+
+const experimentRefPatchFields = {
+  experimentId: z.string().optional(),
+  variations: z
+    .array(
+      z
+        .object({
+          variationId: z.string(),
+          value: z.string(),
+          config: z
+            .string()
+            .nullable()
+            .optional()
+            .describe(
+              "Key of a config to back this variation value (or null to detach). When set, `value` is a JSON override patch merged on top of the config.",
+            ),
+        })
+        .strict(),
+    )
+    .optional(),
+  sparse: z.boolean().optional(),
+};
+
+const safeRolloutPatchFields = {
+  controlValue: z.string().optional(),
+  variationValue: z.string().optional(),
+  hashAttribute: z.string().optional(),
+  seed: z.string().optional(),
+};
+
+const rulePatchSchemaV2 = z.union([
+  namedSchema(
+    "Targeting Rule Patch",
+    z
+      .object({
+        ...commonPatchFields,
+        ...targetingRuleFields,
+        type: z.enum(["force", "rollout"]).optional(),
+        ...forceRolloutPatchFields,
+      })
+      .strict(),
+  ),
+  namedSchema(
+    "Experiment Rule Patch",
+    z
+      .object({
+        ...commonPatchFields,
+        type: z.literal("experiment-ref").optional(),
+        ...experimentRefPatchFields,
+      })
+      .strict(),
+  ),
+  namedSchema(
+    "Safe Rollout Rule Patch",
+    z
+      .object({
+        ...commonPatchFields,
+        ...targetingRuleFields,
+        type: z.literal("safe-rollout").optional(),
+        ...safeRolloutPatchFields,
+      })
+      .strict(),
+  ),
+]);
+
+// Flat view for `applyPatch`: every union member above is a subset of this.
+export const rulePatchFieldsV2 = z.object({
+  ...commonPatchFields,
+  ...targetingRuleFields,
+  type: z
+    .enum(["force", "rollout", "experiment-ref", "safe-rollout"])
+    .optional(),
+  ...forceRolloutPatchFields,
+  ...experimentRefPatchFields,
+  ...safeRolloutPatchFields,
+});
+
+export type RulePatchFieldsV2 = z.infer<typeof rulePatchFieldsV2>;
 
 // ---- Endpoint validators ----
 
@@ -408,9 +470,9 @@ export const postFeatureRevisionV2Validator = {
   paramsSchema: idParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       comment: z.string().optional(),
       title: z.string().optional(),
-      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z
@@ -431,7 +493,11 @@ export const postFeatureRevisionDiscardV2Validator = {
   summary: "Discard a draft revision",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z
+    .object({
+      ...publishOverrideBodyFields,
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
   version: "v2" as const,
@@ -446,7 +512,11 @@ export const postFeatureRevisionReopenV2Validator = {
     "Returns a `discarded` revision to `draft` status so it can be edited, reviewed, and published. Prior review state is not restored — the draft must go back through review if approvals are required.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z
+    .object({
+      ...publishOverrideBodyFields,
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
   version: "v2" as const,
@@ -468,7 +538,7 @@ export const postFeatureRevisionPublishV2Validator = {
       ...publishOverrideBodyFields,
     })
     .strict(),
-  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
+  querySchema: z.never(),
   responseSchema: revisionResponse.extend({
     bypassedGates: publishBypassedGatesField,
   }),
@@ -484,6 +554,7 @@ export const postFeatureRevisionRevertV2Validator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       strategy: z.enum(["draft", "publish"]).optional(),
       comment: z.string().optional(),
       title: z.string().optional(),
@@ -502,6 +573,7 @@ const conflictResolutionsDescription =
 
 const rebaseBodySchema = z
   .object({
+    ...publishOverrideBodyFields,
     conflictResolutions: z
       .record(z.string(), z.enum(["overwrite", "discard"]))
       .optional()
@@ -519,7 +591,6 @@ const rebaseBodySchema = z
       .describe(
         "Optimistic-concurrency guard for the draft side: the draft's `draftDateUpdated` timestamp as returned by merge-status or rebase preview. If the draft has been modified since (e.g. by a co-author), the request fails with `409` instead of applying resolutions against changed draft content.",
       ),
-    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
 
@@ -696,6 +767,7 @@ export const postFeatureRevisionRequestReviewV2Validator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       comment: z.string().optional(),
       autoPublishOnApproval: z.boolean().optional(),
       scheduledPublishAt: z
@@ -721,6 +793,7 @@ export const postFeatureRevisionSchedulePublishV2Validator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       scheduledPublishAt: z.union([
         z.string().meta({ format: "date-time" }),
         z.null(),
@@ -746,6 +819,7 @@ export const postFeatureRevisionSubmitReviewV2Validator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       comment: z.string().optional(),
       action: z.enum(["approve", "request-changes", "comment"]).optional(),
       skipAutoPublish: z.boolean().optional(),
@@ -767,7 +841,11 @@ export const postFeatureRevisionRecallReviewV2Validator = {
     "Retracts the review request, returning the revision from `pending-review`, `changes-requested`, or `approved` back to `draft`. Allowed for any user with draft-management permission on the feature (the same permission required to request review), not only the original requester. Existing review log entries are preserved as audit history but any in-flight reviewer verdicts (Approved / Requested Changes) submitted during this review cycle no longer count — submitting a fresh `request-review` starts a new cycle.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z
+    .object({
+      ...publishOverrideBodyFields,
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
   version: "v2" as const,
@@ -782,7 +860,11 @@ export const postFeatureRevisionUndoReviewV2Validator = {
     "Reviewer retracts their own verdict. The revision status rewinds to the state implied by the remaining active verdicts from other reviewers: any outstanding `Requested Changes` → `changes-requested`, else any outstanding `Approved` → `approved`, else `pending-review`. Existing review comments are preserved. If the retraction resolves the revision to `approved` and auto-publish-on-approval is armed, the revision is published.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z
+    .object({
+      ...publishOverrideBodyFields,
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
   version: "v2" as const,
@@ -849,6 +931,7 @@ export const putFeatureRevisionLogCommentV2Validator = {
   paramsSchema: revisionLogParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       comment: z
         .string()
         .describe("New comment text. Replaces existing comment text."),
@@ -868,7 +951,11 @@ export const deleteFeatureRevisionLogEntryV2Validator = {
     "Author of a `Comment` log entry can delete it. Verdict entries (Approved, Requested Changes, Review Requested) and other audit-trail events are immutable. To retract a verdict use `/undo-review`; to retract a review request use `/recall-review`.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionLogParams,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z
+    .object({
+      ...publishOverrideBodyFields,
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: okResponse,
   version: "v2" as const,
@@ -883,10 +970,10 @@ export const postFeatureRevisionToggleV2Validator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       environment: z.string(),
       enabled: z.boolean(),
       ...newDraftMetadataFields,
-      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -919,7 +1006,7 @@ export const putFeatureRevisionDefaultValueV2Validator = {
       ...publishOverrideBodyFields,
     })
     .strict(),
-  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
+  querySchema: z.never(),
   responseSchema: revisionResponse,
   version: "v2" as const,
 };
@@ -935,6 +1022,7 @@ export const putFeatureRevisionPrerequisitesV2Validator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       prerequisites: z
         .array(
           z
@@ -945,7 +1033,6 @@ export const putFeatureRevisionPrerequisitesV2Validator = {
           "List of prerequisite boolean flags. When any prerequisite flag is off for a user, this flag returns its defaultValue for that user.",
         ),
       ...newDraftMetadataFields,
-      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -962,6 +1049,7 @@ export const putFeatureRevisionMetadataV2Validator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       comment: z.string().optional(),
       title: z.string().optional(),
       description: z.string().optional(),
@@ -971,7 +1059,6 @@ export const putFeatureRevisionMetadataV2Validator = {
       neverStale: z.boolean().optional(),
       customFields: z.record(z.string(), z.unknown()).optional(),
       jsonSchema: JSONSchemaDef.optional(),
-      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -988,9 +1075,9 @@ export const putFeatureRevisionArchiveV2Validator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       archived: z.boolean(),
       ...newDraftMetadataFields,
-      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -1007,12 +1094,12 @@ export const putFeatureRevisionHoldoutV2Validator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       holdout: z
         .object({ id: z.string(), value: z.string() })
         .strict()
         .nullable(),
       ...newDraftMetadataFields,
-      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -1050,7 +1137,7 @@ export const postFeatureRevisionRuleAddV2Validator = {
       ...publishOverrideBodyFields,
     })
     .strict(),
-  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
+  querySchema: z.never(),
   responseSchema: revisionResponse,
   version: "v2" as const,
 };
@@ -1066,9 +1153,9 @@ export const postFeatureRevisionRulesReorderV2Validator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       ruleIds: z.array(z.string()),
       ...newDraftMetadataFields,
-      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -1082,7 +1169,7 @@ export const putFeatureRevisionRuleV2Validator = {
   operationId: "putFeatureRevisionRuleV2",
   summary: "Update a rule in a draft revision",
   description:
-    'Patches fields on an existing rule (identified by `ruleId`). The rule `type` cannot be changed. Scope can be updated via `allEnvironments` / `environments` patch fields.\n\n**Scheduling:** For `force` and `rollout` rules, update the schedule via `rampSchedule` (multi-step ramp) or `schedule` (simple start/end window) — these manage standalone ramp actions and set `pendingRamp: "create"` on the rule. For `experiment-ref` and `safe-rollout` rules, only `schedule` is supported and updates legacy schedule fields on the rule itself (`rampSchedule` is not available for these rule types).',
+    'Patches fields on an existing rule (identified by `ruleId`). The rule `type` cannot be changed, and the patch body is a union of per-type shapes — send only the fields that belong to the rule\'s type. Scope can be updated via `allEnvironments` / `environments` patch fields.\n\n**Scheduling:** For `force` and `rollout` rules, update the schedule via `rampSchedule` (multi-step ramp) or `schedule` (simple start/end window) — these manage standalone ramp actions and set `pendingRamp: "create"` on the rule. For `experiment-ref` and `safe-rollout` rules, only `schedule` is supported and updates legacy schedule fields on the rule itself (`rampSchedule` is not available for these rule types).',
   tags: ["feature-revisions-v2"],
   paramsSchema: ruleParams,
   bodySchema: z
@@ -1102,7 +1189,7 @@ export const putFeatureRevisionRuleV2Validator = {
       ...publishOverrideBodyFields,
     })
     .strict(),
-  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
+  querySchema: z.never(),
   responseSchema: revisionResponse,
   version: "v2" as const,
 };
@@ -1118,8 +1205,8 @@ export const deleteFeatureRevisionRuleV2Validator = {
   paramsSchema: ruleParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       ...newDraftMetadataFields,
-      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -1138,7 +1225,7 @@ export const putFeatureRevisionRuleRampScheduleV2Validator = {
   paramsSchema: ruleParams,
   bodySchema: rampScheduleInputV2.extend({
     ...newDraftMetadataFields,
-    ignoreWarnings: ignoreWarningsBodyField,
+    ...publishOverrideBodyFields,
   }),
   querySchema: z.never(),
   responseSchema: revisionResponseWithWarnings,
@@ -1156,8 +1243,8 @@ export const deleteFeatureRevisionRuleRampScheduleV2Validator = {
   paramsSchema: ruleParams,
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       ...newDraftMetadataFields,
-      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),

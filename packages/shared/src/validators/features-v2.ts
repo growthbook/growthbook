@@ -5,7 +5,6 @@ import {
   booleanQueryField,
   paginationQueryFields,
   publishOverrideBodyFields,
-  schemaValidationQueryFields,
   skipPaginationQueryField,
 } from "./shared";
 import {
@@ -15,6 +14,7 @@ import {
 import {
   apiEventUserValidator,
   apiFeatureBaseRuleValidator,
+  REF_RULE_OMITTED_TARGETING,
   apiFeatureForceRuleValidator,
   apiFeatureRolloutRuleValidator,
   apiFeatureExperimentRuleValidator,
@@ -25,7 +25,7 @@ import {
   revisionStatusFilterSchema,
   apiRevisionRampAction,
 } from "./features";
-import { namedSchema } from "./openapi-helpers";
+import { componentSchema, namedSchema } from "./openapi-helpers";
 
 // ---- V2 scope extension ----
 
@@ -120,7 +120,8 @@ const apiFeatureRolloutRuleV2 = z.intersection(
 // `config`; intersecting the v1 experiment-ref shape would leave the v1
 // variation array (without config) in place.
 const apiFeatureExperimentRefRuleV2 = z.intersection(
-  apiFeatureBaseRuleValidator,
+  // No rule-level targeting: a ref rule takes it from the entity it points at.
+  apiFeatureBaseRuleValidator.omit(REF_RULE_OMITTED_TARGETING),
   z.object({
     type: z.literal("experiment-ref"),
     variations: z.array(
@@ -143,7 +144,8 @@ const apiFeatureExperimentRefRuleV2 = z.intersection(
 // Rebuilt (like experiment-ref above) so each variation can carry its own
 // `config`.
 const apiFeatureContextualBanditRefRuleV2 = z.intersection(
-  apiFeatureBaseRuleValidator,
+  // No rule-level targeting: a ref rule takes it from the entity it points at.
+  apiFeatureBaseRuleValidator.omit(REF_RULE_OMITTED_TARGETING),
   z.object({
     type: z.literal("contextual-bandit-ref"),
     variations: z.array(
@@ -540,9 +542,6 @@ const v2RuleExperimentRefBase = z.object({
   id: z.string().optional(),
   enabled: z.boolean().optional(),
   type: z.literal("experiment-ref"),
-  condition: z.string().optional(),
-  savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
-  prerequisites: z.array(postFeaturePrerequisite).optional(),
   scheduleRules: z.array(apiScheduleRule).optional(),
   variations: z.array(
     z.object({
@@ -586,10 +585,16 @@ const v2RuleSafeRolloutBase = z.object({
 });
 
 export const postFeatureRuleV2 = z.union([
-  v2RuleForceBase.merge(v2RuleScopeInput),
-  v2RuleRolloutBase.merge(v2RuleScopeInput),
-  v2RuleExperimentRefBase.merge(v2RuleScopeInput),
-  v2RuleSafeRolloutBase.merge(v2RuleScopeInput),
+  componentSchema("Force Rule V2", v2RuleForceBase.merge(v2RuleScopeInput)),
+  componentSchema("Rollout Rule V2", v2RuleRolloutBase.merge(v2RuleScopeInput)),
+  componentSchema(
+    "Experiment Rule V2",
+    v2RuleExperimentRefBase.merge(v2RuleScopeInput),
+  ),
+  componentSchema(
+    "Safe Rollout Rule V2",
+    v2RuleSafeRolloutBase.merge(v2RuleScopeInput),
+  ),
 ]);
 
 const postFeatureEnvironmentV2 = z.object({
@@ -599,6 +604,7 @@ const postFeatureEnvironmentV2 = z.object({
 // ---- V2 PostFeaturePayload ----
 export const postFeatureBodyV2 = z
   .object({
+    ...publishOverrideBodyFields,
     id: z
       .string()
       .min(1)
@@ -666,6 +672,7 @@ export const postFeatureBodyV2 = z
 // ---- V2 UpdateFeaturePayload ----
 export const updateFeatureBodyV2 = z
   .object({
+    ...publishOverrideBodyFields,
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
@@ -773,7 +780,7 @@ export const listFeaturesV2Validator = {
 
 export const postFeatureV2Validator = {
   bodySchema: postFeatureBodyV2,
-  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
+  querySchema: z.never(),
   paramsSchema: z.never(),
   responseSchema: featureV2ResponseSchema,
   summary: "Create a single feature",
@@ -830,7 +837,7 @@ export const getFeatureV2Validator = {
 
 export const updateFeatureV2Validator = {
   bodySchema: updateFeatureBodyV2,
-  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
+  querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: featureV2ResponseSchema,
   summary: "Partially update a feature",
@@ -844,7 +851,7 @@ export const updateFeatureV2Validator = {
 };
 
 export const deleteFeatureV2Validator = {
-  bodySchema: z.never(),
+  bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: z
@@ -869,6 +876,7 @@ export const deleteFeatureV2Validator = {
 export const toggleFeatureV2Validator = {
   bodySchema: z
     .object({
+      ...publishOverrideBodyFields,
       reason: z.string().optional(),
       environments: z.record(
         z.string(),

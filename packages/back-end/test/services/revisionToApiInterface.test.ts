@@ -4,6 +4,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import {
   eventUserToApiEventUser,
+  normalizeRuleForApi,
   revisionToApiInterface,
   revisionToApiInterfaceV2,
 } from "back-end/src/services/features";
@@ -264,5 +265,51 @@ describe("revision author serialization", () => {
     const api = revisionToApiInterfaceV2(revWith(null, null));
     expect(api.createdBy).toBeUndefined();
     expect(api.publishedBy).toBeUndefined();
+  });
+});
+
+// Ref rules omit targeting rather than emitting empty placeholders, matching
+// their request schemas so a GET → PUT round-trip stays valid.
+describe("normalizeRuleForApi ref-rule targeting", () => {
+  const refRule = (type: "experiment-ref" | "contextual-bandit-ref") =>
+    ({
+      id: "fr_ref",
+      type,
+      description: "",
+      enabled: true,
+      allEnvironments: true,
+      variations: [{ variationId: "v0", value: "false" }],
+      ...(type === "experiment-ref"
+        ? { experimentId: "exp_1" }
+        : { contextualBanditId: "cb_1" }),
+      // Stored documents can carry these; they must not reach the API.
+      condition: '{"country": "US"}',
+      savedGroups: [{ match: "all", ids: ["grp_1"] }],
+      prerequisites: [{ id: "parent", condition: "{}" }],
+    }) as unknown as FeatureRule;
+
+  it.each(["experiment-ref", "contextual-bandit-ref"] as const)(
+    "omits targeting on a %s rule",
+    (type) => {
+      const api = normalizeRuleForApi(refRule(type)) as Record<string, unknown>;
+      expect(api.type).toBe(type);
+      expect(api).not.toHaveProperty("condition");
+      expect(api).not.toHaveProperty("savedGroupTargeting");
+      expect(api).not.toHaveProperty("prerequisites");
+      // Everything else still round-trips.
+      expect(api.id).toBe("fr_ref");
+      expect(api.enabled).toBe(true);
+    },
+  );
+
+  it("still emits targeting on rule types that own it", () => {
+    const api = normalizeRuleForApi(
+      rule("fr_force", {
+        condition: '{"country": "US"}',
+      }),
+    ) as Record<string, unknown>;
+    expect(api.condition).toBe('{"country": "US"}');
+    expect(api.savedGroupTargeting).toEqual([]);
+    expect(api.prerequisites).toEqual([]);
   });
 });

@@ -1,5 +1,6 @@
 import { useForm } from "react-hook-form";
 import { useMemo } from "react";
+import omit from "lodash/omit";
 import {
   FeatureInterface,
   ContextualBanditRefRule,
@@ -130,10 +131,12 @@ export default function EditContextualBanditFeatureValuesModal({
           );
         }
 
-        const updatedRule: ContextualBanditRefRule = {
-          ...existingRule,
-          variations: updatedVariations,
-        };
+        // Drop any rule-level targeting an older beta rule still carries: the
+        // bandit owns targeting, and the API rejects it on the rule.
+        const updatedRule: ContextualBanditRefRule = omit(
+          { ...existingRule, variations: updatedVariations },
+          ["condition", "savedGroups", "prerequisites"],
+        );
 
         await apiCall<{ status: number; version: number }>(
           `/feature/${feature.id}/${targetVersion}/rule`,

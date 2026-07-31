@@ -19,7 +19,6 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import { FeatureInterface } from "shared/types/feature";
 import { UserInterface } from "shared/types/user";
-import { stringToBoolean } from "shared/util";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   BadRequestError,
@@ -445,18 +444,9 @@ export class ReqContextClass {
   }
 
   // True to skip soft warnings; background jobs (no req) always ignore.
-  // Body-canonical (`{ "ignoreWarnings": true }`) with the querystring form
-  // kept as a deprecated alias — the flag is request disposition, but callers
-  // (agents especially) discover and retry flags far more reliably in the body
-  // schema. Strict zod body schemas mostly limit the flag to endpoints that
-  // declare the field, but not fully: `z.never()` bodies and internal routes
-  // skip body validation, so this getter can still see the raw flag there.
   public get ignoreWarnings(): boolean {
     if (!this.req) return true;
-    if (this.bodyFlag("ignoreWarnings")) return true;
-    const v = this.req.query?.ignoreWarnings;
-    if (typeof v !== "string") return false;
-    return stringToBoolean(v);
+    return this.overrideFlag("ignoreWarnings");
   }
 
   private bodyFlag(field: string): boolean {
@@ -468,25 +458,22 @@ export class ReqContextClass {
     );
   }
 
-  // Opt-in escape hatch to skip JSON-schema / value-shape conformance checks on
-  // write paths (body-canonical `{ "skipSchemaValidation": true }`, with the
-  // querystring form as a deprecated alias). Validation is enforced by
-  // default; this only relaxes it when a caller explicitly asks. Background jobs
-  // (no req) never skip — they must produce conforming data.
-  //
-  // Gated: turning off hard validation is only honored for callers with org-wide
-  // bypass authority (`bypassApprovalChecks` on all projects). A project-scoped
-  // writer can't silently ship non-conforming data — the flag is ignored and
-  // validation still runs (a 4xx, the secure default). Schema validation is new,
-  // so nothing depends on an ungated bypass.
-  public get skipSchemaValidation(): boolean {
-    if (!this.req) return false;
-    const queryValue = this.req.query?.skipSchemaValidation;
-    const requested =
-      this.bodyFlag("skipSchemaValidation") ||
-      (typeof queryValue === "string" && stringToBoolean(queryValue));
-    if (!requested) return false;
+  // The app's `?ignoreWarnings=true` is folded into the body in `app.ts`.
+  private overrideFlag(field: string): boolean {
+    return this.bodyFlag(field);
+  }
+
+  // A project-scoped writer can't skip validation or a rejected hook.
+  private privilegedOverrideFlag(field: string): boolean {
+    if (!this.overrideFlag(field)) return false;
     return this.permissions.canBypassApprovalChecks({ project: undefined });
+  }
+
+  // Opt-in escape hatch to skip JSON-schema / value-shape conformance checks on
+  // write paths. Validation is enforced by default; background jobs (no req)
+  // never skip — they must produce conforming data.
+  public get skipSchemaValidation(): boolean {
+    return this.privilegedOverrideFlag("skipSchemaValidation");
   }
 
   // Force past a custom validation hook that rejected the change. Its own flag
@@ -494,13 +481,7 @@ export class ReqContextClass {
   // only for callers with org-wide bypass authority (the bypassApprovalChecks
   // permission on all projects); ignored otherwise.
   public get skipHooks(): boolean {
-    if (!this.req) return false;
-    const queryValue = this.req.query?.skipHooks;
-    const requested =
-      this.bodyFlag("skipHooks") ||
-      (typeof queryValue === "string" && stringToBoolean(queryValue));
-    if (!requested) return false;
-    return this.permissions.canBypassApprovalChecks({ project: undefined });
+    return this.privilegedOverrideFlag("skipHooks");
   }
 
   public throwBadRequestError(message: string): never {

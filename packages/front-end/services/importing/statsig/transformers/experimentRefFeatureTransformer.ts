@@ -115,7 +115,6 @@ export function transformStatsigExperimentToFeature(
     id: `fr_${gbExperiment.id}`,
     description: "",
     allEnvironments: true,
-    condition: "",
     enabled: true,
     experimentId: gbExperiment.id,
     variations: groups.map((group, index) => {

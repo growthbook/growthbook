@@ -424,7 +424,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     // Dry run BEFORE any write so an unresolvable descendant conflict rejects
     // without committing the root (see assertConfigDescendantsReconcilable for
     // the accepted residual race), then soft-warn when the change removes or
-    // retypes fields descendants still use (?ignoreWarnings=true proceeds).
+    // retypes fields descendants still use (`"ignoreWarnings": true` proceeds).
     if (needsDescendantReconcile) {
       const proposedRoot = {
         ...config,

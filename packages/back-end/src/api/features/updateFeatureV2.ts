@@ -9,6 +9,7 @@ import { isEqual } from "lodash";
 import { updateFeatureV2Validator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { assertExperimentRefRulesMatchExperiments } from "back-end/src/services/experiment-feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError } from "back-end/src/util/errors";
 import {
@@ -255,6 +256,10 @@ export const updateFeatureV2 = createApiRequestHandler(
       mapV2ApiRuleToFeatureRule(rule, feature),
     );
     await assertValidRuleProjectIds(inboundFlatRules, req.context);
+    await assertExperimentRefRulesMatchExperiments(
+      req.context,
+      inboundFlatRules,
+    );
     // Request-supplied config keys must exist, be live, and belong to the
     // default config's family — same gate as the revision rule endpoints.
     await assertValidRuleConfigKeys(

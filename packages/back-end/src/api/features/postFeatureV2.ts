@@ -1,6 +1,7 @@
 import { validateFeatureValue, normalizeTargetingProjects } from "shared/util";
 import { postFeatureV2Validator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import { assertExperimentRefRulesMatchExperiments } from "back-end/src/services/experiment-feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerEmail,
@@ -133,6 +134,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       mapV2ApiRuleToFeatureRule(rule),
     );
     await assertValidRuleProjectIds(feature.rules, req.context);
+    await assertExperimentRefRulesMatchExperiments(req.context, feature.rules);
 
     // Config backing comes through dedicated fields — reject a raw `@config:`
     // in the default value, validate the fields, then compose the stored value
