@@ -639,10 +639,7 @@ export function MetricSection({
                       hasData ? () => setDrilldownRowIndex(i) : undefined
                     }
                   >
-                    <td
-                      className="variation with-variation-label"
-                      style={{ width: 280 }}
-                    >
+                    <td style={{ width: 280 }}>
                       <div
                         className="d-flex align-items-center"
                         style={{ minHeight: ROW_HEIGHT }}

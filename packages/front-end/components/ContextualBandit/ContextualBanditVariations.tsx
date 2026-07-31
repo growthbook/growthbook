@@ -2,6 +2,7 @@ import { ApiContextualBanditInterface } from "shared/validators";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
+import VariationLabel from "@/ui/VariationLabel";
 import Button from "@/ui/Button";
 
 /**
@@ -63,7 +64,7 @@ export default function ContextualBanditVariations({
             key={v.id}
             p="5"
             pb="3"
-            className={`appbox mb-0 position-relative variation variation${i} with-variation-label`}
+            className="appbox mb-0 position-relative variation"
           >
             <Box
               className={`variation variation${i} with-variation-color`}
@@ -77,15 +78,8 @@ export default function ContextualBanditVariations({
             />
             <Flex gap="2" direction="column" justify="between" height="100%">
               <Box>
-                <Box mb="3">
-                  <Flex gap="0" align="center">
-                    <Box>
-                      <span className="circle-label label">{i}</span>
-                    </Box>
-                    <Heading as="h4" size="small" mb="0">
-                      {v.name}
-                    </Heading>
-                  </Flex>
+                <Box mb="3" minWidth="0">
+                  <VariationLabel number={i} name={v.name} size="large" />
                 </Box>
                 {hasDescriptions ? (
                   <Box mb="2">

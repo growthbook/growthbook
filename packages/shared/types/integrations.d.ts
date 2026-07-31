@@ -293,6 +293,9 @@ export type TestQueryParams = {
   testDays?: number;
   timestampColumn?: string;
   limit?: number;
+  // When set, the preview filters out rows where this column is NULL, so the
+  // sample shows meaningful values for the expression being tested.
+  notNullColumn?: string;
 };
 
 export type ColumnTopValuesParams = {

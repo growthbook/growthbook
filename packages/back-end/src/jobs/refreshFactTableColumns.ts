@@ -80,6 +80,9 @@ export function selectColumnsForTopValues({
     (col) =>
       col.datatype === "string" &&
       !col.deleted &&
+      // Virtual columns aren't real columns in the SQL, so a top-values query
+      // keyed on their name would be invalid.
+      !col.isVirtual &&
       canInlineFilterColumn(factTableLike, col.column),
   );
 
@@ -255,10 +258,12 @@ export async function runRefreshColumnsQuery(
 
   const typeMap = new Map<string, FactTableColumnType>();
   const jsonMap = new Map<string, JSONColumnFields>();
+  const warehouseTypeMap = new Map<string, FactTableColumnType>();
 
   result.columns?.forEach((col) => {
     // If the underlying SQL engine returned the datatype, use it
     if (col.dataType !== undefined) {
+      warehouseTypeMap.set(col.name, col.dataType);
       // For JSON, only return if we have the field information, otherwise skip
       // so we can infer from the returned data
       if (
@@ -296,6 +301,13 @@ export async function runRefreshColumnsQuery(
 
   // Update existing column
   columns.forEach((col) => {
+    // Virtual columns are user-defined expressions that never appear in the
+    // fact table's output schema, so they must be preserved by the refresh
+    // rather than marked deleted. Their validity is recomputed below.
+    if (col.isVirtual) {
+      return;
+    }
+
     const type = typeMap.get(col.column);
     const jsonFields = jsonMap.get(col.column);
 
@@ -308,6 +320,15 @@ export async function runRefreshColumnsQuery(
     else {
       if (col.deleted) {
         col.deleted = false;
+        col.dateUpdated = new Date();
+      }
+
+      const warehouseType = warehouseTypeMap.get(col.column);
+      if (
+        warehouseType !== undefined &&
+        col.dataTypeFromWarehouse !== warehouseType
+      ) {
+        col.dataTypeFromWarehouse = warehouseType;
         col.dateUpdated = new Date();
       }
 
@@ -342,6 +363,7 @@ export async function runRefreshColumnsQuery(
       columns.push({
         column,
         datatype,
+        dataTypeFromWarehouse: warehouseTypeMap.get(column),
         jsonFields: jsonMap.get(column),
         dateCreated: new Date(),
         dateUpdated: new Date(),

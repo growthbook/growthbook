@@ -145,7 +145,7 @@
   },
   "packages/front-end/components/DecisionCriteria/DecisionCriteriaSelectorModal.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/DecisionCriteria/DecisionCriteriaTable.tsx": {
@@ -496,9 +496,6 @@
     }
   },
   "packages/front-end/components/Experiment/UrlRedirectModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
     "no-restricted-syntax": {
       "count": 2
     }
