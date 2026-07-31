@@ -63,7 +63,7 @@ const apiRuleScopeExtension = z
 // untouched inside the raw value. Force/rollout carry a single rule-level
 // config; experiment-ref carries one per variation (each variation value can
 // back a different config in the family).
-const apiRuleConfigField = z
+export const apiRuleConfigField = z
   .string()
   .nullable()
   .describe(
