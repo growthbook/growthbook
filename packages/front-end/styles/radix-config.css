@@ -12,7 +12,8 @@
 }
 
 .light-theme :root,
-.light-theme .radix-themes {
+.light-theme .radix-themes,
+.radix-themes.radix-themes.light {
   --color-background: var(--accent-2);
   --color-panel-solid: #ffffff;
   --color-panel-translucent: rgba(255, 255, 255, 0.7);
@@ -28,7 +29,8 @@
 }
 
 .dark-theme :root,
-.dark-theme .radix-themes {
+.dark-theme .radix-themes,
+.radix-themes.radix-themes.dark {
   --color-background: #10172e;
   --color-panel-solid: #1c2339;
   --color-panel-translucent: var(--slate-a2);
@@ -41,24 +43,4 @@
   --color-text-low: rgba(255, 255, 255, 0.65);
   --color-text-disabled: rgba(255, 255, 255, 0.45);
   --color-popup: var(--slate-12);
-}
-
-/* The custom --color-text-* tokens above are keyed off the app-level
-   .light-theme/.dark-theme <html> class. When a nested Radix <Theme> overrides
-   the local appearance (e.g. flipTheme tooltips), Radix adds a .light/.dark
-   class on that element but the <html> class is unchanged, so the text tokens
-   would keep the outer theme's values (dark text on a dark tooltip). Re-map the
-   text tokens to the local Radix appearance class. The doubled .radix-themes
-   raises specificity above the ancestor rules so the local appearance wins. */
-.radix-themes.radix-themes.light {
-  --color-text-high: var(--indigo-12);
-  --color-text-mid: rgba(31, 45, 92, 0.85);
-  --color-text-low: rgba(31, 45, 92, 0.65);
-  --color-text-disabled: rgba(31, 45, 92, 0.45);
-}
-.radix-themes.radix-themes.dark {
-  --color-text-high: #ffffff;
-  --color-text-mid: rgba(255, 255, 255, 0.85);
-  --color-text-low: rgba(255, 255, 255, 0.65);
-  --color-text-disabled: rgba(255, 255, 255, 0.45);
 }
