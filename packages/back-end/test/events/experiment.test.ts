@@ -1126,6 +1126,7 @@ describe("experiments events", () => {
       },
       experiment: experimentSnapshot,
       currentStatus: { status: "ship-now", tooltip: tooltip },
+      source: "analysis",
     });
 
     expect(rawPayload).toEqual(
@@ -1143,6 +1144,7 @@ describe("experiments events", () => {
             experimentId: "exp_dd4gxd4lyel8bwi",
             experimentName: "Add To Cart",
             decisionDescription: tooltip,
+            source: "analysis",
           },
         },
         user: {
@@ -1184,6 +1186,7 @@ describe("experiments events", () => {
       },
       experiment: experimentSnapshot,
       currentStatus: { status: "rollback-now", tooltip: tooltip },
+      source: "analysis",
     });
 
     expect(rawPayload).toEqual(
@@ -1201,6 +1204,7 @@ describe("experiments events", () => {
             experimentId: "exp_dd4gxd4lyel8bwi",
             experimentName: "Add To Cart",
             decisionDescription: tooltip,
+            source: "analysis",
           },
         },
         user: {
@@ -1242,6 +1246,7 @@ describe("experiments events", () => {
       },
       experiment: experimentSnapshot,
       currentStatus: { status: "ready-for-review", tooltip: tooltip },
+      source: "analysis",
     });
 
     expect(rawPayload).toEqual(
@@ -1259,6 +1264,7 @@ describe("experiments events", () => {
             experimentId: "exp_dd4gxd4lyel8bwi",
             experimentName: "Add To Cart",
             decisionDescription: tooltip,
+            source: "analysis",
           },
         },
         user: {
@@ -1300,6 +1306,7 @@ describe("experiments events", () => {
       experiment: experimentSnapshot,
       currentStatus: { status: "ready-for-review" },
       lastStatus: { status: "ready-for-review" },
+      source: "analysis",
     });
 
     expect(rawPayload).toEqual(undefined);
@@ -1323,6 +1330,7 @@ describe("experiments events", () => {
       experiment: experimentSnapshot,
       currentStatus: { status: "ready-for-review", tooltip: tooltip },
       lastStatus: { status: "rollback-now" },
+      source: "analysis",
     });
 
     expect(rawPayload).toEqual(
@@ -1340,6 +1348,7 @@ describe("experiments events", () => {
             experimentId: "exp_dd4gxd4lyel8bwi",
             experimentName: "Add To Cart",
             decisionDescription: tooltip,
+            source: "analysis",
           },
         },
         user: {

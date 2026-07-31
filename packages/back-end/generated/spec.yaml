@@ -712,6 +712,9 @@ tags:
   - name: ScheduleRule_model
     x-displayName: Schedule Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/ScheduleRule" />
+  - name: ScheduledStopPlan_model
+    x-displayName: Scheduled Stop Plan
+    description: <SchemaDefinition schemaRef="#/components/schemas/ScheduledStopPlan" />
   - name: SdkConnection_model
     x-displayName: Sdk Connection
     description: <SchemaDefinition schemaRef="#/components/schemas/SdkConnection" />
@@ -11759,22 +11762,44 @@ paths:
                   items:
                     type: string
                 statusUpdateSchedule:
-                  description: >-
-                    Schedule a future start for a draft experiment. Only
-                    `startAt` is currently supported.
                   type: object
                   properties:
                     startAt:
-                      format: date-time
                       description: >-
                         ISO datetime when the experiment should start. Must be
                         in the future. Setting or clearing this field
                         invalidates any existing staged start
                         (`nextScheduledStatusUpdate`); call POST
                         /experiments/{id}/start to stage the new schedule.
+                      format: date-time
                       type: string
-                  required:
-                    - startAt
+                    stopAt:
+                      description: >-
+                        ISO datetime when the experiment should stop. Resolved
+                        from `stopAfter` at start when a relative end was set.
+                      format: date-time
+                      type: string
+                    stopAfter:
+                      description: >-
+                        Relative end offset. Deferred: resolved to a concrete
+                        `stopAt` at the experiment's actual start (or off
+                        `dateStarted` when already running).
+                      type: object
+                      properties:
+                        value:
+                          type: integer
+                          exclusiveMinimum: 0
+                        unit:
+                          type: string
+                          enum:
+                            - hours
+                            - days
+                      required:
+                        - value
+                        - unit
+                      additionalProperties: false
+                    scheduledStopPlan:
+                      $ref: '#/components/schemas/ScheduledStopPlan'
                   additionalProperties: false
                 ignoreWarnings:
                   description: >-
@@ -12435,22 +12460,51 @@ paths:
                 statusUpdateSchedule:
                   anyOf:
                     - description: >-
-                        Schedule a future start for a draft experiment. Set to
-                        `null` to remove the schedule. Provide `{ startAt }` to
-                        set or update it. Only `startAt` is currently supported.
+                        Scheduled start/end. Set to `null` to remove. Provide
+                        any of `startAt`, `stopAt`, or `stopAfter` (a deferred
+                        relative end resolved at start). End-of-experiment
+                        automation is set via the nested `scheduledStopPlan`,
+                        which is required whenever a `stopAt` or `stopAfter` is
+                        set.
                       type: object
                       properties:
                         startAt:
-                          format: date-time
                           description: >-
                             ISO datetime when the experiment should start. Must
                             be in the future. Setting or clearing this field
                             invalidates any existing staged start
                             (`nextScheduledStatusUpdate`); call POST
                             /experiments/{id}/start to stage the new schedule.
+                          format: date-time
                           type: string
-                      required:
-                        - startAt
+                        stopAt:
+                          description: >-
+                            ISO datetime when the experiment should stop.
+                            Resolved from `stopAfter` at start when a relative
+                            end was set.
+                          format: date-time
+                          type: string
+                        stopAfter:
+                          description: >-
+                            Relative end offset. Deferred: resolved to a
+                            concrete `stopAt` at the experiment's actual start
+                            (or off `dateStarted` when already running).
+                          type: object
+                          properties:
+                            value:
+                              type: integer
+                              exclusiveMinimum: 0
+                            unit:
+                              type: string
+                              enum:
+                                - hours
+                                - days
+                          required:
+                            - value
+                            - unit
+                          additionalProperties: false
+                        scheduledStopPlan:
+                          $ref: '#/components/schemas/ScheduledStopPlan'
                       additionalProperties: false
                     - type: 'null'
                 precomputedUnitDimensionIds:
@@ -12936,6 +12990,148 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"results":"won","releasedVariationId":"var_treatment","winnerVariationId":"var_treatment","enableTemporaryRollout":true,"analysis":"Reached desired sample size with statistically significant positive lift; shipping treatment"}'
+  /v1/experiments/{id}/schedule:
+    put:
+      operationId: putExperimentSchedule
+      summary: Set an experiment's schedule and shipping automation
+      description: >-
+        Full-replace of the experiment's scheduled start/end and
+        end-of-experiment shipping automation. The body is the complete desired
+        state: any omitted field is cleared (omit `startAt` to remove a
+        scheduled start; send an empty body to clear the whole schedule).
+        Provide either `stopAt` or `stopAfter`, not both; a relative `stopAfter`
+        resolves to a concrete stop when the experiment starts. Setting a
+        scheduled end (`stopAt` or `stopAfter`) requires a `scheduledStopPlan`
+        (any mode, including `notify`). The scheduled end must be in the future:
+        a `stopAt` (or a `stopAfter` that resolves) in the past is rejected —
+        including one whose end date has already passed and been acted on, so
+        changing the plan after a soft end requires committing to a new end
+        date. Auto-ship shipping requires the Decision Framework.
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed past ACKNOWLEDGE-class warnings: a
+                    value served to a running experiment, a locked dependent,
+                    and dependents dropped by an archive. A blocked request
+                    lists what this would acknowledge in `warnings`. Does NOT
+                    clear validation-class failures (schema errors, cross-field
+                    invariants, downstream schema breaks, or custom-hook
+                    rejections) — those require `skipSchemaValidation` — EXCEPT
+                    when the org disables 'block publishing on JSON schema
+                    errors' (warn mode), where schema, invariant, and
+                    schema-break failures become soft and this flag clears them
+                    (custom-hook rejections still need `skipSchemaValidation`).
+                    On publish endpoints this also force-merges a draft whose
+                    base is stale, when you hold the bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
+                    org-wide bypass authority (the `bypassApprovalChecks`
+                    permission on all projects); ignored otherwise. Validation
+                    is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
+                  type: boolean
+                startAt:
+                  description: >-
+                    ISO datetime when the experiment should start; must be in
+                    the future. Omit to clear a scheduled start. Staging still
+                    happens via POST /experiments/{id}/start.
+                  format: date-time
+                  type: string
+                stopAt:
+                  description: Absolute ISO datetime to stop the experiment.
+                  format: date-time
+                  type: string
+                stopAfter:
+                  description: >-
+                    Deferred relative end, resolved to a concrete stop at the
+                    experiment's actual start (or now, if already running).
+                  type: object
+                  properties:
+                    value:
+                      type: integer
+                      exclusiveMinimum: 0
+                    unit:
+                      type: string
+                      enum:
+                        - hours
+                        - days
+                  required:
+                    - value
+                    - unit
+                  additionalProperties: false
+                scheduledStopPlan:
+                  $ref: '#/components/schemas/ScheduledStopPlan'
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - experiment
+                additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Resource is not in a valid status for this operation
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - invalid_status
+                  details:
+                    $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                required:
+                  - message
+                  - code
+                  - details
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/schedule' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"startAt":"2026-08-01T00:00:00Z","stopAfter":{"value":14,"unit":"days"},"scheduledStopPlan":{"mode":"auto-ship","tiebreakerMetricId":"met_revenue","fallback":"force-ship","fallbackVariationId":"var_treatment"}}'
   /v1/experiments/{id}/modify-temporary-rollout:
     post:
       operationId: postExperimentModifyTemporaryRollout
@@ -16199,6 +16395,8 @@ paths:
                     type: string
                 includeTagsInMetadata:
                   type: boolean
+                includeExperimentScheduleInMetadata:
+                  type: boolean
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -16311,6 +16509,8 @@ paths:
                   items:
                     type: string
                 includeTagsInMetadata:
+                  type: boolean
+                includeExperimentScheduleInMetadata:
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -25417,6 +25617,180 @@ paths:
           source: >-
             curl -X DELETE
             'https://api.growthbook.io/api/v1/fact-tables/abc123/filters/abc123'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/fact-tables/{factTableId}/virtual-columns:
+    post:
+      operationId: postFactTableVirtualColumn
+      summary: Create a virtual (computed) column on a fact table
+      tags:
+        - fact-tables
+      parameters:
+        - $ref: '#/components/parameters/factTableId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                column:
+                  description: >-
+                    The column identifier used in generated SQL. Must contain
+                    only letters, numbers, and underscores and end with `_vc`.
+                  example: revenue_vc
+                  type: string
+                name:
+                  description: Display name for the column
+                  type: string
+                description:
+                  type: string
+                  maxLength: 10000
+                numberFormat:
+                  type: string
+                  enum:
+                    - ''
+                    - currency
+                    - time:seconds
+                    - memory:bytes
+                    - memory:kilobytes
+                datatype:
+                  description: The data type of the computed column
+                  type: string
+                  enum:
+                    - number
+                    - string
+                    - date
+                    - boolean
+                    - json
+                    - binary
+                    - other
+                sql:
+                  description: The SQL expression that computes the column value
+                  example: price * quantity
+                  type: string
+              required:
+                - column
+                - datatype
+                - sql
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  factTableColumn:
+                    $ref: '#/components/schemas/FactTableColumn'
+                required:
+                  - factTableColumn
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/fact-tables/abc123/virtual-columns'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"column":"revenue_vc","datatype":"number","sql":"price * quantity"}'
+  /v1/fact-tables/{factTableId}/virtual-columns/{id}:
+    post:
+      operationId: updateFactTableVirtualColumn
+      summary: Update a virtual (computed) column on a fact table
+      tags:
+        - fact-tables
+      parameters:
+        - $ref: '#/components/parameters/factTableId'
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  description: Display name for the column
+                  type: string
+                description:
+                  type: string
+                  maxLength: 10000
+                numberFormat:
+                  type: string
+                  enum:
+                    - ''
+                    - currency
+                    - time:seconds
+                    - memory:bytes
+                    - memory:kilobytes
+                datatype:
+                  description: The data type of the computed column
+                  type: string
+                  enum:
+                    - number
+                    - string
+                    - date
+                    - boolean
+                    - json
+                    - binary
+                    - other
+                sql:
+                  description: The SQL expression that computes the column value
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  factTableColumn:
+                    $ref: '#/components/schemas/FactTableColumn'
+                required:
+                  - factTableColumn
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/fact-tables/abc123/virtual-columns/revenue_vc'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"sql":"price * quantity * 1.1"}'
+    delete:
+      operationId: deleteFactTableVirtualColumn
+      summary: Delete a virtual (computed) column from a fact table
+      tags:
+        - fact-tables
+      parameters:
+        - $ref: '#/components/parameters/factTableId'
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    description: The id of the deleted virtual column
+                    example: revenue_vc
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/fact-tables/abc123/virtual-columns/revenue_vc'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/fact-tables/{id}/aggregated-tables:
@@ -52166,20 +52540,46 @@ components:
         statusUpdateSchedule:
           anyOf:
             - description: >-
-                Schedule a future start for a draft experiment. Only `startAt`
-                is currently supported.
+                Scheduled start/end for an experiment. All fields optional; the
+                end may be an absolute `stopAt` or a deferred relative
+                `stopAfter`, but not both.
               type: object
               properties:
                 startAt:
-                  format: date-time
                   description: >-
                     ISO datetime when the experiment should start. Must be in
                     the future. Setting or clearing this field invalidates any
                     existing staged start (`nextScheduledStatusUpdate`); call
                     POST /experiments/{id}/start to stage the new schedule.
+                  format: date-time
                   type: string
-              required:
-                - startAt
+                stopAt:
+                  description: >-
+                    ISO datetime when the experiment should stop. Resolved from
+                    `stopAfter` at start when a relative end was set.
+                  format: date-time
+                  type: string
+                stopAfter:
+                  description: >-
+                    Relative end offset. Deferred: resolved to a concrete
+                    `stopAt` at the experiment's actual start (or off
+                    `dateStarted` when already running).
+                  type: object
+                  properties:
+                    value:
+                      type: integer
+                      exclusiveMinimum: 0
+                    unit:
+                      type: string
+                      enum:
+                        - hours
+                        - days
+                  required:
+                    - value
+                    - unit
+                  additionalProperties: false
+                scheduledStopPlan:
+                  $ref: '#/components/schemas/ScheduledStopPlan'
               additionalProperties: false
             - type: 'null'
         nextScheduledStatusUpdate:
@@ -52188,7 +52588,9 @@ components:
               properties:
                 type:
                   type: string
-                  const: start
+                  enum:
+                    - start
+                    - stop
                 date:
                   format: date-time
                   type: string
@@ -52454,6 +52856,39 @@ components:
       required:
         - metricId
         - overrides
+      additionalProperties: false
+    ScheduledStopPlan:
+      description: >-
+        What happens at the scheduled end date. `notify` keeps the experiment
+        running and just notifies (soft). `auto-ship` (requires the Decision
+        Framework) ships the winning variation and stops; multi-winner ties
+        break on `tiebreakerMetricId` (higher lift); with no clear winner,
+        `fallback` either keeps running (`notify`) or ships
+        `fallbackVariationId`. `force-ship` stops and rolls out
+        `fallbackVariationId`. `stop` is a hard deadline that stops with no
+        rollout. For `force-ship` and `stop`, the Decision Framework verdict
+        (won/lost/inconclusive) is recorded as metadata when available.
+      type: object
+      properties:
+        mode:
+          type: string
+          enum:
+            - notify
+            - auto-ship
+            - force-ship
+            - stop
+        tiebreakerMetricId:
+          type: string
+        fallback:
+          type: string
+          enum:
+            - notify
+            - force-ship
+        fallbackVariationId:
+          type: string
+      required:
+        - mode
+        - fallback
       additionalProperties: false
     ExperimentResults:
       type: object
@@ -52878,21 +53313,47 @@ components:
             statusUpdateSchedule:
               anyOf:
                 - description: >-
-                    Schedule a future start for a draft experiment. Only
-                    `startAt` is currently supported.
+                    Scheduled start/end for an experiment. All fields optional;
+                    the end may be an absolute `stopAt` or a deferred relative
+                    `stopAfter`, but not both.
                   type: object
                   properties:
                     startAt:
-                      format: date-time
                       description: >-
                         ISO datetime when the experiment should start. Must be
                         in the future. Setting or clearing this field
                         invalidates any existing staged start
                         (`nextScheduledStatusUpdate`); call POST
                         /experiments/{id}/start to stage the new schedule.
+                      format: date-time
                       type: string
-                  required:
-                    - startAt
+                    stopAt:
+                      description: >-
+                        ISO datetime when the experiment should stop. Resolved
+                        from `stopAfter` at start when a relative end was set.
+                      format: date-time
+                      type: string
+                    stopAfter:
+                      description: >-
+                        Relative end offset. Deferred: resolved to a concrete
+                        `stopAt` at the experiment's actual start (or off
+                        `dateStarted` when already running).
+                      type: object
+                      properties:
+                        value:
+                          type: integer
+                          exclusiveMinimum: 0
+                        unit:
+                          type: string
+                          enum:
+                            - hours
+                            - days
+                      required:
+                        - value
+                        - unit
+                      additionalProperties: false
+                    scheduledStopPlan:
+                      $ref: '#/components/schemas/ScheduledStopPlan'
                   additionalProperties: false
                 - type: 'null'
             nextScheduledStatusUpdate:
@@ -52901,7 +53362,9 @@ components:
                   properties:
                     type:
                       type: string
-                      const: start
+                      enum:
+                        - start
+                        - stop
                     date:
                       format: date-time
                       type: string
@@ -53652,6 +54115,8 @@ components:
           items:
             type: string
         includeTagsInMetadata:
+          type: boolean
+        includeExperimentScheduleInMetadata:
           type: boolean
         key:
           type: string
@@ -55667,6 +56132,21 @@ components:
           type: array
           items:
             type: string
+        isVirtual:
+          default: false
+          description: >-
+            Whether this is a virtual (computed) column defined by a SQL
+            expression rather than detected from the fact table SQL. Can be set
+            when creating a column, but a column's origin cannot be changed
+            afterwards — sending a value that contradicts an existing column is
+            rejected.
+          type: boolean
+        sql:
+          description: >-
+            For virtual columns, the SQL expression that computes the column
+            value. Only valid on a virtual column; when omitted from an update,
+            the existing expression is preserved.
+          type: string
         dateCreated:
           readOnly: true
           format: date-time
@@ -55763,6 +56243,21 @@ components:
           type: array
           items:
             type: string
+        isVirtual:
+          default: false
+          description: >-
+            Whether this is a virtual (computed) column defined by a SQL
+            expression rather than detected from the fact table SQL. Can be set
+            when creating a column, but a column's origin cannot be changed
+            afterwards — sending a value that contradicts an existing column is
+            rejected.
+          type: boolean
+        sql:
+          description: >-
+            For virtual columns, the SQL expression that computes the column
+            value. Only valid on a virtual column; when omitted from an update,
+            the existing expression is preserved.
+          type: string
       required:
         - column
       additionalProperties: false
@@ -66230,6 +66725,7 @@ x-tagGroups:
       - SavedGroupRevisionRef_model
       - SavedGroupRevisionReview_model
       - ScheduleRule_model
+      - ScheduledStopPlan_model
       - SdkConnection_model
       - Segment_model
       - Settings_model
