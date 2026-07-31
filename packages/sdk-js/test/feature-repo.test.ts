@@ -814,6 +814,74 @@ describe("feature-repo", () => {
     event.clear();
   });
 
+  it("does not reconnect a channel that was dropped while backing off", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const [, cleanup] = mockApi(apiPayload, true, 0);
+
+    // readyState 2 (CLOSED) makes onSSEError back off on the very first error, which
+    // keeps the retry delay at ~111-222ms instead of the multi-second 4-error path
+    const sources: {
+      closed: boolean;
+      onerror: null | (() => void);
+    }[] = [];
+    setPolyfills({
+      EventSource: class {
+        readyState = 2;
+        closed = false;
+        onerror: null | (() => void) = null;
+        onopen: null | (() => void) = null;
+        constructor() {
+          sources.push(this);
+        }
+        addEventListener() {
+          // Payload delivery is irrelevant here; this test only counts connections
+        }
+        close() {
+          this.closed = true;
+        }
+      },
+    });
+
+    const growthbook1 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    await growthbook1.init({ streaming: true });
+    expect(sources.length).toEqual(1);
+
+    // One error is enough to disable the channel and schedule a reconnect
+    sources[0].onerror && sources[0].onerror();
+    expect(sources[0].closed).toEqual(true);
+
+    // Drop the channel from the map mid-backoff, then let a new instance take the key
+    await clearCache();
+    const growthbook2 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    await growthbook2.init({ streaming: true });
+    expect(sources.length).toEqual(2);
+
+    // The stale reconnect must not fire. It would open a third EventSource that nothing
+    // tracks and nothing can close, while still pushing payloads to growthbook2.
+    await sleep(300);
+    expect(sources.length).toEqual(2);
+
+    setPolyfills({ EventSource });
+    growthbook1.destroy();
+    growthbook2.destroy();
+    cleanup();
+  });
+
   it("warns when streaming is enabled without an EventSource polyfill", async () => {
     const apiPayload = {
       features: {

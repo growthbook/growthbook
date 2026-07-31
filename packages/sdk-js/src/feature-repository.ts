@@ -525,6 +525,10 @@ function onSSEError(channel: ScopedChannel) {
     setTimeout(
       () => {
         if (["idle", "active"].includes(channel.state)) return;
+        // A channel dropped from the map while backing off (destroy, clearCache) must
+        // not reconnect: it would open an EventSource nothing tracks or can close,
+        // while still pushing payloads to whichever channel replaced it
+        if (streams.get(channel.key) !== channel) return;
         enableChannel(channel);
       },
       Math.min(delay, 300000),
