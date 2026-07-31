@@ -23,6 +23,7 @@ type CacheEntry = {
 type ScopedChannel = {
   src: EventSource | null;
   cb: (event: MessageEvent<string>) => void;
+  key: string;
   host: string;
   clientKey: string;
   headers?: Record<string, string>;
@@ -477,6 +478,7 @@ function startAutoRefresh(
     if (streams.has(key)) return;
     const channel: ScopedChannel = {
       src: null,
+      key,
       host: streamingHost,
       clientKey,
       headers: streamingHostRequestHeaders,
@@ -509,10 +511,6 @@ function startAutoRefresh(
     };
     streams.set(key, channel);
     enableChannel(channel);
-
-    // A channel that never opened must not sit in the map, where the guard above
-    // would block streaming from ever being retried for this key
-    if (!channel.src) streams.delete(key);
   }
 }
 
@@ -575,6 +573,10 @@ function enableChannel(channel: ScopedChannel) {
     }
     channel.src = null;
     channel.state = "disabled";
+    // A channel with no EventSource must not sit in the map, where the existing-key
+    // guard would block streaming from ever being retried for this key. Done here so
+    // it also covers the reconnect and visibility paths, which have no other cleanup.
+    streams.delete(channel.key);
     warnStreamingUnavailable(
       `the EventSource implementation threw an error (${
         e ? (e as Error).message : "unknown error"

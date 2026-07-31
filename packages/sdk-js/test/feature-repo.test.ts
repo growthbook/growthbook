@@ -6,6 +6,8 @@ import {
   setPolyfills,
   FeatureApiResponse,
   prefetchPayload,
+  onHidden,
+  onVisible,
 } from "../src";
 
 /* eslint-disable */
@@ -706,6 +708,75 @@ describe("feature-repo", () => {
 
     // Correcting the polyfill must let a later init establish a stream, rather than
     // being blocked forever by the dead channel left in the streams map
+    setPolyfills({ EventSource });
+    const streamingPayload = {
+      features: {
+        foo: {
+          defaultValue: "streaming",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2010-05-01T00:00:12Z",
+    };
+    const event = new MockEvent({
+      url: "https://fakeapi.sample.io/sub/sdk-abc123",
+      setInterval: 20,
+      responses: [
+        {
+          type: "features",
+          data: JSON.stringify(streamingPayload),
+        },
+      ],
+    });
+
+    const growthbook2 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    await growthbook2.init({ streaming: true });
+
+    await sleep(80);
+    expect(growthbook2.evalFeature("foo").value).toEqual("streaming");
+
+    warn.mockRestore();
+    growthbook1.destroy();
+    growthbook2.destroy();
+    cleanup();
+    event.clear();
+  });
+
+  it("allows streaming to recover when a re-connect attempt fails", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const [, cleanup] = mockApi(apiPayload, true);
+    const warn = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    // Establish a channel, then park it so re-connecting goes back through enableChannel
+    const growthbook1 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    await growthbook1.init({ streaming: true });
+    onHidden();
+
+    // Break the polyfill so the re-connect throws. The initial-setup cleanup doesn't run
+    // on this path, so the dead channel would otherwise stay parked in the streams map.
+    setPolyfills({ EventSource: { EventSource } });
+    onVisible();
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("the EventSource implementation threw an error"),
+    );
+
     setPolyfills({ EventSource });
     const streamingPayload = {
       features: {
