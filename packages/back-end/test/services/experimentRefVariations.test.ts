@@ -1,5 +1,8 @@
 import { ExperimentInterface } from "shared/validators";
-import { assertExperimentRefVariationsMatchExperiment } from "back-end/src/services/experiment-feature";
+import {
+  assertExperimentRefVariationsMatchExperiment,
+  assertVariationsCoverArms,
+} from "back-end/src/services/experiment-feature";
 
 type TestExperiment = Pick<ExperimentInterface, "id" | "variations" | "phases">;
 
@@ -57,7 +60,7 @@ describe("assertExperimentRefVariationsMatchExperiment", () => {
         experiment: experiment({ variationIds: ["v0", "v1", "v2"] }),
       }),
     ).toThrow(
-      "Experiment has 3 variation(s) but 1 were specified. Provide exactly one value per variation.",
+      'Expected 3 variation(s) for experiment "exp_1" but 1 were specified. Provide exactly one value per variation.',
     );
   });
 
@@ -67,7 +70,9 @@ describe("assertExperimentRefVariationsMatchExperiment", () => {
         variations: variations(["v0", "v1", "v2"]),
         experiment: experiment({ variationIds: ["v0", "v1"] }),
       }),
-    ).toThrow("Experiment has 2 variation(s) but 3 were specified");
+    ).toThrow(
+      'Expected 2 variation(s) for experiment "exp_1" but 3 were specified',
+    );
   });
 
   it("rejects a variationId that isn't on the experiment", () => {
@@ -113,6 +118,34 @@ describe("assertExperimentRefVariationsMatchExperiment", () => {
         variations: variations(["v0", "v1", "v2"]),
         experiment: exp,
       }),
-    ).toThrow("Experiment has 2 variation(s) but 3 were specified");
+    ).toThrow(
+      'Expected 2 variation(s) for experiment "exp_1" but 3 were specified',
+    );
+  });
+});
+
+// The same primitive backs the contextual-bandit path, which has no phases.
+describe("assertVariationsCoverArms", () => {
+  const call = (ids: string[], armIds: string[]) =>
+    assertVariationsCoverArms({
+      variations: ids.map((variationId) => ({ variationId })),
+      armIds,
+      entityLabel: 'Contextual Bandit "cb_1"',
+    });
+
+  it("accepts full coverage in any order", () => {
+    expect(() => call(["v1", "v0"], ["v0", "v1"])).not.toThrow();
+  });
+
+  it("names the entity when an id isn't one of its arms", () => {
+    expect(() => call(["v0", "nope"], ["v0", "v1"])).toThrow(
+      'variationId "nope" is not a variation of Contextual Bandit "cb_1". Valid ids: v0, v1',
+    );
+  });
+
+  it("rejects a count mismatch", () => {
+    expect(() => call(["v0"], ["v0", "v1"])).toThrow(
+      'Expected 2 variation(s) for Contextual Bandit "cb_1" but 1 were specified',
+    );
   });
 });

@@ -42,6 +42,7 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import {
   getExperimentById,
+  getExperimentsByIds,
   removePendingFeatureDraftFromExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { ReqContext } from "back-end/types/request";
@@ -94,10 +95,42 @@ function assertLinkedFeatureRevisionOptions(
   }
 }
 
-// Variations must cover the linked experiment's current phase exactly: an
+// A ref rule's variations must cover the linked entity's arms exactly: an
 // uncovered arm serves `null`, and a stopped experiment missing its released
 // variation drops the rule from the payload. Membership is a set check, since
 // the payload matches arms by id.
+export function assertVariationsCoverArms({
+  variations,
+  armIds,
+  entityLabel,
+}: {
+  variations: Pick<ExperimentRefVariation, "variationId">[];
+  armIds: string[];
+  entityLabel: string;
+}): void {
+  if (variations.length !== armIds.length) {
+    throw new Error(
+      `Expected ${armIds.length} variation(s) for ${entityLabel} but ${variations.length} were specified. Provide exactly one value per variation.`,
+    );
+  }
+
+  const valid = new Set(armIds);
+  const seen = new Set<string>();
+  for (const { variationId } of variations) {
+    if (!valid.has(variationId)) {
+      throw new Error(
+        `variationId "${variationId}" is not a variation of ${entityLabel}. Valid ids: ${armIds.join(", ")}`,
+      );
+    }
+    if (seen.has(variationId)) {
+      throw new Error(
+        `variationId "${variationId}" is specified more than once`,
+      );
+    }
+    seen.add(variationId);
+  }
+}
+
 export function assertExperimentRefVariationsMatchExperiment({
   variations,
   experiment,
@@ -107,28 +140,39 @@ export function assertExperimentRefVariationsMatchExperiment({
 }): void {
   // Phase variations carry a `status`, but "active" is its only value today. A
   // future non-active status needs filtering here.
-  const expected = getLatestPhaseVariations(experiment);
+  assertVariationsCoverArms({
+    variations,
+    armIds: getLatestPhaseVariations(experiment).map((v) => v.id),
+    entityLabel: `experiment "${experiment.id}"`,
+  });
+}
 
-  if (variations.length !== expected.length) {
-    throw new Error(
-      `Experiment has ${expected.length} variation(s) but ${variations.length} were specified. Provide exactly one value per variation.`,
-    );
-  }
+// Batched twin for the bulk feature endpoints, which write a whole rule array:
+// one query per distinct experiment rather than one per rule.
+export async function assertExperimentRefRulesMatchExperiments(
+  context: ReqContext | ApiReqContext,
+  rules: FeatureRule[],
+): Promise<void> {
+  const refRules = rules.filter(
+    (r): r is ExperimentRefRule => r?.type === "experiment-ref",
+  );
+  if (!refRules.length) return;
 
-  const expectedIds = new Set(expected.map((v) => v.id));
-  const seen = new Set<string>();
-  for (const { variationId } of variations) {
-    if (!expectedIds.has(variationId)) {
-      throw new Error(
-        `variationId "${variationId}" is not a variation of experiment "${experiment.id}". Valid ids: ${[...expectedIds].join(", ")}`,
+  const ids = [...new Set(refRules.map((r) => r.experimentId))];
+  const experiments = await getExperimentsByIds(context, ids);
+  const byId = new Map(experiments.map((e) => [e.id, e]));
+
+  for (const rule of refRules) {
+    const experiment = byId.get(rule.experimentId);
+    if (!experiment) {
+      throw new NotFoundError(
+        `Could not find experiment "${rule.experimentId}"`,
       );
     }
-    if (seen.has(variationId)) {
-      throw new Error(
-        `variationId "${variationId}" is specified more than once`,
-      );
-    }
-    seen.add(variationId);
+    assertExperimentRefVariationsMatchExperiment({
+      variations: rule.variations,
+      experiment,
+    });
   }
 }
 

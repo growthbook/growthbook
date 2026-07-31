@@ -226,6 +226,7 @@ import {
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
   assertExperimentRefVariationsMatchExperiment,
+  assertVariationsCoverArms,
   formatPendingDraftFailureMessage,
   PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
@@ -3714,6 +3715,11 @@ export async function postFeatureContextualBanditRefRule(
   if (!contextualBandit) {
     throw new Error("Invalid contextual bandit selected");
   }
+  assertVariationsCoverArms({
+    variations: rule.variations,
+    armIds: contextualBandit.variations.map((v) => v.id),
+    entityLabel: `Contextual Bandit "${contextualBandit.id}"`,
+  });
 
   let scopedRule: FeatureRule;
   if (rule.allEnvironments === true) {
