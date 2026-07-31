@@ -4,7 +4,11 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { date } from "shared/dates";
 import { getMetricLink } from "shared/experiments";
 import { ApiContextualBanditInterface } from "shared/validators";
-import { LinkedFeatureInfo } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+  Variation,
+} from "shared/types/experiment";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { contextualBanditStatusIndicatorData } from "@/services/contextualBandits";
@@ -34,7 +38,7 @@ import {
 } from "@/ui/DropdownMenu";
 import { DetailSectionColumn } from "@/components/DetailSectionBox";
 import ContextualBanditResultsTable from "@/components/ContextualBandit/ContextualBanditResultsTable";
-import ContextualBanditVariations from "@/components/ContextualBandit/ContextualBanditVariations";
+import { VariationBox } from "@/components/Experiment/VariationsTable";
 import ContextualBanditLinkedFeatures from "@/components/ContextualBandit/ContextualBanditLinkedFeatures";
 import StartContextualBanditModal from "@/components/ContextualBandit/StartContextualBanditModal";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
@@ -203,6 +207,39 @@ export default function ContextualBanditDetailPage({
     const v = value ?? 1;
     return `Every ${v} ${(unit ?? "days") === "days" ? "days" : "hours"}`;
   };
+
+  const numVariations = cb.variations.length;
+  const variationCols = numVariations > 4 ? 4 : Math.max(numVariations, 1);
+  const banditVariations: Variation[] = useMemo(
+    () =>
+      cb.variations.map((v) => ({
+        id: v.id,
+        key: v.key,
+        name: v.name,
+        description: v.description,
+        screenshots: [],
+      })),
+    [cb.variations],
+  );
+  const variationPercent = (i: number): number => {
+    const fallback = numVariations > 0 ? 1 / numVariations : 0;
+    const variationId = cb.variations[i]?.id;
+    const match = cb.variationWeights?.find(
+      (w) => w.variationId === variationId,
+    );
+    return (match?.weight ?? fallback) * 100;
+  };
+  // VariationBox is experiment-shaped; supply the minimal fields it reads
+  // (type drives the split display, id/status feed edit paths we don't wire up).
+  const experimentForVariations = useMemo(
+    () =>
+      ({
+        id: cb.id,
+        type: "standard",
+        status: cb.status,
+      }) as unknown as ExperimentInterfaceStringDates,
+    [cb.id, cb.status],
+  );
 
   const start = async () => {
     await apiCall(`${updateEndpoint}/start`, { method: "POST" });
@@ -428,11 +465,41 @@ export default function ContextualBanditDetailPage({
             </Heading>
 
             <Frame>
-              <ContextualBanditVariations
-                cb={cb}
-                canEdit={!!editVariations}
-                editVariations={editVariations}
-              />
+              <Box>
+                <Flex justify="between" align="center" mb="3" mx="1" gap="3">
+                  <Heading color="text-high" as="h4" size="small" mb="0">
+                    Variations
+                  </Heading>
+                  {editVariations ? (
+                    <Button variant="ghost" onClick={editVariations}>
+                      Edit Variations
+                    </Button>
+                  ) : null}
+                </Flex>
+                <Grid
+                  gap="4"
+                  style={{ gridAutoRows: "1fr" }}
+                  columns={{
+                    initial: "1",
+                    xs: "2",
+                    sm: variationCols === 2 ? "2" : "3",
+                    md: variationCols.toString(),
+                  }}
+                >
+                  {banditVariations.map((v, i) => (
+                    <Box key={v.id} height="100%">
+                      <VariationBox
+                        i={i}
+                        v={v}
+                        experiment={experimentForVariations}
+                        showIds
+                        allowImages={false}
+                        percent={variationPercent(i)}
+                      />
+                    </Box>
+                  ))}
+                </Grid>
+              </Box>
             </Frame>
 
             <ContextualBanditLinkedFeatures
