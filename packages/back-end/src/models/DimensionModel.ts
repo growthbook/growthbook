@@ -5,6 +5,7 @@ import { getConfigDimensions, usingFileConfig } from "back-end/src/init/config";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { ALLOW_CREATE_DIMENSIONS } from "back-end/src/util/secrets";
+import { touchDefinitionsVersion } from "back-end/src/models/DefinitionsVersionModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 
 const dimensionSchema = new mongoose.Schema({
@@ -40,7 +41,9 @@ export async function createDimension(dimension: Partial<DimensionInterface>) {
       "Cannot add new dimensions. Dimensions managed by config.yml",
     );
   }
-  return toInterface(await DimensionModel.create(dimension));
+  const created = toInterface(await DimensionModel.create(dimension));
+  await touchDefinitionsVersion(created.organization);
+  return created;
 }
 
 export async function findDimensionsByOrganization(organization: string) {
@@ -152,6 +155,7 @@ export async function updateDimension(
     { id: existing.id, organization: context.org.id },
     { $set: updates },
   );
+  await touchDefinitionsVersion(context.org.id);
 }
 
 export async function deleteDimensionById(
@@ -174,6 +178,7 @@ export async function deleteDimensionById(
     id: dimension.id,
     organization: context.org.id,
   });
+  await touchDefinitionsVersion(context.org.id);
 }
 
 export function toDimensionApiInterface(

@@ -102,6 +102,18 @@ const BaseClass = MakeModelClass({
 });
 
 export class AnalyticsExplorationModel extends BaseClass {
+  // Every saved exploration in the org, ignoring the caller's read permissions.
+  // Only for authoritative dependency scans (e.g. blocking deletion of a fact
+  // table column an exploration still references), where missing an exploration
+  // the caller cannot read would let the delete through and leave that
+  // exploration generating SQL for a column that no longer exists. Never return
+  // these to the caller.
+  public async dangerousGetAllForDependencyScan(): Promise<
+    ProductAnalyticsExploration[]
+  > {
+    return this._find({}, { bypassReadPermissionChecks: true });
+  }
+
   public getConfigHashes(config: ExplorationConfig) {
     const dataset = config.dataset;
     if (!dataset) return null;

@@ -17,6 +17,7 @@ import {
   logSavedGroupUpdatedEvent,
   logSavedGroupDeletedEvent,
 } from "back-end/src/services/savedGroupEvents";
+import { touchDefinitionsVersion } from "./DefinitionsVersionModel";
 import { MakeModelClass } from "./BaseModel";
 
 // `skipAttributeValidation` lets revert flows write a previously-published
@@ -29,6 +30,11 @@ type WriteOptions = {
 const BaseClass = MakeModelClass({
   schema: savedGroupValidator,
   collectionName: "savedgroups",
+  affectsDefinitionsVersion: true,
+  definitionsVersionProjectField: "projects",
+  // `values`/`condition` are projected out of the definitions response
+  // (getAllForDefinitions).
+  definitionsVersionExcludedFields: ["values", "condition"],
   idPrefix: "grp_",
   auditLog: {
     entity: "savedGroup",
@@ -197,6 +203,8 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       { organization: this.context.org.id, projects: projectId },
       { $pull: pullOperation },
     );
+    // Raw write bypasses the BaseModel affectsDefinitionsVersion hook.
+    await touchDefinitionsVersion(this.context.org.id);
   }
 
   public async getAllWithoutValues(): Promise<SavedGroupWithoutValues[]> {

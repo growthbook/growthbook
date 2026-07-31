@@ -35,6 +35,8 @@ import { getFactTableMap } from "./FactTableModel";
 const BaseClass = MakeModelClass({
   schema: factMetricValidator,
   collectionName: "factmetrics",
+  affectsDefinitionsVersion: true,
+  definitionsVersionProjectField: "projects",
   idPrefix: "fact__",
   auditLog: {
     entity: "metric",
@@ -156,6 +158,18 @@ export class FactMetricModel extends BaseClass {
   }
   protected canDelete(doc: FactMetricInterface): boolean {
     return this.context.permissions.canDeleteFactMetric(doc);
+  }
+
+  // Every fact metric in the org, ignoring the caller's read permissions. Only
+  // for authoritative dependency scans (e.g. blocking deletion of a fact table
+  // column a metric still references), where missing a metric in a project the
+  // caller cannot read would let the delete through and leave that metric
+  // generating SQL for a column that no longer exists. Never return these to
+  // the caller.
+  public async dangerousGetAllForDependencyScan(): Promise<
+    FactMetricInterface[]
+  > {
+    return this._find({}, { bypassReadPermissionChecks: true });
   }
 
   /**
