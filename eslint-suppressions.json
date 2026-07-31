@@ -496,9 +496,6 @@
     }
   },
   "packages/front-end/components/Experiment/UrlRedirectModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
     "no-restricted-syntax": {
       "count": 2
     }
