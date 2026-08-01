@@ -12,6 +12,7 @@ import { SlackIntegrationInterface } from "shared/types/slack-integration";
 import {
   ExperimentWarningNotificationPayload,
   ExperimentInfoSignificancePayload,
+  ExperimentInfoScheduledStatusUpdatePayload,
   ExperimentDecisionNotificationPayload,
   SafeRolloutDecisionNotificationPayload,
   SafeRolloutUnhealthyNotificationPayload,
@@ -104,6 +105,11 @@ export const getSlackMessageForNotificationEvent = async (
 
     case "experiment.info.significance":
       return buildSlackMessageForExperimentInfoSignificanceEvent(
+        event.data.object,
+      );
+
+    case "experiment.info.scheduled-status-update":
+      return buildSlackMessageForExperimentScheduledStatusUpdateEvent(
         event.data.object,
       );
 
@@ -1676,6 +1682,51 @@ const buildSlackMessageForExperimentInfoSignificanceEvent = ({
   };
 };
 
+const buildSlackMessageForExperimentScheduledStatusUpdateEvent = (
+  data: ExperimentInfoScheduledStatusUpdatePayload,
+): SlackMessage => {
+  const shippedVariation = data.shippedVariationName ?? data.shippedVariationId;
+  const recommendedVariation =
+    data.recommendedVariationName ?? data.recommendedVariationId;
+
+  const text = (experimentName: string): string => {
+    switch (data.action) {
+      case "started":
+        return `Experiment ${experimentName} was automatically started as scheduled.`;
+      case "stopped":
+        if (data.shipped && shippedVariation) {
+          return data.forced
+            ? `Experiment ${experimentName} reached its scheduled end date with no clear winner; the pre-selected variation "${shippedVariation}" was shipped.`
+            : `Experiment ${experimentName} reached its scheduled end date and the winning variation "${shippedVariation}" was automatically shipped.`;
+        }
+        return `Experiment ${experimentName} was automatically stopped at its scheduled end date. No variation was shipped.`;
+      case "kept-running":
+        return recommendedVariation
+          ? `Experiment ${experimentName} reached its scheduled end date and was kept running. Recommended variation to ship: "${recommendedVariation}".`
+          : `Experiment ${experimentName} reached its scheduled end date and was kept running. There is no clear winner yet.`;
+      default: {
+        const exhaustiveCheck: never = data.action;
+        return exhaustiveCheck;
+      }
+    }
+  };
+
+  return {
+    text: text(data.experimentName),
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            text(`*${data.experimentName}*`) +
+            getExperimentUrlFormatted(data.experimentId),
+        },
+      },
+    ],
+  };
+};
+
 const buildSlackMessageForExperimentWarningEvent = (
   data: ExperimentWarningNotificationPayload,
 ): SlackMessage => {
@@ -1827,7 +1878,7 @@ const buildSlackMessageForExperimentShipEvent = (
 ): SlackMessage => {
   const text = (experimentName: string, description?: string) =>
     `Experiment ${experimentName} has reached the "Ship now" status.${
-      description ? ` ${description}` : null
+      description ? ` ${description}` : ""
     }`;
   return {
     text: text(data.experimentName, data.decisionDescription),
@@ -1850,7 +1901,7 @@ const buildSlackMessageForExperimentRollbackEvent = (
 ): SlackMessage => {
   const text = (experimentName: string, description?: string) =>
     `Experiment ${experimentName} has reached the "Roll back now" status.${
-      description ? ` ${description}` : null
+      description ? ` ${description}` : ""
     }`;
   return {
     text: text(data.experimentName, data.decisionDescription),
@@ -1873,7 +1924,7 @@ const buildSlackMessageForExperimentReviewEvent = (
 ): SlackMessage => {
   const text = (experimentName: string, description?: string) =>
     `Experiment ${experimentName} has reached the "Ready for review" status.${
-      description ? ` ${description}` : null
+      description ? ` ${description}` : ""
     }`;
   return {
     text: text(data.experimentName, data.decisionDescription),

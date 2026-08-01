@@ -25,7 +25,7 @@ import SelectField from "@/components/Forms/SelectField";
 import DashboardSelector from "@/enterprise/components/Dashboards/DashboardSelector";
 import { autoUpdateDisabledMessage } from "@/enterprise/components/Dashboards/DashboardsTab";
 import Link from "@/ui/Link";
-import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
+import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor/dashboardBlockTypes";
 import Avatar from "@/ui/Avatar";
 import Badge from "@/ui/Badge";
 

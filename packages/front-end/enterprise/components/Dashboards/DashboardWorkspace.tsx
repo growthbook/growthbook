@@ -37,16 +37,25 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { useExploreData } from "@/enterprise/components/ProductAnalytics/useExploreData";
 import DashboardEditor, {
   DASHBOARD_TOPBAR_HEIGHT,
-  GENERAL_DASHBOARD_BLOCK_TYPES,
   getGridKeyForBlock,
-  isBlockTypeAllowed,
 } from "./DashboardEditor";
 import { SubmitDashboard, UpdateDashboardArgs } from "./DashboardsTab";
 import DashboardEditorSidebar from "./DashboardEditor/DashboardEditorSidebar";
+import { isBlockTypeAllowed } from "./DashboardEditor/dashboardBlockTypes";
+import {
+  AddBlockOptions,
+  insertBlockAtIndex,
+} from "./DashboardEditor/dashboardLayout";
 import DashboardModal from "./DashboardModal";
 
 export const DASHBOARD_WORKSPACE_NAV_HEIGHT = "72px";
 export const DASHBOARD_WORKSPACE_NAV_BOTTOM_PADDING = "12px";
+
+type StagedInsert = {
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
+  index: number;
+  placement?: AddBlockOptions["placement"];
+};
 
 interface Props {
   isTabActive: boolean;
@@ -265,8 +274,7 @@ export default function DashboardWorkspace({
   const [hasMadeChanges, setHasMadeChanges] = useState(false);
 
   const clearEditingState = () => {
-    setAddBlockIndex(undefined);
-    setStagedAddBlock(undefined);
+    setStagedInsert(undefined);
     setEditingBlockIndex(undefined);
     setStagedEditBlock(undefined);
     setEditSidebarDirty(false);
@@ -289,20 +297,20 @@ export default function DashboardWorkspace({
     onConsumeInitialEditBlockIndex?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialEditBlockIndex, onConsumeInitialEditBlockIndex]);
-  const [addBlockIndex, setAddBlockIndex] = useState<number | undefined>(
-    undefined,
-  );
-  const [stagedAddBlock, setStagedAddBlock] = useState<
-    DashboardBlockInterfaceOrData<DashboardBlockInterface> | undefined
-  >(undefined);
+  const [stagedInsert, setStagedInsert] = useState<StagedInsert | undefined>();
   const [stagedEditBlock, setStagedEditBlock] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface> | undefined
   >(undefined);
 
   useEffect(() => {
     if (!globalControls?.dateRange) return;
-    setStagedAddBlock((block) =>
-      block ? autoEnrollDashboardBlocksInDateControl([block])[0] : block,
+    setStagedInsert((insert) =>
+      insert
+        ? {
+            ...insert,
+            block: autoEnrollDashboardBlocksInDateControl([insert.block])[0],
+          }
+        : insert,
     );
     setStagedEditBlock((block) =>
       block ? autoEnrollDashboardBlocksInDateControl([block])[0] : block,
@@ -311,34 +319,25 @@ export default function DashboardWorkspace({
 
   // Whenever a block becomes staged (via add, duplicate, or edit), make sure
   // the editing drawer is open so the user can actually configure/save it.
-  // Without this, paths like duplicateBlock - which only set addBlockIndex +
-  // stagedAddBlock - leave a staged block with no visible way to commit it
-  // when the drawer happens to be collapsed.
   useEffect(() => {
-    if (isDefined(addBlockIndex) || isDefined(editingBlockIndex)) {
+    if (stagedInsert || isDefined(editingBlockIndex)) {
       setEditSidebarExpanded(true);
     }
-  }, [addBlockIndex, editingBlockIndex]);
+  }, [stagedInsert, editingBlockIndex]);
 
   const [dashboardCopy] = useState<DashboardInterface | undefined>(
     cloneDeep(dashboard),
   );
 
-  const addBlockType = (bType: DashboardBlockType, index?: number) => {
+  const addBlockType = (
+    bType: DashboardBlockType,
+    options: AddBlockOptions = {},
+  ) => {
+    const { index = blocks.length, placement, initialLayout } = options;
     // Validate that the block type is allowed for this dashboard type
     if (!isBlockTypeAllowed(bType, isGeneralDashboard)) {
       console.warn(
         `Block type ${bType} is not allowed for ${isGeneralDashboard ? "general" : "experiment"} dashboards`,
-      );
-      return;
-    }
-
-    index = index ?? blocks.length;
-
-    // For general dashboards, only allow blocks that don't require experiment
-    if (isGeneralDashboard && !GENERAL_DASHBOARD_BLOCK_TYPES.includes(bType)) {
-      console.warn(
-        `Block type ${bType} requires an experiment and cannot be used in general dashboards`,
       );
       return;
     }
@@ -366,40 +365,38 @@ export default function DashboardWorkspace({
         : undefined,
     });
 
-    setStagedAddBlock(
-      isDashboardGlobalControlSupportedBlock(blockData)
-        ? {
-            ...blockData,
-            globalControlSettings: {
-              ...blockData.globalControlSettings,
-              dateRange: true,
-            },
-          }
-        : blockData,
-    );
-    setAddBlockIndex(index);
+    const blockWithGlobalControls = isDashboardGlobalControlSupportedBlock(
+      blockData,
+    )
+      ? {
+          ...blockData,
+          globalControlSettings: {
+            ...blockData.globalControlSettings,
+            dateRange: true,
+          },
+        }
+      : blockData;
+    setStagedInsert({
+      block: initialLayout
+        ? { ...blockWithGlobalControls, layout: initialLayout }
+        : blockWithGlobalControls,
+      index,
+      placement,
+    });
     setEditSidebarDirty(true);
   };
 
-  const effectiveBlocks = blocks
-    .flatMap<DashboardBlockInterfaceOrData<DashboardBlockInterface>>(
-      (block, i) => {
-        // Show in-progress edits directly on the block
-        const isEditingBlock = i === editingBlockIndex;
-        const effectiveBlock = isEditingBlock
-          ? (stagedEditBlock ?? block)
-          : block;
-        if (i === addBlockIndex && isDefined(stagedAddBlock)) {
-          return [stagedAddBlock, effectiveBlock];
-        }
-        return effectiveBlock;
-      },
-    )
-    .concat(
-      addBlockIndex === blocks.length && isDefined(stagedAddBlock)
-        ? [stagedAddBlock]
-        : [],
-    );
+  const blocksWithStagedEdit = blocks.map((block, i) =>
+    i === editingBlockIndex ? (stagedEditBlock ?? block) : block,
+  );
+  const effectiveBlocks = stagedInsert
+    ? insertBlockAtIndex(
+        blocksWithStagedEdit,
+        stagedInsert.block,
+        stagedInsert.index,
+        stagedInsert.placement,
+      )
+    : blocksWithStagedEdit;
 
   const focusBlock = (i: number) => {
     setFocusedBlockIndex(i);
@@ -418,14 +415,13 @@ export default function DashboardWorkspace({
     clearEditingState();
   };
 
-  // Strip layout so the duplicate doesn't land on top of the source block
-  // (normalizeLayouts on the server doesn't resolve overlaps).
   const duplicateBlock = (i: number) => {
-    setAddBlockIndex(i + 1);
-    setStagedAddBlock({
-      ...getBlockData(effectiveBlocks[i]),
-      layout: undefined,
+    setStagedInsert({
+      block: getBlockData(effectiveBlocks[i]),
+      index: i + 1,
+      placement: "after",
     });
+    setEditSidebarDirty(true);
   };
 
   return (
@@ -588,8 +584,10 @@ export default function DashboardWorkspace({
               setBlock={(i, block) => {
                 if (i === editingBlockIndex) {
                   setStagedEditBlock(block);
-                } else if (i === addBlockIndex) {
-                  setStagedAddBlock(block);
+                } else if (i === stagedInsert?.index) {
+                  setStagedInsert((insert) =>
+                    insert ? { ...insert, block } : insert,
+                  );
                 } else {
                   setBlocksAndSubmit([
                     ...blocks.slice(0, i),
@@ -601,11 +599,11 @@ export default function DashboardWorkspace({
               editBlockProps={{
                 editSidebarDirty: editSidebarDirty,
                 focusedBlockIndex: focusedBlockIndex,
-                stagedBlockIndex: addBlockIndex ?? editingBlockIndex,
+                stagedBlockIndex: stagedInsert?.index ?? editingBlockIndex,
+                isAddingBlock: !!stagedInsert,
                 scrollAreaRef: scrollAreaRef,
                 updateLayout: (layouts: readonly LayoutItem[]) => {
-                  if (isDefined(addBlockIndex) || isDefined(editingBlockIndex))
-                    return;
+                  if (stagedInsert) return;
                   const byId = new Map(layouts.map((l) => [l.i, l] as const));
                   let changed = false;
                   const next = blocks.map((b, index) => {
@@ -634,6 +632,15 @@ export default function DashboardWorkspace({
                     return { ...b, layout: nextLayout };
                   });
                   if (!changed) return;
+                  if (isDefined(editingBlockIndex)) {
+                    const editedLayout = next[editingBlockIndex]?.layout;
+                    if (editedLayout) {
+                      setStagedEditBlock((block) =>
+                        block ? { ...block, layout: editedLayout } : block,
+                      );
+                    }
+                    return;
+                  }
                   setBlocksAndSubmit(next);
                 },
                 addBlockType: addBlockType,
@@ -665,7 +672,7 @@ export default function DashboardWorkspace({
                 maxHeight: DASHBOARD_TOPBAR_HEIGHT,
               }}
             >
-              {isDefined(addBlockIndex) || isDefined(editingBlockIndex) ? (
+              {stagedInsert || isDefined(editingBlockIndex) ? (
                 <IconButton
                   mb="1"
                   onClick={clearEditingState}
@@ -697,12 +704,15 @@ export default function DashboardWorkspace({
               open={editSidebarExpanded}
               cancel={clearEditingState}
               submit={() => {
-                if (isDefined(addBlockIndex) && isDefined(stagedAddBlock)) {
-                  setBlocksAndSubmit([
-                    ...blocks.slice(0, addBlockIndex),
-                    stagedAddBlock,
-                    ...blocks.slice(addBlockIndex),
-                  ]);
+                if (stagedInsert) {
+                  setBlocksAndSubmit(
+                    insertBlockAtIndex(
+                      blocks,
+                      stagedInsert.block,
+                      stagedInsert.index,
+                      stagedInsert.placement,
+                    ),
+                  );
                 } else if (
                   isDefined(editingBlockIndex) &&
                   isDefined(stagedEditBlock)
@@ -716,14 +726,16 @@ export default function DashboardWorkspace({
                 clearEditingState();
               }}
               blocks={blocks}
-              stagedBlock={
-                isDefined(stagedAddBlock) ? stagedAddBlock : stagedEditBlock
-              }
+              stagedBlock={stagedInsert?.block ?? stagedEditBlock}
               setBlocks={setBlocksAndSubmit}
               setStagedBlock={(block) => {
-                isDefined(stagedAddBlock)
-                  ? setStagedAddBlock(block)
-                  : setStagedEditBlock(block);
+                if (stagedInsert) {
+                  setStagedInsert(
+                    block ? { ...stagedInsert, block } : undefined,
+                  );
+                } else {
+                  setStagedEditBlock(block);
+                }
                 setEditSidebarDirty(true);
               }}
               addBlockType={addBlockType}
