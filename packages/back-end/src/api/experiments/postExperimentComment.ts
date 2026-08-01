@@ -10,6 +10,12 @@ export const postExperimentComment = createApiRequestHandler(
   const context = req.context as ReqContext;
   const { org, userId, email, userName } = context;
 
+  if (!userId || !email) {
+    throw new Error(
+      "This endpoint requires a Personal Access Token (not a generic API key) so the comment can be attributed to a user.",
+    );
+  }
+
   const existing = await getExperimentById(context, req.params.id);
   if (!existing) {
     throw new Error("Could not find experiment with that id");
@@ -24,7 +30,7 @@ export const postExperimentComment = createApiRequestHandler(
     org.id,
     "experiment",
     req.params.id,
-    { id: userId, email, name: userName },
+    { id: userId, email, name: userName || email },
     req.body.comment,
   );
 
