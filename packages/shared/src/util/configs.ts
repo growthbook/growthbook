@@ -63,8 +63,12 @@ export function configPublishEnvironments(config: {
 }
 
 // A Constant binds to an environment only through `environmentValues`. Pass the
-// per-environment keys a change touches; a base-value change binds to nothing,
-// for the same consumer-derived reason as a base Config.
+// per-environment keys a change touches; a base-value change binds to nothing.
+//
+// A footprint exists where the entity is PARTITIONED by environment, not merely
+// where a change is felt. A base value is felt everywhere, but so is a Saved
+// Group's membership — and every Saved Group atom is project-scoped. Binding
+// base values would mean binding those too. Reviewed and kept 2026-08-01.
 export function constantPublishEnvironments(
   changedEnvironments?: string[],
 ): string[] {
