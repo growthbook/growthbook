@@ -75,6 +75,10 @@ export default function DashboardDateControlsDropdown({
   const chartDefaultOption = (
     <Box
       role="button"
+      // Matches the preset rail below it: selection is otherwise conveyed by
+      // background and weight alone, which assistive tech can't read.
+      aria-pressed={value === null}
+      aria-disabled={disabled || undefined}
       tabIndex={disabled ? -1 : 0}
       onClick={() => {
         if (disabled) return;

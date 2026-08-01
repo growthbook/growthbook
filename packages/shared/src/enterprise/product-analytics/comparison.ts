@@ -7,6 +7,9 @@ import type {
   ProductAnalyticsRunComparisonPayload,
 } from "shared/validators";
 import type { FactMetricInterface } from "shared/types/fact-table";
+// Imported from the module rather than the `shared/validators` barrel: the
+// barrel forms a require cycle with this file, leaving the array undefined.
+import { comparisonMode } from "../../validators/product-analytics";
 import { calculateProductAnalyticsDateRange, getDateGranularity } from "./sql";
 import {
   buildExplorationColumns,
@@ -284,6 +287,39 @@ export function buildComparisonDateRangeForMode(
     startDate,
     endDate,
   };
+}
+
+/**
+ * Whether `mode`'s derived window would overlap the primary range, which makes
+ * the two series double-count the shared days.
+ *
+ * Derived from the resolved bounds rather than a day threshold, so the leap-year
+ * cases land exactly. Both year modes can overlap, for different reasons:
+ * `previousYear` when the primary spans more than a calendar year, and
+ * `previousYearMatchDayOfWeek` past 364 days because its shift is fixed. The
+ * day-delta modes shift by at least their own span and so never overlap.
+ *
+ * `custom` is always reported as non-overlapping: the window is hand-picked, so
+ * an overlap there is a deliberate choice rather than a mode we should refuse.
+ */
+export function comparisonModeOverlapsPrimary(
+  dateRange: ExplorationConfig["dateRange"],
+  mode: ComparisonMode,
+): boolean {
+  if (mode === "custom") return false;
+  const primary = getPrimaryUtcDayBounds(dateRange);
+  const previous = buildComparisonDateRangeForMode(dateRange, mode);
+  // Bounds are `yyyy-MM-dd`, so lexicographic order is chronological order.
+  return (previous.endDate ?? "") >= primary.startDate;
+}
+
+/** Every mode whose derived window would overlap the primary range. */
+export function getOverlappingComparisonModes(
+  dateRange: ExplorationConfig["dateRange"],
+): ComparisonMode[] {
+  return comparisonMode.filter((mode) =>
+    comparisonModeOverlapsPrimary(dateRange, mode),
+  );
 }
 
 /**

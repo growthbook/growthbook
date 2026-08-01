@@ -1,5 +1,5 @@
 import { ReactNode, useState } from "react";
-import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Box, Flex, Grid, Separator } from "@radix-ui/themes";
 import { format, startOfMonth, subMonths } from "date-fns";
 import { DateRange, DayPicker } from "react-day-picker";
 import {
@@ -11,8 +11,9 @@ import type { ComparisonMode, ExplorationDateRange } from "shared/validators";
 import {
   BlockComparison,
   calculateProductAnalyticsDateRange,
-  getInclusiveUtcCalendarDayCount,
+  getOverlappingComparisonModes,
   getPrimaryUtcDayBounds,
+  isPositiveLookbackValue,
   resolveComparisonMode,
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
@@ -30,9 +31,6 @@ import {
   LOOKBACK_UNIT_LABELS,
 } from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
 
-/** Beyond a year, `previousYear` would overlap the primary range. */
-const MAX_YEAR_MODE_SPAN_DAYS = 366;
-
 export type DateRangeCompareValue = {
   dateRange: ExplorationDateRange;
   comparison: BlockComparison | null;
@@ -47,14 +45,6 @@ function describeRange(dr: ExplorationDateRange): string {
   return formatCollapsedDateRange(resolved.startDate, resolved.endDate);
 }
 
-function yearModesWouldOverlap(dr: ExplorationDateRange): boolean {
-  const bounds = getPrimaryUtcDayBounds(dr);
-  return (
-    getInclusiveUtcCalendarDayCount(bounds.startDate, bounds.endDate) >
-    MAX_YEAR_MODE_SPAN_DAYS
-  );
-}
-
 function LabeledRow({
   label,
   children,
@@ -63,19 +53,12 @@ function LabeledRow({
   children: ReactNode;
 }) {
   return (
-    <Box
-      style={{
-        display: "grid",
-        gridTemplateColumns: "76px minmax(0, 1fr)",
-        alignItems: "center",
-        columnGap: "var(--space-2)",
-      }}
-    >
+    <Grid columns="92px minmax(0, 1fr)" align="center" gapX="2">
       <Text size="small" color="text-low">
         {label}
       </Text>
       {children}
-    </Box>
+    </Grid>
   );
 }
 
@@ -119,6 +102,11 @@ export default function DateRangeComparePanel({
     : "previousPeriod";
 
   const isCustomRange = dateRange.predefined === "customDateRange";
+  // `customLookback` resolves relative to now, so a non-positive value would
+  // either silently fall back to the 30-day default or invert the window.
+  const isInvalidLookback =
+    dateRange.predefined === "customLookback" &&
+    !isPositiveLookbackValue(dateRange.lookbackValue);
   // Range mode reports `{ from, to: undefined }` after the first click. Resolving
   // that would silently fall back to "now" for the missing end, so hold off on
   // every derived value until both ends exist.
@@ -143,7 +131,10 @@ export default function DateRangeComparePanel({
     dateRange,
     comparison ?? {},
   );
-  const overlaps = yearModesWouldOverlap(dateRange);
+  // Every mode whose window would double-count days shared with the primary.
+  // Both year modes can land here — `previousYear` past a calendar year, and
+  // `previousYearMatchDayOfWeek` past its fixed 364-day shift.
+  const overlappingModes = getOverlappingComparisonModes(dateRange);
 
   // Left-hand month; the range end lands in the right-hand month.
   const monthForBounds = (endDate: string) =>
@@ -224,6 +215,8 @@ export default function DateRangeComparePanel({
     <Flex direction="column" style={{ minWidth: 0 }}>
       <Flex align="stretch" style={{ minWidth: 0 }}>
         <Box
+          role="group"
+          aria-label="Date range presets"
           style={{
             width: 168,
             flexShrink: 0,
@@ -238,6 +231,10 @@ export default function DateRangeComparePanel({
               <Box
                 key={option}
                 role="button"
+                // The selected preset is otherwise conveyed by background and
+                // weight alone, which assistive tech can't read (WCAG 4.1.2).
+                aria-pressed={active}
+                aria-disabled={disabled || undefined}
                 tabIndex={disabled ? -1 : 0}
                 onClick={() => !disabled && selectPreset(option)}
                 onKeyDown={(e) => {
@@ -265,13 +262,15 @@ export default function DateRangeComparePanel({
 
         <Box style={{ flex: 1, minWidth: 0, padding: "var(--space-3)" }}>
           {dateRange.predefined === "customLookback" ? (
-            <Flex align="center" gap="2" mb="3">
+            <Flex align="start" gap="2" mb="3">
               <Field
                 type="number"
                 min="1"
+                step="1"
                 containerClassName="mb-0"
                 style={{ width: 80, height: 32 }}
                 disabled={disabled}
+                error={isInvalidLookback ? "Must be 1 or more" : undefined}
                 value={dateRange.lookbackValue ?? ""}
                 onChange={(e) => {
                   const parsed = parseInt(e.target.value, 10);
@@ -325,7 +324,9 @@ export default function DateRangeComparePanel({
           <Text size="small" color="text-low">
             {isPartialRange
               ? "Pick an end date to finish the range"
-              : describeRange(dateRange)}
+              : isInvalidLookback
+                ? "Enter a lookback of 1 or more to see a date range"
+                : describeRange(dateRange)}
           </Text>
         </Box>
       </Flex>
@@ -350,11 +351,11 @@ export default function DateRangeComparePanel({
 
             {compareEnabled && !isPartialRange && (
               <Flex direction="column" gap="2" mt="3" style={{ minWidth: 0 }}>
-                <LabeledRow label="Period 1">
+                <LabeledRow label="Date range">
                   <Text size="small">{describeRange(dateRange)}</Text>
                 </LabeledRow>
 
-                <LabeledRow label="Period 2">
+                <LabeledRow label="Compared to">
                   <Select
                     size="small"
                     style={{ width: "100%" }}
@@ -377,13 +378,25 @@ export default function DateRangeComparePanel({
                       <SelectItem
                         key={m}
                         value={m}
-                        disabled={overlaps && m === "previousYear"}
+                        disabled={overlappingModes.includes(m)}
                       >
                         {COMPARISON_MODE_LABELS[m]}
                       </SelectItem>
                     ))}
                   </Select>
                 </LabeledRow>
+
+                {overlappingModes.length > 0 && (
+                  <LabeledRow label="">
+                    <Text size="small" color="text-low">
+                      {`${overlappingModes
+                        .map((m) => COMPARISON_MODE_LABELS[m])
+                        .join(" and ")} ${
+                        overlappingModes.length > 1 ? "are" : "is"
+                      } unavailable because the window would overlap this date range`}
+                    </Text>
+                  </LabeledRow>
+                )}
 
                 <LabeledRow label="">
                   {mode === "custom" ? (
@@ -432,7 +445,7 @@ export default function DateRangeComparePanel({
           </Button>
         )}
         <Button
-          disabled={disabled || isPartialRange}
+          disabled={disabled || isPartialRange || isInvalidLookback}
           onClick={() => onApply(draft)}
         >
           Apply

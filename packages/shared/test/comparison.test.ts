@@ -14,6 +14,7 @@ import {
   buildFixedSpanRangeEndingBeforeAnchor,
   buildFixedSpanRangeStartingAtAnchor,
   calculateProductAnalyticsDateRange,
+  comparisonModeOverlapsPrimary,
   computeExplorationComparisonPayload,
   createComparisonAlignmentResolver,
   densifyComparisonExplorationTimeseries,
@@ -24,6 +25,8 @@ import {
   getComparisonShiftDays,
   getDateGranularity,
   getInclusiveUtcCalendarDayCount,
+  getOverlappingComparisonModes,
+  isPositiveLookbackValue,
   isUtcYyyyMmDdWithinInclusiveRange,
   productAnalyticsDateDimensionBucketMergeKey,
   resolveBlockComparison,
@@ -387,6 +390,52 @@ describe("calculateProductAnalyticsDateRange presets", () => {
     expect(out.startDate).toBe("2022-01-01");
     expect(out.endDate).toBe("2022-12-31");
   });
+
+  describe("customLookback with a non-positive value", () => {
+    const lookback = (lookbackValue: number | null): ExplorationDateRange => ({
+      predefined: "customLookback",
+      lookbackValue,
+      lookbackUnit: "day",
+      startDate: null,
+      endDate: null,
+    });
+
+    // The 30-day default, which absent values already resolved to.
+    const defaultStart = "2024-05-16T12:00:00.000Z";
+
+    it("treats zero as absent rather than a zero-length window", () => {
+      expect(
+        utc(calculateProductAnalyticsDateRange(lookback(0)).startDate),
+      ).toBe(defaultStart);
+    });
+
+    it("never resolves a start date after the end date", () => {
+      // A negative value used to be subtracted verbatim, putting the start of
+      // the window in the future.
+      const out = calculateProductAnalyticsDateRange(lookback(-5));
+      expect(out.startDate.getTime()).toBeLessThan(out.endDate.getTime());
+      expect(utc(out.startDate)).toBe(defaultStart);
+    });
+
+    it("still honours a positive value", () => {
+      expect(
+        utc(calculateProductAnalyticsDateRange(lookback(5)).startDate),
+      ).toBe("2024-06-10T12:00:00.000Z");
+    });
+  });
+});
+
+describe("isPositiveLookbackValue", () => {
+  it("accepts only positive finite numbers", () => {
+    expect(isPositiveLookbackValue(1)).toBe(true);
+    expect(isPositiveLookbackValue(0.5)).toBe(true);
+    expect(isPositiveLookbackValue(0)).toBe(false);
+    expect(isPositiveLookbackValue(-1)).toBe(false);
+    expect(isPositiveLookbackValue(NaN)).toBe(false);
+    expect(isPositiveLookbackValue(Infinity)).toBe(false);
+    expect(isPositiveLookbackValue(null)).toBe(false);
+    expect(isPositiveLookbackValue(undefined)).toBe(false);
+  });
 });
 
 describe("resolveComparisonMode", () => {
@@ -623,6 +672,105 @@ describe("buildComparisonDateRangeForMode", () => {
       expect(out.endDate).toBeTruthy();
       expect(out.lookbackValue).toBe(45);
       expect(out.lookbackUnit).toBe("day");
+    }
+  });
+});
+
+describe("comparisonModeOverlapsPrimary", () => {
+  it("reports no overlap for the day-delta modes at any span", () => {
+    // They shift by at least their own span, so overlap is structural.
+    for (const span of [1, 30, 365, 400, 1000]) {
+      const primary = customRange(
+        "2024-01-01",
+        buildFixedSpanRangeStartingAtAnchor("2024-01-01", span).endDate,
+      );
+      expect(comparisonModeOverlapsPrimary(primary, "previousPeriod")).toBe(
+        false,
+      );
+      expect(
+        comparisonModeOverlapsPrimary(primary, "previousPeriodMatchDayOfWeek"),
+      ).toBe(false);
+    }
+  });
+
+  it("flags previousYearMatchDayOfWeek past its fixed 364-day shift", () => {
+    // 364 days inclusive is the last span the 364-day shift clears.
+    const exact = customRange(
+      "2023-01-01",
+      buildFixedSpanRangeStartingAtAnchor("2023-01-01", 364).endDate,
+    );
+    expect(
+      comparisonModeOverlapsPrimary(exact, "previousYearMatchDayOfWeek"),
+    ).toBe(false);
+
+    const oneDayLonger = customRange(
+      "2023-01-01",
+      buildFixedSpanRangeStartingAtAnchor("2023-01-01", 365).endDate,
+    );
+    expect(
+      comparisonModeOverlapsPrimary(oneDayLonger, "previousYearMatchDayOfWeek"),
+    ).toBe(true);
+  });
+
+  it("flags previousYear only past a calendar year, leap year included", () => {
+    expect(
+      comparisonModeOverlapsPrimary(
+        customRange("2023-06-01", "2024-05-31"),
+        "previousYear",
+      ),
+    ).toBe(false);
+    expect(
+      comparisonModeOverlapsPrimary(
+        customRange("2023-06-01", "2024-06-01"),
+        "previousYear",
+      ),
+    ).toBe(true);
+  });
+
+  it("never flags custom, whose window is hand-picked", () => {
+    expect(
+      comparisonModeOverlapsPrimary(
+        customRange("2024-01-01", "2025-12-31"),
+        "custom",
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("getOverlappingComparisonModes", () => {
+  it("returns nothing for a short range", () => {
+    expect(
+      getOverlappingComparisonModes(customRange("2024-06-01", "2024-06-30")),
+    ).toEqual([]);
+  });
+
+  it("returns both year modes for a range spanning more than a year", () => {
+    // Regression: only `previousYear` used to be guarded, so the weekday
+    // variant stayed selectable and silently overlapped the primary.
+    expect(
+      getOverlappingComparisonModes(customRange("2023-01-01", "2024-06-30")),
+    ).toEqual(["previousYear", "previousYearMatchDayOfWeek"]);
+  });
+
+  it("returns only the weekday year mode between 365 and a calendar year", () => {
+    const primary = customRange(
+      "2023-01-01",
+      buildFixedSpanRangeStartingAtAnchor("2023-01-01", 365).endDate,
+    );
+    expect(getOverlappingComparisonModes(primary)).toEqual([
+      "previousYearMatchDayOfWeek",
+    ]);
+  });
+
+  it("agrees with the derived window for every mode", () => {
+    const primary = customRange("2023-01-01", "2024-06-30");
+    const overlapping = getOverlappingComparisonModes(primary);
+    for (const mode of comparisonMode) {
+      if (mode === "custom") continue;
+      const out = buildComparisonDateRangeForMode(primary, mode);
+      expect(overlapping.includes(mode)).toBe(
+        out.endDate! >= primary.startDate!,
+      );
     }
   });
 });

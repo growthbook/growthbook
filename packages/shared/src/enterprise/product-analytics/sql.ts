@@ -300,6 +300,16 @@ function getFactTableGroups({
       })();
   }
 }
+/**
+ * A `customLookback` value only describes a window when it is a positive
+ * number. Zero, negatives and non-finite values are treated as absent.
+ */
+export function isPositiveLookbackValue(
+  value: number | null | undefined,
+): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
 export function calculateProductAnalyticsDateRange(
   dateRange: ExplorationConfig["dateRange"],
 ): DateRange {
@@ -339,7 +349,13 @@ export function calculateProductAnalyticsDateRange(
       };
     }
     case "customLookback":
-      if (dateRange.lookbackValue && dateRange.lookbackUnit) {
+      // A negative or non-finite lookback would move the start date past the
+      // end and produce an inverted window, so anything that isn't a positive
+      // number falls back to the 30-day default alongside a missing value.
+      if (
+        isPositiveLookbackValue(dateRange.lookbackValue) &&
+        dateRange.lookbackUnit
+      ) {
         const unit = dateRange.lookbackUnit;
         const value = dateRange.lookbackValue;
         if (unit === "hour") {
