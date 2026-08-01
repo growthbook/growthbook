@@ -96,6 +96,16 @@ export async function assertCanPublishRevision(
   const adapter = getAdapter(revision.target.type);
   const snapshot = entity as Record<string, unknown>;
 
+  // Change-aware environment footprint, when the adapter can compute one. Every
+  // arm below shares it — the archive checks included, since an archive lands in
+  // the environments the entity serves just as a publish does.
+  const footprint =
+    adapter.publishFootprint?.(
+      context,
+      snapshot,
+      revision.target.proposedChanges,
+    ) ?? [];
+
   // Archiving is delete-class wherever the transition lands. Note this needs the
   // entity's delete atom from the permission table — adapter.canDelete gates
   // deleting a revision document (the entity's bypass-approval permission),
@@ -109,20 +119,14 @@ export async function assertCanPublishRevision(
       revision.target.type,
       "delete",
       snapshot,
+      footprint,
     )
   ) {
     context.permissions.throwPermissionError();
   }
 
-  // Change-aware environment footprint, when the adapter can compute one — the
-  // project-scoped hooks below can't see the change, so this narrows on top.
-  const footprint = adapter.publishFootprint?.(
-    context,
-    snapshot,
-    revision.target.proposedChanges,
-  );
   const footprintOk = (action: "publish" | "revert"): boolean =>
-    !footprint?.length ||
+    !footprint.length ||
     context.permissions.canRevisionAction(
       revision.target.type,
       action,
@@ -150,6 +154,7 @@ export async function assertCanPublishRevision(
       revision.target.type,
       "delete",
       snapshot,
+      footprint,
     ) &&
     isPureArchiveRevision({
       proposedChanges: revision.target.proposedChanges,
@@ -374,9 +379,34 @@ export async function publishRevision(
     );
     if (!claimed) return revision;
 
-    await adapter.applyChanges(context, entity, desiredState, {
-      isRevert: !!revision.revertedFrom,
-    });
+    try {
+      await adapter.applyChanges(context, entity, desiredState, {
+        isRevert: !!revision.revertedFrom,
+      });
+    } catch (e) {
+      // The marker is a claim, not a record of success. Leaving it behind on a
+      // failed apply would make every later retry see it and return without
+      // applying anything — stranding the revision permanently, which is worse
+      // than the double-dispatch the claim exists to prevent.
+      await context.models.revisions
+        .updateWithCas(
+          revision.id,
+          ["dateUpdated"],
+          (existing) => ({
+            activityLog: (existing.activityLog ?? []).filter(
+              (entry) => entry.action !== "merge-recovered",
+            ),
+          }),
+          { dangerouslyBypassCanUpdate: true },
+        )
+        .catch((releaseErr) => {
+          logger.error(
+            releaseErr,
+            `Failed to release the recovery claim on revision ${revision.id}; a retry will no-op until the merge-recovered entry is removed`,
+          );
+        });
+      throw e;
+    }
     // The failed attempt never dispatched; this apply is when the change lands.
     await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
       context,

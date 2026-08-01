@@ -155,11 +155,13 @@ export async function revertFeatureCore(
     if (m.project !== undefined && m.project !== feature.project) {
       // A move has to land where the caller has authority, not just leave where
       // they do — this path publishes directly, bypassing the publish engine's
-      // destination check.
+      // destination check. Scoped to every environment the flag serves, not
+      // `changedEnvs`: a metadata-only move changes no environment's value, so
+      // that list is empty and the check would pass vacuously.
       if (
         !context.permissions.canPublishFeature(
           { project: m.project },
-          changedEnvs,
+          Array.from(getEnabledEnvironments(feature, environmentIds)),
         )
       ) {
         context.permissions.throwPermissionError();

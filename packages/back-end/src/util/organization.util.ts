@@ -196,10 +196,15 @@ function getLimitAccessByEnvironment(
   limitAccessByEnvironment: boolean,
   org: OrganizationInterface,
 ): boolean {
-  // If all environments are selected, treat that the same as not limiting by environment
+  // If all environments are selected, treat that the same as not limiting by
+  // environment. `every` on an empty list is vacuously true, so an org whose
+  // settings carry no environments would otherwise read as "all selected" and
+  // drop the restriction entirely — keep it when there is nothing to compare
+  // against.
   const validEnvs = org.settings?.environments?.map((e) => e.id) || [];
   if (
     limitAccessByEnvironment &&
+    validEnvs.length > 0 &&
     validEnvs.every((e) => environments?.includes(e))
   ) {
     return false;

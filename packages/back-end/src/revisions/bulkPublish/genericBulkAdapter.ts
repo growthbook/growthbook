@@ -164,6 +164,13 @@ export function makeGenericBulkAdapter(
           targetType,
           "delete",
           entity as { project?: string; projects?: string[] },
+          // Same change-aware footprint the single-revision engine applies, so a
+          // bulk archive can't clear a check the individual publish would fail.
+          adapter.publishFootprint?.(
+            callerContext,
+            entity as Record<string, unknown>,
+            raw.target.proposedChanges,
+          ) ?? [],
         )
       ) {
         gates.push(

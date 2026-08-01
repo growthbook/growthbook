@@ -42,6 +42,7 @@ import {
   getTargetingProjectIds,
   TargetingScopedEntity,
 } from "../util/features";
+import { envsAllowedBy } from "./permissions.utils";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 import {
   NO_ENVIRONMENT_BINDING,
@@ -1840,31 +1841,8 @@ export class Permissions {
       return false;
     }
 
-    if (!envs) {
-      return true;
-    }
-
-    // Per-role grants, so "publish in dev" + "create in production" merged
-    // across roles doesn't become both-everywhere. A single role that grants
-    // the permission and covers every requested environment suffices. Falls
-    // back to the flat merged fields when no grant speaks to this permission
-    // (objects serialized before envGrants existed).
-    const relevantGrants = (usersPermissionsToCheck.envGrants ?? []).filter(
-      (g) => g.permissions.includes(permissionToCheck),
-    );
-    if (relevantGrants.length) {
-      return relevantGrants.some(
-        (g) =>
-          !g.limitAccessByEnvironment ||
-          envs.every((env) => g.environments.includes(env)),
-      );
-    }
-
-    if (!usersPermissionsToCheck.limitAccessByEnvironment) {
-      return true;
-    }
-    return envs.every((env) =>
-      usersPermissionsToCheck.environments.includes(env),
-    );
+    // One implementation, shared with the standalone `hasPermission` used by
+    // middleware and API keys — see `envsAllowedBy`.
+    return envsAllowedBy(usersPermissionsToCheck, permissionToCheck, envs);
   }
 }

@@ -6,6 +6,7 @@ import {
   Role,
   ProjectMemberRole,
   MemberRoleInfo,
+  UserPermission,
 } from "shared/types/organization";
 import {
   DEFAULT_ROLES,
@@ -145,12 +146,42 @@ export function hasPermission(
     return false;
   }
 
-  if (!envs || !usersPermissionsToCheck.limitAccessByEnvironment) {
-    return true;
-  }
-  return envs.every((env) =>
-    usersPermissionsToCheck.environments.includes(env),
+  return envsAllowedBy(usersPermissionsToCheck, permissionToCheck, envs);
+}
+
+/**
+ * Whether a merged permission object clears `envs` for this permission.
+ *
+ * Shared by both check paths — this module's `hasPermission` (middleware and
+ * API keys) and `Permissions.hasPermission` (everything else). They were
+ * separate copies, and a fix to one silently left the other combining one
+ * role's permission with another role's environments.
+ *
+ * Per-role grants decide it when any speaks to the permission: a single role
+ * that grants it and covers every requested environment suffices. The flat
+ * merged fields are the fallback for objects with no relevant grant, including
+ * ones serialized before `envGrants` existed.
+ */
+export function envsAllowedBy(
+  userPermission: UserPermission,
+  permissionToCheck: Permission,
+  envs?: string[],
+): boolean {
+  if (!envs) return true;
+
+  const relevantGrants = (userPermission.envGrants ?? []).filter((g) =>
+    g.permissions.includes(permissionToCheck),
   );
+  if (relevantGrants.length) {
+    return relevantGrants.some(
+      (g) =>
+        !g.limitAccessByEnvironment ||
+        envs.every((env) => g.environments.includes(env)),
+    );
+  }
+
+  if (!userPermission.limitAccessByEnvironment) return true;
+  return envs.every((env) => userPermission.environments.includes(env));
 }
 
 export const userHasPermission = (
