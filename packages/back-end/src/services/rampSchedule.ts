@@ -145,6 +145,12 @@ export async function withRampScheduleAdvanceLockRetry<T>(
 
 // `fn` must re-validate any status preconditions screened on the caller's
 // pre-lock read — the schedule may have changed while waiting for the lock.
+//
+// Authorization is screened pre-lock too, and is NOT re-checked here: a target
+// added to the schedule inside that window is acted on without a control check
+// against its project. Re-asserting from this helper would reach the background
+// and model callers, which hold no user authority and must not acquire one, so
+// closing it belongs at the dispatch sites.
 export async function runLockedRampScheduleAction<T>(
   ctx: ReqContext | ApiReqContext,
   scheduleId: string,
