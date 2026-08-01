@@ -2,6 +2,10 @@ import { z } from "zod";
 import { validateFeatureValue, normalizeTargetingProjects } from "shared/util";
 import { postFeatureValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import {
+  getApiCreateEnabledEnvironments,
+  getEnabledEnvironments,
+} from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerForCreate,
@@ -9,7 +13,6 @@ import {
 } from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
-import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
   addIdsToFlatRules,
   addIdsToRules,
@@ -17,7 +20,6 @@ import {
   createInterfaceEnvSettingsFromApiEnvSettings,
   getApiFeatureObj,
   getSavedGroupMap,
-  getApiCreateEnabledEnvironments,
 } from "back-end/src/services/features";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/services/organizations";

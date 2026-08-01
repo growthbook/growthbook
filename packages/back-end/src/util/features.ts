@@ -375,6 +375,21 @@ export function isRuleEnabled(
  * review gate scopes an archive to its enabled environments. Shared by every
  * path that can land an archive so they demand identical authority.
  */
+// The environments a REST create will actually switch on. An omitted
+// environment still lands enabled when its `defaultState` says so — mirroring
+// `createInterfaceEnvSettingsFromApiEnvSettings` — so a footprint built only
+// from explicit `enabled: true` entries under-counts, and a caller with Create
+// in dev could omit environments entirely and produce a production-enabled flag.
+export function getApiCreateEnabledEnvironments(
+  baseEnvs: Environment[],
+  // Only `enabled` is read, so both the v1 and v2 request bodies fit.
+  incomingEnvs?: Record<string, { enabled?: boolean } | undefined>,
+): string[] {
+  return baseEnvs
+    .filter((e) => incomingEnvs?.[e.id]?.enabled ?? !!e.defaultState)
+    .map((e) => e.id);
+}
+
 export function getArchiveFootprint(
   feature: FeatureInterface,
   org: OrganizationInterface,

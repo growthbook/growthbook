@@ -3342,20 +3342,6 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
 // reducer only emits `{ enabled }`; rule construction (and the registered-
 // attribute check) happens in `buildFeatureRulesFromApiEnvSettings` /
 // `mapV2ApiRuleToFeatureRule` callers.
-// The environments a create will actually switch on. An omitted environment
-// still lands enabled when its `defaultState` says so, so a footprint built
-// only from explicit `enabled: true` entries under-counts — a caller with
-// Create in dev could omit environments entirely and produce a
-// production-enabled flag. Mirrors the reducer directly below.
-export const getApiCreateEnabledEnvironments = (
-  baseEnvs: Environment[],
-  // Only `enabled` is read, so both the v1 and v2 request bodies fit.
-  incomingEnvs?: Record<string, { enabled?: boolean } | undefined>,
-): string[] =>
-  baseEnvs
-    .filter((e) => incomingEnvs?.[e.id]?.enabled ?? !!e.defaultState)
-    .map((e) => e.id);
-
 export const createInterfaceEnvSettingsFromApiEnvSettings = (
   feature: FeatureInterface,
   baseEnvs: Environment[],
