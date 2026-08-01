@@ -230,14 +230,12 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   IdeasFullAccess: ["readData", "createIdeas"],
   PresentationsFullAccess: ["readData", "createPresentations"],
   ExperimentsPublish: ["readData", "runExperiments"],
-  // Deprecated. Revert accompanies publish: rolling back to an already-published
-  // state is a strictly narrower live write than publishing new state.
-  SDKPayloadPublish: [
-    "readData",
-    "publishFeatures",
-    "revertFeatures",
-    "runExperiments",
-  ],
+  // Deprecated. Mapped to exactly what it granted before the split — no revert:
+  // main had no revert atom, and its revert endpoints demanded `manageFeatures`,
+  // which this policy never carried. "Revert is a narrower publish" is true in
+  // the abstract but would hand a deployment-only legacy role authority it never
+  // had.
+  SDKPayloadPublish: ["readData", "publishFeatures", "runExperiments"],
   SDKConnectionsFullAccess: [
     "readData",
     "manageSDKConnections",

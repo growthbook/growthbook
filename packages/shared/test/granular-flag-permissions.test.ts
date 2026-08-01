@@ -260,7 +260,14 @@ describe("granular flag permissions", () => {
         // Legacy feature publish/revert required BOTH policies.
         policies: ["FeaturesFullAccess", "SDKPayloadPublish"],
         model: "feature",
-        actions: ["create", "delete", "draft", "review", "publish", "revert"],
+        // No "revert": deliberately NOT preserved. Main allowed this pairing to
+        // revert (its endpoints wanted manageFeatures AND publishFeatures, one
+        // from each), but policies grant independently — the only way to express
+        // it is to put the revert atom on one of them, and either choice hands
+        // that policy ALONE authority it never had. Under-granting fails closed
+        // and an admin can add FlagsRevert; over-granting is a silent escalation
+        // on upgrade. Standard roles are unaffected: they carry FlagsFullAccess.
+        actions: ["create", "delete", "draft", "review", "publish"],
       },
       {
         policies: ["ConfigsFullAccess"],
@@ -300,6 +307,16 @@ describe("granular flag permissions", () => {
       // deprecated shims must not hand it one.
       expect(grants(["FeaturesFullAccess"], "feature", "publish")).toBe(false);
       expect(grants(["FeaturesFullAccess"], "feature", "revert")).toBe(false);
+    });
+
+    it("does not let the deployment-only legacy role revert", () => {
+      // SDKPayloadPublish is publish-and-payload. Main had no revert atom at
+      // all, and its revert endpoints demanded `manageFeatures`, which this
+      // policy never carried — so granting revert here would be new authority
+      // for a legacy role, not preserved authority.
+      expect(grants(["SDKPayloadPublish"], "feature", "publish")).toBe(true);
+      expect(grants(["SDKPayloadPublish"], "feature", "revert")).toBe(false);
+      expect(grants(["SDKPayloadPublish"], "feature", "draft")).toBe(false);
     });
   });
 });

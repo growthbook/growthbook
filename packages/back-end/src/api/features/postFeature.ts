@@ -2,7 +2,6 @@ import { z } from "zod";
 import { validateFeatureValue, normalizeTargetingProjects } from "shared/util";
 import { postFeatureValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
-import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerForCreate,
@@ -62,12 +61,13 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   if (
     !req.context.permissions.canCreateFeature(
       req.body,
-      Array.from(
-        getEnabledEnvironments(
-          req.body as unknown as FeatureInterface,
-          getEnvironmentIdsFromOrg(req.context.org),
-        ),
-      ),
+      // The API body carries `environments`, not the stored
+      // `environmentSettings` shape getEnabledEnvironments reads — passing it
+      // raw produced an empty footprint, so Create passed vacuously however many
+      // environments the new flag switched on.
+      Object.entries(req.body.environments ?? {})
+        .filter(([, env]) => env?.enabled)
+        .map(([envId]) => envId),
     )
   ) {
     req.context.permissions.throwPermissionError();

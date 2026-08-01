@@ -685,12 +685,22 @@ export const putConfig = async (
       environments: configPublishEnvironments(context, existing),
     });
 
-  const canDraftEntity = context.permissions.canRevisionAction(
-    "config",
-    "draft",
-    { projects: [project ?? existing.project ?? ""] },
-    NO_ENVIRONMENT_BINDING,
-  );
+  // A move takes draft authority on BOTH sides. Checking only the destination
+  // let a caller pull an entity out of a project they cannot write; checking
+  // only the source let them push one into a project they cannot write.
+  const canDraftEntity =
+    context.permissions.canRevisionAction(
+      "config",
+      "draft",
+      { projects: [existing.project ?? ""] },
+      NO_ENVIRONMENT_BINDING,
+    ) &&
+    context.permissions.canRevisionAction(
+      "config",
+      "draft",
+      { projects: [project ?? existing.project ?? ""] },
+      NO_ENVIRONMENT_BINDING,
+    );
 
   // Restoring a previously-published revision is its own atom, so a revert-only
   // role (no draft authority) still gets in when the request names a revert
@@ -979,6 +989,22 @@ export const putConfig = async (
   const willPublish =
     wantsMerge && (!approvalRequired || bypassApproval || autoPublish);
   if (willPublish) {
+    // Landing a move has to be authorized in the DESTINATION too. The model
+    // backstop accepts revert authority for any non-archive update — it has no
+    // revision to judge purity against — so without this a caller with publish
+    // in the source and revert in the destination could land arbitrary content
+    // there.
+    if (
+      (project ?? existing.project ?? "") !== (existing.project ?? "") &&
+      !context.permissions.canRevisionAction(
+        "config",
+        "publish",
+        { projects: [project ?? ""] },
+        configPublishEnvironments(context, existing),
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
     // Landing a change live is publish-class, not edit-class. A pure archive
     // carries its own landing authority (checked above), so it's exempt here.
     // Restoring a previously-published revision is its own atom, so revert

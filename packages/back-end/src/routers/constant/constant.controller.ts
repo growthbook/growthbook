@@ -261,12 +261,22 @@ export const putConstant = async (
     });
 
   // Permission check always runs regardless of approval flow status.
-  const canDraftEntity = context.permissions.canRevisionAction(
-    "constant",
-    "draft",
-    { projects: [project ?? existing.project ?? ""] },
-    NO_ENVIRONMENT_BINDING,
-  );
+  // A move takes draft authority on BOTH sides. Checking only the destination
+  // let a caller pull an entity out of a project they cannot write; checking
+  // only the source let them push one into a project they cannot write.
+  const canDraftEntity =
+    context.permissions.canRevisionAction(
+      "constant",
+      "draft",
+      { projects: [existing.project ?? ""] },
+      NO_ENVIRONMENT_BINDING,
+    ) &&
+    context.permissions.canRevisionAction(
+      "constant",
+      "draft",
+      { projects: [project ?? existing.project ?? ""] },
+      NO_ENVIRONMENT_BINDING,
+    );
 
   // Restoring a previously-published revision is its own atom, so a revert-only
   // role (no draft authority) still gets in when the request names a revert
@@ -455,6 +465,22 @@ export const putConstant = async (
   // named revision, since the change set comes from the caller's body.
   const willPublish =
     wantsMerge && (!approvalRequired || bypassApproval || autoPublish);
+  // Landing a move has to be authorized in the DESTINATION too. The model
+  // backstop accepts revert authority for any non-archive update — it has no
+  // revision to judge purity against — so without this a caller with publish in
+  // the source and revert in the destination could land arbitrary content there.
+  if (
+    willPublish &&
+    (project ?? existing.project ?? "") !== (existing.project ?? "") &&
+    !context.permissions.canRevisionAction(
+      "constant",
+      "publish",
+      { projects: [project ?? ""] },
+      landingEnvs,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
   if (
     willPublish &&
     !canLandArchive &&
