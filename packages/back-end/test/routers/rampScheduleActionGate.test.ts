@@ -150,6 +150,61 @@ describe("postRampScheduleAction publish gate", () => {
     expect(res.status).toHaveBeenCalledWith(409);
   });
 
+  it("checks each target against only its own environments", async () => {
+    // A schedule moving rule A in dev and rule B in production touches neither
+    // target in the other's environment. Unioning the two would demand
+    // production authority in A's project and dev authority in B's.
+    const canPublishFeature = jest.fn(() => true);
+    (getContextFromReq as jest.Mock).mockReturnValue({
+      permissions: {
+        canPublishFeature,
+        throwPermissionError: () => {
+          throw new PermissionError("permission denied");
+        },
+      },
+      models: {
+        rampSchedules: {
+          getById: jest.fn(async () => ({
+            ...SCHEDULE,
+            targets: [
+              { id: "tgt_a", entityId: "feat_a" },
+              { id: "tgt_b", entityId: "feat_b" },
+            ],
+            steps: [
+              {
+                actions: [
+                  {
+                    targetType: "feature-rule",
+                    targetId: "tgt_a",
+                    patch: { environments: ["dev"] },
+                  },
+                  {
+                    targetType: "feature-rule",
+                    targetId: "tgt_b",
+                    patch: { environments: ["production"] },
+                  },
+                ],
+              },
+            ],
+          })),
+          publishEnvironments: jest.fn(() => ["dev", "production"]),
+        },
+      },
+    });
+    (getFeature as jest.Mock).mockImplementation(async (_ctx, id) => ({
+      project: id === "feat_a" ? "prj_a" : "prj_b",
+    }));
+
+    await postRampScheduleAction(makeReq("not-an-action"), makeRes());
+
+    expect(canPublishFeature).toHaveBeenCalledWith({ project: "prj_a" }, [
+      "dev",
+    ]);
+    expect(canPublishFeature).toHaveBeenCalledWith({ project: "prj_b" }, [
+      "production",
+    ]);
+  });
+
   it("lets a publisher past the gate", async () => {
     arrange({ canPublish: true });
     const res = makeRes();

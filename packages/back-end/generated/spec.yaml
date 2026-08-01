@@ -20245,6 +20245,10 @@ paths:
               type: object
               properties:
                 strategy:
+                  description: >-
+                    Whether to stage the revert as a draft or publish it
+                    immediately. Defaults to `draft`, or to `publish` when the
+                    org enables 'reverts bypass approval'.
                   type: string
                   enum:
                     - draft
@@ -21719,6 +21723,10 @@ paths:
               type: object
               properties:
                 strategy:
+                  description: >-
+                    Whether to stage the revert as a draft or publish it
+                    immediately. Defaults to `draft`, or to `publish` when the
+                    org enables 'reverts bypass approval'.
                   type: string
                   enum:
                     - draft
@@ -24456,6 +24464,10 @@ paths:
               type: object
               properties:
                 strategy:
+                  description: >-
+                    Whether to stage the revert as a draft or publish it
+                    immediately. Defaults to `draft`, or to `publish` when the
+                    org enables 'reverts bypass approval'.
                   type: string
                   enum:
                     - draft

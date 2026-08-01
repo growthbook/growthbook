@@ -334,7 +334,12 @@ export const postConfigRevisionRevertValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      strategy: z.enum(["draft", "publish"]).optional(),
+      strategy: z
+        .enum(["draft", "publish"])
+        .optional()
+        .describe(
+          "Whether to stage the revert as a draft or publish it immediately. Defaults to `draft`, or to `publish` when the org enables 'reverts bypass approval'.",
+        ),
       title: z.string().optional(),
       comment: z.string().optional(),
       ...publishOverrideBodyFields,

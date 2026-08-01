@@ -1853,11 +1853,37 @@ export class RevisionModel extends BaseClass {
   async getOpenRevisionTargetIds(
     entityType: RevisionTargetType,
   ): Promise<string[]> {
-    return this._dangerousGetCollection().distinct("target.id", {
-      organization: this.context.org.id,
-      "target.type": entityType,
-      status: { $nin: ["merged", "discarded"] },
-    });
+    // A bare `distinct` over target IDs would hand back the keys of entities
+    // the caller cannot read, so the beacon runs the same `canRead` the rest of
+    // the model does. It stays lightweight by projecting only the snapshot
+    // fields that check consults — every adapter decides on project alone, and
+    // pulling whole snapshots here would drag in saved groups' full ID lists.
+    // Widen the projection if an adapter ever reads more than project.
+    const docs = await this._dangerousGetCollection()
+      .find(
+        {
+          organization: this.context.org.id,
+          "target.type": entityType,
+          status: { $nin: ["merged", "discarded"] },
+        },
+        {
+          projection: {
+            "target.type": 1,
+            "target.id": 1,
+            "target.snapshot.project": 1,
+            "target.snapshot.projects": 1,
+          },
+        },
+      )
+      .toArray();
+
+    const readable = new Set<string>();
+    for (const doc of docs) {
+      if (doc?.target?.id && this.canRead(doc as unknown as Revision)) {
+        readable.add(doc.target.id);
+      }
+    }
+    return Array.from(readable);
   }
 
   // Create request (from saved-group controller)

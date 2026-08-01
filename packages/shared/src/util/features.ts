@@ -3062,6 +3062,35 @@ export function isRampScheduleServing(
   return schedule.status === "running" || schedule.status === "paused";
 }
 
+/**
+ * The environments a single ramp target is acted on in. Actions carry a
+ * `targetId`, so a schedule controlling rule A in dev and rule B in production
+ * touches each target only in its own environments — taking the union across
+ * targets and applying it to every target's project would demand authority in
+ * combinations the schedule never acts on.
+ */
+export function getEnvsForRampTarget(
+  schedule: Pick<
+    RampScheduleInterface,
+    "startActions" | "steps" | "endActions"
+  >,
+  targetId: string,
+): string[] | "all" {
+  const envs = new Set<string>();
+  const patches = [
+    ...(schedule.startActions ?? []),
+    ...schedule.steps.flatMap((s) => s.actions),
+    ...(schedule.endActions ?? []),
+  ]
+    .filter((a) => a.targetId === targetId)
+    .map((a) => a.patch);
+  for (const patch of patches) {
+    if (patch.allEnvironments) return "all";
+    for (const env of patch.environments ?? []) envs.add(env);
+  }
+  return Array.from(envs);
+}
+
 export function getEnvsFromRampSchedule(
   schedule: Pick<
     RampScheduleInterface,

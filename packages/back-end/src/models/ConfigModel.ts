@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import {
   configPublishEnvironments,
   getConfigBaseKeys,
@@ -99,7 +100,7 @@ export class ConfigModel extends BaseClass {
   protected canDelete(doc: ConfigInterface): boolean {
     return this.context.permissions.canDeleteConfig(
       doc,
-      configPublishEnvironments(doc),
+      doc.archived ? NO_ENVIRONMENT_BINDING : configPublishEnvironments(doc),
     );
   }
 

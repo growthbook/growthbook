@@ -245,6 +245,12 @@ archiving a Feature Flag checks the environments where that flag is currently
 enabled. Permanently deleting an already archived resource does not require
 access to any environment.
 
+Some changes are not environment-specific at all. A Constant's base value and a
+Config that is not scoped to particular environments apply everywhere rather
+than to any one environment, so there is no environment for GrowthBook to check.
+A role with Publish for the Project can publish them regardless of its
+environment restrictions.
+
 Moving a resource to another Project requires the relevant permission in both
 the current and destination Projects.
 

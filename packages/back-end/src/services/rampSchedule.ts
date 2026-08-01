@@ -22,6 +22,7 @@ import {
   filterEnvironmentsByFeature,
   MergeResultChanges,
   isRampScheduleServing,
+  getEnvsForRampTarget,
 } from "shared/util";
 import uniqid from "uniqid";
 import { getEnvironments } from "back-end/src/services/organizations";
@@ -3037,16 +3038,27 @@ export async function assertCanControlRampSchedule(
   context: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
 ): Promise<void> {
-  const environments =
+  const scheduleEnvs =
     context.models.rampSchedules.publishEnvironments(schedule);
   // A multi-target schedule mutates every attached flag, so control takes
-  // publish over each target's project — not just the primary entity's. A
-  // target whose flag no longer resolves has nothing left to protect.
-  const featureIds = new Set<string>([
-    schedule.entityId,
-    ...(schedule.targets ?? []).map((t) => t.entityId),
-  ]);
-  for (const featureId of featureIds) {
+  // publish over each target's project — not just the primary entity's. Each
+  // target is checked against ITS OWN environments: the union across targets
+  // would demand, of a caller holding A/dev and B/production, authority over
+  // A/production and B/dev that the schedule never acts on.
+  const checks = new Map<string, string[]>();
+  for (const target of schedule.targets ?? []) {
+    // "all" resolves to the schedule-wide footprint, which the model has
+    // already expanded against the org's environments.
+    const envs = getEnvsForRampTarget(schedule, target.id);
+    checks.set(target.entityId, envs === "all" ? scheduleEnvs : envs);
+  }
+  // The anchor feature is always checked, against the schedule-wide footprint
+  // when it isn't itself a target.
+  if (!checks.has(schedule.entityId)) {
+    checks.set(schedule.entityId, scheduleEnvs);
+  }
+
+  for (const [featureId, environments] of checks) {
     const linkedFeature = await getFeature(context, featureId);
     if (featureId !== schedule.entityId && !linkedFeature) continue;
     if (

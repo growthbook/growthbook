@@ -408,12 +408,14 @@ export async function publishRevision(
       throw e;
     }
     // The failed attempt never dispatched; this apply is when the change lands.
+    // Dispatch and return the CLAIMED revision — `revision` predates the claim,
+    // so the webhook payload and the response would disagree with a refetch.
     await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
       context,
-      revision,
-      { type: revision.revertedFrom ? "reverted" : "published" },
+      claimed,
+      { type: claimed.revertedFrom ? "reverted" : "published" },
     );
-    return revision;
+    return claimed;
   }
 
   // No net change vs the live entity: either a genuine no-op or a retry after a

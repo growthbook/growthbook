@@ -1229,7 +1229,12 @@ export const deleteConfig = async (
   if (
     !context.permissions.canDeleteConfig(
       existing,
-      configPublishEnvironments(context, existing),
+      // Archived (enforced below), so it is serving nothing anywhere — same
+      // reading of an archived entity's footprint that features and constants
+      // take. A live config still answers for the environments it scopes to.
+      existing.archived
+        ? NO_ENVIRONMENT_BINDING
+        : configPublishEnvironments(context, existing),
     )
   ) {
     context.permissions.throwPermissionError();
