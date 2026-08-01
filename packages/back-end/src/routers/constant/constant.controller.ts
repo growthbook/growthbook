@@ -433,10 +433,18 @@ export const putConstant = async (
   // requires review (all environments), a per-env override only when its
   // environment is in scope, metadata per the rule's metadata-review toggle.
   // Computed against the live entity + this change, matching the merge endpoint.
+  const revisionChange = getConstantRevisionChange(existing, patchOps);
   const approvalRequired = constantRequiresReview(
     { project: existing.project },
-    getConstantRevisionChange(existing, patchOps),
+    revisionChange,
     org.settings,
+  );
+  // The landing footprint: the environment overrides this change touches. A
+  // base-value change carries no intrinsic environment (declared design), but a
+  // dev-limited publisher must not be able to write environmentValues.production.
+  const landingEnvs = constantPublishEnvironments(
+    context,
+    revisionChange.changedEnvironments,
   );
 
   // Landing a change live is publish-class, not edit-class. Checked before the
@@ -454,7 +462,7 @@ export const putConstant = async (
       "constant",
       "publish",
       existing,
-      constantPublishEnvironments(context),
+      landingEnvs,
     ) &&
     !(
       pureRevertPatch &&
@@ -462,7 +470,7 @@ export const putConstant = async (
         "constant",
         "revert",
         existing,
-        constantPublishEnvironments(context),
+        landingEnvs,
       )
     )
   ) {

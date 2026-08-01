@@ -216,7 +216,9 @@ describe("canLandArchivedState", () => {
 
   const entity = { project: "proj" };
 
-  it("asks for the delete atom when archiving", () => {
+  it("asks for the delete atom over the affected environments when archiving", () => {
+    // The footprint must reach the check: without it, a deleter limited to dev
+    // could archive an entity serving production.
     const { permissions, calls } = permissionsGranting({ delete: true });
     expect(
       canLandArchivedState({
@@ -227,7 +229,7 @@ describe("canLandArchivedState", () => {
         environments: ["production"],
       }),
     ).toBe(true);
-    expect(calls).toEqual([{ action: "delete", environments: [] }]);
+    expect(calls).toEqual([{ action: "delete", environments: ["production"] }]);
   });
 
   it("asks for env-scoped publish when unarchiving", () => {

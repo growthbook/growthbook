@@ -153,6 +153,17 @@ export async function revertFeatureCore(
       hasMetaChange = true;
     }
     if (m.project !== undefined && m.project !== feature.project) {
+      // A move has to land where the caller has authority, not just leave where
+      // they do — this path publishes directly, bypassing the publish engine's
+      // destination check.
+      if (
+        !context.permissions.canPublishFeature(
+          { project: m.project },
+          changedEnvs,
+        )
+      ) {
+        context.permissions.throwPermissionError();
+      }
       metadataChanges.project = m.project;
       hasMetaChange = true;
     }

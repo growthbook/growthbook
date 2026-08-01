@@ -202,6 +202,18 @@ export async function revertFeatureRevision(
       hasMetaChange = true;
     }
     if (m.project !== undefined && m.project !== (feature.project ?? "")) {
+      // A move has to land where the caller has authority, not just leave where
+      // they do — same rule as assertCanPublishFeatureRevision, which this
+      // direct-publish path bypasses.
+      if (
+        isPublish &&
+        !context.permissions.canPublishFeature(
+          { project: m.project },
+          allEnabledEnvs,
+        )
+      ) {
+        context.permissions.throwPermissionError();
+      }
       metadataChanges.project = m.project;
       hasMetaChange = true;
     }

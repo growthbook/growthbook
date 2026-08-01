@@ -468,6 +468,57 @@ describe.each(ENTITIES)("permission matrix — $label", (entity: Entity) => {
  * One entity and the four personas that characterise the rule, instead of the
  * full matrix: the setup is five round trips and the rule does not vary by entity.
  */
+describe("a Constant's environment overrides bind the environment restriction", () => {
+  // The change-aware footprint: a base-value change carries no intrinsic
+  // environment (declared design), but an environmentValues.production write
+  // from a dev-limited editor is exactly what the restriction exists to stop.
+  const constant = ENTITIES[0];
+
+  it("dev-limited editor may change the base value", async () => {
+    const id = await seed(constant);
+    as("editor", true);
+    expectVerdict(
+      await api.post(`/api/v1/${constant.base}/${id}`, {
+        value: '{"timeout":99}',
+      }),
+      true,
+    );
+  });
+
+  it("dev-limited editor may change the dev override", async () => {
+    const id = await seed(constant);
+    as("editor", true);
+    expectVerdict(
+      await api.post(`/api/v1/${constant.base}/${id}`, {
+        environmentValues: { dev: '{"timeout":1}' },
+      }),
+      true,
+    );
+  });
+
+  it("dev-limited editor may NOT change the production override", async () => {
+    const id = await seed(constant);
+    as("editor", true);
+    expectVerdict(
+      await api.post(`/api/v1/${constant.base}/${id}`, {
+        environmentValues: { production: '{"timeout":1}' },
+      }),
+      false,
+    );
+  });
+
+  it("unrestricted editor may change the production override", async () => {
+    const id = await seed(constant);
+    as("editor");
+    expectVerdict(
+      await api.post(`/api/v1/${constant.base}/${id}`, {
+        environmentValues: { production: '{"timeout":1}' },
+      }),
+      true,
+    );
+  });
+});
+
 describe("a no-op rebase over a pure-revert draft", () => {
   const constant = ENTITIES[0];
 

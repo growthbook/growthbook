@@ -35,7 +35,7 @@ export function canLandArchivedState({
   environments?: string[];
 }): boolean {
   return archived
-    ? permissions.canRevisionAction(model, "delete", entity)
+    ? permissions.canRevisionAction(model, "delete", entity, environments)
     : permissions.canRevisionAction(model, "publish", entity, environments);
 }
 

@@ -24,6 +24,7 @@ import {
   getContextFromReq,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
+import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
   createExperiment,
   getAllExperiments,
@@ -746,7 +747,16 @@ export const deleteHoldoutFeature = async (
     });
   }
 
-  if (!context.permissions.canEditFeatureDrafts(feature)) {
+  // Stripping the holdout changes what the live flag serves, so it takes
+  // publish authority over the environments it serves in — not draft authority.
+  if (
+    !context.permissions.canPublishFeature(
+      feature,
+      Array.from(
+        getEnabledEnvironments(feature, getEnvironmentIdsFromOrg(context.org)),
+      ),
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
 

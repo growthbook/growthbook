@@ -3037,13 +3037,25 @@ export async function assertCanControlRampSchedule(
   context: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
 ): Promise<void> {
-  const linkedFeature = await getFeature(context, schedule.entityId);
-  if (
-    !context.permissions.canPublishFeature(
-      { project: linkedFeature?.project },
-      context.models.rampSchedules.publishEnvironments(schedule),
-    )
-  ) {
-    context.permissions.throwPermissionError();
+  const environments =
+    context.models.rampSchedules.publishEnvironments(schedule);
+  // A multi-target schedule mutates every attached flag, so control takes
+  // publish over each target's project — not just the primary entity's. A
+  // target whose flag no longer resolves has nothing left to protect.
+  const featureIds = new Set<string>([
+    schedule.entityId,
+    ...(schedule.targets ?? []).map((t) => t.entityId),
+  ]);
+  for (const featureId of featureIds) {
+    const linkedFeature = await getFeature(context, featureId);
+    if (featureId !== schedule.entityId && !linkedFeature) continue;
+    if (
+      !context.permissions.canPublishFeature(
+        { project: linkedFeature?.project },
+        environments,
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
   }
 }

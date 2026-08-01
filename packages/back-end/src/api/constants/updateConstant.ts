@@ -1,5 +1,5 @@
 import { isEqual } from "lodash";
-import { Revision } from "shared/enterprise";
+import { Revision, getConstantRevisionChange } from "shared/enterprise";
 import {
   updateConstantValidator,
   validateResolvableValue,
@@ -132,7 +132,13 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
         "constant",
         "publish",
         constant,
-        constantPublishEnvironments(req.context),
+        constantPublishEnvironments(
+          req.context,
+          getConstantRevisionChange(
+            constant,
+            buildPatchOps(fieldsToUpdate as Record<string, unknown>),
+          ).changedEnvironments,
+        ),
       )
     ) {
       req.context.permissions.throwPermissionError();

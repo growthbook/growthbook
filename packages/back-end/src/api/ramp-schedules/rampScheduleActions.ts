@@ -511,6 +511,17 @@ export const addTargetRampSchedule = createApiRequestHandler({
 
   const feature = await getFeature(req.context, featureId);
   if (!feature) throw new Error(`Feature '${featureId}' not found`);
+  // The gate above covered the schedule's existing targets; the flag being
+  // attached needs the same authority, or a schedule anchored in one project
+  // becomes a lever over flags in another.
+  if (
+    !req.context.permissions.canPublishFeature(
+      feature,
+      req.context.models.rampSchedules.publishEnvironments(schedule),
+    )
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
   const rule = resolveRampTarget(
     { ruleId, environment: environment ?? null },
     feature.rules ?? [],

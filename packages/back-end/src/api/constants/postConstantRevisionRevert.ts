@@ -37,22 +37,6 @@ export const postConstantRevisionRevert = createApiRequestHandler(
     req.body.strategy ?? (revertsBypassApproval ? "publish" : "draft");
   const isPublish = strategy === "publish";
 
-  // Executing the revert needs revert authority. Proposing one as a draft is
-  // also open to anyone who can author drafts.
-  const canRevert = req.context.permissions.canRevisionAction(
-    "constant",
-    "revert",
-    constant,
-    constantPublishEnvironments(req.context),
-  );
-  if (
-    !canRevert &&
-    (isPublish ||
-      !req.context.permissions.canRevisionAction("constant", "draft", constant))
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
-
   const targetRevision = await loadRevisionByVersion(
     req.context,
     constant.id,
@@ -72,6 +56,34 @@ export const postConstantRevisionRevert = createApiRequestHandler(
     targetRevision.target.snapshot as ConstantInterface,
     targetRevision.target.proposedChanges,
   ) as ConstantInterface;
+
+  // Executing the revert needs revert authority over the environments whose
+  // override the restoration changes; a differing base value carries no
+  // intrinsic environment, matching every other landing. Proposing a draft is
+  // also open to anyone who can author drafts.
+  const revertEnvs = [
+    ...new Set([
+      ...Object.keys(constant.environmentValues ?? {}),
+      ...Object.keys(targetState.environmentValues ?? {}),
+    ]),
+  ].filter(
+    (env) =>
+      (constant.environmentValues?.[env] ?? "") !==
+      (targetState.environmentValues?.[env] ?? ""),
+  );
+  const canRevert = req.context.permissions.canRevisionAction(
+    "constant",
+    "revert",
+    constant,
+    constantPublishEnvironments(req.context, revertEnvs),
+  );
+  if (
+    !canRevert &&
+    (isPublish ||
+      !req.context.permissions.canRevisionAction("constant", "draft", constant))
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
 
   // Diff vs the current live constant; omit fields equal to live.
   const fieldsToUpdate: Record<string, unknown> = {};

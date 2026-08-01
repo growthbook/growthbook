@@ -131,6 +131,18 @@ export interface EntityRevisionAdapter<
    */
   canDeleteEntity?(context: Context, snapshot: TSnapshot): boolean;
 
+  /**
+   * The environment footprint a specific change set lands in, when the entity
+   * can scope narrower than its whole self — e.g. a Constant's per-environment
+   * overrides. The publish engine layers this ON TOP of `canPublishRevision`,
+   * which cannot see the change. Omit when a change's reach never varies.
+   */
+  publishFootprint?(
+    context: Context,
+    snapshot: TSnapshot,
+    proposedChanges: unknown,
+  ): string[];
+
   // ---------- Approval flow ----------
 
   /** Whether this org requires approval before a revision can be merged. */

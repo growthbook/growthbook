@@ -299,6 +299,21 @@ export const postSavedGroupAddItems = async (
   }
 
   const approvalRequired = isRevisionRequired(context, "saved-group", id);
+  // Without approvals this call lands the change live immediately, so it takes
+  // publish on top of draft. Revert authority is no substitute: a membership
+  // edit is never a pure restore. With approvals on, the change only stages a
+  // draft and the publish gate runs when someone lands it.
+  if (
+    !approvalRequired &&
+    !context.permissions.canRevisionAction(
+      "saved-group",
+      "publish",
+      savedGroup,
+      NO_ENVIRONMENT_BINDING,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   await ensureLiveRevisionExists(
     context,
@@ -474,6 +489,21 @@ export const postSavedGroupRemoveItems = async (
   }
 
   const approvalRequired = isRevisionRequired(context, "saved-group", id);
+  // Without approvals this call lands the change live immediately, so it takes
+  // publish on top of draft. Revert authority is no substitute: a membership
+  // edit is never a pure restore. With approvals on, the change only stages a
+  // draft and the publish gate runs when someone lands it.
+  if (
+    !approvalRequired &&
+    !context.permissions.canRevisionAction(
+      "saved-group",
+      "publish",
+      savedGroup,
+      NO_ENVIRONMENT_BINDING,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   await ensureLiveRevisionExists(
     context,

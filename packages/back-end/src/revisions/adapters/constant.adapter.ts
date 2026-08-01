@@ -189,6 +189,17 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
   // `value` change requires review (affects all environments); a per-environment
   // override requires review only when that environment is in scope; a
   // metadata-only change follows the rule's `featureRequireMetadataReview`.
+  publishFootprint(
+    context: Context,
+    snapshot: ConstantInterface,
+    proposedChanges: unknown,
+  ): string[] {
+    return constantPublishEnvironments(
+      context,
+      getConstantRevisionChange(snapshot, proposedChanges).changedEnvironments,
+    );
+  },
+
   isApprovalRequiredForRevision(context: Context, revision: Revision): boolean {
     if (!context.hasPremiumFeature("require-approvals")) return false;
     const snapshot = revision.target.snapshot as ConstantInterface;

@@ -749,7 +749,17 @@ export abstract class BaseModel<
       | PKeyUpdateProps<T, PKey, PK>
       | null
       | Promise<PKeyUpdateProps<T, PKey, PK> | null>,
-    options: { maxAttempts?: number; writeOptions?: WriteOptions } = {},
+    options: {
+      maxAttempts?: number;
+      writeOptions?: WriteOptions;
+      /**
+       * Skip the canUpdate gate, for orchestration writes whose authority was
+       * already established by the calling flow — e.g. claiming recovery of a
+       * merged revision, which canUpdate refuses to protect history from
+       * ordinary edits. Same contract as dangerousUpdateBypassPermission.
+       */
+      dangerouslyBypassCanUpdate?: boolean;
+    } = {},
   ): Promise<z.infer<T> | null> {
     this._assertHasIdField();
     if (!this.hasPremiumFeature()) {
@@ -787,6 +797,7 @@ export abstract class BaseModel<
         return await this._updateOne(existing, updates, {
           writeOptions: options.writeOptions,
           guard,
+          forceCanUpdate: options.dangerouslyBypassCanUpdate,
         });
       } catch (e) {
         if (e instanceof CasConflictError) continue;

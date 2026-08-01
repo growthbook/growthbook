@@ -114,11 +114,32 @@ export async function assertCanPublishRevision(
     context.permissions.throwPermissionError();
   }
 
-  if ((adapter.canPublishRevision ?? adapter.canUpdate)(context, snapshot)) {
+  // Change-aware environment footprint, when the adapter can compute one — the
+  // project-scoped hooks below can't see the change, so this narrows on top.
+  const footprint = adapter.publishFootprint?.(
+    context,
+    snapshot,
+    revision.target.proposedChanges,
+  );
+  const footprintOk = (action: "publish" | "revert"): boolean =>
+    !footprint?.length ||
+    context.permissions.canRevisionAction(
+      revision.target.type,
+      action,
+      snapshot,
+      footprint,
+    );
+
+  if (
+    (adapter.canPublishRevision ?? adapter.canUpdate)(context, snapshot) &&
+    footprintOk("publish")
+  ) {
     return;
   }
 
-  const canRevert = (adapter.canRevert ?? adapter.canUpdate)(context, snapshot);
+  const canRevert =
+    (adapter.canRevert ?? adapter.canUpdate)(context, snapshot) &&
+    footprintOk("revert");
   if (canRevert && (await isPureRevertRevision(context, revision))) return;
 
   // Staging an archive as a draft must not require an atom that landing it in one
@@ -346,6 +367,10 @@ export async function publishRevision(
                 },
               ],
             },
+      // The revision is merged, and canUpdate refuses merged revisions to keep
+      // history immutable — but this claim IS the recovery of that merge, and
+      // the caller's publish authority was checked above.
+      { dangerouslyBypassCanUpdate: true },
     );
     if (!claimed) return revision;
 
