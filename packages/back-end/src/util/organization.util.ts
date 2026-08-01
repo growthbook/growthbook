@@ -145,6 +145,12 @@ function mergeUserPermissionObj(
     updatedUserPermissionObj.permissions,
     userPermission2.permissions,
   );
+  if (updatedUserPermissionObj.envGrants || userPermission2.envGrants) {
+    updatedUserPermissionObj.envGrants = [
+      ...(updatedUserPermissionObj.envGrants ?? []),
+      ...(userPermission2.envGrants ?? []),
+    ];
+  }
 
   return updatedUserPermissionObj;
 }
@@ -218,14 +224,33 @@ function getUserPermission(
     limitAccessByEnvironment = false;
   }
 
+  const permissions = roleToPermissionMap(info.role, org);
+  const environments = info.environments || [];
+  const effectiveLimit = getLimitAccessByEnvironment(
+    environments,
+    limitAccessByEnvironment,
+    org,
+  );
+  const envScoped = ENV_SCOPED_PERMISSIONS.filter((p) => permissions[p]);
   return {
-    environments: info.environments || [],
-    limitAccessByEnvironment: getLimitAccessByEnvironment(
-      info.environments || [],
-      limitAccessByEnvironment,
-      org,
-    ),
-    permissions: roleToPermissionMap(info.role, org),
+    environments,
+    limitAccessByEnvironment: effectiveLimit,
+    permissions,
+    // The env verdict for scoped permissions comes from per-role grants, so two
+    // roles with different restrictions can't cross-contaminate when merged.
+    // Omitted (not []) when the role grants nothing env-scoped, so the object
+    // keeps its historical shape for roles the field says nothing about.
+    ...(envScoped.length
+      ? {
+          envGrants: [
+            {
+              environments,
+              limitAccessByEnvironment: effectiveLimit,
+              permissions: envScoped,
+            },
+          ],
+        }
+      : {}),
   };
 }
 

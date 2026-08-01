@@ -57,6 +57,20 @@ export type UserPermission = {
   environments: string[];
   limitAccessByEnvironment: boolean;
   permissions: PermissionsObject;
+  /**
+   * One entry per role that contributed to this merged object, carrying the
+   * environment-scoped permissions that role grants and ITS OWN environment
+   * restriction. The flat fields above union across roles, which turns
+   * "publish in dev" + "create in production" into both-everywhere; the
+   * environment verdict for a scoped permission comes from these instead.
+   * Absent on objects serialized before this field existed — checks fall back
+   * to the flat fields.
+   */
+  envGrants?: {
+    environments: string[];
+    limitAccessByEnvironment: boolean;
+    permissions: Permission[];
+  }[];
 };
 
 export type UserPermissions = {
