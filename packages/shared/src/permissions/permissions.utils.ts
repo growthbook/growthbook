@@ -173,11 +173,16 @@ export function envsAllowedBy(
     g.permissions.includes(permissionToCheck),
   );
   if (relevantGrants.length) {
-    return relevantGrants.some(
-      (g) =>
-        !g.limitAccessByEnvironment ||
-        envs.every((env) => g.environments.includes(env)),
-    );
+    // Union the environments across the grants that carry THIS permission. A
+    // role that doesn't grant it contributes nothing, which is the whole point
+    // — the leak was permissions borrowing another role's environments, not one
+    // permission reaching every environment its own roles allow. Requiring a
+    // single grant to cover the footprint would deny a member holding publish
+    // in dev from one role and production from another a change touching both,
+    // which they are plainly authorized for.
+    if (relevantGrants.some((g) => !g.limitAccessByEnvironment)) return true;
+    const allowed = new Set(relevantGrants.flatMap((g) => g.environments));
+    return envs.every((env) => allowed.has(env));
   }
 
   if (!userPermission.limitAccessByEnvironment) return true;

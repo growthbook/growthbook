@@ -1725,6 +1725,42 @@ describe("Build base user permissions", () => {
       ).toEqual(false);
     });
 
+    it("covers a footprint spanning both roles' environments", () => {
+      // The union is per PERMISSION: publish is granted by the staging role
+      // only, so it covers staging alone. Give the same permission a second
+      // grant and the two compose — the member holds publish in both.
+      const bothPublish: OrganizationInterface = {
+        ...orgWithSplitRoles,
+        customRoles: [
+          {
+            id: "publisher_only",
+            description: "",
+            policies: ["ReadData", "FlagsPublish"],
+          },
+          {
+            id: "creator_only",
+            description: "",
+            policies: ["ReadData", "FlagsPublish"],
+          },
+        ],
+      };
+      const perms = new Permissions(
+        getUserPermissions({ id: "base_user_123" }, bothPublish, teams),
+      );
+      expect(
+        perms.canPublishFeature({ project: "" }, ["staging", "production"]),
+      ).toEqual(true);
+    });
+
+    it("still refuses a footprint neither role's grant of that permission covers", () => {
+      const perms = permissions();
+      // publish comes only from the staging role, so production is out of reach
+      // no matter what the production role grants.
+      expect(
+        perms.canPublishFeature({ project: "" }, ["staging", "production"]),
+      ).toEqual(false);
+    });
+
     it("the flat merged fields would have allowed the leak", () => {
       // Documents WHY grants exist: the legacy fields still union, so a check
       // against them alone reads production as allowed for publishFeatures.
