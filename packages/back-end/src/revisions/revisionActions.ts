@@ -61,6 +61,25 @@ export function canDoRevisionAction(
   return (fn ?? adapter.canUpdate)(context, snapshot);
 }
 
+// Commenting is participation, not authority over the entity: the addComments
+// atom is what gates it everywhere else (feature and experiment discussions), so
+// honour it here too, alongside draft and review authority. Shared by the
+// internal controller and the REST submit-review handlers so the two agree.
+export function canCommentOnRevision(
+  type: RevisionTargetType,
+  context: Context,
+  snapshot: Record<string, unknown>,
+): boolean {
+  const projects =
+    (snapshot.projects as string[] | undefined) ??
+    (snapshot.project ? [snapshot.project as string] : []);
+  return (
+    context.permissions.canAddComment(projects) ||
+    canDoRevisionAction(type, "draft", context, snapshot) ||
+    canDoRevisionAction(type, "review", context, snapshot)
+  );
+}
+
 /**
  * May this caller touch a revision of this entity at all — the model-layer
  * backstop behind the controller's per-action gate.

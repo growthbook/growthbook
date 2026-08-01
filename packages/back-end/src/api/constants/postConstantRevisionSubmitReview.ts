@@ -1,8 +1,11 @@
 import { isUserBlockedFromApproving } from "shared/enterprise";
 import { postConstantRevisionSubmitReviewValidator } from "shared/validators";
+import {
+  canCommentOnRevision,
+  maybeAutoPublishRevision,
+} from "back-end/src/revisions/revisionActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { maybeAutoPublishRevision } from "back-end/src/revisions/revisionActions";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
@@ -21,8 +24,20 @@ export const postConstantRevisionSubmitReview = createApiRequestHandler(
     req.params.version,
   );
 
+  // A verdict needs review authority; a plain comment is participation. Same
+  // split the internal controller makes, via the same helper.
   if (
-    !req.context.permissions.canRevisionAction("constant", "review", constant)
+    !(req.body.decision === "comment"
+      ? canCommentOnRevision(
+          "constant",
+          req.context,
+          constant as unknown as Record<string, unknown>,
+        )
+      : req.context.permissions.canRevisionAction(
+          "constant",
+          "review",
+          constant,
+        ))
   ) {
     req.context.permissions.throwPermissionError();
   }

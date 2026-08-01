@@ -32,6 +32,7 @@ import { isRevisionDiverged } from "back-end/src/revisions/util";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import {
   canDoRevisionAction,
+  canCommentOnRevision,
   approveRevision,
   publishRevision as publishRevisionAction,
   maybeAutoPublishRevision,
@@ -41,24 +42,6 @@ import {
   canAdvanceRevision,
   canRebaseRevision,
 } from "back-end/src/revisions/revisionAuthority";
-
-// Commenting is participation, not authority over the entity: the addComments
-// atom is what gates it everywhere else (feature and experiment discussions), so
-// honour it here too, alongside draft and review authority.
-function canCommentOnRevision(
-  type: RevisionTargetType,
-  context: ReqContext,
-  snapshot: Record<string, unknown>,
-): boolean {
-  const projects =
-    (snapshot.projects as string[] | undefined) ??
-    (snapshot.project ? [snapshot.project as string] : []);
-  return (
-    context.permissions.canAddComment(projects) ||
-    canDoRevisionAction(type, "draft", context, snapshot) ||
-    canDoRevisionAction(type, "review", context, snapshot)
-  );
-}
 
 // Arm-time acknowledgment for a deferred publish, via the entity's adapter hook
 // (config uses it for the experiment guard; others have none). Throws when the

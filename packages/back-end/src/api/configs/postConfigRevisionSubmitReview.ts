@@ -1,8 +1,11 @@
 import { constantBlockSelfApproval } from "shared/util";
 import { postConfigRevisionSubmitReviewValidator } from "shared/validators";
+import {
+  canCommentOnRevision,
+  maybeAutoPublishRevision,
+} from "back-end/src/revisions/revisionActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { maybeAutoPublishRevision } from "back-end/src/revisions/revisionActions";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
@@ -21,7 +24,17 @@ export const postConfigRevisionSubmitReview = createApiRequestHandler(
     req.params.version,
   );
 
-  if (!req.context.permissions.canRevisionAction("config", "review", config)) {
+  // A verdict needs review authority; a plain comment is participation. Same
+  // split the internal controller makes, via the same helper.
+  if (
+    !(req.body.decision === "comment"
+      ? canCommentOnRevision(
+          "config",
+          req.context,
+          config as unknown as Record<string, unknown>,
+        )
+      : req.context.permissions.canRevisionAction("config", "review", config))
+  ) {
     req.context.permissions.throwPermissionError();
   }
 
