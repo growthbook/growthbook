@@ -35,12 +35,12 @@ export const postConstantRevisionRequestReview = createApiRequestHandler(
   }
 
   const enableAutoPublish =
-    req.body.autoPublishOnApproval &&
-    canEnableAutoPublishOnApproval(
+    !!req.body.autoPublishOnApproval &&
+    (await canEnableAutoPublishOnApproval(
       req.context,
-      "constant",
+      revision,
       constant as unknown as Record<string, unknown>,
-    );
+    ));
 
   // Snapshot the deferred-publish guard fingerprints when arming auto-publish, so
   // the later auto-publish-on-approval fire can clear the armed guards. Throws

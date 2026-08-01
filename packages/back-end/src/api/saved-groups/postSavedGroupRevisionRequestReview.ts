@@ -45,12 +45,12 @@ export const postSavedGroupRevisionRequestReview = createApiRequestHandler(
   }
 
   const enableAutoPublish =
-    req.body.autoPublishOnApproval &&
-    canEnableAutoPublishOnApproval(
+    !!req.body.autoPublishOnApproval &&
+    (await canEnableAutoPublishOnApproval(
       req.context,
-      "saved-group",
+      revision,
       savedGroup as unknown as Record<string, unknown>,
-    );
+    ));
 
   const updated = await req.context.models.revisions.submitForReview(
     revision.id,

@@ -33,12 +33,12 @@ export const postConfigRevisionRequestReview = createApiRequestHandler(
   }
 
   const enableAutoPublish =
-    req.body.autoPublishOnApproval &&
-    canEnableAutoPublishOnApproval(
+    !!req.body.autoPublishOnApproval &&
+    (await canEnableAutoPublishOnApproval(
       req.context,
-      "config",
+      revision,
       config as unknown as Record<string, unknown>,
-    );
+    ));
 
   // Deferred-publish guards: snapshot the acknowledged conflict keys per guard
   // (throws if arming over live conflicts without ignoreWarnings/bypass). Routed

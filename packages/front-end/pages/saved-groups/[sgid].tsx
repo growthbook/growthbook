@@ -1092,9 +1092,21 @@ export default function EditSavedGroupPage() {
               "delete",
               savedGroup,
             )}
-            canCommentOnEntity={permissionsUtil.canAddComment(
-              savedGroup.projects ?? [],
-            )}
+            canCommentOnEntity={
+              // Mirrors the server's canCommentOnRevision: draft or review
+              // authority also lets you comment.
+              permissionsUtil.canAddComment(savedGroup.projects ?? []) ||
+              permissionsUtil.canRevisionAction(
+                "saved-group",
+                "draft",
+                savedGroup,
+              ) ||
+              permissionsUtil.canRevisionAction(
+                "saved-group",
+                "review",
+                savedGroup,
+              )
+            }
             canReviewEntity={permissionsUtil.canRevisionAction(
               "saved-group",
               "review",

@@ -472,12 +472,12 @@ export const postSubmit = async (
   }
 
   const enableAutoPublish =
-    autoPublishOnApproval &&
-    canEnableAutoPublishOnApproval(
+    !!autoPublishOnApproval &&
+    (await canEnableAutoPublishOnApproval(
       context,
-      existingRevision.target.type,
+      existingRevision,
       existingRevision.target.snapshot as Record<string, unknown>,
-    );
+    ));
 
   const armAcknowledgments = enableAutoPublish
     ? await captureArmAcknowledgment(context, existingRevision)
@@ -1279,11 +1279,11 @@ export const postToggleAutoPublish = async (
 
   if (
     enabled &&
-    !canEnableAutoPublishOnApproval(
+    !(await canEnableAutoPublishOnApproval(
       context,
-      existing.target.type,
+      existing,
       existing.target.snapshot as Record<string, unknown>,
-    )
+    ))
   ) {
     context.permissions.throwPermissionError();
   }
@@ -1746,7 +1746,19 @@ export const postSchedulePublish = async (
   }
 
   const adapter = getAdapter(existingRevision.target.type);
-  const snapshot = existingRevision.target.snapshot as Record<string, unknown>;
+  // Authorize against the LIVE entity, not the revision's snapshot. A schedule
+  // publishes into the entity as it stands when the poller fires, so after a
+  // project move the snapshot names a project the change will never land in —
+  // an old-project user could otherwise arm, retime, or cancel a schedule whose
+  // publish then fails and retries against the current project. Cancellation is
+  // included: it is a write to the same pending publish.
+  const liveEntity =
+    (await adapter.getModel(context)?.getById(existingRevision.target.id)) ??
+    null;
+  if (!liveEntity) {
+    return res.status(404).json({ message: "Entity not found" });
+  }
+  const snapshot = liveEntity as Record<string, unknown>;
   const isCancel = scheduledPublishAt === null;
 
   // Parse + validate the target date (arming only).
@@ -1821,11 +1833,8 @@ export const postSchedulePublish = async (
 
   // Arming against an entity that can't accept a future publish (e.g. a locked
   // config) would just fail at every poller tick — reject up front. Canceling
-  // is never gated. Reused below for the config experiment-guard acknowledgment.
-  const scheduleEntity = isCancel
-    ? null
-    : ((await adapter.getModel(context)?.getById(existingRevision.target.id)) ??
-      null);
+  // is never gated. Reuses the live entity loaded for the permission checks.
+  const scheduleEntity = isCancel ? null : liveEntity;
   if (adapter.assertSchedulable && scheduleEntity) {
     await adapter.assertSchedulable(context, scheduleEntity);
   }

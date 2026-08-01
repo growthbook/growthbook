@@ -524,11 +524,12 @@ export async function publishRevision(
   return merged;
 }
 
-export function canEnableAutoPublishOnApproval(
+export async function canEnableAutoPublishOnApproval(
   context: Context,
-  entityType: RevisionTargetType,
+  revision: Revision,
   entity: Record<string, unknown>,
-): boolean {
+): Promise<boolean> {
+  const entityType = revision.target.type;
   if (!context.hasPremiumFeature("require-approvals")) return false;
   const adapter = getAdapter(entityType);
   // The adapter may override how autopublish-on-approval is determined
@@ -542,9 +543,11 @@ export function canEnableAutoPublishOnApproval(
         (entity as { project?: string }).project,
       );
   if (!enabled) return false;
-  // Arming auto-publish-on-approval is a publish-authority concern.
-  const canPublish = adapter.canPublishRevision ?? adapter.canUpdate;
-  return canPublish(context, entity);
+  // Arming auto-publish-on-approval is a publish-authority concern, and it takes
+  // the SAME authority the eventual fire will: the adapter check alone cannot
+  // see the change set, so a caller limited to dev could arm a
+  // production-touching override and have it record fine, then fail on publish.
+  return canPublishRevisionChange(context, revision, entity);
 }
 
 export async function maybeAutoPublishRevision(

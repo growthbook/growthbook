@@ -2149,9 +2149,21 @@ export default function ConfigDetailPage(): React.ReactElement {
                   config,
                   configPublishEnvironments(config),
                 )}
-                canCommentOnEntity={permissionsUtil.canAddComment(
-                  config.project ? [config.project] : [],
-                )}
+                canCommentOnEntity={
+                  // Mirrors the server's canCommentOnRevision: draft or review
+                  // authority also lets you comment, so gating on the
+                  // addComments atom alone hid the box from people the server
+                  // would have accepted.
+                  permissionsUtil.canAddComment(
+                    config.project ? [config.project] : [],
+                  ) ||
+                  permissionsUtil.canRevisionAction(
+                    "config",
+                    "draft",
+                    config,
+                  ) ||
+                  permissionsUtil.canRevisionAction("config", "review", config)
+                }
                 canReviewEntity={permissionsUtil.canRevisionAction(
                   "config",
                   "review",

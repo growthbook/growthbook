@@ -609,9 +609,19 @@ export default function ConstantDetailPage(): React.ReactElement {
               constant,
               NO_ENVIRONMENT_BINDING,
             )}
-            canCommentOnEntity={permissionsUtil.canAddComment(
-              constant.project ? [constant.project] : [],
-            )}
+            canCommentOnEntity={
+              // Mirrors the server's canCommentOnRevision: draft or review
+              // authority also lets you comment.
+              permissionsUtil.canAddComment(
+                constant.project ? [constant.project] : [],
+              ) ||
+              permissionsUtil.canRevisionAction(
+                "constant",
+                "draft",
+                constant,
+              ) ||
+              permissionsUtil.canRevisionAction("constant", "review", constant)
+            }
             canReviewEntity={permissionsUtil.canRevisionAction(
               "constant",
               "review",
