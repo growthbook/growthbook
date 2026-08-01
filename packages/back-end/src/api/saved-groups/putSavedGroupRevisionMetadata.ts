@@ -1,3 +1,5 @@
+import isEqual from "lodash/isEqual";
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { putSavedGroupRevisionMetadataValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -38,13 +40,9 @@ export const putSavedGroupRevisionMetadata = createApiRequestHandler(
     assertValidDescription(description);
     fieldsToUpdate.description = description;
   }
-  if (typeof projects !== "undefined") {
-    if (projects.length > 0) {
-      await req.context.models.projects.ensureProjectsExist(projects);
-    }
-    fieldsToUpdate.projects = projects;
-  }
-
+  // Both checks run BEFORE probing project existence, so this can't be used as
+  // an existence oracle for projects the caller has no access to — same order
+  // as the Config and Constant twins.
   if (
     !req.context.permissions.canRevisionAction(
       "saved-group",
@@ -53,6 +51,27 @@ export const putSavedGroupRevisionMetadata = createApiRequestHandler(
     )
   ) {
     req.context.permissions.throwPermissionError();
+  }
+  // Staging a project move needs draft authority on the destination too; the
+  // publish path re-checks it against the destination when the move lands.
+  if (
+    typeof projects !== "undefined" &&
+    !isEqual([...projects].sort(), [...(savedGroup.projects ?? [])].sort()) &&
+    !req.context.permissions.canRevisionAction(
+      "saved-group",
+      "draft",
+      { projects },
+      NO_ENVIRONMENT_BINDING,
+    )
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
+
+  if (typeof projects !== "undefined") {
+    if (projects.length > 0) {
+      await req.context.models.projects.ensureProjectsExist(projects);
+    }
+    fieldsToUpdate.projects = projects;
   }
 
   await ensureLiveRevisionExists(

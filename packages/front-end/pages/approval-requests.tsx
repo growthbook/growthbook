@@ -162,10 +162,18 @@ function revisionToRow(revision: Revision): ApprovalRow {
       ? revision.target.snapshot?.groupName || revision.target.id
       : revision.target.id;
 
+  // Saved Groups carry `projects[]`; Configs and Constants a scalar `project`.
+  // Reading only the array left the scalar entities with no project, so a
+  // project-filtered "needs my review" view dropped them entirely.
+  const snapshot = revision.target.snapshot as
+    | { projects?: string[]; project?: string }
+    | undefined;
   const projects =
     revision.target.type === "saved-group"
-      ? (revision.target.snapshot?.projects ?? [])
-      : [];
+      ? (snapshot?.projects ?? [])
+      : snapshot?.project
+        ? [snapshot.project]
+        : [];
 
   return {
     id: revision.id,

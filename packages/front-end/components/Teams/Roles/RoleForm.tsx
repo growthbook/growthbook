@@ -4,6 +4,7 @@ import {
   POLICY_PARTS,
   Policy,
   RESERVED_ROLE_IDS,
+  DEPRECATED_POLICIES,
 } from "shared/permissions";
 import { FormProvider, useForm } from "react-hook-form";
 import { Role } from "shared/types/organization";
@@ -58,6 +59,17 @@ export default function RoleForm({
       ),
     );
   });
+
+  // Retired policies the stored role still carries. They are absent from
+  // POLICY_DISPLAY_GROUPS, so without this an admin sees a role that looks
+  // reduced to Edit while hidden Publish/Delete/Bypass grants remain — and has
+  // no way to remove them. Frozen on mount so a row doesn't disappear the
+  // moment it is unchecked.
+  const [legacyPolicies] = useState<Policy[]>(() =>
+    DEPRECATED_POLICIES.filter((policy) =>
+      (role.policies || []).includes(policy),
+    ),
+  );
 
   const validateInputs = (input: {
     id: string;
@@ -347,6 +359,44 @@ export default function RoleForm({
               </Box>
             );
           })}
+          {legacyPolicies.length ? (
+            <Box mb="5">
+              <Text
+                as="div"
+                size="medium"
+                weight="semibold"
+                color="text-mid"
+                textTransform="uppercase"
+                mb="3"
+              >
+                Legacy grants
+              </Text>
+              <Box mb="3">
+                <HelperText status="warning" size="sm">
+                  This role still grants access through retired policies. They
+                  keep working, but they are not offered for new roles — uncheck
+                  one to drop the access it carries.
+                </HelperText>
+              </Box>
+              <Flex direction="column" gap="3">
+                {legacyPolicies.map((policy) => {
+                  const meta = POLICY_METADATA_MAP[policy];
+                  return (
+                    <Checkbox
+                      key={policy}
+                      id={`legacy-${policy}-checkbox`}
+                      value={currentValue.policies.includes(policy)}
+                      setValue={() => togglePolicy(policy)}
+                      disabled={status === "viewing"}
+                      weight="bold"
+                      label={meta?.displayName ?? policy}
+                      description={meta?.description}
+                    />
+                  );
+                })}
+              </Flex>
+            </Box>
+          ) : null}
         </Frame>
       </Box>
       {!isReservedRole ? (

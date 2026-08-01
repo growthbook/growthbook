@@ -491,7 +491,7 @@ export const POLICY_METADATA_MAP: Record<
   FlagsBypassApprovals: {
     displayName: "Bypass draft approvals",
     description:
-      "Publish without the required draft review, force-merge an out-of-date draft, and unlock a locked Config. Applies to Feature Flags, Configs, and Constants. Does not bypass schema validation or custom hooks.",
+      "Publish without the required draft review, force-merge an out-of-date draft, and unlock a locked Config. Applies to Feature Flags, Configs, and Constants. Schema validation and Custom Hooks still run by default; over the REST API this access also permits forcing past them with `skipSchemaValidation` or `skipHooks`.",
   },
   FeaturesFullAccess: {
     displayName: "Features Full Access",

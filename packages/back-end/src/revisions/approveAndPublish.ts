@@ -38,10 +38,19 @@ export function isArmedForAutoPublish(revision: {
   autoPublishOnApproval?: boolean;
   autoPublishEnabledBy?: string;
   authorId?: string;
+  // Feature revisions record their author as `createdBy` rather than
+  // `authorId`. Reading only `authorId` made a legacy armed feature revision
+  // look unarmed, so an approver was asked for publish authority the armed fire
+  // does not need.
+  createdBy?: { id?: string } | null;
 }): boolean {
   if (!revision.autoPublishOnApproval) return false;
   // The fire path falls back to the author when `autoPublishEnabledBy` predates
   // the field, so either identity is enough to run the publish as someone who
   // held the authority.
-  return !!(revision.autoPublishEnabledBy || revision.authorId);
+  return !!(
+    revision.autoPublishEnabledBy ||
+    revision.authorId ||
+    revision.createdBy?.id
+  );
 }

@@ -19901,8 +19901,10 @@ paths:
       summary: Submit a review on a draft revision
       description: >-
         Submits an `approve`, `request-changes`, or `comment` review on the
-        revision. Authors and contributors cannot submit `approve` reviews on
-        their own drafts when the org has `blockSelfApproval` enabled.
+        revision. The caller needs Review access — including for `comment`,
+        which is a review verdict rather than an ordinary comment. Authors and
+        contributors cannot submit `approve` reviews on their own drafts when
+        the org has `blockSelfApproval` enabled.
 
 
         When `decision` is `approve` and the revision has
@@ -21367,8 +21369,10 @@ paths:
       summary: Submit a review on a draft revision
       description: >-
         Submits an `approve`, `request-changes`, or `comment` review on the
-        revision. Authors and contributors cannot submit `approve` reviews on
-        their own drafts when the org has `blockSelfApproval` enabled.
+        revision. The caller needs Review access — including for `comment`,
+        which is a review verdict rather than an ordinary comment. Authors and
+        contributors cannot submit `approve` reviews on their own drafts when
+        the org has `blockSelfApproval` enabled.
 
 
         When `decision` is `approve` and the revision has
@@ -23901,8 +23905,10 @@ paths:
       summary: Submit a review on a draft revision
       description: >-
         Submits an `approve`, `request-changes`, or `comment` review on the
-        revision. Authors and contributors cannot submit `approve` reviews on
-        their own drafts when the org has `blockSelfApproval` enabled.
+        revision. The caller needs Review access — including for `comment`,
+        which is a review verdict rather than an ordinary comment. Authors and
+        contributors cannot submit `approve` reviews on their own drafts when
+        the org has `blockSelfApproval` enabled.
 
 
         When `decision` is `approve` and the revision has
