@@ -685,6 +685,28 @@ export const putConfig = async (
       environments: configPublishEnvironments(context, existing),
     });
 
+  // If updating a specific revision, compare against its current (patched) state
+  // rather than the live entity so we don't re-propose unchanged fields.
+  const revisionId = req.query.revisionId;
+  let comparisonBase: ConfigInterface = existing;
+  if (revisionId) {
+    const targetRevision = await context.models.revisions.getById(revisionId);
+    if (targetRevision && targetRevision.target.type === "config") {
+      const patchedSnapshot = applyPatchToSnapshot(
+        targetRevision.target.snapshot as ConfigInterface,
+        normalizeProposedChanges(targetRevision.target.proposedChanges),
+      );
+      comparisonBase = { ...existing, ...patchedSnapshot };
+    }
+  }
+
+  // The destination of a move. A draft may already carry one: editing it
+  // without naming `project` again still authors content bound for that pending
+  // destination, so resolve from the draft's patched state rather than this
+  // request alone — otherwise a draft moving A→B checks A on both sides.
+  const destinationProject =
+    project ?? comparisonBase.project ?? existing.project ?? "";
+
   // A move takes draft authority on BOTH sides. Checking only the destination
   // let a caller pull an entity out of a project they cannot write; checking
   // only the source let them push one into a project they cannot write.
@@ -698,7 +720,7 @@ export const putConfig = async (
     context.permissions.canRevisionAction(
       "config",
       "draft",
-      { projects: [project ?? existing.project ?? ""] },
+      { projects: [destinationProject] },
       NO_ENVIRONMENT_BINDING,
     );
 
@@ -727,21 +749,6 @@ export const putConfig = async (
   }
 
   // Cycle rejection is enforced in ConfigModel (covers every write path).
-
-  // If updating a specific revision, compare against its current (patched) state
-  // rather than the live entity so we don't re-propose unchanged fields.
-  const revisionId = req.query.revisionId;
-  let comparisonBase: ConfigInterface = existing;
-  if (revisionId) {
-    const targetRevision = await context.models.revisions.getById(revisionId);
-    if (targetRevision && targetRevision.target.type === "config") {
-      const patchedSnapshot = applyPatchToSnapshot(
-        targetRevision.target.snapshot as ConfigInterface,
-        normalizeProposedChanges(targetRevision.target.proposedChanges),
-      );
-      comparisonBase = { ...existing, ...patchedSnapshot };
-    }
-  }
 
   // null/undefined means "field wasn't intentionally changed".
   const hasChanged = (newVal: unknown, oldVal: unknown): boolean => {
@@ -995,11 +1002,11 @@ export const putConfig = async (
     // in the source and revert in the destination could land arbitrary content
     // there.
     if (
-      (project ?? existing.project ?? "") !== (existing.project ?? "") &&
+      destinationProject !== (existing.project ?? "") &&
       !context.permissions.canRevisionAction(
         "config",
         "publish",
-        { projects: [project ?? ""] },
+        { projects: [destinationProject] },
         configPublishEnvironments(context, existing),
       )
     ) {

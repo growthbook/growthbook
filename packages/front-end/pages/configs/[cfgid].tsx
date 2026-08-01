@@ -883,11 +883,12 @@ export default function ConfigDetailPage(): React.ReactElement {
       (n.parentKey === config.key ||
         (n.extendsKeys ?? []).includes(config.key)),
   );
+  // Delete requires the Config to be archived first, and an archived Config is
+  // serving nothing anywhere — so the server takes no environment for it. Pass
+  // the same, or an env-limited deleter would be shown no Delete control for a
+  // Config they are in fact allowed to remove.
   const canDeleteNow =
-    permissionsUtil.canDeleteConfig(
-      config,
-      configPublishEnvironments(config),
-    ) &&
+    permissionsUtil.canDeleteConfig(config, NO_ENVIRONMENT_BINDING) &&
     !!config.archived &&
     !hasDescendants;
   // A locked config is frozen — no edit controls at all (unlock is a separate,

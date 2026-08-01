@@ -32,6 +32,8 @@ import { isRevisionDiverged } from "back-end/src/revisions/util";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import {
   canDoRevisionAction,
+  assertCanPublishRevision,
+  canPublishRevisionChange,
   canCommentOnRevision,
   approveRevision,
   publishRevision as publishRevisionAction,
@@ -1158,8 +1160,13 @@ export const postApproveAndPublish = async (
       context,
       entity as Record<string, unknown>,
     ),
-    canPublish: (adapter.canPublishRevision ?? adapter.canUpdate)(
+    // Footprint-aware, not the adapter check alone: that cannot see the change
+    // set, so it would clear a dev-limited approver to approve a production
+    // override — writing the approval and then failing at publish, the exact
+    // stranding this preflight exists to prevent.
+    canPublish: await canPublishRevisionChange(
       context,
+      revision,
       entity as Record<string, unknown>,
     ),
   });
@@ -1773,6 +1780,14 @@ export const postSchedulePublish = async (
     : context.hasPremiumFeature("scheduled-revisions") && canPublish;
   if (isCancel ? !canPublish : !canSchedule) {
     context.permissions.throwPermissionError();
+  }
+  // Arming takes the same authority the fire-time publish will. The adapter
+  // check above is coarse — it cannot see the change set — so without this a
+  // caller limited to dev could arm a production-touching schedule and only
+  // learn it was refused when the poller fired. Canceling stays coarse: it
+  // withdraws a pending publish rather than landing one.
+  if (!isCancel) {
+    await assertCanPublishRevision(context, existingRevision, snapshot);
   }
 
   // Bypass-approval intent is only honored for callers who can bypass.

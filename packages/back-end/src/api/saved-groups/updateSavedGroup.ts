@@ -132,6 +132,22 @@ export const updateSavedGroup = createApiRequestHandler(
   ) {
     req.context.permissions.throwPermissionError();
   }
+  // Landing a move has to be authorized in the DESTINATION too. The model
+  // backstop accepts revert authority for any non-archive update — it has no
+  // revision to judge purity against — so without this a caller with publish
+  // in the source and revert in the destination could land arbitrary content
+  // there. Same check the internal PUT controller makes inline.
+  if (
+    !isEqual(
+      savedGroup.projects ?? [],
+      projects ?? savedGroup.projects ?? [],
+    ) &&
+    !req.context.permissions.canRevisionAction("saved-group", "publish", {
+      projects: projects ?? [],
+    })
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
 
   const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
   const approvalRequired = adapter.isApprovalRequiredForRevision

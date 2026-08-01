@@ -2,6 +2,7 @@ import {
   ACTIVE_DRAFT_STATUSES,
   postConfigRevisionSchedulePublishValidator,
 } from "shared/validators";
+import { assertCanPublishRevision } from "back-end/src/revisions/revisionActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
@@ -68,6 +69,14 @@ export const postConfigRevisionSchedulePublish = createApiRequestHandler(
     : req.context.hasPremiumFeature("scheduled-revisions") && canPublish;
   if (isCancel ? !canPublish : !canSchedule) {
     req.context.permissions.throwPermissionError();
+  }
+  // Arming takes the same authority the fire-time publish will. The adapter
+  // check above is coarse — it cannot see the change set — so without this a
+  // caller limited to dev could arm a production-touching schedule and only
+  // learn it was refused when the poller fired. Canceling stays coarse: it
+  // withdraws a pending publish rather than landing one.
+  if (!isCancel) {
+    await assertCanPublishRevision(req.context, revision, snapshot);
   }
 
   const wantsBypass =

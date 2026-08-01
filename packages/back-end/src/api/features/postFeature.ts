@@ -17,6 +17,7 @@ import {
   createInterfaceEnvSettingsFromApiEnvSettings,
   getApiFeatureObj,
   getSavedGroupMap,
+  getApiCreateEnabledEnvironments,
 } from "back-end/src/services/features";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/services/organizations";
@@ -62,12 +63,13 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     !req.context.permissions.canCreateFeature(
       req.body,
       // The API body carries `environments`, not the stored
-      // `environmentSettings` shape getEnabledEnvironments reads — passing it
-      // raw produced an empty footprint, so Create passed vacuously however many
-      // environments the new flag switched on.
-      Object.entries(req.body.environments ?? {})
-        .filter(([, env]) => env?.enabled)
-        .map(([envId]) => envId),
+      // `environmentSettings` shape getEnabledEnvironments reads. Resolved the
+      // same way the create itself resolves it, so an environment left out of
+      // the body but enabled by its `defaultState` still counts.
+      getApiCreateEnabledEnvironments(
+        getEnvironments(req.context.org),
+        req.body.environments,
+      ),
     )
   ) {
     req.context.permissions.throwPermissionError();

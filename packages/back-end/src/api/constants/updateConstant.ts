@@ -143,6 +143,28 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
     ) {
       req.context.permissions.throwPermissionError();
     }
+    // Landing a move has to be authorized in the DESTINATION too. The model
+    // backstop accepts revert authority for any non-archive update — it has no
+    // revision to judge purity against — so without this a caller with publish
+    // in the source and revert in the destination could land arbitrary content
+    // there. Same check the internal PUT controller makes inline.
+    if (
+      (project ?? constant.project ?? "") !== (constant.project ?? "") &&
+      !req.context.permissions.canRevisionAction(
+        "constant",
+        "publish",
+        { projects: [project ?? ""] },
+        constantPublishEnvironments(
+          req.context,
+          getConstantRevisionChange(
+            constant,
+            buildPatchOps(fieldsToUpdate as Record<string, unknown>),
+          ).changedEnvironments,
+        ),
+      )
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
 
     const adapter = getAdapter("constant");
     const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);

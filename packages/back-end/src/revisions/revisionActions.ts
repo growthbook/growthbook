@@ -1,3 +1,4 @@
+import { PermissionError } from "shared/util";
 import { isEqual } from "lodash";
 import {
   Revision,
@@ -106,6 +107,25 @@ export function canTouchRevision(
  * checked only on the fallbacks, so publishers are unaffected and pay no extra
  * revision load. Mirrors `assertCanPublishFeatureRevision`.
  */
+/**
+ * Boolean form of `assertCanPublishRevision`, for callers that must decide
+ * feasibility rather than refuse outright. Delegates rather than reimplements
+ * so the preflight and the publish can never disagree about what's allowed.
+ */
+export async function canPublishRevisionChange(
+  context: Context,
+  revision: Revision,
+  entity: object,
+): Promise<boolean> {
+  try {
+    await assertCanPublishRevision(context, revision, entity);
+    return true;
+  } catch (e) {
+    if (e instanceof PermissionError) return false;
+    throw e;
+  }
+}
+
 export async function assertCanPublishRevision(
   context: Context,
   revision: Revision,

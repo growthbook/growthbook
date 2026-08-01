@@ -3051,20 +3051,26 @@ export async function assertCanControlRampSchedule(
   // target is checked against ITS OWN environments: the union across targets
   // would demand, of a caller holding A/dev and B/production, authority over
   // A/production and B/dev that the schedule never acts on.
-  const checks = new Map<string, string[]>();
+  // Keyed by feature, so two targets on DIFFERENT rules of the SAME feature
+  // union their environments rather than the later one replacing the earlier —
+  // otherwise one of the two rules would go unchecked.
+  const checks = new Map<string, Set<string>>();
   for (const target of schedule.targets ?? []) {
     // "all" resolves to the schedule-wide footprint, which the model has
     // already expanded against the org's environments.
     const envs = getEnvsForRampTarget(schedule, target.id);
-    checks.set(target.entityId, envs === "all" ? scheduleEnvs : envs);
+    const existing = checks.get(target.entityId) ?? new Set<string>();
+    for (const env of envs === "all" ? scheduleEnvs : envs) existing.add(env);
+    checks.set(target.entityId, existing);
   }
   // The anchor feature is always checked, against the schedule-wide footprint
   // when it isn't itself a target.
   if (!checks.has(schedule.entityId)) {
-    checks.set(schedule.entityId, scheduleEnvs);
+    checks.set(schedule.entityId, new Set(scheduleEnvs));
   }
 
-  for (const [featureId, environments] of checks) {
+  for (const [featureId, envSet] of checks) {
+    const environments = Array.from(envSet);
     const linkedFeature = await getFeature(context, featureId);
     if (featureId !== schedule.entityId && !linkedFeature) continue;
     if (

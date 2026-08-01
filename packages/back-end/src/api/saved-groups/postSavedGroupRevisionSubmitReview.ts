@@ -35,7 +35,10 @@ export const postSavedGroupRevisionSubmitReview = createApiRequestHandler(
       ? canCommentOnRevision(
           "saved-group",
           req.context,
-          savedGroup as unknown as Record<string, unknown>,
+          // The revision's own snapshot, not the live entity: a comment belongs
+          // to the revision, whose project may predate a move. Same basis the
+          // internal controller uses.
+          revision.target.snapshot as Record<string, unknown>,
         )
       : req.context.permissions.canRevisionAction(
           "saved-group",
