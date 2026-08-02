@@ -61171,6 +61171,11 @@ components:
         stageDateStarted:
           type: string
           format: date-time
+        autoSnapshots:
+          type: boolean
+        nextSnapshotAttempt:
+          type: string
+          format: date-time
       required:
         - id
         - dateCreated

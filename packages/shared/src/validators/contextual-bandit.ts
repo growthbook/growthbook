@@ -154,6 +154,8 @@ export const apiContextualBanditValidator = namedSchema(
     conversionWindowUnit: z.enum(["hours", "days"]).optional().nullable(),
     stage: z.enum(banditStageType).optional(),
     stageDateStarted: z.iso.datetime().optional(),
+    autoSnapshots: z.boolean().optional(),
+    nextSnapshotAttempt: z.iso.datetime().optional(),
   }),
 );
 

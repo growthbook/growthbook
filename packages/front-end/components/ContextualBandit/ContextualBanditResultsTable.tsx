@@ -2,6 +2,7 @@
 import { ReactNode, useMemo, useState } from "react";
 import { Box, Flex, SegmentedControl } from "@radix-ui/themes";
 import { startCase } from "lodash";
+import { getValidDate } from "shared/dates";
 import { ApiContextualBanditInterface } from "shared/validators";
 import {
   expandMetricGroups,
@@ -385,9 +386,13 @@ export default function ContextualBanditResultsTable({
         status={status}
         dateCreated={queryLatest?.dateCreated}
         latestQueryDate={queryLatest?.dateCreated}
-        nextUpdate={undefined}
-        autoUpdateEnabled={false}
-        showAutoUpdateWidget={false}
+        nextUpdate={
+          cb.nextSnapshotAttempt
+            ? getValidDate(cb.nextSnapshotAttempt)
+            : undefined
+        }
+        autoUpdateEnabled={cb.status === "running" && !!cb.autoSnapshots}
+        showAutoUpdateWidget={true}
         failedString={
           queryLatest && !queryLatest.queries.length && queryLatest.error
             ? `Snapshot update failed: ${queryLatest.error}`

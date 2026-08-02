@@ -220,6 +220,8 @@ export function toApiContextualBandit(
     conversionWindowUnit: doc.conversionWindowUnit,
     stage: doc.stage,
     stageDateStarted: doc.stageDateStarted?.toISOString(),
+    autoSnapshots: doc.autoSnapshots,
+    nextSnapshotAttempt: doc.nextSnapshotAttempt?.toISOString(),
   };
 }
 
