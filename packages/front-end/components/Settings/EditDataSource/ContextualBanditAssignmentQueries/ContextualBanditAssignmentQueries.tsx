@@ -214,16 +214,22 @@ export const ContextualBanditAssignmentQueries: FC<
                   </DropdownMenu>
                 )}
 
-                <button
-                  className="btn ml-3 text-dark"
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="2"
+                  highContrast
+                  ml="3"
                   onClick={handleExpandCollapse(query.id)}
+                  aria-label={isOpen ? "Collapse query" : "Expand query"}
                 >
                   <PiCaretRight
                     style={{
                       transform: `rotate(${isOpen ? "90deg" : "0deg"})`,
                     }}
                   />
-                </button>
+                </IconButton>
               </Flex>
             </Flex>
 

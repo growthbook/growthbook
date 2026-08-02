@@ -186,6 +186,7 @@ export default function ContextualBanditResultsTable({
 
   const {
     loading,
+    isValidating,
     contextualBanditSnapshot,
     results,
     latest,
@@ -265,7 +266,7 @@ export default function ContextualBanditResultsTable({
 
   const isExploring = cb.stage === "explore";
   const resultsNotice =
-    loading && !hasTableData
+    (loading || isValidating) && !hasTableData
       ? null
       : getResultsNotice(hasTableData, isExploring);
 
