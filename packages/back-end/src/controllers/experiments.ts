@@ -65,9 +65,9 @@ import {
   validateVariationIds,
   validateExperimentData,
   fillEmptyVariationKeys,
-  validateStatusUpdateSchedule,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
 import {
   approveScheduledExperimentStart,
   startExperiment,
@@ -163,6 +163,8 @@ import {
   validateExperimentFeatureUpdates,
   validateExperimentFeatureVariations,
 } from "back-end/src/services/experiment-feature";
+import { canLinkExperimentToHoldoutFromFeatures } from "back-end/src/services/holdouts";
+import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -1355,16 +1357,21 @@ export async function postExperiments(
     });
 
     if (holdoutId) {
-      const holdoutObj = await context.models.holdout.getById(holdoutId);
-      if (!holdoutObj) {
-        throw new Error("Holdout not found");
-      }
-      await context.models.holdout.updateById(holdoutId, {
-        linkedExperiments: {
-          ...holdoutObj.linkedExperiments,
-          [experiment.id]: { id: experiment.id, dateAdded: new Date() },
-        },
+      const canLinkFromFeature = await canLinkExperimentToHoldoutFromFeatures(
+        context,
+        holdoutId,
+        data.linkedFeatures ?? [],
+      );
+      await getHoldoutAvailableForProject({
+        context,
+        holdoutId,
+        project: experiment.project,
+        bypassReadPermissionChecks: canLinkFromFeature,
       });
+      await context.models.holdout.addExperimentToHoldout(
+        holdoutId,
+        experiment.id,
+      );
     }
 
     if (req.query.originalId) {
@@ -1712,6 +1719,20 @@ export async function postExperiment(
     }
   }
 
+  if (data.holdoutId && data.holdoutId !== experiment.holdoutId) {
+    await getHoldoutAvailableForProject({
+      context,
+      holdoutId: data.holdoutId,
+      project: data.project ?? experiment.project,
+    });
+  } else if (data.project !== undefined && experiment.holdoutId) {
+    await getHoldoutAvailableForProject({
+      context,
+      holdoutId: experiment.holdoutId,
+      project: data.project,
+    });
+  }
+
   // TODO(holdouts): allow changing holdout if the experiment is not linked to a feature
   // in the live! feature revision
   const experimentHasLinkedChanges =
@@ -1751,16 +1772,10 @@ export async function postExperiment(
   }
 
   if (data.holdoutId && data.holdoutId !== experiment.holdoutId) {
-    const holdoutObj = await context.models.holdout.getById(data.holdoutId);
-    if (!holdoutObj) {
-      throw new Error("Holdout not found");
-    }
-    await context.models.holdout.updateById(data.holdoutId, {
-      linkedExperiments: {
-        ...holdoutObj.linkedExperiments,
-        [experiment.id]: { id: experiment.id, dateAdded: new Date() },
-      },
-    });
+    await context.models.holdout.addExperimentToHoldout(
+      data.holdoutId,
+      experiment.id,
+    );
   }
 
   if (data.defaultDashboardId) {
@@ -1774,11 +1789,6 @@ export async function postExperiment(
       });
       return;
     }
-  }
-
-  if (data.statusUpdateSchedule) {
-    const effectiveType = data.type ?? experiment.type ?? "standard";
-    validateStatusUpdateSchedule(effectiveType, data.statusUpdateSchedule);
   }
 
   const keys: (keyof ExperimentInterface)[] = [
@@ -1878,6 +1888,22 @@ export async function postExperiment(
   });
 
   normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+  // Same validation as PUT /schedule, against the stored schedule and the
+  // post-update variations/metrics.
+  if (data.statusUpdateSchedule) {
+    validateScheduleUpdate({
+      context,
+      experimentType: data.type ?? experiment.type ?? "standard",
+      status: experiment.status,
+      archived: !!experiment.archived,
+      phaseStart: experiment.phases[experiment.phases.length - 1]?.dateStarted,
+      existingSchedule: experiment.statusUpdateSchedule,
+      variations: changes.variations ?? experiment.variations,
+      goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
+      incoming: data.statusUpdateSchedule,
+    });
+  }
 
   // Coerce lookbackOverride date value when type is "date"
   if (changes.lookbackOverride?.type === "date") {

@@ -41,10 +41,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<
           exposureQuery ? exposureQuery.name : "Experiment Assignment"
         } query`;
 
-  const isManaged =
-    mode === "edit" &&
-    !!exposureQuery &&
-    isEventForwarderManagedExposureQuery(exposureQuery);
+  // Event Forwarder managed queries are intentionally editable for now. Restore
+  // `mode === "edit" && !!exposureQuery &&
+  // isEventForwarderManagedExposureQuery(exposureQuery)` to lock them again.
+  const isManaged = false;
 
   const userIdTypeOptions = dataSource?.settings?.userIdTypes?.map(
     ({ userIdType }) => ({
@@ -82,6 +82,15 @@ export const AddEditExperimentAssignmentQueryModal: FC<
     if (isManaged && exposureQuery) {
       value.userIdType = exposureQuery.userIdType;
       value.managedBy = exposureQuery.managedBy;
+    } else if (
+      exposureQuery &&
+      isEventForwarderManagedExposureQuery(exposureQuery) &&
+      value.userIdType !== exposureQuery.userIdType
+    ) {
+      // Re-pointing a managed query at a different identifier hands it to the
+      // user. Leaving managedBy: "api" would make attribute reconciliation
+      // treat that identifier as Event Forwarder owned and delete it.
+      value.managedBy = "";
     }
     await onSave(value);
 
