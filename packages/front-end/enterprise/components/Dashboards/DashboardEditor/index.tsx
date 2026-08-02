@@ -1,27 +1,5 @@
-import React, {
-  Fragment,
-  ReactElement,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-import {
-  PiCaretDownFill,
-  PiTableDuotone,
-  PiChartLineDuotone,
-  PiFileSqlDuotone,
-  PiListDashesDuotone,
-  PiArticleMediumDuotone,
-  PiPencilSimpleFill,
-  PiDatabase,
-  PiTable,
-  PiChartBar,
-  PiFunnel,
-  PiChartBarDuotone,
-  PiGaugeDuotone,
-} from "react-icons/pi";
+import React, { useCallback, useContext, useMemo, useState } from "react";
+import { PiCaretDownFill, PiPencilSimpleFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   DashboardBlockInterfaceOrData,
@@ -54,7 +32,6 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuGroup,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import Callout from "@/ui/Callout";
@@ -74,156 +51,17 @@ import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/Das
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
 import DashboardBlock from "./DashboardBlock";
 import DashboardGlobalControlsBar from "./DashboardGlobalControlsBar";
+import { AddBlockDropdown } from "./DashboardBlockTypeMenu";
+import { getAvailableBlockTypes } from "./dashboardBlockTypes";
+import {
+  AddBlockOptions,
+  blockFitsGap,
+  DASHBOARD_GRID_MARGIN,
+  getHorizontalGridGaps,
+  gridRectToPixels,
+} from "./dashboardLayout";
 
 export const DASHBOARD_TOPBAR_HEIGHT = "40px";
-type BlockTypeInfo = {
-  name: string;
-  icon: ReactElement;
-  description?: string;
-  deprecated?: boolean;
-};
-
-export const BLOCK_TYPE_INFO: Record<DashboardBlockType, BlockTypeInfo> = {
-  markdown: {
-    name: "Markdown",
-    icon: <PiArticleMediumDuotone />,
-    description: "Adds formatted text, links, and images to your dashboard.",
-  },
-  "experiment-metadata": {
-    name: "Experiment Metadata",
-    icon: <PiListDashesDuotone />,
-  },
-  "experiment-metric": {
-    name: "Metric Results",
-    icon: <PiTableDuotone />,
-  },
-  "metric-experiments": {
-    name: "Experiments with Lift",
-    icon: <PiTableDuotone />,
-    description: "Shows experiments with lift for a selected metric.",
-  },
-  "experiments-scaled-impact": {
-    name: "Scaled Impact",
-    icon: <PiChartLineDuotone />,
-    description:
-      "Shows the scaled impact of a metric across multiple experiments.",
-  },
-  "experiments-win-rate": {
-    name: "Win Percentage",
-    icon: <PiGaugeDuotone />,
-    description:
-      "Shows the win percentage for selected experiments, optionally filtered by project.",
-  },
-  "experiments-status": {
-    name: "Team Velocity",
-    icon: <PiChartBarDuotone />,
-    description:
-      "Shows number of experiments in each status (won, lost, inconclusive, and dnf) over a selected date range.",
-  },
-  "experiment-dimension": {
-    name: "Dimension Results",
-    icon: <PiTableDuotone />,
-  },
-  "experiment-time-series": {
-    name: "Time Series",
-    icon: <PiChartLineDuotone />,
-  },
-  "experiment-traffic": {
-    name: "Experiment Traffic",
-    icon: <PiChartLineDuotone />,
-  },
-  "sql-explorer": {
-    name: "Custom SQL Query",
-    icon: <PiFileSqlDuotone />,
-    description:
-      "Displays results and saved visualizations from a custom SQL query.",
-  },
-  "metric-explorer": {
-    name: "Metric",
-    icon: <PiFileSqlDuotone />,
-    description: "Shows an analysis of a single Fact Metric.",
-    deprecated: true,
-  },
-  "metric-exploration": {
-    name: "Metric Explorer",
-    icon: <PiChartBar />,
-    description:
-      "Charts one or more of your existing GrowthBook Metrics over a selected date range. View trends, compare time periods, and slice/dice your data.",
-  },
-  "fact-table-exploration": {
-    name: "Fact Table Explorer",
-    icon: <PiTable />,
-    description:
-      "Builds an analysis directly from events and columns in one of your existing Fact Tables.",
-  },
-  "data-source-exploration": {
-    name: "Data Source Explorer",
-    icon: <PiDatabase />,
-    description:
-      "Builds a custom analysis from tables and columns from one of your connected Data Sources.",
-  },
-  "funnel-exploration": {
-    name: "Funnel Explorer",
-    icon: <PiFunnel />,
-    description:
-      "Builds a custom funnel from events and columns from one of your connected Fact Tables.",
-  },
-};
-
-export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
-  [
-    "Metric Results",
-    ["experiment-metric", "experiment-dimension", "experiment-time-series"],
-  ],
-  ["Experiment Info", ["experiment-metadata", "experiment-traffic"]],
-  [
-    "Product Analytics",
-    [
-      "metric-exploration",
-      "fact-table-exploration",
-      "data-source-exploration",
-      "funnel-exploration",
-    ],
-  ],
-  [
-    "Experimentation",
-    [
-      "experiments-status",
-      "experiments-win-rate",
-      "metric-experiments",
-      "experiments-scaled-impact",
-    ],
-  ],
-  ["Other", ["sql-explorer", "markdown", "metric-explorer"]],
-];
-
-// Block types that are allowed in general dashboards (non-experiment specific)
-export const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
-  "sql-explorer",
-  "metric-explorer",
-  "metric-exploration",
-  "fact-table-exploration",
-  "data-source-exploration",
-  "funnel-exploration",
-  "metric-experiments",
-  "experiments-scaled-impact",
-  "experiments-win-rate",
-  "experiments-status",
-  "markdown",
-];
-
-// Helper function to check if a block type is allowed for the given dashboard type
-export const isBlockTypeAllowed = (
-  blockType: DashboardBlockType,
-  isGeneralDashboard: boolean,
-): boolean => {
-  if (isGeneralDashboard) {
-    return GENERAL_DASHBOARD_BLOCK_TYPES.includes(blockType);
-  } else {
-    return true; // All block types are allowed for experiment dashboards
-  }
-};
-
 // Stable RGL key for a block (uses block id when persisted, else a synthetic
 // key for the at-most-one staged add block).
 export function getGridKeyForBlock(
@@ -302,86 +140,16 @@ const CANONICAL_COL_BREAKPOINTS: ReadonlyArray<keyof typeof RGL_BREAKPOINTS> = (
   Object.keys(RGL_COLS) as Array<keyof typeof RGL_COLS>
 ).filter((bp) => RGL_COLS[bp] === RGL_COLS[RGL_CANONICAL_BREAKPOINT]);
 
-function AddBlockDropdown({
-  trigger,
-  addBlockType,
-  onDropdownOpen,
-  onDropdownClose,
-  isGeneralDashboard = false,
-}: {
-  trigger: React.ReactNode;
-  addBlockType: (bType: DashboardBlockType) => void;
-  onDropdownOpen?: () => void;
-  onDropdownClose?: () => void;
-  isGeneralDashboard?: boolean;
-}) {
-  const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
-  useEffect(() => {
-    if (dropdownOpen) {
-      onDropdownOpen && onDropdownOpen();
-    } else {
-      onDropdownClose && onDropdownClose();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dropdownOpen]);
-
-  return (
-    <DropdownMenu
-      variant="solid"
-      open={dropdownOpen}
-      onOpenChange={(o) => {
-        setDropdownOpen(!!o);
-      }}
-      trigger={trigger}
-    >
-      {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => {
-        // Filter block types based on dashboard type
-        const allowedBlockTypes = blockTypes.filter((bType) =>
-          isBlockTypeAllowed(bType, isGeneralDashboard),
-        );
-
-        // Don't render the subgroup if no block types are allowed
-        if (allowedBlockTypes.length === 0) {
-          return null;
-        }
-
-        return (
-          <Fragment key={`${subgroup}-${i}`}>
-            <DropdownMenuLabel>
-              <Text color="text-high" weight="semibold">
-                {subgroup}
-              </Text>
-            </DropdownMenuLabel>
-            {allowedBlockTypes.map((bType) => {
-              if (BLOCK_TYPE_INFO[bType].deprecated) {
-                return null;
-              }
-              return (
-                <DropdownMenuItem
-                  key={bType}
-                  onClick={() => {
-                    setDropdownOpen(false);
-                    addBlockType(bType);
-                  }}
-                >
-                  {BLOCK_TYPE_INFO[bType].name}
-                </DropdownMenuItem>
-              );
-            })}
-            {i < BLOCK_SUBGROUPS.length - 1 && <DropdownMenuSeparator />}
-          </Fragment>
-        );
-      })}
-    </DropdownMenu>
-  );
-}
-
 interface EditBlockProps {
   scrollAreaRef: null | React.MutableRefObject<HTMLDivElement | null>;
   editSidebarDirty: boolean;
   focusedBlockIndex: number | undefined;
   stagedBlockIndex: number | undefined;
-  addBlockType: (bType: DashboardBlockType, i?: number) => void;
+  isAddingBlock: boolean;
+  addBlockType: (
+    blockType: DashboardBlockType,
+    options?: AddBlockOptions,
+  ) => void;
   editBlock: (index: number) => void;
   duplicateBlock: (index: number) => void;
   deleteBlock: (index: number) => void;
@@ -458,6 +226,7 @@ function DashboardEditor({
     editSidebarDirty,
     focusedBlockIndex,
     stagedBlockIndex,
+    isAddingBlock,
     scrollAreaRef,
     addBlockType,
     editBlock,
@@ -533,6 +302,9 @@ function DashboardEditor({
         isEditing={isEditing}
         isFocused={isFocused}
         editingBlock={isEditingBlock}
+        canMoveBlock={
+          !isDefined(stagedBlockIndex) || (!isAddingBlock && isEditingBlock)
+        }
         disableBlock={
           editSidebarDirty && !isEditingBlock
             ? "full"
@@ -545,6 +317,22 @@ function DashboardEditor({
         editBlock={editBlock ? () => editBlock(i) : () => {}}
         duplicateBlock={duplicateBlock ? () => duplicateBlock(i) : () => {}}
         deleteBlock={deleteBlock ? () => deleteBlock(i) : () => {}}
+        addBlockBefore={
+          addBlockType
+            ? (blockType) =>
+                addBlockType(blockType, { index: i, placement: "before" })
+            : undefined
+        }
+        addBlockAfter={
+          addBlockType
+            ? (blockType) =>
+                addBlockType(blockType, {
+                  index: i + 1,
+                  placement: "after",
+                })
+            : undefined
+        }
+        isGeneralDashboard={isGeneralDashboard}
         mutate={mutate}
         canEdit={canEdit}
         setIsEditing={setIsEditing}
@@ -877,7 +665,10 @@ function DashboardEditor({
             isEditing={isEditing}
             editSidebarDirty={!!editSidebarDirty}
             stagedBlockIndex={stagedBlockIndex}
+            isAddingBlock={!!isAddingBlock}
             updateLayout={updateLayout}
+            addBlockType={addBlockType}
+            isGeneralDashboard={isGeneralDashboard}
             renderBlock={(block, i) =>
               renderSingleBlock({
                 i,
@@ -925,7 +716,12 @@ interface DashboardGridProps {
   isEditing: boolean;
   editSidebarDirty: boolean;
   stagedBlockIndex: number | undefined;
+  isAddingBlock: boolean;
   updateLayout: ((layout: readonly LayoutItem[]) => void) | undefined;
+  addBlockType:
+    | ((blockType: DashboardBlockType, options?: AddBlockOptions) => void)
+    | undefined;
+  isGeneralDashboard: boolean;
   renderBlock: (
     block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
     index: number,
@@ -933,25 +729,62 @@ interface DashboardGridProps {
 }
 
 // Wraps blocks in react-grid-layout so users can drag, drop, and resize.
-// Drag/resize are disabled outside edit mode and while a staged block is being
-// added/edited. We only persist layout changes from the canonical (lg)
+// Drag/resize are disabled outside edit mode and while a new block is being
+// added. We only persist layout changes from the canonical (lg)
 // breakpoint; smaller breakpoints are auto-derived for responsive viewing only.
 function DashboardGrid({
   blocks,
   isEditing,
   editSidebarDirty,
   stagedBlockIndex,
+  isAddingBlock,
   updateLayout,
+  addBlockType,
+  isGeneralDashboard,
   renderBlock,
 }: DashboardGridProps) {
   const { width, containerRef, mounted } = useContainerWidth({
     initialWidth: 1280,
   });
+  const [openGapKey, setOpenGapKey] = useState<string | null>(null);
+  const [isGridInteracting, setIsGridInteracting] = useState(false);
 
-  const layout = useMemo(
-    () => buildRGLLayout(blocks, RGL_COLS[RGL_CANONICAL_BREAKPOINT]),
-    [blocks],
-  );
+  const layout = useMemo(() => {
+    const nextLayout = buildRGLLayout(
+      blocks,
+      RGL_COLS[RGL_CANONICAL_BREAKPOINT],
+    );
+    if (!isDefined(stagedBlockIndex) || isAddingBlock) return nextLayout;
+    return nextLayout.map((item, index) => ({
+      ...item,
+      static: index !== stagedBlockIndex,
+    }));
+  }, [blocks, isAddingBlock, stagedBlockIndex]);
+  const gaps = useMemo(() => {
+    if (
+      !isEditing ||
+      !addBlockType ||
+      editSidebarDirty ||
+      isGridInteracting ||
+      blocks.some((block) => !block.layout) ||
+      isDefined(stagedBlockIndex)
+    ) {
+      return [];
+    }
+    const allowedBlockTypes = getAvailableBlockTypes(isGeneralDashboard);
+    return getHorizontalGridGaps(layout).filter((gap) =>
+      allowedBlockTypes.some((blockType) => blockFitsGap(blockType, gap)),
+    );
+  }, [
+    addBlockType,
+    blocks,
+    editSidebarDirty,
+    isEditing,
+    isGeneralDashboard,
+    isGridInteracting,
+    layout,
+    stagedBlockIndex,
+  ]);
   // Every breakpoint shares the same canonical column count, so we hand RGL
   // the same layout for all of them. This is what makes side-by-side blocks
   // keep their x positions when the editing drawer narrows the container.
@@ -974,10 +807,7 @@ function DashboardGrid({
     [updateLayout],
   );
 
-  // While the side panel is open editing/adding a block, we disable RGL
-  // interaction so the user can't shuffle blocks mid-edit.
-  const isInteractive =
-    isEditing && !editSidebarDirty && !isDefined(stagedBlockIndex);
+  const isInteractive = isEditing && !isAddingBlock;
   // When we're in edit mode but interaction is disabled (because the edit
   // drawer is open), keep the resize handle visible-but-dimmed and surface a
   // tooltip explaining why it doesn't respond. Outside of edit mode the
@@ -1003,7 +833,7 @@ function DashboardGrid({
           breakpoints={RGL_BREAKPOINTS}
           cols={RGL_COLS}
           rowHeight={DASHBOARD_GRID_ROW_HEIGHT_DEFAULT}
-          margin={[12, 12]}
+          margin={[DASHBOARD_GRID_MARGIN, DASHBOARD_GRID_MARGIN]}
           containerPadding={[0, 0]}
           dragConfig={{
             enabled: isInteractive,
@@ -1011,15 +841,38 @@ function DashboardGrid({
             bounded: false,
             threshold: 3,
           }}
-          resizeConfig={{ enabled: isInteractive, handles: ["se"] }}
+          resizeConfig={{
+            enabled: isInteractive,
+            handles: ["se", "sw"],
+          }}
           compactor={verticalCompactor}
-          onDragStop={(curr) => persistLayout(curr)}
-          onResizeStop={(curr) => persistLayout(curr)}
+          onDragStart={() => {
+            setOpenGapKey(null);
+            setIsGridInteracting(true);
+          }}
+          onDragStop={(curr) => {
+            persistLayout(curr);
+            setIsGridInteracting(false);
+          }}
+          onResizeStart={() => {
+            setOpenGapKey(null);
+            setIsGridInteracting(true);
+          }}
+          onResizeStop={(curr) => {
+            persistLayout(curr);
+            setIsGridInteracting(false);
+          }}
         >
           {blocks.map((block, i) => {
             const key = getGridKeyForBlock(block, i);
             return (
-              <div key={key} className="dashboard-grid-item">
+              <div
+                key={key}
+                className={clsx("dashboard-grid-item", {
+                  "is-grid-interaction-disabled":
+                    isDefined(stagedBlockIndex) && i !== stagedBlockIndex,
+                })}
+              >
                 {renderBlock(block, i)}
                 {showDisabledResizeOverlay && (
                   // Tooltip wraps its children in an inline <span> and anchors
@@ -1045,6 +898,54 @@ function DashboardGrid({
           })}
         </ResponsiveGridLayout>
       )}
+      {mounted &&
+        addBlockType &&
+        gaps.map((gap) => {
+          const gapKey = `${gap.x}-${gap.y}-${gap.w}-${gap.h}`;
+          const gapStyle = gridRectToPixels({
+            rect: gap,
+            containerWidth: width,
+            rowHeight: DASHBOARD_GRID_ROW_HEIGHT_DEFAULT,
+          });
+
+          return (
+            <div
+              key={gapKey}
+              className={clsx("dashboard-grid-add-block-gap", {
+                "is-open": openGapKey === gapKey,
+              })}
+              style={gapStyle}
+            >
+              <AddBlockDropdown
+                isGeneralDashboard={isGeneralDashboard}
+                filterBlockType={(blockType) => blockFitsGap(blockType, gap)}
+                onDropdownOpen={() => setOpenGapKey(gapKey)}
+                onDropdownClose={() =>
+                  setOpenGapKey((currentKey) =>
+                    currentKey === gapKey ? null : currentKey,
+                  )
+                }
+                addBlockType={(blockType) => {
+                  addBlockType(blockType, {
+                    index: gap.insertIndex,
+                    placement: "gap",
+                    initialLayout: {
+                      x: gap.x,
+                      y: gap.y,
+                      w: gap.w,
+                      h: gap.h,
+                    },
+                  });
+                }}
+                trigger={
+                  <Button size="sm" variant="outline">
+                    Add block
+                  </Button>
+                }
+              />
+            </div>
+          );
+        })}
     </div>
   );
 }

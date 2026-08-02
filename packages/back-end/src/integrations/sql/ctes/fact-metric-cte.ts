@@ -116,6 +116,7 @@ export function getFactMetricCTE(
         stringMatch: dialect.stringMatch,
         jsonExtract: dialect.jsonExtract,
         evalBoolean: dialect.evalBoolean,
+        castToTimestamp: dialect.castToTimestamp,
         sliceInfo,
         identifierQuote: dialect.identifierQuote,
       });
@@ -175,6 +176,7 @@ export function getFactMetricCTE(
         stringMatch: dialect.stringMatch,
         jsonExtract: dialect.jsonExtract,
         evalBoolean: dialect.evalBoolean,
+        castToTimestamp: dialect.castToTimestamp,
         sliceInfo,
         identifierQuote: dialect.identifierQuote,
       });
