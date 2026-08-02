@@ -18,7 +18,9 @@ import HelperText from "@/ui/HelperText";
 import Metadata from "@/ui/Metadata";
 import Heading from "@/ui/Heading";
 import Heatmap, { HeatmapColumn, HeatmapRow } from "@/ui/Heatmap";
-import { getVariationColor } from "@/services/features";
+import VariationLabel from "@/ui/VariationLabel";
+import VariationNumber from "@/ui/VariationNumber";
+import Tooltip from "@/ui/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useContextualBanditResults } from "@/hooks/useContextualBandits";
@@ -74,61 +76,6 @@ function LeafContextsLabel({ clauses }: { clauses: ContextualLeafClause[] }) {
   }
 
   return <ConditionDisplay condition={condition} />;
-}
-
-function VariationLabel({
-  index,
-  name,
-  truncate = false,
-  hideName = false,
-}: {
-  index: number;
-  name: string;
-  truncate?: boolean;
-  hideName?: boolean;
-}) {
-  const color = getVariationColor(index);
-  return (
-    <Flex
-      align="center"
-      gap={hideName ? "0" : "2"}
-      style={{ minWidth: 0, overflow: "hidden" }}
-      title={name}
-    >
-      <Flex
-        align="center"
-        justify="center"
-        style={{
-          flexShrink: 0,
-          width: 18,
-          height: 18,
-          borderRadius: "50%",
-          backgroundColor: color,
-          color: readableTextColor(color),
-          fontSize: 11,
-          fontWeight: 600,
-          lineHeight: 1,
-        }}
-      >
-        {index}
-      </Flex>
-      {hideName ? null : (
-        <Text size="medium" weight="medium" truncate={truncate}>
-          {name}
-        </Text>
-      )}
-    </Flex>
-  );
-}
-
-function readableTextColor(hex: string): string {
-  const normalized = hex.replace("#", "");
-  if (normalized.length < 6) return "#fff";
-  const r = parseInt(normalized.slice(0, 2), 16);
-  const g = parseInt(normalized.slice(2, 4), 16);
-  const b = parseInt(normalized.slice(4, 6), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.6 ? "var(--gray-12)" : "#fff";
 }
 
 function leafCellValues(
@@ -212,7 +159,7 @@ function OverallWeights({
             borderLeft: i === 0 ? undefined : "1px solid var(--gray-a4)",
           }}
         >
-          <VariationLabel index={card.index} name={card.name} truncate />
+          <VariationLabel number={card.index} name={card.name} />
           <Heading as="h4" size="x-large" weight="medium" mt="2">
             {card.weight === null ? "—" : formatWeight(card.weight)}
           </Heading>
@@ -326,7 +273,11 @@ export default function ContextualBanditResultsTable({
     () =>
       variations.map((v, index) => ({
         key: v.id,
-        header: <VariationLabel index={index} name={v.name} hideName />,
+        header: (
+          <Tooltip content={v.name} side="top">
+            <VariationNumber number={index} />
+          </Tooltip>
+        ),
         align: "center",
         cellAlign: "center",
       })),
