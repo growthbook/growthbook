@@ -320,6 +320,16 @@ export const apiContextualBanditRefreshReturn = z.object({
   cbeId: z.string().optional(),
 });
 
+export const apiContextualBanditCancelValidator = {
+  paramsSchema: z.strictObject({ id: z.string() }),
+  bodySchema: z.strictObject({}).optional(),
+  querySchema: z.never(),
+};
+
+export const apiContextualBanditCancelReturn = z.object({
+  status: z.number(),
+});
+
 const contextualBanditIdAndSnapshotParam = z
   .object({
     id: z.string().describe("The Contextual Bandit id"),

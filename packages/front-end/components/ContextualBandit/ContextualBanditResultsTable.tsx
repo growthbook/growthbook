@@ -12,7 +12,6 @@ import type {
   ContextualLeafClause,
 } from "shared/experiments";
 import Text from "@/ui/Text";
-import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Metadata from "@/ui/Metadata";
@@ -26,7 +25,9 @@ import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
-import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import RunQueriesButton, {
+  getQueryStatus,
+} from "@/components/Queries/RunQueriesButton";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 
 const numberFormatter = Intl.NumberFormat();
@@ -223,13 +224,6 @@ function OverallWeights({
   );
 }
 
-/**
- * CB-native results. Consumes the CB API shape and the CB results context directly —
- * no experiment SnapshotProvider, no phases, no experiment-shaped adapter.
- *
- * Layout follows the Results design: an "Overall Weights" summary followed by a
- * "Comparison" heatmap (reusable `@/ui/Heatmap`) of per-context, per-variation values.
- */
 export default function ContextualBanditResultsTable({
   cb,
   mutate,
@@ -248,7 +242,6 @@ export default function ContextualBanditResultsTable({
     results,
     latest,
     refresh,
-    refreshing,
     refreshError,
   } = useContextualBanditResults(cb.id);
 
@@ -408,15 +401,20 @@ export default function ContextualBanditResultsTable({
         }
       />
       {canRunQueries ? (
-        <Button
-          loading={refreshing}
-          onClick={async () => {
+        <RunQueriesButton
+          cta="Update results"
+          icon="refresh"
+          model={{
+            queries: queryLatest?.queries ?? [],
+            runStarted: queryLatest?.runStarted ?? null,
+          }}
+          cancelEndpoint={`/api/v1/contextual-bandits/${cb.id}/cancel`}
+          mutate={mutate}
+          onSubmit={async () => {
             await refresh();
             mutate();
           }}
-        >
-          Update results
-        </Button>
+        />
       ) : null}
       <ResultMoreMenu
         datasource={datasource}
