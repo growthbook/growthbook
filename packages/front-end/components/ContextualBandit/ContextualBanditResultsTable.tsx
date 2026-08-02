@@ -243,6 +243,7 @@ export default function ContextualBanditResultsTable({
   const permissionsUtil = usePermissionsUtil();
 
   const {
+    loading,
     contextualBanditSnapshot,
     results,
     latest,
@@ -321,10 +322,11 @@ export default function ContextualBanditResultsTable({
   const showQueries =
     !!queryLatest && (status === "failed" || status === "partially-succeeded");
 
-  // Single info notice that covers both the empty-snapshot and exploratory-stage
-  // states (and their overlap), so the user never sees two stacked callouts.
   const isExploring = cb.stage === "explore";
-  const resultsNotice = getResultsNotice(hasTableData, isExploring);
+  const resultsNotice =
+    loading && !hasTableData
+      ? null
+      : getResultsNotice(hasTableData, isExploring);
 
   const comparisonColumns: HeatmapColumn[] = useMemo(
     () =>
