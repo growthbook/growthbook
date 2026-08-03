@@ -145,6 +145,16 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
   const elements = useElements();
   const stripe = useStripe();
 
+  const refreshOrganizationAfterUpgrade = async () => {
+    try {
+      await refreshOrganization({ forceLicenseRefresh: true });
+      setOrganizationRefreshFailed(false);
+    } catch (error) {
+      sentryCaptureException(error);
+      setOrganizationRefreshFailed(true);
+    }
+  };
+
   const form = useForm<{
     address: StripeAddress | undefined;
     name: string; // This is what the user will see on their Invoices
@@ -229,15 +239,16 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
       throw new Error(e.message);
     }
 
-    try {
-      await refreshOrganization({ forceLicenseRefresh: true });
-    } catch (error) {
-      sentryCaptureException(error);
-      setOrganizationRefreshFailed(true);
-    }
+    await refreshOrganizationAfterUpgrade();
 
     setLoading(false);
     setSuccess(true);
+  };
+
+  const retryOrganizationRefresh = async () => {
+    setLoading(true);
+    await refreshOrganizationAfterUpgrade();
+    setLoading(false);
   };
 
   if (success) {
@@ -257,11 +268,17 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
         showHeaderCloseButton={false}
       >
         <div className="container-fluid dashboard p-3 ">
-          <h3>Welcome to GrowthBook Pro!</h3>
-          <span>
-            You&apos;re all set! Your organization now has access to all
-            GrowthBook Pro features.
-          </span>
+          <h3>
+            {organizationRefreshFailed
+              ? "GrowthBook Pro Subscription Created"
+              : "Welcome to GrowthBook Pro!"}
+          </h3>
+          {!organizationRefreshFailed ? (
+            <span>
+              You&apos;re all set! Your organization now has access to all
+              GrowthBook Pro features.
+            </span>
+          ) : null}
           {organizationRefreshFailed ? (
             <Callout
               status="warning"
@@ -270,14 +287,15 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
                 <Button
                   size="sm"
                   color="inherit"
-                  onClick={() => window.location.reload()}
+                  loading={loading}
+                  onClick={retryOrganizationRefresh}
                 >
-                  Reload page
+                  Try again
                 </Button>
               }
             >
-              Your subscription was created, but we couldn&apos;t refresh your
-              organization details. Reload the page to see your updated plan.
+              We couldn&apos;t refresh your organization details. Try again to
+              see your updated plan.
             </Callout>
           ) : null}
         </div>
