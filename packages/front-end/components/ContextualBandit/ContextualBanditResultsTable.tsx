@@ -175,7 +175,11 @@ function OverallWeights({
   return (
     <Flex
       align="stretch"
-      style={{ overflowX: "auto" }}
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))",
+        gap: "1rem",
+      }}
       role="list"
       aria-label="Overall weights by variation"
     >
