@@ -76,6 +76,7 @@ import {
   APP_ORIGIN,
   IS_CLOUD,
   IS_MULTI_ORG,
+  PROHIBITED_ORGANIZATION_NAME_REGEX,
 } from "back-end/src/util/secrets";
 import {
   sendInviteEmail,
@@ -176,7 +177,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
   // user's permission fingerprint (the response is permission-filtered) and,
   // under config.yml, the parsed file's hash (file-managed resources bypass the
   // Mongo writes that bump the version). Gated behind a feature flag.
-  if (req.gb?.getFeatureValue("definitions-etag-304", false) === true) {
+  if (req.gb?.getFeatureValue("definitions-etag-304", true) === true) {
     const { version, projectVersions } =
       await getDefinitionsVersionState(orgId);
     const etag = buildDefinitionsEtag({
@@ -1396,17 +1397,6 @@ export async function postInvite(
     });
   }
 
-  const license = getLicense();
-  if (
-    license &&
-    license.hardCap &&
-    getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
-  ) {
-    throw new Error(
-      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit.",
-    );
-  }
-
   const { emailSent, inviteUrl } = await inviteUser({
     organization: org,
     email,
@@ -1534,6 +1524,11 @@ export async function signup(
   try {
     if (company.length < 3) {
       throw Error("Company length must be at least 3 characters");
+    }
+    if (IS_CLOUD && PROHIBITED_ORGANIZATION_NAME_REGEX?.test(company)) {
+      throw Error(
+        "Unable to create organization. Please contact support@growthbook.io",
+      );
     }
     if (!req.userId) {
       throw Error("Must be logged in");
@@ -2313,17 +2308,6 @@ export async function addOrphanedUser(
       status: e.status || 400,
       message: e.message,
     });
-  }
-
-  const license = getLicense();
-  if (
-    license &&
-    license.hardCap &&
-    getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
-  ) {
-    throw new Error(
-      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit.",
-    );
   }
 
   await addMemberToOrg({

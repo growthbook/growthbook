@@ -1,9 +1,8 @@
 import Agenda, { Job } from "agenda";
 import {
-  getManagedWarehouseTypedAttributeColumns,
+  isManagedWarehouseAwaitingProvisioning,
   MANAGED_WAREHOUSE_JSON_ERGONOMICS_VERSION,
 } from "shared/util";
-import { TypedAttributeColumn } from "shared/types/datasource";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import {
@@ -15,11 +14,17 @@ import { getBackendFeatureValue } from "back-end/src/services/growthbook";
 import { logger } from "back-end/src/util/logger";
 
 // One-time (per version) backfill of the JSON-ergonomics setup — per-org
-// ClickHouse user settings + typed `attributes.<property>` ALIAS columns —
-// across existing managed warehouses. Steady-state upkeep happens on attribute
-// changes (syncManagedWarehouseIdentifiersOnAttributeChange) and at
-// provision/recreate time on the license server; this sweep exists to bring
-// already-provisioned warehouses up to the current version, then goes quiet.
+// ClickHouse user settings + typed `attributes.<property>` ALIAS columns +
+// the persisted generated SQL — across existing managed warehouses. Steady-state
+// upkeep happens on attribute changes (syncManagedWarehouseIdentifiersOnAttributeChange)
+// and at provision/recreate time on the license server; this sweep exists to
+// bring every warehouse up to the current version, then goes quiet.
+//
+// Unprovisioned warehouses are swept too, Mongo-side only: their persisted
+// generated SQL dates from datasource creation and provisioning never refreshes
+// it, so skipping them leaves stale SQL forever once the sweep drains. The
+// physical DDL side is theirs at provision time, applied from the settings the
+// sweep just refreshed.
 
 const SYNC_JOB = "syncManagedWarehouseJsonErgonomics";
 const SWEEP_JOB = "sweepManagedWarehouseJsonErgonomics";
@@ -32,14 +37,11 @@ const SYNC_CONCURRENCY = 2;
 
 type SyncJob = Job<{ organization: string }>;
 
-// Provisioned JSON-columns warehouses not yet on the current ergonomics
-// version. Warehouses awaiting provisioning are excluded — they get the full
-// setup during provisioning itself — and drop into this set if they provision
-// while the sweep is live. Shrinks monotonically per version bump.
+// JSON-columns warehouses (provisioned or not) not yet on the current
+// ergonomics version. Shrinks monotonically per version bump.
 const PENDING_FILTER = {
   type: "growthbook_clickhouse",
   "settings.useJsonColumns": true,
-  "settings.hasBeenProvisioned": { $ne: false },
   "settings.jsonErgonomicsVersion": {
     $ne: MANAGED_WAREHOUSE_JSON_ERGONOMICS_VERSION,
   },
@@ -63,28 +65,41 @@ const syncManagedWarehouseJsonErgonomics = async (job: SyncJob) => {
     // attribute-derived metadata) so the license server reads fresh state.
     await syncManagedWarehouseIdentifiers(context);
 
-    // Apply the DDL. Returns false when there was nothing to alter yet
-    // (unprovisioned/legacy/mid-recreate) — leave the version unset so the
-    // sweep retries once the warehouse is ready.
-    if (!(await applyManagedWarehouseJsonErgonomics(context))) return;
+    // Apply the DDL — provisioned warehouses only. Unprovisioned ones have no
+    // tables yet; the license server applies the full physical setup at
+    // provision time from the settings persisted above, so skip the round trip
+    // and fall through to record the version (leaving it unset would make
+    // never-provisioning orgs hog the sweep batch forever). For provisioned
+    // warehouses a false return (e.g. mid-recreate) leaves the version unset
+    // so the sweep retries once the warehouse is ready.
+    if (!isManagedWarehouseAwaitingProvisioning(datasource)) {
+      if (!(await applyManagedWarehouseJsonErgonomics(context))) return;
+    }
 
-    // The sync above derives from the job-start org snapshot, so it can race
-    // a concurrent attribute change and revert its newer typedAttributeColumns.
-    // Only record the version while the persisted columns still match a fresh
-    // derivation — otherwise leave it unset so the next sweep pass re-syncs
-    // from current state (which also heals the reverted write).
+    // The sync above derives everything it persists (userIdTypes, typed
+    // attribute columns, exposure queries, fact-table SQL) from the job-start
+    // snapshots, so a concurrent attribute or datasource change could have been
+    // overwritten with stale output. All of that state is a pure function of
+    // three inputs, so only record the version while those inputs are unchanged
+    // — comparing outputs instead would miss changes that alter identifier
+    // behavior without touching the compared field (e.g. toggling hashAttribute
+    // on an existing string attribute). On mismatch, leave the version unset so
+    // the next sweep pass re-syncs from current state, healing the stale write.
     const freshContext = await getContextForAgendaJobByOrgId(orgId);
     const fresh =
       await dangerouslyGetGrowthbookDatasourceBypassPermission(freshContext);
     if (!fresh || fresh.type !== "growthbook_clickhouse") return;
-    const key = (cols: TypedAttributeColumn[] | undefined) =>
-      (cols ?? []).map((c) => `${c.property}:${c.datatype}`).join(",");
-    const desired = getManagedWarehouseTypedAttributeColumns(
-      freshContext.org.settings?.attributeSchema,
-      fresh.settings.migratedIdentifiers || [],
-      fresh.settings.migratedColumns || [],
-    );
-    if (key(fresh.settings.typedAttributeColumns) !== key(desired)) {
+    const derivationInputs = (org: typeof context.org, ds: typeof datasource) =>
+      JSON.stringify([
+        org.settings?.attributeSchema ?? [],
+        ds.settings.migratedIdentifiers ?? [],
+        ds.settings.migratedColumns ?? [],
+        ds.settings.idAttributeIdentifier ?? "device_id",
+      ]);
+    if (
+      derivationInputs(context.org, datasource) !==
+      derivationInputs(freshContext.org, fresh)
+    ) {
       logger.warn(
         `Managed warehouse JSON ergonomics sync raced a concurrent settings write for org ${orgId}; leaving version unset so the sweep retries`,
       );

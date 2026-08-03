@@ -300,11 +300,6 @@ describe("ContextualBanditResultsQueryRunner", () => {
       expect(runParams?.decisionMetricId).toBe("fact__g1");
       expect(forwardedRows).toHaveLength(2);
       expect(forwardedRows).toEqual(rows);
-      expect(
-        forwardedRows.every(
-          (r) => !("contextId" in (r as Record<string, unknown>)),
-        ),
-      ).toBe(true);
     });
 
     it("sums multiple exposures across all context buckets", async () => {

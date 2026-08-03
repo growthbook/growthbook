@@ -77,7 +77,7 @@ export default function ContextualBanditSRMCard({
       headerRight={
         <Button
           variant="ghost"
-          size="xs"
+          size="sm"
           aria-label={
             isCollapsed ? "Show balance details" : "Hide balance details"
           }
@@ -219,7 +219,7 @@ function LatestPeriodBalanceTable({
         <Box mx="2">
           <Button
             variant="ghost"
-            size="xs"
+            size="sm"
             onClick={() =>
               setVisibleLeafCount((count) =>
                 Math.min(count + SHOW_MORE_LEAF_CHUNK_SIZE, leaves.length),

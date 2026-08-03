@@ -101,7 +101,7 @@ export default function SRMCardShell({
 }) {
   const header = (
     <Flex align="center" gap="2">
-      <Heading as="h2" size="large">
+      <Heading as="h2" size="lg">
         {title}
       </Heading>
       {srmHealth !== "healthy" && <StatusBadge status={srmHealth} />}

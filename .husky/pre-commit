@@ -23,7 +23,7 @@ if [ -n "$eslintconfigchanged" ]
     pnpm eslint --suppress-all --pass-on-unpruned-suppressions .
 fi
 
-echo "#### Linting typescript, scss, and markdown files"
+echo "#### Formatting and linting staged files"
 pnpm lint-staged
 
 # Add eslint-suppressions.json if it was modified during linting

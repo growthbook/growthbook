@@ -1,9 +1,18 @@
+import { cloneDeep, isEqual, omit } from "lodash";
 import type {
   ExperimentSnapshotSettings,
   ExperimentSnapshotTraffic,
   SnapshotStatusSummary,
 } from "shared/types/experiment-snapshot";
 import type { ContextualBanditSnapshot } from "shared/types/stats";
+import type { AuditInterfaceInput } from "shared/types/audit";
+import type { EventUser } from "shared/types/events/event-types";
+import type {
+  ContextualBanditRefRule,
+  FeatureInterface,
+  FeatureRule,
+} from "shared/types/feature";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   ContextualBanditEventInterface,
   ContextualBanditInterface,
@@ -11,17 +20,41 @@ import {
   ContextualBanditSnapshotInterface,
   ContextualBanditSnapshotSettings,
   LeafWeight,
+  RevisionRampAction,
 } from "shared/validators";
+import {
+  autoMerge,
+  reconcileMergeBaselines,
+  resetReviewOnChange,
+} from "shared/util";
 import { conditionFromLeafClauses } from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
+import { discardIfJustCreated } from "back-end/src/api/features/validations";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { publishRevision } from "back-end/src/models/FeatureModel";
+import {
+  getLinkageSyncRevisionSummaries,
+  getRevision,
+  updateRevision,
+} from "back-end/src/models/FeatureRevisionModel";
+import { syncFeatureContextualBanditLinkages } from "back-end/src/util/featureContextualBanditSync";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { getRefLinkedFeatureInfo } from "back-end/src/services/experiments";
-import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import {
+  assertCanAutoPublish,
+  generateRuleId,
+  getDraftRevision,
+  getLiveAndBaseRevisionsForFeature,
+} from "back-end/src/services/features";
+import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
-import { getPayloadKeysForContextualBandit } from "back-end/src/services/contextualBanditChanges";
+import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
 import { computeContextualBanditStageAndSchedule } from "back-end/src/services/contextualBanditSchedule";
+import { stampRuleForEnvs } from "back-end/src/util/revisionRuleOps";
+import { BadRequestError } from "back-end/src/util/errors";
 import {
   ContextualBanditResultsQueryRunner,
   ContextualBanditSrmResult,
@@ -47,9 +80,19 @@ export async function getContextualBanditLinkedFeatureInfo(
   context: ReqContext | ApiReqContext,
   contextualBandit: ContextualBanditInterface,
 ) {
+  // `linkedFeatures` is live-only, so a feature whose rule still sits in an
+  // unpublished draft would be missing from the list the UI renders and the
+  // start flow gates on. Pending drafts cover exactly that case.
+  const linkedFeatureIds = Array.from(
+    new Set([
+      ...(contextualBandit.linkedFeatures ?? []),
+      ...(contextualBandit.pendingFeatureDrafts ?? []).map((d) => d.featureId),
+    ]),
+  );
+
   return getRefLinkedFeatureInfo({
     context,
-    linkedFeatureIds: contextualBandit.linkedFeatures || [],
+    linkedFeatureIds,
     refIsDraft: contextualBandit.status === "draft",
     matchRule: (rule) =>
       rule.type === "contextual-bandit-ref" &&
@@ -57,19 +100,654 @@ export async function getContextualBanditLinkedFeatureInfo(
   });
 }
 
-/**
- * Detaches a feature from a Contextual Bandit: removes it from `linkedFeatures`
- * and cancels any queued draft auto-publish. Mirrors `unlinkFeatureFromExperiment`
- * — the feature's `contextual-bandit-ref` rule is intentionally left in place.
- */
-export async function unlinkFeatureFromContextualBandit(
+type ContextualBanditFeatureLinkOptions = {
+  context: ReqContext | ApiReqContext;
+  contextualBandit: ContextualBanditInterface;
+  eventAudit: EventUser;
+  audit: (input: AuditInterfaceInput) => Promise<void>;
+  /** Publish the resulting revision immediately instead of leaving it as a draft. */
+  autoPublish?: boolean;
+  /** Bundle the change into this existing draft instead of starting a new one. */
+  draftVersion?: number;
+};
+
+const isRuleForContextualBandit = (
+  rule: FeatureRule,
+  contextualBanditId: string,
+) =>
+  rule.type === "contextual-bandit-ref" &&
+  rule.contextualBanditId === contextualBanditId;
+
+/** Revision a link edit lands on: an explicitly targeted open draft, otherwise a new draft branched off live. */
+function resolveLinkTargetVersion(
+  feature: FeatureInterface,
+  {
+    autoPublish,
+    draftVersion,
+    forceNewDraft,
+  }: { autoPublish?: boolean; draftVersion?: number; forceNewDraft?: boolean },
+): number {
+  return autoPublish || forceNewDraft
+    ? feature.version
+    : (draftVersion ?? feature.version);
+}
+
+/** Rules the edit gets applied on top of: the targeted draft's own rules, or live when a new draft will be branched off it. */
+async function getRulesForTargetVersion(
   context: ReqContext | ApiReqContext,
-  cbId: string,
-  featureId: string,
-): Promise<void> {
-  const cbModel = context.models.contextualBandits;
-  await cbModel.removeLinkedFeature(cbId, featureId);
-  await cbModel.removePendingFeatureDraft(cbId, featureId);
+  feature: FeatureInterface,
+  targetVersion: number,
+): Promise<FeatureRule[]> {
+  if (targetVersion === feature.version) {
+    return feature.rules ?? [];
+  }
+  const existingDraft = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    feature,
+    version: targetVersion,
+  });
+  if (!existingDraft) {
+    throw new Error("Cannot find revision");
+  }
+  return existingDraft.rules ?? [];
+}
+
+/**
+ * Whether the revision a new link would land on already carries a rule for this
+ * bandit.
+ */
+export async function targetRevisionHasContextualBanditRule({
+  context,
+  contextualBandit,
+  feature,
+  autoPublish,
+  draftVersion,
+  forceNewDraft,
+}: {
+  context: ReqContext | ApiReqContext;
+  contextualBandit: ContextualBanditInterface;
+  feature: FeatureInterface;
+  autoPublish?: boolean;
+  draftVersion?: number;
+  forceNewDraft?: boolean;
+}): Promise<boolean> {
+  const rules = await getRulesForTargetVersion(
+    context,
+    feature,
+    resolveLinkTargetVersion(feature, {
+      autoPublish,
+      draftVersion,
+      forceNewDraft,
+    }),
+  );
+  return rules.some((r) => isRuleForContextualBandit(r, contextualBandit.id));
+}
+
+/** Merge the draft against live and publish it, mirroring the feature page's publish flow. */
+async function publishContextualBanditRevision({
+  context,
+  feature,
+  revision,
+  comment,
+  audit,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  comment: string;
+  audit: (input: AuditInterfaceInput) => Promise<void>;
+}): Promise<void> {
+  await assertCanAutoPublish(context, feature, revision);
+
+  const { live, base } = await getLiveAndBaseRevisionsForFeature({
+    context,
+    feature,
+    revision,
+  });
+  const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+    feature,
+    live,
+    base,
+  );
+  const mergeResult = autoMerge(
+    mergeLive,
+    mergeBase,
+    revision,
+    context.environments,
+    {},
+  );
+  if (!mergeResult.success) {
+    throw new Error(
+      `Unable to auto-publish: please resolve conflicts on draft #${revision.version} before publishing.`,
+    );
+  }
+
+  const updatedFeature = await publishRevision({
+    context,
+    feature,
+    revision,
+    result: mergeResult.result,
+    comment,
+    bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+  });
+
+  await audit({
+    event: "feature.publish",
+    entity: { object: "feature", id: feature.id },
+    details: auditDetailsUpdate(feature, updatedFeature, {
+      revision: revision.version,
+      comment,
+    }),
+  });
+}
+
+/**
+ * Add a `contextual-bandit-ref` rule to the bottom of a feature's rule list and
+ * link the feature to the bandit. Lands in a draft unless `autoPublish` is set;
+ * an unpublished draft is queued so it auto-publishes when the bandit starts.
+ */
+export async function linkFeatureToContextualBandit({
+  context,
+  contextualBandit,
+  feature,
+  rule,
+  eventAudit,
+  audit,
+  autoPublish,
+  draftVersion,
+  forceNewDraft,
+}: ContextualBanditFeatureLinkOptions & {
+  feature: FeatureInterface;
+  rule: ContextualBanditRefRule;
+  /** Start a new draft off live rather than reusing an open one. */
+  forceNewDraft?: boolean;
+}): Promise<{ version: number; published: boolean; ruleId: string }> {
+  const { org, environments } = context;
+
+  if (
+    rule.type !== "contextual-bandit-ref" ||
+    !rule.contextualBanditId ||
+    !rule.variations ||
+    !rule.variations.length
+  ) {
+    throw new Error("Invalid contextual bandit rule");
+  }
+
+  if (!environments.length) {
+    throw new Error(
+      "Must have at least one environment configured to use Feature Flags",
+    );
+  }
+
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  let scopedRule: FeatureRule;
+  if (rule.allEnvironments === true) {
+    scopedRule = {
+      ...omit(rule, ["environments"]),
+      id: generateRuleId(),
+      allEnvironments: true,
+    } as FeatureRule;
+  } else if (
+    rule.allEnvironments === false &&
+    Array.isArray(rule.environments)
+  ) {
+    scopedRule = { ...rule, id: generateRuleId() } as FeatureRule;
+  } else {
+    scopedRule = stampRuleForEnvs(
+      { ...rule, id: generateRuleId() } as FeatureRule,
+      environments,
+    );
+  }
+
+  const ruleEnvFootprint = scopedRule.allEnvironments
+    ? environments
+    : (scopedRule.environments ?? []);
+
+  if (!context.permissions.canPublishFeature(feature, ruleEnvFootprint)) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Contextual-bandit-served values must satisfy the backing Config's schema +
+  // invariants, the same as a REST publish. No-op unless the feature is
+  // config-backed JSON.
+  await assertConfigBackedFeatureValuesValid(context, feature, {
+    rules: [scopedRule],
+  });
+
+  const targetVersion = resolveLinkTargetVersion(feature, {
+    autoPublish,
+    draftVersion,
+    forceNewDraft,
+  });
+  // `getDraftRevision` creates a brand-new draft exactly when the target is
+  // live — track that so a downstream failure (most commonly an autoPublish
+  // rejection) can discard the draft this call opened, rather than leaving an
+  // orphaned draft behind for someone else to find.
+  const created = targetVersion === feature.version;
+  const revision = await getDraftRevision(context, feature, targetVersion);
+
+  try {
+    const baseEnvEnabled: Record<string, boolean> = {
+      ...Object.fromEntries(
+        environments.map((e) => [
+          e,
+          feature.environmentSettings?.[e]?.enabled ?? false,
+        ]),
+      ),
+      ...(revision.environmentsEnabled ?? {}),
+    };
+    const envToggles: Record<string, boolean> = {};
+    for (const envId of ruleEnvFootprint) {
+      if (!environments.includes(envId)) continue;
+      if (!baseEnvEnabled[envId]) envToggles[envId] = true;
+    }
+
+    const existingRules = cloneDeep(revision.rules ?? []);
+    const nextRules = [...existingRules, scopedRule];
+
+    const combinedChanges: Partial<FeatureRevisionInterface> = {
+      rules: nextRules,
+    };
+    if (Object.keys(envToggles).length > 0) {
+      combinedChanges.environmentsEnabled = {
+        ...(revision.environmentsEnabled ?? {}),
+        ...envToggles,
+      };
+    }
+    const bundlingIntoExistingDraft =
+      !!draftVersion && !forceNewDraft && !autoPublish;
+    if (!bundlingIntoExistingDraft && !revision.title) {
+      combinedChanges.title = "Publish contextual bandit";
+    }
+
+    const resetReview = resetReviewOnChange({
+      feature,
+      changedEnvironments: ruleEnvFootprint,
+      defaultValueChanged: false,
+      settings: org?.settings,
+    });
+    const auditSubject = scopedRule.allEnvironments
+      ? "to all environments"
+      : `to ${ruleEnvFootprint.join(", ") || "no environments"}`;
+    const updatedRevision =
+      (await updateRevision(
+        context,
+        feature,
+        revision,
+        combinedChanges,
+        {
+          user: eventAudit,
+          action: "add contextual bandit rule",
+          subject: auditSubject,
+          value: JSON.stringify(scopedRule),
+        },
+        resetReview,
+      )) ?? revision;
+    await recordRevisionUpdate(context, feature, updatedRevision, "rule.add", {
+      environments: ruleEnvFootprint,
+    });
+
+    // Linkage is not written here: the revision write reconciles the queued draft
+    // off the new rules, and publishing reconciles `linkedFeatures` off what went
+    // live. Both derive the same answer this could only restate.
+    let published = false;
+    if (autoPublish) {
+      await publishContextualBanditRevision({
+        context,
+        feature,
+        revision: updatedRevision,
+        comment: `Add contextual bandit rule for "${contextualBandit.name}"`,
+        audit,
+      });
+      published = true;
+    }
+
+    return {
+      version: updatedRevision.version,
+      published,
+      ruleId: scopedRule.id,
+    };
+  } catch (err) {
+    await discardIfJustCreated(context, revision, created);
+    throw err;
+  }
+}
+
+/**
+ * Replace every `contextual-bandit-ref` rule for this bandit on the feature,
+ * preserving each rule's id and position. The whole rule is replaced, so the
+ * caller has to send a complete definition rather than a patch.
+ */
+export async function updateContextualBanditFeatureRule({
+  context,
+  contextualBandit,
+  feature,
+  rule,
+  eventAudit,
+  audit,
+  autoPublish,
+  draftVersion,
+}: ContextualBanditFeatureLinkOptions & {
+  feature: FeatureInterface;
+  rule: ContextualBanditRefRule;
+}): Promise<{ version: number; published: boolean; ruleIds: string[] }> {
+  const { org, environments } = context;
+
+  if (
+    rule.type !== "contextual-bandit-ref" ||
+    !rule.contextualBanditId ||
+    !rule.variations ||
+    !rule.variations.length
+  ) {
+    throw new Error("Invalid contextual bandit rule");
+  }
+
+  if (!environments.length) {
+    throw new Error(
+      "Must have at least one environment configured to use Feature Flags",
+    );
+  }
+
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const isRuleForBandit = (r: FeatureRule) =>
+    isRuleForContextualBandit(r, contextualBandit.id);
+
+  // Read the target revision before `getDraftRevision`, which would otherwise
+  // branch a draft off live that we may end up rejecting.
+  const targetVersion = draftVersion ?? feature.version;
+  const noRuleMessage = `Feature Flag ${feature.id} has no rule for this contextual bandit on revision ${targetVersion}.`;
+  const baseRules = await getRulesForTargetVersion(
+    context,
+    feature,
+    targetVersion,
+  );
+  const [baselineRule, ...siblingRules] = baseRules.filter(isRuleForBandit);
+  if (!baselineRule) {
+    throw new BadRequestError(noRuleMessage);
+  }
+  // One replacement can't faithfully stand in for definitions that have drifted
+  // apart, so refuse rather than silently collapsing them into each other.
+  const baseline = omit(baselineRule, ["id"]);
+  if (siblingRules.some((r) => !isEqual(omit(r, ["id"]), baseline))) {
+    // Note: this is unlikely to happen but we should guard against it anyways
+    throw new BadRequestError(
+      `Feature Flag ${feature.id} has multiple rules for this contextual bandit and they are not identical. Edit them individually on revision ${targetVersion} instead.`,
+    );
+  }
+
+  let scopedRule: FeatureRule;
+  if (rule.allEnvironments === true) {
+    scopedRule = {
+      ...omit(rule, ["environments"]),
+      allEnvironments: true,
+    } as FeatureRule;
+  } else if (
+    rule.allEnvironments === false &&
+    Array.isArray(rule.environments)
+  ) {
+    scopedRule = { ...rule } as FeatureRule;
+  } else {
+    scopedRule = stampRuleForEnvs({ ...rule } as FeatureRule, environments);
+  }
+
+  const envsForRule = (r: FeatureRule) =>
+    r.allEnvironments || r.environments === undefined
+      ? environments
+      : (r.environments ?? []);
+  // Shrinking the scope changes the environments the rule is leaving too.
+  const ruleChangedEnvs = Array.from(
+    new Set([
+      ...envsForRule(baselineRule),
+      ...siblingRules.flatMap(envsForRule),
+      ...envsForRule(scopedRule),
+    ]),
+  );
+
+  if (!context.permissions.canPublishFeature(feature, ruleChangedEnvs)) {
+    context.permissions.throwPermissionError();
+  }
+
+  await assertConfigBackedFeatureValuesValid(context, feature, {
+    rules: [scopedRule],
+  });
+
+  // Same discard-on-failure guard as `linkFeatureToContextualBandit`:
+  // `getDraftRevision` only creates a new draft when targeting live, so only
+  // that case leaves an orphaned draft behind for a downstream failure (most
+  // commonly an autoPublish rejection) to clean up.
+  const created = targetVersion === feature.version;
+  const revision = await getDraftRevision(context, feature, targetVersion);
+
+  try {
+    const ruleIds: string[] = [];
+    const nextRules = cloneDeep(revision.rules ?? []).map((r) => {
+      if (!isRuleForBandit(r)) return r;
+      ruleIds.push(r.id);
+      return { ...scopedRule, id: r.id } as FeatureRule;
+    });
+    if (!ruleIds.length) {
+      throw new BadRequestError(noRuleMessage);
+    }
+
+    const resetReview = resetReviewOnChange({
+      feature,
+      changedEnvironments: ruleChangedEnvs,
+      defaultValueChanged: false,
+      settings: org?.settings,
+    });
+    const updatedRevision =
+      (await updateRevision(
+        context,
+        feature,
+        revision,
+        { rules: nextRules },
+        {
+          user: eventAudit,
+          action: "update contextual bandit rule",
+          subject: `rule ${ruleIds.join(", ")}`,
+          value: JSON.stringify(scopedRule),
+        },
+        resetReview,
+      )) ?? revision;
+    await recordRevisionUpdate(
+      context,
+      feature,
+      updatedRevision,
+      "rule.update",
+      {
+        environments: ruleChangedEnvs,
+      },
+    );
+
+    let published = false;
+    if (autoPublish) {
+      await publishContextualBanditRevision({
+        context,
+        feature,
+        revision: updatedRevision,
+        comment: `Update contextual bandit rule for "${contextualBandit.name}"`,
+        audit,
+      });
+      published = true;
+    }
+
+    return { version: updatedRevision.version, published, ruleIds };
+  } catch (err) {
+    await discardIfJustCreated(context, revision, created);
+    throw err;
+  }
+}
+
+/**
+ * Mirror image of `linkFeatureToContextualBandit`: strip every
+ * `contextual-bandit-ref` rule pointing at this bandit off the feature. The
+ * linkage only comes off once the removal is live — until then the live revision
+ * is still serving the rule, so the feature is still linked to the bandit.
+ */
+export async function unlinkFeatureFromContextualBandit({
+  context,
+  contextualBandit,
+  featureId,
+  feature,
+  eventAudit,
+  audit,
+  autoPublish,
+  draftVersion,
+}: ContextualBanditFeatureLinkOptions & {
+  featureId: string;
+  feature: FeatureInterface;
+}): Promise<{
+  removedRuleIds: string[];
+  revisionVersion: number | null;
+  published: boolean;
+}> {
+  const { org, environments } = context;
+
+  const isRuleForBandit = (r: FeatureRule) =>
+    isRuleForContextualBandit(r, contextualBandit.id);
+
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Check the rules we'd be editing before touching anything — `getDraftRevision`
+  // creates a draft off live, and there's nothing to stage when the rule is
+  // already gone (a discarded draft, say).
+  const targetVersion = draftVersion ?? feature.version;
+  const baseRules = await getRulesForTargetVersion(
+    context,
+    feature,
+    targetVersion,
+  );
+  if (!baseRules.some(isRuleForBandit)) {
+    // Nothing to remove on the revision we were pointed at, so there is no
+    // revision write to reconcile off. Reconcile directly instead, in case the
+    // bandit is holding linkage the rules no longer justify.
+    const { openDrafts, liveRevision } = await getLinkageSyncRevisionSummaries(
+      feature.organization,
+      featureId,
+    );
+    await syncFeatureContextualBanditLinkages(
+      context,
+      featureId,
+      openDrafts,
+      liveRevision,
+    );
+    return { removedRuleIds: [], revisionVersion: null, published: false };
+  }
+
+  // Same discard-on-failure guard as `linkFeatureToContextualBandit`:
+  // `getDraftRevision` only creates a new draft when targeting live, so only
+  // that case leaves an orphaned draft behind for a downstream failure (most
+  // commonly an autoPublish rejection) to clean up.
+  const created = targetVersion === feature.version;
+  const revision = await getDraftRevision(context, feature, targetVersion);
+
+  try {
+    const existingRules = cloneDeep(revision.rules ?? []);
+    const removedRules = existingRules.filter(isRuleForBandit);
+    const nextRules = existingRules.filter((r) => !isRuleForBandit(r));
+    const removedRuleIds = removedRules.map((r) => r.id);
+
+    const ruleChangedEnvs = Array.from(
+      new Set(
+        removedRules.flatMap((r) =>
+          r.allEnvironments || r.environments === undefined
+            ? environments
+            : (r.environments ?? []),
+        ),
+      ),
+    );
+
+    if (!context.permissions.canPublishFeature(feature, ruleChangedEnvs)) {
+      context.permissions.throwPermissionError();
+    }
+
+    // Strip any pending ramp actions for the removed rules so publish doesn't
+    // create a schedule doc that would immediately be cleaned up as orphaned.
+    const changes: {
+      rules: FeatureRule[];
+      rampActions?: RevisionRampAction[];
+    } = { rules: nextRules };
+    const existingRampActions = revision.rampActions ?? [];
+    const filteredRampActions = existingRampActions.filter(
+      (a) => !removedRuleIds.includes(a.ruleId),
+    );
+    if (filteredRampActions.length !== existingRampActions.length) {
+      changes.rampActions = filteredRampActions;
+    }
+
+    const resetReview = resetReviewOnChange({
+      feature,
+      changedEnvironments: ruleChangedEnvs,
+      defaultValueChanged: false,
+      settings: org?.settings,
+    });
+    const updatedRevision =
+      (await updateRevision(
+        context,
+        feature,
+        revision,
+        changes,
+        {
+          user: eventAudit,
+          action: "delete contextual bandit rule",
+          subject: `rule ${removedRuleIds.join(", ")}`,
+          value: JSON.stringify(removedRules),
+        },
+        resetReview,
+      )) ?? revision;
+    await recordRevisionUpdate(
+      context,
+      feature,
+      updatedRevision,
+      "rule.delete",
+      {
+        environments: ruleChangedEnvs,
+      },
+    );
+
+    // As with linking, the linkage follows from the rules: the revision write
+    // retires the queued draft, and publishing is what takes the feature out of
+    // `linkedFeatures`, once the removal is actually live.
+    let published = false;
+    if (autoPublish) {
+      await publishContextualBanditRevision({
+        context,
+        feature,
+        revision: updatedRevision,
+        comment: `Remove contextual bandit rule for "${contextualBandit.name}"`,
+        audit,
+      });
+      published = true;
+    }
+
+    return {
+      removedRuleIds,
+      revisionVersion: updatedRevision.version,
+      published,
+    };
+  } catch (err) {
+    await discardIfJustCreated(context, revision, created);
+    throw err;
+  }
 }
 
 export type ContextualBanditResultsForUi = {
@@ -150,12 +828,6 @@ export async function runContextualBanditSnapshot(
   cb: ContextualBanditInterface,
   opts: {
     triggeredBy: "manual" | "scheduled";
-    /**
-     * When true, block until queries + analysis finish and return the resulting
-     * CBE id. Background jobs that own the run lifecycle set this (mirroring
-     * `updateExperimentResults`). Interactive/API callers leave it false so the
-     * request returns immediately with a "running" snapshot the caller can poll.
-     */
     wait?: boolean;
   },
 ): Promise<{ snapshotId: string; cbeId?: string }> {
@@ -283,31 +955,42 @@ export function leafWeightsFromContextualBanditResult(
   return leafWeights;
 }
 
-/** True when any leaf's updated weights differ from the current persisted leaf weights, keyed on the leaf's targeting condition. */
 export function contextualBanditWeightsWereUpdated(
   result: ContextualBanditResult,
   currentLeafWeights: LeafWeight[],
   variations: { id: string }[],
 ): boolean {
+  const newLeafWeights = leafWeightsFromContextualBanditResult(
+    result,
+    variations,
+  );
+
+  if (newLeafWeights.length === 0) {
+    return false;
+  }
+
+  if (newLeafWeights.length !== currentLeafWeights.length) {
+    return true;
+  }
+
   const currentByCondition = new Map(
     currentLeafWeights.map((lw) => [
       JSON.stringify(lw.condition),
-      lw.weights.map((p) => p.weight),
+      { leafId: lw.leafId, weights: lw.weights.map((p) => p.weight) },
     ]),
   );
 
-  return leafWeightsFromContextualBanditResult(result, variations).some(
-    (lw) => {
-      const current = currentByCondition.get(JSON.stringify(lw.condition));
-      if (!current) {
-        return true;
-      }
-      return (
-        JSON.stringify(current) !==
+  return newLeafWeights.some((lw) => {
+    const current = currentByCondition.get(JSON.stringify(lw.condition));
+    if (!current) {
+      return true;
+    }
+    return (
+      current.leafId !== lw.leafId ||
+      JSON.stringify(current.weights) !==
         JSON.stringify(lw.weights.map((p) => p.weight))
-      );
-    },
-  );
+    );
+  });
 }
 
 /**
@@ -359,19 +1042,12 @@ export async function persistContextualBanditEvent(
     ...(result.srm ? { degreesOfFreedom: result.srm.degreesOfFreedom } : {}),
   });
 
-  await context.models.contextualBandits.patchLeafWeights(cb.id, leafWeights);
+  await context.models.contextualBandits.patchLeafWeights(cb.id, leafWeights, {
+    bumpVersion: weightsWereUpdated,
+  });
 
-  const payloadKeys = getPayloadKeysForContextualBandit(context, cb);
-  if (payloadKeys.length > 0) {
-    queueSDKPayloadRefresh({
-      context,
-      payloadKeys,
-      auditContext: {
-        event: "contextualBandit.refresh",
-        model: "contextualBandit",
-        id: cb.id,
-      },
-    });
+  if (weightsWereUpdated) {
+    await refreshLinkedFeaturePayloads(context, cb, "contextualBandit.refresh");
   }
 
   return cbe;

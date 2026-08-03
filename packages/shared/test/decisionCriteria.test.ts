@@ -2,6 +2,8 @@ import {
   ExperimentAnalysisSummaryResultsStatus,
   ExperimentAnalysisSummaryVariationStatus,
   DecisionCriteriaRule,
+  ExperimentResultStatusData,
+  ExperimentDataForStatus,
   ExperimentHealthSettings,
 } from "shared/types/experiment";
 import {
@@ -10,8 +12,23 @@ import {
   getVariationDecisions,
   getEarlyStoppingVariationDecisions,
   getContextualBanditResultStatus,
+  resolveScheduledShipDecision,
+  getExperimentResultStatus,
 } from "../src/enterprise/decision-criteria/decisionCriteria";
 import { PRESET_DECISION_CRITERIA } from "../src/enterprise/decision-criteria/constants";
+
+function shipNow(variationIds: string[]): ExperimentResultStatusData {
+  return {
+    status: "ship-now",
+    variations: variationIds.map((variationId) => ({
+      variationId,
+      decidingRule: null,
+    })),
+    powerReached: true,
+    sequentialUsed: false,
+    scheduledEndPassed: false,
+  };
+}
 
 function setMetricsOnResultsStatus({
   resultsStatus,
@@ -95,6 +112,7 @@ describe("default decision tree is correct", () => {
       ],
       sequentialUsed: false,
       powerReached: false,
+      scheduledEndPassed: false,
       tooltip: "A test variation is ready to ship.",
     });
 
@@ -119,6 +137,7 @@ describe("default decision tree is correct", () => {
       ],
       sequentialUsed: false,
       powerReached: false,
+      scheduledEndPassed: false,
       tooltip: "The test variation(s) should be rolled back.",
     });
 
@@ -143,6 +162,7 @@ describe("default decision tree is correct", () => {
       ],
       sequentialUsed: false,
       powerReached: false,
+      scheduledEndPassed: false,
       tooltip: "A test variation is ready to ship.",
     });
 
@@ -164,6 +184,7 @@ describe("default decision tree is correct", () => {
       ],
       sequentialUsed: false,
       powerReached: false,
+      scheduledEndPassed: false,
       tooltip: "The test variation(s) should be rolled back.",
     });
 
@@ -188,6 +209,57 @@ describe("default decision tree is correct", () => {
     expect(somewhatNegDecision).toEqual(undefined);
   });
 
+  it("renders underpowered decisions when scheduledEndPassed is set", () => {
+    // winning stat sig triggers a rec despite missing power, but the
+    // returned powerReached stays honest
+    const shipDecision = getDecisionFrameworkStatus({
+      resultsStatus: setMetricsOnResultsStatus({
+        resultsStatus,
+        goalMetrics: { "1": { status: "won", superStatSigStatus: "neutral" } },
+      }),
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      goalMetrics: ["1"],
+      guardrailMetrics: [],
+      daysNeeded: undefined,
+      scheduledEndPassed: true,
+    });
+    expect(shipDecision).toEqual({
+      status: "ship-now",
+      variations: [
+        { variationId: "1", decidingRule: PRESET_DECISION_CRITERIA.rules[0] },
+      ],
+      sequentialUsed: false,
+      powerReached: false,
+      scheduledEndPassed: true,
+      tooltip:
+        "A test variation is ready to ship. The scheduled end date has passed and a recommendation can be made.",
+    });
+
+    // neutral falls through to the default action (review)
+    const reviewDecision = getDecisionFrameworkStatus({
+      resultsStatus: setMetricsOnResultsStatus({
+        resultsStatus,
+        goalMetrics: {
+          "1": { status: "neutral", superStatSigStatus: "neutral" },
+        },
+      }),
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      goalMetrics: ["1"],
+      guardrailMetrics: [],
+      daysNeeded: undefined,
+      scheduledEndPassed: true,
+    });
+    expect(reviewDecision).toEqual({
+      status: "ready-for-review",
+      variations: [{ variationId: "1", decidingRule: null }],
+      sequentialUsed: false,
+      powerReached: false,
+      scheduledEndPassed: true,
+      tooltip:
+        "A test variation is ready to be reviewed. The scheduled end date has passed and there is no clear ship or rollback recommendation.",
+    });
+  });
+
   it("returns the correct powered decisions", () => {
     const daysNeeded = 0;
 
@@ -209,6 +281,7 @@ describe("default decision tree is correct", () => {
       ],
       sequentialUsed: false,
       powerReached: true,
+      scheduledEndPassed: false,
       tooltip: "A test variation is ready to ship.",
     });
 
@@ -230,6 +303,7 @@ describe("default decision tree is correct", () => {
       variations: [{ variationId: "1", decidingRule: null }],
       sequentialUsed: false,
       powerReached: true,
+      scheduledEndPassed: false,
       tooltip: "A test variation is ready to be reviewed.",
     });
 
@@ -251,6 +325,7 @@ describe("default decision tree is correct", () => {
       ],
       sequentialUsed: false,
       powerReached: true,
+      scheduledEndPassed: false,
       tooltip: "The test variation(s) should be rolled back.",
     });
 
@@ -272,6 +347,7 @@ describe("default decision tree is correct", () => {
       ],
       sequentialUsed: false,
       powerReached: true,
+      scheduledEndPassed: false,
       tooltip: "The test variation(s) should be rolled back.",
     });
 
@@ -301,6 +377,7 @@ describe("default decision tree is correct", () => {
       ],
       sequentialUsed: false,
       powerReached: true,
+      scheduledEndPassed: false,
       tooltip: "The test variation(s) should be rolled back.",
     });
 
@@ -327,6 +404,7 @@ describe("default decision tree is correct", () => {
       variations: [{ variationId: "2", decidingRule: null }],
       sequentialUsed: false,
       powerReached: true,
+      scheduledEndPassed: false,
       tooltip: "A test variation is ready to be reviewed.",
     });
   });
@@ -1086,6 +1164,7 @@ describe("getDecisionFrameworkStatus Handles Super Stat Sig Correctly", () => {
       ],
       sequentialUsed: false,
       powerReached: false,
+      scheduledEndPassed: false,
       tooltip: "A test variation is ready to ship.",
     });
   });
@@ -1160,6 +1239,7 @@ describe("getDecisionFrameworkStatus Handles Super Stat Sig Correctly", () => {
       ],
       sequentialUsed: false,
       powerReached: false,
+      scheduledEndPassed: false,
       tooltip: "A test variation is ready to ship.",
     });
   });
@@ -1266,5 +1346,226 @@ describe("getContextualBanditResultStatus", () => {
     });
 
     expect(status?.status).toBe("no-data");
+  });
+});
+
+describe("resolveScheduledShipDecision", () => {
+  it("ships a single clear winner", () => {
+    expect(
+      resolveScheduledShipDecision({ resultStatus: shipNow(["1"]) }),
+    ).toEqual({ action: "ship", variationId: "1" });
+  });
+
+  it("has no winner when status is not ship-now", () => {
+    expect(
+      resolveScheduledShipDecision({
+        resultStatus: { status: "rollback-now" } as ExperimentResultStatusData,
+      }),
+    ).toEqual({ action: "no-winner" });
+    expect(resolveScheduledShipDecision({ resultStatus: undefined })).toEqual({
+      action: "no-winner",
+    });
+  });
+
+  it("has no winner on a multi-winner tie without a tiebreaker", () => {
+    expect(
+      resolveScheduledShipDecision({ resultStatus: shipNow(["1", "2"]) }),
+    ).toEqual({ action: "no-winner" });
+  });
+
+  it("breaks a tie by highest lift on the tiebreaker metric", () => {
+    expect(
+      resolveScheduledShipDecision({
+        resultStatus: shipNow(["1", "2", "3"]),
+        tiebreakerLiftByVariationId: { "1": 0.02, "2": 0.05, "3": 0.01 },
+      }),
+    ).toEqual({ action: "ship", variationId: "2" });
+  });
+
+  it("ignores winners missing a tiebreaker lift, no winner if none have it", () => {
+    expect(
+      resolveScheduledShipDecision({
+        resultStatus: shipNow(["1", "2"]),
+        tiebreakerLiftByVariationId: { "3": 0.9 },
+      }),
+    ).toEqual({ action: "no-winner" });
+  });
+});
+
+describe("getExperimentResultStatus schedule-driven states", () => {
+  const baseHealthSettings: ExperimentHealthSettings = {
+    decisionFrameworkEnabled: true,
+    srmThreshold: 0.001,
+    multipleExposureMinPercent: 0.01,
+    experimentMinLengthDays: 7,
+  };
+
+  const daysAgo = (n: number): Date =>
+    new Date(Date.now() - n * 24 * 60 * 60 * 1000);
+  const hoursFromNow = (n: number): Date =>
+    new Date(Date.now() + n * 60 * 60 * 1000);
+
+  function makeExperimentData({
+    stopAt,
+    dateStarted = daysAgo(30),
+    goalMetrics = ["metric-1"],
+    secondaryMetrics = [],
+    guardrailMetrics = [],
+    analysisSummary,
+    status = "running",
+  }: {
+    stopAt?: Date;
+    dateStarted?: Date;
+    goalMetrics?: string[];
+    secondaryMetrics?: string[];
+    guardrailMetrics?: string[];
+    analysisSummary?: ExperimentDataForStatus["analysisSummary"];
+    status?: ExperimentDataForStatus["status"];
+  } = {}): ExperimentDataForStatus {
+    return {
+      type: "standard",
+      status,
+      archived: false,
+      variations: [
+        { id: "0", key: "0", name: "Control", screenshots: [] },
+        { id: "1", key: "1", name: "Variation 1", screenshots: [] },
+      ],
+      phases: [{ dateStarted, variations: [] }],
+      goalMetrics,
+      secondaryMetrics,
+      guardrailMetrics,
+      datasource: "ds_1",
+      ...(stopAt ? { statusUpdateSchedule: { stopAt } } : {}),
+      ...(analysisSummary ? { analysisSummary } : {}),
+    } as unknown as ExperimentDataForStatus;
+  }
+
+  it("returns scheduled-end-review when the scheduled end passed with no goal metrics", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        stopAt: daysAgo(1),
+        goalMetrics: [],
+        secondaryMetrics: ["secondary-1"],
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+    });
+
+    expect(result?.status).toBe("scheduled-end-review");
+    expect(result?.tooltip).toContain("The scheduled end date has passed");
+    expect(result?.tooltip).toContain("No goal metrics are configured");
+  });
+
+  it("keeps unhealthy precedence over scheduled-end-review when the scheduled end passed", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        stopAt: daysAgo(1),
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 0.0001,
+            multipleExposures: 0,
+            totalUsers: 1_000_000,
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+    });
+
+    expect(result?.status).toBe("unhealthy");
+  });
+
+  it("uses the scheduled end date for days-left even when power reports a different estimate", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        // ~2.5 days out, so ceil() yields 3
+        stopAt: hoursFromNow(60),
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 0.5,
+            multipleExposures: 0,
+            totalUsers: 1000,
+            power: {
+              type: "success",
+              isLowPowered: false,
+              additionalDaysNeeded: 10,
+            },
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+    });
+
+    expect(result?.status).toBe("days-left");
+    expect(result).toMatchObject({ status: "days-left", daysLeft: 3 });
+    expect(result?.tooltip).toContain("scheduled to end in about 3 days");
+  });
+
+  it("suppresses the low-power unhealthy warning when a scheduled end is set", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        stopAt: hoursFromNow(60),
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 0.5,
+            multipleExposures: 0,
+            totalUsers: 1000,
+            power: {
+              type: "success",
+              isLowPowered: true,
+              additionalDaysNeeded: 10,
+            },
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+    });
+
+    expect(result?.status).toBe("days-left");
+    expect(result).toMatchObject({ status: "days-left", daysLeft: 3 });
+  });
+
+  it("falls back to power-driven days-left when there is no scheduled end", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 0.5,
+            multipleExposures: 0,
+            totalUsers: 1000,
+            power: {
+              type: "success",
+              isLowPowered: false,
+              additionalDaysNeeded: 10,
+            },
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+    });
+
+    expect(result).toMatchObject({ status: "days-left", daysLeft: 10 });
+    expect(result?.tooltip ?? "").not.toContain("scheduled to end");
+  });
+
+  it("renders schedule-driven days-left even with the Decision Framework disabled", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({ stopAt: hoursFromNow(60) }),
+      healthSettings: {
+        ...baseHealthSettings,
+        decisionFrameworkEnabled: false,
+      },
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+    });
+
+    expect(result).toMatchObject({ status: "days-left", daysLeft: 3 });
+    expect(result?.tooltip).toContain("scheduled to end in about 3 days");
   });
 });

@@ -11,6 +11,7 @@ import {
 } from "react";
 import { Box, Tabs as RadixTabs } from "@radix-ui/themes";
 import useURLHash from "@/hooks/useURLHash";
+import { radixSize, Size } from "@/ui/sizes";
 
 /**
  * See more examples in design-system/index.tsx
@@ -126,13 +127,15 @@ type TabsListProps = Omit<
   React.ComponentProps<typeof RadixTabs.List>,
   "size"
 > & {
-  size?: "1" | "2" | "3";
+  size?: Size<"sm" | "md" | "lg">;
 };
 
 export const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
-  function TabsList({ children, size = "2", className, ...props }, ref) {
-    const sizeValue = size === "3" ? "2" : size;
-    const classNameValue = size === "3" ? "rt-r-size-3" : "";
+  function TabsList({ children, size = "md", className, ...props }, ref) {
+    // Radix tab lists stop at size "2", so lg is that step plus the
+    // .rt-BaseTabList.rt-r-size-3 rule in styles/global-radix-overrides.scss.
+    const sizeValue = size === "lg" ? "2" : radixSize(size);
+    const classNameValue = size === "lg" ? "rt-r-size-3" : "";
 
     return (
       <RadixTabs.List
