@@ -1172,9 +1172,11 @@ export class RevisionModel extends BaseClass {
         const idx = existing.reviews.findIndex((r) => r.id === reviewId);
         if (idx < 0) throw new Error("Comment not found");
         const entry = existing.reviews[idx];
-        if (entry.decision !== "comment") {
-          throw new Error("Only comments can be edited");
-        }
+        // A reviewer may rewrite the text on their own verdict; the decision
+        // itself stays immutable (only `comment` is reassigned below), and
+        // deletion is still restricted to plain comments. Matches
+        // FeatureRevisionLogModel's EDITABLE_AUTHOR_ACTIONS, which the shared
+        // timeline's Edit affordance is built against.
         if (entry.userId !== userId) {
           throw new Error("You can only edit your own comment");
         }
