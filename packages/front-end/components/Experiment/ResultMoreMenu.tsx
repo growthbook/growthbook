@@ -461,8 +461,7 @@ export default function ResultMoreMenu({
             )}
           {(canEdit && editMetrics && !isBandit) ||
           canDownloadJupyterNotebook ||
-          results ||
-          onAddToDashboard ? (
+          results ? (
             <DropdownMenuSeparator />
           ) : null}
           {canEdit && editMetrics && !isBandit && (
@@ -475,7 +474,7 @@ export default function ResultMoreMenu({
               >
                 Add / remove metrics
               </DropdownMenuItem>
-              {canDownloadJupyterNotebook || results || onAddToDashboard ? (
+              {canDownloadJupyterNotebook || results ? (
                 <DropdownMenuSeparator />
               ) : null}
             </>
