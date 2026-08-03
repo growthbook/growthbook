@@ -209,6 +209,7 @@ export const ContextualBanditAssignmentQueries: FC<
                   highContrast
                   ml="3"
                   aria-label={isOpen ? "Collapse query" : "Expand query"}
+                  aria-expanded={isOpen}
                   onClick={handleExpandCollapse(query.id)}
                 >
                   <PiCaretRight

@@ -277,6 +277,7 @@ export const ExperimentAssignmentQueries: FC<
                   highContrast
                   ml="3"
                   aria-label={isOpen ? "Collapse query" : "Expand query"}
+                  aria-expanded={isOpen}
                   onClick={handleExpandCollapseForIndex(idx)}
                 >
                   <PiCaretRight
