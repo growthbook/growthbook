@@ -1,6 +1,5 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
-import { FaChevronRight } from "react-icons/fa";
-import { PiPlus } from "react-icons/pi";
+import { PiCaretRight, PiPlus } from "react-icons/pi";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
@@ -175,8 +174,10 @@ export const DataSourceInlineEditIdentityJoins: FC<
                       variant="ghost"
                       color="violet"
                       onClick={handleExpandCollapseForIndex(idx)}
+                      aria-label={`${isOpen ? "Collapse" : "Expand"} identity join ${identityJoin.ids.join(" and ")}`}
+                      aria-expanded={isOpen}
                     >
-                      <FaChevronRight
+                      <PiCaretRight
                         style={{
                           transform: `rotate(${isOpen ? "90deg" : "0deg"})`,
                         }}

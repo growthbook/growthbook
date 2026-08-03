@@ -7,8 +7,7 @@ import {
 } from "shared/util";
 import { isSampleDatasource } from "shared/demo-datasource";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiLinkBold } from "react-icons/pi";
+import { PiDotsThreeVertical, PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import { useFeatureIsOn, useFeatureValue } from "@growthbook/growthbook-react";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
@@ -252,8 +251,9 @@ const DataSourcePage: FC = () => {
                   radius="full"
                   size="2"
                   highContrast
+                  aria-label="Data source actions"
                 >
-                  <BsThreeDotsVertical size={16} />
+                  <PiDotsThreeVertical size={18} />
                 </IconButton>
               }
               menuPlacement="end"
