@@ -97,7 +97,7 @@ export const ContextualBanditAssignmentQueries: FC<
       <Flex align="center" gap="2" mb="3" justify="between">
         <Box>
           <Flex align="center" gap="3" mb="0">
-            <Heading as="h3" size="medium" mb="0">
+            <Heading as="h3" size="md" mb="0">
               Contextual Bandit Assignment Queries
             </Heading>
             <Badge label="BETA" color="gray" variant="solid" />
@@ -135,7 +135,7 @@ export const ContextualBanditAssignmentQueries: FC<
           <Card mt="3" key={query.id}>
             <Flex align="start" justify="between" py="2" px="3" gap="3">
               <Box width="100%">
-                <Heading as="h4" size="small" mb="0">
+                <Heading as="h4" size="sm" mb="0">
                   {query.name}
                 </Heading>
                 {query.description && (

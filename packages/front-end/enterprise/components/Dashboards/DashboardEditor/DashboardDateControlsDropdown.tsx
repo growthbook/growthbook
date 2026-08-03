@@ -185,7 +185,7 @@ export default function DashboardDateControlsDropdown({
           }}
         />
         <Select
-          size="small"
+          size="md"
           disabled={disabled}
           style={{ width: 112 }}
           value={activeDateRange.lookbackUnit || "day"}
@@ -242,7 +242,7 @@ export default function DashboardDateControlsDropdown({
         value={selectedDateRangeOption}
         setValue={(option) => selectDateRangeOption(option as DateRangeOption)}
         gap="2"
-        labelSize="2"
+        labelSize="md"
         width="100%"
         options={[
           ...PRESET_OPTIONS.map((option) => ({
@@ -267,7 +267,7 @@ export default function DashboardDateControlsDropdown({
       <Separator size="4" my="2" />
 
       <Flex align="center" gap="3" justify="between" pl="5">
-        <Text size="medium" weight="medium">
+        <Text size="md" weight="medium">
           Granularity
         </Text>
         <ControlledGranularitySelector
@@ -288,7 +288,7 @@ export default function DashboardDateControlsDropdown({
       trigger={
         <Button
           variant="outline"
-          size="sm"
+          size="md"
           disabled={disabled}
           icon={<PiCalendarBlank aria-hidden />}
           iconPosition="left"

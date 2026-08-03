@@ -31,7 +31,7 @@ export default function FunnelGraphTypeSelector() {
 
   return (
     <Select
-      size="small"
+      size="md"
       value={activeValue}
       placeholder="Select view"
       setValue={(v) => changeChartType(v as "bar" | "table")}

@@ -121,7 +121,7 @@ export default function CovariateImbalanceCard({
       <Box mb="2">
         <Flex justify="between" align="center">
           <Flex align="center" gap="2" wrap="wrap">
-            <Heading as="h2" size="large" mb="0">
+            <Heading as="h2" size="lg" mb="0">
               Pre-Exposure Bias Check
             </Heading>
             {isImbalanced && <StatusBadge status="unhealthy" />}
@@ -129,7 +129,7 @@ export default function CovariateImbalanceCard({
           <Box>
             <Button
               variant="ghost"
-              size="xs"
+              size="sm"
               onClick={() => setIsCollapsed((prev) => !prev)}
             >
               {isCollapsed ? (

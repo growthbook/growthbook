@@ -34,19 +34,19 @@ function ChangeRow({
   return (
     <Flex align="baseline" gap="2" wrap="wrap">
       <span style={{ minWidth: 130, flexShrink: 0 }}>
-        <Text size="small" color="text-mid">
+        <Text size="sm" color="text-mid">
           {label}
         </Text>
       </span>
       <span style={{ textDecoration: "line-through" }}>
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           {from}
         </Text>
       </span>
-      <Text size="small" color="text-low">
+      <Text size="sm" color="text-low">
         →
       </Text>
-      <Text size="small" weight="medium">
+      <Text size="sm" weight="medium">
         {to}
       </Text>
     </Flex>

@@ -1068,7 +1068,7 @@ export default function AnalysisSettingsSummary({
           nothing to rescan, and Results already shows "Add at least 1 metric". */}
       {incrementalUpdatesUnavailable && allMetrics.length > 0 && (
         <Callout status="warning" mt="2">
-          <Text weight="semibold" size="medium">
+          <Text weight="semibold" size="md">
             Updates will rescan full experiment data.
           </Text>{" "}
           {incrementalPipelineUnsupportedReason}
@@ -1091,7 +1091,7 @@ export default function AnalysisSettingsSummary({
         <Callout status="warning" mt="2">
           {overallNeedsFullRefresh ? (
             <>
-              <Text weight="semibold" size="medium">
+              <Text weight="semibold" size="md">
                 Overall Results require a Full Refresh.
               </Text>{" "}
               Dimension Results are computed from Overall Results and would be
@@ -1102,7 +1102,7 @@ export default function AnalysisSettingsSummary({
             </>
           ) : (
             <>
-              <Text weight="semibold" size="medium">
+              <Text weight="semibold" size="md">
                 Overall Results need to be run first.
               </Text>{" "}
               Dimension Results are computed from Overall Results.{" "}
@@ -1130,7 +1130,7 @@ export default function AnalysisSettingsSummary({
           </Callout>
           {isExperimentIncludedInIncrementalRefresh && (
             <Box mt="2" mb="2">
-              <Text size="small" color="text-low">
+              <Text size="sm" color="text-low">
                 If this error persists, you can try disabling Incremental
                 Refresh for this experiment by{" "}
                 <Link onClick={handleDisableIncrementalRefresh}>

@@ -46,7 +46,7 @@ export default function ExperimentSummary({
         {hasNamespace && (
           <>
             in the namespace
-            <LinkButton href={`/namespaces`} size="xs" variant="soft">
+            <LinkButton href={`/namespaces`} size="sm" variant="soft">
               {allNamespaces?.find((n) => n.name === namespace.name)?.label ||
                 namespace.name}
             </LinkButton>

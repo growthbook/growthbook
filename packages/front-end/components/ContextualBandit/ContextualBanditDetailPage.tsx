@@ -53,7 +53,7 @@ function OverviewSection({
   return (
     <Frame>
       <Flex align="start" justify="between" mb="3" gap="3">
-        <Heading as="h4" size="small" mb="0">
+        <Heading as="h4" size="sm" mb="0">
           {title}
         </Heading>
         {onEdit ? (
@@ -380,7 +380,7 @@ export default function ContextualBanditDetailPage({
                       +Add
                     </Link>
                   ) : (
-                    <Text size="small" color="text-low">
+                    <Text size="sm" color="text-low">
                       None
                     </Text>
                   )}
@@ -403,7 +403,7 @@ export default function ContextualBanditDetailPage({
           <Box pt="4">
             <Frame>
               <Flex align="start" justify="between" mb="2" gap="3">
-                <Heading as="h4" size="small" mb="0">
+                <Heading as="h4" size="sm" mb="0">
                   Description
                 </Heading>
                 {editDescription ? (
@@ -423,7 +423,7 @@ export default function ContextualBanditDetailPage({
               )}
             </Frame>
 
-            <Heading as="h2" size="large" mt="5" mb="3">
+            <Heading as="h2" size="lg" mt="5" mb="3">
               Implementation
             </Heading>
 

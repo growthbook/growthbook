@@ -766,7 +766,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                       )}
                     </Flex>
                     <RadixButton
-                      size="xs"
+                      size="sm"
                       variant="outline"
                       onClick={refreshTopValues}
                       loading={refreshingTopValues}
@@ -928,7 +928,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                             />
                           </div>
                           <RadixButton
-                            size="sm"
+                            size="md"
                             variant="ghost"
                             ml="2"
                             style={{ height: 28 }}
@@ -967,7 +967,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                         </div>
                       )}
                       <MultiSelectField
-                        size="legacy"
+                        legacyHeight
                         value={form.watch("autoSlices") || []}
                         onChange={(values) => {
                           if (values.length > maxMetricSliceLevels) {

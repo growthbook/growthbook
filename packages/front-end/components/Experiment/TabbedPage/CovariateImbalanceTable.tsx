@@ -130,7 +130,7 @@ function CovariateImbalanceTableSection({
   if (!rows.length) return null;
   return (
     <Box mb="4">
-      <Table size="1" layout="fixed" mx="2" mt="0" mb="2">
+      <Table size="sm" layout="fixed" mx="2" mt="0" mb="2">
         <TableHeader>
           <TableRow>
             <TableColumnHeader width={covariateImbalanceColumnWidths.metric}>
@@ -185,7 +185,7 @@ function CovariateImbalanceTableSection({
                     <VariationLabel
                       number={row.variation}
                       name={variation?.name ?? ""}
-                      size="medium"
+                      size="md"
                     />
                   ) : (
                     <Text as="span" color="text-low">
@@ -277,7 +277,7 @@ function CovariateImbalanceTableSection({
         <Box mx="2">
           <Button
             variant="ghost"
-            size="xs"
+            size="sm"
             onClick={() =>
               setVisibleRowCount((count) =>
                 Math.min(count + SHOW_MORE_CHUNK_SIZE, rows.length),
