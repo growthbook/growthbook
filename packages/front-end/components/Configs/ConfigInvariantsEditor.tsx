@@ -558,7 +558,7 @@ export default function ConfigInvariantsEditor({
           value={advanced}
           onChange={toggleAdvanced}
           label="Advanced (raw rule)"
-          size="1"
+          size="sm"
         />
       </Flex>
 
@@ -641,7 +641,7 @@ export default function ConfigInvariantsEditor({
             }
           />
           {previewUndeclared.length > 0 && (
-            <Text as="div" size="small" color="text-low" mt="1">
+            <Text as="div" size="sm" color="text-low" mt="1">
               References undeclared field
               {previewUndeclared.length === 1 ? "" : "s"}{" "}
               {previewUndeclared.map((k) => `"${k}"`).join(", ")} — the schema
@@ -658,7 +658,7 @@ export default function ConfigInvariantsEditor({
   return (
     <Frame mb="4" px="6" py="4">
       <Flex align="center" justify="between" mb="1">
-        <Heading as="h3" size="medium" mb="0">
+        <Heading as="h3" size="md" mb="0">
           Validation rules
         </Heading>
         {canEdit && (
@@ -668,7 +668,7 @@ export default function ConfigInvariantsEditor({
         )}
       </Flex>
       <Box mb="3">
-        <Text as="div" size="small" color="text-low">
+        <Text as="div" size="sm" color="text-low">
           <em>
             Relational checks JSON Schema can&apos;t express — evaluated against
             the resolved value at publish.
@@ -683,7 +683,7 @@ export default function ConfigInvariantsEditor({
       )}
 
       {invariants.length === 0 && (
-        <Text as="div" size="small" color="text-low">
+        <Text as="div" size="sm" color="text-low">
           No cross-field rules yet — add relational checks JSON Schema
           can&apos;t express (implications, both-or-neither, or comparing two
           fields).
@@ -701,12 +701,12 @@ export default function ConfigInvariantsEditor({
             />
             {canEdit && (
               <Flex gap="2" ml="auto">
-                <Button variant="ghost" size="xs" onClick={() => open(i)}>
+                <Button variant="ghost" size="sm" onClick={() => open(i)}>
                   Edit
                 </Button>
                 <Button
                   variant="ghost"
-                  size="xs"
+                  size="sm"
                   color="red"
                   onClick={() => remove(i)}
                 >
@@ -727,14 +727,14 @@ export default function ConfigInvariantsEditor({
             {describeInvariantRule(iv.rule)}
           </Box>
           {undeclaredByIndex[i].length > 0 && (
-            <Text as="div" size="small" color="text-low" mt="1">
+            <Text as="div" size="sm" color="text-low" mt="1">
               References undeclared field
               {undeclaredByIndex[i].length === 1 ? "" : "s"}{" "}
               {undeclaredByIndex[i].map((k) => `"${k}"`).join(", ")} —
               undeclared fields evaluate as null.
             </Text>
           )}
-          <Text as="div" size="small" color="text-low" mt="1">
+          <Text as="div" size="sm" color="text-low" mt="1">
             {iv.message}
           </Text>
         </Frame>

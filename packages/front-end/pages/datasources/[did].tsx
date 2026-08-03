@@ -218,7 +218,7 @@ const DataSourcePage: FC = () => {
       )}
       <Flex align="center" justify="between">
         <Flex align="center" gap="3">
-          <Heading as="h1" size="x-large" mb="0">
+          <Heading as="h1" size="xl" mb="0">
             {d.name}
           </Heading>
           <Badge
@@ -428,7 +428,7 @@ const DataSourcePage: FC = () => {
 
             {d.type === "mixpanel" && (
               <div>
-                <Heading size="small" as="h3" mb="1">
+                <Heading size="sm" as="h3" mb="1">
                   Mixpanel Tracking Instructions
                 </Heading>
                 <p>
@@ -479,7 +479,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               ) : (
                 <>
                   <Frame>
-                    <Heading as="h3" size="medium" mb="2">
+                    <Heading as="h3" size="md" mb="2">
                       Sending Events
                     </Heading>
                     <Text>

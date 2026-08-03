@@ -629,7 +629,7 @@ export default function TabbedPage({
             <div className="mt-3 mb-2 text-center d-print-none">
               <Button
                 onClick={() => setTabAndScroll("results")}
-                size="md"
+                size="lg"
                 icon={<FaChartBar />}
               >
                 View Results

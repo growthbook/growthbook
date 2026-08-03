@@ -111,7 +111,7 @@ function CustomHooksSection({
           onSave={() => mutate()}
         />
       )}
-      <Heading as="h3" size="medium" mb="1">
+      <Heading as="h3" size="md" mb="1">
         Custom Hooks
       </Heading>
       <Box mb="3">
@@ -132,7 +132,7 @@ function CustomHooksSection({
       ) : (
         <>
           <Flex align="center" justify="between" gap="1" mb="1">
-            <Heading as="h4" size="small" mb="0">
+            <Heading as="h4" size="sm" mb="0">
               Feature-specific Hooks
             </Heading>
             <Tooltip body={disableReason} shouldDisplay={!!disableReason}>
@@ -155,7 +155,7 @@ function CustomHooksSection({
           />
 
           <Flex align="center" justify="between" gap="1" mb="1" mt="5" pt="5">
-            <Heading as="h4" size="small" mb="0">
+            <Heading as="h4" size="sm" mb="0">
               Global/Project Hooks
             </Heading>
             <LinkButton

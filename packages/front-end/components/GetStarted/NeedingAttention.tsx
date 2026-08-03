@@ -346,7 +346,7 @@ const NeedingAttention = (): React.ReactElement | null => {
                 key={feature.value}
                 align="center"
                 width="100%"
-                labelSize="1"
+                labelSize="sm"
                 labelWeight="medium"
                 options={[
                   {

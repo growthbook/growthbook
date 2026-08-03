@@ -20,6 +20,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { radixSize, Size } from "@/ui/sizes";
 
 type AllowedChildren = string | React.ReactNode;
 
@@ -339,7 +340,7 @@ type DropdownMenuLabelProps = React.ComponentProps<
   typeof RadixDropdownMenu.Label
 > & {
   textStyle?: React.CSSProperties;
-  textSize?: "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
+  textSize?: Size<"sm" | "md" | "lg" | "xl">;
   textColor?: React.ComponentProps<typeof Text>["color"];
 };
 
@@ -352,7 +353,11 @@ export function DropdownMenuLabel({
 }: DropdownMenuLabelProps): JSX.Element {
   return (
     <RadixDropdownMenu.Label {...props}>
-      <Text color={textColor} size={textSize} style={textStyle}>
+      <Text
+        color={textColor}
+        size={textSize !== undefined ? radixSize(textSize) : undefined}
+        style={textStyle}
+      >
         {children}
       </Text>
     </RadixDropdownMenu.Label>

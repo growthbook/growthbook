@@ -183,7 +183,7 @@ export default function DraftSelector({
       {!singleOption && (
         <Button
           variant="ghost"
-          size="xs"
+          size="sm"
           onClick={async (e) => {
             e?.stopPropagation();
             setIsOpen((v) => !v);

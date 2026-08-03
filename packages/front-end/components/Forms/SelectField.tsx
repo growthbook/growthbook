@@ -351,7 +351,7 @@ const SelectField: FC<SelectFieldProps> = ({
     return (
       <>
         {!legacyLabelFormatting && label !== undefined && (
-          <Text as="label" size={labelSize ?? "medium"} weight={labelWeight}>
+          <Text as="label" size={labelSize ?? "md"} weight={labelWeight}>
             {label}
           </Text>
         )}
@@ -385,7 +385,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 <Text
                   as="label"
                   htmlFor={id}
-                  size={labelSize ?? "medium"}
+                  size={labelSize ?? "md"}
                   weight={labelWeight}
                 >
                   {label}

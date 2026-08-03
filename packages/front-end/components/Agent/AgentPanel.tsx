@@ -590,7 +590,7 @@ export default function AgentPanel({
       <Box style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
         <Flex direction="column" gap="3">
           {messages.length === 0 && !loading && (
-            <Text size="small" color="text-low">
+            <Text size="sm" color="text-low">
               Hi! Ask me to find a metric, build a chart, list features, or run
               an experiment query. I&apos;ll use the GrowthBook REST API to do
               the work.
@@ -735,7 +735,7 @@ function ActiveTurnItemRow({
     return (
       <Flex align="center" gap="2">
         <ToolStatusIcon status={item.status} />
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           {item.label || CALL_API_LABEL}
         </Text>
       </Flex>
@@ -790,7 +790,7 @@ function PersistedTurn({
     <>
       {turn.user && (
         <UserBubble>
-          <Text size="small">{getUserText(turn.user)}</Text>
+          <Text size="sm">{getUserText(turn.user)}</Text>
         </UserBubble>
       )}
 

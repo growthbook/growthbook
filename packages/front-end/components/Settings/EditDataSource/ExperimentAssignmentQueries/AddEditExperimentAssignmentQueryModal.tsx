@@ -370,7 +370,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                         <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
                       </Flex>
                       <StringArrayField
-                        size="legacy"
+                        legacyHeight
                         label="Dimension Columns"
                         value={userEnteredDimensions}
                         onChange={(dimensions) => {

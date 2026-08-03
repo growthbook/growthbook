@@ -397,7 +397,7 @@ export const DimensionSlicesResults: FC<{
                     {metadata?.customSlicesArray ? (
                       <>
                         <MultiSelectField
-                          size="legacy"
+                          legacyHeight
                           value={metadata?.customSlicesArray || []}
                           onChange={(values) =>
                             updateCustomSelectedSlices(
