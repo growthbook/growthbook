@@ -861,7 +861,7 @@ export async function putInviteRole(
 }
 
 export async function getOrganization(
-  req: AuthRequest,
+  req: AuthRequest<unknown, unknown, { forceLicenseRefresh?: string }>,
   res: Response<GetOrganizationResponse | { status: 200; organization: null }>,
 ) {
   if (!req.organization) {
@@ -873,6 +873,10 @@ export async function getOrganization(
 
   const context = getContextFromReq(req);
   const { org, userId } = context;
+  const forceLicenseRefresh = req.query.forceLicenseRefresh === "true";
+  if (forceLicenseRefresh && !context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
   const {
     invites,
     members,
@@ -898,15 +902,23 @@ export async function getOrganization(
       let license: Partial<LicenseInterface> | null =
         getLicense(licenseKey || process.env.LICENSE_KEY) || null;
       if (
+        forceLicenseRefresh ||
         !license ||
         (license.organizationId && license.organizationId !== id)
       ) {
         try {
           license =
-            (await licenseInit(org, getUserCodesForOrg, getLicenseMetaData)) ||
-            null;
+            (await licenseInit(
+              org,
+              getUserCodesForOrg,
+              getLicenseMetaData,
+              forceLicenseRefresh,
+            )) || null;
         } catch (e) {
           logger.error(e, "setting license failed");
+          if (forceLicenseRefresh) {
+            throw e;
+          }
         }
       }
       return license;

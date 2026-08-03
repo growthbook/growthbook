@@ -484,7 +484,7 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
               : undefined,
         }),
       });
-      await refreshOrganization();
+      await refreshOrganization({ forceLicenseRefresh: true });
       setLoading(false);
       onSuccess();
     } catch (e) {
