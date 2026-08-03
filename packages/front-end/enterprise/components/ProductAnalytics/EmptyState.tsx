@@ -8,7 +8,6 @@ import {
   PiCaretRight,
   PiChartBar,
   PiDatabase,
-  PiFileSqlLight,
   PiTable,
 } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
@@ -303,14 +302,6 @@ export default function EmptyState() {
                         disabled={!canRunFactQueries}
                       >
                         Data Source explorer
-                      </LinkButton>
-                      <LinkButton
-                        href="/product-analytics/explore/sql"
-                        variant="outline"
-                        icon={<PiFileSqlLight size={16} />}
-                        disabled={!canRunFactQueries}
-                      >
-                        Custom SQL explorer
                       </LinkButton>
                     </Flex>
                   </Flex>
