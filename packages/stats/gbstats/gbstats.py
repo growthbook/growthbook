@@ -1245,6 +1245,7 @@ def preprocess_bandits(
         bandit_weights_seed=bandit_settings.bandit_weights_seed,
         weight_by_period=bandit_settings.weight_by_period,
         top_two=bandit_settings.top_two,
+        min_variation_weight=bandit_settings.min_variation_weight,
         alpha=alpha,
         inverse=metric.inverse,
     )

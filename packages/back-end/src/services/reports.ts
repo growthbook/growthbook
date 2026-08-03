@@ -571,6 +571,7 @@ export async function createReportSnapshot({
     type: snapshotType,
     report: report.id,
     triggeredBy: "manual",
+    runnerKind: "results",
     error: "",
     runStarted: new Date(),
     dateCreated: new Date(),

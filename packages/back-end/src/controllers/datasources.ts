@@ -101,7 +101,10 @@ import {
 import { DimensionSlicesQueryRunner } from "back-end/src/queryRunners/DimensionSlicesQueryRunner";
 import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { removeManagedWarehouseLegacyIdentifier } from "back-end/src/services/clickhouse";
+import {
+  removeManagedWarehouseLegacyIdentifier,
+  setManagedWarehouseIdAttributeIdentifier,
+} from "back-end/src/services/clickhouse";
 import { dangerousRecreateClickhouseTables } from "back-end/src/services/licenseServerManagedClickhouse";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
@@ -1781,6 +1784,42 @@ export async function postRemoveManagedWarehouseLegacyIdentifier(
   });
 }
 
+export async function putManagedWarehouseIdAttributeIdentifier(
+  req: AuthRequest<{ identifier?: string }, { datasourceId: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { datasourceId } = req.params;
+  const { identifier } = req.body;
+
+  if (identifier !== "user_id" && identifier !== "device_id") {
+    throw new Error('Identifier must be "user_id" or "device_id"');
+  }
+
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
+    throw new Error("Cannot find datasource");
+  }
+  if (datasource.type !== "growthbook_clickhouse") {
+    throw new Error(
+      "Can only change the id attribute mapping on a Managed Warehouse datasource",
+    );
+  }
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  await setManagedWarehouseIdAttributeIdentifier(
+    context,
+    datasource,
+    identifier,
+  );
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
 // Managed-warehouse settings for the JSON-columns model: identifiers and exposure
 // queries derive from the org's hashAttribute attributes.
 function getManagedWarehouseJsonSettings(
@@ -1794,7 +1833,12 @@ function getManagedWarehouseJsonSettings(
     userIdTypes: getManagedWarehouseUserIdTypeSettings(attributeSchema),
     queries: {
       ...existing.queries,
-      exposure: buildManagedWarehouseExposureQueries(attributeSchema),
+      exposure: buildManagedWarehouseExposureQueries(
+        attributeSchema,
+        [],
+        [],
+        existing.idAttributeIdentifier === "user_id" ? "user_id" : "device_id",
+      ),
     },
   };
 }

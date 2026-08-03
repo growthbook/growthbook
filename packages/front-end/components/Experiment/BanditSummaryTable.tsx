@@ -17,6 +17,7 @@ import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCurrency } from "@/hooks/useCurrency";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import VariationLabel from "@/ui/VariationLabel";
 import AlignedGraph from "./AlignedGraph";
 
 export const WIN_THRESHOLD_PROBABILITY = 0.95;
@@ -348,25 +349,12 @@ export default function BanditSummaryTable({
                     className="results-variation-row align-items-center"
                     key={j}
                   >
-                    <td
-                      className={`variation with-variation-label variation${v.index}`}
-                      style={{ width: 280 }}
-                    >
-                      <div className="d-flex align-items-center">
-                        <span
-                          className="label ml-1"
-                          style={{ width: 20, height: 20 }}
-                        >
-                          {v.index}
-                        </span>
-                        <span
-                          className="d-inline-block text-ellipsis"
-                          title={v.name}
-                          style={{ width: 225 }}
-                        >
-                          {v.name}
-                        </span>
-                      </div>
+                    <td style={{ width: 280 }}>
+                      <VariationLabel
+                        number={v.index}
+                        name={v.name}
+                        size="medium"
+                      />
                     </td>
                     <td className="text-center px-0">
                       {numberFormatter.format(
