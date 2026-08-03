@@ -78,7 +78,10 @@ export default function ValueCard({
       draftExploreState.dataset.columnTypes &&
       Object.keys(draftExploreState.dataset.columnTypes).length > 0
     ) {
-      return columnTypesToColumnSource(draftExploreState.dataset.columnTypes);
+      return columnTypesToColumnSource(
+        draftExploreState.dataset.columnTypes,
+        draftExploreState.dataset.timestampColumn ?? undefined,
+      );
     }
     return null;
   }, [factTable, draftExploreState.dataset]);

@@ -138,9 +138,11 @@ export default function BaselineChooserColumnLabel({
             setDropdownOpen(false);
           }}
         >
-          <Box style={{ maxWidth: 200, minWidth: 0 }}>
-            <VariationLabel number={variation.index} name={variation.name} />
-          </Box>
+          <VariationLabel
+            number={variation.index}
+            name={variation.name}
+            maxWidth="200px"
+          />
         </DropdownMenuItem>
       );
     });
@@ -157,22 +159,14 @@ export default function BaselineChooserColumnLabel({
           {isHoldout
             ? "The holdout variation that all variations are compared against."
             : "The baseline that all variations are compared against."}
-          <div
-            className={`variation variation${baselineRow} with-variation-label d-flex mt-1 align-items-top`}
-            style={{ marginBottom: 2 }}
-          >
-            <span
-              className="label mr-1"
-              style={{
-                width: 16,
-                height: 16,
-                marginTop: 2,
-              }}
-            >
-              {baselineRow}
-            </span>
-            <span className="font-weight-bold">{baselineVariation.name}</span>
-          </div>
+          <Box mt="1" style={{ marginBottom: 2 }}>
+            <VariationLabel
+              number={baselineRow}
+              name={baselineVariation.name}
+              size="medium"
+              disableTooltip
+            />
+          </Box>
         </div>
       }
     >

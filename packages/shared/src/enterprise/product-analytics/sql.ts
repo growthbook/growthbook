@@ -419,6 +419,7 @@ function generateRowFilterSQL(
         stringMatch: helpers.stringMatch,
         jsonExtract: helpers.jsonExtract,
         evalBoolean: helpers.evalBoolean,
+        castToTimestamp: helpers.castToTimestamp,
         identifierQuote: helpers.identifierQuote,
       });
       return sql;

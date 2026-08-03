@@ -15,6 +15,7 @@ import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import VariationLabel from "@/ui/VariationLabel";
 import { decimalToPercent } from "@/services/utils";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -47,11 +48,25 @@ export default function ContextualBanditLinkedFeatureFlag({
     canUpdateLinkedFeature &&
     permissionsUtil.canManageFeatureDrafts(info.feature);
 
-  const handleRemove = async () => {
+  // Removal strips the rule off the feature and publishes, so it needs the same
+  // rights the API enforces, scoped to the environments the rule reaches.
+  const ruleEnvironments = Object.entries(info.environmentStates || {})
+    .filter(([, state]) => state !== "missing")
+    .map(([env]) => env);
+
+  const canRemoveLinkedFeature =
+    canEditFeatureDraft &&
+    permissionsUtil.canPublishFeature(info.feature, ruleEnvironments);
+
+  const handleRemove = async (draftRevisionVersion?: number) => {
     setRemoving(true);
     try {
+      const params = new URLSearchParams({ autoPublish: "true" });
+      if (draftRevisionVersion != null) {
+        params.set("draftVersion", String(draftRevisionVersion));
+      }
       await apiCall(
-        `/api/v1/contextual-bandits/${cb.id}/linked-feature/${info.feature.id}`,
+        `/api/v1/contextual-bandits/${cb.id}/linked-feature/${info.feature.id}?${params.toString()}`,
         { method: "DELETE" },
       );
       mutate?.();
@@ -115,7 +130,7 @@ export default function ContextualBanditLinkedFeatureFlag({
     info.state !== "archived";
 
   const showRemoveButton =
-    canUpdateLinkedFeature &&
+    canRemoveLinkedFeature &&
     info.state !== "locked" &&
     info.state !== "archived";
 
@@ -136,7 +151,11 @@ export default function ContextualBanditLinkedFeatureFlag({
         feature={info.feature}
         canEdit={showEditButton || showRemoveButton}
         onEdit={showEditButton ? () => setEditModalOpen(true) : undefined}
-        onDelete={showRemoveButton ? handleRemove : undefined}
+        onDelete={
+          showRemoveButton
+            ? () => handleRemove(info.draftRevisionVersion)
+            : undefined
+        }
         additionalBadge={(() => {
           if (info.state === "archived") {
             return <Badge label="Archived" radius="full" color="gray" />;
@@ -174,11 +193,11 @@ export default function ContextualBanditLinkedFeatureFlag({
             <Link href={`/features/${info.feature?.id}`} target="_blank">
               Go to feature page <PiArrowSquareOut className="ml-1" />
             </Link>
-            {canUpdateLinkedFeature && (
+            {canEditFeatureDraft && (
               <>
                 {" · "}
                 <Link
-                  onClick={handleRemove}
+                  onClick={() => handleRemove()}
                   style={{ cursor: removing ? "wait" : "pointer" }}
                 >
                   Remove from contextual bandit
@@ -250,21 +269,13 @@ export default function ContextualBanditLinkedFeatureFlag({
                       gap="9"
                       minHeight="24px"
                     >
-                      <Flex
-                        gap="1"
-                        flexBasis="15%"
-                        flexShrink="0"
-                        className={`variation with-variation-label variation${j}`}
-                      >
-                        <Box as="span" className="label">
-                          {j}
-                        </Box>
-                        <Box as="span" className="text-ellipsis" title={v.name}>
-                          <Text color="text-high" weight="medium">
-                            {v.name}
-                          </Text>
-                        </Box>
-                      </Flex>
+                      <Box flexBasis="15%" flexShrink="0" minWidth="0">
+                        <VariationLabel
+                          number={j}
+                          name={v.name}
+                          size="medium"
+                        />
+                      </Box>
                       <Flex flexBasis="90px" flexShrink="0" justify="end">
                         <Text>
                           {decimalToPercent(weightForIndex(j))}% Split

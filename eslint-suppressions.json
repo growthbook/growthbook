@@ -496,9 +496,6 @@
     }
   },
   "packages/front-end/components/Experiment/UrlRedirectModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
     "no-restricted-syntax": {
       "count": 2
     }
@@ -584,11 +581,6 @@
     },
     "no-restricted-syntax": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/FactTables/RowFilterInput.tsx": {
-    "no-restricted-syntax": {
-      "count": 6
     }
   },
   "packages/front-end/components/Features/AddToHoldoutModal.tsx": {
@@ -2057,11 +2049,6 @@
   "packages/front-end/enterprise/components/ProductAnalytics/SideBar/DatasourceTabContent.tsx": {
     "no-restricted-syntax": {
       "count": 2
-    }
-  },
-  "packages/front-end/enterprise/components/ProductAnalytics/SideBar/ExplorerFilterRow.tsx": {
-    "no-restricted-syntax": {
-      "count": 6
     }
   },
   "packages/front-end/enterprise/components/ProductAnalytics/SideBar/ExplorerSideBar.tsx": {
