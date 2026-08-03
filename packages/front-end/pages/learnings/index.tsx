@@ -276,11 +276,12 @@ const LearningsPage = (): React.ReactElement => {
                               </>
                             ) : (
                               <>
-                                Let AI scan the {stoppedExperiments.length}{" "}
+                                Let AI scan your {stoppedExperiments.length}{" "}
                                 filtered experiment
                                 {stoppedExperiments.length === 1 ? "" : "s"} for
                                 common themes, design tactics, and patterns you
-                                can reuse.
+                                can reuse. Very large sets are trimmed to the
+                                most recent.
                               </>
                             )}
                           </Text>

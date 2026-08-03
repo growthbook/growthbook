@@ -210,7 +210,20 @@ type FindLearningsResponse =
 // up unbounded token costs). When the experiment cap kicks in we analyze the
 // most recently-stopped experiments and tell the front-end via
 // numExperimentsRequested/numExperimentsAnalyzed.
-const MAX_EXPERIMENTS_FOR_AI = 50;
+// Bound the prompt by the size of what we actually send rather than a raw
+// experiment count: a summary ranges from a couple hundred chars to ~5k
+// depending on how much the team wrote, so a count is a poor proxy. ~240k
+// chars ≈ 60k tokens, comfortably inside the smallest default model's window
+// (Haiku 4.5 at 200k) with room for the saved-Learnings block, instructions,
+// and the response.
+const MAX_EXPERIMENT_CHARS_FOR_AI = 240_000;
+// Even when experiments are small enough to all fit, a model's ability to
+// find a genuine cross-cutting pattern degrades as the set grows. This is a
+// reasoning-quality and latency guard, not a context-window one.
+const MAX_EXPERIMENTS_FOR_AI = 150;
+// metricResults are attached after selection (they need snapshots), so the
+// estimate reserves a flat margin per experiment for them.
+const METRIC_RESULTS_CHAR_ALLOWANCE = 2000;
 const MAX_SAVED_LEARNINGS_IN_PROMPT = 100;
 const MAX_ORG_TAGS_IN_PROMPT = 100;
 // Per-field character caps for the experiment summaries sent to the AI
@@ -340,6 +353,35 @@ function summarizeExperimentForAI(
   };
 }
 
+// Approximate how much prompt budget one experiment consumes, using the same
+// truncation the real summary applies.
+function estimateExperimentPromptChars(exp: ExperimentInterface): number {
+  return (
+    JSON.stringify(summarizeExperimentForAI(exp)).length +
+    METRIC_RESULTS_CHAR_ALLOWANCE
+  );
+}
+
+// Take the most recent experiments that fit within the character budget.
+// Always returns at least one experiment, even if it alone exceeds the budget,
+// so a single very large experiment can't produce an empty analysis set.
+function selectExperimentsWithinBudget(
+  candidates: ExperimentInterface[],
+): ExperimentInterface[] {
+  const selected: ExperimentInterface[] = [];
+  let usedChars = 0;
+  for (const exp of candidates) {
+    if (selected.length >= MAX_EXPERIMENTS_FOR_AI) break;
+    const size = estimateExperimentPromptChars(exp);
+    if (selected.length && usedChars + size > MAX_EXPERIMENT_CHARS_FOR_AI) {
+      break;
+    }
+    selected.push(exp);
+    usedChars += size;
+  }
+  return selected;
+}
+
 // Hard dedup of AI candidates against saved learnings using embedding cosine
 // similarity. Saved-learning embeddings are maintained by LearningModel hooks;
 // any missing ones (e.g. learnings saved before embeddings existed, or while
@@ -449,9 +491,11 @@ export const postFindLearnings = async (
 
   // Cap the analysis set, keeping the most recently-stopped experiments
   const numExperimentsRequested = allExperiments.length;
-  const experiments = [...allExperiments]
-    .sort((a, b) => experimentRecency(b) - experimentRecency(a))
-    .slice(0, MAX_EXPERIMENTS_FOR_AI);
+  const experiments = selectExperimentsWithinBudget(
+    [...allExperiments].sort(
+      (a, b) => experimentRecency(b) - experimentRecency(a),
+    ),
+  );
   const numExperimentsAnalyzed = experiments.length;
   if (numExperimentsAnalyzed < numExperimentsRequested) {
     logger.info(
