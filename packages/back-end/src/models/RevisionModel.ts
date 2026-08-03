@@ -907,35 +907,20 @@ export class RevisionModel extends BaseClass {
       dateCreated: new Date(),
     };
 
-    // A comment is participation, not authority over the revision, so it gets
-    // its OWN check rather than riding the general update backstop — that one
-    // only recognizes authors and draft/review/revert/publish standing, which
-    // left an addComments-only user passing the handler and refused here.
-    // The CAS callback still refuses merged/discarded, so bypassing `canUpdate`
-    // for a comment gives up no protection beyond the standing test itself.
+    // A comment is participation, not authority over the revision, so it is
+    // authorized on its own terms below and skips the general update backstop.
+    // `target` joins the CAS guard so a rebase that re-scopes the revision
+    // between the check and the write loses the race instead of riding it.
     const isComment = decision === "comment";
-    if (isComment) {
-      const current = await this.getById(id);
-      if (!current) throw new Error("Revision not found");
-      // The author keeps the standing `canUpdate` gave them on their own
-      // revision; everyone else needs comment standing.
-      if (
-        current.authorId !== this.context.userId &&
-        !canCommentOnRevision(
-          current.target.type,
-          this.context,
-          current.target.snapshot as Record<string, unknown>,
-        )
-      ) {
-        this.context.permissions.throwPermissionError();
-      }
-    }
 
     // CAS-guard the status reconcile so a concurrent verdict can't be lost.
     const updated = await this.updateWithCas(
       id,
-      ["reviews", "status", "activityLog"],
+      isComment
+        ? ["reviews", "status", "activityLog", "target"]
+        : ["reviews", "status", "activityLog"],
       (existing) => {
+        if (isComment) this.assertCanWriteCommentOn(existing);
         // Re-checked under CAS: a verdict must not resurrect a revision that was
         // merged or discarded concurrently with this review.
         if (existing.status === "merged" || existing.status === "discarded") {
@@ -1147,55 +1132,88 @@ export class RevisionModel extends BaseClass {
    * reviews are editable (verdicts are immutable history — change them via
    * undoReview). Does not touch status. CAS-guarded on `reviews`.
    */
+  /**
+   * Standing to write a comment on a revision. Comment writes get their own
+   * check because the general update backstop recognizes only authors and
+   * draft/review/revert/publish authority, which locks out a user whose claim
+   * is the addComments atom. Called INSIDE the CAS callback so it reads the
+   * same document the write is conditioned on — a concurrent rebase that moves
+   * the target's project can't slip between the check and the write.
+   */
+  private assertCanWriteCommentOn(existing: Revision): void {
+    if (existing.authorId === this.context.userId) return;
+    if (
+      !canCommentOnRevision(
+        existing.target.type,
+        this.context,
+        existing.target.snapshot as Record<string, unknown>,
+      )
+    ) {
+      this.context.permissions.throwPermissionError();
+    }
+  }
+
   async editComment(
     id: string,
     reviewId: string,
     userId: string,
     comment: string,
   ) {
-    const updated = await this.updateWithCas(id, ["reviews"], (existing) => {
-      if (existing.status === "merged" || existing.status === "discarded") {
-        throw new Error(
-          "Cannot edit a comment on a merged or discarded revision",
-        );
-      }
-      const idx = existing.reviews.findIndex((r) => r.id === reviewId);
-      if (idx < 0) throw new Error("Comment not found");
-      const entry = existing.reviews[idx];
-      if (entry.decision !== "comment") {
-        throw new Error("Only comments can be edited");
-      }
-      if (entry.userId !== userId) {
-        throw new Error("You can only edit your own comment");
-      }
-      const newReviews = [...existing.reviews];
-      newReviews[idx] = { ...entry, comment };
-      return { reviews: newReviews } as UpdateProps<Revision>;
-    });
+    const updated = await this.updateWithCas(
+      id,
+      ["reviews", "target"],
+      (existing) => {
+        this.assertCanWriteCommentOn(existing);
+        if (existing.status === "merged" || existing.status === "discarded") {
+          throw new Error(
+            "Cannot edit a comment on a merged or discarded revision",
+          );
+        }
+        const idx = existing.reviews.findIndex((r) => r.id === reviewId);
+        if (idx < 0) throw new Error("Comment not found");
+        const entry = existing.reviews[idx];
+        if (entry.decision !== "comment") {
+          throw new Error("Only comments can be edited");
+        }
+        if (entry.userId !== userId) {
+          throw new Error("You can only edit your own comment");
+        }
+        const newReviews = [...existing.reviews];
+        newReviews[idx] = { ...entry, comment };
+        return { reviews: newReviews } as UpdateProps<Revision>;
+      },
+      { dangerouslyBypassCanUpdate: true },
+    );
     if (!updated) throw new Error("Revision not found");
     return updated;
   }
 
   /** Delete a comment the calling user authored. Only "comment" reviews. */
   async deleteComment(id: string, reviewId: string, userId: string) {
-    const updated = await this.updateWithCas(id, ["reviews"], (existing) => {
-      if (existing.status === "merged" || existing.status === "discarded") {
-        throw new Error(
-          "Cannot delete a comment on a merged or discarded revision",
-        );
-      }
-      const entry = existing.reviews.find((r) => r.id === reviewId);
-      if (!entry) throw new Error("Comment not found");
-      if (entry.decision !== "comment") {
-        throw new Error("Only comments can be deleted");
-      }
-      if (entry.userId !== userId) {
-        throw new Error("You can only delete your own comment");
-      }
-      return {
-        reviews: existing.reviews.filter((r) => r.id !== reviewId),
-      } as UpdateProps<Revision>;
-    });
+    const updated = await this.updateWithCas(
+      id,
+      ["reviews", "target"],
+      (existing) => {
+        this.assertCanWriteCommentOn(existing);
+        if (existing.status === "merged" || existing.status === "discarded") {
+          throw new Error(
+            "Cannot delete a comment on a merged or discarded revision",
+          );
+        }
+        const entry = existing.reviews.find((r) => r.id === reviewId);
+        if (!entry) throw new Error("Comment not found");
+        if (entry.decision !== "comment") {
+          throw new Error("Only comments can be deleted");
+        }
+        if (entry.userId !== userId) {
+          throw new Error("You can only delete your own comment");
+        }
+        return {
+          reviews: existing.reviews.filter((r) => r.id !== reviewId),
+        } as UpdateProps<Revision>;
+      },
+      { dangerouslyBypassCanUpdate: true },
+    );
     if (!updated) throw new Error("Revision not found");
     return updated;
   }

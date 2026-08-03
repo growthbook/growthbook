@@ -1,4 +1,4 @@
-import { RevisionTargetType } from "shared/validators";
+import { RevisionTargetType } from "shared/enterprise";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 type PermissionsUtil = ReturnType<typeof usePermissionsUtil>;

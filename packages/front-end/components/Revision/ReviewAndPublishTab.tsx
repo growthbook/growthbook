@@ -923,7 +923,7 @@ function ReviewAndPublishRevision<T>({
               : undefined
           }
           onEditComment={
-            isActiveDraft && canDraftOrEdit
+            isActiveDraft && canComment
               ? async (logId, comment) => {
                   await apiCall(`/revision/${revision.id}/comment/${logId}`, {
                     method: "PUT",
@@ -934,7 +934,7 @@ function ReviewAndPublishRevision<T>({
               : undefined
           }
           onDeleteComment={
-            isActiveDraft && canDraftOrEdit
+            isActiveDraft && canComment
               ? async (logId) => {
                   await apiCall(`/revision/${revision.id}/comment/${logId}`, {
                     method: "DELETE",
@@ -947,7 +947,7 @@ function ReviewAndPublishRevision<T>({
 
         {/* Composer below the timeline — entries are chronological (newest
             at the bottom), so new comments appear right above it. */}
-        {isActiveDraft && canDraftOrEdit && (
+        {isActiveDraft && canComment && (
           <Flex align="start" gap="3" mt="4">
             <Box flexShrink="0">
               <EventUser
