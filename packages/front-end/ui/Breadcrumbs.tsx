@@ -12,8 +12,8 @@ export interface BreadcrumbItem {
 
 export default function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
   return (
-    <nav aria-label="Breadcrumb">
-      <Flex align="center" gap="1">
+    <nav aria-label="Breadcrumb" className={styles.breadcrumbNav}>
+      <Flex align="center" gap="1" style={{ overflow: "hidden", minWidth: 0 }}>
         {items.map((item, i) => {
           const isLast = i === items.length - 1;
 
@@ -29,7 +29,8 @@ export default function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
               )}
               <span
                 title={item.display}
-                className={!isLast ? styles.ancestor : undefined}
+                aria-current={isLast ? "page" : undefined}
+                className={isLast ? styles.currentPage : styles.ancestor}
               >
                 {item.href ? (
                   <Link
@@ -41,11 +42,14 @@ export default function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
                     {item.display}
                   </Link>
                 ) : (
-                  <span aria-current={isLast ? "page" : undefined}>
-                    <Text size="medium" weight="semibold" color="text-high">
-                      {item.display}
-                    </Text>
-                  </span>
+                  <Text
+                    size="medium"
+                    weight="semibold"
+                    color="text-high"
+                    truncate={isLast}
+                  >
+                    {item.display}
+                  </Text>
                 )}
               </span>
             </React.Fragment>
