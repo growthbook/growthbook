@@ -7,6 +7,7 @@ import {
 } from "@stripe/react-stripe-js";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { captureException as sentryCaptureException } from "@sentry/nextjs";
 import { TaxIdType, StripeAddress } from "shared/types/subscriptions";
 import { PiCaretRight } from "react-icons/pi";
 import { useStripeContext } from "@/hooks/useStripeContext";
@@ -19,6 +20,8 @@ import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
 import Checkbox from "@/ui/Checkbox";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import Modal from "@/components/Modal";
 
 export const taxIdTypeOptions: { label: string; value: TaxIdType }[] = [
@@ -132,6 +135,8 @@ interface Props {
 export default function CloudProUpgradeModal({ close, closeParent }: Props) {
   const [step, setStep] = useState(0);
   const [success, setSuccess] = useState(false);
+  const [organizationRefreshFailed, setOrganizationRefreshFailed] =
+    useState(false);
   const [loading, setLoading] = useState(false);
   const [showAddress, setShowAddress] = useState(false);
   const { clientSecret } = useStripeContext();
@@ -219,13 +224,20 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
               : undefined,
         }),
       });
-      await refreshOrganization({ forceLicenseRefresh: true });
-      setLoading(false);
-      setSuccess(true);
     } catch (e) {
       setLoading(false);
       throw new Error(e.message);
     }
+
+    try {
+      await refreshOrganization({ forceLicenseRefresh: true });
+    } catch (error) {
+      sentryCaptureException(error);
+      setOrganizationRefreshFailed(true);
+    }
+
+    setLoading(false);
+    setSuccess(true);
   };
 
   if (success) {
@@ -250,6 +262,24 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
             You&apos;re all set! Your organization now has access to all
             GrowthBook Pro features.
           </span>
+          {organizationRefreshFailed ? (
+            <Callout
+              status="warning"
+              mt="3"
+              action={
+                <Button
+                  size="sm"
+                  color="inherit"
+                  onClick={() => window.location.reload()}
+                >
+                  Reload page
+                </Button>
+              }
+            >
+              Your subscription was created, but we couldn&apos;t refresh your
+              organization details. Reload the page to see your updated plan.
+            </Callout>
+          ) : null}
         </div>
       </Modal>
     );
