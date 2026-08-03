@@ -153,7 +153,7 @@ const UrlRedirectModal: FC<{
 
         <Flex align="center" my="2" gap="1">
           <Box>
-            <Heading color="text-high" size="small" as="h4">
+            <Heading color="text-high" size="sm" as="h4">
               Original URL
             </Heading>
           </Box>
@@ -188,7 +188,7 @@ const UrlRedirectModal: FC<{
 
         <hr className="mt-4 mb-3" />
         <Box mt="3">
-          <Heading color="text-high" size="small" as="h4" mb="2">
+          <Heading color="text-high" size="sm" as="h4" mb="2">
             Destination URLs
           </Heading>
           {getLatestPhaseVariations(experiment).map((v, i) => {
@@ -239,7 +239,7 @@ const UrlRedirectModal: FC<{
               <Box mb="4" key={v.key}>
                 <Flex align="center" mb="2">
                   <Box minWidth="0" flexGrow="1">
-                    <VariationLabel number={i} name={v.name} size="large" />
+                    <VariationLabel number={i} name={v.name} size="lg" />
                   </Box>
                   <Flex align="center" ml="auto">
                     <Checkbox

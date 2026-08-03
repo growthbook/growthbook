@@ -1,24 +1,18 @@
 import React, { FC, Fragment, useCallback, useState } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ApiContextualBanditQueryInterface } from "shared/validators";
-import { PiCaretRight, PiPlus } from "react-icons/pi";
-import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiCaretRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";
 import { Box, Card, Flex, IconButton } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
 import Code from "@/components/SyntaxHighlighting/Code";
 import AddEditContextualBanditQueryModal from "@/components/ContextualBandit/AddEditContextualBanditQueryModal";
-import {
-  DropdownMenu,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import { useAuth } from "@/services/auth";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 
 type ContextualBanditAssignmentQueriesProps = {
   dataSource: DataSourceInterfaceWithParams;
@@ -50,7 +44,6 @@ export const ContextualBanditAssignmentQueries: FC<
     ApiContextualBanditQueryInterface | undefined
   >();
   const [openIds, setOpenIds] = useState<Record<string, boolean>>({});
-  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 
   const handleExpandCollapse = useCallback(
     (id: string) => () => {
@@ -103,7 +96,7 @@ export const ContextualBanditAssignmentQueries: FC<
       <Flex align="center" gap="2" mb="3" justify="between">
         <Box>
           <Flex align="center" gap="3" mb="0">
-            <Heading as="h3" size="medium" mb="0">
+            <Heading as="h3" size="md" mb="0">
               Contextual Bandit Assignment Queries
             </Heading>
             <Badge label="BETA" color="gray" variant="solid" />
@@ -136,7 +129,7 @@ export const ContextualBanditAssignmentQueries: FC<
           <Card mt="3" key={query.id}>
             <Flex align="start" justify="between" py="2" px="3" gap="3">
               <Box width="100%">
-                <Heading as="h4" size="small" mb="0">
+                <Heading as="h4" size="sm" mb="0">
                   {query.name}
                 </Heading>
                 {query.description && (
@@ -177,40 +170,29 @@ export const ContextualBanditAssignmentQueries: FC<
                         radius="full"
                         size="2"
                         highContrast
+                        aria-label={`${query.name} query actions`}
                       >
-                        <BsThreeDotsVertical size={16} />
+                        <PiDotsThreeVertical size={18} />
                       </IconButton>
                     }
-                    open={menuOpenId === query.id}
-                    onOpenChange={(o) => setMenuOpenId(o ? query.id : null)}
                     menuPlacement="end"
+                    variant="soft"
                   >
-                    <DropdownMenuGroup>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setMenuOpenId(null);
-                          handleEdit(query)();
-                        }}
-                      >
-                        Edit
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuGroup>
-                      <DropdownMenuItem
-                        color="red"
-                        confirmation={{
-                          confirmationTitle: "Delete Query",
-                          cta: "Delete",
-                          getConfirmationContent: async () =>
-                            `Are you sure you want to delete contextual bandit assignment query ${query.name}? Any contextual bandit using it will no longer be able to analyze results.`,
-                          submit: handleDelete(query),
-                          closeDropdown: () => setMenuOpenId(null),
-                        }}
-                      >
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
+                    <DropdownMenuItem onClick={handleEdit(query)}>
+                      Edit Query
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      color="red"
+                      confirmation={{
+                        submit: handleDelete(query),
+                        confirmationTitle: `Delete ${query.name}`,
+                        cta: "Delete",
+                        getConfirmationContent: async () =>
+                          `Are you sure you want to delete contextual bandit assignment query ${query.name}? Any contextual bandit using it will no longer be able to analyze results.`,
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
                   </DropdownMenu>
                 )}
 
@@ -221,8 +203,9 @@ export const ContextualBanditAssignmentQueries: FC<
                   size="2"
                   highContrast
                   ml="3"
-                  onClick={handleExpandCollapse(query.id)}
                   aria-label={isOpen ? "Collapse query" : "Expand query"}
+                  aria-expanded={isOpen}
+                  onClick={handleExpandCollapse(query.id)}
                 >
                   <PiCaretRight
                     style={{

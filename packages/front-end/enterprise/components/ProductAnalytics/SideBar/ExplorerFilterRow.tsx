@@ -327,7 +327,7 @@ export function ExplorerFilterRow({
         />
       ) : multiValueInput && useValueOptions ? (
         <MultiSelectField
-          size="small"
+          size="md"
           value={filter.values || []}
           onChange={(v) => onUpdate({ values: v })}
           options={valueOptions}
@@ -340,7 +340,7 @@ export function ExplorerFilterRow({
         />
       ) : multiValueInput ? (
         <StringArrayField
-          size="small"
+          size="md"
           value={filter.values || []}
           onChange={(v) => onUpdate({ values: v })}
           delimiters={["Enter", "Tab"]}
@@ -429,12 +429,7 @@ export function ExplorerFilterRow({
       }}
     >
       <Flex justify="between" align="center" width="100%" gap="2">
-        <Text
-          size="small"
-          truncate
-          whiteSpace="nowrap"
-          title={getFilterSummary()}
-        >
+        <Text size="sm" truncate whiteSpace="nowrap" title={getFilterSummary()}>
           {getFilterSummary()}
         </Text>
         <Flex align="center" gap="1" style={{ flexShrink: 0 }}>
@@ -443,7 +438,7 @@ export function ExplorerFilterRow({
             onChange={(v) => onUpdate({ disabled: !v }, true)}
           />
           <Button
-            size="xs"
+            size="sm"
             variant="ghost"
             onClick={() => onUpdate({ collapsed: !filter.collapsed }, false)}
             style={{ padding: 2 }}
@@ -454,7 +449,7 @@ export function ExplorerFilterRow({
               <PiCaretUp size={14} />
             )}
           </Button>
-          <Button size="xs" variant="ghost" onClick={onDelete}>
+          <Button size="sm" variant="ghost" onClick={onDelete}>
             <PiX size={14} />
           </Button>
         </Flex>

@@ -227,7 +227,7 @@ export default function DashboardModal({
         {isGeneralDashboard ? (
           <>
             <MultiSelectField
-              size="legacy"
+              legacyHeight
               label="Projects"
               placeholder="All projects"
               options={projectsOptions}

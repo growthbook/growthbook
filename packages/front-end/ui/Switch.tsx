@@ -7,6 +7,7 @@ import {
 import { useId, forwardRef } from "react";
 import { PiWarningFill, PiWarningOctagonFill } from "react-icons/pi";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import { Size } from "@/ui/sizes";
 import styles from "./Switch.module.scss";
 import Text from "./Text";
 
@@ -26,7 +27,7 @@ type BaseProps = {
   color?: RadixSwitchProps["color"];
   id?: string;
   label?: React.ReactNode;
-  size?: "1" | "2" | "3";
+  size?: Size<"sm" | "md" | "lg">;
   description?: string;
   state?: "default" | "warning" | "error";
   // stateLabel is only rendered if state is not default
@@ -52,7 +53,7 @@ const Switch = forwardRef<HTMLButtonElement, Props>(function Switch(
     state = "default",
     stateLabel,
     name,
-    size = "2",
+    size = "md",
     required,
     disabled,
     ...props
@@ -62,24 +63,15 @@ const Switch = forwardRef<HTMLButtonElement, Props>(function Switch(
   const generatedId = useId();
   const switchId = id ?? generatedId;
 
+  // Not radixSize: Switch compresses the ladder, so sm and md both render
+  // Radix "1" and lg renders "2". Radix Switch's own "3" goes unused.
   function getSwitchSize() {
     switch (size) {
-      case "1":
-      case "2":
+      case "sm":
+      case "md":
         return "1";
-      case "3":
+      case "lg":
         return "2";
-    }
-  }
-
-  function getTextSize() {
-    switch (size) {
-      case "1":
-        return "small";
-      case "2":
-        return "medium";
-      case "3":
-        return "large";
     }
   }
 
@@ -145,7 +137,7 @@ const Switch = forwardRef<HTMLButtonElement, Props>(function Switch(
         <Text
           as="label"
           htmlFor={switchId}
-          size={getTextSize()}
+          size={size}
           weight="medium"
           color={disabled ? "text-disabled" : "text-high"}
           mb="0"
@@ -156,10 +148,7 @@ const Switch = forwardRef<HTMLButtonElement, Props>(function Switch(
       {((label && description) || (state !== "default" && stateLabel)) && (
         <Flex gridArea="description" direction="column" gap="1">
           {label && description && (
-            <Text
-              size={getTextSize()}
-              color={disabled ? "text-disabled" : "text-mid"}
-            >
+            <Text size={size} color={disabled ? "text-disabled" : "text-mid"}>
               {description}
             </Text>
           )}
@@ -175,7 +164,7 @@ const Switch = forwardRef<HTMLButtonElement, Props>(function Switch(
               }}
             >
               {getStateIcon(state)}
-              <Text size={getTextSize()}>{stateLabel}</Text>
+              <Text size={size}>{stateLabel}</Text>
             </Flex>
           )}
         </Flex>

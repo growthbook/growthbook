@@ -79,7 +79,7 @@ export default function CommentCard({
           <Flex justify="between" align="center" mb={body ? "2" : "0"} gap="2">
             <Flex align="center" gap="2" wrap="wrap">
               <EventUser user={user} display="name-email" size="sm" />
-              <Text color="text-low" size="small">
+              <Text color="text-low" size="sm">
                 {metadata}
               </Text>
               {metadataExtra}

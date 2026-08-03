@@ -899,7 +899,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       return (
                         <Flex as="div" align="baseline">
                           <Text>{value.label}</Text>
-                          <Text size="small" color="text-mid" ml="auto">
+                          <Text size="sm" color="text-mid" ml="auto">
                             Created {date(t.dateCreated)}
                           </Text>
                         </Flex>
@@ -1157,7 +1157,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                                       </span>
                                     </Flex>
                                     <Flex gap="3" align="center">
-                                      <Text size="small" color="text-mid">
+                                      <Text size="sm" color="text-mid">
                                         {date(s.experiment.dateCreated)}
                                       </Text>
                                       <ExperimentStatusIndicator
