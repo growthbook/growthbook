@@ -191,7 +191,7 @@ export default function DecisionMakingSettings({
 
       <Frame>
         <Flex direction="column" gap="1" mb="5">
-          <Heading color="text-high" as="h4" size="small" mb="0">
+          <Heading color="text-high" as="h4" size="sm" mb="0">
             Decision-making Settings
           </Heading>
           <Text color="text-mid">

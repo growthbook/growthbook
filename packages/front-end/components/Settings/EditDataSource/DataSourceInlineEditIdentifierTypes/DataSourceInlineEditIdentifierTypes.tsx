@@ -117,7 +117,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
     <Box>
       <Flex align="center" gap="2" justify="between" mb="3">
         <Flex align="center" gap="3" mb="0">
-          <Heading as="h3" size="medium" mb="0">
+          <Heading as="h3" size="md" mb="0">
             Identifier Types
           </Heading>
           <Badge label={userIdTypes.length + ""} color="gray" radius="medium" />
@@ -138,7 +138,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
             <Flex align="start" justify="between" py="2" px="3" gap="3">
               {/* region Identity Type text */}
               <Box>
-                <Heading size="small" as="h3" mb="1">
+                <Heading size="sm" as="h3" mb="1">
                   {userIdType}
                 </Heading>
                 <Box mb="2">

@@ -110,7 +110,7 @@ export default function WebhookSecretModal({
         placeholder="(optional)"
       />
       <StringArrayField
-        size="legacy"
+        legacyHeight
         value={form.watch("allowedOrigins")}
         onChange={(value) => form.setValue("allowedOrigins", value)}
         label="Restrict to Specific Origins"

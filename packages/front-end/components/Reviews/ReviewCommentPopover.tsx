@@ -207,7 +207,7 @@ export default function ReviewCommentPopover({
 
   const content = (
     <Box>
-      <Heading as="h5" size="small" mb="3">
+      <Heading as="h5" size="sm" mb="3">
         Submit review
       </Heading>
 

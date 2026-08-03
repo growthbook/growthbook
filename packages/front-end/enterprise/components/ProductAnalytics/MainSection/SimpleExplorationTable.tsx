@@ -28,7 +28,7 @@ export default function SimpleExplorationTable({
       return <ManagedWarehouseNoEventsCallout />;
     }
     return (
-      <Text size="small" color="text-low">
+      <Text size="sm" color="text-low">
         {exploration.error}
       </Text>
     );
@@ -36,7 +36,7 @@ export default function SimpleExplorationTable({
 
   if (explorationReturnedNoData) {
     return (
-      <Text size="small" color="text-low">
+      <Text size="sm" color="text-low">
         The query ran successfully, but no data was returned.
       </Text>
     );
@@ -54,7 +54,7 @@ export default function SimpleExplorationTable({
       }}
     >
       <Flex align="center" gap="2" px="3" py="2">
-        <Text size="small" color="text-low" weight="medium">
+        <Text size="sm" color="text-low" weight="medium">
           {rowData.length} {rowData.length === 1 ? "row" : "rows"}
         </Text>
       </Flex>
