@@ -229,13 +229,11 @@ export default function ContextualBanditDetailPage({
     );
     return (match?.weight ?? fallback) * 100;
   };
-  // VariationBox is experiment-shaped; supply the minimal fields it reads
-  // (type drives the split display, id/status feed edit paths we don't wire up).
+
   const experimentForVariations = useMemo(
     () =>
       ({
         id: cb.id,
-        type: "standard",
         status: cb.status,
       }) as unknown as ExperimentInterfaceStringDates,
     [cb.id, cb.status],
@@ -498,6 +496,7 @@ export default function ContextualBanditDetailPage({
                         showIds
                         allowImages={false}
                         percent={variationPercent(i)}
+                        showSplit={false}
                       />
                     </Box>
                   ))}

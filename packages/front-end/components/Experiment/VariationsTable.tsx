@@ -216,6 +216,7 @@ export function VariationBox({
   openCarousel,
   mutate,
   percent,
+  showSplit,
   minWidth,
   isPublic = false,
   shareUid,
@@ -236,6 +237,7 @@ export function VariationBox({
   openCarousel?: (variationId: string, index: number) => void;
   mutate?: () => void;
   percent?: number;
+  showSplit?: boolean;
   minWidth?: string | number;
   isPublic?: boolean;
   shareUid?: string;
@@ -246,6 +248,7 @@ export function VariationBox({
 }) {
   const { blockFileUploads } = useOrgSettings();
   const isBandit = experiment.type === "multi-armed-bandit";
+  const shouldShowSplit = showSplit ?? !isBandit;
 
   return (
     <Box
@@ -334,7 +337,7 @@ export function VariationBox({
           {showIds ? <code className="small">ID: {v.key}</code> : null}
           <Flex align="center" justify="between">
             <Box>
-              {!isBandit && percent !== undefined ? (
+              {shouldShowSplit && percent !== undefined ? (
                 <Metadata
                   label="Split"
                   value={`${percent.toFixed(0)}%`}
