@@ -88,10 +88,7 @@ export default forwardRef<
       ref={ref}
       className={styles.callout}
       color={getRadixColor(status)}
-      role={
-        role ??
-        (status === "error" || status === "attention" ? "alert" : undefined)
-      }
+      role={role ?? (status === "error" ? "alert" : undefined)}
       size={getRadixSize(size)}
       {...containerProps}
       style={
