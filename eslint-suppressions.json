@@ -1,9 +1,4 @@
 {
-  "packages/back-end/src/enterprise/services/contextualBanditStats.ts": {
-    "import/order": {
-      "count": 3
-    }
-  },
   "packages/back-end/src/events/handlers/legacy.ts": {
     "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 1
