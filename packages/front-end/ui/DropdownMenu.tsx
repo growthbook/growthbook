@@ -140,7 +140,7 @@ export function DropdownMenu({
       <RadixDropdownMenu.Root
         {...props}
         modal={false}
-        open={open !== undefined ? open : undefined}
+        open={open ?? isOpen}
         onOpenChange={handleOpenChange}
       >
         <RadixDropdownMenu.Trigger
