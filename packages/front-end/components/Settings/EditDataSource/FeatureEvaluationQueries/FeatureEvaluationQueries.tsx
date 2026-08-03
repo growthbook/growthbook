@@ -130,6 +130,7 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
                     radius="full"
                     size="2"
                     highContrast
+                    aria-label="Feature usage query actions"
                   >
                     <PiDotsThreeVertical size={18} />
                   </IconButton>

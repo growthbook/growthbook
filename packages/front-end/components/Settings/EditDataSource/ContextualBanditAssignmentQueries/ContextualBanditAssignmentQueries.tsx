@@ -175,6 +175,7 @@ export const ContextualBanditAssignmentQueries: FC<
                         radius="full"
                         size="2"
                         highContrast
+                        aria-label={`${query.name} query actions`}
                       >
                         <PiDotsThreeVertical size={18} />
                       </IconButton>
