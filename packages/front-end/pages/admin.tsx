@@ -42,9 +42,9 @@ import StringArrayField from "@/ui/StringArrayField";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 import {
-  DATA_REGION_OPTIONS,
   DEFAULT_DATA_REGION,
   DataRegion,
+  useDataRegionOptions,
 } from "@/services/dataRegions";
 
 interface memberOrgProps {
@@ -87,6 +87,7 @@ function OrganizationRow({
   const [clickhouseModalOpen, setClickhouseModalOpen] = useState(false);
   const [clickhouseRegion, setClickhouseRegion] =
     useState<DataRegion>(DEFAULT_DATA_REGION);
+  const dataRegionOptions = useDataRegionOptions();
   const [managedWarehouseId, setManagedWarehouseId] = useState(
     datasources.find((ds) => ds.type === "growthbook_clickhouse")?.id || null,
   );
@@ -179,7 +180,7 @@ function OrganizationRow({
               label="Data region"
               value={clickhouseRegion}
               onChange={(value) => setClickhouseRegion(value as DataRegion)}
-              options={DATA_REGION_OPTIONS}
+              options={dataRegionOptions}
               helpText="Where this org's event data is stored. This cannot be changed later."
             />
           </Box>

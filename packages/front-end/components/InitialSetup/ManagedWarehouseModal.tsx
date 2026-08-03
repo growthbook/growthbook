@@ -18,9 +18,9 @@ import Badge from "@/ui/Badge";
 import SelectField from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
 import {
-  DATA_REGION_OPTIONS,
   DEFAULT_DATA_REGION,
   DataRegion,
+  useDataRegionOptions,
 } from "@/services/dataRegions";
 
 export default function ManagedWarehouseModal({
@@ -37,6 +37,7 @@ export default function ManagedWarehouseModal({
   const [agree, setAgree] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [region, setRegion] = useState<DataRegion>(DEFAULT_DATA_REGION);
+  const dataRegionOptions = useDataRegionOptions();
 
   const settings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -156,7 +157,7 @@ export default function ManagedWarehouseModal({
         label="Data region"
         value={region}
         onChange={(value) => setRegion(value as DataRegion)}
-        options={DATA_REGION_OPTIONS}
+        options={dataRegionOptions}
         helpText="Where your event data will be ingested and stored. This cannot be changed later."
       />
 

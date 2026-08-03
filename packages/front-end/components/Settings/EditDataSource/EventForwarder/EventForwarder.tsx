@@ -43,10 +43,10 @@ import {
   useEventForwarderProvisioningPoll,
 } from "@/components/Settings/EditDataSource/EventForwarder/useEventForwarderProvisioningPoll";
 import {
-  DATA_REGION_OPTIONS,
   DEFAULT_DATA_REGION,
   DataRegion,
   getDataRegionLabel,
+  useDataRegionOptions,
 } from "@/services/dataRegions";
 
 type Props = {
@@ -334,6 +334,7 @@ function EventForwarderModal({
   const { apiCall } = useAuth();
   const isSubmittingRef = useRef(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const dataRegionOptions = useDataRegionOptions();
   const [datasourceDraft, setDatasourceDraft] =
     useState<EventForwarderDatasourceDraft>(() => ({
       type: dataSource.type as "bigquery" | "snowflake",
@@ -461,7 +462,7 @@ function EventForwarderModal({
                   setUsEventForwarderFlowConsent(false);
                 }}
                 disabled={isEditingEventForwarder}
-                options={DATA_REGION_OPTIONS}
+                options={dataRegionOptions}
                 helpText="Where the forwarder's Kafka/Confluent resources are provisioned. This cannot be changed later."
               />
             ) : null}
