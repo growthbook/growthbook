@@ -436,6 +436,13 @@ export default function SqlExplorerModal({
                 );
               }
               break;
+
+            case "today":
+            case "last7Days":
+            case "last30Days":
+            case "greaterThanOrEqualTo":
+            case "lessThanOrEqualTo":
+              break;
           }
         });
       }
@@ -1198,6 +1205,7 @@ export default function SqlExplorerModal({
                                     <Tooltip body="Use text to describe what you would like to generate. The AI is aware of your table structure, but may still hallucinate, particularly with dates." />
                                   </label>
                                   <Field
+                                    size="legacy"
                                     textarea={true}
                                     value={aiInput}
                                     placeholder="Make a request, e.g. 'Show me the top 10 users by revenue in the last month.'"
@@ -1302,6 +1310,7 @@ export default function SqlExplorerModal({
                               shouldDisplay={lockDatasource}
                             >
                               <SelectField
+                                size="legacy"
                                 className="mb-2"
                                 disabled={lockDatasource}
                                 value={form.watch("datasourceId")}

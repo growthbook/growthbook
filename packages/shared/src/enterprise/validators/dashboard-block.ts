@@ -55,7 +55,7 @@ export const DEFAULT_BLOCK_SIZE_BY_TYPE: Record<
   DashboardBlockType,
   BlockSizeBounds
 > = {
-  markdown: { w: DASHBOARD_GRID_COLS, h: 3, minW: 4, minH: 2 },
+  markdown: { w: DASHBOARD_GRID_COLS, h: 3, minW: 8, minH: 2 },
   "experiment-metadata": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
   "experiment-traffic": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
   "experiment-metric": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },

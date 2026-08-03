@@ -10,6 +10,7 @@ import { formatTrafficSplit } from "@/services/utils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { pValueFormatter } from "@/services/experiments";
 import Callout from "@/ui/Callout";
+import VariationLabel from "@/ui/VariationLabel";
 import { includeVariation } from "./BreakDownResults";
 
 const numberFormatter = new Intl.NumberFormat();
@@ -63,23 +64,10 @@ const UsersTable: FC<{
             {variations.map((v) => (
               <th
                 key={v.id}
-                className={`border-top-0 pt-1 variation with-variation-label variation${v.index}`}
+                className="border-top-0 pt-1"
                 style={{ minWidth: 150 }}
               >
-                <div className="d-flex align-items-center">
-                  <span className="label" style={{ width: 20, height: 20 }}>
-                    {v.index}
-                  </span>{" "}
-                  <span
-                    className="d-inline-block text-ellipsis"
-                    title={v.name}
-                    style={{
-                      width: 100,
-                    }}
-                  >
-                    {v.name}
-                  </span>
-                </div>
+                <VariationLabel number={v.index} name={v.name} size="medium" />
               </th>
             ))}
             <th className="border-top-0 pt-1" style={{ minWidth: 150 }}>

@@ -66,9 +66,10 @@ type MyType = z.infer<typeof mySchema>;
 
 ## Code Quality Commands
 
-- **Lint**: `pnpm lint` (auto-fixes issues)
+- **Format**: `pnpm pretty` (writes), `pnpm pretty:check` (verifies)
+- **Lint**: `pnpm lint` (auto-fixes lint issues), `pnpm lint:ci` (verifies)
 - **Type check**: `pnpm type-check` (all packages)
-- **Format**: `pnpm pretty` (Prettier formatting)
+- **Everything CI runs**: `pnpm ci`
 
 ## Key Principles
 

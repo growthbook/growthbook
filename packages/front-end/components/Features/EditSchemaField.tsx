@@ -2,7 +2,7 @@ import { FeatureValueType, SchemaField } from "shared/types/feature";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Checkbox from "@/ui/Checkbox";
 
 // TODO: enable this when we have a GUI for entering feature values based on the schema

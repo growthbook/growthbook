@@ -768,6 +768,9 @@ export function computeNextProcessAt(schedule: {
       return schedule.startDate ?? null;
     case "paused":
       return cutoff;
+    case "pending":
+    case "completed":
+    case "rolled-back":
     default:
       return null;
   }
@@ -2446,7 +2449,7 @@ export async function dispatchRampEvent<T extends RampFeatureEvent>(
         // longer present) fall back to `target.environment`.
         const orgEnvIds = getApplicableEnvIds(
           getEnvironments(ctx.org),
-          feature.project,
+          feature,
         );
         const collected = new Set<string>();
         for (const target of schedule.targets) {
