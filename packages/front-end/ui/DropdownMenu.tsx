@@ -79,14 +79,15 @@ export function DropdownMenu({
       trigger
     );
 
-  // Track open state internally so we can show/hide the backdrop.
-  const [isOpen, setIsOpen] = useState(open ?? false);
-  useEffect(() => {
-    if (open !== undefined) setIsOpen(open);
-  }, [open]);
-  const handleOpenChange = (o: boolean) => {
-    setIsOpen(o);
-    onOpenChange?.(o);
+  // Keep the public API uncontrolled unless `open` is provided. The wrapper
+  // owns uncontrolled state so confirmation flows can close the Radix root.
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const resolvedOpen = open ?? uncontrolledOpen;
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (open === undefined) {
+      setUncontrolledOpen(nextOpen);
+    }
+    onOpenChange?.(nextOpen);
   };
 
   // isHidden/isHiddenWithDelay: keep the menu mounted but invisible while a
@@ -129,7 +130,7 @@ export function DropdownMenu({
     <DropdownVisibilityContext.Provider
       value={{ hideDropdown, showDropdown, closeDropdown }}
     >
-      {modal && isOpen && !isHidden
+      {modal && resolvedOpen && !isHidden
         ? createPortal(
             <div
               style={{ position: "fixed", inset: 0, zIndex: 9998 }}
@@ -141,7 +142,7 @@ export function DropdownMenu({
       <RadixDropdownMenu.Root
         {...props}
         modal={false}
-        open={open !== undefined ? open : undefined}
+        open={resolvedOpen}
         onOpenChange={handleOpenChange}
       >
         <RadixDropdownMenu.Trigger
