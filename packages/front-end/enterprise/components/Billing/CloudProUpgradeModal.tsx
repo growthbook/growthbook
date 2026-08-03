@@ -219,7 +219,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
               : undefined,
         }),
       });
-      refreshOrganization();
+      await refreshOrganization();
       setLoading(false);
       setSuccess(true);
     } catch (e) {
