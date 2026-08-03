@@ -18,6 +18,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Modal from "@/ui/Modal";
+import Text from "@/ui/Text";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PylonChatVisibility from "@/components/Auth/PylonChatVisibility";
 import useApi from "@/hooks/useApi";
@@ -277,26 +278,47 @@ export default function SqlExplorationExternalEditor({
   block,
   dashboardGlobalControls,
   onUpdate,
+  emptyState = false,
 }: {
   block: DashboardBlockInterfaceOrData<SqlExplorationBlockInterface>;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
   onUpdate: (
     block: DashboardBlockInterfaceOrData<SqlExplorationBlockInterface>,
   ) => void;
+  emptyState?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
       <PylonChatVisibility hidden={open} />
-      <Button
-        size="sm"
-        variant="outline"
-        color="violet"
-        onClick={() => setOpen(true)}
-      >
-        Edit Query
-      </Button>
+      {emptyState ? (
+        <Flex
+          direction="column"
+          align="center"
+          gap="3"
+          p="5"
+          width="100%"
+          style={{
+            border: "2px dashed var(--gray-a4)",
+            borderRadius: "var(--radius-4)",
+          }}
+        >
+          <Text align="center" color="text-mid">
+            Build a visualization from a custom SQL query
+          </Text>
+          <Button onClick={() => setOpen(true)}>Write or generate query</Button>
+        </Flex>
+      ) : (
+        <Button
+          size="sm"
+          variant="outline"
+          color="violet"
+          onClick={() => setOpen(true)}
+        >
+          Edit Query
+        </Button>
+      )}
       {open ? (
         <SqlExplorationModal
           block={block}

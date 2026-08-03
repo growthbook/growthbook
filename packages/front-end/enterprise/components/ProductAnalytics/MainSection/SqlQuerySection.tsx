@@ -26,7 +26,16 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import { useSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 import styles from "@/components/SchemaBrowser/EditSqlModal.module.scss";
 import useSqlQueryPreview, { PREVIEW_ROW_LIMIT } from "./useSqlQueryPreview";
-const SQL_PLACEHOLDER = `SELECT category, value FROM results`;
+const SQL_PLACEHOLDER = `-- Write a query to get started, or use the "Generate Query" helper to ask for what you want in plain text.
+
+SELECT
+    orderId,
+    orderDate,
+    total,
+    itemsCount,
+    userId
+FROM
+    orders`;
 
 function SqlQueryActions({
   aiTrigger,

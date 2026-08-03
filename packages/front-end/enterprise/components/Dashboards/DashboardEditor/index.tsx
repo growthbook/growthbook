@@ -163,15 +163,16 @@ export const BLOCK_TYPE_INFO: Record<DashboardBlockType, BlockTypeInfo> = {
     description:
       "Builds a custom analysis from tables and columns from one of your connected Data Sources.",
   },
+  "sql-exploration": {
+    name: "SQL Explorer",
+    icon: <PiFileSqlDuotone />,
+    description: "Build a visualization from a custom SQL query.",
+  },
   "funnel-exploration": {
     name: "Funnel Explorer",
     icon: <PiFunnel />,
     description:
       "Builds a custom funnel from events and columns from one of your connected Fact Tables.",
-  },
-  "sql-exploration": {
-    name: "SQL Explorer",
-    icon: <PiFileSqlDuotone />,
   },
 };
 
@@ -187,8 +188,8 @@ export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
       "metric-exploration",
       "fact-table-exploration",
       "data-source-exploration",
-      "sql-exploration",
       "funnel-exploration",
+      "sql-exploration",
     ],
   ],
   [

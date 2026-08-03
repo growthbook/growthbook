@@ -318,6 +318,9 @@ export default function EditSingleBlock({
     block?.type === "data-source-exploration" ||
     block?.type === "sql-exploration" ||
     block?.type === "funnel-exploration";
+  const isEmptySqlExploration =
+    block?.type === "sql-exploration" &&
+    block.config.dataset.sql.trim().length === 0;
 
   const prevMetricTagFilterRef = useRef(
     blockHasFieldOfType(block, "metricTagFilter", isStringArray)
@@ -1793,24 +1796,35 @@ export default function EditSingleBlock({
               />
             )}
             {block.type === "sql-exploration" && (
-              <ProductAnalyticsExplorerSettings
-                block={block}
-                setBlock={setBlock}
-                dashboardGlobalControls={dashboardGlobalControls}
-                saveAndCloseTrigger={saveAndCloseTrigger}
-                onSaveAndClose={submit}
-                hideDataSourceSelector
-                sqlChartConfigOnly
-                dashboardHeaderLeadingContent={
+              <>
+                {isEmptySqlExploration ? (
                   <SqlExplorationExternalEditor
-                    block={
-                      block as DashboardBlockInterfaceOrData<SqlExplorationBlockInterface>
-                    }
+                    block={block}
                     dashboardGlobalControls={dashboardGlobalControls}
                     onUpdate={(updatedBlock) => submit(updatedBlock)}
+                    emptyState
                   />
-                }
-              />
+                ) : (
+                  <ProductAnalyticsExplorerSettings
+                    block={block}
+                    setBlock={setBlock}
+                    dashboardGlobalControls={dashboardGlobalControls}
+                    saveAndCloseTrigger={saveAndCloseTrigger}
+                    onSaveAndClose={submit}
+                    hideDataSourceSelector
+                    sqlChartConfigOnly
+                    dashboardHeaderLeadingContent={
+                      <SqlExplorationExternalEditor
+                        block={
+                          block as DashboardBlockInterfaceOrData<SqlExplorationBlockInterface>
+                        }
+                        dashboardGlobalControls={dashboardGlobalControls}
+                        onUpdate={(updatedBlock) => submit(updatedBlock)}
+                      />
+                    }
+                  />
+                )}
+              </>
             )}
           </Flex>
           <Flex mt="5" gap="3" align="center" justify="center">

@@ -385,13 +385,6 @@ export default function CodeTextArea({
                 "code-editor-fullscreen": isFullscreen,
               })}
             >
-              {paddingTop > 0 ? (
-                <style>{`
-                  [data-editor-uid="${editorUid}"] .ace_placeholder {
-                    top: ${paddingTop}px !important;
-                  }
-                `}</style>
-              ) : null}
               {isFullscreen ? (
                 <Flex align="center" gap="3" mb="2" justify="between">
                   <label className="mb-0 d-block font-weight-bold">
