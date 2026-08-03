@@ -20,6 +20,7 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Text from "@/ui/Text";
+import VariationLabel from "@/ui/VariationLabel";
 import Callout from "@/ui/Callout";
 
 export interface Props {
@@ -166,14 +167,9 @@ export default function EditContextualBanditFeatureValuesModal({
         <Flex direction="column" gap="3" pt="2">
           {cb.variations.map((v, i) => (
             <Box key={v.id}>
-              <Flex align="center" direction="row" gap="2" mb="3">
-                <Box className={`variation with-variation-label variation${i}`}>
-                  <span className="label">{i}</span>
-                </Box>
-                <Text weight="semibold" size="lg">
-                  {v.name}
-                </Text>
-              </Flex>
+              <Box mb="3" minWidth="0">
+                <VariationLabel number={i} name={v.name} size="lg" />
+              </Box>
               <FeatureValueField
                 id={`variation-${v.id}`}
                 value={form.watch(`variations.${i}.value`) ?? ""}

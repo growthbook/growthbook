@@ -1,6 +1,7 @@
 import mongoose, { FilterQuery } from "mongoose";
 import { evalCondition } from "@growthbook/growthbook";
 import { ExperimentMetricInterface } from "shared/experiments";
+import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import {
   InsertMetricProps,
@@ -644,13 +645,6 @@ export async function updateMetric(
   metric: MetricInterface,
   updates: Partial<MetricInterface>,
 ) {
-  updates = addDateUpdatedToUpdates(updates);
-
-  // dateUpdated is only stamped when a payload-relevant field changed, so use
-  // it to decide whether to bump the definitions version (avoids churning the
-  // cache when only queries/analysis/runStarted change — see updateMetricQueriesAndStatus).
-  const changedDefinitionFields = "dateUpdated" in updates;
-
   const safeUpdates = (Object.keys(updates) as (keyof MetricInterface)[]).every(
     (k) => FILE_CONFIG_UPDATEABLE_FIELDS.includes(k),
   );
@@ -667,6 +661,27 @@ export async function updateMetric(
   }
 
   validatePriorSettings(updates.priorSettings);
+
+  // Compare submitted values against the caller's snapshot (read fresh in the
+  // same request) rather than checking which keys were submitted — the
+  // front-end resubmits the whole form on every save. Bailing before the write
+  // keeps the write and the definitions-version bump in lockstep. Config
+  // metrics always write: the upsert below is what materializes their doc.
+  const changedFields = (
+    Object.keys(updates) as (keyof MetricInterface)[]
+  ).filter((k) => !isEqual(metric[k], updates[k]));
+  if (!changedFields.length && metric.managedBy !== "config") return;
+
+  // queries/analysis/analysisError/runStarted change on every analysis run but
+  // aren't in the definitions payload (METRIC_DEFINITION_EXCLUDED_FIELDS, kept
+  // in sync by MetricModel.test.ts), so they stamp neither dateUpdated nor the
+  // definitions version.
+  const changedDefinitionFields = changedFields.some(
+    (k) => !FIELDS_NOT_REQUIRING_DATE_UPDATED.includes(k),
+  );
+  if (changedDefinitionFields) {
+    updates = { ...updates, dateUpdated: new Date() };
+  }
 
   // If using config.yml, need to do an `upsert` since it might not exist in mongo yet
   if (metric.managedBy === "config") {

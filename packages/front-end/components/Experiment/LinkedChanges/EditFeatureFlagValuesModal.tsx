@@ -44,6 +44,8 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import Callout from "@/ui/Callout";
+import FieldAlignedVariationNumber from "@/components/Experiment/FieldAlignedVariationNumber";
+import VariationLabel from "@/ui/VariationLabel";
 import {
   decimalToPercent,
   distributeWeights,
@@ -558,13 +560,7 @@ export default function EditFeatureFlagValuesModal({
                 return (
                   <Box key={field.id}>
                     <Flex direction="row" gap="3" align="start">
-                      <Box style={{ paddingTop: 28 }}>
-                        <Box
-                          className={`variation with-variation-label variation${i}`}
-                        >
-                          <span className="label">{i}</span>
-                        </Box>
-                      </Box>
+                      <FieldAlignedVariationNumber number={i} />
                       <Flex
                         direction="column"
                         gap="3"
@@ -660,16 +656,12 @@ export default function EditFeatureFlagValuesModal({
                 <Box key={field.id}>
                   <Flex justify="between" width="100%" mb="3">
                     <Flex align="center" direction="row" gap="2">
-                      <Flex align="center">
-                        <Box
-                          className={`variation with-variation-label variation${i}`}
-                        >
-                          <span className="label">{i}</span>
-                        </Box>
-                        <Text weight="semibold" size="lg">
-                          {row.name}
-                        </Text>
-                      </Flex>
+                      <VariationLabel
+                        number={i}
+                        name={row.name}
+                        size="lg"
+                        maxWidth="320px"
+                      />
                       <Box as="span">&middot;</Box>
                       <Text color="text-mid">
                         {decimalToPercent(rowWeight)}% Split

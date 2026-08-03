@@ -55,6 +55,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/ui/HelperText";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
+import ScheduledEndPassedBanner from "@/components/Experiment/TabbedPage/ScheduledEndPassedBanner";
 import StartExperimentModal, {
   PendingDraftFailure,
 } from "@/components/Experiment/TabbedPage/StartExperimentModal";
@@ -480,6 +481,17 @@ export default function ExperimentHeader({
         experiment={experiment}
         runningExperimentStatus={runningExperimentStatus}
         decisionCriteria={decisionCriteria}
+      />
+    ) : null;
+
+  const scheduledEndPassedBanner =
+    experiment.status === "running" && !isHoldout && !isBandit ? (
+      <ScheduledEndPassedBanner
+        experiment={experiment}
+        runningExperimentStatus={runningExperimentStatus}
+        editSchedule={
+          canEditExperiment && editSchedule ? () => editSchedule() : undefined
+        }
       />
     ) : null;
 
@@ -1238,6 +1250,11 @@ export default function ExperimentHeader({
         {runningExperimentDecisionBanner ? (
           <Box pt="1" pb="1">
             {runningExperimentDecisionBanner}
+          </Box>
+        ) : null}
+        {scheduledEndPassedBanner ? (
+          <Box pt="1" pb="1">
+            {scheduledEndPassedBanner}
           </Box>
         ) : null}
       </div>

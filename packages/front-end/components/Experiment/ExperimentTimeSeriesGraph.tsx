@@ -342,6 +342,8 @@ const getYVal = (variation?: DataPointVariation, yaxis?: AxisType) => {
   switch (yaxis) {
     case "effect":
       return variation.up;
+    case undefined:
+      return undefined;
   }
 };
 

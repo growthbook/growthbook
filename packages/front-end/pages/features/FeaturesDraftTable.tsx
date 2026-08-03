@@ -74,6 +74,10 @@ export default function FeaturesDraftTable() {
       case "changes-requested":
         dateAndStatus = parseInt(`1${dateAndStatus}`);
         break;
+      case "discarded":
+      case "published":
+      case "pending-parent":
+        break;
     }
     return {
       // Composite ID so MiniSearch never sees duplicate IDs when a feature has

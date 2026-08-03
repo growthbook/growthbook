@@ -288,6 +288,8 @@ function simplify(e: Expr): Expr {
       if (c.type === "or") return simplify(and(c.children.map(not)));
       return not(c);
     }
+    case "atom":
+    case "opaque":
     default:
       return e;
   }
