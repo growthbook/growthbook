@@ -48,12 +48,10 @@ export default function ContextualBanditOverviewModal({
         helpText="Unique identifier used to track impressions and analyze results"
         {...form.register("trackingKey")}
       />
-      <div className="form-group">
-        <SelectOwner
-          value={form.watch("owner")}
-          onChange={(v) => form.setValue("owner", v)}
-        />
-      </div>
+      <SelectOwner
+        value={form.watch("owner")}
+        onChange={(v) => form.setValue("owner", v)}
+      />
     </ModalStandard>
   );
 }

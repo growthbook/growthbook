@@ -42,7 +42,7 @@ const EMPTY_SNAPSHOT_NOTICE =
 const EXPLORING_NOTICE =
   "This Contextual Bandit is in its exploratory stage. Updating results recomputes stats but does not change variation weights — weights stay evenly split until the exploratory stage ends.";
 const EMPTY_SNAPSHOT_EXPLORING_NOTICE =
-  "This Contextual Bandit is in its exploratory stage, so weights stay evenly split until the exploratory stage ends. Run or refresh results to compute stats. ";
+  "This Contextual Bandit is in its exploratory stage, so weights stay evenly split until the exploratory stage ends. Run or refresh results to compute stats.";
 
 function getResultsNotice(
   hasTableData: boolean,
