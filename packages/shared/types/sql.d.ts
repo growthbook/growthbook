@@ -65,7 +65,15 @@ export type FormatDialect = SqlLanguage | "";
 
 export type DateTruncGranularity = "hour" | "day" | "week" | "month" | "year";
 
+// The character a dialect uses to quote identifiers (column/table names).
+// Standard SQL (Postgres, Snowflake, Redshift, Athena, Databricks, ...) uses
+// double quotes; MySQL and BigQuery use backticks. This determines whether a
+// quoted span in a virtual-column expression is a quoted identifier (which can
+// reference another column) or a string literal (which must be left alone).
+export type SqlIdentifierQuote = '"' | "`";
+
 export interface SqlDialect {
+  identifierQuote: SqlIdentifierQuote;
   escapeStringLiteral: (s: string) => string;
   stringMatch: StringMatchFn;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
