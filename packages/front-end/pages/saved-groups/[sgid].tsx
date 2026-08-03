@@ -87,6 +87,7 @@ import { REVISION_SAVED_GROUP_DIFF_CONFIG } from "@/components/Revision/Revision
 import { useUser } from "@/services/UserContext";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { canCommentOnRevisionEntity } from "@/components/Revision/revisionCommentAuthority";
 import SavedGroupDraftSelectorForChanges, {
   DraftMode,
 } from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
@@ -1092,21 +1093,12 @@ export default function EditSavedGroupPage() {
               "delete",
               savedGroup,
             )}
-            canCommentOnEntity={
-              // Mirrors the server's canCommentOnRevision: draft or review
-              // authority also lets you comment.
-              permissionsUtil.canAddComment(savedGroup.projects ?? []) ||
-              permissionsUtil.canRevisionAction(
-                "saved-group",
-                "draft",
-                savedGroup,
-              ) ||
-              permissionsUtil.canRevisionAction(
-                "saved-group",
-                "review",
-                savedGroup,
-              )
-            }
+            canCommentOnEntity={canCommentOnRevisionEntity(
+              permissionsUtil,
+              "saved-group",
+              selectedRevision ?? displayRevision ?? null,
+              savedGroup,
+            )}
             canReviewEntity={permissionsUtil.canRevisionAction(
               "saved-group",
               "review",

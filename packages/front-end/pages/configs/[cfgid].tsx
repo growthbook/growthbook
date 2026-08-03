@@ -53,6 +53,7 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { canCommentOnRevisionEntity } from "@/components/Revision/revisionCommentAuthority";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import Owner from "@/components/Avatar/Owner";
@@ -2149,21 +2150,12 @@ export default function ConfigDetailPage(): React.ReactElement {
                   config,
                   configPublishEnvironments(config),
                 )}
-                canCommentOnEntity={
-                  // Mirrors the server's canCommentOnRevision: draft or review
-                  // authority also lets you comment, so gating on the
-                  // addComments atom alone hid the box from people the server
-                  // would have accepted.
-                  permissionsUtil.canAddComment(
-                    config.project ? [config.project] : [],
-                  ) ||
-                  permissionsUtil.canRevisionAction(
-                    "config",
-                    "draft",
-                    config,
-                  ) ||
-                  permissionsUtil.canRevisionAction("config", "review", config)
-                }
+                canCommentOnEntity={canCommentOnRevisionEntity(
+                  permissionsUtil,
+                  "config",
+                  selectedRevision ?? displayRevision ?? null,
+                  config,
+                )}
                 canReviewEntity={permissionsUtil.canRevisionAction(
                   "config",
                   "review",

@@ -13,6 +13,10 @@ import { toApiConstantRevision } from "./toApiConstantRevision";
 export const postConstantRevisionSubmitReview = createApiRequestHandler(
   postConstantRevisionSubmitReviewValidator,
 )(async (req) => {
+  // Addressed by the entity's own key, so an entity the caller cannot read is a
+  // 404 here even for a comment, which the internal controller — addressed by
+  // revision id — would allow on the snapshot. Deliberate: closing the gap means
+  // a permission-bypassing read on the key, and this direction fails closed.
   const constant = await req.context.models.constants.getByKey(req.params.key);
   if (!constant) {
     throw new NotFoundError("Could not find Constant");

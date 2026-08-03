@@ -20,7 +20,10 @@ import {
 } from "back-end/src/services/armGuards";
 import { getAdapter } from "back-end/src/revisions/index";
 import { ConflictError } from "back-end/src/util/errors";
-import { canTouchRevision } from "back-end/src/revisions/revisionActions";
+import {
+  canCommentOnRevision,
+  canTouchRevision,
+} from "back-end/src/revisions/revisionActions";
 import {
   createWithVersionRetry,
   getCollection,
@@ -904,6 +907,30 @@ export class RevisionModel extends BaseClass {
       dateCreated: new Date(),
     };
 
+    // A comment is participation, not authority over the revision, so it gets
+    // its OWN check rather than riding the general update backstop — that one
+    // only recognizes authors and draft/review/revert/publish standing, which
+    // left an addComments-only user passing the handler and refused here.
+    // The CAS callback still refuses merged/discarded, so bypassing `canUpdate`
+    // for a comment gives up no protection beyond the standing test itself.
+    const isComment = decision === "comment";
+    if (isComment) {
+      const current = await this.getById(id);
+      if (!current) throw new Error("Revision not found");
+      // The author keeps the standing `canUpdate` gave them on their own
+      // revision; everyone else needs comment standing.
+      if (
+        current.authorId !== this.context.userId &&
+        !canCommentOnRevision(
+          current.target.type,
+          this.context,
+          current.target.snapshot as Record<string, unknown>,
+        )
+      ) {
+        this.context.permissions.throwPermissionError();
+      }
+    }
+
     // CAS-guard the status reconcile so a concurrent verdict can't be lost.
     const updated = await this.updateWithCas(
       id,
@@ -946,6 +973,7 @@ export class RevisionModel extends BaseClass {
           ],
         } as UpdateProps<Revision>;
       },
+      { dangerouslyBypassCanUpdate: isComment },
     );
     if (!updated) throw new Error("Revision not found");
 

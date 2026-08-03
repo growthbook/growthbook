@@ -13,6 +13,10 @@ import { toApiConfigRevision } from "./toApiConfigRevision";
 export const postConfigRevisionSubmitReview = createApiRequestHandler(
   postConfigRevisionSubmitReviewValidator,
 )(async (req) => {
+  // Addressed by the entity's own key, so an entity the caller cannot read is a
+  // 404 here even for a comment, which the internal controller — addressed by
+  // revision id — would allow on the snapshot. Deliberate: closing the gap means
+  // a permission-bypassing read on the key, and this direction fails closed.
   const config = await req.context.models.configs.getByKey(req.params.key);
   if (!config) {
     throw new NotFoundError("Could not find Config");

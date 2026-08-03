@@ -20,6 +20,7 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { canCommentOnRevisionEntity } from "@/components/Revision/revisionCommentAuthority";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import Owner from "@/components/Avatar/Owner";
@@ -609,19 +610,12 @@ export default function ConstantDetailPage(): React.ReactElement {
               constant,
               NO_ENVIRONMENT_BINDING,
             )}
-            canCommentOnEntity={
-              // Mirrors the server's canCommentOnRevision: draft or review
-              // authority also lets you comment.
-              permissionsUtil.canAddComment(
-                constant.project ? [constant.project] : [],
-              ) ||
-              permissionsUtil.canRevisionAction(
-                "constant",
-                "draft",
-                constant,
-              ) ||
-              permissionsUtil.canRevisionAction("constant", "review", constant)
-            }
+            canCommentOnEntity={canCommentOnRevisionEntity(
+              permissionsUtil,
+              "constant",
+              selectedRevision ?? displayRevision ?? null,
+              constant,
+            )}
             canReviewEntity={permissionsUtil.canRevisionAction(
               "constant",
               "review",

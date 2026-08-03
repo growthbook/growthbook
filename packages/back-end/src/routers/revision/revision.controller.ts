@@ -45,6 +45,22 @@ import {
   canRebaseRevision,
 } from "back-end/src/revisions/revisionAuthority";
 
+// Arming publishes into the entity as it stands when the fire happens, so
+// authorization uses the LIVE entity rather than the revision's snapshot: after
+// a project move the snapshot names a project the publish will never land in.
+async function loadLiveEntityForRevision(
+  context: ReqContext,
+  revision: Pick<Revision, "target">,
+): Promise<Record<string, unknown> | null> {
+  const model = getAdapter(revision.target.type).getModel(context);
+  return (
+    ((await model?.getById(revision.target.id)) as Record<
+      string,
+      unknown
+    > | null) ?? null
+  );
+}
+
 // Arm-time acknowledgment for a deferred publish, via the entity's adapter hook
 // (config uses it for the experiment guard; others have none). Throws when the
 // armer must acknowledge a condition first; returns keys to snapshot on the arm.
@@ -471,16 +487,18 @@ export const postSubmit = async (
     context.permissions.throwPermissionError();
   }
 
+  const liveEntity = await loadLiveEntityForRevision(context, existingRevision);
   const enableAutoPublish =
     !!autoPublishOnApproval &&
+    !!liveEntity &&
     (await canEnableAutoPublishOnApproval(
       context,
       existingRevision,
-      existingRevision.target.snapshot as Record<string, unknown>,
+      liveEntity,
     ));
 
   const armAcknowledgments = enableAutoPublish
-    ? await captureArmAcknowledgment(context, existingRevision)
+    ? await captureArmAcknowledgment(context, existingRevision, liveEntity)
     : undefined;
 
   const revision = await revisionModel.submitForReview(id, userId, {
@@ -1277,19 +1295,19 @@ export const postToggleAutoPublish = async (
     context.permissions.throwPermissionError();
   }
 
+  const liveEntity = await loadLiveEntityForRevision(context, existing);
   if (
     enabled &&
-    !(await canEnableAutoPublishOnApproval(
-      context,
-      existing,
-      existing.target.snapshot as Record<string, unknown>,
-    ))
+    !(
+      liveEntity &&
+      (await canEnableAutoPublishOnApproval(context, existing, liveEntity))
+    )
   ) {
     context.permissions.throwPermissionError();
   }
 
   const armAcknowledgments = enabled
-    ? await captureArmAcknowledgment(context, existing)
+    ? await captureArmAcknowledgment(context, existing, liveEntity)
     : undefined;
 
   const revision = await revisionModel.setAutoPublishOnApproval(
