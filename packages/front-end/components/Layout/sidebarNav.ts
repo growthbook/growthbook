@@ -114,7 +114,7 @@ export const navlinks: SidebarLinkProps[] = [
       {
         name: "SQL Explorer",
         href: "/product-analytics/explore/sql",
-        path: /^product-analytics\/sql/,
+        path: /^product-analytics\/explore\/sql/,
       },
       {
         name: "Dashboards",

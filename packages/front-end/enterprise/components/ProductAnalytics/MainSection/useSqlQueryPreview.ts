@@ -82,7 +82,10 @@ export default function useSqlQueryPreview({
         return {
           ...prev,
           dimensions: prev.dimensions.filter(
-            (dimension) => dimension.dimensionType !== "dynamic",
+            (dimension) =>
+              dimension.dimensionType !== "dynamic" ||
+              dimension.column === null ||
+              valueColumns.has(dimension.column),
           ),
           dataset: {
             ...prev.dataset,

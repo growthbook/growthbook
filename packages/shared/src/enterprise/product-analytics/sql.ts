@@ -43,13 +43,29 @@ type MinimalFactTable = Pick<
   "sql" | "columns" | "filters" | "userIdTypes"
 > & {
   timestampColumn: string | null;
+  quoteTimestampColumn: boolean;
 };
 
 function toMinimalFactTable(factTable: FactTableInterface): MinimalFactTable {
   return {
     ...factTable,
     timestampColumn: factTable.timestampColumn ?? "timestamp",
+    quoteTimestampColumn: false,
   };
+}
+
+function getTimestampColumnExpression(
+  factTable: MinimalFactTable,
+  helpers: SqlDialect,
+): string | null {
+  if (!factTable.timestampColumn) return null;
+  if (!factTable.quoteTimestampColumn) return factTable.timestampColumn;
+
+  const quote = helpers.identifierQuote;
+  const escapedColumn = factTable.timestampColumn
+    .split(quote)
+    .join(`${quote}${quote}`);
+  return `${quote}${escapedColumn}${quote}`;
 }
 
 type MinimalMetric = Pick<
@@ -201,7 +217,7 @@ function getFactTableGroups({
         {
           index: 0,
           factTable: createStubFactTable(
-            config.dataset.sql,
+            config.dataset.sql.replace(/;\s*$/, "").trim(),
             config.dataset.timestampColumn,
             config.dataset.columnTypes,
             datasourceSettings,
@@ -453,14 +469,15 @@ export function generateDimensionExpression(
   const factTable = factTableGroup.factTable;
   switch (dimension.dimensionType) {
     case "date": {
-      if (!factTable.timestampColumn) {
+      const timestampColumn = getTimestampColumnExpression(factTable, helpers);
+      if (!timestampColumn) {
         throw new Error("Date dimensions require a timestamp column");
       }
       const granularity = getDateGranularity(
         dimension.dateGranularity,
         dateRange,
       );
-      return `${helpers.dateTrunc(factTable.timestampColumn, granularity)}`;
+      return `${helpers.dateTrunc(timestampColumn, granularity)}`;
     }
     case "dynamic": {
       const topCTE = `_dimension${dimensionIndex}_top`;
@@ -581,10 +598,11 @@ function getEventValueExpr(
   } else if (columnRef.column === "$$count") {
     rawValue = "1";
   } else if (columnRef.column === "$$distinctDates") {
-    if (!factTable.timestampColumn) {
+    const timestampColumn = getTimestampColumnExpression(factTable, helpers);
+    if (!timestampColumn) {
       throw new Error("Distinct date values require a timestamp column");
     }
-    rawValue = helpers.dateTrunc(factTable.timestampColumn, "day");
+    rawValue = helpers.dateTrunc(timestampColumn, "day");
   } else {
     // Expand virtual (computed) columns into their SQL expression, and resolve
     // JSON columns. A plain column just returns its own name here.
@@ -837,6 +855,7 @@ function createStubFactTable(
     columns,
     userIdTypes,
     timestampColumn,
+    quoteTimestampColumn: true,
     filters: [],
   };
 }
@@ -931,9 +950,10 @@ function generateFactTableCTE(
 
   const whereClauses: string[] = [];
 
-  if (factTable.timestampColumn) {
+  const timestampColumn = getTimestampColumnExpression(factTable, helpers);
+  if (timestampColumn) {
     whereClauses.push(
-      `${factTable.timestampColumn} >= ${helpers.toTimestamp(dateRange.startDate)} AND ${factTable.timestampColumn} <= ${helpers.toTimestamp(dateRange.endDate)}`,
+      `${timestampColumn} >= ${helpers.toTimestamp(dateRange.startDate)} AND ${timestampColumn} <= ${helpers.toTimestamp(dateRange.endDate)}`,
     );
   }
 
