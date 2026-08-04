@@ -117,9 +117,6 @@ export default function ConstantDetailPage(): React.ReactElement {
   const { projects, mutateDefinitions } = useDefinitions();
   const { organization, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
-  // Same call the back end makes: a constant's value is not environment-scoped,
-  // so publishing one carries no environment footprint.
-  const publishEnvironments = constantPublishEnvironments();
 
   const [editInfoOpen, setEditInfoOpen] = useState(false);
   const [editValueOpen, setEditValueOpen] = useState(false);
@@ -203,6 +200,22 @@ export default function ConstantDetailPage(): React.ReactElement {
           new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
       )[0];
   }, [selectedRevision, allRevisions]);
+
+  // The environments the pending change actually touches. A base-value change
+  // carries no footprint, but a per-environment override does — calling this
+  // with no arguments always produced an empty list, so publish and revert
+  // controls looked available to a caller restricted out of those environments.
+  // Same computation the back end performs.
+  const publishEnvironments = useMemo(() => {
+    const pending = selectedRevision ?? displayRevision;
+    if (!pending) return constantPublishEnvironments();
+    return constantPublishEnvironments(
+      getConstantRevisionChange(
+        pending.target.snapshot as ConstantInterface,
+        pending.target.proposedChanges,
+      ).changedEnvironments,
+    );
+  }, [selectedRevision, displayRevision]);
 
   // Count of active drafts awaiting/in review — drives the count bubble on the
   // "Review & Publish" tab, matching saved groups and the feature header.

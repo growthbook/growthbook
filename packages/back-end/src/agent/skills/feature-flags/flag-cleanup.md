@@ -272,13 +272,13 @@ This goes through the same revision-and-publish flow as the archive — same app
 ```
 
 - **2xx with `{deletedId}`** → proceed to report.
-- **403** → almost certainly the `restApiBypassesReviews` setting is off. The flag is archived, just not deletable via the API. Surface:
-  > Your org requires the "REST API always bypasses approval requirements" setting to be enabled before flags can be deleted via the API. The flag is archived; you can either:
+- **403** → the token's role lacks **Archive & delete** for the flag's Project. Deleting an already-archived flag needs no environment access, so this is a Project-level permission, not an org setting. Surface:
+  > This token's role cannot delete Feature Flags in this Project. The flag is archived; you can either:
   >
-  > - Ask an admin to enable the setting (Settings → General → Approvals), then re-run me to finish the delete.
+  > - Ask an admin to grant **Archive & delete** for Feature Flags on the role this token uses, then re-run me to finish the delete.
   > - Delete manually in the GrowthBook UI at `/features/<flag-id>` (the archived flag is still listed there).
   >
-  > Per-token `FlagsBypassApprovals` does **not** authorize this — it's intentionally a review-workflow bypass only, not a destructive-action override.
+  > Per-token `FlagsBypassApprovals` does **not** authorize this — it's a review-workflow bypass only, not a destructive-action override.
 - Other 4xx → halt with the body.
 
 **Server-side cleanup.** Deletion removes the feature record, all its revisions, all revision logs, and unlinks any experiments that had this flag in their `linkedFeatures`. The experiments themselves are not deleted — they continue to exist with stale tracking keys. Surface this in step 7 so the user knows the experiments are still there.

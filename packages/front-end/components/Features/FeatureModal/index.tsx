@@ -78,9 +78,12 @@ const genEnvironmentSettings = ({
   const envSettings: Record<string, FeatureEnvironment> = {};
 
   environments.forEach((e) => {
-    const canPublish = permissions.canPublishFeature({ project }, [e.id]);
-    const defaultEnabled = canPublish ? (e.defaultState ?? true) : false;
-    const enabled = canPublish
+    // Creating a flag is gated on CREATE authority server-side, not publish, so
+    // asking for publish here disabled environments a create-only user is
+    // entitled to switch on — and any mismatch turns into a 403 on submit.
+    const canCreate = permissions.canCreateFeature({ project }, [e.id]);
+    const defaultEnabled = canCreate ? (e.defaultState ?? true) : false;
+    const enabled = canCreate
       ? (featureToDuplicate?.environmentSettings?.[e.id]?.enabled ??
         defaultEnabled)
       : false;

@@ -1438,7 +1438,12 @@ export default function ConfigDetailPage(): React.ReactElement {
                     extensible={effectiveExtensible}
                   />
                 </Box>
-                {canDraft && (
+                {/* Creating an override Config is a create, not an edit of the
+                    parent — gating it on the parent's draft rights both offered
+                    an action that fails and hid one create-only users hold. */}
+                {permissionsUtil.canCreateConfig({
+                  project: config.project || "",
+                }) && (
                   <Box mt="3" pl="1">
                     {hasConfigsFeature ? (
                       <Link

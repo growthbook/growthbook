@@ -813,6 +813,20 @@ export const putSavedGroup = async (
     if (projects) {
       await context.models.projects.ensureProjectsExist(projects);
     }
+    // Taking a group INTO a project is a write there, so the destination needs
+    // authoring rights too — existence alone was the only thing checked, which
+    // let a caller move a group somewhere they cannot author. Same two-sided
+    // rule the Config and Constant controllers apply.
+    if (
+      !context.permissions.canRevisionAction(
+        "saved-group",
+        "draft",
+        { projects: projects ?? [] },
+        NO_ENVIRONMENT_BINDING,
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
     fieldsToUpdate.projects = projects;
   }
   if (hasChanged(archived, comparisonBase.archived)) {

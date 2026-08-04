@@ -137,8 +137,13 @@ export default function RevertModal({
     feature,
     "feature",
   );
+  // Staging a revert as a draft publishes nothing, so the server scopes that to
+  // the project — an environment-limited reverter can still propose one for a
+  // publisher to land. Publishing keeps the environment footprint via
+  // `canRevert` above.
   const canCreateDraft =
-    permissionsUtil.canEditFeatureDrafts(feature) || canRevert;
+    permissionsUtil.canEditFeatureDrafts(feature) ||
+    permissionsUtil.canRevertFeature(feature, []);
 
   // Restoring an archived state takes the flag out of service, so publishing it
   // carries the delete-class gate too (staging it as a draft doesn't). Matches

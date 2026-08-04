@@ -14,6 +14,7 @@ import { PiPlus } from "react-icons/pi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Callout from "@/ui/Callout";
@@ -121,7 +122,14 @@ export default function ConfigModal({
       (c) => !c.archived && !isScopedConfig(c) && c.key !== existing?.key,
     ),
   ).map(({ config: c, depth }) => ({ label: c.name, value: c.key, depth }));
-  const projectOptions = projects.map((p) => ({ label: p.name, value: p.id }));
+  const permissionsUtil = usePermissionsUtil();
+  // The server refuses a destination the caller cannot author in, so listing
+  // those projects only produces a predictable rejection.
+  const projectOptions = projects
+    .filter((p) =>
+      permissionsUtil.canRevisionAction("config", "draft", { project: p.id }),
+    )
+    .map((p) => ({ label: p.name, value: p.id }));
 
   // Auto-derive the slug key from the name until the user edits the key.
   const keyTouched = useRef(editing);

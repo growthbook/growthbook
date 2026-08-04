@@ -262,7 +262,9 @@ export default function FeaturesHeader({
         menuPlacement="end"
       >
         <DropdownMenuGroup>
-          {canEdit && canPublish && !isReadOnly && (
+          {/* Metadata is draft-class server-side; requiring publish here shut
+              draft-only editors out of an action they are allowed to take. */}
+          {canEdit && !isReadOnly && (
             <DropdownMenuItem
               onClick={() => {
                 setEditFeatureInfoModal(true);

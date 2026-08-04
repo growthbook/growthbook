@@ -8,6 +8,7 @@ import { generateTrackingKey } from "shared/experiments";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
@@ -109,9 +110,19 @@ export default function ConstantModal({
 
   const type = form.watch("type");
 
+  const permissionsUtil = usePermissionsUtil();
+  // The server refuses a destination the caller cannot author in, so listing
+  // those projects only produces a predictable rejection.
   const projectOptions = useMemo(
-    () => projects.map((p) => ({ label: p.name, value: p.id })),
-    [projects],
+    () =>
+      projects
+        .filter((p) =>
+          permissionsUtil.canRevisionAction("constant", "draft", {
+            project: p.id,
+          }),
+        )
+        .map((p) => ({ label: p.name, value: p.id })),
+    [projects, permissionsUtil],
   );
 
   return (

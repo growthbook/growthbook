@@ -694,6 +694,19 @@ export const putProposedChanges = async (
       .status(403)
       .json({ message: "Only the author can update proposed changes" });
   }
+  // Authorship narrows this to your OWN draft; it does not stand in for the
+  // permission. Without this an author who has since lost draft-edit rights
+  // could still rewrite the draft's contents.
+  if (
+    !canDoRevisionAction(
+      existingRevision.target.type,
+      "draft",
+      context,
+      existingRevision.target.snapshot as Record<string, unknown>,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const revision = await revisionModel.updateProposedChanges(
     id,
