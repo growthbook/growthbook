@@ -6,6 +6,7 @@ import {
 } from "shared/permissions";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { SafeRolloutInterface } from "shared/validators";
+import { canPublishFeatureRevisionChange } from "back-end/src/revisions/featureDraftAuthority";
 import { logger } from "back-end/src/util/logger";
 import {
   applyHoldoutExperimentLinkage,
@@ -164,7 +165,12 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
   },
 
   canUpdate(context, entity) {
-    // Destination-project check on a publish that moves projects.
+    // Coarse destination-project pre-check for a publish that moves projects,
+    // deliberately unbound by environment: the precise per-environment
+    // destination check runs in `collectGates` via
+    // `assertCanPublishFeatureRevision`. Subset-refusing, so it costs an
+    // authorized caller nothing — the precise check demands publish in the
+    // destination too, so nobody is refused here who would have passed there.
     return context.permissions.canPublishFeature(
       entity as unknown as FeatureInterface,
       NO_ENVIRONMENT_BINDING,
@@ -225,7 +231,21 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       result: plan.mergeResult,
       environmentIds: plan.environmentIds,
     });
-    if (!callerContext.permissions.canPublishFeature(feature, envsToCheck)) {
+    // Delegates to the same assertion a single publish makes, so the two cannot
+    // disagree: publish authority over those environments, OR a narrow atom over
+    // a draft that only does what the atom covers — a pure revert under revert, a
+    // pure archive under delete. Checking canPublishFeature alone refused valid
+    // revert-only and delete-only bulk publishes. It also carries the
+    // destination-project check for a move, over the same footprint.
+    if (
+      !(await canPublishFeatureRevisionChange({
+        context: callerContext,
+        feature,
+        revision: raw,
+        environments: envsToCheck,
+        mergeChanges: plan.mergeResult,
+      }))
+    ) {
       gates.push(
         makeBlockingGate({
           type: "permission-denied",

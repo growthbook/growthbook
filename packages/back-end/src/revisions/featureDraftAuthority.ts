@@ -1,11 +1,12 @@
-import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
-import { FeatureInterface } from "shared/types/feature";
 import {
+  PermissionError,
   MergeResultChanges,
   isArchiveTransition,
   isPureFeatureArchive,
   isPureFeatureRevert,
 } from "shared/util";
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
@@ -211,6 +212,24 @@ export function rebasePullsInNothing(
  * or a narrow atom over a draft that only does what that atom covers. Approval
  * is a separate gate, enforced by the caller.
  */
+/**
+ * Boolean form of `assertCanPublishFeatureRevision`, for callers that must decide
+ * feasibility rather than refuse outright — bulk publish collects gates instead
+ * of throwing. Delegates rather than reimplements so a bulk publish and a single
+ * publish can never disagree about what is allowed.
+ */
+export async function canPublishFeatureRevisionChange(
+  args: Parameters<typeof assertCanPublishFeatureRevision>[0],
+): Promise<boolean> {
+  try {
+    await assertCanPublishFeatureRevision(args);
+    return true;
+  } catch (e) {
+    if (e instanceof PermissionError) return false;
+    throw e;
+  }
+}
+
 export async function assertCanPublishFeatureRevision({
   context,
   feature,
