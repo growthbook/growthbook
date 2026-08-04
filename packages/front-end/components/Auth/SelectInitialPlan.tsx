@@ -23,6 +23,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
 import Checkbox from "@/ui/Checkbox";
+import UIButton from "@/ui/Button";
 import Button from "@/components/Button";
 import track from "@/services/track";
 import Callout from "@/ui/Callout";
@@ -293,13 +294,14 @@ const SelectInitialPlan: FC = () => {
               status="warning"
               mt="3"
               action={
-                <Button
-                  color="secondary"
+                <UIButton
+                  size="sm"
+                  color="inherit"
                   loading={loading}
                   onClick={retryOrganizationRefresh}
                 >
                   Try again
-                </Button>
+                </UIButton>
               }
             >
               We couldn&apos;t refresh your organization details. Try again to
