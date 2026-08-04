@@ -26,6 +26,7 @@ import Button from "@/ui/Button";
 import DatePicker from "@/components/DatePicker";
 import Field from "@/components/Forms/Field";
 import { Select, SelectItem } from "@/ui/Select";
+import HelperText from "@/ui/HelperText";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
 import { formatCollapsedDateRange } from "@/enterprise/components/ProductAnalytics/comparison-chart";
@@ -83,6 +84,7 @@ export default function DateRangeComparePanel({
   showCompare = false,
   showGranularity = false,
   granularityDisabled = false,
+  granularityDisabledReason,
   disabled,
   extraPresets,
   extraSections,
@@ -99,6 +101,9 @@ export default function DateRangeComparePanel({
   /** Granularity is inert but still worth showing — e.g. a block inheriting the
    * dashboard date filter. */
   granularityDisabled?: boolean;
+  /** Why granularity is inert. A greyed-out control with no explanation reads as
+   * broken, so surfaces that disable it should say what would re-enable it. */
+  granularityDisabledReason?: string;
   disabled?: boolean;
   /** Rendered above the presets — e.g. the dashboard's "Chart Default" option. */
   extraPresets?: ReactNode;
@@ -150,6 +155,13 @@ export default function DateRangeComparePanel({
   // Both year modes can land here — `previousYear` past a calendar year, and
   // `previousYearMatchDayOfWeek` past its fixed 364-day shift.
   const overlappingModes = getOverlappingComparisonModes(dateRange);
+  // A mode picked while it was safe stays selected as the primary widens under
+  // it, so the selection itself can go stale. Disabling the option only stops
+  // re-picking it; Apply has to refuse the stale selection too.
+  const selectedModeOverlaps =
+    compareEnabled && overlappingModes.includes(mode);
+  // Named by the Select's own error instead, so don't repeat it in the list.
+  const unavailableModes = overlappingModes.filter((m) => m !== mode);
 
   // Left-hand month; the range end lands in the right-hand month.
   const monthForBounds = (endDate: string) =>
@@ -371,6 +383,11 @@ export default function DateRangeComparePanel({
                     size="md"
                     style={{ width: "100%" }}
                     disabled={disabled}
+                    error={
+                      selectedModeOverlaps
+                        ? `${COMPARISON_MODE_LABELS[mode]} would overlap this date range. Pick another comparison.`
+                        : undefined
+                    }
                     value={mode}
                     setValue={(next) =>
                       setDraft((prev) => ({
@@ -397,13 +414,13 @@ export default function DateRangeComparePanel({
                   </Select>
                 </LabeledRow>
 
-                {overlappingModes.length > 0 && (
+                {unavailableModes.length > 0 && (
                   <LabeledRow label="">
                     <Text size="sm" color="text-low">
-                      {`${overlappingModes
+                      {`${unavailableModes
                         .map((m) => COMPARISON_MODE_LABELS[m])
                         .join(" and ")} ${
-                        overlappingModes.length > 1 ? "are" : "is"
+                        unavailableModes.length > 1 ? "are" : "is"
                       } unavailable because the window would overlap this date range`}
                     </Text>
                   </LabeledRow>
@@ -461,6 +478,11 @@ export default function DateRangeComparePanel({
                 width={170}
               />
             </Flex>
+            {granularityDisabled && granularityDisabledReason && (
+              <HelperText status="info" mt="2">
+                {granularityDisabledReason}
+              </HelperText>
+            )}
           </Box>
         </>
       )}
@@ -480,7 +502,12 @@ export default function DateRangeComparePanel({
           </Button>
         )}
         <Button
-          disabled={disabled || isPartialRange || isInvalidLookback}
+          disabled={
+            disabled ||
+            isPartialRange ||
+            isInvalidLookback ||
+            selectedModeOverlaps
+          }
           onClick={() => onApply(draft)}
         >
           Apply

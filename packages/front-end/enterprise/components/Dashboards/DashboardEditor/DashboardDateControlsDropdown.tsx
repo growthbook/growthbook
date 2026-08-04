@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
-import { PiCalendarBlank, PiCaretDown } from "react-icons/pi";
+import { Box } from "@radix-ui/themes";
 import { dateGranularity } from "shared/validators";
 import type { ExplorationDateRange } from "shared/validators";
 import {
@@ -9,15 +8,11 @@ import {
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import UiTooltip from "@/ui/Tooltip";
-import { Popover } from "@/ui/Popover";
-import Button from "@/ui/Button";
-import Text from "@/ui/Text";
+import DateRangeTriggerPopover from "@/enterprise/components/ProductAnalytics/DateRangeTriggerPopover";
 import DateRangeComparePanel, {
   DateRangeCompareValue,
 } from "@/enterprise/components/ProductAnalytics/DateRangeComparePanel";
 import { comparisonSuffix } from "@/enterprise/components/ProductAnalytics/DateRangeCompareDropdown";
-import styles from "@/enterprise/components/ProductAnalytics/DateRangeCompareDropdown.module.scss";
 import {
   COMPARISON_MODE_LABELS,
   formatExplorationDateRange,
@@ -67,9 +62,9 @@ export default function DashboardDateControlsDropdown({
   const [open, setOpen] = useState(false);
   const activeDateRange = value ?? DEFAULT_DATE_RANGE;
   const triggerTooltip = getDisplayTooltip(value, comparison);
+  // No suffix on "Chart Default": there is no dashboard-wide window for a
+  // comparison to hang off, so "vs prior" would describe nothing.
   const suffix = value ? comparisonSuffix(value, comparison) : null;
-  // An explicit range needs roughly twice the room of the "prior" shorthand.
-  const maxWidth = suffix?.isExplicitRange ? 400 : 260;
 
   const chartDefaultOption = (
     <Box
@@ -113,104 +108,50 @@ export default function DashboardDateControlsDropdown({
   );
 
   return (
-    <Popover
+    <DateRangeTriggerPopover
       open={open}
       onOpenChange={setOpen}
-      align="end"
-      showArrow={false}
-      onInteractOutside={(event) => {
-        const target = event.target;
-        if (
-          target instanceof HTMLElement &&
-          target.closest("[data-radix-popper-content-wrapper]")
-        ) {
-          event.preventDefault();
-        }
-      }}
-      contentStyle={{ padding: 0, width: 640 }}
-      trigger={
-        <Button
-          className={styles.trigger}
-          variant="outline"
-          color="gray"
-          size="md"
-          disabled={disabled}
-          icon={<PiCalendarBlank aria-hidden />}
-          iconPosition="left"
-          style={{
-            justifyContent: "space-between",
-            backgroundColor: "var(--color-surface)",
-            maxWidth,
-          }}
-        >
-          <Flex align="center" gap="2" justify="between" width="100%">
-            {/* Inside the Button, not around it — Popover matches on
-                `trigger.type === Button` to pass `preventDefault`. */}
-            <UiTooltip
-              content={triggerTooltip ?? ""}
-              enabled={!!triggerTooltip}
-            >
-              <span
-                style={{
-                  flexGrow: 1,
-                  minWidth: 0,
-                  textAlign: "left",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {getDisplayLabel(value)}
-              </span>
-            </UiTooltip>
-            {suffix && (
-              <span style={{ whiteSpace: "nowrap", flexShrink: 0 }}>
-                <Text size="sm" color="text-low" weight="regular">
-                  vs {suffix.text}
-                </Text>
-              </span>
-            )}
-            <PiCaretDown aria-hidden style={{ flexShrink: 0 }} />
-          </Flex>
-        </Button>
-      }
-      content={
-        <DateRangeComparePanel
-          key={open ? "open" : "closed"}
-          value={{ dateRange: activeDateRange, comparison, granularity }}
-          disabled={disabled}
-          showCompare={!!onComparisonChange}
-          showGranularity
-          // "Chart Default" means each block keeps its own range, so there is
-          // no dashboard-wide series for a granularity to bucket.
-          granularityDisabled={!value}
-          extraPresets={chartDefaultOption}
-          onCancel={() => setOpen(false)}
-          onApply={(next: DateRangeCompareValue) => {
-            onChange(next.dateRange);
-            if (next.granularity && next.granularity !== granularity) {
-              onGranularityChange(next.granularity);
-            }
-            if (onComparisonChange) {
-              const nextComparison = next.comparison?.enabled
-                ? {
-                    ...next.comparison,
-                    ...(resolveComparisonMode(next.comparison) === "custom"
-                      ? {
-                          previousTimeFrame: resolveComparisonPreviousTimeFrame(
-                            next.dateRange,
-                            next.comparison,
-                          ),
-                        }
-                      : {}),
-                  }
-                : undefined;
-              onComparisonChange(nextComparison);
-            }
-            setOpen(false);
-          }}
-        />
-      }
-    />
+      label={getDisplayLabel(value)}
+      tooltip={triggerTooltip}
+      suffix={suffix}
+      disabled={disabled}
+    >
+      <DateRangeComparePanel
+        key={open ? "open" : "closed"}
+        value={{ dateRange: activeDateRange, comparison, granularity }}
+        disabled={disabled}
+        showCompare={!!onComparisonChange}
+        showGranularity
+        // "Chart Default" means each block keeps its own range, so there is
+        // no dashboard-wide series for a granularity to bucket.
+        granularityDisabled={!value}
+        granularityDisabledReason="Pick a dashboard-wide date range to set granularity. On Chart Default, each chart keeps its own."
+        extraPresets={chartDefaultOption}
+        onCancel={() => setOpen(false)}
+        onApply={(next: DateRangeCompareValue) => {
+          onChange(next.dateRange);
+          if (next.granularity && next.granularity !== granularity) {
+            onGranularityChange(next.granularity);
+          }
+          if (onComparisonChange) {
+            const nextComparison = next.comparison?.enabled
+              ? {
+                  ...next.comparison,
+                  ...(resolveComparisonMode(next.comparison) === "custom"
+                    ? {
+                        previousTimeFrame: resolveComparisonPreviousTimeFrame(
+                          next.dateRange,
+                          next.comparison,
+                        ),
+                      }
+                    : {}),
+                }
+              : undefined;
+            onComparisonChange(nextComparison);
+          }
+          setOpen(false);
+        }}
+      />
+    </DateRangeTriggerPopover>
   );
 }
