@@ -104,7 +104,7 @@ export const navlinks: SidebarLinkProps[] = [
       {
         name: "Explore",
         href: "/product-analytics/explore",
-        path: /^product-analytics\/explore(\/(?!funnel).*)?$/,
+        path: /^product-analytics\/explore(\/(?!funnel|sql).*)?$/,
       },
       {
         name: "Funnel Builder",
