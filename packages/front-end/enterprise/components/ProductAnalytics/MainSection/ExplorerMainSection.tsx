@@ -150,11 +150,11 @@ export default function ExplorerMainSection() {
           >
             {funnelMainEmpty ? (
               <>
-                <Text size="large" weight="medium">
+                <Text size="lg" weight="medium">
                   Done configuring steps?
                 </Text>
                 <Button
-                  size="lg"
+                  size="xl"
                   variant="solid"
                   disabled={
                     loading ||
@@ -176,7 +176,7 @@ export default function ExplorerMainSection() {
               <>
                 <PiChartLineUp size={48} style={{ color: "var(--gray-a9)" }} />
 
-                <Text size="large" weight="medium">
+                <Text size="lg" weight="medium">
                   Configure your explorer to visualize data
                 </Text>
               </>

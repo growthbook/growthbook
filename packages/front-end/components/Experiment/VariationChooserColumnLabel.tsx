@@ -183,7 +183,7 @@ export default function VariationChooserColumnLabel({
         <VariationLabel
           number={selectedVariation.index}
           name={selectedVariation.name}
-          size="small"
+          size="sm"
           disableTooltip
         />
       </Box>
@@ -209,24 +209,14 @@ export default function VariationChooserColumnLabel({
             ? "The variation being compared to the holdout."
             : "The variation being compared to the baseline."}
           {singleSelected && (
-            <div
-              className={`variation variation${filteredVariations[0]?.index} with-variation-label d-flex mt-1 align-items-top`}
-              style={{ marginBottom: 2 }}
-            >
-              <span
-                className="label mr-1"
-                style={{
-                  width: 16,
-                  height: 16,
-                  marginTop: 2,
-                }}
-              >
-                {filteredVariations[0]?.index}
-              </span>
-              <span className="font-weight-bold">
-                {filteredVariations[0]?.name}
-              </span>
-            </div>
+            <Box mt="1" style={{ marginBottom: 2 }}>
+              <VariationLabel
+                number={filteredVariations[0]?.index ?? 0}
+                name={filteredVariations[0]?.name ?? ""}
+                size="md"
+                disableTooltip
+              />
+            </Box>
           )}
         </div>
       }
@@ -258,7 +248,7 @@ export default function VariationChooserColumnLabel({
     >
       <DropdownMenuGroup>
         <DropdownMenuLabel
-          textSize="1"
+          textSize="sm"
           textStyle={{ textTransform: "uppercase", fontWeight: 600 }}
         >
           Show Variations

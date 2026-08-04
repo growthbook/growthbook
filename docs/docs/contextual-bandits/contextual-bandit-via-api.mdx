@@ -70,7 +70,43 @@ Required fields are `name`, `trackingKey`, `datasource`, `contextualBanditQueryI
 
 The response includes the new Contextual Bandit id (`cb_…`). The CB is provisioned in `status: "draft"` with an empty `currentLeafWeights` array at the document root; it stays empty until the first successful refresh.
 
-## 3. Start the Contextual Bandit
+## 3. Link a Feature Flag
+
+A Contextual Bandit serves its variations through a `contextual-bandit-ref` rule on a Feature Flag, and it needs at least one linked Feature Flag before it can start. Create the flag first with `POST /v2/features`, then link it:
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits/cb_xxx/linked-feature/homepage-cta' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "variations": [
+      { "variationId": "0", "value": "Sign up" },
+      { "variationId": "1", "value": "Get started free" }
+    ]
+  }'
+```
+
+`variations` must cover every Contextual Bandit variation exactly once — `variationId` is the `id` of each entry in the CB's `variations` array, not its `key`. Targeting (`condition`, saved groups, prerequisites, `coverage`) lives on the Contextual Bandit and is inherited by the rule, so those fields are not accepted here.
+
+The rule is appended to the bottom of the flag's rule list in a new draft revision, which auto-publishes when you start the Contextual Bandit. Pass `"autoPublish": true` to publish it right away, or `"draftVersion": 7` to add the rule to an existing draft instead of starting a new one. By default the rule applies to every environment; pass `"allEnvironments": false` with `"environments": ["production"]` to narrow it.
+
+Response:
+
+```json
+{
+  "featureId": "homepage-cta",
+  "ruleId": "fr_abc123",
+  "revisionVersion": 4,
+  "published": false
+}
+```
+
+Two companion endpoints round this out:
+
+- `GET /v1/contextual-bandits/:id/linked-features` — the linked flags enriched with live/draft state, per-environment rule state, and variation values (the same payload the CB detail page renders).
+- `DELETE /v1/contextual-bandits/:id/linked-feature/:featureId` — removes every `contextual-bandit-ref` rule pointing at this bandit from the flag and drops the linkage. Like the POST, the removal lands in a draft unless you pass `?autoPublish=true`. When the flag has no such rule left, only the linkage is cleared.
+
+## 4. Start the Contextual Bandit
 
 Move the CB out of `draft` (to `status: "running"`) so it is eligible for refresh:
 
@@ -81,7 +117,7 @@ curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits/cb_xxx/start' 
 
 The response returns the updated CB: `{ "contextualBandit": { … } }`.
 
-## 4. Refresh — run a snapshot
+## 5. Refresh — run a snapshot
 
 Triggers the contextual-bandit snapshot pipeline. The orchestrator builds frozen settings, opens a ContextualBanditSnapshot (CBS) doc, runs the warehouse query and the stats engine, and on success persists a ContextualBanditEvent (CBE) with the new per-leaf weights. Each successful snapshot increments the CB's `banditVersion`.
 
@@ -98,7 +134,7 @@ Response shape:
 
 `cbeId` is omitted when the run failed before producing an event (the CBS doc will be in `status: "error"`).
 
-## 5. Read the latest results
+## 6. Read the latest results
 
 Returns the same payload the GrowthBook UI uses to render the CB results table — the latest stats engine output plus a snapshot-status summary.
 
@@ -113,8 +149,15 @@ Response (abbreviated; `contextualBanditSnapshot` and `latest` are each `null` u
 {
   "contextualBanditSnapshot": {
     "attributes": ["country"],
-    "responses": [ /* per-context stats rows from the stats engine */ ],
-    "leaf_map": [ /* optional decision-tree leaf mapping */ ]
+    "responses": [ /* per-context stats rows (each tagged with its `leafId`) */ ],
+    "leaf_map": [
+      /* one entry per decision-tree leaf; `context` is the AND of per-attribute
+         clauses, e.g.
+         { "leafId": 2, "context": [
+             { "attribute": "country", "levels": ["US", "UK"], "operator": "in" },
+             { "attribute": "browser", "levels": ["Chrome", "Firefox"], "operator": "not in" }
+         ] } */
+    ]
   },
   "latest": {
     "id": "cbs_abc",
@@ -146,10 +189,27 @@ The `/current` response looks like:
 {
   "currentLeafWeights": [
     {
-      "contextId": "country=US",
+      "leafId": 0,
+      "condition": { "country": "US" },
       "weights": [
         { "variationId": "0", "weight": 0.38 },
         { "variationId": "1", "weight": 0.62 }
+      ]
+    },
+    {
+      "leafId": 1,
+      "condition": { "country": { "$in": ["US", "UK"] } },
+      "weights": [
+        { "variationId": "0", "weight": 0.41 },
+        { "variationId": "1", "weight": 0.59 }
+      ]
+    },
+    {
+      "leafId": 2,
+      "condition": { "browser": { "$nin": ["Chrome", "Firefox"] } },
+      "weights": [
+        { "variationId": "0", "weight": 0.55 },
+        { "variationId": "1", "weight": 0.45 }
       ]
     }
   ],
@@ -164,7 +224,7 @@ The `/current` response looks like:
 }
 ```
 
-## 6. Stop the Contextual Bandit
+## 7. Stop the Contextual Bandit
 
 When you're done, stop the CB:
 
@@ -191,6 +251,7 @@ Permissions are checked directly against the Contextual Bandit doc (CBs no longe
 - **Update** (`PUT /:id`) — `canUpdateContextualBandit(existing, updated)`.
 - **Run** (`POST refresh`, `POST start`, `POST stop`) — `canRunContextualBandit(cb, environments)`.
 - **Delete** (`DELETE /:id`) — `canDeleteContextualBandit(cb)`.
+- **Link / unlink a Feature Flag** (`POST` / `DELETE /:id/linked-feature/:featureId`) — `canUpdateContextualBandit` on the bandit, plus `canUpdateFeature`, `canManageFeatureDrafts`, and `canPublishFeature` (scoped to the rule's environments) on the Feature Flag.
 
 Contextual Bandit Query create/update/delete are gated by the datasource: you need `canUpdateDataSourceSettings` on the query's datasource.
 

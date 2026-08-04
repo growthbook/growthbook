@@ -60,7 +60,7 @@ export default function AgentChatHistory({
       <DropdownMenuSeparator />
       {conversations.length === 0 ? (
         <Box px="3" py="2">
-          <Text size="small" color="text-low">
+          <Text size="sm" color="text-low">
             No previous chats yet.
           </Text>
         </Box>

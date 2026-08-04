@@ -44,8 +44,9 @@ import {
 } from "@/components/Experiment/ResultsFilter/ResultsFilter";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
+import VariationLabel from "@/ui/VariationLabel";
 import Link from "@/ui/Link";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import TagsInput from "@/components/Tags/TagsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { SingleValue } from "@/components/Forms/SelectField";
@@ -73,7 +74,7 @@ import {
   useDashboardSnapshot,
   DashboardSnapshotContext,
 } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
-import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
+import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor/dashboardBlockTypes";
 import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/util";
 import MetricExplorerSettings from "./MetricExplorerSettings";
 import ProductAnalyticsExplorerSettings from "./ProductAnalyticsExplorerSettings";
@@ -927,6 +928,7 @@ export default function EditSingleBlock({
             )}
             {blockHasFieldOfType(block, "factMetricId", isString) && (
               <SelectField
+                size="legacy"
                 label="Metric"
                 labelClassName="font-weight-bold"
                 value={block.factMetricId}
@@ -976,6 +978,7 @@ export default function EditSingleBlock({
                 <>
                   <Box>
                     <MultiSelectField
+                      legacyHeight
                       label="Metrics"
                       labelClassName="font-weight-bold"
                       placeholder="All Metrics"
@@ -1226,6 +1229,7 @@ export default function EditSingleBlock({
                   ) &&
                     sliceOptions.length > 0 && (
                       <MultiSelectField
+                        legacyHeight
                         label="Slices"
                         labelClassName="font-weight-bold"
                         placeholder="Type to search..."
@@ -1266,6 +1270,7 @@ export default function EditSingleBlock({
                     shouldShowEditorField(block, "sortBy") &&
                     sortByOptions.length > 1 && (
                       <SelectField
+                        size="legacy"
                         label="Sort by"
                         labelClassName="font-weight-bold"
                         containerClassName="mb-0"
@@ -1299,6 +1304,7 @@ export default function EditSingleBlock({
                     (block.sortBy === "significance" ||
                       block.sortBy === "change") && (
                       <SelectField
+                        size="legacy"
                         label="Sort direction"
                         labelClassName="font-weight-bold"
                         containerClassName="mb-0"
@@ -1322,6 +1328,7 @@ export default function EditSingleBlock({
               )}
             {blockHasFieldOfType(block, "dimensionId", isString) && (
               <SelectField
+                size="legacy"
                 required
                 markRequired
                 label="Dimension"
@@ -1337,6 +1344,7 @@ export default function EditSingleBlock({
             {blockHasFieldOfType(block, "differenceType", isDifferenceType) &&
               shouldShowEditorField(block, "differenceType") && (
                 <SelectField
+                  size="legacy"
                   label="Difference Type"
                   labelClassName="font-weight-bold"
                   containerClassName="mb-0"
@@ -1356,6 +1364,7 @@ export default function EditSingleBlock({
             {blockHasFieldOfType(block, "baselineRow", isNumber) &&
               shouldShowEditorField(block, "baselineRow") && (
                 <SelectField
+                  size="legacy"
                   sort={false}
                   label="Baseline"
                   labelClassName="font-weight-bold"
@@ -1375,31 +1384,19 @@ export default function EditSingleBlock({
                       : []
                   }
                   formatOptionLabel={({ value, label }) => (
-                    <div
-                      className={`variation variation${value} with-variation-label d-flex align-items-center`}
-                    >
-                      <span
-                        className="label"
-                        style={{ width: 20, height: 20, flex: "none" }}
-                      >
-                        {value}
-                      </span>
-                      <span
-                        className="d-inline-block"
-                        style={{
-                          width: 150,
-                          lineHeight: "14px",
-                        }}
-                      >
-                        {label}
-                      </span>
-                    </div>
+                    <VariationLabel
+                      number={parseInt(value)}
+                      name={label}
+                      size="md"
+                      maxWidth="170px"
+                    />
                   )}
                 />
               )}
             {blockHasFieldOfType(block, "variationIds", isStringArray) &&
               shouldShowEditorField(block, "variationIds") && (
                 <MultiSelectField
+                  legacyHeight
                   sort={false}
                   label="Variations"
                   labelClassName="font-weight-bold"
@@ -1416,31 +1413,19 @@ export default function EditSingleBlock({
                         )
                       : -1;
                     return (
-                      <div
-                        className={`variation variation${varIndex} with-variation-label d-flex align-items-center`}
-                      >
-                        <span
-                          className="label"
-                          style={{ width: 20, height: 20, flex: "none" }}
-                        >
-                          {varIndex}
-                        </span>
-                        <span
-                          className="d-inline-block"
-                          style={{
-                            width: 150,
-                            lineHeight: "14px",
-                          }}
-                        >
-                          {label}
-                        </span>
-                      </div>
+                      <VariationLabel
+                        number={varIndex}
+                        name={label}
+                        size="md"
+                        maxWidth="170px"
+                      />
                     );
                   }}
                 />
               )}
             {blockHasFieldOfType(block, "dimensionValues", isStringArray) && (
               <MultiSelectField
+                legacyHeight
                 label="Dimension Values"
                 labelClassName="font-weight-bold"
                 placeholder="Showing all values"
@@ -1565,6 +1550,7 @@ export default function EditSingleBlock({
                 ) : (
                   <>
                     <SelectField
+                      size="legacy"
                       required
                       labelClassName="font-weight-bold flex-grow-1"
                       containerClassName="mb-0"

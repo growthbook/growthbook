@@ -346,6 +346,7 @@ export default function CodeTextArea({
 
   return (
     <Field
+      size="legacy"
       {...fieldProps}
       containerClassName={clsx(fullHeight ? "h-100" : "", containerClassName)}
       render={(id) => {
@@ -384,7 +385,7 @@ export default function CodeTextArea({
                   </label>
                   <Button
                     type="button"
-                    size="xs"
+                    size="sm"
                     color="gray"
                     variant="ghost"
                     onClick={() => setIsFullscreen(false)}

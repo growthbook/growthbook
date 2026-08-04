@@ -14,7 +14,7 @@ export default function HoldoutEnvironments({
   return (
     <Frame>
       <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-2">
-        <Heading color="text-high" as="h4" size="small" mb="0">
+        <Heading color="text-high" as="h4" size="sm" mb="0">
           Included Environments
         </Heading>
         <div className="flex-1" />

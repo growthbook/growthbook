@@ -68,7 +68,7 @@ function FunnelCard({
     >
       <Flex justify="between" align="center" gap="3">
         <Flex align="baseline" gap="2" wrap="wrap">
-          <Text size="large" weight="medium" color={titleColor}>
+          <Text size="lg" weight="medium" color={titleColor}>
             {title}
           </Text>
           {inlineSummary ? (
@@ -102,7 +102,7 @@ function FunnelConnector({ label }: { label?: ReactNode }) {
         <PiCaretDownBold size="11" />
       </Box>
       {label ? (
-        <Text size="small" color="text-low" my="1">
+        <Text size="sm" color="text-low" my="1">
           {label}
         </Text>
       ) : null}
@@ -135,7 +135,7 @@ function VariationFork({ count, label }: { count: number; label?: ReactNode }) {
       {label ? (
         <Flex direction="column" align="center" justify="center" mb="1">
           <Box className={styles.connectorLine} height="12px" />
-          <Text size="small" color="text-low">
+          <Text size="sm" color="text-low">
             {label}
           </Text>
         </Flex>
@@ -220,7 +220,7 @@ export default function TrafficAllocationFunnel({
   return (
     <Frame>
       <Flex justify="between" align="center" mb="4">
-        <Heading color="text-high" as="h4" size="small" mb="0">
+        <Heading color="text-high" as="h4" size="sm" mb="0">
           Traffic Allocation
         </Heading>
         {!isHoldout &&
@@ -245,7 +245,7 @@ export default function TrafficAllocationFunnel({
                 title="Namespace"
                 onEdit={editNamespace}
                 inlineSummary={
-                  <Text size="large" color="text-mid">
+                  <Text size="lg" color="text-mid">
                     {namespaceName}
                   </Text>
                 }
@@ -261,7 +261,7 @@ export default function TrafficAllocationFunnel({
             onEdit={editTargeting}
             inlineSummary={
               hasConfiguredTargeting ? undefined : (
-                <Text size="large">
+                <Text size="lg">
                   <em>Everyone</em>
                 </Text>
               )

@@ -412,7 +412,7 @@ export default function FeaturesHeader({
         <Box>
           <Flex align="start" justify="between" gap="2">
             <Flex align="center" mb="2" gap="3" style={{ marginTop: "-4px" }}>
-              <Heading size="x-large" as="h1" mb="0">
+              <Heading size="xl" as="h1" mb="0">
                 {feature.id}
               </Heading>
               <FeatureStatusBadge
@@ -487,6 +487,20 @@ export default function FeaturesHeader({
               />
             )}
 
+            {(feature.targetingAllProjects ||
+              (feature.targetingProjects?.length ?? 0) > 0) && (
+              <Metadata
+                label="Targeting Projects"
+                value={
+                  feature.targetingAllProjects
+                    ? "All Projects"
+                    : (feature.targetingProjects ?? [])
+                        .map((id) => getProjectById(id)?.name || id)
+                        .join(", ")
+                }
+              />
+            )}
+
             <Box>
               <Text weight="medium">Feature Key: </Text>
               {feature.id || "-"}
@@ -549,7 +563,7 @@ export default function FeaturesHeader({
           <div className="container-fluid pagecontents px-3">
             <div className="header-tabs">
               <Tabs value={tab} onValueChange={setTab}>
-                <TabsList size="3" style={{ width: "100%" }}>
+                <TabsList size="lg" style={{ width: "100%" }}>
                   <TabsTrigger value="overview">Overview</TabsTrigger>
                   <TabsTrigger value="review">
                     Review &amp; Publish

@@ -5,11 +5,11 @@ import { startCase } from "lodash";
 import { ApiContextualBanditInterface } from "shared/validators";
 import {
   expandMetricGroups,
-  leafConditionFromContexts,
+  conditionFromLeafClauses,
 } from "shared/experiments";
 import type {
   ContextualBanditResultsLeaf,
-  ContextualBanditResultsContext,
+  ContextualLeafClause,
 } from "shared/experiments";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -38,27 +38,15 @@ function shouldShowUpdateMessage(message: string | null | undefined): boolean {
   return message.trim().toLowerCase() !== "successfully updated";
 }
 
-function LeafContextsLabel({
-  contexts,
-  attributeOrder,
-}: {
-  contexts: ContextualBanditResultsContext[];
-  attributeOrder: string[];
-}) {
+function LeafContextsLabel({ clauses }: { clauses: ContextualLeafClause[] }) {
   const condition = useMemo(
-    () =>
-      JSON.stringify(
-        leafConditionFromContexts(
-          contexts.map((ctx) => ctx.attributes),
-          attributeOrder,
-        ),
-      ),
-    [contexts, attributeOrder],
+    () => JSON.stringify(conditionFromLeafClauses(clauses)),
+    [clauses],
   );
 
-  if (!contexts.length || condition === "{}") {
+  if (!clauses.length || condition === "{}") {
     return (
-      <Text size="medium" color="text-low">
+      <Text size="md" color="text-low">
         All contexts
       </Text>
     );
@@ -104,7 +92,7 @@ function VariationLabel({
         {index}
       </Flex>
       {hideName ? null : (
-        <Text size="medium" weight="medium" truncate={truncate}>
+        <Text size="md" weight="medium" truncate={truncate}>
           {name}
         </Text>
       )}
@@ -204,10 +192,10 @@ function OverallWeights({
           }}
         >
           <VariationLabel index={card.index} name={card.name} truncate />
-          <Heading as="h4" size="x-large" weight="medium" mt="2">
+          <Heading as="h4" size="xl" weight="medium" mt="2">
             {card.weight === null ? "—" : formatWeight(card.weight)}
           </Heading>
-          <Text size="small" color="text-low">
+          <Text size="sm" color="text-low">
             {numberFormatter.format(card.units)} {unitDisplayName.toLowerCase()}
           </Text>
         </Box>
@@ -274,11 +262,6 @@ export default function ContextualBanditResultsTable({
   const variations = cb.variations;
   const numVariations = variations.length;
 
-  const attributes = useMemo(
-    () => results?.attributes ?? [],
-    [results?.attributes],
-  );
-
   const leaves = useMemo(() => results?.leaves ?? [], [results?.leaves]);
   const hasTableData = leaves.length > 0;
 
@@ -337,7 +320,7 @@ export default function ContextualBanditResultsTable({
           shouldShowUpdateMessage(leaf.updateMessage) || leaf.error ? (
             <>
               {shouldShowUpdateMessage(leaf.updateMessage) ? (
-                <Text size="small" color="text-low" as="div" mt="1">
+                <Text size="sm" color="text-low" as="div" mt="1">
                   {leaf.updateMessage}
                 </Text>
               ) : null}
@@ -353,15 +336,12 @@ export default function ContextualBanditResultsTable({
           key: `leaf-${leaf.leafId}`,
           label: (
             <Box>
-              <LeafContextsLabel
-                contexts={leaf.contexts}
-                attributeOrder={attributes}
-              />
+              <LeafContextsLabel clauses={leaf.clauses} />
               {messageNode}
             </Box>
           ),
           leading: [
-            <Text key="units" size="medium" color="text-mid">
+            <Text key="units" size="md" color="text-mid">
               {numberFormatter.format(leafTotalSampleSize(leaf))}
             </Text>,
           ],
@@ -370,7 +350,7 @@ export default function ContextualBanditResultsTable({
           })),
         };
       }),
-    [leavesBySampleSize, attributes, mode, numVariations],
+    [leavesBySampleSize, mode, numVariations],
   );
 
   const headerActions = (
@@ -436,7 +416,7 @@ export default function ContextualBanditResultsTable({
   return (
     <Box>
       <Flex justify="between" align="center" mb="3" gap="4" wrap="wrap">
-        <Heading as="h3" size="small">
+        <Heading as="h3" size="sm">
           Overall Weights
         </Heading>
         {headerActions}
@@ -478,7 +458,7 @@ export default function ContextualBanditResultsTable({
             gap="3"
             wrap="wrap"
           >
-            <Heading as="h3" size="small">
+            <Heading as="h3" size="sm">
               Comparison
             </Heading>
             <SegmentedControl.Root

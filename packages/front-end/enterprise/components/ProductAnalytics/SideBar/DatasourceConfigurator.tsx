@@ -298,6 +298,7 @@ export default function DatasourceConfigurator({
             )}
           </Flex>
           <SelectField
+            size="legacy"
             value={databaseDataset?.table || ""}
             onChange={(value) => {
               const selectedTable = tableOptions.find(
@@ -344,8 +345,8 @@ export default function DatasourceConfigurator({
                   open={dropdownOpen}
                   onOpenChange={setDropdownOpen}
                   trigger={
-                    <Button size="xs" variant="ghost">
-                      <Text weight="semibold" size="small">
+                    <Button size="sm" variant="ghost">
+                      <Text weight="semibold" size="sm">
                         {!databaseDataset?.timestampColumn
                           ? "select"
                           : "change"}

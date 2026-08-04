@@ -8,6 +8,7 @@ import {
   liveRevisionFromFeature,
   MatchingRule,
   mergeResultHasChanges,
+  reconcileMergeBaselines,
   resetReviewOnChange,
   checkIfRevisionNeedsReview,
 } from "shared/util";
@@ -615,7 +616,21 @@ export async function publishPendingFeatureDraftsForExperiment(
         { experimentId: experiment.id, featureId, revisionVersion },
         "Discarding no-op pending feature draft on experiment start",
       );
-      await discardRevision(context, revision, context.auditUser);
+      try {
+        await discardRevision(
+          context,
+          revision,
+          context.auditUser,
+          feature.version,
+        );
+      } catch (err) {
+        logger.error(
+          { err, experimentId: experiment.id, featureId, revisionVersion },
+          "Failed to discard no-op pending feature draft on experiment start",
+        );
+        failed.push({ featureId, revisionVersion, reason: "publish-error" });
+        break;
+      }
       await removePendingFeatureDraftFromExperiment(
         context,
         experiment.id,
@@ -761,7 +776,18 @@ export async function publishPendingFeatureDraftsForContextualBandit(
       feature,
       revision,
     });
-    const mergeResult = autoMerge(live, base, revision, orgEnvIds, {});
+    const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+      feature,
+      live,
+      base,
+    );
+    const mergeResult = autoMerge(
+      mergeLive,
+      mergeBase,
+      revision,
+      orgEnvIds,
+      {},
+    );
     if (!mergeResult.success) {
       logger.warn(
         {
@@ -784,11 +810,6 @@ export async function publishPendingFeatureDraftsForContextualBandit(
         result: mergeResult.result,
         comment: `Contextual Bandit "${cb.name}" started`,
       });
-      await cbModel.removePendingFeatureDraft(
-        cb.id,
-        featureId,
-        revisionVersion,
-      );
       published.push({ featureId, revisionVersion });
     } catch (err) {
       logger.error(

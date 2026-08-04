@@ -83,7 +83,7 @@ export default function MetricTabContent() {
   return (
     <Flex direction="column" gap="4">
       {!values.length && (
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           Add at least one metric to chart
         </Text>
       )}
@@ -95,6 +95,7 @@ export default function MetricTabContent() {
           <ValueCard key={idx} index={idx}>
             <Flex direction="column">
               <SelectField
+                size="legacy"
                 className={styles.metricSelect}
                 value={v.metricId}
                 disabled={
@@ -169,7 +170,7 @@ export default function MetricTabContent() {
         );
       })}
       <Button
-        size="sm"
+        size="md"
         variant="outline"
         onClick={() => addValueToDataset("metric")}
       >

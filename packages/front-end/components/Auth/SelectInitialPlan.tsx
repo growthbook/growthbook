@@ -145,7 +145,7 @@ const SelectInitialPlan: FC = () => {
                     justify="between"
                     gap="2"
                   >
-                    <Heading as="h2" size="small">
+                    <Heading as="h2" size="sm">
                       Starter
                     </Heading>
                     <Text color="text-low">Free</Text>
@@ -191,7 +191,7 @@ const SelectInitialPlan: FC = () => {
                     justify="between"
                     gap="2"
                   >
-                    <Heading as="h2" size="small">
+                    <Heading as="h2" size="sm">
                       Pro
                     </Heading>
                     <Text color="text-low">Starts at $40/month</Text>
@@ -273,7 +273,7 @@ const SelectInitialPlan: FC = () => {
         </Callout>
       )}
       <Flex align="center" justify="center" mt="3">
-        <Text size="medium" color="text-low">
+        <Text size="md" color="text-low">
           <a
             href="#"
             onClick={(e) => {
@@ -316,6 +316,7 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
         Enter your billing information. You can add your payment method next.
       </Text>
       <Field
+        size="legacy"
         type="email"
         required={true}
         label="Billing email"
@@ -325,6 +326,7 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
       <Flex gap="4">
         <Box style={{ flex: 1 }}>
           <SelectField
+            size="legacy"
             label="Tax ID type"
             options={taxIdTypeOptions}
             value={form.watch("taxIdType") || ""}
@@ -335,6 +337,7 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
         </Box>
         <Box style={{ flex: 1 }}>
           <Field
+            size="legacy"
             type="text"
             {...form.register("taxIdValue")}
             placeholder="(optional)"

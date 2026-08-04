@@ -46,7 +46,7 @@ import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Modal from "@/components/Modal";
 import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -291,7 +291,7 @@ export default function FeatureValueField({
           disabled={disabled}
         />
         {helpText && (
-          <Text as="p" size="small" color="text-low">
+          <Text as="p" size="sm" color="text-low">
             {helpText}
           </Text>
         )}
@@ -343,7 +343,7 @@ export default function FeatureValueField({
           />
         </div>
         {helpText && (
-          <Text as="p" size="small" color="text-low">
+          <Text as="p" size="sm" color="text-low">
             {helpText}
           </Text>
         )}
@@ -527,7 +527,7 @@ export default function FeatureValueField({
                       <Text as="label" weight="medium">
                         Additional overrides
                       </Text>
-                      <Text as="p" size="small" color="text-low" mb="0">
+                      <Text as="p" size="sm" color="text-low" mb="0">
                         Nested objects deep-merge onto the config; arrays and
                         scalars replace.
                       </Text>
@@ -565,7 +565,7 @@ export default function FeatureValueField({
             )}
           </Box>
           {helpText && (
-            <Text as="p" size="small" color="text-low">
+            <Text as="p" size="sm" color="text-low">
               {helpText}
             </Text>
           )}
@@ -839,7 +839,7 @@ export default function FeatureValueField({
             disabled={disabled}
           />
           {helpText && (
-            <Text as="p" size="small" color="text-low">
+            <Text as="p" size="sm" color="text-low">
               {helpText}
             </Text>
           )}

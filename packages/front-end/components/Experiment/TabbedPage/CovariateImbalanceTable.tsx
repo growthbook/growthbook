@@ -4,7 +4,7 @@ import {
   MetricVariationCovariateImbalanceResult,
 } from "shared/health";
 import { useMemo, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import { pValueFormatter } from "@/services/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
@@ -16,6 +16,7 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 import Text from "@/ui/Text";
+import VariationLabel from "@/ui/VariationLabel";
 
 export interface Props {
   covariateImbalanceResult: CovariateImbalanceResult | null;
@@ -129,7 +130,7 @@ function CovariateImbalanceTableSection({
   if (!rows.length) return null;
   return (
     <Box mb="4">
-      <Table size="1" layout="fixed" mx="2" mt="0" mb="2">
+      <Table size="sm" layout="fixed" mx="2" mt="0" mb="2">
         <TableHeader>
           <TableRow>
             <TableColumnHeader width={covariateImbalanceColumnWidths.metric}>
@@ -179,28 +180,13 @@ function CovariateImbalanceTableSection({
                 <TableCell width={covariateImbalanceColumnWidths.metric}>
                   <b>{metric?.name ?? row.metricId}</b>
                 </TableCell>
-                <TableCell
-                  width={covariateImbalanceColumnWidths.variation}
-                  className={
-                    hasData
-                      ? `variation with-variation-label variation${row.variation}`
-                      : undefined
-                  }
-                >
+                <TableCell width={covariateImbalanceColumnWidths.variation}>
                   {hasData ? (
-                    <Flex align="center" gap="2">
-                      <Box
-                        as="span"
-                        className="label"
-                        style={{
-                          width: 20,
-                          height: 20,
-                        }}
-                      >
-                        {row.variation}
-                      </Box>{" "}
-                      {variation?.name ?? ""}
-                    </Flex>
+                    <VariationLabel
+                      number={row.variation}
+                      name={variation?.name ?? ""}
+                      size="md"
+                    />
                   ) : (
                     <Text as="span" color="text-low">
                       <i>No data</i>
@@ -291,7 +277,7 @@ function CovariateImbalanceTableSection({
         <Box mx="2">
           <Button
             variant="ghost"
-            size="xs"
+            size="sm"
             onClick={() =>
               setVisibleRowCount((count) =>
                 Math.min(count + SHOW_MORE_CHUNK_SIZE, rows.length),

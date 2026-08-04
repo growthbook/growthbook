@@ -6,6 +6,7 @@ import {
   FactTableInterface,
   FactMetricInterface,
 } from "shared/types/fact-table";
+import { isEventForwarderEventsFactTable } from "shared/util";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
@@ -20,6 +21,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import ColumnList from "@/components/FactTables/ColumnList";
 import AggregatedFactTablesCard from "@/components/FactTables/AggregatedFactTablesCard";
 import FactFilterList from "@/components/FactTables/FactFilterList";
+import VirtualColumnList from "@/components/FactTables/VirtualColumnList";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PageHead from "@/components/Layout/PageHead";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
@@ -135,7 +137,13 @@ export default function FactTablePage() {
   let canEdit = permissionsUtil.canUpdateFactTable(factTable, factTable);
   let canDelete = permissionsUtil.canDeleteFactTable(factTable);
 
-  if (factTable.managedBy && ["api", "config"].includes(factTable.managedBy)) {
+  // The Event Forwarder Events fact table is `managedBy: "api"` but is
+  // intentionally user-editable for now.
+  if (
+    factTable.managedBy &&
+    ["api", "config"].includes(factTable.managedBy) &&
+    !isEventForwarderEventsFactTable(factTable, factTable.datasource)
+  ) {
     canEdit = false;
     canDelete = false;
   }
@@ -147,6 +155,9 @@ export default function FactTablePage() {
 
   const numMetrics = metrics.length;
   const numFilters = factTable.filters.length;
+  const numVirtualColumns = factTable.columns.filter(
+    (c) => c.isVirtual && !c.deleted,
+  ).length;
 
   return (
     <div className="pagecontents container-fluid">
@@ -272,7 +283,7 @@ export default function FactTablePage() {
       )}
       <Flex align="start" justify="between" gap="2" mb="2">
         <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
-          <Heading size="x-large" as="h1" mb="0">
+          <Heading size="xl" as="h1" mb="0">
             {factTable.name}
             <OfficialBadge
               ml="2"
@@ -561,6 +572,15 @@ export default function FactTablePage() {
               radius="full"
             />
           </TabsTrigger>
+          <TabsTrigger value="virtual-columns">
+            Virtual Columns{" "}
+            <Badge
+              label={numVirtualColumns + ""}
+              color="violet"
+              ml="1"
+              radius="full"
+            />
+          </TabsTrigger>
         </TabsList>
 
         <Box pt="4">
@@ -588,6 +608,20 @@ export default function FactTablePage() {
             </Text>
             <div className="appbox p-3 flex-1">
               <FactFilterList factTable={factTable} />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="virtual-columns">
+            <h3>Virtual Columns</h3>
+            <Text as="div" mb="2" color="text-mid">
+              Virtual Columns let you define computed columns from your existing
+              fact table columns — arithmetic on numbers, concatenation on
+              strings, date math, or any expression that can be computed from a
+              single row. Once created, a virtual column can be used in Fact
+              Metrics, row filters, and slices.
+            </Text>
+            <div className="appbox p-3 flex-1">
+              <VirtualColumnList factTable={factTable} />
             </div>
           </TabsContent>
         </Box>

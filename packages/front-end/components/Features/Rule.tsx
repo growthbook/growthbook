@@ -8,7 +8,11 @@ import { CSS } from "@dnd-kit/utilities";
 import React, { forwardRef, ReactElement, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
+import {
+  filterEnvironmentsByFeature,
+  getReviewSetting,
+  getTargetingProjectIds,
+} from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { RxCircleBackslash } from "react-icons/rx";
 import {
@@ -68,6 +72,7 @@ import HelperText from "@/ui/HelperText";
 import Badge from "@/ui/Badge";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RuleEnvScopeBadges from "@/components/Features/RuleEnvScopeBadges";
+import RuleProjectScopeBadges from "@/components/Features/RuleProjectScopeBadges";
 import RuleCard from "@/components/Features/RuleCard";
 import DraftSelectorForChanges, {
   DraftMode,
@@ -507,6 +512,61 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       );
     }
 
+    // Surface the experiment's scheduled start/end + what happens at the end,
+    // so a linked feature rule shows the automation at a glance (analogous to
+    // the simple-schedule "Starts …/Disables …" tag on forced rules). Only
+    // relevant while the schedule is still ahead of the experiment.
+    if (
+      linkedExperiment &&
+      linkedExperiment.status !== "stopped" &&
+      linkedExperiment.statusUpdateSchedule
+    ) {
+      const sched = linkedExperiment.statusUpdateSchedule;
+      const shipping = linkedExperiment.statusUpdateSchedule?.scheduledStopPlan;
+
+      if (linkedExperiment.status === "draft" && sched.startAt) {
+        ruleTags.push(
+          <Badge
+            key="exp-start"
+            color="violet"
+            variant="soft"
+            label={`Starts ${fmtScheduleDate(sched.startAt)}`}
+          />,
+        );
+      }
+
+      const endDescriptor = sched.stopAt
+        ? `on ${fmtScheduleDate(sched.stopAt)}`
+        : sched.stopAfter
+          ? `${sched.stopAfter.value} ${sched.stopAfter.unit} after start`
+          : null;
+      if (endDescriptor) {
+        const mode = shipping?.mode ?? "notify";
+        let action: string;
+        if (mode === "auto-ship") {
+          action = "Ships winner";
+        } else if (mode === "force-ship") {
+          const v = linkedExperiment.variations.find(
+            (x) => x.id === shipping?.fallbackVariationId,
+          );
+          action = `Ships ${v?.name || "a variation"}`;
+        } else if (mode === "stop") {
+          action = "Stops";
+        } else {
+          // notify is soft — the experiment keeps running past the date.
+          action = "Notifies";
+        }
+        ruleTags.push(
+          <Badge
+            key="exp-end"
+            color="violet"
+            variant="soft"
+            label={`${action} ${endDescriptor}`}
+          />,
+        );
+      }
+    }
+
     if (
       rampSchedule &&
       !rampControlsLocked &&
@@ -526,7 +586,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         ruleCtas.push(
           <Button
             key="ramp-start"
-            size="xs"
+            size="sm"
             variant="solid"
             onClick={async () => {
               await apiCall(
@@ -546,7 +606,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         ruleCtas.push(
           <Button
             key="ramp-resume"
-            size="xs"
+            size="sm"
             variant="solid"
             onClick={async () => {
               await apiCall(
@@ -573,7 +633,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         ruleCtas.push(
           <Button
             key="ramp-approve"
-            size="xs"
+            size="sm"
             variant="solid"
             loading={rampApproveLoading}
             onClick={async () => {
@@ -618,14 +678,14 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             key="ramp-restart"
             body="The scheduled end date has already passed. Edit the schedule to remove or update the end date before restarting."
           >
-            <Button size="xs" variant="solid" disabled>
+            <Button size="sm" variant="solid" disabled>
               Restart
             </Button>
           </Tooltip>
         ) : (
           <Button
             key="ramp-restart"
-            size="xs"
+            size="sm"
             variant="solid"
             onClick={async () => {
               await apiCall(
@@ -729,7 +789,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               gap="2"
               style={{ flex: "0 1 auto", flexWrap: "wrap" }}
             >
-              <Heading as="h4" size="medium" weight="medium" mb="0">
+              <Heading as="h4" size="md" weight="medium" mb="0">
                 {linkedExperiment ? (
                   <>
                     {linkedExperiment.type === "multi-armed-bandit"
@@ -1429,6 +1489,14 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             environments={environments}
             currentEnvironment={isAllEnvsView ? undefined : environment}
           />
+          {rule.allProjects === false && (
+            <RuleProjectScopeBadges
+              projectIds={rule.projects ?? []}
+              deliveryProjectIds={getTargetingProjectIds(feature)}
+              mt="0"
+              mb="3"
+            />
+          )}
           <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
             {rule.type === "safe-rollout" && safeRollout ? (
               <>
@@ -1599,7 +1667,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     mb="2"
                     action={
                       <Button
-                        size="xs"
+                        size="sm"
                         variant="ghost"
                         color="inherit"
                         onClick={() => setRampApproveError("")}
@@ -1926,6 +1994,8 @@ export function getRuleMetaInfo({
       conflicts={banner.conflicts}
       environments={banner.environments}
       allEnvironments={banner.allEnvironments}
+      projects={banner.projects}
+      allProjects={banner.allProjects}
     />
   ));
 

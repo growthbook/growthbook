@@ -130,7 +130,7 @@ With events flowing and metrics defined, you're ready to experiment:
 2. Add an **Experiment** rule to it.
 3. Start the experiment and watch results flow in on the **Results** tab.
 
-For a detailed walkthrough, see our [guide to running Feature Flag Experiments](/feature-flag-experiments).
+For a detailed walkthrough, see our [guide to running Feature Flag Experiments](/features/feature-flag-experiments).
 
 ---
 
@@ -299,6 +299,16 @@ curl -X POST "https://us1.gb-ingest.com/track?client_key=YOUR_CLIENT_KEY" \
 
 Make sure you do not include any sensitive information in your events (or if you do, anonymize it first).
 
+#### Identifiers
+
+To tie events to users for experiment analysis, include identifier keys in `attributes`:
+
+- **`user_id`**: a logged-in user ID. Promoted to the top-level `user_id` column at ingest.
+- **`device_id`**: an anonymous device or browser ID. Promoted to the top-level `device_id` column at ingest.
+- **`anonymous_id`** or **`id`**: also resolve to the `device_id` identifier, but at analysis time instead of ingest — they stay inside the `attributes` JSON.
+
+Prefer the explicit `user_id` and `device_id` keys, and use each key for one kind of ID consistently. For example, if you send a logged-in user ID as `id` today and later start sending a real device ID as `device_id`, the `device_id` identifier will mix the two ID spaces and experiment analysis will silently drop units. See [Identifiers](#identifiers-and-custom-attributes) for how these keys map to identifiers.
+
 #### Event timestamps
 
 By default, events are timestamped with the time they are received by the ingestion API. If you batch events before sending, you can preserve each event's original timing by adding a per-event `timestamp` along with a top-level `sentAt` field:
@@ -335,7 +345,7 @@ In order to use GrowthBook's experiment analysis features, you must send an even
   - `experimentId`: The ID of the experiment being viewed
   - `variationId`: The ID of the variation that was shown to the user
 
-In addition, you must include `attributes` with the user attributes that were used to evaluate the experiment, plus any attributes you want to use as dimensions for slicing and dicing.
+In addition, you must include `attributes` with the user attributes that were used to evaluate the experiment, plus any attributes you want to use as dimensions for slicing and dicing. At minimum this must include the attribute the experiment hashes on (its **Assign Variation by Attribute**), since that's the [identifier](#identifiers) used to join exposures to your metrics.
 
 #### Feature usage events
 
@@ -390,13 +400,27 @@ If you need to send more than this, reach out and we can increase your limits.
 
 All attributes sent with your events are stored in a native ClickHouse JSON column called `attributes` on the `events` table (event properties live in a `properties` JSON column). Every attribute is automatically queryable — no setup required.
 
-Identifiers — the attributes used to split traffic in experiments — come from your organization's [attribute settings](/features/targeting#defining-attributes-in-growthbook):
+Identifiers — the attributes used to split traffic in experiments — come in two flavors:
 
-1. `user_id` and `device_id` are built in and always available.
-2. Any other scalar attribute marked as an **Identifier** under **SDK Connections** &rarr; **Attributes** (for example `account_id`) is automatically exposed as a top-level column on your fact tables and available for experiment assignment.
+### Built-in identifiers
+
+Every table has `user_id` and `device_id` columns. The columns always exist, but they only carry values when your events include one of the following attribute keys:
+
+| Identifier  | Populated from attribute keys (first non-empty wins) | Intended for                      |
+| ----------- | ---------------------------------------------------- | --------------------------------- |
+| `user_id`   | `user_id`                                            | Logged-in user IDs                |
+| `device_id` | `device_id`, `anonymous_id`, `id`                    | Anonymous, device, or session IDs |
+
+The SDK tracking plugin applies this mapping automatically from your SDK attributes, and the [Ingestion API](#identifiers) does the same for the `user_id` and `device_id` keys. Events that carried their ID as `anonymous_id` or `id` are resolved into `device_id` when queries run, so experiment analysis works with any of these keys — including for past events.
+
+When you assign an experiment by hash attribute, GrowthBook picks the matching identifier automatically: experiments assigned on the `id` or `anonymous_id` attribute use the `device_id` identifier for analysis.
+
+### Custom identifiers
+
+Any other scalar attribute marked as an **Identifier** under **SDK Connections** &rarr; **Attributes** (for example `account_id`) is automatically exposed as a top-level column on your fact tables and available for experiment assignment.
 
 :::note
-Because identifiers are read from the `attributes` JSON column, marking an attribute as an identifier applies retroactively to all past events that included it.
+Identifier resolution reads from the `attributes` JSON column, so marking an attribute as an identifier applies retroactively to all past events that included it.
 :::
 
 ## SQL Explorer
@@ -444,6 +468,27 @@ WHERE timestamp >= '2025-06-01 00:00:00'
 
 Attributes marked as [Identifiers](#identifiers-and-custom-attributes) are already exposed as top-level columns, so you can reference them directly without the JSON path.
 
+#### Identifier columns in custom SQL
+
+The physical `user_id` and `device_id` columns only contain values that were promoted at ingest — by the SDK tracking plugin, or by the `user_id`/`device_id` attribute keys on the Ingestion API. Events that carried their ID as `anonymous_id` or `id` keep it inside the `attributes` JSON instead. GrowthBook-generated queries resolve this automatically, but hand-written SQL reads the raw columns.
+
+If your custom SQL joins or groups on identifiers — especially in a [custom fact table](/app/metrics) used for experiment analysis — use the same resolution expressions GrowthBook uses:
+
+```sql
+coalesce(
+  nullIf(user_id, ''),
+  nullIf(attributes.user_id::Nullable(String), '')
+) AS user_id,
+coalesce(
+  nullIf(device_id, ''),
+  nullIf(attributes.device_id::Nullable(String), ''),
+  nullIf(attributes.anonymous_id::Nullable(String), ''),
+  nullIf(attributes.id::Nullable(String), '')
+) AS device_id
+```
+
+Keep the standard column names (`user_id`, `device_id`): experiment analysis joins your fact table to GrowthBook's exposure queries by identifier, so a fact table that extracts an ID from the JSON under a different name won't match any exposures.
+
 #### Large queries
 
 There is a limit of 1000 rows in the SQL Explorer. Returning raw events over a large time period will quickly exceed this limit.
@@ -475,6 +520,10 @@ Yes. You can add a separate data source for your own warehouse at any time and u
 ### How do I add custom identifiers like `account_id`?
 
 `user_id` and `device_id` are built in. To add another identifier, go to **SDK Connections** &rarr; **Attributes** and mark the attribute as an **Identifier**. Include it in the `attributes` of your events and it will be exposed as a top-level column on your fact tables.
+
+### Why are the `user_id`/`device_id` columns empty when I query directly?
+
+Those columns are only filled at ingest when events include the `user_id` or `device_id` attribute keys (the SDK tracking plugin does this for you). If your events carried their ID as `anonymous_id` or `id`, it lives in the `attributes` JSON — experiment analysis resolves it into `device_id` automatically, but your own SQL needs to do the same. See [Identifier columns in custom SQL](#identifier-columns-in-custom-sql).
 
 ### What happens if I exceed my event limit?
 

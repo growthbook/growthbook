@@ -4,6 +4,7 @@ import {
   ContextualBanditInterface,
   ContextualBanditSnapshotInterface,
   ContextualBanditSnapshotSettings,
+  queryHasContextualBanditSrmColumns,
 } from "shared/validators";
 import { buildUnitsQuerySettingsFromCb } from "shared/util";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
@@ -152,7 +153,18 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       }),
     ];
 
+    const canComputeSrm = queryHasContextualBanditSrmColumns(
+      cbUnitsSettings.exposureQuery.query,
+    );
+    if (!canComputeSrm) {
+      logger.info(
+        `Contextual bandit ${this.snapshotSettings.experimentId} (snapshot ${this.model.id}) assignment query does not select the SRM columns ` +
+          `(leaf_id, bandit_version, variation_weights); skipping SRM.`,
+      );
+    }
+
     if (
+      canComputeSrm &&
       this.integration.getContextualBanditSrmQuery &&
       this.integration.runContextualBanditSrmQuery
     ) {

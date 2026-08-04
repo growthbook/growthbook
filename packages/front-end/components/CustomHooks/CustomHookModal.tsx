@@ -19,7 +19,7 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import useProjectOptions from "@/hooks/useProjectOptions";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
@@ -570,7 +570,7 @@ export default function CustomHookModal({
             showCopyButton
             showFullscreenButton
           />
-          <Text as="div" size="small" color="text-low" mt="1" mb="5">
+          <Text as="div" size="sm" color="text-low" mt="1" mb="5">
             Need a starting point? See an{" "}
             <DocLink docSection={exampleDocSection}>
               example {hookEntityType[hookType]} hook

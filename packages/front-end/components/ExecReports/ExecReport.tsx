@@ -224,6 +224,7 @@ export default function ExecReport() {
                 Filter by date range
               </Text>
               <SelectField
+                size="legacy"
                 options={dateRanges}
                 sort={false}
                 onChange={(e) => {
@@ -289,7 +290,7 @@ export default function ExecReport() {
           </Box>
           {(syntaxFilters.length > 0 || !!searchInputProps.value) && (
             <Link
-              size="1"
+              size="sm"
               onClick={() => setSearchValue("")}
               style={{ whiteSpace: "nowrap" }}
             >

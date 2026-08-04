@@ -312,7 +312,7 @@ export function FeatureUsageContainer({
           <TabsTrigger value="rule">By Environment &amp; Rule</TabsTrigger>
         </TabsList>
         <Select
-          size="2"
+          size="md"
           value={lookback}
           setValue={(v) => setLookback(v as FeatureUsageLookback)}
           align="end"
@@ -1039,10 +1039,10 @@ export default function FeatureUsageGraph({
                                     align="center"
                                     style={{ whiteSpace: "nowrap" }}
                                   >
-                                    <Text size="small" weight="semibold">
+                                    <Text size="sm" weight="semibold">
                                       {formatter.format(keyTotal)}
                                     </Text>
-                                    <Text size="small" color="text-low">
+                                    <Text size="sm" color="text-low">
                                       ({pct}%)
                                     </Text>
                                   </Flex>
@@ -1054,7 +1054,7 @@ export default function FeatureUsageGraph({
                       );
                     })}
                   {useGrouping && (
-                    <Link onClick={() => setExpanded(true)} size="1">
+                    <Link onClick={() => setExpanded(true)} size="sm">
                       expand
                     </Link>
                   )}
@@ -1067,7 +1067,7 @@ export default function FeatureUsageGraph({
                           setExpanded(false);
                           setDisabledKeys(new Set());
                         }}
-                        size="1"
+                        size="sm"
                       >
                         show fewer groups
                       </Link>

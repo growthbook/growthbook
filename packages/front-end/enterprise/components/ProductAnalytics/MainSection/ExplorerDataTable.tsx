@@ -73,7 +73,7 @@ export default function ExplorerDataTable({
           : "var(--red-9)";
       return (
         <Flex align="center" gap="2">
-          <Text size="medium">{valueString}</Text>
+          <Text size="md">{valueString}</Text>
           <span
             style={{
               color: trendColor ?? "var(--color-text-mid)",

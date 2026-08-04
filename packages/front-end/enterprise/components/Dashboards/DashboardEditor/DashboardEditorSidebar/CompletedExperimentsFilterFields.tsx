@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { ExplorationDateRange } from "shared/validators";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";

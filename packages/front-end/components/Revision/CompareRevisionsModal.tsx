@@ -125,7 +125,7 @@ function RevisionCompareLabel({
                 />
               </Tooltip>
             )}
-            <Text weight="medium" size="medium">
+            <Text weight="medium" size="md">
               <OverflowText
                 maxWidth={250}
                 title={revisionLabelText(revA?.version ?? 0, revA?.title)}
@@ -146,7 +146,7 @@ function RevisionCompareLabel({
           />
         </Flex>
         {revA && (
-          <Text as="div" size="small" color="text-low">
+          <Text as="div" size="sm" color="text-low">
             {datetime(revA.dateUpdated)}
           </Text>
         )}
@@ -162,7 +162,7 @@ function RevisionCompareLabel({
                 />
               </Tooltip>
             )}
-            <Text weight="medium" size="medium">
+            <Text weight="medium" size="md">
               <OverflowText
                 maxWidth={250}
                 title={revisionLabelText(revB?.version ?? 0, revB?.title)}
@@ -183,7 +183,7 @@ function RevisionCompareLabel({
           />
         </Flex>
         {revB && (
-          <Text as="div" size="small" color="text-low">
+          <Text as="div" size="sm" color="text-low">
             {datetime(revB.dateUpdated)}
           </Text>
         )}
@@ -379,7 +379,7 @@ function LogEntryPanel({
 
   return (
     <Box>
-      <Heading as="h4" size="small" mb="3">
+      <Heading as="h4" size="sm" mb="3">
         {activityLabel(item)}
       </Heading>
       <Flex direction="column" gap="2">
@@ -409,13 +409,13 @@ function LogEntryPanel({
       </Flex>
       {diff ? (
         <Box mt="4">
-          <Heading as="h5" size="small" color="text-mid" mb="2">
+          <Heading as="h5" size="sm" color="text-mid" mb="2">
             {diffMode === "per-entry"
               ? "Changes in this entry"
               : "Cumulative changes in this revision"}
           </Heading>
           {diffMode === "cumulative" ? (
-            <Text as="p" size="small" color="text-low" mb="2">
+            <Text as="p" size="sm" color="text-low" mb="2">
               Per-entry changes weren&apos;t recorded for this revision, so
               we&apos;re showing the cumulative diff for the whole revision
               instead.
@@ -1074,13 +1074,7 @@ export default function CompareRevisionsModal<
             quickActionRanges.liveRange ||
             quickActionRanges.allRange) && (
             <Box className={`${styles.section} border-bottom`} pb="2">
-              <Text
-                size="medium"
-                weight="medium"
-                color="text-mid"
-                mb="2"
-                as="p"
-              >
+              <Text size="md" weight="medium" color="text-mid" mb="2" as="p">
                 Quick actions
               </Text>
               <Flex direction="column" className={styles.quickActionsList}>
@@ -1096,7 +1090,7 @@ export default function CompareRevisionsModal<
                     <Box className={styles.rowSpacer} />
                     <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
                       <Text weight="medium">Most recent draft changes</Text>
-                      <Text size="small" color="text-low">
+                      <Text size="sm" color="text-low">
                         <OverflowText
                           maxWidth={160}
                           title={revisionLabelText(
@@ -1170,7 +1164,7 @@ export default function CompareRevisionsModal<
                     <Box className={styles.rowSpacer} />
                     <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
                       <Text weight="medium">Most recent live changes</Text>
-                      <Text size="small" color="text-low">
+                      <Text size="sm" color="text-low">
                         <OverflowText
                           maxWidth={80}
                           title={revisionLabelText(
@@ -1238,7 +1232,7 @@ export default function CompareRevisionsModal<
                     <Box className={styles.rowSpacer} />
                     <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
                       <Text weight="medium">All changes</Text>
-                      <Text size="small" color="text-low">
+                      <Text size="sm" color="text-low">
                         <OverflowText
                           maxWidth={80}
                           title={revisionLabelText(
@@ -1291,7 +1285,7 @@ export default function CompareRevisionsModal<
           )}
           <Box className={styles.section} pb="3">
             <Flex align="center" justify="between" mb="2">
-              <Text size="medium" weight="medium" color="text-mid">
+              <Text size="md" weight="medium" color="text-mid">
                 Select range of revisions
               </Text>
               {(hasDraftRevisions ||
@@ -1494,7 +1488,7 @@ export default function CompareRevisionsModal<
                           ) : null}
                         </Flex>
                         {minRev ? (
-                          <Text size="small" color="text-low">
+                          <Text size="sm" color="text-low">
                             {datetime(minRev.dateUpdated)}
                             {minRev.authorId
                               ? ` · ${getUserDisplay(minRev.authorId) || minRev.authorId}`
@@ -1506,7 +1500,7 @@ export default function CompareRevisionsModal<
                         <div className={styles.previewButtonWrapper}>
                           <Button
                             variant="outline"
-                            size="xs"
+                            size="sm"
                             className={styles.previewButton}
                             onClick={(e?) => {
                               e?.stopPropagation();
@@ -1559,7 +1553,7 @@ export default function CompareRevisionsModal<
                     {isExpanded && (
                       <div className={styles.logSubRows}>
                         {timeline.length === 0 ? (
-                          <Text size="small" color="text-low" ml="2">
+                          <Text size="sm" color="text-low" ml="2">
                             No activity recorded
                           </Text>
                         ) : (
@@ -1596,7 +1590,7 @@ export default function CompareRevisionsModal<
                                   >
                                     {activityLabel(item)}
                                   </div>
-                                  <Text size="small" color="text-low">
+                                  <Text size="sm" color="text-low">
                                     {datetime(item.createdAt)}
                                     {item.userId
                                       ? ` · ${
@@ -1658,11 +1652,11 @@ export default function CompareRevisionsModal<
                           <PiCaretLeftBold size={16} />
                         </button>
                       </Tooltip>
-                      <Heading as="h2" size="small" mb="0">
+                      <Heading as="h2" size="sm" mb="0">
                         Log entry
                       </Heading>
                       {rev ? (
-                        <Text size="small" color="text-low">
+                        <Text size="sm" color="text-low">
                           · {revisionLabelText(rev.version ?? 0, rev.title)}
                         </Text>
                       ) : null}
@@ -1687,10 +1681,10 @@ export default function CompareRevisionsModal<
               >
                 <Flex align="center" justify="between" gap="4" wrap="wrap">
                   <Flex align="center" gap="2">
-                    <Heading as="h2" size="small" mb="0">
+                    <Heading as="h2" size="sm" mb="0">
                       Preview draft
                     </Heading>
-                    <Text size="small" color="text-low">
+                    <Text size="sm" color="text-low">
                       Draft content vs live (two-way)
                     </Text>
                   </Flex>
@@ -1727,13 +1721,13 @@ export default function CompareRevisionsModal<
                   <Flex align="center" gap="4">
                     {diffViewMode === "steps" && (
                       <>
-                        <Heading as="h2" size="small" mb="0">
+                        <Heading as="h2" size="sm" mb="0">
                           Step {safeDiffPage + 1} of {steps.length}
                         </Heading>
                         <Flex gap="2">
                           <Button
                             variant="soft"
-                            size="sm"
+                            size="md"
                             disabled={safeDiffPage <= 0}
                             onClick={() =>
                               setDiffPage((p) => Math.max(0, p - 1))
@@ -1743,7 +1737,7 @@ export default function CompareRevisionsModal<
                           </Button>
                           <Button
                             variant="soft"
-                            size="sm"
+                            size="md"
                             disabled={safeDiffPage >= steps.length - 1}
                             onClick={() =>
                               setDiffPage((p) =>
@@ -1767,13 +1761,13 @@ export default function CompareRevisionsModal<
                       )}
                   </Flex>
                   <Flex align="center" gap="2">
-                    <Text size="medium" weight="medium" color="text-mid">
+                    <Text size="md" weight="medium" color="text-mid">
                       Show diff as
                     </Text>
                     <Select
                       value={diffViewMode}
                       setValue={(v) => setDiffViewModeRaw(v)}
-                      size="2"
+                      size="md"
                       mb="0"
                     >
                       <SelectItem value="steps">Steps</SelectItem>

@@ -739,7 +739,7 @@ export function sessionReplayPlugin({
     // events via the SDK's internal plugin hooks. Each callback appends to
     // the plugin's own typed buffer; flushBuffer snapshots and drains those
     // buffers on every chunk send.
-    const offFeature = gb._onFeatureEval((featureKey, result) => {
+    const offFeature = gb._subscribeFeatureUsage((featureKey, result) => {
       if (featureEvals.length >= MAX_BUFFERED_EVENTS) featureEvals.shift();
       featureEvals.push({
         featureKey,
@@ -766,7 +766,7 @@ export function sessionReplayPlugin({
       });
     });
 
-    const offEvent = gb._onEvent((eventName, properties) => {
+    const offEvent = gb._subscribeCustomEvents((eventName, properties) => {
       if (sessionEvents.length >= MAX_BUFFERED_EVENTS) sessionEvents.shift();
       sessionEvents.push({ eventName, timestamp: Date.now(), properties });
     });

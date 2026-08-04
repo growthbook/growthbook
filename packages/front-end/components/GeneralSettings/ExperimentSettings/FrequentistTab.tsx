@@ -43,6 +43,7 @@ export default function FrequentistTab({
       </div>
       <div className="mb-3  form-inline flex-column align-items-start">
         <SelectField
+          size="legacy"
           label={"Multiple comparisons correction to use"}
           className="ml-2"
           value={form.watch("pValueCorrection") ?? ""}
@@ -104,6 +105,7 @@ export default function FrequentistTab({
           }}
         >
           <Field
+            size="legacy"
             label="Tuning parameter"
             type="number"
             className={`ml-2`}

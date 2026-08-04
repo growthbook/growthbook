@@ -34,6 +34,7 @@ import { attributesRoutes } from "./attributes/attributes.router";
 import { savedGroupsRoutes } from "./saved-groups/saved-groups.router";
 import { constantsRoutes } from "./constants/constants.router";
 import { configsRoutes } from "./configs/configs.router";
+import { releasesRoutes } from "./releases/releases.router";
 import { customHooksRoutes } from "./custom-hooks/custom-hooks.router";
 import { sdkConnectionsRoutes } from "./sdk-connections/sdk-connections.router";
 import { sdkPayloadRoutes } from "./sdk-payload/sdk-payload.router";
@@ -173,6 +174,7 @@ export const allRoutes = [
   ...savedGroupsRoutes,
   ...constantsRoutes,
   ...configsRoutes,
+  ...releasesRoutes,
   ...customHooksRoutes,
   ...organizationsRoutes,
   ...sdkPayloadRoutes,

@@ -371,6 +371,7 @@ export default function DimensionChooser({
     return (
       <Flex direction="row" gap="2" align="center">
         <SelectField
+          size="legacy"
           label="Unit Dimension"
           labelClassName={labelClassName}
           options={dimensionOptions}
@@ -402,7 +403,7 @@ export default function DimensionChooser({
         items.push(
           <DropdownMenuLabel
             key={`label-${groupIndex}`}
-            textSize="1"
+            textSize="sm"
             textStyle={{ textTransform: "uppercase", fontWeight: 600 }}
           >
             {group.label}
