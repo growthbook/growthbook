@@ -6,6 +6,11 @@ import {
   postConstantRevisionRevertValidator,
   constantUpdatableFieldsSchema,
 } from "shared/validators";
+import {
+  applyRevertDirectly,
+  assertCanRevertRevision,
+  resolveRevertStrategy,
+} from "back-end/src/revisions/revertActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
@@ -34,8 +39,10 @@ export const postConstantRevisionRevert = createApiRequestHandler(
   const adapter = getAdapter("constant");
   const revertsBypassApproval =
     !!req.organization.settings?.revertsBypassApproval;
-  const strategy =
-    req.body.strategy ?? (revertsBypassApproval ? "publish" : "draft");
+  const strategy = resolveRevertStrategy(
+    req.body.strategy,
+    revertsBypassApproval,
+  );
   const isPublish = strategy === "publish";
 
   const targetRevision = await loadRevisionByVersion(
@@ -72,29 +79,18 @@ export const postConstantRevisionRevert = createApiRequestHandler(
       (constant.environmentValues?.[env] ?? "") !==
       (targetState.environmentValues?.[env] ?? ""),
   );
-  const canLandRevert = req.context.permissions.canRevisionAction(
-    "constant",
-    "revert",
-    constant,
-    constantPublishEnvironments(req.context, revertEnvs),
-  );
-  // Proposing publishes nothing, so it answers for the project rather than the
-  // environments the restore would reach.
-  const canProposeRevert = req.context.permissions.canRevisionAction(
-    "constant",
-    "revert",
-    constant,
-    NO_ENVIRONMENT_BINDING,
-  );
+  // Coarse standing before the reconstruction; assertCanRevertRevision below is
+  // authoritative once the change set is known. Subset-refusing.
   if (
-    isPublish
-      ? !canLandRevert
-      : !canProposeRevert &&
+    (["revert", "draft"] as const).every(
+      (action) =>
         !req.context.permissions.canRevisionAction(
           "constant",
-          "draft",
+          action,
           constant,
-        )
+          NO_ENVIRONMENT_BINDING,
+        ),
+    )
   ) {
     req.context.permissions.throwPermissionError();
   }
@@ -123,15 +119,18 @@ export const postConstantRevisionRevert = createApiRequestHandler(
   // Reverting to a historically-archived state re-archives the constant; enforce
   // the same soft referenced-constant warning as the archive endpoint (bypassable
   // by ignoreWarnings). Only the archive transition is guarded. Mirrors the config twin.
+  // Authoritative: the revert atom over the right scope for this mode, plus a
+  // relocation's destination and an archive restore's delete atom.
+  assertCanRevertRevision({
+    context: req.context,
+    entityType: "constant",
+    entity: constant as unknown as Record<string, unknown>,
+    fields: fieldsToUpdate,
+    landing: isPublish,
+    footprint: constantPublishEnvironments(req.context, revertEnvs),
+  });
+
   if (isPublish && fieldsToUpdate.archived === true && !constant.archived) {
-    // Taking the Constant out of service carries the same delete-class gate as
-    // archiving it any other way — revert authority covers the restoration, not
-    // the elevation.
-    if (
-      !req.context.permissions.canRevisionAction("constant", "delete", constant)
-    ) {
-      req.context.permissions.throwPermissionError();
-    }
     await assertConstantArchiveDependentsGuard(
       req.context,
       { id: constant.id, key: constant.key, project: constant.project },
@@ -221,36 +220,18 @@ export const postConstantRevisionRevert = createApiRequestHandler(
     );
   }
 
-  // Record the already-merged revert revision FIRST, then apply it to the live
-  // entity. If the apply fails, delete the just-created revision so we never
-  // leave a "reverted" record with no corresponding live change. (There's no
-  // concurrent-discard vector here — the revision is created in its terminal
-  // `merged` state — so this is a clean abort rather than a claim-then-CAS.)
-  const merged = await req.context.models.revisions.createMerged({
-    type: "constant",
-    id: constant.id,
-    snapshot: constant as unknown as Record<string, unknown>,
-    proposedChanges: patchOps,
-    bypass: approvalRequired && canBypass,
+  // One implementation of record-then-apply-then-roll-back, which reports a failed
+  // rollback rather than swallowing it.
+  const merged = await applyRevertDirectly({
+    context: req.context,
+    entityType: "constant",
+    entity: constant as unknown as Record<string, unknown> & { id: string },
+    fields: fieldsToUpdate,
+    patchOps,
+    targetRevisionId: targetRevision.id,
     title,
-    revertedFrom: targetRevision.id,
+    bypass: approvalRequired && canBypass,
   });
-
-  try {
-    await adapter.applyChanges(
-      req.context,
-      constant as unknown as Record<string, unknown>,
-      fieldsToUpdate,
-      { isRevert: true },
-    );
-  } catch (e) {
-    try {
-      await req.context.models.revisions.deleteById(merged.id);
-    } catch {
-      // ignore — surface the original applyChanges error
-    }
-    throw e;
-  }
 
   await dispatchConstantRevisionEvent(req.context, merged, {
     type: "reverted",

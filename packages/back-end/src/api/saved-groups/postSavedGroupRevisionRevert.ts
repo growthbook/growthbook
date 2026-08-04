@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual } from "lodash";
 import { JsonPatchOperation, Revision } from "shared/enterprise";
 import { SavedGroupInterface } from "shared/types/saved-group";
@@ -5,6 +6,11 @@ import {
   postSavedGroupRevisionRevertValidator,
   savedGroupUpdatableFieldsSchema,
 } from "shared/validators";
+import {
+  applyRevertDirectly,
+  assertCanRevertRevision,
+  resolveRevertStrategy,
+} from "back-end/src/revisions/revertActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
@@ -31,25 +37,24 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
   const adapter = getAdapter("saved-group");
   const revertsBypassApproval =
     !!req.organization.settings?.revertsBypassApproval;
-  const strategy =
-    req.body.strategy ?? (revertsBypassApproval ? "publish" : "draft");
+  const strategy = resolveRevertStrategy(
+    req.body.strategy,
+    revertsBypassApproval,
+  );
   const isPublish = strategy === "publish";
 
-  // Executing the revert needs revert authority. Proposing one as a draft is
-  // also open to anyone who can author drafts.
-  const canRevert = req.context.permissions.canRevisionAction(
-    "saved-group",
-    "revert",
-    savedGroup,
-  );
+  // Coarse standing before the reconstruction; assertCanRevertRevision below is
+  // authoritative once the change set is known. Subset-refusing.
   if (
-    !canRevert &&
-    (isPublish ||
-      !req.context.permissions.canRevisionAction(
-        "saved-group",
-        "draft",
-        savedGroup,
-      ))
+    (["revert", "draft"] as const).every(
+      (action) =>
+        !req.context.permissions.canRevisionAction(
+          "saved-group",
+          action,
+          savedGroup,
+          NO_ENVIRONMENT_BINDING,
+        ),
+    )
   ) {
     req.context.permissions.throwPermissionError();
   }
@@ -122,6 +127,17 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
   // accurate bypass flag.
   let approvalRequired = false;
   let canBypass = false;
+  // Authoritative: the revert atom, plus a relocation's destination and an archive
+  // restore's delete atom. Saved Groups carry no environment footprint.
+  assertCanRevertRevision({
+    context: req.context,
+    entityType: "saved-group",
+    entity: savedGroup as unknown as Record<string, unknown>,
+    fields: fieldsToUpdate,
+    landing: isPublish,
+    footprint: NO_ENVIRONMENT_BINDING,
+  });
+
   if (isPublish) {
     // With "reverts bypass approval" enabled, a revert restores an
     // already-reviewed state and doesn't require approval at all, so it's a
@@ -149,18 +165,6 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
     // Reverting to a historically-archived state re-archives the group; soft-warn
     // (bypassably) if it still has live dependents. Only the archive transition.
     if (fieldsToUpdate.archived === true && !savedGroup.archived) {
-      // Taking the group out of service carries the same delete-class gate as
-      // archiving it any other way — revert authority covers the restoration,
-      // not the elevation.
-      if (
-        !req.context.permissions.canRevisionAction(
-          "saved-group",
-          "delete",
-          savedGroup,
-        )
-      ) {
-        req.context.permissions.throwPermissionError();
-      }
       await assertSavedGroupArchiveDependentsGuard(
         req.context,
         { id: savedGroup.id },
@@ -205,36 +209,18 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
     };
   }
 
-  // Record the already-merged revert revision FIRST, then apply it to the live
-  // entity. If the apply fails, delete the just-created revision so we never
-  // leave a "reverted" record with no corresponding live change. (The revision
-  // is created in its terminal `merged` state, so there's no concurrent-discard
-  // vector — this is a clean abort rather than a claim-then-CAS.)
-  const merged = await req.context.models.revisions.createMerged({
-    type: "saved-group",
-    id: savedGroup.id,
-    snapshot: savedGroup as unknown as Record<string, unknown>,
-    proposedChanges: patchOps,
-    bypass: approvalRequired && canBypass,
+  // One implementation of record-then-apply-then-roll-back, which reports a failed
+  // rollback rather than swallowing it.
+  const merged = await applyRevertDirectly({
+    context: req.context,
+    entityType: "saved-group",
+    entity: savedGroup as unknown as Record<string, unknown> & { id: string },
+    fields: fieldsToUpdate,
+    patchOps,
+    targetRevisionId: targetRevision.id,
     title,
-    revertedFrom: targetRevision.id,
+    bypass: approvalRequired && canBypass,
   });
-
-  try {
-    await adapter.applyChanges(
-      req.context,
-      savedGroup as unknown as Record<string, unknown>,
-      fieldsToUpdate,
-      { isRevert: true },
-    );
-  } catch (e) {
-    try {
-      await req.context.models.revisions.deleteById(merged.id);
-    } catch {
-      // ignore — surface the original applyChanges error
-    }
-    throw e;
-  }
 
   await dispatchSavedGroupRevisionEvent(req.context, merged, {
     type: "reverted",
