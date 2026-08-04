@@ -56,3 +56,30 @@ export async function assertCanLandRevision({
 
   context.permissions.throwPermissionError();
 }
+
+/**
+ * Rebase authority, stated once.
+ *
+ * Feature Flags and the generic entities each had their own copy — the same three
+ * steps in the same order. Draft authority covers any rebase. Without it, a narrow
+ * atom covers only a rebase that pulls NOTHING new into the draft, so a
+ * single-purpose role can satisfy "rebase before publishing" without gaining a way
+ * to sweep someone else's changes in.
+ *
+ * As with landing, the difference was one input: how "pulls in nothing" is proven —
+ * comparing the base against live over the updatable fields, or inspecting a merge
+ * result.
+ */
+export async function canRebaseWithNarrowAtom({
+  holdsDraftAuthority,
+  pullsInNothing,
+  canAdvance,
+}: {
+  holdsDraftAuthority: boolean;
+  pullsInNothing: boolean;
+  canAdvance: () => Promise<boolean>;
+}): Promise<boolean> {
+  if (holdsDraftAuthority) return true;
+  if (!pullsInNothing) return false;
+  return canAdvance();
+}

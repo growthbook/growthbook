@@ -8,7 +8,10 @@ import {
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/validators";
-import { assertCanLandRevision } from "back-end/src/revisions/landAuthority";
+import {
+  assertCanLandRevision,
+  canRebaseWithNarrowAtom,
+} from "back-end/src/revisions/landAuthority";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
@@ -186,9 +189,13 @@ export async function canRebaseFeatureDraft({
   // is never a no-op, so those always take draft authority.
   mergeChanges?: MergeResultChanges;
 }): Promise<boolean> {
-  if (context.permissions.canEditFeatureDrafts(feature)) return true;
-  if (!mergeChanges || !rebasePullsInNothing(mergeChanges)) return false;
-  return canAdvanceFeatureDraft({ context, feature, draft });
+  return canRebaseWithNarrowAtom({
+    holdsDraftAuthority: context.permissions.canEditFeatureDrafts(feature),
+    // Merge-result proof, rather than the ops comparison the generic path uses:
+    // every field the merge would write is empty, so nothing crosses over.
+    pullsInNothing: !!mergeChanges && rebasePullsInNothing(mergeChanges),
+    canAdvance: () => canAdvanceFeatureDraft({ context, feature, draft }),
+  });
 }
 
 /**

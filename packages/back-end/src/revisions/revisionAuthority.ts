@@ -1,5 +1,6 @@
 import isEqual from "lodash/isEqual";
 import { Revision } from "shared/enterprise";
+import { canRebaseWithNarrowAtom } from "back-end/src/revisions/landAuthority";
 import { Context } from "back-end/src/models/BaseModel";
 import { isPureArchiveRevision } from "back-end/src/revisions/archiveTransition";
 import { isPureRevertRevision } from "back-end/src/revisions/revertPurity";
@@ -112,15 +113,20 @@ export async function canRebaseRevision({
   liveSnapshot: Record<string, unknown>;
   updatableFields: ReadonlySet<string>;
 }): Promise<boolean> {
-  if (
-    canDoRevisionAction(revision.target.type, "draft", context, liveSnapshot)
-  ) {
-    return true;
-  }
-  if (
-    !liveMatchesRevisionBase({ baseSnapshot, liveSnapshot, updatableFields })
-  ) {
-    return false;
-  }
-  return canAdvanceRevision(context, revision);
+  return canRebaseWithNarrowAtom({
+    holdsDraftAuthority: canDoRevisionAction(
+      revision.target.type,
+      "draft",
+      context,
+      liveSnapshot,
+    ),
+    // Ops-based proof: the draft's base already equals live over every field a
+    // revision may write, so rebasing carries nothing across.
+    pullsInNothing: liveMatchesRevisionBase({
+      baseSnapshot,
+      liveSnapshot,
+      updatableFields,
+    }),
+    canAdvance: () => canAdvanceRevision(context, revision),
+  });
 }
