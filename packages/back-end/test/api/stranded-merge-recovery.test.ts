@@ -116,6 +116,56 @@ describe("re-publishing a revision whose merge was claimed but never applied", (
     );
   }
 
+  it("refuses a superseded merged revision even when live matches its base", async () => {
+    // The replay hazard. Content differing from live is true of EVERY superseded
+    // revision, and live can be walked back to an old revision's base — so
+    // neither mark identifies a stranded merge. What does is that a merge which
+    // never landed is still the NEWEST, because nothing published after it.
+    //
+    // Here revision N is published, then a later revision returns the group to
+    // N's own base. N now satisfies both weaker marks and must still be refused:
+    // re-applying it would silently overwrite whatever came after.
+    const version = await seedStrandedRevision();
+    await recover(version);
+
+    // A later revision, published after N, walks the value back to N's base.
+    const laterRes = await request(app)
+      .post(`/api/v1/saved-groups-revisions/${GROUP_ID}`)
+      .send({})
+      .set("Authorization", "Bearer foo");
+    expect(laterRes.status).toBe(200);
+    const laterVersion = laterRes.body.revision.version;
+    const laterEdit = await request(app)
+      .put(
+        `/api/v1/saved-groups-revisions/${GROUP_ID}/${laterVersion}/condition`,
+      )
+      .send({ condition: '{"id": {"$in": ["before"]}}' })
+      .set("Authorization", "Bearer foo");
+    expect(laterEdit.status).toBe(200);
+    const laterPublish = await request(app)
+      .post(
+        `/api/v1/saved-groups-revisions/${GROUP_ID}/${laterVersion}/publish`,
+      )
+      .send({})
+      .set("Authorization", "Bearer foo");
+    expect(laterPublish.status).toBe(200);
+
+    const live = await mongoose.connection
+      .collection("savedgroups")
+      .findOne({ id: GROUP_ID });
+    expect(live?.condition).toBe('{"id": {"$in": ["before"]}}');
+
+    await expect(recover(version)).rejects.toThrow(
+      /Cannot publish a revision with status/,
+    );
+
+    // And nothing was applied on the way to the refusal.
+    const after = await mongoose.connection
+      .collection("savedgroups")
+      .findOne({ id: GROUP_ID });
+    expect(after?.condition).toBe('{"id": {"$in": ["before"]}}');
+  });
+
   it("applies the stranded changes and records the recovery", async () => {
     const version = await seedStrandedRevision();
 
