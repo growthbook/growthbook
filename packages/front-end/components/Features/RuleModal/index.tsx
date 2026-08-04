@@ -1726,7 +1726,7 @@ export default function RuleModal({
           gatedEnvSet={gatedEnvSet}
         />
         <div className="bg-highlight rounded p-3 mb-3">
-          <Text size="x-large" weight="semibold" as="div" mb="4">
+          <Text size="xl" weight="semibold" as="div" mb="4">
             Rule Type
           </Text>
           <RadioCards
@@ -1780,7 +1780,7 @@ export default function RuleModal({
                 <Text as="div">
                   Looking for <strong>Safe Rollouts</strong>?
                 </Text>
-                <Text as="div" size="small" mt="1">
+                <Text as="div" size="sm" mt="1">
                   Guardrail monitoring can now be added to a Targeting
                   Rule&apos;s <strong>Ramp-up</strong> schedule
                 </Text>
@@ -1789,7 +1789,7 @@ export default function RuleModal({
                 <Button
                   color="inherit"
                   variant="soft"
-                  size="xs"
+                  size="sm"
                   onClick={() => {
                     setOverviewRadioSelectorRuleType("rollout");
                     setOverviewRuleType("rollout");
@@ -1813,7 +1813,7 @@ export default function RuleModal({
                   commercialFeature="safe-rollout"
                   usePortal={true}
                 >
-                  <Button color="inherit" variant="soft" size="xs" disabled>
+                  <Button color="inherit" variant="soft" size="sm" disabled>
                     Show me
                   </Button>
                 </PremiumTooltip>

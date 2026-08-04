@@ -211,7 +211,7 @@ export default function RevertModal({
         defaultExpanded
       />
 
-      <Heading as="h4" size="medium" mb="3">
+      <Heading as="h4" size="md" mb="3">
         Review Changes
       </Heading>
       <Flex align="center" gap="2" mb="3" wrap="wrap">

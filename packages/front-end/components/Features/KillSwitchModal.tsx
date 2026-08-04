@@ -112,7 +112,7 @@ function EnvStateGrid({
                 value={getSwitchDisplayState(env.id)}
                 onChange={(val) => onToggle(env.id, val)}
                 disabled={!canToggle(env.id)}
-                size="3"
+                size="lg"
               />
             </Flex>
           ))}

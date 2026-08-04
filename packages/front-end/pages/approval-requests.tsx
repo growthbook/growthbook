@@ -544,7 +544,7 @@ const ApprovalRequests: FC = () => {
   return (
     <Box p="4" pr="7" width="100%" maxWidth="1340px" mx="auto">
       <Box mb="5">
-        <Heading as="h1" size="large" mb="2">
+        <Heading as="h1" size="lg" mb="2">
           Approval Requests
         </Heading>
         <Text color="text-low">

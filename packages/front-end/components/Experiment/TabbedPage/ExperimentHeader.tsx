@@ -823,7 +823,7 @@ export default function ExperimentHeader({
       >
         <Flex direction="row" align="start" justify="between" gap="5">
           <Flex align="center" gap="2">
-            <Heading as="h1" size="2x-large" color="text-high" weight="medium">
+            <Heading as="h1" size="2xl" color="text-high" weight="medium">
               {experiment.name}
             </Heading>
             <Box style={{ userSelect: "none" }}>
@@ -1283,7 +1283,7 @@ export default function ExperimentHeader({
                   onValueChange={setTab}
                   style={{ width: "100%" }}
                 >
-                  <TabsList size="3">
+                  <TabsList size="lg">
                     <Flex align="center" className="flex-1">
                       <TabsTrigger value="overview">Overview</TabsTrigger>
                       <TabsTrigger value="results">Results</TabsTrigger>
@@ -1317,7 +1317,7 @@ export default function ExperimentHeader({
                       {hasMultiplePhases ? (
                         <>
                           <div className="flex-1" />
-                          <Text size="medium" weight="medium">
+                          <Text size="md" weight="medium">
                             <PhaseSelector
                               phase={phase}
                               phases={experiment.phases}

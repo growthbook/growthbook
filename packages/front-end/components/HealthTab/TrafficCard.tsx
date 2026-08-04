@@ -168,11 +168,7 @@ export default function TrafficCard({
               </th>
               {variations.map((v) => (
                 <th className="border-top-0" key={v.id}>
-                  <VariationLabel
-                    number={v.index}
-                    name={v.name}
-                    size="medium"
-                  />
+                  <VariationLabel number={v.index} name={v.name} size="md" />
                 </th>
               ))}
               <th className="border-top-0">Expected %</th>

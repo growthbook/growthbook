@@ -270,11 +270,7 @@ export default function ContextualBanditLinkedFeatureFlag({
                       minHeight="24px"
                     >
                       <Box flexBasis="15%" flexShrink="0" minWidth="0">
-                        <VariationLabel
-                          number={j}
-                          name={v.name}
-                          size="medium"
-                        />
+                        <VariationLabel number={j} name={v.name} size="md" />
                       </Box>
                       <Flex flexBasis="90px" flexShrink="0" justify="end">
                         <Text>

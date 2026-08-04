@@ -504,10 +504,10 @@ export default function ConfigFieldRow({
       >
         {isEditing ? (
           <Flex gap="3" align="center">
-            <Button size="sm" onClick={onSubmit}>
+            <Button size="md" onClick={onSubmit}>
               Save
             </Button>
-            <Link size="2" onClick={onCancelEdit}>
+            <Link size="md" onClick={onCancelEdit}>
               Cancel
             </Link>
           </Flex>
@@ -517,7 +517,7 @@ export default function ConfigFieldRow({
               {isOwnField || here ? (
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="md"
                   title={isOwnField ? "Edit field" : "Edit override"}
                   icon={<PiPencilSimpleFill />}
                   onClick={isOwnField ? onEditDefinition : onStartEdit}
@@ -527,7 +527,7 @@ export default function ConfigFieldRow({
               ) : (
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="md"
                   title="Add override"
                   icon={<PiPlusBold />}
                   onClick={onStartEdit}

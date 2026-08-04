@@ -57,7 +57,7 @@ function ConstantValuePreview({
   const value = data?.constant?.value;
 
   const preview = !data ? (
-    <Text size="small" color="text-low">
+    <Text size="sm" color="text-low">
       Loading…
     </Text>
   ) : value ? (
@@ -71,7 +71,7 @@ function ConstantValuePreview({
       />
     </Box>
   ) : (
-    <Text size="small" color="text-low">
+    <Text size="sm" color="text-low">
       <em>(empty)</em>
     </Text>
   );
@@ -139,7 +139,7 @@ function ConstantOption({
               @const:{constant.key}
             </Box>
             <Box style={{ flexShrink: 0 }}>
-              <Text size="small" color="text-low">
+              <Text size="sm" color="text-low">
                 {constant.type === "json" ? "JSON" : "String"}
               </Text>
             </Box>
@@ -195,7 +195,7 @@ export function UsedConstantTags({
 
   return (
     <Flex align="center" wrap="wrap" gap="2">
-      <Text size="small" color="text-low" weight="medium">
+      <Text size="sm" color="text-low" weight="medium">
         Constants used:
       </Text>
       {used.map((c) => (
@@ -292,7 +292,7 @@ export default function InsertConstantButton({
       </Tooltip>
     </IconButton>
   ) : (
-    <Button variant="ghost" size="xs" disabled={disabled}>
+    <Button variant="ghost" size="sm" disabled={disabled}>
       <Flex align="center" gap="1">
         {glyph} Insert constant
       </Flex>
@@ -322,7 +322,7 @@ export default function InsertConstantButton({
         ))
       ) : (
         <DropdownMenuItem disabled onClick={() => undefined}>
-          <Text size="small" color="text-low">
+          <Text size="sm" color="text-low">
             No available Constants
           </Text>
         </DropdownMenuItem>

@@ -878,7 +878,7 @@ function ReviewAndPublishRevision<T>({
                 </OverflowText>
               )}
               <Box flexShrink="0" style={{ whiteSpace: "nowrap" }}>
-                <Text size="small" color="text-low">
+                <Text size="sm" color="text-low">
                   {" · "}
                   {datetime(revision.dateUpdated)}
                 </Text>
@@ -963,7 +963,7 @@ function ReviewAndPublishRevision<T>({
             </Box>
             <Box flexGrow="1" style={{ minWidth: 0 }}>
               <Flex align="center" style={{ height: 32 }}>
-                <Heading as="h4" size="small" mb="0">
+                <Heading as="h4" size="sm" mb="0">
                   Add a comment
                 </Heading>
               </Flex>
@@ -982,7 +982,7 @@ function ReviewAndPublishRevision<T>({
     <>
       {contributorIds.length > 0 && (
         <Box mb="3">
-          <Text size="medium" weight="medium" color="text-high" as="div" mb="2">
+          <Text size="md" weight="medium" color="text-high" as="div" mb="2">
             Contributors
           </Text>
           <Flex direction="column" gap="2">
@@ -1003,7 +1003,7 @@ function ReviewAndPublishRevision<T>({
 
       {requiresApproval && reviewers.length > 0 && (
         <Box mb="3">
-          <Text size="medium" weight="medium" color="text-high" as="div" mb="2">
+          <Text size="md" weight="medium" color="text-high" as="div" mb="2">
             Reviewers
           </Text>
           <Flex direction="column" gap="2">
@@ -1050,7 +1050,7 @@ function ReviewAndPublishRevision<T>({
             {headerStatusIcon}
           </Box>
         )}
-        <Heading as="h4" size="small">
+        <Heading as="h4" size="sm">
           <span style={{ color: `var(--${headerStatusColor}-11)` }}>
             {headerStatusLabel}
           </span>
@@ -1397,7 +1397,7 @@ function ReviewAndPublishRevision<T>({
               )}
 
               {!requiresApproval && hasChanges && (
-                <Text size="small" color="text-mid" as="p">
+                <Text size="sm" color="text-mid" as="p">
                   No approval necessary — these changes can be published
                   directly.
                 </Text>

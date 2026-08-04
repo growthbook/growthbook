@@ -726,7 +726,7 @@ const MetricForm: FC<MetricFormProps> = ({
           {projects?.length > 0 && (
             <div className="form-group">
               <MultiSelectField
-                size="legacy"
+                legacyHeight
                 label={
                   <>
                     Projects{" "}
@@ -862,7 +862,7 @@ const MetricForm: FC<MetricFormProps> = ({
               {supportsSQL && value.queryFormat === "sql" ? (
                 <div>
                   <MultiSelectField
-                    size="legacy"
+                    legacyHeight
                     value={value.userIdTypes}
                     onChange={(types) => {
                       form.setValue("userIdTypes", types);
@@ -1144,7 +1144,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   )}
                   {customizeUserIds && (
                     <MultiSelectField
-                      size="legacy"
+                      legacyHeight
                       value={value.userIdTypes}
                       onChange={(types) => {
                         form.setValue("userIdTypes", types);
