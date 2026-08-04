@@ -6,6 +6,11 @@ import {
   postConfigRevisionRevertValidator,
   configUpdatableFieldsSchema,
 } from "shared/validators";
+import {
+  applyRevertDirectly,
+  assertCanRevertRevision,
+  resolveRevertStrategy,
+} from "back-end/src/revisions/revertActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
@@ -24,7 +29,6 @@ import {
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
-import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
@@ -39,33 +43,27 @@ export const postConfigRevisionRevert = createApiRequestHandler(
   const adapter = getAdapter("config");
   const revertsBypassApproval =
     !!req.organization.settings?.revertsBypassApproval;
-  const strategy =
-    req.body.strategy ?? (revertsBypassApproval ? "publish" : "draft");
+  const strategy = resolveRevertStrategy(
+    req.body.strategy,
+    revertsBypassApproval,
+  );
   const isPublish = strategy === "publish";
 
-  // Executing the revert needs revert authority. Proposing one as a draft is
-  // also open to anyone who can author drafts.
-  // Landing a revert answers for the environments the restore reaches; proposing
-  // one publishes nothing and answers for the project. Deriving both from the
-  // landing footprint made an environment-limited reverter unable to even stage a
-  // revert for a publisher to land.
-  const canLandRevert = req.context.permissions.canRevisionAction(
-    "config",
-    "revert",
-    config,
-    configPublishEnvironments(req.context, config),
-  );
-  const canProposeRevert = req.context.permissions.canRevisionAction(
-    "config",
-    "revert",
-    config,
-    NO_ENVIRONMENT_BINDING,
-  );
+  // Coarse standing, before the reconstruction below. The authoritative check is
+  // assertCanRevertRevision once the change set is known — it needs the fields to
+  // judge the footprint, the destination and whether an archive is being
+  // restored. Subset-refusing: no footprint or purity path rescues a caller who
+  // holds none of these in this project.
   if (
-    isPublish
-      ? !canLandRevert
-      : !canProposeRevert &&
-        !req.context.permissions.canRevisionAction("config", "draft", config)
+    (["revert", "publish", "draft"] as const).every(
+      (action) =>
+        !req.context.permissions.canRevisionAction(
+          "config",
+          action,
+          config,
+          NO_ENVIRONMENT_BINDING,
+        ),
+    )
   ) {
     req.context.permissions.throwPermissionError();
   }
@@ -216,6 +214,17 @@ export const postConfigRevisionRevert = createApiRequestHandler(
   const title = req.body.title ?? `Revert to v${req.params.version}`;
 
   if (!isPublish) {
+    // Staging publishes nothing, so this answers for the project — but a restored
+    // revision can still relocate the entity, which takes authoring rights in the
+    // destination.
+    assertCanRevertRevision({
+      context: req.context,
+      entityType: "config",
+      entity: config as unknown as Record<string, unknown>,
+      fields: fieldsToUpdate,
+      landing: false,
+      footprint: configPublishEnvironments(req.context, config),
+    });
     const draft = await createOrUpdateRevision(
       req.context,
       "config",
@@ -229,24 +238,17 @@ export const postConfigRevisionRevert = createApiRequestHandler(
     return { revision: await toApiConfigRevision(draft, req.context) };
   }
 
-  // Restoring an archived state still takes the Config out of service, so it
-  // carries the same delete-class gate as archiving it any other way. Revert
-  // authority covers the restoration, not the elevation.
-  if (
-    isArchiveTransition({
-      proposed:
-        "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
-      current: config.archived,
-    }) &&
-    !req.context.permissions.canRevisionAction(
-      "config",
-      "delete",
-      config,
-      configPublishEnvironments(req.context, config),
-    )
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
+  // Authoritative: the revert atom over the right scope for this mode, plus the
+  // classes a revert can span — a relocation's destination, and an archive
+  // restore's delete atom. All of it in one place for every entity and surface.
+  assertCanRevertRevision({
+    context: req.context,
+    entityType: "config",
+    entity: config as unknown as Record<string, unknown>,
+    fields: fieldsToUpdate,
+    landing: true,
+    footprint: configPublishEnvironments(req.context, config),
+  });
 
   // Experiment guard (direct publish → armed:false): a revert-to-publish
   // rewrites the config's live value like any other publish, so it must clear
@@ -274,34 +276,19 @@ export const postConfigRevisionRevert = createApiRequestHandler(
     );
   }
 
-  // Record the merged revision FIRST, then apply; roll it back if the apply
-  // fails, so a "reverted" record never lacks a live change.
-  const merged = await req.context.models.revisions.createMerged({
-    type: "config",
-    id: config.id,
-    snapshot: config as unknown as Record<string, unknown>,
-    proposedChanges: patchOps,
-    bypass: approvalRequired && canBypass,
+  // One implementation of record-then-apply-then-roll-back, which also reports a
+  // failed rollback instead of swallowing it — a merged revision whose changes
+  // never landed is phantom history.
+  const merged = await applyRevertDirectly({
+    context: req.context,
+    entityType: "config",
+    entity: config as unknown as Record<string, unknown> & { id: string },
+    fields: fieldsToUpdate,
+    patchOps,
+    targetRevisionId: targetRevision.id,
     title,
-    revertedFrom: targetRevision.id,
+    bypass: approvalRequired && canBypass,
   });
-
-  try {
-    // applyChanges re-runs "base wins" normalization + cascades the reconcile.
-    await adapter.applyChanges(
-      req.context,
-      config as unknown as Record<string, unknown>,
-      fieldsToUpdate,
-      { isRevert: true },
-    );
-  } catch (e) {
-    try {
-      await req.context.models.revisions.deleteById(merged.id);
-    } catch {
-      // ignore — surface the original applyChanges error
-    }
-    throw e;
-  }
 
   await dispatchConfigRevisionEvent(req.context, merged, {
     type: "reverted",
