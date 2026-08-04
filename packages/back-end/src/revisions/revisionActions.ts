@@ -926,3 +926,61 @@ export async function discardRevision({
   });
   return closed;
 }
+
+/**
+ * Submit a revision for review, arming auto-publish when asked for.
+ *
+ * Generic throughout: the adapter supplies the deferred-publish guards, the
+ * webhook comes from the registry, and the arming authority is the same
+ * change-aware check the eventual publish makes. The three per-entity handlers
+ * differed only in which webhook they remembered to fire.
+ */
+export async function requestRevisionReview({
+  context,
+  entityType,
+  entity,
+  revision,
+  autoPublishOnApproval,
+}: {
+  context: Context;
+  entityType: RevisionTargetType;
+  entity: Record<string, unknown>;
+  revision: Revision;
+  autoPublishOnApproval?: boolean;
+}): Promise<Revision> {
+  if (!context.permissions.canRevisionAction(entityType, "draft", entity)) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Re-submitting a changes-requested revision is allowed (→ pending-review).
+  if (revision.status !== "draft" && revision.status !== "changes-requested") {
+    throw new BadRequestError(
+      `Can only request review on a draft or changes-requested revision (status is "${revision.status}")`,
+    );
+  }
+
+  const enableAutoPublish =
+    !!autoPublishOnApproval &&
+    (await canEnableAutoPublishOnApproval(context, revision, entity));
+
+  // Snapshot the acknowledged conflict keys per guard (throws if arming over live
+  // conflicts without ignoreWarnings/bypass), via the adapter so every guard is
+  // captured uniformly.
+  const armAcknowledgments = enableAutoPublish
+    ? await getAdapter(entityType).captureArmAcknowledgment?.(
+        context,
+        entity,
+        revision.target.proposedChanges,
+      )
+    : undefined;
+
+  const updated = await context.models.revisions.submitForReview(
+    revision.id,
+    context.userId,
+    { autoPublishOnApproval: enableAutoPublish, armAcknowledgments },
+  );
+  await getRevisionWebhookAdapter(entityType)?.dispatch(context, updated, {
+    type: "reviewRequested",
+  });
+  return updated;
+}
