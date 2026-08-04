@@ -172,7 +172,8 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   ArchetypesFullAccess: ["readData", "manageArchetype"],
   // Deprecated: mapped to this entity's own atoms to preserve legacy access
   // exactly. Legacy Features access never included publish, so publish/revert
-  // are omitted.
+  // are omitted. Pairing this with SDKPayloadPublish is the one legacy
+  // combination that loses access on upgrade — see the note there.
   FeaturesFullAccess: [
     "readData",
     "createFeatures",
@@ -235,6 +236,16 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   // which this policy never carried. "Revert is a narrower publish" is true in
   // the abstract but would hand a deployment-only legacy role authority it never
   // had.
+  //
+  // Consequence, reviewed and accepted: a role holding this AND
+  // FeaturesFullAccess could revert on main and no longer can. Policies grant
+  // independently, so the only way to keep it is to put the revert atom on one
+  // of them, which hands that policy alone authority it never had —
+  // under-granting fails closed and an admin can add FlagsRevert. Pinned by
+  // "does not let the deployment-only legacy role revert" in
+  // shared/test/granular-flag-permissions.test.ts, whose BASELINE table carries
+  // the full reasoning. Standard roles are unaffected (they carry
+  // FlagsFullAccess).
   SDKPayloadPublish: ["readData", "publishFeatures", "runExperiments"],
   SDKConnectionsFullAccess: [
     "readData",
