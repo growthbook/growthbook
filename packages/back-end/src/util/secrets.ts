@@ -278,6 +278,18 @@ export const API_ALLOW_SKIP_PAGINATION = stringToBoolean(
   process.env.API_ALLOW_SKIP_PAGINATION,
 );
 
+// Opt-in: the bulk experiment results export reads and hydrates every analysis
+// on every snapshot it returns, so it stays off unless a deployment enables it.
+export const EXPERIMENT_BULK_RESULTS_ENABLED = stringToBoolean(
+  process.env.EXPERIMENT_BULK_RESULTS_ENABLED,
+);
+
+export const EXPERIMENT_BULK_RESULTS_RATE_LIMIT_MAX = parseEnvInt(
+  process.env.EXPERIMENT_BULK_RESULTS_RATE_LIMIT_MAX,
+  10,
+  { min: 1, name: "EXPERIMENT_BULK_RESULTS_RATE_LIMIT_MAX" },
+);
+
 // Defines the User-Agent header for all requests made by the API
 export const API_USER_AGENT =
   process.env.API_USER_AGENT ||

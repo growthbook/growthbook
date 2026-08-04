@@ -1,4 +1,7 @@
+import { Request, RequestHandler } from "express";
+import rateLimit from "express-rate-limit";
 import { getExperimentBulkResultsValidator } from "shared/validators";
+import { ApiRequestLocals } from "back-end/types/api";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { findSnapshotsByExperiment } from "back-end/src/models/ExperimentSnapshotModel";
 import {
@@ -10,10 +13,42 @@ import {
   getPaginationReturnFields,
   validatePagination,
 } from "back-end/src/util/handler";
+import {
+  EXPERIMENT_BULK_RESULTS_ENABLED,
+  EXPERIMENT_BULK_RESULTS_RATE_LIMIT_MAX,
+} from "back-end/src/util/secrets";
 
-export const getExperimentBulkResults = createApiRequestHandler(
-  getExperimentBulkResultsValidator,
-)(async (req) => {
+// Answer exactly like the router's unknown-endpoint handler when disabled, so
+// a gated endpoint is indistinguishable from one that doesn't exist.
+const requireBulkResultsEnabled: RequestHandler = (req, res, next) => {
+  if (!EXPERIMENT_BULK_RESULTS_ENABLED) {
+    return res.status(404).json({ message: "Unknown API endpoint" });
+  }
+  next();
+};
+
+// Stricter than the router-wide per-key cap: one page of this export hydrates
+// every analysis on every snapshot it returns.
+const bulkResultsRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: EXPERIMENT_BULK_RESULTS_RATE_LIMIT_MAX,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const { apiKey, organization } = req as Request & ApiRequestLocals;
+    return apiKey || organization?.id || req.ip;
+  },
+  message: {
+    message: `Too many requests, limit to ${EXPERIMENT_BULK_RESULTS_RATE_LIMIT_MAX} per minute`,
+  },
+});
+
+export const getExperimentBulkResults = createApiRequestHandler({
+  ...getExperimentBulkResultsValidator,
+  middleware: [requireBulkResultsEnabled, bulkResultsRateLimit],
+  // Undocumented while the endpoint is gated.
+  excludeFromSpec: true,
+})(async (req) => {
   const experiment = await getExperimentById(req.context, req.params.id);
   if (!experiment) {
     throw new Error("Could not find experiment with that id");

@@ -20,7 +20,7 @@ import {
   optionalOwnerInputField,
 } from "./owner-field";
 
-import { namedSchema } from "./openapi-helpers";
+import { componentSchema, namedSchema } from "./openapi-helpers";
 
 export const customMetricSlice = z.object({
   slices: z.array(
@@ -1014,7 +1014,9 @@ const apiBulkResultVariation = z.object({
   ),
 });
 
-export const apiExperimentBulkResultValidator = namedSchema(
+// `componentSchema` rather than `namedSchema` keeps this out of the docs
+// "Models" section while its only endpoint is gated and excluded from the spec.
+export const apiExperimentBulkResultValidator = componentSchema(
   "ExperimentBulkResult",
   z
     .object({

@@ -233,6 +233,15 @@ experimentSnapshotSchema.index({
   experiment: 1,
   dateCreated: -1,
 });
+// Backs the bulk-results export: organization + experiment equality, then
+// status (bounded by both branches of the query's $or), then dateCreated for
+// the window filter and the descending sort.
+experimentSnapshotSchema.index({
+  organization: 1,
+  experiment: 1,
+  status: 1,
+  dateCreated: -1,
+});
 
 export type ExperimentSnapshotDocument = mongoose.Document &
   LegacyExperimentSnapshotInterface;
@@ -934,9 +943,15 @@ export async function findSnapshotsByExperiment(
     dateCreated: { $gte: dateStart, $lte: dateEnd },
     // `status` is derived at read time by migrateSnapshot, so snapshots
     // written before the field existed need the legacy results check too.
+    // Both branches pin `status` so the index below can bound them; without
+    // that, `status` stops being an equality match and the dateCreated range
+    // and sort fall out of the index.
     $or: [
       { status: "success" },
-      { results: { $exists: true, $type: "array", $ne: [] } },
+      {
+        status: { $exists: false },
+        results: { $exists: true, $type: "array", $ne: [] },
+      },
     ],
   };
   if (phase !== undefined) {
@@ -953,8 +968,8 @@ export async function findSnapshotsByExperiment(
   }
 
   // Paginate over snapshots at the DB level (backed by the
-  // { experiment: 1, dateCreated: -1 } index) since hydrating chunked
-  // analyses per snapshot is expensive.
+  // { organization, experiment, status, dateCreated } index) since hydrating
+  // chunked analyses per snapshot is expensive.
   const total = await ExperimentSnapshotModel.countDocuments(query);
 
   const docs = await ExperimentSnapshotModel.find(query, null, {
