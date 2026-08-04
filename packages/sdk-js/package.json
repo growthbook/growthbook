@@ -19,6 +19,7 @@
       }
     },
     "./plugins": {
+      "types": "./dist/plugins/index.d.ts",
       "import": {
         "types": "./dist/plugins/index.d.ts",
         "default": "./dist/esm/plugins/index.mjs"

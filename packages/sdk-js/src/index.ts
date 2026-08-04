@@ -99,4 +99,8 @@ export {
   paddedVersionString,
 } from "./util";
 
-export { EVENT_EXPERIMENT_VIEWED, EVENT_FEATURE_EVALUATED } from "./core";
+export {
+  EVENT_EXPERIMENT_VIEWED,
+  EVENT_FEATURE_EVALUATED,
+  EVENT_GROWTHBOOK_ERROR,
+} from "./core";
