@@ -29,6 +29,7 @@ import {
   isMove,
 } from "back-end/src/revisions/moveAuthority";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
+import { assertCanLandRevision } from "back-end/src/revisions/landAuthority";
 import {
   MergeConflictError,
   BadRequestError,
@@ -286,8 +287,8 @@ export async function assertCanPublishRevision(
   const snapshot = entity as Record<string, unknown>;
 
   // Change-aware environment footprint, when the adapter can compute one. Every
-  // arm below shares it — the archive checks included, since an archive lands in
-  // the environments the entity serves just as a publish does.
+  // arm shares it — the archive check included, since an archive lands in the
+  // environments the entity serves just as a publish does.
   const footprint =
     adapter.publishFootprint?.(
       context,
@@ -295,65 +296,34 @@ export async function assertCanPublishRevision(
       revision.target.proposedChanges,
     ) ?? [];
 
-  // Archiving is delete-class wherever the transition lands. Note this needs the
-  // entity's delete atom from the permission table — adapter.canDelete gates
-  // deleting a revision document (the entity's bypass-approval permission),
-  // not the entity.
-  if (
-    isArchiveTransition({
+  await assertCanLandRevision({
+    context,
+    holds: (action) =>
+      context.permissions.canRevisionAction(
+        revision.target.type,
+        action,
+        snapshot,
+        footprint,
+      ) &&
+      // The adapter's own entity-level gate, which can be narrower than the atom
+      // (a Config's edit rule, for instance). Only publish and revert have one;
+      // delete answers to the permission table alone, because adapter.canDelete
+      // gates deleting a revision DOCUMENT, not the entity.
+      (action === "delete" ||
+        (action === "publish"
+          ? (adapter.canPublishRevision ?? adapter.canUpdate)(context, snapshot)
+          : (adapter.canRevert ?? adapter.canUpdate)(context, snapshot))),
+    archives: isArchiveTransition({
       proposed: proposedArchivedValue(revision.target.proposedChanges),
       current: snapshot.archived as boolean | undefined,
-    }) &&
-    !context.permissions.canRevisionAction(
-      revision.target.type,
-      "delete",
-      snapshot,
-      footprint,
-    )
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
-  const footprintOk = (action: "publish" | "revert"): boolean =>
-    !footprint.length ||
-    context.permissions.canRevisionAction(
-      revision.target.type,
-      action,
-      snapshot,
-      footprint,
-    );
-
-  if (
-    (adapter.canPublishRevision ?? adapter.canUpdate)(context, snapshot) &&
-    footprintOk("publish")
-  ) {
-    return;
-  }
-
-  const canRevert =
-    (adapter.canRevert ?? adapter.canUpdate)(context, snapshot) &&
-    footprintOk("revert");
-  if (canRevert && (await isPureRevertRevision(context, revision))) return;
-
-  // Staging an archive as a draft must not require an atom that landing it in one
-  // step doesn't: archiving is delete-class, so delete authority alone lands a
-  // revision that archives and changes nothing else. Approval is a separate gate.
-  if (
-    context.permissions.canRevisionAction(
-      revision.target.type,
-      "delete",
-      snapshot,
-      footprint,
-    ) &&
-    isPureArchiveRevision({
-      proposedChanges: revision.target.proposedChanges,
-      current: snapshot.archived as boolean | undefined,
-    })
-  ) {
-    return;
-  }
-
-  context.permissions.throwPermissionError();
+    }),
+    isPureRevert: () => isPureRevertRevision(context, revision),
+    isPureArchive: () =>
+      isPureArchiveRevision({
+        proposedChanges: revision.target.proposedChanges,
+        current: snapshot.archived as boolean | undefined,
+      }),
+  });
 }
 
 export async function approveRevision(

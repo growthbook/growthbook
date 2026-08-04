@@ -8,6 +8,7 @@ import {
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/validators";
+import { assertCanLandRevision } from "back-end/src/revisions/landAuthority";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
@@ -243,21 +244,11 @@ export async function assertCanPublishFeatureRevision({
   environments: string[];
   mergeChanges?: MergeResultChanges;
 }): Promise<void> {
-  // Archiving takes the flag out of service wherever it lands, not just via the
-  // archive endpoint. Unarchiving returns it to service and is an ordinary
-  // publish.
-  if (
-    isArchiveTransition({
-      proposed: mergeChanges?.archived,
-      current: feature.archived,
-    }) &&
-    !context.permissions.canDeleteFeature(feature, environments)
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
   // A move has to land where the publisher has authority, not just leave where
-  // they do — whoever stages it needn't be whoever publishes it.
+  // they do — whoever stages it needn't be whoever publishes it. Checked here
+  // rather than in the shared rule because only this path has the merge result
+  // that names the destination; the generic engine checks it where it has the
+  // desired state.
   const destination = mergeChanges?.metadata?.project;
   if (
     destination !== undefined &&
@@ -270,23 +261,24 @@ export async function assertCanPublishFeatureRevision({
     context.permissions.throwPermissionError();
   }
 
-  if (context.permissions.canPublishFeature(feature, environments)) return;
-
-  if (
-    context.permissions.canRevertFeature(feature, environments) &&
-    (await draftIsPureRevert({ context, feature, draft: revision }))
-  ) {
-    return;
-  }
-
-  // Staging an archive as a draft must not require an atom that landing it in
-  // one step doesn't.
-  if (
-    context.permissions.canDeleteFeature(feature, environments) &&
-    isPureFeatureArchive({ feature, draft: revision })
-  ) {
-    return;
-  }
-
-  context.permissions.throwPermissionError();
+  await assertCanLandRevision({
+    context,
+    // The footprint is already folded in: these three delegate to
+    // canRevisionAction("feature", …, environments).
+    holds: (action) =>
+      action === "publish"
+        ? context.permissions.canPublishFeature(feature, environments)
+        : action === "revert"
+          ? context.permissions.canRevertFeature(feature, environments)
+          : context.permissions.canDeleteFeature(feature, environments),
+    archives: isArchiveTransition({
+      proposed: mergeChanges?.archived,
+      current: feature.archived,
+    }),
+    // Feature revisions carry typed fields rather than JSON patch ops, so purity
+    // is proven against the merge result instead of the op list.
+    isPureRevert: () =>
+      draftIsPureRevert({ context, feature, draft: revision }),
+    isPureArchive: () => isPureFeatureArchive({ feature, draft: revision }),
+  });
 }
