@@ -4,6 +4,7 @@ import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiArrowCounterClockwise, PiKey, PiUserCircle } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
+import { allowSelfOrgCreation } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import Button from "@/ui/Button";
@@ -13,6 +14,7 @@ import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
+import TextField from "@/ui/TextField";
 import Text from "@/ui/Text";
 
 type AuthorizeInfoResponse = {
@@ -94,6 +96,66 @@ function AccessItem({
  * be logged in (normal AuthProvider flow); they pick an organization and
  * approve, then we mint an auth code and redirect back to the client.
  */
+/**
+ * A user who just signed up has no organization, and approving requires one. Offer
+ * to create it here rather than dead-ending the flow they were sent into.
+ *
+ * Where self-serve creation is off (single-org self-hosted), say what to do instead
+ * — an admin has to invite them, and no amount of retrying will change that.
+ */
+function NoOrganization({ onCreated }: { onCreated: () => void }) {
+  const { apiCall } = useAuth();
+  const [name, setName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!allowSelfOrgCreation()) {
+    return (
+      <Callout status="warning">
+        You are not a member of any organization yet. Ask an admin to invite
+        you, then come back to this page.
+      </Callout>
+    );
+  }
+
+  return (
+    <Box>
+      <Callout status="info" mb="3">
+        You are not a member of any organization yet. Create one to continue.
+      </Callout>
+      <TextField
+        label="Organization name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Acme Inc."
+        error={error ?? undefined}
+      />
+      <Button
+        mt="3"
+        disabled={name.trim().length < 3}
+        loading={creating}
+        onClick={async () => {
+          setError(null);
+          setCreating(true);
+          try {
+            await apiCall("/organization", {
+              method: "POST",
+              body: JSON.stringify({ company: name.trim() }),
+            });
+            onCreated();
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "Could not create it");
+          } finally {
+            setCreating(false);
+          }
+        }}
+      >
+        Create organization
+      </Button>
+    </Box>
+  );
+}
+
 export default function OAuthAuthorizePage() {
   const router = useRouter();
   const { apiCall, isAuthenticated, loading: authLoading } = useAuth();
@@ -133,6 +195,7 @@ export default function OAuthAuthorizePage() {
     data: info,
     error: infoFetchError,
     isLoading: loadingInfo,
+    mutate: mutateInfo,
   } = useApi<AuthorizeInfoResponse>(
     `/oauth/authorize/info?${infoQueryString}`,
     {
@@ -333,9 +396,11 @@ export default function OAuthAuthorizePage() {
               ))}
             </Select>
           ) : (
-            <Callout status="warning">
-              You are not a member of any organization.
-            </Callout>
+            <NoOrganization
+              onCreated={() => {
+                void mutateInfo();
+              }}
+            />
           )}
         </Frame>
       ) : null}
