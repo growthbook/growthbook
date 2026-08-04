@@ -11,7 +11,7 @@ const NewCustomRolePage: FC = () => {
       breadcrumb="Create Custom Role"
     >
       <>
-        <Heading as="h1" size="large" mb="3">
+        <Heading as="h1" size="lg" mb="3">
           Create Custom Role
         </Heading>
         <RoleForm

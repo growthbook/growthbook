@@ -26,7 +26,7 @@ const CustomRolePage: FC = () => {
       breadcrumb={`${rid}`}
     >
       <>
-        <Heading as="h1" size="large" mb="3">
+        <Heading as="h1" size="lg" mb="3">
           {rid}
         </Heading>
         <RoleForm role={role} action={edit ? "editing" : "viewing"} />

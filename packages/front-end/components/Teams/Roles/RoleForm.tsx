@@ -250,7 +250,7 @@ export default function RoleForm({
         />
       </Frame>
       <Box pt="2">
-        <Heading as="h2" size="medium" mb="3">
+        <Heading as="h2" size="md" mb="3">
           Select Permissions
         </Heading>
         <Frame>
@@ -262,7 +262,7 @@ export default function RoleForm({
               <Box key={group.name} mb="5">
                 <Text
                   as="div"
-                  size="medium"
+                  size="md"
                   weight="semibold"
                   color="text-mid"
                   textTransform="uppercase"
@@ -363,7 +363,7 @@ export default function RoleForm({
             <Box mb="5">
               <Text
                 as="div"
-                size="medium"
+                size="md"
                 weight="semibold"
                 color="text-mid"
                 textTransform="uppercase"
