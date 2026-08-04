@@ -9,15 +9,13 @@ import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
+import LinkButton from "@/ui/LinkButton";
 import Text from "@/ui/Text";
 import useApi from "@/hooks/useApi";
 import { useCelebration } from "@/hooks/useCelebration";
-import {
-  ExperimentFeatureCard,
-  FeatureFlagFeatureCard,
-} from "@/components/GetStarted/FeaturedCards";
 
-type ArtifactKind = ApiSetupRun["artifacts"][number]["kind"];
+type Artifact = ApiSetupRun["artifacts"][number];
+type ArtifactKind = Artifact["kind"];
 
 const KIND_LABEL: Record<ArtifactKind, string> = {
   "sdk-connection": "SDK Connection",
@@ -48,31 +46,43 @@ function hrefFor(kind: ArtifactKind, id: string): string | null {
   }
 }
 
-function ArtifactRow({
-  artifact,
-}: {
-  artifact: ApiSetupRun["artifacts"][number];
-}) {
-  const href = hrefFor(artifact.kind, artifact.id);
+function ArtifactList({ artifacts }: { artifacts: Artifact[] }) {
   return (
-    <Flex align="start" gap="3" py="3" className="border-bottom">
-      <Box style={{ minWidth: 0, flex: 1 }}>
-        <Flex align="center" gap="2" mb="1">
-          <Text weight="medium">{artifact.label}</Text>
-          <Badge label={KIND_LABEL[artifact.kind]} color="violet" />
-        </Flex>
-        {artifact.detail ? (
-          <Text size="small" color="text-mid">
-            {artifact.detail}
-          </Text>
-        ) : null}
-      </Box>
-      {href ? (
-        <Link href={href} className="text-nowrap">
-          Open →
-        </Link>
-      ) : null}
-    </Flex>
+    <>
+      {artifacts.map((a, i) => {
+        const href = hrefFor(a.kind, a.id);
+        return (
+          <Flex
+            key={`${a.kind}:${a.id}`}
+            align="center"
+            gap="3"
+            py="3"
+            className={i > 0 ? "border-top" : undefined}
+          >
+            <Box style={{ minWidth: 0, flex: 1 }}>
+              <Flex align="center" gap="2" mb="1" wrap="wrap">
+                <Text weight="medium">{a.label}</Text>
+                <Badge
+                  label={KIND_LABEL[a.kind]}
+                  color="violet"
+                  radius="full"
+                />
+              </Flex>
+              {a.detail && (
+                <Text size="small" color="text-mid" as="div">
+                  {a.detail}
+                </Text>
+              )}
+            </Box>
+            {href && (
+              <Link href={href} style={{ whiteSpace: "nowrap" }}>
+                Open →
+              </Link>
+            )}
+          </Flex>
+        );
+      })}
+    </>
   );
 }
 
@@ -90,8 +100,8 @@ export default function SetupRunPage() {
 
   const startCelebration = useCelebration(1);
   useEffect(() => {
-    // Only for a run that actually finished. Confetti over a half-done install is
-    // the same dishonesty as a green tick over a failing check.
+    // Only for a run whose checks actually passed. Confetti over a half-done
+    // install is the same dishonesty as a green tick over a failing check.
     if (completed) startCelebration();
   }, [completed, startCelebration]);
 
@@ -109,11 +119,36 @@ export default function SetupRunPage() {
   const failing = run.checks.filter((c) => !c.ok && c.required);
   const appName = run.appName || "your app";
 
+  const flag = byDeveloper.find((a) => a.kind === "feature");
+  const steps = [
+    flag
+      ? {
+          title: "Turn the Feature Flag on",
+          body: `Change the default value of ${flag.id}, then reload your app to see it take effect.`,
+          href: `/features/${flag.id}`,
+          cta: "Open the Feature Flag",
+        }
+      : {
+          title: "Create a Feature Flag",
+          body: "Wrap something in a flag you can turn on and off without a deploy.",
+          href: "/features",
+          cta: "Create a Feature Flag",
+        },
+    {
+      title: "Run an Experiment",
+      body: "Measure which version wins. Your SDK is already wired, so this needs no code changes.",
+      href: "/experiments",
+      cta: "Set up an Experiment",
+    },
+  ];
+  // Lead with what they came for.
+  if (run.intent === "experiment") steps.reverse();
+
   return (
-    <div className="contents container pagecontents pagecontents-fluid">
+    <div className="contents container pagecontents">
       <PageHead breadcrumb={[{ display: "Set Up", href: "/setup" }]} />
 
-      <Box mb="5">
+      <Box mb="4">
         <Heading as="h1" size="x-large" mb="1">
           {completed
             ? `GrowthBook is live in ${appName}`
@@ -126,14 +161,29 @@ export default function SetupRunPage() {
         </Text>
       </Box>
 
+      {failing.length > 0 && (
+        <Callout status="warning" size="md" mb="4">
+          <Text weight="medium" as="div">
+            {failing.length === 1
+              ? "1 thing still to finish"
+              : `${failing.length} things still to finish`}
+          </Text>
+          <Box mt="1">
+            {failing.map((c) => (
+              <Text as="div" key={c.name} size="small">
+                {c.name}
+              </Text>
+            ))}
+          </Box>
+        </Callout>
+      )}
+
       {byDeveloper.length > 0 && (
         <Frame mb="4">
           <Heading as="h2" size="small" mb="2">
             What You Created
           </Heading>
-          {byDeveloper.map((a) => (
-            <ArtifactRow key={`${a.kind}:${a.id}`} artifact={a} />
-          ))}
+          <ArtifactList artifacts={byDeveloper} />
         </Frame>
       )}
 
@@ -142,55 +192,34 @@ export default function SetupRunPage() {
           <Heading as="h2" size="small" mb="1">
             What We Set Up for You
           </Heading>
-          <Text size="small" color="text-mid">
-            Derived from your code and warehouse during setup.
-          </Text>
-          <Box mt="2">
-            {byGrowthBook.map((a) => (
-              <ArtifactRow key={`${a.kind}:${a.id}`} artifact={a} />
-            ))}
+          <Box mb="2">
+            <Text size="small" color="text-mid" as="div">
+              Found in your code during setup.
+            </Text>
           </Box>
+          <ArtifactList artifacts={byGrowthBook} />
         </Frame>
       )}
 
-      {failing.length > 0 && (
-        <Callout status="warning" mb="4">
-          <Text weight="medium">
-            {failing.length === 1
-              ? "1 thing still to finish"
-              : `${failing.length} things still to finish`}
-          </Text>
-          <Box mt="2">
-            {failing.map((c) => (
-              <Text as="div" key={c.name} size="small">
-                {c.name}
+      <Heading as="h2" size="small" mb="2">
+        What Next
+      </Heading>
+      <Grid columns={{ initial: "1fr", sm: "1fr 1fr" }} gap="3" mb="4">
+        {steps.map((s, i) => (
+          <Frame key={s.title} mb="0">
+            <Heading as="h3" size="small" mb="1">
+              {s.title}
+            </Heading>
+            <Box mb="3">
+              <Text size="small" color="text-mid" as="div">
+                {s.body}
               </Text>
-            ))}
-          </Box>
-          <Text as="div" size="small">
-            Ask your coding agent to finish these, then re-run{" "}
-            <code>gb-check</code>.
-          </Text>
-        </Callout>
-      )}
-
-      <Box mb="3">
-        <Heading as="h2" size="small">
-          What Next
-        </Heading>
-      </Box>
-      <Grid columns={{ initial: "1fr", xs: "1fr 1fr" }} gap="3">
-        {run.intent === "experiment" ? (
-          <>
-            <ExperimentFeatureCard />
-            <FeatureFlagFeatureCard />
-          </>
-        ) : (
-          <>
-            <FeatureFlagFeatureCard />
-            <ExperimentFeatureCard />
-          </>
-        )}
+            </Box>
+            <LinkButton href={s.href} variant={i === 0 ? "solid" : "outline"}>
+              {s.cta}
+            </LinkButton>
+          </Frame>
+        ))}
       </Grid>
     </div>
   );
