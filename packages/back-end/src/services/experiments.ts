@@ -1710,6 +1710,7 @@ function shouldIncrementalThrowErrorInsteadOfFallback(
     case "manual-dashboard":
     case "schedule":
     case "update-dashboards":
+    case "dashboard-dependency":
       return false;
     default: {
       triggeredBy satisfies never;
@@ -2141,28 +2142,43 @@ export async function createSnapshotFromPlan({
     // Whenever the standard snapshot for an experiment is refreshed, also refresh the associated dashboards in the background
     if (
       runningSnapshot.type === "standard" &&
-      runningSnapshot.triggeredBy !== "manual-dashboard"
+      runningSnapshot.triggeredBy !== "manual-dashboard" &&
+      // The dependency rebuild materializes Overall Results for a fan-out already
+      // in progress. Re-driving the fan-out from its completion would loop.
+      runningSnapshot.triggeredBy !== "dashboard-dependency"
     ) {
       const defaultAnalysisSettings = runningSnapshot.analyses[0]?.settings;
       if (!defaultAnalysisSettings) {
         throw new Error("Snapshot is missing its default analysis settings");
       }
 
-      updateExperimentDashboards({
-        context,
-        experiment,
-        mainSnapshot: runningSnapshot,
-        statsEngine: defaultAnalysisSettings.statsEngine,
-        regressionAdjustmentEnabled:
-          defaultAnalysisSettings.regressionAdjusted ??
-          DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-        postStratificationEnabled:
-          defaultAnalysisSettings.postStratificationEnabled ??
-          DEFAULT_POST_STRATIFICATION_ENABLED,
-        settingsForSnapshotMetrics: plan.settingsForSnapshotMetrics,
-        metricMap,
-        factTableMap,
-      });
+      // Dimension snapshots share the incremental tables, so wait until the
+      // standard runner has finished and released its lock before starting them.
+      void queryRunner
+        .waitForResults()
+        .then(() =>
+          updateExperimentDashboards({
+            context,
+            experiment,
+            mainSnapshot: runningSnapshot,
+            statsEngine: defaultAnalysisSettings.statsEngine,
+            regressionAdjustmentEnabled:
+              defaultAnalysisSettings.regressionAdjusted ??
+              DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+            postStratificationEnabled:
+              defaultAnalysisSettings.postStratificationEnabled ??
+              DEFAULT_POST_STRATIFICATION_ENABLED,
+            settingsForSnapshotMetrics: plan.settingsForSnapshotMetrics,
+            metricMap,
+            factTableMap,
+          }),
+        )
+        .catch((error: unknown) => {
+          context.logger.error(
+            error,
+            `Failed to refresh dashboards for experiment ${experiment.id}`,
+          );
+        });
     }
 
     return queryRunner;
@@ -2361,6 +2377,48 @@ export async function createExperimentSnapshot({
     context,
     experiment,
   });
+}
+
+/**
+ * Rebuilds the Overall Results units table (full refresh) for the given phase so
+ * subsequent dimension breakdowns run incrementally instead of via the full-scan
+ * results runner. Awaits completion. Runs once; callers MUST NOT retry.
+ * useCache:false forces a genuine rebuild, required for the stale-by-hash /
+ * built-without-pipeline cases where the table exists but must be rebuilt, not
+ * appended.
+ */
+export async function rebuildOverallResultsForDimensionBreakdowns({
+  context,
+  experiment,
+  datasource,
+  phase,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  datasource: DataSourceInterface;
+  phase: number;
+}): Promise<void> {
+  const { queryRunner } = await createExperimentSnapshot({
+    context,
+    experiment,
+    datasource,
+    dimension: undefined,
+    phase,
+    type: "standard",
+    useCache: false,
+    triggeredBy: "dashboard-dependency",
+  });
+  await queryRunner.waitForResults();
+  const refreshState =
+    await context.models.incrementalRefresh.getByExperimentIdAndPhase(
+      experiment.id,
+      phase,
+    );
+  if ((refreshState?.unitsTableFullName ?? null) === null) {
+    context.logger.warn(
+      `Experiment ${experiment.id}: Overall Results rebuild completed without a units table for phase ${phase}; dimension breakdowns will fall back to non-incremental queries this cycle.`,
+    );
+  }
 }
 
 export async function createExperimentSnapshotFromPlan({

@@ -31,13 +31,18 @@ import { ReqContext } from "back-end/types/request";
 
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { ApiReqContext } from "back-end/types/api";
-import { getDataSourcesByIds } from "back-end/src/models/DataSourceModel";
+import {
+  getDataSourcesByIds,
+  getDataSourceById,
+} from "back-end/src/models/DataSourceModel";
 import { executeAndSaveQuery } from "back-end/src/routers/saved-queries/saved-queries.controller";
 import {
   getDefaultExperimentAnalysisSettings,
   createSnapshot,
   getAdditionalExperimentAnalysisSettings,
   determineNextDate,
+  planExperimentSnapshot,
+  rebuildOverallResultsForDimensionBreakdowns,
 } from "back-end/src/services/experiments";
 import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
@@ -132,26 +137,42 @@ export async function updateExperimentDashboards({
     previousSnapshots.map((snap) => [snap.id, snap]),
   );
 
-  const snapshotAndAnalysisSettingPairs = blocksNeedingSnapshot.map<
+  const snapshotAndAnalysisSettingPairs = blocksNeedingSnapshot.flatMap<
     [BlockSnapshotSettings, ExperimentSnapshotAnalysisSettings]
   >((block) => {
     const blockSnapshot = previousSnapshotMap.get(block.snapshotId);
-    if (!blockSnapshot)
-      throw new Error(
-        "Error updating dashboard results, could not find snapshot",
+    if (!blockSnapshot) {
+      logger.warn(
+        {
+          experimentId: experiment.id,
+          blockId: block.id,
+          snapshotId: block.snapshotId,
+        },
+        "Skipping dashboard block with missing snapshot",
       );
-    if (!blockSnapshot.analyses[0])
-      throw new Error(
-        "Error updating dashboard results, referenced snapshot missing analysis",
+      return [];
+    }
+    if (!blockSnapshot.analyses[0]) {
+      logger.warn(
+        {
+          experimentId: experiment.id,
+          blockId: block.id,
+          snapshotId: block.snapshotId,
+        },
+        "Skipping dashboard block with missing snapshot analysis",
       );
+      return [];
+    }
     const defaultAnalysis = blockSnapshot.analyses[0];
     return [
-      getBlockSnapshotSettings(block),
-      getBlockAnalysisSettings(
-        block,
-        (getBlockSnapshotAnalysis(blockSnapshot, block) ?? defaultAnalysis)
-          .settings,
-      ),
+      [
+        getBlockSnapshotSettings(block),
+        getBlockAnalysisSettings(
+          block,
+          (getBlockSnapshotAnalysis(blockSnapshot, block) ?? defaultAnalysis)
+            .settings,
+        ),
+      ],
     ];
   });
 
@@ -172,64 +193,130 @@ export async function updateExperimentDashboards({
   });
   const metricGroups = await context.models.metricGroups.getAll();
 
-  for (const snapshotSettings of uniqueSnapshotSettings) {
-    const additionalAnalysisSettings =
-      uniqWith<ExperimentSnapshotAnalysisSettings>(
-        snapshotAndAnalysisSettingPairs
-          .filter(([targetSettings]) =>
-            isEqual(snapshotSettings, targetSettings),
-          )
-          .map(([_, analysisSettings]) => analysisSettings),
-        isEqual,
+  const firstDimensionSettings = uniqueSnapshotSettings.find(
+    (s) => (s.dimensionId ?? "").length > 0,
+  );
+  if (firstDimensionSettings?.dimensionId) {
+    try {
+      const datasource = await getDataSourceById(
+        context,
+        experiment.datasource,
       );
-
-    const analysisSettings = getDefaultExperimentAnalysisSettings({
-      statsEngine,
-      experiment,
-      organization: context.org,
-      regressionAdjustmentEnabled,
-      postStratificationEnabled,
-      dimension: snapshotSettings.dimensionId,
-      pValueThreshold: scopedDashboardSettings.pValueThreshold.value,
-      metricGroups,
-    });
-
-    const queryRunner = await createSnapshot({
-      experiment,
-      context,
-      phaseIndex: experiment.phases.length - 1,
-      defaultAnalysisSettings: analysisSettings,
-      additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
-        analysisSettings,
-      ).concat(additionalAnalysisSettings),
-      settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
-      metricMap,
-      factTableMap,
-      useCache: true,
-      type: "exploratory",
-      triggeredBy: "update-dashboards",
-    });
-    await queryRunner.waitForResults();
+      if (datasource) {
+        const probe = await planExperimentSnapshot({
+          context,
+          experiment,
+          datasource,
+          dimension: firstDimensionSettings.dimensionId,
+          phase: experiment.phases.length - 1,
+          useCache: true,
+          type: "exploratory",
+          triggeredBy: "update-dashboards",
+        });
+        if (probe.overallResultsFullRefreshWouldUnblock) {
+          await rebuildOverallResultsForDimensionBreakdowns({
+            context,
+            experiment,
+            datasource,
+            phase: experiment.phases.length - 1,
+          });
+        }
+      }
+    } catch (e) {
+      logger.warn(
+        {
+          err: e,
+          experimentId: experiment.id,
+          dimensionId: firstDimensionSettings.dimensionId,
+        },
+        "Overall Results probe or rebuild for dimension breakdowns failed; breakdowns will fall back to results this cycle",
+      );
+    }
   }
 
-  await updateDashboardSavedQueries(context, allBlocks);
+  for (const snapshotSettings of uniqueSnapshotSettings) {
+    try {
+      const additionalAnalysisSettings =
+        uniqWith<ExperimentSnapshotAnalysisSettings>(
+          snapshotAndAnalysisSettingPairs
+            .filter(([targetSettings]) =>
+              isEqual(snapshotSettings, targetSettings),
+            )
+            .map(([, analysisSettings]) => analysisSettings),
+          isEqual,
+        );
+
+      const analysisSettings = getDefaultExperimentAnalysisSettings({
+        statsEngine,
+        experiment,
+        organization: context.org,
+        regressionAdjustmentEnabled,
+        postStratificationEnabled,
+        dimension: snapshotSettings.dimensionId,
+        pValueThreshold: scopedDashboardSettings.pValueThreshold.value,
+        metricGroups,
+      });
+
+      const queryRunner = await createSnapshot({
+        experiment,
+        context,
+        phaseIndex: experiment.phases.length - 1,
+        defaultAnalysisSettings: analysisSettings,
+        additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
+          analysisSettings,
+        ).concat(additionalAnalysisSettings),
+        settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
+        metricMap,
+        factTableMap,
+        useCache: true,
+        type: "exploratory",
+        triggeredBy: "update-dashboards",
+      });
+      await queryRunner.waitForResults();
+    } catch (e) {
+      logger.warn(
+        {
+          err: e,
+          experimentId: experiment.id,
+          dimensionId: snapshotSettings.dimensionId ?? null,
+        },
+        "Dashboard snapshot refresh failed; remaining refreshes will continue",
+      );
+    }
+  }
+
+  try {
+    await updateDashboardSavedQueries(context, allBlocks);
+  } catch (e) {
+    logger.warn(
+      { err: e, experimentId: experiment.id, unit: "saved-query-batch" },
+      "Dashboard saved query refresh failed; dashboard updates will continue",
+    );
+  }
   for (const dashboard of associatedDashboards) {
-    const editableBlocks = dashboard.blocks.map((block) =>
-      block.type === "metric-explorer" ? { ...block } : block,
-    );
-    const metricAnalysesUpdated = await updateDashboardMetricAnalyses(
-      context,
-      editableBlocks,
-    );
-    const explorationsUpdated = await updateDashboardExplorations(
-      context,
-      editableBlocks,
-      dashboard,
-    );
-    if (metricAnalysesUpdated || explorationsUpdated) {
-      await context.models.dashboards.dangerousUpdateBypassPermission(
+    try {
+      const editableBlocks = dashboard.blocks.map((block) =>
+        block.type === "metric-explorer" ? { ...block } : block,
+      );
+      const metricAnalysesUpdated = await updateDashboardMetricAnalyses(
+        context,
+        editableBlocks,
+      );
+      const explorationsUpdated = await updateDashboardExplorations(
+        context,
+        editableBlocks,
         dashboard,
-        { blocks: editableBlocks },
+      );
+      if (metricAnalysesUpdated || explorationsUpdated) {
+        await context.models.dashboards.dangerousUpdateBypassPermission(
+          dashboard,
+          { blocks: editableBlocks },
+        );
+      }
+    } catch (e) {
+      logger.warn(
+        { err: e, experimentId: experiment.id, dashboardId: dashboard.id },
+        "Dashboard dependent refresh failed; remaining dashboards will continue",
       );
     }
   }
