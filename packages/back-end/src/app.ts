@@ -161,6 +161,7 @@ import { rampScheduleTemplateRouter } from "./routers/ramp-schedule-template/ram
 import { runStatsEngine } from "./services/stats";
 import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
+import { setupRunRouter } from "./routers/setup-run/setup-run.router";
 import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
 import { sessionReplayRouter } from "./routers/session-replay/session-replay.router";
@@ -586,6 +587,7 @@ if (OAUTH_AS_ENABLED) {
 app.use(organizationsRouter);
 
 app.use("/environment", environmentRouter);
+app.use("/setup-runs", setupRunRouter);
 
 app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
 app.post(

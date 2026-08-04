@@ -123,6 +123,11 @@ export class SetupRunModel extends BaseClass {
     };
   }
 
+  // toApiInterface is protected; the internal router needs a public way in.
+  public toApi(doc: SetupRunDoc): ApiSetupRun {
+    return this.toApiInterface(doc);
+  }
+
   public async appendArtifactsApi(
     id: string,
     incoming: Omit<SetupRunArtifact, "dateCreated">[],

@@ -176,7 +176,7 @@ export default function SetupRunPage() {
   const { id } = router.query;
 
   const { data, error } = useApi<{ setupRun: ApiSetupRun }>(
-    `/api/v1/setup-runs/${id}`,
+    `/setup-runs/${id}`,
     { shouldRun: () => !!id },
   );
 

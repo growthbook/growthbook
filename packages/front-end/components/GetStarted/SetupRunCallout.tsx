@@ -10,7 +10,7 @@ import { useUser } from "@/services/UserContext";
 // up where the wizard left off instead of starting from an empty Get Started page.
 export default function SetupRunCallout() {
   const { userId } = useUser();
-  const { data } = useApi<{ setupRuns: ApiSetupRun[] }>("/api/v1/setup-runs");
+  const { data } = useApi<{ setupRuns: ApiSetupRun[] }>("/setup-runs");
 
   const mine = (data?.setupRuns || [])
     .filter((r) => r.createdBy === userId)
