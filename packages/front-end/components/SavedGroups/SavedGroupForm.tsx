@@ -4,6 +4,7 @@ import {
   UpdateSavedGroupProps,
   SavedGroupInterface,
   SavedGroupType,
+  SavedGroupWithoutValues,
 } from "shared/types/saved-group";
 import {
   Revision,
@@ -21,6 +22,7 @@ import { PiPlus } from "react-icons/pi";
 import clsx from "clsx";
 import { Flex, Text } from "@radix-ui/themes";
 import { useIncrementer } from "@/hooks/useIncrementer";
+import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -61,7 +63,7 @@ const SavedGroupForm: FC<{
   editInfoOnly?: boolean;
   editConditionOnly?: boolean;
   autoBypassApproval?: boolean;
-  mutate?: () => void;
+  mutate?: () => void | Promise<void>;
 }> = ({
   close,
   current,
@@ -172,7 +174,16 @@ const SavedGroupForm: FC<{
     (currentRevision?.status === "discarded" ||
       currentRevision?.status === "merged");
 
-  const { mutateDefinitions, savedGroups, project } = useDefinitions();
+  const { mutateDefinitions, project } = useDefinitions();
+
+  const { data: savedGroupsData } = useApi<{
+    savedGroups: SavedGroupWithoutValues[];
+  }>("/saved-groups");
+  const savedGroups = useMemo(
+    () => (savedGroupsData?.savedGroups ?? []).filter((sg) => !sg.archived),
+    [savedGroupsData],
+  );
+  const savedGroupsLoaded = savedGroupsData !== undefined;
 
   const [errorMessage, setErrorMessage] = useState("");
   const [showDescription, setShowDescription] = useState(false);
@@ -372,6 +383,8 @@ const SavedGroupForm: FC<{
             },
             true,
             groupMap,
+            // Avoid false unknown-group errors while the group map is loading.
+            !savedGroupsLoaded,
           );
           if (conditionRes.empty) {
             throw new Error("Condition cannot be empty");
@@ -500,6 +513,7 @@ const SavedGroupForm: FC<{
           );
         }
         mutateDefinitions({});
+        await mutate?.();
       })}
       error={errorMessage}
     >
@@ -568,7 +582,7 @@ const SavedGroupForm: FC<{
             </Link>
           )}
           <MultiSelectField
-            size="legacy"
+            legacyHeight
             label="Projects"
             labelClassName="font-weight-bold"
             placeholder={

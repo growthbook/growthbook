@@ -27,6 +27,7 @@ import {
   getApiFeatureObj,
   getNextScheduledUpdate,
   getSavedGroupMap,
+  inheritStoredRolloutSeeds,
   updateInterfaceEnvSettingsFromApiEnvSettings,
 } from "back-end/src/services/features";
 import { getEnabledEnvironments } from "back-end/src/util/features";
@@ -155,7 +156,13 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           }))
         : null;
 
-    await assertValidHoldout(req.body.holdout, req.context);
+    if (req.body.holdout !== undefined || req.body.project !== undefined) {
+      await assertValidHoldout(
+        req.body.holdout !== undefined ? req.body.holdout : feature.holdout,
+        req.context,
+        req.body.project ?? feature.project,
+      );
+    }
 
     const jsonSchema =
       feature.valueType !== "boolean" && req.body.jsonSchema != null
@@ -299,6 +306,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         envSettings.rules,
         feature.rules ?? [],
       );
+      // Inherit stored seed/hashVersion first so the backfill can't re-bucket a legacy rollout.
+      inheritStoredRolloutSeeds(converted, feature.rules ?? []);
       // Stamp ids before flattening — `flattenV1ToV2Rules` groups by id and
       // drops id-less rules. Without this, v1 clients that omit ids would
       // lose those rules on PUT.

@@ -330,7 +330,7 @@ export default function ConstantDetailPage(): React.ReactElement {
       <div className="container-fluid pagecontents">
         <Flex align="start" justify="between" gap="2" mb="2">
           <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
-            <Heading size="2x-large" as="h1" mb="0">
+            <Heading size="2xl" as="h1" mb="0">
               {displayedConstant.name}
             </Heading>
             {displayedConstant.archived && (
@@ -444,7 +444,7 @@ export default function ConstantDetailPage(): React.ReactElement {
             value={tab}
             onValueChange={(v) => setTabAndScroll(v as ConstantTab)}
           >
-            <TabsList size="3">
+            <TabsList size="lg">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="review">
                 Review &amp; Publish
@@ -492,7 +492,7 @@ export default function ConstantDetailPage(): React.ReactElement {
             />
             <Frame mb="4" px="6" py="5">
               <Flex justify="between" align="center" gap="3" mb="3">
-                <Heading size="medium" as="h2" mb="0">
+                <Heading size="md" as="h2" mb="0">
                   Value
                 </Heading>
                 {canEditNow && (
@@ -512,7 +512,7 @@ export default function ConstantDetailPage(): React.ReactElement {
               {Object.keys(displayedConstant.environmentValues || {}).length >
                 0 && (
                 <>
-                  <Heading size="medium" as="h2" mt="6" mb="3">
+                  <Heading size="md" as="h2" mt="6" mb="3">
                     Environment overrides
                   </Heading>
                   <Flex direction="column" gap="5">
@@ -520,7 +520,7 @@ export default function ConstantDetailPage(): React.ReactElement {
                       displayedConstant.environmentValues || {},
                     ).map(([env, value]) => (
                       <Box key={env}>
-                        <Text as="div" size="large" weight="semibold" mb="2">
+                        <Text as="div" size="lg" weight="semibold" mb="2">
                           {env}
                         </Text>
                         <ConstantValueDisplay

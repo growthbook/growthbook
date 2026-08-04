@@ -131,29 +131,36 @@ export default function DatePicker({
   const dateFormat =
     precision === "datetime" ? "yyyy-MM-dd'T'HH:mm" : "yyyy-MM-dd";
   // Parses a date prop / bound in the same frame as the user's typed input.
-  // For `date` precision, `new Date("yyyy-MM-dd")` lands on UTC midnight, so
-  // we shift to local midnight via `getValidDateOffsetByUTC`. For `datetime`,
+  // For `date` precision, `new Date("yyyy-MM-dd")` lands on UTC midnight, so we
+  // shift to local midnight via `getValidDateOffsetByUTC`. For `datetime`,
   // `new Date("yyyy-MM-ddTHH:mm")` already parses as local time.
+  //
+  // Only a *string* needs that shift — it's undoing a parse rule, not converting
+  // a timezone. A `Date` already carries the intended day in its local fields
+  // (most `date`-precision callers hand us `getValidDateOffsetByUTC(...)`
+  // directly), so shifting it again moved it off that day. This must stay
+  // idempotent for a `Date`: it's applied to the same value on paths that render
+  // the text field and on paths that select the calendar day, and when the two
+  // disagreed the field read a day earlier than the calendar highlighted for
+  // every user east of UTC.
   const parseDateInput = useCallback(
     (value: Date | string): Date =>
-      precision === "datetime"
+      precision === "datetime" || value instanceof Date
         ? getValidDate(value)
         : getValidDateOffsetByUTC(value),
     [precision],
   );
   const [bufferedDate, setBufferedDate] = useState(
-    date ? format(getValidDate(date), dateFormat) : "",
+    date ? format(parseDateInput(date), dateFormat) : "",
   );
   const [bufferedDate2, setBufferedDate2] = useState(
-    date2 ? format(getValidDate(date2), dateFormat) : "",
+    date2 ? format(parseDateInput(date2), dateFormat) : "",
   );
 
-  const [calendarMonth, setCalendarMonth] = useState(
-    new Date(
-      getValidDate(date ?? new Date()).getFullYear(),
-      getValidDate(date ?? new Date()).getMonth(),
-    ),
-  );
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const anchor = date ? parseDateInput(date) : new Date();
+    return new Date(anchor.getFullYear(), anchor.getMonth());
+  });
   const [open, setOpen] = useState(false);
   const [rangeFieldFocused, setRangeFieldFocused] = useState(false);
   const fieldClickedTime = useRef(new Date());
@@ -192,20 +199,23 @@ export default function DatePicker({
   }
 
   const markedDays: Record<string, Matcher | Matcher[] | undefined> = {};
+  // Markers land on calendar days, so they go through `parseDateInput` for the
+  // same reason `selected` does — a `yyyy-MM-dd` string would otherwise mark the
+  // previous day for anyone west of UTC.
   if (date) {
-    markedDays.originalDate = getValidDate(date);
+    markedDays.originalDate = parseDateInput(date);
   }
   if (date2) {
-    markedDays.originalDate2 = getValidDate(date2);
+    markedDays.originalDate2 = parseDateInput(date2);
   }
   if (activeDates?.length) {
-    markedDays.activeDates = activeDates.map((d) => getValidDate(d));
+    markedDays.activeDates = activeDates.map((d) => parseDateInput(d));
   }
   if (scheduleStartDate) {
-    markedDays.scheduleStartDate = getValidDate(scheduleStartDate);
+    markedDays.scheduleStartDate = parseDateInput(scheduleStartDate);
   }
   if (scheduleEndDate) {
-    markedDays.scheduleEndDate = getValidDate(scheduleEndDate);
+    markedDays.scheduleEndDate = parseDateInput(scheduleEndDate);
   }
 
   if (fixedSpanMode?.phase === "choosing" && fixedSpanMode.candidateRanges) {
@@ -285,7 +295,7 @@ export default function DatePicker({
     return debounce((startStr: string, endStr: string) => {
       const startTrim = startStr.trim();
       const endTrim = endStr.trim();
-      let anchor = getValidDate(date ?? new Date());
+      let anchor = date ? parseDateInput(date) : new Date();
 
       if (startTrim) {
         const parsedDate = parseDateInput(startTrim);
@@ -457,7 +467,7 @@ export default function DatePicker({
                     color="red"
                     disabled={disabled || !bufferedDate}
                     variant="ghost"
-                    size="sm"
+                    size="md"
                     onClick={() => {
                       setBufferedDate("");
                       setDate(undefined);
@@ -502,10 +512,18 @@ export default function DatePicker({
               ) : isRange ? (
                 <DayPicker
                   mode="range"
-                  selected={{
-                    from: getValidDate(date),
-                    to: getValidDate(date2),
-                  }}
+                  selected={
+                    // While a range is mid-selection only `date` is set; fall
+                    // back to an open-ended range rather than the parser's
+                    // "today" default so the calendar doesn't highlight
+                    // start→today. Nothing selected when there is no start yet.
+                    date
+                      ? {
+                          from: parseDateInput(date),
+                          to: date2 ? parseDateInput(date2) : undefined,
+                        }
+                      : undefined
+                  }
                   onSelect={(daterange: DateRange | undefined) => {
                     if (!daterange) return;
                     const from = daterange.from;
@@ -534,7 +552,10 @@ export default function DatePicker({
               ) : (
                 <DayPicker
                   mode="single"
-                  selected={getValidDate(date)}
+                  // Nothing is selected when there is no date, rather than
+                  // `getValidDate`'s "today" fallback highlighting a day the
+                  // caller never set (the range branch above already does this).
+                  selected={date ? parseDateInput(date) : undefined}
                   onSelect={(selectedDate: Date) => {
                     if (!selectedDate) selectedDate = new Date();
                     setDate(selectedDate);

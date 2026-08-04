@@ -251,7 +251,7 @@ export default function AttributeModal({ close, attribute }: Props) {
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField
-            size="legacy"
+            legacyHeight
             label={
               <>
                 Projects{" "}

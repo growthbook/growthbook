@@ -14,14 +14,19 @@ import {
   assertIncrementalRefreshPrerequisites,
   exploratoryOverallRequiresFullRefresh,
 } from "back-end/src/enterprise/services/data-pipeline";
-import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  ExperimentIncrementalPipelineRequiresFullRefreshError,
+} from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
+  createExperimentSnapshot,
   getSnapshotSettings,
   planSnapshot,
 } from "back-end/src/services/experiments";
 import { planMetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   createExperimentSnapshotModel,
   findSnapshotById,
@@ -30,7 +35,10 @@ import {
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
-import { FactTableMap } from "back-end/src/models/FactTableModel";
+import {
+  FactTableMap,
+  getFactTableMap,
+} from "back-end/src/models/FactTableModel";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 import { factTableFactory } from "../factories/FactTable.factory";
 
@@ -46,6 +54,17 @@ jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
   getDataSourceById: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/MetricModel", () => ({
+  getMetricById: jest.fn(),
+  getMetricMap: jest.fn(),
+  getMetricsByIds: jest.fn(),
+  insertMetric: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/FactTableModel", () => ({
+  getFactTableMap: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/datasource", () => ({
@@ -92,6 +111,12 @@ const getLatestSuccessfulSnapshotMock =
   >;
 const getDataSourceByIdMock = getDataSourceById as jest.MockedFunction<
   typeof getDataSourceById
+>;
+const getMetricMapMock = getMetricMap as jest.MockedFunction<
+  typeof getMetricMap
+>;
+const getFactTableMapMock = getFactTableMap as jest.MockedFunction<
+  typeof getFactTableMap
 >;
 const getSourceIntegrationObjectMock =
   getSourceIntegrationObject as jest.MockedFunction<
@@ -207,6 +232,8 @@ describe("snapshot planning", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getDataSourceByIdMock.mockResolvedValue(makeDatasource());
+    getMetricMapMock.mockResolvedValue(new Map());
+    getFactTableMapMock.mockResolvedValue(new Map() as FactTableMap);
     getSourceIntegrationObjectMock.mockReturnValue({} as never);
     exploratoryOverallRequiresFullRefreshMock.mockReturnValue(false);
   });
@@ -226,7 +253,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     // useCache: false → full refresh, with a free-form reason explaining why.
     expect(plan.fullRefresh).toBe(true);
     expect(plan.fullRefreshReason).toBe("Full refresh explicitly requested.");
@@ -236,6 +263,44 @@ describe("snapshot planning", () => {
     expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
     expect(updateExperimentMock).not.toHaveBeenCalled();
     expect(updateExperimentDashboardsMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a snapshot for an experiment with no metrics without persisting a record", async () => {
+    await expect(
+      createExperimentSnapshot({
+        context: makeContext(),
+        experiment: makeExperiment({
+          goalMetrics: [],
+          secondaryMetrics: [],
+          guardrailMetrics: [],
+        }),
+        datasource: makeDatasource(),
+        dimension: undefined,
+        phase: 0,
+        useCache: false,
+      }),
+    ).rejects.toThrow(BadRequestError);
+
+    expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a snapshot when none of the selected metrics can be resolved", async () => {
+    await expect(
+      createExperimentSnapshot({
+        context: makeContext(),
+        experiment: makeExperiment({
+          goalMetrics: ["fact__deleted"],
+          metricOverrides: [],
+        }),
+        datasource: makeDatasource(),
+        dimension: undefined,
+        phase: 0,
+        useCache: false,
+      }),
+    ).rejects.toThrow(BadRequestError);
+
+    expect(getMetricMapMock).toHaveBeenCalled();
+    expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
   });
 
   it("surfaces pipeline validation errors as incremental fallback reasons", async () => {
@@ -276,7 +341,7 @@ describe("snapshot planning", () => {
     });
 
     expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalled();
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe("metric not compatible");
   });
 
@@ -317,7 +382,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("incremental");
+    expect(plan.snapshot.runnerKind).toBe("incremental-full");
     // The incremental runner must not discard the computed full refresh, or it
     // would attempt an incremental update against a non-existent units table.
     expect(plan.fullRefresh).toBe(true);
@@ -458,7 +523,7 @@ describe("snapshot planning", () => {
     expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledWith(
       expect.objectContaining({ analysisType: "main-update" }),
     );
-    expect(plan.runnerKind).toBe("incremental");
+    expect(plan.snapshot.runnerKind).toBe("incremental-update");
     expect(plan.fullRefresh).toBe(false);
     expect(plan.incrementalFallbackReason).toBeNull();
 
@@ -534,7 +599,7 @@ describe("snapshot planning", () => {
     expect(assertIncrementalRefreshPrerequisitesMock).not.toHaveBeenCalledWith(
       expect.objectContaining({ analysisType: "main-fullRefresh" }),
     );
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe(staleConfigMessage);
     expect(plan.fullRefresh).toBe(false);
     expect(plan.fullRefreshReason).toBeNull();
@@ -582,7 +647,7 @@ describe("snapshot planning", () => {
     expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledWith(
       expect.objectContaining({ analysisType: "main-update" }),
     );
-    expect(plan.runnerKind).toBe("incremental");
+    expect(plan.snapshot.runnerKind).toBe("incremental-update");
     expect(plan.fullRefresh).toBe(false);
     expect(plan.fullRefreshReason).toBeNull();
     expect(plan.incrementalFallbackReason).toBeNull();
@@ -644,7 +709,7 @@ describe("snapshot planning", () => {
     );
     // The incremental runner is kept and promoted to a full refresh instead of
     // silently downgrading to the non-incremental results runner.
-    expect(plan.runnerKind).toBe("incremental");
+    expect(plan.snapshot.runnerKind).toBe("incremental-full");
     expect(plan.fullRefresh).toBe(true);
     expect(plan.fullRefreshReason).toBe(staleConfigMessage);
     expect(plan.incrementalFallbackReason).toBeNull();
@@ -693,7 +758,7 @@ describe("snapshot planning", () => {
     });
 
     expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledTimes(2);
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe("metric not compatible");
     expect(plan.fullRefresh).toBe(false);
     expect(plan.fullRefreshReason).toBeNull();
@@ -737,7 +802,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("incremental-exploratory");
+    expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
     expect(findSnapshotByIdMock).toHaveBeenCalledWith(
       context,
       materializedBySnapshotId,
@@ -778,7 +843,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("incremental-exploratory");
+    expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
     expect(findSnapshotByIdMock).not.toHaveBeenCalled();
     expect(getLatestSuccessfulSnapshotMock).not.toHaveBeenCalled();
     expect(plan.snapshot.sourceSnapshotId).toBeUndefined();
@@ -882,7 +947,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe("metric not compatible");
   });
 
@@ -921,7 +986,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("incremental-exploratory");
+    expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
   });
 
   it("throws ExperimentIncrementalPipelineRequiresFullRefreshError when the Overall units table requires a full refresh and prompting enabled", async () => {
@@ -973,7 +1038,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe(
       "Overall Results need a full refresh; running non-incremental update instead of reading stale data.",
     );

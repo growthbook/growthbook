@@ -94,7 +94,7 @@ export default function ApprovalFlowSettings() {
     <Frame>
       <Flex gap="4">
         <Box width="220px" flexShrink="0">
-          <Heading size="medium" as="h4">
+          <Heading size="md" as="h4">
             Approval Flows
           </Heading>
         </Box>
@@ -103,11 +103,11 @@ export default function ApprovalFlowSettings() {
       <Flex align="start" direction="column" gap="4" mt="7">
         <Box width="100%">
           <Frame p="3" mb="0">
-            <Heading as="h4" size="small" weight="semibold" mb="4">
+            <Heading as="h4" size="sm" weight="semibold" mb="4">
               Features
             </Heading>
 
-            <Text as="p" size="medium" mb="4" color="text-low">
+            <Text as="p" size="md" mb="4" color="text-low">
               All changes to features are tracked as revisions. Requiring
               approvals adds a review step before any change goes live. Kill
               switch changes always prompt a confirmation regardless of approval
@@ -136,7 +136,7 @@ export default function ApprovalFlowSettings() {
                         <Flex direction="column" gap="3" mb="3">
                           {showProjectScope[i] ? (
                             <MultiSelectField
-                              size="legacy"
+                              legacyHeight
                               id={`projects-${i}`}
                               label="Projects"
                               labelClassName="font-weight-semibold"
@@ -167,7 +167,7 @@ export default function ApprovalFlowSettings() {
                           )}
                           {showEnvScope[i] ? (
                             <MultiSelectField
-                              size="legacy"
+                              legacyHeight
                               id={`environments-${i}`}
                               label="Specific environments"
                               labelClassName="font-weight-semibold"
@@ -251,12 +251,7 @@ export default function ApprovalFlowSettings() {
                           }
                         />
                         <Box mt="2">
-                          <Text
-                            as="label"
-                            size="medium"
-                            weight="semibold"
-                            mb="2"
-                          >
+                          <Text as="label" size="md" weight="semibold" mb="2">
                             Require approval for
                           </Text>
                           <Flex direction="column" gap="2" align="start">
@@ -335,11 +330,11 @@ export default function ApprovalFlowSettings() {
 
         <Box width="100%">
           <Frame p="3" mb="0">
-            <Heading as="h4" size="small" weight="semibold" mb="4">
+            <Heading as="h4" size="sm" weight="semibold" mb="4">
               Saved Groups
             </Heading>
 
-            <Text as="p" size="medium" mb="4" color="text-low">
+            <Text as="p" size="md" mb="4" color="text-low">
               All changes to Saved Groups are tracked as revisions. Requiring
               approvals adds a review step before any change goes live.
             </Text>
@@ -358,7 +353,7 @@ export default function ApprovalFlowSettings() {
                 {!!form.watch("approvalFlows.savedGroups.0.required") && (
                   <Flex direction="column" gap="3" mt="2" ml="5">
                     <Box mt="2">
-                      <Text as="label" size="medium" weight="semibold" mb="2">
+                      <Text as="label" size="md" weight="semibold" mb="2">
                         Require approval for
                       </Text>
                       <Flex direction="column" gap="2" align="start">
@@ -444,11 +439,11 @@ export default function ApprovalFlowSettings() {
         {hasRequireApprovals && (
           <Box width="100%">
             <Frame p="3" mb="0">
-              <Heading as="h4" size="small" weight="semibold" mb="4">
+              <Heading as="h4" size="sm" weight="semibold" mb="4">
                 Global
               </Heading>
 
-              <Text as="p" size="medium" mb="4" color="text-low">
+              <Text as="p" size="md" mb="4" color="text-low">
                 These settings apply to every approval flow (Feature Flags and
                 Saved Groups).
               </Text>

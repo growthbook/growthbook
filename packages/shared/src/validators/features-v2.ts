@@ -63,7 +63,7 @@ const apiRuleScopeExtension = z
 // untouched inside the raw value. Force/rollout carry a single rule-level
 // config; experiment-ref carries one per variation (each variation value can
 // back a different config in the family).
-const apiRuleConfigField = z
+export const apiRuleConfigField = z
   .string()
   .nullable()
   .describe(
@@ -528,6 +528,10 @@ const v2RuleRolloutBase = z.object({
   sparse: v2SparseRuleField,
   coverage: z.number(),
   hashAttribute: z.string(),
+  seed: z
+    .string()
+    .describe("Optional seed for the hash function; defaults to the rule id")
+    .optional(),
   hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
 });
 

@@ -190,7 +190,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
 
                 <Box style={{ flex: 1 }}>
                   <Select
-                    size={"small"}
+                    size={"md"}
                     value={condition.match}
                     setValue={(value) =>
                       updateCondition(rule.key, condition.key, "match", value)
@@ -207,7 +207,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
 
                 <Box style={{ flex: 1 }}>
                   <Select
-                    size={"small"}
+                    size={"md"}
                     value={condition.metrics}
                     setValue={(value) => {
                       if (value === "guardrails") {
@@ -237,7 +237,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
 
                 <Box style={{ flex: 1 }}>
                   <Select
-                    size={"small"}
+                    size={"md"}
                     value={condition.direction}
                     setValue={(value) =>
                       updateCondition(
@@ -315,7 +315,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
             </Box>
             <Flex width="100%" align="center" style={{ gridColumn: "span 11" }}>
               <Select
-                size={"small"}
+                size={"md"}
                 value={rule.action}
                 setValue={(value) =>
                   updateRuleAction(
@@ -364,7 +364,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
             </Text>
           </Box>
           <Select
-            size={"small"}
+            size={"md"}
             value={form.watch("defaultAction")}
             setValue={(value) =>
               form.setValue(

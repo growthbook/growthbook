@@ -48,6 +48,7 @@ jest.mock("back-end/src/services/features", () => ({
   getNextScheduledUpdate: jest.fn(),
   addIdsToRules: jest.fn(),
   addIdsToFlatRules: jest.fn(),
+  inheritStoredRolloutSeeds: jest.fn(),
   createInterfaceEnvSettingsFromApiEnvSettings: jest.fn(),
   updateInterfaceEnvSettingsFromApiEnvSettings: jest.fn(),
   buildFeatureRulesFromApiEnvSettings: jest.fn(() => []),

@@ -422,6 +422,10 @@ export default function RuleModal({
   const defaultValues = {
     ...defaultRuleValues,
     ...convertRuleToFormValues(rule),
+    // A duplicated rollout starts seedless so it buckets independently; the Seed
+    // field stays editable to reuse the original's cohort. Safe-rollout has its
+    // own "Same seed" checkbox, so it's excluded here.
+    ...(mode === "duplicate" && rule?.type === "rollout" ? { seed: "" } : {}),
     // Pre-set the ID for new rollout rules so ramp creation can reference it
     // without a second round-trip. Back-end preserves a truthy id from the client.
     ...(mode === "create" && !rule ? { id: pregenRuleId } : {}),
@@ -1244,6 +1248,13 @@ export default function RuleModal({
         // eslint-disable-next-line
         delete (values as any).seed;
         delete (values as { hashVersion?: number }).hashVersion;
+      } else if (values.type === "rollout") {
+        // An empty seed means "stamp this rule's own id" (the default for
+        // duplicates) — omit it rather than submitting "".
+        if (!values.seed) {
+          // eslint-disable-next-line
+          delete (values as any).seed;
+        }
       }
       if (
         values.scheduleRules &&
@@ -1715,7 +1726,7 @@ export default function RuleModal({
           gatedEnvSet={gatedEnvSet}
         />
         <div className="bg-highlight rounded p-3 mb-3">
-          <Text size="x-large" weight="semibold" as="div" mb="4">
+          <Text size="xl" weight="semibold" as="div" mb="4">
             Rule Type
           </Text>
           <RadioCards
@@ -1769,7 +1780,7 @@ export default function RuleModal({
                 <Text as="div">
                   Looking for <strong>Safe Rollouts</strong>?
                 </Text>
-                <Text as="div" size="small" mt="1">
+                <Text as="div" size="sm" mt="1">
                   Guardrail monitoring can now be added to a Targeting
                   Rule&apos;s <strong>Ramp-up</strong> schedule
                 </Text>
@@ -1778,7 +1789,7 @@ export default function RuleModal({
                 <Button
                   color="inherit"
                   variant="soft"
-                  size="xs"
+                  size="sm"
                   onClick={() => {
                     setOverviewRadioSelectorRuleType("rollout");
                     setOverviewRuleType("rollout");
@@ -1802,7 +1813,7 @@ export default function RuleModal({
                   commercialFeature="safe-rollout"
                   usePortal={true}
                 >
-                  <Button color="inherit" variant="soft" size="xs" disabled>
+                  <Button color="inherit" variant="soft" size="sm" disabled>
                     Show me
                   </Button>
                 </PremiumTooltip>

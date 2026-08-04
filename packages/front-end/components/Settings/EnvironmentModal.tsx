@@ -238,7 +238,7 @@ export default function EnvironmentModal({
       )}
       <div className="mb-4">
         <MultiSelectField
-          size="legacy"
+          legacyHeight
           label="Projects"
           placeholder="All Projects"
           value={form.watch("projects") || []}
