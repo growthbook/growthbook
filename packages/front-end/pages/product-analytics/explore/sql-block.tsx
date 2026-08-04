@@ -22,6 +22,7 @@ import {
   useExplorerContext,
 } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { ExplorerContent } from "@/enterprise/components/ProductAnalytics/Explorer";
+import { useSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 import {
   DashboardSqlBlockEditSession,
   getDashboardSqlBlockEditChannelName,
@@ -44,9 +45,13 @@ function SqlBlockEditorActions({
 }) {
   const { draftExploreState, handleSubmit, isSubmittable, loading } =
     useExplorerContext();
+  const { isQueryRunning, localSql } = useSqlEditorContext();
   const [updating, setUpdating] = useState(false);
   const initialDraftRef = useRef(draftExploreState);
   const hasChanges = !isEqual(initialDraftRef.current, draftExploreState);
+  const hasUnpreviewedSqlChanges =
+    draftExploreState.dataset.type === "sql" &&
+    draftExploreState.dataset.sql !== localSql;
 
   return (
     <>
@@ -55,7 +60,13 @@ function SqlBlockEditorActions({
       </Button>
       <Button
         loading={updating}
-        disabled={!hasChanges || !isSubmittable || loading}
+        disabled={
+          !hasChanges ||
+          hasUnpreviewedSqlChanges ||
+          !isSubmittable ||
+          loading ||
+          isQueryRunning
+        }
         onClick={async () => {
           setUpdating(true);
           onUpdateRequested(true);

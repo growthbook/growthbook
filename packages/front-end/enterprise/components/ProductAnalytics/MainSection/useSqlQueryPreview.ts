@@ -7,6 +7,7 @@ import {
 } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import { useSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 import {
   createEmptyValue,
   getInferredTimestampColumn,
@@ -43,6 +44,7 @@ export default function useSqlQueryPreview({
 }) {
   const { apiCall } = useAuth();
   const { setDraftExploreState } = useExplorerContext();
+  const { setIsQueryRunning } = useSqlEditorContext();
   const [state, setState] = useState<SqlQueryPreviewState>(idleState);
   const lastPreviewedSqlRef = useRef<string | null>(null);
 
@@ -107,6 +109,7 @@ export default function useSqlQueryPreview({
     async (sql: string): Promise<boolean> => {
       if (!sql.trim() || !datasourceId) return false;
 
+      setIsQueryRunning(true);
       onRunStart?.();
       setState({ status: "loading", result: null, error: null });
 
@@ -163,6 +166,8 @@ export default function useSqlQueryPreview({
         });
         onRunError?.();
         return false;
+      } finally {
+        setIsQueryRunning(false);
       }
     },
     [
@@ -172,6 +177,7 @@ export default function useSqlQueryPreview({
       onRunError,
       onRunStart,
       onRunSuccess,
+      setIsQueryRunning,
     ],
   );
 

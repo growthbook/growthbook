@@ -23,6 +23,7 @@ type AiSqlGeneratorControls = {
 export default function AiSqlGenerator({
   children,
   datasourceId,
+  disabled = false,
   onAgreementModalOpenChange,
   onLoadingChange,
   onOpenChange,
@@ -30,6 +31,7 @@ export default function AiSqlGenerator({
 }: {
   children: (controls: AiSqlGeneratorControls) => ReactNode;
   datasourceId: string;
+  disabled?: boolean;
   onAgreementModalOpenChange?: (open: boolean) => void;
   onLoadingChange?: (loading: boolean) => void;
   onOpenChange?: (open: boolean) => void;
@@ -58,6 +60,7 @@ export default function AiSqlGenerator({
   };
 
   const generateSql = async () => {
+    if (disabled) return;
     if (!aiAgreedTo) {
       openAgreementModal();
       return;
@@ -142,9 +145,10 @@ export default function AiSqlGenerator({
       }
     >
       <Button
-        size="xs"
+        size="sm"
         variant="ghost"
         color="violet"
+        disabled={disabled}
         onClick={handleTriggerClick}
       >
         <BsStars /> Generate Query
@@ -170,11 +174,15 @@ export default function AiSqlGenerator({
             textarea
             value={input}
             placeholder="Make a request, e.g. 'Show me the top 10 users by revenue in the last month.'"
+            disabled={disabled}
             onChange={(event) => setInput(event.target.value)}
           />
         </Box>
         <Flex align="center" justify="start" gap="4">
-          <Button onClick={generateSql} disabled={loading || !input}>
+          <Button
+            onClick={generateSql}
+            disabled={disabled || loading || !input}
+          >
             <BsStars /> {loading ? "Generating..." : "Generate SQL"}
           </Button>
         </Flex>

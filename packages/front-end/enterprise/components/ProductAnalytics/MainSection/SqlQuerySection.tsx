@@ -69,7 +69,7 @@ function SqlQueryActions({
       ) : null}
       {aiTrigger}
       <Button
-        size="xs"
+        size="sm"
         disabled={!canRun}
         loading={loading}
         onClick={onRun}
@@ -148,6 +148,7 @@ export default function SqlQuerySection({
   } = useSqlEditorContext();
 
   const [open, setOpen] = useState(true);
+  const [aiLoading, setAiLoading] = useState(false);
   const [formatError, setFormatError] = useState<string | null>(null);
   const editorPanelRef = useRef<ImperativePanelHandle>(null);
   const {
@@ -187,8 +188,13 @@ export default function SqlQuerySection({
     }
   };
 
-  const canRunPreview = !!localSql.trim() && !!draftExploreState.datasource;
-  const canFormat = datasource ? canFormatSql(datasource.type) : false;
+  const canRunPreview =
+    !loading &&
+    !aiLoading &&
+    !!localSql.trim() &&
+    !!draftExploreState.datasource;
+  const canFormat =
+    !loading && datasource ? canFormatSql(datasource.type) : false;
   const showContent = open || !showHeader;
   const previewContent =
     previewResult || additionalResultsTab ? (
@@ -239,7 +245,7 @@ export default function SqlQuerySection({
       }
       usePortal
     >
-      <Button size="xs" variant="ghost" icon={<PiQuestion />}>
+      <Button size="sm" variant="ghost" icon={<PiQuestion />}>
         Need help?
       </Button>
     </Tooltip>
@@ -248,6 +254,8 @@ export default function SqlQuerySection({
   const content = (
     <AiSqlGenerator
       datasourceId={draftExploreState.datasource}
+      disabled={loading}
+      onLoadingChange={setAiLoading}
       onSqlGenerated={(sql) => {
         setLocalSql(sql);
       }}
@@ -367,8 +375,13 @@ export default function SqlQuerySection({
                             setLocalSql(sql);
                             setFormatError(null);
                           }}
+                          disabled={loading}
                           setCursorData={setCursorData}
-                          onCtrlEnter={() => previewQuery(localSql)}
+                          onCtrlEnter={() => {
+                            if (!loading && !aiLoading) {
+                              void previewQuery(localSql);
+                            }
+                          }}
                           completions={autoCompletions}
                           fullHeight
                           paddingTop={8}

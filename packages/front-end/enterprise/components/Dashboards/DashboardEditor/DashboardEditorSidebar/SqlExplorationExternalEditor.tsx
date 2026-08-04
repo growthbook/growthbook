@@ -27,6 +27,7 @@ import {
   useExplorerContext,
 } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { ExplorerContent } from "@/enterprise/components/ProductAnalytics/Explorer";
+import { useSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 import {
   cleanConfigForSubmission,
   ExplorerDraftConfig,
@@ -86,9 +87,13 @@ function SqlExplorationModalContent({
 }) {
   const { draftExploreState, error, handleSubmit, isSubmittable, loading } =
     useExplorerContext();
+  const { isQueryRunning, localSql } = useSqlEditorContext();
   const initialDraftRef = useRef(draftExploreState);
   const [updating, setUpdating] = useState(false);
   const hasChanges = !isEqual(initialDraftRef.current, draftExploreState);
+  const hasUnpreviewedSqlChanges =
+    draftExploreState.dataset.type === "sql" &&
+    draftExploreState.dataset.sql !== localSql;
 
   useEffect(() => {
     if (!loading && error) {
@@ -103,7 +108,13 @@ function SqlExplorationModalContent({
       actions={
         <Button
           loading={updating}
-          disabled={!hasChanges || !isSubmittable || loading}
+          disabled={
+            !hasChanges ||
+            hasUnpreviewedSqlChanges ||
+            !isSubmittable ||
+            loading ||
+            isQueryRunning
+          }
           onClick={async () => {
             setUpdating(true);
             onUpdateRequested(

@@ -26,8 +26,8 @@ export default function TimestampColumnSelector({
       onOpenChange={setDropdownOpen}
       disabled={!columns.length}
       trigger={
-        <Button size="xs" variant="ghost">
-          <Text weight="semibold" size="small">
+        <Button size="sm" variant="ghost">
+          <Text weight="semibold" size="sm">
             {timestampColumn ? "Change" : "Select"}
           </Text>
         </Button>

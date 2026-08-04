@@ -24,6 +24,8 @@ interface SqlEditorContextValue {
   setViewMode: (viewMode: SqlEditorViewMode) => void;
   isQueryActive: boolean;
   setIsQueryActive: (active: boolean) => void;
+  isQueryRunning: boolean;
+  setIsQueryRunning: (running: boolean) => void;
 }
 
 const SqlEditorContext = createContext<SqlEditorContextValue | null>(null);
@@ -42,6 +44,7 @@ export function SqlEditorProvider({
   const [localSql, setLocalSql] = useState(sql);
   const [viewMode, setViewMode] = useState<SqlEditorViewMode>(initialViewMode);
   const [isQueryActive, setIsQueryActive] = useState(false);
+  const [isQueryRunning, setIsQueryRunning] = useState(false);
   const {
     autoCompletions,
     cursorData,
@@ -71,12 +74,15 @@ export function SqlEditorProvider({
       setViewMode,
       isQueryActive,
       setIsQueryActive,
+      isQueryRunning,
+      setIsQueryRunning,
     }),
     [
       autoCompletions,
       cursorData,
       isAutocompleteEnabled,
       isQueryActive,
+      isQueryRunning,
       localSql,
       setCursorData,
       setIsAutocompleteEnabled,
