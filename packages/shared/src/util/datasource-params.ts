@@ -50,11 +50,9 @@ type RedactedObject<Params, Classification> = {
     : never;
 };
 
-type RedactedParams<T extends DataSourceType, P> = 0 extends 1 & P
-  ? P
-  : P extends object
-    ? RedactedObject<P, ParamClassification<DataSourceParamsForType<T>>>
-    : Record<string, never>;
+type RedactedParams<T extends DataSourceType, P> = P extends object
+  ? RedactedObject<P, ParamClassification<DataSourceParamsForType<T>>>
+  : Record<string, never>;
 
 // Postgres, Redshift, and Vertica share PostgresConnectionParams.
 // Feel free to split them out if needed.
@@ -211,6 +209,9 @@ const DATA_SOURCE_PARAM_SENSITIVITY = {
   [T in DataSourceType]: ParamClassification<DataSourceParamsForType<T>>;
 };
 
+// Names from untyped config files that predate the current interfaces.
+const LEGACY_SECRET_PARAM_KEYS: ReadonlySet<string> = new Set(["pass"]);
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -226,7 +227,10 @@ function redactRecord(params: unknown, classification: unknown): unknown {
 
   const redacted: Record<string, unknown> = {};
   Object.entries(params).forEach(([key, value]) => {
-    if (!(key in classification)) return;
+    if (!(key in classification)) {
+      if (LEGACY_SECRET_PARAM_KEYS.has(key)) redacted[key] = "";
+      return;
+    }
 
     const redactedValue = redactValue(value, classification[key]);
     if (redactedValue !== undefined) {
@@ -260,7 +264,10 @@ function mergeRecord(
   if (!isRecord(updates) || !isRecord(classification)) return merged;
 
   Object.entries(updates).forEach(([key, value]) => {
-    if (!(key in classification)) return;
+    if (!(key in classification)) {
+      if (LEGACY_SECRET_PARAM_KEYS.has(key) && value) merged[key] = value;
+      return;
+    }
 
     const sensitivity = classification[key];
     if (sensitivity === "secret") {
@@ -316,9 +323,6 @@ export function secretParamKeys(type: DataSourceType): string[] {
 const SECRET_PARAM_KEYS = new Set(
   Object.values(DATA_SOURCE_PARAM_SENSITIVITY).flatMap(allSecretKeyNames),
 );
-
-// Names from untyped config files that predate the current interfaces.
-const LEGACY_SECRET_PARAM_KEYS: ReadonlySet<string> = new Set(["pass"]);
 
 export function isSecretDatasourceParamKey(key: string): boolean {
   return SECRET_PARAM_KEYS.has(key) || LEGACY_SECRET_PARAM_KEYS.has(key);

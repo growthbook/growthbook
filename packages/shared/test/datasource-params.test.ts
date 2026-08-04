@@ -75,6 +75,16 @@ describe("redactSecretParams", () => {
       projectId: "123",
     });
   });
+
+  it("blanks a legacy secret alias instead of dropping it", () => {
+    // `pass` predates the current `password` field name.
+    const redacted = redactSecretParams("mysql", {
+      host: "db.example.com",
+      pass: "hunter2",
+    });
+
+    expect(redacted).toEqual({ host: "db.example.com", pass: "" });
+  });
 });
 
 describe("mergeDataSourceParams", () => {
@@ -101,6 +111,16 @@ describe("mergeDataSourceParams", () => {
       password: "stored password",
       options: { encrypt: false, trustServerCertificate: true },
     });
+  });
+
+  it("preserves a stored legacy secret alias when the update leaves it blank", () => {
+    const merged = mergeDataSourceParams(
+      "mysql",
+      { host: "db.example.com", pass: "hunter2" },
+      { host: "db.example.com", pass: "" },
+    );
+
+    expect(merged).toEqual({ host: "db.example.com", pass: "hunter2" });
   });
 });
 
