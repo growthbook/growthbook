@@ -6,6 +6,10 @@ import {
 } from "shared/enterprise";
 import { postConfigRevisionPublishValidator } from "shared/validators";
 import { SimpleSchema } from "shared/types/feature";
+import {
+  publishRevision,
+  assertCanPublishRevision,
+} from "back-end/src/revisions/revisionActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   BadRequestError,
@@ -14,7 +18,6 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
-import { assertCanPublishRevision } from "back-end/src/revisions/revisionActions";
 import {
   evaluatePublishGates,
   PublishBlockedError,
@@ -278,52 +281,17 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     { skipHooks: true },
   );
 
-  // Claim the merge BEFORE applying to the live entity. `merge` is CAS-guarded,
-  // so a concurrent discard either already lost or will lose its `close` CAS.
-  const merged = await req.context.models.revisions.merge(
-    revision.id,
-    req.context.userId,
-    { bypass: isBypass },
+  // Delegates claim → apply → compensate → dispatch to the shared engine rather
+  // than repeating it. This handler's job is the gate layer above; the engine
+  // owns the write sequence, its CAS claim, the guarded compensation, and
+  // stranded-merge recovery — all of which had to be fixed three times while
+  // each publish surface carried its own copy.
+  const merged = await publishRevision(
+    req.context,
+    revision,
+    config as unknown as Record<string, unknown>,
+    { bypass: isBypass, skipHooks: true },
   );
-
-  try {
-    // The config adapter's applyChanges re-runs "base wins" schema
-    // normalization and cascades the reconcile to descendants.
-    await adapter.applyChanges(
-      req.context,
-      config as unknown as Record<string, unknown>,
-      desiredState,
-      { isRevert: !!revision.revertedFrom },
-    );
-  } catch (e) {
-    // Couldn't apply after claiming the merge — roll back to the pre-merge state
-    // so the revision isn't stranded "merged" with the live config unchanged.
-    // Use reopenAfterFailedApply (not a plain reopen) to restore the status,
-    // schedule, and experiment-guard acknowledgment that `merge` scrubbed — so a
-    // retry doesn't lose a pending schedule or re-prompt an already-acknowledged
-    // guard. Mirrors the deferred publish path; falls back to a plain reopen.
-    try {
-      const restored =
-        await req.context.models.revisions.reopenAfterFailedApply(
-          merged.id,
-          req.context.userId,
-          revision,
-        );
-      if (!restored) {
-        await req.context.models.revisions.reopen(
-          merged.id,
-          req.context.userId,
-        );
-      }
-    } catch {
-      // ignore — surface the original applyChanges error
-    }
-    throw e;
-  }
-
-  await dispatchConfigRevisionEvent(req.context, merged, {
-    type: merged.revertedFrom ? "reverted" : "published",
-  });
 
   return {
     revision: await toApiConfigRevision(merged, req.context),

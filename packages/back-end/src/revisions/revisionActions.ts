@@ -415,7 +415,13 @@ export async function publishRevision(
   context: Context,
   revision: Revision,
   entity: Record<string, unknown>,
-  { bypass, deferred }: { bypass?: boolean; deferred?: boolean } = {},
+  {
+    bypass,
+    deferred,
+    // Set when the caller already ran the entity's validation hooks as publish
+    // gates, so `assertPublishable` must not execute the sandboxed hook twice.
+    skipHooks,
+  }: { bypass?: boolean; deferred?: boolean; skipHooks?: boolean } = {},
 ): Promise<Revision> {
   const adapter = getAdapter(revision.target.type);
 
@@ -541,6 +547,7 @@ export async function publishRevision(
   await adapter.assertPublishable?.(context, entity, desiredState, revision, {
     isRevert: !!revision.revertedFrom,
     deferred: !!deferred,
+    ...(skipHooks ? { skipHooks: true } : {}),
   });
 
   // Claimed the merge but never applied it: apply now, nothing to re-claim. In

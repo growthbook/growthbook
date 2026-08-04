@@ -5,6 +5,10 @@ import {
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { postSavedGroupRevisionPublishValidator } from "shared/validators";
+import {
+  publishRevision,
+  assertCanPublishRevision,
+} from "back-end/src/revisions/revisionActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   BadRequestError,
@@ -13,7 +17,6 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
-import { assertCanPublishRevision } from "back-end/src/revisions/revisionActions";
 import {
   evaluatePublishGates,
   PublishBlockedError,
@@ -224,39 +227,16 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
     };
   }
 
-  // Claim the merge BEFORE applying to the live entity. `merge` is CAS-guarded,
-  // so a concurrent discard either already lost (merge throws, nothing applied)
-  // or will lose (its `close` CAS-fails). This closes the window where a discard
-  // landing between applyChanges and merge would orphan a half-applied change on
-  // the live group.
-  const merged = await req.context.models.revisions.merge(
-    revision.id,
-    req.context.userId,
-    { bypass: isBypass },
+  // Delegates claim → apply → compensate → dispatch to the shared engine rather
+  // than repeating it. This handler's job is the gate layer above; the engine
+  // owns the write sequence, its CAS claim, the guarded compensation, and
+  // stranded-merge recovery.
+  const merged = await publishRevision(
+    req.context,
+    revision,
+    savedGroup as unknown as Record<string, unknown>,
+    { bypass: isBypass, skipHooks: true },
   );
-
-  try {
-    await adapter.applyChanges(
-      req.context,
-      savedGroup as unknown as Record<string, unknown>,
-      desiredState,
-      { isRevert: !!revision.revertedFrom },
-    );
-  } catch (e) {
-    // Couldn't apply after claiming the merge — reopen so the revision isn't
-    // stranded "merged" with the live group unchanged; a retry re-runs the
-    // publish (and the no-op self-heal path above if it was partially applied).
-    try {
-      await req.context.models.revisions.reopen(merged.id, req.context.userId);
-    } catch {
-      // ignore — surface the original applyChanges error
-    }
-    throw e;
-  }
-
-  await dispatchSavedGroupRevisionEvent(req.context, merged, {
-    type: merged.revertedFrom ? "reverted" : "published",
-  });
 
   return {
     revision: await toApiSavedGroupRevision(merged, req.context),
