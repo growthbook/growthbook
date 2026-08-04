@@ -62,7 +62,7 @@ export default function VariationLabel({
   }, [name, size, number]);
 
   const content = (
-    <Flex align="center" gap="1" minWidth="0">
+    <Flex align="center" gap={hideName ? "0" : "1"} minWidth="0">
       <VariationNumber ref={numberRef} number={number} />
       <Box
         minWidth="0"
