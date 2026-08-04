@@ -34,7 +34,7 @@ type ProjectScoped = { project?: string; projects?: string[] };
  */
 export function canCommentOnRevisionEntity(
   permissionsUtil: PermissionsUtil,
-  type: RevisionTargetType,
+  model: RevisionModel,
   revision: { target?: { snapshot?: unknown } } | null | undefined,
   liveEntity: ProjectScoped,
 ): boolean {
@@ -43,8 +43,8 @@ export function canCommentOnRevisionEntity(
   const projects = basis.projects ?? (basis.project ? [basis.project] : []);
   return (
     permissionsUtil.canAddComment(projects) ||
-    permissionsUtil.canRevisionAction(type, "draft", basis) ||
-    permissionsUtil.canRevisionAction(type, "review", basis)
+    permissionsUtil.canRevisionAction(model, "draft", basis) ||
+    permissionsUtil.canRevisionAction(model, "review", basis)
   );
 }
 
