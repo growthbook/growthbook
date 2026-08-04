@@ -87,6 +87,7 @@ import {
   PutFeatureRuleBody,
 } from "shared/types/feature-rule";
 import { getValidDate } from "shared/dates";
+import { assertCanRevertRevision } from "back-end/src/revisions/revertActions";
 import { isArmedForAutoPublish } from "back-end/src/revisions/approveAndPublish";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -2533,25 +2534,22 @@ export async function postFeatureRevert(
       hasMetadataChanges = true;
     }
     if (hasMetadataChanges) {
-      if (!context.permissions.canRevertFeature(feature, allEnabledEnvs)) {
-        context.permissions.throwPermissionError();
-      }
-      // Restoring metadata can restore a PROJECT, which relocates the flag. The
-      // destination is a write to that project, so revert authority in the source
-      // is not sufficient — same rule the REST revert and the publish engine
-      // apply, via the same helper.
-      if (
-        !holdsMoveDestination({
-          permissions: context.permissions,
-          model: "feature",
-          action: "revert",
-          existing: feature,
-          proposed: { ...feature, ...metadataChanges },
-          environments: allEnabledEnvs,
-        })
-      ) {
-        context.permissions.throwPermissionError();
-      }
+      // Restored metadata can carry a project (relocating the flag) or an archived
+      // flag, each with its own authority class. One decision for all of it,
+      // shared with the REST reverts and the generic entities.
+      assertCanRevertRevision({
+        context,
+        entityType: "feature",
+        entity: feature as unknown as Record<string, unknown>,
+        fields: {
+          ...metadataChanges,
+          ...(metadataChanges.project !== undefined
+            ? { project: metadataChanges.project }
+            : {}),
+        },
+        landing: true,
+        footprint: allEnabledEnvs,
+      });
       mergeChanges.metadata = metadataChanges;
     }
   }

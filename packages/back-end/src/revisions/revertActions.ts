@@ -1,4 +1,4 @@
-import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import { NO_ENVIRONMENT_BINDING, RevisionModel } from "shared/permissions";
 import { isArchiveTransition } from "shared/util";
 import { Revision } from "shared/enterprise";
 import { logger } from "back-end/src/util/logger";
@@ -73,7 +73,10 @@ export function assertCanRevertRevision({
   footprint,
 }: {
   context: Context;
-  entityType: Parameters<typeof getAdapter>[0];
+  // The permission-layer model, not the adapter registry: Feature Flags keep
+  // their own revision store but answer to the same authority rules, and the
+  // authority decision never touches an adapter.
+  entityType: RevisionModel;
   entity: Record<string, unknown>;
   fields: Record<string, unknown>;
   landing: boolean;

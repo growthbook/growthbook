@@ -1,3 +1,4 @@
+import { holdsMoveDestination } from "shared/permissions";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import type { EventUser } from "shared/types/events/event-types";
 import type { OrganizationInterface } from "shared/types/organization";
@@ -212,10 +213,16 @@ export async function revertFeatureRevision(
       // itself re-enables, so a move could land a flag serving production into a
       // project where the caller holds no production authority.
       if (
-        isPublish &&
-        !context.permissions.canPublishFeature({ project: m.project }, [
-          ...new Set([...allEnabledEnvs, ...changedEnvs]),
-        ])
+        !holdsMoveDestination({
+          permissions: context.permissions,
+          model: "feature",
+          action: isPublish ? "publish" : "draft",
+          existing: feature,
+          proposed: { ...feature, project: m.project },
+          environments: isPublish
+            ? [...new Set([...allEnabledEnvs, ...changedEnvs])]
+            : [],
+        })
       ) {
         context.permissions.throwPermissionError();
       }
