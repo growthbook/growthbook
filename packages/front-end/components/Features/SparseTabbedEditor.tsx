@@ -6,6 +6,7 @@ import clsx from "clsx";
 import { FeatureValueType } from "shared/types/feature";
 import { formatJSON } from "@/services/features";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import { Size } from "@/ui/sizes";
 import CodeTextArea, {
   TEN_LINES_HEIGHT,
 } from "@/components/Forms/CodeTextArea";
@@ -63,7 +64,7 @@ export default function SparseTabbedEditor({
     defaultHeight ?? (condensed ? 64 : Math.round(TEN_LINES_HEIGHT / 2));
   // Use the compact tab size everywhere except fullscreen — the larger size 2
   // strip is needlessly tall above the editor.
-  const tabsSize: "1" | "2" = fullscreen ? "2" : "1";
+  const tabsSize: Size<"sm" | "md"> = fullscreen ? "md" : "sm";
 
   // Escape exits fullscreen (mirrors CodeTextArea's behavior).
   useEffect(() => {
@@ -126,7 +127,7 @@ export default function SparseTabbedEditor({
         {fullscreen ? (
           <Button
             type="button"
-            size="xs"
+            size="sm"
             color="gray"
             variant="ghost"
             onClick={() => setFullscreen(false)}

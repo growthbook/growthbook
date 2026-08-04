@@ -3,6 +3,7 @@ import { Flex } from "@radix-ui/themes";
 import { MssqlConnectionParams } from "shared/types/integrations/mssql";
 import Checkbox from "@/ui/Checkbox";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
 import HostWarning from "./HostWarning";
 
 const MssqlForm: FC<{
@@ -77,7 +78,7 @@ const MssqlForm: FC<{
             required={!existing}
             value={params.password || ""}
             onChange={onParamChange}
-            placeholder={existing ? "(Keep existing)" : ""}
+            placeholder={existing ? KEEP_EXISTING_PLACEHOLDER : ""}
           />
         </div>
         <div className="form-group col-md-12">

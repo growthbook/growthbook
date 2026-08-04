@@ -50,7 +50,10 @@ import {
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
-import { syncFeatureContextualBanditLinkages } from "back-end/src/util/featureContextualBanditSync";
+import {
+  referencesAnyContextualBandit,
+  syncFeatureContextualBanditLinkages,
+} from "back-end/src/util/featureContextualBanditSync";
 import {
   createWithVersionRetry,
   isDuplicateKeyErrorForIndex,
@@ -470,6 +473,55 @@ export async function getLinkageSyncRevisionSummaries(
       ? { version: liveDoc.version, rules: liveDoc.rules }
       : null,
   };
+}
+
+/**
+ * Reconcile both linkage projections after a write that only moves drafts
+ * around, so there is no publish to gate.
+ *
+ * Bandit linkage is awaited, so the response the caller returns already reflects
+ * it, but only when a bandit rule is involved on either side of the write —
+ * which is also the only way linkage can go stale, since a bandit that drops out
+ * of every revision was referenced by the pre-write rules. Experiment linkage
+ * keeps its existing fire-and-forget behaviour.
+ */
+async function syncLinkagesAfterDraftWrite(
+  context: ReqContext | ApiReqContext,
+  revision: Pick<FeatureRevisionInterface, "organization" | "featureId">,
+  banditRuleSets: unknown[],
+  label: string,
+): Promise<void> {
+  const summaries = getLinkageSyncRevisionSummaries(
+    revision.organization,
+    revision.featureId,
+  );
+
+  summaries
+    .then(({ openDrafts, liveRevision }) =>
+      syncFeatureExperimentLinkages(
+        context,
+        revision.featureId,
+        openDrafts,
+        liveRevision,
+      ),
+    )
+    .catch((e) => {
+      logger.error(e, `experiment linkage sync failed in ${label}`);
+    });
+
+  if (!banditRuleSets.some(referencesAnyContextualBandit)) return;
+
+  try {
+    const { openDrafts, liveRevision } = await summaries;
+    await syncFeatureContextualBanditLinkages(
+      context,
+      revision.featureId,
+      openDrafts,
+      liveRevision,
+    );
+  } catch (e) {
+    logger.error(e, `contextual bandit linkage sync failed in ${label}`);
+  }
 }
 
 export async function getMinimalRevisions(
@@ -1382,28 +1434,14 @@ export async function updateRevision(
 
   const updatedRevision = doc ? toInterface(doc, context, feature) : null;
 
-  // Fire-and-forget linkage sync whenever draft rules change.
+  // Linkage sync whenever draft rules change.
   if (updatedRevision && "rules" in changes) {
-    getLinkageSyncRevisionSummaries(revision.organization, revision.featureId)
-      .then(({ openDrafts, liveRevision }) =>
-        Promise.all([
-          syncFeatureExperimentLinkages(
-            context,
-            revision.featureId,
-            openDrafts,
-            liveRevision,
-          ),
-          syncFeatureContextualBanditLinkages(
-            context,
-            revision.featureId,
-            openDrafts,
-            liveRevision,
-          ),
-        ]),
-      )
-      .catch((e) => {
-        logger.error(e, "feature linkage sync failed in updateRevision");
-      });
+    await syncLinkagesAfterDraftWrite(
+      context,
+      revision,
+      [revision.rules, changes.rules],
+      "updateRevision",
+    );
   }
 
   return updatedRevision;
@@ -2613,18 +2651,12 @@ export async function reopenRevision(
     });
 
   // Sync linkages — the reopened revision's rules count as "open drafts" again.
-  getLinkageSyncRevisionSummaries(revision.organization, revision.featureId)
-    .then(({ openDrafts, liveRevision }) =>
-      syncFeatureExperimentLinkages(
-        context,
-        revision.featureId,
-        openDrafts,
-        liveRevision,
-      ),
-    )
-    .catch((e) => {
-      logger.error(e, "syncFeatureExperimentLinkages failed in reopenRevision");
-    });
+  await syncLinkagesAfterDraftWrite(
+    context,
+    revision,
+    [revision.rules],
+    "reopenRevision",
+  );
 }
 
 export async function discardRevision(
@@ -2678,26 +2710,12 @@ export async function discardRevision(
     });
 
   // Sync linkages — the discarded revision's rules no longer count as "open drafts".
-  getLinkageSyncRevisionSummaries(revision.organization, revision.featureId)
-    .then(({ openDrafts, liveRevision }) =>
-      Promise.all([
-        syncFeatureExperimentLinkages(
-          context,
-          revision.featureId,
-          openDrafts,
-          liveRevision,
-        ),
-        syncFeatureContextualBanditLinkages(
-          context,
-          revision.featureId,
-          openDrafts,
-          liveRevision,
-        ),
-      ]),
-    )
-    .catch((e) => {
-      logger.error(e, "feature linkage sync failed in discardRevision");
-    });
+  await syncLinkagesAfterDraftWrite(
+    context,
+    revision,
+    [revision.rules],
+    "discardRevision",
+  );
 }
 
 export async function getFeatureRevisionsByFeatureIds(

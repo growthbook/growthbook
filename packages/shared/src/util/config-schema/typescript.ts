@@ -888,6 +888,8 @@ function jsonSchemaNodeToTsExpr(
       }
       return withNull(`{ ${propEntries.map(memberExpr).join("; ")} }`);
     }
+    case undefined:
+      return withNull("unknown");
   }
   return withNull("unknown");
 }

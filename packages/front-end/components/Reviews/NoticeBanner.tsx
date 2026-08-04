@@ -50,11 +50,11 @@ export default function NoticeBanner({
         {icon}
       </Flex>
       <Box flexGrow="1" style={{ minWidth: 0, flexBasis: 180 }}>
-        <Text as="div" size="medium" weight="semibold">
+        <Text as="div" size="md" weight="semibold">
           {title}
         </Text>
         {body && (
-          <Text as="div" size="small" color="text-low">
+          <Text as="div" size="sm" color="text-low">
             {body}
           </Text>
         )}

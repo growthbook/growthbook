@@ -63,6 +63,18 @@ export function getEventForwarderSinkTypeForDatasource(datasource: {
       return "bigquery";
     case "snowflake":
       return "snowflake";
+    case "growthbook_clickhouse":
+    case "redshift":
+    case "athena":
+    case "google_analytics":
+    case "postgres":
+    case "mysql":
+    case "mssql":
+    case "clickhouse":
+    case "presto":
+    case "databricks":
+    case "mixpanel":
+    case "vertica":
     default:
       return null;
   }
@@ -84,6 +96,18 @@ export function getEventForwarderDatasourceParams(
       return params as BigQueryConnectionParams;
     case "snowflake":
       return params as SnowflakeConnectionParams;
+    case "growthbook_clickhouse":
+    case "redshift":
+    case "athena":
+    case "google_analytics":
+    case "postgres":
+    case "mysql":
+    case "mssql":
+    case "clickhouse":
+    case "presto":
+    case "databricks":
+    case "mixpanel":
+    case "vertica":
     default:
       return undefined;
   }

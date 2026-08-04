@@ -33,10 +33,10 @@ export default function EnvironmentStatesGrid({ environmentStates }: Props) {
     <Box p="4" px="5">
       <Link color="dark" onClick={() => setEnvironmentsOpen((prev) => !prev)}>
         <Flex align="center">
-          <Text color="text-low" weight="semibold" size="medium">
+          <Text color="text-low" weight="semibold" size="md">
             Environments
           </Text>
-          <Text color="text-low" size="medium" ml="1">
+          <Text color="text-low" size="md" ml="1">
             ({activeCount}/{totalCount})
           </Text>
           <Box ml="2">

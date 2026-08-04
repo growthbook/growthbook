@@ -16,7 +16,7 @@ const TextDivider: FC<{
           mx="5"
           style={{ backgroundColor: "var(--border-color-200)" }}
         />
-        <Text color="text-low" align="center" size="small">
+        <Text color="text-low" align="center" size="sm">
           {children}
         </Text>
         <Box

@@ -784,9 +784,6 @@ export default class Mixpanel implements SourceIntegrationInterface {
   ): Promise<DimensionSlicesQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getSensitiveParamKeys(): string[] {
-    return ["secret"];
-  }
 
   private getMetricFunction(metric: MetricInterface, name: string) {
     return `

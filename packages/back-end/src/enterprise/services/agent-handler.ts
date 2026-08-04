@@ -594,6 +594,21 @@ async function processStream<TParams>(
           processor.setError(errorMsg);
           break;
         }
+        case "file":
+        case "tool-approval-request":
+        case "source":
+        case "text-start":
+        case "text-end":
+        case "reasoning-start":
+        case "reasoning-end":
+        case "tool-input-end":
+        case "finish":
+        case "raw":
+        case "tool-output-denied":
+        case "start-step":
+        case "finish-step":
+        case "start":
+        case "abort":
         default:
           break;
       }

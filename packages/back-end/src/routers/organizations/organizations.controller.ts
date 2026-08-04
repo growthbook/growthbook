@@ -78,6 +78,7 @@ import {
   APP_ORIGIN,
   IS_CLOUD,
   IS_MULTI_ORG,
+  PROHIBITED_ORGANIZATION_NAME_REGEX,
 } from "back-end/src/util/secrets";
 import {
   sendInviteEmail,
@@ -862,7 +863,7 @@ export async function putInviteRole(
 }
 
 export async function getOrganization(
-  req: AuthRequest,
+  req: AuthRequest<unknown, unknown, { forceLicenseRefresh?: string }>,
   res: Response<GetOrganizationResponse | { status: 200; organization: null }>,
 ) {
   if (!req.organization) {
@@ -874,6 +875,8 @@ export async function getOrganization(
 
   const context = getContextFromReq(req);
   const { org, userId } = context;
+  const forceLicenseRefresh = req.query.forceLicenseRefresh !== undefined;
+
   const {
     invites,
     members,
@@ -899,15 +902,23 @@ export async function getOrganization(
       let license: Partial<LicenseInterface> | null =
         getLicense(licenseKey || process.env.LICENSE_KEY) || null;
       if (
+        forceLicenseRefresh ||
         !license ||
         (license.organizationId && license.organizationId !== id)
       ) {
         try {
           license =
-            (await licenseInit(org, getUserCodesForOrg, getLicenseMetaData)) ||
-            null;
+            (await licenseInit(
+              org,
+              getUserCodesForOrg,
+              getLicenseMetaData,
+              forceLicenseRefresh,
+            )) || null;
         } catch (e) {
           logger.error(e, "setting license failed");
+          if (forceLicenseRefresh) {
+            throw e;
+          }
         }
       }
       return license;
@@ -1405,17 +1416,6 @@ export async function postInvite(
     });
   }
 
-  const license = getLicense();
-  if (
-    license &&
-    license.hardCap &&
-    getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
-  ) {
-    throw new Error(
-      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit.",
-    );
-  }
-
   const { emailSent, inviteUrl } = await inviteUser({
     organization: org,
     email,
@@ -1543,6 +1543,11 @@ export async function signup(
   try {
     if (company.length < 3) {
       throw Error("Company length must be at least 3 characters");
+    }
+    if (IS_CLOUD && PROHIBITED_ORGANIZATION_NAME_REGEX?.test(company)) {
+      throw Error(
+        "Unable to create organization. Please contact support@growthbook.io",
+      );
     }
     if (!req.userId) {
       throw Error("Must be logged in");
@@ -2322,17 +2327,6 @@ export async function addOrphanedUser(
       status: e.status || 400,
       message: e.message,
     });
-  }
-
-  const license = getLicense();
-  if (
-    license &&
-    license.hardCap &&
-    getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
-  ) {
-    throw new Error(
-      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit.",
-    );
   }
 
   await addMemberToOrg({

@@ -289,12 +289,12 @@ function TemplateRowCells({
                 {template.name}
               </Link>
             ) : (
-              <Text weight="medium" size="medium">
+              <Text weight="medium" size="md">
                 {template.name}
               </Text>
             )}
           </Flex>
-          <Text color="text-low" size="small">
+          <Text color="text-low" size="sm">
             {formatRampStepSummary(template.steps)}
           </Text>
         </Flex>
@@ -494,7 +494,7 @@ export default function RampScheduleTemplates() {
   return (
     <Frame>
       <Flex justify="between" align="center" mb="3">
-        <Heading as="h3" size="small">
+        <Heading as="h3" size="sm">
           Ramp Schedule Templates
         </Heading>
         <PremiumTooltip commercialFeature="ramp-schedules">
@@ -510,7 +510,7 @@ export default function RampScheduleTemplates() {
       </Flex>
 
       {items.length === 0 ? (
-        <Text color="text-low" size="medium">
+        <Text color="text-low" size="md">
           No templates yet.{" "}
           {hasFeature
             ? "Create one to quickly apply standard ramp schedules to feature rules."

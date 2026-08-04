@@ -4,6 +4,8 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { SafeRolloutInterface } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
 import {
+  applyHoldoutExperimentLinkage,
+  type HoldoutExperimentLinkagePlan,
   applyHoldoutSideEffects,
   assertHoldoutChangeAllowed,
   applyRampCreateActionsForRevision,
@@ -14,6 +16,8 @@ import {
   finalizeRampActionsAfterPublish,
   getFeature,
   type HoldoutLinkagePreImage,
+  planHoldoutExperimentLinkage,
+  reverseHoldoutExperimentLinkage,
   rewindHoldoutLinkage,
   rollbackCreatedRampSchedules,
   updateFeature,
@@ -28,10 +32,18 @@ import {
   claimFeatureRevisionAsPublished,
   emitFeatureRevisionPublishedSideEffects,
   featureRevisionId,
+  getLinkageSyncRevisionSummaries,
   getRevision,
   hasPublishLockingScheduledSibling,
   restoreFeatureRevisionAfterFailedBulkPublish,
 } from "back-end/src/models/FeatureRevisionModel";
+import {
+  applyFeatureContextualBanditLinkage,
+  ContextualBanditLinkagePlan,
+  planFeatureContextualBanditLinkage,
+  referencesAnyContextualBandit,
+  reverseFeatureContextualBanditLinkage,
+} from "back-end/src/util/featureContextualBanditSync";
 import { getMergeResultPublishEnvs } from "back-end/src/services/features";
 import {
   collectFeaturePublishGates,
@@ -88,6 +100,9 @@ type FeatureDesiredState = {
    * nothing for compensation to reverse.
    */
   holdoutLinkage?: HoldoutLinkagePreImage | null;
+  holdoutExperimentLinkage?: HoldoutExperimentLinkagePlan[];
+  /** Same contract as `holdoutExperimentLinkage`: captured pre-mutation, null when there is nothing to write. */
+  contextualBanditLinkage?: ContextualBanditLinkagePlan | null;
 };
 
 function toRef(revision: FeatureRevisionInterface): BulkRevisionRef {
@@ -349,8 +364,39 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         context,
         feature,
         mergeResult.holdout,
-        mergeResult.rules ?? feature.rules ?? [],
       );
+    }
+
+    // Same pre-mutation rule: planning is read-only, and its project check must
+    // refuse the publish before feature.version moves. Covers a rules-only
+    // publish too (mirrors publishRevision).
+    desired.holdoutExperimentLinkage = await planHoldoutExperimentLinkage(
+      context,
+      feature,
+      (mergeResult.holdout !== undefined
+        ? mergeResult.holdout?.id
+        : feature.holdout?.id) ?? null,
+      mergeResult.rules ?? feature.rules ?? [],
+    );
+
+    // Also pre-mutation, so compensation has a pre-image to converge on. Rules
+    // on either side matter: one adding a bandit rule links the feature, one
+    // removing the last of them unlinks it.
+    if (
+      referencesAnyContextualBandit(feature.rules) ||
+      referencesAnyContextualBandit(mergeResult.rules)
+    ) {
+      const { openDrafts } = await getLinkageSyncRevisionSummaries(
+        raw.organization,
+        raw.featureId,
+      );
+      desired.contextualBanditLinkage =
+        await planFeatureContextualBanditLinkage(
+          context,
+          raw.featureId,
+          openDrafts.filter((d) => d.version !== raw.version),
+          mergeResult.rules ?? feature.rules ?? [],
+        );
     }
 
     // Ramp `create` actions run BEFORE the feature write: a schedule-creation
@@ -409,14 +455,20 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     }
 
     if (mergeResult.holdout !== undefined) {
-      // Guard already ran above (before any mutation) — skip the re-check.
-      // Pass the POST-publish rules so experiments added in the same revision
-      // are enrolled (mirrors publishRevision).
-      await applyHoldoutSideEffects(
+      // Guard already ran above, before any mutation.
+      await applyHoldoutSideEffects(context, feature, mergeResult.holdout, {
+        skipGuard: true,
+      });
+    }
+
+    for (const plan of desired.holdoutExperimentLinkage ?? []) {
+      await applyHoldoutExperimentLinkage(context, plan);
+    }
+
+    if (desired.contextualBanditLinkage) {
+      await applyFeatureContextualBanditLinkage(
         context,
-        { ...feature, rules: mergeResult.rules ?? feature.rules },
-        mergeResult.holdout,
-        { skipGuard: true },
+        desired.contextualBanditLinkage,
       );
     }
   },
@@ -487,6 +539,35 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     // stamp the old holdout onto experiments this revision newly added. Every
     // step converges on a captured value, so it is an idempotent no-op if the
     // forward write never landed and repairs the half if it landed partway.
+    for (const plan of desired.holdoutExperimentLinkage ?? []) {
+      try {
+        await reverseHoldoutExperimentLinkage(context, plan);
+      } catch (e) {
+        reversalFailures.push("holdout experiments");
+        logger.error(
+          e,
+          `bulk publish compensation: failed to reverse experiment linkage for holdout ${plan.holdoutId} on feature ${feature.id}`,
+        );
+      }
+    }
+    assertNoReversalFailures();
+
+    if (desired.contextualBanditLinkage) {
+      try {
+        await reverseFeatureContextualBanditLinkage(
+          context,
+          desired.contextualBanditLinkage,
+        );
+      } catch (e) {
+        reversalFailures.push("contextual bandit linkage");
+        logger.error(
+          e,
+          `bulk publish compensation: failed to reverse contextual bandit linkage for feature ${feature.id}`,
+        );
+      }
+      assertNoReversalFailures();
+    }
+
     if (desired.holdoutLinkage) {
       try {
         await rewindHoldoutLinkage(context, desired.holdoutLinkage);
