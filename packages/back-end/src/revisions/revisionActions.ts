@@ -18,6 +18,7 @@ import {
   isRevisionDiverged,
   ownershipChanged,
 } from "back-end/src/revisions/util";
+import { liveMatchesRevisionBase } from "back-end/src/revisions/revisionAuthority";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
 import {
@@ -356,11 +357,29 @@ export async function publishRevision(
   // where the caller lacks access. `ownershipChanged` covers the scalar
   // `project` (configs/constants) and the `projects[]` array (saved groups),
   // including clears-to-global, so an ordinary publish (no move) isn't blocked.
-  if (
-    ownershipChanged(entity, desiredState) &&
-    !adapter.canUpdate(context, { ...entity, ...desiredState })
-  ) {
-    context.permissions.throwPermissionError();
+  if (ownershipChanged(entity, desiredState)) {
+    const destination = { ...entity, ...desiredState };
+    // Edit authority in the destination is not enough on its own: the change is
+    // LANDING there, so it also takes publish authority over the environments it
+    // reaches. `canUpdate` cannot see the change set, which let a caller holding
+    // only dev authority in the destination land a production override into it.
+    const destinationFootprint =
+      adapter.publishFootprint?.(
+        context,
+        destination,
+        revision.target.proposedChanges,
+      ) ?? [];
+    if (
+      !adapter.canUpdate(context, destination) ||
+      !context.permissions.canRevisionAction(
+        revision.target.type,
+        "publish",
+        destination as { project?: string; projects?: string[] },
+        destinationFootprint,
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   const updatableFields = adapter.getUpdatableFields();
@@ -384,7 +403,20 @@ export async function publishRevision(
   // approval-required orgs the gate above demands bypass ("merged" isn't
   // "approved") — deliberate; recovery stays one publish call, by an admin.
   if (alreadyMerged) {
-    if (!hasChanges) {
+    // `hasChanges` alone does NOT identify a stranded merge — every superseded
+    // revision differs from current live state, so on its own it would let an
+    // old merged revision be reapplied over newer content. A merge that never
+    // landed leaves a second, decisive mark: the live entity still matches the
+    // revision's own base. Once anything else has published, it no longer does,
+    // and this falls through to the refusal below.
+    const strandedMerge =
+      hasChanges &&
+      liveMatchesRevisionBase({
+        baseSnapshot: revision.target.snapshot as Record<string, unknown>,
+        liveSnapshot: entity as Record<string, unknown>,
+        updatableFields,
+      });
+    if (!strandedMerge) {
       throw new BadRequestError(
         `Cannot publish a revision with status "${revision.status}"`,
       );

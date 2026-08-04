@@ -152,9 +152,11 @@ export async function revertFeatureRevision(
   ) {
     if (
       isPublish &&
-      // No env list: creating a draft publishes nothing, so this only asks
-      // whether they hold revert authority in the feature's project.
-      !context.permissions.canRevertFeature(feature, [])
+      // Prerequisites are not per-environment, but changing them reaches every
+      // environment the flag serves in — same footprint the defaultValue and
+      // archived reverts above and below use. An empty list here skipped the
+      // caller's environment restrictions entirely.
+      !context.permissions.canRevertFeature(feature, allEnabledEnvs)
     ) {
       context.permissions.throwPermissionError();
     }
@@ -278,8 +280,13 @@ export async function revertFeatureRevision(
   );
   const holdoutChanged = !isEqual(targetHoldout, feature.holdout ?? null);
   if (holdoutChanged) {
+    // A revert of holdout membership is a revert like any other field here, so
+    // revert authority lands it — while publish, being the broader authority
+    // that could set the same value outright, still does too. Checking publish
+    // alone made this the one field a revert-only role could not restore.
     if (
       isPublish &&
+      !context.permissions.canRevertFeature(feature, allEnabledEnvs) &&
       !context.permissions.canPublishFeature(feature, allEnabledEnvs)
     ) {
       context.permissions.throwPermissionError();

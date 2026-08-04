@@ -153,6 +153,16 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     return UPDATABLE_FIELDS;
   },
 
+  // A Config binds to the environments its scoped overrides name. Without this
+  // the generic publish engine had no footprint for Configs and fell back to an
+  // empty list, which passes every environment check vacuously — so a
+  // delete-only role could archive a production-scoped Config, and a
+  // dev-limited publisher could publish one, through the draft path. The
+  // controllers already gate on exactly this list.
+  publishFootprint(context: Context, snapshot: ConfigInterface): string[] {
+    return configPublishEnvironments(context, snapshot);
+  },
+
   canRead(context: Context, snapshot: ConfigInterface): boolean {
     return context.permissions.canReadSingleProjectResource(snapshot.project);
   },

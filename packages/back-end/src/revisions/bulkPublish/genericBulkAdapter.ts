@@ -4,6 +4,7 @@ import {
   checkMergeConflicts,
   normalizeProposedChanges,
 } from "shared/enterprise";
+import { canPublishRevisionChange } from "back-end/src/revisions/revisionActions";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
   type EntityRevisionAdapter,
@@ -151,6 +152,25 @@ export function makeGenericBulkAdapter(
         entity,
         revision: raw,
       });
+
+      // `canPublish` above is coarse — it takes only the entity, so it cannot
+      // see which environments this change reaches, and a caller limited to dev
+      // cleared it while landing a production override. Defer to the same
+      // assertion the single-revision engine makes, which layers the
+      // change-aware footprint on top. The archive gate below still runs for
+      // its clearer message.
+      if (!(await canPublishRevisionChange(callerContext, raw, entity))) {
+        gates.push(
+          makeBlockingGate({
+            type: "permission-denied",
+            messages: [
+              `You do not have permission to publish this ${displayEntityName(
+                targetType,
+              )} in every environment it changes`,
+            ],
+          }),
+        );
+      }
 
       // Archiving is delete-class wherever the merge lands, so bulk publish
       // enforces it too — `canPublish` above only asks for publish authority.

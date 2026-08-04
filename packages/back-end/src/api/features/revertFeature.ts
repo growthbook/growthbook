@@ -232,7 +232,15 @@ export async function revertFeatureCore(
     changes.metadata?.project ?? feature.project,
   );
   if (!isEqual(targetHoldout, feature.holdout ?? null)) {
+    // A revert of holdout membership is a revert like any other field here, so
+    // revert authority lands it — while publish, being the broader authority
+    // that could set the same value outright, still does too. Checking publish
+    // alone made this the one field a revert-only role could not restore.
     if (
+      !context.permissions.canRevertFeature(
+        feature,
+        Array.from(getEnabledEnvironments(feature, environmentIds)),
+      ) &&
       !context.permissions.canPublishFeature(
         feature,
         Array.from(getEnabledEnvironments(feature, environmentIds)),
