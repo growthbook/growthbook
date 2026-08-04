@@ -210,7 +210,7 @@ export default function SqlQuerySection({
               height="100%"
               style={{ color: "var(--color-text-mid)" }}
             >
-              <Text>Run a SQL query to see results.</Text>
+              <Text>Run the query to preview its raw rows.</Text>
             </Flex>
           ) : undefined
         }
