@@ -157,7 +157,7 @@ export const postSavedGroupRevisionRebase = createApiRequestHandler(
         resolvedValue = conflict.proposedValue;
       }
       if (
-        resolvedValue != null &&
+        (resolvedValue ?? null) !== null &&
         !isEqual(resolvedValue, liveSnapshot[field])
       ) {
         newOps.push({
