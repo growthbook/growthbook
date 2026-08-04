@@ -28,6 +28,7 @@ export const AGGREGATED_FACT_TABLE_COVARIATE_FRESHNESS_MS = 1000 * 60 * 60 * 36;
 
 export type CovariateInsertPathReason =
   | "aggregated"
+  | "mixed"
   | "no-fact-table"
   | "id-type-not-materialized"
   | "no-materialized-table"
@@ -39,13 +40,21 @@ export type CovariateInsertPathReason =
 export type CovariateInsertPath =
   | {
       path: "legacy";
-      reason: Exclude<CovariateInsertPathReason, "aggregated">;
+      reason: Exclude<CovariateInsertPathReason, "aggregated" | "mixed">;
     }
   | {
       path: "aggregated";
       aggregatedTableFullName: string;
       idType: string;
       reason: "aggregated";
+    }
+  | {
+      path: "mixed";
+      aggregatedTableFullName: string;
+      idType: string;
+      coveredMetricIds: string[];
+      uncoveredMetricIds: string[];
+      reason: "mixed";
     };
 
 type ResolveCovariateInsertPathArgs = {
@@ -59,10 +68,12 @@ type ResolveCovariateInsertPathArgs = {
 };
 
 // Decides whether a fact-table group's covariate insert reads from the
-// pre-aggregated daily table or falls back to the legacy raw scan. All-or-nothing
-// per group: one covariate INSERT writes a row per unit with every metric column,
-// so it can't mix aggregated and raw columns. Any error falls back to legacy
-// (always correct) rather than failing the refresh.
+// pre-aggregated daily table, falls back to the legacy raw scan, or splits the
+// group across both ("mixed"). The mixed path emits two INSERTs into the same
+// destination table (covered metric columns from the aggregated table, uncovered
+// ones from the raw scan); the downstream stats read collapses multiple rows per
+// unit with `MAX(...) GROUP BY unit`, so the split is transparent. Any error
+// falls back to legacy (always correct) rather than failing the refresh.
 export async function resolveCovariateInsertPath(
   args: ResolveCovariateInsertPathArgs,
 ): Promise<CovariateInsertPath> {
@@ -180,33 +191,46 @@ async function resolveCovariateInsertPathInner({
     return { path: "legacy", reason: "window-not-covered" };
   }
 
-  const uncoveredMetricIds = regressionAdjustedMetrics
-    .filter(
-      (metric) =>
-        !isMetricCoveredByRegistry(
-          metric,
-          factTable.id,
-          registry.metricState,
-          log,
-        ),
-    )
-    .map((m) => m.id);
-  if (uncoveredMetricIds.length > 0) {
-    log("legacy: one or more RA metrics not covered by registry", {
-      uncoveredMetricIds,
-    });
+  const { coveredMetricIds, uncoveredMetricIds, uncoveredSliceMetricIds } =
+    partitionMetricsByRegistryCoverage(
+      regressionAdjustedMetrics,
+      factTable.id,
+      registry.metricState,
+      log,
+    );
+
+  if (coveredMetricIds.length === 0) {
+    log("legacy: no RA metrics covered by registry", { uncoveredMetricIds });
     return { path: "legacy", reason: "metrics-not-covered" };
   }
 
-  log("aggregated: all gates passed", {
+  if (uncoveredMetricIds.length === 0) {
+    log("aggregated: all gates passed", {
+      aggregatedTableFullName: registry.tableFullName,
+      idType: exposureUserIdType,
+    });
+    return {
+      path: "aggregated",
+      aggregatedTableFullName: registry.tableFullName,
+      idType: exposureUserIdType,
+      reason: "aggregated",
+    };
+  }
+
+  log("mixed: some RA metrics not covered by registry", {
     aggregatedTableFullName: registry.tableFullName,
     idType: exposureUserIdType,
+    coveredMetricCount: coveredMetricIds.length,
+    uncoveredMetricIds,
+    uncoveredSliceMetricIds,
   });
   return {
-    path: "aggregated",
+    path: "mixed",
     aggregatedTableFullName: registry.tableFullName,
     idType: exposureUserIdType,
-    reason: "aggregated",
+    coveredMetricIds,
+    uncoveredMetricIds,
+    reason: "mixed",
   };
 }
 
@@ -247,17 +271,57 @@ function getCovariateWindowBounds(
   return { firstCovariateDate, lastCovariateDate };
 }
 
-function isMetricCoveredByRegistry(
-  metric: FactMetricInterface,
+type MetricCoverage = "covered" | "uncovered-slice" | "uncovered-base";
+
+// Partitions a group's RA metrics into those the aggregated table can serve and
+// those it can't. Exported for unit testing; the runner consumes the partition
+// via resolveCovariateInsertPath.
+export function partitionMetricsByRegistryCoverage(
+  metrics: FactMetricInterface[],
   factTableId: string,
   metricState: AggregatedFactTableMetricStateInterface[],
   log: (msg: string, data?: Record<string, unknown>) => void = () => {},
-): boolean {
+): {
+  coveredMetricIds: string[];
+  uncoveredMetricIds: string[];
+  // Subset of uncoveredMetricIds whose base metric IS covered but whose slice
+  // columns aren't materialized (e.g., compound customMetricSlices). Tracked
+  // separately for logging — these are the cases the mixed path is designed for.
+  uncoveredSliceMetricIds: string[];
+} {
+  const coveredMetricIds: string[] = [];
+  const uncoveredMetricIds: string[] = [];
+  const uncoveredSliceMetricIds: string[] = [];
+  for (const metric of metrics) {
+    const coverage = classifyMetricCoverage(
+      metric,
+      factTableId,
+      metricState,
+      log,
+    );
+    if (coverage === "covered") {
+      coveredMetricIds.push(metric.id);
+    } else {
+      uncoveredMetricIds.push(metric.id);
+      if (coverage === "uncovered-slice") {
+        uncoveredSliceMetricIds.push(metric.id);
+      }
+    }
+  }
+  return { coveredMetricIds, uncoveredMetricIds, uncoveredSliceMetricIds };
+}
+
+function classifyMetricCoverage(
+  metric: FactMetricInterface,
+  factTableId: string,
+  metricState: AggregatedFactTableMetricStateInterface[],
+  log: (msg: string, data?: Record<string, unknown>) => void,
+): MetricCoverage {
   if (!canReAggregateDailyPartialsForCovariate(metric)) {
     log("metric not covered: unsafe to re-aggregate daily partials", {
       metricId: metric.id,
     });
-    return false;
+    return "uncovered-base";
   }
 
   const { baseMetricId, isSliceMetric } = parseSliceMetricId(metric.id);
@@ -267,7 +331,7 @@ function isMetricCoveredByRegistry(
       metricId: metric.id,
       baseMetricId,
     });
-    return false;
+    return "uncovered-base";
   }
 
   // Slice clones share the base metric's hash-affecting settings.
@@ -281,7 +345,7 @@ function isMetricCoveredByRegistry(
       computedHash: settingsHash,
       storedHash: baseState.settingsHash,
     });
-    return false;
+    return "uncovered-base";
   }
 
   const storedColumns = isSliceMetric
@@ -292,7 +356,7 @@ function isMetricCoveredByRegistry(
       metricId: metric.id,
       isSliceMetric,
     });
-    return false;
+    return isSliceMetric ? "uncovered-slice" : "uncovered-base";
   }
 
   const requiredColumns = getColumnsForMetric(metric, factTableId);
@@ -303,6 +367,7 @@ function isMetricCoveredByRegistry(
       requiredColumns,
       storedColumns,
     });
+    return isSliceMetric ? "uncovered-slice" : "uncovered-base";
   }
-  return covered;
+  return "covered";
 }

@@ -787,15 +787,17 @@ const startExperimentIncrementalRefreshQueries = async (
         factTableId: group.factTableId ?? null,
         path: covariatePath.path,
         aggregatedTableFullName:
-          covariatePath.path === "aggregated"
-            ? covariatePath.aggregatedTableFullName
-            : null,
+          covariatePath.path === "legacy"
+            ? null
+            : covariatePath.aggregatedTableFullName,
         reason: covariatePath.reason,
+        uncoveredMetricCount:
+          covariatePath.path === "mixed"
+            ? covariatePath.uncoveredMetricIds.length
+            : undefined,
       });
 
       const covariateInsertBaseParams = {
-        name: `insert_metrics_covariate_data_${group.groupId}`,
-        displayTitle: `Update Metric Covariate Data ${sourceName}`,
         dependencies: [
           maxTimestampUnitsTableQuery.query,
           ...(createMetricCovariateTableQuery
@@ -812,48 +814,51 @@ const startExperimentIncrementalRefreshQueries = async (
             setExternalId,
             queryMetadata,
           ),
-        onSuccess: async () => {
-          const incrementalRefresh =
-            await context.models.incrementalRefresh.getByExperimentId(
+      };
+
+      // Advances lastSuccessfulMaxTimestamp; attached only to the LAST insert
+      // in the chain so a partial mixed-path write can't skip units on retry.
+      const covariateInsertOnSuccess = async () => {
+        const incrementalRefresh =
+          await context.models.incrementalRefresh.getByExperimentId(
+            experimentId,
+          );
+        const lastSuccessfulMaxTimestamp =
+          incrementalRefresh?.unitsMaxTimestamp ?? null;
+        const updatedCovariateSource: IncrementalRefreshMetricCovariateSourceInterface =
+          existingCovariateSource
+            ? {
+                ...existingCovariateSource,
+                lastSuccessfulMaxTimestamp,
+              }
+            : {
+                groupId: group.groupId,
+                lastSuccessfulMaxTimestamp,
+                tableFullName: metricSourceCovariateTableFullName,
+              };
+        if (!existingCovariateSource) {
+          runningCovariateSourceData = runningCovariateSourceData.concat(
+            updatedCovariateSource,
+          );
+        } else {
+          runningCovariateSourceData = runningCovariateSourceData.map((s) =>
+            s.groupId === group.groupId ? updatedCovariateSource : s,
+          );
+        }
+        const lockHeld =
+          await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
+            experimentId,
+            executionId,
+            {
+              metricCovariateSources: runningCovariateSourceData,
+            },
+          );
+        if (lockHeld !== true) {
+          context.logger.warn(
+            "Incremental refresh execution lock lost for experiment: " +
               experimentId,
-            );
-          const lastSuccessfulMaxTimestamp =
-            incrementalRefresh?.unitsMaxTimestamp ?? null;
-          const updatedCovariateSource: IncrementalRefreshMetricCovariateSourceInterface =
-            existingCovariateSource
-              ? {
-                  ...existingCovariateSource,
-                  lastSuccessfulMaxTimestamp,
-                }
-              : {
-                  groupId: group.groupId,
-                  lastSuccessfulMaxTimestamp,
-                  tableFullName: metricSourceCovariateTableFullName,
-                };
-          if (!existingCovariateSource) {
-            runningCovariateSourceData = runningCovariateSourceData.concat(
-              updatedCovariateSource,
-            );
-          } else {
-            runningCovariateSourceData = runningCovariateSourceData.map((s) =>
-              s.groupId === group.groupId ? updatedCovariateSource : s,
-            );
-          }
-          const lockHeld =
-            await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
-              experimentId,
-              executionId,
-              {
-                metricCovariateSources: runningCovariateSourceData,
-              },
-            );
-          if (lockHeld !== true) {
-            context.logger.warn(
-              "Incremental refresh execution lock lost for experiment: " +
-                experimentId,
-            );
-          }
-        },
+          );
+        }
       };
 
       const commonCovariateQueryParams = {
@@ -864,18 +869,61 @@ const startExperimentIncrementalRefreshQueries = async (
         factTableId: group.factTableId,
         metricSourceCovariateTableFullName,
         unitsSourceTableFullName: unitsTableFullName,
-        metrics: regressionAdjustedMetrics,
         lastCovariateSuccessfulMaxTimestamp:
           existingCovariateSource?.lastSuccessfulMaxTimestamp || null,
       };
 
+      // Align to daily grain whenever the exposure id type is materialized,
+      // so the legacy scan computes the same covariate window as the
+      // pre-aggregated path.
+      const alignLegacyScanToDailyGrain = (
+        factTable?.aggregatedFactTableSettings?.idTypes ?? []
+      ).includes(exposureQuery.userIdType);
+
       if (covariatePath.path === "aggregated") {
         insertMetricCovariateDataQuery = await startQuery({
           ...covariateInsertBaseParams,
+          name: `insert_metrics_covariate_data_${group.groupId}`,
+          displayTitle: `Update Metric Covariate Data ${sourceName}`,
           query:
             integration.getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
               {
                 ...commonCovariateQueryParams,
+                metrics: regressionAdjustedMetrics,
+                aggregatedTableFullName: covariatePath.aggregatedTableFullName,
+                idType: covariatePath.idType,
+              },
+            ),
+          onSuccess: covariateInsertOnSuccess,
+          queryType:
+            "experimentIncrementalRefreshInsertMetricsCovariateDataFromAggregated",
+        });
+        queries.push(insertMetricCovariateDataQuery);
+      } else if (covariatePath.path === "mixed") {
+        // Per-slice fallback: covered metric columns from the aggregated
+        // table, uncovered ones (typically compound customMetricSlices) from
+        // a legacy raw scan over only those metrics. Both INSERTs target the
+        // same destination table; the downstream stats read collapses the two
+        // rows per unit with `MAX(...) GROUP BY unit`, so the split is
+        // transparent. The legacy residual depends on the aggregated insert
+        // and is the only one to advance lastSuccessfulMaxTimestamp.
+        const coveredSet = new Set(covariatePath.coveredMetricIds);
+        const coveredMetrics = regressionAdjustedMetrics.filter((m) =>
+          coveredSet.has(m.id),
+        );
+        const uncoveredMetrics = regressionAdjustedMetrics.filter(
+          (m) => !coveredSet.has(m.id),
+        );
+
+        const aggregatedInsertQuery = await startQuery({
+          ...covariateInsertBaseParams,
+          name: `insert_metrics_covariate_data_${group.groupId}`,
+          displayTitle: `Update Metric Covariate Data ${sourceName}`,
+          query:
+            integration.getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
+              {
+                ...commonCovariateQueryParams,
+                metrics: coveredMetrics,
                 aggregatedTableFullName: covariatePath.aggregatedTableFullName,
                 idType: covariatePath.idType,
               },
@@ -883,21 +931,40 @@ const startExperimentIncrementalRefreshQueries = async (
           queryType:
             "experimentIncrementalRefreshInsertMetricsCovariateDataFromAggregated",
         });
+        queries.push(aggregatedInsertQuery);
+
+        insertMetricCovariateDataQuery = await startQuery({
+          ...covariateInsertBaseParams,
+          name: `insert_metrics_covariate_data_legacy_residual_${group.groupId}`,
+          displayTitle: `Update Metric Covariate Data (Uncovered Slices) ${sourceName}`,
+          dependencies: [
+            ...covariateInsertBaseParams.dependencies,
+            aggregatedInsertQuery.query,
+          ],
+          query: integration.getInsertMetricSourceCovariateDataQuery({
+            ...commonCovariateQueryParams,
+            metrics: uncoveredMetrics,
+            alignLegacyScanToDailyGrain,
+          }),
+          onSuccess: covariateInsertOnSuccess,
+          queryType: "experimentIncrementalRefreshInsertMetricsCovariateData",
+        });
+        queries.push(insertMetricCovariateDataQuery);
       } else {
         insertMetricCovariateDataQuery = await startQuery({
           ...covariateInsertBaseParams,
+          name: `insert_metrics_covariate_data_${group.groupId}`,
+          displayTitle: `Update Metric Covariate Data ${sourceName}`,
           query: integration.getInsertMetricSourceCovariateDataQuery({
             ...commonCovariateQueryParams,
-            // Align to daily grain whenever the exposure id type is materialized,
-            // so the fallback window always matches the pre-aggregated path.
-            alignLegacyScanToDailyGrain: (
-              factTable?.aggregatedFactTableSettings?.idTypes ?? []
-            ).includes(exposureQuery.userIdType),
+            metrics: regressionAdjustedMetrics,
+            alignLegacyScanToDailyGrain,
           }),
+          onSuccess: covariateInsertOnSuccess,
           queryType: "experimentIncrementalRefreshInsertMetricsCovariateData",
         });
+        queries.push(insertMetricCovariateDataQuery);
       }
-      queries.push(insertMetricCovariateDataQuery);
     }
 
     const maxTimestampMetricsSourceQuery = await startQuery({
