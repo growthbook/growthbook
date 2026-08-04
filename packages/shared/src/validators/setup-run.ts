@@ -57,7 +57,7 @@ export const setupRunValidator = baseSchema
 
     language: z.string().max(50).nullable(),
     packageManager: z.string().max(20).nullable(),
-    project: z.string().max(200).nullable(),
+    appName: z.string().max(200).nullable(),
     environment: z.string().max(100).nullable(),
 
     intent: z.enum(setupRunIntents).nullable(),
@@ -96,7 +96,7 @@ export const apiSetupRunInterface = namedSchema(
       agent: z.string().nullable(),
       language: z.string().nullable(),
       packageManager: z.string().nullable(),
-      project: z.string().nullable(),
+      appName: z.string().nullable(),
       environment: z.string().nullable(),
       intent: z.enum(setupRunIntents).nullable(),
       artifacts: z.array(apiSetupRunArtifact),
@@ -122,7 +122,7 @@ export const apiCreateSetupRunBody = z
     agent: z.string().max(50).optional(),
     language: z.string().max(50).optional(),
     packageManager: z.string().max(20).optional(),
-    project: z.string().max(200).optional(),
+    appName: z.string().max(200).optional(),
     environment: z.string().max(100).optional(),
     intent: z.enum(setupRunIntents).optional(),
   })

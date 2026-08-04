@@ -30,7 +30,7 @@ const BaseClass = MakeModelClass({
     agent: null,
     language: null,
     packageManager: null,
-    project: null,
+    appName: null,
     environment: null,
     intent: null,
     artifacts: [],
@@ -94,7 +94,7 @@ export class SetupRunModel extends BaseClass {
       agent: doc.agent,
       language: doc.language,
       packageManager: doc.packageManager,
-      project: doc.project,
+      appName: doc.appName,
       environment: doc.environment,
       intent: doc.intent,
       artifacts: doc.artifacts.map((a) => ({

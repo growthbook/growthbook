@@ -46597,7 +46597,7 @@ paths:
                 packageManager:
                   type: string
                   maxLength: 20
-                project:
+                appName:
                   type: string
                   maxLength: 200
                 environment:
@@ -46849,7 +46849,7 @@ paths:
                     anyOf:
                       - type: string
                       - type: 'null'
-                  project:
+                  appName:
                     anyOf:
                       - type: string
                       - type: 'null'
@@ -46904,7 +46904,7 @@ paths:
                   - agent
                   - language
                   - packageManager
-                  - project
+                  - appName
                   - environment
                   - intent
                   - artifacts
@@ -61833,7 +61833,7 @@ components:
           anyOf:
             - type: string
             - type: 'null'
-        project:
+        appName:
           anyOf:
             - type: string
             - type: 'null'
@@ -61935,7 +61935,7 @@ components:
         - agent
         - language
         - packageManager
-        - project
+        - appName
         - environment
         - intent
         - artifacts
