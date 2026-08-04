@@ -233,6 +233,7 @@ function makePlan({
     settingsForSnapshotMetrics: [] as MetricSnapshotSettings[],
     incrementalFallbackReason: null,
     fullRefreshReason: null,
+    overallResultsFullRefreshWouldUnblock: false,
     ...overrides,
   };
 }

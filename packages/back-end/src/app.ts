@@ -113,7 +113,6 @@ import { aiRouter } from "./routers/ai/ai.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
 import {
   ApiError,
-  ExperimentIncrementalPipelineRequiresFullRefreshError,
   shouldSkipErrorLog,
   SoftWarningError,
   SQLExecutionError,
@@ -1350,10 +1349,7 @@ const errorHandler: ErrorRequestHandler = (
   }
   // Structured errors carry a machine-readable code + details so the front-end
   // can render richer error states.
-  if (
-    err instanceof ApiError ||
-    err instanceof ExperimentIncrementalPipelineRequiresFullRefreshError
-  ) {
+  if (err instanceof ApiError) {
     body.code = err.code;
     body.details = err.details;
   }

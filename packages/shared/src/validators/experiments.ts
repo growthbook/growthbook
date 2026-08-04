@@ -2057,6 +2057,12 @@ export const postExperimentSnapshotValidator = {
           "Zero-based phase index to snapshot, where 0 is the first experiment phase. Defaults to the latest phase.",
         )
         .optional(),
+      skipIncremental: z
+        .boolean()
+        .describe(
+          "For a dimension request under the Incremental Pipeline, run the non-incremental results runner even when the incremental path is blocked or would be a no-op. Ignored for Overall (dimensionless) requests.",
+        )
+        .optional(),
     })
     .strict()
     .optional(),
@@ -2077,6 +2083,10 @@ export const postExperimentSnapshotValidator = {
   method: "post" as const,
   path: "/experiments/:id/snapshot",
   exampleRequest: { body: { triggeredBy: "schedule" } } as const,
+  possibleErrors: [
+    "requires_full_refresh",
+    "dimension_already_up_to_date",
+  ] as const,
 };
 
 export const postVariationImageUploadValidator = {

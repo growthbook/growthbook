@@ -15002,6 +15002,13 @@ paths:
                     experiment phase. Defaults to the latest phase.
                   type: integer
                   minimum: 0
+                skipIncremental:
+                  description: >-
+                    For a dimension request under the Incremental Pipeline, run
+                    the non-incremental results runner even when the incremental
+                    path is blocked or would be a no-op. Ignored for Overall
+                    (dimensionless) requests.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -15016,6 +15023,48 @@ paths:
                 required:
                   - snapshot
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    description: >-
+                      The Incremental Pipeline needs a Full Refresh of Overall
+                      Results before this request can be served
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - requires_full_refresh
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorRequiresFullRefreshDetails
+                    required:
+                      - message
+                      - code
+                      - details
+                  - type: object
+                    description: >-
+                      The requested dimension was already computed from the
+                      latest Overall Results
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - dimension_already_up_to_date
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorDimensionAlreadyUpToDateDetails
+                    required:
+                      - message
+                      - code
+                      - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -63803,6 +63852,22 @@ components:
       required:
         - currentStatus
         - expectedStatuses
+      additionalProperties: false
+    ApiErrorRequiresFullRefreshDetails:
+      type: object
+      properties:
+        reason:
+          type: string
+      required:
+        - reason
+      additionalProperties: false
+    ApiErrorDimensionAlreadyUpToDateDetails:
+      type: object
+      properties:
+        overallResultsAsOf:
+          type: string
+      required:
+        - overallResultsAsOf
       additionalProperties: false
     features:
       description: >-
