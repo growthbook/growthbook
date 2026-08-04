@@ -3,8 +3,8 @@ import type {
   UserScopedGrowthBook,
   GrowthBookClient,
 } from "../GrowthBookClient";
+import { genUUID } from "../util";
 import {
-  genUUID,
   getOrCreateSessionReplayId,
   touchSessionReplayId,
 } from "./session-replay-id";
