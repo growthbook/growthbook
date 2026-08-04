@@ -53,8 +53,12 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { canPublishRevisionEntity } from "@/components/Revision/revisionPublishAuthority";
-import { canCommentOnRevisionEntity } from "@/components/Revision/revisionCommentAuthority";
+import {
+  canCommentOnRevisionEntity,
+  canDeleteArchivedEntity,
+  canLandArchiveToggle,
+  canPublishRevisionEntity,
+} from "@/components/Revision/revisionAuthority";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import Owner from "@/components/Avatar/Owner";
@@ -898,9 +902,9 @@ export default function ConfigDetailPage(): React.ReactElement {
   // serving nothing anywhere — so the server takes no environment for it. Pass
   // the same, or an env-limited deleter would be shown no Delete control for a
   // Config they are in fact allowed to remove.
+  // Structural precondition stays here; the authority rule does not.
   const canDeleteNow =
-    permissionsUtil.canDeleteConfig(config, NO_ENVIRONMENT_BINDING) &&
-    !!config.archived &&
+    canDeleteArchivedEntity(permissionsUtil, "config", config) &&
     !hasDescendants;
   // A locked config is frozen — no edit controls at all (unlock is a separate,
   // bypass-gated control). Editing is otherwise allowed both in a draft and in
@@ -913,12 +917,12 @@ export default function ConfigDetailPage(): React.ReactElement {
   // service, so it's an ordinary publish.
   // Either authority is enough: the landing atom stands on its own for a pure
   // archive, and an editor without it can still stage the flip as a draft.
-  const canLandArchive = config.archived
-    ? canPublishNow
-    : permissionsUtil.canDeleteConfig(
-        config,
-        configPublishEnvironments(config),
-      );
+  const canLandArchive = canLandArchiveToggle(
+    permissionsUtil,
+    "config",
+    config,
+    configPublishEnvironments(config),
+  );
   const canArchiveNow =
     (canLandArchive || canEditNow) &&
     !isLocked &&

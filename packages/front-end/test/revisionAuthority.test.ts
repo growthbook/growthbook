@@ -1,4 +1,8 @@
-import { canCommentOnRevisionEntity } from "@/components/Revision/revisionCommentAuthority";
+import {
+  canCommentOnRevisionEntity,
+  canDeleteArchivedEntity,
+  canLandArchiveToggle,
+} from "@/components/Revision/revisionAuthority";
 
 /**
  * Mirrors the server's `canCommentOnRevision`. Two things make this worth
@@ -129,6 +133,73 @@ describe("canCommentOnRevisionEntity", () => {
         sgRevision,
         { projects: ["p9"] },
       ),
+    ).toBe(true);
+  });
+});
+
+describe("archive and delete authority", () => {
+  const held = (allowed: { publish?: string[]; delete?: string[] }) =>
+    ({
+      canRevisionAction: (
+        _m: string,
+        action: string,
+        obj: { project?: string },
+        envs: string[] = [],
+      ) => {
+        const list =
+          action === "publish"
+            ? allowed.publish
+            : action === "delete"
+              ? allowed.delete
+              : [];
+        if (!(list ?? []).includes(obj.project ?? "")) return false;
+        // A footprint of production is only held by someone granted it.
+        return (
+          !envs.includes("production") || (list ?? []).includes("production")
+        );
+      },
+    }) as unknown as Parameters<typeof canLandArchiveToggle>[0];
+
+  it("archiving is delete-class over the environments the entity serves", () => {
+    expect(
+      canLandArchiveToggle(
+        held({ delete: ["a"] }),
+        "config",
+        { project: "a" },
+        [],
+      ),
+    ).toBe(true);
+    expect(
+      canLandArchiveToggle(
+        held({ publish: ["a"] }),
+        "config",
+        { project: "a" },
+        [],
+      ),
+    ).toBe(false);
+  });
+
+  it("unarchiving is an ordinary publish", () => {
+    const archived = { project: "a", archived: true };
+    expect(
+      canLandArchiveToggle(held({ publish: ["a"] }), "config", archived, []),
+    ).toBe(true);
+    expect(
+      canLandArchiveToggle(held({ delete: ["a"] }), "config", archived, []),
+    ).toBe(false);
+  });
+
+  it("deleting needs the entity archived, and then carries no footprint", () => {
+    expect(
+      canDeleteArchivedEntity(held({ delete: ["a"] }), "config", {
+        project: "a",
+      }),
+    ).toBe(false);
+    expect(
+      canDeleteArchivedEntity(held({ delete: ["a"] }), "config", {
+        project: "a",
+        archived: true,
+      }),
     ).toBe(true);
   });
 });

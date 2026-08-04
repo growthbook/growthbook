@@ -20,8 +20,12 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { canPublishRevisionEntity } from "@/components/Revision/revisionPublishAuthority";
-import { canCommentOnRevisionEntity } from "@/components/Revision/revisionCommentAuthority";
+import {
+  canCommentOnRevisionEntity,
+  canDeleteArchivedEntity,
+  canLandArchiveToggle,
+  canPublishRevisionEntity,
+} from "@/components/Revision/revisionAuthority";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import Owner from "@/components/Avatar/Owner";
@@ -338,9 +342,11 @@ export default function ConstantDetailPage(): React.ReactElement {
   // No environment footprint: an archived Constant serves nowhere, which is what
   // the server checks too. Using the pending revision's footprint here borrowed
   // an unrelated change's environments.
-  const canDeleteNow =
-    permissionsUtil.canDeleteConstant(constant, NO_ENVIRONMENT_BINDING) &&
-    !!constant.archived;
+  const canDeleteNow = canDeleteArchivedEntity(
+    permissionsUtil,
+    "constant",
+    constant,
+  );
   // Editing is only meaningful on the live state or a draft (not when viewing a
   // merged/discarded revision). On live it starts a new draft; on a draft it
   // updates it.
@@ -350,14 +356,12 @@ export default function ConstantDetailPage(): React.ReactElement {
   // service, so it's an ordinary publish.
   // Either authority is enough: the landing atom stands on its own for a pure
   // archive, and an editor without it can still stage the flip as a draft.
-  const canLandArchive = constant.archived
-    ? permissionsUtil.canRevisionAction(
-        "constant",
-        "publish",
-        constant,
-        publishEnvironments,
-      )
-    : permissionsUtil.canDeleteConstant(constant, publishEnvironments);
+  const canLandArchive = canLandArchiveToggle(
+    permissionsUtil,
+    "constant",
+    constant,
+    publishEnvironments,
+  );
   const canArchiveNow =
     (canLandArchive || canEditNow) && (!selectedRevision || isDraft);
 
