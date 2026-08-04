@@ -58,7 +58,9 @@ function getTimestampColumnExpression(
   factTable: MinimalFactTable,
   helpers: SqlDialect,
 ): string | null {
-  if (!factTable.timestampColumn) return null;
+  if (!factTable.timestampColumn) {
+    return factTable.quoteTimestampColumn ? null : "timestamp";
+  }
   if (!factTable.quoteTimestampColumn) return factTable.timestampColumn;
 
   const quote = helpers.identifierQuote;
