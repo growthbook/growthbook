@@ -175,9 +175,9 @@ export default function SetupRunPage() {
   const router = useRouter();
   const { id } = router.query;
 
-  const { data, error } = useApi<{ setupRun: ApiSetupRun }>(
+  const { data, error, isLoading } = useApi<{ setupRun: ApiSetupRun }>(
     `/setup-runs/${id}`,
-    { shouldRun: () => !!id },
+    { shouldRun: () => router.isReady && !!id },
   );
 
   const run = data?.setupRun;
@@ -190,14 +190,29 @@ export default function SetupRunPage() {
     if (completed) startCelebration();
   }, [completed, startCelebration]);
 
+  // Distinguish the three states rather than showing one overlay for all of them.
+  // A loading spinner that never resolves is indistinguishable from a blank page,
+  // which makes it impossible to tell a failed request from a missing record.
   if (error) {
     return (
       <div className="contents container pagecontents">
-        <Callout status="error">{error.message}</Callout>
+        <Callout status="error">
+          Couldn&apos;t load this setup run: {error.message}
+        </Callout>
       </div>
     );
   }
-  if (!run) return <LoadingOverlay />;
+  if (!router.isReady || isLoading) return <LoadingOverlay />;
+  if (!run) {
+    return (
+      <div className="contents container pagecontents">
+        <Callout status="warning">
+          No setup run with id <code>{String(id)}</code>. It may belong to
+          another organization.
+        </Callout>
+      </div>
+    );
+  }
 
   const byDeveloper = run.artifacts.filter((a) => a.by === "developer");
   const byGrowthBook = run.artifacts.filter((a) => a.by === "growthbook");
