@@ -18,8 +18,7 @@ import {
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import {
-  evaluatePublishGates,
-  PublishBlockedError,
+  resolveEntityPublishGates,
   PublishGate,
 } from "back-end/src/revisions/publishGates";
 import {
@@ -108,20 +107,15 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
     )),
   ];
 
-  const { blocking, bypassed } = evaluatePublishGates(gates, {
-    ignoreWarnings: req.context.ignoreWarnings,
-    skipSchemaValidation: req.context.skipSchemaValidation,
-    skipHooks: req.context.skipHooks,
+  const { bypassed } = resolveEntityPublishGates({
+    req,
+    gates,
     bypassApprovalPermission: adapter.canBypassApproval(
       req.context,
-      savedGroup as Record<string, unknown>,
+      savedGroup as unknown as Record<string, unknown>,
     ),
-    restApiBypassesReviews: !!req.organization.settings?.restApiBypassesReviews,
     canForceMergeStaleBase: canBypass,
   });
-  if (blocking.length) {
-    throw new PublishBlockedError(blocking);
-  }
 
   if (approvalRequired && revision.status !== "approved" && !canBypass) {
     throw new BadRequestError(

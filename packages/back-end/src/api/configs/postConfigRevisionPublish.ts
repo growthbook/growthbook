@@ -19,8 +19,7 @@ import {
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import {
-  evaluatePublishGates,
-  PublishBlockedError,
+  resolveEntityPublishGates,
   PublishGate,
 } from "back-end/src/revisions/publishGates";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
@@ -124,20 +123,15 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     })),
   );
 
-  const { blocking, bypassed } = evaluatePublishGates(gates, {
-    ignoreWarnings: req.context.ignoreWarnings,
-    skipSchemaValidation: req.context.skipSchemaValidation,
-    skipHooks: req.context.skipHooks,
+  const { bypassed } = resolveEntityPublishGates({
+    req,
+    gates,
     bypassApprovalPermission: adapter.canBypassApproval(
       req.context,
-      config as Record<string, unknown>,
+      config as unknown as Record<string, unknown>,
     ),
-    restApiBypassesReviews: canUseRestApiBypassSetting(req),
     canForceMergeStaleBase: canBypass,
   });
-  if (blocking.length) {
-    throw new PublishBlockedError(blocking);
-  }
 
   // Locked-config backstop behind the config-locked gate above — still well
   // before the merge is claimed, so a blocked publish leaves the draft open.

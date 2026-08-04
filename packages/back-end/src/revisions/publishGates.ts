@@ -1,5 +1,9 @@
 import { isBypassApprovalPermission } from "shared/permissions";
 import type { Permission } from "shared/types/organization";
+import {
+  canUseRestApiBypassSetting,
+  type ReviewBypassRequest,
+} from "back-end/src/api/features/reviewBypass";
 import { getErrorMessage } from "back-end/src/util/errors";
 
 // Aggregated publish-gate reporting for the REST revision-publish endpoints.
@@ -390,6 +394,41 @@ function formatGateLine(gate: PublishGate): string {
     ? `, requires the ${gate.requiresPermission} permission`
     : "";
   return `- [${gate.type}] ${summary} (retry with "${gate.override}": true${permissionNote})`;
+}
+
+/**
+ * Resolve a revision's gates against the caller's clearance, and refuse if any
+ * survive.
+ *
+ * Every per-entity publish handler wired this identically — the four override
+ * flags, the entity's bypass-approval permission, the org's REST review bypass,
+ * the stale-base force — and one of them drifted: the Saved Group handler read
+ * `settings.restApiBypassesReviews` directly, omitting the `!isJwtAuth` guard the
+ * others get from `canUseRestApiBypassSetting`, so a JWT-backed REST call there
+ * cleared reviews that Config and Constant refuse. Deciding it once is what stops
+ * the next copy drifting.
+ */
+export function resolveEntityPublishGates({
+  req,
+  gates,
+  bypassApprovalPermission,
+  canForceMergeStaleBase,
+}: {
+  req: ReviewBypassRequest;
+  gates: PublishGate[];
+  bypassApprovalPermission: boolean;
+  canForceMergeStaleBase: boolean;
+}): { bypassed: BypassedGate[] } {
+  const { blocking, bypassed } = evaluatePublishGates(gates, {
+    ignoreWarnings: req.context.ignoreWarnings,
+    skipSchemaValidation: req.context.skipSchemaValidation,
+    skipHooks: req.context.skipHooks,
+    bypassApprovalPermission,
+    restApiBypassesReviews: canUseRestApiBypassSetting(req),
+    canForceMergeStaleBase,
+  });
+  if (blocking.length) throw new PublishBlockedError(blocking);
+  return { bypassed };
 }
 
 export class PublishBlockedError extends Error {
