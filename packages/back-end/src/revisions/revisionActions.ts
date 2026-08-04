@@ -112,6 +112,143 @@ export function canTouchRevision(
  * revision load. Mirrors `assertCanPublishFeatureRevision`.
  */
 /**
+ * Re-publish a merge that was claimed but never applied.
+ *
+ * Publishing claims the merge before it touches the live entity, so a crash
+ * between the two leaves a revision recorded as `merged` whose changes never
+ * landed. Re-publishing is the documented recovery.
+ *
+ * Identifying one takes three marks, and no two of them suffice:
+ *
+ *  - its content still differs from the live entity,
+ *  - it is still the NEWEST merged revision for the target, and
+ *  - the live entity still matches the revision's own base.
+ *
+ * Content differs from live for every superseded revision, and content can be
+ * returned to an old revision's base by publishing away and back — but only via
+ * a later merge, which forfeits "newest". A merge that never landed is always the
+ * newest, because nothing published after it.
+ *
+ * Returns null when this is not a stranded merge, leaving the caller to refuse.
+ */
+async function recoverStrandedMerge({
+  context,
+  revision,
+  entity,
+  desiredState,
+  hasChanges,
+  updatableFields,
+}: {
+  context: Context;
+  revision: Revision;
+  entity: Record<string, unknown>;
+  desiredState: Record<string, unknown>;
+  hasChanges: boolean;
+  updatableFields: ReadonlySet<string>;
+}): Promise<Revision | null> {
+  const adapter = getAdapter(revision.target.type);
+  const latestMerged = await context.models.revisions.getLatestMergedByTarget(
+    revision.target.type,
+    revision.target.id,
+  );
+  const strandedMerge =
+    hasChanges &&
+    latestMerged?.id === revision.id &&
+    liveMatchesRevisionBase({
+      baseSnapshot: revision.target.snapshot as Record<string, unknown>,
+      liveSnapshot: entity as Record<string, unknown>,
+      updatableFields,
+    });
+  if (!strandedMerge) return null;
+  // The merge was already claimed, so there is nothing left to claim in the
+  // merge itself — hence the claim here, guarded on `dateUpdated`. Two operators
+  // retrying at once would otherwise both apply and both dispatch. The loser's
+  // guard fails, it re-reads, sees the marker entry, and aborts.
+  const claimed = await context.models.revisions.updateWithCas(
+    revision.id,
+    ["dateUpdated"],
+    (existing) =>
+      (existing.activityLog ?? []).some((e) => e.action === "merge-recovered")
+        ? null
+        : {
+            activityLog: [
+              ...(existing.activityLog ?? []),
+              {
+                id: uniqid("rvl_"),
+                userId: context.userId || "",
+                action: "merge-recovered" as const,
+                description: "Re-published a merge that never landed",
+                dateCreated: new Date(),
+              },
+            ],
+          },
+    // The revision is merged, and canUpdate refuses merged revisions to keep
+    // history immutable — but this claim IS the recovery of that merge, and
+    // the caller's publish authority was checked above.
+    { dangerouslyBypassCanUpdate: true },
+  );
+  if (!claimed) {
+    // Someone else holds the claim. Only report success once their apply has
+    // actually landed — otherwise this returns "published" while the winner is
+    // still mid-apply and the live entity is unchanged. Re-read the entity and
+    // require it to match the desired state; if it doesn't yet, the caller
+    // should retry rather than believe the change is live.
+    const fresh = await adapter.getModel(context)?.getById(revision.target.id);
+    const landed =
+      !!fresh &&
+      Object.keys(desiredState).every(
+        (key) =>
+          !updatableFields.has(key) ||
+          isEqual(desiredState[key], (fresh as Record<string, unknown>)[key]),
+      );
+    if (!landed) {
+      throw new BadRequestError(
+        "This merge is being recovered by another request. Retry in a moment.",
+      );
+    }
+    return revision;
+  }
+
+  try {
+    await adapter.applyChanges(context, entity, desiredState, {
+      isRevert: !!revision.revertedFrom,
+    });
+  } catch (e) {
+    // The marker is a claim, not a record of success. Leaving it behind on a
+    // failed apply would make every later retry see it and return without
+    // applying anything — stranding the revision permanently, which is worse
+    // than the double-dispatch the claim exists to prevent.
+    await context.models.revisions
+      .updateWithCas(
+        revision.id,
+        ["dateUpdated"],
+        (existing) => ({
+          activityLog: (existing.activityLog ?? []).filter(
+            (entry) => entry.action !== "merge-recovered",
+          ),
+        }),
+        { dangerouslyBypassCanUpdate: true },
+      )
+      .catch((releaseErr) => {
+        logger.error(
+          releaseErr,
+          `Failed to release the recovery claim on revision ${revision.id}; a retry will no-op until the merge-recovered entry is removed`,
+        );
+      });
+    throw e;
+  }
+  // The failed attempt never dispatched; this apply is when the change lands.
+  // Dispatch and return the CLAIMED revision — `revision` predates the claim,
+  // so the webhook payload and the response would disagree with a refetch.
+  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+    context,
+    claimed,
+    { type: claimed.revertedFrom ? "reverted" : "published" },
+  );
+  return claimed;
+}
+
+/**
  * Boolean form of `assertCanPublishRevision`, for callers that must decide
  * feasibility rather than refuse outright. Delegates rather than reimplements
  * so the preflight and the publish can never disagree about what's allowed.
@@ -407,123 +544,20 @@ export async function publishRevision(
   // approval-required orgs the gate above demands bypass ("merged" isn't
   // "approved") — deliberate; recovery stays one publish call, by an admin.
   if (alreadyMerged) {
-    // `hasChanges` alone does NOT identify a stranded merge — every superseded
-    // revision differs from current live state, so on its own it would let an
-    // old merged revision be reapplied over newer content. Two further marks are
-    // required, and neither is sufficient alone:
-    //
-    //  - the live entity still matches this revision's own base, and
-    //  - this is still the NEWEST merged revision for the target.
-    //
-    // The second is what closes the replay window: content can return to an old
-    // revision's base (publish away and back again), but only via a later merge,
-    // which makes that revision no longer the newest. A merge that genuinely
-    // never landed is always the newest one, because nothing published after it.
-    const latestMerged = await context.models.revisions.getLatestMergedByTarget(
-      revision.target.type,
-      revision.target.id,
-    );
-    const strandedMerge =
-      hasChanges &&
-      latestMerged?.id === revision.id &&
-      liveMatchesRevisionBase({
-        baseSnapshot: revision.target.snapshot as Record<string, unknown>,
-        liveSnapshot: entity as Record<string, unknown>,
-        updatableFields,
-      });
-    if (!strandedMerge) {
+    const recovered = await recoverStrandedMerge({
+      context,
+      revision,
+      entity,
+      desiredState,
+      hasChanges,
+      updatableFields,
+    });
+    if (!recovered) {
       throw new BadRequestError(
         `Cannot publish a revision with status "${revision.status}"`,
       );
     }
-    // The merge was already claimed, so there is nothing left to claim in the
-    // merge itself — hence the claim here, guarded on `dateUpdated`. Two operators
-    // retrying at once would otherwise both apply and both dispatch. The loser's
-    // guard fails, it re-reads, sees the marker entry, and aborts.
-    const claimed = await context.models.revisions.updateWithCas(
-      revision.id,
-      ["dateUpdated"],
-      (existing) =>
-        (existing.activityLog ?? []).some((e) => e.action === "merge-recovered")
-          ? null
-          : {
-              activityLog: [
-                ...(existing.activityLog ?? []),
-                {
-                  id: uniqid("rvl_"),
-                  userId: context.userId || "",
-                  action: "merge-recovered" as const,
-                  description: "Re-published a merge that never landed",
-                  dateCreated: new Date(),
-                },
-              ],
-            },
-      // The revision is merged, and canUpdate refuses merged revisions to keep
-      // history immutable — but this claim IS the recovery of that merge, and
-      // the caller's publish authority was checked above.
-      { dangerouslyBypassCanUpdate: true },
-    );
-    if (!claimed) {
-      // Someone else holds the claim. Only report success once their apply has
-      // actually landed — otherwise this returns "published" while the winner is
-      // still mid-apply and the live entity is unchanged. Re-read the entity and
-      // require it to match the desired state; if it doesn't yet, the caller
-      // should retry rather than believe the change is live.
-      const fresh = await adapter
-        .getModel(context)
-        ?.getById(revision.target.id);
-      const landed =
-        !!fresh &&
-        Object.keys(desiredState).every(
-          (key) =>
-            !updatableFields.has(key) ||
-            isEqual(desiredState[key], (fresh as Record<string, unknown>)[key]),
-        );
-      if (!landed) {
-        throw new BadRequestError(
-          "This merge is being recovered by another request. Retry in a moment.",
-        );
-      }
-      return revision;
-    }
-
-    try {
-      await adapter.applyChanges(context, entity, desiredState, {
-        isRevert: !!revision.revertedFrom,
-      });
-    } catch (e) {
-      // The marker is a claim, not a record of success. Leaving it behind on a
-      // failed apply would make every later retry see it and return without
-      // applying anything — stranding the revision permanently, which is worse
-      // than the double-dispatch the claim exists to prevent.
-      await context.models.revisions
-        .updateWithCas(
-          revision.id,
-          ["dateUpdated"],
-          (existing) => ({
-            activityLog: (existing.activityLog ?? []).filter(
-              (entry) => entry.action !== "merge-recovered",
-            ),
-          }),
-          { dangerouslyBypassCanUpdate: true },
-        )
-        .catch((releaseErr) => {
-          logger.error(
-            releaseErr,
-            `Failed to release the recovery claim on revision ${revision.id}; a retry will no-op until the merge-recovered entry is removed`,
-          );
-        });
-      throw e;
-    }
-    // The failed attempt never dispatched; this apply is when the change lands.
-    // Dispatch and return the CLAIMED revision — `revision` predates the claim,
-    // so the webhook payload and the response would disagree with a refetch.
-    await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
-      context,
-      claimed,
-      { type: claimed.revertedFrom ? "reverted" : "published" },
-    );
-    return claimed;
+    return recovered;
   }
 
   // No net change vs the live entity: either a genuine no-op or a retry after a
