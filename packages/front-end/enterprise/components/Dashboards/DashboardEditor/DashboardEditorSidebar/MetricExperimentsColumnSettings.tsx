@@ -68,7 +68,7 @@ function SortableColumnRow({
       <Box style={{ flex: 1, minWidth: 0 }}>
         <Text
           as="div"
-          size="small"
+          size="sm"
           color={column.visible ? "text-high" : "text-low"}
           truncate
         >

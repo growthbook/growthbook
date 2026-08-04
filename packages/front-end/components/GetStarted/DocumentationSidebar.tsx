@@ -65,7 +65,7 @@ const DocumentationSidebar = ({
       {canUpgrade && (
         <Button
           mt="3"
-          size="sm"
+          size="md"
           onClick={() => {
             setUpgradeModal(true);
           }}

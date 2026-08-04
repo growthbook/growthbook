@@ -155,20 +155,20 @@ export default function Welcome({
             )}
             <Box>
               {hero.type && (
-                <Text as="span" size="small" textTransform="uppercase">
+                <Text as="span" size="sm" textTransform="uppercase">
                   -- {hero.type} --
                 </Text>
               )}
-              <Heading size="x-large" weight="medium" as="h2" mt="4" mb="4">
+              <Heading size="xl" weight="medium" as="h2" mt="4" mb="4">
                 {hero.headline}
               </Heading>
               {hero.subhead && (
-                <Heading size="medium" weight="semibold" as="h3" mb="1">
+                <Heading size="md" weight="semibold" as="h3" mb="1">
                   {hero.subhead}
                 </Heading>
               )}
               {hero.body && (
-                <Text as="span" size="medium" weight="regular">
+                <Text as="span" size="md" weight="regular">
                   {hero.body}
                 </Text>
               )}
@@ -178,7 +178,7 @@ export default function Welcome({
                   <Box mt="5" mb="5">
                     <WhiteButton
                       variant="outline"
-                      size="md"
+                      size="lg"
                       fullWidth={false}
                       onClick={() =>
                         window.open(ctaLink, "_blank", "noopener,noreferrer")
@@ -252,10 +252,10 @@ export default function Welcome({
           )}
           {state === "login" && (
             <Flex direction="column" mb="5" gap="2">
-              <Heading size="x-large" weight="medium" as="h1">
+              <Heading size="xl" weight="medium" as="h1">
                 Welcome back
               </Heading>
-              <Text as="span" size="medium" weight="regular">
+              <Text as="span" size="md" weight="regular">
                 Sign in to your GrowthBook account
               </Text>
             </Flex>
@@ -367,7 +367,7 @@ export default function Welcome({
           )}
           <Button
             type="submit"
-            size="lg"
+            size="xl"
             loading={loading}
             style={{ width: "100%" }}
             mt="5"

@@ -160,7 +160,7 @@ export default function RevertModal<T extends RevertableEntity>({
     version: revisionNumberById.get(r.id) ?? 1,
     title: r.title,
     meta: (
-      <Text size="small" color="text-low" whiteSpace="nowrap">
+      <Text size="sm" color="text-low" whiteSpace="nowrap">
         {getUserDisplay(r.authorId)}
         {r.dateUpdated && <> &middot; {dateNoYear(r.dateUpdated)}</>}
       </Text>
@@ -238,7 +238,7 @@ export default function RevertModal<T extends RevertableEntity>({
         approvalRequired: effectiveApprovalRequired,
       })}
 
-      <Heading as="h4" size="medium" mb="3">
+      <Heading as="h4" size="md" mb="3">
         Review Changes
       </Heading>
       <Flex align="center" gap="2" mb="3" wrap="wrap">

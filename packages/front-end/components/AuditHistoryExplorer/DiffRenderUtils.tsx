@@ -39,7 +39,7 @@ export function ChangeField({
     <div className="mb-2">
       {label && (
         <div className="mb-1">
-          <Text size="medium" weight="medium" color="text-mid">
+          <Text size="md" weight="medium" color="text-mid">
             {label}
           </Text>
         </div>
@@ -116,7 +116,7 @@ export function TextChangedField({
     <div className="mb-2">
       {label && (
         <div className="mb-1">
-          <Text size="medium" weight="medium" color="text-mid">
+          <Text size="md" weight="medium" color="text-mid">
             {label}
           </Text>
         </div>
