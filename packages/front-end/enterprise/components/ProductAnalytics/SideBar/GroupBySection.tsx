@@ -384,6 +384,7 @@ export default function GroupBySection() {
                       }
                       options={BREAKDOWN_TYPE_OPTIONS}
                       sort={false}
+                      containerStyle={{ marginBottom: 0 }}
                     />
                   </Flex>
                 </Tooltip>
@@ -450,6 +451,7 @@ export default function GroupBySection() {
                         : undefined
                     }
                     errorLevel="warning"
+                    showCopyButton={false}
                   />
                 )}
               </Flex>
