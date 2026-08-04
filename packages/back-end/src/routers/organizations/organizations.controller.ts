@@ -873,10 +873,8 @@ export async function getOrganization(
 
   const context = getContextFromReq(req);
   const { org, userId } = context;
-  const forceLicenseRefresh = req.query.forceLicenseRefresh === "true";
-  if (forceLicenseRefresh && !context.permissions.canManageBilling()) {
-    context.permissions.throwPermissionError();
-  }
+  const forceLicenseRefresh = req.query.forceLicenseRefresh !== undefined;
+
   const {
     invites,
     members,
