@@ -1,13 +1,12 @@
 import { isEqual } from "lodash";
 import {
   expandAllSliceMetricsInMap,
-  getTimeSeriesAnalysisSettings,
-  getTimeSeriesBaseAnalysis,
   isDimensionPrecomputed,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import {
   ExperimentSnapshotAnalysis,
+  ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
 import { ExperimentInterface } from "shared/validators";
@@ -16,6 +15,76 @@ import { ApiReqContext } from "back-end/types/api";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { createSnapshotAnalysesBatched } from "back-end/src/services/experiments";
+
+export function isDimensionTimeSeriesCompatibleAnalysisSettings({
+  settings,
+  dimensionId,
+}: {
+  settings: ExperimentSnapshotAnalysisSettings;
+  dimensionId?: string;
+}): boolean {
+  if ((settings.baselineVariationIndex ?? 0) !== 0) return false;
+
+  const expectedDimensions = dimensionId ? [dimensionId] : [];
+  return isEqual(settings.dimensions, expectedDimensions);
+}
+
+export function getTimeSeriesAnalysisSettings({
+  baseSettings,
+  dimensionId,
+}: {
+  baseSettings: ExperimentSnapshotAnalysisSettings;
+  dimensionId?: string;
+}): ExperimentSnapshotAnalysisSettings[] {
+  return (["relative", "absolute", "scaled"] as const).map(
+    (differenceType) => ({
+      ...baseSettings,
+      dimensions: dimensionId ? [dimensionId] : [],
+      differenceType,
+    }),
+  );
+}
+
+export function getTimeSeriesBaseAnalysis({
+  analyses,
+  dimensionId,
+}: {
+  analyses: ExperimentSnapshotAnalysis[];
+  dimensionId?: string;
+}): ExperimentSnapshotAnalysis | undefined {
+  const compatibleAnalyses = analyses.filter((analysis) =>
+    isDimensionTimeSeriesCompatibleAnalysisSettings({
+      settings: analysis.settings,
+      dimensionId,
+    }),
+  );
+
+  return compatibleAnalyses.find(
+    (analysis) => analysis.settings.differenceType === "relative",
+  );
+}
+
+export function getTimeSeriesAnalyses({
+  analyses,
+  dimensionId,
+}: {
+  analyses: ExperimentSnapshotAnalysis[];
+  dimensionId?: string;
+}): ExperimentSnapshotAnalysis[] {
+  const baseAnalysis = getTimeSeriesBaseAnalysis({ analyses, dimensionId });
+  if (!baseAnalysis) return [];
+
+  const timeSeriesAnalysisSettings = getTimeSeriesAnalysisSettings({
+    baseSettings: baseAnalysis.settings,
+    dimensionId,
+  });
+
+  return timeSeriesAnalysisSettings
+    .map((analysisSettings) =>
+      analyses.find((analysis) => isEqual(analysis.settings, analysisSettings)),
+    )
+    .filter(isDefined);
+}
 
 /**
  * Returns the relative/absolute/scaled time series analyses for `dimensionId`,

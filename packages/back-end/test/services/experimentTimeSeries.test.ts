@@ -4,11 +4,11 @@ import {
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
 import { ExperimentInterface } from "shared/validators";
+import { updateExperimentAnalysisTimeSeries } from "back-end/src/services/experimentTimeSeries";
 import {
   getTimeSeriesAnalyses,
   getTimeSeriesAnalysisSettings,
-} from "shared/experiments";
-import { updateExperimentAnalysisTimeSeries } from "back-end/src/services/experimentTimeSeries";
+} from "back-end/src/services/experimentDimensionTimeSeries";
 
 function makeAnalysisSettings(
   overrides: Partial<ExperimentSnapshotAnalysisSettings> = {},

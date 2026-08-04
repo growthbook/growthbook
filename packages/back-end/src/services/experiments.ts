@@ -48,7 +48,6 @@ import {
   getEffectiveLookbackOverride,
   getMetricResultStatus,
   getMetricSnapshotSettings,
-  getTimeSeriesAnalyses,
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
@@ -3083,9 +3082,7 @@ export function toApiResultAnalysis(
     engine,
     differenceType,
     numerator: safeFloatOrNull(data?.value),
-    // gbstats always emits `denominator`, defaulting to 0 for non-ratio
-    // metrics, so `??` would never fall through to the unit count.
-    denominator: safeFloatOrNull(data?.denominator || data?.users),
+    denominator: safeFloatOrNull(data?.denominator),
     mean: safeFloatOrNull(data?.stats?.mean),
     stddev: safeFloatOrNull(data?.stats?.stddev),
     effect: safeFloatOrNull(data?.expected),
@@ -3360,15 +3357,19 @@ export function toExperimentSnapshotBulkResultsApiInterface(
   );
   for (const dimensionId of getPrecomputedDimensionIdsInAnalyses(snapshot)) {
     if (dimensionId === defaultDimensionId) continue;
-    // Resolve these through the same helper that writes them, rather than
-    // deriving a base from analyses[0] — the two disagree whenever the
-    // default analysis isn't the relative, baseline-0 one (e.g. reports).
-    const dimensionAnalyses = getTimeSeriesAnalyses({
-      analyses: snapshot.analyses,
+    const dimensionBaseAnalysis = snapshot.analyses.find(
+      (a) =>
+        a.status === "success" &&
+        isEqual(a.settings, {
+          ...defaultAnalysis.settings,
+          dimensions: [dimensionId],
+        }),
+    );
+    if (!dimensionBaseAnalysis) continue;
+    analysesByDimension.set(
       dimensionId,
-    }).filter((a) => a.status === "success");
-    if (!dimensionAnalyses.length) continue;
-    analysesByDimension.set(dimensionId, dimensionAnalyses);
+      getDifferenceTypeVariants(snapshot.analyses, dimensionBaseAnalysis),
+    );
   }
 
   // Analysis window frozen at snapshot time; fall back to phase dates only for

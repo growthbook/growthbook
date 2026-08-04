@@ -5,7 +5,6 @@ import {
   expandAllSliceMetricsInMap,
   getLatestPhaseVariations,
   isDimensionPrecomputed,
-  getTimeSeriesAnalyses,
 } from "shared/experiments";
 import {
   CreateMetricTimeSeriesSingleDataPoint,
@@ -34,6 +33,7 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import { getTimeSeriesAnalyses } from "back-end/src/services/experimentDimensionTimeSeries";
 
 export async function updateExperimentTimeSeries({
   context,
