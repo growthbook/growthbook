@@ -995,7 +995,7 @@ export default function EditSingleBlock({
                 <>
                   <Box>
                     <MultiSelectField
-                      size="legacy"
+                      legacyHeight
                       label="Metrics"
                       labelClassName="font-weight-bold"
                       placeholder="All Metrics"
@@ -1246,7 +1246,7 @@ export default function EditSingleBlock({
                   ) &&
                     sliceOptions.length > 0 && (
                       <MultiSelectField
-                        size="legacy"
+                        legacyHeight
                         label="Slices"
                         labelClassName="font-weight-bold"
                         placeholder="Type to search..."
@@ -1404,7 +1404,7 @@ export default function EditSingleBlock({
                     <VariationLabel
                       number={parseInt(value)}
                       name={label}
-                      size="medium"
+                      size="md"
                       maxWidth="170px"
                     />
                   )}
@@ -1413,7 +1413,7 @@ export default function EditSingleBlock({
             {blockHasFieldOfType(block, "variationIds", isStringArray) &&
               shouldShowEditorField(block, "variationIds") && (
                 <MultiSelectField
-                  size="legacy"
+                  legacyHeight
                   sort={false}
                   label="Variations"
                   labelClassName="font-weight-bold"
@@ -1433,7 +1433,7 @@ export default function EditSingleBlock({
                       <VariationLabel
                         number={varIndex}
                         name={label}
-                        size="medium"
+                        size="md"
                         maxWidth="170px"
                       />
                     );
@@ -1442,7 +1442,7 @@ export default function EditSingleBlock({
               )}
             {blockHasFieldOfType(block, "dimensionValues", isStringArray) && (
               <MultiSelectField
-                size="legacy"
+                legacyHeight
                 label="Dimension Values"
                 labelClassName="font-weight-bold"
                 placeholder="Showing all values"

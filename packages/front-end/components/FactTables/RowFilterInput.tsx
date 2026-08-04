@@ -327,7 +327,7 @@ export function RowFilterInput({
                   />
                 ) : multiValueInput && useValueOptions ? (
                   <MultiSelectField
-                    size="small"
+                    size="md"
                     value={filter.values || []}
                     onChange={(v) => {
                       updateRowFilter({
@@ -345,7 +345,7 @@ export function RowFilterInput({
                   />
                 ) : multiValueInput ? (
                   <StringArrayField
-                    size="small"
+                    size="md"
                     value={filter.values || []}
                     onChange={(v) => {
                       updateRowFilter({

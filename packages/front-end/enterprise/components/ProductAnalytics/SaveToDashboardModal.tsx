@@ -285,7 +285,7 @@ export default function SaveToDashboardModal({
               {...form.register("title")}
             />
             <MultiSelectField
-              size="legacy"
+              legacyHeight
               label="Projects"
               placeholder="All projects"
               options={projectsOptions}

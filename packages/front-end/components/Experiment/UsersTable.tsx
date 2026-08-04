@@ -67,7 +67,7 @@ const UsersTable: FC<{
                 className="border-top-0 pt-1"
                 style={{ minWidth: 150 }}
               >
-                <VariationLabel number={v.index} name={v.name} size="medium" />
+                <VariationLabel number={v.index} name={v.name} size="md" />
               </th>
             ))}
             <th className="border-top-0 pt-1" style={{ minWidth: 150 }}>

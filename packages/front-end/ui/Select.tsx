@@ -2,22 +2,11 @@ import { Select as RadixSelect, Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { forwardRef, ReactNode } from "react";
 import clsx from "clsx";
+import { radixSize, Size } from "@/ui/sizes";
 import HelperText from "./HelperText";
 import Text, { TextSizes, TextWeights } from "./Text";
 
-export type SelectSize = "x-small" | "small" | "legacy" | "medium";
-
-function toRadixSize(size: SelectSize): "1" | "2" | "3" {
-  switch (size) {
-    case "x-small":
-      return "1";
-    case "small":
-    case "legacy":
-      return "2";
-    case "medium":
-      return "3";
-  }
-}
+export type SelectSize = Size<"sm" | "md" | "lg">;
 
 type SelectProps = {
   label?: ReactNode;
@@ -52,7 +41,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     children,
     value,
     setValue,
-    size = "small",
+    size = "md",
     placeholder,
     variant = "surface",
     triggerClassName,
@@ -70,7 +59,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
       className={`gb-select--${size}`}
     >
       {typeof label === "string" ? (
-        <Text as="label" size={labelSize ?? "medium"} weight={labelWeight}>
+        <Text as="label" size={labelSize ?? "md"} weight={labelWeight}>
           {label}
         </Text>
       ) : label !== undefined ? (
@@ -78,7 +67,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
       ) : null}
       <RadixSelect.Root
         defaultValue={defaultValue}
-        size={toRadixSize(size)}
+        size={radixSize(size)}
         disabled={disabled}
         value={value}
         onValueChange={setValue}

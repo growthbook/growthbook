@@ -198,7 +198,7 @@ export default function ExplorerSideBar({
                 shouldDisplay={!!saveToDashboardDisabledReason}
               >
                 <Button
-                  size="sm"
+                  size="md"
                   disabled={!!saveToDashboardDisabledReason}
                   onClick={() => {
                     if (!hasDashboardsFeature) {
@@ -265,7 +265,7 @@ export default function ExplorerSideBar({
                 shouldDisplay={isStale}
               >
                 <Button
-                  size="sm"
+                  size="md"
                   variant="solid"
                   disabled={loading || !hasInputs || !isSubmittable}
                   onClick={() =>
@@ -358,7 +358,7 @@ export default function ExplorerSideBar({
                 <Text weight="medium">Date Range</Text>
                 {dashboardDateRange ? (
                   <Switch
-                    size="1"
+                    size="sm"
                     value={useDashboardDateControl}
                     disabled={dateControlsDisabled}
                     onChange={(checked) =>
@@ -366,7 +366,7 @@ export default function ExplorerSideBar({
                     }
                     label={
                       <Flex direction="row" align="center" gap="1">
-                        <Text size="small" weight="medium">
+                        <Text size="sm" weight="medium">
                           Use dashboard date filter
                         </Text>
                         <Tooltip
@@ -392,7 +392,7 @@ export default function ExplorerSideBar({
                     backgroundColor: "var(--gray-a2)",
                   }}
                 >
-                  <Text size="medium" color="text-low">
+                  <Text size="md" color="text-low">
                     {formatExplorationDateRange(dashboardDateRange)}
                   </Text>
                 </Flex>

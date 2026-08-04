@@ -196,7 +196,7 @@ export default function ValueCard({
               <Button
                 className={styles.editBtn}
                 variant="ghost"
-                size="xs"
+                size="sm"
                 onClick={handleStartEdit}
                 title="Edit name"
               >
@@ -208,7 +208,7 @@ export default function ValueCard({
         <Flex align="center" style={{ flexShrink: 0 }}>
           <Button
             variant="ghost"
-            size="xs"
+            size="sm"
             onClick={() => setIsCollapsed((prev) => !prev)}
             title={isCollapsed ? "Expand" : "Collapse"}
           >
@@ -218,7 +218,7 @@ export default function ValueCard({
             <Button
               variant="ghost"
               disabled={dataset.values.length === 1}
-              size="xs"
+              size="sm"
               onClick={() => deleteValueFromDataset(index)}
             >
               <PiX size={14} />
@@ -246,7 +246,7 @@ export default function ValueCard({
         </Box>
         <Flex justify="between" align="center" mt="2">
           <Button
-            size="xs"
+            size="sm"
             variant="ghost"
             style={{ maxWidth: "fit-content" }}
             onClick={() => {
@@ -268,7 +268,7 @@ export default function ValueCard({
               open={unitDropdownOpen}
               onOpenChange={setUnitDropdownOpen}
               trigger={
-                <Button size="xs" variant="ghost">
+                <Button size="sm" variant="ghost">
                   <Flex align="center" gap="2">
                     <PiUserFill />{" "}
                     {dataset.values[index].unit ?? "Select Unit..."}

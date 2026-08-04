@@ -484,7 +484,7 @@ const MetricsSelector: FC<{
 
   const selector = !forceSingleMetric ? (
     <MultiSelectField
-      size="legacy"
+      legacyHeight
       value={selected}
       onChange={onChange}
       options={multiSelectOptions}
@@ -514,7 +514,7 @@ const MetricsSelector: FC<{
                     style={{ color: "var(--violet-11)" }}
                   >
                     <PiInfo color="var(--color-text-low)" className="mr-1" />
-                    <Text size="small">
+                    <Text size="sm">
                       Create a Metric Group so you can easily re-use this set of
                       metrics in other experiments.
                     </Text>

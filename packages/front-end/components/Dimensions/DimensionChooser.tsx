@@ -403,7 +403,7 @@ export default function DimensionChooser({
         items.push(
           <DropdownMenuLabel
             key={`label-${groupIndex}`}
-            textSize="1"
+            textSize="sm"
             textStyle={{ textTransform: "uppercase", fontWeight: 600 }}
           >
             {group.label}

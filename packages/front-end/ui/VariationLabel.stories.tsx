@@ -9,7 +9,7 @@ export default function VariationLabelStories() {
           Sizes
         </Text>
         <Flex direction="column" gap="2">
-          {(["small", "medium", "large"] as const).map((size) => (
+          {(["sm", "md", "lg"] as const).map((size) => (
             <Flex key={size} gap="2" align="center">
               <Text size="1" style={{ width: 64, color: "var(--gray-9)" }}>
                 {size}
@@ -37,7 +37,7 @@ export default function VariationLabelStories() {
           Truncation
         </Text>
         <Flex direction="column" gap="2">
-          {(["small", "medium", "large"] as const).map((size) => (
+          {(["sm", "md", "lg"] as const).map((size) => (
             <Flex key={size} gap="2" align="center">
               <Text size="1" style={{ width: 64, color: "var(--gray-9)" }}>
                 {size}
