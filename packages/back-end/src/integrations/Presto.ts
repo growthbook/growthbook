@@ -37,9 +37,6 @@ export default class Presto extends SqlIntegration {
   getSqlDialect(): SqlDialect {
     return prestoDialect;
   }
-  getSensitiveParamKeys(): string[] {
-    return ["password"];
-  }
   isWritingTablesSupported(): boolean {
     return true;
   }

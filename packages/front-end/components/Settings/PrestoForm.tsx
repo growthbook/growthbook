@@ -2,6 +2,10 @@ import { FC, ChangeEventHandler } from "react";
 import { PrestoConnectionParams } from "shared/types/integrations/presto";
 import SelectField from "@/components/Forms/SelectField";
 import { isCloud } from "@/services/env";
+import {
+  KEEP_EXISTING_PLACEHOLDER,
+  useCanKeepExistingCredentials,
+} from "@/components/Forms/secretInput";
 import HostWarning from "./HostWarning";
 import SSLConnectionFields from "./SSLConnectionFields";
 
@@ -12,6 +16,11 @@ const PrestoForm: FC<{
   onManualParamChange: (name: string, value: string) => void;
   setParams: (params: { [key: string]: string | boolean }) => void;
 }> = ({ params, existing, onParamChange, onManualParamChange, setParams }) => {
+  const authType = params.authType ?? "basicAuth";
+  const canKeepExistingCredentials = useCanKeepExistingCredentials(
+    existing,
+    authType,
+  );
   const authMethodOptions = [
     {
       value: "basicAuth",
@@ -122,7 +131,7 @@ const PrestoForm: FC<{
           label="Authentication Method"
           options={authMethodOptions}
           helpText="Basic Auth is the most common method. Custom Auth sets HTTP Authorization header with the provided string. Kerberos auth uses KRB5 authentication with client principal. 'None' only is used for custom authentication methods."
-          value={params.authType || "basicAuth"}
+          value={authType}
           onChange={(v) => {
             setParams({
               authType: v,
@@ -130,7 +139,7 @@ const PrestoForm: FC<{
           }}
         />
       </div>
-      {(params.authType ?? "basicAuth") === "basicAuth" && (
+      {authType === "basicAuth" && (
         <>
           <div className="form-group col-md-12">
             <label>Username</label>
@@ -150,26 +159,33 @@ const PrestoForm: FC<{
               type="text"
               className="form-control"
               name="password"
+              required={!canKeepExistingCredentials}
               value={params.password || ""}
               onChange={onParamChange}
-              placeholder={existing ? "(Keep existing)" : ""}
+              placeholder={
+                canKeepExistingCredentials ? KEEP_EXISTING_PLACEHOLDER : ""
+              }
             />
           </div>
         </>
       )}
-      {params.authType === "customAuth" && (
+      {authType === "customAuth" && (
         <div className="form-group col-md-12">
           <label>Custom Auth String</label>
           <input
             type="text"
             className="form-control"
             name="customAuth"
+            required={!canKeepExistingCredentials}
             value={params.customAuth || ""}
             onChange={onParamChange}
+            placeholder={
+              canKeepExistingCredentials ? KEEP_EXISTING_PLACEHOLDER : ""
+            }
           />
         </div>
       )}
-      {params.authType === "kerberos" && (
+      {authType === "kerberos" && (
         <>
           <div className="form-group col-md-12">
             <label>Service Principal</label>
@@ -280,6 +296,7 @@ const PrestoForm: FC<{
         </small>
       </div>
       <SSLConnectionFields
+        existing={existing}
         onParamChange={onParamChange}
         setSSL={(ssl) => setParams({ ssl })}
         value={{
