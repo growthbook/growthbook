@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import { PiPlusBold } from "react-icons/pi";
 import {
   AIProvider,
   AI_PROVIDERS,
@@ -18,7 +19,7 @@ import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import SelectField from "@/components/Forms/SelectField";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import AIProviderLogo from "./AIProviderLogo";
 
 type AICredentialsResponse = {
@@ -252,11 +253,10 @@ export default function AIProviderKeys() {
   const { credentials, envProviders, mutate, isLoading, loaded } =
     useAIProviderKeys();
 
-  // The provider whose row the admin just opened from the "Add a provider"
-  // picker, so the common case — one org, one provider — is a single dropdown
-  // plus one paste. This drives the row, not the picker's value: the picker
-  // always reads "Select a provider..." because picking again is meaningless
-  // once the row exists.
+  // The provider whose row the admin just opened from the "Add a new provider"
+  // menu, so the common case — one org, one provider — is one pick plus one
+  // paste. The menu itself keeps no selection: it closes on pick and the row it
+  // opened is the only state that matters.
   const configured = new Set(credentials.map((c) => c.provider));
   const [addingProvider, setAddingProvider] = useState<AIProvider | "">("");
 
@@ -270,25 +270,22 @@ export default function AIProviderKeys() {
       configured.has(p) || envProviders.includes(p) || p === addingProvider,
   );
 
-  // Every provider stays in the list so the full set is discoverable, but one
+  // Every provider stays in the menu so the full set is discoverable, but one
   // that already has a row above can't be added twice: it's disabled and sorted
   // below the ones that are still addable. Its row is where you replace or
   // override its key. This includes the provider just picked from here — the row
   // appears immediately, so picking it again would do nothing.
   const providerOptions = AI_PROVIDERS.map((p) => ({
-    value: p,
-    label: visibleProviders.includes(p)
-      ? `${AI_PROVIDER_META[p].label} (shown above)`
-      : AI_PROVIDER_META[p].label,
-    isDisabled: visibleProviders.includes(p),
+    provider: p,
+    label: AI_PROVIDER_META[p].label,
+    disabled: visibleProviders.includes(p),
   })).sort(
     (a, b) =>
-      Number(a.isDisabled) - Number(b.isDisabled) ||
-      a.label.localeCompare(b.label),
+      Number(a.disabled) - Number(b.disabled) || a.label.localeCompare(b.label),
   );
 
-  // Every provider has a row — the picker would be nothing but dead entries.
-  const showProviderPicker = providerOptions.some((o) => !o.isDisabled);
+  // Every provider has a row — the menu would be nothing but dead entries.
+  const showProviderPicker = providerOptions.some((o) => !o.disabled);
 
   return (
     <Box mb="6" width="100%">
@@ -318,20 +315,31 @@ export default function AIProviderKeys() {
       ))}
 
       {canEdit && showProviderPicker && (
-        <Box mt="3" style={{ maxWidth: 320 }}>
-          <SelectField
-            label="Add a provider"
-            size="medium"
-            // Always empty: picking a provider adds its row above and the
-            // picker goes straight back to its prompt, ready for the next one.
-            value=""
-            onChange={(v) => setAddingProvider(v as AIProvider)}
-            initialOption="Select a provider..."
-            // Already ordered addable-first; the default alphabetical sort would
-            // shuffle the disabled entries back in among them.
-            sort={false}
-            options={providerOptions}
-          />
+        <Box mt="3">
+          <DropdownMenu
+            trigger={
+              <Button variant="solid">
+                <PiPlusBold
+                  style={{ marginRight: 4, verticalAlign: "middle" }}
+                />
+                New Provider
+              </Button>
+            }
+          >
+            {providerOptions.map(({ provider, label, disabled }) => (
+              <DropdownMenuItem
+                key={provider}
+                disabled={disabled}
+                tooltip={disabled ? "Already listed above" : undefined}
+                onClick={() => setAddingProvider(provider)}
+              >
+                <Flex align="center" gap="2">
+                  <AIProviderLogo provider={provider} size={18} />
+                  {label}
+                </Flex>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenu>
         </Box>
       )}
 
