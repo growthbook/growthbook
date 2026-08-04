@@ -1,3 +1,11 @@
+// The entity-agnostic revision helpers live in one place; re-exported here so
+// the handlers' existing imports keep working.
+export {
+  isDraftStatus,
+  assertUserScopedKeyForMine,
+  buildRevisionStatusFilter,
+} from "back-end/src/api/revisionValidations";
+export { ACTIVE_DRAFT_STATUSES as ACTIVE_STATUSES } from "shared/validators";
 import {
   ID_LIST_DATATYPES,
   validateCondition,
@@ -5,11 +13,7 @@ import {
   SAVED_GROUP_SIZE_LIMIT_BYTES,
 } from "shared/util";
 import type { SavedGroupInterface } from "shared/types/saved-group";
-import {
-  Revision,
-  RevisionStatus,
-  normalizeProposedChanges,
-} from "shared/enterprise";
+import { Revision, normalizeProposedChanges } from "shared/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import {
   applyPatchToSnapshot,
@@ -22,20 +26,11 @@ import { logger } from "back-end/src/util/logger";
 // Open statuses (i.e. editable, non-terminal). Mirrors `ACTIVE_DRAFT_STATUSES`
 // in features/validations.ts, but typed off the saved-group revision enum
 // since the feature and saved-group revision status enums are distinct.
-export const ACTIVE_STATUSES: readonly RevisionStatus[] = [
-  "draft",
-  "pending-review",
-  "approved",
-  "changes-requested",
-];
 
 /**
  * True iff the revision is in a status that allows further edits. Mirrors
  * `isDraftStatus` from features/validations.ts.
  */
-export function isDraftStatus(status: string): boolean {
-  return (ACTIVE_STATUSES as readonly string[]).includes(status);
-}
 
 /**
  * Build a fresh draft revision for a saved group. Used when callers pass
@@ -278,16 +273,6 @@ export function assertValidDescription(description: string | undefined): void {
  * forced to either return everything (information leak) or return nothing
  * silently (footgun) — both are bad. Reject up front instead.
  */
-export function assertUserScopedKeyForMine(
-  context: ApiReqContext,
-  mine: boolean,
-): void {
-  if (mine && !context.userId) {
-    throw new BadRequestError(
-      "`mine=true` requires a user-scoped API key (the caller must be identifiable as a user).",
-    );
-  }
-}
 
 /**
  * Translate the public `status` query param (which accepts a single status, a
@@ -298,17 +283,6 @@ export function assertUserScopedKeyForMine(
  * expand it into its own non-terminal status set (see `buildStatusFilter` on
  * `RevisionModel`).
  */
-export function buildRevisionStatusFilter(
-  input?: string,
-): string | string[] | undefined {
-  if (!input) return undefined;
-  const parts = input
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (parts.includes("open")) return "open";
-  return parts.length === 1 ? parts[0] : parts;
-}
 
 export function dedupeValues(values: string[]): string[] {
   return [...new Set(values)];

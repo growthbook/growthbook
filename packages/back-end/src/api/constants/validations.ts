@@ -1,10 +1,14 @@
+// The entity-agnostic revision helpers live in one place; re-exported here so
+// the handlers' existing imports keep working.
+export {
+  isDraftStatus,
+  assertUserScopedKeyForMine,
+  buildRevisionStatusFilter,
+} from "back-end/src/api/revisionValidations";
+export { ACTIVE_DRAFT_STATUSES as ACTIVE_STATUSES } from "shared/validators";
 import { validateResolvableValue } from "shared/validators";
 import type { ConstantInterface } from "shared/types/constant";
-import {
-  Revision,
-  RevisionStatus,
-  normalizeProposedChanges,
-} from "shared/enterprise";
+import { Revision, normalizeProposedChanges } from "shared/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import {
   applyPatchToSnapshot,
@@ -15,16 +19,6 @@ import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 
 // Open (editable, non-terminal) statuses — mirrors the saved-group helper.
-export const ACTIVE_STATUSES: readonly RevisionStatus[] = [
-  "draft",
-  "pending-review",
-  "approved",
-  "changes-requested",
-];
-
-export function isDraftStatus(status: string): boolean {
-  return (ACTIVE_STATUSES as readonly string[]).includes(status);
-}
 
 // The loosely-typed entity shape the revision helpers expect.
 type RevisionEntityArg = Record<string, unknown> & {
@@ -117,29 +111,8 @@ export function applyRevisionToSnapshot(revision: Revision): ConstantInterface {
 }
 
 // `mine=true` requires a user-scoped key so the caller is identifiable.
-export function assertUserScopedKeyForMine(
-  context: ApiReqContext,
-  mine: boolean,
-): void {
-  if (mine && !context.userId) {
-    throw new BadRequestError(
-      "`mine=true` requires a user-scoped API key (the caller must be identifiable as a user).",
-    );
-  }
-}
 
 // Translate the public `status` query param into the model's filter shape.
-export function buildRevisionStatusFilter(
-  input?: string,
-): string | string[] | undefined {
-  if (!input) return undefined;
-  const parts = input
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (parts.includes("open")) return "open";
-  return parts.length === 1 ? parts[0] : parts;
-}
 
 export function pickNewDraftMetadata(body: {
   revisionTitle?: string;
