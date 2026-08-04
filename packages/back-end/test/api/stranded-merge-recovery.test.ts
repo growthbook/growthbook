@@ -14,10 +14,9 @@ import { setupApp } from "./api.setup";
  * over the real handler: the claim it makes runs against `RevisionModel`, whose
  * `canUpdate` refuses merged revisions outright to keep history immutable.
  *
- * That interaction shipped broken once — the recovery threw before applying
- * anything, and every suite stayed green because nothing drove this path end to
- * end. Hence a test that strands a revision the way production does (mutate the
- * stored status, leave the entity behind) rather than mocking the engine.
+ * No mock can cover it: the claim runs against the real `RevisionModel`, so this
+ * strands a revision the way production does — mutate the stored status, leave
+ * the entity behind — and drives the real engine over it.
  *
  * Drives `publishRevision` directly: the REST publish handlers carry their own
  * inline copies of the publish flow and never reach the shared engine, so

@@ -6,9 +6,9 @@ import {
 
 /**
  * A relocation takes authority on BOTH sides, and every publish/draft path that
- * can move an entity routes its destination check through here. The bugs this
- * replaces were all the same shape: a "destination" check that quietly evaluated
- * the source, because each call site re-derived what a destination is.
+ * can move an entity routes its destination check through here. These cases pin
+ * the part that is easy to get wrong per call site: which project the check
+ * actually asks about.
  */
 
 function permissionsAllowing(allowed: { projects: string[] }[]) {

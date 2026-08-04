@@ -475,10 +475,7 @@ export const putConstant = async (
   // named revision, since the change set comes from the caller's body.
   const willPublish =
     wantsMerge && (!approvalRequired || bypassApproval || autoPublish);
-  // Landing a move has to be authorized in the DESTINATION too. The model
-  // backstop accepts revert authority for any non-archive update — it has no
-  // revision to judge purity against — so without this a caller with publish in
-  // the source and revert in the destination could land arbitrary content there.
+  // Landing a move takes publish in the destination too.
   if (
     willPublish &&
     !holdsMoveDestination({

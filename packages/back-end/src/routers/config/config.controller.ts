@@ -999,11 +999,7 @@ export const putConfig = async (
   const willPublish =
     wantsMerge && (!approvalRequired || bypassApproval || autoPublish);
   if (willPublish) {
-    // Landing a move has to be authorized in the DESTINATION too. The model
-    // backstop accepts revert authority for any non-archive update — it has no
-    // revision to judge purity against — so without this a caller with publish
-    // in the source and revert in the destination could land arbitrary content
-    // there.
+    // Landing a move takes publish in the destination too.
     if (
       !holdsMoveDestination({
         permissions: context.permissions,

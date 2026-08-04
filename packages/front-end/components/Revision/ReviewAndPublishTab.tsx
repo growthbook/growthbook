@@ -535,9 +535,8 @@ function ReviewAndPublishRevision<T>({
     revision.status === "changes-requested";
   const canReviewOrEdit = canReviewEntity ?? canEditEntity;
   const canDraftOrEdit = canManageDraftsEntity ?? canEditEntity;
-  // Commenting is participation, not authority over the entity — the server
-  // accepts the addComments atom OR draft OR review authority. Gating the box on
-  // addComments alone hid it from reviewers the endpoint would have accepted.
+  // Commenting is participation, not authority over the entity: the server
+  // accepts the addComments atom OR draft OR review authority.
   const canComment =
     (canCommentOnEntity ?? canEditEntity) || canDraftOrEdit || canReviewOrEdit;
   // Revert authority alone is enough — a revert-only role holds no draft rights

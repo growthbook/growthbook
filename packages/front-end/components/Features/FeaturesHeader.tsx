@@ -202,9 +202,8 @@ export default function FeaturesHeader({
   const projectName = project?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
 
-  // Editing an existing flag takes draft authority, not the create gate.
-  // `canViewFeatureModal` answers "may this user create a feature" — the two
-  // were the same atom before the split, which is why this read as correct.
+  // Editing an existing flag takes draft authority, not the create gate:
+  // `canViewFeatureModal` answers "may this user create a feature".
   const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
   const enabledEnvs = getEnabledEnvironments(feature, environments);
   const canPublish = permissionsUtil.canPublishFeature(feature, enabledEnvs);

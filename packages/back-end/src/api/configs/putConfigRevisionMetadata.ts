@@ -40,8 +40,7 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
   if (!req.context.permissions.canRevisionAction("config", "draft", config)) {
     req.context.permissions.throwPermissionError();
   }
-  // Staging a project move needs draft authority on the destination too; the
-  // publish path re-checks it against the destination when the move lands.
+  // Staging a move takes draft authority in the destination too.
   if (
     !holdsMoveDestination({
       permissions: req.context.permissions,
