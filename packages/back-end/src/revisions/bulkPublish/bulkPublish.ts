@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import uniqid from "uniqid";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
@@ -157,12 +158,40 @@ export async function planBulkPublish(
       );
       continue;
     }
-    // Deliberately NOT refused here on `canPublish` alone. That check is coarse
-    // publish authority, and a pure revert or a pure archive is landable on the
-    // narrower revert/delete atoms — which can only be judged once the revision's
-    // changes are known. The authoritative, purity-aware check runs in
-    // `collectGates` below, so refusing here turned valid revert-only and
-    // delete-only publishes into permission errors.
+    // Coarse authority, before anything expensive or observable. Refusing on
+    // `canPublish` alone was wrong — a pure revert or pure archive is landable on
+    // the narrower revert/delete atoms, which can only be judged once the
+    // revision's changes are known — but refusing on NONE of the three landing
+    // atoms is safe: no footprint or purity path can rescue a caller who holds
+    // none of them in this project. Subset-refusing, so revert-only and
+    // delete-only callers still reach the purity-aware check in `collectGates`.
+    //
+    // This has to stay here rather than only in `collectGates`, which pushes the
+    // permission gate and then keeps collecting: entity guards, schema
+    // validation and the org's sandboxed Custom Hooks all run after it. Without
+    // this an unauthorized caller executes that hook code and reads the whole
+    // governance-gate enumeration on the way to their refusal. Mirrors
+    // postFeatureRevisionPublish.
+    if (
+      (["publish", "revert", "delete"] as const).every(
+        (action) =>
+          !context.permissions.canRevisionAction(
+            ref.entityType,
+            action,
+            entity as { project?: string; projects?: string[] },
+            NO_ENVIRONMENT_BINDING,
+          ),
+      )
+    ) {
+      blockLoad(
+        itemGate(
+          ref,
+          "permission-denied",
+          `You do not have permission to publish ${displayEntityName(ref.entityType)} "${displayId(ref)}"`,
+        ),
+      );
+      continue;
+    }
 
     try {
       const { desiredState, hasChanges, proposedEntity } =

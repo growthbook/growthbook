@@ -157,12 +157,12 @@ export function makeGenericBulkAdapter(
         revision: raw,
       });
 
-      // `canPublish` above is coarse — it takes only the entity, so it cannot
-      // see which environments this change reaches, and a caller limited to dev
-      // cleared it while landing a production override. Defer to the same
-      // assertion the single-revision engine makes, which layers the
-      // change-aware footprint on top. The archive gate below still runs for
-      // its clearer message.
+      // The load-time gate is coarse — it takes only the entity, so it cannot see
+      // which environments this change reaches, and a caller limited to dev
+      // cleared it while landing a production override. This is the
+      // authoritative check: the same assertion the single-revision engine
+      // makes, which layers the change-aware footprint and the purity fallbacks
+      // on top. The archive gate below still runs for its clearer message.
       if (!(await canPublishRevisionChange(callerContext, raw, entity))) {
         gates.push(
           makeBlockingGate({

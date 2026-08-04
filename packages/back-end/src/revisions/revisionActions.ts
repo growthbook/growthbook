@@ -147,12 +147,15 @@ async function recoverStrandedMerge({
   updatableFields: ReadonlySet<string>;
 }): Promise<Revision | null> {
   const adapter = getAdapter(revision.target.type);
+  // Nothing left to apply is the common case — a retry of an already-published
+  // revision. Answer before the lookup below.
+  if (!hasChanges) return null;
+
   const latestMerged = await context.models.revisions.getLatestMergedByTarget(
     revision.target.type,
     revision.target.id,
   );
   const strandedMerge =
-    hasChanges &&
     latestMerged?.id === revision.id &&
     liveMatchesRevisionBase({
       baseSnapshot: revision.target.snapshot as Record<string, unknown>,
