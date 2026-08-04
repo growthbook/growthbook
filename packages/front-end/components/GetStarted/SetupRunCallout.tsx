@@ -30,7 +30,7 @@ export default function SetupRunCallout() {
               unfinished === 1 ? "" : "s"
             } left to finish.`
           : `You set up GrowthBook${where}. Here's everything it created.`}{" "}
-        <Link href={`/setup/runs/${run.id}`}>View setup</Link>
+        <Link href={`/setup-runs/${run.id}`}>View setup</Link>
       </Text>
     </Callout>
   );

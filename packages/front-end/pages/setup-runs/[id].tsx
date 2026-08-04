@@ -236,7 +236,9 @@ export default function SetupRunPage() {
 
   return (
     <div className="contents container pagecontents">
-      <PageHead breadcrumb={[{ display: "Set Up", href: "/setup" }]} />
+      <PageHead
+        breadcrumb={[{ display: "Get Started", href: "/getstarted" }]}
+      />
 
       <Box mb="5">
         <Heading as="h1" size="2x-large" mb="2">

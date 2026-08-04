@@ -116,7 +116,10 @@ export class SetupRunModel extends BaseClass {
       outcome: doc.outcome,
       failureReason: doc.failureReason,
       dateCompleted: doc.dateCompleted ? doc.dateCompleted.toISOString() : null,
-      url: `${APP_ORIGIN}/setup/runs/${doc.id}`,
+      // Deliberately not under /setup: _app.tsx derives <main class="main setup">
+      // from the first path segment, and main.setup zeroes the padding that clears
+      // the sidebar — correct for the full-screen setup wizard, wrong here.
+      url: `${APP_ORIGIN}/setup-runs/${doc.id}`,
     };
   }
 
