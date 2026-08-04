@@ -967,11 +967,11 @@ export async function findSnapshotsByExperiment(
     query.type = type;
   }
 
+  const total = await ExperimentSnapshotModel.countDocuments(query);
+
   // Paginate over snapshots at the DB level (backed by the
   // { organization, experiment, status, dateCreated } index) since hydrating
   // chunked analyses per snapshot is expensive.
-  const total = await ExperimentSnapshotModel.countDocuments(query);
-
   const docs = await ExperimentSnapshotModel.find(query, null, {
     sort: { dateCreated: -1 },
     skip: offset,

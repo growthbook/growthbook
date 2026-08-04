@@ -1032,9 +1032,11 @@ export const apiExperimentBulkResultValidator = componentSchema(
       // Report id when type === "report".
       reportId: z.string().optional(),
       // When the snapshot was generated.
-      dateCreated: z.string(),
+      dateCreated: z.iso.datetime(),
       // Analysis window frozen at snapshot time
       // (snapshot.settings.startDate/endDate, not current phase dates).
+      // Plain strings, not datetimes: both are empty for legacy snapshots that
+      // stored neither settings dates nor phase dates.
       dateStart: z.string(),
       dateEnd: z.string(),
       dimension: z.object({
@@ -2051,19 +2053,18 @@ export const getExperimentBulkResultsValidator = {
   querySchema: z
     .object({
       ...paginationQueryFields,
-      dateStart: z
-        .string()
+      dateStart: z.iso
+        .datetime({ offset: true })
         .describe(
           "Return snapshots generated on or after this date (ISO 8601 date-time).",
         )
         .meta({ format: "date-time" }),
-      dateEnd: z
-        .string()
+      dateEnd: z.iso
+        .datetime({ offset: true })
         .describe(
-          "Return snapshots generated on or before this date (ISO 8601 date-time). Defaults to now.",
+          "Return snapshots generated on or before this date (ISO 8601 date-time).",
         )
-        .meta({ format: "date-time" })
-        .optional(),
+        .meta({ format: "date-time" }),
       phase: z
         .string()
         .describe("Filter to a single experiment phase index.")
@@ -2102,7 +2103,16 @@ export const getExperimentBulkResultsValidator = {
     "- `total` is the count of snapshots matching the filters.",
     "- `count` is the number of snapshots included on this page; a single snapshot may contribute multiple `results` items.",
     "- `hasMore` and `nextOffset` advance over snapshots, not over returned result items.",
+    "- Offsets are only stable over a window that has already closed. Snapshots generated inside the window while you page through it are sorted ahead of older ones and shift later pages.",
   ].join("\n"),
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    query: {
+      dateStart: "2026-01-01T00:00:00Z",
+      dateEnd: "2026-02-01T00:00:00Z",
+      limit: 10,
+    },
+  },
   operationId: "getExperimentBulkResults",
   tags: ["experiments"],
   method: "get" as const,

@@ -8,6 +8,7 @@ import {
   getMetricMapForExperimentSnapshots,
   toExperimentSnapshotBulkResultsApiInterface,
 } from "back-end/src/services/experiments";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
   createApiRequestHandler,
   getPaginationReturnFields,
@@ -51,22 +52,26 @@ export const getExperimentBulkResults = createApiRequestHandler({
 })(async (req) => {
   const experiment = await getExperimentById(req.context, req.params.id);
   if (!experiment) {
-    throw new Error("Could not find experiment with that id");
+    throw new NotFoundError("Could not find experiment with that id");
   }
 
   const dateStart = new Date(req.query.dateStart);
   if (isNaN(dateStart.getTime())) {
-    throw new Error("Invalid dateStart, expected an ISO 8601 date-time");
+    throw new BadRequestError(
+      "Invalid dateStart, expected an ISO 8601 date-time",
+    );
   }
-  const dateEnd = req.query.dateEnd ? new Date(req.query.dateEnd) : new Date();
+  const dateEnd = new Date(req.query.dateEnd);
   if (isNaN(dateEnd.getTime())) {
-    throw new Error("Invalid dateEnd, expected an ISO 8601 date-time");
+    throw new BadRequestError(
+      "Invalid dateEnd, expected an ISO 8601 date-time",
+    );
   }
 
   const phase =
     req.query.phase !== undefined ? parseInt(req.query.phase, 10) : undefined;
   if (phase !== undefined && isNaN(phase)) {
-    throw new Error("Invalid phase");
+    throw new BadRequestError("Invalid phase");
   }
 
   const { limit, offset } = validatePagination(req.query);
