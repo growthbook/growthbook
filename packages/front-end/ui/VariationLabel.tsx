@@ -42,9 +42,8 @@ export default function VariationLabel({
     const measure = () => {
       const rootWidth = root.clientWidth;
       const numberWidth = numberRef.current?.offsetWidth ?? 0;
-      const nameWidth = rootWidth - numberWidth - FLEX_GAP_PX;
-      console.log("widths", { name, rootWidth, numberWidth, nameWidth });
-      setHideName(rootWidth > 0 && nameWidth < MIN_NAME_WIDTH_PX);
+      const availableNameWidth = rootWidth - numberWidth - FLEX_GAP_PX;
+      setHideName(rootWidth > 0 && availableNameWidth < MIN_NAME_WIDTH_PX);
       const text = textRef.current;
       setIsTruncated(!!text && text.scrollWidth > text.clientWidth);
     };
