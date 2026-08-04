@@ -7,8 +7,8 @@ import {
   configUpdatableFieldsSchema,
 } from "shared/validators";
 import {
-  applyRevertDirectly,
   assertCanRevertRevision,
+  revertRevision,
   resolveRevertStrategy,
 } from "back-end/src/revisions/revertActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -20,7 +20,6 @@ import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
   applyPatchToSnapshot,
-  createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import {
@@ -28,7 +27,6 @@ import {
   assertConfigValueValidForPublish,
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
-import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
@@ -137,6 +135,18 @@ export const postConfigRevisionRevert = createApiRequestHandler(
 
   // A publish-strategy revert advances live state, so block it while locked
   // (before any merge). A draft-strategy revert only stages a draft, so it's fine.
+  // Asserted here as well as inside the pipeline, so a caller who lacks the
+  // authority is told that rather than "this needs approval" — refusing for
+  // authority outranks refusing for process.
+  assertCanRevertRevision({
+    context: req.context,
+    entityType: "config",
+    entity: config as unknown as Record<string, unknown>,
+    fields: fieldsToUpdate,
+    landing: isPublish,
+    footprint: configPublishEnvironments(req.context, config),
+  });
+
   if (isPublish) {
     assertConfigNotLocked(config);
   }
@@ -165,16 +175,6 @@ export const postConfigRevisionRevert = createApiRequestHandler(
       (fieldsToUpdate.extensible as boolean | undefined) ?? config.extensible,
   };
   const revertValues = { value: revertedValue };
-  if (isPublish) {
-    await assertConfigValueValidForPublish(
-      req.context,
-      revertLeaf,
-      revertValues,
-    );
-  } else {
-    await assertConfigValueValid(req.context, revertLeaf, revertValues);
-  }
-
   const patchOps: JsonPatchOperation[] = Object.entries(fieldsToUpdate).map(
     ([key, value]) => ({ op: "replace" as const, path: `/${key}`, value }),
   );
@@ -213,86 +213,52 @@ export const postConfigRevisionRevert = createApiRequestHandler(
 
   const title = req.body.title ?? `Revert to v${req.params.version}`;
 
-  if (!isPublish) {
-    // Staging publishes nothing, so this answers for the project — but a restored
-    // revision can still relocate the entity, which takes authoring rights in the
-    // destination.
-    assertCanRevertRevision({
-      context: req.context,
-      entityType: "config",
-      entity: config as unknown as Record<string, unknown>,
-      fields: fieldsToUpdate,
-      landing: false,
-      footprint: configPublishEnvironments(req.context, config),
-    });
-    const draft = await createOrUpdateRevision(
-      req.context,
-      "config",
-      config as unknown as Record<string, unknown> & { id: string },
-      patchOps,
-      { forceCreate: true, title, revertedFrom: targetRevision.id },
-    );
-    await dispatchConfigRevisionEvent(req.context, draft, {
-      type: "created",
-    });
-    return { revision: await toApiConfigRevision(draft, req.context) };
-  }
-
-  // Authoritative: the revert atom over the right scope for this mode, plus the
-  // classes a revert can span — a relocation's destination, and an archive
-  // restore's delete atom. All of it in one place for every entity and surface.
-  assertCanRevertRevision({
-    context: req.context,
-    entityType: "config",
-    entity: config as unknown as Record<string, unknown>,
-    fields: fieldsToUpdate,
-    landing: true,
-    footprint: configPublishEnvironments(req.context, config),
-  });
-
-  // Experiment guard (direct publish → armed:false): a revert-to-publish
-  // rewrites the config's live value like any other publish, so it must clear
-  // the guard too. Other publish paths enforce it via assertPublishable, but
-  // this path calls applyChanges directly (which doesn't), so enforce it here.
-  // Skipped for a metadata-only revert (can't rewrite a served value), matching
-  // the other publish paths.
-  if (configChangeAffectsServedValue(Object.keys(fieldsToUpdate))) {
-    await assertConfigPublishGuards(
-      req.context,
-      config,
-      targetRevision,
-      { armed: false },
-      {
-        value: revertLeaf.value,
-        schema: revertLeaf.schema,
-        parent: revertLeaf.parent,
-        extends: revertLeaf.extends,
-        extensible: revertLeaf.extensible,
-      },
-      // A revert that flips archived scrubs (or restores) refs — model the
-      // transition so dependents' schema breaks are checked, like every other
-      // publish path.
-      "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
-    );
-  }
-
-  // One implementation of record-then-apply-then-roll-back, which also reports a
-  // failed rollback instead of swallowing it — a merged revision whose changes
-  // never landed is phantom history.
-  const merged = await applyRevertDirectly({
+  const { revision: result } = await revertRevision({
     context: req.context,
     entityType: "config",
     entity: config as unknown as Record<string, unknown> & { id: string },
+    targetRevision,
+    strategy,
     fields: fieldsToUpdate,
     patchOps,
-    targetRevisionId: targetRevision.id,
+    footprint: configPublishEnvironments(req.context, config),
     title,
     bypass: approvalRequired && canBypass,
+    // Cross-field and schema validation: stricter once it lands.
+    validate: async () => {
+      if (isPublish) {
+        await assertConfigValueValidForPublish(
+          req.context,
+          revertLeaf,
+          revertValues,
+        );
+      } else {
+        await assertConfigValueValid(req.context, revertLeaf, revertValues);
+      }
+    },
+    // Experiment guard and schema-break checks, which only bite on landing. A
+    // metadata-only revert cannot rewrite a served value, matching the other
+    // publish paths.
+    assertLandable: async () => {
+      if (!configChangeAffectsServedValue(Object.keys(fieldsToUpdate))) return;
+      await assertConfigPublishGuards(
+        req.context,
+        config,
+        targetRevision,
+        { armed: false },
+        {
+          value: revertLeaf.value,
+          schema: revertLeaf.schema,
+          parent: revertLeaf.parent,
+          extends: revertLeaf.extends,
+          extensible: revertLeaf.extensible,
+        },
+        // A revert that flips archived scrubs (or restores) refs — model the
+        // transition so dependents' schema breaks are checked.
+        "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
+      );
+    },
   });
 
-  await dispatchConfigRevisionEvent(req.context, merged, {
-    type: "reverted",
-  });
-
-  return { revision: await toApiConfigRevision(merged, req.context) };
+  return { revision: await toApiConfigRevision(result, req.context) };
 });

@@ -7,8 +7,8 @@ import {
   constantUpdatableFieldsSchema,
 } from "shared/validators";
 import {
-  applyRevertDirectly,
   assertCanRevertRevision,
+  revertRevision,
   resolveRevertStrategy,
 } from "back-end/src/revisions/revertActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -18,10 +18,8 @@ import { constantPublishEnvironments } from "back-end/src/revisions/revisionPubl
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
   applyPatchToSnapshot,
-  createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
-import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
 import { constantChangeAffectsServedValue } from "back-end/src/services/experimentGuard";
@@ -121,23 +119,6 @@ export const postConstantRevisionRevert = createApiRequestHandler(
   // by ignoreWarnings). Only the archive transition is guarded. Mirrors the config twin.
   // Authoritative: the revert atom over the right scope for this mode, plus a
   // relocation's destination and an archive restore's delete atom.
-  assertCanRevertRevision({
-    context: req.context,
-    entityType: "constant",
-    entity: constant as unknown as Record<string, unknown>,
-    fields: fieldsToUpdate,
-    landing: isPublish,
-    footprint: constantPublishEnvironments(req.context, revertEnvs),
-  });
-
-  if (isPublish && fieldsToUpdate.archived === true && !constant.archived) {
-    await assertConstantArchiveDependentsGuard(
-      req.context,
-      { id: constant.id, key: constant.key, project: constant.project },
-      { armed: false },
-    );
-  }
-
   const patchOps: JsonPatchOperation[] = Object.entries(fieldsToUpdate).map(
     ([key, value]) => ({ op: "replace" as const, path: `/${key}`, value }),
   );
@@ -148,6 +129,18 @@ export const postConstantRevisionRevert = createApiRequestHandler(
   // whose adapter ignores the snapshot here).
   let approvalRequired = false;
   let canBypass = false;
+  // Asserted here as well as inside the pipeline, so a caller who lacks the
+  // authority is told that rather than "this needs approval" — refusing for
+  // authority outranks refusing for process.
+  assertCanRevertRevision({
+    context: req.context,
+    entityType: "constant",
+    entity: constant as unknown as Record<string, unknown>,
+    fields: fieldsToUpdate,
+    landing: isPublish,
+    footprint: constantPublishEnvironments(req.context, revertEnvs),
+  });
+
   if (isPublish) {
     approvalRequired = revertsBypassApproval
       ? false
@@ -183,59 +176,45 @@ export const postConstantRevisionRevert = createApiRequestHandler(
 
   const title = req.body.title ?? `Revert to v${req.params.version}`;
 
-  if (!isPublish) {
-    const draft = await createOrUpdateRevision(
-      req.context,
-      "constant",
-      constant as unknown as Record<string, unknown> & { id: string },
-      patchOps,
-      { forceCreate: true, title, revertedFrom: targetRevision.id },
-    );
-    await dispatchConstantRevisionEvent(req.context, draft, {
-      type: "created",
-    });
-    return { revision: await toApiConstantRevision(draft, req.context) };
-  }
-
-  // Guards (direct publish → armed:false): a revert-to-publish rewrites the
-  // constant's live value like any other publish, so it must clear the guards
-  // too. Other publish paths enforce them via assertPublishable, but this path
-  // calls applyChanges directly (which doesn't), so enforce them here —
-  // mirroring the config revert handler. Skipped for a metadata-only revert
-  // (can't rewrite a served value).
-  if (constantChangeAffectsServedValue(Object.keys(fieldsToUpdate))) {
-    await assertConstantPublishGuards(
-      req.context,
-      constant,
-      targetRevision,
-      { armed: false },
-      (fieldsToUpdate.value as string | undefined) ?? constant.value,
-      "environmentValues" in fieldsToUpdate
-        ? (fieldsToUpdate.environmentValues as Record<string, string>)
-        : constant.environmentValues,
-      // A revert that flips archived scrubs (or restores) refs — model the
-      // transition so dependents' schema breaks are checked, like every other
-      // publish path.
-      "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
-    );
-  }
-
-  // One implementation of record-then-apply-then-roll-back, which reports a failed
-  // rollback rather than swallowing it.
-  const merged = await applyRevertDirectly({
+  const { revision: result } = await revertRevision({
     context: req.context,
     entityType: "constant",
     entity: constant as unknown as Record<string, unknown> & { id: string },
+    targetRevision,
+    strategy,
     fields: fieldsToUpdate,
     patchOps,
-    targetRevisionId: targetRevision.id,
+    footprint: constantPublishEnvironments(req.context, revertEnvs),
     title,
     bypass: approvalRequired && canBypass,
+    // Guards that only bite on landing: taking the Constant out of service, and
+    // the value guards a live rewrite must clear. A metadata-only revert cannot
+    // rewrite a served value.
+    assertLandable: async () => {
+      if (fieldsToUpdate.archived === true && !constant.archived) {
+        await assertConstantArchiveDependentsGuard(
+          req.context,
+          { id: constant.id, key: constant.key, project: constant.project },
+          { armed: false },
+        );
+      }
+      if (!constantChangeAffectsServedValue(Object.keys(fieldsToUpdate)))
+        return;
+      await assertConstantPublishGuards(
+        req.context,
+        constant,
+        targetRevision,
+        { armed: false },
+        (fieldsToUpdate.value as string | undefined) ?? constant.value,
+        "environmentValues" in fieldsToUpdate
+          ? (fieldsToUpdate.environmentValues as Record<string, string>)
+          : constant.environmentValues,
+        // A revert that flips archived scrubs (or restores) refs — model the
+        // transition so dependents' schema breaks are checked.
+        "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
+      );
+    },
   });
 
-  await dispatchConstantRevisionEvent(req.context, merged, {
-    type: "reverted",
-  });
-
-  return { revision: await toApiConstantRevision(merged, req.context) };
+  return { revision: await toApiConstantRevision(result, req.context) };
 });

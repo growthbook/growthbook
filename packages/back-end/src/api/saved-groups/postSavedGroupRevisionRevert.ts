@@ -7,8 +7,8 @@ import {
   savedGroupUpdatableFieldsSchema,
 } from "shared/validators";
 import {
-  applyRevertDirectly,
   assertCanRevertRevision,
+  revertRevision,
   resolveRevertStrategy,
 } from "back-end/src/revisions/revertActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -16,10 +16,8 @@ import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import {
   applyPatchToSnapshot,
-  createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
-import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { assertSavedGroupArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
@@ -129,6 +127,9 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
   let canBypass = false;
   // Authoritative: the revert atom, plus a relocation's destination and an archive
   // restore's delete atom. Saved Groups carry no environment footprint.
+  // Asserted here as well as inside the pipeline, so a caller who lacks the
+  // authority is told that rather than "this needs approval" — refusing for
+  // authority outranks refusing for process.
   assertCanRevertRevision({
     context: req.context,
     entityType: "saved-group",
@@ -162,15 +163,6 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
           "or use a role/token that grants bypassApprovalSavedGroups.",
       );
     }
-    // Reverting to a historically-archived state re-archives the group; soft-warn
-    // (bypassably) if it still has live dependents. Only the archive transition.
-    if (fieldsToUpdate.archived === true && !savedGroup.archived) {
-      await assertSavedGroupArchiveDependentsGuard(
-        req.context,
-        { id: savedGroup.id },
-        { armed: false },
-      );
-    }
   }
 
   await ensureLiveRevisionExists(
@@ -186,47 +178,31 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
   const defaultTitle = `Revert to v${req.params.version}`;
   const title = req.body.title ?? defaultTitle;
 
-  if (!isPublish) {
-    // Create a fresh draft for review — distinct from any other pending draft
-    // from the same author so the revert has a clear audit-log entry.
-    const draft = await createOrUpdateRevision(
-      req.context,
-      "saved-group",
-      savedGroup as unknown as Record<string, unknown> & { id: string },
-      patchOps,
-      {
-        forceCreate: true,
-        title,
-        revertedFrom: targetRevision.id,
-      },
-    );
-    await dispatchSavedGroupRevisionEvent(req.context, draft, {
-      type: "created",
-    });
-
-    return {
-      revision: await toApiSavedGroupRevision(draft, req.context),
-    };
-  }
-
-  // One implementation of record-then-apply-then-roll-back, which reports a failed
-  // rollback rather than swallowing it.
-  const merged = await applyRevertDirectly({
+  const { revision: result } = await revertRevision({
     context: req.context,
     entityType: "saved-group",
     entity: savedGroup as unknown as Record<string, unknown> & { id: string },
+    targetRevision,
+    strategy,
     fields: fieldsToUpdate,
     patchOps,
-    targetRevisionId: targetRevision.id,
+    // Saved Groups are project-scoped throughout; no environment footprint.
+    footprint: NO_ENVIRONMENT_BINDING,
     title,
     bypass: approvalRequired && canBypass,
-  });
-
-  await dispatchSavedGroupRevisionEvent(req.context, merged, {
-    type: "reverted",
+    // Re-archiving on landing soft-warns (bypassably) if live dependents remain.
+    assertLandable: async () => {
+      if (fieldsToUpdate.archived === true && !savedGroup.archived) {
+        await assertSavedGroupArchiveDependentsGuard(
+          req.context,
+          { id: savedGroup.id },
+          { armed: false },
+        );
+      }
+    },
   });
 
   return {
-    revision: await toApiSavedGroupRevision(merged, req.context),
+    revision: await toApiSavedGroupRevision(result, req.context),
   };
 });

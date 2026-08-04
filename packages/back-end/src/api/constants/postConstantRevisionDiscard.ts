@@ -1,5 +1,5 @@
 import { postConstantRevisionDiscardValidator } from "shared/validators";
-import { discardRevision } from "back-end/src/revisions/revisionActions";
+import { discardEntityRevision } from "back-end/src/revisions/revisionActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { NotFoundError } from "back-end/src/util/errors";
 import { loadRevisionByVersion } from "./validations";
@@ -19,7 +19,7 @@ export const postConstantRevisionDiscard = createApiRequestHandler(
     req.params.version,
   );
 
-  const closed = await discardRevision({
+  const closed = await discardEntityRevision({
     context: req.context,
     entityType: "constant",
     entity: constant,

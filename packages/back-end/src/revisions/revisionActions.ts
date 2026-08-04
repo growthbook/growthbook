@@ -888,7 +888,7 @@ export async function maybePublishScheduledRevision(
  * so the sequence belongs here and the handlers keep only what is genuinely
  * theirs (their route, their validator, their response shape).
  */
-export async function discardRevision({
+export async function discardEntityRevision({
   context,
   entityType,
   entity,
