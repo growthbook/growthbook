@@ -64,7 +64,7 @@ export default function TrafficAndTargeting({
         <>
           <Frame>
             <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
-              <Heading color="text-high" as="h4" size="small" mb="0">
+              <Heading color="text-high" as="h4" size="sm" mb="0">
                 Traffic Allocation
               </Heading>
               <div className="flex-1" />
@@ -182,7 +182,7 @@ export default function TrafficAndTargeting({
 
           <Frame>
             <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
-              <Heading color="text-high" as="h4" size="small" mb="0">
+              <Heading color="text-high" as="h4" size="sm" mb="0">
                 Targeting
               </Heading>
               <div className="flex-1" />

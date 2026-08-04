@@ -139,7 +139,7 @@ export default function DateRangeCompareDropdown({
           // (variant="surface"), and Button's default violet made it read as the
           // odd one out in the toolbar.
           color="gray"
-          size="sm"
+          size="md"
           disabled={disabled}
           icon={<PiCalendarBlank aria-hidden />}
           iconPosition="left"
@@ -170,7 +170,7 @@ export default function DateRangeCompareDropdown({
             </Tooltip>
             {suffix && (
               <span style={{ whiteSpace: "nowrap", flexShrink: 0 }}>
-                <Text size="small" color="text-low" weight="regular">
+                <Text size="sm" color="text-low" weight="regular">
                   vs {suffix.text}
                 </Text>
               </span>

@@ -415,7 +415,7 @@ function DashboardsTab({
                 </Flex>
                 <Flex align="center" justify="center">
                   <Button
-                    size="sm"
+                    size="md"
                     onClick={createOrPromptUpgrade}
                     disabled={!canCreate}
                   >

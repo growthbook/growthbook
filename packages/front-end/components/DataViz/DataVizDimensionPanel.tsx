@@ -145,7 +145,7 @@ export default function DataVizDimensionPanel({
                               ],
                             } as Partial<DataVizConfig>);
                           }}
-                          size="small"
+                          size="sm"
                           placeholder="Select a dimension"
                         >
                           {axisKeys.map((key) => (
@@ -193,7 +193,7 @@ export default function DataVizDimensionPanel({
                                         ],
                                       });
                                     }}
-                                    size="small"
+                                    size="md"
                                   >
                                     <SelectItem value="grouped">
                                       Grouped

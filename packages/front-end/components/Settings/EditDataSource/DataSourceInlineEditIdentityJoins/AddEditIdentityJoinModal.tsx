@@ -135,7 +135,7 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
         <div className="row">
           <div className="col-xs-12 col-md-6">
             <MultiSelectField
-              size="legacy"
+              legacyHeight
               label="Identifier Types"
               value={userEnteredIdentityJoinIds}
               onChange={(value) => {

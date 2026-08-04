@@ -133,7 +133,7 @@ export default function DashboardDateControlsDropdown({
           className={styles.trigger}
           variant="outline"
           color="gray"
-          size="sm"
+          size="md"
           disabled={disabled}
           icon={<PiCalendarBlank aria-hidden />}
           iconPosition="left"
@@ -165,7 +165,7 @@ export default function DashboardDateControlsDropdown({
             </UiTooltip>
             {suffix && (
               <span style={{ whiteSpace: "nowrap", flexShrink: 0 }}>
-                <Text size="small" color="text-low" weight="regular">
+                <Text size="sm" color="text-low" weight="regular">
                   vs {suffix.text}
                 </Text>
               </span>

@@ -109,7 +109,7 @@ export default function FeaturesStats({
     <div className="contents container-fluid pagecontents">
       <Flex align="start" justify="between" mt="4" mb="5" gap="4">
         <Box flexShrink="1">
-          <Heading mb="1" size="medium" as="h3">
+          <Heading mb="1" size="md" as="h3">
             Code References
           </Heading>
           <Text mb="0">

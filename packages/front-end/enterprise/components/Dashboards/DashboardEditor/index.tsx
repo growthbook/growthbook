@@ -438,12 +438,12 @@ function DashboardEditor({
       <Box mt={isEditing ? "1" : undefined} mb="3">
         <Flex align="center" height={DASHBOARD_TOPBAR_HEIGHT} gap="1">
           {switchToExperimentView ? (
-            <Button variant="ghost" size="xs" onClick={switchToExperimentView}>
+            <Button variant="ghost" size="sm" onClick={switchToExperimentView}>
               View Regular Experiment View
             </Button>
           ) : (
             <Flex align="center" gap="2" flexGrow="1" minWidth="0">
-              <Text truncate={true} size="x-large">
+              <Text truncate={true} size="xl">
                 {title}
               </Text>
               <ShareStatusBadge
@@ -473,7 +473,7 @@ function DashboardEditor({
               {canManageSharingAndEditLevels && (
                 <Button
                   variant="outline"
-                  size="sm"
+                  size="md"
                   onClick={() => setShareModalOpen(true)}
                 >
                   Share...
@@ -481,7 +481,7 @@ function DashboardEditor({
               )}
               <Button
                 variant="solid"
-                size="sm"
+                size="md"
                 disabled={!canEdit}
                 onClick={() => setIsEditing(true)}
               >
@@ -638,7 +638,7 @@ function DashboardEditor({
             gap="5"
           >
             <Flex direction="column">
-              <Heading as="h1" size="large" weight="medium" align="center">
+              <Heading as="h1" size="lg" weight="medium" align="center">
                 Add Content Blocks
               </Heading>
               <Text align="center">
@@ -653,7 +653,7 @@ function DashboardEditor({
                 isGeneralDashboard={isGeneralDashboard}
                 trigger={
                   <Button
-                    size="sm"
+                    size="md"
                     icon={<PiCaretDownFill />}
                     iconPosition="right"
                   >
@@ -662,7 +662,7 @@ function DashboardEditor({
                 }
               />
             ) : canEdit && setIsEditing ? (
-              <Button size="md" onClick={() => setIsEditing(true)}>
+              <Button size="lg" onClick={() => setIsEditing(true)}>
                 Add Block
               </Button>
             ) : null}
@@ -701,7 +701,7 @@ function DashboardEditor({
               isGeneralDashboard={isGeneralDashboard}
               trigger={
                 <Button
-                  size="sm"
+                  size="md"
                   variant="outline"
                   icon={<PiCaretDownFill />}
                   iconPosition="right"

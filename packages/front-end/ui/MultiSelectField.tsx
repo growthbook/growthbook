@@ -43,6 +43,7 @@ import {
 } from "@/components/Forms/SelectField";
 import Field, { FieldProps } from "@/components/Forms/Field";
 import HelperText from "@/ui/HelperText";
+import { Size } from "@/ui/sizes";
 import { ColorOption } from "@/components/Tags/TagsInput";
 
 type MultiValueLabelStyle = {
@@ -245,6 +246,8 @@ function CustomDropdownIndicator(
   );
 }
 
+export type MultiSelectFieldSize = Size<"md" | "lg">;
+
 export type MultiSelectFieldProps = Omit<
   FieldProps,
   | "value"
@@ -274,7 +277,9 @@ export type MultiSelectFieldProps = Omit<
   isOptionDisabled?: (_: Option) => boolean;
   noMenu?: boolean;
   showCopyButton?: boolean;
-  size?: "small" | "legacy" | "medium";
+  size?: MultiSelectFieldSize;
+  /** Preserve the pre-design-system 36px control height. */
+  legacyHeight?: boolean;
   labelSize?: TextSizes;
   labelWeight?: TextWeights;
   errorLevel?: "error" | "warning";
@@ -302,13 +307,17 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   required,
   pattern,
   showCopyButton = true,
-  size = "legacy" as "small" | "legacy" | "medium",
+  size,
+  legacyHeight,
   labelSize,
   labelWeight = "semibold",
   errorLevel = "error",
   legacyLabelFormatting = true,
   ...otherProps
 }) => {
+  const resolvedSize = size ?? "md";
+  const usesLegacyHeight = legacyHeight ?? size === undefined;
+  const styleSize = usesLegacyHeight ? "legacy" : resolvedSize;
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
   // Creatable values may not exist in `options`; keep them as chips rather than dropping them.
   const selected = value
@@ -404,15 +413,13 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
     );
   };
   const mergeStyles = useMemo(() => {
-    const sizeMinHeight: Record<string, number> = {
-      small: 32,
-      legacy: 36,
-      medium: 40,
+    const sizeMinHeight: Record<MultiSelectFieldSize, number> = {
+      md: 32,
+      lg: 40,
     };
-    const sizeVPadding: Record<string, number> = {
-      small: 0,
-      legacy: 2,
-      medium: 4,
+    const sizeVPadding: Record<MultiSelectFieldSize, number> = {
+      md: 0,
+      lg: 4,
     };
     return {
       styles: {
@@ -426,25 +433,25 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                 state,
               )
             : ReactSelectProps.styles.control(base, state)),
-          minHeight: sizeMinHeight[size],
+          minHeight: usesLegacyHeight ? 36 : sizeMinHeight[resolvedSize],
         }),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         valueContainer: (base: any) => ({
           ...base,
-          paddingTop: sizeVPadding[size],
-          paddingBottom: sizeVPadding[size],
+          paddingTop: usesLegacyHeight ? 2 : sizeVPadding[resolvedSize],
+          paddingBottom: usesLegacyHeight ? 2 : sizeVPadding[resolvedSize],
         }),
       },
     };
-  }, [size, customStyles]);
+  }, [customStyles, resolvedSize, usesLegacyHeight]);
 
   const labelStyle = useMemo<MultiValueLabelStyle>(
     () => ({
-      fontSize: size === "medium" ? "14px" : "12px",
+      fontSize: !usesLegacyHeight && resolvedSize === "lg" ? "14px" : "12px",
       fontWeight: 500,
       cursor: sort ? "grab" : undefined,
     }),
-    [size, sort],
+    [resolvedSize, sort, usesLegacyHeight],
   );
   return (
     <MultiValueLabelStyleContext.Provider value={labelStyle}>
@@ -462,7 +469,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                   <Text
                     as="label"
                     htmlFor={id}
-                    size={labelSize ?? "medium"}
+                    size={labelSize ?? "md"}
                     weight={labelWeight}
                   >
                     {label}
@@ -472,14 +479,14 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                 ))}
               <div style={{ position: "relative" }}>
                 <Component
-                  className={clsx(`gb-multi-select--${size}`, {
+                  className={clsx(`gb-multi-select--${styleSize}`, {
                     error: !!error && errorLevel === "error",
                     warning: !!error && errorLevel === "warning",
                   })}
                   onPaste={handlePaste}
                   showCopyButton={showCopyButton}
                   classNamePrefix="gb-multi-select"
-                  helperClass={`multi-select-container gb-multi-select--${size}`}
+                  helperClass={`multi-select-container gb-multi-select--${styleSize}`}
                   axis="xy"
                   shouldCancelStart={() => !sort}
                   onSortEnd={(s, e) => {

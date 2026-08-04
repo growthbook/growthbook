@@ -61,7 +61,7 @@ function LabeledRow({
 }) {
   return (
     <Grid columns="92px minmax(0, 1fr)" align="center" gapX="2">
-      <Text size="small" color="text-low">
+      <Text size="sm" color="text-low">
         {label}
       </Text>
       {children}
@@ -296,7 +296,7 @@ export default function DateRangeComparePanel({
                 }}
               />
               <Select
-                size="small"
+                size="md"
                 style={{ width: 120 }}
                 disabled={disabled}
                 value={dateRange.lookbackUnit ?? "day"}
@@ -336,7 +336,7 @@ export default function DateRangeComparePanel({
             }}
           />
 
-          <Text size="small" color="text-low">
+          <Text size="sm" color="text-low">
             {isPartialRange
               ? "Pick an end date to finish the range"
               : isInvalidLookback
@@ -368,7 +368,7 @@ export default function DateRangeComparePanel({
               <Flex direction="column" gap="2" mt="3" style={{ minWidth: 0 }}>
                 <LabeledRow label="Compared to">
                   <Select
-                    size="small"
+                    size="md"
                     style={{ width: "100%" }}
                     disabled={disabled}
                     value={mode}
@@ -399,7 +399,7 @@ export default function DateRangeComparePanel({
 
                 {overlappingModes.length > 0 && (
                   <LabeledRow label="">
-                    <Text size="small" color="text-low">
+                    <Text size="sm" color="text-low">
                       {`${overlappingModes
                         .map((m) => COMPARISON_MODE_LABELS[m])
                         .join(" and ")} ${
@@ -430,7 +430,7 @@ export default function DateRangeComparePanel({
                       setDate2={(d) => setCustomPrevious({ endDate: d })}
                     />
                   ) : (
-                    <Text size="small" color="text-low">
+                    <Text size="sm" color="text-low">
                       {describeRange(resolvedPrevious)}
                     </Text>
                   )}
@@ -446,7 +446,7 @@ export default function DateRangeComparePanel({
           <Separator size="4" />
           <Box p="3">
             <Flex align="center" gap="3" justify="between">
-              <Text size="medium" weight="medium">
+              <Text size="md" weight="medium">
                 Granularity
               </Text>
               <ControlledGranularitySelector

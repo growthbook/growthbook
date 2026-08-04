@@ -142,7 +142,7 @@ export default function DashboardGlobalControlsBar({
               color: "var(--violet-11)",
             }}
           />
-          <Heading as="h3" size="small" weight="medium">
+          <Heading as="h3" size="sm" weight="medium">
             Dashboard Filters
           </Heading>
         </Flex>

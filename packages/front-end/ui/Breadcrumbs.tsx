@@ -34,7 +34,7 @@ export default function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
                 {item.href ? (
                   <Link
                     href={item.href}
-                    size="2"
+                    size="md"
                     weight="bold"
                     aria-current={isLast ? "page" : undefined}
                   >
@@ -42,7 +42,7 @@ export default function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
                   </Link>
                 ) : (
                   <span aria-current={isLast ? "page" : undefined}>
-                    <Text size="medium" weight="semibold" color="text-high">
+                    <Text size="md" weight="semibold" color="text-high">
                       {item.display}
                     </Text>
                   </span>

@@ -75,10 +75,10 @@ export default function ConfigUsageSection({
 
   return (
     <Box>
-      <Heading as="h3" size="medium" mb="1">
+      <Heading as="h3" size="md" mb="1">
         Usage
       </Heading>
-      <Text as="p" size="medium" color="text-low" mb="4">
+      <Text as="p" size="md" color="text-low" mb="4">
         Feature rules and default values that override this config&apos;s keys.
       </Text>
 
