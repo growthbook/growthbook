@@ -19,6 +19,7 @@ import {
   getApprovalFlowSettings,
   normalizeProposedChanges,
 } from "shared/enterprise";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -814,16 +815,17 @@ export const putSavedGroup = async (
       await context.models.projects.ensureProjectsExist(projects);
     }
     // Taking a group INTO a project is a write there, so the destination needs
-    // authoring rights too — existence alone was the only thing checked, which
-    // let a caller move a group somewhere they cannot author. Same two-sided
-    // rule the Config and Constant controllers apply.
+    // authoring rights too. Via the shared helper, which is the one place that
+    // decides what a destination is — the hand-rolled version here derived it
+    // itself, which is how the same check went wrong elsewhere.
     if (
-      !context.permissions.canRevisionAction(
-        "saved-group",
-        "draft",
-        { projects: projects ?? [] },
-        NO_ENVIRONMENT_BINDING,
-      )
+      !holdsMoveDestination({
+        permissions: context.permissions,
+        model: "saved-group",
+        action: "draft",
+        existing: comparisonBase,
+        proposed: { ...comparisonBase, projects: projects ?? [] },
+      })
     ) {
       context.permissions.throwPermissionError();
     }
