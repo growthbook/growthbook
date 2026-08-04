@@ -1,6 +1,5 @@
-import isEqual from "lodash/isEqual";
-import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { putSavedGroupRevisionMetadataValidator } from "shared/validators";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
@@ -55,14 +54,16 @@ export const putSavedGroupRevisionMetadata = createApiRequestHandler(
   // Staging a project move needs draft authority on the destination too; the
   // publish path re-checks it against the destination when the move lands.
   if (
-    typeof projects !== "undefined" &&
-    !isEqual([...projects].sort(), [...(savedGroup.projects ?? [])].sort()) &&
-    !req.context.permissions.canRevisionAction(
-      "saved-group",
-      "draft",
-      { projects },
-      NO_ENVIRONMENT_BINDING,
-    )
+    !holdsMoveDestination({
+      permissions: req.context.permissions,
+      model: "saved-group",
+      action: "draft",
+      existing: savedGroup,
+      proposed: {
+        ...savedGroup,
+        ...(projects === undefined ? {} : { projects }),
+      },
+    })
   ) {
     req.context.permissions.throwPermissionError();
   }

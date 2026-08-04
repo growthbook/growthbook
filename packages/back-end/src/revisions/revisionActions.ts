@@ -16,9 +16,12 @@ import { getAdapter } from "back-end/src/revisions";
 import {
   buildMergeDesiredState,
   isRevisionDiverged,
-  ownershipChanged,
 } from "back-end/src/revisions/util";
 import { liveMatchesRevisionBase } from "back-end/src/revisions/revisionAuthority";
+import {
+  holdsMoveDestination,
+  isMove,
+} from "back-end/src/revisions/moveAuthority";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
 import {
@@ -357,33 +360,30 @@ export async function publishRevision(
   // where the caller lacks access. `ownershipChanged` covers the scalar
   // `project` (configs/constants) and the `projects[]` array (saved groups),
   // including clears-to-global, so an ordinary publish (no move) isn't blocked.
-  if (ownershipChanged(entity, desiredState)) {
-    const destination = { ...entity, ...desiredState };
-    // Edit authority in the destination is not enough on its own: the change is
-    // LANDING there, so it also takes publish authority over the environments it
-    // reaches. `canUpdate` cannot see the change set, which let a caller holding
-    // only dev authority in the destination land a production override into it.
-    // Computed from the PRE-patch entity: the footprint is derived by diffing the
-    // snapshot against the proposed changes, so passing the already-patched
-    // destination made every environment look unchanged and yielded an empty
-    // list. Only the project scope comes from `destination`.
-    const destinationFootprint =
-      adapter.publishFootprint?.(
-        context,
-        entity,
-        revision.target.proposedChanges,
-      ) ?? [];
-    if (
-      !adapter.canUpdate(context, destination) ||
-      !context.permissions.canRevisionAction(
-        revision.target.type,
-        "publish",
-        destination as { project?: string; projects?: string[] },
-        destinationFootprint,
-      )
-    ) {
-      context.permissions.throwPermissionError();
-    }
+  const destination = { ...entity, ...desiredState };
+  // Edit authority in the destination is not enough on its own: the change is
+  // LANDING there, so it also takes publish authority over the environments it
+  // reaches. The footprint comes from the PRE-patch entity — it is derived by
+  // diffing the snapshot against the proposed changes, so the already-patched
+  // destination would compare the change against itself and report nothing.
+  if (
+    isMove(entity, destination) &&
+    (!adapter.canUpdate(context, destination) ||
+      !holdsMoveDestination({
+        permissions: context.permissions,
+        model: revision.target.type,
+        action: "publish",
+        existing: entity,
+        proposed: destination,
+        environments:
+          adapter.publishFootprint?.(
+            context,
+            entity,
+            revision.target.proposedChanges,
+          ) ?? [],
+      }))
+  ) {
+    context.permissions.throwPermissionError();
   }
 
   const updatableFields = adapter.getUpdatableFields();

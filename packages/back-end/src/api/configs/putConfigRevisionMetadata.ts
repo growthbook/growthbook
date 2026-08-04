@@ -1,4 +1,3 @@
-import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual } from "lodash";
 import { putConfigRevisionMetadataValidator } from "shared/validators";
 import {
@@ -6,6 +5,7 @@ import {
   ancestorCollisionWarnings,
   SchemaWarning,
 } from "shared/util";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
@@ -43,14 +43,13 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
   // Staging a project move needs draft authority on the destination too; the
   // publish path re-checks it against the destination when the move lands.
   if (
-    typeof project !== "undefined" &&
-    project !== config.project &&
-    !req.context.permissions.canRevisionAction(
-      "config",
-      "draft",
-      { project },
-      NO_ENVIRONMENT_BINDING,
-    )
+    !holdsMoveDestination({
+      permissions: req.context.permissions,
+      model: "config",
+      action: "draft",
+      existing: config,
+      proposed: { ...config, ...(project === undefined ? {} : { project }) },
+    })
   ) {
     req.context.permissions.throwPermissionError();
   }

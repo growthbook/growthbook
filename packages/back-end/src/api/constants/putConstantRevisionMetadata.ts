@@ -1,4 +1,5 @@
 import { putConstantRevisionMetadataValidator } from "shared/validators";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
@@ -32,13 +33,15 @@ export const putConstantRevisionMetadata = createApiRequestHandler(
   ) {
     req.context.permissions.throwPermissionError();
   }
-  // Staging a project move needs manage on the destination as well as draft
-  // rights on the source. Publish re-checks the destination when the move lands.
+  // Staging a project move needs draft authority on the destination too; the
+  // publish path re-checks it against the destination when the move lands.
   if (
-    typeof project !== "undefined" &&
-    project !== constant.project &&
-    !req.context.permissions.canRevisionAction("constant", "draft", {
-      project,
+    !holdsMoveDestination({
+      permissions: req.context.permissions,
+      model: "constant",
+      action: "draft",
+      existing: constant,
+      proposed: { ...constant, ...(project === undefined ? {} : { project }) },
     })
   ) {
     req.context.permissions.throwPermissionError();

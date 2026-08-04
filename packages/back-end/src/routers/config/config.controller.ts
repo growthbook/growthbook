@@ -32,6 +32,7 @@ import {
   ScopedOverrideEntry,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -710,19 +711,21 @@ export const putConfig = async (
   // A move takes draft authority on BOTH sides. Checking only the destination
   // let a caller pull an entity out of a project they cannot write; checking
   // only the source let them push one into a project they cannot write.
+  // Both sides: authoring rights where it lives now, and where it would land.
   const canDraftEntity =
     context.permissions.canRevisionAction(
       "config",
       "draft",
-      { projects: [existing.project ?? ""] },
+      existing,
       NO_ENVIRONMENT_BINDING,
     ) &&
-    context.permissions.canRevisionAction(
-      "config",
-      "draft",
-      { projects: [destinationProject] },
-      NO_ENVIRONMENT_BINDING,
-    );
+    holdsMoveDestination({
+      permissions: context.permissions,
+      model: "config",
+      action: "draft",
+      existing,
+      proposed: { ...existing, project: destinationProject },
+    });
 
   // Restoring a previously-published revision is its own atom, so a revert-only
   // role (no draft authority) still gets in when the request names a revert
@@ -1002,13 +1005,14 @@ export const putConfig = async (
     // in the source and revert in the destination could land arbitrary content
     // there.
     if (
-      destinationProject !== (existing.project ?? "") &&
-      !context.permissions.canRevisionAction(
-        "config",
-        "publish",
-        { projects: [destinationProject] },
-        configPublishEnvironments(context, existing),
-      )
+      !holdsMoveDestination({
+        permissions: context.permissions,
+        model: "config",
+        action: "publish",
+        existing,
+        proposed: { ...existing, project: destinationProject },
+        environments: configPublishEnvironments(context, existing),
+      })
     ) {
       context.permissions.throwPermissionError();
     }

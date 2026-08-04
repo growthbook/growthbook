@@ -4,11 +4,12 @@ import {
   checkMergeConflicts,
   normalizeProposedChanges,
 } from "shared/enterprise";
-import { canPublishRevisionChange } from "back-end/src/revisions/revisionActions";
 import {
-  ownershipChanged,
-  buildMergeDesiredState,
-} from "back-end/src/revisions/util";
+  holdsMoveDestination,
+  type ProjectScoped,
+} from "back-end/src/revisions/moveAuthority";
+import { canPublishRevisionChange } from "back-end/src/revisions/revisionActions";
+import { buildMergeDesiredState } from "back-end/src/revisions/util";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
   type EntityRevisionAdapter,
@@ -179,25 +180,20 @@ export function makeGenericBulkAdapter(
       // there over the environments the change reaches — the generic path checks
       // only `canUpdate` on the post-publish state, which cannot see the change.
       // Footprint from the pre-patch entity so the diff is still visible.
-      const destination = { ...entity, ...desiredState } as Record<
-        string,
-        unknown
-      >;
       if (
-        ownershipChanged(
-          entity as Record<string, unknown>,
-          desiredState as Record<string, unknown>,
-        ) &&
-        !callerContext.permissions.canRevisionAction(
-          targetType,
-          "publish",
-          destination as { project?: string; projects?: string[] },
-          adapter.publishFootprint?.(
-            callerContext,
-            entity as Record<string, unknown>,
-            raw.target.proposedChanges,
-          ) ?? [],
-        )
+        !holdsMoveDestination({
+          permissions: callerContext.permissions,
+          model: targetType,
+          action: "publish",
+          existing: entity as ProjectScoped,
+          proposed: { ...entity, ...desiredState } as ProjectScoped,
+          environments:
+            adapter.publishFootprint?.(
+              callerContext,
+              entity as Record<string, unknown>,
+              raw.target.proposedChanges,
+            ) ?? [],
+        })
       ) {
         gates.push(
           makeBlockingGate({

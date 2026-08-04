@@ -13,6 +13,7 @@ import {
   findUndeclaredInvariantRuleFields,
   undeclaredRuleFieldWarnings,
 } from "shared/util";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -478,13 +479,14 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     // in the source and revert in the destination could land arbitrary content
     // there. Same check the internal PUT controller makes inline.
     if (
-      (project ?? config.project ?? "") !== (config.project ?? "") &&
-      !req.context.permissions.canRevisionAction(
-        "config",
-        "publish",
-        { projects: [project ?? ""] },
-        configPublishEnvironments(req.context, config),
-      )
+      !holdsMoveDestination({
+        permissions: req.context.permissions,
+        model: "config",
+        action: "publish",
+        existing: config,
+        proposed: { ...config, ...(project === undefined ? {} : { project }) },
+        environments: configPublishEnvironments(req.context, config),
+      })
     ) {
       req.context.permissions.throwPermissionError();
     }

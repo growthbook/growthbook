@@ -3,6 +3,7 @@ import { Revision } from "shared/enterprise";
 import { validateCondition } from "shared/util";
 import { updateSavedGroupValidator } from "shared/validators";
 import { UpdateSavedGroupProps } from "shared/types/saved-group";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
@@ -138,12 +139,15 @@ export const updateSavedGroup = createApiRequestHandler(
   // in the source and revert in the destination could land arbitrary content
   // there. Same check the internal PUT controller makes inline.
   if (
-    !isEqual(
-      savedGroup.projects ?? [],
-      projects ?? savedGroup.projects ?? [],
-    ) &&
-    !req.context.permissions.canRevisionAction("saved-group", "publish", {
-      projects: projects ?? [],
+    !holdsMoveDestination({
+      permissions: req.context.permissions,
+      model: "saved-group",
+      action: "publish",
+      existing: savedGroup,
+      proposed: {
+        ...savedGroup,
+        ...(projects === undefined ? {} : { projects }),
+      },
     })
   ) {
     req.context.permissions.throwPermissionError();

@@ -5,6 +5,7 @@ import {
   validateResolvableValue,
 } from "shared/validators";
 import { ConstantInterface } from "shared/types/constant";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -149,19 +150,23 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
     // in the source and revert in the destination could land arbitrary content
     // there. Same check the internal PUT controller makes inline.
     if (
-      (project ?? constant.project ?? "") !== (constant.project ?? "") &&
-      !req.context.permissions.canRevisionAction(
-        "constant",
-        "publish",
-        { projects: [project ?? ""] },
-        constantPublishEnvironments(
+      !holdsMoveDestination({
+        permissions: req.context.permissions,
+        model: "constant",
+        action: "publish",
+        existing: constant,
+        proposed: {
+          ...constant,
+          ...(project === undefined ? {} : { project }),
+        },
+        environments: constantPublishEnvironments(
           req.context,
           getConstantRevisionChange(
             constant,
             buildPatchOps(fieldsToUpdate as Record<string, unknown>),
           ).changedEnvironments,
         ),
-      )
+      })
     ) {
       req.context.permissions.throwPermissionError();
     }

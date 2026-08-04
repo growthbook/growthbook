@@ -16,6 +16,7 @@ import {
   getConstantRevisionChange,
 } from "shared/enterprise";
 import { constantRequiresReview } from "shared/util";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -286,19 +287,21 @@ export const putConstant = async (
   // A move takes draft authority on BOTH sides. Checking only the destination
   // let a caller pull an entity out of a project they cannot write; checking
   // only the source let them push one into a project they cannot write.
+  // Both sides: authoring rights where it lives now, and where it would land.
   const canDraftEntity =
     context.permissions.canRevisionAction(
       "constant",
       "draft",
-      { projects: [existing.project ?? ""] },
+      existing,
       NO_ENVIRONMENT_BINDING,
     ) &&
-    context.permissions.canRevisionAction(
-      "constant",
-      "draft",
-      { projects: [destinationProject] },
-      NO_ENVIRONMENT_BINDING,
-    );
+    holdsMoveDestination({
+      permissions: context.permissions,
+      model: "constant",
+      action: "draft",
+      existing,
+      proposed: { ...existing, project: destinationProject },
+    });
 
   // Restoring a previously-published revision is its own atom, so a revert-only
   // role (no draft authority) still gets in when the request names a revert
@@ -478,13 +481,14 @@ export const putConstant = async (
   // the source and revert in the destination could land arbitrary content there.
   if (
     willPublish &&
-    destinationProject !== (existing.project ?? "") &&
-    !context.permissions.canRevisionAction(
-      "constant",
-      "publish",
-      { projects: [destinationProject] },
-      landingEnvs,
-    )
+    !holdsMoveDestination({
+      permissions: context.permissions,
+      model: "constant",
+      action: "publish",
+      existing,
+      proposed: { ...existing, project: destinationProject },
+      environments: landingEnvs,
+    })
   ) {
     context.permissions.throwPermissionError();
   }
