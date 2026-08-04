@@ -111,6 +111,15 @@ export default function ExplorerSideBar({
     dataset?.type === "funnel"
       ? hasFunnelInputs
       : (dataset?.values?.length ?? 0) > 0;
+  const emptyStaticDimension = draftExploreState.dimensions.some(
+    (d) => d.dimensionType === "static" && d.values.length === 0,
+  );
+  const updateDisabledReason =
+    hasInputs && !isSubmittable
+      ? emptyStaticDimension
+        ? "Select at least one value for the pinned dimension before updating."
+        : "Configure a valid exploration before updating."
+      : undefined;
   const showComparisonDateControls =
     compareEnabled &&
     draftExploreState.dateRange.predefined === "customDateRange" &&
@@ -211,8 +220,11 @@ export default function ExplorerSideBar({
           <Flex direction="row" align="center" justify="between" width="100%">
             <DataSourceDropdown />
             <Tooltip
-              body="Configuration has changed. Click to refresh the chart."
-              shouldDisplay={isStale}
+              body={
+                updateDisabledReason ||
+                "Configuration has changed. Click to refresh the chart."
+              }
+              shouldDisplay={!!updateDisabledReason || isStale}
             >
               <Button
                 size="md"

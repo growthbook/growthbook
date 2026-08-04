@@ -979,6 +979,14 @@ export function isSubmittableConfig(
     return false;
   }
 
+  if (
+    cleanedConfig.dimensions.some(
+      (d) => d.dimensionType === "static" && d.values.length === 0,
+    )
+  ) {
+    return false;
+  }
+
   return true;
 }
 
