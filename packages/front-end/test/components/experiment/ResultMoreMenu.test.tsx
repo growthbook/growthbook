@@ -5,6 +5,7 @@ import {
   canShowReenableIncrementalRefresh,
   isExperimentExcludedFromIncrementalRefresh,
   shouldOfferMenuRefresh,
+  shouldShowResultMenuDivider,
 } from "@/components/Experiment/ResultMoreMenu";
 
 const makeDatasource = (
@@ -28,6 +29,22 @@ const makeDatasource = (
   }) as DataSourceInterfaceWithParams;
 
 describe("ResultMoreMenu gating helpers", () => {
+  describe("shouldShowResultMenuDivider", () => {
+    it.each([
+      [false, false, false],
+      [false, false, true],
+      [false, true, false],
+      [true, true, true],
+    ])(
+      "returns %s when items before and after are %s and %s",
+      (expected, hasItemBefore, hasItemAfter) => {
+        expect(
+          shouldShowResultMenuDivider({ hasItemBefore, hasItemAfter }),
+        ).toBe(expected);
+      },
+    );
+  });
+
   describe("canShowRefreshMenuItem", () => {
     it("allows refresh when forceRefresh, datasource, permission true", () => {
       const ds = makeDatasource();
