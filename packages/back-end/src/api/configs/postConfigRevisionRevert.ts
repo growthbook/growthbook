@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual } from "lodash";
 import { JsonPatchOperation, Revision } from "shared/enterprise";
 import { ConfigInterface } from "shared/types/config";
@@ -44,16 +45,27 @@ export const postConfigRevisionRevert = createApiRequestHandler(
 
   // Executing the revert needs revert authority. Proposing one as a draft is
   // also open to anyone who can author drafts.
-  const canRevert = req.context.permissions.canRevisionAction(
+  // Landing a revert answers for the environments the restore reaches; proposing
+  // one publishes nothing and answers for the project. Deriving both from the
+  // landing footprint made an environment-limited reverter unable to even stage a
+  // revert for a publisher to land.
+  const canLandRevert = req.context.permissions.canRevisionAction(
     "config",
     "revert",
     config,
     configPublishEnvironments(req.context, config),
   );
+  const canProposeRevert = req.context.permissions.canRevisionAction(
+    "config",
+    "revert",
+    config,
+    NO_ENVIRONMENT_BINDING,
+  );
   if (
-    !canRevert &&
-    (isPublish ||
-      !req.context.permissions.canRevisionAction("config", "draft", config))
+    isPublish
+      ? !canLandRevert
+      : !canProposeRevert &&
+        !req.context.permissions.canRevisionAction("config", "draft", config)
   ) {
     req.context.permissions.throwPermissionError();
   }

@@ -1,4 +1,7 @@
-import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import {
+  holdsMoveDestination,
+  NO_ENVIRONMENT_BINDING,
+} from "shared/permissions";
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { cloneDeep, isEqual, omit } from "lodash";
@@ -2533,6 +2536,22 @@ export async function postFeatureRevert(
       if (!context.permissions.canRevertFeature(feature, allEnabledEnvs)) {
         context.permissions.throwPermissionError();
       }
+      // Restoring metadata can restore a PROJECT, which relocates the flag. The
+      // destination is a write to that project, so revert authority in the source
+      // is not sufficient — same rule the REST revert and the publish engine
+      // apply, via the same helper.
+      if (
+        !holdsMoveDestination({
+          permissions: context.permissions,
+          model: "feature",
+          action: "revert",
+          existing: feature,
+          proposed: { ...feature, ...metadataChanges },
+          environments: allEnabledEnvs,
+        })
+      ) {
+        context.permissions.throwPermissionError();
+      }
       mergeChanges.metadata = metadataChanges;
     }
   }
@@ -2739,6 +2758,22 @@ export async function postFeatureRevertDraft(
     context,
     changes.metadata?.project ?? feature.project,
   );
+
+  // A restored revision can carry a different project, so this draft proposes a
+  // relocation. Staging one takes authoring rights in the destination as well as
+  // the source — read access there must not be enough to line a flag up to land
+  // somewhere the author cannot write.
+  if (
+    !holdsMoveDestination({
+      permissions: context.permissions,
+      model: "feature",
+      action: "draft",
+      existing: feature,
+      proposed: { ...feature, ...(changes.metadata ?? {}) },
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const newRevision = await createRevision({
     context,

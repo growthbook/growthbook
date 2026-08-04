@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual } from "lodash";
 import { JsonPatchOperation, Revision } from "shared/enterprise";
 import { ConstantInterface } from "shared/types/constant";
@@ -71,16 +72,29 @@ export const postConstantRevisionRevert = createApiRequestHandler(
       (constant.environmentValues?.[env] ?? "") !==
       (targetState.environmentValues?.[env] ?? ""),
   );
-  const canRevert = req.context.permissions.canRevisionAction(
+  const canLandRevert = req.context.permissions.canRevisionAction(
     "constant",
     "revert",
     constant,
     constantPublishEnvironments(req.context, revertEnvs),
   );
+  // Proposing publishes nothing, so it answers for the project rather than the
+  // environments the restore would reach.
+  const canProposeRevert = req.context.permissions.canRevisionAction(
+    "constant",
+    "revert",
+    constant,
+    NO_ENVIRONMENT_BINDING,
+  );
   if (
-    !canRevert &&
-    (isPublish ||
-      !req.context.permissions.canRevisionAction("constant", "draft", constant))
+    isPublish
+      ? !canLandRevert
+      : !canProposeRevert &&
+        !req.context.permissions.canRevisionAction(
+          "constant",
+          "draft",
+          constant,
+        )
   ) {
     req.context.permissions.throwPermissionError();
   }

@@ -1,3 +1,4 @@
+import { holdsMoveDestination, type ProjectScoped } from "shared/permissions";
 import { isEqual } from "lodash";
 import {
   checkMergeConflicts,
@@ -22,7 +23,6 @@ import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypa
 import {
   buildMergeDesiredState,
   isRevisionDiverged,
-  ownershipChanged,
 } from "back-end/src/revisions/util";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
@@ -120,17 +120,27 @@ export const postConstantRevisionPublish = createApiRequestHandler(
 
   const isBypass = approvalRequired && revision.status !== "approved";
 
-  // A project move (including a clear to global) additionally requires manage
-  // on the destination. `ownershipChanged` is the shared detector used by every
-  // revision publish path, so this can't drift from the saved-group/bulk cases.
+  // A project move lands content in the destination, so it takes edit rights on
+  // the resulting doc AND publish authority there over the environments the
+  // change reaches. `canUpdate` alone is edit-class and cannot see the change.
+  const destination = {
+    ...(constant as unknown as Record<string, unknown>),
+    ...desiredState,
+  };
   if (
-    ownershipChanged(
-      constant as unknown as Record<string, unknown>,
-      desiredState,
-    ) &&
-    !adapter.canUpdate(req.context, {
-      ...(constant as unknown as Record<string, unknown>),
-      ...desiredState,
+    !adapter.canUpdate(req.context, destination) ||
+    !holdsMoveDestination({
+      permissions: req.context.permissions,
+      model: "constant",
+      action: "publish",
+      existing: constant as ProjectScoped,
+      proposed: destination as ProjectScoped,
+      environments:
+        adapter.publishFootprint?.(
+          req.context,
+          constant as unknown as Record<string, unknown>,
+          revision.target.proposedChanges,
+        ) ?? [],
     })
   ) {
     req.context.permissions.throwPermissionError();

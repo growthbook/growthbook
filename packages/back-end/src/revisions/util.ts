@@ -1,3 +1,4 @@
+import { projectScopeChanged, type ProjectScoped } from "shared/permissions";
 import { applyPatch } from "fast-json-patch";
 import type { Operation } from "fast-json-patch";
 import { cloneDeep, isEqual } from "lodash";
@@ -159,19 +160,16 @@ export function buildMergeDesiredState<T extends Record<string, unknown>>(
  * entity into a project it can't otherwise touch. Keying off an actual
  * ownership change means an ordinary publish (no move) isn't blocked.
  */
+// Delegates to the canonical comparison in shared so the back-end, the
+// front-end and the permission layer cannot disagree about what a move is.
 export function ownershipChanged(
   entity: Record<string, unknown>,
   proposedEntity: Record<string, unknown>,
 ): boolean {
-  if (entity.project !== proposedEntity.project) return true;
-  const before = entity.projects;
-  const after = proposedEntity.projects;
-  if (Array.isArray(before) || Array.isArray(after)) {
-    const norm = (v: unknown) =>
-      JSON.stringify([...((v as string[] | undefined) ?? [])].sort());
-    return norm(before) !== norm(after);
-  }
-  return false;
+  return projectScopeChanged(
+    entity as ProjectScoped,
+    proposedEntity as ProjectScoped,
+  );
 }
 
 /**

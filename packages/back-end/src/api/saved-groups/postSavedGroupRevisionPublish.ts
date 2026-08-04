@@ -1,3 +1,4 @@
+import { holdsMoveDestination, type ProjectScoped } from "shared/permissions";
 import { isEqual } from "lodash";
 import {
   checkMergeConflicts,
@@ -21,7 +22,6 @@ import {
 import {
   buildMergeDesiredState,
   isRevisionDiverged,
-  ownershipChanged,
 } from "back-end/src/revisions/util";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { collectSavedGroupArchiveDependentsGate } from "back-end/src/services/archiveDependentsGuard";
@@ -130,18 +130,22 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
 
   const isBypass = approvalRequired && revision.status !== "approved";
 
-  // A projects move (including a clear to global) additionally requires manage
-  // on the destination. `ownershipChanged` is the shared detector used by every
-  // revision publish path, so this can't drift from the config/constant/bulk
-  // cases (and, unlike the old inline check, catches a cleared `projects`).
+  // A projects move (including a clear to global) lands content in the
+  // destination, so it takes edit rights on the resulting doc AND publish
+  // authority there. Saved Groups carry no environment footprint, so the
+  // destination check is project-scoped.
+  const destination = {
+    ...(savedGroup as unknown as Record<string, unknown>),
+    ...desiredState,
+  };
   if (
-    ownershipChanged(
-      savedGroup as unknown as Record<string, unknown>,
-      desiredState,
-    ) &&
-    !adapter.canUpdate(req.context, {
-      ...(savedGroup as unknown as Record<string, unknown>),
-      ...desiredState,
+    !adapter.canUpdate(req.context, destination) ||
+    !holdsMoveDestination({
+      permissions: req.context.permissions,
+      model: "saved-group",
+      action: "publish",
+      existing: savedGroup as ProjectScoped,
+      proposed: destination as ProjectScoped,
     })
   ) {
     req.context.permissions.throwPermissionError();

@@ -1,3 +1,4 @@
+import { projectScopeChanged } from "shared/permissions";
 import { isArchiveTransition as isArchiveTransitionPredicate } from "shared/util";
 import type { Permissions, RevisionModel } from "shared/permissions";
 
@@ -94,17 +95,7 @@ export function canLandEntityUpdate({
   // write to that project, so read access there must not be enough to relocate it
   // somewhere the caller can write — that would hand them an object they could
   // not otherwise touch. Same rule the feature controller applies inline.
-  if (!sameProjectScope(existing, newDoc) && !landing(existing)) return false;
+  if (projectScopeChanged(existing, newDoc) && !landing(existing)) return false;
 
   return landing(newDoc);
-}
-
-function sameProjectScope(
-  a: { project?: string; projects?: string[] },
-  b: { project?: string; projects?: string[] },
-): boolean {
-  if ((a.project ?? "") !== (b.project ?? "")) return false;
-  const listA = [...(a.projects ?? [])].sort();
-  const listB = [...(b.projects ?? [])].sort();
-  return listA.length === listB.length && listA.every((p, i) => p === listB[i]);
 }
