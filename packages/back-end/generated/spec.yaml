@@ -46841,6 +46841,11 @@ paths:
                     anyOf:
                       - type: string
                       - type: 'null'
+                  createdBy:
+                    description: Id of the user who ran the wizard
+                    anyOf:
+                      - type: string
+                      - type: 'null'
                   language:
                     anyOf:
                       - type: string
@@ -46902,6 +46907,7 @@ paths:
                   - source
                   - wizardVersion
                   - agent
+                  - createdBy
                   - language
                   - packageManager
                   - appName
@@ -61825,6 +61831,11 @@ components:
           anyOf:
             - type: string
             - type: 'null'
+        createdBy:
+          description: Id of the user who ran the wizard
+          anyOf:
+            - type: string
+            - type: 'null'
         language:
           anyOf:
             - type: string
@@ -61933,6 +61944,7 @@ components:
         - source
         - wizardVersion
         - agent
+        - createdBy
         - language
         - packageManager
         - appName

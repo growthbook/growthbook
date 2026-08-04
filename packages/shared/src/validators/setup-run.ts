@@ -54,6 +54,7 @@ export const setupRunValidator = baseSchema
     source: z.enum(setupRunSources),
     wizardVersion: z.string().max(50).nullable(),
     agent: z.string().max(50).nullable(),
+    createdBy: z.string().max(100).nullable(),
 
     language: z.string().max(50).nullable(),
     packageManager: z.string().max(20).nullable(),
@@ -94,6 +95,10 @@ export const apiSetupRunInterface = namedSchema(
       source: z.enum(setupRunSources),
       wizardVersion: z.string().nullable(),
       agent: z.string().nullable(),
+      createdBy: z
+        .string()
+        .nullable()
+        .describe("Id of the user who ran the wizard"),
       language: z.string().nullable(),
       packageManager: z.string().nullable(),
       appName: z.string().nullable(),

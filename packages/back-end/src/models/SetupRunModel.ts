@@ -28,6 +28,7 @@ const BaseClass = MakeModelClass({
     source: "cli-wizard",
     wizardVersion: null,
     agent: null,
+    createdBy: null,
     language: null,
     packageManager: null,
     appName: null,
@@ -75,6 +76,15 @@ export class SetupRunModel extends BaseClass {
     return this.context.permissions.canManageOrgSettings();
   }
 
+  // Stamped from the session, never accepted from the caller, so "my last run" is
+  // trustworthy and a client cannot attribute a run to someone else.
+  protected async processApiCreateBody(rawBody: unknown) {
+    return {
+      ...(rawBody as object),
+      createdBy: this.context.userId || null,
+    } as never;
+  }
+
   // A run stops being in-progress the moment an outcome is recorded.
   protected async processApiUpdateBody(rawBody: unknown) {
     const body = rawBody as z.infer<typeof apiUpdateSetupRunBody>;
@@ -92,6 +102,7 @@ export class SetupRunModel extends BaseClass {
       source: doc.source,
       wizardVersion: doc.wizardVersion,
       agent: doc.agent,
+      createdBy: doc.createdBy,
       language: doc.language,
       packageManager: doc.packageManager,
       appName: doc.appName,
