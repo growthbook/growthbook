@@ -124,10 +124,7 @@ export function getIncrementalRefreshMetricSources({
   integration: SourceIntegrationInterface;
   snapshotSettings: ExperimentSnapshotSettings;
 }): MetricSourceGroups[] {
-  // Authoritative fan-out (planMetricFanOut is the single source of truth
-  // for which fact tables host which metrics). The grouping below only
-  // decides how those metrics get chunked into one or more cache tables per
-  // fact table.
+  // Fan-out determines each metric's fact tables; this only chunks their caches.
   const fanOut = planMetricFanOut(metrics);
 
   // Each metric's group key — quantiles get their own cache, mirroring the
@@ -300,16 +297,7 @@ const startExperimentIncrementalRefreshQueries = async (
 
   const executionId = params.queryParentId;
 
-  // Wraps a `run` callback with an execution-fence check so that DDL on the
-  // shared per-experiment pipeline tables (units / metric-source / covariate)
-  // is skipped if another snapshot has taken over the lock since this run
-  // started. Data ops (INSERT/SELECT) are intentionally left unfenced — they
-  // either fail loudly against a missing table or no-op their model write via
-  // `updateByExperimentIdIfCurrentExecution`. Checked at
-  // execute time (not enqueue time) because all queries are enqueued up-front
-  // but executed sequentially via dependencies — the lock can be lost between
-  // dependent queries. releaseLock() is fenced on snapshotId, so the eventual
-  // release on this run's terminal status is a safe no-op once the lock is lost.
+  // Dependencies can delay DDL until another snapshot takes over the lock.
   const fenced =
     <R>(
       run: (

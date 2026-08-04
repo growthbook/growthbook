@@ -2761,8 +2761,7 @@ export async function deleteExperimentPhase(
       details: auditDetailsUpdate(experiment, updated),
     });
   } finally {
-    // A no-op once the claimed document is deleted. Matters when the delete
-    // bailed part way, so the claim does not block refreshes until it goes stale.
+    // The delete removes a successful claim; otherwise release it.
     await context.models.incrementalRefresh
       .releaseLock(id, mutationToken)
       .catch((e) =>

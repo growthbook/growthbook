@@ -1703,7 +1703,7 @@ export async function planSnapshot({
     eligiblePrecomputedUnitDimensionIds,
   };
 
-  const phaseDoc = useCache
+  const incrementalRefresh = useCache
     ? await context.models.incrementalRefresh.getByExperimentIdAndPhase(
         experiment.id,
         phaseIndex,
@@ -1714,8 +1714,8 @@ export async function planSnapshot({
   // not to whatever phase is latest now. The hashed fields do not depend on the
   // state document, so probing with a null model yields the same hash the real
   // settings will carry.
-  let matchedLegacyDoc: IncrementalRefreshInterface | null = null;
-  if (useCache && !phaseDoc) {
+  let legacyIncrementalRefresh: IncrementalRefreshInterface | null = null;
+  if (useCache && !incrementalRefresh) {
     const legacyDoc =
       await context.models.incrementalRefresh.getLegacyByExperimentIdWithoutPhase(
         experiment.id,
@@ -1730,11 +1730,12 @@ export async function planSnapshot({
         }),
       })
     ) {
-      matchedLegacyDoc = legacyDoc;
+      legacyIncrementalRefresh = legacyDoc;
     }
   }
 
-  const incrementalRefreshModel = phaseDoc ?? matchedLegacyDoc;
+  const incrementalRefreshModel =
+    incrementalRefresh ?? legacyIncrementalRefresh;
 
   const {
     fullRefresh: standardFullRefresh,

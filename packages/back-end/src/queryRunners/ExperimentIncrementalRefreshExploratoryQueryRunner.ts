@@ -135,14 +135,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
 
   const executionId = params.queryParentId;
 
-  // Wraps a `run` callback with an execution-fence check. The exploratory
-  // runner only reads the shared per-experiment pipeline tables, but it holds
-  // the same lock the incremental runner uses to DROP/CREATE/RENAME them. If
-  // the lock is taken over by another snapshot mid-run (stale heartbeat,
-  // cancel + restart), continuing to SELECT from those tables would observe a
-  // missing or half-rebuilt table and return empty/malformed results. Checked
-  // at execute time (not enqueue time) because queries run sequentially via
-  // dependencies — the lock can be lost between dependent queries.
+  // Dependencies can delay a query until another snapshot takes over the lock.
   const fenced =
     <A extends unknown[], R>(run: (...args: A) => Promise<R>) =>
     async (...args: A): Promise<R> => {
@@ -160,9 +153,9 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     };
 
   // Metric Queries
-  const existingSources = incrementalRefreshModel?.metricSources;
+  const existingSources = incrementalRefreshModel.metricSources;
   const existingCovariateSources =
-    incrementalRefreshModel?.metricCovariateSources;
+    incrementalRefreshModel.metricCovariateSources;
 
   const factMetrics = selectedMetrics.filter((m): m is FactMetricInterface =>
     isFactMetric(m),

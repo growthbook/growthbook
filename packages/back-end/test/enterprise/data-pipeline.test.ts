@@ -482,7 +482,7 @@ describe("legacyDocDescribesPhase", () => {
     ).toBe(false);
   });
 
-  it("returns false when other settings differs", () => {
+  it("returns false when another setting differs", () => {
     expect(
       legacyDocDescribesPhase({
         legacyDoc: makeIncrementalRefreshModel({
