@@ -1,12 +1,20 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, ReactNode } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
+import { formatDistanceToNow } from "date-fns";
+import {
+  PiChartBarFill,
+  PiFlagFill,
+  PiFlaskFill,
+  PiPlugsConnectedFill,
+  PiTableFill,
+  PiTagFill,
+} from "react-icons/pi";
 import { ApiSetupRun } from "shared/validators";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import Callout from "@/ui/Callout";
-import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import LinkButton from "@/ui/LinkButton";
@@ -17,73 +25,150 @@ import { useCelebration } from "@/hooks/useCelebration";
 type Artifact = ApiSetupRun["artifacts"][number];
 type ArtifactKind = Artifact["kind"];
 
-const KIND_LABEL: Record<ArtifactKind, string> = {
-  "sdk-connection": "SDK Connection",
-  feature: "Feature Flag",
-  experiment: "Experiment",
-  attribute: "Attribute",
-  metric: "Metric",
-  "fact-table": "Fact Table",
+const KIND: Record<
+  ArtifactKind,
+  { label: string; icon: ReactNode; cta: string; href: (id: string) => string }
+> = {
+  "sdk-connection": {
+    label: "SDK Connection",
+    icon: <PiPlugsConnectedFill />,
+    cta: "Open",
+    href: (id) => `/sdks/${id}`,
+  },
+  feature: {
+    label: "Feature Flag",
+    icon: <PiFlagFill />,
+    cta: "Open the Feature Flag",
+    href: (id) => `/features/${id}`,
+  },
+  experiment: {
+    label: "Experiment",
+    icon: <PiFlaskFill />,
+    cta: "Open",
+    // Singular. /experiments is the list page.
+    href: (id) => `/experiment/${id}`,
+  },
+  attribute: {
+    label: "Attribute",
+    icon: <PiTagFill />,
+    cta: "Review",
+    href: () => "/attributes",
+  },
+  metric: {
+    label: "Metric",
+    icon: <PiChartBarFill />,
+    cta: "Review",
+    href: (id) => `/metric/${id}`,
+  },
+  "fact-table": {
+    label: "Fact Table",
+    icon: <PiTableFill />,
+    cta: "Review",
+    href: (id) => `/fact-tables/${id}`,
+  },
 };
 
-function hrefFor(kind: ArtifactKind, id: string): string | null {
-  switch (kind) {
-    case "sdk-connection":
-      return `/sdks/${id}`;
-    case "feature":
-      return `/features/${id}`;
-    // Singular. /experiments is the list page.
-    case "experiment":
-      return `/experiment/${id}`;
-    case "attribute":
-      return "/attributes";
-    case "metric":
-      return `/metric/${id}`;
-    case "fact-table":
-      return `/fact-tables/${id}`;
-    default:
-      return null;
-  }
+function IconTile({ kind }: { kind: ArtifactKind }) {
+  return (
+    <Flex
+      align="center"
+      justify="center"
+      style={{
+        width: 30,
+        height: 30,
+        borderRadius: 7,
+        flexShrink: 0,
+        background: "var(--violet-a3)",
+        color: "var(--violet-11)",
+        fontSize: 15,
+      }}
+    >
+      {KIND[kind].icon}
+    </Flex>
+  );
 }
 
-function ArtifactList({ artifacts }: { artifacts: Artifact[] }) {
+function SectionHeading({
+  title,
+  eyebrow,
+  count,
+}: {
+  title: string;
+  eyebrow: string;
+  count?: string;
+}) {
   return (
-    <>
-      {artifacts.map((a, i) => {
-        const href = hrefFor(a.kind, a.id);
-        return (
-          <Flex
-            key={`${a.kind}:${a.id}`}
-            align="center"
-            gap="3"
-            py="3"
-            className={i > 0 ? "border-top" : undefined}
-          >
-            <Box style={{ minWidth: 0, flex: 1 }}>
-              <Flex align="center" gap="2" mb="1" wrap="wrap">
-                <Text weight="medium">{a.label}</Text>
-                <Badge
-                  label={KIND_LABEL[a.kind]}
-                  color="violet"
-                  radius="full"
-                />
-              </Flex>
-              {a.detail && (
-                <Text size="small" color="text-mid" as="div">
-                  {a.detail}
-                </Text>
-              )}
-            </Box>
-            {href && (
-              <Link href={href} style={{ whiteSpace: "nowrap" }}>
-                Open →
-              </Link>
-            )}
-          </Flex>
-        );
-      })}
-    </>
+    <Flex align="baseline" gap="3" mb="2">
+      <Heading as="h2" size="medium" mb="0">
+        {title}
+      </Heading>
+      <Box
+        style={{
+          fontFamily:
+            'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
+          letterSpacing: ".06em",
+        }}
+      >
+        <Text size="small" color="text-low" textTransform="uppercase">
+          {eyebrow}
+        </Text>
+      </Box>
+      {count && (
+        <Box ml="auto">
+          <Text size="small" color="text-low">
+            {count}
+          </Text>
+        </Box>
+      )}
+    </Flex>
   );
+}
+
+function ArtifactRow({
+  artifact,
+  first,
+}: {
+  artifact: Artifact;
+  first: boolean;
+}) {
+  const kind = KIND[artifact.kind];
+  return (
+    <Flex
+      align="start"
+      gap="3"
+      py="3"
+      className={first ? undefined : "border-top"}
+    >
+      <IconTile kind={artifact.kind} />
+      <Box style={{ minWidth: 0, flex: 1 }}>
+        <Text weight="semibold" as="div">
+          {kind.label} · {artifact.label}
+        </Text>
+        {artifact.detail && (
+          <Text size="small" color="text-mid" as="div">
+            {artifact.detail}
+          </Text>
+        )}
+      </Box>
+      <Link
+        href={kind.href(artifact.id)}
+        style={{ whiteSpace: "nowrap", flexShrink: 0 }}
+      >
+        {kind.cta} →
+      </Link>
+    </Flex>
+  );
+}
+
+function summarise(artifacts: Artifact[]): string {
+  const counts = new Map<ArtifactKind, number>();
+  artifacts.forEach((a) => counts.set(a.kind, (counts.get(a.kind) || 0) + 1));
+  return [...counts.entries()]
+    .map(
+      ([kind, n]) =>
+        `${n} ${KIND[kind].label.toLowerCase()}${n > 1 ? "s" : ""}`,
+    )
+    .join(" · ");
 }
 
 export default function SetupRunPage() {
@@ -119,6 +204,11 @@ export default function SetupRunPage() {
   const failing = run.checks.filter((c) => !c.ok && c.required);
   const appName = run.appName || "your app";
 
+  const when = formatDistanceToNow(new Date(run.dateCreated), {
+    addSuffix: true,
+  });
+  const from = run.agent === "claudecode" ? "Claude Code" : run.agent;
+
   const flag = byDeveloper.find((a) => a.kind === "feature");
   const steps = [
     flag
@@ -148,21 +238,22 @@ export default function SetupRunPage() {
     <div className="contents container pagecontents">
       <PageHead breadcrumb={[{ display: "Set Up", href: "/setup" }]} />
 
-      <Box mb="4">
-        <Heading as="h1" size="x-large" mb="1">
-          {completed
-            ? `GrowthBook is live in ${appName}`
-            : `Almost there in ${appName}`}
+      <Box mb="5">
+        <Heading as="h1" size="2x-large" mb="2">
+          {completed ? "GrowthBook is live in " : "Almost there in "}
+          <span style={{ color: "var(--violet-11)" }}>{appName}</span>
         </Heading>
         <Text color="text-mid">
+          Set up {when}
+          {from ? ` from ${from}` : ""}.{" "}
           {completed
-            ? "Everything below now exists. Each item links straight to it."
-            : "The pieces below exist, but a few things still need finishing."}
+            ? "Here's everything that now exists — every item links straight to it."
+            : "A few things still need finishing."}
         </Text>
       </Box>
 
       {failing.length > 0 && (
-        <Callout status="warning" size="md" mb="4">
+        <Callout status="warning" size="md" mb="5">
           <Text weight="medium" as="div">
             {failing.length === 1
               ? "1 thing still to finish"
@@ -179,32 +270,41 @@ export default function SetupRunPage() {
       )}
 
       {byDeveloper.length > 0 && (
-        <Frame mb="4">
-          <Heading as="h2" size="small" mb="2">
-            What You Created
-          </Heading>
-          <ArtifactList artifacts={byDeveloper} />
-        </Frame>
+        <Box mb="5">
+          <SectionHeading title="What You Created" eyebrow="your choices" />
+          <Frame mb="0" py="3">
+            {byDeveloper.map((a, i) => (
+              <ArtifactRow
+                key={`${a.kind}:${a.id}`}
+                artifact={a}
+                first={i === 0}
+              />
+            ))}
+          </Frame>
+        </Box>
       )}
 
       {byGrowthBook.length > 0 && (
-        <Frame mb="4">
-          <Heading as="h2" size="small" mb="1">
-            What We Set Up for You
-          </Heading>
-          <Box mb="2">
-            <Text size="small" color="text-mid" as="div">
-              Found in your code during setup.
-            </Text>
-          </Box>
-          <ArtifactList artifacts={byGrowthBook} />
-        </Frame>
+        <Box mb="5">
+          <SectionHeading
+            title="What We Set Up for You"
+            eyebrow="from your code"
+            count={summarise(byGrowthBook)}
+          />
+          <Frame mb="0" py="3">
+            {byGrowthBook.map((a, i) => (
+              <ArtifactRow
+                key={`${a.kind}:${a.id}`}
+                artifact={a}
+                first={i === 0}
+              />
+            ))}
+          </Frame>
+        </Box>
       )}
 
-      <Heading as="h2" size="small" mb="2">
-        What Next
-      </Heading>
-      <Grid columns={{ initial: "1fr", sm: "1fr 1fr" }} gap="3" mb="4">
+      <SectionHeading title="What Next" eyebrow="one step at a time" />
+      <Grid columns={{ initial: "1fr", sm: "1fr 1fr" }} gap="3">
         {steps.map((s, i) => (
           <Frame key={s.title} mb="0">
             <Heading as="h3" size="small" mb="1">
