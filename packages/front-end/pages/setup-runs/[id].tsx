@@ -58,7 +58,9 @@ const KIND: Record<
     label: "Metric",
     icon: <PiChartBarFill />,
     cta: "Review",
-    href: (id) => `/metric/${id}`,
+    // Fact metrics have their own page; /metric is the legacy route.
+    href: (id) =>
+      id.startsWith("fact__") ? `/fact-metrics/${id}` : `/metric/${id}`,
   },
   "fact-table": {
     label: "Fact Table",
