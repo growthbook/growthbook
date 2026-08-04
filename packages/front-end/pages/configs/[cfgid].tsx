@@ -857,7 +857,16 @@ export default function ConfigDetailPage(): React.ReactElement {
   );
   // Reverting is its own authority — a revert-only role holds no draft or
   // publish rights, and revert alone is enough to both propose and land one.
+  // Proposing a revert publishes nothing, so it is project-scoped; landing one
+  // answers for the environments the restore reaches. Footprinting both left an
+  // environment-limited reverter unable to even stage a revert for a publisher.
   const canRevertEntity = permissionsUtil.canRevisionAction(
+    "config",
+    "revert",
+    config,
+    NO_ENVIRONMENT_BINDING,
+  );
+  const canRevertLandingEntity = permissionsUtil.canRevisionAction(
     "config",
     "revert",
     config,
@@ -2143,12 +2152,8 @@ export default function ConfigDetailPage(): React.ReactElement {
                 entityNoun="Config"
                 requiresApproval={selectedRevisionRequiresApproval}
                 canEditEntity={canDraft}
-                canRevertEntity={permissionsUtil.canRevisionAction(
-                  "config",
-                  "revert",
-                  config,
-                  configPublishEnvironments(config),
-                )}
+                canRevertEntity={canRevertEntity}
+                canLandRevertEntity={canRevertLandingEntity}
                 canDeleteEntity={permissionsUtil.canRevisionAction(
                   "config",
                   "delete",
@@ -2285,6 +2290,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       {confirmRevert && revisionToRevert && (
         <ConfigRevertModal
           canRevert={canRevertEntity}
+          canLandRevert={canRevertLandingEntity}
           canDraft={canDraft}
           config={config}
           revision={revisionToRevert}

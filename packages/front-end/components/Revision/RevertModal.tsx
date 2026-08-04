@@ -56,6 +56,9 @@ export interface Props<T extends RevertableEntity> {
   // Revert authority: landing a revert is its own atom, not publish. Alone it's
   // enough to both propose and land one.
   canRevert: boolean;
+  // Revert authority over the environments a landed restore would touch. Absent
+  // for entities with no environment footprint, where it equals `canRevert`.
+  canLandRevert?: boolean;
   // Draft authority: enough to PROPOSE a revert as a draft, never to land it.
   canDraft: boolean;
   // Renders the entity's DraftSelectorForChanges (publish-now vs. create-draft
@@ -88,6 +91,7 @@ export default function RevertModal<T extends RevertableEntity>({
   approvalRequired,
   canBypassApproval,
   canRevert,
+  canLandRevert: canLandRevertEntity,
   canDraft,
   renderDraftSelector,
   close,
@@ -167,7 +171,12 @@ export default function RevertModal<T extends RevertableEntity>({
   // Landing a revert takes revert authority; approvals add the bypass term on
   // top. Mirrors the feature RevertModal — without the authority term a
   // draft-only viewer was offered "Publish now" and refused by the server.
-  const canLandRevert = canRevert;
+  //
+  // Landing answers for the environments the restore touches; proposing
+  // publishes nothing and is project-scoped. The server splits the two, so one
+  // boolean for both left an environment-limited reverter either unable to
+  // propose or wrongly offered "Publish now".
+  const canLandRevert = canLandRevertEntity ?? canRevert;
   const canPublishNow =
     !approvalRequired || revertsBypassApproval
       ? canLandRevert

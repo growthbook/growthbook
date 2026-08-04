@@ -325,6 +325,13 @@ export default function ConstantDetailPage(): React.ReactElement {
     constant,
     NO_ENVIRONMENT_BINDING,
   );
+  // Landing one answers for the environments the restore reaches.
+  const canRevertLandingEntity = permissionsUtil.canRevisionAction(
+    "constant",
+    "revert",
+    constant,
+    publishEnvironments,
+  );
   // Delete is gated on the LIVE archive state (not the displayed/draft state):
   // the constant must be archived and published before it can be deleted.
   // No environment footprint: an archived Constant serves nowhere, which is what
@@ -614,12 +621,8 @@ export default function ConstantDetailPage(): React.ReactElement {
               constant,
               NO_ENVIRONMENT_BINDING,
             )}
-            canRevertEntity={permissionsUtil.canRevisionAction(
-              "constant",
-              "revert",
-              constant,
-              publishEnvironments,
-            )}
+            canRevertEntity={canRevertEntity}
+            canLandRevertEntity={canRevertLandingEntity}
             canDeleteEntity={permissionsUtil.canRevisionAction(
               "constant",
               "delete",
@@ -722,6 +725,7 @@ export default function ConstantDetailPage(): React.ReactElement {
       {confirmRevert && revisionToRevert && (
         <ConstantRevertModal
           canRevert={canRevertEntity}
+          canLandRevert={canRevertLandingEntity}
           canDraft={canDraft}
           constant={constant}
           revision={revisionToRevert}

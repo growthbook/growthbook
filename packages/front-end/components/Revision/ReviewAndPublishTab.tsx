@@ -154,6 +154,10 @@ export interface ReviewAndPublishTabProps<T> {
   // Reverting is its own authority, so a revert-only role holds no edit rights.
   // Defaults to canEditEntity for callers that don't distinguish them.
   canRevertEntity?: boolean;
+  // Revert authority over the environments a landed restore touches. Proposing a
+  // revert is project-scoped; landing one is not. Defaults to `canRevertEntity`
+  // for entities with no environment footprint.
+  canLandRevertEntity?: boolean;
   canDeleteEntity?: boolean;
   // Commenting is participation, gated by addComments rather than by authority
   // over the entity. Defaults to canEditEntity for callers that don't pass it.
@@ -212,6 +216,7 @@ function ReviewAndPublishRevision<T>({
   requiresApproval,
   canEditEntity,
   canRevertEntity,
+  canLandRevertEntity,
   canDeleteEntity,
   canCommentOnEntity,
   canReviewEntity,
@@ -562,10 +567,15 @@ function ReviewAndPublishRevision<T>({
   // Publish authority, or a narrow atom that could land this exact change in one
   // step: a pure revert under revert, a pure archive under delete. Archiving needs
   // delete whatever else it carries; unarchiving is an ordinary publish.
+  // Landing a revert draft answers for the environments it restores, so this arm
+  // takes the landing value — `canRevertEntity` alone (project-scoped, since it
+  // also decides whether a revert can be PROPOSED) would offer Publish to a
+  // reverter the server refuses.
+  const canLandRevert = canLandRevertEntity ?? canRevertEntity ?? canEditEntity;
   const canPublishOrEdit =
     (!draftArchives || !!canDeleteEntity) &&
     ((canPublishEntity ?? canEditEntity) ||
-      (draftStagesRevert && (canRevertEntity ?? canEditEntity)) ||
+      (draftStagesRevert && canLandRevert) ||
       (!!canDeleteEntity && draftIsPureArchive));
   // Whether the viewer holds any authority at all — for the overflow menu and
   // the no-permission notice. Each individual action gates on its own atom.
