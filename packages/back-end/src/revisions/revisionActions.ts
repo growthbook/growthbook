@@ -363,10 +363,14 @@ export async function publishRevision(
     // LANDING there, so it also takes publish authority over the environments it
     // reaches. `canUpdate` cannot see the change set, which let a caller holding
     // only dev authority in the destination land a production override into it.
+    // Computed from the PRE-patch entity: the footprint is derived by diffing the
+    // snapshot against the proposed changes, so passing the already-patched
+    // destination made every environment look unchanged and yielded an empty
+    // list. Only the project scope comes from `destination`.
     const destinationFootprint =
       adapter.publishFootprint?.(
         context,
-        destination,
+        entity,
         revision.target.proposedChanges,
       ) ?? [];
     if (
@@ -405,12 +409,23 @@ export async function publishRevision(
   if (alreadyMerged) {
     // `hasChanges` alone does NOT identify a stranded merge — every superseded
     // revision differs from current live state, so on its own it would let an
-    // old merged revision be reapplied over newer content. A merge that never
-    // landed leaves a second, decisive mark: the live entity still matches the
-    // revision's own base. Once anything else has published, it no longer does,
-    // and this falls through to the refusal below.
+    // old merged revision be reapplied over newer content. Two further marks are
+    // required, and neither is sufficient alone:
+    //
+    //  - the live entity still matches this revision's own base, and
+    //  - this is still the NEWEST merged revision for the target.
+    //
+    // The second is what closes the replay window: content can return to an old
+    // revision's base (publish away and back again), but only via a later merge,
+    // which makes that revision no longer the newest. A merge that genuinely
+    // never landed is always the newest one, because nothing published after it.
+    const latestMerged = await context.models.revisions.getLatestMergedByTarget(
+      revision.target.type,
+      revision.target.id,
+    );
     const strandedMerge =
       hasChanges &&
+      latestMerged?.id === revision.id &&
       liveMatchesRevisionBase({
         baseSnapshot: revision.target.snapshot as Record<string, unknown>,
         liveSnapshot: entity as Record<string, unknown>,

@@ -158,11 +158,17 @@ export async function revertFeatureCore(
       // destination check. Scoped to every environment the flag serves, not
       // `changedEnvs`: a metadata-only move changes no environment's value, so
       // that list is empty and the check would pass vacuously.
+      // Footprint is the union of what the flag serves NOW and every environment
+      // this revert touches: `allEnabledEnvs` alone omits environments the revert
+      // itself re-enables, so a move could land a flag serving production into a
+      // project where the caller holds no production authority.
       if (
-        !context.permissions.canPublishFeature(
-          { project: m.project },
-          Array.from(getEnabledEnvironments(feature, environmentIds)),
-        )
+        !context.permissions.canPublishFeature({ project: m.project }, [
+          ...new Set([
+            ...getEnabledEnvironments(feature, environmentIds),
+            ...changedEnvs,
+          ]),
+        ])
       ) {
         context.permissions.throwPermissionError();
       }

@@ -5,6 +5,10 @@ import {
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { canPublishRevisionChange } from "back-end/src/revisions/revisionActions";
+import {
+  ownershipChanged,
+  buildMergeDesiredState,
+} from "back-end/src/revisions/util";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
   type EntityRevisionAdapter,
@@ -16,7 +20,6 @@ import {
 } from "back-end/src/revisions/publishGates";
 import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
 import { displayEntityName } from "back-end/src/revisions/entityNames";
-import { buildMergeDesiredState } from "back-end/src/revisions/util";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
 import { applyVerifiedRestore } from "back-end/src/revisions/bulkPublish/verifiedRestore";
@@ -167,6 +170,42 @@ export function makeGenericBulkAdapter(
               `You do not have permission to publish this ${displayEntityName(
                 targetType,
               )} in every environment it changes`,
+            ],
+          }),
+        );
+      }
+
+      // A project move lands in the destination, so it takes publish authority
+      // there over the environments the change reaches — the generic path checks
+      // only `canUpdate` on the post-publish state, which cannot see the change.
+      // Footprint from the pre-patch entity so the diff is still visible.
+      const destination = { ...entity, ...desiredState } as Record<
+        string,
+        unknown
+      >;
+      if (
+        ownershipChanged(
+          entity as Record<string, unknown>,
+          desiredState as Record<string, unknown>,
+        ) &&
+        !callerContext.permissions.canRevisionAction(
+          targetType,
+          "publish",
+          destination as { project?: string; projects?: string[] },
+          adapter.publishFootprint?.(
+            callerContext,
+            entity as Record<string, unknown>,
+            raw.target.proposedChanges,
+          ) ?? [],
+        )
+      ) {
+        gates.push(
+          makeBlockingGate({
+            type: "permission-denied",
+            messages: [
+              `You do not have permission to publish this ${displayEntityName(
+                targetType,
+              )} into its destination project`,
             ],
           }),
         );

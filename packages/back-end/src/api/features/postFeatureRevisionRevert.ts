@@ -207,12 +207,15 @@ export async function revertFeatureRevision(
       // A move has to land where the caller has authority, not just leave where
       // they do — same rule as assertCanPublishFeatureRevision, which this
       // direct-publish path bypasses.
+      // Footprint is the union of what the flag serves NOW and every environment
+      // this revert touches: `allEnabledEnvs` alone omits environments the revert
+      // itself re-enables, so a move could land a flag serving production into a
+      // project where the caller holds no production authority.
       if (
         isPublish &&
-        !context.permissions.canPublishFeature(
-          { project: m.project },
-          allEnabledEnvs,
-        )
+        !context.permissions.canPublishFeature({ project: m.project }, [
+          ...new Set([...allEnabledEnvs, ...changedEnvs]),
+        ])
       ) {
         context.permissions.throwPermissionError();
       }
