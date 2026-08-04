@@ -10,7 +10,9 @@ import {
   isScheduledPublishPending,
   isScheduledPublishDue,
   ReviewDecision,
+  JsonPatchOperation,
 } from "shared/enterprise";
+import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import uniqid from "uniqid";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions";
@@ -18,21 +20,24 @@ import {
   buildMergeDesiredState,
   isRevisionDiverged,
 } from "back-end/src/revisions/util";
-import { liveMatchesRevisionBase } from "back-end/src/revisions/revisionAuthority";
+import {
+  liveMatchesRevisionBase,
+  canRebaseRevision,
+} from "back-end/src/revisions/revisionAuthority";
 import {
   holdsMoveDestination,
   isMove,
 } from "back-end/src/revisions/moveAuthority";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
-import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
 import {
+  MergeConflictError,
   BadRequestError,
   ConflictError,
-  MergeConflictError,
   TerminalPublishError,
   isTerminalPublishError,
   getErrorMessage,
 } from "back-end/src/util/errors";
+import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
 import { isPureRevertRevision } from "back-end/src/revisions/revertPurity";
 import {
   isArchiveTransition,
@@ -1079,4 +1084,175 @@ export async function submitRevisionReview({
     return { revision: after, autoPublished: after.status === "merged" };
   }
   return { revision: updated, autoPublished: false };
+}
+
+/**
+ * Rebase a draft onto the current live state, resolving conflicts per the caller's
+ * strategies.
+ *
+ * The last of the revision actions to be unified, and the one that needed a safety
+ * net first: unlike the others it decides DATA — which value a draft carries
+ * forward when live moved underneath it — and the three implementations had drifted
+ * (two loose nullish comparisons, since fixed). The behaviour here is exactly what
+ * the characterization tests in test/api/*-revision-rebase.test.ts pin, including
+ * the two things reading the code would get wrong: an unresolved conflict answers
+ * 409, and `union` orders live values first, then the draft's additions, deduped.
+ *
+ * Strategies are validated per entity by the request schema — Constants offer no
+ * `union` because their content has no list — so this accepts whatever arrives and
+ * only needs a strategy present for every conflicting field.
+ */
+export async function rebaseRevision({
+  context,
+  entityType,
+  entity,
+  revision,
+  strategies,
+  customValues,
+}: {
+  context: Context;
+  entityType: RevisionTargetType;
+  entity: Record<string, unknown>;
+  revision: Revision;
+  strategies: Record<string, "overwrite" | "discard" | "union">;
+  customValues?: Record<string, unknown>;
+}): Promise<Revision> {
+  // The canonical list in shared, rather than any of the four per-entity
+  // isDraftStatus copies (three agree; the feature one has its own notion).
+  if (!(ACTIVE_DRAFT_STATUSES as readonly string[]).includes(revision.status)) {
+    throw new BadRequestError(
+      `Can only rebase active draft revisions (status is "${revision.status}")`,
+    );
+  }
+
+  const adapter = getAdapter(entityType);
+  const updatableFields = adapter.getUpdatableFields();
+  const baseSnapshot = revision.target.snapshot as Record<string, unknown>;
+
+  // Draft authority covers any rebase; a narrow atom covers one that pulls nothing
+  // into a draft it could already advance, so a single-purpose role can satisfy
+  // "rebase before publishing" without a way to sweep someone else's changes in.
+  if (
+    !(await canRebaseRevision({
+      context,
+      revision,
+      baseSnapshot,
+      liveSnapshot: entity,
+      updatableFields,
+    }))
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const existingOps = normalizeProposedChanges(revision.target.proposedChanges);
+  const mergeResult = checkMergeConflicts(
+    baseSnapshot,
+    entity,
+    existingOps,
+    updatableFields,
+  );
+  const conflicts = mergeResult.conflicts || [];
+
+  // Every conflicting field needs an explicit strategy: the operation is never
+  // implicitly resolved.
+  for (const conflict of conflicts) {
+    const strategy = strategies[conflict.field];
+    if (
+      strategy !== "overwrite" &&
+      strategy !== "discard" &&
+      strategy !== "union"
+    ) {
+      throw new MergeConflictError(
+        `Please resolve conflict for field: ${conflict.field}`,
+        conflicts,
+      );
+    }
+  }
+
+  const conflictFields = new Set(conflicts.map((c) => c.field));
+  const newOps: JsonPatchOperation[] = [];
+  const seenFields = new Set<string>();
+
+  for (const op of existingOps) {
+    const field = op.path.split("/")[1];
+    if (!field || seenFields.has(field)) continue;
+    seenFields.add(field);
+
+    if (!conflictFields.has(field)) {
+      // Revisions only ever produce replace/add (buildPatchOps). A remove/move/copy
+      // would be dropped by the value comparison below, silently losing intent.
+      if (op.op !== "replace" && op.op !== "add") {
+        throw new Error(
+          `Unsupported patch op "${op.op}" in ${entityType} revision rebase`,
+        );
+      }
+      // Live already caught up to what the draft was proposing: nothing to say.
+      if (!isEqual(op.value, entity[field])) newOps.push(op);
+      continue;
+    }
+
+    const strategy = strategies[field];
+    const conflict = conflicts.find((c) => c.field === field);
+    if (!conflict) continue;
+
+    if (strategy === "overwrite") {
+      if (
+        (conflict.proposedValue ?? null) !== null &&
+        !isEqual(conflict.proposedValue, entity[field])
+      ) {
+        newOps.push({
+          op: "replace",
+          path: `/${field}`,
+          value: conflict.proposedValue,
+        });
+      }
+    } else if (strategy === "union") {
+      // A caller-supplied resolution wins; otherwise dedup-concat live then
+      // proposed. For non-arrays there is nothing to merge, so the draft's value
+      // stands.
+      const custom = customValues?.[field];
+      let resolvedValue: unknown;
+      if (custom !== undefined) {
+        resolvedValue = custom;
+      } else if (
+        Array.isArray(conflict.liveValue) &&
+        Array.isArray(conflict.proposedValue)
+      ) {
+        const seen = new Set<string>();
+        const result: unknown[] = [];
+        for (const item of [
+          ...(conflict.liveValue as unknown[]),
+          ...(conflict.proposedValue as unknown[]),
+        ]) {
+          const key =
+            typeof item === "object" ? JSON.stringify(item) : String(item);
+          if (!seen.has(key)) {
+            seen.add(key);
+            result.push(item);
+          }
+        }
+        resolvedValue = result;
+      } else {
+        resolvedValue = conflict.proposedValue;
+      }
+      if (
+        (resolvedValue ?? null) !== null &&
+        !isEqual(resolvedValue, entity[field])
+      ) {
+        newOps.push({ op: "replace", path: `/${field}`, value: resolvedValue });
+      }
+    }
+    // strategy === "discard" → drop the op, so the live value stands.
+  }
+
+  const updated = await context.models.revisions.rebase(
+    revision.id,
+    entity,
+    newOps,
+    context.userId,
+  );
+  await getRevisionWebhookAdapter(entityType)?.dispatch(context, updated, {
+    type: "rebased",
+  });
+  return updated;
 }
