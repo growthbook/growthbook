@@ -607,23 +607,28 @@ export async function publishRevision(
     // no-op self-heal path above if it was partially applied). Best-effort:
     // surface the original error regardless.
     try {
-      // Don't undo someone else's success: while this apply was failing, another
-      // request may have recovered the same claimed merge and landed it. The
-      // recovery marker is the proof, so leave the revision merged in that case.
-      const current = await context.models.revisions.getById(merged.id);
-      const recoveredElsewhere = (current?.activityLog ?? []).some(
-        (e) => e.action === "merge-recovered",
-      );
-      if (recoveredElsewhere) {
-        throw e;
-      }
+      // Guarded on the merge we just wrote, so the read and the undo are one
+      // step. Anything that touched the revision in between — most importantly
+      // another request recovering this same claimed merge and landing it — moves
+      // `dateUpdated` and this no-ops rather than reopening a revision whose
+      // changes are now live. Checking a marker first and then reopening left a
+      // window where recovery could land between the two.
+      //
+      // No unguarded fallback: reopening regardless is exactly the write that
+      // would undo someone else's success. A revision left merged is recoverable
+      // (re-publishing reconciles it); one reopened after its changes landed is
+      // not.
       const restored = await context.models.revisions.reopenAfterFailedApply(
         merged.id,
         context.userId,
         revision,
+        merged.dateUpdated,
       );
       if (!restored) {
-        await context.models.revisions.reopen(merged.id, context.userId);
+        logger.warn(
+          { revisionId: merged.id },
+          "left merged after a failed apply: the revision changed underneath the compensation, so reopening could undo a concurrent recovery",
+        );
       }
     } catch {
       // ignore — the original applyChanges error is the one that matters

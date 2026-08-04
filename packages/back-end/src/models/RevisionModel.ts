@@ -1,5 +1,5 @@
-import uniqid from "uniqid";
 import {
+  isUserBlockedFromApproving,
   revisionValidator,
   activityLogEntryValidator,
   Revision,
@@ -11,6 +11,7 @@ import {
   getApprovalFlowSettings,
   isRevisionEditLockedBySchedule,
 } from "shared/enterprise";
+import uniqid from "uniqid";
 import { ACTIVE_DRAFT_STATUSES, ActiveDraftStatus } from "shared/validators";
 import type { CreateProps, UpdateProps } from "shared/types/base-model";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
@@ -921,6 +922,25 @@ export class RevisionModel extends BaseClass {
         : ["reviews", "status", "activityLog"],
       (existing) => {
         if (isComment) this.assertCanWriteCommentOn(existing);
+        // Authoritative self-approval check, against the row this write is
+        // conditioned on. Callers screen it first for a clean error, but a
+        // caller's read is stale by the time it writes: a contributor entry can
+        // land in between (editing records content and contributor separately),
+        // and approving your own change is exactly what the setting forbids.
+        if (
+          decision === "approve" &&
+          this.context.hasPremiumFeature("require-approvals") &&
+          isUserBlockedFromApproving({
+            settings: this.context.org.settings,
+            entityType: existing.target.type,
+            revision: existing,
+            userId,
+          })
+        ) {
+          throw new Error(
+            "You contributed to this revision and cannot approve it.",
+          );
+        }
         // Re-checked under CAS: a verdict must not resurrect a revision that was
         // merged or discarded concurrently with this review.
         if (existing.status === "merged" || existing.status === "discarded") {
@@ -1364,9 +1384,15 @@ export class RevisionModel extends BaseClass {
     // Whether a schedule was armed on the winning CAS read — used after the
     // status transition lands to scrub the schedule fields.
     let hadSchedule = false;
+    // `target` is guarded because the caller computed `desiredState` from this
+    // revision's proposed changes BEFORE calling merge. Guarding status alone let
+    // a concurrent edit that kept the status (another contributor saving the same
+    // draft) rewrite the content after that computation: live received the stale
+    // content while history recorded the newer. A CAS has to guard every field the
+    // computation it protects actually read.
     const guardFields: (keyof Revision)[] = options?.expected
-      ? ["status", "dateUpdated"]
-      : ["status"];
+      ? ["status", "dateUpdated", "target"]
+      : ["status", "target"];
     const merged = await this.updateWithCas(id, guardFields, (existing) => {
       if (existing.status === "merged" || existing.status === "discarded") {
         throw new ConflictError(
