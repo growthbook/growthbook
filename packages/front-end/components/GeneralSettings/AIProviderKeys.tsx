@@ -144,7 +144,7 @@ function ProviderRow({
         <AIProviderLogo provider={provider} />
         <Box style={{ flexGrow: 1, minWidth: 200 }}>
           <Flex align="center" gap="2">
-            <Text size="medium" weight="semibold">
+            <Text size="md" weight="semibold">
               {label}
             </Text>
             {credential ? (
@@ -153,7 +153,7 @@ function ProviderRow({
               <Badge label="From environment" color="blue" />
             ) : null}
           </Flex>
-          <Text size="small" color="text-mid" as="div">
+          <Text size="sm" color="text-mid" as="div">
             {credential ? (
               <>
                 Key ending in <code>{credential.last4 || "••••"}</code>
@@ -252,11 +252,13 @@ export default function AIProviderKeys() {
   const { credentials, envProviders, mutate, isLoading, loaded } =
     useAIProviderKeys();
 
-  // Which provider's key the "Add a provider" picker is scoped to. Defaults to
-  // the first provider with nothing configured, so the common case — one org,
-  // one provider — is a single dropdown plus one paste.
+  // The provider whose row the admin just opened from the "Add a provider"
+  // picker, so the common case — one org, one provider — is a single dropdown
+  // plus one paste. This drives the row, not the picker's value: the picker
+  // always reads "Select a provider..." because picking again is meaningless
+  // once the row exists.
   const configured = new Set(credentials.map((c) => c.provider));
-  const [selectedProvider, setSelectedProvider] = useState<AIProvider | "">("");
+  const [addingProvider, setAddingProvider] = useState<AIProvider | "">("");
 
   if (isLoading && !loaded) return null;
 
@@ -265,17 +267,35 @@ export default function AIProviderKeys() {
   // simple setting into a wall of empty rows.
   const visibleProviders = AI_PROVIDERS.filter(
     (p) =>
-      configured.has(p) || envProviders.includes(p) || p === selectedProvider,
+      configured.has(p) || envProviders.includes(p) || p === addingProvider,
   );
 
-  const addableProviders = AI_PROVIDERS.filter((p) => !configured.has(p));
+  // Every provider stays in the list so the full set is discoverable, but one
+  // that already has a row above can't be added twice: it's disabled and sorted
+  // below the ones that are still addable. Its row is where you replace or
+  // override its key. This includes the provider just picked from here — the row
+  // appears immediately, so picking it again would do nothing.
+  const providerOptions = AI_PROVIDERS.map((p) => ({
+    value: p,
+    label: visibleProviders.includes(p)
+      ? `${AI_PROVIDER_META[p].label} (shown above)`
+      : AI_PROVIDER_META[p].label,
+    isDisabled: visibleProviders.includes(p),
+  })).sort(
+    (a, b) =>
+      Number(a.isDisabled) - Number(b.isDisabled) ||
+      a.label.localeCompare(b.label),
+  );
+
+  // Every provider has a row — the picker would be nothing but dead entries.
+  const showProviderPicker = providerOptions.some((o) => !o.isDisabled);
 
   return (
     <Box mb="6" width="100%">
-      <Text size="large" weight="semibold" as="div">
+      <Text size="lg" weight="semibold" as="div">
         AI providers
       </Text>
-      <Text size="medium" color="text-mid" as="div" mb="3">
+      <Text size="md" color="text-mid" as="div" mb="3">
         Bring your own provider account. Keys are encrypted at rest, and a key
         saved here takes precedence over any environment variable. You only need
         a key for the providers whose models you actually use.
@@ -288,28 +308,29 @@ export default function AIProviderKeys() {
           credential={credentials.find((c) => c.provider === provider)}
           inheritedFromEnv={envProviders.includes(provider)}
           canEdit={canEdit}
-          startEditing={provider === selectedProvider}
+          startEditing={provider === addingProvider}
           onChanged={async () => {
-            // Clear the picker so the row is driven by the saved credential
-            // from here on, and the dropdown offers the remaining providers.
-            setSelectedProvider("");
+            // Let the row be driven by the saved credential from here on.
+            setAddingProvider("");
             await mutate();
           }}
         />
       ))}
 
-      {canEdit && addableProviders.length > 0 && (
+      {canEdit && showProviderPicker && (
         <Box mt="3" style={{ maxWidth: 320 }}>
           <SelectField
             label="Add a provider"
             size="medium"
-            value={selectedProvider}
-            onChange={(v) => setSelectedProvider(v as AIProvider)}
+            // Always empty: picking a provider adds its row above and the
+            // picker goes straight back to its prompt, ready for the next one.
+            value=""
+            onChange={(v) => setAddingProvider(v as AIProvider)}
             initialOption="Select a provider..."
-            options={addableProviders.map((p) => ({
-              value: p,
-              label: AI_PROVIDER_META[p].label,
-            }))}
+            // Already ordered addable-first; the default alphabetical sort would
+            // shuffle the disabled entries back in among them.
+            sort={false}
+            options={providerOptions}
           />
         </Box>
       )}

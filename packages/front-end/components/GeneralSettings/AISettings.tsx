@@ -4,6 +4,7 @@ import { useFormContext, UseFormReturn } from "react-hook-form";
 import {
   AI_PROMPT_DEFAULTS,
   AI_IMAGE_MODELS,
+  AI_PROVIDERS,
   AI_PROVIDER_META,
   AIPromptInterface,
   AIModel,
@@ -13,9 +14,9 @@ import {
   getProviderFromModel,
   getProviderFromEmbeddingModel,
 } from "shared/ai";
-import { ensureValuesExactlyMatchUnion } from "shared/util";
 import {
   getAvailableAIModelOptions,
+  getAvailableEmbeddingModelOptions,
   getAvailablePromptModelOptions,
 } from "@/services/aiModelSelectOptions";
 import { useAuth } from "@/services/auth";
@@ -32,26 +33,6 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
 import AIProviderKeys, { useAIProviderKeys } from "./AIProviderKeys";
-
-const EMBEDDING_MODEL_LABELS = ensureValuesExactlyMatchUnion<EmbeddingModel>()([
-  // OpenAI embeddings
-  { value: "text-embedding-3-small", label: "OpenAI: text-embedding-3-small" },
-  { value: "text-embedding-3-large", label: "OpenAI: text-embedding-3-large" },
-  {
-    value: "text-embedding-ada-002",
-    label: "OpenAI: text-embedding-ada-002",
-  },
-  // Mistral embeddings
-  { value: "mistral-embed", label: "Mistral: mistral-embed" },
-  { value: "codestral-embed", label: "Mistral: codestral-embed" },
-  // Google embeddings
-  { value: "text-embedding-005", label: "Google: text-embedding-005" },
-  {
-    value: "text-multilingual-embedding-002",
-    label: "Google: text-multilingual-embedding-002",
-  },
-  { value: "gemini-embedding-001", label: "Google: gemini-embedding-001" },
-]);
 
 // Curated list of image-generation models the Visual Editor supports.
 // We present a closed dropdown rather than free text — letting users
@@ -252,6 +233,11 @@ export default function AISettings({
   // provider bill, so it chooses its own models — same as self-hosted.
   const canChooseModels = !isCloud() || hasOwnKey;
 
+  // Only offer models we can actually call. This comes from /ai/credentials
+  // rather than the org payload in UserContext so that adding a key updates the
+  // dropdowns immediately, without a full org refresh.
+  const availableProviders = AI_PROVIDERS.filter(hasKeyForProvider);
+
   // Subscribe to formState.isDirty by reading it during render.
   // This is required for react-hook-form to properly track dirty state
   // when this component modifies form values via register() or setValue().
@@ -373,7 +359,10 @@ export default function AISettings({
                           helpText="Used by every AI feature that doesn't override it."
                           value={form.watch("defaultAIModel")}
                           onChange={(v) => form.setValue("defaultAIModel", v)}
-                          options={getAvailableAIModelOptions()}
+                          options={getAvailableAIModelOptions(
+                            availableProviders,
+                            form.watch("defaultAIModel"),
+                          )}
                         />
                         <ApiKeyWarning
                           model={form.watch("defaultAIModel") || "gpt-4o-mini"}
@@ -398,7 +387,11 @@ export default function AISettings({
                             "text-embedding-ada-002"
                           }
                           onChange={(v) => form.setValue("embeddingModel", v)}
-                          options={EMBEDDING_MODEL_LABELS}
+                          options={getAvailableEmbeddingModelOptions(
+                            availableProviders,
+                            form.watch("embeddingModel") ||
+                              "text-embedding-ada-002",
+                          )}
                         />
                         <EmbeddingKeyWarning
                           embeddingModel={
@@ -472,7 +465,12 @@ export default function AISettings({
                                     { shouldDirty: true },
                                   )
                                 }
-                                options={getAvailablePromptModelOptions()}
+                                options={getAvailablePromptModelOptions(
+                                  availableProviders,
+                                  promptForm.watch(
+                                    `${prompt.promptType}-model`,
+                                  ) || "",
+                                )}
                                 helpText={prompt?.overrideModelHelpText || ""}
                               />
                               {(() => {
@@ -614,7 +612,10 @@ export default function AISettings({
                           }
                           options={[
                             { value: "", label: "Use default AI model" },
-                            ...getAvailableAIModelOptions(),
+                            ...getAvailableAIModelOptions(
+                              availableProviders,
+                              form.watch("visualEditorAIModel") || "",
+                            ),
                           ]}
                         />
                         {form.watch("visualEditorAIModel") && (

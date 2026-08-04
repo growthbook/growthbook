@@ -4,6 +4,7 @@ import SelectField from "@/components/Forms/SelectField";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import { isCloud } from "@/services/env";
 import { getAvailableAIModelOptions } from "@/services/aiModelSelectOptions";
+import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 
@@ -25,7 +26,14 @@ export default function AIChatModelSelect({
   height = "35px",
 }: AIChatModelSelectProps) {
   const { defaultAIModel } = useAISettings();
-  const options = useMemo(() => getAvailableAIModelOptions(), []);
+  // Providers the org has a key for — its own stored keys plus any the host set
+  // in the environment. Comes from the org payload so this doesn't add a
+  // request to every chat surface.
+  const { aiKeyProviders } = useUser();
+  const options = useMemo(
+    () => getAvailableAIModelOptions(aiKeyProviders, value),
+    [aiKeyProviders, value],
+  );
 
   if (isCloud()) return null;
 

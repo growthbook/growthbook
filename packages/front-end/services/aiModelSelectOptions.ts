@@ -1,12 +1,9 @@
-import type { AIModel, AIProvider } from "shared/ai";
-import { AI_PROVIDER_MODEL_MAP } from "shared/ai";
+import type { AIModel, AIProvider, EmbeddingModel } from "shared/ai";
 import {
-  hasOpenAIKey,
-  hasAnthropicKey,
-  hasXaiKey,
-  hasMistralKey,
-  hasGoogleAIKey,
-} from "@/services/env";
+  AI_PROVIDER_MODEL_MAP,
+  getProviderFromEmbeddingModel,
+} from "shared/ai";
+import { ensureValuesExactlyMatchUnion } from "shared/util";
 
 type FlatOption = { value: string; label: string };
 type GroupedOption = { label: string; options: FlatOption[] };
@@ -82,46 +79,141 @@ export const AI_MODEL_DISPLAY_LABELS: Record<AIModel, string> = {
   "gemini-pro-latest": "Gemini Pro Latest",
 };
 
-function hasKeyForProvider(provider: AIProvider): boolean {
-  if (provider === "openai") return hasOpenAIKey();
-  if (provider === "anthropic") return hasAnthropicKey();
-  if (provider === "xai") return hasXaiKey();
-  if (provider === "mistral") return hasMistralKey();
-  if (provider === "google") return hasGoogleAIKey();
-  return false;
+/** Embedding models, labeled with the provider that serves them. */
+export const EMBEDDING_MODEL_OPTIONS =
+  ensureValuesExactlyMatchUnion<EmbeddingModel>()([
+    // OpenAI embeddings
+    {
+      value: "text-embedding-3-small",
+      label: "OpenAI: text-embedding-3-small",
+    },
+    {
+      value: "text-embedding-3-large",
+      label: "OpenAI: text-embedding-3-large",
+    },
+    {
+      value: "text-embedding-ada-002",
+      label: "OpenAI: text-embedding-ada-002",
+    },
+    // Mistral embeddings
+    { value: "mistral-embed", label: "Mistral: mistral-embed" },
+    { value: "codestral-embed", label: "Mistral: codestral-embed" },
+    // Google embeddings
+    { value: "text-embedding-005", label: "Google: text-embedding-005" },
+    {
+      value: "text-multilingual-embedding-002",
+      label: "Google: text-multilingual-embedding-002",
+    },
+    { value: "gemini-embedding-001", label: "Google: gemini-embedding-001" },
+  ]);
+
+/**
+ * Keeps the saved model selectable even when its provider has no key. Without
+ * this, filtering the list would drop the stored value out of the dropdown and
+ * SelectField would render an empty control while the form still held that
+ * model — it would look unset, and saving the form would silently keep it.
+ */
+function withSelectedOption<T extends FlatOption | GroupedOption>(
+  options: T[],
+  selected: string | undefined,
+  label: (value: string) => string,
+): (T | GroupedOption)[] {
+  if (!selected) return options;
+  const present = options.some((o) =>
+    "options" in o
+      ? o.options.some((s) => s.value === selected)
+      : o.value === selected,
+  );
+  if (present) return options;
+  return [
+    {
+      label: "Selected, no API key",
+      options: [{ value: selected, label: label(selected) }],
+    },
+    ...options,
+  ];
 }
 
 /**
- * Returns model options filtered to providers with configured API keys, always
- * grouped by provider. Falls back to showing all models if no keys are configured yet.
+ * Model options grouped by provider, restricted to `availableProviders` — the
+ * providers this org can actually reach, meaning it stored a key in GrowthBook
+ * or the host set the provider's environment variable. Callers pass that in
+ * rather than having this read the front-end server's env flags, which cannot
+ * see org-stored keys at all.
+ *
+ * Falls back to every provider when the list is empty, so a fresh install with
+ * no key configured yet still shows a full picker (the selection then renders
+ * an API key warning below it).
  */
-export function getAvailableAIModelOptions(): GroupedOption[] {
+export function getAvailableAIModelOptions(
+  availableProviders: readonly AIProvider[],
+  selectedModel?: string,
+): (FlatOption | GroupedOption)[] {
   const allProviders = Object.keys(AI_PROVIDER_MODEL_MAP) as AIProvider[];
-  const availableProviders = allProviders.filter(hasKeyForProvider);
 
-  // Fall back to all providers if none have keys yet (e.g., during initial setup)
-  const providers =
-    availableProviders.length > 0 ? availableProviders : allProviders;
+  // Filter the full list rather than mapping availableProviders, so the
+  // dropdown keeps the registry's provider order regardless of key order.
+  const providers = availableProviders.length
+    ? allProviders.filter((p) => availableProviders.includes(p))
+    : allProviders;
 
-  return providers.map((provider) => ({
+  const groups = providers.map((provider) => ({
     label: PROVIDER_DISPLAY_NAMES[provider],
     options: AI_PROVIDER_MODEL_MAP[provider].map((value) => ({
       value,
       label: AI_MODEL_DISPLAY_LABELS[value as AIModel] ?? value,
     })),
   }));
+
+  return withSelectedOption(
+    groups,
+    selectedModel,
+    (value) => AI_MODEL_DISPLAY_LABELS[value as AIModel] ?? value,
+  );
 }
 
 /**
  * Per-prompt model override options with an "org default" sentinel prepended.
  * Filtered and grouped the same way as getAvailableAIModelOptions().
  */
-export function getAvailablePromptModelOptions(): (
-  | FlatOption
-  | GroupedOption
-)[] {
+export function getAvailablePromptModelOptions(
+  availableProviders: readonly AIProvider[],
+  selectedModel?: string,
+): (FlatOption | GroupedOption)[] {
   return [
     { value: "", label: "-- Use Default AI Model --" },
-    ...getAvailableAIModelOptions(),
+    ...getAvailableAIModelOptions(availableProviders, selectedModel),
   ];
+}
+
+/**
+ * Embedding model options, restricted to providers with a key the same way as
+ * getAvailableAIModelOptions(). Embedding models live in their own registry, so
+ * they need their own model → provider lookup.
+ */
+export function getAvailableEmbeddingModelOptions(
+  availableProviders: readonly AIProvider[],
+  selectedModel?: string,
+): (FlatOption | GroupedOption)[] {
+  const available = availableProviders.length
+    ? EMBEDDING_MODEL_OPTIONS.filter((o) => {
+        try {
+          return availableProviders.includes(
+            getProviderFromEmbeddingModel(o.value),
+          );
+        } catch {
+          // Unknown provider mapping — keep the option rather than hide it.
+          return true;
+        }
+      })
+    : EMBEDDING_MODEL_OPTIONS;
+
+  const options = available.length ? available : [...EMBEDDING_MODEL_OPTIONS];
+
+  return withSelectedOption(
+    [...options],
+    selectedModel,
+    (value) =>
+      EMBEDDING_MODEL_OPTIONS.find((o) => o.value === value)?.label ?? value,
+  );
 }
