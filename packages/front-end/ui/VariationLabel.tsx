@@ -17,7 +17,7 @@ export interface VariationLabelProps {
 }
 
 // Below this name width, hide the name and show only the number (tooltip reveals it).
-const MIN_NAME_WIDTH_PX = 24;
+const MIN_NAME_WIDTH_PX = 4;
 // Matches the Flex `gap="1"` between the number and the name.
 const FLEX_GAP_PX = 4;
 
@@ -43,6 +43,7 @@ export default function VariationLabel({
       const rootWidth = root.clientWidth;
       const numberWidth = numberRef.current?.offsetWidth ?? 0;
       const nameWidth = rootWidth - numberWidth - FLEX_GAP_PX;
+      console.log("widths", { name, rootWidth, numberWidth, nameWidth });
       setHideName(rootWidth > 0 && nameWidth < MIN_NAME_WIDTH_PX);
       const text = textRef.current;
       setIsTruncated(!!text && text.scrollWidth > text.clientWidth);
