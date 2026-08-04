@@ -327,8 +327,11 @@ export default function ConstantDetailPage(): React.ReactElement {
   );
   // Delete is gated on the LIVE archive state (not the displayed/draft state):
   // the constant must be archived and published before it can be deleted.
+  // No environment footprint: an archived Constant serves nowhere, which is what
+  // the server checks too. Using the pending revision's footprint here borrowed
+  // an unrelated change's environments.
   const canDeleteNow =
-    permissionsUtil.canDeleteConstant(constant, publishEnvironments) &&
+    permissionsUtil.canDeleteConstant(constant, NO_ENVIRONMENT_BINDING) &&
     !!constant.archived;
   // Editing is only meaningful on the live state or a draft (not when viewing a
   // merged/discarded revision). On live it starts a new draft; on a draft it

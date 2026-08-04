@@ -127,7 +127,14 @@ export default function ConfigModal({
   // those projects only produces a predictable rejection.
   const projectOptions = projects
     .filter((p) =>
-      permissionsUtil.canRevisionAction("config", "draft", { project: p.id }),
+      // Creating asks for create authority; moving an existing Config asks for
+      // authoring rights in the destination. Either way the server refuses a
+      // project the caller cannot write, so listing it only produces a rejection.
+      editing
+        ? permissionsUtil.canRevisionAction("config", "draft", {
+            project: p.id,
+          })
+        : permissionsUtil.canCreateConfig({ project: p.id }),
     )
     .map((p) => ({ label: p.name, value: p.id }));
 

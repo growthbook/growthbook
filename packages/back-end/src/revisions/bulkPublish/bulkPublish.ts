@@ -157,16 +157,13 @@ export async function planBulkPublish(
       );
       continue;
     }
-    if (!adapter.canPublish(context, entity)) {
-      blockLoad(
-        itemGate(
-          ref,
-          "permission-denied",
-          `You do not have permission to publish ${displayEntityName(ref.entityType)} "${displayId(ref)}"`,
-        ),
-      );
-      continue;
-    }
+    // Deliberately NOT refused here on `canPublish` alone. That check is coarse
+    // publish authority, and a pure revert or a pure archive is landable on the
+    // narrower revert/delete atoms — which can only be judged once the revision's
+    // changes are known. The authoritative, purity-aware check runs in
+    // `collectGates` below, so refusing here turned valid revert-only and
+    // delete-only publishes into permission errors.
+
     try {
       const { desiredState, hasChanges, proposedEntity } =
         await adapter.buildDesiredState(context, entity, revision);

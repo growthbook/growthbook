@@ -323,10 +323,13 @@ export async function revertFeatureRevision(
 
   if (!isPublish) {
     // Proposing a revert as a draft is open to draft authors, and also to anyone
-    // with revert authority even if they have no general draft access.
+    // with revert authority even if they have no general draft access. Scoped to
+    // the project, not the enabled environments: staging a draft publishes
+    // nothing, so an environment-limited reverter can still propose one for a
+    // publisher to land. Matches the internal path and the revert modal.
     if (
       !context.permissions.canEditFeatureDrafts(feature) &&
-      !context.permissions.canRevertFeature(feature, allEnabledEnvs)
+      !context.permissions.canRevertFeature(feature, [])
     ) {
       context.permissions.throwPermissionError();
     }

@@ -463,7 +463,29 @@ export async function publishRevision(
       // the caller's publish authority was checked above.
       { dangerouslyBypassCanUpdate: true },
     );
-    if (!claimed) return revision;
+    if (!claimed) {
+      // Someone else holds the claim. Only report success once their apply has
+      // actually landed — otherwise this returns "published" while the winner is
+      // still mid-apply and the live entity is unchanged. Re-read the entity and
+      // require it to match the desired state; if it doesn't yet, the caller
+      // should retry rather than believe the change is live.
+      const fresh = await adapter
+        .getModel(context)
+        ?.getById(revision.target.id);
+      const landed =
+        !!fresh &&
+        Object.keys(desiredState).every(
+          (key) =>
+            !updatableFields.has(key) ||
+            isEqual(desiredState[key], (fresh as Record<string, unknown>)[key]),
+        );
+      if (!landed) {
+        throw new BadRequestError(
+          "This merge is being recovered by another request. Retry in a moment.",
+        );
+      }
+      return revision;
+    }
 
     try {
       await adapter.applyChanges(context, entity, desiredState, {
@@ -548,6 +570,16 @@ export async function publishRevision(
     // no-op self-heal path above if it was partially applied). Best-effort:
     // surface the original error regardless.
     try {
+      // Don't undo someone else's success: while this apply was failing, another
+      // request may have recovered the same claimed merge and landed it. The
+      // recovery marker is the proof, so leave the revision merged in that case.
+      const current = await context.models.revisions.getById(merged.id);
+      const recoveredElsewhere = (current?.activityLog ?? []).some(
+        (e) => e.action === "merge-recovered",
+      );
+      if (recoveredElsewhere) {
+        throw e;
+      }
       const restored = await context.models.revisions.reopenAfterFailedApply(
         merged.id,
         context.userId,

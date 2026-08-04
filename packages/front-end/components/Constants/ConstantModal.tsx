@@ -117,12 +117,16 @@ export default function ConstantModal({
     () =>
       projects
         .filter((p) =>
-          permissionsUtil.canRevisionAction("constant", "draft", {
-            project: p.id,
-          }),
+          // Creating asks for create authority; moving an existing Constant asks
+          // for authoring rights in the destination.
+          editing
+            ? permissionsUtil.canRevisionAction("constant", "draft", {
+                project: p.id,
+              })
+            : permissionsUtil.canCreateConstant({ project: p.id }),
         )
         .map((p) => ({ label: p.name, value: p.id })),
-    [projects, permissionsUtil],
+    [projects, permissionsUtil, editing],
   );
 
   return (

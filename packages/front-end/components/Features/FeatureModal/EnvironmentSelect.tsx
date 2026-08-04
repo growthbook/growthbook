@@ -51,9 +51,12 @@ const EnvironmentSelect: FC<{
     );
   }, [environments, project]);
 
+  // This modal creates flags, and the server gates creation on CREATE authority
+  // per environment — asking for publish hid environments a create-only user is
+  // entitled to switch on.
   const environmentsUserCanAccess = useMemo(() => {
     return relevantEnvironments.filter((env) => {
-      return permissionsUtil.canPublishFeature({ project }, [env.id]);
+      return permissionsUtil.canCreateFeature({ project }, [env.id]);
     });
   }, [relevantEnvironments, permissionsUtil, project]);
 
@@ -163,7 +166,7 @@ const EnvironmentSelect: FC<{
             {relevantEnvironments.map((env) => (
               <Checkbox
                 disabled={
-                  !permissionsUtil.canPublishFeature({ project }, [env.id])
+                  !permissionsUtil.canCreateFeature({ project }, [env.id])
                 }
                 disabledMessage="You don't have permission to create features in this environment."
                 value={environmentSettings[env.id].enabled}
