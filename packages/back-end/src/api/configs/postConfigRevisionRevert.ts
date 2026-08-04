@@ -7,7 +7,6 @@ import {
   configUpdatableFieldsSchema,
 } from "shared/validators";
 import {
-  assertCanRevertRevision,
   revertRevision,
   resolveRevertStrategy,
 } from "back-end/src/revisions/revertActions";
@@ -135,21 +134,6 @@ export const postConfigRevisionRevert = createApiRequestHandler(
 
   // A publish-strategy revert advances live state, so block it while locked
   // (before any merge). A draft-strategy revert only stages a draft, so it's fine.
-  // Asserted here as well as inside the pipeline, so a caller who lacks the
-  // authority is told that rather than "this needs approval" — refusing for
-  // authority outranks refusing for process.
-  assertCanRevertRevision({
-    context: req.context,
-    entityType: "config",
-    entity: config as unknown as Record<string, unknown>,
-    fields: fieldsToUpdate,
-    landing: isPublish,
-    footprint: configPublishEnvironments(req.context, config),
-  });
-
-  if (isPublish) {
-    assertConfigNotLocked(config);
-  }
   // The archive-dependents guard for a re-archiving revert runs below via the
   // authoritative assertConfigPublishGuards call, which fingerprints the reverted
   // (proposed) value/lineage — a duplicate check here against the current live
@@ -179,27 +163,9 @@ export const postConfigRevisionRevert = createApiRequestHandler(
     ([key, value]) => ({ op: "replace" as const, path: `/${key}`, value }),
   );
 
-  let approvalRequired = false;
-  let canBypass = false;
-  if (isPublish) {
-    approvalRequired = revertsBypassApproval
-      ? false
-      : adapter.isApprovalRequiredForRevision
-        ? adapter.isApprovalRequiredForRevision(req.context, {
-            target: { snapshot: config, proposedChanges: patchOps },
-          } as unknown as Revision)
-        : adapter.isApprovalRequired(req.context);
-    canBypass =
-      canUseRestApiBypassSetting(req) ||
-      adapter.canBypassApproval(req.context, config as Record<string, unknown>);
-    if (approvalRequired && !canBypass) {
-      throw new BadRequestError(
-        "This revert requires approval before changes can be published. " +
-          'Use `strategy: "draft"` to create a draft for review, ' +
-          "or use a role/token that grants FlagsBypassApprovals.",
-      );
-    }
-  }
+  // A locked Config is frozen at its published revision, so a landing revert is
+  // refused before anything is written.
+  if (isPublish) assertConfigNotLocked(config);
 
   await ensureLiveRevisionExists(
     req.context,
@@ -223,7 +189,30 @@ export const postConfigRevisionRevert = createApiRequestHandler(
     patchOps,
     footprint: configPublishEnvironments(req.context, config),
     title,
-    bypass: approvalRequired && canBypass,
+    // Approval for this landing, resolved by the pipeline after authority.
+    resolveApproval: async () => {
+      const approvalRequired = revertsBypassApproval
+        ? false
+        : adapter.isApprovalRequiredForRevision
+          ? adapter.isApprovalRequiredForRevision(req.context, {
+              target: { snapshot: config, proposedChanges: patchOps },
+            } as unknown as Revision)
+          : adapter.isApprovalRequired(req.context);
+      const canBypass =
+        canUseRestApiBypassSetting(req) ||
+        adapter.canBypassApproval(
+          req.context,
+          config as Record<string, unknown>,
+        );
+      if (approvalRequired && !canBypass) {
+        throw new BadRequestError(
+          "This revert requires approval before changes can be published. " +
+            'Use `strategy: "draft"` to create a draft for review, ' +
+            "or use a role/token that grants FlagsBypassApprovals.",
+        );
+      }
+      return { approvalRequired, canBypass };
+    },
     // Cross-field and schema validation: stricter once it lands.
     validate: async () => {
       if (isPublish) {

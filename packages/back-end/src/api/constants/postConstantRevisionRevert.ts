@@ -7,7 +7,6 @@ import {
   constantUpdatableFieldsSchema,
 } from "shared/validators";
 import {
-  assertCanRevertRevision,
   revertRevision,
   resolveRevertStrategy,
 } from "back-end/src/revisions/revertActions";
@@ -41,7 +40,6 @@ export const postConstantRevisionRevert = createApiRequestHandler(
     req.body.strategy,
     revertsBypassApproval,
   );
-  const isPublish = strategy === "publish";
 
   const targetRevision = await loadRevisionByVersion(
     req.context,
@@ -123,47 +121,6 @@ export const postConstantRevisionRevert = createApiRequestHandler(
     ([key, value]) => ({ op: "replace" as const, path: `/${key}`, value }),
   );
 
-  // For publish, mirror the publish handler's per-revision approval gate. The
-  // constant adapter reads target.snapshot for the project + change diff, so
-  // include the live constant as the snapshot (unlike the saved-group handler,
-  // whose adapter ignores the snapshot here).
-  let approvalRequired = false;
-  let canBypass = false;
-  // Asserted here as well as inside the pipeline, so a caller who lacks the
-  // authority is told that rather than "this needs approval" — refusing for
-  // authority outranks refusing for process.
-  assertCanRevertRevision({
-    context: req.context,
-    entityType: "constant",
-    entity: constant as unknown as Record<string, unknown>,
-    fields: fieldsToUpdate,
-    landing: isPublish,
-    footprint: constantPublishEnvironments(req.context, revertEnvs),
-  });
-
-  if (isPublish) {
-    approvalRequired = revertsBypassApproval
-      ? false
-      : adapter.isApprovalRequiredForRevision
-        ? adapter.isApprovalRequiredForRevision(req.context, {
-            target: { snapshot: constant, proposedChanges: patchOps },
-          } as unknown as Revision)
-        : adapter.isApprovalRequired(req.context);
-    canBypass =
-      canUseRestApiBypassSetting(req) ||
-      adapter.canBypassApproval(
-        req.context,
-        constant as Record<string, unknown>,
-      );
-    if (approvalRequired && !canBypass) {
-      throw new BadRequestError(
-        "This revert requires approval before changes can be published. " +
-          'Use `strategy: "draft"` to create a draft for review, ' +
-          "or use a role/token that grants FlagsBypassApprovals.",
-      );
-    }
-  }
-
   await ensureLiveRevisionExists(
     req.context,
     "constant",
@@ -186,7 +143,30 @@ export const postConstantRevisionRevert = createApiRequestHandler(
     patchOps,
     footprint: constantPublishEnvironments(req.context, revertEnvs),
     title,
-    bypass: approvalRequired && canBypass,
+    // Approval for this landing, resolved by the pipeline after authority.
+    resolveApproval: async () => {
+      const approvalRequired = revertsBypassApproval
+        ? false
+        : adapter.isApprovalRequiredForRevision
+          ? adapter.isApprovalRequiredForRevision(req.context, {
+              target: { snapshot: constant, proposedChanges: patchOps },
+            } as unknown as Revision)
+          : adapter.isApprovalRequired(req.context);
+      const canBypass =
+        canUseRestApiBypassSetting(req) ||
+        adapter.canBypassApproval(
+          req.context,
+          constant as Record<string, unknown>,
+        );
+      if (approvalRequired && !canBypass) {
+        throw new BadRequestError(
+          "This revert requires approval before changes can be published. " +
+            'Use `strategy: "draft"` to create a draft for review, ' +
+            "or use a role/token that grants FlagsBypassApprovals.",
+        );
+      }
+      return { approvalRequired, canBypass };
+    },
     // Guards that only bite on landing: taking the Constant out of service, and
     // the value guards a live rewrite must clear. A metadata-only revert cannot
     // rewrite a served value.

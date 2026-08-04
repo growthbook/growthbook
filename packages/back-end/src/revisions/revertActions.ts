@@ -270,8 +270,8 @@ export async function revertRevision({
   patchOps,
   footprint,
   title,
-  bypass,
   validate,
+  resolveApproval,
   assertLandable,
 }: {
   context: Context;
@@ -287,9 +287,18 @@ export async function revertRevision({
   patchOps: ReturnType<typeof buildPatchOps>;
   footprint: string[];
   title?: string;
-  bypass: boolean;
   /** Entity validation, run for both strategies before anything is written. */
   validate?: () => Promise<void>;
+  /**
+   * Resolve whether this landing needs approval and whether the caller may bypass
+   * it, and refuse if not. Runs only when landing, and only AFTER authority —
+   * refusing for authority outranks refusing for process, and having each handler
+   * order that itself is what got it backwards.
+   */
+  resolveApproval?: () => Promise<{
+    approvalRequired: boolean;
+    canBypass: boolean;
+  }>;
   /** Guards that only bite when the change lands live. */
   assertLandable?: () => Promise<void>;
 }): Promise<{ revision: Revision; published: boolean }> {
@@ -320,6 +329,8 @@ export async function revertRevision({
     return { revision: draft, published: false };
   }
 
+  const approval = await resolveApproval?.();
+
   await assertLandable?.();
 
   const merged = await applyRevertDirectly({
@@ -330,7 +341,7 @@ export async function revertRevision({
     patchOps,
     targetRevisionId: targetRevision.id,
     title,
-    bypass,
+    bypass: !!approval?.approvalRequired && !!approval?.canBypass,
   });
   await dispatch?.dispatch(context, merged, { type: "reverted" });
   return { revision: merged, published: true };

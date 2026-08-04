@@ -7,7 +7,6 @@ import {
   savedGroupUpdatableFieldsSchema,
 } from "shared/validators";
 import {
-  assertCanRevertRevision,
   revertRevision,
   resolveRevertStrategy,
 } from "back-end/src/revisions/revertActions";
@@ -39,7 +38,6 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
     req.body.strategy,
     revertsBypassApproval,
   );
-  const isPublish = strategy === "publish";
 
   // Coarse standing before the reconstruction; assertCanRevertRevision below is
   // authoritative once the change set is known. Subset-refusing.
@@ -123,47 +121,8 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
   // per-revision gate, so a metadata-only revert isn't blocked when the org has
   // `requireMetadataReview` disabled. Hoisted so the merge call can record the
   // accurate bypass flag.
-  let approvalRequired = false;
-  let canBypass = false;
   // Authoritative: the revert atom, plus a relocation's destination and an archive
   // restore's delete atom. Saved Groups carry no environment footprint.
-  // Asserted here as well as inside the pipeline, so a caller who lacks the
-  // authority is told that rather than "this needs approval" — refusing for
-  // authority outranks refusing for process.
-  assertCanRevertRevision({
-    context: req.context,
-    entityType: "saved-group",
-    entity: savedGroup as unknown as Record<string, unknown>,
-    fields: fieldsToUpdate,
-    landing: isPublish,
-    footprint: NO_ENVIRONMENT_BINDING,
-  });
-
-  if (isPublish) {
-    // With "reverts bypass approval" enabled, a revert restores an
-    // already-reviewed state and doesn't require approval at all, so it's a
-    // normal merge rather than a recorded bypass.
-    approvalRequired = revertsBypassApproval
-      ? false
-      : adapter.isApprovalRequiredForRevision
-        ? adapter.isApprovalRequiredForRevision(req.context, {
-            target: { proposedChanges: patchOps },
-          } as unknown as Revision)
-        : adapter.isApprovalRequired(req.context);
-    canBypass =
-      !!req.organization.settings?.restApiBypassesReviews ||
-      adapter.canBypassApproval(
-        req.context,
-        savedGroup as Record<string, unknown>,
-      );
-    if (approvalRequired && !canBypass) {
-      throw new BadRequestError(
-        "This revert requires approval before changes can be published. " +
-          'Use `strategy: "draft"` to create a draft for review, ' +
-          "or use a role/token that grants bypassApprovalSavedGroups.",
-      );
-    }
-  }
 
   await ensureLiveRevisionExists(
     req.context,
@@ -189,7 +148,33 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
     // Saved Groups are project-scoped throughout; no environment footprint.
     footprint: NO_ENVIRONMENT_BINDING,
     title,
-    bypass: approvalRequired && canBypass,
+    // Approval for this landing, resolved by the pipeline after authority.
+    resolveApproval: async () => {
+      // With "reverts bypass approval" enabled, a revert restores an
+      // already-reviewed state and doesn't require approval at all, so it's a
+      // normal merge rather than a recorded bypass.
+      const approvalRequired = revertsBypassApproval
+        ? false
+        : adapter.isApprovalRequiredForRevision
+          ? adapter.isApprovalRequiredForRevision(req.context, {
+              target: { proposedChanges: patchOps },
+            } as unknown as Revision)
+          : adapter.isApprovalRequired(req.context);
+      const canBypass =
+        !!req.organization.settings?.restApiBypassesReviews ||
+        adapter.canBypassApproval(
+          req.context,
+          savedGroup as Record<string, unknown>,
+        );
+      if (approvalRequired && !canBypass) {
+        throw new BadRequestError(
+          "This revert requires approval before changes can be published. " +
+            'Use `strategy: "draft"` to create a draft for review, ' +
+            "or use a role/token that grants bypassApprovalSavedGroups.",
+        );
+      }
+      return { approvalRequired, canBypass };
+    },
     // Re-archiving on landing soft-warns (bypassably) if live dependents remain.
     assertLandable: async () => {
       if (fieldsToUpdate.archived === true && !savedGroup.archived) {
