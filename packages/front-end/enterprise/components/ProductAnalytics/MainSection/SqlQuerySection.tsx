@@ -2,8 +2,13 @@ import React, { ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { FaExclamationTriangle } from "react-icons/fa";
-import { PiCaretDown, PiCaretRight, PiPlay, PiQuestion } from "react-icons/pi";
+import {
+  PiCaretDown,
+  PiCaretRight,
+  PiPlay,
+  PiQuestion,
+  PiWarningFill,
+} from "react-icons/pi";
 import type { ImperativePanelHandle } from "react-resizable-panels";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import DisplayTestQueryResults, {
@@ -64,7 +69,7 @@ function SqlQueryActions({
     <>
       {formatError ? (
         <Tooltip body={formatError}>
-          <FaExclamationTriangle className="text-danger" />
+          <PiWarningFill className="text-danger" />
         </Tooltip>
       ) : null}
       {aiTrigger}

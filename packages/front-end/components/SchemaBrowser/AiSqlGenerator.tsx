@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { BsStars } from "react-icons/bs";
-import { FiChevronRight } from "react-icons/fi";
+import { PiCaretRight } from "react-icons/pi";
 import { formatAIRateLimitRetryMessage } from "shared/ai";
 import { AppFeatures } from "shared/types/app-features";
 import Field from "@/components/Forms/Field";
@@ -152,7 +152,7 @@ export default function AiSqlGenerator({
         onClick={handleTriggerClick}
       >
         <BsStars /> Generate Query
-        <FiChevronRight
+        <PiCaretRight
           className="ml-2"
           style={{
             transform: isOpen ? "rotate(90deg)" : "none",
