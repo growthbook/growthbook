@@ -59,6 +59,9 @@ export interface Props<T extends RevertableEntity> {
   // Revert authority over the environments a landed restore would touch. Absent
   // for entities with no environment footprint, where it equals `canRevert`.
   canLandRevert?: boolean;
+  // Delete authority over the environments an archive would take the entity out
+  // of. Staging an archive publishes nothing and stays project-scoped.
+  canLandArchive?: boolean;
   // Draft authority: enough to PROPOSE a revert as a draft, never to land it.
   canDraft: boolean;
   // Renders the entity's DraftSelectorForChanges (publish-now vs. create-draft
@@ -92,6 +95,7 @@ export default function RevertModal<T extends RevertableEntity>({
   canBypassApproval,
   canRevert,
   canLandRevert: canLandRevertEntity,
+  canLandArchive: canLandArchiveEntity,
   canDraft,
   renderDraftSelector,
   close,
@@ -157,6 +161,9 @@ export default function RevertModal<T extends RevertableEntity>({
   );
   const archiveDrifts =
     targetArchived !== liveArchived && (willUnarchive || canReArchive);
+  // Staging the flip is project-scoped; LANDING it takes delete over the
+  // environments the entity serves, so the two are not the same question.
+  const canLandArchive = canLandArchiveEntity ?? canReArchive;
   // Default the opt-in to the recovery direction (un-archive), opt-in for the
   // more disruptive re-archive direction.
   const [includeArchive, setIncludeArchive] = useState<boolean>(
@@ -178,9 +185,11 @@ export default function RevertModal<T extends RevertableEntity>({
   // propose or wrongly offered "Publish now".
   const canLandRevert = canLandRevertEntity ?? canRevert;
   const canPublishNow =
-    !approvalRequired || revertsBypassApproval
+    (!approvalRequired || revertsBypassApproval
       ? canLandRevert
-      : canLandRevert && canBypassApproval;
+      : canLandRevert && canBypassApproval) &&
+    // Carrying a re-archive into the publish makes it delete-class as well.
+    (!includeArchive || willUnarchive || canLandArchive);
   // Proposing one only takes draft authority (or revert, which subsumes it).
   const canCreateDraft = canDraft || canRevert;
   // Effective approval requirement for THIS revert. When the org lets reverts

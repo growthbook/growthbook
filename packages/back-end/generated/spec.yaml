@@ -19903,8 +19903,9 @@ paths:
       summary: Submit a review on a draft revision
       description: >-
         Submits an `approve`, `request-changes`, or `comment` review on the
-        revision. The caller needs Review access — including for `comment`,
-        which is a review verdict rather than an ordinary comment. Authors and
+        revision. Submitting `approve` or `request-changes` needs Review access.
+        A `comment` is participation rather than a verdict, so it is also open
+        to the Comments permission or draft authority on the entity. Authors and
         contributors cannot submit `approve` reviews on their own drafts when
         the org has `blockSelfApproval` enabled.
 
@@ -21375,8 +21376,9 @@ paths:
       summary: Submit a review on a draft revision
       description: >-
         Submits an `approve`, `request-changes`, or `comment` review on the
-        revision. The caller needs Review access — including for `comment`,
-        which is a review verdict rather than an ordinary comment. Authors and
+        revision. Submitting `approve` or `request-changes` needs Review access.
+        A `comment` is participation rather than a verdict, so it is also open
+        to the Comments permission or draft authority on the entity. Authors and
         contributors cannot submit `approve` reviews on their own drafts when
         the org has `blockSelfApproval` enabled.
 
@@ -23915,8 +23917,9 @@ paths:
       summary: Submit a review on a draft revision
       description: >-
         Submits an `approve`, `request-changes`, or `comment` review on the
-        revision. The caller needs Review access — including for `comment`,
-        which is a review verdict rather than an ordinary comment. Authors and
+        revision. Submitting `approve` or `request-changes` needs Review access.
+        A `comment` is participation rather than a verdict, so it is also open
+        to the Comments permission or draft authority on the entity. Authors and
         contributors cannot submit `approve` reviews on their own drafts when
         the org has `blockSelfApproval` enabled.
 

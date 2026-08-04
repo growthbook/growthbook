@@ -29,6 +29,7 @@ export interface Props {
   canBypassApproval: boolean;
   canRevert: boolean;
   canLandRevert?: boolean;
+  canLandArchive?: boolean;
   canDraft: boolean;
   close: () => void;
   onRevisionCreated: (revision: Revision) => void;

@@ -137,6 +137,11 @@ export default function ConfigModal({
         : permissionsUtil.canCreateConfig({ project: p.id }),
     )
     .map((p) => ({ label: p.name, value: p.id }));
+  // "All projects" is the global scope, which is its own authority — offering it
+  // to a project-limited creator produced a guaranteed rejection on submit.
+  const canGlobalScope = editing
+    ? permissionsUtil.canRevisionAction("config", "draft", { project: "" })
+    : permissionsUtil.canCreateConfig({ project: "" });
 
   // Auto-derive the slug key from the name until the user edits the key.
   const keyTouched = useRef(editing);
@@ -315,7 +320,7 @@ export default function ConfigModal({
           label="Project"
           value={form.watch("project")}
           options={projectOptions}
-          initialOption="All projects"
+          initialOption={canGlobalScope ? "All projects" : undefined}
           onChange={(v) => form.setValue("project", v)}
         />
       )}

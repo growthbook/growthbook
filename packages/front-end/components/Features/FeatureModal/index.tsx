@@ -289,8 +289,11 @@ export default function FeatureModal({
   // one step, and a flag that enables no environment reaches no SDK. Enabling
   // one is gated per environment by EnvironmentSelect.
   if (
+    // The project the form will actually create in — duplicating into a different
+    // project is a create THERE, so the source feature's project is the wrong
+    // question.
     !permissionsUtil.canCreateFeature(
-      { project: featureToDuplicate?.project ?? selectedProject },
+      { project: form.watch("project") ?? selectedProject },
       NO_ENVIRONMENT_BINDING,
     )
   ) {

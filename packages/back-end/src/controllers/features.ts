@@ -2566,7 +2566,12 @@ export async function postFeatureRevert(
     mergeChanges.metadata?.project ?? feature.project,
   );
   if (!isEqual(targetHoldout, feature.holdout ?? null)) {
-    if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
+    // Restoring a previously-published holdout is what the revert atom covers, so
+    // a revert-only role can land it. Publish still passes: it subsumes revert.
+    if (
+      !context.permissions.canPublishFeature(feature, allEnabledEnvs) &&
+      !context.permissions.canRevertFeature(feature, allEnabledEnvs)
+    ) {
       context.permissions.throwPermissionError();
     }
     mergeChanges.holdout = targetHoldout;

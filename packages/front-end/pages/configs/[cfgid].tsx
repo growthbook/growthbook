@@ -53,6 +53,7 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { canPublishRevisionEntity } from "@/components/Revision/revisionPublishAuthority";
 import { canCommentOnRevisionEntity } from "@/components/Revision/revisionCommentAuthority";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
@@ -2176,9 +2177,10 @@ export default function ConfigDetailPage(): React.ReactElement {
                   "draft",
                   config,
                 )}
-                canPublishEntity={permissionsUtil.canRevisionAction(
+                canPublishEntity={canPublishRevisionEntity(
+                  permissionsUtil,
                   "config",
-                  "publish",
+                  selectedRevision ?? displayRevision ?? null,
                   config,
                   configPublishEnvironments(config),
                 )}
@@ -2291,6 +2293,7 @@ export default function ConfigDetailPage(): React.ReactElement {
         <ConfigRevertModal
           canRevert={canRevertEntity}
           canLandRevert={canRevertLandingEntity}
+          canLandArchive={canLandArchive}
           canDraft={canDraft}
           config={config}
           revision={revisionToRevert}

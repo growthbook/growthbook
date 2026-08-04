@@ -128,6 +128,11 @@ export default function ConstantModal({
         .map((p) => ({ label: p.name, value: p.id })),
     [projects, permissionsUtil, editing],
   );
+  // "All Projects" is the global scope, which is its own authority — offering it
+  // to a project-limited creator produced a guaranteed rejection on submit.
+  const canGlobalScope = editing
+    ? permissionsUtil.canRevisionAction("constant", "draft", { project: "" })
+    : permissionsUtil.canCreateConstant({ project: "" });
 
   return (
     <ModalStandard
@@ -273,7 +278,7 @@ export default function ConstantModal({
           label="Project"
           value={form.watch("project")}
           options={projectOptions}
-          initialOption="All Projects"
+          initialOption={canGlobalScope ? "All Projects" : undefined}
           onChange={(v) => form.setValue("project", v)}
         />
       )}

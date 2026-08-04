@@ -87,6 +87,7 @@ import { REVISION_SAVED_GROUP_DIFF_CONFIG } from "@/components/Revision/Revision
 import { useUser } from "@/services/UserContext";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { canPublishRevisionEntity } from "@/components/Revision/revisionPublishAuthority";
 import { canCommentOnRevisionEntity } from "@/components/Revision/revisionCommentAuthority";
 import SavedGroupDraftSelectorForChanges, {
   DraftMode,
@@ -1109,10 +1110,12 @@ export default function EditSavedGroupPage() {
               "draft",
               savedGroup,
             )}
-            canPublishEntity={permissionsUtil.canRevisionAction(
+            canPublishEntity={canPublishRevisionEntity(
+              permissionsUtil,
               "saved-group",
-              "publish",
+              selectedRevision ?? displayRevision ?? null,
               savedGroup,
+              [],
             )}
             canBypassApproval={!!canAdminPublish}
             selectRevision={selectFlow}

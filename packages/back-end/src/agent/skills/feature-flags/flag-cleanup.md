@@ -210,9 +210,9 @@ Same three-option branch as `flag-targeting`, **but with one critical asymmetry 
 >
 > **A. Standard review flow** (recommended) — I'll request review on the change; a teammate approves it in the GrowthBook UI at `/features/<flag-id>`; you re-run me to resume.
 >
-> **B. Org-wide bypass** — admin enables "REST API always bypasses approval requirements" in Settings → General → Approvals. This single setting authorizes _both_ archive and the final delete step.
+> **B. Org-wide bypass** — admin enables "REST API always bypasses approval requirements" in Settings → General → Approvals. This clears the _approval_ requirement for both archive and delete. It is not a permission: both steps still need the **Archive & delete** permission on the flag, and archiving additionally answers for the environments the flag serves in. A 403 here means the missing piece is that permission, not this setting.
 >
-> **C. Per-token bypass** — use a PAT with `FlagsBypassApprovals` permission. **This authorizes archive but NOT delete.** The per-token permission is intentionally a review-workflow bypass only, not a destructive-action override. If your end goal is archive-only, this works. If you want to delete, you'll still need the org-wide setting from option B (or an admin to do the delete in the UI). Surface this asymmetry to the user _before_ they pick C — don't let them discover it at step 6.
+> **C. Per-token bypass** — use a PAT with `FlagsBypassApprovals` permission. **This authorizes archive but NOT delete.** The per-token permission is intentionally a review-workflow bypass only, not a destructive-action override. If your end goal is archive-only, this works. If you want to delete, you'll still need the org-wide setting from option B on top of the **Archive & delete** permission (or an admin to do the delete in the UI). Surface this asymmetry to the user _before_ they pick C — don't let them discover it at step 6.
 
 For path A, request review on the draft and halt:
 
@@ -304,7 +304,7 @@ Print a summary:
 - **`FlagsBypassApprovals` is asymmetric across archive and delete.**
   - Archive: per-token `FlagsBypassApprovals` works (`updateFeatureV2.ts` checks both org-wide and per-token).
   - Delete: per-token `FlagsBypassApprovals` does NOT work (`deleteFeature.ts` explicit comment: "review-workflow bypass, not destructive-action override").
-  - Only org-wide `restApiBypassesReviews` authorizes both. Don't conflate them when surfacing approval options to the user.
+  - Only org-wide `restApiBypassesReviews` clears the approval requirement for both. Neither setting grants permission: both steps still require the **Archive & delete** permission on the flag. Don't conflate approval bypass with authorization when surfacing options to the user.
 - **`neverStale: true` flags are deliberately permanent.** Halt if the user asks to clean one up; they need to explicitly remove that flag in the UI first.
 - **Active running experiments block cleanup.** A flag with an `experiment-ref` rule pointing at a `running` experiment cannot be cleaned up — stopping the experiment is a separate decision routed to `experiment-stop`.
 - **Unresolved drafts block cleanup.** Surface the draft and ask the user to discard or publish first.

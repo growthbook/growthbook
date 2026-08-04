@@ -170,8 +170,16 @@ export async function updateFeature(req: AuthRequest, res: Response) {
     return res.status(404).json({ error: "Feature not found" });
   }
 
-  // Check permission
-  if (!context.permissions.canEditFeatureDrafts(feature)) {
+  // Check permission. `updateFeature` writes LIVE state, so this is publish-class
+  // over the environments the change reaches — draft authority alone authorizes
+  // proposing a change, not landing one. Use canEditFeatureDrafts only for writes
+  // that stop at a revision.
+  if (
+    !context.permissions.canPublishFeature(
+      feature,
+      Array.from(getEnabledEnvironments(feature, environmentIds)),
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -180,6 +188,9 @@ export async function updateFeature(req: AuthRequest, res: Response) {
   res.json({ feature: updated });
 }
 ```
+
+> An edit is a draft plus a publish. If a handler writes live state, gating it on
+> draft authority hands a drafter the publish they were deliberately not given.
 
 ### Permission Methods in Context
 

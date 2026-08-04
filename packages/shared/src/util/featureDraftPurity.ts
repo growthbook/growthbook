@@ -241,6 +241,31 @@ export function isPureFeatureArchive({
  * The `archived` value a JSON-patch change set would land, or undefined when it
  * doesn't touch the field. Later ops win, matching patch application order.
  */
+/**
+ * The project scope a revision's proposed changes would leave the entity in, as a
+ * partial to spread over the live entity. Sibling of `proposedArchivedValue`.
+ *
+ * A revision can relocate an entity, so anything deciding whether a change may
+ * LAND has to know where it lands — the live entity's own project answers the
+ * wrong question.
+ */
+export function proposedProjectScope(proposedChanges: unknown): {
+  project?: string;
+  projects?: string[];
+} {
+  const scope: { project?: string; projects?: string[] } = {};
+  for (const op of normalizeProposedChanges(proposedChanges)) {
+    if (op.op !== "replace" && op.op !== "add") continue;
+    if (op.path === "/project" && typeof op.value === "string") {
+      scope.project = op.value;
+    }
+    if (op.path === "/projects" && Array.isArray(op.value)) {
+      scope.projects = op.value as string[];
+    }
+  }
+  return scope;
+}
+
 export function proposedArchivedValue(
   proposedChanges: unknown,
 ): boolean | undefined {

@@ -20,6 +20,7 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { canPublishRevisionEntity } from "@/components/Revision/revisionPublishAuthority";
 import { canCommentOnRevisionEntity } from "@/components/Revision/revisionCommentAuthority";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
@@ -645,9 +646,10 @@ export default function ConstantDetailPage(): React.ReactElement {
               "draft",
               constant,
             )}
-            canPublishEntity={permissionsUtil.canRevisionAction(
+            canPublishEntity={canPublishRevisionEntity(
+              permissionsUtil,
               "constant",
-              "publish",
+              selectedRevision ?? displayRevision ?? null,
               constant,
               publishEnvironments,
             )}
@@ -726,6 +728,7 @@ export default function ConstantDetailPage(): React.ReactElement {
         <ConstantRevertModal
           canRevert={canRevertEntity}
           canLandRevert={canRevertLandingEntity}
+          canLandArchive={canLandArchive}
           canDraft={canDraft}
           constant={constant}
           revision={revisionToRevert}
