@@ -1,5 +1,4 @@
 import { holdsMoveDestination, type ProjectScoped } from "shared/permissions";
-import { isEqual } from "lodash";
 import {
   checkMergeConflicts,
   normalizeProposedChanges,
@@ -25,7 +24,6 @@ import {
   buildMergeDesiredState,
   isRevisionDiverged,
 } from "back-end/src/revisions/util";
-import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { collectSavedGroupArchiveDependentsGate } from "back-end/src/services/archiveDependentsGuard";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
 import { loadRevisionByVersion } from "./validations";
@@ -163,8 +161,6 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
     );
   }
 
-  const updatableFields = adapter.getUpdatableFields();
-
   // Governance friction (parity with features): when the org enforces same-base
   // merges, a revision created against a snapshot that no longer matches the
   // live saved group must be rebased first. `ignoreWarnings` force-merges the
@@ -190,36 +186,13 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
       }
     }
   }
-  const hasChanges = Object.keys(desiredState).some((key) => {
-    if (!updatableFields.has(key)) return false;
-    return !isEqual(
-      desiredState[key],
-      (savedGroup as unknown as Record<string, unknown>)[key],
-    );
-  });
 
   // No diff between the revision's desired state and the live entity. This is
-  // either a genuine no-op publish, OR a recovery retry after a partial failure
-  // where a previous publish ran `applyChanges` but then failed before `merge`
-  // landed — leaving the entity updated and this revision stranded as a draft.
-  // In both cases there's nothing to write to the entity, so just finish
-  // merging the revision. This closes the partial-failure window: the stranded
-  // draft self-heals on retry instead of being permanently un-publishable, and
-  // we skip a redundant entity write (and its no-op audit entry).
-  if (!hasChanges) {
-    const merged = await req.context.models.revisions.merge(
-      revision.id,
-      req.context.userId,
-      { bypass: isBypass },
-    );
-    await dispatchSavedGroupRevisionEvent(req.context, merged, {
-      type: merged.revertedFrom ? "reverted" : "published",
-    });
-    return {
-      revision: await toApiSavedGroupRevision(merged, req.context),
-      ...(bypassed.length ? { bypassedGates: bypassed } : {}),
-    };
-  }
+  // No-op publishes are NOT short-circuited here. The engine has its own no-op
+  // branch — same beforeNoOpMerge, merge and dispatch — and reaching it means a
+  // no-op still passes assertPublishable, which is the point: publishing is the
+  // gated action even when nothing changes, so a locked Config cannot have its
+  // latest-merged pointer advanced past the pin by publishing an empty diff.
 
   // Delegates claim → apply → compensate → dispatch to the shared engine rather
   // than repeating it. This handler's job is the gate layer above; the engine

@@ -1,5 +1,4 @@
 import { holdsMoveDestination, type ProjectScoped } from "shared/permissions";
-import { isEqual } from "lodash";
 import {
   checkMergeConflicts,
   normalizeProposedChanges,
@@ -36,7 +35,6 @@ import {
   collectConfigLockGate,
 } from "back-end/src/services/configLock";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
-import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
@@ -188,8 +186,6 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     );
   }
 
-  const updatableFields = adapter.getUpdatableFields();
-
   // When the org enforces rebase-before-publish, a diverged revision must
   // rebase first. `ignoreWarnings` force-merges the stale draft — but only for
   // bypass-approval callers, and asking without the permission fails loudly
@@ -214,38 +210,11 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     }
   }
 
-  const changedFields = Object.keys(desiredState).filter(
-    (key) =>
-      updatableFields.has(key) &&
-      !isEqual(
-        desiredState[key],
-        (config as unknown as Record<string, unknown>)[key],
-      ),
-  );
-  const hasChanges = changedFields.length > 0;
-
-  // No diff vs live (no-op publish or recovery retry): replay the descendant
-  // reconcile (idempotent; only acts on schema/parent/extends changes) so a
-  // retry after a partially-applied publish still heals descendants, then merge.
-  if (!hasChanges) {
-    await adapter.beforeNoOpMerge?.(
-      req.context,
-      config as unknown as Record<string, unknown>,
-      revision,
-    );
-    const merged = await req.context.models.revisions.merge(
-      revision.id,
-      req.context.userId,
-      { bypass: isBypass },
-    );
-    await dispatchConfigRevisionEvent(req.context, merged, {
-      type: merged.revertedFrom ? "reverted" : "published",
-    });
-    return {
-      revision: await toApiConfigRevision(merged, req.context),
-      ...(bypassed.length ? { bypassedGates: bypassed } : {}),
-    };
-  }
+  // No-op publishes are NOT short-circuited here. The engine has its own no-op
+  // branch — same beforeNoOpMerge, merge and dispatch — and reaching it means a
+  // no-op still passes assertPublishable, which is the point: publishing is the
+  // gated action even when nothing changes, so a locked Config cannot have its
+  // latest-merged pointer advanced past the pin by publishing an empty diff.
 
   // Experiment/lock/schema-break guards were enforced above via the adapter's
   // collectPublishGates + evaluatePublishGates (the collector also records any

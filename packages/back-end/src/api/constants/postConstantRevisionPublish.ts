@@ -1,5 +1,4 @@
 import { holdsMoveDestination, type ProjectScoped } from "shared/permissions";
-import { isEqual } from "lodash";
 import {
   checkMergeConflicts,
   normalizeProposedChanges,
@@ -27,7 +26,6 @@ import {
   isRevisionDiverged,
 } from "back-end/src/revisions/util";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
-import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
 
@@ -158,8 +156,6 @@ export const postConstantRevisionPublish = createApiRequestHandler(
     );
   }
 
-  const updatableFields = adapter.getUpdatableFields();
-
   // Same-base governance: when the org enforces rebase-before-publish, a stale
   // revision must be rebased first. `ignoreWarnings` force-merges the stale
   // draft — but only for bypass-approval callers, and asking without the
@@ -188,31 +184,11 @@ export const postConstantRevisionPublish = createApiRequestHandler(
   // collectPublishGates + evaluatePublishGates (the collector also records any
   // synchronous override in the logs), so no separate assert runs here.
 
-  const hasChanges = Object.keys(desiredState).some((key) => {
-    if (!updatableFields.has(key)) return false;
-    return !isEqual(
-      desiredState[key],
-      (constant as unknown as Record<string, unknown>)[key],
-    );
-  });
-
-  // No diff vs live: a genuine no-op publish, or a recovery retry after a
-  // partial failure (applyChanges landed, merge didn't). Either way, just merge
-  // the revision so a stranded draft self-heals.
-  if (!hasChanges) {
-    const merged = await req.context.models.revisions.merge(
-      revision.id,
-      req.context.userId,
-      { bypass: isBypass },
-    );
-    await dispatchConstantRevisionEvent(req.context, merged, {
-      type: merged.revertedFrom ? "reverted" : "published",
-    });
-    return {
-      revision: await toApiConstantRevision(merged, req.context),
-      ...(bypassed.length ? { bypassedGates: bypassed } : {}),
-    };
-  }
+  // No-op publishes are NOT short-circuited here. The engine has its own no-op
+  // branch — same beforeNoOpMerge, merge and dispatch — and reaching it means a
+  // no-op still passes assertPublishable, which is the point: publishing is the
+  // gated action even when nothing changes, so a locked Config cannot have its
+  // latest-merged pointer advanced past the pin by publishing an empty diff.
 
   // Delegates claim → apply → compensate → dispatch to the shared engine rather
   // than repeating it. This handler's job is the gate layer above; the engine
