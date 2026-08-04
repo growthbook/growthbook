@@ -7,7 +7,11 @@ import {
   dateRangePredefined,
   lookbackUnit,
 } from "shared/validators";
-import type { ComparisonMode, ExplorationDateRange } from "shared/validators";
+import type {
+  ComparisonMode,
+  dateGranularity,
+  ExplorationDateRange,
+} from "shared/validators";
 import {
   BlockComparison,
   calculateProductAnalyticsDateRange,
@@ -25,6 +29,7 @@ import { Select, SelectItem } from "@/ui/Select";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
 import { formatCollapsedDateRange } from "@/enterprise/components/ProductAnalytics/comparison-chart";
+import { ControlledGranularitySelector } from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GranularitySelector";
 import {
   COMPARISON_MODE_LABELS,
   DATE_RANGE_PREDEFINED_LABELS,
@@ -34,6 +39,8 @@ import {
 export type DateRangeCompareValue = {
   dateRange: ExplorationDateRange;
   comparison: BlockComparison | null;
+  /** Only meaningful when the surface opts in with `showGranularity`. */
+  granularity?: (typeof dateGranularity)[number];
 };
 
 function toYyyyMmDd(d: Date): string {
@@ -74,6 +81,8 @@ export default function DateRangeComparePanel({
   onApply,
   onCancel,
   showCompare = false,
+  showGranularity = false,
+  granularityDisabled = false,
   disabled,
   extraPresets,
   extraSections,
@@ -84,10 +93,16 @@ export default function DateRangeComparePanel({
   /** Opt in to the compare section; off by default so surfaces that can't
    * render a previous period show no trace of it. */
   showCompare?: boolean;
+  /** Opt in to the granularity row. Bucketing only means something for a time
+   * series, so surfaces without a date dimension leave it off. */
+  showGranularity?: boolean;
+  /** Granularity is inert but still worth showing — e.g. a block inheriting the
+   * dashboard date filter. */
+  granularityDisabled?: boolean;
   disabled?: boolean;
   /** Rendered above the presets — e.g. the dashboard's "Chart Default" option. */
   extraPresets?: ReactNode;
-  /** Rendered between the compare section and the footer — e.g. granularity. */
+  /** Rendered between the granularity section and the footer. */
   extraSections?: ReactNode;
 }) {
   // Seeded once per mount. The parent rebuilds `value` on every render, so
@@ -351,10 +366,6 @@ export default function DateRangeComparePanel({
 
             {compareEnabled && !isPartialRange && (
               <Flex direction="column" gap="2" mt="3" style={{ minWidth: 0 }}>
-                <LabeledRow label="Date range">
-                  <Text size="small">{describeRange(dateRange)}</Text>
-                </LabeledRow>
-
                 <LabeledRow label="Compared to">
                   <Select
                     size="small"
@@ -426,6 +437,30 @@ export default function DateRangeComparePanel({
                 </LabeledRow>
               </Flex>
             )}
+          </Box>
+        </>
+      )}
+
+      {showGranularity && (
+        <>
+          <Separator size="4" />
+          <Box p="3">
+            <Flex align="center" gap="3" justify="between">
+              <Text size="medium" weight="medium">
+                Granularity
+              </Text>
+              <ControlledGranularitySelector
+                // Reads the staged range, not the applied one, so the option
+                // list matches the window the user is about to apply.
+                dateRange={dateRange}
+                granularity={draft.granularity ?? "auto"}
+                onChange={(granularity) =>
+                  setDraft((prev) => ({ ...prev, granularity }))
+                }
+                disabled={disabled || granularityDisabled}
+                width={170}
+              />
+            </Flex>
           </Box>
         </>
       )}

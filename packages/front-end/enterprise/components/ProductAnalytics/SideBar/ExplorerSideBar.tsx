@@ -22,7 +22,6 @@ import GraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSect
 import FunnelGraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/FunnelGraphTypeSelector";
 import DateRangeCompareDropdown from "@/enterprise/components/ProductAnalytics/DateRangeCompareDropdown";
 import type { DateRangeCompareValue } from "@/enterprise/components/ProductAnalytics/DateRangeComparePanel";
-import GranularitySelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GranularitySelector";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
@@ -121,11 +120,30 @@ export default function ExplorerSideBar({
           previousTimeFrame: draftExploreState.previousTimeFrame,
         }
       : null,
+    granularity:
+      draftExploreState.dimensions.find((d) => d.dimensionType === "date")
+        ?.dateGranularity ?? "auto",
   };
 
-  const applyDateRange = ({ dateRange, comparison }: DateRangeCompareValue) => {
+  const applyDateRange = ({
+    dateRange,
+    comparison,
+    granularity,
+  }: DateRangeCompareValue) => {
     setDraftExploreState((prev) => {
-      const next = { ...prev, dateRange };
+      const next = {
+        ...prev,
+        dateRange,
+        ...(granularity
+          ? {
+              dimensions: prev.dimensions.map((d) =>
+                d.dimensionType === "date"
+                  ? { ...d, dateGranularity: granularity }
+                  : d,
+              ),
+            }
+          : {}),
+      };
       if (!comparison?.enabled) {
         const {
           previousTimeFrame: _,
@@ -147,9 +165,6 @@ export default function ExplorerSideBar({
 
   const isTimeSeriesChart = ["line", "area", "timeseries-table"].includes(
     draftExploreState.chartType,
-  );
-  const usesInheritedDashboardDateRange = Boolean(
-    dashboardDateRange && useDashboardDateControl,
   );
 
   return (
@@ -337,17 +352,12 @@ export default function ExplorerSideBar({
               <DateRangeCompareDropdown
                 fullWidth
                 showCompare
+                showGranularity={isTimeSeriesChart}
                 value={dateRangeValue}
                 onChange={applyDateRange}
               />
             )}
           </Flex>
-          {isTimeSeriesChart && !usesInheritedDashboardDateRange && (
-            <Flex direction="column" gap="2" width="100%">
-              <Text weight="medium">Date Granularity</Text>
-              <GranularitySelector />
-            </Flex>
-          )}
         </Flex>
       )}
 

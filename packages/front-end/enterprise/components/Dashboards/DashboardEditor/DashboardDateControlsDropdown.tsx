@@ -13,7 +13,6 @@ import UiTooltip from "@/ui/Tooltip";
 import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
-import { ControlledGranularitySelector } from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GranularitySelector";
 import DateRangeComparePanel, {
   DateRangeCompareValue,
 } from "@/enterprise/components/ProductAnalytics/DateRangeComparePanel";
@@ -178,27 +177,20 @@ export default function DashboardDateControlsDropdown({
       content={
         <DateRangeComparePanel
           key={open ? "open" : "closed"}
-          value={{ dateRange: activeDateRange, comparison }}
+          value={{ dateRange: activeDateRange, comparison, granularity }}
           disabled={disabled}
           showCompare={!!onComparisonChange}
+          showGranularity
+          // "Chart Default" means each block keeps its own range, so there is
+          // no dashboard-wide series for a granularity to bucket.
+          granularityDisabled={!value}
           extraPresets={chartDefaultOption}
-          extraSections={
-            <Flex align="center" gap="3" justify="between">
-              <Text size="medium" weight="medium">
-                Granularity
-              </Text>
-              <ControlledGranularitySelector
-                dateRange={activeDateRange}
-                granularity={granularity}
-                onChange={onGranularityChange}
-                disabled={disabled || !value}
-                width={170}
-              />
-            </Flex>
-          }
           onCancel={() => setOpen(false)}
           onApply={(next: DateRangeCompareValue) => {
             onChange(next.dateRange);
+            if (next.granularity && next.granularity !== granularity) {
+              onGranularityChange(next.granularity);
+            }
             if (onComparisonChange) {
               const nextComparison = next.comparison?.enabled
                 ? {

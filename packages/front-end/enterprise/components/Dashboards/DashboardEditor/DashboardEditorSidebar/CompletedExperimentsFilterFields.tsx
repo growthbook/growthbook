@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Box } from "@radix-ui/themes";
-import { ExplorationDateRange } from "shared/validators";
+import { dateGranularity, ExplorationDateRange } from "shared/validators";
 import { BlockComparison } from "shared/enterprise";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Text from "@/ui/Text";
@@ -23,9 +23,14 @@ interface Props {
   // Restrict the project options (e.g. to the dashboard's projects). Empty
   // means all org projects are selectable.
   availableProjects?: string[];
-  // Optional content rendered between the Date Range and Projects fields
-  // (e.g. Team Velocity's Date Granularity control).
+  // Optional content rendered between the Date Range and Projects fields.
   afterDateRange?: ReactNode;
+  /**
+   * Omit to hide the granularity row. Blocks that bucket a time series
+   * (Team Velocity) pass the pair; the rest don't bucket at all.
+   */
+  granularity?: (typeof dateGranularity)[number];
+  onGranularityChange?: (granularity: (typeof dateGranularity)[number]) => void;
   comparison?: BlockComparison | null;
   /**
    * Omit to hide the Compare section entirely — blocks that can't render a
@@ -41,6 +46,8 @@ export default function CompletedExperimentsFilterFields({
   onChange,
   availableProjects,
   afterDateRange,
+  granularity,
+  onGranularityChange,
   comparison = null,
   onComparisonChange,
 }: Props) {
@@ -62,10 +69,14 @@ export default function CompletedExperimentsFilterFields({
         <DateRangeCompareDropdown
           fullWidth
           showCompare={!!onComparisonChange}
-          value={{ dateRange: value.dateRange, comparison }}
+          showGranularity={!!onGranularityChange}
+          value={{ dateRange: value.dateRange, comparison, granularity }}
           onChange={(next) => {
             onChange({ dateRange: next.dateRange });
             onComparisonChange?.(next.comparison ?? undefined);
+            if (next.granularity && next.granularity !== granularity) {
+              onGranularityChange?.(next.granularity);
+            }
           }}
         />
       </Box>

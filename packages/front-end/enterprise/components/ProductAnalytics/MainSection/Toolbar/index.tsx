@@ -10,7 +10,6 @@ import type { DateRangeCompareValue } from "@/enterprise/components/ProductAnaly
 import GraphTypeSelector from "./GraphTypeSelector";
 import FunnelGraphTypeSelector from "./FunnelGraphTypeSelector";
 import FunnelYAxisSelector from "./FunnelYAxisSelector";
-import GranularitySelector from "./GranularitySelector";
 import LastRefreshedIndicator from "./LastRefreshedIndicator";
 import DataSourceDropdown from "./DataSourceDropdown";
 
@@ -24,6 +23,11 @@ export default function Toolbar() {
     managedWarehouseUnavailable,
   } = useExplorerContext();
   const isFunnel = draftExploreState.dataset?.type === "funnel";
+  // Bucketing only applies to a date dimension, so a chart without one has no
+  // granularity to show.
+  const showGranularity =
+    !isFunnel &&
+    ["line", "area", "timeseries-table"].includes(draftExploreState.chartType);
 
   const dateRangeValue: DateRangeCompareValue = {
     dateRange: draftExploreState.dateRange,
@@ -34,11 +38,30 @@ export default function Toolbar() {
           previousTimeFrame: draftExploreState.previousTimeFrame,
         }
       : null,
+    granularity:
+      draftExploreState.dimensions.find((d) => d.dimensionType === "date")
+        ?.dateGranularity ?? "auto",
   };
 
-  const applyDateRange = ({ dateRange, comparison }: DateRangeCompareValue) => {
+  const applyDateRange = ({
+    dateRange,
+    comparison,
+    granularity,
+  }: DateRangeCompareValue) => {
     setDraftExploreState((prev) => {
-      const next = { ...prev, dateRange };
+      const next = {
+        ...prev,
+        dateRange,
+        ...(granularity
+          ? {
+              dimensions: prev.dimensions.map((d) =>
+                d.dimensionType === "date"
+                  ? { ...d, dateGranularity: granularity }
+                  : d,
+              ),
+            }
+          : {}),
+      };
       if (!comparison?.enabled) {
         const {
           previousTimeFrame: _,
@@ -100,14 +123,11 @@ export default function Toolbar() {
         >
           <DateRangeCompareDropdown
             showCompare
+            showGranularity={showGranularity}
             value={dateRangeValue}
             onChange={applyDateRange}
             disabled={managedWarehouseUnavailable}
           />
-          {!isFunnel &&
-            ["line", "area", "timeseries-table"].includes(
-              draftExploreState.chartType,
-            ) && <GranularitySelector />}
         </Flex>
       </Flex>
     </Flex>

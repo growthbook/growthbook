@@ -87,6 +87,8 @@ export default function DateRangeCompareDropdown({
   value,
   onChange,
   showCompare = false,
+  showGranularity = false,
+  granularityDisabled = false,
   disabled,
   extraPresets,
   triggerFallbackLabel = "Date Range",
@@ -95,6 +97,10 @@ export default function DateRangeCompareDropdown({
   value: DateRangeCompareValue;
   onChange: (next: DateRangeCompareValue) => void;
   showCompare?: boolean;
+  /** Show the granularity row inside the panel rather than as a sibling
+   * control. Date bucketing only applies to time-series charts. */
+  showGranularity?: boolean;
+  granularityDisabled?: boolean;
   disabled?: boolean;
   extraPresets?: ReactNode;
   /** Trigger text when a custom range has no bounds set yet. */
@@ -180,6 +186,8 @@ export default function DateRangeCompareDropdown({
           key={open ? "open" : "closed"}
           value={value}
           showCompare={showCompare}
+          showGranularity={showGranularity}
+          granularityDisabled={granularityDisabled}
           disabled={disabled}
           extraPresets={extraPresets}
           onCancel={() => setOpen(false)}
