@@ -90,16 +90,6 @@ export function canShowReenableIncrementalRefresh({
   });
 }
 
-export function shouldShowResultMenuDivider({
-  hasItemBefore,
-  hasItemAfter,
-}: {
-  hasItemBefore: boolean;
-  hasItemAfter: boolean;
-}): boolean {
-  return hasItemBefore && hasItemAfter;
-}
-
 export default function ResultMoreMenu({
   experiment,
   editMetrics,
@@ -384,32 +374,24 @@ export default function ResultMoreMenu({
     return { queryStrings, error };
   }, [snapshot, latest, legacyQueries, legacyQueryError]);
 
-  const canRefreshMenuItem = canShowRefreshMenuItem({
-    forceRefresh,
-    datasource,
-    canRunExperimentQueries:
-      (datasource && permissionsUtil.canRunExperimentQueries(datasource)) ??
-      false,
-  });
-  const canReenableIncrementalRefreshMenuItem =
-    canShowReenableIncrementalRefresh({
+  const hasMenuItemBeforeInitialDivider =
+    queryStrings.length > 0 ||
+    canShowRefreshMenuItem({
+      forceRefresh,
+      datasource,
+      canRunExperimentQueries:
+        (datasource && permissionsUtil.canRunExperimentQueries(datasource)) ??
+        false,
+    }) ||
+    (canShowReenableIncrementalRefresh({
       datasource,
       experimentId: experiment?.id,
       canUpdateDataSourceSettings:
         (datasource &&
           permissionsUtil.canUpdateDataSourceSettings(datasource)) ??
         false,
-    }) && experimentExcludedFromIncrementalRefresh;
-  const shouldShowInitialDivider = shouldShowResultMenuDivider({
-    hasItemBefore:
-      queryStrings.length > 0 ||
-      canRefreshMenuItem ||
-      canReenableIncrementalRefreshMenuItem,
-    hasItemAfter:
-      Boolean(canEdit && editMetrics && !isBandit) ||
-      Boolean(canDownloadJupyterNotebook) ||
-      Boolean(results),
-  });
+    }) &&
+      experimentExcludedFromIncrementalRefresh);
 
   return (
     <>
@@ -445,7 +427,14 @@ export default function ResultMoreMenu({
               />
             </DropdownMenuItem>
           ) : null}
-          {canRefreshMenuItem && (
+          {canShowRefreshMenuItem({
+            forceRefresh,
+            datasource,
+            canRunExperimentQueries:
+              (datasource &&
+                permissionsUtil.canRunExperimentQueries(datasource)) ??
+              false,
+          }) && (
             <DropdownMenuItem
               onClick={handleForceRefresh}
               confirmation={
@@ -476,12 +465,25 @@ export default function ResultMoreMenu({
               {rerunAllQueriesText}
             </DropdownMenuItem>
           )}
-          {canReenableIncrementalRefreshMenuItem && (
-            <DropdownMenuItem onClick={handleReenableIncrementalRefresh}>
-              Re-enable incremental refresh
-            </DropdownMenuItem>
-          )}
-          {shouldShowInitialDivider ? <DropdownMenuSeparator /> : null}
+          {canShowReenableIncrementalRefresh({
+            datasource,
+            experimentId: experiment?.id,
+            canUpdateDataSourceSettings:
+              (datasource &&
+                permissionsUtil.canUpdateDataSourceSettings(datasource)) ??
+              false,
+          }) &&
+            experimentExcludedFromIncrementalRefresh && (
+              <DropdownMenuItem onClick={handleReenableIncrementalRefresh}>
+                Re-enable incremental refresh
+              </DropdownMenuItem>
+            )}
+          {hasMenuItemBeforeInitialDivider &&
+          ((canEdit && editMetrics && !isBandit) ||
+            canDownloadJupyterNotebook ||
+            results) ? (
+            <DropdownMenuSeparator />
+          ) : null}
           {canEdit && editMetrics && !isBandit && (
             <>
               <DropdownMenuItem
