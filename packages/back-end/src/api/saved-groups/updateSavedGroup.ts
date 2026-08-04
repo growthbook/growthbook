@@ -3,6 +3,7 @@ import { Revision } from "shared/enterprise";
 import { validateCondition } from "shared/util";
 import { updateSavedGroupValidator } from "shared/validators";
 import { UpdateSavedGroupProps } from "shared/types/saved-group";
+import { landDirectChange } from "back-end/src/revisions/revertActions";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -188,23 +189,21 @@ export const updateSavedGroup = createApiRequestHandler(
       },
     );
 
-    // Persist the live change first, then record it as a single already-merged
-    // revision. A draft-then-merge would be two non-transactional writes: if
-    // the merge failed after the update landed, the draft would be stranded
-    // and could never be published ("no changes detected" against the
-    // now-updated live entity). Updating first also matches the precedence in
-    // revision.controller.ts — persisting the real change takes priority over
-    // revision bookkeeping.
-    const updatedSavedGroup = await req.context.models.savedGroups.update(
-      savedGroup,
-      fieldsToUpdate,
-    );
-    const merged = await req.context.models.revisions.createMerged({
-      type: "saved-group",
-      id: savedGroup.id,
-      snapshot: savedGroup as unknown as Record<string, unknown>,
-      proposedChanges: patchOps,
+    // Record the already-merged revision, then write live state. The earlier
+    // ordering here wrote live first, reasoning that a draft-then-merge could
+    // strand a draft — true, but that is not what this does: it records a single
+    // already-merged revision, and removes it if the write fails. The orders are
+    // not equally safe. History first fails to a detectable extra record with live
+    // state correct; live first fails to a live change with no record of it, which
+    // is the one outcome no retry can repair.
+    const { merged, result: updatedSavedGroup } = await landDirectChange({
+      context: req.context,
+      entityType: "saved-group",
+      entity: savedGroup as unknown as Record<string, unknown> & { id: string },
+      patchOps,
       bypass: true,
+      write: () =>
+        req.context.models.savedGroups.update(savedGroup, fieldsToUpdate),
     });
     // Fire the revision-published event so REST-bypass publishes are observable
     // like every other publish path (the revert handler dispatches this too;

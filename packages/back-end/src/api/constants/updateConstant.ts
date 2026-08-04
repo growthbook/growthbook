@@ -5,6 +5,7 @@ import {
   validateResolvableValue,
 } from "shared/validators";
 import { ConstantInterface } from "shared/types/constant";
+import { landDirectChange } from "back-end/src/revisions/revertActions";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -206,27 +207,15 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
           dateCreated?: Date;
         },
       );
-      const merged = await req.context.models.revisions.createMerged({
-        type: "constant",
-        id: constant.id,
-        snapshot: constant as unknown as Record<string, unknown>,
-        proposedChanges: patchOps,
+      const { merged, result: updated } = await landDirectChange({
+        context: req.context,
+        entityType: "constant",
+        entity: constant as unknown as Record<string, unknown> & { id: string },
+        patchOps,
         bypass: true,
+        write: () =>
+          req.context.models.constants.update(constant, fieldsToUpdate),
       });
-      let updated: Partial<ConstantInterface>;
-      try {
-        updated = await req.context.models.constants.update(
-          constant,
-          fieldsToUpdate,
-        );
-      } catch (e) {
-        try {
-          await req.context.models.revisions.deleteById(merged.id);
-        } catch {
-          // ignore — surface the original update error
-        }
-        throw e;
-      }
       // Fire the revision-published event so REST-bypass publishes are
       // observable like every other publish path (the internal merge path and
       // the revert handler both dispatch this; createMerged itself does not).

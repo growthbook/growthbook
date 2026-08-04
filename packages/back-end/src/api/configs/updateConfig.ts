@@ -13,6 +13,7 @@ import {
   findUndeclaredInvariantRuleFields,
   undeclaredRuleFieldWarnings,
 } from "shared/util";
+import { landDirectChange } from "back-end/src/revisions/revertActions";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -526,37 +527,30 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
           dateCreated?: Date;
         },
       );
-      const merged = await req.context.models.revisions.createMerged({
-        type: "config",
-        id: config.id,
-        snapshot: config as unknown as Record<string, unknown>,
-        proposedChanges: patchOps,
+      const { merged, result: updated } = await landDirectChange({
+        context: req.context,
+        entityType: "config",
+        entity: config as unknown as Record<string, unknown> & { id: string },
+        patchOps,
         bypass: true,
+        write: async () => {
+          const written = await req.context.models.configs.update(
+            config,
+            fieldsToUpdate as Parameters<
+              typeof req.context.models.configs.update
+            >[1],
+          );
+          // A schema/parent change can introduce a field a descendant already
+          // declares; cascade "base wins" down the subtree. Inside the write so a
+          // failed cascade rolls the merged revision back too — otherwise a
+          // "published" revision and the root write persist with stale
+          // descendants and no webhook.
+          if (needsDescendantReconcile) {
+            await reconcileConfigDescendants(req.context, config.key);
+          }
+          return written;
+        },
       });
-      let updated: Partial<ConfigInterface>;
-      try {
-        updated = await req.context.models.configs.update(
-          config,
-          fieldsToUpdate as Parameters<
-            typeof req.context.models.configs.update
-          >[1],
-        );
-        // A schema/parent change can introduce a field a descendant already
-        // declares; cascade "base wins" down the subtree. Kept inside the
-        // rollback try (matching postConfigRevisionRevert) so a failed cascade
-        // rolls back the merged revision too — else a "published" revision and
-        // the root write persist with stale descendants and no webhook.
-        if (needsDescendantReconcile) {
-          await reconcileConfigDescendants(req.context, config.key);
-        }
-      } catch (e) {
-        try {
-          await req.context.models.revisions.deleteById(merged.id);
-        } catch {
-          // ignore — surface the original update error
-        }
-        throw e;
-      }
       await dispatchConfigRevisionEvent(req.context, merged, {
         type: "published",
       });

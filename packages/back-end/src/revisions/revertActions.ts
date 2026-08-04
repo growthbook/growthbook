@@ -139,15 +139,73 @@ export function assertCanRevertRevision({
 }
 
 /**
- * Land a revert on the live entity.
+ * Land a direct change on the live entity, recording it as a merged revision.
  *
- * Records the merged revision before applying, so a "reverted" record never
- * exists without the live change having been attempted. When the apply fails the
- * record is removed — and unlike the per-entity copies this replaced, a failure to
- * remove it is reported rather than swallowed: a merged revision whose changes
- * never landed is phantom history, and silently leaving one behind is worse than
- * the original error.
+ * Every path that writes live state without a prior draft goes through here: the
+ * three revert handlers and the three "no draft mode" update endpoints. They
+ * disagreed on the one thing that matters — Config and Constant recorded history
+ * first, Saved Group wrote live state first, which cannot be repaired by a retry
+ * because the live change is already visible with no record of it.
+ *
+ * History first is the answer: a merged revision with no live change is
+ * detectable and removable, and stranded-merge recovery exists for exactly that.
+ * The reverse is silent. When the write fails the record is removed, and a
+ * failure to remove it is reported rather than swallowed — phantom history is
+ * worse than the original error, and only a human can reconcile it.
+ *
+ * `write` stays with the caller because the writes genuinely differ:
+ * `adapter.applyChanges` re-runs entity normalization and cascades to dependents,
+ * while the update endpoints write the model directly.
  */
+export async function landDirectChange<T>({
+  context,
+  entityType,
+  entity,
+  patchOps,
+  title,
+  bypass,
+  revertedFrom,
+  write,
+}: {
+  context: Context;
+  entityType: Parameters<typeof getAdapter>[0];
+  entity: Record<string, unknown> & { id: string };
+  patchOps: ReturnType<typeof buildPatchOps>;
+  title?: string;
+  bypass: boolean;
+  // Set only when this change restores a historical revision.
+  revertedFrom?: string;
+  write: () => Promise<T>;
+}): Promise<{ merged: Revision; result: T }> {
+  const merged = await context.models.revisions.createMerged({
+    type: entityType,
+    id: entity.id,
+    snapshot: entity,
+    proposedChanges: patchOps,
+    bypass,
+    title,
+    ...(revertedFrom ? { revertedFrom } : {}),
+  });
+
+  let result: T;
+  try {
+    result = await write();
+  } catch (e) {
+    try {
+      await context.models.revisions.deleteById(merged.id);
+    } catch (rollbackErr) {
+      logger.error(
+        rollbackErr,
+        `Direct change to ${entityType} ${entity.id} failed to apply AND failed to remove its merged revision ${merged.id}; that revision is phantom history and needs removing by hand`,
+      );
+    }
+    throw e;
+  }
+
+  return { merged, result };
+}
+
+/** Land a revert: `landDirectChange` with the adapter's apply and revert provenance. */
 export async function applyRevertDirectly({
   context,
   entityType,
@@ -167,30 +225,18 @@ export async function applyRevertDirectly({
   title?: string;
   bypass: boolean;
 }): Promise<Revision> {
-  const adapter = getAdapter(entityType);
-  const merged = await context.models.revisions.createMerged({
-    type: entityType,
-    id: entity.id,
-    snapshot: entity,
-    proposedChanges: patchOps,
-    bypass,
+  const { merged } = await landDirectChange({
+    context,
+    entityType,
+    entity,
+    patchOps,
     title,
+    bypass,
     revertedFrom: targetRevisionId,
+    write: () =>
+      getAdapter(entityType).applyChanges(context, entity, fields, {
+        isRevert: true,
+      }),
   });
-
-  try {
-    await adapter.applyChanges(context, entity, fields, { isRevert: true });
-  } catch (e) {
-    try {
-      await context.models.revisions.deleteById(merged.id);
-    } catch (rollbackErr) {
-      logger.error(
-        rollbackErr,
-        `Revert of ${entityType} ${entity.id} failed to apply AND failed to remove its merged revision ${merged.id}; that revision is phantom history and needs removing by hand`,
-      );
-    }
-    throw e;
-  }
-
   return merged;
 }
