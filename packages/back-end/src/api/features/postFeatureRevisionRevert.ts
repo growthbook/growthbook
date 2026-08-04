@@ -353,10 +353,14 @@ export async function revertFeatureRevision(
   }
 
   // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
-  // calls should behave like dashboard actions) or FlagsBypassApprovals.
+  // calls should behave like dashboard actions), FlagsBypassApprovals, or the
+  // org-wide "reverts bypass approval" setting. That last one was missing here
+  // while v1 honoured it, so the same org rejected a revert over v2 that v2's
+  // own documented contract allows.
   const canBypass =
     canUseRestApiBypass ||
-    context.permissions.canBypassFlagApprovalChecks(feature, "feature");
+    context.permissions.canBypassFlagApprovalChecks(feature, "feature") ||
+    !!organization.settings?.revertsBypassApproval;
 
   if (!canBypass) {
     const liveRevision = await getRevision({

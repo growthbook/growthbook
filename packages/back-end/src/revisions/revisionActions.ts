@@ -651,22 +651,29 @@ export async function maybeAutoPublishRevision(
       { revisionId: revision.id },
       "auto-publish-on-approval skipped: no arming user or author; left approved",
     );
-    return revision;
+    // Returning quietly let "approve and publish" report success having only
+    // approved. The approval itself stands — it happened — but the caller has to
+    // learn the publish did not, or nobody goes back for it.
+    throw new BadRequestError(
+      "Approved, but the publish did not run: this draft has no arming user to publish as. Publish it directly.",
+    );
+  }
+
+  // Resolved BEFORE the try: the catch below deliberately swallows publish
+  // failures to leave the draft approved for a manual publish, which would also
+  // swallow this and let the caller believe the publish ran.
+  const enablerContext = await getContextForUserIdInOrg(context.org, enablerId);
+  if (!enablerContext) {
+    logger.warn(
+      { revisionId: revision.id, enablerId },
+      "auto-publish-on-approval skipped: enabling user could not be resolved; left approved",
+    );
+    throw new BadRequestError(
+      "Approved, but the publish did not run: the user who armed auto-publish is no longer a member of this organization. Publish it directly.",
+    );
   }
 
   try {
-    const enablerContext = await getContextForUserIdInOrg(
-      context.org,
-      enablerId,
-    );
-    if (!enablerContext) {
-      logger.warn(
-        { revisionId: revision.id, enablerId },
-        "auto-publish-on-approval skipped: enabling user could not be resolved; left approved",
-      );
-      return revision;
-    }
-
     // Deferred: the guard override was acknowledged at arm time (fingerprint on
     // the revision), not by whoever triggered this approval.
     return await publishRevision(enablerContext, revision, entity, {
