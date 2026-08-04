@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { Fragment, ReactElement, useState, useCallback, useMemo } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Queries } from "shared/types/query";
 import {
@@ -374,6 +374,133 @@ export default function ResultMoreMenu({
     return { queryStrings, error };
   }, [snapshot, latest, legacyQueries, legacyQueryError]);
 
+  const menuItemGroups = [
+    {
+      key: "queries",
+      items: [
+        queryStrings.length > 0 ? (
+          <DropdownMenuItem key="view-queries" onClick={handleViewQueries}>
+            View queries
+            <Badge
+              variant="soft"
+              radius="full"
+              label={String(queryStrings.length)}
+              ml="2"
+              color={error ? "red" : undefined}
+            />
+          </DropdownMenuItem>
+        ) : null,
+        canShowRefreshMenuItem({
+          forceRefresh,
+          datasource,
+          canRunExperimentQueries:
+            (datasource &&
+              permissionsUtil.canRunExperimentQueries(datasource)) ??
+            false,
+        }) ? (
+          <DropdownMenuItem
+            key="refresh"
+            onClick={handleForceRefresh}
+            confirmation={
+              runsIncrementalRefresh
+                ? {
+                    confirmationTitle: "Full Refresh",
+                    cta: "I understand",
+                    submit: async () => {
+                      if (forceRefresh) {
+                        await forceRefresh();
+                        setDropdownOpen(false);
+                      }
+                    },
+                    getConfirmationContent: async () => (
+                      <>
+                        This experiment has Pipeline Mode enabled.
+                        <br />
+                        <br />
+                        Fully refreshing the experiment will re-scan the data
+                        source from the beginning of the experiment, instead of
+                        scanning only new data.
+                      </>
+                    ),
+                  }
+                : undefined
+            }
+          >
+            {rerunAllQueriesText}
+          </DropdownMenuItem>
+        ) : null,
+        canShowReenableIncrementalRefresh({
+          datasource,
+          experimentId: experiment?.id,
+          canUpdateDataSourceSettings:
+            (datasource &&
+              permissionsUtil.canUpdateDataSourceSettings(datasource)) ??
+            false,
+        }) && experimentExcludedFromIncrementalRefresh ? (
+          <DropdownMenuItem
+            key="reenable-incremental-refresh"
+            onClick={handleReenableIncrementalRefresh}
+          >
+            Re-enable incremental refresh
+          </DropdownMenuItem>
+        ) : null,
+      ],
+    },
+    {
+      key: "metrics",
+      items: [
+        canEdit && editMetrics && !isBandit ? (
+          <DropdownMenuItem
+            key="edit-metrics"
+            onClick={() => {
+              editMetrics();
+              setDropdownOpen(false);
+            }}
+          >
+            Add / remove metrics
+          </DropdownMenuItem>
+        ) : null,
+      ],
+    },
+    {
+      key: "exports",
+      items: [
+        results &&
+        onAddToDashboard &&
+        hasCommercialFeature("dashboards") &&
+        !isHoldout ? (
+          <DropdownMenuItem
+            key="add-to-dashboard"
+            onClick={() => {
+              onAddToDashboard();
+              setDropdownOpen(false);
+            }}
+          >
+            Add to Dashboard...
+          </DropdownMenuItem>
+        ) : null,
+        canDownloadJupyterNotebook ? (
+          <DropdownMenuItem
+            key="download-notebook"
+            onClick={handleDownloadNotebook}
+          >
+            Download notebook
+          </DropdownMenuItem>
+        ) : null,
+        results ? (
+          <DropdownMenuItem key="export-csv" onClick={handleDownloadCSV}>
+            Export CSV
+          </DropdownMenuItem>
+        ) : null,
+      ],
+    },
+  ]
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item): item is ReactElement => item !== null),
+    }))
+    .filter((group) => group.items.length > 0);
+
   return (
     <>
       <DropdownMenu
@@ -396,113 +523,14 @@ export default function ResultMoreMenu({
         variant="soft"
       >
         <DropdownMenuGroup>
-          {queryStrings.length > 0 ? (
-            <DropdownMenuItem onClick={handleViewQueries}>
-              View queries
-              <Badge
-                variant="soft"
-                radius="full"
-                label={String(queryStrings.length)}
-                ml="2"
-                color={error ? "red" : undefined}
-              />
-            </DropdownMenuItem>
-          ) : null}
-          {canShowRefreshMenuItem({
-            forceRefresh,
-            datasource,
-            canRunExperimentQueries:
-              (datasource &&
-                permissionsUtil.canRunExperimentQueries(datasource)) ??
-              false,
-          }) && (
-            <DropdownMenuItem
-              onClick={handleForceRefresh}
-              confirmation={
-                runsIncrementalRefresh
-                  ? {
-                      confirmationTitle: "Full Refresh",
-                      cta: "I understand",
-                      submit: async () => {
-                        if (forceRefresh) {
-                          await forceRefresh();
-                          setDropdownOpen(false);
-                        }
-                      },
-                      getConfirmationContent: async () => (
-                        <>
-                          This experiment has Pipeline Mode enabled.
-                          <br />
-                          <br />
-                          Fully refreshing the experiment will re-scan the data
-                          source from the beginning of the experiment, instead
-                          of scanning only new data.
-                        </>
-                      ),
-                    }
-                  : undefined
-              }
-            >
-              {rerunAllQueriesText}
-            </DropdownMenuItem>
-          )}
-          {canShowReenableIncrementalRefresh({
-            datasource,
-            experimentId: experiment?.id,
-            canUpdateDataSourceSettings:
-              (datasource &&
-                permissionsUtil.canUpdateDataSourceSettings(datasource)) ??
-              false,
-          }) &&
-            experimentExcludedFromIncrementalRefresh && (
-              <DropdownMenuItem onClick={handleReenableIncrementalRefresh}>
-                Re-enable incremental refresh
-              </DropdownMenuItem>
-            )}
-          {(canEdit && editMetrics && !isBandit) ||
-          canDownloadJupyterNotebook ||
-          results ||
-          onAddToDashboard ? (
-            <DropdownMenuSeparator />
-          ) : null}
-          {canEdit && editMetrics && !isBandit && (
-            <>
-              <DropdownMenuItem
-                onClick={() => {
-                  editMetrics();
-                  setDropdownOpen(false);
-                }}
-              >
-                Add / remove metrics
-              </DropdownMenuItem>
-              {canDownloadJupyterNotebook || results || onAddToDashboard ? (
+          {menuItemGroups.map((group, index) => (
+            <Fragment key={group.key}>
+              {group.items}
+              {index < menuItemGroups.length - 1 ? (
                 <DropdownMenuSeparator />
               ) : null}
-            </>
-          )}
-          {results &&
-            onAddToDashboard &&
-            hasCommercialFeature("dashboards") &&
-            !isHoldout && (
-              <DropdownMenuItem
-                onClick={() => {
-                  onAddToDashboard();
-                  setDropdownOpen(false);
-                }}
-              >
-                Add to Dashboard...
-              </DropdownMenuItem>
-            )}
-          {canDownloadJupyterNotebook && (
-            <DropdownMenuItem onClick={handleDownloadNotebook}>
-              Download notebook
-            </DropdownMenuItem>
-          )}
-          {results && (
-            <DropdownMenuItem onClick={handleDownloadCSV}>
-              Export CSV
-            </DropdownMenuItem>
-          )}
+            </Fragment>
+          ))}
         </DropdownMenuGroup>
       </DropdownMenu>
       {queriesModalOpen && queryStrings.length > 0 && (
