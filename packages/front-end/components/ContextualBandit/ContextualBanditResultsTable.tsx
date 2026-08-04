@@ -46,7 +46,7 @@ function LeafContextsLabel({ clauses }: { clauses: ContextualLeafClause[] }) {
 
   if (!clauses.length || condition === "{}") {
     return (
-      <Text size="medium" color="text-low">
+      <Text size="md" color="text-low">
         All contexts
       </Text>
     );
@@ -92,7 +92,7 @@ function VariationLabel({
         {index}
       </Flex>
       {hideName ? null : (
-        <Text size="medium" weight="medium" truncate={truncate}>
+        <Text size="md" weight="medium" truncate={truncate}>
           {name}
         </Text>
       )}
@@ -192,10 +192,10 @@ function OverallWeights({
           }}
         >
           <VariationLabel index={card.index} name={card.name} truncate />
-          <Heading as="h4" size="x-large" weight="medium" mt="2">
+          <Heading as="h4" size="xl" weight="medium" mt="2">
             {card.weight === null ? "—" : formatWeight(card.weight)}
           </Heading>
-          <Text size="small" color="text-low">
+          <Text size="sm" color="text-low">
             {numberFormatter.format(card.units)} {unitDisplayName.toLowerCase()}
           </Text>
         </Box>
@@ -320,7 +320,7 @@ export default function ContextualBanditResultsTable({
           shouldShowUpdateMessage(leaf.updateMessage) || leaf.error ? (
             <>
               {shouldShowUpdateMessage(leaf.updateMessage) ? (
-                <Text size="small" color="text-low" as="div" mt="1">
+                <Text size="sm" color="text-low" as="div" mt="1">
                   {leaf.updateMessage}
                 </Text>
               ) : null}
@@ -341,7 +341,7 @@ export default function ContextualBanditResultsTable({
             </Box>
           ),
           leading: [
-            <Text key="units" size="medium" color="text-mid">
+            <Text key="units" size="md" color="text-mid">
               {numberFormatter.format(leafTotalSampleSize(leaf))}
             </Text>,
           ],
@@ -416,7 +416,7 @@ export default function ContextualBanditResultsTable({
   return (
     <Box>
       <Flex justify="between" align="center" mb="3" gap="4" wrap="wrap">
-        <Heading as="h3" size="small">
+        <Heading as="h3" size="sm">
           Overall Weights
         </Heading>
         {headerActions}
@@ -458,7 +458,7 @@ export default function ContextualBanditResultsTable({
             gap="3"
             wrap="wrap"
           >
-            <Heading as="h3" size="small">
+            <Heading as="h3" size="sm">
               Comparison
             </Heading>
             <SegmentedControl.Root

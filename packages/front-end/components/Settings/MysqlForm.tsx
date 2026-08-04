@@ -1,5 +1,6 @@
 import { FC, ChangeEventHandler } from "react";
 import { MysqlConnectionParams } from "shared/types/integrations/mysql";
+import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
 import HostWarning from "./HostWarning";
 import SSLConnectionFields from "./SSLConnectionFields";
 
@@ -74,10 +75,11 @@ const MysqlForm: FC<{
             required={!existing}
             value={params.password || ""}
             onChange={onParamChange}
-            placeholder={existing ? "(Keep existing)" : ""}
+            placeholder={existing ? KEEP_EXISTING_PLACEHOLDER : ""}
           />
         </div>
         <SSLConnectionFields
+          existing={existing}
           onParamChange={onParamChange}
           setSSL={(ssl) => setParams({ ssl })}
           value={{

@@ -353,7 +353,7 @@ const MemberList: FC<{
                                   member.managedByIdp ? (
                                     <Callout status="warning">
                                       <Flex direction="column" gap="2">
-                                        <Text weight="semibold" size="medium">
+                                        <Text weight="semibold" size="md">
                                           This user is managed by an external
                                           identity provider.
                                         </Text>

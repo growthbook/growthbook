@@ -241,7 +241,7 @@ export default function DisplayTestQueryResults({
                     </div>
                     <Button
                       variant="ghost"
-                      size="xs"
+                      size="sm"
                       disabled={page <= 1}
                       onClick={() => {
                         setPage((p) => Math.max(p - 1, 1));
@@ -256,7 +256,7 @@ export default function DisplayTestQueryResults({
                     </Button>
                     <Button
                       variant="ghost"
-                      size="xs"
+                      size="sm"
                       disabled={page >= totalPages}
                       onClick={() => {
                         setPage((p) => Math.min(p + 1, totalPages));
@@ -283,7 +283,7 @@ export default function DisplayTestQueryResults({
                     <Separator orientation="vertical" />
                     <Button
                       variant="ghost"
-                      size="xs"
+                      size="sm"
                       disabled={!results.length}
                       onClick={() => handleDownload(results)}
                       setError={setDownloadError}

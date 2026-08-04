@@ -266,7 +266,7 @@ export default function AttributeDetailPage() {
       />
       <div className="p-3 container-fluid pagecontents">
         <Flex align="center" justify="between" mb="4">
-          <Heading as="h1" size="x-large">
+          <Heading as="h1" size="xl">
             {attribute.property}
           </Heading>
           {canEdit && (

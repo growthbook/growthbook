@@ -7,6 +7,7 @@ import {
 } from "@stripe/react-stripe-js";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { captureException as sentryCaptureException } from "@sentry/nextjs";
 import { TaxIdType, StripeAddress } from "shared/types/subscriptions";
 import { PiCaretRight } from "react-icons/pi";
 import { useStripeContext } from "@/hooks/useStripeContext";
@@ -19,6 +20,8 @@ import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
 import Checkbox from "@/ui/Checkbox";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import Modal from "@/components/Modal";
 
 export const taxIdTypeOptions: { label: string; value: TaxIdType }[] = [
@@ -132,6 +135,8 @@ interface Props {
 export default function CloudProUpgradeModal({ close, closeParent }: Props) {
   const [step, setStep] = useState(0);
   const [success, setSuccess] = useState(false);
+  const [organizationRefreshFailed, setOrganizationRefreshFailed] =
+    useState(false);
   const [loading, setLoading] = useState(false);
   const [showAddress, setShowAddress] = useState(false);
   const { clientSecret } = useStripeContext();
@@ -139,6 +144,16 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
   const { apiCall } = useAuth();
   const elements = useElements();
   const stripe = useStripe();
+
+  const refreshOrganizationAfterUpgrade = async () => {
+    try {
+      await refreshOrganization({ forceLicenseRefresh: true });
+      setOrganizationRefreshFailed(false);
+    } catch (error) {
+      sentryCaptureException(error);
+      setOrganizationRefreshFailed(true);
+    }
+  };
 
   const form = useForm<{
     address: StripeAddress | undefined;
@@ -219,13 +234,21 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
               : undefined,
         }),
       });
-      refreshOrganization();
-      setLoading(false);
-      setSuccess(true);
     } catch (e) {
       setLoading(false);
       throw new Error(e.message);
     }
+
+    await refreshOrganizationAfterUpgrade();
+
+    setLoading(false);
+    setSuccess(true);
+  };
+
+  const retryOrganizationRefresh = async () => {
+    setLoading(true);
+    await refreshOrganizationAfterUpgrade();
+    setLoading(false);
   };
 
   if (success) {
@@ -245,11 +268,36 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
         showHeaderCloseButton={false}
       >
         <div className="container-fluid dashboard p-3 ">
-          <h3>Welcome to GrowthBook Pro!</h3>
-          <span>
-            You&apos;re all set! Your organization now has access to all
-            GrowthBook Pro features.
-          </span>
+          <h3>
+            {organizationRefreshFailed
+              ? "GrowthBook Pro Subscription Created"
+              : "Welcome to GrowthBook Pro!"}
+          </h3>
+          {!organizationRefreshFailed ? (
+            <span>
+              You&apos;re all set! Your organization now has access to all
+              GrowthBook Pro features.
+            </span>
+          ) : null}
+          {organizationRefreshFailed ? (
+            <Callout
+              status="warning"
+              mt="3"
+              action={
+                <Button
+                  size="sm"
+                  color="inherit"
+                  loading={loading}
+                  onClick={retryOrganizationRefresh}
+                >
+                  Try again
+                </Button>
+              }
+            >
+              We couldn&apos;t refresh your organization details. Try again to
+              see your updated plan.
+            </Callout>
+          ) : null}
         </div>
       </Modal>
     );

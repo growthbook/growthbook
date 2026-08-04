@@ -1212,7 +1212,7 @@ function EditSSOModal({
       />
 
       <StringArrayField
-        size="legacy"
+        legacyHeight
         label="Email Domains"
         value={form.watch("emailDomains") || []}
         onChange={(emailDomains) => form.setValue("emailDomains", emailDomains)}

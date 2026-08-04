@@ -19,7 +19,7 @@ interface Props {
 
 export default function DashboardViewQueriesButton({
   className,
-  size = "medium",
+  size = "md",
   weight = "semibold",
   buttonProps = {},
   hideQueryCount = false,

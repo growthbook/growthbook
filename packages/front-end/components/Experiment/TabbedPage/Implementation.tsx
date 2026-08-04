@@ -161,7 +161,7 @@ export default function Implementation({
         />
       )}
       <div className="my-4">
-        <Heading as="h2" size="large" color="text-high" mb="2">
+        <Heading as="h2" size="lg" color="text-high" mb="2">
           Implementation
         </Heading>
         {showTrafficFunnel ? (
@@ -215,7 +215,7 @@ export default function Implementation({
         ) : null}
         {isHoldout && holdout ? (
           <Frame>
-            <Heading color="text-high" as="h4" size="small" mb="0">
+            <Heading color="text-high" as="h4" size="sm" mb="0">
               Included Experiments & Features
             </Heading>
             {/* TODO: Add a state for a stopped holdout with no experiments or features? */}
@@ -241,7 +241,7 @@ export default function Implementation({
                     setTab(value as "experiments" | "features")
                   }
                 >
-                  <TabsList size="2">
+                  <TabsList size="md">
                     <TabsTrigger value="experiments">
                       Experiments
                       {!!holdoutExperiments?.length && (

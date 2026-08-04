@@ -148,7 +148,7 @@ export default function EditScheduleModal({
           <Text color="text-high" weight="semibold" mb="0">
             Tiebreaker metric
           </Text>
-          <Text as="div" color="text-mid" mb="0" size="small">
+          <Text as="div" color="text-mid" mb="0" size="sm">
             {helper}
           </Text>
         </>
@@ -177,17 +177,17 @@ export default function EditScheduleModal({
   // in its own box so that distinction is clear.
   const renderVerdictSection = () => (
     <Callout status="info" icon={null} mt="4">
-      <Text as="div" size="medium" weight="semibold" color="text-high" mb="1">
+      <Text as="div" size="md" weight="semibold" color="text-high" mb="1">
         Record a result
       </Text>
-      <Text as="div" color="text-mid" size="medium" mb="3">
+      <Text as="div" color="text-mid" size="md" mb="3">
         Even though you have selected a forced fallback or shipped variation,
         the Decision Framework will still record metadata about whether this
         experiment was won/lost/inconclusive.
       </Text>
       {showTiebreaker && (
         <>
-          <Text as="div" color="text-mid" size="medium" mb="3">
+          <Text as="div" color="text-mid" size="md" mb="3">
             The tiebreaker metric will break ties when multiple variations
             qualify.
           </Text>
@@ -206,7 +206,7 @@ export default function EditScheduleModal({
             onChange={(v) => form.setValue("tiebreakerMetricId", v)}
           />
           {!decisionFrameworkAvailable && (
-            <Text as="div" color="text-mid" size="small" mt="1">
+            <Text as="div" color="text-mid" size="sm" mt="1">
               Enable the Decision Framework in your organization settings to
               record a verdict.
             </Text>
@@ -493,7 +493,7 @@ export default function EditScheduleModal({
                     onChange={(v) => setEndAfterUnit(v as "days" | "hours")}
                     containerStyle={{ width: 110 }}
                   />
-                  <Text color="text-mid" size="small">
+                  <Text color="text-mid" size="sm">
                     from start
                   </Text>
                 </Flex>
@@ -607,19 +607,19 @@ export default function EditScheduleModal({
                 }}
               >
                 <Flex align="center" justify="between" mb="1" gap="2">
-                  <Text size="small" weight="semibold" color="text-high">
+                  <Text size="sm" weight="semibold" color="text-high">
                     Decision Criteria
                   </Text>
                   <Link onClick={() => setDecisionCriteriaModal(true)}>
                     <Flex align="center" gap="1" as="span">
-                      <Text size="small" weight="semibold">
+                      <Text size="sm" weight="semibold">
                         {canEditDecisionCriteria ? "Edit" : "View"}
                       </Text>
                       <PiArrowSquareOut size={12} />
                     </Flex>
                   </Link>
                 </Flex>
-                <Text as="div" size="small" color="text-mid" mb="2">
+                <Text as="div" size="sm" color="text-mid" mb="2">
                   {decisionCriteria.name}
                   {decisionCriteria.description
                     ? `: ${decisionCriteria.description}`

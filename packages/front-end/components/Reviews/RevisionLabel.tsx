@@ -1,3 +1,4 @@
+import { Size } from "@/ui/sizes";
 import Text from "@/ui/Text";
 
 export function revisionLabelText(
@@ -13,13 +14,13 @@ export default function RevisionLabel({
   title,
   numbered = true,
   minWidth = "1.9em",
-  numberSize = "small",
+  numberSize = "sm",
 }: {
   version: number;
   title?: string | null;
   numbered?: boolean;
   minWidth?: string | number;
-  numberSize?: "small" | "medium" | "large" | "x-large" | "inherit";
+  numberSize?: Size<"sm" | "md" | "lg" | "xl"> | "inherit";
 }) {
   return (
     <>

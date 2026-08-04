@@ -565,7 +565,7 @@ export default function SessionReplayPage() {
         >
           <Button
             variant="soft"
-            size="xs"
+            size="sm"
             icon={<PiCaretDoubleRight />}
             aria-label="Expand sessions panel"
             title="Expand sessions panel"
@@ -592,16 +592,16 @@ export default function SessionReplayPage() {
           {/* Header */}
           <Flex justify="between" align="start">
             <Box>
-              <Text size="large" weight="semibold" color="text-high">
+              <Text size="lg" weight="semibold" color="text-high">
                 Recorded Sessions
               </Text>
-              <Text color="text-mid" size="small" as="div">
+              <Text color="text-mid" size="sm" as="div">
                 Select a session to begin playback
               </Text>
             </Box>
             <Button
               variant="soft"
-              size="xs"
+              size="sm"
               icon={<PiCaretDoubleLeft />}
               aria-label="Collapse sessions panel"
               title="Collapse sessions panel"
@@ -623,7 +623,7 @@ export default function SessionReplayPage() {
                 trigger={
                   <Button
                     variant="ghost"
-                    size="xs"
+                    size="sm"
                     icon={<PiPlus />}
                     onClick={() => setFilterPopoverOpen(true)}
                   >
@@ -632,7 +632,7 @@ export default function SessionReplayPage() {
                 }
               />
               {activeFilters.length > 0 && (
-                <Button size="xs" variant="ghost" onClick={clearFilters}>
+                <Button size="sm" variant="ghost" onClick={clearFilters}>
                   Clear
                 </Button>
               )}
@@ -720,7 +720,7 @@ export default function SessionReplayPage() {
                       </Flex>
                       <Text
                         color="text-low"
-                        size="small"
+                        size="sm"
                         whiteSpace="nowrap"
                         ml="2"
                       >
@@ -728,7 +728,7 @@ export default function SessionReplayPage() {
                       </Text>
                     </Flex>
                     <Box style={{ marginTop: 2 }}>
-                      <Text size="small">
+                      <Text size="sm">
                         <span
                           style={{
                             fontFamily: "monospace",
@@ -740,10 +740,10 @@ export default function SessionReplayPage() {
                       </Text>
                     </Box>
                     <Flex gap="3" mt="1">
-                      <Text color="text-low" size="small">
+                      <Text color="text-low" size="sm">
                         ⌁ {session.eventCount} events
                       </Text>
-                      <Text color="text-low" size="small">
+                      <Text color="text-low" size="sm">
                         ⏱ {formatDuration(session.durationMs)}
                       </Text>
                     </Flex>
@@ -754,7 +754,7 @@ export default function SessionReplayPage() {
 
           {/* Pagination */}
           <Flex justify="between" align="center" mt="3">
-            <Text color="text-low" size="small">
+            <Text color="text-low" size="sm">
               Showing {sessions.length} session
               {sessions.length === 1 ? "" : "s"}
             </Text>
@@ -818,7 +818,7 @@ export default function SessionReplayPage() {
                 </Text>
                 <Button
                   variant="ghost"
-                  size="xs"
+                  size="sm"
                   icon={<PiCopy />}
                   onClick={copySessionId}
                   aria-label="Copy session ID"
@@ -861,7 +861,7 @@ export default function SessionReplayPage() {
               <Box style={{ marginLeft: "auto" }}>
                 <Button
                   variant={evalOpen ? "soft" : "outline"}
-                  size="sm"
+                  size="md"
                   icon={<PiListBullets />}
                   onClick={() => setEvalOpen(!evalOpen)}
                 >
@@ -950,12 +950,12 @@ export default function SessionReplayPage() {
                 flexShrink: 0,
               }}
             >
-              <Text size="large" weight="semibold" color="text-high">
+              <Text size="lg" weight="semibold" color="text-high">
                 Evaluations
               </Text>
               <Button
                 variant="ghost"
-                size="xs"
+                size="sm"
                 icon={<PiX />}
                 onClick={() => setEvalOpen(false)}
                 aria-label="Close evaluations"
@@ -973,10 +973,10 @@ export default function SessionReplayPage() {
                   setEvalTab((v as "all" | "flags" | "exp" | "events") || "all")
                 }
               >
-                <TabsList size="1">
+                <TabsList size="sm">
                   <TabsTrigger value="all">
                     <Text
-                      size="small"
+                      size="sm"
                       weight="medium"
                       color={evalTab === "all" ? "text-high" : "text-low"}
                     >
@@ -985,7 +985,7 @@ export default function SessionReplayPage() {
                   </TabsTrigger>
                   <TabsTrigger value="flags">
                     <Text
-                      size="small"
+                      size="sm"
                       weight="medium"
                       color={evalTab === "flags" ? "text-high" : "text-low"}
                     >
@@ -994,7 +994,7 @@ export default function SessionReplayPage() {
                   </TabsTrigger>
                   <TabsTrigger value="exp">
                     <Text
-                      size="small"
+                      size="sm"
                       weight="medium"
                       color={evalTab === "exp" ? "text-high" : "text-low"}
                     >
@@ -1003,7 +1003,7 @@ export default function SessionReplayPage() {
                   </TabsTrigger>
                   <TabsTrigger value="events">
                     <Text
-                      size="small"
+                      size="sm"
                       weight="medium"
                       color={evalTab === "events" ? "text-high" : "text-low"}
                     >
@@ -1020,14 +1020,14 @@ export default function SessionReplayPage() {
                 events &&
                 visibleEvaluations.length === 0 && (
                   <Box style={{ padding: "12px 16px" }}>
-                    <Text size="small" color="text-low" weight="regular">
+                    <Text size="sm" color="text-low" weight="regular">
                       No evaluations recorded for this session.
                     </Text>
                   </Box>
                 )}
               {!events && !playerError && selectedSessionId && (
                 <Box style={{ padding: "12px 16px" }}>
-                  <Text size="small" color="text-low" weight="regular">
+                  <Text size="sm" color="text-low" weight="regular">
                     Loading evaluations…
                   </Text>
                 </Box>
@@ -1050,19 +1050,14 @@ export default function SessionReplayPage() {
                   <Box style={{ flex: 1, minWidth: 0 }}>
                     <Text
                       as="div"
-                      size="medium"
+                      size="md"
                       weight="semibold"
                       color="text-high"
                       truncate={true}
                     >
                       {evt.formattedMessage}
                     </Text>
-                    <Text
-                      as="div"
-                      size="small"
-                      weight="regular"
-                      color="text-low"
-                    >
+                    <Text as="div" size="sm" weight="regular" color="text-low">
                       {(() => {
                         const d = new Date(evt.timestamp);
                         return isNaN(d.getTime()) ? "" : d.toLocaleString();
