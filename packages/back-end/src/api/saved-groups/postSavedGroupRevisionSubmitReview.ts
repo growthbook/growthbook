@@ -1,12 +1,7 @@
-import { isUserBlockedFromApproving } from "shared/enterprise";
 import { postSavedGroupRevisionSubmitReviewValidator } from "shared/validators";
-import {
-  canCommentOnRevision,
-  maybeAutoPublishRevision,
-} from "back-end/src/revisions/revisionActions";
+import { submitRevisionReview } from "back-end/src/revisions/revisionActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
+import { NotFoundError } from "back-end/src/util/errors";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
@@ -32,92 +27,21 @@ export const postSavedGroupRevisionSubmitReview = createApiRequestHandler(
 
   // Anyone with edit permission can comment / request-changes; the
   // self-approve guard below blocks `approve` decisions.
-  // A verdict needs review authority; a plain comment is participation. Same
-  // split the internal controller makes, via the same helper.
-  if (
-    !(req.body.decision === "comment"
-      ? canCommentOnRevision(
-          "saved-group",
-          req.context,
-          // The revision's own snapshot, not the live entity: a comment belongs
-          // to the revision, whose project may predate a move. Same basis the
-          // internal controller uses.
-          revision.target.snapshot as Record<string, unknown>,
-        )
-      : req.context.permissions.canRevisionAction(
-          "saved-group",
-          "review",
-          savedGroup,
-        ))
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
-
-  const { decision, comment } = req.body;
-
-  // Block the author from any non-comment review action.
-  if (revision.authorId === req.context.userId && decision !== "comment") {
-    throw new BadRequestError("Cannot submit a review on a draft you created");
-  }
-
-  // Block contributor self-approve when `blockSelfApproval` is set. Same
-  // rule the internal /revision/:id/review endpoint enforces — using the
-  // shared helper keeps the logic in lockstep.
-  if (decision === "approve") {
-    const blocked = isUserBlockedFromApproving({
-      settings: req.context.org.settings,
-      entityType: "saved-group",
-      revision,
-      userId: req.context.userId,
-    });
-    if (blocked) {
-      throw new BadRequestError(
-        "You cannot approve a draft you contributed to.",
-      );
-    }
-  }
-
-  if (
-    decision !== "comment" &&
-    !["pending-review", "changes-requested", "approved"].includes(
-      revision.status,
-    )
-  ) {
-    throw new BadRequestError(
-      `Can only submit a review when review has been requested (status is "${revision.status}")`,
-    );
-  }
-
-  const updated = await req.context.models.revisions.addReview(
-    revision.id,
-    req.context.userId,
-    decision,
-    comment ?? "",
-  );
-
-  await dispatchSavedGroupRevisionEvent(req.context, updated, {
-    type: "reviewed",
-    decision,
-    userId: req.context.userId,
-    ...(comment ? { comment } : {}),
+  const { revision: result, autoPublished } = await submitRevisionReview({
+    context: req.context,
+    entityType: "saved-group",
+    entity: savedGroup as unknown as Record<string, unknown> & {
+      project?: string;
+      projects?: string[];
+    },
+    revision,
+    decision: req.body.decision,
+    comment: req.body.comment,
+    skipAutoPublish: req.body.skipAutoPublish,
   });
 
-  if (decision === "approve" && !req.body.skipAutoPublish) {
-    const entity = savedGroup as unknown as Record<string, unknown>;
-    const afterAutoPublish = await maybeAutoPublishRevision(
-      req.context,
-      updated,
-      entity,
-    );
-    const didAutoPublish = afterAutoPublish.status === "merged";
-    return {
-      revision: await toApiSavedGroupRevision(afterAutoPublish, req.context),
-      autoPublished: didAutoPublish,
-    };
-  }
-
   return {
-    revision: await toApiSavedGroupRevision(updated, req.context),
-    autoPublished: false,
+    revision: await toApiSavedGroupRevision(result, req.context),
+    autoPublished,
   };
 });

@@ -9,6 +9,7 @@ import {
   isAutopublishOnApprovalEnabled,
   isScheduledPublishPending,
   isScheduledPublishDue,
+  ReviewDecision,
 } from "shared/enterprise";
 import uniqid from "uniqid";
 import type { Context } from "back-end/src/models/BaseModel";
@@ -983,4 +984,99 @@ export async function requestRevisionReview({
     type: "reviewRequested",
   });
   return updated;
+}
+
+/**
+ * Record a review on a revision, and auto-publish if approving armed it.
+ *
+ * The three handlers ran this order already but disagreed on how to test one
+ * thing: Config hand-rolled the self-approval block from `constantBlockSelfApproval`
+ * plus a manual contributors lookup, while Constant used the shared
+ * `isUserBlockedFromApproving`. Same rule, two implementations — exactly the drift
+ * a shared order prevents.
+ *
+ * Authority splits by decision: a verdict takes review authority over the entity, a
+ * plain comment is participation and answers to the revision's own snapshot, whose
+ * project may predate a move.
+ */
+export async function submitRevisionReview({
+  context,
+  entityType,
+  entity,
+  revision,
+  decision,
+  comment,
+  skipAutoPublish,
+}: {
+  context: Context;
+  entityType: RevisionTargetType;
+  entity: Record<string, unknown> & { project?: string; projects?: string[] };
+  revision: Revision;
+  decision: ReviewDecision;
+  comment?: string;
+  skipAutoPublish?: boolean;
+}): Promise<{ revision: Revision; autoPublished: boolean }> {
+  const isComment = decision === "comment";
+
+  if (
+    !(isComment
+      ? canCommentOnRevision(
+          entityType,
+          context,
+          revision.target.snapshot as Record<string, unknown>,
+        )
+      : context.permissions.canRevisionAction(entityType, "review", entity))
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  // The author may comment on their own draft, but not rule on it.
+  if (revision.authorId === context.userId && !isComment) {
+    throw new BadRequestError("Cannot submit a review on a draft you created");
+  }
+
+  // Contributors cannot approve what they helped write. `addReview` re-checks this
+  // under its CAS against the row it writes; this is the early, clearer refusal.
+  if (
+    decision === "approve" &&
+    isUserBlockedFromApproving({
+      settings: context.org.settings,
+      entityType,
+      revision,
+      userId: context.userId,
+    })
+  ) {
+    throw new BadRequestError("You cannot approve a draft you contributed to.");
+  }
+
+  if (
+    !isComment &&
+    !["pending-review", "changes-requested", "approved"].includes(
+      revision.status,
+    )
+  ) {
+    throw new BadRequestError(
+      `Can only submit a review when review has been requested (status is "${revision.status}")`,
+    );
+  }
+
+  const updated = await context.models.revisions.addReview(
+    revision.id,
+    context.userId,
+    decision,
+    comment ?? "",
+  );
+
+  await getRevisionWebhookAdapter(entityType)?.dispatch(context, updated, {
+    type: "reviewed",
+    decision,
+    userId: context.userId,
+    ...(comment ? { comment } : {}),
+  });
+
+  if (decision === "approve" && !skipAutoPublish) {
+    const after = await maybeAutoPublishRevision(context, updated, entity);
+    return { revision: after, autoPublished: after.status === "merged" };
+  }
+  return { revision: updated, autoPublished: false };
 }

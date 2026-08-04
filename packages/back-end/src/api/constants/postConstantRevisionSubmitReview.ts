@@ -1,12 +1,7 @@
-import { isUserBlockedFromApproving } from "shared/enterprise";
 import { postConstantRevisionSubmitReviewValidator } from "shared/validators";
-import {
-  canCommentOnRevision,
-  maybeAutoPublishRevision,
-} from "back-end/src/revisions/revisionActions";
+import { submitRevisionReview } from "back-end/src/revisions/revisionActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
+import { NotFoundError } from "back-end/src/util/errors";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
 
@@ -28,90 +23,21 @@ export const postConstantRevisionSubmitReview = createApiRequestHandler(
     req.params.version,
   );
 
-  // A verdict needs review authority; a plain comment is participation. Same
-  // split the internal controller makes, via the same helper.
-  if (
-    !(req.body.decision === "comment"
-      ? canCommentOnRevision(
-          "constant",
-          req.context,
-          // The revision's own snapshot, not the live entity: a comment belongs
-          // to the revision, whose project may predate a move. Same basis the
-          // internal controller uses.
-          revision.target.snapshot as Record<string, unknown>,
-        )
-      : req.context.permissions.canRevisionAction(
-          "constant",
-          "review",
-          constant,
-        ))
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
-
-  const { decision, comment } = req.body;
-
-  // Block the author from any non-comment review action.
-  if (revision.authorId === req.context.userId && decision !== "comment") {
-    throw new BadRequestError("Cannot submit a review on a draft you created");
-  }
-
-  // Block contributor self-approve when blockSelfApproval is set. The shared
-  // helper routes constants through the requireReviews model — same rule the
-  // internal /revision/:id/review endpoint enforces.
-  if (decision === "approve") {
-    const blocked = isUserBlockedFromApproving({
-      settings: req.context.org.settings,
-      entityType: "constant",
-      revision,
-      userId: req.context.userId,
-    });
-    if (blocked) {
-      throw new BadRequestError(
-        "You cannot approve a draft you contributed to.",
-      );
-    }
-  }
-
-  if (
-    decision !== "comment" &&
-    !["pending-review", "changes-requested", "approved"].includes(
-      revision.status,
-    )
-  ) {
-    throw new BadRequestError(
-      `Can only submit a review when review has been requested (status is "${revision.status}")`,
-    );
-  }
-
-  const updated = await req.context.models.revisions.addReview(
-    revision.id,
-    req.context.userId,
-    decision,
-    comment ?? "",
-  );
-
-  await dispatchConstantRevisionEvent(req.context, updated, {
-    type: "reviewed",
-    decision,
-    userId: req.context.userId,
-    ...(comment ? { comment } : {}),
+  const { revision: result, autoPublished } = await submitRevisionReview({
+    context: req.context,
+    entityType: "constant",
+    entity: constant as unknown as Record<string, unknown> & {
+      project?: string;
+      projects?: string[];
+    },
+    revision,
+    decision: req.body.decision,
+    comment: req.body.comment,
+    skipAutoPublish: req.body.skipAutoPublish,
   });
 
-  if (decision === "approve" && !req.body.skipAutoPublish) {
-    const afterAutoPublish = await maybeAutoPublishRevision(
-      req.context,
-      updated,
-      constant as unknown as Record<string, unknown>,
-    );
-    return {
-      revision: await toApiConstantRevision(afterAutoPublish, req.context),
-      autoPublished: afterAutoPublish.status === "merged",
-    };
-  }
-
   return {
-    revision: await toApiConstantRevision(updated, req.context),
-    autoPublished: false,
+    revision: await toApiConstantRevision(result, req.context),
+    autoPublished,
   };
 });
