@@ -877,3 +877,52 @@ export async function maybePublishScheduledRevision(
     return revision;
   }
 }
+
+/**
+ * Discard an open revision.
+ *
+ * The three per-entity discard handlers were byte-for-byte identical apart from
+ * the entity name, and the only thing they differed on — which webhook to fire —
+ * is already registered per entity. Same for request-review, submit-review and
+ * rebase: for those four actions there is no entity-specific logic to preserve,
+ * so the sequence belongs here and the handlers keep only what is genuinely
+ * theirs (their route, their validator, their response shape).
+ */
+export async function discardRevision({
+  context,
+  entityType,
+  entity,
+  revision,
+  reason,
+}: {
+  context: Context;
+  entityType: RevisionTargetType;
+  entity: { project?: string; projects?: string[] };
+  revision: Revision;
+  reason?: string;
+}): Promise<Revision> {
+  if (revision.status === "merged" || revision.status === "discarded") {
+    throw new BadRequestError(
+      `Cannot discard a revision with status "${revision.status}"`,
+    );
+  }
+
+  // Authors can always discard their own draft; anyone else needs authoring
+  // rights on the entity.
+  if (
+    revision.authorId !== context.userId &&
+    !context.permissions.canRevisionAction(entityType, "draft", entity)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const closed = await context.models.revisions.close(
+    revision.id,
+    context.userId,
+    reason,
+  );
+  await getRevisionWebhookAdapter(entityType)?.dispatch(context, closed, {
+    type: "discarded",
+  });
+  return closed;
+}

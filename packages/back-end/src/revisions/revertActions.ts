@@ -1,14 +1,16 @@
 import { NO_ENVIRONMENT_BINDING, RevisionModel } from "shared/permissions";
 import { isArchiveTransition } from "shared/util";
-import { Revision } from "shared/enterprise";
+import { Revision, RevisionTargetType } from "shared/enterprise";
 import { logger } from "back-end/src/util/logger";
 import { Context } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions";
-import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
+import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import {
+  createOrUpdateRevision,
   applyPatchToSnapshot,
   buildPatchOps,
 } from "back-end/src/revisions/util";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 
 export type RevertStrategy = "draft" | "publish";
 
@@ -239,4 +241,97 @@ export async function applyRevertDirectly({
       }),
   });
   return merged;
+}
+
+/**
+ * The revert pipeline: one order, for every entity and surface.
+ *
+ * All three handlers this replaces already ran these steps in this sequence, with
+ * entity specifics in exactly two places. Making the order explicit is what closes
+ * the class a narrow chokepoint cannot: a handler omitting a step, or running it in
+ * the wrong place. The findings behind this were all step-ordering — a merged record
+ * written before the authority decision, an experiment guard enforced ad hoc
+ * "because this path calls applyChanges directly", gates collected before the
+ * coarse check.
+ *
+ * `validate` and `assertLandable` are the entity's own slots: cross-field
+ * validation and value checks in the first, production-affecting guards that only
+ * apply when the change actually lands in the second. Dispatch is not a slot — the
+ * webhook adapter is already registered per entity, so the pipeline looks it up and
+ * three handlers stop remembering to fire it.
+ */
+export async function revertRevision({
+  context,
+  entityType,
+  entity,
+  targetRevision,
+  strategy,
+  fields,
+  patchOps,
+  footprint,
+  title,
+  bypass,
+  validate,
+  assertLandable,
+}: {
+  context: Context;
+  // Narrower than the authority decision's `RevisionModel` on purpose: the
+  // pipeline writes generic revisions, which Feature Flags do not use — they keep
+  // their own revision store. Features share `assertCanRevertRevision` and will
+  // join this pipeline when that store is unified.
+  entityType: RevisionTargetType;
+  entity: Record<string, unknown> & { id: string };
+  targetRevision: Revision;
+  strategy: RevertStrategy;
+  fields: Record<string, unknown>;
+  patchOps: ReturnType<typeof buildPatchOps>;
+  footprint: string[];
+  title?: string;
+  bypass: boolean;
+  /** Entity validation, run for both strategies before anything is written. */
+  validate?: () => Promise<void>;
+  /** Guards that only bite when the change lands live. */
+  assertLandable?: () => Promise<void>;
+}): Promise<{ revision: Revision; published: boolean }> {
+  const landing = strategy === "publish";
+
+  assertCanRevertRevision({
+    context,
+    entityType,
+    entity,
+    fields,
+    landing,
+    footprint,
+  });
+
+  await validate?.();
+
+  const dispatch = getRevisionWebhookAdapter(entityType);
+
+  if (!landing) {
+    const draft = await createOrUpdateRevision(
+      context as Parameters<typeof createOrUpdateRevision>[0],
+      entityType,
+      entity,
+      patchOps,
+      { forceCreate: true, title, revertedFrom: targetRevision.id },
+    );
+    await dispatch?.dispatch(context, draft, { type: "created" });
+    return { revision: draft, published: false };
+  }
+
+  await assertLandable?.();
+
+  const merged = await applyRevertDirectly({
+    context,
+    entityType,
+    entity,
+    fields,
+    patchOps,
+    targetRevisionId: targetRevision.id,
+    title,
+    bypass,
+  });
+  await dispatch?.dispatch(context, merged, { type: "reverted" });
+  return { revision: merged, published: true };
 }

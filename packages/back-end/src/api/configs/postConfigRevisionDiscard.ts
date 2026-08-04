@@ -1,7 +1,7 @@
 import { postConfigRevisionDiscardValidator } from "shared/validators";
+import { discardRevision } from "back-end/src/revisions/revisionActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
+import { NotFoundError } from "back-end/src/util/errors";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
@@ -19,27 +19,12 @@ export const postConfigRevisionDiscard = createApiRequestHandler(
     req.params.version,
   );
 
-  if (revision.status === "merged" || revision.status === "discarded") {
-    throw new BadRequestError(
-      `Cannot discard a revision with status "${revision.status}"`,
-    );
-  }
-
-  // Authors can always discard their own drafts; otherwise require edit perm.
-  if (revision.authorId !== req.context.userId) {
-    if (!req.context.permissions.canRevisionAction("config", "draft", config)) {
-      req.context.permissions.throwPermissionError();
-    }
-  }
-
-  const closed = await req.context.models.revisions.close(
-    revision.id,
-    req.context.userId,
-    req.body.reason,
-  );
-
-  await dispatchConfigRevisionEvent(req.context, closed, {
-    type: "discarded",
+  const closed = await discardRevision({
+    context: req.context,
+    entityType: "config",
+    entity: config,
+    revision,
+    reason: req.body.reason,
   });
 
   return { revision: await toApiConfigRevision(closed, req.context) };
