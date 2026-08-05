@@ -4,7 +4,6 @@ import { Revision, RevisionTargetType } from "shared/enterprise";
 import { logger } from "back-end/src/util/logger";
 import {
   assertLandingBaseline,
-  capturePostFailureSnapshot,
   LandingConflictError,
   runGuardedWrite,
   tryRestoreEntityPreImage,
@@ -171,12 +170,13 @@ export async function landDirectChange<T>({
   // (an entity update that then cascades to dependents) fails partway; omit for a
   // write that is atomic on one document.
   changes?: Record<string, unknown>;
-  write: () => Promise<T>;
-  // The doc the write PERSISTED, mapped from its own result — the ownership
-  // baseline compensation compares live against. Adapters and model hooks
-  // normalize, so the caller's intended `changes` is not it, and a re-read after
-  // failure can observe a concurrent writer. Omit only when the write returns
-  // nothing usable; compensation then falls back to a re-read.
+  write: (report: (doc: Record<string, unknown> | null) => void) => Promise<T>;
+  // The doc the write PERSISTED — the ownership baseline compensation compares
+  // live against. Adapters and model hooks normalize, so the caller's intended
+  // `changes` is not it, and a re-read after failure can observe a concurrent
+  // writer. `persistedFrom` maps the write's return value; `write` receives a
+  // `report` callback for the case where the write throws AFTER persisting (a
+  // Config cascade), when there is no return value to map.
   persistedFrom?: (result: T) => Record<string, unknown> | null;
 }): Promise<{ merged: Revision; result: T }> {
   return withBufferedPayloadRefreshes(context, "direct-landing", async () => {
@@ -241,8 +241,10 @@ export async function landDirectChange<T>({
         requireLatestMergedId: merged.id,
       });
       writeStarted = true;
-      result = await write();
-      persisted = persistedFrom?.(result) ?? null;
+      result = await write((doc) => {
+        persisted = doc;
+      });
+      persisted = persistedFrom?.(result) ?? persisted;
     } catch (e) {
       // Live state first: an unrecorded partial change is the one outcome no retry
       // can repair, so the merged revision is only removed once live is back where
@@ -259,11 +261,10 @@ export async function landDirectChange<T>({
       // normalizes (adapter applyChanges and model hooks both), and comparing
       // live to unnormalized changes misreads "ours" as "someone else's":
       // skipping the restore while history is still removed below.
-      const written =
-        changes && writeStarted && !casLost
-          ? (persisted ??
-            (await capturePostFailureSnapshot(context, entityType, entity.id)))
-          : null;
+      // Only what the write REPORTED persisting. No re-read fallback: a re-read
+      // after failure can observe a concurrent writer and hand compensation
+      // their values as if this landing had written them.
+      const written = changes && writeStarted && !casLost ? persisted : null;
       const restored =
         changes && writeStarted && !casLost
           ? written !== null &&
@@ -327,11 +328,12 @@ export async function applyRevertDirectly({
     bypass,
     revertedFrom: targetRevisionId,
     changes: fields,
-    write: () =>
+    write: (report) =>
       runGuardedWrite(entityType, entity.id, () =>
         getAdapter(entityType).applyChanges(context, entity, fields, {
           isRevert: true,
           guarded: true,
+          onPersisted: (applied) => report(applied.written),
         }),
       ),
     persistedFrom: (applied) => applied.written,

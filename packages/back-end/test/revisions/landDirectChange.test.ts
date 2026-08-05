@@ -192,7 +192,10 @@ describe("landDirectChange", () => {
         patchOps: [],
         bypass: true,
         changes: { value: "after" },
-        write: async () => {
+        // Reports its entity write, then fails in a later step — the shape a
+        // Config root-plus-cascade apply has, and the case compensation is for.
+        write: async (report) => {
+          report({ id: "ent_1", value: "after" });
           throw new Error("cascade failed");
         },
       }),
@@ -202,10 +205,10 @@ describe("landDirectChange", () => {
     expect(tryRestoreEntityPreImage).toHaveBeenCalledWith(
       expect.objectContaining({
         preImage: entity,
-        // The persisted-doc snapshot, not the caller's intent: adapters and
-        // model hooks normalize, so ownership is judged against what actually
-        // landed on the doc.
-        written: { id: "ent_1" },
+        // What the write REPORTED persisting, not the caller's intent: adapters
+        // and model hooks normalize, so ownership is judged against what
+        // actually landed on the doc.
+        written: { id: "ent_1", value: "after" },
         persistedKeys: ["value"],
       }),
     );
@@ -225,7 +228,10 @@ describe("landDirectChange", () => {
         patchOps: [],
         bypass: true,
         changes: { value: "after" },
-        write: async () => {
+        // Reports its entity write, then fails in a later step — the shape a
+        // Config root-plus-cascade apply has, and the case compensation is for.
+        write: async (report) => {
+          report({ id: "ent_1", value: "after" });
           throw new Error("cascade failed");
         },
       }),
@@ -248,7 +254,8 @@ describe("landDirectChange", () => {
         patchOps: [],
         bypass: true,
         changes: { value: "after" },
-        write: async () => {
+        write: async (report) => {
+          report({ id: "ent_1", value: "after" });
           throw new Error("write failed");
         },
       }),
@@ -318,7 +325,10 @@ describe("landDirectChange", () => {
         patchOps: [],
         bypass: true,
         changes: { value: "after" },
-        write: async () => {
+        // Reports its entity write, then fails in a later step — the shape a
+        // Config root-plus-cascade apply has, and the case compensation is for.
+        write: async (report) => {
+          report({ id: "ent_1", value: "after" });
           throw new Error("cascade failed");
         },
       }),

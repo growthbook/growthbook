@@ -3548,6 +3548,9 @@ async function publishRevisionInner({
   }
 
   let updatedFeature: FeatureInterface;
+  // Our own write's stamp, captured the moment it lands: the ownership token the
+  // unwind below checks before reversing any satellite.
+  let ourWriteStamp: Date | undefined;
   try {
     // Captured before any mutation — the holdout transition is several
     // non-transactional writes, so a failure partway through has already mutated
@@ -3587,6 +3590,7 @@ async function publishRevisionInner({
     updatedFeature = await runGuardedWrite("feature", feature.id, () =>
       applyRevisionChanges(context, feature, revision, result),
     );
+    ourWriteStamp = updatedFeature.dateUpdated;
 
     rewinds.push({
       what: "feature document",
@@ -3678,10 +3682,33 @@ async function publishRevisionInner({
     // the feature doc it advanced stays published.
     const unwind = [...rewinds].reverse();
     if (revisionStatusRewind) unwind.push(revisionStatusRewind);
-    let criticalFailed = false;
-    const unreversed: string[] = [];
+    // OWNERSHIP FIRST, before any satellite is reversed. Only the doc restore is
+    // guarded; the holdout, experiment-linkage and bandit rewinds are not — run
+    // after a rival publish took the feature, they would undo ITS satellites
+    // while the doc restore correctly declined, leaving live with the rival's
+    // rules and our pre-image's satellites. Our own write's stamp is the token:
+    // if live has moved past it, reverse NOTHING and report the residue. Same
+    // rule bulk applies. No stamp means the feature write never landed, so there
+    // is nothing of ours to reverse either.
+    let ownershipLost = false;
+    const ourStamp = ourWriteStamp;
+    if (ourStamp) {
+      const live = await getFeature(context, feature.id);
+      ownershipLost =
+        !live || live.dateUpdated?.getTime() !== ourStamp.getTime();
+    }
+    let criticalFailed = ownershipLost;
+    const unreversed: string[] = ownershipLost
+      ? unwind.map(({ what }) => what)
+      : [];
+    if (ownershipLost) {
+      logger.error(
+        `Skipping every rewind for feature ${feature.id} revision ${revision.version}: a later write owns the feature, so reversing would undo ITS work`,
+      );
+    }
     for (const { what, undo, critical } of unwind) {
       // Reopening the revision now would contradict a still-published feature.
+      if (ownershipLost) continue;
       if (criticalFailed) {
         logger.error(
           `Skipping rewind of ${what} for feature ${feature.id} revision ${revision.version}: an earlier critical step could not be reversed`,

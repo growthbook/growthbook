@@ -534,18 +534,24 @@ export class RevisionModel extends BaseClass {
   private async readableTargetIds(
     entries: { type: RevisionTargetType; id: string }[],
   ): Promise<Set<string>> {
+    // Keyed by TYPE and id: ids are unique only within a collection, so a
+    // readable Constant would otherwise vouch for a Feature sharing its id.
     const readable = new Set<string>();
-    const byType = new Map<RevisionTargetType, string[]>();
+    const byType = new Map<RevisionTargetType, Set<string>>();
     for (const { type, id } of entries) {
-      byType.set(type, [...(byType.get(type) ?? []), id]);
+      // Add into a Set rather than rebuilding an array per entry — this runs
+      // over every row of the filtered scan.
+      const ids = byType.get(type) ?? new Set<string>();
+      ids.add(id);
+      byType.set(type, ids);
     }
     for (const [type, ids] of byType) {
       const model = getAdapter(type).getModel(this.context);
       if (!model) continue;
-      const found = (await model.getByIds([...new Set(ids)])) as {
+      const found = (await model.getReadScopesByIds([...ids])) as {
         id: string;
       }[];
-      for (const entity of found) readable.add(entity.id);
+      for (const entity of found) readable.add(`${type}:${entity.id}`);
     }
     return readable;
   }
@@ -592,7 +598,9 @@ export class RevisionModel extends BaseClass {
       })),
     );
     const readableIds = projected
-      .filter((doc) => readableTargets.has(doc.target?.id as string))
+      .filter((doc) =>
+        readableTargets.has(`${doc.target?.type}:${doc.target?.id}`),
+      )
       .map((doc) => doc.id as string);
 
     const pageIds = readableIds.slice(
@@ -601,7 +609,14 @@ export class RevisionModel extends BaseClass {
     );
     if (!pageIds.length) return { revisions: [], total: readableIds.length };
 
-    const rows = await this._find({ id: { $in: pageIds } }, { sort });
+    // Readability was decided ABOVE on the live basis. `_find` would re-apply the
+    // model's own per-doc check, which reads the revision SNAPSHOT — undoing that
+    // decision and hiding a moved entity's history from the project that now owns
+    // it, while the total still counted it.
+    const rows = await this._find(
+      { id: { $in: pageIds } },
+      { sort, bypassReadPermissionChecks: true },
+    );
     return { revisions: rows, total: readableIds.length };
   }
 
@@ -698,7 +713,7 @@ export class RevisionModel extends BaseClass {
       })),
     );
     return projected.filter((doc) =>
-      readableTargets.has(doc.target?.id as string),
+      readableTargets.has(`${doc.target?.type}:${doc.target?.id}`),
     ).length;
   }
 
@@ -816,7 +831,6 @@ export class RevisionModel extends BaseClass {
       skip?: number;
     } = {},
   ): Promise<{ revisions: Revision[]; total: number }> {
-    const { limit, skip } = opts;
     const statusFilter = this.buildStatusFilter(opts.status);
     const filter: Record<string, unknown> = {
       "target.type": entityType,
@@ -825,16 +839,10 @@ export class RevisionModel extends BaseClass {
       ...(opts.authorId ? { authorId: opts.authorId } : {}),
     };
 
-    const [revisions, total] = await Promise.all([
-      this._find(filter, {
-        limit,
-        skip,
-        sort: { dateCreated: -1, id: -1 },
-      }),
-      this._countDocuments(filter),
-    ]);
-
-    return { revisions, total };
+    // Same live-entity basis as the cross-entity listings — this one was left on
+    // the snapshot basis, so a moved entity's own history page disagreed with the
+    // org-level list about what the caller may see.
+    return this.findReadablePage(filter, opts);
   }
 
   // Review
@@ -1118,7 +1126,15 @@ export class RevisionModel extends BaseClass {
   // carries the now-cleared scheduledPublishAt / lock fields.
   private async disarmScheduledPublish(id: string): Promise<Revision | null> {
     await this._dangerousGetCollection().updateOne(
-      { organization: this.context.org.id, id },
+      {
+        organization: this.context.org.id,
+        id,
+        // Only an OPEN revision disarms. A concurrent publish/discard resolves
+        // the revision while this is in flight, and scrubbing the schedule off a
+        // merged revision rewrites settled history (and the arm fields a
+        // publish's own record kept).
+        status: { $nin: ["merged", "discarded"] },
+      },
       {
         $set: { autoPublishOnApproval: false },
         $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
@@ -1749,6 +1765,11 @@ export class RevisionModel extends BaseClass {
     // `draft` lets the author explicitly re-submit via `submitForReview`
     // when ready — a safer default than inferring the pre-discard status.
     const reopened = await this.updateWithCas(id, ["status"], (existing) => {
+      // Re-checked under the CAS, against the row this write is conditioned on:
+      // the guard alone only proves `status` hasn't changed since the CAS re-read,
+      // and a retry re-reads. Without this a reopen racing a publish could demote
+      // MERGED history back to `draft`. Only a discarded revision reopens.
+      if (existing.status !== "discarded") return null;
       return {
         status: "draft",
         resolution: undefined,

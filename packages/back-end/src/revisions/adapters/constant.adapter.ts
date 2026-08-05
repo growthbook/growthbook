@@ -124,7 +124,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
   getModel(context: Context) {
     return context.models.constants as {
       getById(id: string): Promise<ConstantInterface | null>;
-      getByIds(ids: string[]): Promise<ConstantInterface[]>;
+      getReadScopesByIds(ids: string[]): Promise<ConstantInterface[]>;
     };
   },
 
@@ -272,7 +272,11 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     // raw `@const:` placeholders into the payload). Unlike the saved-group
     // adapter's stale-attribute skip, there's no revert-safe validation to opt
     // out of here — so the flag is accepted for interface conformance only.
-    options?: { isRevert?: boolean; guarded?: boolean },
+    options?: {
+      isRevert?: boolean;
+      guarded?: boolean;
+      onPersisted?: (result: ApplyChangesResult) => void;
+    },
   ): Promise<ApplyChangesResult> {
     void options;
     const filteredChanges = filterUpdatableChanges(
@@ -293,10 +297,12 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
       entity,
       filteredChanges as Parameters<typeof context.models.constants.update>[1],
     );
-    return {
+    const applied = {
       persistedKeys: Object.keys(filteredChanges),
       written: written as Record<string, unknown>,
     };
+    options?.onPersisted?.(applied);
+    return applied;
   },
 
   // Snapshot the deferred-publish guard fingerprints when arming (schedule /

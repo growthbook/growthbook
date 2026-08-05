@@ -36,7 +36,6 @@ export type BulkRevisionRef = {
    * `writtenEntity` failed: compensation has no trustworthy ownership baseline,
    * so restorePreImage reports the item published rather than best-guessing.
    */
-  writtenEntityUnavailable?: boolean;
   /**
    * Set by applyPrecomputed() when its guarded entity write lost the CAS race:
    * NOTHING was written, so restorePreImage must be a no-op. Restoring would

@@ -87,7 +87,7 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
   getModel(context: Context) {
     return context.models.savedGroups as {
       getById(id: string): Promise<SavedGroupInterface | null>;
-      getByIds(ids: string[]): Promise<SavedGroupInterface[]>;
+      getReadScopesByIds(ids: string[]): Promise<SavedGroupInterface[]>;
     };
   },
 
@@ -168,7 +168,11 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
     context: Context,
     entity: SavedGroupInterface,
     changes: Record<string, unknown>,
-    options?: { isRevert?: boolean; guarded?: boolean },
+    options?: {
+      isRevert?: boolean;
+      guarded?: boolean;
+      onPersisted?: (result: ApplyChangesResult) => void;
+    },
   ): Promise<ApplyChangesResult> {
     const filteredChanges = filterUpdatableChanges(
       changes,
@@ -194,10 +198,12 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
       >[1],
       options?.isRevert ? { skipAttributeValidation: true } : undefined,
     );
-    return {
+    const applied = {
       persistedKeys: Object.keys(filteredChanges),
       written: written as Record<string, unknown>,
     };
+    options?.onPersisted?.(applied);
+    return applied;
   },
 
   // Snapshot the archive-dependents fingerprint when arming a deferred publish

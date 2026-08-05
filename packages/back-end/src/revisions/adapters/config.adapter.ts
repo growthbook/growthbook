@@ -132,7 +132,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
   getModel(context: Context) {
     return context.models.configs as {
       getById(id: string): Promise<ConfigInterface | null>;
-      getByIds(ids: string[]): Promise<ConfigInterface[]>;
+      getReadScopesByIds(ids: string[]): Promise<ConfigInterface[]>;
     };
   },
 
@@ -245,7 +245,11 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     context: Context,
     entity: ConfigInterface,
     changes: Record<string, unknown>,
-    options?: { isRevert?: boolean; guarded?: boolean },
+    options?: {
+      isRevert?: boolean;
+      guarded?: boolean;
+      onPersisted?: (result: ApplyChangesResult) => void;
+    },
   ): Promise<ApplyChangesResult> {
     // Guard asserts are skipped when (a) restoring a pre-image (isRevert — a
     // revert to known-good published state must not be vetoed by guards
@@ -360,19 +364,23 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       normalizedChanges as Parameters<typeof context.models.configs.update>[1],
     );
 
+    // Only the normalized set was persisted on THIS config — a field stripped
+    // as ancestor-owned was never written, so it must not be rolled back.
+    const applied = {
+      persistedKeys: Object.keys(normalizedChanges),
+      written: written as Record<string, unknown>,
+    };
+    // Reported BEFORE the cascade: this is the case that motivates the callback —
+    // the root write has landed, and if the cascade below throws, the return
+    // value never reaches the caller that has to compensate for it.
+    options?.onPersisted?.(applied);
+
     // Cascade the change down to descendants when the schema or lineage changed.
-    // AFTER the root write is captured: a cascade failure must still leave the
-    // root's own persisted state available for compensation.
     if (touchesLineageOrSchema) {
       await reconcileConfigDescendants(context, entity.key);
     }
 
-    // Only the normalized set was persisted on THIS config — a field stripped
-    // as ancestor-owned was never written, so it must not be rolled back.
-    return {
-      persistedKeys: Object.keys(normalizedChanges),
-      written: written as Record<string, unknown>,
-    };
+    return applied;
   },
 
   async afterRestorePreImage(context, entity, restoredKeys) {

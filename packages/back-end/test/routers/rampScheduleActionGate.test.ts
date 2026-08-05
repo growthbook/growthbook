@@ -6,6 +6,10 @@ jest.mock("back-end/src/services/organizations", () => ({
 }));
 jest.mock("back-end/src/models/FeatureModel", () => ({
   getFeature: jest.fn(),
+  // The gate resolves target projects from the RAW collection — `getFeature` is
+  // read-filtered, and an unreadable target is exactly the one that must still
+  // be checked.
+  getFeatureProjectsByIds: jest.fn(),
 }));
 // The gate itself lives here now (shared with the REST handlers), so keep the
 // real implementation and stub only the rest of the module's surface.
@@ -23,7 +27,10 @@ jest.mock("back-end/src/models/DataSourceModel", () => ({
 
 import { postRampScheduleAction } from "back-end/src/routers/ramp-schedule/ramp-schedule.controller";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { getFeature } from "back-end/src/models/FeatureModel";
+import {
+  getFeature,
+  getFeatureProjectsByIds,
+} from "back-end/src/models/FeatureModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 
 /**
@@ -92,6 +99,9 @@ function arrange({
     },
   });
   (getFeature as jest.Mock).mockResolvedValue({ project: "prj_1" });
+  (getFeatureProjectsByIds as jest.Mock).mockResolvedValue(
+    new Map([[schedule.entityId, "prj_1"]]),
+  );
   (getDataSourceById as jest.Mock).mockResolvedValue({ id: "ds_1" });
   return { canPublishFeature, canCreateExperimentSnapshot };
 }
@@ -194,6 +204,12 @@ describe("postRampScheduleAction publish gate", () => {
     (getFeature as jest.Mock).mockImplementation(async (_ctx, id) => ({
       project: id === "feat_a" ? "prj_a" : "prj_b",
     }));
+    (getFeatureProjectsByIds as jest.Mock).mockResolvedValue(
+      new Map([
+        ["feat_a", "prj_a"],
+        ["feat_b", "prj_b"],
+      ]),
+    );
 
     await postRampScheduleAction(makeReq("not-an-action"), makeRes());
 

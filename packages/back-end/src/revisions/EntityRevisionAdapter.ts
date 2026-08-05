@@ -107,8 +107,10 @@ export interface EntityRevisionAdapter<
     getById(id: string): Promise<TSnapshot | null>;
     // Read-filtered batch fetch: what comes back is what the caller may READ,
     // which is how revision listings decide visibility from the live entity
-    // rather than a snapshot that predates a project move.
-    getByIds(ids: string[]): Promise<TSnapshot[]>;
+    // rather than a snapshot that predates a project move. Projected to drop the
+    // heavy value fields — listings ask for every target in a filtered scan, and
+    // a read check only consults project scope.
+    getReadScopesByIds(ids: string[]): Promise<TSnapshot[]>;
   } | null;
 
   /** Normalize an entity object for storage as a revision snapshot. */
@@ -225,7 +227,16 @@ export interface EntityRevisionAdapter<
     // landing that lost a race fails (CasConflictError) instead of overwriting the
     // winner. Every landing passes it; compensation and self-heal writes do not,
     // because they re-read first and mean to write over what they found.
-    options?: { isRevert?: boolean; guarded?: boolean },
+    options?: {
+      isRevert?: boolean;
+      guarded?: boolean;
+      // Called the moment the ENTITY write lands, before any cascade — so a
+      // caller learns what was persisted even when a later step throws and the
+      // return value never arrives. Returning the result is not enough: a Config
+      // whose root write succeeds and whose descendant cascade then fails is
+      // exactly the case compensation needs, and it exits by throwing.
+      onPersisted?: (result: ApplyChangesResult) => void;
+    },
   ): Promise<ApplyChangesResult>;
 
   // Validate that `desiredState` (the changes a merge would apply) can be

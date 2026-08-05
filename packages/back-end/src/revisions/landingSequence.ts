@@ -204,30 +204,6 @@ export async function restoreEntityPreImage({
 }
 
 /**
- * The entity as persisted by a failed apply, read IMMEDIATELY on failure — the
- * ownership baseline for compensation. Adapters normalize what they persist (a
- * Config schema field stripped as ancestor-owned), so comparing live against the
- * caller's unnormalized intent can misread "ours" as "someone else's", skip the
- * restore, and still unwind history. Returns null when even this read fails —
- * compensation must then refuse to guess and leave the record standing.
- */
-export async function capturePostFailureSnapshot(
-  context: Context,
-  entityType: RevisionTargetType,
-  entityId: string,
-): Promise<(Record<string, unknown> & { id: string }) | null> {
-  try {
-    return ((await getAdapter(entityType)
-      .getModel(context)
-      ?.getById(entityId)) ?? null) as
-      | (Record<string, unknown> & { id: string })
-      | null;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Whether the live entity still holds exactly what a set of changes intended,
  * i.e. the write landed. Used to decide whether a landing that raced can report
  * success instead of asking the caller to retry.

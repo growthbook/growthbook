@@ -3659,9 +3659,13 @@ describe("getEnvsFromRampSchedule", () => {
     expect(getEnvsFromRampSchedule(sched)).toBe("all");
   });
 
-  it("returns empty array when no patches specify environments", () => {
+  it("widens to all when a patch names no environments", () => {
+    // An unscoped patch inherits the RULE's environments at apply time, so it
+    // still writes to whatever the rule serves. Returning [] handed the
+    // permission layer an empty footprint, which SKIPS the environment check
+    // rather than narrowing it — a dev-limited caller could arm production.
     const sched = makeSchedule([{ environments: [] }, {}]);
-    expect(getEnvsFromRampSchedule(sched)).toEqual([]);
+    expect(getEnvsFromRampSchedule(sched)).toBe("all");
   });
 
   it("includes patches from startActions and endActions", () => {

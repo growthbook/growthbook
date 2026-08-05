@@ -248,4 +248,19 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       useEmptyListGroup: savedGroup.useEmptyListGroup,
     };
   }
+  /**
+   * Project scope only, for the ids given — what a read check consults.
+   *
+   * Revision listings ask this for every target in a filtered scan, so the
+   * heavy value fields are projected OUT (a Saved Group's `values` can be
+   * enormous; the read check only consults project scope).
+   * Read-filtered like any other find, so what comes back is what may be read.
+   */
+  public async getReadScopesByIds(ids: string[]) {
+    if (!ids.length) return [];
+    return this._find(
+      { id: { $in: ids } } as Parameters<typeof this._find>[0],
+      { projection: { values: 0, condition: 0 } },
+    );
+  }
 }

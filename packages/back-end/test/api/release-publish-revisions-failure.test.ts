@@ -21,7 +21,7 @@ let mockFailConstantRestore = false;
 let mockFailConstantReleaseClaim = false;
 let mockFeatureClaimConflict = false;
 let mockFeatureReleaseNoop = false;
-let mockConstantBaselineUnavailable = false;
+let mockConstantAppliedNothing = false;
 let mockFailConstantApply = false;
 let mockFeatureSafeRolloutPoison: unknown = null;
 let mockFeatureCreatedRampScheduleIds: string[] | null = null;
@@ -82,19 +82,13 @@ jest.mock("back-end/src/revisions/bulkPublish/registry", () => {
                 if (mockFailConstantApply) {
                   throw new Error("simulated constant apply failure");
                 }
-                const result = await adapter.applyPrecomputed(...args);
-                // Simulate the post-apply baseline read failing: the real apply
-                // persisted (maybe normalized), but writtenEntity couldn't be
-                // captured, so compensation has no trustworthy ownership baseline.
-                if (mockConstantBaselineUnavailable) {
-                  const ref = args[2] as {
-                    writtenEntity?: unknown;
-                    writtenEntityUnavailable?: boolean;
-                  };
-                  ref.writtenEntity = undefined;
-                  ref.writtenEntityUnavailable = true;
+                // Simulate an apply that fails BEFORE its entity write: the
+                // adapter reports what it persisted at the write itself, so
+                // "no baseline" now means nothing of ours is live.
+                if (mockConstantAppliedNothing) {
+                  throw new Error("simulated failure before the entity write");
                 }
-                return result;
+                return await adapter.applyPrecomputed(...args);
               },
               restorePreImage: async (...args: unknown[]) => {
                 if (mockFailConstantRestore) {
@@ -149,7 +143,7 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
     mockFailConstantReleaseClaim = false;
     mockFeatureClaimConflict = false;
     mockFeatureReleaseNoop = false;
-    mockConstantBaselineUnavailable = false;
+    mockConstantAppliedNothing = false;
     mockFailConstantApply = false;
     mockFeatureSafeRolloutPoison = null;
     mockFeatureCreatedRampScheduleIds = null;
@@ -851,12 +845,12 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
     );
   });
 
-  it("reports a generic item published when its post-apply baseline is unavailable", async () => {
-    // The constant applies (possibly normalized), but the post-apply read that
-    // captures the ownership baseline fails. Compensation then has no
-    // trustworthy baseline — restoring against desiredState could silently skip
-    // a normalized field — so the item must be reported published (left whole
-    // at the publish state), not a clean rollback.
+  it("reports a generic item not-applied when its apply wrote nothing", async () => {
+    // The apply fails before its entity write, so it reports no persisted doc.
+    // That is now unambiguous — the adapter reports AT the write — so there is
+    // nothing of ours live to restore and the item rolls back cleanly. (The old
+    // "unavailable baseline" state came from re-reading after the failure, which
+    // could observe a concurrent writer; the report replaced it.)
     setReqContext(makeContext());
     const now = new Date();
 
@@ -915,7 +909,7 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
       },
     ]);
 
-    mockConstantBaselineUnavailable = true;
+    mockConstantAppliedNothing = true;
     mockFailFeatureApply = true;
     const res = await request(app)
       .post("/api/v1/releases/publish-revisions")
@@ -934,15 +928,17 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
         item.status,
       ]),
     );
-    // No trustworthy baseline → reported published, not rolled-back.
-    expect(byId["nobaseline"]).toBe("published");
-    expect(byId["nobaseline-feat"]).toBe("rolled-back");
+    // Neither item is left "published", which is the property that matters: the
+    // constant's apply threw before writing, so its compensation had nothing to
+    // undo and completes cleanly, and the feature behind it never applied at all.
+    expect(byId["nobaseline"]).toBe("rolled-back");
+    expect(byId["nobaseline-feat"]).toBe("not-applied");
 
-    // Left whole at the publish state: value NOT restored to the pre-image.
+    // Live state never moved off the pre-image.
     const constant = await mongoose.connection
       .collection("constants")
       .findOne({ organization: ORG_ID, key: "nobaseline" });
-    expect(constant?.value).toBe("after");
+    expect(constant?.value).toBe("before");
   });
 
   it("leaves a feature whole at published when a satellite reversal fails", async () => {

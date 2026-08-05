@@ -53,7 +53,6 @@ import { decideScheduledPublishOutcome } from "back-end/src/revisions/publishFai
 import { logger } from "back-end/src/util/logger";
 import {
   assertLandingBaseline,
-  capturePostFailureSnapshot,
   LandingConflictError,
   liveMatchesDesiredState,
   runGuardedWrite,
@@ -759,14 +758,17 @@ async function publishRevisionInner(
     // either order, leaving live state contradicting the newest merged revision.
     // A lost race surfaces as the same retryable conflict every other landing
     // reports, and the compensation below reopens this revision.
-    applied = await runGuardedWrite(
-      revision.target.type,
-      revision.target.id,
-      () =>
-        adapter.applyChanges(context, entity, desiredState, {
-          isRevert: !!revision.revertedFrom,
-          guarded: true,
-        }),
+    await runGuardedWrite(revision.target.type, revision.target.id, () =>
+      adapter.applyChanges(context, entity, desiredState, {
+        isRevert: !!revision.revertedFrom,
+        guarded: true,
+        // Learned at the write, not from the return value: a Config whose root
+        // lands and whose cascade then throws never returns, and that is exactly
+        // the case compensation below has to judge ownership for.
+        onPersisted: (result) => {
+          applied = result;
+        },
+      }),
     );
   } catch (e) {
     // Couldn't apply after claiming the merge. Two very different failures: a
@@ -783,15 +785,11 @@ async function publishRevisionInner(
     // unnormalized desiredState misreads "ours" as "someone else's". The apply
     // reports it directly; only a throw that lost the return value falls back to
     // a re-read, which is why that path refuses to guess when it fails.
-    const written =
-      applied?.written ??
-      (casLost
-        ? null
-        : await capturePostFailureSnapshot(
-            context,
-            revision.target.type,
-            revision.target.id,
-          ));
+    // `undefined` means the apply never reported — it threw before its entity
+    // write, so nothing of ours is live. `null` means it reported writing
+    // nothing. Neither is a re-read: distinguishing them is why the callback
+    // exists, and conflating them with `??` sent both down a guessing path.
+    const written = casLost ? null : (applied?.written ?? null);
     const entityRestored =
       casLost ||
       (written !== null &&

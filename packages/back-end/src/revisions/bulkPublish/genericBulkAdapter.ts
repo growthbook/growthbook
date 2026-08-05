@@ -319,7 +319,6 @@ export function makeGenericBulkAdapter(
 
     async applyPrecomputed(context, entity, revision, desiredState) {
       const raw = revision.raw as Revision;
-      const model = adapter.getModel(context);
       try {
         // The keys the write actually persisted (post updatable-filter and
         // post-normalization) — the exact set compensation may roll back.
@@ -328,20 +327,19 @@ export function makeGenericBulkAdapter(
         // publish landing in between would otherwise be silently overwritten by
         // this older plan. A lost race throws, which routes the batch into the
         // existing compensation path.
-        const applied = await runGuardedWrite(
-          targetType,
-          (entity as { id: string }).id,
-          () =>
-            adapter.applyChanges(context, entity, desiredState, {
-              isRevert: !!raw.revertedFrom,
-              guarded: true,
-            }),
+        await runGuardedWrite(targetType, (entity as { id: string }).id, () =>
+          adapter.applyChanges(context, entity, desiredState, {
+            isRevert: !!raw.revertedFrom,
+            guarded: true,
+            // Reported AT the write, so a mid-cascade throw still leaves
+            // compensation an exact ownership baseline. A re-read would risk
+            // observing a concurrent writer and handing over their values.
+            onPersisted: (applied) => {
+              revision.persistedKeys = applied.persistedKeys;
+              revision.writtenEntity = applied.written;
+            },
+          }),
         );
-        revision.persistedKeys = applied.persistedKeys;
-        // The ownership baseline comes from the WRITE, not a re-read: a re-read
-        // after a mid-apply failure can observe a concurrent writer and hand
-        // compensation their values as if this apply had written them.
-        revision.writtenEntity = applied.written;
       } catch (e) {
         // A rejected CAS wrote NOTHING, so this item has nothing to restore. It
         // must be marked so before the `finally` below: the post-apply read would
@@ -356,26 +354,10 @@ export function makeGenericBulkAdapter(
           revision.casLost = true;
         }
         throw e;
-      } finally {
-        // FALLBACK ONLY. The apply reports its own persisted doc above, which is
-        // exact; this covers the one case that leaves no in-process record — a
-        // throw AFTER the entity write but before the apply returned (a Config
-        // root written, its descendant cascade then failing). A re-read can
-        // observe a concurrent writer, so it is used only when there is nothing
-        // better, and a failed read flags the item so compensation refuses to
-        // guess. Never rethrows: that would mask the original apply error.
-        if (revision.writtenEntity === undefined && !revision.casLost) {
-          try {
-            revision.writtenEntity =
-              (await model?.getById((entity as { id: string }).id)) ?? null;
-          } catch {
-            revision.writtenEntityUnavailable = true;
-          }
-        }
       }
     },
 
-    async restorePreImage(context, preImage, revision, desiredState) {
+    async restorePreImage(context, preImage, revision) {
       // A lost CAS wrote nothing — there is nothing to put back.
       if (revision.casLost) return;
       const model = adapter.getModel(context);
@@ -387,26 +369,15 @@ export function makeGenericBulkAdapter(
           `bulk publish compensation: ${targetType} "${(preImage as { id: string }).id}" no longer exists — cannot restore its pre-image`,
         );
       }
-      // No ownership baseline (the post-apply read failed): restoring against
-      // desiredState could silently skip a normalized field, so report the item
-      // published (left whole at the publish state) rather than guess.
-      if (revision.writtenEntityUnavailable) {
-        throw new Error(
-          `bulk publish compensation: ${targetType} "${(preImage as { id: string }).id}" — post-apply baseline unavailable; cannot safely roll back, left at the published state`,
-        );
-      }
+      // The apply reports what it persisted AT the write, so a missing baseline
+      // now means the apply never reached its entity write — nothing of ours is
+      // live and there is nothing to restore.
+      if (revision.writtenEntity === undefined) return;
       // Restore only the fields the apply persisted, so a key dropped by the
       // filter or by normalization can't clobber a concurrent writer's value.
-      // Fall back to the desired-state keys if applyChanges threw before
-      // returning them; with the finally-captured baseline an unwritten key is
-      // a no-op restore and a written one still rolls back.
-      const updatable = adapter.getUpdatableFields();
-      const persistedKeys =
-        revision.persistedKeys ??
-        Object.keys(desiredState).filter((k) => updatable.has(k));
+      const persistedKeys = revision.persistedKeys ?? [];
       const written =
-        (revision.writtenEntity as Record<string, unknown> | null) ??
-        desiredState;
+        (revision.writtenEntity as Record<string, unknown> | null) ?? {};
       // Same routine the direct-landing paths compensate with, so every write
       // path restores by the same rule.
       await restoreEntityPreImage({

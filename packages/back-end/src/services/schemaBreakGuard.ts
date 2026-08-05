@@ -54,9 +54,12 @@ const SCHEMA_BREAK: ArmGuardId = "schema-break";
 //    ignoreWarnings ack; else a 422 soft warning. No permission-alone escape —
 //    even an approver must acknowledge invalid data explicitly, matching the
 //    documented warn-mode contract and the value-validation backstop.
-// Shared by the constant and config guards.
+// Shared by the constant and config guards, so the caller names the family whose
+// bypass authority clears it — bypass is per family now, and hardcoding one here
+// let a Configs bypass clear a CONSTANT schema break (and vice versa).
 function resolveDirectSchemaBreak(
   context: Context,
+  entityType: "config" | "constant",
   violations: string[],
   logKey: Record<string, unknown>,
   message: string,
@@ -64,8 +67,8 @@ function resolveDirectSchemaBreak(
   if (!violations.length) return;
   const blocking = context.org.settings?.blockPublishOnSchemaError !== false;
   if (blocking) {
-    // `context.canSkipSchemaValidationFor("config")` already requires FlagsBypassApprovals.
-    if (context.canSkipSchemaValidationFor("config")) {
+    // Already requires the bypass permission for THIS entity's family.
+    if (context.canSkipSchemaValidationFor(entityType)) {
       logger.info(
         { ...logKey, userId: context.userId, violations },
         "Schema-break guard skipped via skipSchemaValidation",
@@ -604,6 +607,7 @@ export async function assertConstantSchemaBreakGuard(
 
   resolveDirectSchemaBreak(
     context,
+    "constant",
     violations,
     { constantKey: constant.key },
     "Breaks a dependent Config or feature value:",
@@ -638,7 +642,7 @@ export async function captureConstantSchemaBreakAcknowledgment(
     "Scheduling this publish would break a dependent Config or feature value:\n" +
     violations.join("\n");
   if (context.org.settings?.blockPublishOnSchemaError !== false) {
-    if (!context.canSkipSchemaValidationFor("config")) {
+    if (!context.canSkipSchemaValidationFor("constant")) {
       throw new BadRequestError(
         body +
           "\nRe-submit with skipSchemaValidation (requires the FlagsBypassApprovals permission) to schedule anyway.",
@@ -800,6 +804,7 @@ export async function assertConfigSchemaBreakGuard(
 
   resolveDirectSchemaBreak(
     context,
+    "config",
     violations,
     { configKey: proposed.key },
     "Invalid Config value:",
@@ -882,6 +887,7 @@ export async function assertConfigArchiveSchemaBreakGuard(
 
   resolveDirectSchemaBreak(
     context,
+    "config",
     violations,
     { configKey: config.key },
     `${action} this Config breaks a dependent Config or feature value:`,

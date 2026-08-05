@@ -3088,6 +3088,15 @@ export function getEnvsForRampTarget(
   return Array.from(envs);
 }
 
+// The environments a ramp schedule's patches reach, or "all".
+//
+// A patch that names NEITHER `environments` nor `allEnvironments` inherits the
+// rule's own environment scope at apply time — it still writes coverage/enabled/
+// force to whatever the rule serves. Returning [] for that case handed the
+// permission layer an empty footprint, which SKIPS the environment check (see
+// NO_ENVIRONMENT_BINDING) rather than restricting it, so a dev-limited caller
+// could arm production traffic. Unscoped patches therefore widen to "all", the
+// strictest answer available without resolving the rule here.
 export function getEnvsFromRampSchedule(
   schedule: Pick<
     RampScheduleInterface,
@@ -3102,7 +3111,9 @@ export function getEnvsFromRampSchedule(
   ];
   for (const patch of allPatches) {
     if (patch.allEnvironments) return "all";
-    for (const env of patch.environments ?? []) {
+    const scoped = patch.environments ?? [];
+    if (!scoped.length) return "all";
+    for (const env of scoped) {
       envs.add(env);
     }
   }
