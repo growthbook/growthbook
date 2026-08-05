@@ -7,7 +7,7 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
-import { assertConstantArchivable } from "back-end/src/services/constants";
+import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import {
   discardIfJustCreated,
   isDraftStatus,
@@ -30,10 +30,14 @@ export const putConstantRevisionArchive = createApiRequestHandler(
 
   const { archived } = req.body;
 
-  // Block staging an archive while the constant is still referenced (parity with
-  // the direct archive endpoint and saved groups). Unarchiving is always allowed.
+  // Soft-warn (bypassably) when staging an archive while the constant is still
+  // referenced. Unarchiving is always allowed.
   if (archived && !constant.archived) {
-    await assertConstantArchivable(req.context, constant.id);
+    await assertConstantArchiveDependentsGuard(
+      req.context,
+      { id: constant.id, key: constant.key, project: constant.project },
+      { armed: false },
+    );
   }
 
   await ensureLiveRevisionExists(

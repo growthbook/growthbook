@@ -10,6 +10,9 @@ import {
   savedGroupTargeting,
   paginationQueryFields,
   apiPaginationFieldsValidator,
+  ignoreWarningsBodyField,
+  booleanQueryField,
+  csvQueryField,
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
 import {
@@ -174,6 +177,7 @@ export const experimentNotification = [
   "srm",
   "no-data",
   "significance",
+  "underpowered",
 ] as const;
 export type ExperimentNotification = (typeof experimentNotification)[number];
 
@@ -205,6 +209,17 @@ export type ExperimentType = (typeof experimentType)[number];
 
 export const banditStageType = ["explore", "exploit", "paused"] as const;
 export type BanditStageType = (typeof banditStageType)[number];
+
+// The implementation (linked-change) types the app's experiment "Type" filter
+// recognizes — distinct from the top-level `experiment.type` field (standard
+// vs bandit vs holdout). The back-end normalizer
+// (normalizeImplementationTypeToken in services/experimentFilters) also
+// accepts plural and differently-cased forms of these tokens.
+export const experimentImplementationTypes = [
+  "feature",
+  "visualChange",
+  "redirect",
+] as const;
 
 export const decisionFrameworkMetricOverrides = z.object({
   id: z.string(),
@@ -348,13 +363,71 @@ export type ExperimentAnalysisSummary = z.infer<
   typeof experimentAnalysisSummary
 >;
 
-// TODO(schedule-status-updates): add stopAt
-export const statusUpdateScheduleValidator = z.object({
-  startAt: z.date(),
+// Also imported by the Mongoose experiment schema so the two can't drift.
+export const SCHEDULE_STOP_AFTER_UNITS = ["hours", "days"] as const;
+export const SCHEDULED_STATUS_UPDATE_TYPES = ["start", "stop"] as const;
+export const SCHEDULED_STOP_MODES = [
+  "notify",
+  "auto-ship",
+  "force-ship",
+  "stop",
+] as const;
+export const SCHEDULED_STOP_FALLBACKS = ["notify", "force-ship"] as const;
+
+// A relative end offset, resolved to a concrete `stopAt` at the experiment's
+// actual start.
+export const scheduleStopAfterValidator = z.object({
+  // Whole units only: the date-fns resolvers floor fractional amounts.
+  value: z.number().int().positive(),
+  unit: z.enum(SCHEDULE_STOP_AFTER_UNITS),
 });
+export type ScheduleStopAfter = z.infer<typeof scheduleStopAfterValidator>;
+
+// Enforced in the schema so every write path rejects an incomplete config,
+// not just the dedicated scheduled-stop-plan service.
+const forceShipCriteriaHasVariation = (c: {
+  mode: string;
+  fallback: string;
+  fallbackVariationId?: string;
+}) =>
+  !(
+    (c.mode === "force-ship" ||
+      (c.mode === "auto-ship" && c.fallback === "force-ship")) &&
+    !c.fallbackVariationId
+  );
+const forceShipVariationRefine = {
+  message: "fallbackVariationId is required when force-shipping a variation.",
+  path: ["fallbackVariationId"] as string[],
+};
+
+export const scheduledStopPlanValidator = z
+  .object({
+    mode: z.enum(SCHEDULED_STOP_MODES),
+    tiebreakerMetricId: z.string().optional(),
+    fallback: z.enum(SCHEDULED_STOP_FALLBACKS),
+    fallbackVariationId: z.string().optional(),
+  })
+  .refine(forceShipCriteriaHasVariation, forceShipVariationRefine);
+export type ScheduledStopPlan = z.infer<typeof scheduledStopPlanValidator>;
+
+export const statusUpdateScheduleValidator = z
+  .object({
+    startAt: z.date().optional(),
+    stopAt: z.date().optional(),
+    stopAfter: scheduleStopAfterValidator.optional().nullable(),
+    // The end-of-experiment automation is nested here so a stop plan can only
+    // exist alongside the schedule that triggers it.
+    scheduledStopPlan: scheduledStopPlanValidator.optional().nullable(),
+  })
+  // Allowing both is ambiguous: stopAfter resolves to a stopAt at start and
+  // would clobber the explicit one.
+  .refine((s) => !(s.stopAt && s.stopAfter), {
+    message: "Provide either stopAt or stopAfter, not both.",
+    path: ["stopAfter"],
+  });
 
 export const nextScheduledStatusUpdateValidator = z.object({
-  type: z.enum(["start", "stop"]),
+  type: z.enum(SCHEDULED_STATUS_UPDATE_TYPES),
   date: z.date(),
   // Number of times the scheduled job has failed to apply this update.
   // The job clears `nextScheduledStatusUpdate` once this hits the retry cap
@@ -741,20 +814,95 @@ const apiCustomMetricSlices = z
     "Custom slices that apply to ALL applicable metrics in the experiment",
   );
 
+const apiScheduleStopAfter = z
+  .object({
+    value: z.number().int().positive(),
+    unit: z.enum(SCHEDULE_STOP_AFTER_UNITS),
+  })
+  .describe(
+    "Relative end offset. Deferred: resolved to a concrete `stopAt` at the " +
+      "experiment's actual start (or off `dateStarted` when already running).",
+  );
+
+export const apiScheduledStopPlanValidator = namedSchema(
+  "ScheduledStopPlan",
+  z
+    .object({
+      mode: z.enum(SCHEDULED_STOP_MODES),
+      tiebreakerMetricId: z.string().optional(),
+      fallback: z.enum(SCHEDULED_STOP_FALLBACKS),
+      fallbackVariationId: z.string().optional(),
+    })
+    .refine(forceShipCriteriaHasVariation, forceShipVariationRefine)
+    .describe(
+      "What happens at the scheduled end date. `notify` keeps the experiment " +
+        "running and just notifies (soft). `auto-ship` (requires the Decision " +
+        "Framework) ships the winning variation and stops; multi-winner ties " +
+        "break on `tiebreakerMetricId` (higher lift); with no clear winner, " +
+        "`fallback` either keeps running (`notify`) or ships " +
+        "`fallbackVariationId`. `force-ship` stops and rolls out " +
+        "`fallbackVariationId`. `stop` is a hard deadline that stops with no " +
+        "rollout. For `force-ship` and `stop`, the Decision Framework verdict " +
+        "(won/lost/inconclusive) is recorded as metadata when available.",
+    ),
+);
+
 const apiStatusUpdateSchedule = z
   .object({
     startAt: z
       .string()
       .meta({ format: "date-time" })
+      .optional()
       .describe(
         "ISO datetime when the experiment should start. Must be in the future. " +
           "Setting or clearing this field invalidates any existing staged start " +
           "(`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule.",
       ),
+    stopAt: z
+      .string()
+      .meta({ format: "date-time" })
+      .optional()
+      .describe(
+        "ISO datetime when the experiment should stop. Resolved from `stopAfter` " +
+          "at start when a relative end was set.",
+      ),
+    stopAfter: apiScheduleStopAfter.optional(),
+    scheduledStopPlan: apiScheduledStopPlanValidator
+      .optional()
+      .describe(
+        "End-of-experiment automation applied at the scheduled end. Required " +
+          "whenever a `stopAt` or `stopAfter` is set (any mode, including " +
+          "`notify`).",
+      ),
+  })
+  .refine((s) => !(s.stopAt && s.stopAfter), {
+    message: "Provide either stopAt or stopAfter, not both.",
+    path: ["stopAfter"],
   })
   .describe(
-    "Schedule a future start for a draft experiment. Only `startAt` is currently supported.",
+    "Scheduled start/end for an experiment. All fields optional; the end may be " +
+      "an absolute `stopAt` or a deferred relative `stopAfter`, but not both.",
   );
+
+// Setting a scheduled end via the REST API requires the caller to make an
+// explicit end-of-experiment decision, so a `scheduledStopPlan` (any mode,
+// including `notify`) must accompany a `stopAt`/`stopAfter`. Request-only: the
+// Experiment response schema reuses the base object above without this refine.
+const requireStopPlanWithEnd = (s: {
+  stopAt?: string;
+  stopAfter?: unknown;
+  scheduledStopPlan?: unknown;
+}) => !((s.stopAt || s.stopAfter) && !s.scheduledStopPlan);
+const requireStopPlanRefine = {
+  message:
+    "scheduledStopPlan is required when a scheduled end (stopAt or stopAfter) is set.",
+  path: ["scheduledStopPlan"] as string[],
+};
+
+const apiStatusUpdateScheduleInput = apiStatusUpdateSchedule.refine(
+  requireStopPlanWithEnd,
+  requireStopPlanRefine,
+);
 
 // Corresponds to schemas/Experiment.yaml
 const apiExperimentShape = z.object({
@@ -808,11 +956,7 @@ const apiExperimentShape = z.object({
   statusUpdateSchedule: apiStatusUpdateSchedule.nullable().optional(),
   nextScheduledStatusUpdate: z
     .object({
-      // Only "start" is supported for experiments today. The internal
-      // statusUpdateScheduleValidator has a `TODO(schedule-status-updates):
-      // add stopAt`, and updateExperimentStatus.ts treats any other type as
-      // unsupported and clears the field
-      type: z.literal("start"),
+      type: z.enum(["start", "stop"]),
       date: z.string().meta({ format: "date-time" }),
     })
     .nullable()
@@ -1000,6 +1144,7 @@ const apiVariationInput = z.object({
     )
     .optional(),
 });
+export type ApiVariationInput = z.infer<typeof apiVariationInput>;
 
 // Phase for input payloads
 const apiPhaseInput = z.object({
@@ -1183,7 +1328,8 @@ const postExperimentBody = z
       )
       .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
-    statusUpdateSchedule: apiStatusUpdateSchedule.optional(),
+    statusUpdateSchedule: apiStatusUpdateScheduleInput.optional(),
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
 
@@ -1386,9 +1532,9 @@ const updateExperimentBody = z
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
     customMetricSlices: apiCustomMetricSlices.optional(),
-    statusUpdateSchedule: apiStatusUpdateSchedule
+    statusUpdateSchedule: apiStatusUpdateScheduleInput
       .describe(
-        "Schedule a future start for a draft experiment. Set to `null` to remove the schedule. Provide `{ startAt }` to set or update it. Only `startAt` is currently supported.",
+        "Scheduled start/end. Set to `null` to remove. Provide any of `startAt`, `stopAt`, or `stopAfter` (a deferred relative end resolved at start). End-of-experiment automation is set via the nested `scheduledStopPlan`, which is required whenever a `stopAt` or `stopAfter` is set.",
       )
       .nullable()
       .optional(),
@@ -1399,6 +1545,7 @@ const updateExperimentBody = z
       )
       .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
 
@@ -1410,6 +1557,7 @@ const postExperimentStartBody = z
         "If true, skips validating the experiment satisifies all pre-launch checklist items",
       )
       .optional(),
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict()
   .optional();
@@ -1466,6 +1614,7 @@ const postExperimentStopBody = z
         "Optional ISO datetime for ending the latest phase. Defaults to the current date and time.",
       )
       .optional(),
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
 
@@ -1482,6 +1631,7 @@ const postExperimentModifyTemporaryRolloutBody = z
         "Variation ID (e.g. var_abc123) to release to 100% of traffic eligible for this experiment. Required if enableTemporaryRollout is true.",
       )
       .optional(),
+    ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict();
 
@@ -1507,6 +1657,16 @@ const idAndVariationParams = z
 // Route validators
 // ---------------------------------------------------------------------------
 
+// Sorting is applied in the API handler after the (in-memory) permission
+// filter, so sortable fields need no backing index. `name` sorts
+// case-insensitively.
+export const sortableExperimentFields = [
+  "dateCreated",
+  "dateUpdated",
+  "name",
+] as const;
+export type SortableExperimentField = (typeof sortableExperimentFields)[number];
+
 export const listExperimentsValidator = {
   bodySchema: z.never(),
   querySchema: z
@@ -1527,6 +1687,49 @@ export const listExperimentsValidator = {
         .meta({ deprecated: true }),
 
       status: z.enum(experimentStatus).optional(),
+      q: z
+        .string()
+        .describe(
+          "Raw experiment search/filter string (same syntax as the app's experiment list filters, e.g. `status:running tag:checkout`). Negation (`!`) and operators (`~`, `^`, `>`, `<`, `=`) are not supported and return a 400",
+        )
+        .optional(),
+      owner: ownerInputField
+        .describe("Filter by comma-separated owner ids, names, or emails")
+        .optional(),
+      result: csvQueryField(
+        experimentResultsType,
+        "Filter by comma-separated results (won, lost, inconclusive, dnf). Matches the experiment's recorded result — set when an experiment is stopped and retained if it's later restarted, so running experiments can match too",
+      ),
+      tag: z.string().describe("Filter by comma-separated tags").optional(),
+      implementationType: csvQueryField(
+        experimentImplementationTypes,
+        "Filter by comma-separated implementation types (feature, visualChange, redirect) — the kinds of changes linked to the experiment. To filter standard experiments vs bandits, use `bandits` instead",
+      ),
+      metricId: z
+        .string()
+        .describe(
+          "Filter by comma-separated metric ids. Matches experiments that use a metric as a goal, secondary, or guardrail metric",
+        )
+        .optional(),
+      bandits: z
+        .enum(["true", "false"])
+        .describe(
+          "When true, return only multi-armed bandits; when false, exclude them",
+        )
+        .optional(),
+      archived: booleanQueryField.describe(
+        "Filter by archived status. Set to `true` to return only archived experiments, `false` to exclude them. If omitted, both archived and non-archived experiments are returned.",
+      ),
+      sortBy: z
+        .enum(sortableExperimentFields)
+        .describe("Field to sort the results by")
+        .optional()
+        .meta({ default: "dateCreated" }),
+      sortOrder: z
+        .enum(["asc", "desc"])
+        .describe("Sort direction (used with `sortBy`)")
+        .optional()
+        .meta({ default: "asc" }),
     })
     .strict(),
   paramsSchema: z.never(),
@@ -1757,6 +1960,75 @@ export const postExperimentModifyTemporaryRolloutValidator = {
     params: { id: "exp_abc123" },
     body: {
       enableTemporaryRollout: false,
+    },
+  },
+  possibleErrors: ["invalid_status"] as const,
+};
+
+const putExperimentScheduleBody = z
+  .object({
+    startAt: z
+      .string()
+      .meta({ format: "date-time" })
+      .optional()
+      .describe(
+        "ISO datetime when the experiment should start; must be in the future. " +
+          "Omit to clear a scheduled start. Staging still happens via POST " +
+          "/experiments/{id}/start.",
+      ),
+    stopAt: z
+      .string()
+      .meta({ format: "date-time" })
+      .optional()
+      .describe("Absolute ISO datetime to stop the experiment."),
+    stopAfter: apiScheduleStopAfter
+      .optional()
+      .describe(
+        "Deferred relative end, resolved to a concrete stop at the " +
+          "experiment's actual start (or now, if already running).",
+      ),
+    scheduledStopPlan: apiScheduledStopPlanValidator
+      .optional()
+      .describe(
+        "End-of-experiment automation. Required whenever a `stopAt` or " +
+          "`stopAfter` is set (any mode, including `notify`).",
+      ),
+  })
+  .strict()
+  .refine((b) => !(b.stopAt && b.stopAfter), {
+    message: "Provide either stopAt or stopAfter, not both.",
+    path: ["stopAfter"],
+  })
+  .refine(requireStopPlanWithEnd, requireStopPlanRefine);
+
+export const putExperimentScheduleValidator = {
+  bodySchema: putExperimentScheduleBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      experiment: apiExperimentWithEnhancedStatus,
+      warnings: z.array(z.string()).optional(),
+    })
+    .strict(),
+  summary: "Set an experiment's schedule and shipping automation",
+  description:
+    "Full-replace of the experiment's scheduled start/end and end-of-experiment shipping automation. The body is the complete desired state: any omitted field is cleared (omit `startAt` to remove a scheduled start; send an empty body to clear the whole schedule). Provide either `stopAt` or `stopAfter`, not both; a relative `stopAfter` resolves to a concrete stop when the experiment starts. Setting a scheduled end (`stopAt` or `stopAfter`) requires a `scheduledStopPlan` (any mode, including `notify`). The scheduled end must be in the future: a `stopAt` (or a `stopAfter` that resolves) in the past is rejected — including one whose end date has already passed and been acted on, so changing the plan after a soft end requires committing to a new end date. Auto-ship shipping requires the Decision Framework.",
+  operationId: "putExperimentSchedule",
+  tags: ["experiments"],
+  method: "put" as const,
+  path: "/experiments/:id/schedule",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    body: {
+      startAt: "2026-08-01T00:00:00Z",
+      stopAfter: { value: 14, unit: "days" as const },
+      scheduledStopPlan: {
+        mode: "auto-ship" as const,
+        tiebreakerMetricId: "met_revenue",
+        fallback: "force-ship" as const,
+        fallbackVariationId: "var_treatment",
+      },
     },
   },
   possibleErrors: ["invalid_status"] as const,

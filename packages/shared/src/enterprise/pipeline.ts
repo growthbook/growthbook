@@ -4,7 +4,7 @@ import {
   isFactMetric,
   isExperimentOutdatedReasonField,
   quantileMetricType,
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
 } from "shared/experiments";
 import type {
   DataSourceType,
@@ -146,7 +146,7 @@ export function getIncrementalPipelineUnsupportedReason(params: {
   orgHasIncrementalPipelineFeature: boolean;
   skipPartialData: boolean;
   activationMetric: string | null | undefined;
-  metrics: ExperimentMetricInterface[];
+  metrics: ExperimentMetricDefinition[];
   experimentType: ExperimentInterface["type"];
 }): string | null {
   if (!params.orgHasIncrementalPipelineFeature) {

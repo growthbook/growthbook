@@ -4,6 +4,7 @@ import {
   UpdateSavedGroupProps,
   SavedGroupInterface,
   SavedGroupType,
+  SavedGroupWithoutValues,
 } from "shared/types/saved-group";
 import {
   Revision,
@@ -16,10 +17,12 @@ import {
   isIdListSupportedAttribute,
   validateAndFixCondition,
 } from "shared/util";
+import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
 import { PiPlus } from "react-icons/pi";
 import clsx from "clsx";
 import { Flex, Text } from "@radix-ui/themes";
 import { useIncrementer } from "@/hooks/useIncrementer";
+import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -31,8 +34,8 @@ import SelectField from "@/components/Forms/SelectField";
 import ConditionInput from "@/components/Features/ConditionInput";
 import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import MultiSelectField from "@/ui/MultiSelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Link from "@/ui/Link";
 import SelectOwner from "@/components/Owner/SelectOwner";
@@ -60,7 +63,7 @@ const SavedGroupForm: FC<{
   editInfoOnly?: boolean;
   editConditionOnly?: boolean;
   autoBypassApproval?: boolean;
-  mutate?: () => void;
+  mutate?: () => void | Promise<void>;
 }> = ({
   close,
   current,
@@ -78,7 +81,7 @@ const SavedGroupForm: FC<{
   autoBypassApproval = false,
   mutate,
 }) => {
-  const { apiCall } = useAuth();
+  const { apiCall, orgId } = useAuth();
   const settings = useOrgSettings();
   const { savedGroupSizeLimit } = settings;
   const { user } = useUser();
@@ -171,7 +174,16 @@ const SavedGroupForm: FC<{
     (currentRevision?.status === "discarded" ||
       currentRevision?.status === "merged");
 
-  const { mutateDefinitions, savedGroups, project } = useDefinitions();
+  const { mutateDefinitions, project } = useDefinitions();
+
+  const { data: savedGroupsData } = useApi<{
+    savedGroups: SavedGroupWithoutValues[];
+  }>("/saved-groups");
+  const savedGroups = useMemo(
+    () => (savedGroupsData?.savedGroups ?? []).filter((sg) => !sg.archived),
+    [savedGroupsData],
+  );
+  const savedGroupsLoaded = savedGroupsData !== undefined;
 
   const [errorMessage, setErrorMessage] = useState("");
   const [showDescription, setShowDescription] = useState(false);
@@ -193,7 +205,12 @@ const SavedGroupForm: FC<{
       type,
       values: current.values || [],
       description: current.description || "",
-      projects: current.projects || (project ? [project] : []),
+      projects:
+        current.projects ||
+        getDefaultProjectsForNewResource({
+          project,
+          organizationId: orgId || undefined,
+        }),
     },
   });
 
@@ -224,7 +241,12 @@ const SavedGroupForm: FC<{
       type,
       values: baseData.values || [],
       description: baseData.description || "",
-      projects: baseData.projects || (project ? [project] : []),
+      projects:
+        baseData.projects ||
+        getDefaultProjectsForNewResource({
+          project,
+          organizationId: orgId || undefined,
+        }),
     };
 
     // Only reset if values actually changed to avoid unnecessary re-renders
@@ -235,7 +257,7 @@ const SavedGroupForm: FC<{
     if (baseData.description) {
       setShowDescription(true);
     }
-  }, [currentRevision, liveVersion, type, project, form, current]);
+  }, [currentRevision, liveVersion, type, project, orgId, form, current]);
 
   const selectedProjects = form.watch("projects") || [];
   const projectsOptions = useProjectOptions(
@@ -361,6 +383,8 @@ const SavedGroupForm: FC<{
             },
             true,
             groupMap,
+            // Avoid false unknown-group errors while the group map is loading.
+            !savedGroupsLoaded,
           );
           if (conditionRes.empty) {
             throw new Error("Condition cannot be empty");
@@ -489,6 +513,7 @@ const SavedGroupForm: FC<{
           );
         }
         mutateDefinitions({});
+        await mutate?.();
       })}
       error={errorMessage}
     >
@@ -522,6 +547,7 @@ const SavedGroupForm: FC<{
       {!editConditionOnly && (
         <>
           <Field
+            size="legacy"
             label={`${type === "list" ? "List" : "Group"} Name`}
             labelClassName="font-weight-bold"
             required
@@ -530,6 +556,7 @@ const SavedGroupForm: FC<{
           />
           {showDescription ? (
             <Field
+              size="legacy"
               label="Description"
               labelClassName="font-weight-bold"
               required={false}
@@ -555,6 +582,7 @@ const SavedGroupForm: FC<{
             </Link>
           )}
           <MultiSelectField
+            legacyHeight
             label="Projects"
             labelClassName="font-weight-bold"
             placeholder={
@@ -589,6 +617,7 @@ const SavedGroupForm: FC<{
         ) : (
           <>
             <SelectField
+              size="legacy"
               label="Attribute Key"
               labelClassName="font-weight-bold"
               required

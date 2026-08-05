@@ -251,7 +251,7 @@ export default function RolloutPercentInput({
     <Box>
       {(label || labelActions) && (
         <Flex justify="between" align="center" mb="2">
-          <Text as="div" size="medium" weight="semibold">
+          <Text as="div" size="md" weight="semibold">
             {label}
           </Text>
           {labelActions}
@@ -272,6 +272,7 @@ export default function RolloutPercentInput({
         </Box>
         <Box position="relative" className={styles.percentInputWrap}>
           <Field
+            size="legacy"
             style={{ width: 95 }}
             disabled={locked}
             value={isNaN(value ?? 0) ? "" : decimalToPercent(value ?? 0)}

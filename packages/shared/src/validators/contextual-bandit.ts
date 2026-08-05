@@ -2,8 +2,16 @@ import { z } from "zod";
 import { apiBaseSchema, baseSchema } from "./base-model";
 import { banditStageType, variation } from "./experiments";
 import { namedSchema } from "./openapi-helpers";
+import { apiRuleConfigField } from "./features-v2";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
-import { featurePrerequisite, savedGroupTargeting } from "./shared";
+import {
+  booleanQueryField,
+  featurePrerequisite,
+  savedGroupTargeting,
+} from "./shared";
+import { contextualLeafClauseValidator } from "./contextual-bandit-event";
+
+export const MAX_CONTEXTUAL_BANDIT_LEAVES = 12;
 
 export const variationWeightPairValidator = z.object({
   variationId: z.string(),
@@ -188,7 +196,12 @@ export const apiCreateContextualBanditBody = z.strictObject({
 
   contextualAttributes: z.array(z.string()),
   minUsersPerLeaf: z.number().int().positive().optional(),
-  maxLeaves: z.number().int().positive().optional(),
+  maxLeaves: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_CONTEXTUAL_BANDIT_LEAVES)
+    .optional(),
 
   scheduleValue: z.number().optional(),
   scheduleUnit: z.enum(["days", "hours"]).optional(),
@@ -202,7 +215,7 @@ export type ApiCreateContextualBanditBody = z.infer<
   typeof apiCreateContextualBanditBody
 >;
 
-export const apiUpdateContextualBanditBody = z.object({
+export const apiUpdateContextualBanditBody = z.strictObject({
   name: z.string().optional(),
   description: z.string().optional(),
   project: z.string().optional(),
@@ -220,7 +233,12 @@ export const apiUpdateContextualBanditBody = z.object({
   contextualAttributes: z.array(z.string()).optional(),
   decisionMetric: z.string().optional(),
   minUsersPerLeaf: z.number().int().positive().optional(),
-  maxLeaves: z.number().int().positive().optional(),
+  maxLeaves: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_CONTEXTUAL_BANDIT_LEAVES)
+    .optional(),
   scheduleValue: z.number().optional(),
   scheduleUnit: z.enum(["days", "hours"]).optional(),
   burnInValue: z.number().optional(),
@@ -476,6 +494,7 @@ export const getContextualBanditResultsValidator = {
               leafId: z.number().int(),
               updateMessage: z.string().nullable(),
               error: z.string().nullable(),
+              clauses: z.array(contextualLeafClauseValidator),
               variations: z.array(
                 z.object({
                   variationId: z.string(),
@@ -529,7 +548,7 @@ export const getContextualBanditResultsValidator = {
     .strict(),
   summary: "Get latest Contextual Bandit results",
   description:
-    "Returns the latest contextual-bandit stats engine output (per-context responses, the context-to-leaf map, and per-leaf aggregated stats), the overall (marginal) variation weights across all contexts, the SRM of the most recent run, and the status of the most recent snapshot run for the contextual bandit. Same payload the GrowthBook UI uses to render the contextual bandit results table.",
+    "Returns the latest contextual-bandit stats engine output (per-context responses tagged with their leaf, the per-leaf targeting conditions, and per-leaf aggregated stats), the overall (marginal) variation weights across all contexts, the SRM of the most recent run, and the status of the most recent snapshot run for the contextual bandit. Same payload the GrowthBook UI uses to render the contextual bandit results table.",
   operationId: "getContextualBanditResults",
   tags: ["ContextualBandits"],
   method: "get" as const,
@@ -555,14 +574,130 @@ export const getContextualBanditLinkedFeaturesValidator = {
   path: "/contextual-bandits/:id/linked-features",
 };
 
-export const deleteContextualBanditLinkedFeatureValidator = {
-  bodySchema: z.never(),
+const contextualBanditLinkedFeatureRuleFields = {
+  variations: z
+    .array(
+      z
+        .object({
+          variationId: z
+            .string()
+            .describe("Id of the Contextual Bandit variation."),
+          value: z
+            .string()
+            .describe("Feature value served for this variation."),
+          config: apiRuleConfigField,
+        })
+        .strict(),
+    )
+    .min(1)
+    .describe(
+      "One entry per Contextual Bandit variation. Every variation must be covered exactly once.",
+    ),
+  description: z.string().optional(),
+  enabled: z.boolean().optional(),
+  allEnvironments: z
+    .boolean()
+    .optional()
+    .describe("Apply the rule in every environment. Defaults to true."),
+  environments: z
+    .array(z.string())
+    .optional()
+    .describe("Environments to apply the rule in when not all."),
+  allProjects: z.boolean().optional(),
+  projects: z.array(z.string()).optional(),
+  autoPublish: z
+    .boolean()
+    .optional()
+    .describe(
+      "Publish the resulting revision immediately instead of leaving it as a draft.",
+    ),
+};
+
+const contextualBanditLinkedFeatureDraftVersionField = z.coerce
+  .number()
+  .int()
+  .optional();
+
+export const addContextualBanditLinkedFeatureValidator = {
+  bodySchema: z
+    .object({
+      ...contextualBanditLinkedFeatureRuleFields,
+      draftVersion: contextualBanditLinkedFeatureDraftVersionField.describe(
+        "Add the rule to this existing draft revision instead of starting a new one.",
+      ),
+    })
+    .strict(),
   querySchema: z.never(),
   paramsSchema: contextualBanditIdAndFeatureParam,
-  responseSchema: z.object({}).strict(),
+  responseSchema: z
+    .object({
+      featureId: z.string(),
+      ruleId: z.string(),
+      revisionVersion: z.number(),
+      published: z.boolean(),
+    })
+    .strict(),
+  summary: "Link a feature to a Contextual Bandit",
+  description:
+    "Adds a `contextual-bandit-ref` rule to the bottom of the feature's rule list and links the feature to this contextual bandit. The rule lands in a draft revision that auto-publishes when the contextual bandit starts, unless `autoPublish` is set. Targeting (condition, saved groups, prerequisites, coverage) is inherited from the contextual bandit and cannot be set on the rule.",
+  operationId: "addContextualBanditLinkedFeature",
+  tags: ["ContextualBandits"],
+  method: "post" as const,
+  path: "/contextual-bandits/:id/linked-feature/:featureId",
+};
+
+export const updateContextualBanditLinkedFeatureValidator = {
+  bodySchema: z
+    .object({
+      ...contextualBanditLinkedFeatureRuleFields,
+      draftVersion: contextualBanditLinkedFeatureDraftVersionField.describe(
+        "Update the rule on this existing draft revision instead of starting a new one.",
+      ),
+    })
+    .strict(),
+  querySchema: z.never(),
+  paramsSchema: contextualBanditIdAndFeatureParam,
+  responseSchema: z
+    .object({
+      featureId: z.string(),
+      ruleIds: z.array(z.string()),
+      revisionVersion: z.number(),
+      published: z.boolean(),
+    })
+    .strict(),
+  summary: "Replace a Contextual Bandit's rule on a linked feature",
+  description:
+    "Replaces every `contextual-bandit-ref` rule pointing at this contextual bandit on the feature, keeping each rule's id and position in the rule list. Every field is replaced, so omitted optional fields revert to their defaults. Returns a 400 when the feature has no such rule on the target revision, or when it has several that are not identical to each other. The change lands in a draft revision that auto-publishes when the contextual bandit starts, unless `autoPublish` is set. Targeting (condition, saved groups, prerequisites, coverage) is inherited from the contextual bandit and cannot be set on the rule.",
+  operationId: "updateContextualBanditLinkedFeature",
+  tags: ["ContextualBandits"],
+  method: "put" as const,
+  path: "/contextual-bandits/:id/linked-feature/:featureId",
+};
+
+export const deleteContextualBanditLinkedFeatureValidator = {
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      autoPublish: booleanQueryField.describe(
+        "Publish the resulting revision immediately instead of leaving it as a draft.",
+      ),
+      draftVersion: contextualBanditLinkedFeatureDraftVersionField.describe(
+        "Remove the rule from this existing draft revision instead of live. Required when the rule hasn't been published yet — omitting it targets the live revision, which has nothing to remove.",
+      ),
+    })
+    .strict(),
+  paramsSchema: contextualBanditIdAndFeatureParam,
+  responseSchema: z
+    .object({
+      featureId: z.string(),
+      removedRuleIds: z.array(z.string()),
+      revisionVersion: z.number().nullable(),
+      published: z.boolean(),
+    })
+    .strict(),
   summary: "Unlink a feature from a Contextual Bandit",
   description:
-    "Detaches a feature from this contextual bandit by removing it from the bandit's linked-feature list and cancelling any queued draft auto-publish. The feature's `contextual-bandit-ref` rule itself is left untouched.",
+    "Removes every `contextual-bandit-ref` rule pointing at this contextual bandit from the feature and drops the feature from the bandit's linked-feature list. The rule removal lands in a draft revision unless `autoPublish` is set. When the feature has no such rule left, only the linkage is cleared.",
   operationId: "deleteContextualBanditLinkedFeature",
   tags: ["ContextualBandits"],
   method: "delete" as const,

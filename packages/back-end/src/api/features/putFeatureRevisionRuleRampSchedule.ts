@@ -165,7 +165,7 @@ export async function setRuleRampSchedule(
     // When the caller didn't specify an env, use the resolved rule's full env
     // footprint — semantically the ramp affects every env the rule covers.
     const orgEnvs = getEnvironments(organization);
-    const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
+    const applicableEnvs = getApplicableEnvIds(orgEnvs, feature);
     const changedEnvironments = environment
       ? [environment]
       : ruleFootprint(match, applicableEnvs);

@@ -15,17 +15,20 @@ import {
   liveRevisionFromFeature,
   filterEnvironmentsByFeature,
   getEnvsFromRampSchedule,
+  isStrandedLiveRevision,
   mergeResultHasChanges,
   getReviewSetting,
   getFeatureAutopublishOnApproval,
   checkIfRevisionNeedsReview,
   evaluatePublishGovernance,
   getLiveChangesSinceBase,
+  MergeStrategy,
+} from "shared/util";
+import {
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   findPublishLockingScheduledRevision,
-  MergeStrategy,
-} from "shared/util";
+} from "shared/enterprise";
 import {
   EventUserLoggedIn,
   EventUserApiKey,
@@ -150,7 +153,7 @@ export interface Props {
   rampSchedules?: RampScheduleInterface[];
 }
 
-// The feature-page "Review and Publish" tab. Consolidates the former DraftModal
+// The feature-page "Review & Publish" tab. Consolidates the former DraftModal
 // (direct publish), RequestReviewModal (review lifecycle), and
 // FeatureFixConflictsModal (rebase / conflict resolution) into a single page
 // surface. Conflict resolution and review submission run as focused modals
@@ -1035,7 +1038,7 @@ export default function ReviewAndPublish({
         Select a revision from the dropdown above to review.
         {onClose && (
           <Box mt="2">
-            <Button variant="soft" onClick={() => onClose()}>
+            <Button color="inherit" variant="soft" onClick={() => onClose()}>
               Back to Overview
             </Button>
           </Box>
@@ -1140,7 +1143,7 @@ export default function ReviewAndPublish({
               {/* Fixed-height row matching the 32px md avatar so the label
                     centers against it */}
               <Flex align="center" style={{ height: 32 }}>
-                <Heading as="h4" size="small" mb="0">
+                <Heading as="h4" size="sm" mb="0">
                   Add a comment
                 </Heading>
               </Flex>
@@ -1290,7 +1293,7 @@ export default function ReviewAndPublish({
                 {headerStatusIcon}
               </Box>
             )}
-            <Heading as="h4" size="small">
+            <Heading as="h4" size="sm">
               <span style={{ color: `var(--${headerStatusColor}-11)` }}>
                 {headerStatusLabel}
               </span>
@@ -1304,13 +1307,7 @@ export default function ReviewAndPublish({
           {generatedByRow}
           {contributorIds.length > 0 && (
             <Box mb="3">
-              <Text
-                size="medium"
-                weight="medium"
-                color="text-high"
-                as="div"
-                mb="2"
-              >
+              <Text size="md" weight="medium" color="text-high" as="div" mb="2">
                 Contributors
               </Text>
               <Flex direction="column" gap="2">
@@ -1331,13 +1328,7 @@ export default function ReviewAndPublish({
 
           {reviewers.length > 0 && (
             <Box mb="3">
-              <Text
-                size="medium"
-                weight="medium"
-                color="text-high"
-                as="div"
-                mb="2"
-              >
+              <Text size="md" weight="medium" color="text-high" as="div" mb="2">
                 Reviewers
               </Text>
               <Flex direction="column" gap="2">
@@ -1472,6 +1463,13 @@ export default function ReviewAndPublish({
   const allDiffs = [...resultDiffs, ...rampDiffs];
   const hasChanges = mergeResultHasChanges(mergeResult) || rampDiffs.length > 0;
 
+  const isStranded = isStrandedLiveRevision({
+    featureVersion: feature.version,
+    revisionVersion: revision.version,
+    revisionStatus: revision.status,
+    hasChanges,
+  });
+
   const linkedRamps = (rampSchedules ?? []).filter(
     (r) =>
       r.status === "pending" &&
@@ -1555,7 +1553,7 @@ export default function ReviewAndPublish({
     requireReviews,
     status: revision.status,
     mergeSuccess: mergeResult.success,
-    hasChanges,
+    hasChanges: hasChanges || isStranded,
     hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(feature),
     canManageDraft: permissionsUtil.canManageFeatureDrafts(feature),
     isReviewRequester,
@@ -1615,6 +1613,7 @@ export default function ReviewAndPublish({
           await mutate();
           onPublish && onPublish();
           return;
+        case "none":
         default:
           return;
       }
@@ -1861,7 +1860,7 @@ export default function ReviewAndPublish({
       <Box mb="3">
         {immediateStartExperiments.length > 0 && (
           <Box mb={scheduledExperiments.length > 0 ? "3" : "0"}>
-            <Heading as="h4" size="small" mb="2">
+            <Heading as="h4" size="sm" mb="2">
               Start running experiments upon publishing:
             </Heading>
             {immediateStartExperiments.map((experiment) => (
@@ -1882,7 +1881,7 @@ export default function ReviewAndPublish({
         )}
         {scheduledExperiments.length > 0 && (
           <Box>
-            <Heading as="h4" size="small" mb="2">
+            <Heading as="h4" size="sm" mb="2">
               Approve scheduled start for experiments:
             </Heading>
             {scheduledExperiments.map((experiment) => (
@@ -1954,20 +1953,14 @@ export default function ReviewAndPublish({
             mb="4"
             style={{ maxWidth: 800, margin: "0 auto var(--space-4)" }}
           >
-            <Callout
-              status="info"
-              contentsAs="div"
-              icon={<PiGitMergeBold size={18} />}
-            >
-              <Text as="p">
-                Your draft is based on an older version, and the live version
-                has since been published with conflicting changes. Resolve each
-                conflict below, then click{" "}
-                <Text as="span" weight="medium">
-                  Update Draft
-                </Text>{" "}
-                to rebase your draft onto the current live version.
-              </Text>
+            <Callout status="info" icon={<PiGitMergeBold size={18} />}>
+              Your draft is based on an older version, and the live version has
+              since been published with conflicting changes. Resolve each
+              conflict below, then click{" "}
+              <Text as="span" weight="medium">
+                Update Draft
+              </Text>{" "}
+              to rebase your draft onto the current live version.
             </Callout>
           </Box>
           {mergeResult.conflicts.map((conflict) => (
@@ -2065,7 +2058,7 @@ export default function ReviewAndPublish({
   type BlockInfo = { overridable: boolean } | null;
   const blockInfo: BlockInfo = (() => {
     if (!mergeResult.success) return { overridable: false };
-    if (!hasChanges) return { overridable: false };
+    if (!hasChanges && !isStranded) return { overridable: false };
     if (!hasPublishPermission) return { overridable: false };
     if (
       requireReviews &&
@@ -2140,7 +2133,7 @@ export default function ReviewAndPublish({
   // ── Left column: all of the changes, then history ──
   const changesColumn = experimentsStep ? (
     <Box>
-      <Heading as="h3" size="medium" mb="3">
+      <Heading as="h3" size="md" mb="3">
         Review &amp; {onlyScheduledSelected ? "Schedule" : "Publish"}
       </Heading>
       <Text as="p" mb="3">
@@ -2216,7 +2209,7 @@ export default function ReviewAndPublish({
               {revisionStatusIcon(revision.status)}
             </Box>
           )}
-          <Heading as="h4" size="small">
+          <Heading as="h4" size="sm">
             <span style={{ color: `var(--${statusColor}-11)` }}>
               {revisionStatusLabel(revision.status)}
             </span>
@@ -2292,13 +2285,7 @@ export default function ReviewAndPublish({
         {generatedByRow}
         {contributorIds.length > 0 && (
           <Box mb="3">
-            <Text
-              size="medium"
-              weight="medium"
-              color="text-high"
-              as="div"
-              mb="2"
-            >
+            <Text size="md" weight="medium" color="text-high" as="div" mb="2">
               Contributors
             </Text>
             <Flex direction="column" gap="2">
@@ -2320,18 +2307,12 @@ export default function ReviewAndPublish({
         {requireReviews &&
           (reviewers.length > 0 || revision.status === "pending-review") && (
             <Box mb="3">
-              <Text
-                size="medium"
-                weight="medium"
-                color="text-high"
-                as="div"
-                mb="2"
-              >
+              <Text size="md" weight="medium" color="text-high" as="div" mb="2">
                 Reviewers
               </Text>
               {reviewers.length === 0 &&
                 revision.status === "pending-review" && (
-                  <Text size="small" color="text-mid" as="div">
+                  <Text size="sm" color="text-mid" as="div">
                     No reviews yet.
                   </Text>
                 )}
@@ -2366,6 +2347,18 @@ export default function ReviewAndPublish({
           renderExperimentSelection()}
 
         <Box mt="6">
+          {/* The poller gave up on this draft's scheduled publish (cleared on
+              cancel/re-arm). Shown to every viewer — matches the generic
+              ScheduledPublishControl notice. */}
+          {isActiveDraft && revision?.scheduledPublishGaveUpAt && (
+            <HelperText status="error" size="sm" mb="3">
+              Could not publish
+              {revision.scheduledPublishLastError
+                ? `: ${revision.scheduledPublishLastError}`
+                : "."}
+            </HelperText>
+          )}
+
           {/* Read-only arming summary for reviewers / non-managers. The dated
               schedule card renders with the arming control below the rebase
               notice when a publish/step section exists; here it's only a
@@ -2538,7 +2531,7 @@ export default function ReviewAndPublish({
                   ) : (
                     // Approved revisions can only defer to a date — "when
                     // approved" would just publish now, so show it as text.
-                    <Text size="medium">on a specific date</Text>
+                    <Text size="md">on a specific date</Text>
                   )}
                 </Flex>
                 {autoPublishArmed && effectivePublishMode === "date" && (
@@ -2614,7 +2607,7 @@ export default function ReviewAndPublish({
                       </>
                     ) : (
                       <PremiumTooltip commercialFeature="scheduled-revisions">
-                        <Text size="small" as="div">
+                        <Text size="sm" as="div">
                           Upgrade to publish on a specific date.
                         </Text>
                       </PremiumTooltip>
@@ -2763,12 +2756,21 @@ export default function ReviewAndPublish({
                         </Callout>
                       ))}
 
-                      {!hasChanges && (
-                        <Callout status="info" size="sm">
-                          No changes to publish. Discard the draft or add
-                          changes first.
-                        </Callout>
-                      )}
+                      {!hasChanges &&
+                        (isStranded ? (
+                          <Callout status="warning" size="sm">
+                            This revision is already live but was never marked
+                            published — an earlier publish didn&apos;t finish.
+                            Publish it to reconcile; don&apos;t discard it, or
+                            the Feature Flag will keep serving a revision it
+                            reports as unpublished.
+                          </Callout>
+                        ) : (
+                          <Callout status="info" size="sm">
+                            No changes to publish. Discard the draft or add
+                            changes first.
+                          </Callout>
+                        ))}
 
                       {featureLockedBySchedule && !adminPublish && (
                         <Callout status="warning" size="sm">
@@ -2783,7 +2785,7 @@ export default function ReviewAndPublish({
                       )}
 
                       {!requireReviews && !experimentsStep && !blockInfo && (
-                        <Text size="small" color="text-mid" as="p">
+                        <Text size="sm" color="text-mid" as="p">
                           No approval necessary — these changes can be published
                           directly.
                         </Text>

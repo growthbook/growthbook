@@ -1,10 +1,10 @@
-import React, { FC, useEffect, useState } from "react";
-import { FaShippingFast } from "react-icons/fa";
+import React, { FC, useEffect, useMemo, useState } from "react";
+import { PiTrophyDuotone } from "react-icons/pi";
 import clsx from "clsx";
 import { Flex } from "@radix-ui/themes";
 import { date, datetime } from "shared/dates";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getLatestPhaseVariations,
   getMetricResultStatus,
   isFactMetric,
@@ -22,6 +22,7 @@ import {
   Variation,
 } from "shared/types/experiment";
 import Link from "@/ui/Link";
+import VariationLabel from "@/ui/VariationLabel";
 import useApi from "@/hooks/useApi";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ChangeColumn from "@/components/Experiment/ChangeColumn";
@@ -38,22 +39,80 @@ import track from "@/services/track";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
+// Stored per-block column config (order + visibility). The "Experiment" column
+// is always shown first and is intentionally NOT managed here.
+export interface MetricExperimentColumnConfig {
+  id: string;
+  visible: boolean;
+}
+
+interface ManagedColumnDef {
+  // Doubles as the sort field, so it must be a key of MetricExperimentData.
+  id: keyof MetricExperimentData;
+  label: string;
+  // Not applicable to bandit tables (no lift shown for bandits).
+  hideForBandits?: boolean;
+}
+
+// The reorderable / hideable columns, in their default order. "Experiment" is
+// pinned separately and excluded from this list.
+export const METRIC_EXPERIMENT_MANAGED_COLUMNS: ManagedColumnDef[] = [
+  { id: "variationId", label: "Variation" },
+  { id: "date", label: "Date" },
+  { id: "status", label: "Status" },
+  { id: "users", label: "Variation Units" },
+  { id: "lift", label: "Lift", hideForBandits: true },
+];
+
+/**
+ * Resolve the effective ordered column list from a stored config. Missing
+ * config = default order, all visible. Stored ids are applied in their saved
+ * order; any known columns not present in the config are appended (visible) so
+ * nothing silently disappears. Lift is dropped entirely for bandit tables.
+ */
+export function resolveMetricExperimentColumns(
+  stored: MetricExperimentColumnConfig[] | undefined,
+  bandits: boolean,
+): Array<ManagedColumnDef & { visible: boolean }> {
+  const base = METRIC_EXPERIMENT_MANAGED_COLUMNS.filter(
+    (c) => !(bandits && c.hideForBandits),
+  );
+  if (!stored || stored.length === 0) {
+    return base.map((c) => ({ ...c, visible: true }));
+  }
+  const byId = new Map(base.map((c) => [c.id as string, c]));
+  const ordered: Array<ManagedColumnDef & { visible: boolean }> = [];
+  const seen = new Set<string>();
+  stored.forEach((s) => {
+    const col = byId.get(s.id);
+    if (!col) return;
+    ordered.push({ ...col, visible: s.visible });
+    seen.add(s.id);
+  });
+  base.forEach((c) => {
+    if (!seen.has(c.id)) ordered.push({ ...c, visible: true });
+  });
+  return ordered;
+}
+
 interface MetricAnalysisProps {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   outerClassName?: string;
   bandits?: boolean;
   includeOnlyResults?: boolean;
   dataWithSnapshot?: ExperimentWithSnapshot[];
   numPerPage?: number;
   differenceType?: DifferenceType;
+  columns?: MetricExperimentColumnConfig[];
 }
 
 interface Props {
   experimentsWithSnapshot: ExperimentWithSnapshot[];
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   bandits?: boolean;
   numPerPage?: number;
   differenceType?: DifferenceType;
+  columns?: MetricExperimentColumnConfig[];
 }
 
 export interface MetricExperimentData {
@@ -68,6 +127,11 @@ export interface MetricExperimentData {
   variationId: number;
   variationName: string;
   variationResults?: SnapshotMetric;
+  // The difference type of the analysis these results were computed under.
+  // May differ from the requested difference type when the snapshot has no
+  // matching analysis — formatting must always use this value so the numbers
+  // are never rendered as a type they weren't computed as.
+  differenceType: DifferenceType;
   significant?: boolean;
   lift?: number | undefined;
   users?: number;
@@ -91,6 +155,7 @@ function MetricExperimentResultTab({
   bandits,
   numPerPage = NUM_PER_PAGE,
   differenceType = "relative",
+  columns,
 }: Props) {
   const [currentPage, setCurrentPage] = useState(1);
   const start = (currentPage - 1) * numPerPage;
@@ -108,76 +173,98 @@ function MetricExperimentResultTab({
   // look them up per-experiment without calling hooks in a loop.
   const significanceThresholdsByProject = useSignificanceThresholdsByProject();
 
-  const expData: MetricExperimentData[] = [];
-  experimentsWithSnapshot.forEach((e) => {
-    const {
-      bayesianConfidenceLevels: { ciUpper, ciLower },
-      pValueThreshold,
-    } =
-      significanceThresholdsByProject.get(e.project || "") ??
-      defaultSignificanceThresholds;
-    let variationResults: SnapshotMetric[] = [];
-    let statsEngine: StatsEngine = "bayesian";
-    let differenceType: DifferenceType = "relative";
-    if (e.snapshot) {
-      const snapshot = e.snapshot.analyses?.[0];
-      if (snapshot) {
-        statsEngine = snapshot.settings.statsEngine;
-        differenceType = snapshot.settings.differenceType;
-        variationResults = snapshot.results?.[0]?.variations.map((v) => {
-          return v.metrics?.[metric.id];
-        });
-      }
-    }
-    const baseline = variationResults?.[0];
-    getLatestPhaseVariations(e).forEach((v, i) => {
-      if (i === 0) return;
-      let expVariationData: MetricExperimentData = {
-        id: e.id,
-        date: experimentDate(e),
-        name: e.name,
-        status: e.status,
-        results: e.results,
-        archived: e.archived,
-        variations: getLatestPhaseVariations(e),
-        statsEngine: statsEngine,
-        variationId: i,
-        variationName: v.name,
-        phases: e.phases,
-        goalMetrics: e.goalMetrics,
-        guardrailMetrics: e.guardrailMetrics,
-        secondaryMetrics: e.secondaryMetrics,
-        datasource: e.datasource,
-        decisionFrameworkSettings: e.decisionFrameworkSettings,
-        project: e.project,
-      };
-      if (!bandits && baseline && variationResults[i]) {
-        const { significant, resultsStatus, directionalStatus } =
-          getMetricResultStatus({
-            metric: metric,
-            metricDefaults,
-            baseline: baseline,
-            stats: variationResults[i],
-            ciLower,
-            ciUpper,
-            pValueThreshold,
-            statsEngine,
-            differenceType,
+  const expData: MetricExperimentData[] = useMemo(() => {
+    const rows: MetricExperimentData[] = [];
+    experimentsWithSnapshot.forEach((e) => {
+      const {
+        bayesianConfidenceLevels: { ciUpper, ciLower },
+        pValueThreshold,
+      } =
+        significanceThresholdsByProject.get(e.project || "") ??
+        defaultSignificanceThresholds;
+      let variationResults: SnapshotMetric[] = [];
+      let statsEngine: StatsEngine = "bayesian";
+      // The difference type actually used for this experiment's numbers. A
+      // snapshot can contain multiple analyses that differ by difference
+      // type; prefer the one matching the requested type, otherwise fall
+      // back to the default analysis and surface its real difference type so
+      // significance and formatting stay consistent with the data.
+      let effectiveDifferenceType: DifferenceType = "relative";
+      if (e.snapshot) {
+        const analysis =
+          e.snapshot.analyses?.find(
+            (a) => a.settings.differenceType === differenceType,
+          ) ?? e.snapshot.analyses?.[0];
+        if (analysis) {
+          statsEngine = analysis.settings.statsEngine;
+          effectiveDifferenceType = analysis.settings.differenceType;
+          variationResults = analysis.results?.[0]?.variations.map((v) => {
+            return v.metrics?.[metric.id];
           });
-        expVariationData = {
-          ...expVariationData,
-          variationResults: variationResults[i],
-          lift: variationResults[i].uplift?.mean ?? undefined,
-          users: variationResults[i].users,
-          shipped: e.results === "won" && e.winner == i,
-          significant: significant,
-          resultsStatus: resultsStatus,
-          directionalStatus: directionalStatus,
-        };
+        }
       }
-      expData.push(expVariationData);
+      const baseline = variationResults?.[0];
+      getLatestPhaseVariations(e).forEach((v, i) => {
+        if (i === 0) return;
+        let expVariationData: MetricExperimentData = {
+          id: e.id,
+          date: experimentDate(e),
+          name: e.name,
+          status: e.status,
+          results: e.results,
+          archived: e.archived,
+          variations: getLatestPhaseVariations(e),
+          statsEngine: statsEngine,
+          variationId: i,
+          variationName: v.name,
+          differenceType: effectiveDifferenceType,
+          phases: e.phases,
+          goalMetrics: e.goalMetrics,
+          guardrailMetrics: e.guardrailMetrics,
+          secondaryMetrics: e.secondaryMetrics,
+          datasource: e.datasource,
+          decisionFrameworkSettings: e.decisionFrameworkSettings,
+          project: e.project,
+        };
+        if (!bandits && baseline && variationResults[i]) {
+          const { significant, resultsStatus, directionalStatus } =
+            getMetricResultStatus({
+              metric: metric,
+              metricDefaults,
+              baseline: baseline,
+              stats: variationResults[i],
+              ciLower,
+              ciUpper,
+              pValueThreshold,
+              statsEngine,
+              differenceType: effectiveDifferenceType,
+            });
+          expVariationData = {
+            ...expVariationData,
+            variationResults: variationResults[i],
+            lift: variationResults[i].uplift?.mean ?? undefined,
+            users: variationResults[i].users,
+            shipped: e.results === "won" && e.winner == i,
+            significant: significant,
+            resultsStatus: resultsStatus,
+            directionalStatus: directionalStatus,
+          };
+        }
+        rows.push(expVariationData);
+      });
     });
-  });
+    return rows;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    experimentsWithSnapshot,
+    metric,
+    bandits,
+    differenceType,
+    metricDefaults,
+    significanceThresholdsByProject,
+    bayesianConfidenceLevels,
+    pValueThreshold,
+  ]);
 
   const { items, SortableTH } = useSearch({
     items: expData,
@@ -192,6 +279,107 @@ function MetricExperimentResultTab({
     // searchFields collapses the table to zero rows.
     disableUrlSearchTerm: true,
   });
+
+  // Keep the current page valid when inputs change: reset on metric switch,
+  // clamp when a filter/sort shrinks the result set.
+  const totalPages = Math.max(1, Math.ceil(items.length / numPerPage));
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [metric.id]);
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
+  // Effective visible columns (order + visibility) after applying the stored
+  // config. "Experiment" is always rendered first, outside this list.
+  const visibleColumns = resolveMetricExperimentColumns(
+    columns,
+    !!bandits,
+  ).filter((c) => c.visible);
+
+  const renderCell = (
+    colId: string,
+    e: MetricExperimentData,
+    resultsHighlightClassname: string,
+  ) => {
+    switch (colId) {
+      case "variationId":
+        return (
+          <td>
+            <Flex
+              align="center"
+              gap="1"
+              className="my-1"
+              style={{ maxWidth: 220 }}
+            >
+              <VariationLabel number={e.variationId} name={e.variationName} />
+              {e.shipped ? (
+                <Tooltip body={"Variation marked as the winner"}>
+                  <PiTrophyDuotone />
+                </Tooltip>
+              ) : null}
+            </Flex>
+          </td>
+        );
+      case "date":
+        return (
+          <td className="nowrap" title={datetime(e.date)}>
+            {e.status === "running"
+              ? "started"
+              : e.status === "draft"
+                ? "created"
+                : e.status === "stopped"
+                  ? "ended"
+                  : ""}{" "}
+            {date(e.date)}
+          </td>
+        );
+      case "status":
+        return (
+          <td>
+            <div className="my-1">
+              <ExperimentStatusIndicator experimentData={e} />
+            </div>
+          </td>
+        );
+      case "users":
+        return <td>{e.users ? formatNumber(e.users) : ""}</td>;
+      case "lift":
+        return e.variationResults ? (
+          <ChangeColumn
+            metric={metric}
+            pValueThreshold={
+              (
+                significanceThresholdsByProject.get(e.project || "") ??
+                defaultSignificanceThresholds
+              ).pValueThreshold
+            }
+            stats={e.variationResults}
+            rowResults={{
+              enoughData: true,
+              directionalStatus: e.directionalStatus ?? "losing",
+              hasScaledImpact: true,
+              significant: e.significant ?? false,
+              resultsStatus:
+                (e.resultsStatus as RowResults["resultsStatus"]) ?? "",
+              suspiciousChange: false,
+              suspiciousThreshold: 0,
+              minPercentChange: 0,
+              currentMetricTotal: e.variationResults?.value ?? 0,
+            }}
+            showPlusMinus={false}
+            statsEngine={e.statsEngine}
+            differenceType={e.differenceType}
+            showCI={true}
+            className={resultsHighlightClassname}
+          />
+        ) : (
+          <td>No results available</td>
+        );
+      default:
+        return null;
+    }
+  };
 
   const expRows = items.slice(start, end).map((e) => {
     const resultsHighlightClassname = clsx(e.resultsStatus, {
@@ -210,79 +398,11 @@ function MetricExperimentResultTab({
             </Link>
           </div>
         </td>
-
-        <td>
-          <div
-            key={`var-experiment${e.id}-variation${e.variationId}`}
-            className={`variation variation${e.variationId} with-variation-label d-flex my-1`}
-          >
-            <span className="label" style={{ width: 20, height: 20 }}>
-              {e.variationId}
-            </span>
-            <span
-              className="d-inline-block text-ellipsis hover"
-              style={{
-                maxWidth: 200,
-              }}
-            >
-              {e.variationName}
-              {e.shipped ? (
-                <Tooltip body={"Variation marked as the winner"}>
-                  <FaShippingFast className="ml-1" />{" "}
-                </Tooltip>
-              ) : null}
-            </span>
-          </div>
-        </td>
-        <td className="nowrap" title={datetime(e.date)}>
-          {e.status === "running"
-            ? "started"
-            : e.status === "draft"
-              ? "created"
-              : e.status === "stopped"
-                ? "ended"
-                : ""}{" "}
-          {date(e.date)}
-        </td>
-        <td>
-          <div className="my-1">
-            <ExperimentStatusIndicator experimentData={e} />
-          </div>
-        </td>
-        <td>{e.users ? formatNumber(e.users) : ""}</td>
-        {!bandits ? (
-          e.variationResults ? (
-            <ChangeColumn
-              metric={metric}
-              pValueThreshold={
-                (
-                  significanceThresholdsByProject.get(e.project || "") ??
-                  defaultSignificanceThresholds
-                ).pValueThreshold
-              }
-              stats={e.variationResults}
-              rowResults={{
-                enoughData: true,
-                directionalStatus: e.directionalStatus ?? "losing",
-                hasScaledImpact: true,
-                significant: e.significant ?? false,
-                resultsStatus:
-                  (e.resultsStatus as RowResults["resultsStatus"]) ?? "",
-                suspiciousChange: false,
-                suspiciousThreshold: 0,
-                minPercentChange: 0,
-                currentMetricTotal: e.variationResults?.value ?? 0,
-              }}
-              showPlusMinus={false}
-              statsEngine={e.statsEngine}
-              differenceType={differenceType}
-              showCI={true}
-              className={resultsHighlightClassname}
-            />
-          ) : (
-            <td>No results available</td>
-          )
-        ) : null}
+        {visibleColumns.map((c) => (
+          <React.Fragment key={`${e.id}-${e.variationId}-${c.id}`}>
+            {renderCell(c.id, e, resultsHighlightClassname)}
+          </React.Fragment>
+        ))}
       </tr>
     );
   });
@@ -292,13 +412,14 @@ function MetricExperimentResultTab({
       <table className="table appbox">
         <thead className="bg-light">
           <tr>
-            <SortableTH field="name">Experiment</SortableTH>
-            <SortableTH field="variationId">Variation</SortableTH>
-            <SortableTH field="date">Date</SortableTH>
-            <SortableTH field="status">Status</SortableTH>
-            <SortableTH field="users">Variation Users</SortableTH>
-            {/* <th>Won/lost</th> */}
-            {!bandits && <SortableTH field="lift">Lift</SortableTH>}
+            <SortableTH field="name" className="nowrap">
+              Experiment
+            </SortableTH>
+            {visibleColumns.map((c) => (
+              <SortableTH key={c.id} field={c.id} className="nowrap">
+                {c.label}
+              </SortableTH>
+            ))}
           </tr>
         </thead>
         <tbody>{expRows}</tbody>
@@ -323,6 +444,7 @@ const MetricExperiments: FC<MetricAnalysisProps> = ({
   dataWithSnapshot,
   numPerPage = NUM_PER_PAGE,
   differenceType = "relative",
+  columns,
 }) => {
   const { data } = useApi<{
     data: ExperimentWithSnapshot[];
@@ -358,6 +480,7 @@ const MetricExperiments: FC<MetricAnalysisProps> = ({
       bandits={bandits}
       numPerPage={numPerPage}
       differenceType={differenceType}
+      columns={columns}
     />
   );
 

@@ -91,7 +91,7 @@ export default function StickyBucketingSettings() {
                       </>
                     }
                   >
-                    Enable fallback attributes in experiments <GBInfo />
+                    Enable fallback attributes in Experiments <GBInfo />
                   </Tooltip>
                 </label>
               </Box>

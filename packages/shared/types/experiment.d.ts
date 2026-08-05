@@ -64,18 +64,21 @@ export type DecisionFrameworkExperimentRecommendationStatus =
       variations: DecisionFrameworkVariation[];
       powerReached: boolean;
       sequentialUsed: boolean;
+      scheduledEndPassed: boolean;
     }
   | {
       status: "rollback-now";
       variations: DecisionFrameworkVariation[];
       powerReached: boolean;
       sequentialUsed: boolean;
+      scheduledEndPassed: boolean;
     }
   | {
       status: "ready-for-review";
       variations: DecisionFrameworkVariation[];
       powerReached: boolean;
       sequentialUsed: boolean;
+      scheduledEndPassed: boolean;
     };
 
 export type ExperimentUnhealthyData = {
@@ -93,7 +96,11 @@ export type ExperimentResultStatus =
   | DecisionFrameworkExperimentRecommendationStatus
   | { status: "no-data" }
   | { status: "unhealthy"; unhealthyData: ExperimentUnhealthyData }
-  | { status: "before-min-duration" };
+  | { status: "before-min-duration" }
+  // The scheduled end date has passed but there is no decision recommendation
+  // (e.g. no goal metrics, no results yet, or the Experiment Decision
+  // Framework is not enabled). Schedule-driven, not EDF-driven.
+  | { status: "scheduled-end-review" };
 
 export type ExperimentResultStatusData = ExperimentResultStatus & {
   tooltip?: string;
@@ -144,14 +151,18 @@ export type ExperimentPhaseStringDates = Omit<
 };
 
 type NextScheduledStatusUpdateStringDates = Omit<
-  NextScheduledStatusUpdate,
+  NonNullable<ExperimentInterface["nextScheduledStatusUpdate"]>,
   "date"
 > & {
   date: string;
 };
 
-type StatusUpdateScheduleStringDates = Omit<StatusUpdateSchedule, "startAt"> & {
+type StatusUpdateScheduleStringDates = Omit<
+  NonNullable<ExperimentInterface["statusUpdateSchedule"]>,
+  "startAt" | "stopAt"
+> & {
   startAt?: string;
+  stopAt?: string;
 };
 
 export type LegacyMetricOverride = MetricOverride & {
@@ -327,6 +338,7 @@ export type ExperimentDataForStatusStringDates = Omit<
     | "datasource"
     | "decisionFrameworkSettings"
     | "nextScheduledStatusUpdate"
+    | "statusUpdateSchedule"
   >,
   "type"
 > & {
@@ -353,6 +365,7 @@ export type ExperimentDataForStatus = Omit<
     | "datasource"
     | "decisionFrameworkSettings"
     | "nextScheduledStatusUpdate"
+    | "statusUpdateSchedule"
   >,
   "type"
 > & {

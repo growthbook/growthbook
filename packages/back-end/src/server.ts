@@ -4,6 +4,7 @@ import "./instrumentation";
 import app from "./app";
 import { logger } from "./util/logger";
 import { getAgendaInstance } from "./services/queueing";
+import { uploadsInit } from "./init/uploads";
 import {
   initializeGrowthBookClient,
   destroyGrowthBookClient,
@@ -20,6 +21,9 @@ const server = app.listen(app.get("port"), () => {
       "env",
     )} mode. Press CTRL-C to stop`,
   );
+  // Boot-time operational check (real server only; not exercised by tests, which
+  // import app directly). Self-contained and warn-only.
+  void uploadsInit();
 });
 
 export default server;

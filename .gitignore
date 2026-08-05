@@ -33,6 +33,7 @@ coverage.xml
 
 # Python virtual environment
 venv/
+.venv/
 .eslintcache
 
 # Docs
@@ -53,3 +54,6 @@ next-env.d.ts
 # Private claude folders
 .claude/worktrees/
 .claude/projects/
+
+# Agent scratch space
+.context/

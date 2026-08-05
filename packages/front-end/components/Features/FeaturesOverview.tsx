@@ -23,13 +23,12 @@ import {
   PiClockFill,
 } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
+import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
 import {
-  filterEnvironmentsByFeature,
-  getReviewSetting,
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   isRevisionEditLockedBySchedule,
-} from "shared/util";
+} from "shared/enterprise";
 import { BiHide, BiShow } from "react-icons/bi";
 import Collapsible from "react-collapsible";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -57,6 +56,7 @@ import {
   useEnvironments,
   getPrerequisites,
   getRules,
+  useFeatureRulesEnv,
 } from "@/services/features";
 import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
@@ -145,7 +145,7 @@ function environmentKillSwitchTooltipBody(
         ? "in this revision"
         : "in this environment";
   return (
-    <Text as="div" size="small" color="text-high">
+    <Text as="div" size="sm" color="text-high">
       {enabled ? (
         <>
           The current feature is{" "}
@@ -179,7 +179,7 @@ function environmentKillSwitchTooltipBody(
         </>
       )}
       {showChangeHint && (
-        <Text as="div" mt="2" size="small" color="text-high">
+        <Text as="div" mt="2" size="sm" color="text-high">
           Click <strong>Change</strong> to turn traffic on or off for each
           environment.
         </Text>
@@ -277,6 +277,10 @@ export default function FeaturesOverview({
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
+  // Selected rules env tab, lifted here so the Default Value display resolves a
+  // config-backed value for the same environment the rules are filtered to.
+  // null = "All environments".
+  const [rulesEnv, setRulesEnv] = useFeatureRulesEnv();
 
   const { dependents: dependentsData } = useFeatureDependents(feature?.id);
   const dependentFeatures = dependentsData?.features ?? [];
@@ -553,7 +557,7 @@ export default function FeaturesOverview({
         onClick={() => setTab("review")}
         style={{ whiteSpace: "nowrap" as const }}
       >
-        Review and Publish
+        Review &amp; Publish
       </Button>
     </Box>
   ) : null;
@@ -843,13 +847,14 @@ export default function FeaturesOverview({
                           flexShrink: 0,
                         }}
                       >
-                        <Text as="span" color="text-mid" size="medium">
+                        <Text as="span" color="text-mid" size="md">
                           {revision.version}.
                         </Text>
                       </span>
                     )}
                     {editingTitle ? (
                       <Field
+                        size="legacy"
                         autoFocus
                         value={titleDraft}
                         placeholder={`Revision ${revision.version}`}
@@ -880,7 +885,7 @@ export default function FeaturesOverview({
                         }}
                       />
                     ) : (
-                      <Text weight="semibold" size="large">
+                      <Text weight="semibold" size="lg">
                         <OverflowText
                           maxWidth={250}
                           title={revisionLabelText(
@@ -919,9 +924,9 @@ export default function FeaturesOverview({
                   {isDraft &&
                     baseRevision &&
                     baseRevision.version !== feature.version && (
-                      <Text as="span" size="small" color="text-low">
+                      <Text as="span" size="sm" color="text-low">
                         based on{" "}
-                        <Text as="span" size="small" weight="medium">
+                        <Text as="span" size="sm" weight="medium">
                           Revision {baseRevision.version}
                         </Text>
                       </Text>
@@ -931,7 +936,7 @@ export default function FeaturesOverview({
 
               <Flex align="center" justify="end" gap="4" flexGrow="1">
                 {/* Lifecycle actions (revert, discard, publish) live in the
-                    Review and Publish tab — the card only offers "New Draft"
+                    Review & Publish tab — the card only offers "New Draft"
                     and navigation into the review surface. */}
                 {canEditDrafts && !isDraft && (
                   <Box position="relative">
@@ -994,7 +999,7 @@ export default function FeaturesOverview({
                 py="2"
                 style={{ cursor: "pointer", userSelect: "none" }}
               >
-                <Heading as="h4" size="small" mb="0">
+                <Heading as="h4" size="sm" mb="0">
                   {hasCustomFields && !descriptionExpanded
                     ? "Description & Additional Fields"
                     : "Description"}
@@ -1003,7 +1008,7 @@ export default function FeaturesOverview({
                   {canEdit && canEditDrafts && !isReadOnly && (
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="md"
                       onClick={async (e) => {
                         e?.stopPropagation();
                         setShowDescriptionModal(true);
@@ -1058,7 +1063,7 @@ export default function FeaturesOverview({
         </Box>
         <Frame mb="4" px="6" py="4">
           <Flex align="center" justify="between" gap="2" mb="2">
-            <Heading as="h4" size="small" mb="0">
+            <Heading as="h4" size="sm" mb="0">
               Environment Status
             </Heading>
             {showFeatureUsage && (
@@ -1085,7 +1090,7 @@ export default function FeaturesOverview({
                 >
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="md"
                     onClick={() => setKillSwitchTarget({})}
                     style={{ position: "relative", zIndex: 1 }}
                   >
@@ -1289,7 +1294,7 @@ export default function FeaturesOverview({
                 {!isReadOnly && (
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="md"
                     onClick={() => setKillSwitchTarget({})}
                   >
                     Change
@@ -1432,7 +1437,7 @@ export default function FeaturesOverview({
         {dependents > 0 && (
           <Frame mb="4" px="6" py="4">
             <Flex mb="2" gap="2" align="center">
-              <Heading size="small" as="h4" mb="0">
+              <Heading size="sm" as="h4" mb="0">
                 Dependents
               </Heading>
               <Badge label={dependents + ""} color="gray" />
@@ -1520,14 +1525,14 @@ export default function FeaturesOverview({
             <Frame mt="4" px="6" py="4">
               <Flex align="center" justify="between">
                 <Flex align="center" gap="1" mb="3">
-                  <Heading as="h4" size="small" mb="0">
+                  <Heading as="h4" size="sm" mb="0">
                     Default Value
                   </Heading>
                 </Flex>
                 {canEdit && canEditDrafts && !isReadOnly && (
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="md"
                     onClick={() => setEdit(true)}
                   >
                     Edit
@@ -1540,6 +1545,14 @@ export default function FeaturesOverview({
                     <ForceSummary
                       value={getFeatureDefaultValue(feature)}
                       feature={feature}
+                      isDefault={true}
+                      // Match FeatureRules' tab: ignore a stored env that isn't
+                      // one of this feature's environments (falls back to base).
+                      environment={
+                        rulesEnv !== null && envs.includes(rulesEnv)
+                          ? rulesEnv
+                          : undefined
+                      }
                     />
                   </Box>
                 </Flex>
@@ -1550,7 +1563,7 @@ export default function FeaturesOverview({
                 pt="4"
                 style={{ borderTop: "1px solid var(--gray-a4)" }}
               >
-                <Heading as="h4" size="small" mb="2">
+                <Heading as="h4" size="sm" mb="2">
                   Rules
                 </Heading>
                 {environments.length > 0 ? (
@@ -1580,6 +1593,9 @@ export default function FeaturesOverview({
                       revisionList={revisionList || []}
                       rampSchedules={rampSchedules}
                       draftRevision={revision}
+                      rulesEnv={rulesEnv}
+                      setRulesEnv={setRulesEnv}
+                      baseRevision={baseRevision}
                     />
                   </>
                 ) : (
@@ -1595,7 +1611,7 @@ export default function FeaturesOverview({
         )}
 
         <Frame mb="4" px="6" py="4">
-          <Heading as="h4" size="small" mb="3">
+          <Heading as="h4" size="sm" mb="3">
             Comments
           </Heading>
           <DiscussionThread
@@ -1729,12 +1745,7 @@ export default function FeaturesOverview({
                     borderRadius: "var(--radius-2)",
                   }}
                 >
-                  <Text
-                    as="span"
-                    size="medium"
-                    weight="semibold"
-                    color="text-high"
-                  >
+                  <Text as="span" size="md" weight="semibold" color="text-high">
                     <OverflowText
                       maxWidth={200}
                       title={revisionLabelText(
@@ -1771,7 +1782,7 @@ export default function FeaturesOverview({
                         flexShrink: 0,
                       }}
                     >
-                      <Text as="span" color="text-mid" size="small">
+                      <Text as="span" color="text-mid" size="sm">
                         {Math.max(0, ...revisionList.map((r) => r.version)) + 1}
                         .
                       </Text>
@@ -1779,6 +1790,7 @@ export default function FeaturesOverview({
                   )}
                   {editingNewDraftTitle ? (
                     <Field
+                      size="legacy"
                       autoFocus
                       value={newDraftTitle}
                       placeholder={`Revision ${Math.max(0, ...revisionList.map((r) => r.version)) + 1}`}
@@ -1835,6 +1847,7 @@ export default function FeaturesOverview({
               </Box>
               {showNewDraftNotes ? (
                 <Field
+                  size="legacy"
                   label="Description"
                   labelClassName="font-weight-bold"
                   textarea

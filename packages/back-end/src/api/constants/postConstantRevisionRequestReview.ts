@@ -45,10 +45,25 @@ export const postConstantRevisionRequestReview = createApiRequestHandler(
       constant as unknown as Record<string, unknown>,
     );
 
+  // Snapshot the deferred-publish guard fingerprints when arming auto-publish, so
+  // the later auto-publish-on-approval fire can clear the armed guards. Throws
+  // (bypassably) on unacknowledged live conflicts. Routed through the adapter so
+  // every guard (experiment / config-lock / schema-break) is captured uniformly.
+  const armAcknowledgments = enableAutoPublish
+    ? await getAdapter("constant").captureArmAcknowledgment?.(
+        req.context,
+        constant as unknown as Record<string, unknown>,
+        revision.target.proposedChanges,
+      )
+    : undefined;
+
   const updated = await req.context.models.revisions.submitForReview(
     revision.id,
     req.context.userId,
-    { autoPublishOnApproval: enableAutoPublish },
+    {
+      autoPublishOnApproval: enableAutoPublish,
+      armAcknowledgments,
+    },
   );
 
   await dispatchConstantRevisionEvent(req.context, updated, {

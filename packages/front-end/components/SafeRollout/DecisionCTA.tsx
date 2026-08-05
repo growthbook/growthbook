@@ -73,7 +73,7 @@ const DecisionCTA = ({
       type="button"
       onClick={openStatusModal}
       variant={variant}
-      size="xs"
+      size="sm"
       color={color}
     >
       {buttonCopy}

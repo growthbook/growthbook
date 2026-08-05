@@ -96,6 +96,8 @@ export interface Props {
   // When set, matching substrings of the rendered code become links (see
   // LinkifyConfig). Used to make `@const:key` references clickable.
   linkify?: LinkifyConfig;
+  // Override the rendered code font size (defaults to 0.85rem).
+  fontSize?: string;
 }
 
 export default function InlineCode({
@@ -105,13 +107,14 @@ export default function InlineCode({
   inTooltip,
   boldLines,
   linkify,
+  fontSize = "0.85rem",
 }: Props) {
   const { theme } = useAppearanceUITheme();
 
   const style = cloneDeep(
     theme === "light" ? (inTooltip ? dark : light) : inTooltip ? light : dark,
   );
-  style['code[class*="language-"]'].fontSize = "0.85rem";
+  style['code[class*="language-"]'].fontSize = fontSize;
   style['code[class*="language-"]'].lineHeight = 1.5;
   style['code[class*="language-"]'].fontWeight = 600;
   // this next line actually doesn't do anything- its overridden somewhere in Prism.

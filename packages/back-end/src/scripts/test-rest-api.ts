@@ -87,7 +87,10 @@ import { ApiEndpointSpec } from "shared/api-spec";
 
 // Fill these with actual values for your GrowthBook instance
 const secret = process.env.API_KEY;
-const host = process.env.API_HOST || "http://localhost:3100";
+const host = (process.env.API_HOST || "http://localhost:3100").replace(
+  /\/+$/,
+  "",
+);
 
 if (!secret) {
   throw new Error("API_KEY is not set");

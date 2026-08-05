@@ -44,7 +44,7 @@ export default function SDKConnectionsList() {
     permissionsUtil.canViewCreateSDKConnectionModal(project);
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;

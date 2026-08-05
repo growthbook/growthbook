@@ -119,6 +119,7 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
                   </Flex>
                 </Flex>
                 <Field
+                  size="legacy"
                   type="number"
                   value={parseFloat(
                     (

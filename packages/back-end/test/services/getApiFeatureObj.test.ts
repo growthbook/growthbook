@@ -7,6 +7,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   getApiFeatureObj,
   getApiFeatureObjV2,
+  scrubConfigExtends,
 } from "back-end/src/services/features";
 import { migrateRawFeatureToV2 } from "back-end/src/models/FeatureModel";
 import { ReqContext } from "back-end/types/request";
@@ -1111,5 +1112,108 @@ describe("getApiFeatureObj: revision author summary", () => {
     });
     expect(apiV2NullUsers.revision.createdBy).toBeUndefined();
     expect(apiV2NullUsers.revision.publishedBy).toBeUndefined();
+  });
+});
+
+describe("scrubConfigExtends", () => {
+  it("drops @config: from $extends but keeps @const: (round-trippable)", () => {
+    expect(
+      scrubConfigExtends({ $extends: ["@config:base", "@const:x"], p: 1 }),
+    ).toEqual({ $extends: ["@const:x"], p: 1 });
+  });
+
+  it("removes an $extends left empty after dropping @config:", () => {
+    expect(scrubConfigExtends({ $extends: ["@config:base"], p: 1 })).toEqual({
+      p: 1,
+    });
+  });
+
+  it("recurses into a compiled definition's rules and variations", () => {
+    const def = {
+      defaultValue: { $extends: ["@config:base"] },
+      rules: [
+        { force: { $extends: ["@config:base"], p: 1 } },
+        {
+          variations: [
+            { $extends: ["@config:child"], v: 1 },
+            { $extends: ["@const:c"], v: 2 },
+          ],
+        },
+      ],
+    };
+    expect(scrubConfigExtends(def)).toEqual({
+      defaultValue: {},
+      rules: [
+        { force: { p: 1 } },
+        { variations: [{ v: 1 }, { $extends: ["@const:c"], v: 2 }] },
+      ],
+    });
+  });
+
+  it("leaves non-config values untouched", () => {
+    expect(scrubConfigExtends({ a: 1, b: [1, 2], c: "x" })).toEqual({
+      a: 1,
+      b: [1, 2],
+      c: "x",
+    });
+    expect(scrubConfigExtends(true)).toBe(true);
+    expect(scrubConfigExtends("plain")).toBe("plain");
+  });
+});
+
+describe("getApiFeatureObj: config-backing decomposition (v1 / webhook shape)", () => {
+  it("scrubs @config into standalone fields, keeps @const, and doesn't leak it in the definition", () => {
+    const organization = { id: "org_test" } as unknown as OrganizationInterface;
+    const feature = {
+      id: "feat_cfg",
+      organization: "org_test",
+      owner: "",
+      dateCreated: new Date("2024-01-01"),
+      dateUpdated: new Date("2024-01-01"),
+      valueType: "json",
+      baseConfig: "base",
+      // Default resolves to a descendant of the base config.
+      defaultValue: JSON.stringify({ $extends: ["@config:child"] }),
+      version: 1,
+      tags: [],
+      project: "",
+      environmentSettings: { production: { enabled: true } },
+      rules: [
+        {
+          id: "fr1",
+          type: "force",
+          description: "",
+          enabled: true,
+          allEnvironments: true,
+          value: JSON.stringify({
+            $extends: ["@config:base"],
+            note: "@const:keep",
+          }),
+        },
+      ],
+    } as unknown as FeatureInterface;
+
+    const api = getApiFeatureObj({
+      feature,
+      organization,
+      groupMap: new Map() as GroupMap,
+      experimentMap: new Map<string, ExperimentInterface>(),
+      revision: null,
+      safeRolloutMap: new Map<string, SafeRolloutInterface>(),
+    });
+
+    // Config backing surfaced via standalone fields; @config scrubbed from values.
+    expect(api.baseConfig).toBe("base");
+    expect(api.defaultValueConfig).toBe("child");
+    expect(api.defaultValue).toBe("{}");
+
+    const rule = api.environments.production.rules[0] as { value: string };
+    // @config dropped, @const preserved.
+    expect(JSON.parse(rule.value)).toEqual({ note: "@const:keep" });
+
+    // The compiled SDK definition never exposes the internal @config directive.
+    expect(api.environments.production.definition ?? "").not.toContain(
+      "@config:",
+    );
   });
 });

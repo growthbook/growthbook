@@ -73,6 +73,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
   type: { type: String },
   triggeredBy: String,
   report: String,
+  runnerKind: String,
   dateCreated: Date,
   sourceSnapshotId: String,
   sourceSnapshotDateCreated: Date,
@@ -861,6 +862,25 @@ export async function deleteSnapshotById(context: Context, id: string) {
   await ExperimentSnapshotModel.deleteOne({
     organization: context.org.id,
     id,
+  });
+}
+
+export async function deleteAllSnapshotsForExperiment(
+  context: Context,
+  experimentId: string,
+) {
+  const snapshots = await ExperimentSnapshotModel.find({
+    organization: context.org.id,
+    experiment: experimentId,
+  }).select({ id: 1 });
+  if (snapshots.length) {
+    await context.models.experimentSnapshotAnalysisChunks.deleteBySnapshotIds(
+      snapshots.map((s) => s.id),
+    );
+  }
+  await ExperimentSnapshotModel.deleteMany({
+    organization: context.org.id,
+    experiment: experimentId,
   });
 }
 

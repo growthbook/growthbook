@@ -21,7 +21,7 @@ import {
   SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
-import { FactTableInterface } from "shared/types/fact-table";
+import { FactTableDefinition } from "shared/types/fact-table";
 import {
   PiArrowSquareOut,
   PiCaretCircleRight,
@@ -29,7 +29,7 @@ import {
 } from "react-icons/pi";
 import {
   expandMetricGroups,
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getMetricLink,
   ExperimentSortBy,
   SetExperimentSortBy,
@@ -249,7 +249,7 @@ const CompactResults: FC<{
       ...expandedSecondaries,
       ...expandedGuardrails,
     ];
-    const allMetricsMap = new Map<string, ExperimentMetricInterface>();
+    const allMetricsMap = new Map<string, ExperimentMetricDefinition>();
     allExpandedIds.forEach((id) => {
       const metric = getExperimentMetricById(id);
       if (metric && !allMetricsMap.has(id)) {
@@ -348,6 +348,7 @@ const CompactResults: FC<{
                 linkToHealthTab
                 setTab={setTab}
                 isBandit={isBandit}
+                snapshot={snapshot}
               />
             )}
             <MultipleExposureWarning
@@ -553,8 +554,8 @@ export function getRenderLabelColumn({
     metricId: string,
     resultGroup: "goal" | "secondary" | "guardrail",
   ) => void;
-  getExperimentMetricById?: (id: string) => null | ExperimentMetricInterface;
-  getFactTableById?: (id: string) => null | FactTableInterface;
+  getExperimentMetricById?: (id: string) => null | ExperimentMetricDefinition;
+  getFactTableById?: (id: string) => null | FactTableDefinition;
   shouldShowMetricSlices?: boolean;
   getChildRowCounts?: (metricId: string) => number;
   sliceTagsFilter?: string[];
@@ -567,7 +568,7 @@ export function getRenderLabelColumn({
     location,
   }: {
     label: string | ReactElement;
-    metric: ExperimentMetricInterface;
+    metric: ExperimentMetricDefinition;
     row?: ExperimentTableRow;
     maxRows?: number;
     location?: "goal" | "secondary" | "guardrail";

@@ -1016,6 +1016,58 @@ describe("canManageFeatureCustomHooks", () => {
   });
 });
 
+describe("canManageExperimentCustomHooks", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [],
+    settings: {
+      environments: [{ id: "production", description: "" }],
+    },
+  };
+
+  function getPermissions(role: string) {
+    return new Permissions({
+      global: {
+        permissions: roleToPermissionMap(role, testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+  }
+
+  const experimentResource = { project: "" };
+
+  it("lets admins manage experiment hooks", () => {
+    expect(
+      getPermissions("admin").canManageExperimentCustomHooks(
+        experimentResource,
+      ),
+    ).toBe(true);
+  });
+
+  it("lets experiment editors manage experiment hooks", () => {
+    expect(
+      getPermissions("experimenter").canManageExperimentCustomHooks(
+        experimentResource,
+      ),
+    ).toBe(true);
+  });
+
+  it("does not let users without experiment edit access manage hooks", () => {
+    expect(
+      getPermissions("readonly").canManageExperimentCustomHooks(
+        experimentResource,
+      ),
+    ).toBe(false);
+  });
+});
+
 describe("getEffectiveRolesForProject", () => {
   const team = (
     id: string,
@@ -1163,5 +1215,65 @@ describe("getEffectiveRolesForProject", () => {
       { role: "readonly", sourceType: "user", sourceName: "user" },
       { role: "admin", sourceType: "team", sourceName: "Admins" },
     ]);
+  });
+});
+
+describe("canManageFactTableVirtualColumn", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [],
+    settings: {
+      environments: [{ id: "production", description: "" }],
+    },
+  };
+
+  function getPermissions(role: string) {
+    return new Permissions({
+      global: {
+        permissions: roleToPermissionMap(role, testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+  }
+
+  const unmanaged = { projects: [], managedBy: "" as const };
+  const managed = { projects: [], managedBy: "api" as const };
+
+  it("allows fact table managers on an unmanaged fact table", () => {
+    expect(
+      getPermissions("analyst").canManageFactTableVirtualColumn(unmanaged),
+    ).toBe(true);
+    expect(
+      getPermissions("admin").canManageFactTableVirtualColumn(unmanaged),
+    ).toBe(true);
+  });
+
+  it("blocks users without official-resource access on a managed fact table", () => {
+    // A virtual column carries raw SQL, so it must not be a way around the
+    // official-resources gate that protects a managed fact table's own SQL.
+    for (const role of ["analyst", "experimenter"]) {
+      const p = getPermissions(role);
+      expect(p.canUpdateFactTable(managed, { sql: "SELECT 1" })).toBe(false);
+      expect(p.canManageFactTableVirtualColumn(managed)).toBe(false);
+    }
+  });
+
+  it("still allows admins on a managed fact table", () => {
+    expect(
+      getPermissions("admin").canManageFactTableVirtualColumn(managed),
+    ).toBe(true);
+  });
+
+  it("blocks users without manageFactTables entirely", () => {
+    expect(
+      getPermissions("readonly").canManageFactTableVirtualColumn(unmanaged),
+    ).toBe(false);
   });
 });

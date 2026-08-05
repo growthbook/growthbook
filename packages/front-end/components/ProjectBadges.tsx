@@ -47,8 +47,8 @@ export default function ProjectBadges({
     }
     return (
       <Badge
-        label="All projects"
-        key="All projects"
+        label="All Projects"
+        key="All Projects"
         color={!project ? "purple" : "gray"}
         style={{
           maxWidth: "120px",

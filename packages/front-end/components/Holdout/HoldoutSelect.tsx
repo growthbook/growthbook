@@ -93,7 +93,7 @@ export const HoldoutSelect = ({
       <PremiumCallout
         id="holdout-select-promo"
         commercialFeature="holdouts"
-        dismissable={true}
+        dismissible={true}
         mt="3"
         mb="3"
       >
@@ -130,6 +130,7 @@ export const HoldoutSelect = ({
   return (
     <>
       <SelectField
+        size="legacy"
         label="Holdout"
         labelClassName="font-weight-bold"
         value={selectedHoldoutId || ""}

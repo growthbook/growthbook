@@ -18,6 +18,7 @@ import PleaseVerifyEmailModal from "@/components/Settings/UpgradeModal/PleaseVer
 import LicenseSuccessModal from "@/components/Settings/UpgradeModal/LicenseSuccessModal";
 import track from "@/services/track";
 import PremiumCallout from "@/ui/PremiumCallout";
+import Callout from "@/ui/Callout";
 
 export const MembersTabView: FC = () => {
   const {
@@ -70,9 +71,9 @@ export const MembersTabView: FC = () => {
   if (!permissions.manageTeam) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           You do not have access to view this page.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -121,6 +122,7 @@ export const MembersTabView: FC = () => {
           <div className="col-auto">View roles and permissions for</div>
           <div className="col-auto">
             <SelectField
+              size="legacy"
               value={currentProject}
               onChange={(value) => setCurrentProject(value)}
               options={projects.map((p) => ({
@@ -147,7 +149,7 @@ export const MembersTabView: FC = () => {
           commercialFeature="teams"
           id="member-list-team-promo"
           docSection="team"
-          dismissable={true}
+          dismissible={true}
           mb="5"
         >
           <strong>Teams and Custom Roles</strong> can make permission management

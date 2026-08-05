@@ -12,7 +12,6 @@ import {
   PiPlusCircle,
   PiUploadSimple,
 } from "react-icons/pi";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import { trafficSplitPercentages } from "@/services/utils";
 import Carousel from "@/components/Carousel";
@@ -253,7 +252,7 @@ export function VariationBox({
       key={i}
       p="5"
       pb="3"
-      className={`appbox mb-0 position-relative variation variation${i} with-variation-label`}
+      className="appbox mb-0 position-relative variation"
       style={{
         minWidth,
         maxWidth: capWidth ? MAX_VARIATION_WIDTH + "px" : undefined,
@@ -275,7 +274,7 @@ export function VariationBox({
         <Box>
           <Flex gap="2" align="center" justify="between">
             <Box minWidth="0" flexGrow="1">
-              <VariationLabel number={i} name={v.name} size="large" />
+              <VariationLabel number={i} name={v.name} size="lg" />
             </Box>
             {canEdit && onEditMetadata && onEditTraffic ? (
               <IconButton
@@ -339,7 +338,7 @@ export function VariationBox({
                 <Metadata
                   label="Split"
                   value={`${percent.toFixed(0)}%`}
-                  size="small"
+                  size="sm"
                 />
               ) : null}
             </Box>
@@ -355,7 +354,7 @@ export function VariationBox({
                     <Link>
                       <Flex align="center" gap="1">
                         <PiUploadSimple size="15" />
-                        <Text size="small" weight="semibold">
+                        <Text size="sm" weight="semibold">
                           Image
                         </Text>
                       </Flex>
@@ -363,7 +362,7 @@ export function VariationBox({
                   </ScreenshotUpload>
                 )}
                 {v.screenshots.length > 0 ? (
-                  <Text color="text-mid" size="small" whiteSpace="nowrap">
+                  <Text color="text-mid" size="sm" whiteSpace="nowrap">
                     {v.screenshots.length} image
                     {v.screenshots.length > 1 ? "s" : ""}
                   </Text>
@@ -404,7 +403,6 @@ const VariationsTable: FC<Props> = ({
     variationId: string;
     index: number;
   } | null>(null);
-  const collapseEmptyVariations = useFeatureIsOn("simple-experiment-flow");
 
   const hasUniqueIDs = variations.some((v, i) => v.key !== i + "");
   const someVariationHasImage = variations.some(
@@ -461,9 +459,7 @@ const VariationsTable: FC<Props> = ({
               onEditMetadata={onEditMetadata}
               onEditTraffic={onEditTraffic}
               showNoImage={
-                !collapseEmptyVariations ||
-                experiment.status === "draft" ||
-                someVariationHasImage
+                experiment.status === "draft" || someVariationHasImage
               }
               capWidth={centered}
             />

@@ -10,11 +10,17 @@ import {
   NULL_DIMENSION_VALUE,
   NULL_DIMENSION_DISPLAY,
 } from "shared/constants";
-import { MetricInterface } from "shared/types/metric";
 import {
+  MetricDefinitionInterface,
+  MetricInterface,
+} from "shared/types/metric";
+import {
+  ColumnInterface,
   ColumnRef,
   FactMetricInterface,
   FactTableColumnType,
+  FactTableDefinition,
+  FactTableDefinitionMap,
   FactTableInterface,
   FactTableMap,
   MetricQuantileSettings,
@@ -48,10 +54,21 @@ import {
   StatsEngine,
 } from "shared/types/stats";
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { StringMatchFn, TemplateVariables } from "shared/types/sql";
+import {
+  SqlIdentifierQuote,
+  StringMatchFn,
+  TemplateVariables,
+} from "shared/types/sql";
 import { stringToBoolean } from "../util";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
+
+// Metrics as returned by the definitions endpoint, where legacy metrics are
+// slimmed (fact metrics are always returned in full). A full
+// ExperimentMetricInterface is assignable to this type.
+export type ExperimentMetricDefinition =
+  | MetricDefinitionInterface
+  | FactMetricInterface;
 
 export type ExperimentSortBy =
   | "significance"
@@ -81,7 +98,7 @@ export function isMetricGroupId(id: string): boolean {
 }
 
 export function isFactMetric(
-  m: ExperimentMetricInterface,
+  m: ExperimentMetricDefinition,
 ): m is FactMetricInterface {
   if (!m || typeof m !== "object") return false;
   return "metricType" in m;
@@ -89,7 +106,11 @@ export function isFactMetric(
 
 export function isLegacyMetric(
   m: ExperimentMetricInterface,
-): m is MetricInterface {
+): m is MetricInterface;
+export function isLegacyMetric(
+  m: ExperimentMetricDefinition,
+): m is MetricDefinitionInterface;
+export function isLegacyMetric(m: ExperimentMetricDefinition): boolean {
   return !isFactMetric(m);
 }
 
@@ -113,13 +134,417 @@ export function canInlineFilterColumn(
   return true;
 }
 
+// Standard SQL quotes identifiers with double quotes; only MySQL, BigQuery,
+// and Databricks (Spark) use backticks. When the active data source's dialect
+// is unknown we assume the standard, which is correct for every dialect except
+// those three.
+export const DEFAULT_IDENTIFIER_QUOTE: SqlIdentifierQuote = '"';
+
+function isBareIdentifierChar(c: string): boolean {
+  return (
+    (c >= "a" && c <= "z") ||
+    (c >= "A" && c <= "Z") ||
+    (c >= "0" && c <= "9") ||
+    c === "_"
+  );
+}
+
+// Walk a SQL string and rewrite bare or quoted references to any of `names`,
+// correctly skipping spans where a matching token must NOT be treated as a
+// column reference:
+//   - single-quoted string literals ('' escapes a quote),
+//   - `--` line comments and `/* */` block comments,
+//   - dollar-quoted string bodies ($tag$...$tag$, Postgres),
+//   - and, depending on the dialect, the "other" quote character: whichever of
+//     " or ` is NOT the dialect's identifier quote delimits string literals.
+//
+// `identifierQuote` says which quote character delimits identifiers for the
+// active data source. A span in that quote is a *quoted identifier* (so
+// `"margin_vc"` / `` `margin_vc` `` can reference a column); a span in the
+// opposite quote is a string literal and is left alone. This matters because
+// e.g. `"margin_vc"` is a quoted identifier in Postgres but a string literal
+// in MySQL.
+//
+// `replacer(name, quoted)` returns the replacement for a matched identifier;
+// `quoted` tells it whether the match came from a quoted-identifier span so it
+// can re-quote when qualifying. Identifiers preceded by `.` (ignoring
+// whitespace, so `m.price` and `m . price` both count) are skipped so
+// already-qualified names are not re-qualified. Single
+// pass — inserted replacement text is never re-scanned, so an inserted
+// `m.price` is never re-qualified into `m.m.price`.
+function replaceSqlIdentifiers(
+  sql: string,
+  names: string[],
+  replacer: (name: string, quoted: boolean) => string,
+  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+): string {
+  if (!names.length) return sql;
+  const nameSet = new Set(names);
+  // Whichever quote is not the identifier quote delimits string literals.
+  const stringQuote = identifierQuote === '"' ? "`" : '"';
+
+  let out = "";
+  let i = 0;
+  const n = sql.length;
+
+  // Consume a quote-delimited span starting at `i` (which is the opening
+  // quote), honoring doubled-quote escapes. Returns the end index (exclusive)
+  // and the unescaped inner text, plus whether a closing quote was found.
+  const readQuoted = (quote: string) => {
+    let j = i + 1;
+    let inner = "";
+    let closed = false;
+    while (j < n) {
+      if (sql[j] === quote) {
+        if (sql[j + 1] === quote) {
+          inner += quote;
+          j += 2;
+          continue;
+        }
+        j++;
+        closed = true;
+        break;
+      }
+      inner += sql[j];
+      j++;
+    }
+    return { end: j, inner, closed };
+  };
+
+  // Whether the identifier about to be emitted is already qualified by a
+  // preceding `.`. SQL allows whitespace around the dot (`m . price`), so skip
+  // any trailing whitespace before looking for the qualifier.
+  const isAlreadyQualified = () => {
+    let k = out.length - 1;
+    while (k >= 0 && /\s/.test(out[k])) k--;
+    return k >= 0 && out[k] === ".";
+  };
+
+  while (i < n) {
+    const c = sql[i];
+
+    // Single-quoted string literal.
+    if (c === "'") {
+      const { end } = readQuoted("'");
+      out += sql.slice(i, end);
+      i = end;
+      continue;
+    }
+
+    // Line comment: -- ... to end of line.
+    if (c === "-" && sql[i + 1] === "-") {
+      let j = i + 2;
+      while (j < n && sql[j] !== "\n") j++;
+      out += sql.slice(i, j);
+      i = j;
+      continue;
+    }
+
+    // Block comment: /* ... */.
+    if (c === "/" && sql[i + 1] === "*") {
+      let j = i + 2;
+      while (j < n && !(sql[j] === "*" && sql[j + 1] === "/")) j++;
+      j = Math.min(n, j + 2);
+      out += sql.slice(i, j);
+      i = j;
+      continue;
+    }
+
+    // Dollar-quoted string ($tag$...$tag$). Only treated as a string when a
+    // valid closing delimiter exists; otherwise `$` is an ordinary character
+    // (e.g. a positional parameter or `col$1`).
+    if (c === "$") {
+      const open = sql.slice(i).match(/^\$([A-Za-z_][A-Za-z0-9_]*)?\$/);
+      if (open) {
+        const delim = open[0];
+        const close = sql.indexOf(delim, i + delim.length);
+        if (close !== -1) {
+          const end = close + delim.length;
+          out += sql.slice(i, end);
+          i = end;
+          continue;
+        }
+      }
+      out += c;
+      i++;
+      continue;
+    }
+
+    // Quoted identifier in the dialect's identifier quote.
+    if (c === identifierQuote) {
+      const { end, inner, closed } = readQuoted(identifierQuote);
+      if (closed && !isAlreadyQualified() && nameSet.has(inner)) {
+        out += replacer(inner, true);
+      } else {
+        out += sql.slice(i, end);
+      }
+      i = end;
+      continue;
+    }
+
+    // A span in the opposite quote is a string literal for this dialect; skip.
+    if (c === stringQuote) {
+      const { end } = readQuoted(stringQuote);
+      out += sql.slice(i, end);
+      i = end;
+      continue;
+    }
+
+    // Bare identifier run.
+    if (isBareIdentifierChar(c)) {
+      let j = i;
+      while (j < n && isBareIdentifierChar(sql[j])) j++;
+      const token = sql.slice(i, j);
+      // A run starting with a digit is a numeric literal, not an identifier.
+      const startsWithDigit = c >= "0" && c <= "9";
+      if (!startsWithDigit && !isAlreadyQualified() && nameSet.has(token)) {
+        out += replacer(token, false);
+      } else {
+        out += token;
+      }
+      i = j;
+      continue;
+    }
+
+    out += c;
+    i++;
+  }
+
+  return out;
+}
+
+// A virtual column's expression is inlined into generated SQL as `(<sql>)`, so
+// the expression must not be able to break out of those parentheses. Validate
+// that it is a single self-contained scalar expression: no statement
+// separator, no unbalanced parenthesis, and no unterminated literal or comment
+// that would swallow the closing paren (and whatever follows it) in the
+// generated query. Lexical rules mirror `replaceSqlIdentifiers` so literals and
+// comments are consistently ignored.
+//
+// This is a structural guard, not a capability guard: a balanced expression may
+// still contain a subquery, which is the same read access the fact table's own
+// SQL already has. Returns an error message, or null when the expression is
+// structurally safe.
+export function validateVirtualColumnExpression(
+  sql: string,
+  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+): string | null {
+  const stringQuote = identifierQuote === '"' ? "`" : '"';
+  const n = sql.length;
+  let i = 0;
+  let depth = 0;
+
+  // Consume a quote-delimited span starting at the opening quote at `i`,
+  // honoring doubled-quote escapes. Returns the end index (exclusive) and
+  // whether a closing quote was found.
+  const readQuoted = (quote: string) => {
+    let j = i + 1;
+    let closed = false;
+    while (j < n) {
+      if (sql[j] === quote) {
+        if (sql[j + 1] === quote) {
+          j += 2;
+          continue;
+        }
+        j++;
+        closed = true;
+        break;
+      }
+      j++;
+    }
+    return { end: j, closed };
+  };
+
+  while (i < n) {
+    const c = sql[i];
+
+    if (c === "'" || c === stringQuote || c === identifierQuote) {
+      const { end, closed } = readQuoted(c);
+      if (!closed) {
+        return "SQL expression has an unterminated quoted string or identifier";
+      }
+      i = end;
+      continue;
+    }
+
+    // Line comment: must be terminated by a newline, otherwise it would
+    // comment out the closing paren of the inlined expression.
+    if (c === "-" && sql[i + 1] === "-") {
+      const j = sql.indexOf("\n", i + 2);
+      if (j === -1) {
+        return "SQL expression ends in a line comment; remove it or add a newline after it";
+      }
+      i = j + 1;
+      continue;
+    }
+
+    // Block comment: must be closed.
+    if (c === "/" && sql[i + 1] === "*") {
+      const j = sql.indexOf("*/", i + 2);
+      if (j === -1) {
+        return "SQL expression has an unterminated block comment";
+      }
+      i = j + 2;
+      continue;
+    }
+
+    // Dollar-quoted string ($tag$...$tag$). Only a string when a valid closing
+    // delimiter exists; otherwise `$` is an ordinary character.
+    if (c === "$") {
+      const open = sql.slice(i).match(/^\$([A-Za-z_][A-Za-z0-9_]*)?\$/);
+      if (open) {
+        const delim = open[0];
+        const close = sql.indexOf(delim, i + delim.length);
+        if (close !== -1) {
+          i = close + delim.length;
+          continue;
+        }
+      }
+      i++;
+      continue;
+    }
+
+    if (c === ";") {
+      return "SQL expression cannot contain ';' — it must be a single expression, not a statement";
+    }
+
+    if (c === "(") depth++;
+    if (c === ")") {
+      depth--;
+      // Going negative means the expression closes a paren it never opened, so
+      // it would escape the wrapping parentheses in the generated query.
+      if (depth < 0) {
+        return "SQL expression has an unbalanced ')'";
+      }
+    }
+
+    i++;
+  }
+
+  if (depth !== 0) {
+    return "SQL expression has an unbalanced '('";
+  }
+
+  return null;
+}
+
+// Resolve a virtual column's expression into valid SQL for the current query
+// context. Any fact table column name appearing in the expression is rewritten:
+// a real column becomes `alias.<col>` (bare when no alias), and a nested virtual
+// column is expanded recursively — so chains (margin -> margin_pct) produce
+// fully-inlined SQL. String literals and comments are skipped; quoted
+// identifiers (per `identifierQuote`) are matched and re-quoted when qualified.
+// `seen` guards against cyclic definitions.
+function resolveVirtualColumnSql(
+  col: Pick<ColumnInterface, "column" | "sql">,
+  factTable: Pick<FactTableInterface, "columns">,
+  alias: string,
+  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+  seen: Set<string> = new Set(),
+): string {
+  const sql = col.sql || "";
+  if (seen.has(col.column)) return sql;
+  const nextSeen = new Set(seen).add(col.column);
+
+  const names = factTable.columns
+    .map((c) => c.column)
+    .filter((name) => name !== col.column);
+
+  return replaceSqlIdentifiers(
+    sql,
+    names,
+    (name, quoted) => {
+      const target = factTable.columns.find((c) => c.column === name);
+      if (target?.isVirtual && target.sql) {
+        return `(${resolveVirtualColumnSql(
+          target,
+          factTable,
+          alias,
+          identifierQuote,
+          nextSeen,
+        )})`;
+      }
+      const ref = quoted ? `${identifierQuote}${name}${identifierQuote}` : name;
+      return alias ? `${alias}.${ref}` : ref;
+    },
+    identifierQuote,
+  );
+}
+
+// Expand any virtual column references in a raw SQL fragment (e.g. a saved
+// filter or ad-hoc sql_expr row filter) by replacing each virtual column id
+// with its fully-resolved expression. Real-column-only fragments are returned
+// unchanged (fast path when the fact table has no virtual columns).
+export function expandVirtualColumnsInSql(
+  sql: string,
+  factTable: Pick<FactTableInterface, "columns">,
+  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+): string {
+  const virtualCols = factTable.columns.filter(
+    (c) => c.isVirtual && c.sql && !c.deleted,
+  );
+  if (!virtualCols.length) return sql;
+
+  return replaceSqlIdentifiers(
+    sql,
+    virtualCols.map((c) => c.column),
+    (name) => {
+      const c = virtualCols.find((v) => v.column === name);
+      return c
+        ? `(${resolveVirtualColumnSql(c, factTable, "", identifierQuote)})`
+        : name;
+    },
+    identifierQuote,
+  );
+}
+
+// Whether a SQL expression references a given column identifier. String
+// literals and comments are skipped, so a name inside a string literal (e.g.
+// `status = 'margin_vc'`) does not count as a reference, while a quoted
+// identifier (per `identifierQuote`) does. Computed on demand — no dependency
+// state is persisted.
+export function sqlReferencesColumn(
+  sql: string,
+  column: string,
+  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+): boolean {
+  let found = false;
+  replaceSqlIdentifiers(
+    sql,
+    [column],
+    (name) => {
+      found = true;
+      return name;
+    },
+    identifierQuote,
+  );
+  return found;
+}
+
 export function getColumnExpression(
   column: string,
   factTable: Pick<FactTableInterface, "columns">,
   // todo: add stringification for dimension cols that may not be string type
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
   alias: string = "",
+  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
 ): string {
+  // Virtual (computed) columns inline their stored SQL expression wherever they
+  // are referenced (metric value SELECT, row-filter WHERE, slice WHERE, ...).
+  // `!c.deleted` matches `expandVirtualColumnsInSql`: a soft-deleted virtual
+  // column must not keep contributing its expression to generated SQL.
+  const virtualCol = factTable.columns.find(
+    (c) => c.column === column && c.isVirtual && c.sql && !c.deleted,
+  );
+  if (virtualCol?.sql) {
+    return `(${resolveVirtualColumnSql(
+      virtualCol,
+      factTable,
+      alias,
+      identifierQuote,
+    )})`;
+  }
+
   const parts = column.split(".");
   if (parts.length > 1) {
     const col = factTable.columns.find((c) => c.column === parts[0]);
@@ -147,8 +572,10 @@ export function getColumnRefWhereClause({
   stringMatch,
   jsonExtract,
   evalBoolean,
+  castToTimestamp,
   showSourceComment = false,
   sliceInfo,
+  identifierQuote = DEFAULT_IDENTIFIER_QUOTE,
 }: {
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
   columnRef: ColumnRef;
@@ -156,8 +583,10 @@ export function getColumnRefWhereClause({
   stringMatch: StringMatchFn;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
   evalBoolean: (col: string, value: boolean) => string;
+  castToTimestamp?: (column: string) => string;
   showSourceComment?: boolean;
   sliceInfo?: SliceMetricInfo;
+  identifierQuote?: SqlIdentifierQuote;
 }): string[] {
   const where = new Set<string>();
 
@@ -174,6 +603,8 @@ export function getColumnRefWhereClause({
           sliceLevel.column,
           factTable,
           jsonExtract,
+          "",
+          identifierQuote,
         );
 
         if (
@@ -220,7 +651,9 @@ export function getColumnRefWhereClause({
       escapeStringLiteral,
       stringMatch,
       evalBoolean,
+      castToTimestamp,
       showSourceComment,
+      identifierQuote,
     });
     if (filterSQL) {
       where.add(filterSQL);
@@ -230,6 +663,114 @@ export function getColumnRefWhereClause({
   return [...where];
 }
 
+/**
+ * Normalize a stored `date`-column row-filter value into a timestamp literal
+ * body the warehouse dialects can cast. Values are UTC wall-clock text, in any
+ * of the spellings `isValidRowFilterDateValue` accepts: the date picker writes
+ * `2024-01-01T17:00`, and an API caller can send `2024-01-01T17:00:00.000Z` or
+ * `2024-01-01 17:00:00`. All of them reshape to `2024-01-01 17:00:00`; date-only
+ * values (`2024-01-01`) pass through unchanged. This only rewrites the text —
+ * dropping the `Z` does not shift the instant, because the value was never a
+ * local-time instant to begin with.
+ *
+ * Minute-precision values are padded to whole seconds. `DateFilterInput` stores
+ * `yyyy-MM-dd'T'HH:mm` (the native `datetime-local` shape), and strict dialects
+ * reject that as a timestamp literal — ClickHouse fails the whole query with
+ * "Cannot parse time component of DateTime 12:11". Seconds are the only missing
+ * piece, so supply them rather than making callers store a wider format.
+ *
+ * Dropping the fractional part never loses information, because
+ * `isValidRowFilterDateValue` only accepts an all-zero fraction — anything finer
+ * than a second is rejected upstream rather than silently truncated here.
+ */
+export function normalizeRowFilterDateValue(value: string): string {
+  const normalized = value
+    .trim()
+    .replace("T", " ")
+    .replace(/\.\d+/, "")
+    .replace(/Z$/, "")
+    .trim();
+
+  // Only pads `YYYY-MM-DD HH:MM`; a date-only value stays date-only so the
+  // calendar-day handling in getRowFilterSQL keeps treating it as a whole day.
+  return normalized.replace(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2})$/, "$1:00");
+}
+
+/**
+ * Whether a `date`-column row-filter value is safe to cast to a timestamp.
+ * Row filters can come from saved metrics or API callers (not just the date
+ * picker), so we validate before emitting `CAST(<value> AS TIMESTAMP)` — an
+ * unparseable literal like `foo` would fail the warehouse query. Accepts
+ * `YYYY-MM-DD` optionally followed by a time (space or `T` separator, optional
+ * seconds / trailing `Z`) that is also a real calendar date.
+ *
+ * A fractional-seconds part is accepted only when it is all zeros — the common
+ * `Date.toISOString()` shape, where dropping it is lossless. Anything finer than
+ * a second is rejected rather than truncated, because the comparison cannot honour
+ * it: `castToTimestamp` targets second-precision types on some dialects
+ * (ClickHouse `DateTime`, MySQL `DATETIME`) and is applied to the *column* as well
+ * as the value, so a sub-second literal would be matched against a column already
+ * truncated to whole seconds. Truncating the value silently moved the boundary by
+ * up to a second; rejecting surfaces it as a filter that matches no rows instead.
+ */
+export function isValidRowFilterDateValue(value: string): boolean {
+  const trimmed = value.trim();
+  const match = trimmed.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?(?:\.(\d+))?Z?)?$/,
+  );
+  if (!match) {
+    return false;
+  }
+  const [, year, month, day, hour = "0", minute = "0", second = "0", fraction] =
+    match;
+  if (fraction && /[^0]/.test(fraction)) {
+    return false;
+  }
+  // `new Date(...)` silently normalizes out-of-range components (e.g. Feb 30
+  // becomes Mar 1-2) instead of rejecting them, so confirm the parsed value
+  // round-trips to the same components before trusting it.
+  const date = new Date(
+    Date.UTC(+year, +month - 1, +day, +hour, +minute, +second),
+  );
+  return (
+    date.getUTCFullYear() === +year &&
+    date.getUTCMonth() === +month - 1 &&
+    date.getUTCDate() === +day &&
+    date.getUTCHours() === +hour &&
+    date.getUTCMinutes() === +minute &&
+    date.getUTCSeconds() === +second
+  );
+}
+
+/**
+ * Whether a `date`-column row-filter value names a whole calendar day rather
+ * than a precise instant (`2024-01-15` vs `2024-01-15 09:30`). The date-only
+ * operators (`=`, `between`, `not_between`) store this shape, and API callers
+ * can send it for any operator.
+ */
+export function isDateOnlyRowFilterValue(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
+}
+
+/**
+ * The exclusive end of the calendar day a date-only value names — i.e. the
+ * following day at midnight. Used to expand day-level filters into half-open
+ * `[day, nextDay)` intervals; see `getRowFilterSQL`.
+ */
+export function getRowFilterDateDayEnd(value: string): string {
+  const [year, month, day] = value.trim().slice(0, 10).split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + 1))
+    .toISOString()
+    .slice(0, 10);
+}
+
+/**
+ * Predicate that matches no rows. Used when a row filter is malformed: dropping
+ * it instead would silently widen the result set, which is the more dangerous
+ * failure for an analytics query (see `getRowFilterSQL`).
+ */
+const MATCH_NO_ROWS_SQL = "(1 = 0)";
+
 export function getRowFilterSQL({
   rowFilter,
   factTable,
@@ -237,7 +778,9 @@ export function getRowFilterSQL({
   escapeStringLiteral,
   stringMatch,
   evalBoolean,
+  castToTimestamp,
   showSourceComment = false,
+  identifierQuote = DEFAULT_IDENTIFIER_QUOTE,
 }: {
   rowFilter: RowFilter;
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
@@ -245,7 +788,13 @@ export function getRowFilterSQL({
   escapeStringLiteral: (s: string) => string;
   stringMatch: StringMatchFn;
   evalBoolean: (col: string, value: boolean) => string;
+  // Casts an expression to the dialect's TIMESTAMP type. When provided, `date`
+  // columns compared with </<=/>/>=/=/!=/between/not_between/in/not_in cast both
+  // the column and the value literal so the comparison is temporal (UTC) rather
+  // than lexicographic.
+  castToTimestamp?: (column: string) => string;
   showSourceComment?: boolean;
+  identifierQuote?: SqlIdentifierQuote;
 }): string | null {
   // Some operators do not require a column
   if (rowFilter.operator === "saved_filter") {
@@ -254,7 +803,10 @@ export function getRowFilterSQL({
     );
     if (filter) {
       const comment = showSourceComment ? `-- Filter: ${filter.name}\n` : "";
-      return comment + `(${filter.value})`;
+      return (
+        comment +
+        `(${expandVirtualColumnsInSql(filter.value, factTable, identifierQuote)})`
+      );
     }
     return null;
   }
@@ -262,7 +814,11 @@ export function getRowFilterSQL({
     if (!rowFilter.values?.[0]) {
       return null;
     }
-    return `(${rowFilter.values?.[0] || ""})`;
+    return `(${expandVirtualColumnsInSql(
+      rowFilter.values?.[0] || "",
+      factTable,
+      identifierQuote,
+    )})`;
   }
 
   if (!rowFilter.column) {
@@ -272,6 +828,8 @@ export function getRowFilterSQL({
     rowFilter.column,
     factTable,
     jsonExtract,
+    "",
+    identifierQuote,
   );
   const columnType = getSelectedColumnDatatype({
     factTable,
@@ -312,20 +870,80 @@ export function getRowFilterSQL({
   if (!rowFilter.values?.length) {
     return null;
   }
-  const escapedValues = [
-    ...new Set(
-      rowFilter.values.map((v) => {
-        // Number, don't wrap in quotes
-        if (columnType === "number" && v.match(/^-?(\d+|\d*\.\d+)$/)) {
-          return v;
-        }
+  // Date columns compare as UTC timestamps (temporal) rather than as quoted
+  // strings (lexicographic), when the dialect provides a timestamp cast.
+  const castDates = columnType === "date" && !!castToTimestamp;
 
-        return "'" + escapeStringLiteral(v) + "'";
-      }),
-    ),
+  let filterValues = rowFilter.values;
+  if (castDates) {
+    // Row filters reach here from saved metrics and API callers, not just the
+    // date picker, so the values can't be trusted to be castable — `CAST('foo'
+    // AS TIMESTAMP)` would fail the warehouse query. Two different situations,
+    // handled differently:
+    //   - Blank value: nothing has been entered yet (the pickers clear to `[]`,
+    //     but a range keeps the untouched side as ""). Treat it as absent.
+    //   - Non-blank but unparseable: the filter is malformed. Match no rows
+    //     rather than dropping the predicate — omitting it would silently
+    //     *widen* the result set, so a broken filter would quietly report more
+    //     conversions instead of surfacing the problem.
+    const provided = rowFilter.values.filter((v) => v.trim());
+    if (!provided.length) {
+      return null;
+    }
+    if (!provided.every((v) => isValidRowFilterDateValue(v))) {
+      return MATCH_NO_ROWS_SQL;
+    }
+    filterValues = provided;
+  }
+  if (!filterValues.length) {
+    return null;
+  }
+
+  const escapeValue = (v: string): string => {
+    // Number, don't wrap in quotes
+    if (columnType === "number" && v.match(/^-?(\d+|\d*\.\d+)$/)) {
+      return v;
+    }
+
+    if (castDates && castToTimestamp) {
+      return castToTimestamp(
+        "'" + escapeStringLiteral(normalizeRowFilterDateValue(v)) + "'",
+      );
+    }
+
+    return "'" + escapeStringLiteral(v) + "'";
+  };
+
+  // De-dupe on the escaped form (two spellings of the same instant collapse to
+  // one literal) while keeping the raw value, which the date-only handling below
+  // still needs.
+  const uniqueValues = [
+    ...new Map(filterValues.map((v) => [escapeValue(v), v])).values(),
   ];
+  const escapedValues = uniqueValues.map(escapeValue);
 
+  const firstValue = uniqueValues[0];
   const firstEscapedValue = escapedValues[0];
+
+  // For date comparisons, cast the column so both sides are timestamps
+  const comparisonColumn =
+    castDates && castToTimestamp ? castToTimestamp(columnExpr) : columnExpr;
+
+  // A `yyyy-MM-dd` value names a calendar day, not the instant at its midnight.
+  // Against a timestamp column, comparing to that instant directly means
+  // `= '2024-01-15'` only matches rows stamped exactly 00:00:00, and a range
+  // ending on `2024-01-15` excludes all but that same first instant of the day.
+  // Expand day-level values into the half-open interval [day, nextDay) so the
+  // SQL matches the calendar-day semantics the pickers present.
+  const isDayValue = (v: string) => castDates && isDateOnlyRowFilterValue(v);
+  const escapedDayEnd = (v: string) => escapeValue(getRowFilterDateDayEnd(v));
+
+  // Matches rows falling on/at the value: the whole day for a day-level value,
+  // the exact instant otherwise.
+  const equalsValue = (v: string) =>
+    isDayValue(v)
+      ? `${comparisonColumn} >= ${escapeValue(v)} AND ${comparisonColumn} < ${escapedDayEnd(v)}`
+      : `${comparisonColumn} = ${escapeValue(v)}`;
 
   // Convert single-value in/not_in to =/!=
   if (escapedValues.length === 1) {
@@ -339,16 +957,86 @@ export function getRowFilterSQL({
   // Handle remaining operators
   switch (operator) {
     case "=":
+      return `(${equalsValue(firstValue)})`;
     case "!=":
+      return isDayValue(firstValue)
+        ? `(NOT (${equalsValue(firstValue)}))`
+        : `(${comparisonColumn} != ${firstEscapedValue})`;
     case "<":
+    case ">=":
+      // Already the start of the day, so day-level values need no adjustment.
+      return `(${comparisonColumn} ${operator} ${firstEscapedValue})`;
     case "<=":
     case ">":
-    case ">=":
-      return `(${columnExpr} ${operator} ${firstEscapedValue})`;
+      // Inclusive/exclusive of the *end* of a day-level value.
+      return isDayValue(firstValue)
+        ? `(${comparisonColumn} ${operator === "<=" ? "<" : ">="} ${escapedDayEnd(firstValue)})`
+        : `(${comparisonColumn} ${operator} ${firstEscapedValue})`;
+    case "between":
+    case "not_between": {
+      // A range has a lower and an upper bound, but a user can leave one side
+      // empty. Rather than silently dropping the whole filter (which would look
+      // active in the UI while matching nothing), degrade a single-bound range
+      // to the equivalent open-ended comparison. Read the bounds positionally
+      // from `rowFilter.values` — `filterValues` collapses empties and loses
+      // which side was set. Blank is the only "absent" case here: an
+      // unparseable date bound already returned MATCH_NO_ROWS_SQL above rather
+      // than being treated as an unset side.
+      const boundUsable = (v: string | undefined): v is string => !!v?.trim();
+      const lower = rowFilter.values[0];
+      const upper = rowFilter.values[1];
+      const hasLower = boundUsable(lower);
+      const hasUpper = boundUsable(upper);
+      const negated = operator === "not_between";
+
+      // The upper bound is inclusive, so a day-level bound has to run to the
+      // end of that day rather than stopping at its midnight — expressed as an
+      // exclusive `<` against the following midnight.
+      const atOrBeforeUpper = (v: string) =>
+        isDayValue(v)
+          ? `${comparisonColumn} < ${escapedDayEnd(v)}`
+          : `${comparisonColumn} <= ${escapeValue(v)}`;
+      const afterUpper = (v: string) =>
+        isDayValue(v)
+          ? `${comparisonColumn} >= ${escapedDayEnd(v)}`
+          : `${comparisonColumn} > ${escapeValue(v)}`;
+
+      if (hasLower && hasUpper) {
+        // SQL BETWEEN is inclusive on both ends, so it only works when the
+        // upper bound is a single instant; a day-level bound needs the
+        // exclusive next-midnight form spelled out.
+        if (!isDayValue(upper)) {
+          return `(${comparisonColumn} ${negated ? "NOT " : ""}BETWEEN ${escapeValue(lower)} AND ${escapeValue(upper)})`;
+        }
+        return negated
+          ? `(${comparisonColumn} < ${escapeValue(lower)} OR ${afterUpper(upper)})`
+          : `(${comparisonColumn} >= ${escapeValue(lower)} AND ${atOrBeforeUpper(upper)})`;
+      }
+      if (hasLower) {
+        // between [lower, ∞) → >=  ;  not_between → <
+        return `(${comparisonColumn} ${negated ? "<" : ">="} ${escapeValue(lower)})`;
+      }
+      if (hasUpper) {
+        // between (-∞, upper] → <=  ;  not_between → >
+        return `(${negated ? afterUpper(upper) : atOrBeforeUpper(upper)})`;
+      }
+      return null;
+    }
     case "in":
-      return `(${columnExpr} IN (\n  ${escapedValues.join(",\n  ")}\n))`;
-    case "not_in":
-      return `(${columnExpr} NOT IN (\n  ${escapedValues.join(",\n  ")}\n))`;
+    case "not_in": {
+      // Day-level values each cover a whole day, so they can't be listed as
+      // scalars in an IN list — expand to a disjunction of day ranges.
+      if (uniqueValues.some(isDayValue)) {
+        const anyMatch = uniqueValues
+          .map((v) => `(${equalsValue(v)})`)
+          .join(" OR ");
+        return operator === "in" ? `(${anyMatch})` : `(NOT (${anyMatch}))`;
+      }
+      const list = `(\n  ${escapedValues.join(",\n  ")}\n)`;
+      return operator === "in"
+        ? `(${comparisonColumn} IN ${list})`
+        : `(${comparisonColumn} NOT IN ${list})`;
+    }
     case "starts_with":
     case "ends_with":
     case "contains":
@@ -425,30 +1113,30 @@ export function getMetricTemplateVariables(
   return m.templateVariables || {};
 }
 
-export function isCappableMetricType(m: ExperimentMetricInterface) {
+export function isCappableMetricType(m: ExperimentMetricDefinition) {
   return !quantileMetricType(m) && !isBinomialMetric(m);
 }
 
-export function isBinomialMetric(m: ExperimentMetricInterface) {
+export function isBinomialMetric(m: ExperimentMetricDefinition) {
   if (isFactMetric(m))
     return ["proportion", "retention"].includes(m.metricType);
   return m.type === "binomial";
 }
 
-export function isRetentionMetric(m: ExperimentMetricInterface) {
+export function isRetentionMetric(m: ExperimentMetricDefinition) {
   return isFactMetric(m) && m.metricType === "retention";
 }
 
 export function isRatioMetric(
-  m: ExperimentMetricInterface,
-  denominatorMetric?: ExperimentMetricInterface,
+  m: ExperimentMetricDefinition,
+  denominatorMetric?: ExperimentMetricDefinition,
 ): boolean {
   if (isFactMetric(m)) return m.metricType === "ratio";
   return !!denominatorMetric && !isBinomialMetric(denominatorMetric);
 }
 
 export function quantileMetricType(
-  m: ExperimentMetricInterface,
+  m: ExperimentMetricDefinition,
 ): "" | MetricQuantileSettings["type"] {
   if (isFactMetric(m) && m.metricType === "quantile") {
     return m.quantileSettings?.type || "";
@@ -457,16 +1145,16 @@ export function quantileMetricType(
 }
 
 export function isFunnelMetric(
-  m: ExperimentMetricInterface,
-  denominatorMetric?: ExperimentMetricInterface,
+  m: ExperimentMetricDefinition,
+  denominatorMetric?: ExperimentMetricDefinition,
 ): boolean {
   if (isFactMetric(m)) return false;
   return !!denominatorMetric && isBinomialMetric(denominatorMetric);
 }
 
 export function isRegressionAdjusted(
-  m: ExperimentMetricInterface,
-  denominatorMetric?: ExperimentMetricInterface,
+  m: ExperimentMetricDefinition,
+  denominatorMetric?: ExperimentMetricDefinition,
 ) {
   const isLegacyRatioMetric: boolean =
     isRatioMetric(m, denominatorMetric) && !isFactMetric(m);
@@ -478,7 +1166,7 @@ export function isRegressionAdjusted(
   );
 }
 
-export function isPercentileCappedMetric(metric: ExperimentMetricInterface) {
+export function isPercentileCappedMetric(metric: ExperimentMetricDefinition) {
   return (
     metric.cappingSettings.type === "percentile" &&
     !!metric.cappingSettings.value &&
@@ -487,7 +1175,7 @@ export function isPercentileCappedMetric(metric: ExperimentMetricInterface) {
   );
 }
 
-function isAbsoluteCappedMetric(metric: ExperimentMetricInterface) {
+function isAbsoluteCappedMetric(metric: ExperimentMetricDefinition) {
   return (
     metric.cappingSettings.type === "absolute" &&
     !!metric.cappingSettings.value &&
@@ -495,11 +1183,11 @@ function isAbsoluteCappedMetric(metric: ExperimentMetricInterface) {
   );
 }
 
-export function isSliceMetric(metric: ExperimentMetricInterface) {
+export function isSliceMetric(metric: ExperimentMetricDefinition) {
   return parseSliceMetricId(metric.id).isSliceMetric;
 }
 
-export function eligibleForUncappedMetric(metric: ExperimentMetricInterface) {
+export function eligibleForUncappedMetric(metric: ExperimentMetricDefinition) {
   return (
     (isPercentileCappedMetric(metric) || isAbsoluteCappedMetric(metric)) &&
     !isSliceMetric(metric)
@@ -560,8 +1248,8 @@ export function getSelectedColumnDatatype({
 }
 
 export function getUserIdTypes(
-  metric: ExperimentMetricInterface,
-  factTableMap: FactTableMap,
+  metric: ExperimentMetricDefinition,
+  factTableMap: FactTableDefinitionMap,
   useDenominator?: boolean,
 ): string[] {
   if (isFactMetric(metric)) {
@@ -588,7 +1276,7 @@ export interface SliceMetricInfo {
  */
 export function parseSliceQueryString(
   queryString: string,
-  factTableMap?: Record<string, FactTableInterface>,
+  factTableMap?: Record<string, FactTableDefinition>,
 ): SliceLevelsData[] {
   const sliceLevels: SliceLevelsData[] = [];
   const params = new URLSearchParams(queryString);
@@ -641,7 +1329,7 @@ export function isSliceTagSelectAll(tagId: string): {
 
 export function parseSliceMetricId(
   metricId: string,
-  factTableMap?: Record<string, FactTableInterface>,
+  factTableMap?: Record<string, FactTableDefinition>,
 ): SliceMetricInfo {
   const questionMarkIndex = metricId.indexOf("?");
   if (questionMarkIndex === -1) {
@@ -723,7 +1411,9 @@ export function getMetricLink(id: string): string {
   return `/metric/${id}`;
 }
 
-export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
+export function getMetricSnapshotSettings<
+  T extends ExperimentMetricDefinition,
+>({
   metric,
   denominatorMetrics,
   experimentRegressionAdjustmentEnabled,
@@ -731,13 +1421,13 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
   metricOverrides,
 }: {
   metric: T;
-  denominatorMetrics: MetricInterface[];
+  denominatorMetrics: MetricDefinitionInterface[];
   experimentRegressionAdjustmentEnabled: boolean;
   organizationSettings?: Partial<OrganizationSettings>; // can be RA and prior settings from a snapshot of org settings
   metricOverrides?: MetricOverride[];
 }): {
   newMetric: T;
-  denominatorMetrics: MetricInterface[];
+  denominatorMetrics: MetricDefinitionInterface[];
   metricSnapshotSettings: MetricSnapshotSettings;
 } {
   const newMetric = cloneDeep<T>(metric);
@@ -895,7 +1585,7 @@ export function getAllMetricSettingsForSnapshot({
   datasourceType,
   hasRegressionAdjustmentFeature,
 }: {
-  allExperimentMetrics: (ExperimentMetricInterface | null)[];
+  allExperimentMetrics: (ExperimentMetricDefinition | null)[];
   denominatorMetrics: MetricInterface[];
   orgSettings: OrganizationSettings;
   experimentRegressionAdjustmentEnabled?: boolean;
@@ -991,7 +1681,7 @@ export function shouldHighlight({
 export function getMetricSampleSize(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
-  metric: ExperimentMetricInterface,
+  metric: ExperimentMetricDefinition,
 ): { baselineValue?: number; variationValue?: number } {
   return quantileMetricType(metric)
     ? {
@@ -1004,7 +1694,7 @@ export function getMetricSampleSize(
 export function hasEnoughData(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
-  metric: ExperimentMetricInterface,
+  metric: ExperimentMetricDefinition,
   metricDefaults: MetricDefaults,
 ): boolean {
   const { baselineValue, variationValue } = getMetricSampleSize(
@@ -1087,7 +1777,7 @@ export function getMetricResultStatus({
   statsEngine,
   differenceType,
 }: {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   metricDefaults: MetricDefaults;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
@@ -1308,7 +1998,7 @@ export function getAllExpandedMetricIdsFromExperiment({
     guardrailMetrics?: string[];
     activationMetric?: string | null;
   };
-  expandedMetricMap: Map<string, ExperimentMetricInterface>;
+  expandedMetricMap: Map<string, ExperimentMetricDefinition>;
   includeActivationMetric?: boolean;
   metricGroups?: MetricGroupInterface[];
 }): string[] {
@@ -1353,8 +2043,8 @@ export function createAutoSliceDataForMetric({
   factTable,
   includeOther = true,
 }: {
-  parentMetric: ExperimentMetricInterface | null | undefined;
-  factTable: FactTableInterface | null | undefined;
+  parentMetric: ExperimentMetricDefinition | null | undefined;
+  factTable: FactTableDefinition | null | undefined;
   includeOther?: boolean;
 }): SliceDataForMetric[] {
   // Sanity checks
@@ -1435,7 +2125,7 @@ export function getAutoSliceMetrics({
   factTable,
 }: {
   metric: FactMetricInterface;
-  factTable: FactTableInterface;
+  factTable: FactTableDefinition;
 }): FactMetricInterface[] {
   if (!metric.metricAutoSlices?.length) return [];
 
@@ -1488,7 +2178,7 @@ export function createCustomSliceDataForMetric({
   metricId: string;
   metricName: string;
   customMetricSlices?: { slices: { column: string; levels: string[] }[] }[];
-  factTable?: FactTableInterface | null;
+  factTable?: FactTableDefinition | null;
 }): SliceDataForMetric[] {
   // Sanity checks
   if (!customMetricSlices?.length) return [];
@@ -1914,8 +2604,8 @@ export function expandAllSliceMetricsInMap({
   experiment,
   metricGroups = [],
 }: {
-  metricMap: Map<string, ExperimentMetricInterface>;
-  factTableMap: FactTableMap;
+  metricMap: Map<string, ExperimentMetricDefinition>;
+  factTableMap: FactTableDefinitionMap;
   experiment: Pick<
     ExperimentInterface,
     | "goalMetrics"
@@ -1990,7 +2680,7 @@ export function expandAllSliceMetricsInMap({
 
         const sliceString = generateSliceStringFromLevels(sliceLevelsForString);
 
-        const customSliceMetric: ExperimentMetricInterface = {
+        const customSliceMetric: ExperimentMetricDefinition = {
           ...metric,
           id: `${metric.id}?${sliceString}`,
           name: `${metric.name} (${sortedSliceGroups.map((combo) => `${combo.column}: ${combo.levels[0] || ""}`).join(", ")})`,

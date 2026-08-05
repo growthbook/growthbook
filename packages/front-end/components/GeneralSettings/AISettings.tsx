@@ -191,7 +191,7 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
       promptType: "product-analytics-chat",
       promptName: "Product Analytics AI Analyst",
       promptDescription:
-        "Used by the product analytics explorer AI assistant. GrowthBook still provides datasource context, metrics and fact tables, exploration schema, and tool behavior automatically; the field below adds organization-specific guidance (tone, naming, policies, how to explain charts, etc.).",
+        "Used by the product analytics explorer AI assistant. GrowthBook still provides Data Source context, metrics and fact tables, exploration schema, and tool behavior automatically; the field below adds organization-specific guidance (tone, naming, policies, how to explain charts, etc.).",
       promptValue:
         data.prompts.find((p) => p.type === "product-analytics-chat")?.prompt ||
         AI_PROMPT_DEFAULTS["product-analytics-chat"],
@@ -353,6 +353,7 @@ export default function AISettings({
                       Default AI model
                     </Text>
                     <SelectField
+                      size="legacy"
                       id="defaultAIModel"
                       helpText="Default is 4o-mini."
                       value={form.watch("defaultAIModel")}
@@ -371,9 +372,10 @@ export default function AISettings({
                       size="3"
                       className="font-weight-semibold"
                     >
-                      Embedding Model
+                      Embedding model
                     </Text>
                     <SelectField
+                      size="legacy"
                       id="embeddingModel"
                       helpText="Choose the embedding model to use for semantic search. Supports OpenAI, Mistral, and Google. Default is text-embedding-ada-002."
                       value={
@@ -633,6 +635,7 @@ export default function AISettings({
                                 Model
                               </Text>
                               <SelectField
+                                size="legacy"
                                 id={`${prompt.promptType}-model`}
                                 value={
                                   promptForm.watch(
@@ -673,6 +676,7 @@ export default function AISettings({
                               </Text>
                             )}
                             <Field
+                              size="legacy"
                               textarea={true}
                               id={`prompt-${prompt.promptType}`}
                               placeholder=""
@@ -771,7 +775,7 @@ export default function AISettings({
                           size="2"
                           className="font-weight-semibold"
                         >
-                          Visual editor text model
+                          Visual Editor text model
                         </Text>
                         <SelectField
                           id="visualEditorAIModel"
@@ -798,11 +802,11 @@ export default function AISettings({
                           size="2"
                           className="font-weight-semibold"
                         >
-                          Visual editor image model
+                          Visual Editor image model
                         </Text>
                         <SelectField
                           id="visualEditorImageModel"
-                          helpText="Models that support reference images can use an existing image as visual context (the visual editor's “use current image” flow). Text-only models generate from the prompt alone."
+                          helpText="Models that support reference images can use an existing image as visual context (the Visual Editor's “use current image” flow). Text-only models generate from the prompt alone."
                           value={form.watch("visualEditorImageModel") || ""}
                           onChange={(v) =>
                             form.setValue("visualEditorImageModel", v)
@@ -900,7 +904,7 @@ export default function AISettings({
                       })()}
                       {error && (
                         <Box className="col-auto pt-3">
-                          <div className="alert alert-danger">{error}</div>
+                          <Callout status="error">{error}</Callout>
                         </Box>
                       )}
                     </>

@@ -160,7 +160,7 @@ export default function RevertModal<T extends RevertableEntity>({
     version: revisionNumberById.get(r.id) ?? 1,
     title: r.title,
     meta: (
-      <Text size="small" color="text-low" whiteSpace="nowrap">
+      <Text size="sm" color="text-low" whiteSpace="nowrap">
         {getUserDisplay(r.authorId)}
         {r.dateUpdated && <> &middot; {dateNoYear(r.dateUpdated)}</>}
       </Text>
@@ -206,7 +206,16 @@ export default function RevertModal<T extends RevertableEntity>({
           title,
           revertedFrom: targetRevision.id,
         });
-        if (publishNow) params.set("autoPublish", "1");
+        // Mirrors ArchiveModal: when approval is still required for this
+        // revert and the caller can bypass it, record a bypass (for the audit
+        // trail) instead of a plain auto-publish.
+        if (publishNow) {
+          if (effectiveApprovalRequired && canBypassApproval) {
+            params.set("bypassApproval", "1");
+          } else {
+            params.set("autoPublish", "1");
+          }
+        }
         if (comment.trim()) params.set("comment", comment.trim());
 
         const res = await apiCall<{
@@ -229,7 +238,7 @@ export default function RevertModal<T extends RevertableEntity>({
         approvalRequired: effectiveApprovalRequired,
       })}
 
-      <Heading as="h4" size="medium" mb="3">
+      <Heading as="h4" size="md" mb="3">
         Review Changes
       </Heading>
       <Flex align="center" gap="2" mb="3" wrap="wrap">

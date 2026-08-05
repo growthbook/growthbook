@@ -65,6 +65,7 @@ export default function TeamModal({
       })}
     >
       <Field
+        size="legacy"
         disabled={managedByIdp}
         label="Name"
         maxLength={30}
@@ -72,6 +73,7 @@ export default function TeamModal({
         {...form.register("name")}
       />
       <Field
+        size="legacy"
         label="Description"
         maxLength={100}
         minRows={3}
@@ -89,6 +91,7 @@ export default function TeamModal({
       )}
       {availableProjects.length > 0 && (
         <SelectField
+          size="legacy"
           label="Default Project"
           value={form.watch("defaultProject")}
           onChange={(p) => form.setValue("defaultProject", p)}

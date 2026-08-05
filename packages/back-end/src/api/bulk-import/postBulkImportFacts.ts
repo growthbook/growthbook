@@ -11,12 +11,20 @@ import {
   createFactTable,
   updateFactTable,
   updateFactFilter,
+  upsertColumns,
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getCreateMetricPropsFromBody } from "back-end/src/api/fact-metrics/postFactMetric";
 import { getUpdateFactMetricPropsFromBody } from "back-end/src/api/fact-metrics/updateFactMetric";
-import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
+import {
+  needsColumnRefresh,
+  columnsNeedDetection,
+} from "back-end/src/api/fact-tables/updateFactTable";
+import {
+  columnsHaveAutoSlices,
+  validateVirtualColumnProps,
+} from "back-end/src/util/factTable";
 import { resolveOwnerToUserId } from "back-end/src/services/owner";
 
 export const postBulkImportFacts = createApiRequestHandler(
@@ -82,7 +90,49 @@ export const postBulkImportFacts = createApiRequestHandler(
         data.managedBy = "api";
       }
 
+      // Bulk-import is not transactional, so gate slices before any write.
+      if (
+        columnsHaveAutoSlices(data.columns) &&
+        !req.context.hasPremiumFeature("metric-slices")
+      ) {
+        throw new Error("Metric slices require an enterprise license");
+      }
+
       const existing = factTableMap.get(id);
+
+      // Enforce virtual-column rules on any incoming columns. Bulk import can
+      // create and preserve virtual (computed) columns — used to sync them
+      // from version control — but must not create an invalid one or flip an
+      // existing column's origin (a SQL-detected column becoming virtual or
+      // vice versa).
+      if (data.columns) {
+        for (const col of data.columns) {
+          const existingCol = existing?.columns.find(
+            (c) => c.column === col.column,
+          );
+          if (
+            existingCol &&
+            Boolean(col.isVirtual) !== Boolean(existingCol.isVirtual)
+          ) {
+            throw new Error(
+              `Cannot change whether column "${col.column}" is a virtual column`,
+            );
+          }
+          if (col.isVirtual) {
+            validateVirtualColumnProps(col);
+            // A virtual column carries raw SQL, so importing one into an
+            // existing fact table needs the same gate as the dedicated
+            // virtual-column endpoints.
+            if (
+              existing &&
+              !req.context.permissions.canManageFactTableVirtualColumn(existing)
+            ) {
+              req.context.permissions.throwPermissionError();
+            }
+          }
+        }
+      }
+
       // Update existing fact table
       if (existing) {
         if (!req.context.permissions.canUpdateFactTable(existing, data)) {
@@ -101,13 +151,27 @@ export const postBulkImportFacts = createApiRequestHandler(
           data.owner =
             (await resolveOwnerToUserId(data.owner, req.context)) ?? "";
         }
+
+        if (data.columns) {
+          await upsertColumns({
+            context: req.context,
+            factTable: existing,
+            columns: data.columns,
+          });
+          delete data.columns;
+        }
+
         await updateFactTable(req.context, existing, data);
-        if (needsColumnRefresh(existing, data)) {
+        if (
+          needsColumnRefresh(existing, data) ||
+          columnsNeedDetection(existing.columns)
+        ) {
           await queueFactTableColumnsRefresh(existing);
         }
         factTableMap.set(existing.id, {
           ...existing,
           ...data,
+          columns: existing.columns,
         });
         numUpdated.factTables++;
       }

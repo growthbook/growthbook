@@ -113,6 +113,15 @@ export class UnauthorizedError extends Error {
   }
 }
 
+// A plan limit was hit and paying (upgrading) is the way past it.
+export class PaymentRequiredError extends Error {
+  status = 402;
+  constructor(message: string) {
+    super(message);
+    this.name = "PaymentRequiredError";
+  }
+}
+
 export class PlanDoesNotAllowError extends Error {
   status = 403;
   constructor(message: string) {
@@ -148,6 +157,23 @@ export class MergeConflictError extends ApiError<"conflict"> {
   }
 }
 
+/**
+ * A bulk publish failed after claims and compensated; `items` carries the
+ * honest per-item outcome, serialized top-level in the 500 body. The endpoint
+ * remaps item identifiers to the caller's vocabulary before rethrowing. Lives
+ * here (the leaf error module) so the response serializer can match on it
+ * without importing the orchestrator's model graph.
+ */
+export class BulkPublishCommitError extends Error {
+  status = 500;
+  items: unknown[];
+  constructor(message: string, items: unknown[]) {
+    super(message);
+    this.name = "BulkPublishCommitError";
+    this.items = items;
+  }
+}
+
 export class SoftWarningError extends Error {
   status = 422;
   warnings: string[];
@@ -156,6 +182,37 @@ export class SoftWarningError extends Error {
     this.name = "SoftWarningError";
     this.warnings = warnings;
   }
+}
+
+// A publish failure that should not be retried on a later tick: a stale guard
+// fingerprint (the acknowledged conflict set no longer matches), a missing
+// arming user, or a deterministic validation rejection of the staged state
+// (block-mode schema/invariant violations, the descendant schema-safety gate)
+// — retrying produces the identical failure, so the poller gives up on the
+// FIRST occurrence, parks the draft, and fires `revision.publishFailed`.
+// Failures a later tick plausibly resolves on its own (merge claim races,
+// sibling publish locks, an incomplete pre-launch checklist, transient infra)
+// stay ordinary errors and retry to the attempt cap. The
+// `terminalPublishFailure` flag lets the classifier recognize it even across
+// module/re-throw boundaries where `instanceof` can be unreliable. Still a 400
+// for synchronous (manual) callers.
+export class TerminalPublishError extends Error {
+  status = 400;
+  readonly terminalPublishFailure = true;
+  constructor(message: string) {
+    super(message);
+    this.name = "TerminalPublishError";
+  }
+}
+
+export function isTerminalPublishError(error: unknown): boolean {
+  if (error instanceof TerminalPublishError) return true;
+  return (
+    !!error &&
+    typeof error === "object" &&
+    (error as { terminalPublishFailure?: unknown }).terminalPublishFailure ===
+      true
+  );
 }
 
 export class InternalServerError extends Error {
@@ -170,6 +227,16 @@ export class ConcurrentIncrementalRefreshError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "ConcurrentIncrementalRefreshError";
+  }
+}
+
+// Another advance holds a ramp schedule's advance lock. Transient: callers
+// either retry briefly (user-initiated actions) or defer to the scheduler.
+export class RampAdvanceLockBusyError extends Error {
+  status = 409;
+  constructor(message: string) {
+    super(message);
+    this.name = "RampAdvanceLockBusyError";
   }
 }
 

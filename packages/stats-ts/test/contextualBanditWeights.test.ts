@@ -145,6 +145,90 @@ describe("computeContextualBanditWeights", () => {
     expect(caW[0]).toBeGreaterThan(caW[1]);
   });
 
+  it("splits categories via k-means", () => {
+    const data = rows([
+      countRow("US", "v0", 200, 1),
+      countRow("US", "v1", 200, 2),
+      countRow("CA", "v0", 200, 2),
+      countRow("CA", "v1", 200, 1),
+    ]);
+
+    // Two categories => a 2-cluster k-means split separates them deterministically.
+    const result = computeContextualBanditWeights(input(data));
+
+    expect(result.responses).toHaveLength(2);
+    const leafIds = result.leaf_map!.map((e) => e.leafId);
+    expect(new Set(leafIds).size).toBe(2);
+
+    const us = result.responses.find(
+      (r) => (r.context as { country: string }).country === "US",
+    )!;
+    const ca = result.responses.find(
+      (r) => (r.context as { country: string }).country === "CA",
+    )!;
+    const usW = us.updatedWeights as number[];
+    const caW = ca.updatedWeights as number[];
+    expect(usW[1]).toBeGreaterThan(usW[0]);
+    expect(caW[0]).toBeGreaterThan(caW[1]);
+  });
+
+  it("omits attributes the tree never split on from leaf conditions", () => {
+    const DEVICE_COL = contextualBanditAttrCol("device");
+    // country is strongly predictive (US favors v1, CA favors v0); device is
+    // uninformative (identical means), so the tree splits on country only.
+    const twoAttrRow = (
+      country: string,
+      device: string,
+      variation: string,
+      n: number,
+      mean: number,
+      sigma2 = 1,
+    ): Record<string, string | number> => {
+      const sum = mean * n;
+      const sumSquares = mean * mean * n + (n - 1) * sigma2;
+      return {
+        [ATTR_COL]: country,
+        [DEVICE_COL]: device,
+        variation,
+        count: n,
+        main_sum: sum,
+        main_sum_squares: sumSquares,
+      };
+    };
+    const data = rows([
+      twoAttrRow("US", "mobile", "v0", 200, 1),
+      twoAttrRow("US", "mobile", "v1", 200, 3),
+      twoAttrRow("US", "desktop", "v0", 200, 1),
+      twoAttrRow("US", "desktop", "v1", 200, 3),
+      twoAttrRow("CA", "mobile", "v0", 200, 3),
+      twoAttrRow("CA", "mobile", "v1", 200, 1),
+      twoAttrRow("CA", "desktop", "v0", 200, 3),
+      twoAttrRow("CA", "desktop", "v1", 200, 1),
+    ]);
+
+    const result = computeContextualBanditWeights({
+      varIds: ["v0", "v1"],
+      attributes: ["country", "device"],
+      maxLeaves: 8,
+      minUsersPerLeaf: 1,
+      metricSettings: meanMetric(),
+      analysisWeights: [0.5, 0.5],
+      rows: data,
+    });
+
+    const leafMap = result.leaf_map!;
+    // One leaf per country; device was never split, so no device clause anywhere.
+    expect(leafMap).toHaveLength(2);
+    for (const entry of leafMap) {
+      expect(entry.context.map((c) => c.attribute)).toEqual(["country"]);
+    }
+    const countryLevels = leafMap
+      .flatMap((e) => e.context)
+      .flatMap((c) => c.levels)
+      .sort();
+    expect(countryLevels).toEqual(["CA", "US"]);
+  });
+
   it("records the total-SSE trajectory across splits (root then after each split)", () => {
     const data = rows([
       countRow("US", "v0", 200, 1),
@@ -209,5 +293,57 @@ describe("computeContextualBanditWeights", () => {
     w1.forEach((w, i) => {
       expect(Math.abs(w - w2[i])).toBeLessThan(0.02);
     });
+  });
+
+  it("accepts binomial (proportion) decision metrics", () => {
+    const data = rows([
+      { [ATTR_COL]: "US", variation: "v0", count: 200, main_sum: 40 },
+      { [ATTR_COL]: "US", variation: "v1", count: 200, main_sum: 120 },
+    ]);
+    const settings = input(data);
+    settings.metricSettings = {
+      ...settings.metricSettings,
+      main_metric_type: "binomial",
+    };
+    const result = computeContextualBanditWeights(settings);
+    const r = result.responses[0];
+    // Higher-converting arm (v1) should be weighted more heavily.
+    const [w0, w1] = r.updatedWeights as number[];
+    expect(w1).toBeGreaterThan(w0);
+  });
+
+  it.each([
+    { statistic_type: "ratio" as const },
+    { statistic_type: "ratio_ra" as const },
+    { statistic_type: "mean_ra" as const },
+    { statistic_type: "quantile_event" as const },
+  ])(
+    "rejects unsupported statistic_type $statistic_type",
+    ({ statistic_type }) => {
+      const data = rows([
+        countRow("US", "v0", 200, 1),
+        countRow("US", "v1", 200, 2),
+      ]);
+      const settings = input(data);
+      settings.metricSettings = { ...settings.metricSettings, statistic_type };
+      expect(() => computeContextualBanditWeights(settings)).toThrow(
+        /only count \(sample mean\) and binomial \(proportion\) metrics/,
+      );
+    },
+  );
+
+  it("rejects unsupported main_metric_type (quantile)", () => {
+    const data = rows([
+      countRow("US", "v0", 200, 1),
+      countRow("US", "v1", 200, 2),
+    ]);
+    const settings = input(data);
+    settings.metricSettings = {
+      ...settings.metricSettings,
+      main_metric_type: "quantile",
+    };
+    expect(() => computeContextualBanditWeights(settings)).toThrow(
+      /only count \(sample mean\) and binomial \(proportion\) metrics/,
+    );
   });
 });

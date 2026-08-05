@@ -4,8 +4,13 @@ import {
   projectValidator,
   ApiProject,
 } from "shared/validators";
+import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import {
+  pruneDefinitionsVersionProject,
+  touchDefinitionsVersion,
+} from "./DefinitionsVersionModel";
 import { MakeModelClass } from "./BaseModel";
 
 function slugify(text: string): string {
@@ -23,6 +28,7 @@ type MigratedProject = Omit<ProjectInterface, "settings"> & {
 const BaseClass = MakeModelClass({
   schema: projectValidator,
   collectionName: "projects",
+  affectsDefinitionsVersion: true,
   idPrefix: "prj_",
   auditLog: {
     entity: "project",
@@ -42,6 +48,12 @@ export class ProjectModel extends BaseClass {
     return this.context.permissions.canReadSingleProjectResource(doc.id);
   }
 
+  // Every org project id, unfiltered by read permissions (internal fan-out only).
+  public async getAllIdsForOrg(): Promise<string[]> {
+    const projects = await this._find({}, { bypassReadPermissionChecks: true });
+    return projects.map((p) => p.id);
+  }
+
   protected canCreate() {
     return this.context.permissions.canCreateProjects();
   }
@@ -54,6 +66,12 @@ export class ProjectModel extends BaseClass {
     return this.context.permissions.canDeleteProject(doc.id);
   }
 
+  protected async afterDelete(doc: ProjectInterface) {
+    // Drop the deleted project's definitions-version counter; the delete
+    // itself bumps globally via affectsDefinitionsVersion.
+    await pruneDefinitionsVersionProject(this.context.org.id, doc.id);
+  }
+
   protected migrate(doc: MigratedProject) {
     const settings = {
       ...(doc.settings || {}),
@@ -63,6 +81,33 @@ export class ProjectModel extends BaseClass {
   }
 
   protected async beforeCreate(data: Partial<ProjectInterface>) {
+    // Enforce the plan's project limit across every creation path. The demo
+    // "Sample Data" project is exempt (it's created with a fixed id).
+    const maxProjects = this.context.limits.getMaxProjects();
+    const isDemo =
+      !!data.id &&
+      isDemoDatasourceProject({
+        projectId: data.id,
+        organizationId: this.context.org.id,
+      });
+    if (maxProjects !== null && !isDemo) {
+      const existingProjects = await this.context.getProjects();
+      const nonDemoProjectCount = existingProjects.filter(
+        (p) =>
+          !isDemoDatasourceProject({
+            projectId: p.id,
+            organizationId: this.context.org.id,
+          }),
+      ).length;
+      if (nonDemoProjectCount >= maxProjects) {
+        this.context.throwPaymentRequiredError(
+          `Your plan only supports ${maxProjects} project${
+            maxProjects === 1 ? "" : "s"
+          }. Upgrade your plan to create more.`,
+        );
+      }
+    }
+
     if (!data.publicId && data.name) {
       const baseSlug = slugify(data.name);
       if (!baseSlug) return; // name yields no slug (e.g. non-ASCII only); leave publicId unset
@@ -171,6 +216,8 @@ export class ProjectModel extends BaseClass {
         },
       },
     );
+    // Raw write bypasses the BaseModel affectsDefinitionsVersion hook.
+    await touchDefinitionsVersion(this.context.org.id);
   }
 
   public async ensureProjectsExist(projectIds: string[]) {

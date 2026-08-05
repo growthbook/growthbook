@@ -183,12 +183,16 @@ You can also just run `yarn *` where \* is test, lint, build if you `cd` to the 
 
 There are a few repo-wide code quality tools:
 
-- `yarn test` - Run the full test suite on all packages
-- `yarn type-check` - Typescript type checking
-- `yarn lint` - Typescript code linting
-- `yarn workspace stats lint` - Python code linting (ensure you have run `yarn setup` first to install the poetry virtual environment)
+- `pnpm test` - Run the full test suite on all packages
+- `pnpm type-check` - Typescript type checking
+- `pnpm lint` - Typescript code linting
+- `pnpm pretty:check` - Prettier formatting check
+- `pnpm ci` - Everything above, in the order CI runs it
+- `pnpm --filter stats lint` - Python code linting (ensure you have run `pnpm setup` first to install the poetry virtual environment)
 
-There is a pre-commit hook that runs `yarn lint` automatically, so you shouldn't need to run that yourself.
+There is a pre-commit hook that lints and formats staged files automatically, so
+you shouldn't need to run those yourself. Linting and formatting are separate
+gates. `pnpm lint` does not format, and CI checks each independently.
 
 ## Opening Pull Requests
 
