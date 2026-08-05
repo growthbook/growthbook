@@ -71,7 +71,7 @@ export default function useSqlAutocomplete({
 
   useEffect(() => {
     const fetchSchema = async () => {
-      if (!isAutocompleteEnabled) {
+      if (!datasourceId || !isAutocompleteEnabled) {
         setInformationSchema(undefined);
         return;
       }

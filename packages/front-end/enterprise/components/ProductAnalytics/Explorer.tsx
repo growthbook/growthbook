@@ -16,6 +16,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import EmptyState from "./EmptyState";
 import ExplorerSideBar from "./SideBar/ExplorerSideBar";
 import {
   ExplorerProvider,
@@ -199,8 +200,13 @@ export default function Explorer({ type }: { type: DatasetType }) {
 function ExplorerInner({ type }: { type: DatasetType }) {
   const router = useRouter();
   const defaultDataSourceId = useDefaultDataSourceId();
-  const { ready, getFactMetricById, getFactTableById, getDatasourceById } =
-    useDefinitions();
+  const {
+    ready,
+    datasources,
+    getFactMetricById,
+    getFactTableById,
+    getDatasourceById,
+  } = useDefinitions();
 
   const [urlConfig, setUrlConfig] = useQueryState(
     "config",
@@ -347,11 +353,19 @@ function ExplorerInner({ type }: { type: DatasetType }) {
         initialConfig={initialConfig}
         trackingSource="manual-explorer"
       >
-        <ExplorerUrlSync setUrlConfig={setUrlConfig} />
-        <ExplorerPreviousTimeFrameUrlSync
-          setUrlPreviousTimeFrame={setUrlPreviousTimeFrame}
-        />
-        <ExplorerContent />
+        {datasources.length === 0 ? (
+          <Flex direction="column" height="calc(100vh - 72px)">
+            <EmptyState />
+          </Flex>
+        ) : (
+          <>
+            <ExplorerUrlSync setUrlConfig={setUrlConfig} />
+            <ExplorerPreviousTimeFrameUrlSync
+              setUrlPreviousTimeFrame={setUrlPreviousTimeFrame}
+            />
+            <ExplorerContent />
+          </>
+        )}
       </ExplorerProvider>
     </>
   );
