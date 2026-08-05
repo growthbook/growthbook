@@ -483,7 +483,7 @@ function generateRowFilterSQL(
 // rather than injecting a WHERE clause that references a nonexistent
 // column and fails at the warehouse.
 export function factTableHasResolvableColumn(
-  factTable: MinimalFactTable,
+  factTable: Pick<FactTableInterface, "columns">,
   column: string,
 ): boolean {
   const [baseColumn, ...rest] = column.split(".");
