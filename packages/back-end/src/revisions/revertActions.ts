@@ -265,17 +265,26 @@ export async function landDirectChange<T>({
       // after failure can observe a concurrent writer and hand compensation
       // their values as if this landing had written them.
       const written = changes && writeStarted && !casLost ? persisted : null;
-      const restored =
-        changes && writeStarted && !casLost
-          ? written !== null &&
-            (await tryRestoreEntityPreImage({
-              context,
-              entityType,
-              preImage: entity,
-              persistedKeys: Object.keys(changes),
-              written,
-            }))
-          : true;
+      const compensating = !!changes && writeStarted && !casLost;
+      if (compensating && written === null) {
+        // Nothing reported persisted, and a re-read can't tell "never wrote" from
+        // "a rival wrote after us". Keeping the revision is the safe reading — a
+        // live change with no record is the one outcome nothing can repair — but
+        // it looks like phantom history to whoever finds it, so say so.
+        logger.warn(
+          `Direct change to ${entityType} ${entity.id} failed before reporting what it persisted; merged revision ${merged.id} is kept as the record and live state needs checking by hand`,
+        );
+      }
+      const restored = compensating
+        ? written !== null &&
+          (await tryRestoreEntityPreImage({
+            context,
+            entityType,
+            preImage: entity,
+            persistedKeys: Object.keys(changes),
+            written,
+          }))
+        : true;
       if (restored) {
         try {
           // The landing's own authority was established before this point, and the

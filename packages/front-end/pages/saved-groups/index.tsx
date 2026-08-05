@@ -141,7 +141,7 @@ export default function SavedGroupsPage() {
         </Heading>
       </Flex>
       <Text as="p" mb="3" color="gray">
-        Create reusable user groups as targets for Feature Flags or Experiments.
+        Create reusable user groups as targets for Feature Flags or experiments.
       </Text>
       <HelperText status="info" my="4">
         Learn more about using Condition Groups and ID Lists.

@@ -1,5 +1,5 @@
 import { ConfigInterface } from "shared/types/config";
-import { bypassApprovalPermission } from "shared/permissions";
+import { bypassApprovalPermission, serveFootprint } from "shared/permissions";
 import {
   Revision,
   getConstantRevisionChange,
@@ -10,7 +10,7 @@ import {
   configResetReviewOnChange,
   constantAutopublishOnApproval,
   formatAncestorFieldConflictMessage,
-  isArchiveTransition,
+  flipsArchivedState,
   proposedArchivedValue,
 } from "shared/util";
 import {
@@ -170,18 +170,18 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     proposedChanges: unknown,
   ): string[] {
     const scoped = configPublishEnvironments(context, snapshot);
-    // Archiving takes the Config out of service everywhere it serves. A scoped
-    // Config names its environments, but a BASE Config binds to none — and an
-    // empty footprint SKIPS the environment check, so archiving one asked for
-    // nothing. Constants apply the same serve-footprint rule to their archives.
+    // Flipping `archived` either way takes the Config out of service, or returns
+    // it, everywhere it serves. A scoped Config names its environments, but a
+    // BASE Config binds to none — and an empty footprint SKIPS the environment
+    // check, so the flip asked for nothing. Constants apply the same rule.
     if (
       !scoped.length &&
-      isArchiveTransition({
+      flipsArchivedState({
         proposed: proposedArchivedValue(proposedChanges),
         current: snapshot.archived,
       })
     ) {
-      return getEnvironments(context.org).map((e) => e.id);
+      return serveFootprint(getEnvironments(context.org), snapshot);
     }
     return scoped;
   },

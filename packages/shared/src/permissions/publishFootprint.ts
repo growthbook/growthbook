@@ -31,6 +31,41 @@ export const HOLDOUT_ENVS_UNRESOLVED = "unresolved" as const;
 
 export type HoldoutFootprint = string[] | typeof HOLDOUT_ENVS_UNRESOLVED;
 
+/**
+ * Every environment the entity is reachable in — the footprint for a change with
+ * no narrower binding, an ARCHIVE above all: it takes the entity out of service
+ * wherever it serves.
+ *
+ * Narrowed to the entity's projects, because an environment scoped away from them
+ * never serves it and demanding authority there refuses archives that should be
+ * allowed. Raw org environments were the first cut, and they over-demanded.
+ *
+ * Never returns an empty list for an entity with projects the environments cover —
+ * but if it does come back empty, callers must NOT pass it as a footprint: an
+ * empty footprint skips the environment check instead of narrowing it.
+ */
+export function serveFootprint(
+  environments: { id: string; projects?: string[] }[],
+  entity: {
+    project?: string;
+    targetingProjects?: string[];
+    targetingAllProjects?: boolean;
+  },
+): string[] {
+  if (entity.targetingAllProjects) return environments.map((e) => e.id);
+  const projects = [entity.project, ...(entity.targetingProjects ?? [])].filter(
+    (p): p is string => !!p,
+  );
+  if (!projects.length) return environments.map((e) => e.id);
+  return environments
+    .filter(
+      (env) =>
+        !env.projects?.length ||
+        projects.some((p) => env.projects?.includes(p)),
+    )
+    .map((e) => e.id);
+}
+
 /** The environments a flag currently serves, out of those allowed. */
 export function servingEnvironments(
   feature: { environmentSettings?: Record<string, { enabled?: boolean }> },

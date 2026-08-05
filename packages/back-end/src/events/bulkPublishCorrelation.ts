@@ -23,6 +23,9 @@ export async function emitOrDeferBulkPublishEvent(
   context: Context,
   emit: () => Promise<unknown>,
 ): Promise<void> {
+  // Read and push with no await between them, so a flush can't interleave and
+  // orphan the event — which is why this needs no `closed` flag, unlike the
+  // payload-refresh buffer whose producers await mid-way.
   const deferred = context.bulkPublishDeferredEvents;
   if (deferred) {
     deferred.push(emit);

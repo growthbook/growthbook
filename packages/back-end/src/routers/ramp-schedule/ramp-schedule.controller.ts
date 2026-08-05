@@ -214,7 +214,7 @@ export const putRampSchedule = async (
         );
       }
       // Fields the poller executes — fire times and the actions/steps it will
-      // apply — are publish-class to touch on an armable schedule, for the same
+      // apply — are publish-class to touch on an ARMABLE schedule, for the same
       // reason the arm itself is: editing them re-aims a live transition the
       // /actions endpoints would refuse this caller. Name and monitoring edits
       // stay draft-class (monitoring carries its own assert below).
@@ -224,9 +224,6 @@ export const putRampSchedule = async (
         body.startActions !== undefined ||
         body.steps !== undefined ||
         body.endActions !== undefined;
-      if (touchesExecution) {
-        await assertCanControlRampSchedule(context, fresh);
-      }
 
       const updates: Record<string, unknown> = {};
       if (body.name !== undefined) updates.name = body.name;
@@ -273,6 +270,16 @@ export const putRampSchedule = async (
           ? updates.startApprovedAt
           : fresh.startApprovedAt) as Date | null | undefined,
       });
+
+      // Armable is `computeNextProcessAt` answering non-null — the same function
+      // the poller keys off, rather than a second reading of what "armed" means.
+      // Checked BOTH before and after: a dateless or approval-gated schedule
+      // fires nothing, so editing its steps is draft-class and demanding publish
+      // refused edits nobody could yet act on; but disarming a schedule that IS
+      // armed re-aims a live transition just as arming one does.
+      if (touchesExecution && (fresh.nextProcessAt || updates.nextProcessAt)) {
+        await assertCanControlRampSchedule(context, fresh);
+      }
 
       const editedFields = Object.keys(updates).filter(
         (k) => k !== "nextProcessAt" && k !== "eventHistory",

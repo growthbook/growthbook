@@ -339,7 +339,7 @@ export default function ConfigModal({
             label="Allow extra fields in extensions"
             description={
               <Text weight="regular" color="text-high">
-                Child Configs and feature flag rules can add keys beyond this
+                Child Configs and Feature Flag rules can add keys beyond this
                 Config&apos;s schema.
               </Text>
             }

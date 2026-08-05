@@ -122,6 +122,23 @@ const BaseClass = MakeModelClass({
         status: 1,
       },
     },
+    // Merge ORDER, for "which revision merged last" — read on every landing
+    // (nextMergeStamp, getLatestMergedByTarget, the baseline re-check). The
+    // index above serves the equality filter but leaves the sort blocking, so
+    // each landing sorted every merged revision of that entity in memory —
+    // thousands of them, for an entity with a long history. Extending the same
+    // prefix with the sort keys makes it an indexed walk of one row. Ties break
+    // on `id` in memory, which is at most a handful of rows.
+    {
+      fields: {
+        organization: 1,
+        "target.type": 1,
+        "target.id": 1,
+        status: 1,
+        "resolution.dateCreated": 1,
+        version: 1,
+      },
+    },
     {
       fields: { organization: 1, authorId: 1 },
     },

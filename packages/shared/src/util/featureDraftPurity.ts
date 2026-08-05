@@ -63,6 +63,26 @@ export function isArchiveTransition({
 }
 
 /**
+ * Whether an `archived` value flips at all, in EITHER direction.
+ *
+ * The footprint question, as opposed to the atom question above: taking an entity
+ * out of service and returning it to service both reach everywhere it serves, so
+ * both answer for those environments. Only the archive direction was covered, and
+ * an unarchive-only change names no environments — an empty footprint SKIPS the
+ * environment check, so a dev-limited publisher could return an entity to service
+ * in production.
+ */
+export function flipsArchivedState({
+  proposed,
+  current,
+}: {
+  proposed: boolean | undefined;
+  current: boolean | undefined;
+}): boolean {
+  return proposed !== undefined && proposed !== !!current;
+}
+
+/**
  * Whether the draft moves the flag's holdout membership. Holdout is stored
  * sparsely, so absence inherits the live value rather than clearing it —
  * `getEffectiveRevisionHoldout` is the one place that rule is written down.

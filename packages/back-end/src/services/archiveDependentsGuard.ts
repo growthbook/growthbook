@@ -281,7 +281,7 @@ function archiveMessage(
   { elevated }: { elevated: boolean },
 ): string {
   if (elevated && dependents.featureFlagCount > 0) {
-    return `This Config is consumed by ${dependents.featureFlagCount} live feature flag(s) — archiving it will break them.`;
+    return `This Config is consumed by ${dependents.featureFlagCount} live Feature Flag(s) — archiving it will break them.`;
   }
   return `Archiving this ${noun} affects ${dependents.parts.join(", ")}.`;
 }

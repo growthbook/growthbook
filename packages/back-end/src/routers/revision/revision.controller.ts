@@ -737,14 +737,26 @@ export const putProposedChanges = async (
   }
   // Rewriting the draft can ADD a relocation the original draft didn't carry, so
   // the destination is re-judged against the incoming ops.
+  //
+  // Measured from the LIVE entity, like the publish path — a move is relative to
+  // where the entity IS. Judged from the snapshot, ops naming the project the
+  // snapshot recorded read as "no move" even though the entity has since moved
+  // elsewhere, so publishing would relocate it back with the destination never
+  // checked. Draft authority above stays snapshot-based: that asks whether this
+  // revision is the caller's to edit, not where it would land.
+  const liveForDestination =
+    ((await getAdapter(existingRevision.target.type)
+      .getModel(context)
+      ?.getById(existingRevision.target.id)) as Record<string, unknown>) ??
+    (existingRevision.target.snapshot as Record<string, unknown>);
   if (
     !holdsMoveDestination({
       permissions: context.permissions,
       model: existingRevision.target.type,
       action: "draft",
-      existing: existingRevision.target.snapshot as Record<string, unknown>,
+      existing: liveForDestination,
       proposed: {
-        ...(existingRevision.target.snapshot as Record<string, unknown>),
+        ...liveForDestination,
         ...proposedProjectScope(proposedChanges),
       },
       environments: NO_ENVIRONMENT_BINDING,

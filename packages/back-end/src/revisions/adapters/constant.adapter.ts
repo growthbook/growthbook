@@ -2,6 +2,7 @@ import { ConstantInterface } from "shared/types/constant";
 import {
   NO_ENVIRONMENT_BINDING,
   bypassApprovalPermission,
+  serveFootprint,
 } from "shared/permissions";
 import {
   Revision,
@@ -12,7 +13,7 @@ import {
   constantAutopublishOnApproval,
   constantRequiresReview,
   constantResetReviewOnChange,
-  isArchiveTransition,
+  flipsArchivedState,
   proposedArchivedValue,
 } from "shared/util";
 import {
@@ -199,19 +200,19 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     snapshot: ConstantInterface,
     proposedChanges: unknown,
   ): string[] {
-    // Archiving takes the constant out of service EVERYWHERE it serves — the
-    // base value feeds every environment — so the footprint is all of them.
-    // An archive-only change has changedEnvironments [], and letting that fall
-    // through to NO_ENVIRONMENT_BINDING made the env check vacuous: a
-    // dev-limited deleter could archive away production values it cannot touch
-    // directly. Features apply the same serve-footprint rule to their archives.
+    // Flipping `archived` either way reaches EVERYWHERE the constant serves —
+    // the base value feeds every environment it applies to. Such a change names
+    // no environments of its own, and an empty footprint SKIPS the environment
+    // check rather than narrowing it, so a dev-limited caller could archive away
+    // production values, or return them to service, without touching production
+    // directly. Features apply the same serve-footprint rule.
     if (
-      isArchiveTransition({
+      flipsArchivedState({
         proposed: proposedArchivedValue(proposedChanges),
         current: snapshot.archived,
       })
     ) {
-      return getEnvironments(context.org).map((e) => e.id);
+      return serveFootprint(getEnvironments(context.org), snapshot);
     }
     return constantPublishEnvironments(
       context,
