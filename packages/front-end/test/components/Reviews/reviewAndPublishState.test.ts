@@ -21,6 +21,7 @@ function base(overrides: Partial<RnPStateInput> = {}): RnPStateInput {
     experimentsStep: false,
     featureLockedByRamp: false,
     featureLockedBySchedule: false,
+    checklistIncomplete: false,
     checklistBlocked: false,
     governanceCanPublish: true,
     ...overrides,
@@ -239,10 +240,124 @@ describe("getReviewAndPublishState", () => {
           status: "approved",
           hasSelectedExperiments: true,
           experimentsStep: true,
-          checklistBlocked: true,
+          checklistIncomplete: true,
         }),
       );
       expect(s.ctaEnabled).toBe(false);
+    });
+  });
+
+  describe("checklist acknowledgment (publish/schedule anyway)", () => {
+    // Soft-only blocker on the experiments step: primary disabled, secondary
+    // acknowledgment offered — mirroring the experiment "start anyway" flow.
+    const softBlocked = {
+      hasSelectedExperiments: true,
+      experimentsStep: true,
+      checklistIncomplete: true,
+      checklistBlocked: false,
+    } as const;
+
+    it("offers 'Publish anyway' for soft-only blockers (direct-publish path)", () => {
+      const s = getReviewAndPublishState(base({ ...softBlocked }));
+      expect(s.submitAction).toBe("publish");
+      expect(s.ctaEnabled).toBe(false);
+      expect(s.canPublishAnyway).toBe(true);
+      expect(s.publishAnywayLabel).toBe("Publish anyway");
+    });
+
+    it("offers 'Publish anyway' for soft-only blockers (review path)", () => {
+      const s = getReviewAndPublishState(
+        base({ ...softBlocked, requireReviews: true, status: "approved" }),
+      );
+      expect(s.submitAction).toBe("publish");
+      expect(s.ctaEnabled).toBe(false);
+      expect(s.canPublishAnyway).toBe(true);
+    });
+
+    it("uses 'Schedule anyway' when only scheduled experiments are selected", () => {
+      const s = getReviewAndPublishState(
+        base({ ...softBlocked, onlyScheduledSelected: true }),
+      );
+      expect(s.canPublishAnyway).toBe(true);
+      expect(s.publishAnywayLabel).toBe("Schedule anyway");
+    });
+
+    it("never offers 'Publish anyway' when a hard blocker exists", () => {
+      const direct = getReviewAndPublishState(
+        base({ ...softBlocked, checklistBlocked: true }),
+      );
+      expect(direct.ctaEnabled).toBe(false);
+      expect(direct.canPublishAnyway).toBe(false);
+
+      const review = getReviewAndPublishState(
+        base({
+          ...softBlocked,
+          checklistBlocked: true,
+          requireReviews: true,
+          status: "approved",
+        }),
+      );
+      expect(review.ctaEnabled).toBe(false);
+      expect(review.canPublishAnyway).toBe(false);
+    });
+
+    it("never offers 'Publish anyway' while the checklist is loading", () => {
+      // Loading folds into checklistBlocked (incomplete + non-bypassable), so
+      // it can't be acknowledged until the checklist resolves.
+      const s = getReviewAndPublishState(
+        base({ ...softBlocked, checklistBlocked: true }),
+      );
+      expect(s.canPublishAnyway).toBe(false);
+    });
+
+    it("does not offer 'Publish anyway' outside the experiments step", () => {
+      const s = getReviewAndPublishState(
+        base({
+          hasSelectedExperiments: true,
+          experimentsStep: false,
+          checklistIncomplete: true,
+        }),
+      );
+      // Not on the checklist step yet — this is the "Next" transition.
+      expect(s.submitAction).toBe("next-experiments");
+      expect(s.canPublishAnyway).toBe(false);
+    });
+
+    it("admin bypass clears soft blockers (primary enabled, no anyway)", () => {
+      const s = getReviewAndPublishState(
+        base({ ...softBlocked, adminPublish: true }),
+      );
+      expect(s.ctaEnabled).toBe(true);
+      expect(s.canPublishAnyway).toBe(false);
+    });
+
+    it("admin bypass does NOT clear a hard blocker", () => {
+      const direct = getReviewAndPublishState(
+        base({ ...softBlocked, checklistBlocked: true, adminPublish: true }),
+      );
+      expect(direct.ctaEnabled).toBe(false);
+      expect(direct.canPublishAnyway).toBe(false);
+
+      const review = getReviewAndPublishState(
+        base({
+          ...softBlocked,
+          checklistBlocked: true,
+          adminPublish: true,
+          requireReviews: true,
+          status: "approved",
+        }),
+      );
+      expect(review.ctaEnabled).toBe(false);
+      expect(review.canPublishAnyway).toBe(false);
+    });
+
+    it("does not offer 'Publish anyway' when publishing is otherwise blocked", () => {
+      // Soft-only checklist, but a ramp lockdown blocks publishing entirely.
+      const s = getReviewAndPublishState(
+        base({ ...softBlocked, featureLockedByRamp: true }),
+      );
+      expect(s.ctaEnabled).toBe(false);
+      expect(s.canPublishAnyway).toBe(false);
     });
   });
 

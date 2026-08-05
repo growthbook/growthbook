@@ -671,6 +671,7 @@ function ReviewAndPublishRevision<T>({
     experimentsStep: false,
     featureLockedByRamp: false,
     featureLockedBySchedule,
+    checklistIncomplete: false,
     checklistBlocked: false,
     governanceCanPublish: !mustRebase,
   });

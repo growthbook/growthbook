@@ -88,7 +88,10 @@ import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
 import { useHoldouts } from "@/hooks/useHoldouts";
-import { PreLaunchChecklistForDraftFeature } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
+import {
+  ChecklistReadyStatus,
+  PreLaunchChecklistForDraftFeature,
+} from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import {
   ExpandableDiff,
@@ -920,28 +923,35 @@ export default function ReviewAndPublish({
 
   const openChecklistStep = useCallback(() => {
     checklistStateRef.current.clear();
+    setChecklistIncomplete(false);
     setChecklistBlocked(false);
     setExperimentsStep(true);
   }, []);
 
-  const checklistStateRef = useRef<
-    Map<string, { failedRequired: boolean; loading: boolean }>
-  >(new Map());
+  const checklistStateRef = useRef<Map<string, ChecklistReadyStatus>>(
+    new Map(),
+  );
+  // `checklistIncomplete`: any incomplete required item or a still-loading
+  // checklist — disables the primary publish CTA. `checklistBlocked`: a hard
+  // blocker (or loading) that can't be acknowledged, so no "publish anyway".
+  // Soft-only blockers are `checklistIncomplete && !checklistBlocked`.
+  const [checklistIncomplete, setChecklistIncomplete] = useState(false);
   const [checklistBlocked, setChecklistBlocked] = useState(false);
   // Checklist results are per-revision; clear them when the user switches
   // revisions so stale failures can't block publishing a clean draft.
   useEffect(() => {
     checklistStateRef.current.clear();
+    setChecklistIncomplete(false);
     setChecklistBlocked(false);
   }, [version]);
   const handleChecklistReady = useCallback(
-    (expId: string, failedRequired: boolean, loading: boolean) => {
-      checklistStateRef.current.set(expId, { failedRequired, loading });
-      setChecklistBlocked(
-        [...checklistStateRef.current.values()].some(
-          (v) => v.failedRequired || v.loading,
-        ),
+    (expId: string, status: ChecklistReadyStatus) => {
+      checklistStateRef.current.set(expId, status);
+      const all = [...checklistStateRef.current.values()];
+      setChecklistIncomplete(
+        all.some((v) => v.hasHardBlockers || v.hasSoftBlockers || v.loading),
       );
+      setChecklistBlocked(all.some((v) => v.hasHardBlockers || v.loading));
     },
     [],
   );
@@ -1565,6 +1575,7 @@ export default function ReviewAndPublish({
     experimentsStep,
     featureLockedByRamp,
     featureLockedBySchedule,
+    checklistIncomplete,
     checklistBlocked,
     governanceCanPublish: governance ? governance.canPublish : true,
   });
@@ -2165,9 +2176,7 @@ export default function ReviewAndPublish({
               experiment={experiment}
               feature={feature}
               mutateExperiment={mutate}
-              onReady={(failed, loading) =>
-                handleChecklistReady(experiment.id, failed, loading)
-              }
+              onReady={(status) => handleChecklistReady(experiment.id, status)}
             />
           </Box>
         );
@@ -2478,6 +2487,13 @@ export default function ReviewAndPublish({
               ? continueEnabled
               : publishEnabled;
 
+            // Soft-only checklist blockers keep the primary Publish disabled
+            // but expose a secondary acknowledgment ("Publish anyway"), matching
+            // the experiment dashboard's "Start anyway". A live schedule still
+            // blocks publish-now regardless.
+            const publishAnywayEnabled =
+              state.canPublishAnyway && canDoPrimary && !scheduleBlocksPublish;
+
             const primaryFooterLabel = continueToPublish
               ? continueLabel
               : scheduleBlocksPublish
@@ -2713,6 +2729,7 @@ export default function ReviewAndPublish({
                               setAdminPublish(!!val);
                               if (!val) {
                                 checklistStateRef.current.clear();
+                                setChecklistIncomplete(false);
                                 setChecklistBlocked(false);
                                 setExperimentsStep(false);
                               }
@@ -2741,6 +2758,26 @@ export default function ReviewAndPublish({
                         {primaryFooterLabel}
                       </Button>
                     )}
+
+                    {/* Acknowledge soft checklist blockers and publish anyway.
+                    Only shown on the checklist step when every incomplete item
+                    is a soft blocker (no hard blockers, nothing loading), and
+                    the schedule doesn't block publish-now. */}
+                    {state.canPublishAnyway &&
+                      !(scheduleBlocksPublish && !continueToPublish) && (
+                        <Button
+                          variant="ghost"
+                          mt="2"
+                          onClick={publishAnywayEnabled ? doSubmit : undefined}
+                          loading={
+                            submitting && state.submitAction === "publish"
+                          }
+                          disabled={!publishAnywayEnabled}
+                          style={{ width: "100%" }}
+                        >
+                          {state.publishAnywayLabel}
+                        </Button>
+                      )}
 
                     {/* ── Uniform status displays for the publish state ──
                     All callouts use the same size, spacing, and chrome so
@@ -2798,6 +2835,7 @@ export default function ReviewAndPublish({
                           color="link"
                           onClick={() => {
                             checklistStateRef.current.clear();
+                            setChecklistIncomplete(false);
                             setChecklistBlocked(false);
                             setExperimentsStep(false);
                           }}

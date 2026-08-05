@@ -10,12 +10,7 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
 import track from "@/services/track";
-import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
-import {
-  revisionStatusColor,
-  revisionStatusLabel,
-} from "@/components/Reviews/RevisionStatusBadge";
 
 export type CheckListItem = {
   display: string | ReactElement;
@@ -285,15 +280,7 @@ export function getChecklistItems({
                 >
                   {f.feature.id}
                   <PiArrowSquareOut className="ml-1" />
-                </Link>{" "}
-                {f.draftRevisionStatus && (
-                  <Badge
-                    label={revisionStatusLabel(f.draftRevisionStatus)}
-                    color={revisionStatusColor(f.draftRevisionStatus)}
-                    radius="full"
-                    ml="1"
-                  />
-                )}
+                </Link>
               </>
             ),
           });
