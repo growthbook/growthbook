@@ -119,8 +119,7 @@ const ExperimentsPage = (): React.ReactElement => {
   const tabCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     items.forEach((item) => {
-      counts[item.tab] = counts[item.tab] || 0;
-      counts[item.tab]++;
+      counts[item.tab] = (counts[item.tab] || 0) + 1;
     });
     return counts;
   }, [items]);
