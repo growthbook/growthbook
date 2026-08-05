@@ -53,49 +53,20 @@ export type Permission =
 
 export type PermissionsObject = Partial<Record<Permission, boolean>>;
 
-/**
- * Every permission a principal holds in one scope, merged across the roles that
- * granted them (member role, project role, team roles).
- *
- * Two representations, because the merge is right for one question and wrong for
- * the other. `permissions` answers "is this held at all here", where a union
- * across roles is exactly right. The environment fields answer "where may it be
- * used", where a union is a leak: unioning role A's "publish in dev" with role
- * B's "manage environments in production" reads as both permissions in both
- * environments. `envGrants` keeps each role's own restriction beside its own
- * permissions so the two can't be recombined.
- */
+/** A principal's permissions in one scope, merged across their roles. */
 export type UserPermission = {
-  /**
-   * The merged environment restriction. NOT the environment verdict for any one
-   * permission — see the caveat above. Read it only through `envsAllowedBy`,
-   * which consults `envGrants` first and treats these as the legacy fallback.
-   */
+  /** Union across roles. Legacy fallback — check environments via `envsAllowedBy`. */
   environments: string[];
-  /** @see environments — same caveat. */
   limitAccessByEnvironment: boolean;
   permissions: PermissionsObject;
   /**
-   * One entry per role that contributed to this merged object, carrying the
-   * environment-scoped permissions that role grants and ITS OWN environment
-   * restriction.
-   *
-   * Optional for two reasons, both live: a role granting nothing env-scoped
-   * omits it rather than carrying an empty entry, and this type describes a wire
-   * payload the client may have received from an older server mid-deploy. Absent
-   * means "these fields say nothing", so checks fall back to the flat pair.
+   * Per role: its env-scoped permissions with its own env restriction, so one
+   * role's permission can't borrow another's environments. Absent for roles
+   * granting nothing env-scoped, and for payloads predating the field.
    */
   envGrants?: {
     environments: string[];
     limitAccessByEnvironment: boolean;
-    /**
-     * Env-scoped atoms only (`ENV_SCOPED_PERMISSIONS`), so this is a strict
-     * subset of `permissions` and cannot replace it. `REVISION_PERMISSIONS`
-     * declaring an atom `scope: "environment"` while it sits in the
-     * project-scoped array would leave that atom out of every grant and silently
-     * fall back to the leaky union — pinned by the scope-consistency case in
-     * `shared/test/granular-flag-permissions.test.ts`.
-     */
     permissions: Permission[];
   }[];
 };
