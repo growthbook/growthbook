@@ -31,6 +31,9 @@ const DocumentationSidebar = ({
       <SidebarHeading>WHAT&apos;S NEW</SidebarHeading>
       <Flex direction="column" gapY="3">
         <AIVisualEditorCallout />
+        <LinkItem href="https://www.growthbook.io/blog/growthbook-version-5-0">
+          GrowthBook 5.0 Overview
+        </LinkItem>
         <LinkItem href="https://docs.growthbook.io/integrations/ai-agents/agent-skills/">
           Agent Skills
         </LinkItem>
