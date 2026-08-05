@@ -17,10 +17,10 @@ import {
   createSnapshotAnalysesBatched,
   createSnapshotAnalysis,
   toSnapshotApiInterface,
+  safeFloatOrNull,
 } from "back-end/src/services/experiments";
 import {
   buildExperimentBulkResultId,
-  safeFloatOrNull,
   toApiResultAnalysis,
   toExperimentSnapshotBulkResultsApiInterface,
 } from "back-end/src/api/experiments/bulkResultSerialization";

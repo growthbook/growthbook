@@ -2329,10 +2329,8 @@ export const getExperimentBulkResultsValidator = {
           "Return snapshots generated on or before this date (ISO 8601 date-time).",
         )
         .meta({ format: "date-time" }),
-      phase: z.coerce
-        .number()
-        .int()
-        .min(0)
+      phase: z
+        .string()
         .describe("Filter to a single experiment phase index.")
         .optional(),
       snapshotType: z

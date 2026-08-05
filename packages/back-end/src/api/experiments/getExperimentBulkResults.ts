@@ -6,7 +6,7 @@ import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { findSnapshotsByExperiment } from "back-end/src/models/ExperimentSnapshotModel";
 import { getMetricMapForExperimentSnapshots } from "back-end/src/services/experiments";
 import { toExperimentSnapshotBulkResultsApiInterface } from "back-end/src/api/experiments/bulkResultSerialization";
-import { NotFoundError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
   createApiRequestHandler,
   getPaginationReturnFields,
@@ -56,7 +56,13 @@ export const getExperimentBulkResults = createApiRequestHandler({
   const dateStart = new Date(req.query.dateStart);
   const dateEnd = new Date(req.query.dateEnd);
 
-  const phase = req.query.phase;
+  const phase =
+    req.query.phase !== undefined && req.query.phase !== ""
+      ? parseInt(req.query.phase, 10)
+      : undefined;
+  if (phase !== undefined && isNaN(phase)) {
+    throw new BadRequestError("Invalid phase");
+  }
 
   const { limit, offset } = validatePagination(req.query);
 
