@@ -5,7 +5,6 @@
   justify-content: flex-start;
   padding: var(--space-3, 12px) 0;
   min-height: var(--space-8, 48px);
-  font-variant-numeric: tabular-nums;
 
   .container {
     display: flex;
@@ -31,9 +30,8 @@
     justify-content: center;
     box-sizing: border-box;
     width: 100%;
-    min-width: 32px;
     height: 32px;
-    padding: 0 8px;
+    padding: 0;
     border-radius: var(--border-radius-3, 6px);
     border: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
     background: var(--color-surface, rgba(255, 255, 255, 0.85));
@@ -41,6 +39,7 @@
     font-family: inherit;
     font-size: 14px;
     font-weight: 400;
+    font-variant-numeric: tabular-nums;
     cursor: pointer;
     transition: all 0.2s ease;
     text-decoration: none;
@@ -107,9 +106,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 32px;
     height: 32px;
     color: var(--gray-9);
     font-size: 14px;
+    font-variant-numeric: tabular-nums;
   }
 }

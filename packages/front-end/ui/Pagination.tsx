@@ -115,7 +115,7 @@ const Pagination: FC<PaginationProps> = ({
     currentPage,
   });
   const slotStyle: CSSProperties = {
-    minWidth: `max(32px, calc(${String(Math.max(model.pageCount, 1)).length}ch + 18px))`,
+    minWidth: `max(32px, calc(${String(Math.max(model.pageCount, 1)).length}ch + 6px))`,
   };
 
   return (
