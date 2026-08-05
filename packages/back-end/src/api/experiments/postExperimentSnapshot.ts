@@ -19,9 +19,9 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 
 const REQUIRES_FULL_REFRESH_RESUBMIT_INSTRUCTIONS =
-  'Send "dimension": "" to rebuild Overall Results, then resubmit this request unchanged.';
+  'Send "dimension": "" to rebuild Overall Results, wait for that snapshot to finish, then resubmit this request unchanged.';
 const DIMENSION_ALREADY_UP_TO_DATE_RESUBMIT_INSTRUCTIONS =
-  'Send "dimension": "" to update Overall Results first, then resubmit this request.';
+  'Send "dimension": "" to update Overall Results, wait for that snapshot to finish, then resubmit this request.';
 
 export const postExperimentSnapshot = createApiRequestHandler(
   postExperimentSnapshotValidator,

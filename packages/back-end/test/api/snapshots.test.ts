@@ -50,9 +50,9 @@ describe("snapshots API", () => {
   // Spelled out rather than imported: this copy is part of the 409 contract,
   // so changing it should fail here.
   const REQUIRES_FULL_REFRESH_GUIDANCE =
-    'Send "dimension": "" to rebuild Overall Results, then resubmit this request unchanged.';
+    'Send "dimension": "" to rebuild Overall Results, wait for that snapshot to finish, then resubmit this request unchanged.';
   const DIMENSION_ALREADY_UP_TO_DATE_GUIDANCE =
-    'Send "dimension": "" to update Overall Results first, then resubmit this request.';
+    'Send "dimension": "" to update Overall Results, wait for that snapshot to finish, then resubmit this request.';
 
   it("can get a snapshot", async () => {
     setReqContext({
