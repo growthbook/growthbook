@@ -2734,7 +2734,7 @@ export default function ReviewAndPublish({
                     {state.showChecklistAcknowledgment && (
                       <Box mb="3">
                         <Checkbox
-                          label="Continue with incomplete recommended items"
+                          label="Acknowledge incomplete recommended items and continue"
                           weight="regular"
                           disabled={!canDoPrimary || scheduleBlocksPublish}
                           value={checklistAcknowledged}
