@@ -913,8 +913,28 @@ export function ExplorerProvider({
           return prev;
         }
         if (prev.dataset.type === "data_source" && column === null) return prev;
+        const shouldDefaultToLine =
+          prev.dataset.type === "sql" &&
+          prev.dataset.timestampColumn === null &&
+          column !== null &&
+          prev.chartType === "bar";
         return {
           ...prev,
+          chartType: shouldDefaultToLine ? "line" : prev.chartType,
+          dimensions:
+            shouldDefaultToLine &&
+            !prev.dimensions.some(
+              (dimension) => dimension.dimensionType === "date",
+            )
+              ? [
+                  {
+                    dimensionType: "date",
+                    column: "date",
+                    dateGranularity: "auto",
+                  },
+                  ...prev.dimensions,
+                ]
+              : prev.dimensions,
           dataset: { ...prev.dataset, timestampColumn: column },
         } as ExplorationConfig;
       });

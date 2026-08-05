@@ -79,14 +79,31 @@ export default function useSqlQueryPreview({
       setDraftExploreState((prev) => {
         if (prev.dataset.type !== "sql") return prev;
         const valueColumns = new Set(Object.keys(columnTypes));
+        const shouldDefaultToLine =
+          prev.dataset.timestampColumn === null &&
+          timestampColumn !== null &&
+          prev.chartType === "bar";
+        const dimensions = prev.dimensions.filter(
+          (dimension) =>
+            dimension.dimensionType !== "dynamic" ||
+            dimension.column === null ||
+            valueColumns.has(dimension.column),
+        );
         return {
           ...prev,
-          dimensions: prev.dimensions.filter(
-            (dimension) =>
-              dimension.dimensionType !== "dynamic" ||
-              dimension.column === null ||
-              valueColumns.has(dimension.column),
-          ),
+          chartType: shouldDefaultToLine ? "line" : prev.chartType,
+          dimensions:
+            shouldDefaultToLine &&
+            !dimensions.some((dimension) => dimension.dimensionType === "date")
+              ? [
+                  {
+                    dimensionType: "date",
+                    column: "date",
+                    dateGranularity: "auto",
+                  },
+                  ...dimensions,
+                ]
+              : dimensions,
           dataset: {
             ...prev.dataset,
             sql,
