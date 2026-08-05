@@ -8,6 +8,7 @@ import { ExplorationConfig, ExplorationDataset } from "shared/validators";
 import {
   getCommonColumns,
   getColumnTopValues,
+  getRelevantFactTableIds,
   validateDimensions,
 } from "@/enterprise/components/ProductAnalytics/util";
 
@@ -433,5 +434,93 @@ describe("validateDimensions", () => {
     expect(
       validateDimensions(config, () => ft, noFactMetric).dimensions,
     ).toEqual([]);
+  });
+
+  it("drops a dimension when the fact table can't be resolved at all, by default", () => {
+    const config = makeConfig([
+      { dimensionType: "static", column: "country", values: ["US"] },
+    ]);
+
+    expect(
+      validateDimensions(config, () => null, noFactMetric).dimensions,
+    ).toEqual([]);
+  });
+
+  it("keeps a dimension when the fact table can't be resolved yet, but columnsMayBeIncomplete is set", () => {
+    const config = makeConfig([
+      { dimensionType: "static", column: "country", values: ["US"] },
+    ]);
+
+    expect(
+      validateDimensions(config, () => null, noFactMetric, {
+        columnsMayBeIncomplete: true,
+      }).dimensions,
+    ).toEqual(config.dimensions);
+  });
+});
+
+describe("getRelevantFactTableIds", () => {
+  it("returns [] for a null dataset", () => {
+    expect(getRelevantFactTableIds(null, noFactMetric)).toEqual([]);
+  });
+
+  it("returns the fact table id for a fact_table dataset", () => {
+    expect(getRelevantFactTableIds(factTableDataset(), noFactMetric)).toEqual([
+      "ft_1",
+    ]);
+  });
+
+  it("returns numerator and denominator fact table ids for a ratio metric dataset", () => {
+    const getFactMetricById = (id: string) =>
+      ({
+        m1: {
+          numerator: { factTableId: "numerator_ft" },
+          denominator: { factTableId: "denominator_ft" },
+        } as FactMetricInterface,
+      })[id] ?? null;
+
+    const dataset: ExplorationDataset = {
+      type: "metric",
+      values: [
+        {
+          name: "v",
+          type: "metric",
+          rowFilters: [],
+          metricId: "m1",
+          unit: null,
+          denominatorUnit: null,
+        },
+      ],
+    };
+
+    expect(getRelevantFactTableIds(dataset, getFactMetricById).sort()).toEqual([
+      "denominator_ft",
+      "numerator_ft",
+    ]);
+  });
+
+  it("returns only the initial step's fact table for a funnel dataset", () => {
+    const dataset: ExplorationDataset = {
+      type: "funnel",
+      unit: "user_id",
+      steps: [
+        {
+          name: "s1",
+          factTable: "step1_ft",
+          rowFilters: [],
+          optional: false,
+        },
+        {
+          name: "s2",
+          factTable: "step2_ft",
+          rowFilters: [],
+          optional: false,
+        },
+      ],
+    };
+
+    expect(getRelevantFactTableIds(dataset, noFactMetric)).toEqual([
+      "step1_ft",
+    ]);
   });
 });

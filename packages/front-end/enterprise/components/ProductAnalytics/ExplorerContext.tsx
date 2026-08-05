@@ -8,7 +8,7 @@ import React, {
   useRef,
   ReactNode,
 } from "react";
-import { ColumnInterface } from "shared/types/fact-table";
+import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
 import {
   ExplorationConfig,
   ProductAnalyticsValue,
@@ -39,6 +39,7 @@ import {
   generateUniqueValueName,
   getCommonColumns,
   getInitialInlineFilters,
+  getRelevantFactTableIds,
   hasUnsatisfiedInlineFilters,
   isSubmittableConfig,
   stripExplorerDraftFields,
@@ -46,6 +47,7 @@ import {
   validateDimensions,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import useFullFactTablesByIds from "@/hooks/useFullFactTablesByIds";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExploreData, CacheOption } from "./useExploreData";
@@ -65,6 +67,10 @@ export interface ExplorerContextValue {
   loading: boolean;
   error: string | null;
   commonColumns: Pick<ColumnInterface, "column" | "name">[];
+  /** Full (jsonFields-complete) fact table lookup for the columns/values
+   *  pickers — falls back to the slim definitions getter until the relevant
+   *  ids finish fetching. */
+  getFullFactTableById: (id: string) => Omit<FactTableInterface, "sql"> | null;
   isStale: boolean;
   needsFetch: boolean;
   needsUpdate: boolean;
@@ -154,6 +160,11 @@ export function ExplorerProvider({
     datasources,
     getDatasourceById,
   } = useDefinitions();
+  const {
+    fetchSome: fetchFullFactTables,
+    getFullFactTableById,
+    isFullyLoaded: isFullFactTablesLoaded,
+  } = useFullFactTablesByIds();
 
   const [, setDefaultDataSourceId] = useLocalStorage<string>(
     LOCALSTORAGE_EXPLORER_DATASOURCE_KEY,
@@ -227,6 +238,24 @@ export function ExplorerProvider({
     draftExploreState.comparisonMode ??
     resolveLegacyExplorerComparisonMode(draftExploreState.dateRange);
 
+  // Full (jsonFields-complete) fact table data for just the ids relevant to
+  // the current dataset selection — needed so the dimension picker and its
+  // validation can correctly resolve nested JSON columns, including across a
+  // ratio metric's numerator/denominator fact tables.
+  const relevantFactTableIdsKey = useMemo(
+    () =>
+      getRelevantFactTableIds(
+        draftExploreState.dataset,
+        getFactMetricById,
+      ).join(","),
+    [draftExploreState.dataset, getFactMetricById],
+  );
+  useEffect(() => {
+    if (relevantFactTableIdsKey) {
+      fetchFullFactTables(relevantFactTableIdsKey.split(","));
+    }
+  }, [relevantFactTableIdsKey, fetchFullFactTables]);
+
   const setDraftExploreState = useCallback(
     (newStateOrUpdater: SetDraftStateAction) => {
       setExplorerState((prev) => {
@@ -250,10 +279,15 @@ export function ExplorerProvider({
           unitFilledState,
           getFactMetricById,
         );
+        const relevantIds = getRelevantFactTableIds(
+          showAsNormalized.dataset,
+          getFactMetricById,
+        );
         const validatedState = validateDimensions(
           showAsNormalized,
-          getFactTableById,
+          getFullFactTableById,
           getFactMetricById,
+          { columnsMayBeIncomplete: !isFullFactTablesLoaded(relevantIds) },
         );
 
         return {
@@ -262,15 +296,24 @@ export function ExplorerProvider({
         };
       });
     },
-    [getFactTableById, getFactMetricById],
+    [
+      getFactTableById,
+      getFactMetricById,
+      getFullFactTableById,
+      isFullFactTablesLoaded,
+    ],
   );
 
   // Re-normalize the draft state whenever the definitions resolver functions
   // change identity — this handles the case where an initialConfig loaded from
-  // a URL or saved exploration needed metric/fact-table lookups that weren't
-  // resolved yet at first render. Both fillMissingUnits and
-  // clearInapplicableShowAs return the same reference when nothing changes,
-  // so the setExplorerState is a no-op in the steady state.
+  // a URL, saved exploration, or dashboard block needed metric/fact-table
+  // lookups (including the full-fact-table fetch above) that weren't resolved
+  // yet at first render. fillMissingUnits, clearInapplicableShowAs, and
+  // validateDimensions all return the same reference when nothing changes, so
+  // the setExplorerState is a no-op in the steady state. This also closes the
+  // gap where a saved/URL-decoded dimension referencing a column that's no
+  // longer valid would otherwise never get cleaned up outside interactive
+  // edits.
   useEffect(() => {
     setExplorerState((prev) => {
       const filled = fillMissingUnits(
@@ -279,10 +322,25 @@ export function ExplorerProvider({
         getFactMetricById,
       );
       const normalized = clearInapplicableShowAs(filled, getFactMetricById);
-      if (normalized === prev.draftState) return prev;
-      return { ...prev, draftState: normalized };
+      const relevantIds = getRelevantFactTableIds(
+        normalized.dataset,
+        getFactMetricById,
+      );
+      const validated = validateDimensions(
+        normalized,
+        getFullFactTableById,
+        getFactMetricById,
+        { columnsMayBeIncomplete: !isFullFactTablesLoaded(relevantIds) },
+      );
+      if (validated === prev.draftState) return prev;
+      return { ...prev, draftState: validated };
     });
-  }, [getFactTableById, getFactMetricById]);
+  }, [
+    getFactTableById,
+    getFactMetricById,
+    getFullFactTableById,
+    isFullFactTablesLoaded,
+  ]);
 
   const isManagedWarehouse = useMemo(() => {
     if (!draftExploreState.datasource) return false;
@@ -385,10 +443,10 @@ export function ExplorerProvider({
   const commonColumns = useMemo(() => {
     return getCommonColumns(
       draftExploreState.dataset,
-      getFactTableById,
+      getFullFactTableById,
       getFactMetricById,
     );
-  }, [draftExploreState.dataset, getFactTableById, getFactMetricById]);
+  }, [draftExploreState.dataset, getFullFactTableById, getFactMetricById]);
 
   const cleanedDraftExploreState = useMemo(() => {
     return cleanConfigForSubmission(draftExploreState);
@@ -1068,6 +1126,7 @@ export function ExplorerProvider({
       loading: loading || polling,
       error,
       commonColumns,
+      getFullFactTableById,
       setDraftExploreState,
       handleSubmit,
       addValueToDataset,
@@ -1113,6 +1172,7 @@ export function ExplorerProvider({
       deleteValueFromDataset,
       draftExploreState,
       error,
+      getFullFactTableById,
       handleSubmit,
       isStale,
       isSubmittable,
