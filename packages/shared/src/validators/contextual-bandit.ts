@@ -299,7 +299,7 @@ export const apiContextualBanditStartValidator = {
   paramsSchema: z.strictObject({
     id: z.string().describe("The Contextual Bandit id"),
   }),
-  bodySchema: z.strictObject({}).optional(),
+  bodySchema: z.never(),
   querySchema: z.never(),
 };
 
@@ -307,7 +307,7 @@ export const apiContextualBanditStopValidator = {
   paramsSchema: z.strictObject({
     id: z.string().describe("The Contextual Bandit id"),
   }),
-  bodySchema: z.strictObject({}).optional(),
+  bodySchema: z.never(),
   querySchema: z.never(),
 };
 
@@ -319,7 +319,7 @@ export const apiContextualBanditRefreshValidator = {
   paramsSchema: z.strictObject({
     id: z.string().describe("The Contextual Bandit id"),
   }),
-  bodySchema: z.strictObject({}).optional(),
+  bodySchema: z.never(),
   querySchema: z.never(),
 };
 
@@ -332,7 +332,7 @@ export const apiContextualBanditCancelValidator = {
   paramsSchema: z.strictObject({
     id: z.string().describe("The Contextual Bandit id"),
   }),
-  bodySchema: z.strictObject({}).optional(),
+  bodySchema: z.never(),
   querySchema: z.never(),
 };
 
