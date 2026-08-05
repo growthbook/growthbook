@@ -6,9 +6,9 @@ import {ExperimentInterfaceStringDates} from "shared/types/experiment";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
-import { DropdownMenu } from "@/ui/DropdownMenu";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
+import { Popover } from "@/ui/Popover";
 
 export default function PublicExperimentAnalysisSettingsBar({
   experiment,
@@ -30,16 +30,16 @@ export default function PublicExperimentAnalysisSettingsBar({
   return (
     <>
       <div className="mb-1 d-flex align-items-center justify-content-end">
-        <DropdownMenu
+        <Popover
           trigger={
             <Link>
               <PiEye className="mr-1" />
               View details
             </Link>
           }
-          menuPlacement="end"
-        >
-          <div style={{ minWidth: 250 }} className="p-2">
+          align="end"
+          content={
+            <div style={{ minWidth: 250 }}>
             <h5>Results computed with:</h5>
             <Metadata
               label="Engine"
@@ -76,8 +76,9 @@ export default function PublicExperimentAnalysisSettingsBar({
                 />
               </div>
             )}
-          </div>
-        </DropdownMenu>
+            </div>
+          }
+        />
       </div>
       <div className="py-1 d-flex mb-2">
         <div className="row align-items-center" style={{ gap: "0.5rem 1rem" }}>
