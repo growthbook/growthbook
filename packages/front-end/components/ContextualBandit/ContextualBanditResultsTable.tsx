@@ -265,8 +265,9 @@ export default function ContextualBanditResultsTable({
     !!queryLatest && (status === "failed" || status === "partially-succeeded");
 
   const isExploring = cb.stage === "explore";
+  const isSnapshotRunning = latest?.status === "running";
   const resultsNotice =
-    (loading || isValidating) && !hasTableData
+    !hasTableData && (loading || isValidating || isSnapshotRunning)
       ? null
       : getResultsNotice(hasTableData, isExploring);
 
