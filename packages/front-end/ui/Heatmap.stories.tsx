@@ -57,8 +57,29 @@ function makeRows(): HeatmapRow[] {
   }));
 }
 
+const manyVariationColumns: HeatmapColumn[] = Array.from(
+  { length: 12 },
+  (_, i) => ({
+    key: `var-${i}`,
+    header: i === 0 ? "Control" : `Variation ${i}`,
+  }),
+);
+
+function makeWideRows(): HeatmapRow[] {
+  const base = makeRows();
+  return base.map((row) => ({
+    ...row,
+    cells: Array.from({ length: manyVariationColumns.length }, (_, i) => ({
+      value: Math.round(Math.random() * 100) / 100,
+      // Deterministic-ish spread so columns look distinct across the scroll.
+      ...(i === 0 ? {} : {}),
+    })),
+  }));
+}
+
 export default function HeatmapStories() {
   const rows = makeRows();
+  const wideRows = makeWideRows();
   const scales: HeatmapColorScale[] = ["indigo", "violet", "blue", "teal"];
 
   return (
@@ -72,6 +93,24 @@ export default function HeatmapStories() {
           leadingColumns={[{ key: "units", header: "Units" }]}
           columns={variationColumns}
           rows={rows}
+        />
+      </Flex>
+
+      <Flex direction="column" gap="2">
+        <Text size="2" weight="bold">
+          Scrollable with frozen Context + Units columns (many variations)
+        </Text>
+        <Text size="1" style={{ color: "var(--gray-9)" }}>
+          Scroll horizontally — the Context and Units columns stay pinned.
+        </Text>
+        <Heatmap
+          labelHeader="Context"
+          leadingColumns={[
+            { key: "units", header: "Units", align: "end", frozenWidth: 120 },
+          ]}
+          columns={manyVariationColumns}
+          rows={wideRows}
+          scrollable
         />
       </Flex>
 

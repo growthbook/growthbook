@@ -31,6 +31,10 @@ import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 
 const numberFormatter = Intl.NumberFormat();
 
+// Beyond this many variations the comparison columns get too cramped, so switch
+// the heatmap into horizontal-scroll mode with the context/units columns frozen.
+const HORIZONTAL_SCROLL_VARIATION_THRESHOLD = 6;
+
 type ComparisonMode = "weights" | "means" | "units";
 
 function shouldShowUpdateMessage(message: string | null | undefined): boolean {
@@ -489,12 +493,14 @@ export default function ContextualBanditResultsTable({
                 header: unitDisplayName,
                 align: "end",
                 width: "14%",
+                frozenWidth: 120,
               },
             ]}
             columns={comparisonColumns}
             rows={comparisonRows}
             colorScale="indigo"
             stickyHeader
+            scrollable={numVariations > HORIZONTAL_SCROLL_VARIATION_THRESHOLD}
             formatValue={(value) => formatModeValue(value, mode)}
           />
         </>

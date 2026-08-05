@@ -13,3 +13,67 @@
   padding: 6px 8px !important;
   vertical-align: middle;
 }
+
+// Horizontal-scroll mode. A single `overflow-x: auto` wrapper also becomes a
+// *vertical* scroll container, which captures the sticky header and breaks page
+// scrolling. Instead we render two column-aligned tables: a page-sticky header
+// and a horizontally-scrolling body (offsets JS-synced). This keeps all of:
+//   - page vertical scroll (full-length table, no inner vertical scroll),
+//   - a sticky header pinned under the page nav,
+//   - table-only horizontal scroll,
+//   - frozen (sticky-left) label/leading columns.
+.scrollWrap {
+  position: relative;
+}
+
+// The header pins to the page nav. overflow-x: hidden makes it a horizontal
+// scrollport we drive programmatically to mirror the body's scroll position.
+.stickyHeader {
+  position: sticky;
+  overflow-x: hidden;
+  z-index: 900;
+}
+
+.scrollBody {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+// Fixed layout + explicit column widths so the header and body tables compute
+// identical column widths and stay aligned as the body scrolls.
+.scrollTable {
+  :global(.rt-TableRootTable) {
+    table-layout: fixed;
+    width: max-content;
+    min-width: 100%;
+  }
+}
+
+// The two tables abut into a single visual table: header keeps the top edge and
+// rounded top corners, body keeps the bottom edge and rounded bottom corners.
+.scrollHeaderTable :global(.rt-TableRootTable) {
+  border-bottom: none;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.scrollBodyTable :global(.rt-TableRootTable) {
+  border-top: none;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+// Frozen (Excel-style) columns: pinned to the left while value columns scroll.
+// A solid background masks the scrolled cells that pass underneath.
+.frozenColumn {
+  position: sticky;
+  z-index: 1;
+  // Stay fully opaque (even under the row-hover tint) so value cells scrolling
+  // underneath never bleed through the frozen column.
+  background-color: var(--color-panel-solid) !important;
+}
+
+// Header cells sit above the frozen body cells during horizontal scroll.
+.frozenColumn:global(.rt-TableColumnHeaderCell) {
+  z-index: 2;
+}
