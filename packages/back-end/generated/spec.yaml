@@ -18959,6 +18959,11 @@ paths:
     post:
       operationId: updateSavedGroup
       summary: Partially update a single saved group
+      description: >-
+        Applies the change immediately and records it as a published revision,
+        so it appears in history and fires revision webhooks. When the
+        organization requires approvals, open a draft instead or pass
+        `bypassApproval` with the bypass permission.
       tags:
         - saved-groups
       parameters:
@@ -20573,6 +20578,11 @@ paths:
     post:
       operationId: updateConstant
       summary: Partially update a single constant
+      description: >-
+        Applies the change immediately and records it as a published revision,
+        so it appears in history and fires revision webhooks. When the
+        organization requires approvals, open a draft instead or pass
+        `bypassApproval` with the bypass permission.
       tags:
         - constants
       parameters:
@@ -22479,6 +22489,11 @@ paths:
     post:
       operationId: updateConfig
       summary: Partially update a single config
+      description: >-
+        Applies the change immediately and records it as a published revision,
+        so it appears in history and fires revision webhooks. When the
+        organization requires approvals, open a draft instead or pass
+        `bypassApproval` with the bypass permission.
       tags:
         - configs
       parameters:

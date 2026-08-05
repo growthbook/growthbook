@@ -589,6 +589,8 @@ export const updateConstantValidator = {
   paramsSchema: constantKeyParams,
   responseSchema: apiConstantResponse,
   summary: "Partially update a single constant",
+  description:
+    "Applies the change immediately and records it as a published revision, so it appears in history and fires revision webhooks. When the organization requires approvals, open a draft instead or pass `bypassApproval` with the bypass permission.",
   operationId: "updateConstant",
   tags: ["constants"],
   method: "post" as const,

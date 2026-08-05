@@ -178,68 +178,58 @@ export const updateSavedGroup = createApiRequestHandler(
     if (!canBypass) {
       req.context.permissions.throwPermissionError();
     }
-
-    // Route the bypass change through the revision system so the action lands
-    // in `Revision.activityLog`.
-    await ensureLiveRevisionExists(
-      req.context,
-      "saved-group",
-      savedGroup as unknown as Record<string, unknown> & {
-        id: string;
-        owner?: string;
-        dateCreated?: Date;
-      },
-    );
-
-    // Record the already-merged revision, then write live state. The earlier
-    // ordering here wrote live first, reasoning that a draft-then-merge could
-    // strand a draft — true, but that is not what this does: it records a single
-    // already-merged revision, and removes it if the write fails. The orders are
-    // not equally safe. History first fails to a detectable extra record with live
-    // state correct; live first fails to a live change with no record of it, which
-    // is the one outcome no retry can repair.
-    const { merged, result: updatedSavedGroup } = await landDirectChange({
-      context: req.context,
-      entityType: "saved-group",
-      entity: savedGroup as unknown as Record<string, unknown> & { id: string },
-      patchOps,
-      bypass: true,
-      changes: fieldsToUpdate as Record<string, unknown>,
-      write: () =>
-        runGuardedWrite("saved-group", savedGroup.id, () =>
-          req.context.models.savedGroups.updateIfUnchanged(
-            savedGroup,
-            fieldsToUpdate,
-          ),
-        ),
-    });
-    // Fire the revision-published event so REST-bypass publishes are observable
-    // like every other publish path (the revert handler dispatches this too;
-    // createMerged itself does not).
-    await dispatchSavedGroupRevisionEvent(req.context, merged, {
-      type: "published",
-    });
-
-    return {
-      savedGroup: await resolveOwnerEmail(
-        req.context.models.savedGroups.toApiInterface({
-          ...savedGroup,
-          ...updatedSavedGroup,
-        }),
-        req.context,
-      ),
-    };
   }
 
-  const updatedSavedGroup = await req.context.models.savedGroups.update(
-    savedGroup,
-    fieldsToUpdate,
+  // One landing path whether or not approval was bypassed. This branch used to
+  // fork: without approvals it was a plain model write — no history, no guard —
+  // so for those orgs a REST update was last-write-wins and invisible, unlike
+  // the same edit made anywhere else.
+  await ensureLiveRevisionExists(
+    req.context,
+    "saved-group",
+    savedGroup as unknown as Record<string, unknown> & {
+      id: string;
+      owner?: string;
+      dateCreated?: Date;
+    },
   );
 
-  const merged = { ...savedGroup, ...updatedSavedGroup };
+  // Record the already-merged revision, then write live state. The earlier
+  // ordering here wrote live first, reasoning that a draft-then-merge could
+  // strand a draft — true, but that is not what this does: it records a single
+  // already-merged revision, and removes it if the write fails. The orders are
+  // not equally safe. History first fails to a detectable extra record with live
+  // state correct; live first fails to a live change with no record of it, which
+  // is the one outcome no retry can repair.
+  const { merged, result: updatedSavedGroup } = await landDirectChange({
+    context: req.context,
+    entityType: "saved-group",
+    entity: savedGroup as unknown as Record<string, unknown> & { id: string },
+    patchOps,
+    // Marks a skipped approval requirement; an org without one skips nothing.
+    bypass: approvalRequired,
+    changes: fieldsToUpdate as Record<string, unknown>,
+    write: () =>
+      runGuardedWrite("saved-group", savedGroup.id, () =>
+        req.context.models.savedGroups.updateIfUnchanged(
+          savedGroup,
+          fieldsToUpdate,
+        ),
+      ),
+  });
+  // Fire the revision-published event so REST-bypass publishes are observable
+  // like every other publish path (the revert handler dispatches this too;
+  // createMerged itself does not).
+  await dispatchSavedGroupRevisionEvent(req.context, merged, {
+    type: "published",
+  });
+
   return {
     savedGroup: await resolveOwnerEmail(
-      req.context.models.savedGroups.toApiInterface(merged),
+      req.context.models.savedGroups.toApiInterface({
+        ...savedGroup,
+        ...updatedSavedGroup,
+      }),
       req.context,
     ),
   };

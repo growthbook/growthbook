@@ -194,56 +194,44 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
       if (!canBypass) {
         req.context.permissions.throwPermissionError();
       }
-
-      // Record the already-merged revision FIRST, then apply it to the live
-      // entity, rolling the revision back if the apply fails — so we never leave
-      // a merged record with no corresponding live change (mirrors the revert
-      // handler's record-first-then-rollback ordering).
-      await ensureLiveRevisionExists(
-        req.context,
-        "constant",
-        constant as unknown as Record<string, unknown> & {
-          id: string;
-          owner?: string;
-          dateCreated?: Date;
-        },
-      );
-      const { merged, result: updated } = await landDirectChange({
-        context: req.context,
-        entityType: "constant",
-        entity: constant as unknown as Record<string, unknown> & { id: string },
-        patchOps,
-        bypass: true,
-        changes: fieldsToUpdate as Record<string, unknown>,
-        write: () =>
-          runGuardedWrite("constant", constant.id, () =>
-            req.context.models.constants.updateIfUnchanged(
-              constant,
-              fieldsToUpdate,
-            ),
-          ),
-      });
-      // Fire the revision-published event so REST-bypass publishes are
-      // observable like every other publish path (the internal merge path and
-      // the revert handler both dispatch this; createMerged itself does not).
-      await dispatchConstantRevisionEvent(req.context, merged, {
-        type: "published",
-      });
-      return {
-        constant: await resolveOwnerEmail(
-          req.context.models.constants.toApiInterface({
-            ...constant,
-            ...updated,
-          }),
-          req.context,
-        ),
-      };
     }
 
-    const updated = await req.context.models.constants.update(
-      constant,
-      fieldsToUpdate,
+    // One landing path whether or not approval was bypassed. This branch used to
+    // fork: without approvals it was a plain model write — no history, no guard —
+    // so for those orgs a REST update was last-write-wins and invisible, unlike
+    // the same edit made anywhere else. Record the already-merged revision FIRST,
+    // then apply it, rolling the record back if the apply fails.
+    await ensureLiveRevisionExists(
+      req.context,
+      "constant",
+      constant as unknown as Record<string, unknown> & {
+        id: string;
+        owner?: string;
+        dateCreated?: Date;
+      },
     );
+    const { merged, result: updated } = await landDirectChange({
+      context: req.context,
+      entityType: "constant",
+      entity: constant as unknown as Record<string, unknown> & { id: string },
+      patchOps,
+      // Marks a skipped approval requirement; an org without one skips nothing.
+      bypass: approvalRequired,
+      changes: fieldsToUpdate as Record<string, unknown>,
+      write: () =>
+        runGuardedWrite("constant", constant.id, () =>
+          req.context.models.constants.updateIfUnchanged(
+            constant,
+            fieldsToUpdate,
+          ),
+        ),
+    });
+    // Fire the revision-published event so REST publishes are observable like
+    // every other publish path (the internal merge path and the revert handler
+    // both dispatch this; createMerged itself does not).
+    await dispatchConstantRevisionEvent(req.context, merged, {
+      type: "published",
+    });
     return {
       constant: await resolveOwnerEmail(
         req.context.models.constants.toApiInterface({

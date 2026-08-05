@@ -44,6 +44,11 @@ import { ResourceEvents } from "shared/types/events/base-types";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import {
+  runGuardedWrite,
+  withBufferedPayloadRefreshes,
+} from "back-end/src/revisions/landingSequence";
+import { CasConflictError } from "back-end/src/models/BaseModel";
+import {
   addIdsToFlatRules,
   getApiFeatureObj,
   getNextScheduledUpdate,
@@ -1146,6 +1151,14 @@ export async function updateFeature(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   updates: Partial<FeatureInterface>,
+  options?: {
+    // Landing guard: condition the write on the doc still carrying this
+    // `dateUpdated`, and throw `CasConflictError` when it doesn't — the feature
+    // twin of `updateIfUnchanged` on BaseModel. Landings pass the pre-image's
+    // stamp; compensation and cascade writes stay unguarded because they re-read
+    // first and mean to write over what they found.
+    ifUnchangedSince?: Date;
+  },
 ): Promise<FeatureInterface> {
   const allUpdates = {
     ...updates,
@@ -1217,12 +1230,21 @@ export async function updateFeature(
     }
   }
 
-  await FeatureModel.updateOne(
-    { organization: feature.organization, id: feature.id },
+  const writeResult = await FeatureModel.updateOne(
+    {
+      organization: feature.organization,
+      id: feature.id,
+      ...(options?.ifUnchangedSince
+        ? { dateUpdated: options.ifUnchangedSince }
+        : {}),
+    },
     {
       $set: normalizedUpdates,
     },
   );
+  if (options?.ifUnchangedSince && writeResult.matchedCount === 0) {
+    throw new CasConflictError();
+  }
 
   if (experimentsAdded.size > 0) {
     await Promise.all(
@@ -1531,12 +1553,22 @@ export async function removeTagInFeature(
 export async function removeHoldoutFromFeature(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
+  options?: { ifUnchangedSince?: Date },
 ) {
   if (!feature.holdout) return;
-  await FeatureModel.updateOne(
-    { organization: context.org.id, id: feature.id },
+  const writeResult = await FeatureModel.updateOne(
+    {
+      organization: context.org.id,
+      id: feature.id,
+      ...(options?.ifUnchangedSince
+        ? { dateUpdated: options.ifUnchangedSince }
+        : {}),
+    },
     { $unset: { holdout: "" } },
   );
+  if (options?.ifUnchangedSince && writeResult.matchedCount === 0) {
+    throw new CasConflictError();
+  }
 }
 
 export async function removeProjectFromFeatures(
@@ -1854,15 +1886,24 @@ export async function applyRevisionChanges(
     }
   }
 
+  // Every branch below is a landing, so its FIRST write is guarded on the
+  // pre-image `feature` — the same rule as the generic entities' guarded
+  // landings: two publishes of the same feature computed from the same read
+  // must not both apply, whichever the caller (publish, toggle, bulk).
+  const guard = { ifUnchangedSince: feature.dateUpdated };
+
   if (!hasChanges) {
-    return await updateFeature(context, feature, changes);
+    return await updateFeature(context, feature, changes, guard);
   }
 
   await updateSafeRolloutStatuses(context, feature, revision);
 
-  // Handle holdout removal separately since updateFeature only does $set
+  // Handle holdout removal separately since updateFeature only does $set.
+  // The holdout $unset carries the guard here because it is the landing's first
+  // feature write; the follow-up content write is this landing's own turn, like
+  // a config cascade after its guarded root write.
   if (removeHoldout) {
-    await removeHoldoutFromFeature(context, feature);
+    await removeHoldoutFromFeature(context, feature, guard);
     // Remove holdout from the feature object so the returned feature is correct
     const { holdout: _, ...featureWithoutHoldout } = feature;
     return await updateFeature(
@@ -1872,7 +1913,7 @@ export async function applyRevisionChanges(
     );
   }
 
-  return await updateFeature(context, feature, changes);
+  return await updateFeature(context, feature, changes, guard);
 }
 
 // Refuse to remove/change a feature's holdout while an experiment in the current
@@ -3329,6 +3370,31 @@ export async function publishRevision({
   // REST handler, or immediately before insertion on the auto-publish paths.
   skipPrevalidateValidation?: boolean;
 }) {
+  // One deduped SDK refresh per landing (feature applies are multi-step: ramp
+  // schedules, the feature document, holdout linkage), flushed on success and
+  // compensation alike.
+  return withBufferedPayloadRefreshes(context, "feature-publish", () =>
+    publishRevisionInner({
+      context,
+      feature,
+      revision,
+      result,
+      comment,
+      bypassLockdown,
+      skipPrevalidateValidation,
+    }),
+  );
+}
+
+async function publishRevisionInner({
+  context,
+  feature,
+  revision,
+  result,
+  comment,
+  bypassLockdown,
+  skipPrevalidateValidation,
+}: Parameters<typeof publishRevision>[0]) {
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error("Can only publish a draft revision");
   }
@@ -3434,11 +3500,8 @@ export async function publishRevision({
       result.rules ?? feature.rules ?? [],
     );
 
-    updatedFeature = await applyRevisionChanges(
-      context,
-      feature,
-      revision,
-      result,
+    updatedFeature = await runGuardedWrite("feature", feature.id, () =>
+      applyRevisionChanges(context, feature, revision, result),
     );
 
     rewinds.push({

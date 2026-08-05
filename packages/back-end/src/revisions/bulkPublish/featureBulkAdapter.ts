@@ -65,6 +65,7 @@ import { bulkPublishFields } from "back-end/src/events/bulkPublishCorrelation";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
+import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import {
   authorityRefused,
   gateOr5xx,
@@ -471,11 +472,10 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     }
 
     try {
-      desired.updatedFeature = await applyRevisionChanges(
-        context,
-        feature,
-        raw,
-        mergeResult,
+      desired.updatedFeature = await runGuardedWrite(
+        "feature",
+        feature.id,
+        () => applyRevisionChanges(context, feature, raw, mergeResult),
       );
     } finally {
       // Re-snapshot the safe rollouts after applyRevisionChanges' sync wrote

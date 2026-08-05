@@ -1,8 +1,8 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import uniqid from "uniqid";
+import { flushPayloadRefreshBuffer } from "back-end/src/revisions/landingSequence";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
-import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import {
   BadRequestError,
   BulkPublishCommitError,
@@ -643,34 +643,6 @@ export async function commitBulkPublish(
     context.bulkPublishId = null;
     context.bulkPublishApplying = false;
   }
-}
-
-/**
- * Detach the context's payload-refresh buffer and issue ONE deduped refresh —
- * refreshSDKPayloadCache rebuilds each affected SDK connection once per call,
- * which is what guarantees at most one rebuild per connection per request.
- */
-function flushPayloadRefreshBuffer(context: Context, event: string): void {
-  const buffer = context.sdkPayloadRefreshBuffer;
-  context.sdkPayloadRefreshBuffer = null;
-  if (!buffer) return;
-  // Closed: straggler producers fall through to live refreshes instead of
-  // pushing into a drained array.
-  buffer.closed = true;
-  if (!buffer.keys.length) return;
-  const seen = new Set<string>();
-  const keys = buffer.keys.filter((k) => {
-    const id = `${k.environment}||${k.project}`;
-    if (seen.has(id)) return false;
-    seen.add(id);
-    return true;
-  });
-  queueSDKPayloadRefresh({
-    context,
-    payloadKeys: keys,
-    treatEmptyProjectAsGlobal: buffer.treatEmptyProjectAsGlobal,
-    auditContext: { event, model: "release" },
-  });
 }
 
 // Reopen each claimed revision. Returns the items whose reopen FAILED — their

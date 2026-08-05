@@ -516,78 +516,60 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       if (!canBypass) {
         req.context.permissions.throwPermissionError();
       }
-
-      // Record the already-merged revision FIRST, then apply it to the live
-      // entity, rolling the revision back if the apply fails.
-      await ensureLiveRevisionExists(
-        req.context,
-        "config",
-        config as unknown as Record<string, unknown> & {
-          id: string;
-          owner?: string;
-          dateCreated?: Date;
-        },
-      );
-      const { merged, result: updated } = await landDirectChange({
-        context: req.context,
-        entityType: "config",
-        entity: config as unknown as Record<string, unknown> & { id: string },
-        patchOps,
-        bypass: true,
-        // The root write and the descendant cascade are two steps, so a failure
-        // in the second one has a partial change to put back — and descendants the
-        // failed cascade already reconciled have to be brought back in line with
-        // the restored root, which restoring the root alone does not do.
-        changes: fieldsToUpdate as Record<string, unknown>,
-        afterRestore: needsDescendantReconcile
-          ? () => reconcileConfigDescendants(req.context, config.key)
-          : undefined,
-        write: async () => {
-          const written = await runGuardedWrite("config", config.id, () =>
-            req.context.models.configs.updateIfUnchanged(
-              config,
-              fieldsToUpdate as Parameters<
-                typeof req.context.models.configs.update
-              >[1],
-            ),
-          );
-          // A schema/parent change can introduce a field a descendant already
-          // declares; cascade "base wins" down the subtree. Inside the write so a
-          // failed cascade rolls the merged revision back too — otherwise a
-          // "published" revision and the root write persist with stale
-          // descendants and no webhook.
-          if (needsDescendantReconcile) {
-            await reconcileConfigDescendants(req.context, config.key);
-          }
-          return written;
-        },
-      });
-      await dispatchConfigRevisionEvent(req.context, merged, {
-        type: "published",
-      });
-      // Publish committed — now apply the deferred writes (atomic ordering).
-      await commitScopedOverrides?.();
-      const guardFields = await commitGuardToggle();
-      return {
-        config: await resolveOwnerEmail(
-          req.context.models.configs.toApiInterface({
-            ...config,
-            ...updated,
-            ...guardFields,
-          }),
-          req.context,
-        ),
-        ...(warnings.length ? { warnings } : {}),
-      };
     }
 
-    const updated = await req.context.models.configs.update(
-      config,
-      fieldsToUpdate as Parameters<typeof req.context.models.configs.update>[1],
+    // One landing path whether or not approval was bypassed. This branch used to
+    // fork: without approvals it was a plain model write — no history, no guard —
+    // so for those orgs a REST update was last-write-wins and invisible, unlike
+    // the same edit made anywhere else. Record the already-merged revision FIRST,
+    // then apply it, rolling the record back if the apply fails.
+    await ensureLiveRevisionExists(
+      req.context,
+      "config",
+      config as unknown as Record<string, unknown> & {
+        id: string;
+        owner?: string;
+        dateCreated?: Date;
+      },
     );
-    if (needsDescendantReconcile) {
-      await reconcileConfigDescendants(req.context, config.key);
-    }
+    const { merged, result: updated } = await landDirectChange({
+      context: req.context,
+      entityType: "config",
+      entity: config as unknown as Record<string, unknown> & { id: string },
+      patchOps,
+      // Marks a skipped approval requirement; an org without one skips nothing.
+      bypass: approvalRequired,
+      // The root write and the descendant cascade are two steps, so a failure
+      // in the second one has a partial change to put back — and descendants the
+      // failed cascade already reconciled have to be brought back in line with
+      // the restored root, which restoring the root alone does not do.
+      changes: fieldsToUpdate as Record<string, unknown>,
+      afterRestore: needsDescendantReconcile
+        ? () => reconcileConfigDescendants(req.context, config.key)
+        : undefined,
+      write: async () => {
+        const written = await runGuardedWrite("config", config.id, () =>
+          req.context.models.configs.updateIfUnchanged(
+            config,
+            fieldsToUpdate as Parameters<
+              typeof req.context.models.configs.update
+            >[1],
+          ),
+        );
+        // A schema/parent change can introduce a field a descendant already
+        // declares; cascade "base wins" down the subtree. Inside the write so a
+        // failed cascade rolls the merged revision back too — otherwise a
+        // "published" revision and the root write persist with stale
+        // descendants and no webhook.
+        if (needsDescendantReconcile) {
+          await reconcileConfigDescendants(req.context, config.key);
+        }
+        return written;
+      },
+    });
+    await dispatchConfigRevisionEvent(req.context, merged, {
+      type: "published",
+    });
     // Publish committed — now apply the deferred writes (atomic ordering).
     await commitScopedOverrides?.();
     const guardFields = await commitGuardToggle();

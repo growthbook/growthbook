@@ -908,6 +908,8 @@ export const updateConfigValidator = {
   paramsSchema: configKeyParams,
   responseSchema: apiConfigResponseWithWarnings,
   summary: "Partially update a single config",
+  description:
+    "Applies the change immediately and records it as a published revision, so it appears in history and fires revision webhooks. When the organization requires approvals, open a draft instead or pass `bypassApproval` with the bypass permission.",
   operationId: "updateConfig",
   tags: ["configs"],
   method: "post" as const,

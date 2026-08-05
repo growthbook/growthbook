@@ -7,6 +7,7 @@ import {
   getDraftAffectedEnvironments,
   PermissionError,
 } from "shared/util";
+import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import type { ApiReqContext } from "back-end/types/api";
 import {
   createRevision,
@@ -155,11 +156,10 @@ export async function toggleFeatureCore(
     canBypassApprovalChecks: true, // review gate enforced above
   });
 
-  const updatedFeature = await applyRevisionChanges(
-    context,
-    feature,
-    revision,
-    { environmentsEnabled: changedToggles },
+  const updatedFeature = await runGuardedWrite("feature", feature.id, () =>
+    applyRevisionChanges(context, feature, revision, {
+      environmentsEnabled: changedToggles,
+    }),
   );
 
   await audit({

@@ -1,6 +1,9 @@
 jest.mock("back-end/src/revisions/landingSequence", () => ({
   assertLandingBaseline: jest.fn(),
   tryRestoreEntityPreImage: jest.fn(),
+  // Passthrough: these tests assert the landing's ordering, not the refresh
+  // batching — that behavior is covered where the buffer is implemented.
+  withBufferedPayloadRefreshes: jest.fn((_ctx, _event, fn) => fn()),
 }));
 jest.mock("back-end/src/revisions", () => ({
   getAdapter: () => ({ applyChanges: jest.fn() }),

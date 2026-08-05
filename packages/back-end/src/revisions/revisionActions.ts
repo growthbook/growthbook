@@ -54,6 +54,7 @@ import {
   assertLandingBaseline,
   liveMatchesDesiredState,
   runGuardedWrite,
+  withBufferedPayloadRefreshes,
 } from "back-end/src/revisions/landingSequence";
 
 // Actions the generic revision controller dispatches to adapter hooks.
@@ -464,6 +465,27 @@ export async function publishRevision(
     deferred,
     // Set when the caller already ran the entity's validation hooks as publish
     // gates, so `assertPublishable` must not execute the sandboxed hook twice.
+    skipHooks,
+  }: { bypass?: boolean; deferred?: boolean; skipHooks?: boolean } = {},
+): Promise<Revision> {
+  // One deduped SDK refresh per landing, flushed whether it lands or compensates
+  // — a multi-step apply otherwise broadcasts its mid-landing mix.
+  return withBufferedPayloadRefreshes(context, "revision-publish", () =>
+    publishRevisionInner(context, revision, entity, {
+      bypass,
+      deferred,
+      skipHooks,
+    }),
+  );
+}
+
+async function publishRevisionInner(
+  context: Context,
+  revision: Revision,
+  entity: Record<string, unknown>,
+  {
+    bypass,
+    deferred,
     skipHooks,
   }: { bypass?: boolean; deferred?: boolean; skipHooks?: boolean } = {},
 ): Promise<Revision> {

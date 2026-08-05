@@ -4,6 +4,7 @@ import { getAdapter } from "back-end/src/revisions";
 import { CasConflictError, Context } from "back-end/src/models/BaseModel";
 import { ConflictError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { displayEntityName } from "back-end/src/revisions/entityNames";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
 import { applyVerifiedRestore } from "back-end/src/revisions/bulkPublish/verifiedRestore";
@@ -25,7 +26,7 @@ import { applyVerifiedRestore } from "back-end/src/revisions/bulkPublish/verifie
 
 /** A landing lost its race. Retryable: nothing was written. */
 function landingConflictError(
-  entityType: RevisionTargetType,
+  entityType: RevisionTargetType | "feature",
   entityId: string,
 ): ConflictError {
   return new ConflictError(
@@ -43,7 +44,7 @@ function landingConflictError(
  * are indistinguishable to the client — both mean "nothing was written, retry".
  */
 export async function runGuardedWrite<T>(
-  entityType: RevisionTargetType,
+  entityType: RevisionTargetType | "feature",
   entityId: string,
   write: () => Promise<T>,
 ): Promise<T> {
@@ -194,5 +195,67 @@ export async function tryRestoreEntityPreImage(
       `landing compensation failed for ${args.entityType} "${args.preImage.id}" — live state is left mid-change and its merged revision is kept as the record`,
     );
     return false;
+  }
+}
+
+/**
+ * Detach the context's payload-refresh buffer and issue ONE deduped refresh —
+ * refreshSDKPayloadCache rebuilds each affected SDK connection once per call,
+ * which is what guarantees at most one rebuild per connection per request.
+ */
+export function flushPayloadRefreshBuffer(
+  context: Context,
+  event: string,
+): void {
+  const buffer = context.sdkPayloadRefreshBuffer;
+  context.sdkPayloadRefreshBuffer = null;
+  if (!buffer) return;
+  // Closed: straggler producers fall through to live refreshes instead of
+  // pushing into a drained array.
+  buffer.closed = true;
+  if (!buffer.keys.length) return;
+  const seen = new Set<string>();
+  const keys = buffer.keys.filter((k) => {
+    const id = `${k.environment}||${k.project}`;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+  queueSDKPayloadRefresh({
+    context,
+    payloadKeys: keys,
+    treatEmptyProjectAsGlobal: buffer.treatEmptyProjectAsGlobal,
+    auditContext: { event, model: "release" },
+  });
+}
+
+/**
+ * Buffer the SDK payload refreshes a landing produces and flush them ONCE when it
+ * settles — the single-entity half of what bulk publish already does.
+ *
+ * A multi-step apply (a config root write, then its descendant cascade; a feature
+ * write, then its holdout pointer) otherwise fires a refresh per step, briefly
+ * broadcasting the mid-landing mix to SDKs. Deferring costs nothing: refreshes
+ * rebuild from live state at flush time, so the one flush serves the landed state
+ * on success and the restored state after compensation — flushed in `finally` for
+ * exactly that reason.
+ *
+ * A scope already holding a buffer (a bulk commit, or an enclosing landing) is
+ * left in charge of its own flush.
+ */
+export async function withBufferedPayloadRefreshes<T>(
+  context: Context,
+  event: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  if (context.sdkPayloadRefreshBuffer) return fn();
+  context.sdkPayloadRefreshBuffer = {
+    keys: [],
+    treatEmptyProjectAsGlobal: false,
+  };
+  try {
+    return await fn();
+  } finally {
+    flushPayloadRefreshBuffer(context, event);
   }
 }
