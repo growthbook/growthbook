@@ -124,9 +124,9 @@ function PreLaunchChecklistUI({
             if (item.type === "manual" && updatingChecklist) return;
             updateTaskStatus(!!checked, item.key);
           }}
-          disabled={!canEditExperiment}
+          disabled={!canEditExperiment && item.type !== "auto"}
           disabledMessage={
-            !canEditExperiment
+            !canEditExperiment && item.type !== "auto"
               ? "You don't have permission to mark this as completed"
               : undefined
           }
@@ -278,8 +278,8 @@ function PreLaunchChecklistFeatureExpRule({
         </Callout>
       ) : hasSoftBlockers ? (
         <Callout status="warning" my="3">
-          Some recommended items are incomplete. You can publish anyway, or
-          complete them first.
+          Some recommended items are incomplete. Complete them first, or
+          acknowledge them to continue.
         </Callout>
       ) : (
         <Callout status="success" my="3">

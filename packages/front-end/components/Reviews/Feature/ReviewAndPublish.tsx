@@ -453,6 +453,7 @@ export default function ReviewAndPublish({
   // persists directly to the API and mutates the revision.
   const comment = revision?.comment || "";
   const [adminPublish, setAdminPublish] = useState(false);
+  const [checklistAcknowledged, setChecklistAcknowledged] = useState(false);
   // ── Unified auto-publish arming ──
   // A revision is "armed" (autoPublishOnApproval) in one of two mutually
   // exclusive modes: publish "when approved" (no date) or "on a specific date"
@@ -925,6 +926,7 @@ export default function ReviewAndPublish({
     checklistStateRef.current.clear();
     setChecklistIncomplete(false);
     setChecklistBlocked(false);
+    setChecklistAcknowledged(false);
     setExperimentsStep(true);
   }, []);
 
@@ -937,9 +939,11 @@ export default function ReviewAndPublish({
     checklistStateRef.current.clear();
     setChecklistIncomplete(false);
     setChecklistBlocked(false);
+    setChecklistAcknowledged(false);
   }, [version]);
   const handleChecklistReady = useCallback(
     (expId: string, status: ChecklistReadyStatus) => {
+      setChecklistAcknowledged(false);
       checklistStateRef.current.set(expId, status);
       const all = [...checklistStateRef.current.values()];
       setChecklistIncomplete(
@@ -1571,6 +1575,7 @@ export default function ReviewAndPublish({
     featureLockedBySchedule,
     checklistIncomplete,
     checklistBlocked,
+    checklistAcknowledged,
     governanceCanPublish: governance ? governance.canPublish : true,
   });
 
@@ -2481,9 +2486,6 @@ export default function ReviewAndPublish({
               ? continueEnabled
               : publishEnabled;
 
-            const publishAnywayEnabled =
-              state.canPublishAnyway && canDoPrimary && !scheduleBlocksPublish;
-
             const primaryFooterLabel = continueToPublish
               ? continueLabel
               : scheduleBlocksPublish
@@ -2721,12 +2723,27 @@ export default function ReviewAndPublish({
                                 checklistStateRef.current.clear();
                                 setChecklistIncomplete(false);
                                 setChecklistBlocked(false);
+                                setChecklistAcknowledged(false);
                                 setExperimentsStep(false);
                               }
                             }}
                           />
                         </Box>
                       )}
+
+                    {state.showChecklistAcknowledgment && (
+                      <Box mb="3">
+                        <Checkbox
+                          label="Continue with incomplete recommended items"
+                          weight="regular"
+                          disabled={!canDoPrimary || scheduleBlocksPublish}
+                          value={checklistAcknowledged}
+                          setValue={(value) =>
+                            setChecklistAcknowledged(!!value)
+                          }
+                        />
+                      </Box>
+                    )}
 
                     {/* A live schedule blocks "publish now"; the scheduled
                     status card above already explains this and offers
@@ -2748,22 +2765,6 @@ export default function ReviewAndPublish({
                         {primaryFooterLabel}
                       </Button>
                     )}
-
-                    {state.canPublishAnyway &&
-                      !(scheduleBlocksPublish && !continueToPublish) && (
-                        <Button
-                          variant="ghost"
-                          mt="2"
-                          onClick={publishAnywayEnabled ? doSubmit : undefined}
-                          loading={
-                            submitting && state.submitAction === "publish"
-                          }
-                          disabled={!publishAnywayEnabled}
-                          style={{ width: "100%" }}
-                        >
-                          {state.publishAnywayLabel}
-                        </Button>
-                      )}
 
                     {/* ── Uniform status displays for the publish state ──
                     All callouts use the same size, spacing, and chrome so
@@ -2823,6 +2824,7 @@ export default function ReviewAndPublish({
                             checklistStateRef.current.clear();
                             setChecklistIncomplete(false);
                             setChecklistBlocked(false);
+                            setChecklistAcknowledged(false);
                             setExperimentsStep(false);
                           }}
                         >

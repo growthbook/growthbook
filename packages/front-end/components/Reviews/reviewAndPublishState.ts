@@ -58,6 +58,7 @@ export interface RnPStateInput {
   featureLockedBySchedule: boolean;
   checklistIncomplete: boolean;
   checklistBlocked: boolean;
+  checklistAcknowledged: boolean;
   // Governance allows publishing (false when a stale draft must be rebased).
   governanceCanPublish: boolean;
 }
@@ -71,8 +72,7 @@ export interface RnPState {
   submitAction: RnPSubmitAction;
   // Whether the main modal wires up a submit handler at all.
   hasSubmit: boolean;
-  canPublishAnyway: boolean;
-  publishAnywayLabel: string;
+  showChecklistAcknowledgment: boolean;
   // Secondary actions shown as links/ghost buttons alongside the primary CTA.
   // Requester/author/contributor returns the revision to draft (retracting the
   // review request).
@@ -114,6 +114,7 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     featureLockedBySchedule,
     checklistIncomplete,
     checklistBlocked,
+    checklistAcknowledged,
     governanceCanPublish,
   } = input;
 
@@ -124,16 +125,13 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
   const checklistGateOpen = !(
     experimentsStep &&
     checklistIncomplete &&
-    (checklistBlocked || !adminPublish)
+    (checklistBlocked || (!adminPublish && !checklistAcknowledged))
   );
   const softChecklistOnly =
     experimentsStep &&
     checklistIncomplete &&
     !checklistBlocked &&
     !adminPublish;
-  const publishAnywayLabel = onlyScheduledSelected
-    ? "Schedule anyway"
-    : "Publish anyway";
 
   // recall-review ("Return to draft"): the requester or anyone with skin in
   // the draft (author/contributor) can pull it back, provided they have
@@ -178,6 +176,8 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
       hasChanges &&
       (!publishLocked || adminPublish) &&
       (governanceCanPublish || adminPublish);
+    const showChecklistAcknowledgment =
+      !hasNextStep && softChecklistOnly && baseEnabled;
     return {
       mode,
       ctaLabel: hasNextStep
@@ -190,8 +190,7 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
       canRecallReview,
       canUndoReview,
       waitingForReview: false,
-      canPublishAnyway: !hasNextStep && softChecklistOnly && baseEnabled,
-      publishAnywayLabel,
+      showChecklistAcknowledgment,
     };
   }
 
@@ -236,6 +235,8 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     (mergeSuccess || submitAction === "request-review");
 
   const ctaEnabled = checklistGateOpen && baseEnabled;
+  const showChecklistAcknowledgment =
+    submitAction === "publish" && softChecklistOnly && baseEnabled;
 
   return {
     mode,
@@ -247,8 +248,6 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     canRecallReview,
     canUndoReview,
     waitingForReview,
-    canPublishAnyway:
-      submitAction === "publish" && softChecklistOnly && baseEnabled,
-    publishAnywayLabel,
+    showChecklistAcknowledgment,
   };
 }

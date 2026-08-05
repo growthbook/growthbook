@@ -23,6 +23,7 @@ function base(overrides: Partial<RnPStateInput> = {}): RnPStateInput {
     featureLockedBySchedule: false,
     checklistIncomplete: false,
     checklistBlocked: false,
+    checklistAcknowledged: false,
     governanceCanPublish: true,
     ...overrides,
   };
@@ -247,7 +248,7 @@ describe("getReviewAndPublishState", () => {
     });
   });
 
-  describe("checklist acknowledgment (publish/schedule anyway)", () => {
+  describe("checklist acknowledgment", () => {
     const softBlocked = {
       hasSelectedExperiments: true,
       experimentsStep: true,
@@ -255,37 +256,51 @@ describe("getReviewAndPublishState", () => {
       checklistBlocked: false,
     } as const;
 
-    it("offers 'Publish anyway' for soft-only blockers (direct-publish path)", () => {
+    it("offers acknowledgment for soft-only blockers (direct-publish path)", () => {
       const s = getReviewAndPublishState(base(softBlocked));
       expect(s.submitAction).toBe("publish");
       expect(s.ctaEnabled).toBe(false);
-      expect(s.canPublishAnyway).toBe(true);
-      expect(s.publishAnywayLabel).toBe("Publish anyway");
+      expect(s.showChecklistAcknowledgment).toBe(true);
     });
 
-    it("offers 'Publish anyway' for soft-only blockers (review path)", () => {
+    it("offers acknowledgment for soft-only blockers (review path)", () => {
       const s = getReviewAndPublishState(
         base({ ...softBlocked, requireReviews: true, status: "approved" }),
       );
       expect(s.submitAction).toBe("publish");
       expect(s.ctaEnabled).toBe(false);
-      expect(s.canPublishAnyway).toBe(true);
+      expect(s.showChecklistAcknowledgment).toBe(true);
     });
 
-    it("uses 'Schedule anyway' when only scheduled experiments are selected", () => {
-      const s = getReviewAndPublishState(
-        base({ ...softBlocked, onlyScheduledSelected: true }),
-      );
-      expect(s.canPublishAnyway).toBe(true);
-      expect(s.publishAnywayLabel).toBe("Schedule anyway");
-    });
-
-    it("never offers 'Publish anyway' when a hard blocker exists", () => {
+    it("enables the primary CTA after acknowledging soft blockers", () => {
       const direct = getReviewAndPublishState(
-        base({ ...softBlocked, checklistBlocked: true }),
+        base({ ...softBlocked, checklistAcknowledged: true }),
+      );
+      expect(direct.ctaEnabled).toBe(true);
+      expect(direct.showChecklistAcknowledgment).toBe(true);
+
+      const review = getReviewAndPublishState(
+        base({
+          ...softBlocked,
+          checklistAcknowledged: true,
+          requireReviews: true,
+          status: "approved",
+        }),
+      );
+      expect(review.ctaEnabled).toBe(true);
+      expect(review.showChecklistAcknowledgment).toBe(true);
+    });
+
+    it("never offers acknowledgment when a hard blocker exists", () => {
+      const direct = getReviewAndPublishState(
+        base({
+          ...softBlocked,
+          checklistBlocked: true,
+          checklistAcknowledged: true,
+        }),
       );
       expect(direct.ctaEnabled).toBe(false);
-      expect(direct.canPublishAnyway).toBe(false);
+      expect(direct.showChecklistAcknowledgment).toBe(false);
 
       const review = getReviewAndPublishState(
         base({
@@ -296,17 +311,17 @@ describe("getReviewAndPublishState", () => {
         }),
       );
       expect(review.ctaEnabled).toBe(false);
-      expect(review.canPublishAnyway).toBe(false);
+      expect(review.showChecklistAcknowledgment).toBe(false);
     });
 
-    it("never offers 'Publish anyway' while the checklist is loading", () => {
+    it("never offers acknowledgment while the checklist is loading", () => {
       const s = getReviewAndPublishState(
         base({ ...softBlocked, checklistBlocked: true }),
       );
-      expect(s.canPublishAnyway).toBe(false);
+      expect(s.showChecklistAcknowledgment).toBe(false);
     });
 
-    it("does not offer 'Publish anyway' outside the experiments step", () => {
+    it("does not offer acknowledgment outside the experiments step", () => {
       const s = getReviewAndPublishState(
         base({
           hasSelectedExperiments: true,
@@ -315,15 +330,15 @@ describe("getReviewAndPublishState", () => {
         }),
       );
       expect(s.submitAction).toBe("next-experiments");
-      expect(s.canPublishAnyway).toBe(false);
+      expect(s.showChecklistAcknowledgment).toBe(false);
     });
 
-    it("admin bypass clears soft blockers (primary enabled, no anyway)", () => {
+    it("admin bypass clears soft blockers without acknowledgment", () => {
       const s = getReviewAndPublishState(
         base({ ...softBlocked, adminPublish: true }),
       );
       expect(s.ctaEnabled).toBe(true);
-      expect(s.canPublishAnyway).toBe(false);
+      expect(s.showChecklistAcknowledgment).toBe(false);
     });
 
     it("admin bypass does NOT clear a hard blocker", () => {
@@ -331,7 +346,7 @@ describe("getReviewAndPublishState", () => {
         base({ ...softBlocked, checklistBlocked: true, adminPublish: true }),
       );
       expect(direct.ctaEnabled).toBe(false);
-      expect(direct.canPublishAnyway).toBe(false);
+      expect(direct.showChecklistAcknowledgment).toBe(false);
 
       const review = getReviewAndPublishState(
         base({
@@ -343,15 +358,15 @@ describe("getReviewAndPublishState", () => {
         }),
       );
       expect(review.ctaEnabled).toBe(false);
-      expect(review.canPublishAnyway).toBe(false);
+      expect(review.showChecklistAcknowledgment).toBe(false);
     });
 
-    it("does not offer 'Publish anyway' when publishing is otherwise blocked", () => {
+    it("does not offer acknowledgment when publishing is otherwise blocked", () => {
       const s = getReviewAndPublishState(
         base({ ...softBlocked, featureLockedByRamp: true }),
       );
       expect(s.ctaEnabled).toBe(false);
-      expect(s.canPublishAnyway).toBe(false);
+      expect(s.showChecklistAcknowledgment).toBe(false);
     });
   });
 

@@ -673,6 +673,7 @@ function ReviewAndPublishRevision<T>({
     featureLockedBySchedule,
     checklistIncomplete: false,
     checklistBlocked: false,
+    checklistAcknowledged: false,
     governanceCanPublish: !mustRebase,
   });
 
