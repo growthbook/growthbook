@@ -3,6 +3,7 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { URLRedirectInterface } from "shared/types/url-redirect";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { createContext, ReactNode, useContext, useMemo, useState } from "react";
@@ -49,6 +50,7 @@ export interface PreLaunchChecklistProviderProps {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
+  urlRedirects: URLRedirectInterface[];
   connections: SDKConnectionInterface[];
   mutateExperiment: () => unknown | Promise<unknown>;
   editTargeting?: (() => void) | null;
@@ -61,6 +63,7 @@ export function PreLaunchChecklistProvider({
   experiment,
   linkedFeatures,
   visualChangesets,
+  urlRedirects,
   connections,
   mutateExperiment,
   editTargeting,
@@ -90,19 +93,17 @@ export function PreLaunchChecklistProvider({
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [analysisModal, setAnalysisModal] = useState(false);
 
-  const applicableConnections = useMemo(
+  // Project-scoped connections only. Capability (visual/redirect) requirements
+  // are surfaced as their own checklist steps rather than filtering the list,
+  // so a valid project connection isn't hidden just because it lacks a flag.
+  const projectConnections = useMemo(
     () =>
-      connections
-        .filter(
-          (connection) =>
-            !connection.projects.length ||
-            connection.projects.includes(experiment.project || ""),
-        )
-        .filter(
-          (connection) =>
-            !visualChangesets.length || connection.includeVisualExperiments,
-        ),
-    [connections, experiment.project, visualChangesets.length],
+      connections.filter(
+        (connection) =>
+          !connection.projects.length ||
+          connection.projects.includes(experiment.project || ""),
+      ),
+    [connections, experiment.project],
   );
 
   const checklist: CheckListItem[] = useMemo(() => {
@@ -112,12 +113,13 @@ export function PreLaunchChecklistProvider({
       experiment,
       linkedFeatures,
       visualChangesets,
+      urlRedirects,
       checklist: data?.checklist,
       setAnalysisModal: canEditExperiment ? setAnalysisModal : undefined,
       editTargeting,
       openSetupTab,
       checkLinkedChanges: true,
-      connections: applicableConnections,
+      connections: projectConnections,
       setShowSdkForm,
       setShowScheduleModal: canEditExperiment
         ? setShowScheduleModal
@@ -131,8 +133,9 @@ export function PreLaunchChecklistProvider({
     experiment,
     linkedFeatures,
     visualChangesets,
+    urlRedirects,
     canEditExperiment,
-    applicableConnections,
+    projectConnections,
   ]);
 
   const incompleteChecklistItems = useMemo(

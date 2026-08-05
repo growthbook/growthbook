@@ -8,6 +8,7 @@ import {
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { URLRedirectInterface } from "shared/types/url-redirect";
 import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
 import track from "@/services/track";
 import Link from "@/ui/Link";
@@ -37,6 +38,7 @@ export function getChecklistItems({
   experiment,
   linkedFeatures,
   visualChangesets,
+  urlRedirects = [],
   connections,
   editTargeting,
   openSetupTab,
@@ -52,6 +54,7 @@ export function getChecklistItems({
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
+  urlRedirects?: URLRedirectInterface[];
   connections: SDKConnectionInterface[];
   editTargeting?: (() => void) | null;
   openSetupTab?: () => void;
@@ -424,6 +427,45 @@ export function getChecklistItems({
         ? "An SDK Connection exists, but it has not been verified to be working yet"
         : undefined,
   });
+
+  // A valid project SDK connection isn't enough for visual/redirect changes —
+  // the connection must also opt into that change type. Surface these as their
+  // own steps so a customer with a working connection isn't confused by the
+  // generic "add an SDK Connection" step above.
+  const hasAnyVisualChanges = visualChangesets.some((vc) =>
+    hasVisualChanges(vc.visualChanges),
+  );
+  if (hasAnyVisualChanges) {
+    items.push({
+      type: "auto",
+      status: connections.some((c) => c.includeVisualExperiments)
+        ? "complete"
+        : "incomplete",
+      display: (
+        <>
+          Enable Visual Experiments on a compatible SDK Connection for this
+          project <Link href="/sdks">Manage SDK Connections</Link>
+        </>
+      ),
+      required: true,
+    });
+  }
+
+  if (urlRedirects.length > 0) {
+    items.push({
+      type: "auto",
+      status: connections.some((c) => c.includeRedirectExperiments)
+        ? "complete"
+        : "incomplete",
+      display: (
+        <>
+          Enable URL Redirects on a compatible SDK Connection for this project{" "}
+          <Link href="/sdks">Manage SDK Connections</Link>
+        </>
+      ),
+      required: true,
+    });
+  }
 
   if (checklist?.tasks?.length) {
     checklist.tasks.forEach((item) => {
