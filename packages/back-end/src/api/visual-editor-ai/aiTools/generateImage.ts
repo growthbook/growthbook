@@ -7,6 +7,7 @@ import { optimizeAIImage } from "back-end/src/services/imageOptimization";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { generateImages } from "back-end/src/services/imageGeneration";
 import { updateTokenUsage } from "back-end/src/models/AITokenUsageModel";
+import { trackAIUsage } from "back-end/src/services/growthbook";
 import { logger } from "back-end/src/util/logger";
 import type { ApiReqContext } from "back-end/types/api";
 
@@ -92,6 +93,18 @@ export function generateImageTool(toolCtx: GenerateImageToolContext) {
             error: "Image generation returned no images.",
           } as const;
         }
+
+        // Reported for every org whichever key paid — see postAIImageGen.ts.
+        trackAIUsage({
+          organizationId: org.id,
+          userId: context.userId,
+          type: "visual-editor-ai-image-gen",
+          model: visualEditorImageModel,
+          provider: imageProvider,
+          numCompletionTokensUsed: IMAGE_GEN_TOKEN_COST_PER_IMAGE,
+          usedDefaultPrompt: !visualEditorAIContext,
+          usedOwnKey: usesOwnImageKey,
+        });
 
         // Bill before upload — provider already charged us; upload failure
         // is a back-end problem, not the user's.

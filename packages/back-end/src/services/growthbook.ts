@@ -1,8 +1,10 @@
+import { createHash } from "crypto";
 import { GrowthBookClient, setPolyfills } from "@growthbook/growthbook";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { EventSource } from "eventsource";
 import { NextFunction, Request, Response } from "express";
 import { AppFeatures } from "shared/types/app-features";
+import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -118,6 +120,7 @@ export function getGrowthBookTrackingAttributes(
 }
 
 const EVENT_REQUEST_COMPLETED = "Request Completed";
+const EVENT_AI_USAGE = "AI Usage";
 
 export function parseContentLength(
   value: string | undefined,
@@ -185,6 +188,74 @@ export function trackRequestCompletion(
   res.on("finish", onComplete);
   res.on("close", onComplete);
   next();
+}
+
+/**
+ * Logs one AI call for analytics. Reported for every org on Cloud, whichever
+ * key paid for it — `usedOwnKey` is what separates traffic the org funded with
+ * a provider key it stored in GrowthBook from traffic on GrowthBook's managed
+ * keys. Only the latter is metered against the daily cap, so without the flag
+ * the event stream can't be reconciled against the counter.
+ *
+ * Fire and forget, and never throws: analytics must not be able to fail an AI
+ * request. Called from service functions that only have a `context`, so it
+ * builds its own scoped instance rather than using `req.gb` — the attributes
+ * are a deliberate subset of what the auth middleware sets, enough to attribute
+ * the event to an org and user.
+ */
+function hashOrganizationId(orgId: string): string {
+  if (!orgId) return "";
+  return createHash("sha256")
+    .update(GROWTHBOOK_SECURE_ATTRIBUTE_SALT + orgId)
+    .digest("hex");
+}
+
+export function trackAIUsage({
+  organizationId,
+  userId,
+  type,
+  model,
+  provider,
+  numPromptTokensUsed,
+  numCompletionTokensUsed,
+  usedDefaultPrompt,
+  usedOwnKey,
+}: {
+  organizationId: string;
+  userId?: string;
+  type: string;
+  model: string;
+  provider?: string;
+  numPromptTokensUsed?: number;
+  numCompletionTokensUsed?: number;
+  usedDefaultPrompt: boolean;
+  usedOwnKey: boolean;
+}): void {
+  try {
+    const client = getGrowthBookClient();
+    if (!client) return;
+
+    const gb = client.createScopedInstance({
+      attributes: {
+        id: userId || "",
+        user_id: userId || "",
+        organizationId: hashOrganizationId(organizationId),
+        cloudOrgId: IS_CLOUD ? organizationId : "",
+      },
+    });
+
+    gb.logEvent(EVENT_AI_USAGE, {
+      type,
+      model,
+      provider,
+      numPromptTokensUsed,
+      numCompletionTokensUsed,
+      usedDefaultPrompt,
+      usedOwnKey,
+    });
+  } catch (e) {
+    logger.warn(e, "Failed to log AI usage event");
+  }
 }
 
 function ensureGrowthBookClient(): GrowthBookClient<AppFeatures> | null {

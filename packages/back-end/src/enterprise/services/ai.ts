@@ -45,6 +45,7 @@ import {
   missingAIKeyMessage,
 } from "back-end/src/services/aiCredentials";
 import { logCloudAIUsage } from "back-end/src/services/licenseServerManagedClickhouse";
+import { trackAIUsage } from "back-end/src/services/growthbook";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
 /**
@@ -409,6 +410,18 @@ export const simpleCompletion = async ({
     });
   }
 
+  trackAIUsage({
+    organizationId: context.org.id,
+    userId: context.userId,
+    type,
+    model,
+    provider: getProviderFromModel(model),
+    numPromptTokensUsed: inputTokensUsed,
+    numCompletionTokensUsed: outputTokensUsed,
+    usedDefaultPrompt: isDefaultPrompt,
+    usedOwnKey: ownKey,
+  });
+
   return result;
 };
 
@@ -470,6 +483,18 @@ export const streamingChatCompletion = async ({
         if (numTokensUsed && !ownKey) {
           await updateTokenUsage({ numTokensUsed, organization: context.org });
         }
+
+        trackAIUsage({
+          organizationId: context.org.id,
+          userId: context.userId,
+          type,
+          model,
+          provider: getProviderFromModel(model),
+          numPromptTokensUsed: usage?.inputTokens,
+          numCompletionTokensUsed: usage?.outputTokens,
+          usedDefaultPrompt: isDefaultPrompt,
+          usedOwnKey: ownKey,
+        });
 
         logCloudAIUsage({
           organization: context.org.id,
@@ -727,6 +752,18 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     }
   }
 
+  trackAIUsage({
+    organizationId: context.org.id,
+    userId: context.userId,
+    type,
+    model,
+    provider: getProviderFromModel(model),
+    numPromptTokensUsed: response.usage?.inputTokens,
+    numCompletionTokensUsed: response.usage?.outputTokens,
+    usedDefaultPrompt: isDefaultPrompt,
+    usedOwnKey: ownKey,
+  });
+
   if (IS_CLOUD) {
     // Fire and forget
     logCloudAIUsage({
@@ -777,6 +814,7 @@ export async function generateEmbeddings({
     mistralAPIKey,
     googleAPIKey,
     embeddingModel,
+    keySource,
   } = await getAISettingsForOrg(context, true);
 
   if (!aiEnabled) {
@@ -818,6 +856,7 @@ export async function generateEmbeddings({
 
     // Generate embeddings for each input string
     const embeddings: number[][] = [];
+    let numTokensUsed = 0;
 
     for (const text of input) {
       const result = await embed({
@@ -825,8 +864,25 @@ export async function generateEmbeddings({
         value: text,
       });
 
+      numTokensUsed += result.usage?.tokens ?? 0;
       embeddings.push(result.embedding);
     }
+
+    // One event per batch — a batch is one logical operation. Counted as prompt
+    // tokens: embeddings consume input and return vectors, not completions.
+    // Still not metered against the daily cap; they never were, and starting now
+    // would silently shrink every managed-key org's text budget.
+    trackAIUsage({
+      organizationId: context.org.id,
+      userId: context.userId,
+      type: "generate-embeddings",
+      model: embeddingModel,
+      provider,
+      numPromptTokensUsed: numTokensUsed,
+      // No prompt template exists for embeddings, so nothing was customized.
+      usedDefaultPrompt: true,
+      usedOwnKey: keySource[provider] === "organization",
+    });
 
     return embeddings;
   } catch (error) {

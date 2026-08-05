@@ -9,6 +9,7 @@ import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { generateImages } from "back-end/src/services/imageGeneration";
 import { secondsUntilAICanBeUsedAgainForProvider } from "back-end/src/enterprise/services/ai";
 import { updateTokenUsage } from "back-end/src/models/AITokenUsageModel";
+import { trackAIUsage } from "back-end/src/services/growthbook";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 import { requireUserAuth } from "./requireUserAuth";
@@ -155,6 +156,25 @@ export const postAIImageGen = createApiRequestHandler(validation)(async (
   // even if upload fails. Awaited so the quota counter is decremented
   // before we return; try/catch because a transient billing-DB failure
   // shouldn't surface to the user (worst case: one batch under-counted).
+  if (generated.length > 0) {
+    // Reported for every org whichever key paid. The token figure is the same
+    // cost-equivalent the cap uses, as completion tokens — the images are what
+    // was generated.
+    trackAIUsage({
+      organizationId: org.id,
+      userId: context.userId,
+      type: "visual-editor-ai-image-gen",
+      model: visualEditorImageModel,
+      provider: imageProvider,
+      numCompletionTokensUsed:
+        IMAGE_GEN_TOKEN_COST_PER_IMAGE * generated.length,
+      // Brand guidelines are the only customization on this path.
+      usedDefaultPrompt: !visualEditorAIContext,
+      usedOwnKey: usesOwnImageKey,
+    });
+  }
+
+  // Only charged against the daily cap when GrowthBook is paying.
   if (generated.length > 0 && !usesOwnImageKey) {
     try {
       await updateTokenUsage({
