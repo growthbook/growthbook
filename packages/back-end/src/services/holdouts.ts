@@ -13,6 +13,7 @@ import {
   CreateHoldoutInput,
   HoldoutInterface,
   HoldoutNextScheduledStatusUpdate,
+  SavedGroupTargeting,
 } from "shared/validators";
 import {
   Changeset,
@@ -44,6 +45,7 @@ import {
   validateExperimentData,
   validateVariationIds,
 } from "back-end/src/services/experiments";
+import { validateExperimentChange } from "./experimentChanges/changeExperimentStatus";
 
 export async function canLinkExperimentToHoldoutFromFeatures(
   context: ReqContext | ApiReqContext,
@@ -252,8 +254,8 @@ export async function createHoldoutWithExperiment(
     hypothesis: "",
     goalMetrics: data.goalMetrics || [],
     secondaryMetrics: data.secondaryMetrics || [],
-    guardrailMetrics: [],
-    activationMetric: "",
+    guardrailMetrics: data.guardrailMetrics || [],
+    activationMetric: data.activationMetric || "",
     metricOverrides: [],
     segment: "",
     queryFilter: "",
@@ -560,10 +562,57 @@ export async function setHoldoutStage(
   }
 }
 
-// Delete a holdout along with its underlying experiment, unlink it from its
-// linked features and experiments, and refresh affected SDK payloads. Callers
-// are responsible for experiment-level permission checks; deleting the holdout
-// itself enforces canDeleteHoldout.
+/**
+ * Applies phase-level targeting and sizing changes to a holdout's companion
+ * experiment through the same validate/update path the internal targeting
+ * endpoint uses, so the stored phases and the SDK payload stay correct.
+ * Only the fields that are provided are changed. Callers are responsible for
+ * the `canRunHoldout` permission check.
+ */
+export async function applyHoldoutTargetingChanges(
+  context: ReqContext | ApiReqContext,
+  {
+    experiment,
+    coverage,
+    condition,
+    savedGroups,
+    hashAttribute,
+  }: {
+    experiment: ExperimentInterface;
+    coverage?: number;
+    condition?: string;
+    savedGroups?: SavedGroupTargeting[];
+    hashAttribute?: string;
+  },
+): Promise<ExperimentInterface> {
+  const phases = [...experiment.phases];
+  if (!phases.length) {
+    throw new Error("Holdout does not have a phase to target");
+  }
+
+  const current = phases[phases.length - 1];
+  phases[phases.length - 1] = {
+    ...current,
+    condition: condition ?? current.condition,
+    savedGroups: savedGroups ?? current.savedGroups,
+    coverage: coverage ?? current.coverage,
+  };
+
+  const changes: Changeset = { phases };
+  if (hashAttribute !== undefined) {
+    changes.hashAttribute = hashAttribute;
+  }
+
+  await validateExperimentChange({ context, experiment, changes });
+  return updateExperiment({ context, experiment, changes });
+}
+
+/**
+ * Delete a holdout along with its underlying experiment, unlink it from its
+ * linked features and experiments, and refresh affected SDK payloads. Callers
+ * are responsible for experiment-level permission checks; deleting the holdout
+ * itself enforces canDeleteHoldout.
+ */
 export async function deleteHoldoutAndExperiment(
   context: ReqContext,
   holdout: HoldoutInterface,
