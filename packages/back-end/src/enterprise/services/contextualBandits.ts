@@ -905,7 +905,7 @@ export async function runContextualBanditSnapshot(
   };
 }
 
-export async function cancelContextualBanditSnapshot(
+export async function cancelContextualBanditLatestRunningSnapshot(
   context: ApiReqContext,
   cb: ContextualBanditInterface,
 ): Promise<void> {

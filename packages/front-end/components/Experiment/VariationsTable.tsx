@@ -227,7 +227,7 @@ export function VariationBox({
 }: {
   i: number;
   v: Variation;
-  experiment: ExperimentInterfaceStringDates;
+  experiment: Pick<ExperimentInterfaceStringDates, "id" | "status" | "type">;
   showDescription?: boolean;
   showIds?: boolean;
   showNoImage?: boolean;

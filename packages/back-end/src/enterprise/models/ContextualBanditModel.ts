@@ -32,7 +32,7 @@ import {
   executeContextualBanditStop,
 } from "back-end/src/services/contextualBanditChanges";
 import {
-  cancelContextualBanditSnapshot,
+  cancelContextualBanditLatestRunningSnapshot,
   getContextualBanditLinkedFeatureInfo,
   runContextualBanditSnapshot,
 } from "back-end/src/enterprise/services/contextualBandits";
@@ -164,7 +164,7 @@ const BaseClass = MakeModelClass({
           if (!req.context.permissions.canRunContextualBandit(cb, envs)) {
             req.context.permissions.throwPermissionError();
           }
-          await cancelContextualBanditSnapshot(req.context, cb);
+          await cancelContextualBanditLatestRunningSnapshot(req.context, cb);
           return { status: 200 };
         },
       }),

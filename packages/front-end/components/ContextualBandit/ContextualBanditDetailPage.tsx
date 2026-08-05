@@ -230,12 +230,14 @@ export default function ContextualBanditDetailPage({
     return (match?.weight ?? fallback) * 100;
   };
 
-  const experimentForVariations = useMemo(
-    () =>
-      ({
-        id: cb.id,
-        status: cb.status,
-      }) as unknown as ExperimentInterfaceStringDates,
+  const experimentForVariations = useMemo<
+    Pick<ExperimentInterfaceStringDates, "id" | "status" | "type">
+  >(
+    () => ({
+      id: cb.id,
+      status: cb.status,
+      type: "multi-armed-bandit",
+    }),
     [cb.id, cb.status],
   );
 
