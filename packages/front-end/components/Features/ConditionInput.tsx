@@ -105,8 +105,35 @@ const BASE_OPERATOR: Record<string, string> = {
   $ini: "$in",
   $nini: "$nin",
   $regexi: "$regex",
-  $notRegexi: "$notRegex",
+  $notRegexi: "$notRegexi",
 };
+
+/**
+ * Returns the internal object keys used by `condToJson` for a given operator.
+ * This is used to detect if two conditions on the same attribute will overwrite each other.
+ */
+function getSerializationKeys(operator: string): string[] {
+  if (
+    operator === "$notRegex" ||
+    operator === "$notRegexi" ||
+    operator === "$notIncludes"
+  ) {
+    return ["$not"];
+  }
+  if (operator === "$notExists" || operator === "$exists") {
+    return ["$exists"];
+  }
+  if (operator === "$true" || operator === "$false") {
+    return ["$eq"];
+  }
+  if (operator === "$includes") {
+    return ["$elemMatch"];
+  }
+  if (operator === "$empty" || operator === "$notEmpty") {
+    return ["$size"];
+  }
+  return [operator];
+}
 
 export function operatorSupportsCaseInsensitive(operator: string): boolean {
   return OPERATORS_WITH_CASE_INSENSITIVE.has(operator);
@@ -1024,6 +1051,13 @@ function ConditionAndGroupInput({
         const hasExtraWhitespace =
           displayType === "string" && value !== value.trim();
 
+        const myKeys = getSerializationKeys(operator);
+        const willOverwrite = conds.some((c, index) => {
+          if (index === i || c.field !== field) return false;
+          const theirKeys = getSerializationKeys(c.operator);
+          return myKeys.some((k) => theirKeys.includes(k));
+        });
+
         return [
           ...(i > 0
             ? [
@@ -1306,6 +1340,14 @@ function ConditionAndGroupInput({
               )
             }
           />,
+          willOverwrite && (
+            <HelperText key={`warn-${i}`} status="warning" mt="1">
+              Warning: This condition conflicts with another condition for the
+              same attribute. It will overwrite the previous one in the
+              generated JSON. Use &quot;is any of&quot; or &quot;is none
+              of&quot; for multiple values.
+            </HelperText>
+          ),
         ];
       })}
     </>
