@@ -68,9 +68,6 @@ export default function GroupBySection() {
   >({});
   const latestMaxValuesRef = useRef<Record<number, string>>({});
   const skipBlurCommitRef = useRef(false);
-  // True when the last Values selection/paste exceeded the cap, so the
-  // field can surface that extras were dropped.
-  const [capExceeded, setCapExceeded] = useState<Record<number, boolean>>({});
 
   // Tracks the length these maps were last synced to; Add/Remove update it
   // directly. A mismatch means something outside those handlers reshaped
@@ -85,7 +82,6 @@ export default function GroupBySection() {
     ) {
       setLocalMaxValues({});
       latestMaxValuesRef.current = {};
-      setCapExceeded({});
       expectedDimensionsLengthRef.current = draftExploreState.dimensions.length;
     }
   }, [draftExploreState.dimensions.length]);
@@ -152,7 +148,6 @@ export default function GroupBySection() {
       latestMaxValuesRef.current,
       index,
     );
-    setCapExceeded((prev) => reindexAfterRemoval(prev, index));
     setDraftExploreState((prev) => ({
       ...prev,
       dimensions: prev.dimensions.filter((_, i) => i !== index),
@@ -162,14 +157,10 @@ export default function GroupBySection() {
   // Keeps the breakdown type (a separate choice) but resets values/maxValues,
   // since those were scoped to the previous column.
   const handleColumnChange = (index: number, column: string) => {
-    setCapExceeded((prev) => ({ ...prev, [index]: false }));
     setDraftExploreState((prev) => ({
       ...prev,
       dimensions: prev.dimensions.map((d, i) => {
         if (i !== index || !isGroupByDimension(d)) return d;
-        if (d.dimensionType === "static") {
-          return { dimensionType: "static", column, values: [] };
-        }
         return {
           dimensionType: "dynamic",
           column,
@@ -185,7 +176,6 @@ export default function GroupBySection() {
     index: number,
     dimensionType: GroupByDimension["dimensionType"],
   ) => {
-    setCapExceeded((prev) => ({ ...prev, [index]: false }));
     setDraftExploreState((prev) => ({
       ...prev,
       dimensions: prev.dimensions.map((d, i) => {
@@ -244,12 +234,6 @@ export default function GroupBySection() {
   // breakdown-type selector above, not by pinning/clearing values here.
   const handleValuesChange = (index: number, values: string[]) => {
     const capped = values.slice(0, MAX_PINNED_DIMENSION_VALUES);
-
-    setCapExceeded((prev) => ({
-      ...prev,
-      [index]: values.length > MAX_PINNED_DIMENSION_VALUES,
-    }));
-
     setDraftExploreState((prev) => ({
       ...prev,
       dimensions: prev.dimensions.map((d, i) =>
@@ -444,13 +428,7 @@ export default function GroupBySection() {
                     creatable
                     sort={false}
                     placeholder="Pin specific values..."
-                    helpText={`Pin specific values to break out (max ${MAX_PINNED_DIMENSION_VALUES}).`}
-                    error={
-                      capExceeded[i]
-                        ? `Only the first ${MAX_PINNED_DIMENSION_VALUES} values were kept — the rest were discarded.`
-                        : undefined
-                    }
-                    errorLevel="warning"
+                    helpText={`Select up to ${MAX_PINNED_DIMENSION_VALUES} values.`}
                     showCopyButton={false}
                   />
                 )}
