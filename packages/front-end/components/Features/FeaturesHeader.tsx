@@ -696,7 +696,10 @@ export default function FeaturesHeader({
       )}
       {archiveModal && (
         <FeatureArchiveModal
-          feature={feature}
+          // LIVE state, like the menu label above: the endpoint flips against
+          // live, and handing the revision-projected feature here inverted the
+          // action whenever the viewed draft staged the opposite archive state.
+          feature={baseFeature}
           close={() => setArchiveModal(false)}
           revisionList={revisions}
           mutate={mutate}

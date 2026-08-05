@@ -60,7 +60,12 @@ const EditFeatureInfoModal: FC<{
     return reviewSetting.featureRequireMetadataReview !== false;
   })();
 
-  const canAutoPublish = isAdmin || !metadataGated;
+  // Approval-gating decides whether publish needs review; AUTHORITY decides
+  // whether this user may publish at all. Without the second factor a
+  // draft-only user defaulted into publish mode and 403'd on submit. Metadata
+  // carries no environment footprint, so the project-scoped atom is the rule.
+  const canPublishMetadata = permissionsUtil.canPublishFeature(feature, []);
+  const canAutoPublish = (isAdmin || !metadataGated) && canPublishMetadata;
 
   const { mode: initialMode, defaultDraft } = useDefaultDraftMode(
     revisionList,

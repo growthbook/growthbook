@@ -709,7 +709,13 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       current: current as unknown as Record<string, unknown>,
     }) as Partial<FeatureInterface>;
     if (Object.keys(restore).length) {
-      await updateFeature(context, current, restore);
+      // Guarded on the doc the ownership decision was read from — an unguarded
+      // restore could replace a newer landing arriving after that read. A loss
+      // means someone else owns the doc now; leave-whole (reported published)
+      // beats overwriting them, same as every other reversal failure here.
+      await updateFeature(context, current, restore, {
+        ifUnchangedSince: current.dateUpdated,
+      });
     }
   },
 

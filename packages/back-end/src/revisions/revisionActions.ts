@@ -52,10 +52,13 @@ import { decideScheduledPublishOutcome } from "back-end/src/revisions/publishFai
 import { logger } from "back-end/src/util/logger";
 import {
   assertLandingBaseline,
+  LandingConflictError,
   liveMatchesDesiredState,
   runGuardedWrite,
+  tryRestoreEntityPreImage,
   withBufferedPayloadRefreshes,
 } from "back-end/src/revisions/landingSequence";
+import { CasConflictError } from "back-end/src/models/BaseModel";
 
 // Actions the generic revision controller dispatches to adapter hooks.
 export type RevisionActionKind =
@@ -651,8 +654,6 @@ async function publishRevisionInner(
   // rather than erroring, so stranded drafts self-heal. Mirrors
   // postSavedGroupRevisionPublish.
   if (!hasChanges) {
-    // Runs before the merge so a failure leaves the draft open and retryable.
-    await adapter.beforeNoOpMerge?.(context, entity, revision);
     const merged = await context.models.revisions.merge(
       revision.id,
       context.userId,
@@ -665,6 +666,11 @@ async function publishRevisionInner(
     // existed; verified after the claim, any later change is simply a later
     // change. On drift, unwind the claim and refuse with the same retryable
     // 409 as any lost landing.
+    //
+    // The self-heal replay runs INSIDE the same protected span, after the claim
+    // and the baseline both hold: run before them, its descendant writes (and
+    // their audits and webhooks) survived a claim or baseline failure that then
+    // reopened the draft. Idempotent, and a failure here reopens like any other.
     try {
       await assertLandingBaseline({
         context,
@@ -673,6 +679,7 @@ async function publishRevisionInner(
         baselineDateUpdated:
           (entity as { dateUpdated?: Date }).dateUpdated ?? null,
       });
+      await adapter.beforeNoOpMerge?.(context, entity, revision);
     } catch (e) {
       const reopened = await context.models.revisions
         .reopenAfterFailedApply(
@@ -722,13 +729,38 @@ async function publishRevisionInner(
       }),
     );
   } catch (e) {
-    // Couldn't apply after claiming the merge — roll back to the pre-merge
-    // state so the revision isn't stranded "merged" with the live entity
-    // unchanged. Restores status AND any schedule `merge` scrubbed, so a
-    // fire-time failure holds for the poller's next tick instead of silently
-    // killing the schedule. A retry then re-runs the full publish (and the
-    // no-op self-heal path above if it was partially applied). Best-effort:
-    // surface the original error regardless.
+    // Couldn't apply after claiming the merge. Two very different failures: a
+    // lost race wrote NOTHING (restoring would undo the winner), while a partial
+    // apply — a Config root written before its descendant cascade failed —
+    // leaves live changes a bare reopen would orphan against an open revision.
+    // Restore the entity for real failures; only a clean (or unneeded) restore
+    // may reopen, otherwise live is mid-change and the merged revision stays as
+    // the record of it.
+    const casLost =
+      e instanceof LandingConflictError || e instanceof CasConflictError;
+    const entityRestored =
+      casLost ||
+      (await tryRestoreEntityPreImage({
+        context,
+        entityType: revision.target.type,
+        preImage: entity as Record<string, unknown> & { id: string },
+        persistedKeys: Object.keys(desiredState).filter((k) =>
+          updatableFields.has(k),
+        ),
+        written: desiredState,
+      }));
+    if (!entityRestored) {
+      logger.error(
+        { revisionId: merged.id },
+        "left merged after a failed apply: the live entity could not be restored, so the merged revision stays as the record of the partial change",
+      );
+      throw e;
+    }
+    // Roll back to the pre-merge state so the revision isn't stranded "merged"
+    // with the live entity unchanged. Restores status AND any schedule `merge`
+    // scrubbed, so a fire-time failure holds for the poller's next tick instead
+    // of silently killing the schedule. A retry then re-runs the full publish.
+    // Best-effort: surface the original error regardless.
     try {
       // Guarded on the merge we just wrote, so the read and the undo are one step:
       // if anything touched the revision in between — a concurrent recovery

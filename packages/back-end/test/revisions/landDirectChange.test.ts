@@ -290,20 +290,12 @@ describe("landDirectChange", () => {
       }),
     ).rejects.toThrow("the real failure");
   });
-  it("re-reconciles what the write cascaded to, after restoring the entity", async () => {
+  // The dependent-cascade re-run lives inside the shared restore now (the
+  // adapter's afterRestorePreImage) — at this level the contract is: history is
+  // dropped only when that restore reports CLEAN, and kept when it does not.
+  it("keeps its history when the restore reports unclean", async () => {
     const h = makeContext();
-    const order: string[] = [];
-    tryRestoreEntityPreImage.mockImplementation(async () => {
-      order.push("restore");
-      return true;
-    });
-    const afterRestore = jest.fn(async () => {
-      order.push("re-reconcile");
-    });
-    h.dangerousDeleteByIdBypassPermission.mockImplementation(async () => {
-      order.push("remove-history");
-      return {};
-    });
+    tryRestoreEntityPreImage.mockResolvedValueOnce(false);
 
     await expect(
       landDirectChange({
@@ -313,38 +305,13 @@ describe("landDirectChange", () => {
         patchOps: [],
         bypass: true,
         changes: { value: "after" },
-        afterRestore,
         write: async () => {
           throw new Error("cascade failed");
         },
       }),
     ).rejects.toThrow("cascade failed");
 
-    // Dependents are brought back in line BEFORE the history is dropped, since a
-    // failure to do so means live is still mid-change.
-    expect(order).toEqual(["restore", "re-reconcile", "remove-history"]);
-  });
-
-  it("keeps its history when the dependents cannot be re-reconciled", async () => {
-    const h = makeContext();
-
-    await expect(
-      landDirectChange({
-        context: h.context,
-        entityType: "config",
-        entity,
-        patchOps: [],
-        bypass: true,
-        changes: { value: "after" },
-        afterRestore: async () => {
-          throw new Error("reconcile failed");
-        },
-        write: async () => {
-          throw new Error("cascade failed");
-        },
-      }),
-    ).rejects.toThrow("cascade failed");
-
+    expect(tryRestoreEntityPreImage).toHaveBeenCalled();
     expect(h.dangerousDeleteByIdBypassPermission).not.toHaveBeenCalled();
   });
 
@@ -363,7 +330,6 @@ describe("landDirectChange", () => {
         patchOps: [],
         bypass: true,
         changes: { value: "after" },
-        afterRestore: jest.fn(),
         write: async () => {
           throw new LandingConflictError("constant", entity.id);
         },
@@ -391,7 +357,6 @@ describe("landDirectChange", () => {
         patchOps: [],
         bypass: true,
         changes: { value: "after" },
-        afterRestore: async () => undefined,
         write: jest.fn(),
       }),
     ).rejects.toBeInstanceOf(ConflictError);

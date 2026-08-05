@@ -47,7 +47,10 @@ export default function StaleDetectionModal({
     return !!reviewSetting?.requireReviewOn;
   })();
 
-  const canAutoPublish = isAdmin || !staleGated;
+  // Approval-gating and AUTHORITY are separate factors — see the metadata
+  // modals; without the publish atom a draft-only user defaulted into a 403.
+  const canAutoPublish =
+    (isAdmin || !staleGated) && permissionsUtil.canPublishFeature(feature, []);
 
   const { mode: initialMode, defaultDraft } = useDefaultDraftMode(
     revisionList,

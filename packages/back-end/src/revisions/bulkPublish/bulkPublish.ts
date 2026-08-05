@@ -425,18 +425,6 @@ export async function commitBulkPublish(
     // plan-gated write-path guards so they don't re-judge the mid-commit mix.
     context.bulkPublishApplying = true;
 
-    // No-op items skip applyPrecomputed, so side effects an earlier partial
-    // apply may have left unrun (e.g. a descendant schema cascade) are replayed
-    // here — BEFORE any claim, so a failure leaves every draft open.
-    for (const item of plan.items) {
-      if (item.hasChanges) continue;
-      await getBulkAdapter(item.ref.entityType).prepareNoOpMerge?.(
-        context,
-        item.entityPreImage,
-        item.revision,
-      );
-    }
-
     // Claim all revisions before any live write. A lost CAS race is a 409; any
     // other claim failure is an infra error and propagates as such — after
     // releasing whatever was already claimed.
@@ -479,6 +467,20 @@ export async function commitBulkPublish(
         (item.baseline.entityDateUpdated?.getTime() ?? null)
       ) {
         await abort(claimed, staleConflictError(item.ref));
+      }
+      // The no-op self-heal replay (e.g. a descendant schema cascade an earlier
+      // partial apply left unrun) runs INSIDE the protected span, after this
+      // item's claim and baseline both hold — run before the claims, its writes
+      // survived a claim failure that then reopened every draft. Same ordering
+      // as the single-revision engine; a failure releases all claims.
+      try {
+        await adapter.prepareNoOpMerge?.(
+          context,
+          item.entityPreImage,
+          item.revision,
+        );
+      } catch (e) {
+        await abort(claimed, e);
       }
     }
 

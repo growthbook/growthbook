@@ -293,8 +293,12 @@ export default function ScheduledPublishControl({
     lo: boolean,
     by: boolean,
     persists = schedulePersistsImmediately,
+    // Callers mid-toggle pass their about-to-be-set value: `setArmed` hasn't
+    // committed inside the same handler, so reading state here saw stale
+    // `false` and re-arming an already-dated schedule silently never saved.
+    isArmed = armed,
   ) => {
-    if (armed && d && persists) {
+    if (isArmed && d && persists) {
       void persistSchedule(d, le, lo, by);
     }
   };
@@ -313,7 +317,14 @@ export default function ScheduledPublishControl({
     // "date" mode: keep the controls open while configuring; persist now only
     // if a date is already chosen and the backend will accept it.
     setEditing(true);
-    persistIfReady(date, lockEdits, lockOthers, bypass);
+    persistIfReady(
+      date,
+      lockEdits,
+      lockOthers,
+      bypass,
+      schedulePersistsImmediately,
+      checked,
+    );
   };
 
   const onModeChange = (m: Mode) => {

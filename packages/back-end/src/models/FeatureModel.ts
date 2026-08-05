@@ -1173,11 +1173,14 @@ export async function updateFeature(
     dateUpdated: advancedGuardStamp(options?.ifUnchangedSince),
   };
   // Used only for hooks and linkedExperiment derivation; the post-write
-  // value is re-read from Mongo below.
+  // value is re-read from Mongo below. The holdout $unset is modeled here so
+  // callers can pass the TRUE pre-image — handing hooks a doc with the holdout
+  // pre-stripped hid a holdout-only change from diffing and events.
   const projected = {
     ...feature,
     ...allUpdates,
   };
+  if (options?.unsetHoldout) delete projected.holdout;
 
   // Refresh linkedExperiments if needed
   const linkedExperiments = getLinkedExperiments(projected);
@@ -1901,18 +1904,16 @@ export async function applyRevisionChanges(
   // feature write; the follow-up content write is this landing's own turn, like
   // a config cascade after its guarded root write.
   if (removeHoldout) {
-    // Remove holdout from the feature object so the returned feature is correct
-    const { holdout: _, ...featureWithoutHoldout } = feature;
     // ONE write: the $unset rides the content $set under the same guard. As two
     // writes — even token-chained — the gap between them was a window where a
     // rival publish could land and then be overwritten, and a CAS loss on the
-    // second write stranded the $unset with no rewind registered yet.
-    updated = await updateFeature(
-      context,
-      featureWithoutHoldout as FeatureInterface,
-      changes,
-      { ...guard, unsetHoldout: true },
-    );
+    // second write stranded the $unset with no rewind registered yet. The TRUE
+    // pre-image goes through so hooks and events see the holdout coming off;
+    // updateFeature models the $unset in its own projection.
+    updated = await updateFeature(context, feature, changes, {
+      ...guard,
+      unsetHoldout: true,
+    });
   } else {
     updated = await updateFeature(context, feature, changes, guard);
   }
@@ -3256,9 +3257,6 @@ async function restorePublishedFeatureDoc(
   // mutates `changes` before writing and the read-back normalizes further.
   writtenFeature: FeatureInterface,
 ) {
-  const current = await getFeature(context, preImage.id);
-  if (!current) return;
-
   const { changes } = computeRevisionMergeChanges(
     context,
     preImage,
@@ -3273,19 +3271,36 @@ async function restorePublishedFeatureDoc(
     // listing experiments whose own back-reference the rewind just removed.
     "linkedExperiments",
   ]);
-  // A holdout removal lands via removeHoldoutFromFeature rather than `changes`,
+  // A holdout removal lands via the same write's $unset rather than `changes`,
   // so name the key explicitly whenever this publish transitioned it.
   if (result.holdout !== undefined) restoreKeys.add("holdout");
 
-  const restore = ownedRestoreValues({
-    keys: restoreKeys,
-    preImage: preImage as unknown as Record<string, unknown>,
-    written: writtenFeature as unknown as Record<string, unknown>,
-    current: current as unknown as Record<string, unknown>,
-  }) as Partial<FeatureInterface>;
+  // Read-decide-write under guard, retried — the feature twin of the generic
+  // restore in landingSequence: an unguarded restore could replace a newer
+  // publish landing between the ownership read and the write. On a loss,
+  // re-read and re-decide; the newer landing's keys drop out by value.
+  const maxAttempts = 3;
+  for (let attempt = 1; ; attempt++) {
+    const current = await getFeature(context, preImage.id);
+    if (!current) return;
 
-  if (Object.keys(restore).length) {
-    await updateFeature(context, current, restore);
+    const restore = ownedRestoreValues({
+      keys: restoreKeys,
+      preImage: preImage as unknown as Record<string, unknown>,
+      written: writtenFeature as unknown as Record<string, unknown>,
+      current: current as unknown as Record<string, unknown>,
+    }) as Partial<FeatureInterface>;
+
+    if (!Object.keys(restore).length) return;
+    try {
+      await updateFeature(context, current, restore, {
+        ifUnchangedSince: current.dateUpdated,
+      });
+      return;
+    } catch (e) {
+      if (e instanceof CasConflictError && attempt < maxAttempts) continue;
+      throw e;
+    }
   }
 }
 

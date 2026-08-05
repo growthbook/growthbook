@@ -367,6 +367,21 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     return Object.keys(normalizedChanges);
   },
 
+  async afterRestorePreImage(context, entity, restoredKeys) {
+    // A restore that put back schema or lineage must bring descendants back in
+    // line with the restored root — the failed cascade may have reconciled them
+    // against the value that was just rolled back. Idempotent, so re-running is
+    // safe; keys that never made it into the restore need nothing (either the
+    // cascade never ran, or a rival owns the root and its own apply reconciled).
+    if (
+      restoredKeys.some(
+        (k) => k === "schema" || k === "parent" || k === "extends",
+      )
+    ) {
+      await reconcileConfigDescendants(context, entity.key);
+    }
+  },
+
   // Self-heal path: a retry after applyChanges wrote the root but failed before
   // (or during) the descendant cascade arrives here with no net change, so
   // applyChanges — and its cascade — would never run. Replay the reconcile

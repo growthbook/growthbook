@@ -184,6 +184,15 @@ export async function restoreEntityPreImage({
             guarded: true,
           }),
       });
+      // Dependents the failed cascade already touched answer to the restored
+      // root, not the one that was rolled back — the adapter re-runs its own
+      // cascade when the restored keys call for it. An EMPTY restore means a
+      // rival owns the root, and the rival's own apply reconciled dependents to
+      // it; re-running here would act on state that isn't ours.
+      const restoredKeys = Object.keys(restore);
+      if (restoredKeys.length) {
+        await adapter.afterRestorePreImage?.(context, current, restoredKeys);
+      }
       return;
     } catch (e) {
       if (e instanceof CasConflictError && attempt < maxAttempts) continue;

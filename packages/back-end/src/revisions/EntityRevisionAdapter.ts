@@ -184,6 +184,20 @@ export interface EntityRevisionAdapter<
   // config field stripped as owned by an ancestor). Bulk compensation restores
   // ONLY these keys, so a field the write dropped is never rolled back over a
   // concurrent writer's value. Single-entity callers ignore the return.
+  /**
+   * Re-run whatever `applyChanges` cascades to, after a compensation restored
+   * the fields named in `restoredKeys`. Restoring the entity's own document does
+   * not un-touch dependents a partially failed cascade already wrote — Config
+   * descendants reconciled against a root that has since been put back. Invoked
+   * by the shared restore, so every compensation path (single, bulk, direct)
+   * repairs the same way. Omit when nothing cascades.
+   */
+  afterRestorePreImage?(
+    context: Context,
+    entity: TSnapshot,
+    restoredKeys: string[],
+  ): Promise<void>;
+
   applyChanges(
     context: Context,
     entity: TSnapshot,

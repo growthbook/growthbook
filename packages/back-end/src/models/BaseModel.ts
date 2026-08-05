@@ -725,6 +725,13 @@ export abstract class BaseModel<
     existing: z.infer<T>,
     updates: PKeyUpdateProps<T, PKey, PK>,
     writeOptions?: WriteOptions,
+    options?: {
+      // Skip the canUpdate gate, for orchestration writes whose authority the
+      // calling flow already established under a different rule — e.g. a Config
+      // scoped-overrides commit, which takes publish authority rather than
+      // manage. Same contract as updateWithCas's flag.
+      dangerouslyBypassCanUpdate?: boolean;
+    },
   ): Promise<z.infer<T>> {
     if (!this.hasPremiumFeature()) {
       throw new Error(
@@ -735,6 +742,7 @@ export abstract class BaseModel<
     return this._updateOne(existing, updates, {
       writeOptions,
       guard: { dateUpdated: stamp === undefined ? { $exists: false } : stamp },
+      forceCanUpdate: options?.dangerouslyBypassCanUpdate,
     });
   }
   public async dangerousUpdateBypassPermission(

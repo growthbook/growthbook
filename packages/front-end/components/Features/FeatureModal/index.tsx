@@ -606,7 +606,10 @@ export default function FeatureModal({
             canEnableEnvironment={(environmentId) =>
               canEnableEnvironmentOnCreate(
                 permissionsUtil,
-                project,
+                // The FORM's project — the one the created flag will carry and
+                // the one the endpoint judges — not the workspace filter, which
+                // can differ once the user picks a project in the modal.
+                selectedProject,
                 environmentId,
               )
             }

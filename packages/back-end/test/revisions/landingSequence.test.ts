@@ -2,11 +2,13 @@ import { ConflictError } from "back-end/src/util/errors";
 
 const getById = jest.fn();
 const applyChanges = jest.fn();
+const afterRestorePreImage = jest.fn();
 
 jest.mock("back-end/src/revisions", () => ({
   getAdapter: () => ({
     getModel: () => ({ getById }),
     applyChanges,
+    afterRestorePreImage,
   }),
 }));
 
@@ -46,6 +48,7 @@ function contextWithLatestMerged(latestId: string | null): Context {
 beforeEach(() => {
   getById.mockReset();
   applyChanges.mockReset();
+  afterRestorePreImage.mockReset();
 });
 
 describe("assertLandingBaseline", () => {
@@ -160,6 +163,43 @@ describe("restoreEntityPreImage", () => {
       // write could replace a newer landing arriving after the ownership read.
       { isRevert: true, guarded: true },
     );
+  });
+
+  it("re-runs the adapter's cascade with the keys it restored", async () => {
+    getById.mockResolvedValue({ id: "const_1", value: "after" });
+    applyChanges.mockResolvedValue(["value"]);
+
+    await restoreEntityPreImage({
+      context,
+      entityType: "constant",
+      preImage,
+      persistedKeys: ["value"],
+      written: { value: "after" },
+    });
+
+    // Dependents the failed cascade touched answer to the restored root — the
+    // adapter decides from the restored keys whether its cascade must re-run.
+    expect(afterRestorePreImage).toHaveBeenCalledWith(
+      context,
+      expect.objectContaining({ id: "const_1" }),
+      ["value"],
+    );
+  });
+
+  it("skips the cascade when nothing was ours to restore", async () => {
+    // A later writer owns the key: the restore is a no-op, and re-running the
+    // cascade would act on state the rival's own apply already reconciled.
+    getById.mockResolvedValue({ id: "const_1", value: "someone-elses" });
+
+    await restoreEntityPreImage({
+      context,
+      entityType: "constant",
+      preImage,
+      persistedKeys: ["value"],
+      written: { value: "after" },
+    });
+
+    expect(afterRestorePreImage).not.toHaveBeenCalled();
   });
 
   it("re-decides ownership and retries when the restore loses its race", async () => {

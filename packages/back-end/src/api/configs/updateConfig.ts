@@ -179,7 +179,9 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     // revision flow (matches the internal PUT /configs/:id/scoped-overrides).
     // Validate now, but DEFER the write until the rest of the request has
     // passed its gates, so a later rejection doesn't leave a half-applied mix.
-    let commitScopedOverrides: (() => Promise<void>) | null = null;
+    let commitScopedOverrides:
+      | (() => Promise<Partial<ConfigInterface>>)
+      | null = null;
     if (
       req.body.scopedOverrides !== undefined &&
       !isEqual(req.body.scopedOverrides, config.scopedOverrides ?? [])
@@ -222,9 +224,18 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         nextOverrides,
       );
       commitScopedOverrides = async () => {
-        await req.context.models.configs.dangerousUpdateBypassPermission(
-          config,
-          { scopedOverrides: nextOverrides },
+        // Guarded on the handler-entry read, so two combined requests cannot
+        // SPLICE — one request's overrides landing with the other's value while
+        // both report success. The loser 409s here before committing anything.
+        // canUpdate is bypassed because this write's authority is the publish
+        // check above, not manage.
+        const written = await runGuardedWrite("config", config.id, () =>
+          req.context.models.configs.updateIfUnchanged(
+            config,
+            { scopedOverrides: nextOverrides },
+            undefined,
+            { dangerouslyBypassCanUpdate: true },
+          ),
         );
         await syncScopedConfigMarkers(
           req.context,
@@ -232,6 +243,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
           config.scopedOverrides ?? [],
           nextOverrides,
         );
+        return written;
       };
     }
     // Fold validation rules into the schema to persist:
@@ -348,12 +360,13 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
 
     if (Object.keys(fieldsToUpdate).length === 0) {
       // No value change to fail, so the deferred writes are atomic on their own.
-      await commitScopedOverrides?.();
+      const committedOverrides = (await commitScopedOverrides?.()) ?? {};
       const guardFields = await commitGuardToggle();
       return {
         config: await resolveOwnerEmail(
           req.context.models.configs.toApiInterface({
             ...config,
+            ...committedOverrides,
             ...guardFields,
           }),
           req.context,
@@ -560,13 +573,10 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       // Marks a skipped approval requirement; an org without one skips nothing.
       bypass: approvalRequired,
       // The root write and the descendant cascade are two steps, so a failure
-      // in the second one has a partial change to put back — and descendants the
-      // failed cascade already reconciled have to be brought back in line with
-      // the restored root, which restoring the root alone does not do.
+      // in the second one has a partial change to put back. Descendants the
+      // failed cascade already reconciled are re-run by the config adapter's
+      // afterRestorePreImage, invoked from the shared restore.
       changes: fieldsToUpdate as Record<string, unknown>,
-      afterRestore: needsDescendantReconcile
-        ? () => reconcileConfigDescendants(req.context, config.key)
-        : undefined,
       write: async () => {
         // Guarded on the SAME pre-image the landing was re-based onto: the
         // overrides commit advanced the config's token, so guarding on the
