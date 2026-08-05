@@ -327,7 +327,7 @@ export async function getExperimentStartChecklistStatus(
         status: "incomplete",
         manual: false,
         hardBlock: true,
-        reason: `The draft for linked feature ${f.feature.id} contains changes unrelated to this experiment. Publish it from the feature page before starting.`,
+        reason: `Remove unrelated changes to the experiment in linked feature ${f.feature.id} to auto-publish or manually publish the draft.`,
       });
     });
 
