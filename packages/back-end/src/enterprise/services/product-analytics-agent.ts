@@ -20,6 +20,7 @@ import {
   getIsRatioByIndex,
   buildExplorationColumns,
   getExplorationCellValue,
+  getAvailableDimensionColumns,
 } from "shared/enterprise";
 import type { ReqContext } from "back-end/types/request";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
@@ -764,6 +765,63 @@ async function normalizeConfigForExplorer(
   const metricById = new Map(referencedMetrics.map((m) => [m.id, m]));
   const getFactMetricByIdResolver = (id: string) => metricById.get(id) ?? null;
 
+  // Drop any static/dynamic dimension whose column doesn't resolve for this
+  // dataset — a hallucinated column, one deleted since, or (for a ratio
+  // metric) one the denominator's fact table can't share with the numerator.
+  // Uses the same shared resolvability logic as the front-end's dimension
+  // picker, so the agent can never author what a user couldn't have picked.
+  if (
+    dims.some(
+      (d) => d.dimensionType === "static" || d.dimensionType === "dynamic",
+    )
+  ) {
+    const dimensionFactTableIds = new Set<string>();
+    if (dataset.type === "fact_table") {
+      if (dataset.factTableId) dimensionFactTableIds.add(dataset.factTableId);
+    } else if (dataset.type === "metric") {
+      referencedMetrics.forEach((m) => {
+        if (m.numerator.factTableId) {
+          dimensionFactTableIds.add(m.numerator.factTableId);
+        }
+        if (m.denominator?.factTableId) {
+          dimensionFactTableIds.add(m.denominator.factTableId);
+        }
+      });
+    } else if (dataset.type === "funnel") {
+      const initialStepFactTable = dataset.steps[0]?.factTable;
+      if (initialStepFactTable) dimensionFactTableIds.add(initialStepFactTable);
+    }
+
+    const dimensionFactTableIdList = Array.from(dimensionFactTableIds);
+    const dimensionFactTables = await Promise.all(
+      dimensionFactTableIdList.map((id) => getFactTable(ctx, id)),
+    );
+    const dimensionFtById = new Map(
+      dimensionFactTableIdList.map((id, i) => [id, dimensionFactTables[i]]),
+    );
+    const availableDimensionColumns = getAvailableDimensionColumns(
+      dataset,
+      (id) => dimensionFtById.get(id) ?? null,
+      getFactMetricByIdResolver,
+    );
+
+    const invalidDims = dims.filter(
+      (d) =>
+        (d.dimensionType === "static" || d.dimensionType === "dynamic") &&
+        d.column !== null &&
+        !availableDimensionColumns.some((c) => c.column === d.column),
+    );
+    if (invalidDims.length) {
+      const invalidDimSet = new Set(invalidDims);
+      dims = dims.filter((d) => !invalidDimSet.has(d));
+      warnings.push(
+        `Removed ${invalidDims.length} dimension(s) referencing a column that isn't valid for this dataset (unknown, deleted, or — for a ratio metric — not shared between the numerator and denominator fact tables): ${invalidDims
+          .map((d) => `"${"column" in d ? d.column : ""}"`)
+          .join(", ")}.`,
+      );
+    }
+  }
+
   // Backfill missing units for metric values so the SQL layer emits a
   // denominator and per_unit rendering works. The agent often omits `unit`
   // even when it should be set; default to the numerator fact table's primary
@@ -963,7 +1021,6 @@ async function executeGetAvailableColumns(
       const { metricIds } = input;
       if (!metricIds?.length) return "metricIds is required for metric source.";
       const metrics = await ctx.models.factMetrics.getByIds(metricIds);
-      let columns: FactTableInterface["columns"] | null = null;
       let userIdTypes: string[] = [];
       const metricUnitInfo: {
         metricId: string;
@@ -971,17 +1028,23 @@ async function executeGetAvailableColumns(
         needsUnit: boolean;
       }[] = [];
 
+      // Fetch both sides of every metric — a ratio metric's denominator can
+      // live on a different fact table than its numerator, and columns must
+      // resolve on both to be valid group-by candidates.
       const ftIds = [
         ...new Set(
-          metrics
-            .map((m) => m.numerator.factTableId)
-            .filter((id): id is string => !!id),
+          metrics.flatMap((m) =>
+            [m.numerator.factTableId, m.denominator?.factTableId].filter(
+              (id): id is string => !!id,
+            ),
+          ),
         ),
       ];
       const factTables = await Promise.all(
         ftIds.map((id) => getFactTable(ctx, id)),
       );
       const ftMap = new Map(ftIds.map((id, i) => [id, factTables[i]] as const));
+      const metricMap = new Map(metrics.map((m) => [m.id, m]));
 
       for (const m of metrics) {
         const needsUnit =
@@ -997,23 +1060,37 @@ async function executeGetAvailableColumns(
           needsUnit,
         });
 
-        if (!m.numerator.factTableId) continue;
-        const ft = ftMap.get(m.numerator.factTableId) ?? null;
+        const ft = m.numerator.factTableId
+          ? (ftMap.get(m.numerator.factTableId) ?? null)
+          : null;
         if (!userIdTypes.length && ft?.userIdTypes?.length) {
           userIdTypes = ft.userIdTypes;
         }
-        const ftCols = (ft?.columns ?? []).filter((c) => !c.deleted);
-        if (columns === null) {
-          columns = ftCols;
-        } else {
-          const nameSet = new Set(ftCols.map((c) => c.column));
-          columns = columns.filter((c) => nameSet.has(c.column));
-        }
       }
 
-      const result = (columns ?? [])
-        .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column))
-        .map((c) => ({ column: c.column, name: c.name, datatype: c.datatype }));
+      // Single source of truth shared with the front-end Explorer's dimension
+      // picker — only offers columns (including nested JSON paths) resolvable
+      // on every referenced metric's fact table(s), denominator included.
+      const availableColumns = getAvailableDimensionColumns(
+        {
+          type: "metric",
+          values: metricIds.map((metricId) => ({
+            type: "metric" as const,
+            name: metricId,
+            rowFilters: [],
+            metricId,
+            unit: null,
+            denominatorUnit: null,
+          })),
+        },
+        (id) => ftMap.get(id) ?? null,
+        (id) => metricMap.get(id) ?? null,
+      );
+      const result = availableColumns.map((c) => ({
+        column: c.column,
+        name: c.name,
+        datatype: "string" as const,
+      }));
 
       const unitNote = userIdTypes.length
         ? `For metrics where needsUnit=true, set unit to one of userIdTypes (default: "${userIdTypes[0]}"). For others, set unit to null.`
