@@ -29,7 +29,9 @@ import {
   getDateGranularity,
   mapDatabaseTypeToEnum,
   getMetricMixClass,
+  getAvailableDimensionColumns,
 } from "shared/enterprise";
+import type { DimensionFactTable } from "shared/enterprise";
 export {
   getMetricMixClass,
   getEffectiveShowAs,
@@ -458,110 +460,52 @@ export function createEmptyDataset(type: DatasetType): ExplorationDataset {
   }
 }
 
+// `getFactTableById` must resolve to FULL fact table data (real `jsonFields`)
+// for nested JSON group-by columns and cross-table ratio-metric denominator
+// checks to work — see useFullFactTablesByIds. The org-wide slim definitions
+// getter from useDefinitions() silently under-reports JSON sub-fields.
 export function getCommonColumns(
   dataset: ExplorationDataset | null,
-  getFactTableById: (id: string) => FactTableDefinition | null,
+  getFactTableById: (id: string) => DimensionFactTable | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): Pick<ColumnInterface, "column" | "name">[] {
-  if (!dataset) return [];
-  // Funnels use first-touch dimensions on the initial step's fact table,
-  // so the candidate columns come from that one fact table — even when
-  // later steps reference different fact tables.
-  if (dataset.type !== "funnel") {
-    if (!dataset.values || dataset.values.length === 0) return [];
-  } else {
-    if (!dataset.steps || dataset.steps.length === 0) return [];
-  }
+  return getAvailableDimensionColumns(
+    dataset,
+    getFactTableById,
+    getFactMetricById,
+  );
+}
 
-  type SimpleColumn = Pick<
-    ColumnInterface,
-    "column" | "name" | "deleted" | "datatype" | "jsonFields"
-  >;
-  let columns: SimpleColumn[] | null = null;
-  const userIdTypes = new Set<string>();
+/** Fact table ids whose FULL column data (real `jsonFields`) is needed to
+ *  compute `getCommonColumns` correctly for this dataset — the numerator and
+ *  denominator fact table(s) of a metric dataset, a fact_table dataset's own
+ *  fact table, or a funnel's initial-step fact table (the only one the
+ *  picker draws candidate columns from). Used to scope a full-fact-table
+ *  fetch (see useFullFactTablesByIds) to just what's relevant. */
+export function getRelevantFactTableIds(
+  dataset: ExplorationDataset | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): string[] {
+  if (!dataset) return [];
+  const ids = new Set<string>();
 
   if (dataset.type === "fact_table") {
-    const ft = getFactTableById(dataset.factTableId || "");
-    columns = ft?.columns || [];
-    ft?.userIdTypes?.forEach((u) => userIdTypes.add(u));
+    if (dataset.factTableId) ids.add(dataset.factTableId);
   } else if (dataset.type === "metric") {
-    for (const value of dataset.values) {
-      const metricId = value.metricId;
-      let valueColumns: SimpleColumn[] = [];
-
-      const factMetric = getFactMetricById(metricId);
-      if (factMetric) {
-        const ft = getFactTableById(
-          getFactMetricPrimaryFactTableId(factMetric),
-        );
-        valueColumns = ft?.columns || [];
-        ft?.userIdTypes?.forEach((u) => userIdTypes.add(u));
-
-        // A ratio metric's denominator can live on a different fact table —
-        // only offer columns both sides can resolve, so a dimension can
-        // never be picked that a group-by query can't evaluate.
-        if (factMetric.denominator?.factTableId) {
-          const denominatorFt = getFactTableById(
-            factMetric.denominator.factTableId,
-          );
-          const denominatorColumnNames = new Set(
-            (denominatorFt?.columns || []).map((c) => c.column),
-          );
-          valueColumns = valueColumns.filter((c) =>
-            denominatorColumnNames.has(c.column),
-          );
-          denominatorFt?.userIdTypes?.forEach((u) => userIdTypes.add(u));
-        }
-      }
-
-      if (columns === null) {
-        columns = valueColumns;
-      } else {
-        // Intersect by column name
-        const valueColumnNames = new Set(valueColumns.map((c) => c.column));
-        columns = columns.filter((c) => valueColumnNames.has(c.column));
-      }
-    }
-  } else if (dataset.type === "data_source") {
-    columns = Object.entries(dataset.columnTypes).map(([name, datatype]) => ({
-      column: name,
-      name,
-      deleted: false,
-      datatype,
-    }));
-  } else if (dataset.type === "funnel") {
-    const initialStep = dataset.steps[0];
-    const ft = initialStep?.factTableId
-      ? getFactTableById(initialStep.factTableId)
-      : null;
-    columns = ft?.columns || [];
-  }
-
-  const groupByColumns: Pick<ColumnInterface, "column" | "name">[] = [];
-  (columns || [])
-    .filter((c) => !c.deleted)
-    .filter((c) => !userIdTypes.has(c.column))
-    .forEach((c) => {
-      // Top-level string columns
-      if (c.datatype === "string") {
-        groupByColumns.push({ column: c.column, name: c.name });
-      }
-      // Nested JSON fields (use dot-notation, matching getColumnExpression)
-      if (c.datatype === "json" && c.jsonFields) {
-        Object.entries(c.jsonFields).forEach(([field, info]) => {
-          if (info.datatype === "string") {
-            groupByColumns.push({
-              column: `${c.column}.${field}`,
-              name: `${c.name || c.column}.${field}`,
-            });
-          }
-        });
+    dataset.values.forEach((value) => {
+      const metric = getFactMetricById(value.metricId);
+      if (!metric) return;
+      if (metric.numerator.factTableId) ids.add(metric.numerator.factTableId);
+      if (metric.denominator?.factTableId) {
+        ids.add(metric.denominator.factTableId);
       }
     });
+  } else if (dataset.type === "funnel") {
+    const initialStep = dataset.steps[0];
+    if (initialStep?.factTable) ids.add(initialStep.factTable);
+  }
 
-  return groupByColumns.sort((a, b) =>
-    (a.name || a.column).localeCompare(b.name || b.column),
-  );
+  return Array.from(ids);
 }
 
 /** Cached top values for a column (not dimension-specific — also usable for
@@ -654,8 +598,16 @@ export function getValidDateGranularities(
  *  Returns a new config with the allowed dimensions (same config object if no changes were made). */
 export function validateDimensions(
   config: ExplorationConfig,
-  getFactTableById: (id: string) => FactTableDefinition | null,
+  getFactTableById: (id: string) => DimensionFactTable | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
+  options?: {
+    // While the relevant fact table(s) haven't finished loading, an empty
+    // column list is inconclusive — don't strip dimensions based on it, or a
+    // dimension picked before data arrived would flash away and back. Once
+    // loaded, an empty list means the dataset genuinely has no valid
+    // group-by column, and dimensions referencing one should be dropped.
+    columnsMayBeIncomplete?: boolean;
+  },
 ): ExplorationConfig {
   const columns = getCommonColumns(
     config.dataset,
@@ -667,7 +619,7 @@ export function validateDimensions(
   let validDimensions = config.dimensions.filter((d) => {
     if (d.dimensionType !== "dynamic" && d.dimensionType !== "static")
       return true;
-    if (columns.length === 0) return true;
+    if (columns.length === 0 && options?.columnsMayBeIncomplete) return true;
     return columns.some((c) => c.column === d.column || d.column === null);
   });
   if (validDimensions.length > maxDims) {
