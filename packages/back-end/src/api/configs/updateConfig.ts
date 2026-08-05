@@ -14,6 +14,7 @@ import {
   undeclaredRuleFieldWarnings,
 } from "shared/util";
 import { landDirectChange } from "back-end/src/revisions/revertActions";
+import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -537,11 +538,13 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         // in the second one has a partial change to put back.
         changes: fieldsToUpdate as Record<string, unknown>,
         write: async () => {
-          const written = await req.context.models.configs.update(
-            config,
-            fieldsToUpdate as Parameters<
-              typeof req.context.models.configs.update
-            >[1],
+          const written = await runGuardedWrite("config", config.id, () =>
+            req.context.models.configs.updateIfUnchanged(
+              config,
+              fieldsToUpdate as Parameters<
+                typeof req.context.models.configs.update
+              >[1],
+            ),
           );
           // A schema/parent change can introduce a field a descendant already
           // declares; cascade "base wins" down the subtree. Inside the write so a

@@ -1,7 +1,7 @@
 import { isEqual } from "lodash";
 import type { RevisionTargetType } from "shared/enterprise";
 import { getAdapter } from "back-end/src/revisions";
-import { Context } from "back-end/src/models/BaseModel";
+import { CasConflictError, Context } from "back-end/src/models/BaseModel";
 import { ConflictError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { displayEntityName } from "back-end/src/revisions/entityNames";
@@ -31,6 +31,30 @@ function landingConflictError(
   return new ConflictError(
     `${displayEntityName(entityType)} "${entityId}" changed while this was being applied — nothing was written; retry`,
   );
+}
+
+/**
+ * Run a landing's entity write, turning a lost CAS race into the same retryable
+ * conflict a failed baseline check produces.
+ *
+ * The guarded write is what actually closes the check/write gap: `assertLandingBaseline`
+ * can only prove the baseline held a moment ago, while the guard proves it still held
+ * at the instant of the write. Callers wrap their write in this so the two failures
+ * are indistinguishable to the client — both mean "nothing was written, retry".
+ */
+export async function runGuardedWrite<T>(
+  entityType: RevisionTargetType,
+  entityId: string,
+  write: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await write();
+  } catch (e) {
+    if (e instanceof CasConflictError) {
+      throw landingConflictError(entityType, entityId);
+    }
+    throw e;
+  }
 }
 
 /**

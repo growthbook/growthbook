@@ -189,9 +189,16 @@ export async function landDirectChange<T>({
   });
 
   let result: T;
+  // Whether the entity write was reached. Compensation is only ever right for a
+  // write that STARTED: the restore decides ownership by comparing live to the
+  // value this landing intended, so running it after a pre-write refusal would
+  // mistake a concurrent landing's identical value for our own and undo it.
+  let writeStarted = false;
   try {
     // Re-checked now that this landing has a place in the order: still the newest
-    // merged revision, and the entity still untouched since the baseline.
+    // merged revision, and the entity still untouched since the baseline. The
+    // write itself is guarded on the same baseline, so the gap between this check
+    // and that write is not a window a concurrent landing can slip through.
     await assertLandingBaseline({
       context,
       entityType,
@@ -199,21 +206,23 @@ export async function landDirectChange<T>({
       baselineDateUpdated,
       requireLatestMergedId: merged.id,
     });
+    writeStarted = true;
     result = await write();
   } catch (e) {
     // Live state first: an unrecorded partial change is the one outcome no retry
     // can repair, so the merged revision is only removed once live is back where
     // it started. When it can't be, the revision is KEPT as the record of what
     // actually happened, and the original failure still surfaces.
-    const restored = changes
-      ? await tryRestoreEntityPreImage({
-          context,
-          entityType,
-          preImage: entity,
-          persistedKeys: Object.keys(changes),
-          written: changes,
-        })
-      : true;
+    const restored =
+      changes && writeStarted
+        ? await tryRestoreEntityPreImage({
+            context,
+            entityType,
+            preImage: entity,
+            persistedKeys: Object.keys(changes),
+            written: changes,
+          })
+        : true;
     if (restored) {
       try {
         // The landing's own authority was established before this point, and the
@@ -268,6 +277,7 @@ export async function applyRevertDirectly({
     write: () =>
       getAdapter(entityType).applyChanges(context, entity, fields, {
         isRevert: true,
+        guarded: true,
       }),
   });
   return merged;

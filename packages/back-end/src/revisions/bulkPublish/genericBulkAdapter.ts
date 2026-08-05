@@ -23,7 +23,10 @@ import {
 import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
 import { displayEntityName } from "back-end/src/revisions/entityNames";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
-import { restoreEntityPreImage } from "back-end/src/revisions/landingSequence";
+import {
+  restoreEntityPreImage,
+  runGuardedWrite,
+} from "back-end/src/revisions/landingSequence";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import { ConflictError, MergeConflictError } from "back-end/src/util/errors";
 import type {
@@ -324,11 +327,19 @@ export function makeGenericBulkAdapter(
       try {
         // The keys the write actually persisted (post updatable-filter and
         // post-normalization) — the exact set compensation may roll back.
-        revision.persistedKeys = await adapter.applyChanges(
-          context,
-          entity,
-          desiredState,
-          { isRevert: !!raw.revertedFrom },
+        // Guarded on the pre-image the plan was computed against. The drift check
+        // before claiming proves nothing about the moment of the write — a single
+        // publish landing in between would otherwise be silently overwritten by
+        // this older plan. A lost race throws, which routes the batch into the
+        // existing compensation path.
+        revision.persistedKeys = await runGuardedWrite(
+          targetType,
+          (entity as { id: string }).id,
+          () =>
+            adapter.applyChanges(context, entity, desiredState, {
+              isRevert: !!raw.revertedFrom,
+              guarded: true,
+            }),
         );
       } finally {
         // The post-apply doc is compensation's ownership baseline — the write

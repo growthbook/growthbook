@@ -1,4 +1,7 @@
-import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import {
+  canEnableEnvironmentOnCreate,
+  NO_ENVIRONMENT_BINDING,
+} from "shared/permissions";
 import { useForm, FormProvider } from "react-hook-form";
 import omit from "lodash/omit";
 import {
@@ -599,6 +602,13 @@ export default function FeatureModal({
 
         <Box className="appbox bg-light" px="4" pt="4" pb="1" mb="3">
           <EnvironmentSelect
+            canEnableEnvironment={(environmentId) =>
+              canEnableEnvironmentOnCreate(
+                permissionsUtil,
+                project,
+                environmentId,
+              )
+            }
             environmentSettings={environmentSettings}
             environments={environments}
             project={selectedProject}

@@ -5,6 +5,7 @@ import { updateSavedGroupValidator } from "shared/validators";
 import { UpdateSavedGroupProps } from "shared/types/saved-group";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import { landDirectChange } from "back-end/src/revisions/revertActions";
+import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -205,7 +206,12 @@ export const updateSavedGroup = createApiRequestHandler(
       bypass: true,
       changes: fieldsToUpdate as Record<string, unknown>,
       write: () =>
-        req.context.models.savedGroups.update(savedGroup, fieldsToUpdate),
+        runGuardedWrite("saved-group", savedGroup.id, () =>
+          req.context.models.savedGroups.updateIfUnchanged(
+            savedGroup,
+            fieldsToUpdate,
+          ),
+        ),
     });
     // Fire the revision-published event so REST-bypass publishes are observable
     // like every other publish path (the revert handler dispatches this too;

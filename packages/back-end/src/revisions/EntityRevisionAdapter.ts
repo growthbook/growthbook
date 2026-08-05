@@ -188,7 +188,11 @@ export interface EntityRevisionAdapter<
     context: Context,
     entity: TSnapshot,
     changes: Record<string, unknown>,
-    options?: { isRevert?: boolean },
+    // `guarded` conditions the entity write on `entity` still being current, so a
+    // landing that lost a race fails (CasConflictError) instead of overwriting the
+    // winner. Every landing passes it; compensation and self-heal writes do not,
+    // because they re-read first and mean to write over what they found.
+    options?: { isRevert?: boolean; guarded?: boolean },
   ): Promise<string[]>;
 
   // Validate that `desiredState` (the changes a merge would apply) can be

@@ -53,6 +53,7 @@ import { logger } from "back-end/src/util/logger";
 import {
   assertLandingBaseline,
   liveMatchesDesiredState,
+  runGuardedWrite,
 } from "back-end/src/revisions/landingSequence";
 
 // Actions the generic revision controller dispatches to adapter hooks.
@@ -296,9 +297,15 @@ async function recoverStrandedMerge({
   }
 
   try {
-    await adapter.applyChanges(context, entity, desiredState, {
-      isRevert: !!revision.revertedFrom,
-    });
+    // Guarded like every other landing: the recheck above proves the baseline held
+    // a moment ago, this proves it still holds at the write. Recovered state is by
+    // definition older, so losing the race must refuse rather than overwrite.
+    await runGuardedWrite(revision.target.type, revision.target.id, () =>
+      adapter.applyChanges(context, entity, desiredState, {
+        isRevert: !!revision.revertedFrom,
+        guarded: true,
+      }),
+    );
   } catch (e) {
     // The marker is a claim, not a record of success. Leaving it behind on a
     // failed apply would make every later retry see it and return without
@@ -635,9 +642,17 @@ export async function publishRevision(
   );
 
   try {
-    await adapter.applyChanges(context, entity, desiredState, {
-      isRevert: !!revision.revertedFrom,
-    });
+    // The claim guards the REVISION; this guards the ENTITY. Without it, two
+    // drafts of the same entity could both pass their own claim and then apply in
+    // either order, leaving live state contradicting the newest merged revision.
+    // A lost race surfaces as the same retryable conflict every other landing
+    // reports, and the compensation below reopens this revision.
+    await runGuardedWrite(revision.target.type, revision.target.id, () =>
+      adapter.applyChanges(context, entity, desiredState, {
+        isRevert: !!revision.revertedFrom,
+        guarded: true,
+      }),
+    );
   } catch (e) {
     // Couldn't apply after claiming the merge — roll back to the pre-merge
     // state so the revision isn't stranded "merged" with the live entity

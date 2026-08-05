@@ -243,7 +243,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     context: Context,
     entity: ConfigInterface,
     changes: Record<string, unknown>,
-    options?: { isRevert?: boolean },
+    options?: { isRevert?: boolean; guarded?: boolean },
   ): Promise<string[]> {
     // Guard asserts are skipped when (a) restoring a pre-image (isRevert — a
     // revert to known-good published state must not be vetoed by guards
@@ -349,7 +349,10 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       );
     }
 
-    await context.models.configs.update(
+    const writeEntity = options?.guarded
+      ? context.models.configs.updateIfUnchanged.bind(context.models.configs)
+      : context.models.configs.update.bind(context.models.configs);
+    await writeEntity(
       entity,
       normalizedChanges as Parameters<typeof context.models.configs.update>[1],
     );

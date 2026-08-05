@@ -246,7 +246,11 @@ export default function RevertModal<T extends RevertableEntity>({
       closeCta="Cancel"
       cta={publishNow ? "Publish Now" : "Create Revert Draft"}
       // Each route has its own authority, so the CTA reflects the one selected.
-      ctaEnabled={publishNow ? canPublishNow : canCreateDraft}
+      // A target matching live has no diff to apply, so the endpoint refuses it —
+      // the modal says so above and the button follows.
+      ctaEnabled={
+        visibleDiffs.length > 0 && (publishNow ? canPublishNow : canCreateDraft)
+      }
       size="lg"
       submit={async () => {
         // Diff the chosen target state against the live entity; only send the

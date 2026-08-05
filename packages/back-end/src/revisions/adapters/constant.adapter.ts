@@ -253,7 +253,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     // raw `@const:` placeholders into the payload). Unlike the saved-group
     // adapter's stale-attribute skip, there's no revert-safe validation to opt
     // out of here — so the flag is accepted for interface conformance only.
-    options?: { isRevert?: boolean },
+    options?: { isRevert?: boolean; guarded?: boolean },
   ): Promise<string[]> {
     void options;
     const filteredChanges = filterUpdatableChanges(
@@ -264,7 +264,12 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
 
     if (Object.keys(filteredChanges).length === 0) return [];
 
-    await context.models.constants.update(
+    const writeEntity = options?.guarded
+      ? context.models.constants.updateIfUnchanged.bind(
+          context.models.constants,
+        )
+      : context.models.constants.update.bind(context.models.constants);
+    await writeEntity(
       entity,
       filteredChanges as Parameters<typeof context.models.constants.update>[1],
     );

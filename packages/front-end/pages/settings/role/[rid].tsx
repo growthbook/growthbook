@@ -29,7 +29,13 @@ const CustomRolePage: FC = () => {
         <Heading as="h1" size="lg" mb="3">
           {rid}
         </Heading>
-        <RoleForm role={role} action={edit ? "editing" : "viewing"} />
+        <RoleForm
+          // Keyed by role: the form seeds its state from `role` once, so navigating
+          // between two custom roles would otherwise show the previous one's edits.
+          key={role.id || String(rid)}
+          role={role}
+          action={edit ? "editing" : "viewing"}
+        />
       </>
     </RoleFormWrapper>
   );

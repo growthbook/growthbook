@@ -27,7 +27,13 @@ const CustomRolePage: FC = () => {
     >
       <>
         <h1 className="pb-3">Duplicate {rid}</h1>
-        <RoleForm role={role} action="creating" />
+        <RoleForm
+          // Keyed by role: the form seeds its state from `role` once, so navigating
+          // between two custom roles would otherwise show the previous one's edits.
+          key={role.id || String(rid)}
+          role={role}
+          action="creating"
+        />
       </>
     </RoleFormWrapper>
   );

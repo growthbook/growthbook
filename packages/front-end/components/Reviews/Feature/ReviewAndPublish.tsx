@@ -1,3 +1,7 @@
+import {
+  NO_ENVIRONMENT_BINDING,
+  holdsFeatureMoveDestination,
+} from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import {
@@ -47,7 +51,6 @@ import {
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { format } from "date-fns";
-import { holdsFeatureMoveDestination } from "shared/permissions";
 import EventUser from "@/components/Avatar/EventUser";
 import { getCurrentUser, useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -697,14 +700,16 @@ export default function ReviewAndPublish({
   // authority also reach a draft that only does what they cover, and either
   // reaches one the caller authored whatever it contains. The client goes on
   // provenance alone; the server re-verifies purity.
-  const draftEnvIds = environments.map((e) => e.id);
+  // Unbound, not every environment: advancing a DRAFT publishes nothing, and the
+  // server asks these two the same way (`featureDraftAuthority`). Scoping them to
+  // all environments hid draft actions from a reverter limited to one.
   const hasRevertAuthority = permissionsUtil.canRevertFeature(
     feature,
-    draftEnvIds,
+    NO_ENVIRONMENT_BINDING,
   );
   const hasDeleteAuthority = permissionsUtil.canDeleteFeature(
     feature,
-    draftEnvIds,
+    NO_ENVIRONMENT_BINDING,
   );
   const authoredDraft =
     (!!userId &&

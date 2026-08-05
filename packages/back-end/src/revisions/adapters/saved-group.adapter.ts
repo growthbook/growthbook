@@ -166,7 +166,7 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
     context: Context,
     entity: SavedGroupInterface,
     changes: Record<string, unknown>,
-    options?: { isRevert?: boolean },
+    options?: { isRevert?: boolean; guarded?: boolean },
   ): Promise<string[]> {
     const filteredChanges = filterUpdatableChanges(
       changes,
@@ -179,7 +179,12 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
     // Reverts restore a previously-published condition as-is; skip the
     // registered-attributes check so an attribute removed/archived since the
     // snapshot was taken doesn't block the revert.
-    await context.models.savedGroups.update(
+    const writeEntity = options?.guarded
+      ? context.models.savedGroups.updateIfUnchanged.bind(
+          context.models.savedGroups,
+        )
+      : context.models.savedGroups.update.bind(context.models.savedGroups);
+    await writeEntity(
       entity,
       filteredChanges as Parameters<
         typeof context.models.savedGroups.update

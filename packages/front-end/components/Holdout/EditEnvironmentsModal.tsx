@@ -77,6 +77,14 @@ const EditEnvironmentsModal = ({
           </Callout>
         )}
         <EnvironmentSelect
+          // A holdout takes publish in the environments it runs in — never
+          // feature-create, which its users may not hold.
+          canEnableEnvironment={(environmentId) =>
+            permissionsUtils.canPublishFeature(
+              { project: experiment.project },
+              [environmentId],
+            )
+          }
           isEditing={true}
           environmentSettings={environmentSettings}
           environments={environments}

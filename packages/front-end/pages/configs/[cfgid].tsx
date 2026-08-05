@@ -3,6 +3,7 @@ import {
   canCommentOnRevisionEntity,
   canDeleteArchivedEntity,
   canLandArchiveToggle,
+  canLandRevertToTarget,
   canPublishRevisionEntity,
   holdsRevisionDestination,
 } from "shared/permissions";
@@ -15,6 +16,7 @@ import {
   Revision,
   applyTopLevelPatchOps,
   getConstantRevisionChange,
+  normalizeProposedChanges,
 } from "shared/enterprise";
 import {
   constantRequiresReview,
@@ -130,6 +132,18 @@ import {
   fieldValueType,
   typeDefault,
 } from "@/components/Configs/fieldSchema";
+
+// The project a restore would leave the entity in: the target's own snapshot with
+// its proposed changes applied, which is exactly what the revert endpoint compares.
+function revertedScopeOf(targetRevision: {
+  target: { snapshot: unknown; proposedChanges: unknown };
+}): { project?: string; projects?: string[] } {
+  const restored = applyTopLevelPatchOps(
+    (targetRevision.target.snapshot ?? {}) as Record<string, unknown>,
+    normalizeProposedChanges(targetRevision.target.proposedChanges),
+  ) as { project?: string; projects?: string[] };
+  return { project: restored.project, projects: restored.projects };
+}
 
 type ResolvedResponse = {
   status: number;
@@ -2306,6 +2320,17 @@ export default function ConfigDetailPage(): React.ReactElement {
         <ConfigRevertModal
           canRevert={canRevertEntity}
           canLandRevert={canRevertLandingEntity}
+          // Recomputed per target: restoring an older snapshot can relocate the
+          // entity, and the destination is judged on the state being restored.
+          canLandRevertForTarget={(t) =>
+            canLandRevertToTarget(
+              permissionsUtil,
+              "config",
+              config,
+              revertedScopeOf(t),
+              configPublishEnvironments(config),
+            )
+          }
           canLandArchive={canLandArchive}
           canDraft={canDraft}
           config={config}

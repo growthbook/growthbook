@@ -312,9 +312,10 @@ type ExtractCrudSchema<
       : DefaultCrudValidators[Action][Slot]
     : DefaultCrudValidators[Action][Slot];
 
-// Thrown by `_updateOne` when a guarded write matches zero docs (the doc
-// changed between read and write). Caught only by `updateWithCas` to retry.
-class CasConflictError extends Error {
+// Thrown by `_updateOne` when a guarded write matches zero docs (the doc changed
+// between read and write). `updateWithCas` catches it to retry; landing paths
+// catch it to refuse, since a landing that lost the race must not be re-applied.
+export class CasConflictError extends Error {
   constructor() {
     super("Compare-and-swap conflict");
     this.name = "CasConflictError";
@@ -686,6 +687,34 @@ export abstract class BaseModel<
       );
     }
     return this._updateOne(existing, updates, { writeOptions });
+  }
+  /**
+   * `update`, conditioned on `existing` still being the current stored doc.
+   *
+   * The ordinary `update` writes whatever the caller computed, whenever it gets
+   * there — so two writers who both read the same doc silently overwrite each
+   * other, last-write-wins. This one fails with `CasConflictError` instead, which
+   * is what a landing wants: the loser must refuse rather than apply state it
+   * computed against a version that no longer exists.
+   *
+   * No baseline argument, deliberately. The guard IS the doc the caller was
+   * handed, so it cannot drift from the state the change was computed against.
+   */
+  public updateIfUnchanged(
+    existing: z.infer<T>,
+    updates: PKeyUpdateProps<T, PKey, PK>,
+    writeOptions?: WriteOptions,
+  ): Promise<z.infer<T>> {
+    if (!this.hasPremiumFeature()) {
+      throw new Error(
+        "Your organization does not have access to this feature.",
+      );
+    }
+    const stamp = (existing as { dateUpdated?: Date }).dateUpdated;
+    return this._updateOne(existing, updates, {
+      writeOptions,
+      guard: { dateUpdated: stamp === undefined ? { $exists: false } : stamp },
+    });
   }
   public async dangerousUpdateBypassPermission(
     existing: z.infer<T>,

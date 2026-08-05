@@ -6,6 +6,7 @@ import {
 } from "shared/validators";
 import { ConstantInterface } from "shared/types/constant";
 import { landDirectChange } from "back-end/src/revisions/revertActions";
+import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -215,7 +216,12 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
         bypass: true,
         changes: fieldsToUpdate as Record<string, unknown>,
         write: () =>
-          req.context.models.constants.update(constant, fieldsToUpdate),
+          runGuardedWrite("constant", constant.id, () =>
+            req.context.models.constants.updateIfUnchanged(
+              constant,
+              fieldsToUpdate,
+            ),
+          ),
       });
       // Fire the revision-published event so REST-bypass publishes are
       // observable like every other publish path (the internal merge path and

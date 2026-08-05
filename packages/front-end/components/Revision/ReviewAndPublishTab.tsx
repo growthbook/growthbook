@@ -1331,7 +1331,10 @@ function ReviewAndPublishRevision<T>({
                 schedulePublishPath={`/revision/${revision.id}/schedule-publish`}
                 toggleAutoPublishPath={`/revision/${revision.id}/toggle-auto-publish`}
                 entityNoun={entityNoun}
-                canEdit={canDraftOrEdit}
+                // Arming a schedule commits a future PUBLISH, and the endpoint
+                // requires publish plus the landing authority for the change —
+                // draft authority alone offered a control the server refuses.
+                canEdit={canPublishOrEdit}
                 canBypassApproval={canBypassApproval}
                 requiresApproval={requiresApproval}
                 autopublishOnApproval={autopublishOnApproval}
