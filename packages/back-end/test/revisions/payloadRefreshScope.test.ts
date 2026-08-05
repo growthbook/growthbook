@@ -8,6 +8,7 @@ import {
   withBufferedPayloadRefreshes,
 } from "back-end/src/revisions/landingSequence";
 import type { Context } from "back-end/src/models/BaseModel";
+import { advancedGuardStamp } from "back-end/src/models/BaseModel";
 
 /**
  * The single-entity half of bulk publish's side-effect batching: a landing's
@@ -94,5 +95,26 @@ describe("flushPayloadRefreshBuffer", () => {
 
     expect(detached.closed).toBe(true);
     expect(context.sdkPayloadRefreshBuffer).toBeNull();
+  });
+});
+
+describe("advancedGuardStamp", () => {
+  it("stamps strictly after the guarded token, even in the same millisecond", () => {
+    const now = new Date();
+    const stamped = advancedGuardStamp(now);
+    expect(stamped.getTime()).toBeGreaterThan(now.getTime());
+  });
+
+  it("stamps strictly after a token from a skewed-forward clock", () => {
+    const future = new Date(Date.now() + 60_000);
+    expect(advancedGuardStamp(future).getTime()).toBeGreaterThan(
+      future.getTime(),
+    );
+  });
+
+  it("stamps wall-clock time when there is no token to advance from", () => {
+    const before = Date.now();
+    const stamped = advancedGuardStamp(undefined);
+    expect(stamped.getTime()).toBeGreaterThanOrEqual(before);
   });
 });
