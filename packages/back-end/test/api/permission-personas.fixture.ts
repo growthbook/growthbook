@@ -70,6 +70,30 @@ export const CUSTOM_ROLES: Role[] = PERSONA_IDS.flatMap((p) => [
   roleFor(p, true),
 ]);
 
+/**
+ * Which personas each revision operation admits — the permission model's expected
+ * behaviour for the operations themselves, as data.
+ *
+ * Two test files read it, and that is the point. `permission-matrix-revision-entities`
+ * drives the real endpoints against it; `permission-prediction-parity` holds the
+ * control-side predictions to the same entries. Neither owns the oracle, so a rule
+ * change has to move one table and both checks follow.
+ */
+export const OPERATION_ORACLE: Record<string, Persona[]> = {
+  create: ["creator", "creatorPublisher", "full"],
+  "open a draft": ["drafter", "editor", "full"],
+  "edit a draft opened by someone else": ["drafter", "editor", "full"],
+  "request review on a draft": ["drafter", "editor", "full"],
+  "land a change directly": ["editor", "full"],
+  archive: ["deleter", "full"],
+  "publish a draft": ["publisher", "creatorPublisher", "editor", "full"],
+  "submit a review verdict": ["reviewer", "full"],
+  "discard a draft": ["drafter", "editor", "full"],
+  "rebase a draft whose base has moved": ["drafter", "editor", "full"],
+  "stage a revert as a draft": ["drafter", "reverter", "editor", "full"],
+  "revert straight to published": ["reverter", "full"],
+};
+
 export function buildOrg(orgId: string): OrganizationInterface {
   return {
     id: orgId,

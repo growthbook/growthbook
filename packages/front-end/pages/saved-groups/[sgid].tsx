@@ -1126,7 +1126,9 @@ export default function EditSavedGroupPage() {
               "saved-group",
               selectedRevision ?? displayRevision ?? null,
               savedGroup,
-              [],
+              // Saved Groups are not partitioned by environment, so the check is
+              // deliberately unbound rather than scoped to an empty list.
+              NO_ENVIRONMENT_BINDING,
             )}
             canBypassApproval={!!canAdminPublish}
             selectRevision={selectFlow}

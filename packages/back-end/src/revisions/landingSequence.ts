@@ -17,9 +17,14 @@ import { applyVerifiedRestore } from "back-end/src/revisions/bulkPublish/verifie
 // can apply in either order and leave live state contradicting the newest merged
 // revision. These are optimistic (application-level) checks, matching the rest of
 // the codebase — no transactions, so DocumentDB/CosmosDB stay supported.
+//
+// Cost: one extra indexed entity read before recording history, plus a read and a
+// latest-merged lookup before the write. The pre-flight read is deliberate rather
+// than folded into the second check — a doomed landing that never becomes history
+// cannot leave phantom history behind if its removal then fails.
 
 /** A landing lost its race. Retryable: nothing was written. */
-export function landingConflictError(
+function landingConflictError(
   entityType: RevisionTargetType,
   entityId: string,
 ): ConflictError {
@@ -98,9 +103,10 @@ export async function restoreEntityPreImage({
   /** The entity as it was before the failed write. */
   preImage: Record<string, unknown> & { id: string };
   /**
-   * The keys the apply reported persisting. Falls back to the intended changes
-   * when the apply threw before reporting: with the value check below, a key it
-   * never wrote is a no-op restore and one it did write still rolls back.
+   * The keys to consider putting back. Callers pass what the apply reported
+   * persisting, or the intended changes when it threw before reporting — the
+   * value check below makes the difference harmless, since a key the apply never
+   * wrote restores to itself.
    */
   persistedKeys: Iterable<string>;
   /** The values the apply intended to write, for the "do we still own it" test. */

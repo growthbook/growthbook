@@ -74,22 +74,34 @@ export function canDoRevisionAction(
   snapshot: Record<string, unknown>,
 ): boolean {
   const adapter = getAdapter(type);
-  // Explicit per action, with publish as the default only for publish itself: an
-  // unmapped action silently resolving to the publish check is how "delete" was
-  // added to a union and quietly asked about publishing instead.
-  const fn =
-    action === "draft"
-      ? adapter.canManageDrafts
-      : action === "review"
-        ? adapter.canReview
-        : action === "revert"
-          ? adapter.canRevert
-          : action === "delete"
-            ? // The ENTITY delete atom. `canDelete` governs discarding revision
-              // DOCUMENTS and is bypass-tier, which is the wrong authority here.
-              adapter.canDeleteEntity
-            : adapter.canPublishRevision;
-  return (fn ?? adapter.canUpdate)(context, snapshot);
+  // Exhaustive on purpose — no default arm. A chain that fell through to the
+  // publish check is how "delete" was added to the backstop's union and quietly
+  // asked about publishing instead; a new action must fail the build rather than
+  // inherit someone else's authority.
+  const hookFor = (a: RevisionActionKind) => {
+    switch (a) {
+      case "draft":
+        return adapter.canManageDrafts;
+      case "review":
+        return adapter.canReview;
+      case "revert":
+        return adapter.canRevert;
+      case "publish":
+        return adapter.canPublishRevision;
+      case "delete":
+        // The ENTITY delete atom. `canDelete` governs discarding revision
+        // DOCUMENTS and is bypass-tier, which is the wrong authority here.
+        return adapter.canDeleteEntity;
+      default: {
+        // A new action reaches here and fails the build. The arms above may
+        // legitimately return undefined (an optional hook falls back to
+        // canUpdate), so the return type alone cannot enforce this.
+        const unhandled: never = a;
+        return unhandled;
+      }
+    }
+  };
+  return (hookFor(action) ?? adapter.canUpdate)(context, snapshot);
 }
 
 // Commenting is participation, not authority over the entity: the addComments

@@ -7,7 +7,12 @@ import {
   RevisionModel,
 } from "shared/permissions";
 import { getRolePermissions } from "back-end/src/util/organization.util";
-import { buildOrg, PERSONA_IDS, Persona } from "./permission-personas.fixture";
+import {
+  buildOrg,
+  OPERATION_ORACLE,
+  PERSONA_IDS,
+  Persona,
+} from "./permission-personas.fixture";
 
 /**
  * Does a CONTROL predict what its ENDPOINT will do?
@@ -26,18 +31,29 @@ import { buildOrg, PERSONA_IDS, Persona } from "./permission-personas.fixture";
  * In-process on purpose. Predictions are pure functions over a `Permissions`
  * instance, so no HTTP is needed, and the assertions cost milliseconds instead of
  * adding hundreds of requests to the slowest suite in the repo.
+ *
+ * COVERAGE, stated so it isn't assumed: this holds the four predictions that have a
+ * matching operation in the oracle — publish, archive, revert-landing, and the move
+ * destination. Four others are unit-tested in
+ * `shared/test/permissions/controlAuthority.test.ts` but have no endpoint case here
+ * to be held against:
+ *
+ *  - `canCommentOnRevisionEntity` and `canDeleteArchivedEntity` — the matrix has no
+ *    comment or permanent-delete case yet. Adding those two cases would extend this
+ *    file to cover them, and is the obvious next step.
+ *  - `holdsFeatureMoveDestination` and `canEnableEnvironmentOnCreate` — Feature Flag
+ *    rules, so their oracle is permission-matrix-features, not this one.
  */
 
 const org = buildOrg("org_prediction_parity");
 
-// The same oracle the endpoint matrix asserts against, for the operations a
-// control predicts. Kept as literals rather than imported so that "endpoint and
-// prediction agree" can't be satisfied by both reading a wrong shared value.
-const ORACLE: Record<string, Persona[]> = {
-  "publish a draft": ["publisher", "creatorPublisher", "editor", "full"],
-  archive: ["deleter", "full"],
-  "revert straight to published": ["reverter", "full"],
-};
+// The operations a control predicts. The expectations come from the shared oracle
+// in the fixture — the same entries `permission-matrix-revision-entities` drives the
+// real endpoints against — so endpoint and prediction are held to one table.
+type PredictedOperation =
+  | "publish a draft"
+  | "archive"
+  | "revert straight to published";
 
 const MODELS: RevisionModel[] = ["constant", "config", "saved-group"];
 
@@ -71,7 +87,8 @@ describe("control predictions match the endpoint oracle", () => {
     describe.each(PERSONA_IDS)("%s", (persona) => {
       // Saved Groups hold the mirrored SavedGroup* atoms, so every persona
       // answers the same way for all three entities.
-      const expected = (op: string) => ORACLE[op].includes(persona);
+      const expected = (op: PredictedOperation) =>
+        OPERATION_ORACLE[op].includes(persona);
 
       it("predicts publishing a draft the same way the endpoint decides it", () => {
         const permissions = permissionsFor(persona, false);

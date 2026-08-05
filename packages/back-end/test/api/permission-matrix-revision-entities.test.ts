@@ -4,6 +4,7 @@ import { setupApp } from "./api.setup";
 import {
   buildOrg,
   makePersonaContext,
+  OPERATION_ORACLE,
   PERSONA_IDS,
   Persona,
 } from "./permission-personas.fixture";
@@ -127,17 +128,17 @@ const CASES: Case[] = [
     // so bringing one into being takes only create authority.
     name: "create",
     envScopedAtom: true,
-    allowed: ["creator", "creatorPublisher", "full"],
+    allowed: OPERATION_ORACLE["create"],
     run: (e) => api.post(`/api/v1/${e.base}`, e.createBody()),
   },
   {
     name: "open a draft",
-    allowed: ["drafter", "editor", "full"],
+    allowed: OPERATION_ORACLE["open a draft"],
     run: (e, id) => api.post(`/api/v1/${e.base}-revisions/${id}`, {}),
   },
   {
     name: "edit a draft opened by someone else",
-    allowed: ["drafter", "editor", "full"],
+    allowed: OPERATION_ORACLE["edit a draft opened by someone else"],
     needsDraft: true,
     run: (e, id, v) =>
       api.put(
@@ -147,7 +148,7 @@ const CASES: Case[] = [
   },
   {
     name: "request review on a draft",
-    allowed: ["drafter", "editor", "full"],
+    allowed: OPERATION_ORACLE["request review on a draft"],
     needsDraft: true,
     run: (e, id, v) =>
       api.post(`/api/v1/${e.base}-revisions/${id}/${v}/request-review`, {}),
@@ -155,26 +156,26 @@ const CASES: Case[] = [
   {
     name: "land a change directly",
     envScopedAtom: true,
-    allowed: ["editor", "full"],
+    allowed: OPERATION_ORACLE["land a change directly"],
     run: (e, id) => api.post(`/api/v1/${e.base}/${id}`, e.renameBody),
   },
   {
     name: "archive",
     envScopedAtom: true,
-    allowed: ["deleter", "full"],
+    allowed: OPERATION_ORACLE["archive"],
     run: (e, id) => api.post(`/api/v1/${e.base}/${id}/archive`, {}),
   },
   {
     name: "publish a draft",
     envScopedAtom: true,
-    allowed: ["publisher", "creatorPublisher", "editor", "full"],
+    allowed: OPERATION_ORACLE["publish a draft"],
     needsEdit: true,
     run: (e, id, v) =>
       api.post(`/api/v1/${e.base}-revisions/${id}/${v}/publish`, {}),
   },
   {
     name: "submit a review verdict",
-    allowed: ["reviewer", "full"],
+    allowed: OPERATION_ORACLE["submit a review verdict"],
     needsReviewRequest: true,
     run: (e, id, v) =>
       api.post(`/api/v1/${e.base}-revisions/${id}/${v}/submit-review`, {
@@ -183,7 +184,7 @@ const CASES: Case[] = [
   },
   {
     name: "discard a draft",
-    allowed: ["drafter", "editor", "full"],
+    allowed: OPERATION_ORACLE["discard a draft"],
     needsEdit: true,
     run: (e, id, v) =>
       api.post(`/api/v1/${e.base}-revisions/${id}/${v}/discard`, {}),
@@ -194,7 +195,7 @@ const CASES: Case[] = [
     // becomes a way to sweep someone else's work into a draft the narrow atom is
     // allowed to land. The no-op half of that rule is unit-tested.
     name: "rebase a draft whose base has moved",
-    allowed: ["drafter", "editor", "full"],
+    allowed: OPERATION_ORACLE["rebase a draft whose base has moved"],
     needsStaleBase: true,
     run: (e, id, v) =>
       api.post(`/api/v1/${e.base}-revisions/${id}/${v}/rebase`, {
@@ -205,7 +206,7 @@ const CASES: Case[] = [
     // Staging a revert publishes nothing, so draft authority reaches it — and so
     // does revert authority on its own, which is the point of the atom.
     name: "stage a revert as a draft",
-    allowed: ["drafter", "reverter", "editor", "full"],
+    allowed: OPERATION_ORACLE["stage a revert as a draft"],
     needsPriorPublished: true,
     run: (e, id, v) =>
       api.post(`/api/v1/${e.base}-revisions/${id}/${v}/revert`, {
@@ -222,7 +223,7 @@ const CASES: Case[] = [
     // revert can skip review, so it is its own capability rather than a weaker
     // publish.
     name: "revert straight to published",
-    allowed: ["reverter", "full"],
+    allowed: OPERATION_ORACLE["revert straight to published"],
     needsPriorPublished: true,
     run: (e, id, v) =>
       api.post(`/api/v1/${e.base}-revisions/${id}/${v}/revert`, {
