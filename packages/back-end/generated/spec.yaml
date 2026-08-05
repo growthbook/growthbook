@@ -41086,8 +41086,9 @@ paths:
         - name: id
           in: path
           required: true
-          description: ''
+          description: The Contextual Bandit id
           schema:
+            description: The Contextual Bandit id
             type: string
       requestBody:
         required: false
@@ -41126,8 +41127,9 @@ paths:
         - name: id
           in: path
           required: true
-          description: ''
+          description: The Contextual Bandit id
           schema:
+            description: The Contextual Bandit id
             type: string
       requestBody:
         required: false
@@ -41166,8 +41168,9 @@ paths:
         - name: id
           in: path
           required: true
-          description: ''
+          description: The Contextual Bandit id
           schema:
+            description: The Contextual Bandit id
             type: string
       requestBody:
         required: false
@@ -41208,8 +41211,9 @@ paths:
         - name: id
           in: path
           required: true
-          description: ''
+          description: The Contextual Bandit id
           schema:
+            description: The Contextual Bandit id
             type: string
       requestBody:
         required: false

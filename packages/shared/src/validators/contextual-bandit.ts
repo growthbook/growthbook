@@ -296,13 +296,17 @@ export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
 ] as const satisfies readonly (keyof ApiUpdateContextualBanditBody)[];
 
 export const apiContextualBanditStartValidator = {
-  paramsSchema: z.strictObject({ id: z.string() }),
+  paramsSchema: z.strictObject({
+    id: z.string().describe("The Contextual Bandit id"),
+  }),
   bodySchema: z.strictObject({}).optional(),
   querySchema: z.never(),
 };
 
 export const apiContextualBanditStopValidator = {
-  paramsSchema: z.strictObject({ id: z.string() }),
+  paramsSchema: z.strictObject({
+    id: z.string().describe("The Contextual Bandit id"),
+  }),
   bodySchema: z.strictObject({}).optional(),
   querySchema: z.never(),
 };
@@ -312,7 +316,9 @@ export const apiContextualBanditLifecycleReturn = z.object({
 });
 
 export const apiContextualBanditRefreshValidator = {
-  paramsSchema: z.strictObject({ id: z.string() }),
+  paramsSchema: z.strictObject({
+    id: z.string().describe("The Contextual Bandit id"),
+  }),
   bodySchema: z.strictObject({}).optional(),
   querySchema: z.never(),
 };
@@ -323,7 +329,9 @@ export const apiContextualBanditRefreshReturn = z.object({
 });
 
 export const apiContextualBanditCancelValidator = {
-  paramsSchema: z.strictObject({ id: z.string() }),
+  paramsSchema: z.strictObject({
+    id: z.string().describe("The Contextual Bandit id"),
+  }),
   bodySchema: z.strictObject({}).optional(),
   querySchema: z.never(),
 };
