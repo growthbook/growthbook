@@ -1,5 +1,4 @@
-import React, { FC } from "react";
-import ReactPaginate from "react-paginate";
+import React, { CSSProperties, FC } from "react";
 import { PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import clsx from "clsx";
 import styles from "./Pagination.module.scss";
@@ -105,41 +104,81 @@ const Pagination: FC<PaginationProps> = ({
   onPageChange,
   className = "",
 }) => {
+  const model = getPaginationModel({
+    pageCount: Math.ceil(numItemsTotal / perPage),
+    currentPage,
+  });
+  const slotStyle: CSSProperties = {
+    minWidth: `max(32px, calc(${String(Math.max(model.pageCount, 1)).length}ch + 18px))`,
+  };
+
   return (
-    <div className={clsx(styles.root, className)}>
-      <ReactPaginate
-        previousLabel={
-          <span className={styles.arrow}>
+    <nav aria-label="Pagination" className={clsx(styles.root, className)}>
+      <ul className={styles.container}>
+        <li>
+          <button
+            type="button"
+            className={styles.linkArrow}
+            disabled={model.currentPage <= 1}
+            onClick={() => onPageChange(model.currentPage - 1)}
+          >
             <PiCaretLeft size={14} />
             Prev
-          </span>
-        }
-        nextLabel={
-          <span className={styles.arrow}>
+          </button>
+        </li>
+        {model.items.map((item) => {
+          switch (item.type) {
+            case "page": {
+              const isCurrent = item.page === model.currentPage;
+              return (
+                <li key={item.page} style={slotStyle}>
+                  <button
+                    type="button"
+                    className={clsx(
+                      styles.link,
+                      isCurrent && styles.linkActive,
+                    )}
+                    aria-current={isCurrent ? "page" : undefined}
+                    aria-label={"Go to page " + item.page}
+                    onClick={() => {
+                      if (!isCurrent) onPageChange(item.page);
+                    }}
+                  >
+                    {item.page}
+                  </button>
+                </li>
+              );
+            }
+            case "ellipsis":
+              return (
+                <li
+                  key={item.side}
+                  className={styles.break}
+                  style={slotStyle}
+                  aria-hidden="true"
+                >
+                  …
+                </li>
+              );
+            default: {
+              const exhaustiveCheck: never = item;
+              return exhaustiveCheck;
+            }
+          }
+        })}
+        <li>
+          <button
+            type="button"
+            className={styles.linkArrow}
+            disabled={model.currentPage >= model.pageCount}
+            onClick={() => onPageChange(model.currentPage + 1)}
+          >
             Next
             <PiCaretRight size={14} />
-          </span>
-        }
-        breakLabel={"..."}
-        breakClassName={styles.break}
-        pageCount={Math.ceil(numItemsTotal / perPage)}
-        marginPagesDisplayed={2}
-        pageRangeDisplayed={3}
-        forcePage={currentPage - 1}
-        onPageChange={(d) => {
-          onPageChange(d.selected + 1);
-        }}
-        containerClassName={styles.container}
-        pageClassName={styles.page}
-        disabledClassName={styles.disabled}
-        pageLinkClassName={styles.link}
-        previousClassName={styles.arrowContainer}
-        nextClassName={styles.arrowContainer}
-        nextLinkClassName={styles.linkArrow}
-        previousLinkClassName={styles.linkArrow}
-        activeClassName={styles.pageActive}
-      />
-    </div>
+          </button>
+        </li>
+      </ul>
+    </nav>
   );
 };
 
