@@ -47,7 +47,10 @@ import {
   runGuardedWrite,
   withBufferedPayloadRefreshes,
 } from "back-end/src/revisions/landingSequence";
-import { CasConflictError } from "back-end/src/models/BaseModel";
+import {
+  advancedGuardStamp,
+  CasConflictError,
+} from "back-end/src/models/BaseModel";
 import {
   addIdsToFlatRules,
   getApiFeatureObj,
@@ -1162,7 +1165,8 @@ export async function updateFeature(
 ): Promise<FeatureInterface> {
   const allUpdates = {
     ...updates,
-    dateUpdated: new Date(),
+    // Strictly after the guarded token, even inside the same millisecond.
+    dateUpdated: advancedGuardStamp(options?.ifUnchangedSince),
   };
   // Used only for hooks and linkedExperiment derivation; the post-write
   // value is re-read from Mongo below.
@@ -1550,12 +1554,20 @@ export async function removeTagInFeature(
   });
 }
 
+/**
+ * Returns the token the write advanced to (when guarded), so a follow-up write in
+ * the same landing can be conditioned on it — an unguarded second step would let a
+ * publish that read the doc between the two writes be silently overwritten.
+ */
 export async function removeHoldoutFromFeature(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   options?: { ifUnchangedSince?: Date },
-) {
-  if (!feature.holdout) return;
+): Promise<Date | undefined> {
+  if (!feature.holdout) return options?.ifUnchangedSince;
+  const stamp = options?.ifUnchangedSince
+    ? advancedGuardStamp(options.ifUnchangedSince)
+    : undefined;
   const writeResult = await FeatureModel.updateOne(
     {
       organization: context.org.id,
@@ -1567,17 +1579,15 @@ export async function removeHoldoutFromFeature(
     {
       $unset: { holdout: "" },
       // When this is a landing's guarded first write, it must also ADVANCE the
-      // token: a bare $unset leaves dateUpdated as-is, so a rival landing
-      // holding the same pre-image stamp would still pass its own guard between
-      // this write and the content write that follows it.
-      ...(options?.ifUnchangedSince
-        ? { $set: { dateUpdated: new Date() } }
-        : {}),
+      // token — strictly, even inside the same millisecond — so a rival landing
+      // holding the pre-image stamp loses its own guard from here on.
+      ...(stamp ? { $set: { dateUpdated: stamp } } : {}),
     },
   );
   if (options?.ifUnchangedSince && writeResult.matchedCount === 0) {
     throw new CasConflictError();
   }
+  return stamp;
 }
 
 export async function removeProjectFromFeatures(
@@ -1911,13 +1921,16 @@ export async function applyRevisionChanges(
   // feature write; the follow-up content write is this landing's own turn, like
   // a config cascade after its guarded root write.
   if (removeHoldout) {
-    await removeHoldoutFromFeature(context, feature, guard);
+    const advancedTo = await removeHoldoutFromFeature(context, feature, guard);
     // Remove holdout from the feature object so the returned feature is correct
     const { holdout: _, ...featureWithoutHoldout } = feature;
+    // Chained onto the token the $unset advanced to: an unguarded second step
+    // let a publish that read the doc between the two writes be overwritten.
     updated = await updateFeature(
       context,
       featureWithoutHoldout as FeatureInterface,
       changes,
+      advancedTo ? { ifUnchangedSince: advancedTo } : undefined,
     );
   } else {
     updated = await updateFeature(context, feature, changes, guard);
@@ -1926,8 +1939,31 @@ export async function applyRevisionChanges(
   // Behind the guard on purpose: these mutate rollout statuses, timestamps and
   // schedules, and a landing that loses the CAS must leave NOTHING changed —
   // running them first meant a rejected write still returned failure with the
-  // satellites already moved.
-  await updateSafeRolloutStatuses(context, feature, revision);
+  // satellites already moved. And because they run AFTER the feature write, a
+  // sync failure must put that write back itself: the callers' compensation
+  // registers its feature rewind only on this function's success, so without
+  // this undo a rollout failure left draft feature state live with the revision
+  // unpublished. Value-checked restore, so a concurrent writer's newer value
+  // survives; the original failure is what surfaces either way.
+  try {
+    await updateSafeRolloutStatuses(context, feature, revision);
+  } catch (e) {
+    try {
+      await restorePublishedFeatureDoc(
+        context,
+        feature,
+        revision,
+        result,
+        updated,
+      );
+    } catch (undoErr) {
+      logger.error(
+        undoErr,
+        `Safe-rollout sync failed for feature ${feature.id} AND the feature write could not be restored; live state is left mid-publish with the revision unpublished`,
+      );
+    }
+    throw e;
+  }
 
   return updated;
 }

@@ -69,6 +69,7 @@ import {
   LandingConflictError,
   runGuardedWrite,
 } from "back-end/src/revisions/landingSequence";
+import { CasConflictError } from "back-end/src/models/BaseModel";
 import {
   authorityRefused,
   gateOr5xx,
@@ -483,7 +484,8 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     } catch (e) {
       // A rejected CAS wrote no feature doc; mark it before the finally below
       // snapshots the concurrent winner's satellites as this apply's output.
-      if (e instanceof LandingConflictError) revision.casLost = true;
+      if (e instanceof LandingConflictError || e instanceof CasConflictError)
+        revision.casLost = true;
       throw e;
     } finally {
       // Re-snapshot the safe rollouts after applyRevisionChanges' sync wrote

@@ -65,6 +65,7 @@ export default function ScheduledPublishControl({
   toggleAutoPublishPath,
   entityNoun,
   canEdit,
+  canDraft,
   canBypassApproval,
   requiresApproval,
   autopublishOnApproval,
@@ -91,6 +92,9 @@ export default function ScheduledPublishControl({
   entityNoun: string;
   // The viewer has publish authority over this entity.
   canEdit: boolean;
+  // Draft authority, for the "when approved" arm; defaults to permitted for
+  // callers whose canEdit already folds it in.
+  canDraft?: boolean;
   // The viewer can bypass the approval requirement (admin).
   canBypassApproval: boolean;
   // Approval is required for this revision.
@@ -119,9 +123,14 @@ export default function ScheduledPublishControl({
   // ── Parity with the feature derivations ──
   const isArmingOwner = canEdit && (status === "draft" || isReviewRequester);
   // "when approved" only makes sense before approval — once approved it would
-  // just publish now.
+  // just publish now. The endpoint behind it additionally requires DRAFT
+  // authority (arming rides the draft's review flow), so publish authority
+  // alone must not surface the option.
   const canArmWhenApproved =
-    autopublishOnApproval && isArmingOwner && status !== "approved";
+    autopublishOnApproval &&
+    isArmingOwner &&
+    (canDraft ?? true) &&
+    status !== "approved";
   // Arming a dated schedule needs only publish authority (premium gates the
   // picker render below, not the option itself).
   const canArmOnDate = canEdit;

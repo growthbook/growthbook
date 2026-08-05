@@ -14,6 +14,7 @@ import {
   undeclaredRuleFieldWarnings,
 } from "shared/util";
 import { landDirectChange } from "back-end/src/revisions/revertActions";
+import { logger } from "back-end/src/util/logger";
 import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
@@ -518,6 +519,23 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       }
     }
 
+    // Scoped overrides commit BEFORE the landing. They were validated and
+    // authorized up front, stand alone as user intent (their own endpoint writes
+    // them independently), and committing them after the publish meant a failure
+    // here returned an error while the publish had already committed — and built
+    // marker syncs from the pre-publish doc. A landing that then loses its race
+    // leaves them applied, which a retry completes.
+    //
+    // The landing's pre-image is RE-READ afterwards: this commit advances the
+    // config's own CAS token, so landing against the earlier read would lose to
+    // our own write and 409 every combined overrides+value request.
+    let landingConfig = config;
+    if (commitScopedOverrides) {
+      await commitScopedOverrides();
+      landingConfig =
+        (await req.context.models.configs.getById(config.id)) ?? config;
+    }
+
     // One landing path whether or not approval was bypassed. This branch used to
     // fork: without approvals it was a plain model write — no history, no guard —
     // so for those orgs a REST update was last-write-wins and invisible, unlike
@@ -526,7 +544,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     await ensureLiveRevisionExists(
       req.context,
       "config",
-      config as unknown as Record<string, unknown> & {
+      landingConfig as unknown as Record<string, unknown> & {
         id: string;
         owner?: string;
         dateCreated?: Date;
@@ -535,7 +553,9 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     const { merged, result: updated } = await landDirectChange({
       context: req.context,
       entityType: "config",
-      entity: config as unknown as Record<string, unknown> & { id: string },
+      entity: landingConfig as unknown as Record<string, unknown> & {
+        id: string;
+      },
       patchOps,
       // Marks a skipped approval requirement; an org without one skips nothing.
       bypass: approvalRequired,
@@ -570,13 +590,28 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     await dispatchConfigRevisionEvent(req.context, merged, {
       type: "published",
     });
-    // Publish committed — now apply the deferred writes (atomic ordering).
-    await commitScopedOverrides?.();
-    const guardFields = await commitGuardToggle();
+    // The guard toggle stays AFTER the landing: enabling the experiment guard
+    // first would put our own value write behind the protection it just switched
+    // on. A failure here must not surface as an error that hides the committed
+    // publish — the publish stands, and the unapplied toggle becomes a warning.
+    let guardFields: Partial<ConfigInterface> = {};
+    try {
+      guardFields = await commitGuardToggle();
+    } catch (e) {
+      logger.error(
+        e,
+        `Config ${config.id} published but its experiment-guard change failed to apply`,
+      );
+      // The error must not read as a failed publish: the publish committed, and
+      // only the guard change needs retrying.
+      throw new Error(
+        "The value was published, but the experiment-guard change could not be applied. Retry the guard change on its own.",
+      );
+    }
     return {
       config: await resolveOwnerEmail(
         req.context.models.configs.toApiInterface({
-          ...config,
+          ...landingConfig,
           ...updated,
           ...guardFields,
         }),

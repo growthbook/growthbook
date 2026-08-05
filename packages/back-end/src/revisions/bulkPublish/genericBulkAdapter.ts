@@ -11,6 +11,7 @@ import {
 import { canPublishRevisionChange } from "back-end/src/revisions/revisionActions";
 import { buildMergeDesiredState } from "back-end/src/revisions/util";
 import type { Context } from "back-end/src/models/BaseModel";
+import { CasConflictError } from "back-end/src/models/BaseModel";
 import {
   type EntityRevisionAdapter,
   filterUpdatableChanges,
@@ -348,7 +349,10 @@ export function makeGenericBulkAdapter(
         // otherwise snapshot the concurrent WINNER's doc as this item's output,
         // and compensation — comparing live to values it believes this apply
         // wrote — would mistake the winner's work for ours and erase it.
-        if (e instanceof LandingConflictError) {
+        if (
+          e instanceof LandingConflictError ||
+          e instanceof CasConflictError
+        ) {
           revision.persistedKeys = [];
           revision.casLost = true;
         }

@@ -364,7 +364,10 @@ export default function ConstantDetailPage(): React.ReactElement {
     permissionsUtil,
     "constant",
     constant,
-    publishEnvironments,
+    // Environment-UNBOUND, matching the archive endpoint: archiving asks about
+    // taking the whole entity out of service, not about whichever environments
+    // the currently selected revision happens to touch.
+    constantPublishEnvironments(),
   );
   const canArchiveNow =
     (canLandArchive || canEditNow) && (!selectedRevision || isDraft);

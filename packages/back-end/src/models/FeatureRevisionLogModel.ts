@@ -178,4 +178,20 @@ export class FeatureRevisionLogModel extends BaseClass {
       featureId: feature.id,
     });
   }
+
+  // Compensation for a landing that recorded a revision and then never wrote:
+  // the revision doc is deleted by its creator, and its log rows must not
+  // survive to be adopted by a later revision that reuses the version number.
+  // No permission gate — the caller was authorized for the landing itself, and
+  // this only ever removes rows for a revision that no longer exists.
+  public async deleteAllByFeatureIdAndVersion(
+    featureId: string,
+    version: number,
+  ) {
+    return await this._dangerousGetCollection().deleteMany({
+      organization: this.context.org.id,
+      featureId,
+      version,
+    });
+  }
 }

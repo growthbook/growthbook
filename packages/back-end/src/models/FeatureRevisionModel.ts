@@ -2770,8 +2770,13 @@ export async function getActiveDraftStates(
  * landing whose guarded write then lost the CAS race, so nothing landed and the
  * record must not survive as published history. Keyed by exact identity and only
  * ever called by the flow that just created the revision.
+ *
+ * The revision's log rows go with it: creation writes one fire-and-forget, and a
+ * later revision REUSES the freed version number — a surviving row would attach
+ * this landing's history to that unrelated future revision.
  */
 export async function deleteRevisionForFailedLanding(
+  context: ReqContext | ApiReqContext,
   organization: string,
   featureId: string,
   version: number,
@@ -2781,6 +2786,10 @@ export async function deleteRevisionForFailedLanding(
     featureId,
     version,
   });
+  await context.models.featureRevisionLogs.deleteAllByFeatureIdAndVersion(
+    featureId,
+    version,
+  );
 }
 
 export async function deleteAllRevisionsForFeature(

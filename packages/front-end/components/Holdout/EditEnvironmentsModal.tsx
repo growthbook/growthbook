@@ -4,7 +4,6 @@ import { Box, Text } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
 import Modal from "@/components/Modal";
@@ -22,18 +21,12 @@ const EditEnvironmentsModal = ({
   mutate: () => void;
 }) => {
   const environments = useEnvironments();
-  const permissionsUtils = usePermissionsUtil();
   const { apiCall } = useAuth();
 
   const form = useForm<Partial<HoldoutInterfaceStringDates>>({
     defaultValues: {
       environmentSettings:
-        holdout.environmentSettings ||
-        genEnvironmentSettings({
-          environments,
-          permissions: permissionsUtils,
-          project: "",
-        }),
+        holdout.environmentSettings || genEnvironmentSettings({ environments }),
     },
   });
 

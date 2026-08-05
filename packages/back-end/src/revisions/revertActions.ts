@@ -5,10 +5,11 @@ import { logger } from "back-end/src/util/logger";
 import {
   assertLandingBaseline,
   LandingConflictError,
+  runGuardedWrite,
   tryRestoreEntityPreImage,
   withBufferedPayloadRefreshes,
 } from "back-end/src/revisions/landingSequence";
-import { Context } from "back-end/src/models/BaseModel";
+import { CasConflictError, Context } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import {
@@ -228,7 +229,8 @@ export async function landDirectChange<T>({
       // landing's first write, so losing it means NOTHING was written — and
       // compensating would compare live against values this landing never wrote,
       // mistake a winner's identical values for its own, and undo them.
-      const casLost = e instanceof LandingConflictError;
+      const casLost =
+        e instanceof LandingConflictError || e instanceof CasConflictError;
       let restored =
         changes && writeStarted && !casLost
           ? await tryRestoreEntityPreImage({
@@ -303,10 +305,12 @@ export async function applyRevertDirectly({
     revertedFrom: targetRevisionId,
     changes: fields,
     write: () =>
-      getAdapter(entityType).applyChanges(context, entity, fields, {
-        isRevert: true,
-        guarded: true,
-      }),
+      runGuardedWrite(entityType, entity.id, () =>
+        getAdapter(entityType).applyChanges(context, entity, fields, {
+          isRevert: true,
+          guarded: true,
+        }),
+      ),
   });
   return merged;
 }

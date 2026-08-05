@@ -1337,6 +1337,7 @@ function ReviewAndPublishRevision<T>({
                 // pure revert, a deleter's pure archive) do not arm schedules,
                 // so offering them here invited a 403.
                 canEdit={canPublishEntity ?? canEditEntity}
+                canDraft={canDraftOrEdit}
                 canBypassApproval={canBypassApproval}
                 requiresApproval={requiresApproval}
                 autopublishOnApproval={autopublishOnApproval}

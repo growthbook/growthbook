@@ -552,18 +552,24 @@ export default function ReviewAndPublish({
   // collapsed when an auto-saved schedule change re-fetches the revision.
   useEffect(() => {
     setEditingSchedule(false);
-  }, [revision?.version]);
+  }, [feature.id, revision?.version]);
 
   // Revision-local choices must not follow the viewer to a different revision:
-  // the admin-bypass toggle is consent to skip THIS draft's review, and conflict
-  // strategies answer THIS draft's conflicts — carrying either across a switch
-  // submits decisions nobody made about the newly selected revision.
+  // the admin-bypass toggle is consent to skip THIS draft's review, conflict
+  // strategies answer THIS draft's conflicts, and an in-flight dialog or error
+  // belongs to the revision it was opened on. Keyed by feature id AND version —
+  // version alone reads as "same revision" across two different features.
   useEffect(() => {
     setAdminPublish(false);
     setStrategies({});
     setConflictStep(0);
     setResolveConflicts(false);
-  }, [revision?.version]);
+    setExperimentsStep(false);
+    setSubmitError(null);
+    setRevertOpen(false);
+    setConfirmReopen(false);
+    setConfirmDiscard(false);
+  }, [feature.id, revision?.version]);
 
   // ── Sub-tabs ──
   // "Overview" (human-readable changes + review activity) vs "Changes" (JSON

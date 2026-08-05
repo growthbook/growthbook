@@ -651,18 +651,6 @@ async function publishRevisionInner(
   // rather than erroring, so stranded drafts self-heal. Mirrors
   // postSavedGroupRevisionPublish.
   if (!hasChanges) {
-    // "No changes" was decided against a read that is stale by now, and this
-    // branch performs no guarded entity write to catch drift — so re-verify the
-    // baseline here, or a concurrent change landing after planning would leave
-    // merged history claiming live already matched this revision when it no
-    // longer does. A conflict is the same retryable 409 as any lost landing.
-    await assertLandingBaseline({
-      context,
-      entityType: revision.target.type,
-      entityId: revision.target.id,
-      baselineDateUpdated:
-        (entity as { dateUpdated?: Date }).dateUpdated ?? null,
-    });
     // Runs before the merge so a failure leaves the draft open and retryable.
     await adapter.beforeNoOpMerge?.(context, entity, revision);
     const merged = await context.models.revisions.merge(
@@ -670,6 +658,38 @@ async function publishRevisionInner(
       context.userId,
       { bypass: isBypass },
     );
+    // "No changes" was decided against a read that is stale by now, and this
+    // branch performs no guarded entity write to catch drift — so verify AFTER
+    // the claim is held. Checking before it left a window where a concurrent
+    // change landed and the merge then recorded live state that no longer
+    // existed; verified after the claim, any later change is simply a later
+    // change. On drift, unwind the claim and refuse with the same retryable
+    // 409 as any lost landing.
+    try {
+      await assertLandingBaseline({
+        context,
+        entityType: revision.target.type,
+        entityId: revision.target.id,
+        baselineDateUpdated:
+          (entity as { dateUpdated?: Date }).dateUpdated ?? null,
+      });
+    } catch (e) {
+      const reopened = await context.models.revisions
+        .reopenAfterFailedApply(
+          merged.id,
+          context.userId,
+          revision,
+          merged.dateUpdated,
+        )
+        .catch(() => null);
+      if (!reopened) {
+        logger.warn(
+          { revisionId: merged.id },
+          "no-op merge left merged after its post-claim baseline check failed: the revision changed underneath the compensation",
+        );
+      }
+      throw e;
+    }
     await getRevisionWebhookAdapter(merged.target.type)?.dispatch(
       context,
       merged,

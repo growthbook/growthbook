@@ -177,6 +177,7 @@ export async function toggleFeatureCore(
     // and history for a possibly-live change must not be deleted.
     if (e instanceof LandingConflictError) {
       await deleteRevisionForFailedLanding(
+        context,
         context.org.id,
         feature.id,
         revision.version,

@@ -312,6 +312,20 @@ type ExtractCrudSchema<
       : DefaultCrudValidators[Action][Slot]
     : DefaultCrudValidators[Action][Slot];
 
+/**
+ * The `dateUpdated` a guarded write stamps: now, but strictly AFTER the token it
+ * was conditioned on. `Date` is millisecond-precision, so a write landing in the
+ * same millisecond as the guarded stamp would otherwise leave the token
+ * unchanged — and a rival conditioned on that same token would then pass its own
+ * guard instead of losing the race.
+ */
+export function advancedGuardStamp(guardedOn: Date | undefined): Date {
+  const now = new Date();
+  return guardedOn && now <= guardedOn
+    ? new Date(guardedOn.getTime() + 1)
+    : now;
+}
+
 // Thrown by `_updateOne` when a guarded write matches zero docs (the doc changed
 // between read and write). `updateWithCas` catches it to retry; landing paths
 // catch it to refuse, since a landing that lost the race must not be re-applied.
@@ -1228,7 +1242,18 @@ export abstract class BaseModel<
 
     const allUpdates = {
       ...updates,
-      ...(setDateUpdated ? { dateUpdated: new Date() } : null),
+      // A guarded write must ADVANCE the token even inside the same millisecond
+      // — see advancedGuardStamp — and a guarded no-change write still stamps,
+      // since advancing the token is the write's whole point in that case.
+      ...(setDateUpdated || options?.guard
+        ? {
+            dateUpdated: advancedGuardStamp(
+              options?.guard?.dateUpdated instanceof Date
+                ? options.guard.dateUpdated
+                : undefined,
+            ),
+          }
+        : null),
     };
 
     const newDoc = { ...doc, ...allUpdates } as z.infer<T>;
