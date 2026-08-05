@@ -364,11 +364,11 @@ export default forwardRef<HTMLDivElement, HeatmapProps>(function Heatmap(
               className={background ? styles.cell : undefined}
             >
               {isEmpty ? (
-                <Text size="medium" color="text-low">
+                <Text size="md" color="text-low">
                   {cell.display ?? emptyDisplay}
                 </Text>
               ) : (
-                <Text size="medium">
+                <Text size="md">
                   {cell.display ?? formatValue(cell.value as number)}
                 </Text>
               )}

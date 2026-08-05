@@ -93,7 +93,7 @@ export default function FactTableAutoSliceSelector({
           </Text>
         </div>
         {isEditing && (
-          <Button size="xs" onClick={cancelEditing} mr="1">
+          <Button size="sm" onClick={cancelEditing} mr="1">
             Cancel
           </Button>
         )}
@@ -106,7 +106,7 @@ export default function FactTableAutoSliceSelector({
       <div className="d-flex align-items-center" style={{ gap: "0.5rem" }}>
         <div className="flex-grow-1">
           <MultiSelectField
-            size="legacy"
+            legacyHeight
             value={selectedSlices}
             onChange={setSelectedSlices}
             options={availableSlices}
@@ -117,7 +117,7 @@ export default function FactTableAutoSliceSelector({
           />
         </div>
         <Button
-          size={compactButtons ? "xs" : "sm"}
+          size={compactButtons ? "sm" : "md"}
           onClick={saveEditing}
           mr={compactButtons ? "1" : "2"}
         >

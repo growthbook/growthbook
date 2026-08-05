@@ -542,7 +542,7 @@ export default function EditFeatureFlagValuesModal({
                 >
                   <Button
                     variant="ghost"
-                    size="xs"
+                    size="sm"
                     onClick={setEqualWeights}
                     icon={<PiArrowsClockwise size={12} />}
                   >
@@ -659,7 +659,7 @@ export default function EditFeatureFlagValuesModal({
                       <VariationLabel
                         number={i}
                         name={row.name}
-                        size="large"
+                        size="lg"
                         maxWidth="320px"
                       />
                       <Box as="span">&middot;</Box>

@@ -24,7 +24,7 @@ function envPreviewItem(envId: string, enabled: boolean) {
           style={{ color: featureStatusColors.offMuted }}
         />
       )}
-      <UIText size="small">{envId}</UIText>
+      <UIText size="sm">{envId}</UIText>
     </Flex>
   );
 }
@@ -121,7 +121,7 @@ const EnvironmentSelect: FC<{
                 </Flex>
               }
             >
-              <UIText as="span" color="text-low" size="small">
+              <UIText as="span" color="text-low" size="sm">
                 +{overflow.length} more
               </UIText>
             </Tooltip>

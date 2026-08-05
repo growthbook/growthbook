@@ -1,13 +1,8 @@
 import { Heading as RadixHeading } from "@radix-ui/themes";
 import type { HeadingProps as RadixHeadingProps } from "@radix-ui/themes";
+import { Size } from "@/ui/sizes";
 
-type HeadingSizes =
-  | "x-small"
-  | "small"
-  | "medium"
-  | "large"
-  | "x-large"
-  | "2x-large";
+type HeadingSizes = Size<"xs" | "sm" | "md" | "lg" | "xl" | "2xl">;
 type HeadingWeights = "medium" | "semibold";
 type HeadingAlign = "left" | "center" | "right";
 type HeadingWhiteSpace =
@@ -20,13 +15,14 @@ type HeadingWhiteSpace =
 // NB: We might need to expand this to support RadixHeadingProps["color"], but being conservative for now.
 type HeadingColors = "text-high" | "text-mid" | "text-low";
 
+// Not radixSize: Heading is a type scale, so md means Radix "4" here, not "2".
 const radixSizeMap: Record<HeadingSizes, RadixHeadingProps["size"]> = {
-  "x-small": "2",
-  small: "3",
-  medium: "4",
-  large: "5",
-  "x-large": "6",
-  "2x-large": "7",
+  xs: "2",
+  sm: "3",
+  md: "4",
+  lg: "5",
+  xl: "6",
+  "2xl": "7",
 };
 
 const radixWeightMap: Record<HeadingWeights, RadixHeadingProps["weight"]> = {
@@ -58,7 +54,7 @@ export interface HeadingProps {
 
 export default function Heading({
   children,
-  size = "medium",
+  size = "md",
   weight = "semibold",
   as,
   color,

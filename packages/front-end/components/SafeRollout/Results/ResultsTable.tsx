@@ -505,7 +505,7 @@ export default function ResultsTable({
                               <VariationLabel
                                 number={v.index}
                                 name={v.name}
-                                size="medium"
+                                size="md"
                               />
                             ) : (
                               renderLabelColumn({
