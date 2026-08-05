@@ -173,6 +173,9 @@ export default function TabbedPage({
   const [sortDirection, setSortDirection] = useLocalStorage<
     "asc" | "desc" | null
   >(`experiment-page__${experiment.id}__sort_direction`, null);
+  const [dimensionSortBy, setDimensionSortBy] = useLocalStorage<
+    "dimension-traffic" | "dimension-alpha" | null
+  >(`experiment-page__${experiment.id}__dimension_sort_by`, null);
 
   const setMetricTagFilterWithPriority = (newMetricTagFilter: string[]) => {
     setMetricTagFilter(newMetricTagFilter);
@@ -704,6 +707,8 @@ export default function TabbedPage({
           setSortBy={setSortBy}
           sortDirection={sortDirection}
           setSortDirection={setSortDirection}
+          dimensionSortBy={dimensionSortBy}
+          setDimensionSortBy={setDimensionSortBy}
         />
       </div>
       <div
