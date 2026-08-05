@@ -221,14 +221,6 @@ export default function ContextualBanditDetailPage({
       })),
     [cb.variations],
   );
-  const variationPercent = (i: number): number => {
-    const fallback = numVariations > 0 ? 1 / numVariations : 0;
-    const variationId = cb.variations[i]?.id;
-    const match = cb.variationWeights?.find(
-      (w) => w.variationId === variationId,
-    );
-    return (match?.weight ?? fallback) * 100;
-  };
 
   const experimentForVariations = useMemo<
     Pick<ExperimentInterfaceStringDates, "id" | "status" | "type">
@@ -497,7 +489,6 @@ export default function ContextualBanditDetailPage({
                         experiment={experimentForVariations}
                         showIds
                         allowImages={false}
-                        percent={variationPercent(i)}
                         showSplit={false}
                       />
                     </Box>
