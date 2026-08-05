@@ -406,6 +406,7 @@ export const simpleCompletion = async ({
       numCompletionTokensUsed: outputTokensUsed,
       temperature: effectiveTemperature,
       usedDefaultPrompt: isDefaultPrompt,
+      usedOwnKey: ownKey,
     });
   }
 
@@ -479,6 +480,7 @@ export const streamingChatCompletion = async ({
           numCompletionTokensUsed: usage?.outputTokens,
           temperature: effectiveTemperature,
           usedDefaultPrompt: isDefaultPrompt,
+          usedOwnKey: ownKey,
         });
       }
     },
@@ -737,6 +739,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       numCompletionTokensUsed: response.usage?.outputTokens,
       temperature: effectiveTemperature,
       usedDefaultPrompt: isDefaultPrompt,
+      usedOwnKey: ownKey,
     });
 
     // Only meter usage against the daily cap when GrowthBook is paying.
@@ -777,6 +780,7 @@ export async function generateEmbeddings({
     mistralAPIKey,
     googleAPIKey,
     embeddingModel,
+    keySource,
   } = await getAISettingsForOrg(context, true);
 
   if (!aiEnabled) {
@@ -813,11 +817,14 @@ export async function generateEmbeddings({
     throw new Error(`Unsupported embedding provider: ${provider}`);
   }
 
+  const ownKey = keySource[provider] === "organization";
+
   try {
     const model = aiProvider.embedding(embeddingModel);
 
     // Generate embeddings for each input string
     const embeddings: number[][] = [];
+    let numTokensUsed = 0;
 
     for (const text of input) {
       const result = await embed({
@@ -825,9 +832,27 @@ export async function generateEmbeddings({
         value: text,
       });
 
+      numTokensUsed += result.usage?.tokens ?? 0;
       embeddings.push(result.embedding);
     }
 
+    // Reported for every Cloud org, on its own key or ours — one entry for the
+    // whole batch, since a batch is one logical operation. Counted as prompt
+    // tokens: embeddings consume input and return vectors, not completions.
+    // logCloudAIUsage no-ops off Cloud, so this needs no IS_CLOUD guard.
+    logCloudAIUsage({
+      organization: context.org.id,
+      type: "generate-embeddings",
+      model: embeddingModel,
+      numPromptTokensUsed: numTokensUsed,
+      // No prompt template exists for embeddings, so nothing was customized.
+      usedDefaultPrompt: true,
+      usedOwnKey: ownKey,
+    });
+
+    // Embeddings were never metered against the daily cap. Left that way
+    // deliberately — starting to count them now would silently shrink every
+    // managed-key org's text budget.
     return embeddings;
   } catch (error) {
     logger.error("Error generating embeddings:", error);

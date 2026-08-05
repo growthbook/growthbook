@@ -9,6 +9,7 @@ import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { generateImages } from "back-end/src/services/imageGeneration";
 import { secondsUntilAICanBeUsedAgainForProvider } from "back-end/src/enterprise/services/ai";
 import { updateTokenUsage } from "back-end/src/models/AITokenUsageModel";
+import { logCloudAIUsage } from "back-end/src/services/licenseServerManagedClickhouse";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 import { requireUserAuth } from "./requireUserAuth";
@@ -155,17 +156,35 @@ export const postAIImageGen = createApiRequestHandler(validation)(async (
   // even if upload fails. Awaited so the quota counter is decremented
   // before we return; try/catch because a transient billing-DB failure
   // shouldn't surface to the user (worst case: one batch under-counted).
-  if (generated.length > 0 && !usesOwnImageKey) {
-    try {
-      await updateTokenUsage({
-        organization: org,
-        numTokensUsed: IMAGE_GEN_TOKEN_COST_PER_IMAGE * generated.length,
-      });
-    } catch (err) {
-      logger.warn(
-        { err, orgId: org.id, count: generated.length },
-        "[visual-editor-ai/image-gen] failed to record token usage",
-      );
+  if (generated.length > 0) {
+    // Reported for every Cloud org, on its own key or ours. The token figure is
+    // the same cost-equivalent the cap uses, recorded as completion tokens
+    // because the images are what was generated. logCloudAIUsage no-ops off
+    // Cloud, so this needs no IS_CLOUD guard.
+    logCloudAIUsage({
+      organization: org.id,
+      type: "visual-editor-ai-image-gen",
+      model: visualEditorImageModel,
+      numCompletionTokensUsed:
+        IMAGE_GEN_TOKEN_COST_PER_IMAGE * generated.length,
+      // Brand guidelines are the only customization on this path.
+      usedDefaultPrompt: !visualEditorAIContext,
+      usedOwnKey: usesOwnImageKey,
+    });
+
+    // Only charged against the daily cap when GrowthBook is paying.
+    if (!usesOwnImageKey) {
+      try {
+        await updateTokenUsage({
+          organization: org,
+          numTokensUsed: IMAGE_GEN_TOKEN_COST_PER_IMAGE * generated.length,
+        });
+      } catch (err) {
+        logger.warn(
+          { err, orgId: org.id, count: generated.length },
+          "[visual-editor-ai/image-gen] failed to record token usage",
+        );
+      }
     }
   }
 

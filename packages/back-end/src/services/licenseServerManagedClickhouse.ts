@@ -202,6 +202,7 @@ export async function logCloudAIUsage({
   numPromptTokensUsed,
   numCompletionTokensUsed,
   usedDefaultPrompt,
+  usedOwnKey,
 }: {
   organization: string;
   type: AIPromptType;
@@ -210,6 +211,11 @@ export async function logCloudAIUsage({
   numCompletionTokensUsed?: number;
   temperature?: number;
   usedDefaultPrompt: boolean;
+  // Whether the org paid for this call with a key it stored in GrowthBook.
+  // Every Cloud call is reported either way; this is what separates
+  // customer-funded traffic from traffic on GrowthBook's managed keys, since
+  // the daily-cap counter only ever sees the latter.
+  usedOwnKey: boolean;
 }): Promise<void> {
   if (!IS_CLOUD) {
     return;
@@ -224,6 +230,7 @@ export async function logCloudAIUsage({
       numPromptTokensUsed,
       numCompletionTokensUsed,
       usedDefaultPrompt,
+      usedOwnKey,
     });
   } catch (e) {
     logger.error(e, "Failed to log AI usage to Clickhouse");
