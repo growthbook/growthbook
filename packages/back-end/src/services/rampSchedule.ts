@@ -28,7 +28,11 @@ import uniqid from "uniqid";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
+import {
+  getFeature,
+  getFeatureProjectsByIds,
+  publishRevision,
+} from "back-end/src/models/FeatureModel";
 // NOTE: rampScheduleEvaluator also imports from this module (advanceStep, etc).
 // The cycle is safe: every cross-module reference is a hoisted function
 // declaration used only at call time, never at module top-level.
@@ -3059,13 +3063,18 @@ export async function assertCanControlRampSchedule(
     checks.set(schedule.entityId, new Set(scheduleEnvs));
   }
 
+  // Raw projects, not a read-filtered fetch: `getFeature` returns null for a
+  // feature the CALLER cannot read, and an unreadable target is precisely the
+  // one that must still be checked. A target that is truly gone contributes no
+  // project and is checked against the global scope — the strictest answer.
+  const projectsById = await getFeatureProjectsByIds(context, [
+    ...checks.keys(),
+  ]);
   for (const [featureId, envSet] of checks) {
     const environments = Array.from(envSet);
-    const linkedFeature = await getFeature(context, featureId);
-    if (featureId !== schedule.entityId && !linkedFeature) continue;
     if (
       !context.permissions.canPublishFeature(
-        { project: linkedFeature?.project },
+        { project: projectsById.get(featureId) },
         environments,
       )
     ) {

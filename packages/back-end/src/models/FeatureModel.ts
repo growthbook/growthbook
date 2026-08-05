@@ -834,6 +834,13 @@ export async function deleteFeature(
       }),
     );
   }
+  // The SDK refresh fires BEFORE the bandit-linkage cleanup: the flag is
+  // already gone from the store, and a linkage failure below must not strand it
+  // in served payloads. Linkage repair is retryable bookkeeping; a payload
+  // serving a deleted flag is an incident.
+  onFeatureDelete(context, feature).catch((e) => {
+    logger.error(e, "Error refreshing SDK Payload on feature delete");
+  });
   const contextualBanditLinkagePlan = await planFeatureContextualBanditLinkage(
     context,
     feature.id,
@@ -846,9 +853,6 @@ export async function deleteFeature(
       contextualBanditLinkagePlan,
     );
   }
-  onFeatureDelete(context, feature).catch((e) => {
-    logger.error(e, "Error refreshing SDK Payload on feature delete");
-  });
 }
 
 /**
@@ -3452,12 +3456,10 @@ async function publishRevisionInner({
     throw new Error("Can only publish a draft revision");
   }
 
-  // The authoritative landing gate, INSIDE the engine: several callers gated
-  // themselves on hand-built field lists and footprints, and each list that
-  // missed a field (environment toggles, prerequisites, holdout) was a publish
-  // path with no publish check. Here the evidence comes from the merge result
-  // itself, so a caller cannot under-describe the change. Callers that already
-  // asserted simply re-pass with the same inputs.
+  // The authoritative landing gate, INSIDE the engine: evidence comes from the
+  // merge result itself, so a caller cannot under-describe the change the way a
+  // hand-built field list can. Callers that already asserted re-pass the same
+  // inputs.
   // A landing that reaches the payload takes publish authority; one that is
   // entirely inert metadata is draft-class and skips the gate (the pre-split
   // semantic the features matrix pins for drafters editing descriptions).

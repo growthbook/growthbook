@@ -158,16 +158,6 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     return revision ? toRef(revision) : null;
   },
 
-  // Coarse project-level publish authority (no env restriction here); the
-  // precise env-scoped canPublishFeature check happens in collectGates, narrowed
-  // to the environments the merge touches. Publishing does not require manage.
-  canPublish(context, entity) {
-    return context.permissions.canPublishFeature(
-      entity as unknown as FeatureInterface,
-      [],
-    );
-  },
-
   canUpdate(context, entity) {
     // Coarse destination-project pre-check for a publish that moves projects,
     // deliberately unbound by environment: the precise per-environment

@@ -94,7 +94,7 @@ async function setArchivedState(
       approvalRequired,
       archived,
       noun: "Saved Group",
-      createDraftPath: `/saved-groups/${savedGroup.id}/revisions`,
+      createDraftPath: `/saved-groups-revisions/${savedGroup.id}`,
       model: "saved-group",
     }),
     // Only the archive transition is guarded for dependents; unarchiving never
@@ -120,17 +120,15 @@ async function setArchivedState(
   if (approvalRequired && !canBypass) {
     throw new BadRequestError(
       "This organization requires approvals on saved groups. " +
-        `Use \`POST /saved-groups/${savedGroup.id}/revisions\` to ${
+        `Use \`POST /saved-groups-revisions/${savedGroup.id}\` to ${
           archived ? "archive" : "unarchive"
         } it through a draft, or use a role/token with the bypass permission.`,
     );
   }
 
-  // One recorded, guarded landing whether or not approval was bypassed. This
-  // used to fork — and its recorded side wrote live state BEFORE the revision,
-  // under a comment claiming it mirrored updateSavedGroup, which had already
-  // been flipped the other way: history first fails to a detectable extra
-  // record, live first to an unrecorded live change no retry can repair.
+  // One recorded, guarded landing whether or not approval was bypassed.
+  // History first, then live state: a merged record with no live change is
+  // detectable and removable; a live change with no record cannot be repaired.
   await ensureLiveRevisionExists(
     context,
     "saved-group",

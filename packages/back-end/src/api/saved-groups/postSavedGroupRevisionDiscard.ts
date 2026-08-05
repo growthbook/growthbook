@@ -24,7 +24,6 @@ export const postSavedGroupRevisionDiscard = createApiRequestHandler(
   const closed = await discardEntityRevision({
     context: req.context,
     entityType: "saved-group",
-    entity: savedGroup,
     revision,
     reason: req.body.reason,
   });

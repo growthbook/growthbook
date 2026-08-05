@@ -163,7 +163,7 @@ export const updateSavedGroup = createApiRequestHandler(
     if (!bypassApproval) {
       throw new BadRequestError(
         "This organization requires approvals on saved groups. " +
-          `Use \`POST /saved-groups/${savedGroup.id}/revisions\` to open a draft, ` +
+          `Use \`POST /saved-groups-revisions/${savedGroup.id}\` to open a draft, ` +
           'or pass `{ "bypassApproval": true }` if you have the `bypassApprovalSavedGroups` permission.',
       );
     }
@@ -180,10 +180,8 @@ export const updateSavedGroup = createApiRequestHandler(
     }
   }
 
-  // One landing path whether or not approval was bypassed. This branch used to
-  // fork: without approvals it was a plain model write — no history, no guard —
-  // so for those orgs a REST update was last-write-wins and invisible, unlike
-  // the same edit made anywhere else.
+  // One landing path whether or not approval was bypassed: every direct
+  // update is recorded and guarded.
   await ensureLiveRevisionExists(
     req.context,
     "saved-group",

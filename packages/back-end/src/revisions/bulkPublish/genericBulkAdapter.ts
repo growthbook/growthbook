@@ -92,12 +92,6 @@ export function makeGenericBulkAdapter(
       return revision ? toRef(revision) : null;
     },
 
-    canPublish(context, entity) {
-      return adapter.canPublishRevision
-        ? adapter.canPublishRevision(context, entity)
-        : adapter.canUpdate(context, entity);
-    },
-
     canUpdate(context, entity) {
       return adapter.canUpdate(context, entity);
     },

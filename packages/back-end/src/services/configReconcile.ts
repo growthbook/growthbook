@@ -8,6 +8,7 @@ import {
   isConfigLocked,
 } from "shared/util";
 import { ConfigInterface } from "shared/types/config";
+import { CasConflictError } from "back-end/src/models/BaseModel";
 import {
   BadRequestError,
   SoftWarningError,
@@ -237,21 +238,48 @@ export async function reconcileConfigDescendants(
       continue;
     }
 
-    const ancestorKeys = getAncestorSchemaKeys(node, byKey);
-    const kept = stripAncestorOwnedFields(node.schema, ancestorKeys);
-    if (!kept) continue;
+    // Guarded read-decide-write per descendant, retried: the walk computes from
+    // its snapshot, and a descendant PUBLISH landing between that snapshot and
+    // an unguarded write would be replaced by stale reconciliation output. On a
+    // loss, re-read the descendant and recompute against ITS new schema — the
+    // publish that beat us already normalized against the current ancestors, so
+    // a second loss usually means nothing is left to strip.
+    let current = node;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const ancestorKeys = getAncestorSchemaKeys(current, byKey);
+      const kept = stripAncestorOwnedFields(current.schema, ancestorKeys);
+      if (!kept) {
+        byKey.set(current.key, current);
+        break;
+      }
 
-    const newSchema = {
-      ...node.schema,
-      type: node.schema?.type ?? ("object" as const),
-      fields: kept,
-    };
-    const updated =
-      await context.models.configs.dangerousUpdateBypassPermission(node, {
-        schema: newSchema,
-      });
-    // Keep the working map current so a deeper descendant sees the parent's
-    // post-strip schema when computing its own ancestor-owned keys.
-    byKey.set(updated.key, updated);
+      const newSchema = {
+        ...current.schema,
+        type: current.schema?.type ?? ("object" as const),
+        fields: kept,
+      };
+      try {
+        const updated = await context.models.configs.updateIfUnchanged(
+          current,
+          { schema: newSchema },
+          undefined,
+          // Same authority contract as the bypass write this replaces: the
+          // cascade acts under the ancestor publish already authorized.
+          { dangerouslyBypassCanUpdate: true },
+        );
+        // Keep the working map current so a deeper descendant sees the parent's
+        // post-strip schema when computing its own ancestor-owned keys.
+        byKey.set(updated.key, updated);
+        break;
+      } catch (e) {
+        if (e instanceof CasConflictError && attempt < 3) {
+          const fresh = await context.models.configs.getById(current.id);
+          if (!fresh) break;
+          current = fresh;
+          continue;
+        }
+        throw e;
+      }
+    }
   }
 }

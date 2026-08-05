@@ -148,9 +148,7 @@ async function setArchivedState(
     );
   }
 
-  // One recorded, guarded landing whether or not approval was bypassed — this
-  // used to fork into a hand-rolled copy of the pipeline on one side and a plain
-  // unrecorded write on the other.
+  // One recorded, guarded landing whether or not approval was bypassed.
   await ensureLiveRevisionExists(
     context,
     "config",

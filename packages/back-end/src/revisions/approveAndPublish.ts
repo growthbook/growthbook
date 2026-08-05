@@ -33,7 +33,13 @@ export function planApproveAndPublish({
   return { allowed: false };
 }
 
-/** Whether a revision is armed such that approving it will publish on its own. */
+/**
+ * Whether a revision is armed such that approving it will publish on its own.
+ *
+ * Provenance only — deliberately WEAKER than the gate: it does not ask whether
+ * the armed identity still resolves or still holds publish authority. Use
+ * `isArmedWithAuthorizedPublisher` for any decision that waives a check.
+ */
 export function isArmedForAutoPublish(revision: {
   autoPublishOnApproval?: boolean;
   autoPublishEnabledBy?: string;

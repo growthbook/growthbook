@@ -127,6 +127,22 @@ export const postRampSchedule = async (
 
   const startDate = body.startDate ? new Date(body.startDate) : undefined;
 
+  // Arming a dated start IS scheduling the live transition: the poller executes
+  // it under an admin context, so the arm takes the same per-target publish
+  // authority the fire itself would — model-level create is draft-class and
+  // cannot see the targets. A dateless schedule stays draft-class; arming it
+  // later goes through /actions/start or this same check on PUT.
+  if (startDate) {
+    await assertCanControlRampSchedule(context, {
+      entityType: body.entityType,
+      entityId: body.entityId,
+      targets: body.targets,
+      steps: body.steps,
+      startActions: body.startActions,
+      endActions: body.endActions,
+    } as RampScheduleInterface);
+  }
+
   const schedule = await context.models.rampSchedules.create({
     name: body.name,
     entityType: body.entityType,
@@ -197,6 +213,21 @@ export const putRampSchedule = async (
           `Cannot update: schedule changed to "${fresh.status}" while the request was in flight`,
         );
       }
+      // Fields the poller executes — fire times and the actions/steps it will
+      // apply — are publish-class to touch on an armable schedule, for the same
+      // reason the arm itself is: editing them re-aims a live transition the
+      // /actions endpoints would refuse this caller. Name and monitoring edits
+      // stay draft-class (monitoring carries its own assert below).
+      const touchesExecution =
+        "startDate" in body ||
+        "cutoffDate" in body ||
+        body.startActions !== undefined ||
+        body.steps !== undefined ||
+        body.endActions !== undefined;
+      if (touchesExecution) {
+        await assertCanControlRampSchedule(context, fresh);
+      }
+
       const updates: Record<string, unknown> = {};
       if (body.name !== undefined) updates.name = body.name;
       if (body.startActions !== undefined)

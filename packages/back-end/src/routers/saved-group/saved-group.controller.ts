@@ -952,9 +952,7 @@ export const putSavedGroup = async (
   }
   // A landing that relocates the group takes PUBLISH in the destination — the
   // draft-authority destination check earlier in this handler covers staging
-  // only. Without this, publish@A plus draft@B landed a move into B: the one
-  // internal handler whose landing skipped the rule its REST twin and the other
-  // entities' internal twins all apply.
+  // only. Without it, publish@A plus draft@B lands a move into B.
   if (
     willPublish &&
     !holdsMoveDestination({

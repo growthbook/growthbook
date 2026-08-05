@@ -82,7 +82,7 @@ function holdoutChanges({
 
 function plausibleRules(rules: unknown): FeatureRule[] {
   return ((rules ?? []) as FeatureRule[]).filter(
-    (r) => r != null && typeof r === "object" && !Array.isArray(r),
+    (r) => (r ?? null) !== null && typeof r === "object" && !Array.isArray(r),
   );
 }
 

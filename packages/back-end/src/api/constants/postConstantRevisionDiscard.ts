@@ -22,7 +22,6 @@ export const postConstantRevisionDiscard = createApiRequestHandler(
   const closed = await discardEntityRevision({
     context: req.context,
     entityType: "constant",
-    entity: constant,
     revision,
     reason: req.body.reason,
   });

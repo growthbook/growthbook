@@ -1069,13 +1069,11 @@ export async function maybePublishScheduledRevision(
 export async function discardEntityRevision({
   context,
   entityType,
-  entity,
   revision,
   reason,
 }: {
   context: Context;
   entityType: RevisionTargetType;
-  entity: { project?: string; projects?: string[] };
   revision: Revision;
   reason?: string;
 }): Promise<Revision> {
@@ -1085,12 +1083,11 @@ export async function discardEntityRevision({
     );
   }
 
-  // Authors can always discard their own draft; anyone else needs authoring
-  // rights on the entity.
-  if (
-    !isRevisionAuthor(revision.authorId, context.userId) &&
-    !context.permissions.canRevisionAction(entityType, "draft", entity)
-  ) {
+  // Draft authority, a narrow atom over a draft that only does what the atom
+  // covers (revert over a pure revert, delete over a pure archive), or
+  // authorship — the same rule as the internal close. A narrower gate cuts a
+  // reverter off from discarding the very draft they can publish.
+  if (!(await canAdvanceRevision(context, revision))) {
     context.permissions.throwPermissionError();
   }
 

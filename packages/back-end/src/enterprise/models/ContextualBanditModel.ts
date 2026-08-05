@@ -419,7 +419,7 @@ export class ContextualBanditModel extends BaseClass {
     if (!cb) return;
     const drafts = cb.pendingFeatureDrafts ?? [];
     const remaining = drafts.filter((d) =>
-      revisionVersion != null
+      (revisionVersion ?? null) !== null
         ? !(d.featureId === featureId && d.revisionVersion === revisionVersion)
         : d.featureId !== featureId,
     );

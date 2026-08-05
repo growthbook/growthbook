@@ -196,11 +196,9 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
       }
     }
 
-    // One landing path whether or not approval was bypassed. This branch used to
-    // fork: without approvals it was a plain model write — no history, no guard —
-    // so for those orgs a REST update was last-write-wins and invisible, unlike
-    // the same edit made anywhere else. Record the already-merged revision FIRST,
-    // then apply it, rolling the record back if the apply fails.
+    // One landing path whether or not approval was bypassed: every direct
+    // update is recorded and guarded. History first, then live state — a merged
+    // record with no live change is removable; the reverse is unrepairable.
     await ensureLiveRevisionExists(
       req.context,
       "constant",

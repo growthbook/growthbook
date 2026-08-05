@@ -79,9 +79,6 @@ export interface BulkPublishableAdapter {
     version: number,
   ): Promise<BulkRevisionRef | null>;
 
-  /** Publish authority over the entity (may be narrower than update). */
-  canPublish(context: Context, entity: Record<string, unknown>): boolean;
-
   /** Update authority — rechecked against the post-merge desired state. */
   canUpdate(context: Context, entity: Record<string, unknown>): boolean;
 

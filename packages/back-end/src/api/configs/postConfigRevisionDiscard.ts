@@ -22,7 +22,6 @@ export const postConfigRevisionDiscard = createApiRequestHandler(
   const closed = await discardEntityRevision({
     context: req.context,
     entityType: "config",
-    entity: config,
     revision,
     reason: req.body.reason,
   });

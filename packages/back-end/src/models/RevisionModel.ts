@@ -589,6 +589,18 @@ export class RevisionModel extends BaseClass {
   private async countReadable(
     filter: Record<string, unknown>,
   ): Promise<number> {
+    // The common case — a caller who can read every project — keeps the O(1)
+    // count; the projected scan below exists only for project-limited callers.
+    // Sampling both scopes: readable-with-no-projects covers global entities,
+    // and the org-wide projects question covers the rest.
+    if (
+      this.context.permissions.canReadMultiProjectResource([]) &&
+      this.context.permissions.canReadMultiProjectResource(
+        await this.context.getAllProjectIds(),
+      )
+    ) {
+      return this._countDocuments(filter);
+    }
     const projected = await this._dangerousGetCollection()
       .find(
         { organization: this.context.org.id, ...filter },

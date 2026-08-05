@@ -96,6 +96,20 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       req.body.experimentGuard !== !!config.experimentGuard
         ? req.body.experimentGuard
         : undefined;
+    // Same gates as the internal twin: enabling the guard is a served-behavior
+    // change, so it takes env-scoped publish; turning it OFF removes a
+    // protection and stays bypass-tier.
+    if (
+      guardToggle === true &&
+      !req.context.permissions.canRevisionAction(
+        "config",
+        "publish",
+        config,
+        configPublishEnvironments(req.context, config),
+      )
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
     if (
       guardToggle === false &&
       !req.context.permissions.canBypassFlagApprovalChecks(
@@ -553,11 +567,9 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       };
     }
 
-    // One landing path whether or not approval was bypassed. This branch used to
-    // fork: without approvals it was a plain model write — no history, no guard —
-    // so for those orgs a REST update was last-write-wins and invisible, unlike
-    // the same edit made anywhere else. Record the already-merged revision FIRST,
-    // then apply it, rolling the record back if the apply fails.
+    // One landing path whether or not approval was bypassed: every direct
+    // update is recorded and guarded. History first, then live state — a merged
+    // record with no live change is removable; the reverse is unrepairable.
     await ensureLiveRevisionExists(
       req.context,
       "config",

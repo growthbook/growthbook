@@ -366,11 +366,9 @@ export default function ConstantDetailPage(): React.ReactElement {
     permissionsUtil,
     "constant",
     constant,
-    // The SERVE footprint, matching the archive endpoints: the base value feeds
-    // every environment, so archiving takes delete authority in all of them. An
-    // earlier alignment made this unbound "to match the endpoint" — the endpoint
-    // itself was the bug (unbound means the env check is skipped, not held
-    // everywhere), and both sides now ask over every environment.
+    // The SERVE footprint, matching the archive endpoints: the base value
+    // feeds every environment, so archiving takes delete authority in all of
+    // them. Unbound would mean the env check is SKIPPED, not held everywhere.
     environments.map((e) => e.id),
   );
   const canArchiveNow =

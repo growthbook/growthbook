@@ -106,7 +106,14 @@ function topLevelField(path: string): string | null {
   if (!path.startsWith("/")) return null;
   const segments = path.slice(1).split("/");
   if (segments.length !== 1 || !segments[0]) return null;
-  return decodeURIComponent(
-    segments[0].replace(/~1/g, "/").replace(/~0/g, "~"),
-  );
+  try {
+    return decodeURIComponent(
+      segments[0].replace(/~1/g, "/").replace(/~0/g, "~"),
+    );
+  } catch {
+    // A malformed %-escape (JSON Pointer allows raw "%") is not a decodable
+    // field name — treat it as "not a plain top-level field" rather than
+    // letting URIError escape as a 500.
+    return null;
+  }
 }

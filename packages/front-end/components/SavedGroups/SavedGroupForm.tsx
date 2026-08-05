@@ -315,7 +315,7 @@ const SavedGroupForm: FC<{
     : !hasProjectPermission && !editConditionOnly
       ? !selectedProjects.length && projectsOptions.length > 0
         ? "Select a project to continue."
-        : `You don't have permission to ${current.id ? "update" : "create"} saved groups.`
+        : `You don't have permission to ${current.id ? "update" : "create"} Saved Groups.`
       : !isValid
         ? editConditionOnly
           ? !form.watch("condition")

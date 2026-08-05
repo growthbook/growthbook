@@ -3783,10 +3783,7 @@ export async function getMergeResultPublishEnvs({
   if (hasGlobalChange) {
     // The environments the change REACHES, not just the ones already serving:
     // a draft that both edits a global field and ENABLES an environment lands
-    // in that environment too. Returning currently-enabled alone let a
-    // staging-limited publisher enable production by pairing the toggle with
-    // any global edit — the exact hole revertFootprint closed on the revert
-    // side, still open here on the publish side.
+    // in that environment too. Mirrors revertFootprint on the revert side.
     return Array.from(new Set([...allEnabledEnvs, ...envScoped]));
   }
 

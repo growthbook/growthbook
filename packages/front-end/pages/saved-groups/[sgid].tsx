@@ -721,8 +721,8 @@ export default function EditSavedGroupPage() {
           closeCta="Close"
         >
           <Text as="p" mb="3">
-            This saved group is referenced by the following features,
-            experiments, and saved groups.
+            This Saved Group is referenced by the following Feature Flags,
+            Experiments, and Saved Groups.
           </Text>
           <SavedGroupReferencesList
             features={referencingFeatures}
@@ -1220,7 +1220,7 @@ export default function EditSavedGroupPage() {
             {savedGroup.type === "list" &&
               !isIdListSupportedAttribute(attr) && (
                 <Callout status="error" mt="3">
-                  The attribute for this saved group has an unsupported
+                  The attribute for this Saved Group has an unsupported
                   datatype. It cannot be edited and it may produce unexpected
                   behavior when used in SDKs. Try using a{" "}
                   <Link href="/saved-groups#conditionGroups">
@@ -1540,7 +1540,7 @@ export default function EditSavedGroupPage() {
                 {!displayedValues.length &&
                   !displayedSavedGroup?.useEmptyListGroup && (
                     <Callout status="info">
-                      This saved group has legacy behavior when empty and will
+                      This Saved Group has legacy behavior when empty and will
                       be completely ignored when used for targeting.{" "}
                       <DocLink useRadix={false} docSection="idLists">
                         Learn More
