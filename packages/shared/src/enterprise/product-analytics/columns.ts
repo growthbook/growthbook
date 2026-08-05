@@ -10,11 +10,20 @@ export interface AvailableDimensionColumn {
   name: string;
 }
 
+// Only what this module needs from a fact table — deliberately excludes
+// `sql`, so callers can pass either a full FactTableInterface or the
+// sql-less shape returned by an id-scoped "full columns" fetch (e.g. the
+// front-end's useFullFactTablesByIds), without either satisfying the other.
+export type DimensionFactTable = Pick<
+  FactTableInterface,
+  "columns" | "userIdTypes"
+>;
+
 // Top-level string columns, plus dotted sub-paths for JSON columns whose
 // fields are themselves strings — matches the dotted-path convention
 // `getColumnExpression`/`factTableHasResolvableColumn` resolve at query time.
 function expandFactTableColumns(
-  factTable: Pick<FactTableInterface, "columns">,
+  factTable: DimensionFactTable,
 ): AvailableDimensionColumn[] {
   const result: AvailableDimensionColumn[] = [];
   (factTable.columns || [])
@@ -56,7 +65,7 @@ function expandFactTableColumns(
  */
 export function getAvailableDimensionColumns(
   dataset: ExplorationDataset | null,
-  getFactTableById: (id: string) => FactTableInterface | null,
+  getFactTableById: (id: string) => DimensionFactTable | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): AvailableDimensionColumn[] {
   if (!dataset) return [];
