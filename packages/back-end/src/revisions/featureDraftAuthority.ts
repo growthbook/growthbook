@@ -48,7 +48,11 @@ function hasDeleteAuthority(
   return context.permissions.canDeleteFeature(feature, NO_ENVIRONMENT_BINDING);
 }
 
-/** The caller opened this draft, or has contributed changes to it. */
+/**
+ * The caller opened this draft, or has contributed changes to it. Gates the
+ * narrow atoms' reach — without it, revert or delete authority would advance
+ * anyone's draft. Pinned by featureDraftAuthority.test.ts.
+ */
 export function authoredFeatureDraft(
   context: ReqContext | ApiReqContext,
   draft: Pick<FeatureRevisionInterface, "createdBy" | "contributors">,
