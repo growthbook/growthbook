@@ -108,6 +108,11 @@ function ProviderRow({
   // provider in the menu, which is to say no way to BYOK on Cloud at all.
   const envIsAuthoritative = inheritedFromEnv && !isCloud();
 
+  // Same `env` key source, entirely different thing to say about it. On Cloud
+  // it's GrowthBook's managed key: the admin never set it, can't go change it
+  // where it lives, and adding their own key on top is the supported move.
+  const managedByGrowthBook = inheritedFromEnv && isCloud() && !credential;
+
   const [editing, setEditing] = useState(startEditing);
   const [apiKey, setApiKey] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -158,9 +163,13 @@ function ProviderRow({
             <Text size="md" weight="semibold">
               {label}
             </Text>
-            {envIsAuthoritative || (!credential && inheritedFromEnv) ? (
+            {envIsAuthoritative ? (
               <Text size="sm" color="text-mid">
                 From environment
+              </Text>
+            ) : managedByGrowthBook ? (
+              <Text size="sm" color="text-mid">
+                GrowthBook managed
               </Text>
             ) : null}
           </Flex>
@@ -172,6 +181,11 @@ function ProviderRow({
                   ? ` · set by ${credential.updatedByEmail}`
                   : ""}{" "}
                 on {date(credential.dateUpdated)}
+              </>
+            ) : managedByGrowthBook ? (
+              <>
+                Using GrowthBook&apos;s managed key. Add your own to bill your
+                provider account directly.
               </>
             ) : inheritedFromEnv ? (
               <>
@@ -281,8 +295,10 @@ function ProviderRow({
 
 /**
  * Per-org AI provider API keys. Rendered under the "Enable AI features" toggle
- * on both Cloud and self-hosted: a key stored here always wins over the host's
- * environment variables, which is how an org brings its own provider account.
+ * on both Cloud and self-hosted, but they mean different things: on Cloud a key
+ * stored here outranks GrowthBook's managed key, which is how an org brings its
+ * own provider account; self-hosted, the host's environment variables win and
+ * those providers are shown read-only.
  */
 export default function AIProviderKeys({
   // The AI Settings page renders its own permission callout covering this
@@ -312,9 +328,17 @@ export default function AIProviderKeys({
   // Show a row for every provider that is already set up somehow, plus the one
   // the admin is actively adding. Listing all five unconditionally turns a
   // simple setting into a wall of empty rows.
+  //
+  // Env rows count only self-hosted, where they're real configuration the host
+  // chose. On Cloud every provider we hold a managed key for reports as `env`,
+  // so including them would list all five for every org — the wall this filter
+  // exists to avoid — and none of them is something the admin set up. Cloud
+  // shows the org's own keys, and "New provider" is where the rest live.
   const visibleProviders = AI_PROVIDERS.filter(
     (p) =>
-      configured.has(p) || envProviders.includes(p) || p === addingProvider,
+      configured.has(p) ||
+      (!isCloud() && envProviders.includes(p)) ||
+      p === addingProvider,
   );
 
   // Every provider stays in the menu so the full set is discoverable, but one
@@ -340,10 +364,21 @@ export default function AIProviderKeys({
         AI providers
       </Text>
       <Text size="md" color="text-mid" as="div" mb="3">
-        Bring your own provider account. Keys are encrypted at rest. You only
-        need a key for the providers whose models you actually use. A provider
-        configured by an environment variable is managed where that variable is
-        set.
+        {isCloud() ? (
+          <>
+            Bring your own provider account. AI features run on
+            GrowthBook&apos;s managed keys by default — add your own key to bill
+            your provider directly and choose your own models. Keys are
+            encrypted at rest.
+          </>
+        ) : (
+          <>
+            Bring your own provider account. Keys are encrypted at rest. You
+            only need a key for the providers whose models you actually use. A
+            provider set by an environment variable is managed where that
+            variable is set.
+          </>
+        )}
       </Text>
 
       {visibleProviders.map((provider) => (
