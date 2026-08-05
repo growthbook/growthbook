@@ -143,6 +143,7 @@ import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
+  revertFootprint,
   assertCanPublishFeatureRevision,
   canAdvanceFeatureDraft,
   canDiscardFeatureDraft,
@@ -2546,7 +2547,13 @@ export async function postFeatureRevert(
             : {}),
         },
         landing: true,
-        footprint: allEnabledEnvs,
+        // Includes environments the restore would switch back on, not just those
+        // enabled now — a revert that re-enables production is a production change.
+        footprint: revertFootprint({
+          feature,
+          targetRevision: revision,
+          environmentIds,
+        }),
       });
       mergeChanges.metadata = metadataChanges;
     }

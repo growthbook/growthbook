@@ -13,6 +13,7 @@ import {
 } from "shared/util";
 import { isEqual } from "lodash";
 import { revertFeatureValidator } from "shared/validators";
+import { revertFootprint } from "back-end/src/revisions/featureDraftAuthority";
 import type { ApiReqContext } from "back-end/types/api";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
@@ -156,13 +157,8 @@ export async function revertFeatureCore(
     if (m.project !== undefined && m.project !== feature.project) {
       // A move has to land where the caller has authority, not just leave where
       // they do — this path publishes directly, bypassing the publish engine's
-      // destination check. Scoped to every environment the flag serves, not
-      // `changedEnvs`: a metadata-only move changes no environment's value, so
-      // that list is empty and the check would pass vacuously.
-      // Footprint is the union of what the flag serves NOW and every environment
-      // this revert touches: `allEnabledEnvs` alone omits environments the revert
-      // itself re-enables, so a move could land a flag serving production into a
-      // project where the caller holds no production authority.
+      // destination check. The footprint comes from revertFootprint, which unions
+      // what the flag serves now with what the restore would switch on or rewrite.
       if (
         !holdsMoveDestination({
           permissions: context.permissions,
@@ -170,12 +166,12 @@ export async function revertFeatureCore(
           action: "publish",
           existing: feature,
           proposed: { ...feature, project: m.project },
-          environments: [
-            ...new Set([
-              ...getEnabledEnvironments(feature, environmentIds),
-              ...changedEnvs,
-            ]),
-          ],
+          environments: revertFootprint({
+            feature,
+            targetRevision: revision,
+            environmentIds,
+            changedEnvs,
+          }),
         })
       ) {
         context.permissions.throwPermissionError();

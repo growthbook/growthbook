@@ -12,6 +12,7 @@ import {
 import { isEqual } from "lodash";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { postFeatureRevisionRevertValidator } from "shared/validators";
+import { revertFootprint } from "back-end/src/revisions/featureDraftAuthority";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import {
@@ -220,7 +221,12 @@ export async function revertFeatureRevision(
           existing: feature,
           proposed: { ...feature, project: m.project },
           environments: isPublish
-            ? [...new Set([...allEnabledEnvs, ...changedEnvs])]
+            ? revertFootprint({
+                feature,
+                targetRevision,
+                environmentIds,
+                changedEnvs,
+              })
             : [],
         })
       ) {

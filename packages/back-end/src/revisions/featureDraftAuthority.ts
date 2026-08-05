@@ -283,3 +283,36 @@ export async function assertCanPublishFeatureRevision({
     isPureArchive: () => isPureFeatureArchive({ feature, draft: revision }),
   });
 }
+
+// The environments a revert answers for: those the flag serves now, plus any the
+// restored revision would switch back ON. Currently-enabled alone under-counts —
+// restoring a revision that re-enables production is a production change, and
+// pairing it with a project move let one land without production authority in the
+// destination.
+export function revertFootprint({
+  feature,
+  targetRevision,
+  environmentIds,
+  changedEnvs = [],
+}: {
+  feature: FeatureInterface;
+  targetRevision: Pick<FeatureRevisionInterface, "environmentsEnabled">;
+  environmentIds: string[];
+  // Environments whose rule lists the revert would change. Distinct from the
+  // enable flag: an environment re-enabled with identical rules appears here in
+  // neither, which is how each half of this union was missed on its own.
+  changedEnvs?: string[];
+}): string[] {
+  const envs = new Set(
+    environmentIds.filter((env) => feature.environmentSettings?.[env]?.enabled),
+  );
+  for (const [env, enabled] of Object.entries(
+    targetRevision.environmentsEnabled ?? {},
+  )) {
+    if (enabled && environmentIds.includes(env)) envs.add(env);
+  }
+  for (const env of changedEnvs) {
+    if (environmentIds.includes(env)) envs.add(env);
+  }
+  return Array.from(envs);
+}
