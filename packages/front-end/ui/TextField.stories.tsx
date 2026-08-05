@@ -23,28 +23,21 @@ export default function TextFieldStories() {
     <Flex direction="column" gap="6">
       <Flex direction="column" gap="3" maxWidth="360px">
         <TextField
-          label="Size x-small"
-          size="x-small"
+          label="Size sm"
+          size="sm"
           placeholder="Text input"
           value={value}
           onChange={(e) => setValue(e.target.value)}
         />
         <TextField
-          label="Size small (default)"
+          label="Size md (default)"
           placeholder="Text input"
           value={value}
           onChange={(e) => setValue(e.target.value)}
         />
         <TextField
-          label="Size legacy"
-          size="legacy"
-          placeholder="Text input"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-        />
-        <TextField
-          label="Size medium"
-          size="medium"
+          label="Size lg"
+          size="lg"
           placeholder="Text input"
           value={value}
           onChange={(e) => setValue(e.target.value)}

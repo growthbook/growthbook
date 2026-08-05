@@ -2,9 +2,11 @@ import omit from "lodash/omit";
 import {
   DataSourceInterface,
   DataSourceInterfaceWithParams,
+  DataSourceType,
 } from "shared/types/datasource";
 import { EventForwarderConfigWithMetadata } from "shared/types/event-forwarder";
 import { getEventForwarderSinkTypeForDatasource } from "shared/util";
+import type { DataSourceParamsForType } from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import {
   getNonSensitiveParams,
@@ -13,10 +15,32 @@ import {
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getEventForwarderMetadataForDatasource } from "back-end/src/services/eventForwarder/config";
 
+type DataSourceByType = {
+  [DataSource in DataSourceInterface as DataSource["type"]]: DataSource;
+};
+
+type DataSourceWithParamsByType = {
+  [DataSource in DataSourceInterfaceWithParams as DataSource["type"]]: DataSource;
+};
+
+type DataSourceResponse<T extends DataSourceType> = Omit<
+  DataSourceByType[T],
+  "params"
+> & {
+  params: DataSourceParamsForType<T>;
+  properties: ReturnType<SourceIntegrationInterface<T>["getSourceProperties"]>;
+  decryptionError: boolean;
+  eventForwarderConfig: EventForwarderConfigWithMetadata | null;
+};
+
+export function buildDataSourceWithParams<T extends DataSourceType>(
+  integration: SourceIntegrationInterface<T>,
+  eventForwarderConfig?: EventForwarderConfigWithMetadata | null,
+): DataSourceWithParamsByType[T];
 export function buildDataSourceWithParams(
   integration: SourceIntegrationInterface,
   eventForwarderConfig?: EventForwarderConfigWithMetadata | null,
-): DataSourceInterfaceWithParams {
+): unknown {
   const datasource = integration.datasource;
   const otherFields = omit(datasource, "params");
 
@@ -27,7 +51,7 @@ export function buildDataSourceWithParams(
     properties: integration.getSourceProperties(),
     decryptionError: integration.decryptionError || false,
     eventForwarderConfig: eventForwarderConfig ?? null,
-  };
+  } satisfies DataSourceResponse<DataSourceType>;
 }
 
 export async function getDataSourceWithParams(

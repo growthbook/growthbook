@@ -108,7 +108,7 @@ function GaugePanel({
           <Text as="div" weight="medium">
             {periodLabel}
           </Text>
-          <Text as="div" size="small" color="text-mid">
+          <Text as="div" size="sm" color="text-mid">
             {periodRange}
           </Text>
         </Box>
@@ -117,7 +117,7 @@ function GaugePanel({
         option={gaugeOption(summary.winRate, textColor)}
         style={{ width: "100%", height: GAUGE_HEIGHT }}
       />
-      <Text as="div" size="small" align="center" color="text-mid">
+      <Text as="div" size="sm" align="center" color="text-mid">
         {summary.total} completed · {summary.wins} won, {summary.losses} lost,{" "}
         {summary.other} inconclusive
       </Text>

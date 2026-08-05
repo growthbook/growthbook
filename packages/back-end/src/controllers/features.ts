@@ -129,10 +129,8 @@ import {
   assertCanAutoPublish,
   revisionRequiresReview,
 } from "back-end/src/services/features";
-import {
-  linkExperimentToHoldout,
-  resolveHoldoutExperimentToLink,
-} from "back-end/src/services/holdouts";
+import { linkFeatureToContextualBandit } from "back-end/src/enterprise/services/contextualBandits";
+import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
 import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
@@ -2981,7 +2979,6 @@ export async function postFeatureRule(
   // Add holdout to existing experiment and experiment to holdout linkedExperiments
   // if the experiment is not running and has no linked implementations for
   // experiment-ref rules (writes deferred until after custom-hook prevalidation)
-  let holdoutExperimentToLink: ExperimentInterface | null = null;
   if (rule.type === "experiment-ref") {
     const experiment = await getExperimentById(context, rule.experimentId);
     // With a holdout in play the experiment must exist; without one, a missing
@@ -2990,7 +2987,7 @@ export async function postFeatureRule(
       throw new Error(`Could not find experiment "${rule.experimentId}"`);
     }
     if (experiment) {
-      holdoutExperimentToLink = await resolveHoldoutExperimentToLink({
+      await resolveHoldoutExperimentToLink({
         context,
         feature,
         experiment,
@@ -3151,21 +3148,6 @@ export async function postFeatureRule(
 
     if (!safeRollout) {
       throw new Error("Failed to create safe rollout");
-    }
-  }
-
-  // TODO(holdouts): remove code below (which makes this endpoint consistent with API routes)
-  // and instead only link when the holdout and experiment go live
-  if (holdoutExperimentToLink && effectiveHoldout?.id) {
-    // Link now only when the validated holdout is already live. A draft-only
-    // holdout defers to publish — applyHoldoutSideEffects enrolls the
-    // experiments in the merged rules when the holdout change lands.
-    if (feature.holdout?.id === effectiveHoldout.id) {
-      await linkExperimentToHoldout(
-        context,
-        holdoutExperimentToLink,
-        effectiveHoldout.id,
-      );
     }
   }
 
@@ -3515,12 +3497,11 @@ export async function postFeatureExperimentRefRule(
   // to check compatibility
   const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
 
-  const holdoutExperimentToLink = await resolveHoldoutExperimentToLink({
+  await resolveHoldoutExperimentToLink({
     context,
     feature,
     experiment,
     effectiveHoldout,
-    allowExistingLinkToThisFeature: true,
   });
 
   // One-way: any rule-footprint env that's currently off flips on. We never
@@ -3652,21 +3633,6 @@ export async function postFeatureExperimentRefRule(
     experiment,
   );
 
-  // TODO(holdouts): remove code below (which makes this endpoint consistent with API routes)
-  // and instead only link when the holdout and experiment go live
-  if (holdoutExperimentToLink && effectiveHoldout?.id) {
-    // Link now only when the validated holdout is already live. A draft-only
-    // holdout defers to publish — applyHoldoutSideEffects enrolls the
-    // experiments in the merged rules when the holdout change lands.
-    if (feature.holdout?.id === effectiveHoldout.id) {
-      await linkExperimentToHoldout(
-        context,
-        holdoutExperimentToLink,
-        effectiveHoldout.id,
-      );
-    }
-  }
-
   res.status(200).json({
     status: 200,
     version: updatedRevision.version,
@@ -3690,35 +3656,12 @@ export async function postFeatureContextualBanditRefRule(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { org, environments } = context;
   const { id } = req.params;
   const { rule, autoPublish, draftVersion, forceNewDraft } = req.body;
-
-  if (
-    rule.type !== "contextual-bandit-ref" ||
-    !rule.contextualBanditId ||
-    !rule.variations ||
-    !rule.variations.length
-  ) {
-    throw new Error("Invalid contextual bandit rule");
-  }
-
-  if (!environments.length) {
-    throw new Error(
-      "Must have at least one environment configured to use Feature Flags",
-    );
-  }
 
   const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
-  }
-
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
-    context.permissions.throwPermissionError();
   }
 
   const contextualBandit = await context.models.contextualBandits.getById(
@@ -3728,168 +3671,21 @@ export async function postFeatureContextualBanditRefRule(
     throw new Error("Invalid contextual bandit selected");
   }
 
-  let scopedRule: FeatureRule;
-  if (rule.allEnvironments === true) {
-    scopedRule = {
-      ...omit(rule, ["environments"]),
-      id: generateRuleId(),
-      allEnvironments: true,
-    } as FeatureRule;
-  } else if (
-    rule.allEnvironments === false &&
-    Array.isArray(rule.environments)
-  ) {
-    scopedRule = { ...rule, id: generateRuleId() } as FeatureRule;
-  } else {
-    scopedRule = stampRuleForEnvs(
-      { ...rule, id: generateRuleId() } as FeatureRule,
-      environments,
-    );
-  }
-
-  const ruleEnvFootprint = scopedRule.allEnvironments
-    ? environments
-    : (scopedRule.environments ?? []);
-
-  if (!context.permissions.canPublishFeature(feature, ruleEnvFootprint)) {
-    context.permissions.throwPermissionError();
-  }
-
-  // Contextual-bandit-served values must satisfy the backing Config's schema +
-  // invariants, the same as a REST publish. No-op unless the feature is
-  // config-backed JSON.
-  await assertConfigBackedFeatureValuesValid(context, feature, {
-    rules: [scopedRule],
-  });
-
-  const targetVersion = autoPublish
-    ? feature.version
-    : forceNewDraft
-      ? feature.version
-      : (draftVersion ?? feature.version);
-  const revision = await getDraftRevision(context, feature, targetVersion);
-
-  const baseEnvEnabled: Record<string, boolean> = {
-    ...Object.fromEntries(
-      environments.map((e) => [
-        e,
-        feature.environmentSettings?.[e]?.enabled ?? false,
-      ]),
-    ),
-    ...(revision.environmentsEnabled ?? {}),
-  };
-  const envToggles: Record<string, boolean> = {};
-  for (const envId of ruleEnvFootprint) {
-    if (!environments.includes(envId)) continue;
-    if (!baseEnvEnabled[envId]) envToggles[envId] = true;
-  }
-
-  const existingRules = cloneDeep(revision.rules ?? []);
-  const nextRules = [...existingRules, scopedRule];
-
-  const combinedChanges: Partial<FeatureRevisionInterface> = {
-    rules: nextRules,
-  };
-  if (Object.keys(envToggles).length > 0) {
-    combinedChanges.environmentsEnabled = {
-      ...(revision.environmentsEnabled ?? {}),
-      ...envToggles,
-    };
-  }
-  const bundlingIntoExistingDraft =
-    !!draftVersion && !forceNewDraft && !autoPublish;
-  if (!bundlingIntoExistingDraft && !revision.title) {
-    combinedChanges.title = "Publish contextual bandit";
-  }
-
-  const resetReview = resetReviewOnChange({
+  const { version, published } = await linkFeatureToContextualBandit({
+    context,
+    contextualBandit,
     feature,
-    changedEnvironments: ruleEnvFootprint,
-    defaultValueChanged: false,
-    settings: org?.settings,
+    rule,
+    eventAudit: res.locals.eventAudit,
+    audit: req.audit,
+    autoPublish,
+    draftVersion,
+    forceNewDraft,
   });
-  const auditSubject = scopedRule.allEnvironments
-    ? "to all environments"
-    : `to ${ruleEnvFootprint.join(", ") || "no environments"}`;
-  const updatedRevision =
-    (await updateRevision(
-      context,
-      feature,
-      revision,
-      combinedChanges,
-      {
-        user: res.locals.eventAudit,
-        action: "add contextual bandit rule",
-        subject: auditSubject,
-        value: JSON.stringify(scopedRule),
-      },
-      resetReview,
-    )) ?? revision;
-  await recordRevisionUpdate(context, feature, updatedRevision, "rule.add", {
-    environments: ruleEnvFootprint,
-  });
-
-  let published = false;
-  if (autoPublish) {
-    await assertCanAutoPublish(context, feature, updatedRevision);
-    const { live, base } = await getLiveAndBaseRevisionsForFeature({
-      context,
-      feature,
-      revision: updatedRevision,
-    });
-    const orgEnvIds = environments;
-    const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
-      feature,
-      live,
-      base,
-    );
-    const mergeResult = autoMerge(
-      mergeLive,
-      mergeBase,
-      updatedRevision,
-      orgEnvIds,
-      {},
-    );
-    if (!mergeResult.success) {
-      throw new Error(
-        `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,
-      );
-    }
-    const updatedFeature = await publishRevision({
-      context,
-      feature,
-      revision: updatedRevision,
-      result: mergeResult.result,
-      comment: `Add contextual bandit rule for "${contextualBandit.name}"`,
-      bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
-    });
-    await req.audit({
-      event: "feature.publish",
-      entity: { object: "feature", id: feature.id },
-      details: auditDetailsUpdate(feature, updatedFeature, {
-        revision: updatedRevision.version,
-        comment: `Add contextual bandit rule for "${contextualBandit.name}"`,
-      }),
-    });
-    published = true;
-  } else {
-    await context.models.contextualBandits.addPendingFeatureDraft(
-      contextualBandit.id,
-      feature.id,
-      updatedRevision.version,
-    );
-  }
-
-  if (!contextualBandit.linkedFeatures?.includes(feature.id)) {
-    await context.models.contextualBandits.addLinkedFeature(
-      contextualBandit.id,
-      feature.id,
-    );
-  }
 
   res.status(200).json({
     status: 200,
-    version: updatedRevision.version,
+    version,
     published,
   });
 }
@@ -5066,6 +4862,9 @@ export async function deleteFeatureRule(
       );
     }
   }
+
+  // No contextual-bandit-ref branch to match the one above: the revision write
+  // reconciles bandit linkage off the remaining rules before returning.
 
   res.status(200).json({
     status: 200,

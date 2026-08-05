@@ -6,6 +6,7 @@ import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
 import { evalCondition } from "@growthbook/growthbook";
 import {
+  ContextualBanditRefRule,
   ExperimentRefRule,
   RevisionMetadata,
   ApiFeature,
@@ -734,6 +735,9 @@ const isForceRule = (rule: FeatureRule): rule is ForceRule =>
   rule.type === "force";
 const isExperimentRefRule = (rule: FeatureRule): rule is ExperimentRefRule =>
   rule.type === "experiment-ref";
+const isContextualBanditRefRule = (
+  rule: FeatureRule,
+): rule is ContextualBanditRefRule => rule.type === "contextual-bandit-ref";
 
 // A rule that unconditionally matches all users, blocking any rules after it.
 const isUnconditionalCatcher = (rule: FeatureRule): boolean => {
@@ -3719,6 +3723,11 @@ export function inferSchemaField(
       }
       max = Math.max(max || 999, value);
       break;
+    case "bigint":
+    case "symbol":
+    case "undefined":
+    case "object":
+    case "function":
     default:
       throw new Error(`Invalid value type: ${typeof value}`);
   }
@@ -3861,4 +3870,152 @@ export function getApiFeatureEnabledEnvs(feature: ApiFeature) {
 
 export function getApiFeatureAllEnvs(feature: ApiFeature) {
   return Object.keys(feature.environments);
+}
+
+// Accepts legacy v1 (Record<env, rules>) as well as v2 arrays: raw-doc readers
+// hand over v1 shapes until the migration completes.
+export function getExperimentIdsFromRules(rules: unknown): string[] {
+  return Array.from(
+    new Set(
+      naiveFlattenV1Rules(rules)
+        .filter(isExperimentRefRule)
+        .map((r) => r.experimentId)
+        .filter(Boolean),
+    ),
+  );
+}
+
+/**
+ * Unlinking is doubly bounded: a holdout's experiment list is not only a
+ * projection of feature rules — experiments can be added to a holdout directly —
+ * so a candidate must both have been contributed by THIS feature and be
+ * referenced by nothing else. Anything else belongs to another writer.
+ */
+export function computeHoldoutExperimentLinkageDelta({
+  publishedRules,
+  previousRules,
+  linkedExperimentIds,
+  experimentIdsReferencedElsewhere,
+}: {
+  publishedRules: FeatureRule[];
+  previousRules: FeatureRule[];
+  linkedExperimentIds: string[];
+  experimentIdsReferencedElsewhere: string[];
+}): { toLink: string[]; toUnlink: string[] } {
+  const desired = getExperimentIdsFromRules(publishedRules);
+  const desiredSet = new Set(desired);
+  const linked = new Set(linkedExperimentIds);
+  const elsewhere = new Set(experimentIdsReferencedElsewhere);
+  const contributed = new Set(getExperimentIdsFromRules(previousRules));
+
+  return {
+    toLink: desired.filter((id) => !linked.has(id)),
+    toUnlink: linkedExperimentIds.filter(
+      (id) => contributed.has(id) && !desiredSet.has(id) && !elsewhere.has(id),
+    ),
+  };
+}
+
+// Accepts legacy v1 (Record<env, rules>) as well as v2 arrays, same as
+// `getExperimentIdsFromRules`.
+export function getContextualBanditIdsFromRules(rules: unknown): string[] {
+  return Array.from(
+    new Set(
+      naiveFlattenV1Rules(rules)
+        .filter(isContextualBanditRefRule)
+        .map((r) => r.contextualBanditId)
+        .filter(Boolean),
+    ),
+  );
+}
+
+/** A contextual bandit's linkage as it stands, narrowed to one feature's entries. */
+export type ContextualBanditLinkageState = {
+  linkedFeatures: string[];
+  pendingFeatureDrafts: { featureId: string; revisionVersion: number }[];
+};
+
+export type ContextualBanditLinkageDelta = {
+  contextualBanditId: string;
+  link: boolean;
+  unlink: boolean;
+  draftsToQueue: number[];
+  draftsToDrop: number[];
+};
+
+/**
+ * - `linkedFeatures`: the feature's live revision serves a rule for this
+ *   contextual bandit.
+ * - `pendingFeatureDrafts`: open drafts that reference the contextual bandit, keyed by
+ *   revision version. These are the drafts the bandit publishes when it starts.
+ *
+ * Only CBs present in `currentStateByBandit` are considered — the caller
+ * decides which of the referenced bandits exist and are writable, and includes
+ * the ones that still hold entries for this feature so stale linkage is swept.
+ * Bandits with nothing to change are left out of the result.
+ */
+export function computeContextualBanditLinkageDelta({
+  featureId,
+  liveRules,
+  openDrafts,
+  currentStateByBandit,
+}: {
+  featureId: string;
+  liveRules: unknown;
+  openDrafts: { version: number; rules: unknown }[];
+  currentStateByBandit: Record<string, ContextualBanditLinkageState>;
+}): ContextualBanditLinkageDelta[] {
+  const liveIds = new Set(getContextualBanditIdsFromRules(liveRules));
+
+  const draftVersionsByBandit = new Map<string, Set<number>>();
+  for (const draft of openDrafts) {
+    for (const cbId of getContextualBanditIdsFromRules(draft.rules)) {
+      if (!draftVersionsByBandit.has(cbId)) {
+        draftVersionsByBandit.set(cbId, new Set());
+      }
+      const versions = draftVersionsByBandit.get(cbId);
+      if (versions) {
+        versions.add(draft.version);
+      }
+    }
+  }
+
+  const deltas: ContextualBanditLinkageDelta[] = [];
+  for (const [contextualBanditId, state] of Object.entries(
+    currentStateByBandit,
+  )) {
+    const isLive = liveIds.has(contextualBanditId);
+    const isLinked = state.linkedFeatures.includes(featureId);
+
+    const desiredVersions =
+      draftVersionsByBandit.get(contextualBanditId) ?? new Set<number>();
+    const currentVersions = new Set(
+      state.pendingFeatureDrafts
+        .filter((d) => d.featureId === featureId)
+        .map((d) => d.revisionVersion),
+    );
+
+    const delta: ContextualBanditLinkageDelta = {
+      contextualBanditId,
+      link: isLive && !isLinked,
+      unlink: !isLive && isLinked,
+      draftsToQueue: Array.from(desiredVersions)
+        .filter((v) => !currentVersions.has(v))
+        .sort((a, b) => a - b),
+      draftsToDrop: Array.from(currentVersions)
+        .filter((v) => !desiredVersions.has(v))
+        .sort((a, b) => a - b),
+    };
+
+    if (
+      delta.link ||
+      delta.unlink ||
+      delta.draftsToQueue.length ||
+      delta.draftsToDrop.length
+    ) {
+      deltas.push(delta);
+    }
+  }
+
+  return deltas;
 }

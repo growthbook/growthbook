@@ -929,7 +929,7 @@ export function RampMonitoringCTAs({
   onResume,
   onApproveStep,
   onAdvance,
-  size = "xs",
+  size = "sm",
   signalResult,
 }: {
   rampSchedule: RampScheduleInterface;
