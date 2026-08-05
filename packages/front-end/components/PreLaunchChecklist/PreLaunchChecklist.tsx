@@ -29,9 +29,6 @@ import styles from "./PreLaunchChecklist.module.scss";
 import { usePreLaunchChecklist } from "./PreLaunchChecklistProvider";
 import { CheckListItem, getChecklistItems } from "./PreLaunchChecklistItems";
 
-// Severity breakdown of a linked experiment's checklist, reported to the
-// Review & Publish flow. Hard blockers (and the loading state) can never be
-// bypassed; soft blockers can be explicitly acknowledged via "publish anyway".
 export type ChecklistReadyStatus = {
   hasHardBlockers: boolean;
   hasSoftBlockers: boolean;
@@ -248,10 +245,9 @@ function PreLaunchChecklistFeatureExpRule({
   mutateExperiment: () => unknown | Promise<unknown>;
   checklist: CheckListItem[];
 }) {
-  const hardBlockerItems = checklist.filter(
+  const hasHardBlockers = checklist.some(
     (item) => item.status === "incomplete" && item.hardBlock,
   );
-  const hasHardBlockers = hardBlockerItems.length > 0;
   const hasSoftBlockers = checklist.some(
     (item) => item.status === "incomplete" && !item.hardBlock,
   );
@@ -335,8 +331,6 @@ export function PreLaunchChecklistForDraftFeature({
   const hasHardBlockers = checklist.some(
     (item) => item.status === "incomplete" && item.hardBlock,
   );
-  // Any incomplete non-hard item is a soft blocker, matching the experiment
-  // dashboard's "start anyway" model (which never keys off `required`).
   const hasSoftBlockers = checklist.some(
     (item) => item.status === "incomplete" && !item.hardBlock,
   );
@@ -347,7 +341,7 @@ export function PreLaunchChecklistForDraftFeature({
     onReadyRef.current?.({
       hasHardBlockers,
       hasSoftBlockers,
-      loading: !!isLoading,
+      loading: isLoading,
     });
   }, [hasHardBlockers, hasSoftBlockers, isLoading]);
 

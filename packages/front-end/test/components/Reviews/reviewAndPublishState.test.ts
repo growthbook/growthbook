@@ -248,8 +248,6 @@ describe("getReviewAndPublishState", () => {
   });
 
   describe("checklist acknowledgment (publish/schedule anyway)", () => {
-    // Soft-only blocker on the experiments step: primary disabled, secondary
-    // acknowledgment offered — mirroring the experiment "start anyway" flow.
     const softBlocked = {
       hasSelectedExperiments: true,
       experimentsStep: true,
@@ -258,7 +256,7 @@ describe("getReviewAndPublishState", () => {
     } as const;
 
     it("offers 'Publish anyway' for soft-only blockers (direct-publish path)", () => {
-      const s = getReviewAndPublishState(base({ ...softBlocked }));
+      const s = getReviewAndPublishState(base(softBlocked));
       expect(s.submitAction).toBe("publish");
       expect(s.ctaEnabled).toBe(false);
       expect(s.canPublishAnyway).toBe(true);
@@ -302,8 +300,6 @@ describe("getReviewAndPublishState", () => {
     });
 
     it("never offers 'Publish anyway' while the checklist is loading", () => {
-      // Loading folds into checklistBlocked (incomplete + non-bypassable), so
-      // it can't be acknowledged until the checklist resolves.
       const s = getReviewAndPublishState(
         base({ ...softBlocked, checklistBlocked: true }),
       );
@@ -318,7 +314,6 @@ describe("getReviewAndPublishState", () => {
           checklistIncomplete: true,
         }),
       );
-      // Not on the checklist step yet — this is the "Next" transition.
       expect(s.submitAction).toBe("next-experiments");
       expect(s.canPublishAnyway).toBe(false);
     });
@@ -352,7 +347,6 @@ describe("getReviewAndPublishState", () => {
     });
 
     it("does not offer 'Publish anyway' when publishing is otherwise blocked", () => {
-      // Soft-only checklist, but a ramp lockdown blocks publishing entirely.
       const s = getReviewAndPublishState(
         base({ ...softBlocked, featureLockedByRamp: true }),
       );

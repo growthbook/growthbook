@@ -931,14 +931,8 @@ export default function ReviewAndPublish({
   const checklistStateRef = useRef<Map<string, ChecklistReadyStatus>>(
     new Map(),
   );
-  // `checklistIncomplete`: any incomplete required item or a still-loading
-  // checklist — disables the primary publish CTA. `checklistBlocked`: a hard
-  // blocker (or loading) that can't be acknowledged, so no "publish anyway".
-  // Soft-only blockers are `checklistIncomplete && !checklistBlocked`.
   const [checklistIncomplete, setChecklistIncomplete] = useState(false);
   const [checklistBlocked, setChecklistBlocked] = useState(false);
-  // Checklist results are per-revision; clear them when the user switches
-  // revisions so stale failures can't block publishing a clean draft.
   useEffect(() => {
     checklistStateRef.current.clear();
     setChecklistIncomplete(false);
@@ -2487,10 +2481,6 @@ export default function ReviewAndPublish({
               ? continueEnabled
               : publishEnabled;
 
-            // Soft-only checklist blockers keep the primary Publish disabled
-            // but expose a secondary acknowledgment ("Publish anyway"), matching
-            // the experiment dashboard's "Start anyway". A live schedule still
-            // blocks publish-now regardless.
             const publishAnywayEnabled =
               state.canPublishAnyway && canDoPrimary && !scheduleBlocksPublish;
 
@@ -2759,10 +2749,6 @@ export default function ReviewAndPublish({
                       </Button>
                     )}
 
-                    {/* Acknowledge soft checklist blockers and publish anyway.
-                    Only shown on the checklist step when every incomplete item
-                    is a soft blocker (no hard blockers, nothing loading), and
-                    the schedule doesn't block publish-now. */}
                     {state.canPublishAnyway &&
                       !(scheduleBlocksPublish && !continueToPublish) && (
                         <Button

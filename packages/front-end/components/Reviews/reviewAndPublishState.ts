@@ -56,16 +56,7 @@ export interface RnPStateInput {
   // Publishing is frozen by a sibling draft's scheduled publish that locks other
   // drafts. Treated identically to the ramp lock.
   featureLockedBySchedule: boolean;
-  // A selected experiment's required checklist is incomplete or still loading.
-  // Disables the primary publish CTA on the checklist step.
   checklistIncomplete: boolean;
-  // A selected experiment has an incomplete hard blocker (merge conflict,
-  // missing approval or unrelated changes on another linked draft), or a
-  // checklist is still loading. Non-bypassable by ANYONE — including an admin
-  // bypass — because auto-publishing the experiment's other linked drafts would
-  // fail or silently ship unreviewed changes. No "publish anyway" is offered.
-  // Soft-only blockers (checklistIncomplete && !checklistBlocked) can be
-  // acknowledged, matching the experiment dashboard's "start anyway" flow.
   checklistBlocked: boolean;
   // Governance allows publishing (false when a stale draft must be rebased).
   governanceCanPublish: boolean;
@@ -80,12 +71,7 @@ export interface RnPState {
   submitAction: RnPSubmitAction;
   // Whether the main modal wires up a submit handler at all.
   hasSubmit: boolean;
-  // Soft checklist blockers can be acknowledged: show a secondary
-  // "publish/schedule anyway" action that runs the same publish submitAction,
-  // bypassing the checklist gate only. False while loading, when any hard
-  // blocker exists, or when publishing is otherwise disallowed.
   canPublishAnyway: boolean;
-  // Label for the acknowledgment action ("Publish anyway"/"Schedule anyway").
   publishAnywayLabel: string;
   // Secondary actions shown as links/ghost buttons alongside the primary CTA.
   // Requester/author/contributor returns the revision to draft (retracting the
@@ -135,12 +121,6 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
   // admin-bypassable), so collapse them into one concept below.
   const publishLocked = featureLockedByRamp || featureLockedBySchedule;
 
-  // The checklist gate disables the primary publish CTA on the checklist step.
-  // Hard blockers (checklistBlocked) always close it — an admin bypass does NOT
-  // override them, since auto-publishing the experiment's other linked drafts
-  // would fail or silently ship unreviewed changes. Soft-only blockers just
-  // hold the CTA until they're acknowledged ("publish anyway") or an admin
-  // bypasses them.
   const checklistGateOpen = !(
     experimentsStep &&
     checklistIncomplete &&
@@ -210,8 +190,6 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
       canRecallReview,
       canUndoReview,
       waitingForReview: false,
-      // On the checklist step (submitAction "publish") soft-only blockers can
-      // be acknowledged if publishing is otherwise allowed.
       canPublishAnyway: !hasNextStep && softChecklistOnly && baseEnabled,
       publishAnywayLabel,
     };
@@ -269,7 +247,6 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     canRecallReview,
     canUndoReview,
     waitingForReview,
-    // Only the publish action is checklist-gated; request-review/none are not.
     canPublishAnyway:
       submitAction === "publish" && softChecklistOnly && baseEnabled,
     publishAnywayLabel,
