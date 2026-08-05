@@ -19,6 +19,7 @@ import Collapsible from "react-collapsible";
 import { LicenseInterface } from "shared/enterprise";
 import { DataSourceInterface } from "shared/types/datasource";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
+import { generateSSOConnection, SSO_IDP_TYPE_OPTIONS } from "shared/util";
 import { useForm } from "react-hook-form";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import Field from "@/components/Forms/Field";
@@ -965,107 +966,6 @@ const EditMember: FC<{
   );
 };
 
-function generateSSOConnection(
-  data: SSOConnectionInterface,
-): SSOConnectionInterface {
-  const res: SSOConnectionInterface = {
-    ...data,
-  };
-
-  // Generate additionalScope, extraQueryParams, metadata based on idP type
-  if (data.idpType === "okta") {
-    if (data.baseURL) {
-      // Remove trailing slash
-      const baseURL = data.baseURL.replace(/\/+$/, "");
-
-      res.additionalScope = "offline_access";
-      res.extraQueryParams = undefined;
-      res.metadata = {
-        issuer: `${baseURL}`,
-        authorization_endpoint: `${baseURL}/oauth2/v1/authorize`,
-        id_token_signing_alg_values_supported: ["RS256"],
-        jwks_uri: `${baseURL}/oauth2/v1/keys`,
-        token_endpoint: `${baseURL}/oauth2/v1/token`,
-        code_challenge_methods_supported: ["S256"],
-      };
-    }
-  } else if (data.idpType === "google") {
-    res.extraQueryParams = {
-      access_type: "offline",
-      prompt: "consent",
-    };
-    res.additionalScope = "";
-    res.metadata = {
-      issuer: "https://accounts.google.com",
-      authorization_endpoint: "https://accounts.google.com/o/oauth2/v2/auth",
-      token_endpoint: "https://oauth2.googleapis.com/token",
-      jwks_uri: "https://www.googleapis.com/oauth2/v3/certs",
-      id_token_signing_alg_values_supported: ["RS256"],
-      code_challenge_methods_supported: ["S256"],
-    };
-  } else if (data.idpType === "auth0") {
-    if (data.tenantId) {
-      res.additionalScope = "offline_access";
-      res.extraQueryParams = undefined;
-      res.metadata = {
-        issuer: `https://${data.tenantId}.auth0.com/`,
-        authorization_endpoint: `https://${data.tenantId}.auth0.com/authorize`,
-        logout_endpoint: `https://${data.tenantId}.auth0.com/v2/logout?client_id=CLIENT_ID`,
-        id_token_signing_alg_values_supported: ["HS256", "RS256"],
-        jwks_uri: `https://${data.tenantId}.auth0.com/.well-known/jwks.json`,
-        token_endpoint: `https://${data.tenantId}.auth0.com/oauth/token`,
-        code_challenge_methods_supported: ["S256", "plain"],
-        audience: data.audience || "",
-      };
-    }
-  } else if (data.idpType === "azure") {
-    if (data.tenantId) {
-      res.additionalScope = "offline_access";
-      res.extraQueryParams = undefined;
-      res.metadata = {
-        token_endpoint: `https://login.microsoftonline.com/${data.tenantId}/oauth2/v2.0/token`,
-        jwks_uri: `https://login.microsoftonline.com/${data.tenantId}/discovery/v2.0/keys`,
-        id_token_signing_alg_values_supported: ["RS256"],
-        code_challenge_methods_supported: ["S256"],
-        issuer: `https://login.microsoftonline.com/${data.tenantId}/v2.0`,
-        authorization_endpoint: `https://login.microsoftonline.com/${data.tenantId}/oauth2/v2.0/authorize`,
-        logout_endpoint: `https://login.microsoftonline.com/${data.tenantId}/oauth2/v2.0/logout`,
-      };
-    }
-  } else if (data.idpType === "onelogin") {
-    if (data.baseURL) {
-      // Remove trailing slash
-      const baseURL = data.baseURL.replace(/\/+$/, "");
-      res.additionalScope = "";
-      res.extraQueryParams = undefined;
-      res.metadata = {
-        issuer: `${baseURL}/oidc/2`,
-        authorization_endpoint: `${baseURL}/oidc/2/auth`,
-        token_endpoint: `${baseURL}/oidc/2/token`,
-        id_token_signing_alg_values_supported: ["RS256", "HS256", "PS256"],
-        jwks_uri: `${baseURL}/oidc/2/certs`,
-        code_challenge_methods_supported: ["S256"],
-        logout_endpoint: `${baseURL}/oidc/2/logout`,
-      };
-    }
-  } else if (data.idpType === "jumpcloud") {
-    res.additionalScope = "offline_access";
-    res.extraQueryParams = undefined;
-    res.metadata = {
-      token_endpoint: "https://oauth.id.jumpcloud.com/oauth2/token",
-      jwks_uri: "https://oauth.id.jumpcloud.com/.well-known/jwks.json",
-      id_token_signing_alg_values_supported: ["RS256"],
-      code_challenge_methods_supported: ["S256"],
-      issuer: "https://oauth.id.jumpcloud.com/",
-      authorization_endpoint: "https://oauth.id.jumpcloud.com/oauth2/auth",
-      logout_endpoint: "https://oauth.id.jumpcloud.com/oauth2/sessions/logout",
-      audience: "",
-    };
-  }
-
-  return res;
-}
-
 function jsonSafeParse(str: string) {
   if (!str) return null;
   try {
@@ -1172,15 +1072,7 @@ function EditSSOModal({
         onChange={(idpType) =>
           form.setValue("idpType", idpType as SSOConnectionInterface["idpType"])
         }
-        options={[
-          { label: "Okta", value: "okta" },
-          { label: "Azure/Entra", value: "azure" },
-          { label: "Google", value: "google" },
-          { label: "OneLogin", value: "onelogin" },
-          { label: "JumpCloud", value: "jumpcloud" },
-          { label: "Auth0", value: "auth0" },
-          { label: "Other OIDC", value: "oidc" },
-        ]}
+        options={SSO_IDP_TYPE_OPTIONS}
         initialOption="Select One..."
         required
       />

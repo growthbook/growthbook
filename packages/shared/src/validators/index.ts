@@ -91,3 +91,4 @@ export * from "./contextual-bandit-query";
 export * from "./contextual-bandit-snapshot";
 export * from "./contextual-bandit-event";
 export * from "./api-errors";
+export * from "./sso-connection";

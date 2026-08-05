@@ -22,6 +22,7 @@ import {
 import {
   getOrganizationById,
   validateLoginMethod,
+  validateSelfServeSSOLogin,
 } from "back-end/src/services/organizations";
 import {
   hasOrganization,
@@ -163,6 +164,21 @@ export async function processJWT(
   };
 
   const user = await getUserFromJWT(parsedJWT);
+
+  // Logins through self-serve managed SSO connections are restricted to the
+  // owning organization's users. Without this, an org admin could point their
+  // connection at an IdP they control and assert arbitrary email addresses.
+  if (req.loginMethod?.selfServeManaged) {
+    try {
+      await validateSelfServeSSOLogin(req.loginMethod, email || "", user);
+    } catch (e) {
+      res.status(403).json({
+        status: 403,
+        message: e.message,
+      });
+      return;
+    }
+  }
 
   if (user) {
     req.currentUser = user;

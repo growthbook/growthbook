@@ -48,13 +48,15 @@ if (USE_PROXY) {
 
 const passthroughQueryParams = ["hypgen", "hypothesis"];
 
-// Micro-Cache with a TTL of 30 seconds, avoids hitting Mongo on every request
-const ssoConnectionCache = new MemoryCache(async (ssoConnectionId: string) => {
-  const ssoConnection = await _dangerousGetSSOConnectionById(ssoConnectionId);
-  if (ssoConnection) {
-    return ssoConnection;
-  }
-  throw new Error("Could not find SSO connection - " + ssoConnectionId);
+// Micro-Cache with a TTL of 30 seconds, avoids hitting Mongo on every request.
+// Returns null (rather than throwing) when the connection genuinely doesn't
+// exist, so callers can distinguish a deleted connection from a transient DB
+// error — the latter propagates and must not be treated as "not found".
+const ssoConnectionCache = new MemoryCache<
+  SSOConnectionInterface | null,
+  string
+>(async (ssoConnectionId: string) => {
+  return await _dangerousGetSSOConnectionById(ssoConnectionId);
 }, 30);
 
 // A stable key for clientMap
@@ -317,7 +319,8 @@ export class OpenIdAuthConnection implements AuthConnection {
 
 async function getConnectionFromRequest(req: Request, res: Response) {
   // First, get the connection info from either the cookie or the header
-  let ssoConnectionId = SSOConnectionIdCookie.getValue(req);
+  const cookieConnectionId = SSOConnectionIdCookie.getValue(req);
+  let ssoConnectionId = cookieConnectionId;
   if (!ssoConnectionId) {
     const headerValue = req.headers["x-sso-connection-id"];
     if (headerValue && typeof headerValue === "string") {
@@ -328,8 +331,8 @@ async function getConnectionFromRequest(req: Request, res: Response) {
   let persistSSOConnectionId = false;
 
   // If there's no ssoConnectionId in the cookie, look in the querystring instead
-  // This is used for IdP-initiated Enterprise SSO on Cloud
-  if (IS_CLOUD && !ssoConnectionId) {
+  // This is used for IdP-initiated Enterprise SSO
+  if (!ssoConnectionId) {
     const ssoConnectionIdFromQuery = req.query.ssoId;
     if (
       ssoConnectionIdFromQuery &&
@@ -341,6 +344,9 @@ async function getConnectionFromRequest(req: Request, res: Response) {
   }
 
   let connection: SSOConnectionInterface;
+  // Whether the connection resolved from the requested id (vs. a fallback to
+  // the deployment default). Only a resolved id should be persisted.
+  let resolvedFromId = false;
   if (
     IS_CLOUD &&
     VERCEL_CLIENT_ID &&
@@ -359,12 +365,32 @@ async function getConnectionFromRequest(req: Request, res: Response) {
         token_endpoint: "https://api.vercel.com/oauth/access_token",
       },
     };
-  } else if (IS_CLOUD && ssoConnectionId) {
-    connection = await ssoConnectionCache.get(ssoConnectionId);
-  } else if (SSO_CONFIG) {
-    connection = SSO_CONFIG;
+    resolvedFromId = true;
   } else {
-    throw new Error("No SSO connection configured");
+    // A real DB error propagates here (not caught) so a transient failure
+    // isn't misread as a deleted connection, which would wrongly clear the
+    // cookie and drop enterprise users to the default login.
+    const byId = ssoConnectionId
+      ? await ssoConnectionCache.get(ssoConnectionId)
+      : null;
+    if (byId) {
+      connection = byId;
+      resolvedFromId = true;
+    } else if (SSO_CONFIG) {
+      // Fall back to the deployment default (the default Auth0 login on Cloud,
+      // or the SSO_CONFIG connection when self-hosting). A stale or deleted id
+      // left in the cookie would otherwise fail the callback's connection_id
+      // check on every attempt, so clear it here to recover cleanly.
+      connection = SSO_CONFIG;
+      if (cookieConnectionId) {
+        SSOConnectionIdCookie.setValue("", req, res);
+      }
+    } else {
+      if (cookieConnectionId) {
+        SSOConnectionIdCookie.setValue("", req, res);
+      }
+      throw new Error("No SSO connection configured");
+    }
   }
 
   // Then, get the corresponding OpenID Client
@@ -384,8 +410,8 @@ async function getConnectionFromRequest(req: Request, res: Response) {
     clientMap.set(cacheKey, client);
   }
 
-  // If we've made it this far, the connection was found and we should persist it in a cookie
-  if (persistSSOConnectionId && ssoConnectionId) {
+  // If the requested connection resolved, persist a query-supplied id in a cookie
+  if (persistSSOConnectionId && resolvedFromId && ssoConnectionId) {
     SSOConnectionIdCookie.setValue(ssoConnectionId, req, res);
   }
 
