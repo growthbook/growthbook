@@ -22,7 +22,11 @@ import {
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
 } from "../validators/safe-rollout-snapshot";
-import { HoldoutInterfaceStringDates } from "../validators/holdout";
+import {
+  HoldoutInterface,
+  HoldoutInterfaceStringDates,
+  HoldoutStage,
+} from "../validators/holdout";
 import { featureHasEnvironment } from "./features";
 
 export * from "./strings";
@@ -296,6 +300,29 @@ export function includeHoldoutInPayload(
   }
 
   return true;
+}
+
+/**
+ * Derives a Holdout's lifecycle stage. The stage is not stored — it is a
+ * function of the holdout experiment's status plus whether the holdout has
+ * entered its analysis period.
+ *
+ * Accepts either the Date or string-dates form of both documents so the
+ * front-end and back-end can share it.
+ */
+export function getHoldoutStage(
+  holdout:
+    | Pick<HoldoutInterface, "analysisStartDate">
+    | { analysisStartDate?: string | null },
+  exp:
+    | Pick<ExperimentInterface, "status">
+    | Pick<ExperimentInterfaceStringDates, "status">,
+): HoldoutStage {
+  if (exp.status === "draft") return "draft";
+  if (exp.status === "stopped") return "stopped";
+  // A Date is always truthy; the string-dates form can carry "" from a cleared
+  // field, which means the analysis period has not started.
+  return holdout.analysisStartDate ? "analysis-period" : "running";
 }
 
 export function isValidEnvironment(
