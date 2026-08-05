@@ -81,15 +81,6 @@ export async function runProductAnalyticsExploration(
     return null;
   }
 
-  if (
-    !context.permissions.canRunProductAnalyticsExplorationQueries(
-      datasource,
-      dataset.type,
-    )
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
   // If no existing exploration, create a new one
   const metricMap: Map<string, FactMetricInterface> = new Map();
   const factTableMap: Map<string, FactTableInterface> = new Map();
