@@ -1,8 +1,16 @@
-import { GrowthBookClient, setPolyfills } from "@growthbook/growthbook";
+import { createHash } from "crypto";
+import {
+  EventProperties,
+  GrowthBookClient,
+  setPolyfills,
+} from "@growthbook/growthbook";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { EventSource } from "eventsource";
 import { NextFunction, Request, Response } from "express";
+import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { AppFeatures } from "shared/types/app-features";
+import { OrganizationInterface } from "shared/types/organization";
+import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -264,6 +272,39 @@ export function getBackendFeatureValue<K extends string & keyof AppFeatures>(
   return client.getFeatureValue(key, fallback, {
     attributes,
   }) as AppFeatures[K];
+}
+
+/**
+ * Log a GrowthBook telemetry event from a background job (no request-scoped
+ * `req.gb`). Sets org attributes so the accountPlan filter does not drop the
+ * event. Event names should match the corresponding front-end `track()` calls.
+ */
+export function trackEventForOrganization(
+  org: OrganizationInterface,
+  eventName: string,
+  properties: EventProperties = {},
+): void {
+  const client = getGrowthBookClient();
+  if (!client) return;
+
+  const orgId = org.id;
+  const hashedOrganizationId = orgId
+    ? createHash("sha256")
+        .update(GROWTHBOOK_SECURE_ATTRIBUTE_SALT + orgId)
+        .digest("hex")
+    : "";
+
+  client.logEvent(eventName, properties, {
+    attributes: {
+      organizationId: hashedOrganizationId,
+      cloudOrgId: IS_CLOUD ? orgId : "",
+      orgDateCreated: org.dateCreated
+        ? new Date(org.dateCreated).toISOString()
+        : "",
+      accountPlan: getEffectiveAccountPlan(org),
+      hasLicenseKey: !!org.licenseKey,
+    },
+  });
 }
 
 /**

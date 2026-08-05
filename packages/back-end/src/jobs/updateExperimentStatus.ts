@@ -14,6 +14,7 @@ import {
   notifyScheduledStatusUpdateApplied,
   notifyScheduledStatusUpdateFailed,
 } from "back-end/src/services/experimentNotifications";
+import { trackEventForOrganization } from "back-end/src/services/growthbook";
 
 type UpdateSingleExperimentStatusJob = Job<{
   experimentId: string;
@@ -138,6 +139,11 @@ const updateSingleExperimentStatus = async (
           },
           details: auditDetailsUpdate(experimentBefore, updated),
         });
+        trackEventForOrganization(context.org, "Start experiment", {
+          source: "scheduled-status-update",
+          hasDatasource: !!experiment.datasource,
+          hasExperimentAssignmentQuery: !!experiment.exposureQueryId,
+        });
         await notifyScheduledStatusUpdateApplied({
           context,
           experiment,
@@ -212,6 +218,11 @@ const updateSingleExperimentStatus = async (
               id: experiment.id,
             },
             details: auditDetailsUpdate(experiment, latest),
+          });
+          trackEventForOrganization(context.org, "Stop Experiment", {
+            source: "scheduled-status-update",
+            result: latest.results,
+            isStopped: false,
           });
           await notifyScheduledStatusUpdateApplied({
             context,
