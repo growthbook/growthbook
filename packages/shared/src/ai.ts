@@ -540,10 +540,6 @@ export const AI_PROMPT_TYPES = [
   "visual-editor-ai-figma",
   "product-analytics-chat",
   "general-chat",
-  // Embeddings have no prompt to customize; the type exists so their token
-  // usage can be reported alongside every other AI call. An empty default in
-  // AI_PROMPT_DEFAULTS keeps it out of CUSTOMIZABLE_PROMPT_TYPES.
-  "generate-embeddings",
 ] as const;
 export type AIPromptType = (typeof AI_PROMPT_TYPES)[number];
 
@@ -582,7 +578,6 @@ export const AI_PROMPT_DEFAULTS: Record<AIPromptType, string> = {
   "visual-editor-ai-figma": "", // Always uses the default prompt set in postFigmaToVariant.ts
   "product-analytics-chat": "",
   "general-chat": "",
-  "generate-embeddings": "",
 };
 
 // Prompt types that have default values and can be customized by users

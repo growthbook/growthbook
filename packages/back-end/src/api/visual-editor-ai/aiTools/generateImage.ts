@@ -7,7 +7,6 @@ import { optimizeAIImage } from "back-end/src/services/imageOptimization";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { generateImages } from "back-end/src/services/imageGeneration";
 import { updateTokenUsage } from "back-end/src/models/AITokenUsageModel";
-import { logCloudAIUsage } from "back-end/src/services/licenseServerManagedClickhouse";
 import { logger } from "back-end/src/util/logger";
 import type { ApiReqContext } from "back-end/types/api";
 
@@ -93,17 +92,6 @@ export function generateImageTool(toolCtx: GenerateImageToolContext) {
             error: "Image generation returned no images.",
           } as const;
         }
-
-        // Reported for every Cloud org, on its own key or ours — see the
-        // matching call in postAIImageGen.ts.
-        logCloudAIUsage({
-          organization: org.id,
-          type: "visual-editor-ai-image-gen",
-          model: visualEditorImageModel,
-          numCompletionTokensUsed: IMAGE_GEN_TOKEN_COST_PER_IMAGE,
-          usedDefaultPrompt: !visualEditorAIContext,
-          usedOwnKey: usesOwnImageKey,
-        });
 
         // Bill before upload — provider already charged us; upload failure
         // is a back-end problem, not the user's.
