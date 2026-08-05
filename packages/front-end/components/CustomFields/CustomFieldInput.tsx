@@ -1,7 +1,10 @@
 import { FC, useEffect, useMemo, useState } from "react";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { Flex, Box } from "@radix-ui/themes";
-import { filterCustomFieldsForSectionAndProject } from "@/hooks/useCustomFields";
+import {
+  filterCustomFieldsForSectionAndProject,
+  applyCustomFieldDefaults,
+} from "@/hooks/useCustomFields";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -49,36 +52,11 @@ const CustomFieldInput: FC<{
       // here we are setting the default values in the form, otherwise
       // boolean/toggles or inputs with default values will not be saved.
       if (availableFields) {
-        const nextCustomFields = { ...normalizedCustomFields };
-        availableFields.forEach((v) => {
-          const currentValue = nextCustomFields?.[v.id];
-          const missingCurrentValue =
-            currentValue === undefined ||
-            currentValue === null ||
-            currentValue === "";
-          const hasDefaultValue =
-            v.defaultValue !== undefined &&
-            v.defaultValue !== null &&
-            (Array.isArray(v.defaultValue)
-              ? v.defaultValue.length > 0
-              : v.defaultValue !== "");
-
-          if (missingCurrentValue && hasDefaultValue) {
-            if (v.type === "multiselect") {
-              nextCustomFields[v.id] = Array.isArray(v.defaultValue)
-                ? JSON.stringify(v.defaultValue)
-                : JSON.stringify([v.defaultValue]);
-            } else if (v.type === "boolean") {
-              const normalizedDefault =
-                typeof v.defaultValue === "boolean"
-                  ? v.defaultValue
-                  : String(v.defaultValue).toLowerCase() === "true";
-              nextCustomFields[v.id] = String(normalizedDefault);
-            } else {
-              nextCustomFields[v.id] = String(v.defaultValue);
-            }
-          }
-        });
+        const nextCustomFields = applyCustomFieldDefaults(
+          availableFields,
+          normalizedCustomFields,
+          true,
+        );
         setCustomFields(nextCustomFields);
         setLoadedDefaults(true);
       }
