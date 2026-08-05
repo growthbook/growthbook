@@ -35,13 +35,6 @@ export default class Databricks extends SqlIntegration {
       this.datasource.settings.pipelineSettings,
     );
   }
-  getSensitiveParamKeys(): string[] {
-    const sensitiveKeys: (keyof DatabricksConnectionParams)[] = [
-      "token",
-      "oauthClientSecret",
-    ];
-    return sensitiveKeys;
-  }
   runQuery(sql: string): Promise<QueryResponse> {
     return runDatabricksQuery(this.params, sql);
   }

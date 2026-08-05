@@ -31873,6 +31873,15 @@ paths:
                 description:
                   description: Report description
                   type: string
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization. When
+                    omitted, it defaults to the user associated with the
+                    request's Personal Access Token (PAT), if one is being used.
+                  type: string
                 statsEngine:
                   description: Stats engine override
                   type: string
@@ -57566,6 +57575,16 @@ components:
             `public`.
           type: string
         experimentId:
+          type: string
+        owner:
+          description: >-
+            The userId of the report owner. Absent for reports created before
+            owner attribution existed.
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
           type: string
         snapshotId:
           description: Snapshot ID (experiment-snapshot type only)
