@@ -17,6 +17,7 @@ import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import Frame from "@/ui/Frame";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
@@ -98,6 +99,7 @@ function ProviderRow({
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
 
   const save = async () => {
     setError(null);
@@ -123,22 +125,22 @@ function ProviderRow({
     }
   };
 
+  // Deliberately not try/caught: ConfirmDialog's confirm button awaits this and
+  // renders a rejection inside the dialog, so a failure stays next to the action
+  // that caused it instead of also painting the row's callout behind it.
   const remove = async () => {
     setError(null);
     setWarning(null);
-    try {
-      await apiCall(`/ai/credentials/${provider}`, { method: "DELETE" });
-      await onChanged();
-    } catch (e) {
-      setError(e.message);
-    }
+    await apiCall(`/ai/credentials/${provider}`, { method: "DELETE" });
+    setConfirmingRemove(false);
+    await onChanged();
   };
 
   return (
     <Frame p="3" mb="3">
       <Flex align="center" gap="3" wrap="wrap">
         <AIProviderLogo provider={provider} />
-        <Box style={{ flexGrow: 1, minWidth: 200 }}>
+        <Box flexGrow="1" minWidth="200px">
           <Flex align="center" gap="2">
             <Text size="md" weight="semibold">
               {label}
@@ -180,7 +182,11 @@ function ProviderRow({
               {credential ? "Replace" : "Add key"}
             </Button>
             {credential && (
-              <Button variant="ghost" color="red" onClick={remove}>
+              <Button
+                variant="ghost"
+                color="red"
+                onClick={() => setConfirmingRemove(true)}
+              >
                 Remove
               </Button>
             )}
@@ -231,6 +237,24 @@ function ProviderRow({
         <Box mt="2">
           <Callout status="warning">{warning}</Callout>
         </Box>
+      )}
+
+      {confirmingRemove && (
+        <ConfirmDialog
+          title={`Remove the ${label} API key?`}
+          content={
+            <>
+              This key is shared by the whole organization, and it is stored
+              encrypted — it cannot be recovered once removed, only replaced.
+              Any AI feature using a {label} model stops working until the{" "}
+              <code>{envVar}</code> environment variable is set on this
+              installation or a new key is saved here.
+            </>
+          }
+          yesText="Remove key"
+          onConfirm={remove}
+          onCancel={() => setConfirmingRemove(false)}
+        />
       )}
     </Frame>
   );
