@@ -6,7 +6,7 @@ import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { findSnapshotsByExperiment } from "back-end/src/models/ExperimentSnapshotModel";
 import { getMetricMapForExperimentSnapshots } from "back-end/src/services/experiments";
 import { toExperimentSnapshotBulkResultsApiInterface } from "back-end/src/api/experiments/bulkResultSerialization";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { NotFoundError } from "back-end/src/util/errors";
 import {
   createApiRequestHandler,
   getPaginationReturnFields,
@@ -54,23 +54,9 @@ export const getExperimentBulkResults = createApiRequestHandler({
   }
 
   const dateStart = new Date(req.query.dateStart);
-  if (isNaN(dateStart.getTime())) {
-    throw new BadRequestError(
-      "Invalid dateStart, expected an ISO 8601 date-time",
-    );
-  }
   const dateEnd = new Date(req.query.dateEnd);
-  if (isNaN(dateEnd.getTime())) {
-    throw new BadRequestError(
-      "Invalid dateEnd, expected an ISO 8601 date-time",
-    );
-  }
 
-  const phase =
-    req.query.phase !== undefined ? parseInt(req.query.phase, 10) : undefined;
-  if (phase !== undefined && isNaN(phase)) {
-    throw new BadRequestError("Invalid phase");
-  }
+  const phase = req.query.phase;
 
   const { limit, offset } = validatePagination(req.query);
 
