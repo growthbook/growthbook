@@ -118,3 +118,59 @@ describe("advancedGuardStamp", () => {
     expect(stamped.getTime()).toBeGreaterThanOrEqual(before);
   });
 });
+
+describe("withBufferedPayloadRefreshes — entity events", () => {
+  function ctx(): Context {
+    return {
+      sdkPayloadRefreshBuffer: null,
+      bulkPublishDeferredEvents: null,
+    } as unknown as Context;
+  }
+
+  it("fires deferred entity events only after the landing returns", async () => {
+    const context = ctx();
+    const order: string[] = [];
+
+    await withBufferedPayloadRefreshes(context, "test", async () => {
+      context.bulkPublishDeferredEvents?.push(async () => {
+        order.push("event");
+      });
+      order.push("landing-done");
+    });
+
+    expect(order).toEqual(["landing-done", "event"]);
+  });
+
+  it("drops deferred entity events when the landing throws", async () => {
+    const context = ctx();
+    const emit = jest.fn();
+
+    await expect(
+      withBufferedPayloadRefreshes(context, "test", async () => {
+        context.bulkPublishDeferredEvents?.push(async () => emit());
+        throw new Error("apply failed");
+      }),
+    ).rejects.toThrow("apply failed");
+
+    // The change was compensated; consumers must never have heard about it.
+    expect(emit).not.toHaveBeenCalled();
+    expect(context.bulkPublishDeferredEvents).toBeNull();
+  });
+
+  it("leaves an enclosing bulk commit in charge of its own events", async () => {
+    const context = ctx();
+    const outer: (() => Promise<unknown>)[] = [];
+    context.bulkPublishDeferredEvents = outer;
+    context.sdkPayloadRefreshBuffer = {
+      keys: [],
+      treatEmptyProjectAsGlobal: false,
+    };
+
+    await withBufferedPayloadRefreshes(context, "test", async () => {
+      context.bulkPublishDeferredEvents?.push(async () => undefined);
+    });
+
+    // Pushed onto the bulk list, not flushed by the inner landing.
+    expect(outer).toHaveLength(1);
+  });
+});

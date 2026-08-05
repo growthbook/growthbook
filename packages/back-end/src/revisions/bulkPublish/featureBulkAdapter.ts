@@ -576,6 +576,23 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       }
     };
 
+    // OWNERSHIP FIRST, before any satellite is touched. The feature-doc restore
+    // at the end is guarded and refuses to overwrite a newer landing, but the
+    // rollout, holdout-linkage and bandit reversals below are not — run after a
+    // concurrent publish took the feature, they would undo ITS satellites while
+    // the doc restore then correctly declines. Our apply's own stamp is the
+    // ownership token: if live has moved past it, this item is left whole
+    // (reported published) with nothing reversed.
+    const ourStamp = desired.updatedFeature?.dateUpdated;
+    if (
+      ourStamp &&
+      current.dateUpdated?.getTime() !== new Date(ourStamp).getTime()
+    ) {
+      throw new Error(
+        `bulk publish compensation: feature "${feature.id}" was changed by a later write; left at the published state rather than reversing another landing's satellites`,
+      );
+    }
+
     // Two passes over the safe-rollout reversals: a dry preflight (all checks,
     // no writes) so a deterministic refusal — a missing ownership baseline —
     // surfaces before ANY rollout mutates, then the real pass.

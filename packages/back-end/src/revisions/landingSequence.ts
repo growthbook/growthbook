@@ -318,8 +318,28 @@ export async function withBufferedPayloadRefreshes<T>(
     keys: [],
     treatEmptyProjectAsGlobal: false,
   };
+  // Entity `*.updated` events are deferred alongside the refreshes, using the
+  // same mechanism bulk uses: a landing that fails and compensates would
+  // otherwise have already told consumers about a change that no longer exists.
+  // They fire only if the landing returns, and are dropped when it throws.
+  const outerDeferred = context.bulkPublishDeferredEvents;
+  context.bulkPublishDeferredEvents = [];
   try {
-    return await fn();
+    const result = await fn();
+    const deferred = context.bulkPublishDeferredEvents ?? [];
+    context.bulkPublishDeferredEvents = outerDeferred;
+    for (const emit of deferred) {
+      // Best effort, one at a time: a consumer failure must not undo a landing
+      // that has already committed.
+      await emit().catch((e) =>
+        logger.error(e, `Deferred ${event} event failed to dispatch`),
+      );
+    }
+    return result;
+  } catch (e) {
+    // Dropped: nothing landed that consumers should hear about.
+    context.bulkPublishDeferredEvents = outerDeferred;
+    throw e;
   } finally {
     flushPayloadRefreshBuffer(context, event);
   }

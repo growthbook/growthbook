@@ -161,9 +161,12 @@ export default function ScheduledPublishControl({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Re-sync local controls from the persisted values (keyed on the values so an
+  // Re-sync local controls from the persisted values. Keyed on the values so an
   // in-progress edit isn't clobbered when an auto-save's mutate() returns a new
-  // revision object whose values already match — mirrors the feature flow).
+  // revision object whose values already match (mirrors the feature flow) — AND
+  // on the schedule path, which carries the revision identity: two revisions
+  // with identical schedule values would otherwise skip the resync entirely and
+  // hand the next revision this one's unsaved edits.
   useEffect(() => {
     setArmed(!!revision.autoPublishOnApproval);
     setMode(revision.scheduledPublishAt ? "date" : "approve");
@@ -175,6 +178,7 @@ export default function ScheduledPublishControl({
     setLockScope(revision.scheduledPublishLockOthers ? "feature" : "draft");
     setBypass(!!revision.scheduledPublishBypassApproval);
   }, [
+    schedulePublishPath,
     revision.autoPublishOnApproval,
     revision.scheduledPublishAt,
     revision.scheduledPublishLockEdits,

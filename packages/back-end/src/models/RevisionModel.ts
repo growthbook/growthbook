@@ -15,7 +15,10 @@ import uniqid from "uniqid";
 import { ACTIVE_DRAFT_STATUSES, ActiveDraftStatus } from "shared/validators";
 import type { CreateProps, UpdateProps } from "shared/types/base-model";
 import { isRevisionAuthor } from "back-end/src/revisions/revisionAuthority";
-import { MakeModelClass } from "back-end/src/models/BaseModel";
+import {
+  MakeModelClass,
+  advancedGuardStamp,
+} from "back-end/src/models/BaseModel";
 import {
   ArmAcknowledgments,
   hasArmAcknowledgments,
@@ -474,6 +477,41 @@ export class RevisionModel extends BaseClass {
       return { $nin: ["merged", "discarded"] };
     }
     return { $in: list };
+  }
+
+  /**
+   * The `resolution.dateCreated` a merge should stamp: now, but strictly AFTER
+   * the newest merge already recorded for this target.
+   *
+   * That stamp is what orders landings ("latest merged"), and `new Date()` is
+   * millisecond-precision — two merges inside one millisecond tied, leaving the
+   * version tiebreak to decide, which orders CREATION and can name v3 as latest
+   * when v2 merged after it. Advancing past the previous stamp makes the order
+   * unambiguous without depending on wall-clock resolution.
+   */
+  private async nextMergeStamp(
+    entityType: RevisionTargetType,
+    entityId: string,
+  ): Promise<Date> {
+    const [latest] = await this._dangerousGetCollection()
+      .find(
+        {
+          organization: this.context.org.id,
+          "target.type": entityType,
+          "target.id": entityId,
+          status: "merged",
+        },
+        {
+          projection: { "resolution.dateCreated": 1 },
+          sort: { "resolution.dateCreated": -1 },
+          limit: 1,
+        },
+      )
+      .toArray();
+    const previous = (
+      latest as { resolution?: { dateCreated?: Date } } | undefined
+    )?.resolution?.dateCreated;
+    return advancedGuardStamp(previous instanceof Date ? previous : undefined);
   }
 
   /**
@@ -1491,6 +1529,19 @@ export class RevisionModel extends BaseClass {
     // draft) rewrite the content after that computation: live received the stale
     // content while history recorded the newer. A CAS has to guard every field the
     // computation it protects actually read.
+    // Resolved before the CAS compute, which must stay side-effect free (it can
+    // run several times). A retry re-uses this stamp; since it only has to beat
+    // the PREVIOUS merge, a stamp computed a moment earlier is still correct.
+    const target = await this._dangerousGetCollection().findOne(
+      { organization: this.context.org.id, id },
+      { projection: { "target.type": 1, "target.id": 1 } },
+    );
+    const mergeStamp = target
+      ? await this.nextMergeStamp(
+          target.target.type as RevisionTargetType,
+          target.target.id as string,
+        )
+      : new Date();
     const guardFields: (keyof Revision)[] = options?.expected
       ? ["status", "dateUpdated", "target"]
       : ["status", "target"];
@@ -1527,7 +1578,7 @@ export class RevisionModel extends BaseClass {
         resolution: {
           action: "merged",
           userId,
-          dateCreated: new Date(),
+          dateCreated: mergeStamp,
         },
         activityLog: [
           ...this.cleanActivityLog(existing.activityLog),
@@ -2145,7 +2196,10 @@ export class RevisionModel extends BaseClass {
       params.snapshot,
     );
     const userId = this.context.userId;
-    const now = new Date();
+    // Strictly after this target's previous merge — see nextMergeStamp. A direct
+    // landing records its merge here, and "latest merged" has to order it after
+    // whatever landed before it even inside the same millisecond.
+    const now = await this.nextMergeStamp(params.type, params.id);
 
     return this.createWithVersionRetry(() =>
       this.create({
