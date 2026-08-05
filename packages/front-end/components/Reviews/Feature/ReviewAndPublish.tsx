@@ -47,7 +47,7 @@ import {
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { format } from "date-fns";
-import { holdsFeatureMoveDestination } from "@/components/Revision/revisionAuthority";
+import { holdsFeatureMoveDestination } from "shared/permissions";
 import EventUser from "@/components/Avatar/EventUser";
 import { getCurrentUser, useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";

@@ -1,4 +1,9 @@
-import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import {
+  NO_ENVIRONMENT_BINDING,
+  canCommentOnRevisionEntity,
+  canPublishRevisionEntity,
+  holdsRevisionDestination,
+} from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { SavedGroupInterface } from "shared/types/saved-group";
@@ -87,11 +92,6 @@ import { REVISION_SAVED_GROUP_DIFF_CONFIG } from "@/components/Revision/Revision
 import { useUser } from "@/services/UserContext";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import {
-  canCommentOnRevisionEntity,
-  canPublishRevisionEntity,
-  holdsRevisionDestination,
-} from "@/components/Revision/revisionAuthority";
 import SavedGroupDraftSelectorForChanges, {
   DraftMode,
 } from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";

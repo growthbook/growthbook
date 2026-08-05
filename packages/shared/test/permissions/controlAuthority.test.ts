@@ -6,7 +6,7 @@ import {
   canLandRevertToTarget,
   holdsFeatureMoveDestination,
   holdsRevisionDestination,
-} from "@/components/Revision/revisionAuthority";
+} from "../../src/permissions/controlAuthority";
 
 /**
  * Mirrors the server's `canCommentOnRevision`. Two things make this worth

@@ -1,23 +1,33 @@
-import {
-  holdsMoveDestination,
-  NO_ENVIRONMENT_BINDING,
-  RevisionAction,
-  RevisionModel,
-} from "shared/permissions";
-import { proposedProjectScope } from "shared/util";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+// Specific files, not the package barrels: this module is imported by both apps
+// and a barrel round-trip risks a runtime cycle.
+import { proposedProjectScope } from "../util/featureDraftPurity";
+import { holdsMoveDestination } from "./moveAuthority";
+import { NO_ENVIRONMENT_BINDING } from "./revisionPermissions";
+import type { RevisionAction, RevisionModel } from "./revisionPermissions";
+import type { Permissions } from "./permissionsClass";
 
-// Every front-end decision that mirrors a server authority rule lives here, as a
-// pure function with tests.
+// What a control may OFFER: the client-side prediction of the authority decision
+// an endpoint is about to make. Every such decision lives here, as a pure function
+// with tests.
 //
-// The rule exists because inline decisions drift: most of the front-end findings
-// in the granular-permissions work were a page re-deriving a rule the server
-// already owned and getting a scope wrong — asking about the source project of a
-// move, the live entity instead of the selected revision, or an environment
-// footprint where the action publishes nothing. A control the UI offers and the
-// endpoint behind it must not be able to disagree.
+// Inline predictions drift. Most front-end findings in the granular-permissions
+// work were a page re-deriving a rule the server already owned and getting a scope
+// wrong — asking about the source project of a move, the live entity instead of the
+// selected revision, an environment footprint for an action that publishes nothing,
+// or the wrong verb at a move's destination.
+//
+// It lives in `shared` rather than the front end for one reason: the parity test
+// (permission-prediction-parity) can then evaluate these against the same oracle
+// the endpoint matrix holds the endpoints to, so a control and its endpoint cannot
+// disagree without CI failing.
 
-type PermissionsUtil = ReturnType<typeof usePermissionsUtil>;
+type PermissionsUtil = Pick<
+  Permissions,
+  | "canAddComment"
+  | "canRevisionAction"
+  | "canCreateFeature"
+  | "canPublishFeature"
+>;
 
 type ProjectScoped = { project?: string; projects?: string[] };
 

@@ -12,6 +12,11 @@ import router from "next/router";
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiMinusBold, PiPlusBold } from "react-icons/pi";
+import {
+  policyCheckboxState,
+  togglePolicy as togglePolicySelection,
+  togglePolicyPart as togglePolicyPartSelection,
+} from "@/components/Teams/Roles/policySelection";
 import Field from "@/components/Forms/Field";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -174,66 +179,16 @@ export default function RoleForm({
     }
   });
 
-  // Whether a policy is granted in full — the bundle itself, or every one of its
-  // parts selected individually, which is how a role saved before the bundle
-  // existed comes back. Shared by the checkbox state and the click, so the two
-  // cannot disagree about what "checked" means.
-  const holdsWholePolicy = (policy: Policy, policies: string[]): boolean => {
-    const partList = (POLICY_PARTS[policy] || []) as Policy[];
-    return (
-      policies.includes(policy) ||
-      (partList.length > 0 && partList.every((p) => policies.includes(p)))
+  // The select-all state machine lives in `policySelection`, property-tested over
+  // the whole state space; these just thread the form value through it.
+  const applyPolicies = (next: string[]) =>
+    form.setValue("policies", next as typeof currentValue.policies);
+  const togglePolicy = (policy: Policy) =>
+    applyPolicies(togglePolicySelection(policy, form.getValues("policies")));
+  const togglePolicyPart = (policy: Policy, part: Policy) =>
+    applyPolicies(
+      togglePolicyPartSelection(policy, part, form.getValues("policies")),
     );
-  };
-
-  // A policy checkbox is a select-all over its individual permissions: checked
-  // when the policy is held in full, indeterminate when only some parts are.
-  // Clicking it selects the whole group, or clears it when the group is already
-  // whole — so from indeterminate it fills in rather than discarding the picks
-  // the user just made.
-  const togglePolicy = (policy: Policy) => {
-    const current = form.getValues("policies");
-    const partList = (POLICY_PARTS[policy] || []) as Policy[];
-    const parts = new Set<string>(partList);
-    if (holdsWholePolicy(policy, current)) {
-      form.setValue(
-        "policies",
-        current.filter((p) => p !== policy && !parts.has(p)),
-      );
-      return;
-    }
-    // The bundle grants everything its parts do, so store it alone.
-    form.setValue("policies", [
-      ...current.filter((p) => !parts.has(p)),
-      policy,
-    ]);
-  };
-
-  // Toggling one permission ejects from the bundle: the whole-policy grant is
-  // replaced by the individual parts it covered, minus (or plus) this one. Nothing
-  // is disabled — a locked checkbox reads as broken, and the parent falls to
-  // indeterminate on its own once the bundle is gone.
-  const togglePolicyPart = (policy: Policy, part: Policy) => {
-    const current = form.getValues("policies");
-    const parts = (POLICY_PARTS[policy] || []) as Policy[];
-    const bundled = current.includes(policy);
-    const explicit = new Set<Policy>(
-      bundled ? parts : parts.filter((p) => current.includes(p)),
-    );
-    if (explicit.has(part)) explicit.delete(part);
-    else explicit.add(part);
-
-    const rest = current.filter(
-      (p) => p !== policy && !parts.includes(p as Policy),
-    );
-    // Back to every part? Collapse to the bundle rather than storing them all.
-    form.setValue(
-      "policies",
-      explicit.size === parts.length
-        ? [...rest, policy]
-        : [...rest, ...Array.from(explicit)],
-    );
-  };
 
   const toggleExpanded = (policy: Policy) => {
     setExpandedPolicies((prev) => {
@@ -318,18 +273,10 @@ export default function RoleForm({
 
                       const checked = currentPolicies.includes(policy);
                       const parts = POLICY_PARTS[policy] || [];
-                      const selectedParts = parts.filter((part) =>
-                        currentPolicies.includes(part),
-                      ).length;
-                      // Indeterminate only while the policy is PARTLY granted.
-                      // Every part selected is granted in full and reads checked,
-                      // matching what clicking it then does (clear the group).
-                      const policyValue: boolean | "indeterminate" =
-                        holdsWholePolicy(policy, currentPolicies)
-                          ? true
-                          : selectedParts > 0
-                            ? "indeterminate"
-                            : false;
+                      const policyValue = policyCheckboxState(
+                        policy,
+                        currentPolicies,
+                      );
                       const expanded = expandedPolicies.has(policy);
                       return (
                         <Box key={policy}>

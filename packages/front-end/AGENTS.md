@@ -12,9 +12,14 @@ Before changing front-end code, read the relevant detailed guide:
 Use the design-system components in `@/ui/` before Radix Themes or custom UI. Do not introduce new Bootstrap usage.
 
 Any permission decision that mirrors a server authority rule belongs in a pure,
-tested helper — `components/Revision/revisionAuthority.ts` for the flag family —
-never inline in a page or component. Inline decisions drift from the endpoint they
+tested helper — `shared/permissions/controlAuthority` for the flag family, whose
+predictions are held to the endpoints' own oracle by
+`back-end/test/api/permission-prediction-parity.test.ts` — never inline in a page
+or component. Inline decisions drift from the endpoint they
 are predicting: the recurring failure is a control that asks about the source
 project of a move, the live entity instead of the selected revision, or an
 environment footprint for an action that publishes nothing. If the UI and the
 endpoint can disagree, they eventually will.
+
+The rules those helpers implement are stated in
+`.agents/guides/flag-family-authority.md`.

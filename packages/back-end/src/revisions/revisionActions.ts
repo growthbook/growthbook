@@ -56,7 +56,12 @@ import {
 } from "back-end/src/revisions/landingSequence";
 
 // Actions the generic revision controller dispatches to adapter hooks.
-export type RevisionActionKind = "draft" | "review" | "revert" | "publish";
+export type RevisionActionKind =
+  | "draft"
+  | "review"
+  | "revert"
+  | "publish"
+  | "delete";
 
 /**
  * Authority for one revision action on one entity. The per-action hooks are
@@ -69,6 +74,9 @@ export function canDoRevisionAction(
   snapshot: Record<string, unknown>,
 ): boolean {
   const adapter = getAdapter(type);
+  // Explicit per action, with publish as the default only for publish itself: an
+  // unmapped action silently resolving to the publish check is how "delete" was
+  // added to a union and quietly asked about publishing instead.
   const fn =
     action === "draft"
       ? adapter.canManageDrafts
@@ -76,7 +84,11 @@ export function canDoRevisionAction(
         ? adapter.canReview
         : action === "revert"
           ? adapter.canRevert
-          : adapter.canPublishRevision;
+          : action === "delete"
+            ? // The ENTITY delete atom. `canDelete` governs discarding revision
+              // DOCUMENTS and is bypass-tier, which is the wrong authority here.
+              adapter.canDeleteEntity
+            : adapter.canPublishRevision;
   return (fn ?? adapter.canUpdate)(context, snapshot);
 }
 

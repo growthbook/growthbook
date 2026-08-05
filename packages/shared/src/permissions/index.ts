@@ -3,3 +3,4 @@ export * from "./permissionsClass";
 export * from "./permissions.constants";
 export * from "./revisionPermissions";
 export * from "./moveAuthority";
+export * from "./controlAuthority";

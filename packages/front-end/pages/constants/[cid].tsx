@@ -1,4 +1,12 @@
-import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import {
+  NO_ENVIRONMENT_BINDING,
+  canCommentOnRevisionEntity,
+  canDeleteArchivedEntity,
+  canLandArchiveToggle,
+  canLandRevertToTarget,
+  canPublishRevisionEntity,
+  holdsRevisionDestination,
+} from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { ConstantInterface } from "shared/types/constant";
@@ -21,14 +29,6 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import {
-  canCommentOnRevisionEntity,
-  canDeleteArchivedEntity,
-  canLandArchiveToggle,
-  canLandRevertToTarget,
-  canPublishRevisionEntity,
-  holdsRevisionDestination,
-} from "@/components/Revision/revisionAuthority";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import Owner from "@/components/Avatar/Owner";

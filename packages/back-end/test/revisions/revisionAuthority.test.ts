@@ -5,7 +5,11 @@ import {
   canAdvanceRevision,
   canRebaseRevision,
 } from "back-end/src/revisions/revisionAuthority";
-import { assertCanPublishRevision } from "back-end/src/revisions/revisionActions";
+import {
+  assertCanPublishRevision,
+  canTouchRevision,
+} from "back-end/src/revisions/revisionActions";
+import { canStageArchiveDraft } from "back-end/src/revisions/landAuthority";
 
 /**
  * Who may move a generic draft along (request review, recall, discard). Uses
@@ -321,5 +325,57 @@ describe("canRebaseRevision", () => {
         revision: archiveDraft,
       }),
     ).toBe(true);
+  });
+});
+
+/**
+ * The model-layer backstop behind the per-action gates. It is deliberately the
+ * union of every action, because a revision document is written by drafting,
+ * reviewing, reverting, publishing and archiving alike and the model cannot see
+ * which one it is.
+ *
+ * Delete was missing from that union, so staging an archive as a draft — which the
+ * handler allows on the delete atom alone, since archiving is delete-class — passed
+ * the handler and then failed underneath it. Two layers, two answers, for one
+ * request.
+ */
+describe("canTouchRevision", () => {
+  const holders: RevisionAction[] = [
+    "draft",
+    "review",
+    "revert",
+    "publish",
+    "delete",
+  ];
+
+  it.each(holders)("admits a caller holding only %s", (action) => {
+    expect(
+      canTouchRevision("saved-group", makeContext({ granted: [action] }), {
+        projects: [],
+      }),
+    ).toBe(true);
+  });
+
+  it("refuses a caller holding none of them", () => {
+    expect(
+      canTouchRevision("saved-group", makeContext({ granted: [] }), {
+        projects: [],
+      }),
+    ).toBe(false);
+  });
+
+  // The regression this closes, stated end to end: the handler admits a
+  // delete-only caller staging a pure archive, so the backstop must too.
+  it("agrees with the handler about a delete-only archive staging", () => {
+    const context = makeContext({ granted: ["delete"] });
+    const stagingAllowed = canStageArchiveDraft({
+      permissions: context.permissions,
+      model: "saved-group",
+      entity: { projects: [] },
+    });
+    expect(stagingAllowed).toBe(true);
+    expect(canTouchRevision("saved-group", context, { projects: [] })).toBe(
+      stagingAllowed,
+    );
   });
 });

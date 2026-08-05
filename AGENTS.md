@@ -125,6 +125,7 @@ The detailed reference material lives under `.agents/guides/`. Read the relevant
 - General development practices: `.agents/guides/development-guidelines.md`
 - Package import boundaries: `.agents/guides/package-boundaries.md`
 - Permissions: `.agents/guides/permissions.md`
+- Flag-family authority (Feature Flags, Configs, Constants, Saved Groups): `.agents/guides/flag-family-authority.md`
 - Front-end React/UI: `.agents/guides/frontend/react-patterns.md`
 - Front-end data fetching: `.agents/guides/frontend/data-fetching.md`
 - Back-end APIs: `.agents/guides/backend/api-patterns.md`
