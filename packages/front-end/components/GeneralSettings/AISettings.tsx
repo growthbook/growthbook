@@ -20,6 +20,7 @@ import {
   getAvailablePromptModelOptions,
 } from "@/services/aiModelSelectOptions";
 import { useAuth } from "@/services/auth";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Frame from "@/ui/Frame";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
@@ -228,6 +229,14 @@ export default function AISettings({
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
   const { hasKeyForModel, hasKeyForProvider, hasOwnKey } = useAIProviderKeys();
 
+  // Every field here writes org settings, which the back end gates on
+  // canManageOrgSettings — putOrganization for the toggle and model choices,
+  // postAgreeToAgreement for the Cloud opt-in. Without this the controls look
+  // editable to a non-admin and only fail on save, which is also how the
+  // AIProviderKeys section below already behaves.
+  const permissionsUtil = usePermissionsUtil();
+  const canEdit = permissionsUtil.canManageOrgSettings();
+
   // Model and embedding pickers are hidden on Cloud because usage runs on
   // GrowthBook's managed keys and models. An org on its own key pays its own
   // provider bill, so it chooses its own models — same as self-hosted.
@@ -323,6 +332,7 @@ export default function AISettings({
                       form.setValue("aiEnabled", v);
                     }}
                     id="toggle-aiEnabled"
+                    disabled={!canEdit}
                     mt="1"
                   />
                 </Box>
@@ -335,6 +345,14 @@ export default function AISettings({
                   </Text>
                 </Flex>
               </Flex>
+              {!canEdit && (
+                <Box mb="6" width="100%">
+                  <Callout status="info">
+                    You need permission to manage organization settings to
+                    change AI settings.
+                  </Callout>
+                </Box>
+              )}
               {form.watch("aiEnabled") && (
                 <>
                   {/* Per-org provider keys. Rendered on Cloud too: this is how
@@ -354,8 +372,9 @@ export default function AISettings({
                           Default AI model
                         </Text>
                         <SelectField
-                          size="legacy"
+                          size="medium"
                           id="defaultAIModel"
+                          disabled={!canEdit}
                           helpText="Used by every AI feature that doesn't override it."
                           value={form.watch("defaultAIModel")}
                           onChange={(v) => form.setValue("defaultAIModel", v)}
@@ -379,8 +398,9 @@ export default function AISettings({
                           Embedding model
                         </Text>
                         <SelectField
-                          size="legacy"
+                          size="medium"
                           id="embeddingModel"
+                          disabled={!canEdit}
                           helpText="Used for semantic search across experiments. Supports OpenAI, Mistral, and Google. Default is text-embedding-ada-002."
                           value={
                             form.watch("embeddingModel") ||
@@ -451,8 +471,9 @@ export default function AISettings({
                                 Model
                               </Text>
                               <SelectField
-                                size="legacy"
+                                size="medium"
                                 id={`${prompt.promptType}-model`}
+                                disabled={!canEdit}
                                 value={
                                   promptForm.watch(
                                     `${prompt.promptType}-model`,
@@ -502,41 +523,45 @@ export default function AISettings({
                               </Text>
                             )}
                             <Field
-                              size="legacy"
+                              size="md"
                               textarea={true}
                               id={`prompt-${prompt.promptType}`}
                               placeholder=""
+                              disabled={!canEdit}
                               helpText={prompt.promptHelpText}
                               {...promptForm.register(prompt.promptType)}
                             />
                           </Box>
-                          {prompt.promptDefaultValue !==
-                            promptForm.watch(prompt.promptType) && (
-                            <Box style={{ position: "relative" }}>
-                              <Box
-                                style={{
-                                  position: "absolute",
-                                  right: "0",
-                                  top: prompt.promptHelpText ? "-14px" : "-1px",
-                                }}
-                              >
-                                <a
-                                  href="#"
-                                  title="Reset to the default AI prompt"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    promptForm.setValue(
-                                      prompt.promptType,
-                                      prompt.promptDefaultValue,
-                                      { shouldDirty: true },
-                                    );
+                          {canEdit &&
+                            prompt.promptDefaultValue !==
+                              promptForm.watch(prompt.promptType) && (
+                              <Box style={{ position: "relative" }}>
+                                <Box
+                                  style={{
+                                    position: "absolute",
+                                    right: "0",
+                                    top: prompt.promptHelpText
+                                      ? "-14px"
+                                      : "-1px",
                                   }}
                                 >
-                                  reset
-                                </a>
+                                  <a
+                                    href="#"
+                                    title="Reset to the default AI prompt"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      promptForm.setValue(
+                                        prompt.promptType,
+                                        prompt.promptDefaultValue,
+                                        { shouldDirty: true },
+                                      );
+                                    }}
+                                  >
+                                    reset
+                                  </a>
+                                </Box>
                               </Box>
-                            </Box>
-                          )}
+                            )}
                         </Box>
                       ))}
                     </>
@@ -584,6 +609,7 @@ export default function AISettings({
                     <Field
                       textarea={true}
                       id="visualEditorAIContext"
+                      disabled={!canEdit}
                       placeholder={
                         'e.g. "We\'re a B2B SaaS company. Brand colors: #6E56CF and #1F2D5C. Sentence-case CTAs. Friendly but professional tone."'
                       }
@@ -605,6 +631,7 @@ export default function AISettings({
                         </Text>
                         <SelectField
                           id="visualEditorAIModel"
+                          disabled={!canEdit}
                           helpText="Used for AI chat edits and AI suggestions in the extension. Leave blank to use the Default AI model."
                           value={form.watch("visualEditorAIModel") || ""}
                           onChange={(v) =>
@@ -636,6 +663,7 @@ export default function AISettings({
                         </Text>
                         <SelectField
                           id="visualEditorImageModel"
+                          disabled={!canEdit}
                           helpText="Models that support reference images can use an existing image as visual context (the Visual Editor's “use current image” flow). Text-only models generate from the prompt alone."
                           value={form.watch("visualEditorImageModel") || ""}
                           onChange={(v) =>
@@ -691,7 +719,7 @@ export default function AISettings({
                           <>
                             <Button
                               onClick={handleRegenerate}
-                              disabled={loading || !hasKey}
+                              disabled={loading || !hasKey || !canEdit}
                               variant="solid"
                             >
                               {loading ? "Regenerating..." : "Regenerate all"}
