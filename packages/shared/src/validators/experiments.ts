@@ -2057,12 +2057,6 @@ export const postExperimentSnapshotValidator = {
           "Zero-based phase index to snapshot, where 0 is the first experiment phase. Defaults to the latest phase.",
         )
         .optional(),
-      skipIncremental: z
-        .boolean()
-        .describe(
-          "For a dimension request under the Incremental Pipeline, run the non-incremental results runner even when the incremental path is blocked or would be a no-op. Ignored for Overall (dimensionless) requests.",
-        )
-        .optional(),
     })
     .strict()
     .optional(),

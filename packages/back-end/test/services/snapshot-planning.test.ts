@@ -1472,35 +1472,4 @@ describe("snapshot planning", () => {
     // unblock.
     expect(plan.overallResultsFullRefreshWouldUnblock).toBe(false);
   });
-
-  it("forces the results runner when skipIncremental is set on an otherwise-healthy exploratory request", async () => {
-    wireIncrementalIntegration(makeIncrementalDatasource());
-    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
-      undefined as never,
-    );
-
-    const plan = await planSnapshot({
-      experiment: makeExperiment(),
-      context: makeExploratoryContext(),
-      type: "exploratory",
-      triggeredBy: "manual",
-      phaseIndex: 0,
-      useCache: true,
-      defaultAnalysisSettings: makeAnalysisSettings({
-        dimensions: ["exp:country"],
-      }),
-      additionalAnalysisSettings: [],
-      settingsForSnapshotMetrics: [],
-      metricMap: new Map<string, ExperimentMetricInterface>(),
-      factTableMap: new Map() as FactTableMap,
-      skipIncremental: true,
-    });
-
-    expect(plan.snapshot.runnerKind).toBe("results");
-    expect(plan.incrementalFallbackReason).toBe(
-      "Incremental Pipeline skipped at caller request.",
-    );
-    expect(assertIncrementalRefreshPrerequisitesMock).not.toHaveBeenCalled();
-    expect(plan.overallResultsFullRefreshWouldUnblock).toBe(false);
-  });
 });

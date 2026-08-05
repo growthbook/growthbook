@@ -15002,13 +15002,6 @@ paths:
                     experiment phase. Defaults to the latest phase.
                   type: integer
                   minimum: 0
-                skipIncremental:
-                  description: >-
-                    For a dimension request under the Incremental Pipeline, run
-                    the non-incremental results runner even when the incremental
-                    path is blocked or would be a no-op. Ignored for Overall
-                    (dimensionless) requests.
-                  type: boolean
               additionalProperties: false
       responses:
         '200':

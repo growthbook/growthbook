@@ -39,7 +39,7 @@ jest.mock("back-end/src/services/experiments", () => ({
 }));
 
 describe("snapshots API", () => {
-  const { app, auditMock, setReqContext } = setupApp();
+  const { app, setReqContext } = setupApp();
 
   afterEach(() => {
     jest.clearAllMocks();
@@ -50,9 +50,9 @@ describe("snapshots API", () => {
   // Spelled out rather than imported: this copy is part of the 409 contract,
   // so changing it should fail here.
   const REQUIRES_FULL_REFRESH_GUIDANCE =
-    'Send "dimension": "" to rebuild Overall Results, then resubmit this request unchanged. Or send "skipIncremental": true to compute this dimension with non-incremental queries, which leaves the Incremental Pipeline untouched.';
+    'Send "dimension": "" to rebuild Overall Results, then resubmit this request unchanged.';
   const DIMENSION_ALREADY_UP_TO_DATE_GUIDANCE =
-    'Send "dimension": "" to update Overall Results first, then resubmit this request. To recompute it anyway, send "skipIncremental": true to use non-incremental queries instead.';
+    'Send "dimension": "" to update Overall Results first, then resubmit this request.';
 
   it("can get a snapshot", async () => {
     setReqContext({
@@ -749,135 +749,6 @@ describe("snapshots API", () => {
 
     expect(response.status).toBe(200);
     expect(createExperimentSnapshotFromPlan).toHaveBeenCalledTimes(1);
-  });
-
-  it("runs the results runner and returns 200 when skipIncremental bypasses a blocked dimension", async () => {
-    setReqContext({
-      org,
-      permissions: {
-        canCreateExperimentSnapshot: () => true,
-        canReadSingleProjectResource: () => true,
-      },
-    });
-
-    const snapshot = snapshotFactory.build({ organization: org.id });
-    const experiment = {
-      id: snapshot.experiment,
-      datasource: "ds_123",
-      exposureQueryId: "eq_1",
-      phases: [{}],
-    };
-
-    getExperimentById.mockReturnValueOnce(experiment);
-    getDataSourceById.mockReturnValueOnce(incrementalDatasource);
-    planExperimentSnapshot.mockResolvedValueOnce({ runnerKind: "results" });
-    createExperimentSnapshotFromPlan.mockResolvedValueOnce({
-      snapshot,
-      queryRunner: {},
-    });
-
-    const response = await request(app)
-      .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
-      .set("Authorization", "Bearer foo")
-      .send({ dimension: "exp:country", skipIncremental: true });
-
-    expect(response.status).toBe(200);
-    expect(planExperimentSnapshot).toHaveBeenCalledWith(
-      expect.objectContaining({ skipIncremental: true }),
-    );
-    expect(createExperimentSnapshotFromPlan).toHaveBeenCalledTimes(1);
-    expect(getLatestSuccessfulSnapshot).not.toHaveBeenCalled();
-  });
-
-  it("honors skipIncremental for a schedule-triggered dimension request", async () => {
-    setReqContext({
-      org,
-      permissions: {
-        canCreateExperimentSnapshot: () => true,
-        canReadSingleProjectResource: () => true,
-      },
-    });
-
-    const snapshot = snapshotFactory.build({ organization: org.id });
-    const experiment = {
-      id: snapshot.experiment,
-      datasource: "ds_123",
-      exposureQueryId: "eq_1",
-      phases: [{}],
-    };
-
-    getExperimentById.mockReturnValueOnce(experiment);
-    getDataSourceById.mockReturnValueOnce(incrementalDatasource);
-    const plan = { runnerKind: "results", snapshot: {} };
-    planExperimentSnapshot.mockResolvedValue(plan as never);
-    createExperimentSnapshotFromPlan.mockResolvedValue({
-      snapshot,
-      queryRunner: {},
-    });
-
-    const response = await request(app)
-      .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
-      .set("Authorization", "Bearer foo")
-      .send({
-        dimension: "exp:country",
-        triggeredBy: "schedule",
-        skipIncremental: true,
-      });
-
-    expect(response.status).toBe(200);
-    expect(planExperimentSnapshot).toHaveBeenCalledWith(
-      expect.objectContaining({
-        triggeredBy: "schedule",
-        skipIncremental: true,
-      }),
-    );
-    expect(createExperimentSnapshotFromPlan).toHaveBeenCalledWith({
-      plan,
-      context: expect.objectContaining({ org }),
-      experiment,
-    });
-    expect(createExperimentSnapshot).not.toHaveBeenCalled();
-    expect(getLatestSuccessfulSnapshot).not.toHaveBeenCalled();
-    expect(auditMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        details: expect.stringContaining('"skipIncremental":true'),
-      }),
-    );
-  });
-
-  it("ignores skipIncremental on a dimensionless request", async () => {
-    setReqContext({
-      org,
-      permissions: {
-        canCreateExperimentSnapshot: () => true,
-        canReadSingleProjectResource: () => true,
-      },
-    });
-
-    const snapshot = snapshotFactory.build({ organization: org.id });
-    const experiment = {
-      id: snapshot.experiment,
-      datasource: "ds_123",
-      phases: [{}],
-    };
-
-    getExperimentById.mockReturnValueOnce(experiment);
-    getDataSourceById.mockReturnValueOnce(incrementalDatasource);
-    createExperimentSnapshot.mockResolvedValueOnce({
-      snapshot,
-      queryRunner: {},
-    });
-
-    const response = await request(app)
-      .post(`/api/v1/experiments/${snapshot.experiment}/snapshot`)
-      .set("Authorization", "Bearer foo")
-      .send({ skipIncremental: true });
-
-    expect(response.status).toBe(200);
-    expect(createExperimentSnapshot).toHaveBeenCalledWith(
-      expect.not.objectContaining({ skipIncremental: expect.anything() }),
-    );
-    expect(planExperimentSnapshot).not.toHaveBeenCalled();
   });
 
   it("post fails without datasource permission", async () => {

@@ -1532,7 +1532,6 @@ async function planSnapshotQueryRunner({
   triggeredBy,
   throwOnErrorInsteadOfFallback,
   isLatestPhase,
-  skipIncremental,
 }: {
   organization: OrganizationInterface;
   datasource: DataSourceInterface;
@@ -1548,7 +1547,6 @@ async function planSnapshotQueryRunner({
   triggeredBy: SnapshotTriggeredBy;
   throwOnErrorInsteadOfFallback: boolean;
   isLatestPhase: boolean;
-  skipIncremental?: boolean;
 }): Promise<{
   runnerFamily: SnapshotQueryRunnerFamily;
   incrementalFallbackReason: string | null;
@@ -1556,17 +1554,6 @@ async function planSnapshotQueryRunner({
   fullRefreshReason: string | null;
   overallResultsFullRefreshWouldUnblock: boolean;
 }> {
-  if (skipIncremental) {
-    return {
-      runnerFamily: "results",
-      incrementalFallbackReason:
-        "Incremental Pipeline skipped at caller request.",
-      fullRefresh,
-      fullRefreshReason,
-      overallResultsFullRefreshWouldUnblock: false,
-    };
-  }
-
   const decision = resolveSnapshotRunner({
     datasource,
     experiment,
@@ -1731,7 +1718,6 @@ export async function planSnapshot({
   metricMap,
   factTableMap,
   reweight,
-  skipIncremental,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -1745,7 +1731,6 @@ export async function planSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
-  skipIncremental?: boolean;
 }): Promise<PlannedExperimentSnapshot> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -1907,7 +1892,6 @@ export async function planSnapshot({
       triggeredBy,
     ),
     isLatestPhase: phaseIndex === experiment.phases.length - 1,
-    skipIncremental,
   });
 
   if (runnerPlan.runnerFamily === "incremental-exploratory") {
@@ -2406,7 +2390,6 @@ export async function planExperimentSnapshot({
   triggeredBy,
   type,
   reweight,
-  skipIncremental,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -2417,7 +2400,6 @@ export async function planExperimentSnapshot({
   triggeredBy?: SnapshotTriggeredBy;
   type?: SnapshotType;
   reweight?: boolean;
-  skipIncremental?: boolean;
 }): Promise<PlannedExperimentSnapshot> {
   const snapshotType =
     type ??
@@ -2522,7 +2504,6 @@ export async function planExperimentSnapshot({
     reweight,
     type: snapshotType,
     triggeredBy: triggeredBy ?? "manual",
-    skipIncremental,
   });
   return plan;
 }

@@ -19,9 +19,9 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 
 const REQUIRES_FULL_REFRESH_RESUBMIT_INSTRUCTIONS =
-  'Send "dimension": "" to rebuild Overall Results, then resubmit this request unchanged. Or send "skipIncremental": true to compute this dimension with non-incremental queries, which leaves the Incremental Pipeline untouched.';
+  'Send "dimension": "" to rebuild Overall Results, then resubmit this request unchanged.';
 const DIMENSION_ALREADY_UP_TO_DATE_RESUBMIT_INSTRUCTIONS =
-  'Send "dimension": "" to update Overall Results first, then resubmit this request. To recompute it anyway, send "skipIncremental": true to use non-incremental queries instead.';
+  'Send "dimension": "" to update Overall Results first, then resubmit this request.';
 
 export const postExperimentSnapshot = createApiRequestHandler(
   postExperimentSnapshotValidator,
@@ -29,7 +29,7 @@ export const postExperimentSnapshot = createApiRequestHandler(
   const context = req.context;
   const id = req.params.id;
 
-  const { triggeredBy, dimension, phase, skipIncremental } = req.body ?? {};
+  const { triggeredBy, dimension, phase } = req.body ?? {};
   const experiment = await getExperimentById(context, id);
 
   if (!experiment) {
@@ -74,7 +74,10 @@ export const postExperimentSnapshot = createApiRequestHandler(
     });
   }
 
-  const createDimensionSnapshot = async () => {
+  let useCache = true;
+  let result: Awaited<ReturnType<typeof createExperimentSnapshot>>;
+
+  if (dimension) {
     let plan: PlannedExperimentSnapshot;
     try {
       plan = await planExperimentSnapshot({
@@ -85,7 +88,6 @@ export const postExperimentSnapshot = createApiRequestHandler(
         phase: phaseIndex,
         useCache: true,
         triggeredBy,
-        skipIncremental,
       });
     } catch (error) {
       if (
@@ -101,47 +103,42 @@ export const postExperimentSnapshot = createApiRequestHandler(
       throw error;
     }
 
-    if (!skipIncremental) {
-      // Check if the dimension is already up to date, if it was generated
-      // from the latest Overall Results
-      const latestDimensionSnapshot = await getLatestSuccessfulSnapshot({
-        context,
-        experiment: experiment.id,
-        phase: phaseIndex,
-        dimension,
-      });
+    // Check if the dimension is already up to date, if it was generated
+    // from the latest Overall Results
+    const latestDimensionSnapshot = await getLatestSuccessfulSnapshot({
+      context,
+      experiment: experiment.id,
+      phase: phaseIndex,
+      dimension,
+    });
 
-      if (
-        latestDimensionSnapshot &&
-        plan.snapshot.sourceSnapshotId &&
-        plan.snapshot.sourceSnapshotDateCreated &&
-        plan.snapshot.sourceSnapshotId ===
-          latestDimensionSnapshot.sourceSnapshotId &&
-        plan.snapshot.analyses.every(({ settings }) =>
-          latestDimensionSnapshot.analyses?.some(
-            (analysis) =>
-              analysis.status === "success" &&
-              isEqual(analysis.settings, settings),
-          ),
-        )
-      ) {
-        const overallResultsAsOf =
-          plan.snapshot.sourceSnapshotDateCreated.toISOString();
-        throw new DimensionAlreadyUpToDateError(
-          `These results were computed from Overall Results as of ${overallResultsAsOf}. ${DIMENSION_ALREADY_UP_TO_DATE_RESUBMIT_INSTRUCTIONS}`,
-          overallResultsAsOf,
-        );
-      }
+    if (
+      latestDimensionSnapshot &&
+      plan.snapshot.sourceSnapshotId &&
+      plan.snapshot.sourceSnapshotDateCreated &&
+      plan.snapshot.sourceSnapshotId ===
+        latestDimensionSnapshot.sourceSnapshotId &&
+      plan.snapshot.analyses.every(({ settings }) =>
+        latestDimensionSnapshot.analyses?.some(
+          (analysis) =>
+            analysis.status === "success" &&
+            isEqual(analysis.settings, settings),
+        ),
+      )
+    ) {
+      const overallResultsAsOf =
+        plan.snapshot.sourceSnapshotDateCreated.toISOString();
+      throw new DimensionAlreadyUpToDateError(
+        `These results were computed from Overall Results as of ${overallResultsAsOf}. ${DIMENSION_ALREADY_UP_TO_DATE_RESUBMIT_INSTRUCTIONS}`,
+        overallResultsAsOf,
+      );
     }
 
-    return createExperimentSnapshotFromPlan({ plan, context, experiment });
-  };
-
-  let useCache = true;
-  let result: Awaited<ReturnType<typeof createExperimentSnapshot>>;
-
-  if (dimension) {
-    result = await createDimensionSnapshot();
+    result = await createExperimentSnapshotFromPlan({
+      plan,
+      context,
+      experiment,
+    });
   } else {
     try {
       result = await createExperimentSnapshot({
@@ -189,7 +186,6 @@ export const postExperimentSnapshot = createApiRequestHandler(
       phase: phaseIndex,
       dimension,
       useCache,
-      skipIncremental,
       manual: false,
     }),
   });
