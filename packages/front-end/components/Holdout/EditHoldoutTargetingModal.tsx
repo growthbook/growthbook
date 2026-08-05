@@ -6,6 +6,11 @@ import {
 } from "shared/types/experiment";
 import React from "react";
 import { validateAndFixCondition } from "shared/util";
+import {
+  coverageToHoldoutSize,
+  holdoutSizeToCoverage,
+  MAX_HOLDOUT_SIZE,
+} from "shared/validators";
 import { Text, Separator } from "@radix-ui/themes";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
@@ -153,17 +158,24 @@ function TargetingForm({
               value={
                 isNaN(form.watch("coverage") ?? 0)
                   ? "5"
-                  : decimalToPercent((form.watch("coverage") ?? 0) / 2)
+                  : decimalToPercent(
+                      coverageToHoldoutSize(form.watch("coverage") ?? 0),
+                    )
               }
               onChange={(e) => {
-                let decimal = percentToDecimal(e.target.value);
-                if (decimal > 1) decimal = 1;
-                if (decimal < 0) decimal = 0;
-                form.setValue("coverage", decimal * 2);
+                // The entered value is the holdout size, not the coverage.
+                // Clamp it to MAX_HOLDOUT_SIZE so the held-out group plus its
+                // equally-sized control group never exceed all traffic.
+                let holdoutSize = percentToDecimal(e.target.value);
+                if (holdoutSize > MAX_HOLDOUT_SIZE) {
+                  holdoutSize = MAX_HOLDOUT_SIZE;
+                }
+                if (holdoutSize < 0) holdoutSize = 0;
+                form.setValue("coverage", holdoutSizeToCoverage(holdoutSize));
               }}
               type="number"
               min={0}
-              max={100}
+              max={decimalToPercent(MAX_HOLDOUT_SIZE)}
               step="1"
             />
             <span>%</span>
