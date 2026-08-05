@@ -5,7 +5,7 @@ import {
 } from "shared/validators";
 import { AIProvider } from "shared/ai";
 import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
-import { MakeModelClass } from "./BaseModel";
+import { CasConflictError, MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
   schema: aiCredentialSchema,
@@ -57,22 +57,48 @@ export class AICredentialModel extends BaseClass {
       updatedByEmail: string;
     },
   ): Promise<AICredentialInterface> {
-    const existing = await this.getByProvider(provider);
-    if (existing) {
-      return this._updateOne(existing, fields);
+    // Read-then-write, so either branch can lose a race with another writer on
+    // this same (organization, provider) row — and the key we were handed is
+    // already verified, so losing a race should cost a retry, not the save:
+    //
+    // - create loses to the unique index when another admin got there first;
+    //   the next pass finds their row and updates it instead.
+    // - update loses its CAS guard when the row was replaced or deleted in
+    //   between; the next pass re-reads and either updates or recreates.
+    //
+    // The guard is what makes this honest. An unguarded `_updateOne` whose filter
+    // matches nothing still returns the merged document, so a delete landing
+    // between the read and the write would report a saved key that isn't stored.
+    //
+    // Three attempts: each pass only loses if a *different* write landed in the
+    // meantime, and the number of admins editing one provider's key at once is
+    // small.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const existing = await this.getByProvider(provider);
+
+      if (!existing) {
+        try {
+          return await this._createOne({ provider, ...fields });
+        } catch (e) {
+          if (!isDuplicateKeyError(e)) throw e;
+          continue;
+        }
+      }
+
+      try {
+        return await this._updateOne(existing, fields, {
+          // Ciphertext is salted, so this differs on every save — it doubles as
+          // a version marker for the row we read.
+          guard: { encryptedKey: existing.encryptedKey },
+        });
+      } catch (e) {
+        if (!(e instanceof CasConflictError)) throw e;
+      }
     }
-    try {
-      return await this._createOne({ provider, ...fields });
-    } catch (e) {
-      if (!isDuplicateKeyError(e)) throw e;
-      // Two admins saved this provider's first key at the same time: both saw no
-      // row, and the composite unique index rejected the loser. The loser's key
-      // is just as valid and was already verified against the provider, so apply
-      // it as an update to the row that won rather than failing their save.
-      const raced = await this.getByProvider(provider);
-      if (!raced) throw e;
-      return this._updateOne(raced, fields);
-    }
+
+    throw new Error(
+      "Could not save the API key because it is being changed at the same time somewhere else. Try again.",
+    );
   }
 
   public async deleteForProvider(provider: AIProvider): Promise<boolean> {
