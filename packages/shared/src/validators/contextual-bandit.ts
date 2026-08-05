@@ -336,9 +336,11 @@ export const apiContextualBanditCancelValidator = {
   querySchema: z.never(),
 };
 
-export const apiContextualBanditCancelReturn = z.object({
-  status: z.number(),
-});
+export const apiContextualBanditCancelReturn = z
+  .object({
+    status: z.number(),
+  })
+  .describe("Contextual Bandit snapshot refresh canceled");
 
 const contextualBanditIdAndSnapshotParam = z
   .object({
