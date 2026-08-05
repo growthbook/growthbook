@@ -554,6 +554,17 @@ export default function ReviewAndPublish({
     setEditingSchedule(false);
   }, [revision?.version]);
 
+  // Revision-local choices must not follow the viewer to a different revision:
+  // the admin-bypass toggle is consent to skip THIS draft's review, and conflict
+  // strategies answer THIS draft's conflicts — carrying either across a switch
+  // submits decisions nobody made about the newly selected revision.
+  useEffect(() => {
+    setAdminPublish(false);
+    setStrategies({});
+    setConflictStep(0);
+    setResolveConflicts(false);
+  }, [revision?.version]);
+
   // ── Sub-tabs ──
   // "Overview" (human-readable changes + review activity) vs "Changes" (JSON
   // diffs + full timeline). Reflected in the URL hash as `#review,overview` /

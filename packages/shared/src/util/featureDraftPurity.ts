@@ -270,6 +270,26 @@ export function proposedProjectScope(proposedChanges: unknown): {
   return scope;
 }
 
+/**
+ * The project scope a REVERT to this revision would leave the entity in: the
+ * target's own snapshot with its proposed changes applied — what the revert
+ * endpoint judges the destination against. The bare snapshot answers the wrong
+ * question when the target revision itself relocated the entity.
+ */
+export function restoredProjectScope(targetRevision: {
+  target: { snapshot?: unknown; proposedChanges?: unknown };
+}): { project?: string; projects?: string[] } {
+  const snapshot = (targetRevision.target.snapshot ?? {}) as {
+    project?: string;
+    projects?: string[];
+  };
+  return {
+    project: snapshot.project,
+    projects: snapshot.projects,
+    ...proposedProjectScope(targetRevision.target.proposedChanges),
+  };
+}
+
 export function proposedArchivedValue(
   proposedChanges: unknown,
 ): boolean | undefined {

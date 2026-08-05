@@ -65,7 +65,10 @@ import { bulkPublishFields } from "back-end/src/events/bulkPublishCorrelation";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
-import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
+import {
+  LandingConflictError,
+  runGuardedWrite,
+} from "back-end/src/revisions/landingSequence";
 import {
   authorityRefused,
   gateOr5xx,
@@ -477,6 +480,11 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         feature.id,
         () => applyRevisionChanges(context, feature, raw, mergeResult),
       );
+    } catch (e) {
+      // A rejected CAS wrote no feature doc; mark it before the finally below
+      // snapshots the concurrent winner's satellites as this apply's output.
+      if (e instanceof LandingConflictError) revision.casLost = true;
+      throw e;
     } finally {
       // Re-snapshot the safe rollouts after applyRevisionChanges' sync wrote
       // them — the per-field ownership baseline compensation needs. In `finally`
@@ -522,6 +530,10 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
   },
 
   async restorePreImage(context, preImage, revision, desiredState) {
+    // A lost CAS wrote nothing — there is nothing to put back. This holds for
+    // the satellites too: applyRevisionChanges runs them AFTER its guarded
+    // feature write, so a CAS loser reached none of them.
+    if (revision.casLost) return;
     const feature = preImage as unknown as FeatureInterface;
     const desired = desiredState as unknown as FeatureDesiredState;
     const reversalFailures: string[] = [];

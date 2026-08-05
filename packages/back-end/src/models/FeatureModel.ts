@@ -1564,7 +1564,16 @@ export async function removeHoldoutFromFeature(
         ? { dateUpdated: options.ifUnchangedSince }
         : {}),
     },
-    { $unset: { holdout: "" } },
+    {
+      $unset: { holdout: "" },
+      // When this is a landing's guarded first write, it must also ADVANCE the
+      // token: a bare $unset leaves dateUpdated as-is, so a rival landing
+      // holding the same pre-image stamp would still pass its own guard between
+      // this write and the content write that follows it.
+      ...(options?.ifUnchangedSince
+        ? { $set: { dateUpdated: new Date() } }
+        : {}),
+    },
   );
   if (options?.ifUnchangedSince && writeResult.matchedCount === 0) {
     throw new CasConflictError();
@@ -1896,8 +1905,7 @@ export async function applyRevisionChanges(
     return await updateFeature(context, feature, changes, guard);
   }
 
-  await updateSafeRolloutStatuses(context, feature, revision);
-
+  let updated: FeatureInterface;
   // Handle holdout removal separately since updateFeature only does $set.
   // The holdout $unset carries the guard here because it is the landing's first
   // feature write; the follow-up content write is this landing's own turn, like
@@ -1906,14 +1914,22 @@ export async function applyRevisionChanges(
     await removeHoldoutFromFeature(context, feature, guard);
     // Remove holdout from the feature object so the returned feature is correct
     const { holdout: _, ...featureWithoutHoldout } = feature;
-    return await updateFeature(
+    updated = await updateFeature(
       context,
       featureWithoutHoldout as FeatureInterface,
       changes,
     );
+  } else {
+    updated = await updateFeature(context, feature, changes, guard);
   }
 
-  return await updateFeature(context, feature, changes, guard);
+  // Behind the guard on purpose: these mutate rollout statuses, timestamps and
+  // schedules, and a landing that loses the CAS must leave NOTHING changed —
+  // running them first meant a rejected write still returned failure with the
+  // satellites already moved.
+  await updateSafeRolloutStatuses(context, feature, revision);
+
+  return updated;
 }
 
 // Refuse to remove/change a feature's holdout while an experiment in the current

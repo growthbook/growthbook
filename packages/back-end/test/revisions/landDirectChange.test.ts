@@ -4,6 +4,10 @@ jest.mock("back-end/src/revisions/landingSequence", () => ({
   // Passthrough: these tests assert the landing's ordering, not the refresh
   // batching — that behavior is covered where the buffer is implemented.
   withBufferedPayloadRefreshes: jest.fn((_ctx, _event, fn) => fn()),
+  // A stand-in class: landDirectChange discriminates CAS losses with
+  // instanceof against the class it imports from THIS module, so any class
+  // exported here is the identity that check sees.
+  LandingConflictError: class LandingConflictError extends Error {},
 }));
 jest.mock("back-end/src/revisions", () => ({
   getAdapter: () => ({ applyChanges: jest.fn() }),
@@ -11,6 +15,7 @@ jest.mock("back-end/src/revisions", () => ({
 
 import {
   assertLandingBaseline as assertLandingBaselineImpl,
+  LandingConflictError,
   tryRestoreEntityPreImage as tryRestoreEntityPreImageImpl,
 } from "back-end/src/revisions/landingSequence";
 import { landDirectChange } from "back-end/src/revisions/revertActions";
@@ -341,6 +346,32 @@ describe("landDirectChange", () => {
     ).rejects.toThrow("cascade failed");
 
     expect(h.dangerousDeleteByIdBypassPermission).not.toHaveBeenCalled();
+  });
+
+  // A rejected CAS means the guarded write matched NOTHING: compensating would
+  // compare live against values this landing never wrote, mistake a concurrent
+  // winner's identical values for its own, and undo the winner. History is still
+  // removed — a record of a landing that wrote nothing must not survive.
+  it("never compensates a landing that lost its CAS race", async () => {
+    const h = makeContext();
+
+    await expect(
+      landDirectChange({
+        context: h.context,
+        entityType: "constant",
+        entity,
+        patchOps: [],
+        bypass: true,
+        changes: { value: "after" },
+        afterRestore: jest.fn(),
+        write: async () => {
+          throw new LandingConflictError("constant", entity.id);
+        },
+      }),
+    ).rejects.toBeInstanceOf(LandingConflictError);
+
+    expect(tryRestoreEntityPreImage).not.toHaveBeenCalled();
+    expect(h.dangerousDeleteByIdBypassPermission).toHaveBeenCalled();
   });
 
   // Compensation decides ownership by comparing live to what THIS landing meant to

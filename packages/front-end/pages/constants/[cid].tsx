@@ -5,6 +5,7 @@ import {
   canLandArchiveToggle,
   canLandRevertToTarget,
   canPublishRevisionEntity,
+  canReviewRevisionEntity,
   holdsRevisionDestination,
 } from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
@@ -651,9 +652,10 @@ export default function ConstantDetailPage(): React.ReactElement {
               selectedRevision ?? displayRevision ?? null,
               constant,
             )}
-            canReviewEntity={permissionsUtil.canRevisionAction(
+            canReviewEntity={canReviewRevisionEntity(
+              permissionsUtil,
               "constant",
-              "review",
+              selectedRevision ?? displayRevision ?? null,
               constant,
             )}
             canManageDraftsEntity={permissionsUtil.canRevisionAction(

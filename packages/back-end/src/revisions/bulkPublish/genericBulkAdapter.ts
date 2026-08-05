@@ -24,6 +24,7 @@ import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
 import { displayEntityName } from "back-end/src/revisions/entityNames";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
 import {
+  LandingConflictError,
   restoreEntityPreImage,
   runGuardedWrite,
 } from "back-end/src/revisions/landingSequence";
@@ -341,6 +342,17 @@ export function makeGenericBulkAdapter(
               guarded: true,
             }),
         );
+      } catch (e) {
+        // A rejected CAS wrote NOTHING, so this item has nothing to restore. It
+        // must be marked so before the `finally` below: the post-apply read would
+        // otherwise snapshot the concurrent WINNER's doc as this item's output,
+        // and compensation — comparing live to values it believes this apply
+        // wrote — would mistake the winner's work for ours and erase it.
+        if (e instanceof LandingConflictError) {
+          revision.persistedKeys = [];
+          revision.casLost = true;
+        }
+        throw e;
       } finally {
         // The post-apply doc is compensation's ownership baseline — the write
         // may normalize what it persists (config schemas stripped against
@@ -359,6 +371,8 @@ export function makeGenericBulkAdapter(
     },
 
     async restorePreImage(context, preImage, revision, desiredState) {
+      // A lost CAS wrote nothing — there is nothing to put back.
+      if (revision.casLost) return;
       const model = adapter.getModel(context);
       const current = await model?.getById((preImage as { id: string }).id);
       // Entity gone (concurrent hard-delete): can't restore a pre-image that no

@@ -78,16 +78,20 @@ describe("re-publishing a revision whose merge was claimed but never applied", (
       .set("Authorization", "Bearer foo");
     expect(editRes.status).toBe(200);
 
-    // Strand it exactly as a mid-publish crash would: the merge is recorded,
+    // Strand it exactly as a mid-publish crash would: the merge is recorded —
+    // resolution stamp included, since the claim path always writes one — and
     // the entity still holds its old value. Editing may already have published
     // (this org requires no approval), so roll the entity back explicitly
     // rather than assuming the edit left it behind.
-    await mongoose.connection
-      .collection("revisions")
-      .updateOne(
-        { organization: ORG_ID, "target.id": GROUP_ID, version },
-        { $set: { status: "merged" } },
-      );
+    await mongoose.connection.collection("revisions").updateOne(
+      { organization: ORG_ID, "target.id": GROUP_ID, version },
+      {
+        $set: {
+          status: "merged",
+          resolution: { action: "merged", userId: "", dateCreated: new Date() },
+        },
+      },
+    );
     await mongoose.connection
       .collection("savedgroups")
       .updateOne(

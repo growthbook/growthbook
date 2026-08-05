@@ -1331,10 +1331,12 @@ function ReviewAndPublishRevision<T>({
                 schedulePublishPath={`/revision/${revision.id}/schedule-publish`}
                 toggleAutoPublishPath={`/revision/${revision.id}/toggle-auto-publish`}
                 entityNoun={entityNoun}
-                // Arming a schedule commits a future PUBLISH, and the endpoint
-                // requires publish plus the landing authority for the change —
-                // draft authority alone offered a control the server refuses.
-                canEdit={canPublishOrEdit}
+                // Arming a schedule commits a future PUBLISH, and the endpoint's
+                // coarse gate requires the publish atom itself — the narrow-atom
+                // landing fallbacks folded into canPublishOrEdit (a reverter's
+                // pure revert, a deleter's pure archive) do not arm schedules,
+                // so offering them here invited a 403.
+                canEdit={canPublishEntity ?? canEditEntity}
                 canBypassApproval={canBypassApproval}
                 requiresApproval={requiresApproval}
                 autopublishOnApproval={autopublishOnApproval}

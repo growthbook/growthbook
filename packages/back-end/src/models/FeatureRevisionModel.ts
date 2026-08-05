@@ -2765,6 +2765,24 @@ export async function getActiveDraftStates(
   return result;
 }
 
+/**
+ * Remove a revision its own creator is compensating away: it was recorded for a
+ * landing whose guarded write then lost the CAS race, so nothing landed and the
+ * record must not survive as published history. Keyed by exact identity and only
+ * ever called by the flow that just created the revision.
+ */
+export async function deleteRevisionForFailedLanding(
+  organization: string,
+  featureId: string,
+  version: number,
+) {
+  await FeatureRevisionModel.deleteOne({
+    organization,
+    featureId,
+    version,
+  });
+}
+
 export async function deleteAllRevisionsForFeature(
   organization: string,
   featureId: string,

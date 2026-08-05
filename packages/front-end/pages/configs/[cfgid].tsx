@@ -5,6 +5,7 @@ import {
   canLandArchiveToggle,
   canLandRevertToTarget,
   canPublishRevisionEntity,
+  canReviewRevisionEntity,
   holdsRevisionDestination,
 } from "shared/permissions";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -16,27 +17,27 @@ import {
   Revision,
   applyTopLevelPatchOps,
   getConstantRevisionChange,
-  normalizeProposedChanges,
 } from "shared/enterprise";
 import {
-  constantRequiresReview,
-  getReviewSetting,
-  parsePlainJSONObject,
-  resolveConfigChain,
   ConfigChainNode,
-  simpleToJSONSchema,
-  fieldsToTsType,
-  fieldsToProto,
-  fieldsToGolang,
-  fieldsToRust,
-  fieldsToPython,
-  getConfigSubtree,
+  SchemaProjection,
   computeConfigReconciliationPreview,
+  configPublishEnvironments,
+  constantRequiresReview,
   evaluateInvariants,
+  fieldsToGolang,
+  fieldsToProto,
+  fieldsToPython,
+  fieldsToRust,
+  fieldsToTsType,
+  getConfigSubtree,
+  getReviewSetting,
   invariantRuleFields,
   isScopedConfig,
-  configPublishEnvironments,
-  SchemaProjection,
+  parsePlainJSONObject,
+  resolveConfigChain,
+  restoredProjectScope,
+  simpleToJSONSchema,
 } from "shared/util";
 import {
   buildConstantValueMap,
@@ -132,18 +133,6 @@ import {
   fieldValueType,
   typeDefault,
 } from "@/components/Configs/fieldSchema";
-
-// The project a restore would leave the entity in: the target's own snapshot with
-// its proposed changes applied, which is exactly what the revert endpoint compares.
-function revertedScopeOf(targetRevision: {
-  target: { snapshot: unknown; proposedChanges: unknown };
-}): { project?: string; projects?: string[] } {
-  const restored = applyTopLevelPatchOps(
-    (targetRevision.target.snapshot ?? {}) as Record<string, unknown>,
-    normalizeProposedChanges(targetRevision.target.proposedChanges),
-  ) as { project?: string; projects?: string[] };
-  return { project: restored.project, projects: restored.projects };
-}
 
 type ResolvedResponse = {
   status: number;
@@ -2194,9 +2183,10 @@ export default function ConfigDetailPage(): React.ReactElement {
                   selectedRevision ?? displayRevision ?? null,
                   config,
                 )}
-                canReviewEntity={permissionsUtil.canRevisionAction(
+                canReviewEntity={canReviewRevisionEntity(
+                  permissionsUtil,
                   "config",
-                  "review",
+                  selectedRevision ?? displayRevision ?? null,
                   config,
                 )}
                 canManageDraftsEntity={permissionsUtil.canRevisionAction(
@@ -2327,7 +2317,7 @@ export default function ConfigDetailPage(): React.ReactElement {
               permissionsUtil,
               "config",
               config,
-              revertedScopeOf(t),
+              restoredProjectScope(t),
               configPublishEnvironments(config),
             )
           }

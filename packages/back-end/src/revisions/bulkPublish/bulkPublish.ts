@@ -462,6 +462,26 @@ export async function commitBulkPublish(
       claimed.push(item);
     }
 
+    // No-op items never perform a guarded entity write, so nothing later would
+    // catch drift for them — re-verify their baselines now that every claim is
+    // held. Items WITH changes are covered by the guard at their write. Without
+    // this, a change landing between the pre-claim drift check and the claims
+    // leaves a no-op revision merged while claiming a live state that no longer
+    // exists.
+    for (const item of plan.items) {
+      if (item.hasChanges) continue;
+      const adapter = getBulkAdapter(item.ref.entityType);
+      const current = await adapter.loadEntity(context, item.ref.entityId);
+      const currentDate =
+        (current as { dateUpdated?: Date } | null)?.dateUpdated ?? null;
+      if (
+        (currentDate?.getTime() ?? null) !==
+        (item.baseline.entityDateUpdated?.getTime() ?? null)
+      ) {
+        await abort(claimed, staleConflictError(item.ref));
+      }
+    }
+
     // Apply, with per-write side effects buffered: SDK payload refreshes
     // (deduped to one flush) and *.updated webhook events (deferred per entity;
     // dropped entirely on compensation).

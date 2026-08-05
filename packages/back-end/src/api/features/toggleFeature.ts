@@ -2,17 +2,23 @@ import type { AuditInterfaceInput } from "shared/types/audit";
 import type { EventUser } from "shared/types/events/event-types";
 import type { OrganizationInterface } from "shared/types/organization";
 import { toggleFeatureValidator } from "shared/validators";
+import type { FeatureInterface } from "shared/types/feature";
 import {
   checkIfRevisionNeedsReview,
   getDraftAffectedEnvironments,
   PermissionError,
 } from "shared/util";
-import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
-import type { ApiReqContext } from "back-end/types/api";
 import {
+  deleteRevisionForFailedLanding,
   createRevision,
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
+import { logger } from "back-end/src/util/logger";
+import {
+  LandingConflictError,
+  runGuardedWrite,
+} from "back-end/src/revisions/landingSequence";
+import type { ApiReqContext } from "back-end/types/api";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
   applyRevisionChanges,
@@ -156,11 +162,33 @@ export async function toggleFeatureCore(
     canBypassApprovalChecks: true, // review gate enforced above
   });
 
-  const updatedFeature = await runGuardedWrite("feature", feature.id, () =>
-    applyRevisionChanges(context, feature, revision, {
-      environmentsEnabled: changedToggles,
-    }),
-  );
+  let updatedFeature: FeatureInterface;
+  try {
+    updatedFeature = await runGuardedWrite("feature", feature.id, () =>
+      applyRevisionChanges(context, feature, revision, {
+        environmentsEnabled: changedToggles,
+      }),
+    );
+  } catch (e) {
+    // The revision above was recorded as PUBLISHED before the write. A lost CAS
+    // wrote nothing, so that record must not survive — it would claim a landing
+    // that never happened, and stranded-merge recovery is generic-entity only.
+    // Any other failure keeps it: the write may have landed before the error,
+    // and history for a possibly-live change must not be deleted.
+    if (e instanceof LandingConflictError) {
+      await deleteRevisionForFailedLanding(
+        context.org.id,
+        feature.id,
+        revision.version,
+      ).catch((cleanupErr: unknown) => {
+        logger.error(
+          cleanupErr,
+          `Feature toggle for ${feature.id} lost its landing race AND failed to remove revision v${revision.version}; that revision is phantom history and needs removing by hand`,
+        );
+      });
+    }
+    throw e;
+  }
 
   await audit({
     event: "feature.toggle",

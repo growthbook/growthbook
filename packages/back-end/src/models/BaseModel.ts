@@ -931,9 +931,11 @@ export abstract class BaseModel<
       projection,
       dangerousCrossOrganization,
     }: {
-      sort?: Partial<{
-        [key in keyof Omit<z.infer<T>, "organization">]: 1 | -1;
-      }>;
+      // Dotted paths sort embedded fields (Mongo supports them natively) — the
+      // same shape additionalIndexes accepts, so an indexed path is sortable.
+      sort?: Partial<
+        Record<Exclude<IndexableFieldPath<z.infer<T>>, "organization">, 1 | -1>
+      >;
       limit?: number;
       skip?: number;
       bypassReadPermissionChecks?: boolean;

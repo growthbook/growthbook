@@ -3,6 +3,7 @@ import {
   canCommentOnRevisionEntity,
   canLandRevertToTarget,
   canPublishRevisionEntity,
+  canReviewRevisionEntity,
   holdsRevisionDestination,
 } from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
@@ -14,7 +15,6 @@ import {
   getLiveRevision,
   getRevisionNumber,
   isSavedGroupRevisionMetadataOnly,
-  normalizeProposedChanges,
 } from "shared/enterprise";
 import { REVIEW_REQUESTED_STATUSES } from "shared/validators";
 import {
@@ -23,7 +23,7 @@ import {
   PiPlusCircleBold,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { isIdListSupportedAttribute } from "shared/util";
+import { isIdListSupportedAttribute, restoredProjectScope } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
@@ -97,18 +97,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import SavedGroupDraftSelectorForChanges, {
   DraftMode,
 } from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
-
-// The project scope a restore would leave the entity in: the target's own snapshot
-// with its proposed changes applied — what the revert endpoint compares against.
-function revertedScopeOf(targetRevision: {
-  target: { snapshot: unknown; proposedChanges: unknown };
-}): { project?: string; projects?: string[] } {
-  const restored = applyTopLevelPatchOps(
-    (targetRevision.target.snapshot ?? {}) as Record<string, unknown>,
-    normalizeProposedChanges(targetRevision.target.proposedChanges),
-  ) as { project?: string; projects?: string[] };
-  return { project: restored.project, projects: restored.projects };
-}
 
 const NUM_PER_PAGE = 10;
 
@@ -753,7 +741,7 @@ export default function EditSavedGroupPage() {
               permissionsUtil,
               "saved-group",
               savedGroup,
-              revertedScopeOf(t),
+              restoredProjectScope(t),
               NO_ENVIRONMENT_BINDING,
             )
           }
@@ -1136,9 +1124,10 @@ export default function EditSavedGroupPage() {
               selectedRevision ?? displayRevision ?? null,
               savedGroup,
             )}
-            canReviewEntity={permissionsUtil.canRevisionAction(
+            canReviewEntity={canReviewRevisionEntity(
+              permissionsUtil,
               "saved-group",
-              "review",
+              selectedRevision ?? displayRevision ?? null,
               savedGroup,
             )}
             canManageDraftsEntity={permissionsUtil.canRevisionAction(

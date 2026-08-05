@@ -202,8 +202,22 @@ async function recoverStrandedMerge({
 }): Promise<Revision | null> {
   const adapter = getAdapter(revision.target.type);
   // Nothing left to apply is the common case — a retry of an already-published
-  // revision. Answer before the lookup below.
-  if (!hasChanges) return null;
+  // revision. But a multi-step apply can die BETWEEN its entity write and its
+  // cascade, and the entity write alone makes hasChanges false — so a retry
+  // would land here, see nothing to recover, and the cascade would never
+  // replay. beforeNoOpMerge is each adapter's idempotent replay of exactly
+  // those side effects (a config's descendant reconcile); run it before
+  // declining, scoped to revisions this entity actually merged.
+  if (!hasChanges) {
+    const latest = await context.models.revisions.getLatestMergedByTarget(
+      revision.target.type,
+      revision.target.id,
+    );
+    if (latest?.id === revision.id) {
+      await adapter.beforeNoOpMerge?.(context, entity, revision);
+    }
+    return null;
+  }
 
   const latestMerged = await context.models.revisions.getLatestMergedByTarget(
     revision.target.type,
@@ -637,6 +651,18 @@ async function publishRevisionInner(
   // rather than erroring, so stranded drafts self-heal. Mirrors
   // postSavedGroupRevisionPublish.
   if (!hasChanges) {
+    // "No changes" was decided against a read that is stale by now, and this
+    // branch performs no guarded entity write to catch drift — so re-verify the
+    // baseline here, or a concurrent change landing after planning would leave
+    // merged history claiming live already matched this revision when it no
+    // longer does. A conflict is the same retryable 409 as any lost landing.
+    await assertLandingBaseline({
+      context,
+      entityType: revision.target.type,
+      entityId: revision.target.id,
+      baselineDateUpdated:
+        (entity as { dateUpdated?: Date }).dateUpdated ?? null,
+    });
     // Runs before the merge so a failure leaves the draft open and retryable.
     await adapter.beforeNoOpMerge?.(context, entity, revision);
     const merged = await context.models.revisions.merge(

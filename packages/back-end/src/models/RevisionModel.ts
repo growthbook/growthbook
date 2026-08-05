@@ -665,12 +665,17 @@ export class RevisionModel extends BaseClass {
         "target.id": entityId,
         status: "merged",
       } as Record<string, unknown>,
-      // By VERSION, not dateUpdated. Version is assigned once at create and is
-      // unique per target (enforced by index), so it orders history immutably.
-      // Sorting by dateUpdated let any later touch of an older revision — a
-      // recovery claim being released, say — make it "latest" again and mislead
-      // every landing that asks which merge is newest.
-      { sort: { version: -1, id: -1 }, limit: 1 },
+      // By WHEN IT MERGED. Version orders creation, not landing — publishing v3
+      // and then v2 leaves v2's content live, and every landing decision needs
+      // the revision whose merge is newest, not whose draft is. dateUpdated was
+      // wrong the other way: any later touch of an old revision (a recovery
+      // claim being released, say) made it "latest" again. resolution.dateCreated
+      // is stamped once, at the merge itself, by every path that merges; version
+      // breaks same-millisecond ties in creation order.
+      {
+        sort: { "resolution.dateCreated": -1, version: -1, id: -1 },
+        limit: 1,
+      },
     );
     return results[0] ?? null;
   }

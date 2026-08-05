@@ -4,6 +4,7 @@ import { Revision, RevisionTargetType } from "shared/enterprise";
 import { logger } from "back-end/src/util/logger";
 import {
   assertLandingBaseline,
+  LandingConflictError,
   tryRestoreEntityPreImage,
   withBufferedPayloadRefreshes,
 } from "back-end/src/revisions/landingSequence";
@@ -222,8 +223,14 @@ export async function landDirectChange<T>({
       // can repair, so the merged revision is only removed once live is back where
       // it started. When it can't be, the revision is KEPT as the record of what
       // actually happened, and the original failure still surfaces.
+      //
+      // A rejected CAS is different from a failed write: the guarded write is the
+      // landing's first write, so losing it means NOTHING was written — and
+      // compensating would compare live against values this landing never wrote,
+      // mistake a winner's identical values for its own, and undo them.
+      const casLost = e instanceof LandingConflictError;
       let restored =
-        changes && writeStarted
+        changes && writeStarted && !casLost
           ? await tryRestoreEntityPreImage({
               context,
               entityType,
@@ -232,7 +239,7 @@ export async function landDirectChange<T>({
               written: changes,
             })
           : true;
-      if (restored && writeStarted && afterRestore) {
+      if (restored && writeStarted && !casLost && afterRestore) {
         try {
           await afterRestore();
         } catch (cascadeErr) {

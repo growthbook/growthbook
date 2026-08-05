@@ -24,14 +24,27 @@ import { applyVerifiedRestore } from "back-end/src/revisions/bulkPublish/verifie
 // than folded into the second check — a doomed landing that never becomes history
 // cannot leave phantom history behind if its removal then fails.
 
-/** A landing lost its race. Retryable: nothing was written. */
+/**
+ * A landing lost its race: the guarded write matched nothing, so NOTHING was
+ * written. Its own class because compensation must be able to tell this apart
+ * from a write that failed partway — restoring a pre-image after a rejected CAS
+ * would compare live against values THIS landing never wrote, mistake the
+ * concurrent winner's identical values for its own, and undo them.
+ */
+export class LandingConflictError extends ConflictError {
+  constructor(entityType: RevisionTargetType | "feature", entityId: string) {
+    super(
+      `${displayEntityName(entityType)} "${entityId}" changed while this was being applied — nothing was written; retry`,
+    );
+    this.name = "LandingConflictError";
+  }
+}
+
 function landingConflictError(
   entityType: RevisionTargetType | "feature",
   entityId: string,
 ): ConflictError {
-  return new ConflictError(
-    `${displayEntityName(entityType)} "${entityId}" changed while this was being applied — nothing was written; retry`,
-  );
+  return new LandingConflictError(entityType, entityId);
 }
 
 /**

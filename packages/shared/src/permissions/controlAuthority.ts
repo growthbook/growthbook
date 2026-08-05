@@ -55,6 +55,24 @@ export function canCommentOnRevisionEntity(
   );
 }
 
+// Whether the viewer may rule on a revision — approve or request changes.
+//
+// Decided on the REVISION's snapshot, like commenting: the server re-asserts the
+// verdict against the row its write is conditioned on, whose project may predate
+// a move. A control judging the live entity offers Approve to a reviewer the
+// endpoint then refuses (or hides it from one it would accept). Falls back to
+// the live entity when no revision is selected.
+export function canReviewRevisionEntity(
+  permissionsUtil: PermissionsUtil,
+  model: RevisionModel,
+  revision: { target?: { snapshot?: unknown } } | null | undefined,
+  liveEntity: ProjectScoped,
+): boolean {
+  const basis =
+    (revision?.target?.snapshot as ProjectScoped | undefined) ?? liveEntity;
+  return permissionsUtil.canRevisionAction(model, "review", basis);
+}
+
 // Whether the viewer may LAND the selected revision.
 //
 // The live entity's own project answers the wrong question when the revision

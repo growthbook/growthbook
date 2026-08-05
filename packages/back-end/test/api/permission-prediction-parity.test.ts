@@ -2,6 +2,7 @@ import {
   canLandArchiveToggle,
   canLandRevertToTarget,
   canPublishRevisionEntity,
+  canReviewRevisionEntity,
   holdsRevisionDestination,
   Permissions,
   RevisionModel,
@@ -32,15 +33,14 @@ import {
  * instance, so no HTTP is needed, and the assertions cost milliseconds instead of
  * adding hundreds of requests to the slowest suite in the repo.
  *
- * COVERAGE, stated so it isn't assumed: this holds the four predictions that have a
- * matching operation in the oracle — publish, archive, revert-landing, and the move
- * destination. Four others are unit-tested in
+ * COVERAGE, stated so it isn't assumed: this holds the five predictions that have a
+ * matching operation in the oracle — publish, archive, revert-landing, review, and
+ * the move destination. Three others are unit-tested in
  * `shared/test/permissions/controlAuthority.test.ts` but have no endpoint case here
  * to be held against:
  *
  *  - `canCommentOnRevisionEntity` and `canDeleteArchivedEntity` — the matrix has no
- *    comment or permanent-delete case yet. Adding those two cases would extend this
- *    file to cover them, and is the obvious next step.
+ *    comment or permanent-delete case yet.
  *  - `holdsFeatureMoveDestination` and `canEnableEnvironmentOnCreate` — Feature Flag
  *    rules, so their oracle is permission-matrix-features, not this one.
  */
@@ -53,7 +53,8 @@ const org = buildOrg("org_prediction_parity");
 type PredictedOperation =
   | "publish a draft"
   | "archive"
-  | "revert straight to published";
+  | "revert straight to published"
+  | "submit a review verdict";
 
 const MODELS: RevisionModel[] = ["constant", "config", "saved-group"];
 
@@ -110,6 +111,19 @@ describe("control predictions match the endpoint oracle", () => {
         expect(
           canLandArchiveToggle(permissions, model, entity, ["production"]),
         ).toBe(expected("archive"));
+      });
+
+      it("predicts reviewing the same way the endpoint decides it", () => {
+        const permissions = permissionsFor(persona, false);
+        expect(
+          canReviewRevisionEntity(
+            permissions,
+            model,
+            // Judged on the revision's snapshot, which may predate a move.
+            { target: { snapshot: entity } },
+            entity,
+          ),
+        ).toBe(expected("submit a review verdict"));
       });
 
       it("predicts landing a revert the same way the endpoint decides it", () => {

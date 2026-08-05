@@ -487,11 +487,9 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
               />
             </div>
             <EnvironmentSelect
-              // A holdout takes publish in the environments it runs in — never
-              // feature-create, which its users may not hold.
-              canEnableEnvironment={(environmentId) =>
-                permissionsUtils.canPublishFeature({ project }, [environmentId])
-              }
+              // No per-environment rule: the create endpoint authorizes via
+              // canCreateHoldout, project-scoped — requiring Feature Publish
+              // here blocked holdout users who hold no feature permissions.
               environmentSettings={environmentSettings}
               environments={environments}
               setValue={(env, on) => {

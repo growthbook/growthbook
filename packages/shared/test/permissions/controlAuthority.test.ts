@@ -4,6 +4,7 @@ import {
   canLandArchiveToggle,
   canEnableEnvironmentOnCreate,
   canLandRevertToTarget,
+  canReviewRevisionEntity,
   holdsFeatureMoveDestination,
   holdsRevisionDestination,
 } from "../../src/permissions/controlAuthority";
@@ -396,5 +397,23 @@ describe("canEnableEnvironmentOnCreate", () => {
     const u = util(["dev", "prod"], ["dev"]);
     expect(canEnableEnvironmentOnCreate(u, "p", "dev")).toBe(true);
     expect(canEnableEnvironmentOnCreate(u, "p", "prod")).toBe(false);
+  });
+});
+
+describe("canReviewRevisionEntity", () => {
+  const util = {
+    canRevisionAction: (
+      _model: string,
+      action: string,
+      obj: { project?: string },
+    ) => action === "review" && obj.project === "a",
+  } as unknown as Parameters<typeof canReviewRevisionEntity>[0];
+
+  it("judges the revision's snapshot, which may predate a move", () => {
+    expect(
+      canReviewRevisionEntity(util, "config", revisionFromA, liveInB),
+    ).toBe(true);
+    // The live entity's project must not rescue (or block) the verdict.
+    expect(canReviewRevisionEntity(util, "config", null, liveInB)).toBe(false);
   });
 });
