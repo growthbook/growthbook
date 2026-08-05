@@ -184,7 +184,10 @@ export class AnalyticsExplorationModel extends BaseClass {
   protected canCreate(doc: ProductAnalyticsExploration): boolean {
     const { datasource } = this.getForeignRefs(doc);
     if (!datasource) return false;
-    return this.context.permissions.canRunTestQueries(datasource);
+    return this.context.permissions.canRunProductAnalyticsExplorationQueries(
+      datasource,
+      doc.config.dataset.type,
+    );
   }
   protected canUpdate(existing: ProductAnalyticsExploration): boolean {
     return this.canCreate(existing);

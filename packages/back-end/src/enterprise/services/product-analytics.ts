@@ -59,6 +59,16 @@ export async function runProductAnalyticsExploration(
 ): Promise<ProductAnalyticsExploration | null> {
   config = explorationConfigValidator.parse(config);
 
+  const dataset = config.dataset;
+  if (!dataset) {
+    throw new BadRequestError("Dataset is required");
+  }
+
+  const datasource = await getDataSourceById(context, config.datasource);
+  if (!datasource) {
+    throw new NotFoundError("Datasource not found");
+  }
+
   if (options.cache !== "never") {
     const existing =
       await context.models.analyticsExplorations.findLatestByConfig(config);
@@ -71,19 +81,18 @@ export async function runProductAnalyticsExploration(
     return null;
   }
 
+  if (
+    !context.permissions.canRunProductAnalyticsExplorationQueries(
+      datasource,
+      dataset.type,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
   // If no existing exploration, create a new one
   const metricMap: Map<string, FactMetricInterface> = new Map();
   const factTableMap: Map<string, FactTableInterface> = new Map();
-  const datasource = await getDataSourceById(context, config.datasource);
-  if (!datasource) {
-    throw new NotFoundError("Datasource not found");
-  }
-
-  // Parse and validate dataset settings
-  const dataset = config.dataset;
-  if (!dataset) {
-    throw new BadRequestError("Dataset is required");
-  }
 
   if (dataset.type === "fact_table") {
     if (!dataset.factTableId) {

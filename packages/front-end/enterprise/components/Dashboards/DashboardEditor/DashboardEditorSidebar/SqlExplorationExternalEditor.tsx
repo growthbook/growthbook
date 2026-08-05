@@ -21,7 +21,10 @@ import Modal from "@/ui/Modal";
 import Text from "@/ui/Text";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PylonChatVisibility from "@/components/Auth/PylonChatVisibility";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   ExplorerProvider,
   useExplorerContext,
@@ -87,7 +90,13 @@ function SqlExplorationModalContent({
 }) {
   const { draftExploreState, error, handleSubmit, isSubmittable, loading } =
     useExplorerContext();
+  const permissionsUtil = usePermissionsUtil();
+  const { getDatasourceById } = useDefinitions();
   const { isQueryRunning, localSql } = useSqlEditorContext();
+  const datasource = getDatasourceById(draftExploreState.datasource);
+  const canRunQueries = datasource
+    ? permissionsUtil.canRunSqlExplorerQueries(datasource)
+    : false;
   const initialDraftRef = useRef(draftExploreState);
   const [updating, setUpdating] = useState(false);
   const hasChanges = !isEqual(initialDraftRef.current, draftExploreState);
@@ -112,6 +121,7 @@ function SqlExplorationModalContent({
             !hasChanges ||
             hasUnpreviewedSqlChanges ||
             !isSubmittable ||
+            !canRunQueries ||
             loading ||
             isQueryRunning
           }
@@ -299,6 +309,14 @@ export default function SqlExplorationExternalEditor({
   emptyState?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const permissionsUtil = usePermissionsUtil();
+  const { getDatasourceById } = useDefinitions();
+  const datasource = getDatasourceById(block.config.datasource);
+  const canRunQueries = datasource
+    ? permissionsUtil.canRunSqlExplorerQueries(datasource)
+    : false;
+  const permissionMessage =
+    "You do not have permission to run SQL explorer queries for this Data Source.";
 
   return (
     <>
@@ -318,7 +336,11 @@ export default function SqlExplorationExternalEditor({
           <Text align="center" color="text-mid">
             Build a visualization from a custom SQL query
           </Text>
-          <Button onClick={() => setOpen(true)}>Write or generate query</Button>
+          <Tooltip body={permissionMessage} shouldDisplay={!canRunQueries}>
+            <Button disabled={!canRunQueries} onClick={() => setOpen(true)}>
+              Write or generate query
+            </Button>
+          </Tooltip>
         </Flex>
       ) : (
         <Button
@@ -327,7 +349,7 @@ export default function SqlExplorationExternalEditor({
           color="violet"
           onClick={() => setOpen(true)}
         >
-          Edit Query
+          {canRunQueries ? "Edit Query" : "View Query"}
         </Button>
       )}
       {open ? (

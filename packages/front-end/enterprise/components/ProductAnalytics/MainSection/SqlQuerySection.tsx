@@ -27,6 +27,7 @@ import AreaWithHeader from "@/components/SchemaBrowser/AreaWithHeader";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { canFormatSql, formatSql } from "@/services/sqlFormatter";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { useSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 import styles from "@/components/SchemaBrowser/EditSqlModal.module.scss";
@@ -137,12 +138,16 @@ export default function SqlQuerySection({
   onQueryFocus?: () => void;
 }) {
   const { getDatasourceById } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
   const { draftExploreState } = useExplorerContext();
   const dataset =
     draftExploreState.dataset.type === "sql" ? draftExploreState.dataset : null;
   const datasource = draftExploreState.datasource
     ? getDatasourceById(draftExploreState.datasource)
     : null;
+  const canRunQueries = datasource
+    ? permissionsUtil.canRunSqlExplorerQueries(datasource)
+    : false;
   const {
     autoCompletions,
     isAutocompleteEnabled,
@@ -197,7 +202,8 @@ export default function SqlQuerySection({
     !loading &&
     !aiLoading &&
     !!localSql.trim() &&
-    !!draftExploreState.datasource;
+    !!draftExploreState.datasource &&
+    canRunQueries;
   const canFormat =
     !loading && datasource ? canFormatSql(datasource.type) : false;
   const showContent = open || !showHeader;
@@ -259,7 +265,7 @@ export default function SqlQuerySection({
   const content = (
     <AiSqlGenerator
       datasourceId={draftExploreState.datasource}
-      disabled={loading}
+      disabled={loading || !canRunQueries}
       onLoadingChange={setAiLoading}
       onSqlGenerated={(sql) => {
         setLocalSql(sql);
@@ -380,10 +386,10 @@ export default function SqlQuerySection({
                             setLocalSql(sql);
                             setFormatError(null);
                           }}
-                          disabled={loading}
+                          disabled={loading || !canRunQueries}
                           setCursorData={setCursorData}
                           onCtrlEnter={() => {
-                            if (!loading && !aiLoading) {
+                            if (canRunPreview) {
                               void previewQuery(localSql);
                             }
                           }}
