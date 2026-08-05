@@ -12,6 +12,7 @@ import { AICredentialFrontEndInterface } from "shared/validators";
 import { date } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
+import { isCloud } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
@@ -245,10 +246,20 @@ function ProviderRow({
           content={
             <>
               This key is shared by the whole organization, and it is stored
-              encrypted — it cannot be recovered once removed, only replaced.
-              Any AI feature using a {label} model stops working until the{" "}
-              <code>{envVar}</code> environment variable is set on this
-              installation or a new key is saved here.
+              encrypted — it cannot be recovered once removed, only replaced.{" "}
+              {isCloud() ? (
+                <>
+                  AI features using {label} models revert to GrowthBook&apos;s
+                  managed key, and their usage counts against your daily limit
+                  again.
+                </>
+              ) : (
+                <>
+                  AI features using {label} models stop working until the{" "}
+                  <code>{envVar}</code> environment variable is set on this
+                  installation or a new key is saved here.
+                </>
+              )}
             </>
           }
           yesText="Remove key"
