@@ -17,6 +17,7 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import Switch from "@/ui/Switch";
 import {
+  AttributeData,
   Condition,
   condToJson,
   jsonToConds,
@@ -132,6 +133,58 @@ export function withOperatorCaseInsensitivity(
     return CASE_INSENSITIVE_VARIANT[baseOperator];
   }
   return baseOperator;
+}
+
+export function checkSecureStringRegex(
+  value: string,
+  attributes: Map<string, AttributeData>,
+): boolean {
+  try {
+    const parsed = JSON.parse(value);
+
+    const checkObj = (obj: unknown): boolean => {
+      if (typeof obj !== "object" || obj === null) return false;
+
+      for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+        if (k === "$or" || k === "$and") {
+          if (Array.isArray(v) && v.some(checkObj)) return true;
+        } else if (k === "$not") {
+          if (checkObj(v)) return true;
+        } else {
+          const attr = attributes.get(k);
+          if (
+            attr &&
+            ["secureString", "secureString[]"].includes(attr.datatype)
+          ) {
+            if (typeof v === "object" && v !== null) {
+              const ops = v as Record<string, unknown>;
+              if (
+                "$regex" in ops ||
+                "$notRegex" in ops ||
+                "$regexi" in ops ||
+                "$notRegexi" in ops
+              ) {
+                return true;
+              }
+              // Recurse into nesting operators like $not and $elemMatch
+              for (const nestKey of ["$not", "$elemMatch"]) {
+                if (nestKey in ops && checkObj({ [k]: ops[nestKey] })) {
+                  return true;
+                }
+              }
+            }
+          } else {
+            if (typeof v === "object" && v !== null && checkObj(v)) return true;
+          }
+        }
+      }
+      return false;
+    };
+
+    return checkObj(parsed);
+  } catch {
+    return false;
+  }
 }
 
 interface Props {
@@ -255,6 +308,9 @@ export default function ConditionInput({
 
     const formatted = formatJSON(value);
 
+    // Detect regex used against a secureString attribute in the raw JSON
+    const isRegexOnSecureString = checkSecureStringRegex(value, attributes);
+
     const codeEditorToggleButton = locked ? null : (
       <Link
         onClick={(e) => {
@@ -295,7 +351,14 @@ export default function ConditionInput({
             {formatJSONButton}
           </Flex>
         </Flex>
-        {hasSecureAttributes && (
+        {isRegexOnSecureString && (
+          <HelperText status="error" mt="2">
+            Regex matching is not supported for secure attributes. Because
+            secure attributes are hashed in the SDK, regex patterns will never
+            match.
+          </HelperText>
+        )}
+        {hasSecureAttributes && !isRegexOnSecureString && (
           <HelperText status="warning" mt="2">
             Secure attribute hashing not guaranteed to work for complicated
             rules
