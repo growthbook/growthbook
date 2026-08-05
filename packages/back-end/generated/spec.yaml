@@ -408,6 +408,11 @@ tags:
     description: >-
       Saved learnings captured across experiments, including AI-discovered
       patterns.
+  - name: Holdouts
+    x-displayName: Holdouts
+    description: >-
+      Hold a share of traffic out of all experiments to measure their combined
+      effect.
   - name: AggregatedFactTable_model
     x-displayName: Aggregated Fact Table
     description: <SchemaDefinition schemaRef="#/components/schemas/AggregatedFactTable" />
@@ -636,6 +641,9 @@ tags:
     description: >-
       <SchemaDefinition schemaRef="#/components/schemas/FeatureWithRevisionsV2"
       />
+  - name: Holdout_model
+    x-displayName: Holdout
+    description: <SchemaDefinition schemaRef="#/components/schemas/Holdout" />
   - name: InformationSchema_model
     x-displayName: Information Schema
     description: <SchemaDefinition schemaRef="#/components/schemas/InformationSchema" />
@@ -49418,6 +49426,481 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/learnings/search' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/holdouts/{id}:
+    get:
+      operationId: getHoldout
+      summary: Get a single holdout
+      tags:
+        - Holdouts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  holdout:
+                    $ref: '#/components/schemas/Holdout'
+                required:
+                  - holdout
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/holdouts/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    put:
+      operationId: updateHoldout
+      summary: Update a single holdout
+      description: >-
+        Updates a Holdout. Fields are written to the Holdout and its companion
+        experiment as needed, so callers do not need to know where each field is
+        stored. Use POST /holdouts/{id}/stage to change the stage.
+      tags:
+        - Holdouts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                  maxLength: 10000
+                projects:
+                  type: array
+                  items:
+                    type: string
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                archived:
+                  type: boolean
+                skipAsDefaultHoldout:
+                  type: boolean
+                holdoutSize:
+                  description: >-
+                    Proportion of traffic held out, expressed as a decimal (e.g.
+                    0.05 for 5%). An equally-sized control group is bucketed
+                    alongside it, so the Holdout occupies twice this share of
+                    traffic in total. Maximum 0.5.
+                  type: number
+                  minimum: 0
+                  maximum: 0.5
+                hashAttribute:
+                  type: string
+                targetingCondition:
+                  type: string
+                savedGroups:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      match:
+                        type: string
+                        enum:
+                          - all
+                          - none
+                          - any
+                      ids:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - match
+                      - ids
+                    additionalProperties: false
+                datasourceId:
+                  type: string
+                assignmentQueryId:
+                  type: string
+                goalMetrics:
+                  type: array
+                  items:
+                    type: string
+                secondaryMetrics:
+                  type: array
+                  items:
+                    type: string
+                guardrailMetrics:
+                  type: array
+                  items:
+                    type: string
+                activationMetric:
+                  type: string
+                variations:
+                  description: >-
+                    Rename a Holdout's variations. A Holdout always has exactly
+                    two variations, so they cannot be added or removed.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      variationId:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                        maxLength: 10000
+                    required:
+                      - variationId
+                    additionalProperties: false
+                environments:
+                  description: >-
+                    Replaces the entire per-environment state. Environments not
+                    listed are disabled.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: object
+                    properties:
+                      enabled:
+                        description: Whether the Holdout is active in this environment.
+                        type: boolean
+                    required:
+                      - enabled
+                    additionalProperties: false
+                statusUpdateSchedule:
+                  anyOf:
+                    - description: >-
+                        Automatic stage transitions for the Holdout. Dates must
+                        be consecutive: `startAt` before `startAnalysisPeriodAt`
+                        before `stopAt`. Send `null` to delete the schedule.
+                      type: object
+                      properties:
+                        startAt:
+                          description: >-
+                            ISO datetime to move the Holdout from `draft` to
+                            `running`. Must be in the future while the Holdout
+                            is still a draft.
+                          type: string
+                          format: date-time
+                        startAnalysisPeriodAt:
+                          description: >-
+                            ISO datetime to move the Holdout from `running` to
+                            `analysis-period`. Requires `startAt` while the
+                            Holdout is still a draft.
+                          type: string
+                          format: date-time
+                        stopAt:
+                          description: >-
+                            ISO datetime to stop the Holdout. Requires
+                            `startAnalysisPeriodAt` unless the analysis period
+                            has already begun.
+                          type: string
+                          format: date-time
+                      additionalProperties: false
+                    - type: 'null'
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  holdout:
+                    $ref: '#/components/schemas/Holdout'
+                required:
+                  - holdout
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/holdouts/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/holdouts:
+    post:
+      operationId: createHoldout
+      summary: Create a single holdout
+      description: >-
+        Creates a Holdout along with its companion experiment. The Holdout
+        starts in the `draft` stage — use POST /holdouts/{id}/stage to start it.
+      tags:
+        - Holdouts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                  maxLength: 10000
+                projects:
+                  description: >-
+                    Project IDs this Holdout applies to. Omit or send an empty
+                    array for All Projects.
+                  type: array
+                  items:
+                    type: string
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                skipAsDefaultHoldout:
+                  type: boolean
+                holdoutSize:
+                  description: >-
+                    Proportion of traffic held out, expressed as a decimal (e.g.
+                    0.05 for 5%). An equally-sized control group is bucketed
+                    alongside it. Defaults to 0.05. Maximum 0.5.
+                  type: number
+                  minimum: 0
+                  maximum: 0.5
+                hashAttribute:
+                  type: string
+                targetingCondition:
+                  description: Targeting condition as a JSON string.
+                  type: string
+                savedGroups:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      match:
+                        type: string
+                        enum:
+                          - all
+                          - none
+                          - any
+                      ids:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - match
+                      - ids
+                    additionalProperties: false
+                datasourceId:
+                  type: string
+                assignmentQueryId:
+                  type: string
+                goalMetrics:
+                  type: array
+                  items:
+                    type: string
+                secondaryMetrics:
+                  type: array
+                  items:
+                    type: string
+                guardrailMetrics:
+                  type: array
+                  items:
+                    type: string
+                activationMetric:
+                  type: string
+                environments:
+                  description: >-
+                    Per-environment state, keyed by environment ID. Environments
+                    not listed are disabled.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: object
+                    properties:
+                      enabled:
+                        description: Whether the Holdout is active in this environment.
+                        type: boolean
+                    required:
+                      - enabled
+                    additionalProperties: false
+                statusUpdateSchedule:
+                  description: >-
+                    Automatic stage transitions for the Holdout. Dates must be
+                    consecutive: `startAt` before `startAnalysisPeriodAt` before
+                    `stopAt`. Send `null` to delete the schedule.
+                  type: object
+                  properties:
+                    startAt:
+                      description: >-
+                        ISO datetime to move the Holdout from `draft` to
+                        `running`. Must be in the future while the Holdout is
+                        still a draft.
+                      type: string
+                      format: date-time
+                    startAnalysisPeriodAt:
+                      description: >-
+                        ISO datetime to move the Holdout from `running` to
+                        `analysis-period`. Requires `startAt` while the Holdout
+                        is still a draft.
+                      type: string
+                      format: date-time
+                    stopAt:
+                      description: >-
+                        ISO datetime to stop the Holdout. Requires
+                        `startAnalysisPeriodAt` unless the analysis period has
+                        already begun.
+                      type: string
+                      format: date-time
+                  additionalProperties: false
+              required:
+                - name
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  holdout:
+                    $ref: '#/components/schemas/Holdout'
+                required:
+                  - holdout
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/holdouts' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    get:
+      operationId: listHoldouts
+      summary: Get all holdouts
+      tags:
+        - Holdouts
+      parameters:
+        - name: projectId
+          in: query
+          description: ''
+          schema:
+            type: string
+        - name: datasourceId
+          in: query
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/stage'
+        - name: archived
+          in: query
+          description: >-
+            Filter by archived state. Omit to return both archived and
+            unarchived Holdouts.
+          schema:
+            description: >-
+              Filter by archived state. Omit to return both archived and
+              unarchived Holdouts.
+            anyOf:
+              - type: string
+                const: 'true'
+              - type: string
+                const: 'false'
+              - type: string
+                const: '0'
+              - type: string
+                const: '1'
+              - type: boolean
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  holdouts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Holdout'
+                required:
+                  - holdouts
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/holdouts' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/holdouts/{id}/stage:
+    post:
+      operationId: setHoldoutStage
+      summary: Move a Holdout to a different stage
+      tags:
+        - Holdouts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                stage:
+                  description: The stage to move the Holdout to.
+                  type: string
+                  enum:
+                    - draft
+                    - running
+                    - analysis-period
+                    - stopped
+              required:
+                - stage
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  holdout:
+                    $ref: '#/components/schemas/Holdout'
+                required:
+                  - holdout
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST 'https://api.growthbook.io/api/v1/holdouts/{id}/stage'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
 components:
   parameters:
     limit:
@@ -50163,6 +50646,17 @@ components:
           - preferred
           - required
           - never
+    stage:
+      name: stage
+      in: query
+      description: ''
+      schema:
+        type: string
+        enum:
+          - draft
+          - running
+          - analysis-period
+          - stopped
   schemas:
     FeatureV1:
       type: object
@@ -65127,6 +65621,272 @@ components:
         - status
         - source
       additionalProperties: false
+    Holdout:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        name:
+          type: string
+        description:
+          type: string
+          maxLength: 10000
+        projects:
+          description: >-
+            Project IDs this Holdout applies to. An empty array means All
+            Projects.
+          type: array
+          items:
+            type: string
+        owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        archived:
+          type: boolean
+        stage:
+          description: >-
+            Lifecycle stage of the Holdout. Change it with POST
+            /holdouts/{id}/stage.
+          type: string
+          enum:
+            - draft
+            - running
+            - analysis-period
+            - stopped
+        experimentId:
+          description: >-
+            ID of the companion experiment that stores this Holdout's analysis
+            settings and results.
+          type: string
+        trackingKey:
+          type: string
+        skipAsDefaultHoldout:
+          description: >-
+            When true, this Holdout is not pre-selected for new Feature Flags
+            and experiments in its Projects.
+          type: boolean
+        holdoutSize:
+          description: >-
+            Proportion of traffic held out, expressed as a decimal (e.g. 0.05
+            for 5%). An equally-sized control group is bucketed alongside it, so
+            the Holdout occupies twice this share of traffic in total. Maximum
+            0.5.
+          type: number
+          minimum: 0
+          maximum: 0.5
+        hashAttribute:
+          description: Attribute used to assign users to the Holdout.
+          type: string
+        targetingCondition:
+          description: Targeting condition as a JSON string.
+          type: string
+        savedGroups:
+          type: array
+          items:
+            type: object
+            properties:
+              match:
+                type: string
+                enum:
+                  - all
+                  - none
+                  - any
+              ids:
+                type: array
+                items:
+                  type: string
+            required:
+              - match
+              - ids
+            additionalProperties: false
+        datasourceId:
+          type: string
+        assignmentQueryId:
+          type: string
+        goalMetrics:
+          type: array
+          items:
+            type: string
+        secondaryMetrics:
+          type: array
+          items:
+            type: string
+        guardrailMetrics:
+          type: array
+          items:
+            type: string
+        activationMetric:
+          type: string
+        variations:
+          type: array
+          items:
+            type: object
+            properties:
+              variationId:
+                type: string
+              key:
+                type: string
+              name:
+                type: string
+              description:
+                type: string
+                maxLength: 10000
+            required:
+              - variationId
+              - key
+              - name
+            additionalProperties: false
+        environments:
+          description: >-
+            Per-environment state, keyed by environment ID. Environments not
+            present are disabled.
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: object
+            properties:
+              enabled:
+                description: Whether the Holdout is active in this environment.
+                type: boolean
+            required:
+              - enabled
+            additionalProperties: false
+        linkedFeatures:
+          description: >-
+            Feature Flags held out by this Holdout. Manage these through the
+            Feature Flag endpoints.
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              dateAdded:
+                type: string
+                format: date-time
+            required:
+              - id
+              - dateAdded
+            additionalProperties: false
+        linkedExperiments:
+          description: >-
+            Experiments held out by this Holdout. Manage these through the
+            experiment endpoints.
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              dateAdded:
+                type: string
+                format: date-time
+            required:
+              - id
+              - dateAdded
+            additionalProperties: false
+        dateStarted:
+          type: string
+          format: date-time
+        analysisStartDate:
+          description: When the Holdout entered its analysis period.
+          type: string
+          format: date-time
+        dateStopped:
+          type: string
+          format: date-time
+        statusUpdateSchedule:
+          anyOf:
+            - description: >-
+                Automatic stage transitions for the Holdout. Dates must be
+                consecutive: `startAt` before `startAnalysisPeriodAt` before
+                `stopAt`. Send `null` to delete the schedule.
+              type: object
+              properties:
+                startAt:
+                  description: >-
+                    ISO datetime to move the Holdout from `draft` to `running`.
+                    Must be in the future while the Holdout is still a draft.
+                  type: string
+                  format: date-time
+                startAnalysisPeriodAt:
+                  description: >-
+                    ISO datetime to move the Holdout from `running` to
+                    `analysis-period`. Requires `startAt` while the Holdout is
+                    still a draft.
+                  type: string
+                  format: date-time
+                stopAt:
+                  description: >-
+                    ISO datetime to stop the Holdout. Requires
+                    `startAnalysisPeriodAt` unless the analysis period has
+                    already begun.
+                  type: string
+                  format: date-time
+              additionalProperties: false
+            - type: 'null'
+        nextScheduledStatusUpdate:
+          anyOf:
+            - description: The next stage transition that will run automatically.
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - start
+                    - startAnalysisPeriod
+                    - stop
+                date:
+                  type: string
+                  format: date-time
+              required:
+                - type
+                - date
+              additionalProperties: false
+            - type: 'null'
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - name
+        - description
+        - projects
+        - owner
+        - tags
+        - archived
+        - stage
+        - experimentId
+        - trackingKey
+        - skipAsDefaultHoldout
+        - holdoutSize
+        - hashAttribute
+        - targetingCondition
+        - datasourceId
+        - assignmentQueryId
+        - goalMetrics
+        - secondaryMetrics
+        - guardrailMetrics
+        - variations
+        - environments
+        - linkedFeatures
+        - linkedExperiments
+      additionalProperties: false
     ExperimentSnapshot:
       type: object
       properties:
@@ -69352,6 +70112,7 @@ x-tagGroups:
       - AnalyticsExplorations
       - RampScheduleTemplates
       - Learnings
+      - Holdouts
   - name: Models
     tags:
       - AggregatedFactTable_model
@@ -69420,6 +70181,7 @@ x-tagGroups:
       - FeatureV2_model
       - FeatureWithRevisionsV1_model
       - FeatureWithRevisionsV2_model
+      - Holdout_model
       - InformationSchema_model
       - InformationSchemaTable_model
       - Learning_model
