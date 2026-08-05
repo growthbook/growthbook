@@ -867,6 +867,11 @@ export class RevisionModel extends BaseClass {
     userId: string,
     decision: ReviewDecision,
     comment: string,
+    // Re-asserts the caller's authority to rule on the revision, against the row
+    // the write is conditioned on. The caller's own check is a stale read by the
+    // time it writes: a concurrent rebase can move the revision to a project the
+    // reviewer holds nothing in, and the verdict must not ride that move.
+    assertAuthority?: (existing: Revision) => void,
   ) {
     const actionMap: Record<
       ReviewDecision,
@@ -895,18 +900,19 @@ export class RevisionModel extends BaseClass {
 
     // A comment is participation, not authority over the revision, so it is
     // authorized on its own terms below and skips the general update backstop.
-    // `target` joins the CAS guard so a rebase that re-scopes the revision
-    // between the check and the write loses the race instead of riding it.
     const isComment = decision === "comment";
 
-    // CAS-guard the status reconcile so a concurrent verdict can't be lost.
+    // CAS-guard every field the decision reads: `reviews`/`status`/`activityLog`
+    // so a concurrent verdict can't be lost, `target` so a rebase that re-scopes
+    // the revision loses the race instead of riding it, and `contributors` so an
+    // edit landing between the check and the write can't slip past
+    // blockSelfApproval (contributors are recorded by their own atomic write).
     const updated = await this.updateWithCas(
       id,
-      isComment
-        ? ["reviews", "status", "activityLog", "target"]
-        : ["reviews", "status", "activityLog"],
+      ["reviews", "status", "activityLog", "target", "contributors"],
       (existing) => {
         if (isComment) this.assertCanWriteCommentOn(existing);
+        else assertAuthority?.(existing);
         // Authoritative self-approval check, against the row this write is
         // conditioned on. Callers screen it first for a clean error, but a
         // caller's read is stale by the time it writes: a contributor entry can

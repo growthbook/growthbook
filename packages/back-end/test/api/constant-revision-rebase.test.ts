@@ -205,4 +205,75 @@ describe("POST /api/v1/constants-revisions/:key/:version/rebase", () => {
       "drafted description",
     );
   });
+  /**
+   * A null-valued op is a CLEAR, not an absent value. Only the revert path
+   * produces one (restoring a state that predates a field), so it is seeded
+   * directly. Resolving its conflict with `overwrite` used to drop the op,
+   * silently keeping the value the revert existed to remove.
+   */
+  it("keeps an explicit clear under `overwrite`", async () => {
+    useAdmin();
+    await mongoose.connection
+      .collection("constants")
+      .deleteMany({ organization: ORG_ID });
+    await mongoose.connection
+      .collection("revisions")
+      .deleteMany({ organization: ORG_ID });
+    await mongoose.connection.collection("constants").insertOne({
+      id: `const_${KEY}`,
+      organization: ORG_ID,
+      key: KEY,
+      name: "Rebase target",
+      type: "string",
+      value: "v",
+      description: "live description",
+      owner: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    });
+    // A draft that clears the description, based on a snapshot that still had one.
+    await mongoose.connection.collection("revisions").insertOne({
+      id: "rev_null_clear",
+      organization: ORG_ID,
+      version: 2,
+      status: "draft",
+      authorId: "",
+      contributors: [],
+      reviews: [],
+      activityLog: [],
+      comments: [],
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      target: {
+        type: "constant",
+        id: `const_${KEY}`,
+        snapshot: {
+          id: `const_${KEY}`,
+          key: KEY,
+          value: "v",
+          description: "original description",
+        },
+        proposedChanges: [{ op: "replace", path: "/description", value: null }],
+      },
+    });
+
+    // Prove the field really is in conflict: no strategy, no rebase.
+    const unresolved = await rebase(2);
+    expect(unresolved.status).toBe(409);
+    expect(JSON.stringify(unresolved.body)).toMatch(/description/);
+
+    const res = await rebase(2, { description: "overwrite" });
+    expect(res.status).toBe(200);
+
+    const rebased = await mongoose.connection
+      .collection("revisions")
+      .findOne({ organization: ORG_ID, id: "rev_null_clear" });
+    const ops = (rebased?.target?.proposedChanges ?? []) as {
+      path: string;
+      value: unknown;
+    }[];
+    const clear = ops.find((o) => o.path === "/description");
+    expect(clear).toBeDefined();
+    expect(clear?.value).toBeNull();
+  });
 });

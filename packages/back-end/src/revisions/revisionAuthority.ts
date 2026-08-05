@@ -20,6 +20,28 @@ export function isRevisionAuthor(
   return !!userId && !!authorId && authorId === userId;
 }
 
+// The verdict authority re-check every review path hands to `addReview`, so the
+// decision is judged against the row the write is conditioned on rather than a
+// read a concurrent rebase may have invalidated. A rebase re-snapshots the
+// revision, so a move shows up here as a snapshot in a project the reviewer may
+// hold nothing in.
+export function reviewAuthorityOnRow(
+  context: Context,
+): (existing: Revision) => void {
+  return (existing) => {
+    if (
+      !canDoRevisionAction(
+        existing.target.type,
+        "review",
+        context,
+        existing.target.snapshot as Record<string, unknown>,
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
+  };
+}
+
 // Who may move a generic entity's draft along — request review on it, recall
 // that request, discard it.
 //

@@ -174,8 +174,20 @@ export default function RoleForm({
     }
   });
 
+  // Whether a policy is granted in full — the bundle itself, or every one of its
+  // parts selected individually, which is how a role saved before the bundle
+  // existed comes back. Shared by the checkbox state and the click, so the two
+  // cannot disagree about what "checked" means.
+  const holdsWholePolicy = (policy: Policy, policies: string[]): boolean => {
+    const partList = (POLICY_PARTS[policy] || []) as Policy[];
+    return (
+      policies.includes(policy) ||
+      (partList.length > 0 && partList.every((p) => policies.includes(p)))
+    );
+  };
+
   // A policy checkbox is a select-all over its individual permissions: checked
-  // when the bundle itself is granted, indeterminate when only some parts are.
+  // when the policy is held in full, indeterminate when only some parts are.
   // Clicking it selects the whole group, or clears it when the group is already
   // whole — so from indeterminate it fills in rather than discarding the picks
   // the user just made.
@@ -183,12 +195,7 @@ export default function RoleForm({
     const current = form.getValues("policies");
     const partList = (POLICY_PARTS[policy] || []) as Policy[];
     const parts = new Set<string>(partList);
-    // Every part selected individually reads as whole too — how a role saved
-    // before the bundle existed comes back.
-    const whole =
-      current.includes(policy) ||
-      (partList.length > 0 && partList.every((p) => current.includes(p)));
-    if (whole) {
+    if (holdsWholePolicy(policy, current)) {
       form.setValue(
         "policies",
         current.filter((p) => p !== policy && !parts.has(p)),
@@ -314,13 +321,15 @@ export default function RoleForm({
                       const selectedParts = parts.filter((part) =>
                         currentPolicies.includes(part),
                       ).length;
-                      // Indeterminate while only some parts are granted: the
-                      // bundle itself isn't, so it must not read as fully checked.
-                      const policyValue: boolean | "indeterminate" = checked
-                        ? true
-                        : selectedParts > 0
-                          ? "indeterminate"
-                          : false;
+                      // Indeterminate only while the policy is PARTLY granted.
+                      // Every part selected is granted in full and reads checked,
+                      // matching what clicking it then does (clear the group).
+                      const policyValue: boolean | "indeterminate" =
+                        holdsWholePolicy(policy, currentPolicies)
+                          ? true
+                          : selectedParts > 0
+                            ? "indeterminate"
+                            : false;
                       const expanded = expandedPolicies.has(policy);
                       return (
                         <Box key={policy}>

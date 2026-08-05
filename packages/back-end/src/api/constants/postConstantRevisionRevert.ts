@@ -1,6 +1,10 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual } from "lodash";
-import { JsonPatchOperation, Revision } from "shared/enterprise";
+import {
+  JsonPatchOperation,
+  Revision,
+  getConstantRestoreChange,
+} from "shared/enterprise";
 import { ConstantInterface } from "shared/types/constant";
 import {
   postConstantRevisionRevertValidator,
@@ -62,15 +66,9 @@ export const postConstantRevisionRevert = createApiRequestHandler(
   // override the restoration changes; a differing base value carries no
   // intrinsic environment, matching every other landing. Proposing a draft is
   // also open to anyone who can author drafts.
-  const revertEnvs = [
-    ...new Set([
-      ...Object.keys(constant.environmentValues ?? {}),
-      ...Object.keys(targetState.environmentValues ?? {}),
-    ]),
-  ].filter(
-    (env) =>
-      (constant.environmentValues?.[env] ?? "") !==
-      (targetState.environmentValues?.[env] ?? ""),
+  const { changedEnvironments: revertEnvs } = getConstantRestoreChange(
+    constant,
+    targetRevision.target,
   );
   // Coarse standing before the reconstruction; assertCanRevertRevision below is
   // authoritative once the change set is known. Subset-refusing.

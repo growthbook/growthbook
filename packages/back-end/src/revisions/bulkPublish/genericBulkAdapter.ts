@@ -23,8 +23,7 @@ import {
 import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
 import { displayEntityName } from "back-end/src/revisions/entityNames";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
-import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
-import { applyVerifiedRestore } from "back-end/src/revisions/bulkPublish/verifiedRestore";
+import { restoreEntityPreImage } from "back-end/src/revisions/landingSequence";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import { ConflictError, MergeConflictError } from "back-end/src/util/errors";
 import type {
@@ -378,24 +377,14 @@ export function makeGenericBulkAdapter(
       const written =
         (revision.writtenEntity as Record<string, unknown> | null) ??
         desiredState;
-      const pre = preImage as Record<string, unknown>;
-      const restore = ownedRestoreValues({
-        keys: persistedKeys,
-        preImage: pre,
+      // Same routine the direct-landing paths compensate with, so every write
+      // path restores by the same rule.
+      await restoreEntityPreImage({
+        context,
+        entityType: targetType,
+        preImage: preImage as Record<string, unknown> & { id: string },
+        persistedKeys,
         written,
-        current: current as Record<string, unknown>,
-      });
-      await applyVerifiedRestore({
-        restore,
-        current: current as Record<string, unknown>,
-        label: `${targetType} "${(preImage as { id: string }).id}"`,
-        // Restoring a pre-image is semantically a revert to a known-good
-        // published state — skip validations that would block a restore. The
-        // write returns the keys it actually persisted so a normalization drop
-        // (a config field an ancestor now owns) surfaces as a failure instead
-        // of silently leaving the field un-restored.
-        write: (r) =>
-          adapter.applyChanges(context, current, r, { isRevert: true }),
       });
     },
 

@@ -169,11 +169,12 @@ export interface ReviewAndPublishTabProps<T> {
   // Publishing. The backend also narrows this per environment; this is the
   // project-level approximation used to decide whether to offer the action.
   canPublishEntity?: boolean;
-  // Whether the viewer holds the DESTINATION side of this revision's relocation,
-  // for the narrow-atom landing fallbacks below. Pages own environment footprints,
-  // so they answer it with `holdsRevisionDestination`. Defaults to permitted for
-  // entities that never move or carry no footprint.
-  holdsLandingDestination?: (action: "revert" | "delete") => boolean;
+  // Whether the viewer holds the DESTINATION side of this revision's relocation.
+  // Publishing a draft is a publish wherever it lands, so the question is always
+  // about the publish atom there — the narrow atoms below carry only the source
+  // side. Pages own environment footprints, so they answer it with
+  // `holdsRevisionDestination`; defaults to permitted for entities that never move.
+  holdsLandingDestination?: boolean;
   // The viewer can bypass the approval requirement (admin).
   canBypassApproval: boolean;
   // When set, publishing is blocked and this reason is shown (e.g. the entity is
@@ -577,15 +578,16 @@ function ReviewAndPublishRevision<T>({
   // also decides whether a revert can be PROPOSED) would offer Publish to a
   // reverter the server refuses.
   const canLandRevert = canLandRevertEntity ?? canRevertEntity ?? canEditEntity;
-  // A draft that relocates the entity also takes authority in the DESTINATION, so
-  // the narrow-atom fallbacks must not offer Publish on source authority alone.
-  const holdsDestination = (action: "revert" | "delete") =>
-    holdsLandingDestination ? holdsLandingDestination(action) : true;
+  // A draft that relocates the entity also takes publish authority in the
+  // DESTINATION, so the narrow-atom fallbacks must not offer Publish on source
+  // authority alone.
+  const holdsDestination = holdsLandingDestination ?? true;
   const canPublishOrEdit =
     (!draftArchives || !!canDeleteEntity) &&
     ((canPublishEntity ?? canEditEntity) ||
-      (draftStagesRevert && canLandRevert && holdsDestination("revert")) ||
-      (!!canDeleteEntity && draftIsPureArchive && holdsDestination("delete")));
+      (holdsDestination &&
+        ((draftStagesRevert && canLandRevert) ||
+          (!!canDeleteEntity && draftIsPureArchive))));
   // Whether the viewer holds any authority at all — for the overflow menu and
   // the no-permission notice. Each individual action gates on its own atom.
   const hasAnyAuthority =

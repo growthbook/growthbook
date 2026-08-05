@@ -22,9 +22,10 @@ import {
 } from "back-end/src/revisions/util";
 import {
   canAdvanceRevision,
-  liveMatchesRevisionBase,
   canRebaseRevision,
   isRevisionAuthor,
+  liveMatchesRevisionBase,
+  reviewAuthorityOnRow,
 } from "back-end/src/revisions/revisionAuthority";
 import {
   holdsMoveDestination,
@@ -49,6 +50,10 @@ import {
 } from "back-end/src/revisions/archiveTransition";
 import { decideScheduledPublishOutcome } from "back-end/src/revisions/publishFailurePolicy";
 import { logger } from "back-end/src/util/logger";
+import {
+  assertLandingBaseline,
+  liveMatchesDesiredState,
+} from "back-end/src/revisions/landingSequence";
 
 // Actions the generic revision controller dispatches to adapter hooks.
 export type RevisionActionKind = "draft" | "review" | "revert" | "publish";
@@ -97,17 +102,19 @@ export function canCommentOnRevision(
 // May this caller touch a revision of this entity at all — the model-layer
 // backstop behind the controller's per-action gate.
 //
-// It is the union of the four actions on purpose. A revision document is
-// written by drafting, reviewing, reverting and publishing alike, and the model
-// can't see which one it is; anything narrower would refuse writes the
-// controller had already allowed.
+// It is the union of every action on purpose. A revision document is written by
+// drafting, reviewing, reverting, publishing and archiving alike, and the model
+// can't see which one it is; anything narrower refuses writes the controller had
+// already allowed. Delete belongs in the union because archiving is delete-class:
+// a delete-only role may stage and land a revision that only archives, and
+// omitting it made that pass the handler and then fail here.
 export function canTouchRevision(
   type: RevisionTargetType,
   context: Context,
   snapshot: Record<string, unknown>,
 ): boolean {
-  return (["draft", "review", "revert", "publish"] as const).some((action) =>
-    canDoRevisionAction(type, action, context, snapshot),
+  return (["draft", "review", "revert", "publish", "delete"] as const).some(
+    (action) => canDoRevisionAction(type, action, context, snapshot),
   );
 }
 
@@ -118,6 +125,32 @@ export function canTouchRevision(
 // marker older than this means the claiming process died before releasing it.
 const MERGE_RECOVERY_LEASE_MS = 10 * 60 * 1000;
 
+// Drop the recovery claim. The marker is a claim, not a record of success:
+// leaving it behind makes every later retry see it and return without applying
+// anything, stranding the revision permanently — worse than the double-dispatch
+// the claim exists to prevent.
+async function releaseRecoveryClaim(
+  context: Context,
+  revisionId: string,
+): Promise<void> {
+  await context.models.revisions
+    .updateWithCas(
+      revisionId,
+      ["dateUpdated"],
+      (existing) => ({
+        activityLog: (existing.activityLog ?? []).filter(
+          (entry) => entry.action !== "merge-recovered",
+        ),
+      }),
+      { dangerouslyBypassCanUpdate: true },
+    )
+    .catch((releaseErr) => {
+      logger.error(
+        releaseErr,
+        `Failed to release the recovery claim on revision ${revisionId}; a retry will no-op until the merge-recovered entry is removed`,
+      );
+    });
+}
 // Re-publish a merge that was claimed but never applied — a crash between the
 // merge claim and the entity write. Returns null when this is not one.
 //
@@ -205,19 +238,37 @@ async function recoverStrandedMerge({
     // require it to match the desired state; if it doesn't yet, the caller
     // should retry rather than believe the change is live.
     const fresh = await adapter.getModel(context)?.getById(revision.target.id);
-    const landed =
-      !!fresh &&
-      Object.keys(desiredState).every(
-        (key) =>
-          !updatableFields.has(key) ||
-          isEqual(desiredState[key], (fresh as Record<string, unknown>)[key]),
-      );
-    if (!landed) {
+    if (
+      !liveMatchesDesiredState({
+        live: (fresh as Record<string, unknown> | null) ?? null,
+        desiredState,
+        updatableFields,
+      })
+    ) {
       throw new BadRequestError(
         "This merge is being recovered by another request. Retry in a moment.",
       );
     }
     return revision;
+  }
+
+  // The claim guards the revision, not the entity, and the checks above ran
+  // before it: in between, another landing can have merged and applied, which
+  // would make this apply write older state over newer. Re-verify both facts now
+  // that the claim is held — still the newest merged revision, and live still
+  // matching the base this recovery applies onto.
+  try {
+    await assertLandingBaseline({
+      context,
+      entityType: revision.target.type,
+      entityId: revision.target.id,
+      baselineDateUpdated:
+        (entity as { dateUpdated?: Date }).dateUpdated ?? null,
+      requireLatestMergedId: revision.id,
+    });
+  } catch (e) {
+    await releaseRecoveryClaim(context, revision.id);
+    throw e;
   }
 
   try {
@@ -229,23 +280,7 @@ async function recoverStrandedMerge({
     // failed apply would make every later retry see it and return without
     // applying anything — stranding the revision permanently, which is worse
     // than the double-dispatch the claim exists to prevent.
-    await context.models.revisions
-      .updateWithCas(
-        revision.id,
-        ["dateUpdated"],
-        (existing) => ({
-          activityLog: (existing.activityLog ?? []).filter(
-            (entry) => entry.action !== "merge-recovered",
-          ),
-        }),
-        { dangerouslyBypassCanUpdate: true },
-      )
-      .catch((releaseErr) => {
-        logger.error(
-          releaseErr,
-          `Failed to release the recovery claim on revision ${revision.id}; a retry will no-op until the merge-recovered entry is removed`,
-        );
-      });
+    await releaseRecoveryClaim(context, revision.id);
     throw e;
   }
   // The failed attempt never dispatched; this apply is when the change lands.
@@ -372,6 +407,7 @@ export async function approveRevision(
     context.userId,
     "approve",
     comment ?? "",
+    reviewAuthorityOnRow(context),
   );
 
   await getRevisionWebhookAdapter(updated.target.type)?.dispatch(
@@ -1010,6 +1046,7 @@ export async function submitRevisionReview({
     context.userId,
     decision,
     comment ?? "",
+    reviewAuthorityOnRow(context),
   );
 
   await getRevisionWebhookAdapter(entityType)?.dispatch(context, updated, {
@@ -1103,6 +1140,10 @@ export async function rebaseRevision({
   const conflictFields = new Set(conflicts.map((c) => c.field));
   const newOps: JsonPatchOperation[] = [];
   const seenFields = new Set<string>();
+  // `null` is the clear signal here, not "no value": a resolution that carries an
+  // explicit null must still emit an op, or clearing a field — a Config schema,
+  // say — is silently dropped on rebase. Only an absent value means nothing to say.
+  const carriesValue = (value: unknown) => value !== undefined;
 
   for (const op of existingOps) {
     const field = op.path.split("/")[1];
@@ -1128,7 +1169,7 @@ export async function rebaseRevision({
 
     if (strategy === "overwrite") {
       if (
-        (conflict.proposedValue ?? null) !== null &&
+        carriesValue(conflict.proposedValue) &&
         !isEqual(conflict.proposedValue, entity[field])
       ) {
         newOps.push({
@@ -1167,7 +1208,7 @@ export async function rebaseRevision({
         resolvedValue = conflict.proposedValue;
       }
       if (
-        (resolvedValue ?? null) !== null &&
+        carriesValue(resolvedValue) &&
         !isEqual(resolvedValue, entity[field])
       ) {
         newOps.push({ op: "replace", path: `/${field}`, value: resolvedValue });

@@ -12,7 +12,7 @@ import {
 } from "shared/enterprise";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import {
-  isArmedWithResolvablePublisher,
+  isArmedWithAuthorizedPublisher,
   planApproveAndPublish,
 } from "back-end/src/revisions/approveAndPublish";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -44,6 +44,7 @@ import {
   canAdvanceRevision,
   canRebaseRevision,
   isRevisionAuthor,
+  reviewAuthorityOnRow,
 } from "back-end/src/revisions/revisionAuthority";
 
 // Arming publishes into the entity as it stands when the fire happens, so
@@ -609,7 +610,13 @@ export const postReview = async (
     context.permissions.throwPermissionError();
   }
 
-  const revision = await revisionModel.addReview(id, userId, decision, comment);
+  const revision = await revisionModel.addReview(
+    id,
+    userId,
+    decision,
+    comment,
+    reviewAuthorityOnRow(context),
+  );
 
   await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
     context,
@@ -1184,7 +1191,16 @@ export const postApproveAndPublish = async (
   // Approving needs review authority; the publish needs publish authority
   // unless the revision is already armed — see planApproveAndPublish.
   const plan = planApproveAndPublish({
-    armed: await isArmedWithResolvablePublisher(context, revision),
+    armed: await isArmedWithAuthorizedPublisher(
+      context,
+      revision,
+      (publisherContext) =>
+        canPublishRevisionChange(
+          publisherContext,
+          revision,
+          entity as Record<string, unknown>,
+        ),
+    ),
     canReview: (adapter.canReview ?? adapter.canUpdate)(
       context,
       entity as Record<string, unknown>,

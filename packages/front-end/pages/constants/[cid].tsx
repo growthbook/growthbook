@@ -5,6 +5,7 @@ import { ConstantInterface } from "shared/types/constant";
 import {
   Revision,
   applyTopLevelPatchOps,
+  getConstantRestoreChange,
   getConstantRevisionChange,
 } from "shared/enterprise";
 import {
@@ -636,16 +637,14 @@ export default function ConstantDetailPage(): React.ReactElement {
               constant,
               NO_ENVIRONMENT_BINDING,
             )}
-            holdsLandingDestination={(action) =>
-              holdsRevisionDestination(
-                permissionsUtil,
-                "constant",
-                action,
-                selectedRevision ?? displayRevision ?? null,
-                constant,
-                publishEnvironments,
-              )
-            }
+            holdsLandingDestination={holdsRevisionDestination(
+              permissionsUtil,
+              "constant",
+              "publish",
+              selectedRevision ?? displayRevision ?? null,
+              constant,
+              publishEnvironments,
+            )}
             canCommentOnEntity={canCommentOnRevisionEntity(
               permissionsUtil,
               "constant",
@@ -745,18 +744,16 @@ export default function ConstantDetailPage(): React.ReactElement {
           canRevert={canRevertEntity}
           canLandRevert={canRevertLandingEntity}
           // Recomputed per target: the picker can change it after mount, and both
-          // the footprint and the destination depend on which snapshot is restored.
+          // the footprint and the destination follow from restoring THAT snapshot
+          // over current live — the same derivation the revert endpoint uses.
           canLandRevertForTarget={(t) => {
-            const snapshot = t.target.snapshot as ConstantInterface;
+            const restore = getConstantRestoreChange(constant, t.target);
             return canLandRevertToTarget(
               permissionsUtil,
               "constant",
               constant,
-              { project: snapshot.project },
-              constantPublishEnvironments(
-                getConstantRevisionChange(snapshot, t.target.proposedChanges)
-                  .changedEnvironments,
-              ),
+              { project: restore.restoredProject },
+              constantPublishEnvironments(restore.changedEnvironments),
             );
           }}
           canLandArchive={canLandArchive}

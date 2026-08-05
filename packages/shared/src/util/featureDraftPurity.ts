@@ -139,6 +139,17 @@ function environmentsEnabledOnlyRestore({
   });
 }
 
+// The version a draft reverts to. `revertedFromVersion` is the current field;
+// `revertedFrom` is the legacy one that drafts created before it still carry, and
+// both hold a version number. Reading only the new one made a legacy revert draft
+// unrecognizable as a pure revert, so a revert-only role could not land it.
+export function draftRevertedFromVersion(draft: {
+  revertedFromVersion?: number;
+  revertedFrom?: number;
+}): number | undefined {
+  return draft.revertedFromVersion ?? draft.revertedFrom;
+}
+
 // Whether a feature draft restores `target`'s content and changes nothing else.
 //
 // Each content field must equal the target's value (a restoration) or live's (a
@@ -157,8 +168,9 @@ export function isPureFeatureRevert({
   draft: FeatureRevisionInterface;
   target: FeatureRevisionInterface;
 }): boolean {
-  if (draft.revertedFromVersion === undefined) return false;
-  if (draft.revertedFromVersion !== target.version) return false;
+  const revertedFrom = draftRevertedFromVersion(draft);
+  if (revertedFrom === undefined) return false;
+  if (revertedFrom !== target.version) return false;
 
   // Side effects must be no-ops — see the note above.
   if (draft.rampActions?.length) return false;

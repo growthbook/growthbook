@@ -533,6 +533,9 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         entity: config as unknown as Record<string, unknown> & { id: string },
         patchOps,
         bypass: true,
+        // The root write and the descendant cascade are two steps, so a failure
+        // in the second one has a partial change to put back.
+        changes: fieldsToUpdate as Record<string, unknown>,
         write: async () => {
           const written = await req.context.models.configs.update(
             config,

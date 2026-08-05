@@ -213,6 +213,7 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
         entity: constant as unknown as Record<string, unknown> & { id: string },
         patchOps,
         bypass: true,
+        changes: fieldsToUpdate as Record<string, unknown>,
         write: () =>
           req.context.models.constants.update(constant, fieldsToUpdate),
       });

@@ -1097,16 +1097,14 @@ export default function EditSavedGroupPage() {
               "delete",
               savedGroup,
             )}
-            holdsLandingDestination={(action) =>
-              holdsRevisionDestination(
-                permissionsUtil,
-                "saved-group",
-                action,
-                selectedRevision ?? displayRevision ?? null,
-                savedGroup,
-                NO_ENVIRONMENT_BINDING,
-              )
-            }
+            holdsLandingDestination={holdsRevisionDestination(
+              permissionsUtil,
+              "saved-group",
+              "publish",
+              selectedRevision ?? displayRevision ?? null,
+              savedGroup,
+              NO_ENVIRONMENT_BINDING,
+            )}
             canCommentOnEntity={canCommentOnRevisionEntity(
               permissionsUtil,
               "saved-group",

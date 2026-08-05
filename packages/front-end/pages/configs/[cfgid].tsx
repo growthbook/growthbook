@@ -2166,16 +2166,14 @@ export default function ConfigDetailPage(): React.ReactElement {
                   config,
                   configPublishEnvironments(config),
                 )}
-                holdsLandingDestination={(action) =>
-                  holdsRevisionDestination(
-                    permissionsUtil,
-                    "config",
-                    action,
-                    selectedRevision ?? displayRevision ?? null,
-                    config,
-                    configPublishEnvironments(config),
-                  )
-                }
+                holdsLandingDestination={holdsRevisionDestination(
+                  permissionsUtil,
+                  "config",
+                  "publish",
+                  selectedRevision ?? displayRevision ?? null,
+                  config,
+                  configPublishEnvironments(config),
+                )}
                 canCommentOnEntity={canCommentOnRevisionEntity(
                   permissionsUtil,
                   "config",

@@ -203,6 +203,7 @@ export const updateSavedGroup = createApiRequestHandler(
       entity: savedGroup as unknown as Record<string, unknown> & { id: string },
       patchOps,
       bypass: true,
+      changes: fieldsToUpdate as Record<string, unknown>,
       write: () =>
         req.context.models.savedGroups.update(savedGroup, fieldsToUpdate),
     });

@@ -2,6 +2,10 @@ import { NO_ENVIRONMENT_BINDING, RevisionModel } from "shared/permissions";
 import { isArchiveTransition } from "shared/util";
 import { Revision, RevisionTargetType } from "shared/enterprise";
 import { logger } from "back-end/src/util/logger";
+import {
+  assertLandingBaseline,
+  tryRestoreEntityPreImage,
+} from "back-end/src/revisions/landingSequence";
 import { Context } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
@@ -128,9 +132,13 @@ export function assertCanRevertRevision({
 //
 // History before live state, deliberately: a merged revision with no live change
 // is detectable and removable (stranded-merge recovery exists for it), whereas a
-// live change with no record of it is silent and no retry can repair it. A failed
-// rollback is reported rather than swallowed, since only a human can reconcile
-// phantom history.
+// live change with no record of it is silent and no retry can repair it.
+//
+// Sequencing is the bulk pipeline's, via `assertLandingBaseline`: the entity must
+// still be where the change was computed from, and this landing's own merged
+// revision must still be the newest — a concurrent landing that recorded newer
+// intent wins, and this one aborts with a retryable conflict rather than applying
+// older state over it.
 //
 // `write` stays with the caller: applyChanges re-runs normalization and cascades
 // to dependents, while the update endpoints write the model directly.
@@ -142,6 +150,7 @@ export async function landDirectChange<T>({
   title,
   bypass,
   revertedFrom,
+  changes,
   write,
 }: {
   context: Context;
@@ -152,8 +161,23 @@ export async function landDirectChange<T>({
   bypass: boolean;
   // Set only when this change restores a historical revision.
   revertedFrom?: string;
+  // The fields this landing writes. Enables compensation when a multi-step write
+  // (an entity update that then cascades to dependents) fails partway; omit for a
+  // write that is atomic on one document.
+  changes?: Record<string, unknown>;
   write: () => Promise<T>;
 }): Promise<{ merged: Revision; result: T }> {
+  const baselineDateUpdated =
+    (entity as { dateUpdated?: Date }).dateUpdated ?? null;
+  // Before recording anything: a landing computed against a stale read must not
+  // become history at all.
+  await assertLandingBaseline({
+    context,
+    entityType,
+    entityId: entity.id,
+    baselineDateUpdated,
+  });
+
   const merged = await context.models.revisions.createMerged({
     type: entityType,
     id: entity.id,
@@ -166,15 +190,45 @@ export async function landDirectChange<T>({
 
   let result: T;
   try {
+    // Re-checked now that this landing has a place in the order: still the newest
+    // merged revision, and the entity still untouched since the baseline.
+    await assertLandingBaseline({
+      context,
+      entityType,
+      entityId: entity.id,
+      baselineDateUpdated,
+      requireLatestMergedId: merged.id,
+    });
     result = await write();
   } catch (e) {
-    try {
-      await context.models.revisions.deleteById(merged.id);
-    } catch (rollbackErr) {
-      logger.error(
-        rollbackErr,
-        `Direct change to ${entityType} ${entity.id} failed to apply AND failed to remove its merged revision ${merged.id}; that revision is phantom history and needs removing by hand`,
-      );
+    // Live state first: an unrecorded partial change is the one outcome no retry
+    // can repair, so the merged revision is only removed once live is back where
+    // it started. When it can't be, the revision is KEPT as the record of what
+    // actually happened, and the original failure still surfaces.
+    const restored = changes
+      ? await tryRestoreEntityPreImage({
+          context,
+          entityType,
+          preImage: entity,
+          persistedKeys: Object.keys(changes),
+          written: changes,
+        })
+      : true;
+    if (restored) {
+      try {
+        // The landing's own authority was established before this point, and the
+        // revision exists only because of it — so removing it is not a fresh
+        // delete decision. Without the bypass a revert-only caller's failed write
+        // leaves phantom merged history it has no permission to clean up.
+        await context.models.revisions.dangerousDeleteByIdBypassPermission(
+          merged.id,
+        );
+      } catch (rollbackErr) {
+        logger.error(
+          rollbackErr,
+          `Direct change to ${entityType} ${entity.id} failed to apply AND failed to remove its merged revision ${merged.id}; that revision is phantom history and needs removing by hand`,
+        );
+      }
     }
     throw e;
   }
@@ -210,6 +264,7 @@ export async function applyRevertDirectly({
     title,
     bypass,
     revertedFrom: targetRevisionId,
+    changes: fields,
     write: () =>
       getAdapter(entityType).applyChanges(context, entity, fields, {
         isRevert: true,

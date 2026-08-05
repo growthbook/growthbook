@@ -1,6 +1,7 @@
 import {
-  PermissionError,
   MergeResultChanges,
+  PermissionError,
+  draftRevertedFromVersion,
   isArchiveTransition,
   isPureFeatureArchive,
   isPureFeatureRevert,
@@ -14,6 +15,7 @@ import {
 } from "back-end/src/revisions/landAuthority";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
+import { getEnabledEnvironments } from "back-end/src/util/features";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 
 // Who may move a feature draft along, and who may land it.
@@ -59,6 +61,36 @@ export function authoredFeatureDraft(
   return (draft.contributors ?? []).includes(userId);
 }
 
+// Authority to CREATE a flag in the state the body describes.
+//
+// A new flag's live footprint is exactly the environments it starts enabled in, so
+// publish authority is required for those and nothing else: a flag that starts
+// disabled everywhere reaches no SDK payload, and Create alone is enough. Approval
+// doesn't apply either — there is no prior state to review it against.
+//
+// Both create paths ask through here. The dashboard used to require the publish
+// atom even for a flag enabled nowhere, while REST required only Create, so the
+// same body was accepted by one and refused by the other.
+export function assertCanCreateFeatureInState({
+  context,
+  feature,
+  environmentIds,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  environmentIds: string[];
+}): void {
+  const enabledOnCreate = Array.from(
+    getEnabledEnvironments(feature, environmentIds),
+  );
+  if (
+    enabledOnCreate.length &&
+    !context.permissions.canPublishFeature(feature, enabledOnCreate)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+}
+
 /** Whether the draft restores a state that was actually live. */
 export async function draftIsPureRevert({
   context,
@@ -69,14 +101,15 @@ export async function draftIsPureRevert({
   feature: FeatureInterface;
   draft: FeatureRevisionInterface;
 }): Promise<boolean> {
-  if (draft.revertedFromVersion === undefined) return false;
+  const revertedFromVersion = draftRevertedFromVersion(draft);
+  if (revertedFromVersion === undefined) return false;
 
   const target = await getRevision({
     context,
     organization: feature.organization,
     featureId: feature.id,
     feature,
-    version: draft.revertedFromVersion,
+    version: revertedFromVersion,
   });
   if (!target || target.status !== "published") return false;
 

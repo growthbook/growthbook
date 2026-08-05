@@ -80,13 +80,23 @@ export function armedPublisherId(revision: {
 
 // Armed AND still publishable: the armed waiver skips the approver's own publish
 // check on the grounds that whoever armed it held the authority, so it must not
-// apply when that identity no longer resolves. Otherwise the approval commits, the
-// waiver hides the missing authority, and the deferred publish fails afterwards.
-export async function isArmedWithResolvablePublisher(
+// apply when that identity no longer resolves — or no longer holds the authority
+// the waiver is standing in for. Membership alone was not enough: a revoked role
+// left the approval committing while the waiver hid the missing authority, and the
+// deferred publish then failed silently afterwards.
+//
+// The authority question is entity-shaped, so the caller supplies it — evaluated in
+// the ARMER's context, since they are who the publish will run as.
+export async function isArmedWithAuthorizedPublisher(
   context: Context,
   revision: Parameters<typeof armedPublisherId>[0],
+  stillHoldsPublishAuthority: (
+    publisherContext: Context,
+  ) => boolean | Promise<boolean>,
 ): Promise<boolean> {
   const id = armedPublisherId(revision);
   if (!id) return false;
-  return !!(await getContextForUserIdInOrg(context.org, id));
+  const publisherContext = await getContextForUserIdInOrg(context.org, id);
+  if (!publisherContext) return false;
+  return !!(await stillHoldsPublishAuthority(publisherContext as Context));
 }

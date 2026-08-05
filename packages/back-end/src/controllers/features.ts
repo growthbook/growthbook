@@ -87,7 +87,7 @@ import {
   PutFeatureRuleBody,
 } from "shared/types/feature-rule";
 import { getValidDate } from "shared/dates";
-import { isArmedWithResolvablePublisher } from "back-end/src/revisions/approveAndPublish";
+import { isArmedWithAuthorizedPublisher } from "back-end/src/revisions/approveAndPublish";
 import { assertCanRevertRevision } from "back-end/src/revisions/revertActions";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -143,12 +143,13 @@ import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
-  revertFootprint,
+  assertCanCreateFeatureInState,
   assertCanPublishFeatureRevision,
   canAdvanceFeatureDraft,
   canDiscardFeatureDraft,
   canRebaseFeatureDraft,
   canRecallFeatureReview,
+  revertFootprint,
 } from "back-end/src/revisions/featureDraftAuthority";
 import {
   canLandArchivedState,
@@ -844,14 +845,7 @@ export async function postFeatures(
     ),
   );
 
-  if (
-    !context.permissions.canPublishFeature(
-      feature,
-      Array.from(getEnabledEnvironments(feature, environmentIds)),
-    )
-  ) {
-    context.permissions.throwPermissionError();
-  }
+  assertCanCreateFeatureInState({ context, feature, environmentIds });
 
   addIdsToRules(feature.environmentSettings, feature.id);
 
@@ -1537,8 +1531,12 @@ export async function postFeatureApproveAndPublish(
   // armed fire publishes under the armer instead of inline as them. Same rule the
   // generic handler and REST submit-review already follow.
   const armedApproval =
-    (await isArmedWithResolvablePublisher(context, revision)) &&
-    !context.permissions.canPublishFeature(feature, envsToCheck);
+    (await isArmedWithAuthorizedPublisher(
+      context,
+      revision,
+      (publisherContext) =>
+        publisherContext.permissions.canPublishFeature(feature, envsToCheck),
+    )) && !context.permissions.canPublishFeature(feature, envsToCheck);
   if (!armedApproval) {
     await assertCanPublishFeatureRevision({
       context,

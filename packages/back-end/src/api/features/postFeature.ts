@@ -1,11 +1,8 @@
 import { z } from "zod";
-import { validateFeatureValue, normalizeTargetingProjects } from "shared/util";
+import { normalizeTargetingProjects, validateFeatureValue } from "shared/util";
 import { postFeatureValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
-import {
-  getApiCreateEnabledEnvironments,
-  getEnabledEnvironments,
-} from "back-end/src/util/features";
+import { getApiCreateEnabledEnvironments } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerForCreate,
@@ -26,6 +23,7 @@ import { getEnvironments } from "back-end/src/services/organizations";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
+import { assertCanCreateFeatureInState } from "back-end/src/revisions/featureDraftAuthority";
 import { validateCustomFields } from "./validations";
 import {
   assertValidProjectId,
@@ -189,22 +187,11 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   // ensure default value matches value type
   feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
 
-  const enabledOnCreate = Array.from(
-    getEnabledEnvironments(
-      feature,
-      orgEnvs.map((e) => e.id),
-    ),
-  );
-  // The environments a new flag starts enabled in are its whole live footprint,
-  // so gating those on publish is the only control needed — and a flag enabling
-  // none is in no payload at all, leaving create authority sufficient. Approval
-  // doesn't apply: there's no prior state to review a new flag against.
-  if (
-    enabledOnCreate.length &&
-    !req.context.permissions.canPublishFeature(feature, enabledOnCreate)
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
+  assertCanCreateFeatureInState({
+    context: req.context,
+    feature,
+    environmentIds: orgEnvs.map((e) => e.id),
+  });
 
   addIdsToRules(feature.environmentSettings, feature.id);
   addIdsToFlatRules(feature.rules, feature.id);

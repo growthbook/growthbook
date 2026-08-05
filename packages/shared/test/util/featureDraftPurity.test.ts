@@ -1,6 +1,7 @@
 import { FeatureRevisionInterface } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import {
+  draftRevertedFromVersion,
   isPureFeatureArchive,
   isPureFeatureRevert,
 } from "../../src/util/featureDraftPurity";
@@ -354,5 +355,25 @@ describe("isPureFeatureArchive", () => {
         draft: archiveDraft({}),
       }),
     ).toBe(false);
+  });
+});
+
+describe("draftRevertedFromVersion", () => {
+  it("reads the current field", () => {
+    expect(draftRevertedFromVersion({ revertedFromVersion: 4 })).toBe(4);
+  });
+
+  it("falls back to the legacy field, so old revert drafts stay recognizable", () => {
+    expect(draftRevertedFromVersion({ revertedFrom: 3 })).toBe(3);
+  });
+
+  it("prefers the current field when a draft carries both", () => {
+    expect(
+      draftRevertedFromVersion({ revertedFromVersion: 4, revertedFrom: 3 }),
+    ).toBe(4);
+  });
+
+  it("is undefined for a draft that reverts nothing", () => {
+    expect(draftRevertedFromVersion({})).toBeUndefined();
   });
 });
