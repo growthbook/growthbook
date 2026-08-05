@@ -152,7 +152,9 @@ function PreLaunchChecklistUI({
                 </Text>
               )}
               {!item.required && (
-                <small className="text-muted ml-1">(optional)</small>
+                <Text size="sm" color="text-low" ml="1">
+                  (Optional)
+                </Text>
               )}
             </span>
           }
@@ -249,7 +251,7 @@ function PreLaunchChecklistFeatureExpRule({
     (item) => item.status === "incomplete" && item.hardBlock,
   );
   const hasSoftBlockers = checklist.some(
-    (item) => item.status === "incomplete" && !item.hardBlock,
+    (item) => item.status === "incomplete" && item.required && !item.hardBlock,
   );
 
   return (
@@ -332,7 +334,7 @@ export function PreLaunchChecklistForDraftFeature({
     (item) => item.status === "incomplete" && item.hardBlock,
   );
   const hasSoftBlockers = checklist.some(
-    (item) => item.status === "incomplete" && !item.hardBlock,
+    (item) => item.status === "incomplete" && item.required && !item.hardBlock,
   );
 
   const onReadyRef = useRef(onReady);
