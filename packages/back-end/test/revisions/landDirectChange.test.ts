@@ -282,4 +282,86 @@ describe("landDirectChange", () => {
       }),
     ).rejects.toThrow("the real failure");
   });
+  it("re-reconciles what the write cascaded to, after restoring the entity", async () => {
+    const h = makeContext();
+    const order: string[] = [];
+    tryRestoreEntityPreImage.mockImplementation(async () => {
+      order.push("restore");
+      return true;
+    });
+    const afterRestore = jest.fn(async () => {
+      order.push("re-reconcile");
+    });
+    h.dangerousDeleteByIdBypassPermission.mockImplementation(async () => {
+      order.push("remove-history");
+      return {};
+    });
+
+    await expect(
+      landDirectChange({
+        context: h.context,
+        entityType: "config",
+        entity,
+        patchOps: [],
+        bypass: true,
+        changes: { value: "after" },
+        afterRestore,
+        write: async () => {
+          throw new Error("cascade failed");
+        },
+      }),
+    ).rejects.toThrow("cascade failed");
+
+    // Dependents are brought back in line BEFORE the history is dropped, since a
+    // failure to do so means live is still mid-change.
+    expect(order).toEqual(["restore", "re-reconcile", "remove-history"]);
+  });
+
+  it("keeps its history when the dependents cannot be re-reconciled", async () => {
+    const h = makeContext();
+
+    await expect(
+      landDirectChange({
+        context: h.context,
+        entityType: "config",
+        entity,
+        patchOps: [],
+        bypass: true,
+        changes: { value: "after" },
+        afterRestore: async () => {
+          throw new Error("reconcile failed");
+        },
+        write: async () => {
+          throw new Error("cascade failed");
+        },
+      }),
+    ).rejects.toThrow("cascade failed");
+
+    expect(h.dangerousDeleteByIdBypassPermission).not.toHaveBeenCalled();
+  });
+
+  // Compensation decides ownership by comparing live to what THIS landing meant to
+  // write. After a pre-write refusal it never wrote, so a concurrent landing that
+  // happens to hold the same value would be mistaken for ours and undone.
+  it("never compensates a write it did not start", async () => {
+    const h = makeContext();
+    assertLandingBaseline
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new ConflictError("superseded"));
+
+    await expect(
+      landDirectChange({
+        context: h.context,
+        entityType: "constant",
+        entity,
+        patchOps: [],
+        bypass: true,
+        changes: { value: "after" },
+        afterRestore: async () => undefined,
+        write: jest.fn(),
+      }),
+    ).rejects.toBeInstanceOf(ConflictError);
+
+    expect(tryRestoreEntityPreImage).not.toHaveBeenCalled();
+  });
 });

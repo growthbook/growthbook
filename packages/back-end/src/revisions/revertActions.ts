@@ -151,6 +151,7 @@ export async function landDirectChange<T>({
   bypass,
   revertedFrom,
   changes,
+  afterRestore,
   write,
 }: {
   context: Context;
@@ -165,6 +166,12 @@ export async function landDirectChange<T>({
   // (an entity update that then cascades to dependents) fails partway; omit for a
   // write that is atomic on one document.
   changes?: Record<string, unknown>;
+  // Re-runs whatever the write cascaded to, after the entity itself is restored.
+  // Restoring the root does not un-reconcile dependents the failed write already
+  // touched, so a path that cascades supplies the cascade again here. Treated like
+  // the restore itself: if it fails, live is still mid-change and the merged
+  // revision is kept as the record.
+  afterRestore?: () => Promise<void>;
   write: () => Promise<T>;
 }): Promise<{ merged: Revision; result: T }> {
   const baselineDateUpdated =
@@ -213,7 +220,7 @@ export async function landDirectChange<T>({
     // can repair, so the merged revision is only removed once live is back where
     // it started. When it can't be, the revision is KEPT as the record of what
     // actually happened, and the original failure still surfaces.
-    const restored =
+    let restored =
       changes && writeStarted
         ? await tryRestoreEntityPreImage({
             context,
@@ -223,6 +230,17 @@ export async function landDirectChange<T>({
             written: changes,
           })
         : true;
+    if (restored && writeStarted && afterRestore) {
+      try {
+        await afterRestore();
+      } catch (cascadeErr) {
+        restored = false;
+        logger.error(
+          cascadeErr,
+          `Direct change to ${entityType} ${entity.id} was rolled back but its dependents could not be re-reconciled; its merged revision is kept as the record`,
+        );
+      }
+    }
     if (restored) {
       try {
         // The landing's own authority was established before this point, and the

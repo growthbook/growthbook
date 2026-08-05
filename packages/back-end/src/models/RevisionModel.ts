@@ -204,9 +204,9 @@ export class RevisionModel extends BaseClass {
   }
 
   /**
-   * Pure helper: contributors[] with `userId` appended (deduplicated). Used only
-   * to compose the returned doc — the persisted write goes through the atomic
-   * `addContributor` so concurrent edits can't drop a contributor.
+   * contributors[] with `userId` appended (deduplicated). Written as part of the
+   * content edit itself, under a CAS guarded on `contributors`, so a concurrent
+   * editor causes a retry rather than being dropped.
    */
   private withContributor(
     existing: Revision["contributors"],
@@ -214,15 +214,6 @@ export class RevisionModel extends BaseClass {
   ): string[] {
     const list = existing ?? [];
     return list.includes(userId) ? list : [...list, userId];
-  }
-
-  // Atomic $addToSet — a read-modify-write $set of the whole array could drop a
-  // concurrent editor and defeat blockSelfApproval.
-  private async addContributor(id: string, userId: string): Promise<void> {
-    await this._dangerousGetCollection().updateOne(
-      { organization: this.context.org.id, id },
-      { $addToSet: { contributors: userId } },
-    );
   }
 
   // The revision pipeline only models top-level add/replace ops end-to-end;
@@ -1257,44 +1248,92 @@ export class RevisionModel extends BaseClass {
       );
     }
 
-    const cleanedSnapshot = getAdapter(existing.target.type).buildSnapshot(
-      existing.target.snapshot as Record<string, unknown>,
-    );
-
-    const { status, resetEntry } = this.resetApprovalIfNeeded(existing, userId);
-
-    const updated = await this.update(existing, {
+    return this.writeContentEdit(id, userId, (row) => ({
       target: {
-        ...existing.target,
-        snapshot: cleanedSnapshot as typeof existing.target.snapshot,
+        ...row.target,
+        snapshot: getAdapter(row.target.type).buildSnapshot(
+          row.target.snapshot as Record<string, unknown>,
+        ) as typeof row.target.snapshot,
         proposedChanges,
+      } as Revision["target"],
+      entry: {
+        id: uniqid("act_"),
+        userId,
+        action: "updated",
+        description: "Updated proposed changes",
+        dateCreated: new Date(),
+        // Persist the cumulative proposed-changes state as of this edit so the UI
+        // can diff it against the previous entry's snapshot and show exactly what
+        // this particular edit changed.
+        proposedChangesSnapshot: proposedChanges,
       },
-      // An approval reset starts a new cycle — demote the prior verdicts.
-      ...(status
-        ? { status, reviews: this.staleVerdicts(existing.reviews) }
-        : {}),
-      activityLog: [
-        ...this.cleanActivityLog(existing.activityLog),
-        {
-          id: uniqid("act_"),
-          userId,
-          action: "updated",
-          description: "Updated proposed changes",
-          dateCreated: new Date(),
-          // Persist the cumulative proposed-changes state as of this edit
-          // so the UI can diff it against the previous entry's snapshot
-          // and show exactly what this particular edit changed.
-          proposedChangesSnapshot: proposedChanges,
-        },
-        ...(resetEntry ? [resetEntry] : []),
-      ],
-    } as UpdateProps<Revision>);
+    }));
+  }
 
-    await this.addContributor(id, userId);
-    return {
-      ...updated,
-      contributors: this.withContributor(updated.contributors, userId),
-    };
+  /**
+   * A content edit to a draft: its new target and activity entry, written
+   * together with the editor's contributor record.
+   *
+   * One CAS'd write, guarded on `contributors`. As two writes, an approval could
+   * land in between and see no contributor — exactly what `blockSelfApproval`
+   * exists to prevent. Guarding on the field also means a concurrent editor
+   * causes a retry rather than being dropped from the array, which is why the
+   * separate `$addToSet` existed in the first place.
+   *
+   * `build` runs inside the CAS compute, so the snapshot, the approval reset and
+   * the activity log are all derived from the row the write is conditioned on.
+   */
+  private async writeContentEdit(
+    id: string,
+    userId: string,
+    build: (existing: Revision) => {
+      target: Revision["target"];
+      entry: Revision["activityLog"][number];
+    },
+  ): Promise<Revision> {
+    const updated = await this.updateWithCas(
+      id,
+      ["contributors"],
+      (existing) => {
+        this.assertDraftAcceptsContentEdit(existing);
+        const { target, entry } = build(existing);
+        const { status, resetEntry } = this.resetApprovalIfNeeded(
+          existing,
+          userId,
+        );
+        return {
+          target,
+          // An approval reset starts a new cycle — demote the prior verdicts.
+          ...(status
+            ? { status, reviews: this.staleVerdicts(existing.reviews) }
+            : {}),
+          activityLog: [
+            ...this.cleanActivityLog(existing.activityLog),
+            entry,
+            ...(resetEntry ? [resetEntry] : []),
+          ],
+          contributors: this.withContributor(existing.contributors, userId),
+        } as UpdateProps<Revision>;
+      },
+    );
+    if (!updated) throw new Error("Revision not found");
+    return updated;
+  }
+
+  // Re-checked inside the CAS compute as well as by the callers, which raise the
+  // clearer error: the caller's read is stale by the time the write lands, and a
+  // draft that got merged or schedule-locked in between must not take the edit.
+  private assertDraftAcceptsContentEdit(existing: Revision): void {
+    if (existing.status === "discarded" || existing.status === "merged") {
+      throw new Error(
+        "Cannot update proposed changes on a discarded or merged revision",
+      );
+    }
+    if (isRevisionEditLockedBySchedule(existing)) {
+      throw new Error(
+        "This draft is locked for a scheduled publish. Cancel the schedule before editing.",
+      );
+    }
   }
 
   async rebase(
@@ -1310,41 +1349,25 @@ export class RevisionModel extends BaseClass {
       newSnapshot as Record<string, unknown>,
     );
 
-    const { status, resetEntry } = this.resetApprovalIfNeeded(existing, userId);
-
-    const updated = await this.update(existing, {
+    return this.writeContentEdit(id, userId, (row) => ({
       target: {
-        ...existing.target,
-        snapshot: cleanedSnapshot as typeof existing.target.snapshot,
+        ...row.target,
+        snapshot: cleanedSnapshot as typeof row.target.snapshot,
         proposedChanges: newProposedChanges,
+      } as Revision["target"],
+      entry: {
+        id: uniqid("act_"),
+        userId,
+        action: "updated" as const,
+        description: "Rebased revision on current live state",
+        dateCreated: new Date(),
+        // Rebase shifts both the baseline snapshot and the proposed changes.
+        // Persist both so the UI can reconstruct the state on either side of the
+        // rebase for a meaningful per-entry diff.
+        proposedChangesSnapshot: newProposedChanges,
+        targetSnapshot: cleanedSnapshot,
       },
-      // An approval reset starts a new cycle — demote the prior verdicts.
-      ...(status
-        ? { status, reviews: this.staleVerdicts(existing.reviews) }
-        : {}),
-      activityLog: [
-        ...this.cleanActivityLog(existing.activityLog),
-        {
-          id: uniqid("act_"),
-          userId,
-          action: "updated" as const,
-          description: "Rebased revision on current live state",
-          dateCreated: new Date(),
-          // Rebase shifts both the baseline snapshot and the proposed
-          // changes. Persist both so the UI can reconstruct the state on
-          // either side of the rebase for a meaningful per-entry diff.
-          proposedChangesSnapshot: newProposedChanges,
-          targetSnapshot: cleanedSnapshot,
-        },
-        ...(resetEntry ? [resetEntry] : []),
-      ],
-    } as UpdateProps<Revision>);
-
-    await this.addContributor(id, userId);
-    return {
-      ...updated,
-      contributors: this.withContributor(updated.contributors, userId),
-    };
+    }));
   }
 
   // Merge / close / reopen

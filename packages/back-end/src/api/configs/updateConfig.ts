@@ -535,8 +535,13 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         patchOps,
         bypass: true,
         // The root write and the descendant cascade are two steps, so a failure
-        // in the second one has a partial change to put back.
+        // in the second one has a partial change to put back — and descendants the
+        // failed cascade already reconciled have to be brought back in line with
+        // the restored root, which restoring the root alone does not do.
         changes: fieldsToUpdate as Record<string, unknown>,
+        afterRestore: needsDescendantReconcile
+          ? () => reconcileConfigDescendants(req.context, config.key)
+          : undefined,
         write: async () => {
           const written = await runGuardedWrite("config", config.id, () =>
             req.context.models.configs.updateIfUnchanged(
