@@ -20,6 +20,8 @@ import {
   buildPatchOps,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { landDirectChange } from "back-end/src/revisions/revertActions";
+import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { collectArchiveApprovalGate } from "back-end/src/revisions/governanceGates";
 import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
 import { constantPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
@@ -136,41 +138,31 @@ async function setArchivedState(
     );
   }
 
-  if (approvalRequired) {
-    // Record the merged revision FIRST, then apply; roll it back if the apply
-    // fails, so a merged record never lacks a live change.
-    await ensureLiveRevisionExists(
-      context,
-      "constant",
-      constant as unknown as Record<string, unknown> & {
-        id: string;
-        owner?: string;
-        dateCreated?: Date;
-      },
-    );
-    const merged = await context.models.revisions.createMerged({
-      type: "constant",
-      id: constant.id,
-      snapshot: constant as unknown as Record<string, unknown>,
-      proposedChanges: patchOps,
-      bypass: true,
-    });
-    let updated: Partial<ConstantInterface>;
-    try {
-      updated = await context.models.constants.update(constant, { archived });
-    } catch (e) {
-      try {
-        await context.models.revisions.deleteById(merged.id);
-      } catch {
-        // ignore — surface the original update error
-      }
-      throw e;
-    }
-    await dispatchConstantRevisionEvent(context, merged, { type: "published" });
-    return buildResponse(context, { ...constant, ...updated }, bypassed);
-  }
-
-  const updated = await context.models.constants.update(constant, { archived });
+  // One recorded, guarded landing whether or not approval was bypassed — this
+  // used to fork into a hand-rolled copy of the pipeline on one side and a plain
+  // unrecorded write on the other.
+  await ensureLiveRevisionExists(
+    context,
+    "constant",
+    constant as unknown as Record<string, unknown> & {
+      id: string;
+      owner?: string;
+      dateCreated?: Date;
+    },
+  );
+  const { merged, result: updated } = await landDirectChange({
+    context,
+    entityType: "constant",
+    entity: constant as unknown as Record<string, unknown> & { id: string },
+    patchOps,
+    bypass: approvalRequired,
+    changes: { archived },
+    write: () =>
+      runGuardedWrite("constant", constant.id, () =>
+        context.models.constants.updateIfUnchanged(constant, { archived }),
+      ),
+  });
+  await dispatchConstantRevisionEvent(context, merged, { type: "published" });
   return buildResponse(context, { ...constant, ...updated }, bypassed);
 }
 

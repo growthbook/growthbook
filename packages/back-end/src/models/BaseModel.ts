@@ -699,6 +699,11 @@ export abstract class BaseModel<
    *
    * No baseline argument, deliberately. The guard IS the doc the caller was
    * handed, so it cannot drift from the state the change was computed against.
+   *
+   * Granularity is `dateUpdated`'s millisecond precision: a rival write landing
+   * in the SAME millisecond as the stamp the pre-image carries would slip the
+   * guard. That requires the pre-image to be read in the same millisecond as the
+   * rival's write — not a window request-scoped landings can occupy.
    */
   public updateIfUnchanged(
     existing: z.infer<T>,

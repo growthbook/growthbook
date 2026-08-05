@@ -6,6 +6,8 @@ import {
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { collectSavedGroupArchiveDependentsGate } from "back-end/src/services/archiveDependentsGuard";
+import { landDirectChange } from "back-end/src/revisions/revertActions";
+import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { collectArchiveApprovalGate } from "back-end/src/revisions/governanceGates";
 import { ApiReqContext, ApiRequestLocals } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -124,37 +126,34 @@ async function setArchivedState(
     );
   }
 
-  if (approvalRequired) {
-    // Record the bypass as a merged revision (activity log) — persist the live
-    // change first, then the revision, mirroring updateSavedGroup so a failed
-    // revision write never strands the change.
-    await ensureLiveRevisionExists(
-      context,
-      "saved-group",
-      savedGroup as unknown as Record<string, unknown> & {
-        id: string;
-        owner?: string;
-        dateCreated?: Date;
-      },
-    );
-    const updated = await context.models.savedGroups.update(savedGroup, {
-      archived,
-    });
-    const merged = await context.models.revisions.createMerged({
-      type: "saved-group",
-      id: savedGroup.id,
-      snapshot: savedGroup as unknown as Record<string, unknown>,
-      proposedChanges: patchOps,
-      bypass: true,
-    });
-    await dispatchSavedGroupRevisionEvent(context, merged, {
-      type: "published",
-    });
-    return buildResponse(context, { ...savedGroup, ...updated }, bypassed);
-  }
-
-  const updated = await context.models.savedGroups.update(savedGroup, {
-    archived,
+  // One recorded, guarded landing whether or not approval was bypassed. This
+  // used to fork — and its recorded side wrote live state BEFORE the revision,
+  // under a comment claiming it mirrored updateSavedGroup, which had already
+  // been flipped the other way: history first fails to a detectable extra
+  // record, live first to an unrecorded live change no retry can repair.
+  await ensureLiveRevisionExists(
+    context,
+    "saved-group",
+    savedGroup as unknown as Record<string, unknown> & {
+      id: string;
+      owner?: string;
+      dateCreated?: Date;
+    },
+  );
+  const { merged, result: updated } = await landDirectChange({
+    context,
+    entityType: "saved-group",
+    entity: savedGroup as unknown as Record<string, unknown> & { id: string },
+    patchOps,
+    bypass: approvalRequired,
+    changes: { archived },
+    write: () =>
+      runGuardedWrite("saved-group", savedGroup.id, () =>
+        context.models.savedGroups.updateIfUnchanged(savedGroup, { archived }),
+      ),
+  });
+  await dispatchSavedGroupRevisionEvent(context, merged, {
+    type: "published",
   });
   return buildResponse(context, { ...savedGroup, ...updated }, bypassed);
 }

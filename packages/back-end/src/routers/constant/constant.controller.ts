@@ -16,6 +16,7 @@ import {
   getConstantRevisionChange,
 } from "shared/enterprise";
 import { constantRequiresReview } from "shared/util";
+import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
@@ -622,11 +623,17 @@ export const putConstant = async (
       );
 
       try {
-        await context.models.constants.update(
-          existing,
-          fieldsToUpdate as Parameters<
-            typeof context.models.constants.update
-          >[1],
+        // Guarded on the pre-image: the merge claim above guards the REVISION,
+        // not the entity, so two direct saves computed from the same read could
+        // still both apply. A lost race reopens the revision below and returns
+        // the same retryable 409 as every other landing.
+        await runGuardedWrite("constant", existing.id, () =>
+          context.models.constants.updateIfUnchanged(
+            existing,
+            fieldsToUpdate as Parameters<
+              typeof context.models.constants.update
+            >[1],
+          ),
         );
       } catch (e) {
         try {

@@ -32,6 +32,7 @@ import {
   ScopedOverrideEntry,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
+import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
@@ -1167,9 +1168,16 @@ export const putConfig = async (
       );
 
       try {
-        await context.models.configs.update(
-          existing,
-          fieldsToUpdate as Parameters<typeof context.models.configs.update>[1],
+        // Guarded on the pre-image: the merge claim above guards the REVISION,
+        // not the entity. A lost race reopens the revision below and returns the
+        // same retryable 409 as every other landing.
+        await runGuardedWrite("config", existing.id, () =>
+          context.models.configs.updateIfUnchanged(
+            existing,
+            fieldsToUpdate as Parameters<
+              typeof context.models.configs.update
+            >[1],
+          ),
         );
         // A schema/lineage change can introduce a field a descendant already
         // declares; cascade "base wins" down the subtree (system-normalized live

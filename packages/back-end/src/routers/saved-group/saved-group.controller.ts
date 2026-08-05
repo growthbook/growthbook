@@ -19,6 +19,7 @@ import {
   getApprovalFlowSettings,
   normalizeProposedChanges,
 } from "shared/enterprise";
+import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
@@ -380,9 +381,12 @@ export const postSavedGroupAddItems = async (
       { bypass: false },
     );
     try {
-      await context.models.savedGroups.update(savedGroup, {
-        values: newValues,
-      });
+      // Guarded on the pre-image; the merge claim above guards the revision only.
+      await runGuardedWrite("saved-group", savedGroup.id, () =>
+        context.models.savedGroups.updateIfUnchanged(savedGroup, {
+          values: newValues,
+        }),
+      );
     } catch (e) {
       try {
         await context.models.revisions.reopen(revision.id, context.userId);
@@ -571,9 +575,12 @@ export const postSavedGroupRemoveItems = async (
       { bypass: false },
     );
     try {
-      await context.models.savedGroups.update(savedGroup, {
-        values: newValues,
-      });
+      // Guarded on the pre-image; the merge claim above guards the revision only.
+      await runGuardedWrite("saved-group", savedGroup.id, () =>
+        context.models.savedGroups.updateIfUnchanged(savedGroup, {
+          values: newValues,
+        }),
+      );
     } catch (e) {
       try {
         await context.models.revisions.reopen(revision.id, context.userId);
@@ -1029,7 +1036,13 @@ export const putSavedGroup = async (
       );
 
       try {
-        await context.models.savedGroups.update(savedGroup, fieldsToUpdate);
+        // Guarded on the pre-image; the merge claim above guards the revision only.
+        await runGuardedWrite("saved-group", savedGroup.id, () =>
+          context.models.savedGroups.updateIfUnchanged(
+            savedGroup,
+            fieldsToUpdate,
+          ),
+        );
       } catch (e) {
         try {
           await context.models.revisions.reopen(revision.id, context.userId);

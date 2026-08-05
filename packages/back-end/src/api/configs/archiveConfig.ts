@@ -24,6 +24,8 @@ import {
   assertConfigNotLocked,
   collectConfigLockGate,
 } from "back-end/src/services/configLock";
+import { landDirectChange } from "back-end/src/revisions/revertActions";
+import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { collectArchiveApprovalGate } from "back-end/src/revisions/governanceGates";
 import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
 import { configPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
@@ -146,41 +148,31 @@ async function setArchivedState(
     );
   }
 
-  if (approvalRequired) {
-    // Record the merged revision FIRST, then apply to the live entity; roll the
-    // revision back if the apply fails, so a merged record never lacks a live change.
-    await ensureLiveRevisionExists(
-      context,
-      "config",
-      config as unknown as Record<string, unknown> & {
-        id: string;
-        owner?: string;
-        dateCreated?: Date;
-      },
-    );
-    const merged = await context.models.revisions.createMerged({
-      type: "config",
-      id: config.id,
-      snapshot: config as unknown as Record<string, unknown>,
-      proposedChanges: patchOps,
-      bypass: true,
-    });
-    let updated: Partial<ConfigInterface>;
-    try {
-      updated = await context.models.configs.update(config, { archived });
-    } catch (e) {
-      try {
-        await context.models.revisions.deleteById(merged.id);
-      } catch {
-        // ignore — surface the original update error
-      }
-      throw e;
-    }
-    await dispatchConfigRevisionEvent(context, merged, { type: "published" });
-    return buildResponse(context, { ...config, ...updated }, bypassed);
-  }
-
-  const updated = await context.models.configs.update(config, { archived });
+  // One recorded, guarded landing whether or not approval was bypassed — this
+  // used to fork into a hand-rolled copy of the pipeline on one side and a plain
+  // unrecorded write on the other.
+  await ensureLiveRevisionExists(
+    context,
+    "config",
+    config as unknown as Record<string, unknown> & {
+      id: string;
+      owner?: string;
+      dateCreated?: Date;
+    },
+  );
+  const { merged, result: updated } = await landDirectChange({
+    context,
+    entityType: "config",
+    entity: config as unknown as Record<string, unknown> & { id: string },
+    patchOps,
+    bypass: approvalRequired,
+    changes: { archived },
+    write: () =>
+      runGuardedWrite("config", config.id, () =>
+        context.models.configs.updateIfUnchanged(config, { archived }),
+      ),
+  });
+  await dispatchConfigRevisionEvent(context, merged, { type: "published" });
   return buildResponse(context, { ...config, ...updated }, bypassed);
 }
 
