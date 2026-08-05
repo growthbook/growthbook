@@ -7,6 +7,19 @@ import { isPureRevertRevision } from "back-end/src/revisions/revertPurity";
 import { canDoRevisionAction } from "back-end/src/revisions/revisionActions";
 import { getAdapter } from "back-end/src/revisions";
 
+// Whether the caller authored this revision.
+//
+// Never true without an identifiable user. An API-key context carries userId "",
+// and a revision authored by an API key stores authorId "" — so comparing them
+// directly made every key the author of every key-authored revision, and
+// authorship alone permits discarding and updating a draft.
+export function isRevisionAuthor(
+  authorId: string | undefined,
+  userId: string | undefined,
+): boolean {
+  return !!userId && !!authorId && authorId === userId;
+}
+
 // Who may move a generic entity's draft along — request review on it, recall
 // that request, discard it.
 //
@@ -36,7 +49,7 @@ export async function canAdvanceRevision(
   // so a bare equality calls unrelated API keys "the author".
   if (
     !!context.userId &&
-    revision.authorId === context.userId &&
+    isRevisionAuthor(revision.authorId, context.userId) &&
     (hasRevert || hasDelete)
   ) {
     return true;

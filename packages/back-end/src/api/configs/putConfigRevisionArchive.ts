@@ -1,4 +1,5 @@
 import { putConfigRevisionArchiveValidator } from "shared/validators";
+import { canStageArchiveDraft } from "back-end/src/revisions/landAuthority";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
@@ -24,7 +25,13 @@ export const putConfigRevisionArchive = createApiRequestHandler(
     throw new NotFoundError("Could not find Config");
   }
 
-  if (!req.context.permissions.canRevisionAction("config", "draft", config)) {
+  if (
+    !canStageArchiveDraft({
+      permissions: req.context.permissions,
+      model: "config",
+      entity: config,
+    })
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

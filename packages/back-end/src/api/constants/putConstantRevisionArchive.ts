@@ -1,4 +1,5 @@
 import { putConstantRevisionArchiveValidator } from "shared/validators";
+import { canStageArchiveDraft } from "back-end/src/revisions/landAuthority";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
@@ -25,7 +26,11 @@ export const putConstantRevisionArchive = createApiRequestHandler(
   }
 
   if (
-    !req.context.permissions.canRevisionAction("constant", "draft", constant)
+    !canStageArchiveDraft({
+      permissions: req.context.permissions,
+      model: "constant",
+      entity: constant,
+    })
   ) {
     req.context.permissions.throwPermissionError();
   }

@@ -1,6 +1,7 @@
 import type { OrganizationInterface } from "shared/types/organization";
 import { putFeatureRevisionArchiveValidator } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
+import { canStageArchiveDraft } from "back-end/src/revisions/landAuthority";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -26,7 +27,13 @@ export async function archiveRevision(
   const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (!context.permissions.canEditFeatureDrafts(feature)) {
+  if (
+    !canStageArchiveDraft({
+      permissions: context.permissions,
+      model: "feature",
+      entity: feature,
+    })
+  ) {
     context.permissions.throwPermissionError();
   }
 

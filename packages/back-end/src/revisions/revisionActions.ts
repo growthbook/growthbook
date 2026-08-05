@@ -21,8 +21,10 @@ import {
   isRevisionDiverged,
 } from "back-end/src/revisions/util";
 import {
+  canAdvanceRevision,
   liveMatchesRevisionBase,
   canRebaseRevision,
+  isRevisionAuthor,
 } from "back-end/src/revisions/revisionAuthority";
 import {
   holdsMoveDestination,
@@ -320,7 +322,7 @@ export async function approveRevision(
     context.permissions.throwPermissionError();
   }
 
-  if (revision.authorId === context.userId) {
+  if (isRevisionAuthor(revision.authorId, context.userId)) {
     throw new BadRequestError("Cannot approve your own revision");
   }
 
@@ -844,7 +846,7 @@ export async function discardEntityRevision({
   // Authors can always discard their own draft; anyone else needs authoring
   // rights on the entity.
   if (
-    revision.authorId !== context.userId &&
+    !isRevisionAuthor(revision.authorId, context.userId) &&
     !context.permissions.canRevisionAction(entityType, "draft", entity)
   ) {
     context.permissions.throwPermissionError();
@@ -876,7 +878,11 @@ export async function requestRevisionReview({
   revision: Revision;
   autoPublishOnApproval?: boolean;
 }): Promise<Revision> {
-  if (!context.permissions.canRevisionAction(entityType, "draft", entity)) {
+  // canAdvanceRevision, not a bare draft check: advancing a draft is not authoring
+  // content, so a narrow atom covers one that does only what that atom covers — a
+  // revert-only author could otherwise create a pure-revert draft and never submit
+  // it for review.
+  if (!(await canAdvanceRevision(context, revision))) {
     context.permissions.throwPermissionError();
   }
 
@@ -950,7 +956,7 @@ export async function submitRevisionReview({
   }
 
   // The author may comment on their own draft, but not rule on it.
-  if (revision.authorId === context.userId && !isComment) {
+  if (isRevisionAuthor(revision.authorId, context.userId) && !isComment) {
     throw new BadRequestError("Cannot submit a review on a draft you created");
   }
 

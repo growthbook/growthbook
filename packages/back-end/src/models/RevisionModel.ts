@@ -14,6 +14,7 @@ import {
 import uniqid from "uniqid";
 import { ACTIVE_DRAFT_STATUSES, ActiveDraftStatus } from "shared/validators";
 import type { CreateProps, UpdateProps } from "shared/types/base-model";
+import { isRevisionAuthor } from "back-end/src/revisions/revisionAuthority";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import {
   ArmAcknowledgments,
@@ -321,7 +322,7 @@ export class RevisionModel extends BaseClass {
   ): boolean {
     if (existing.status === "merged") return false;
 
-    if (existing.authorId === this.context.userId) return true;
+    if (isRevisionAuthor(existing.authorId, this.context.userId)) return true;
 
     return canTouchRevision(
       existing.target.type,
@@ -334,7 +335,7 @@ export class RevisionModel extends BaseClass {
    * Author can delete their own revision. Otherwise, delegate to the adapter.
    */
   protected canDelete(doc: Revision): boolean {
-    if (doc.authorId === this.context.userId) return true;
+    if (isRevisionAuthor(doc.authorId, this.context.userId)) return true;
 
     return getAdapter(doc.target.type).canDelete(
       this.context,
@@ -1139,7 +1140,7 @@ export class RevisionModel extends BaseClass {
   // same document the write is conditioned on — a concurrent rebase that moves
   // the target's project can't slip between the check and the write.
   private assertCanWriteCommentOn(existing: Revision): void {
-    if (existing.authorId === this.context.userId) return;
+    if (isRevisionAuthor(existing.authorId, this.context.userId)) return;
     if (
       !canCommentOnRevision(
         existing.target.type,

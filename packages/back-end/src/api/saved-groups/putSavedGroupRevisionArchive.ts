@@ -1,4 +1,5 @@
 import { putSavedGroupRevisionArchiveValidator } from "shared/validators";
+import { canStageArchiveDraft } from "back-end/src/revisions/landAuthority";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
@@ -27,11 +28,11 @@ export const putSavedGroupRevisionArchive = createApiRequestHandler(
   }
 
   if (
-    !req.context.permissions.canRevisionAction(
-      "saved-group",
-      "draft",
-      savedGroup,
-    )
+    !canStageArchiveDraft({
+      permissions: req.context.permissions,
+      model: "saved-group",
+      entity: savedGroup,
+    })
   ) {
     req.context.permissions.throwPermissionError();
   }

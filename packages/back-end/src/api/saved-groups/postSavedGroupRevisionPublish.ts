@@ -4,6 +4,7 @@ import {
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { postSavedGroupRevisionPublishValidator } from "shared/validators";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
   publishRevision,
   assertCanPublishRevision,
@@ -63,10 +64,10 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
     ? adapter.isApprovalRequiredForRevision(req.context, revision)
     : adapter.isApprovalRequired(req.context);
 
-  // Bypass via either the org-wide `restApiBypassesReviews` flag or per-user
-  // bypass permission. Mirrors postFeatureRevisionPublish.ts.
+  // The org-wide REST bypass or per-user bypass permission. Via
+  // canUseRestApiBypassSetting, which also requires a non-JWT caller.
   const canBypass =
-    !!req.organization.settings?.restApiBypassesReviews ||
+    canUseRestApiBypassSetting(req) ||
     adapter.canBypassApproval(
       req.context,
       savedGroup as Record<string, unknown>,

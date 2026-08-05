@@ -43,6 +43,7 @@ import {
 import {
   canAdvanceRevision,
   canRebaseRevision,
+  isRevisionAuthor,
 } from "back-end/src/revisions/revisionAuthority";
 
 // Arming publishes into the entity as it stands when the fire happens, so
@@ -567,7 +568,10 @@ export const postReview = async (
   }
 
   // Prevent self-review (author cannot approve or request changes on own revision)
-  if (existingRevision.authorId === userId && decision !== "comment") {
+  if (
+    isRevisionAuthor(existingRevision.authorId, userId) &&
+    decision !== "comment"
+  ) {
     return res.status(403).json({
       message: "Cannot approve or request changes on your own revision",
     });
@@ -685,7 +689,7 @@ export const putProposedChanges = async (
         "Cannot update proposed changes on a discarded or merged revision",
     });
   }
-  if (existingRevision.authorId !== userId) {
+  if (!isRevisionAuthor(existingRevision.authorId, userId)) {
     return res
       .status(403)
       .json({ message: "Only the author can update proposed changes" });
@@ -1452,7 +1456,7 @@ export const postReopen = async (
     });
   }
 
-  if (existingRevision.authorId !== userId) {
+  if (!isRevisionAuthor(existingRevision.authorId, userId)) {
     // Also allow draft authors to reopen
     if (
       !canDoRevisionAction(
@@ -1523,7 +1527,7 @@ export const postRecallReview = async (
   }
 
   // Author can always recall; otherwise require draft-authoring permission.
-  if (existingRevision.authorId !== userId) {
+  if (!isRevisionAuthor(existingRevision.authorId, userId)) {
     if (
       !canDoRevisionAction(
         existingRevision.target.type,

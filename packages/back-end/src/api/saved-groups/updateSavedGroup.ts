@@ -3,6 +3,7 @@ import { Revision } from "shared/enterprise";
 import { validateCondition } from "shared/util";
 import { updateSavedGroupValidator } from "shared/validators";
 import { UpdateSavedGroupProps } from "shared/types/saved-group";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import { landDirectChange } from "back-end/src/revisions/revertActions";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
@@ -168,7 +169,7 @@ export const updateSavedGroup = createApiRequestHandler(
     // Scope the bypass permission to the *existing* group's projects so a
     // `projects` move can't be paired with bypass-merge to launder a permission gap.
     const canBypass =
-      !!req.organization.settings?.restApiBypassesReviews ||
+      canUseRestApiBypassSetting(req) ||
       adapter.canBypassApproval(
         req.context,
         savedGroup as Parameters<typeof adapter.canBypassApproval>[1],

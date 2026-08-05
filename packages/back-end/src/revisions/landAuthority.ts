@@ -1,3 +1,4 @@
+import type { RevisionAction, RevisionModel } from "shared/permissions";
 import { Context } from "back-end/src/models/BaseModel";
 
 // Landing authority for every revisioned entity: archiving is delete-class
@@ -57,4 +58,29 @@ export async function canRebaseWithNarrowAtom({
   if (holdsDraftAuthority) return true;
   if (!pullsInNothing) return false;
   return canAdvance();
+}
+
+// Staging an archive as a draft must not require an atom that landing it in one
+// step doesn't: archiving is delete-class, so the delete atom alone stages one.
+// Project-scoped, because staging publishes nothing.
+export function canStageArchiveDraft({
+  permissions,
+  model,
+  entity,
+}: {
+  permissions: {
+    canRevisionAction: (
+      model: RevisionModel,
+      action: RevisionAction,
+      obj: { project?: string; projects?: string[] },
+      environments?: string[],
+    ) => boolean;
+  };
+  model: RevisionModel;
+  entity: { project?: string; projects?: string[] };
+}): boolean {
+  return (
+    permissions.canRevisionAction(model, "draft", entity, []) ||
+    permissions.canRevisionAction(model, "delete", entity, [])
+  );
 }

@@ -6,6 +6,7 @@ import {
   postSavedGroupRevisionRevertValidator,
   savedGroupUpdatableFieldsSchema,
 } from "shared/validators";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
   revertRevision,
   resolveRevertStrategy,
@@ -161,7 +162,11 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
             } as unknown as Revision)
           : adapter.isApprovalRequired(req.context);
       const canBypass =
-        !!req.organization.settings?.restApiBypassesReviews ||
+        // canUseRestApiBypassSetting, not the raw setting: it also requires a
+        // non-JWT caller, so a dashboard-backed REST call behaves like a dashboard
+        // action. Reading the setting directly let a JWT user with Revert but no
+        // bypass authority publish an approval-required revert.
+        canUseRestApiBypassSetting(req) ||
         adapter.canBypassApproval(
           req.context,
           savedGroup as Record<string, unknown>,
