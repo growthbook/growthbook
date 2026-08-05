@@ -4,7 +4,7 @@ import { findVisualChangesetById } from "back-end/src/models/VisualChangesetMode
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   parsePrompt,
-  secondsUntilAICanBeUsedAgain,
+  secondsUntilAICanBeUsedAgainForModel,
 } from "back-end/src/enterprise/services/ai";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -264,12 +264,6 @@ export const postFigmaToVariant = createApiRequestHandler(validation)(async (
     );
   }
 
-  if (await secondsUntilAICanBeUsedAgain(req.organization)) {
-    throw new Error(
-      "Daily AI usage limit reached. Try again later or upgrade your plan.",
-    );
-  }
-
   const settings = await getAISettingsForOrg(context, true);
   if (!settings.aiEnabled) {
     throw new Error(
@@ -281,6 +275,14 @@ export const postFigmaToVariant = createApiRequestHandler(validation)(async (
   if (!visionModel) {
     throw new Error(
       "No vision-capable AI model is available. Configure a Google (Gemini), OpenAI (GPT-4o/5), or Anthropic (Claude) API key, or set the Visual Editor model to a vision-capable one in Settings → AI Settings.",
+    );
+  }
+
+  // Checked after the model is resolved: an org on its own key for this
+  // provider is paying its own bill, so the managed cap doesn't apply to it.
+  if (await secondsUntilAICanBeUsedAgainForModel(context, visionModel)) {
+    throw new Error(
+      "Daily AI usage limit reached. Try again later or upgrade your plan.",
     );
   }
 

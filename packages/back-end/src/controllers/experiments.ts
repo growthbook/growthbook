@@ -148,7 +148,8 @@ import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
   cosineSimilarity,
   generateEmbeddings,
-  secondsUntilAICanBeUsedAgain,
+  secondsUntilAICanBeUsedAgainForEmbeddings,
+  secondsUntilAICanBeUsedAgainForPrompt,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
 import {
@@ -258,7 +259,10 @@ export async function postAIExperimentAnalysis(
     });
   }
 
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgainForPrompt(
+    context,
+    "experiment-analysis",
+  );
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
@@ -451,7 +455,8 @@ export async function postSimilarExperiments(
       message: "AI configuration not set or enabled",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  const secondsUntilReset =
+    await secondsUntilAICanBeUsedAgainForEmbeddings(context);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
@@ -591,7 +596,8 @@ export async function postRegenerateEmbeddings(
       message: "AI configuration not set or enabled",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  const secondsUntilReset =
+    await secondsUntilAICanBeUsedAgainForEmbeddings(context);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,

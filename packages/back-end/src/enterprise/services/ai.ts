@@ -202,6 +202,77 @@ export const secondsUntilAICanBeUsedAgain = async (
     : 0;
 };
 
+/**
+ * Seconds until the org may call AI again, or 0 if it may right now — the
+ * provider-exact form of `secondsUntilAICanBeUsedAgain`, and what request gates
+ * should use.
+ *
+ * The daily cap exists because GrowthBook pays for the managed keys, so it is
+ * skipped only when the org stored the key for the provider *this* call will
+ * hit. Checking "does the org own any key at all" would let an org-owned
+ * Anthropic key buy uncapped access to a managed OpenAI model, and would also
+ * cap a BYOK org on the very provider it is paying for. `undefined` means we
+ * could not work out the provider, which meters the request.
+ */
+export const secondsUntilAICanBeUsedAgainForProvider = async (
+  context: ReqContext | ApiReqContext,
+  provider: AIProvider | undefined,
+): Promise<number> => {
+  const { keySource } = await getAISettingsForOrg(context);
+  if (provider && keySource[provider] === "organization") return 0;
+  return secondsUntilAICanBeUsedAgain(context.org);
+};
+
+/**
+ * Provider-exact cap check for a text model. Pass the model the request will
+ * actually use — a per-prompt or per-surface override, not just the org
+ * default. Omit it to check against the org's default model.
+ */
+export const secondsUntilAICanBeUsedAgainForModel = async (
+  context: ReqContext | ApiReqContext,
+  model?: AIModel,
+): Promise<number> => {
+  const resolved = model || (await getAISettingsForOrg(context)).defaultAIModel;
+  let provider: AIProvider | undefined;
+  try {
+    provider = getProviderFromModel(resolved);
+  } catch {
+    // Unknown model — leave the provider unset so the request is metered.
+  }
+  return secondsUntilAICanBeUsedAgainForProvider(context, provider);
+};
+
+/**
+ * Provider-exact cap check for a request that will run one of the org's
+ * configurable prompts. Resolves that prompt's model override — the same
+ * resolution `simpleCompletion` does — so the gate and the call agree on which
+ * provider is about to be billed.
+ */
+export const secondsUntilAICanBeUsedAgainForPrompt = async (
+  context: ReqContext | ApiReqContext,
+  type: AIPromptType,
+): Promise<number> => {
+  const { overrideModel } = await context.models.aiPrompts.getAIPrompt(type);
+  return secondsUntilAICanBeUsedAgainForModel(context, overrideModel);
+};
+
+/**
+ * Provider-exact cap check for the org's embedding model. Embedding models live
+ * in their own registry, so they need their own model → provider lookup.
+ */
+export const secondsUntilAICanBeUsedAgainForEmbeddings = async (
+  context: ReqContext | ApiReqContext,
+): Promise<number> => {
+  const { embeddingModel } = await getAISettingsForOrg(context);
+  let provider: AIProvider | undefined;
+  try {
+    provider = getProviderFromEmbeddingModel(embeddingModel);
+  } catch {
+    // Unknown model — leave the provider unset so the request is metered.
+  }
+  return secondsUntilAICanBeUsedAgainForProvider(context, provider);
+};
+
 const constructMessages = (
   prompt: string,
   instructions?: string,

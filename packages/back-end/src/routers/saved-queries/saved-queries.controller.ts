@@ -23,7 +23,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { runFreeFormQuery } from "back-end/src/services/datasource";
 import {
-  secondsUntilAICanBeUsedAgain,
+  secondsUntilAICanBeUsedAgainForPrompt,
   parsePrompt,
 } from "back-end/src/enterprise/services/ai";
 import { getInformationSchemaByDatasourceId } from "back-end/src/models/InformationSchemaModel";
@@ -314,7 +314,10 @@ export async function postGenerateSQL(
       message: "Datasource not found",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgainForPrompt(
+    context,
+    "generate-sql-query",
+  );
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,

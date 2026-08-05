@@ -29,6 +29,7 @@ import { toModelMessages } from "back-end/src/enterprise/services/ai-chat-to-mod
 import { logger } from "back-end/src/util/logger";
 import {
   runAccessGates,
+  enforceAIUsageCap,
   buildSystemPromptForRequest,
 } from "back-end/src/enterprise/services/ai-access";
 import {
@@ -218,6 +219,14 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
 
     const { defaultAIModel } = await getAISettingsForOrg(context, false);
     const resolvedModel = overrideModel || defaultAIModel;
+
+    // Cap check waits until here: the exemption for an org on its own key is per
+    // provider, so it needs the resolved model. Must stay above setSseHeaders —
+    // a 429 is a JSON response, not a stream.
+    if (!(await enforceAIUsageCap(context, res, resolvedModel))) {
+      return;
+    }
+
     buffer.setModel(resolvedModel);
 
     setSseHeaders(res);

@@ -13,9 +13,11 @@ import { date } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Frame from "@/ui/Frame";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -133,14 +135,7 @@ function ProviderRow({
   };
 
   return (
-    <Box
-      mb="3"
-      p="3"
-      style={{
-        border: "1px solid var(--slate-a4)",
-        borderRadius: "var(--radius-3)",
-      }}
-    >
+    <Frame p="3" mb="3">
       <Flex align="center" gap="3" wrap="wrap">
         <AIProviderLogo provider={provider} />
         <Box style={{ flexGrow: 1, minWidth: 200 }}>
@@ -237,7 +232,7 @@ function ProviderRow({
           <Callout status="warning">{warning}</Callout>
         </Box>
       )}
-    </Box>
+    </Frame>
   );
 }
 
@@ -252,6 +247,7 @@ export default function AIProviderKeys() {
 
   const { credentials, envProviders, mutate, isLoading, loaded } =
     useAIProviderKeys();
+  const { refreshOrganization } = useUser();
 
   // The provider whose row the admin just opened from the "Add a new provider"
   // menu, so the common case — one org, one provider — is one pick plus one
@@ -309,7 +305,12 @@ export default function AIProviderKeys() {
           onChanged={async () => {
             // Let the row be driven by the saved credential from here on.
             setAddingProvider("");
-            await mutate();
+            // Both caches: this section reads /ai/credentials, but AI gating
+            // app-wide reads `aiKeyProviders` off the /organization payload.
+            // Refreshing only the first leaves every other AI control stale —
+            // still disabled after the first key is added, still enabled after
+            // the last one is removed.
+            await Promise.all([mutate(), refreshOrganization()]);
           }}
         />
       ))}
@@ -318,11 +319,8 @@ export default function AIProviderKeys() {
         <Box mt="3">
           <DropdownMenu
             trigger={
-              <Button variant="solid">
-                <PiPlusBold
-                  style={{ marginRight: 4, verticalAlign: "middle" }}
-                />
-                New Provider
+              <Button variant="solid" icon={<PiPlusBold />}>
+                New provider
               </Button>
             }
           >

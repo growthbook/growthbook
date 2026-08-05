@@ -1,12 +1,13 @@
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
+import { getImageModelMeta } from "shared/ai";
 import { findVisualChangesetById } from "back-end/src/models/VisualChangesetModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { uploadFile } from "back-end/src/services/files";
 import { optimizeAIImage } from "back-end/src/services/imageOptimization";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { generateImages } from "back-end/src/services/imageGeneration";
-import { secondsUntilAICanBeUsedAgain } from "back-end/src/enterprise/services/ai";
+import { secondsUntilAICanBeUsedAgainForProvider } from "back-end/src/enterprise/services/ai";
 import { updateTokenUsage } from "back-end/src/models/AITokenUsageModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
@@ -89,15 +90,27 @@ export const postAIImageGen = createApiRequestHandler(validation)(async (
 
   // Text endpoints inherit this check via parsePrompt; image-gen calls
   // the paid provider directly so we have to enforce it ourselves.
-  const { visualEditorImageModel, visualEditorAIContext, aiEnabled } =
-    await getAISettingsForOrg(context, true);
+  const {
+    visualEditorImageModel,
+    visualEditorAIContext,
+    aiEnabled,
+    keySource,
+  } = await getAISettingsForOrg(context, true);
   if (!aiEnabled) {
     throw new Error(
       "AI features are disabled for this organization. Enable them in Settings → AI Settings.",
     );
   }
 
-  if (await secondsUntilAICanBeUsedAgain(org)) {
+  // Image models have their own registry, so the provider comes from there
+  // rather than getProviderFromModel. An org paying for this provider itself is
+  // neither capped nor metered — same rule the text path applies in
+  // simpleCompletion.
+  const imageProvider = getImageModelMeta(visualEditorImageModel)?.provider;
+  const usesOwnImageKey =
+    !!imageProvider && keySource[imageProvider] === "organization";
+
+  if (await secondsUntilAICanBeUsedAgainForProvider(context, imageProvider)) {
     throw new Error(
       "Daily AI usage limit reached. Try again later or upgrade your plan.",
     );
@@ -142,7 +155,7 @@ export const postAIImageGen = createApiRequestHandler(validation)(async (
   // even if upload fails. Awaited so the quota counter is decremented
   // before we return; try/catch because a transient billing-DB failure
   // shouldn't surface to the user (worst case: one batch under-counted).
-  if (generated.length > 0) {
+  if (generated.length > 0 && !usesOwnImageKey) {
     try {
       await updateTokenUsage({
         organization: org,

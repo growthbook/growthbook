@@ -4,6 +4,7 @@ import {
   aiCredentialSchema,
 } from "shared/validators";
 import { AIProvider } from "shared/ai";
+import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -60,7 +61,18 @@ export class AICredentialModel extends BaseClass {
     if (existing) {
       return this._updateOne(existing, fields);
     }
-    return this._createOne({ provider, ...fields });
+    try {
+      return await this._createOne({ provider, ...fields });
+    } catch (e) {
+      if (!isDuplicateKeyError(e)) throw e;
+      // Two admins saved this provider's first key at the same time: both saw no
+      // row, and the composite unique index rejected the loser. The loser's key
+      // is just as valid and was already verified against the provider, so apply
+      // it as an update to the row that won rather than failing their save.
+      const raced = await this.getByProvider(provider);
+      if (!raced) throw e;
+      return this._updateOne(raced, fields);
+    }
   }
 
   public async deleteForProvider(provider: AIProvider): Promise<boolean> {

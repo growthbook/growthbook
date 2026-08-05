@@ -1,8 +1,9 @@
 import type { Response } from "express";
+import type { AIModel } from "shared/ai";
 import type { ReqContext } from "back-end/types/request";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { secondsUntilAICanBeUsedAgain } from "back-end/src/enterprise/services/ai";
+import { secondsUntilAICanBeUsedAgainForModel } from "back-end/src/enterprise/services/ai";
 import type { AgentConfig } from "back-end/src/enterprise/services/agent-handler";
 
 type OrgAIPromptConfig = Awaited<
@@ -10,8 +11,13 @@ type OrgAIPromptConfig = Awaited<
 >;
 
 /**
- * Runs premium-feature, AI-enabled, and rate-limit checks.
- * Returns false (and writes an error response) if the request should be rejected.
+ * Runs the checks that don't depend on which model the request will use:
+ * premium feature and AI-enabled. Returns false (and writes an error response)
+ * if the request should be rejected.
+ *
+ * The usage cap is deliberately *not* checked here — it is provider-exact, so it
+ * can only be evaluated once the model is resolved. Call `enforceAIUsageCap`
+ * with that model.
  */
 export async function runAccessGates(
   context: ReqContext,
@@ -25,7 +31,7 @@ export async function runAccessGates(
     return false;
   }
 
-  const { aiEnabled, keySource } = await getAISettingsForOrg(context);
+  const { aiEnabled } = await getAISettingsForOrg(context);
   if (!aiEnabled) {
     res.status(404).json({
       status: 404,
@@ -34,23 +40,34 @@ export async function runAccessGates(
     return false;
   }
 
-  // The Cloud usage cap exists because GrowthBook pays for the managed keys.
-  // An org on its own key pays its own provider bill, so skip the cap. This
-  // gate runs before the model is known, so any org-owned key exempts the
-  // request; the per-call metering in services/ai.ts is provider-exact.
-  const usesOwnKey = Object.values(keySource).some((s) => s === "organization");
-  if (!usesOwnKey) {
-    const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
-    if (secondsUntilReset > 0) {
-      res.status(429).json({
-        status: 429,
-        message: "Over AI usage limits",
-        retryAfter: secondsUntilReset,
-      });
-      return false;
-    }
-  }
+  return true;
+}
 
+/**
+ * Enforces the Cloud daily token cap for a request that will run `model`.
+ * Returns false (and writes a 429) if the org is over its cap.
+ *
+ * Split from `runAccessGates` because the exemption is per provider: an org that
+ * brought its own Anthropic key is exempt on Claude models but still capped on a
+ * managed OpenAI one, so this can only run once the model is known.
+ */
+export async function enforceAIUsageCap(
+  context: ReqContext,
+  res: Response,
+  model: AIModel,
+): Promise<boolean> {
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgainForModel(
+    context,
+    model,
+  );
+  if (secondsUntilReset > 0) {
+    res.status(429).json({
+      status: 429,
+      message: "Over AI usage limits",
+      retryAfter: secondsUntilReset,
+    });
+    return false;
+  }
   return true;
 }
 

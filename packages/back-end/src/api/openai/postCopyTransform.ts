@@ -5,7 +5,7 @@ import {
   toVisualChangesetApiInterface,
 } from "back-end/src/models/VisualChangesetModel";
 import {
-  secondsUntilAICanBeUsedAgain,
+  secondsUntilAICanBeUsedAgainForModel,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -63,7 +63,9 @@ export const postCopyTransform = createApiRequestHandler(validation)(async (
 
   if (!visualChangeset) throw new Error("Visual Changeset not found");
 
-  if (await secondsUntilAICanBeUsedAgain(req.organization)) {
+  // simpleCompletion below runs the org's default model, so gate on that
+  // model's provider — a BYOK org isn't spending GrowthBook's budget.
+  if (await secondsUntilAICanBeUsedAgainForModel(context)) {
     return {
       visualChangeset: toVisualChangesetApiInterface(visualChangeset),
       original: copy,

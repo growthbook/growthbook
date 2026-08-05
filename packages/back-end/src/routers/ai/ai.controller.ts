@@ -19,7 +19,7 @@ import {
 } from "back-end/src/services/aiCredentials";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
-  secondsUntilAICanBeUsedAgain,
+  secondsUntilAICanBeUsedAgainForPrompt,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
 import { getTokensUsedByOrganization } from "back-end/src/models/AITokenUsageModel";
@@ -219,8 +219,9 @@ export async function postReformat(
     });
   }
 
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(
-    req.organization,
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgainForPrompt(
+    context,
+    req.body.type,
   );
   if (secondsUntilReset > 0) {
     return res.status(429).json({
