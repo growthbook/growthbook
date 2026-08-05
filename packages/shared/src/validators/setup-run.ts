@@ -3,15 +3,11 @@ import { baseSchema, apiBaseSchema } from "./base-model";
 import { namedSchema } from "./openapi-helpers";
 
 // One pass of the SDK onboarding wizard. Deliberately holds nothing about the
-// customer's codebase — no paths, no contents. Created objects are not modified to
-// point back here, so `artifacts` is the only record of what a run built.
+// customer's codebase — no file contents, and paths only where they are shown back
+// to the user as evidence for a claim. Created objects are not modified to point
+// back here, so `artifacts` is the only record of what a run built.
 
 export const setupRunSources = ["cli-wizard", "skill"] as const;
-export const setupRunIntents = [
-  "feature-flag",
-  "experiment",
-  "install-only",
-] as const;
 export const setupRunOutcomes = ["completed", "partial", "failed"] as const;
 
 // Closed list: the page renders per kind, and teardown needs to know the collection.
@@ -23,6 +19,21 @@ export const setupRunArtifactKinds = [
   "metric",
   "fact-table",
 ] as const;
+
+// Flat scalars, deliberately. Everything the wizard learns about the machine it ran
+// on lives here instead of being its own field: the package manager, the versions,
+// the framework. That keeps adding one a CLI change rather than a change to the
+// validator, the API body, the model defaults and the API mapper.
+//
+// Flat rather than nested JSON so a value stays indexable as `metadata.language`,
+// renderable without recursion, and bounded — the writer is a CLI in a loop.
+const metadataValue = z.union([
+  z.string().max(500),
+  z.number(),
+  z.boolean(),
+  z.null(),
+]);
+export const setupRunMetadata = z.record(z.string().max(60), metadataValue);
 
 // `by` drives the "you created this" / "we set this up for you" split on the page.
 // It cannot be inferred later, so it is required.
@@ -49,22 +60,19 @@ export const setupRunCheck = z
   })
   .strict();
 
+// The arrays are embedded, which is right — a run is read whole and an idempotent
+// append is one document update. They are capped because an unbounded array inside
+// a document is a 16MB ceiling nobody is watching, and the writer is a loop.
 export const setupRunValidator = baseSchema
   .extend({
     source: z.enum(setupRunSources),
-    wizardVersion: z.string().max(50).nullable(),
     agent: z.string().max(50).nullable(),
     createdBy: z.string().max(100).nullable(),
 
-    language: z.string().max(50).nullable(),
-    packageManager: z.string().max(20).nullable(),
-    appName: z.string().max(200).nullable(),
-    environment: z.string().max(100).nullable(),
+    metadata: setupRunMetadata,
 
-    intent: z.enum(setupRunIntents).nullable(),
-
-    artifacts: z.array(setupRunArtifact),
-    checks: z.array(setupRunCheck),
+    artifacts: z.array(setupRunArtifact).max(200),
+    checks: z.array(setupRunCheck).max(50),
 
     outcome: z.enum(setupRunOutcomes).nullable(),
     failureReason: z.string().max(1000).nullable(),
@@ -74,6 +82,17 @@ export const setupRunValidator = baseSchema
 
 export type SetupRunInterface = z.infer<typeof setupRunValidator>;
 export type SetupRunArtifact = z.infer<typeof setupRunArtifact>;
+export type SetupRunMetadata = z.infer<typeof setupRunMetadata>;
+
+// Metadata is open, so a caller can put a number where a reader wants a string.
+// Reading through this keeps that from reaching the UI as "42" or worse.
+export function setupRunMetaString(
+  metadata: SetupRunMetadata,
+  key: string,
+): string | null {
+  const value = metadata[key];
+  return typeof value === "string" && value !== "" ? value : null;
+}
 
 /* ------------------------------------------------------------------ the API */
 
@@ -93,17 +112,14 @@ export const apiSetupRunInterface = namedSchema(
   apiBaseSchema
     .extend({
       source: z.enum(setupRunSources),
-      wizardVersion: z.string().nullable(),
       agent: z.string().nullable(),
       createdBy: z
         .string()
         .nullable()
         .describe("Id of the user who ran the wizard"),
-      language: z.string().nullable(),
-      packageManager: z.string().nullable(),
-      appName: z.string().nullable(),
-      environment: z.string().nullable(),
-      intent: z.enum(setupRunIntents).nullable(),
+      metadata: setupRunMetadata.describe(
+        "What the wizard learned about the environment it ran in — language, packageManager, framework, versions. Open by design; do not rely on any single key being present",
+      ),
       artifacts: z.array(apiSetupRunArtifact),
       checks: z.array(setupRunCheck),
       outcome: z.enum(setupRunOutcomes).nullable(),
@@ -123,19 +139,17 @@ export type ApiSetupRun = z.infer<typeof apiSetupRunInterface>;
 export const apiCreateSetupRunBody = z
   .strictObject({
     source: z.enum(setupRunSources).optional(),
-    wizardVersion: z.string().max(50).optional(),
     agent: z.string().max(50).optional(),
-    language: z.string().max(50).optional(),
-    packageManager: z.string().max(20).optional(),
-    appName: z.string().max(200).optional(),
-    environment: z.string().max(100).optional(),
-    intent: z.enum(setupRunIntents).optional(),
+    metadata: setupRunMetadata.optional(),
   })
   .describe("Open a setup run. Everything it creates is appended afterwards");
 
+// `metadata` replaces rather than merges. The client accumulates it locally over the
+// run and sends the whole record, the same way artifacts are reconciled at the end,
+// so there is one owner of it per run. Sending a partial record here drops the rest.
 export const apiUpdateSetupRunBody = z
   .strictObject({
-    intent: z.enum(setupRunIntents).optional(),
+    metadata: setupRunMetadata.optional(),
     checks: z.array(setupRunCheck).max(50).optional(),
     outcome: z.enum(setupRunOutcomes).optional(),
     failureReason: z.string().max(1000).optional(),

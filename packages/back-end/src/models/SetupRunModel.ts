@@ -26,14 +26,9 @@ const BaseClass = MakeModelClass({
   globallyUniquePrimaryKeys: false,
   defaultValues: {
     source: "cli-wizard",
-    wizardVersion: null,
     agent: null,
     createdBy: null,
-    language: null,
-    packageManager: null,
-    appName: null,
-    environment: null,
-    intent: null,
+    metadata: {},
     artifacts: [],
     checks: [],
     outcome: null,
@@ -100,14 +95,12 @@ export class SetupRunModel extends BaseClass {
       dateCreated: doc.dateCreated.toISOString(),
       dateUpdated: doc.dateUpdated.toISOString(),
       source: doc.source,
-      wizardVersion: doc.wizardVersion,
       agent: doc.agent,
       createdBy: doc.createdBy,
-      language: doc.language,
-      packageManager: doc.packageManager,
-      appName: doc.appName,
-      environment: doc.environment,
-      intent: doc.intent,
+      // Documents written before metadata existed have no such field, and the API
+      // declares it required — returning undefined would break every reader that
+      // trusts the type rather than re-checking it.
+      metadata: doc.metadata ?? {},
       artifacts: doc.artifacts.map((a) => ({
         ...a,
         dateCreated: a.dateCreated.toISOString(),

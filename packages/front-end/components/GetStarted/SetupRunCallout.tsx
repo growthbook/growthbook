@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { ApiSetupRun } from "shared/validators";
+import { ApiSetupRun, setupRunMetaString } from "shared/validators";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import useApi from "@/hooks/useApi";
@@ -20,7 +20,8 @@ export default function SetupRunCallout() {
   if (!run) return null;
 
   const unfinished = run.checks.filter((c) => !c.ok && c.required).length;
-  const where = run.appName ? ` in ${run.appName}` : "";
+  const appName = setupRunMetaString(run.metadata, "appName");
+  const where = appName ? ` in ${appName}` : "";
 
   return (
     <Callout status={unfinished ? "warning" : "success"} size="md" mb="4">

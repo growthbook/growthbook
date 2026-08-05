@@ -46585,30 +46585,21 @@ paths:
                   enum:
                     - cli-wizard
                     - skill
-                wizardVersion:
-                  type: string
-                  maxLength: 50
                 agent:
                   type: string
                   maxLength: 50
-                language:
-                  type: string
-                  maxLength: 50
-                packageManager:
-                  type: string
-                  maxLength: 20
-                appName:
-                  type: string
-                  maxLength: 200
-                environment:
-                  type: string
-                  maxLength: 100
-                intent:
-                  type: string
-                  enum:
-                    - feature-flag
-                    - experiment
-                    - install-only
+                metadata:
+                  type: object
+                  propertyNames:
+                    type: string
+                    maxLength: 60
+                  additionalProperties:
+                    anyOf:
+                      - type: string
+                        maxLength: 500
+                      - type: number
+                      - type: boolean
+                      - type: 'null'
               additionalProperties: false
       responses:
         '200':
@@ -46704,12 +46695,18 @@ paths:
               description: Record the outcome of a setup run
               type: object
               properties:
-                intent:
-                  type: string
-                  enum:
-                    - feature-flag
-                    - experiment
-                    - install-only
+                metadata:
+                  type: object
+                  propertyNames:
+                    type: string
+                    maxLength: 60
+                  additionalProperties:
+                    anyOf:
+                      - type: string
+                        maxLength: 500
+                      - type: number
+                      - type: boolean
+                      - type: 'null'
                 checks:
                   maxItems: 50
                   type: array
@@ -46833,10 +46830,6 @@ paths:
                     enum:
                       - cli-wizard
                       - skill
-                  wizardVersion:
-                    anyOf:
-                      - type: string
-                      - type: 'null'
                   agent:
                     anyOf:
                       - type: string
@@ -46846,30 +46839,8 @@ paths:
                     anyOf:
                       - type: string
                       - type: 'null'
-                  language:
-                    anyOf:
-                      - type: string
-                      - type: 'null'
-                  packageManager:
-                    anyOf:
-                      - type: string
-                      - type: 'null'
-                  appName:
-                    anyOf:
-                      - type: string
-                      - type: 'null'
-                  environment:
-                    anyOf:
-                      - type: string
-                      - type: 'null'
-                  intent:
-                    anyOf:
-                      - type: string
-                        enum:
-                          - feature-flag
-                          - experiment
-                          - install-only
-                      - type: 'null'
+                  metadata:
+                    $ref: '#/components/schemas/metadata'
                   artifacts:
                     type: array
                     items:
@@ -46905,14 +46876,9 @@ paths:
                   - dateCreated
                   - dateUpdated
                   - source
-                  - wizardVersion
                   - agent
                   - createdBy
-                  - language
-                  - packageManager
-                  - appName
-                  - environment
-                  - intent
+                  - metadata
                   - artifacts
                   - checks
                   - outcome
@@ -61823,10 +61789,6 @@ components:
           enum:
             - cli-wizard
             - skill
-        wizardVersion:
-          anyOf:
-            - type: string
-            - type: 'null'
         agent:
           anyOf:
             - type: string
@@ -61836,30 +61798,22 @@ components:
           anyOf:
             - type: string
             - type: 'null'
-        language:
-          anyOf:
-            - type: string
-            - type: 'null'
-        packageManager:
-          anyOf:
-            - type: string
-            - type: 'null'
-        appName:
-          anyOf:
-            - type: string
-            - type: 'null'
-        environment:
-          anyOf:
-            - type: string
-            - type: 'null'
-        intent:
-          anyOf:
-            - type: string
-              enum:
-                - feature-flag
-                - experiment
-                - install-only
-            - type: 'null'
+        metadata:
+          description: >-
+            What the wizard learned about the environment it ran in — language,
+            packageManager, framework, versions. Open by design; do not rely on
+            any single key being present
+          type: object
+          propertyNames:
+            type: string
+            maxLength: 60
+          additionalProperties:
+            anyOf:
+              - type: string
+                maxLength: 500
+              - type: number
+              - type: boolean
+              - type: 'null'
         artifacts:
           type: array
           items:
@@ -61942,14 +61896,9 @@ components:
         - dateCreated
         - dateUpdated
         - source
-        - wizardVersion
         - agent
         - createdBy
-        - language
-        - packageManager
-        - appName
-        - environment
-        - intent
+        - metadata
         - artifacts
         - checks
         - outcome
@@ -65903,6 +65852,22 @@ components:
       required:
         - mode
       additionalProperties: false
+    metadata:
+      description: >-
+        What the wizard learned about the environment it ran in — language,
+        packageManager, framework, versions. Open by design; do not rely on any
+        single key being present
+      type: object
+      propertyNames:
+        type: string
+        maxLength: 60
+      additionalProperties:
+        anyOf:
+          - type: string
+            maxLength: 500
+          - type: number
+          - type: boolean
+          - type: 'null'
     artifacts:
       type: object
       properties:
