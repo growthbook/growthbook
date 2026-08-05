@@ -358,7 +358,7 @@ export default function AISettings({
                   {/* Per-org provider keys. Rendered on Cloud too: this is how
                       an org opts out of GrowthBook's managed keys and onto its
                       own provider account. */}
-                  <AIProviderKeys />
+                  <AIProviderKeys showPermissionCallout={false} />
 
                   {canChooseModels && (
                     <>
@@ -630,6 +630,7 @@ export default function AISettings({
                           Visual Editor text model
                         </Text>
                         <SelectField
+                          size="medium"
                           id="visualEditorAIModel"
                           disabled={!canEdit}
                           helpText="Used for AI chat edits and AI suggestions in the extension. Leave blank to use the Default AI model."
@@ -662,6 +663,7 @@ export default function AISettings({
                           Visual Editor image model
                         </Text>
                         <SelectField
+                          size="medium"
                           id="visualEditorImageModel"
                           disabled={!canEdit}
                           helpText="Models that support reference images can use an existing image as visual context (the Visual Editor's “use current image” flow). Text-only models generate from the prompt alone."

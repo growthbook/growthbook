@@ -241,7 +241,15 @@ function ProviderRow({
  * on both Cloud and self-hosted: a key stored here always wins over the host's
  * environment variables, which is how an org brings its own provider account.
  */
-export default function AIProviderKeys() {
+export default function AIProviderKeys({
+  // The AI Settings page renders its own permission callout covering this
+  // section and everything above it, so it opts out of this one rather than
+  // banner the same gap twice. Defaults to showing it, so the component stays
+  // self-explanatory anywhere else it's mounted.
+  showPermissionCallout = true,
+}: {
+  showPermissionCallout?: boolean;
+} = {}) {
   const permissionsUtil = usePermissionsUtil();
   const canEdit = permissionsUtil.canManageOrgSettings();
 
@@ -341,7 +349,7 @@ export default function AIProviderKeys() {
         </Box>
       )}
 
-      {!canEdit && (
+      {!canEdit && showPermissionCallout && (
         <Callout status="info">
           You need permission to manage organization settings to change AI
           provider keys.

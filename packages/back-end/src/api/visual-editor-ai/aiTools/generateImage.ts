@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { tool as aiTool } from "ai";
 import { z } from "zod";
+import { getImageModelMeta } from "shared/ai";
 import { uploadFile } from "back-end/src/services/files";
 import { optimizeAIImage } from "back-end/src/services/imageOptimization";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
@@ -54,8 +55,16 @@ export function generateImageTool(toolCtx: GenerateImageToolContext) {
 
       const { context } = toolCtx;
       const org = context.org;
-      const { visualEditorImageModel, visualEditorAIContext } =
+      const { visualEditorImageModel, visualEditorAIContext, keySource } =
         await getAISettingsForOrg(context, true);
+
+      // An org paying for this provider itself is not metered against the
+      // managed daily cap — same rule postAIImageGen and simpleCompletion
+      // apply. Image models have their own registry, so the provider comes
+      // from there rather than getProviderFromModel.
+      const imageProvider = getImageModelMeta(visualEditorImageModel)?.provider;
+      const usesOwnImageKey =
+        !!imageProvider && keySource[imageProvider] === "organization";
 
       // Defensive single-image constraint. Even with the tool
       // description telling the model to make one image per call, an
@@ -86,16 +95,18 @@ export function generateImageTool(toolCtx: GenerateImageToolContext) {
 
         // Bill before upload — provider already charged us; upload failure
         // is a back-end problem, not the user's.
-        try {
-          await updateTokenUsage({
-            organization: org,
-            numTokensUsed: IMAGE_GEN_TOKEN_COST_PER_IMAGE,
-          });
-        } catch (err) {
-          logger.warn(
-            { err, orgId: org.id },
-            "[ai-tool/generate-image] failed to record token usage",
-          );
+        if (!usesOwnImageKey) {
+          try {
+            await updateTokenUsage({
+              organization: org,
+              numTokensUsed: IMAGE_GEN_TOKEN_COST_PER_IMAGE,
+            });
+          } catch (err) {
+            logger.warn(
+              { err, orgId: org.id },
+              "[ai-tool/generate-image] failed to record token usage",
+            );
+          }
         }
 
         const img = generated[0];
