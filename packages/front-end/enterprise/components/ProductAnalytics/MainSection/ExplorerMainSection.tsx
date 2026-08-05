@@ -15,6 +15,7 @@ import Button from "@/ui/Button";
 import {
   explorerMainPresentation,
   hasSubmittablePayload,
+  isQueryTimeoutError,
   isTableChartType,
   isTimelessSqlExploration,
 } from "@/enterprise/components/ProductAnalytics/util";
@@ -99,6 +100,9 @@ function ExplorerVisualizationPane({ emptyState }: { emptyState: ReactNode }) {
     !hasSubmittablePayload(submittedExploreState);
   const suppressStaleFloatingCallout =
     sqlEmptyCanvas || (!loading && needsFetch && !isSubmittable);
+  const isTimeoutError = !loading && isQueryTimeoutError(error);
+  const retryDisabled =
+    !hasSubmittablePayload(draftExploreState) || !isSubmittable;
 
   return (
     <Flex
@@ -215,61 +219,67 @@ function ExplorerVisualizationPane({ emptyState }: { emptyState: ReactNode }) {
         ) : (
           emptyState
         )}
-
-        {(isStale || loading) && !suppressStaleFloatingCallout && (
-          <Box
-            style={{
-              position: "absolute",
-              zIndex: 1000,
-              top: draftExploreState.type === "journey" && showChart ? 100 : 15,
-              right: 15,
-              width: "auto",
-              backgroundColor: "var(--color-panel-solid)",
-              borderRadius: "var(--radius-3)",
-            }}
-          >
-            <Callout
-              status="info"
-              size="sm"
-              icon={
-                loading ? (
-                  <LoadingSpinner style={{ width: "12px", height: "12px" }} />
-                ) : undefined
-              }
-              action={
-                loading ? undefined : (
-                  <Button
-                    color="inherit"
-                    size="sm"
-                    variant="solid"
-                    disabled={
-                      !hasSubmittablePayload(draftExploreState) ||
-                      !isSubmittable
-                    }
-                    onClick={() => handleSubmit({ force: true })}
-                  >
-                    <Flex align="center" gap="2">
-                      <PiArrowsClockwise />
-                      Refresh
-                    </Flex>
-                  </Button>
-                )
-              }
+        {(isStale || loading || isTimeoutError) &&
+          !suppressStaleFloatingCallout && (
+            <Box
+              style={{
+                position: "absolute",
+                zIndex: 1000,
+                top:
+                  draftExploreState.type === "journey" && showChart
+                    ? 100
+                    : isTimeoutError
+                      ? 63
+                      : 15,
+                right: 15,
+                width: "auto",
+                backgroundColor: "var(--color-panel-solid)",
+                borderRadius: "var(--radius-3)",
+              }}
             >
-              {loading ? (
-                slowJourneyLoading ? (
-                  "Taking longer than expected…"
-                ) : (
-                  "Loading..."
-                )
-              ) : (
-                <Text title="Some configuration changes require running a new SQL query against your data source">
-                  Latest changes not applied
+              <Callout
+                status={isTimeoutError ? "error" : "info"}
+                size="sm"
+                align="center"
+                wrap="nowrap"
+                icon={
+                  loading ? (
+                    <LoadingSpinner style={{ width: "12px", height: "12px" }} />
+                  ) : undefined
+                }
+                action={
+                  !loading ? (
+                    <Button
+                      color="inherit"
+                      size="sm"
+                      variant="solid"
+                      disabled={retryDisabled}
+                      onClick={() => handleSubmit({ force: true })}
+                      icon={<PiArrowsClockwise />}
+                    >
+                      {isTimeoutError ? "Retry" : "Refresh"}
+                    </Button>
+                  ) : undefined
+                }
+              >
+                <Text
+                  title={
+                    !loading && !isTimeoutError
+                      ? "Some configuration changes require running a new SQL query against your data source"
+                      : undefined
+                  }
+                >
+                  {loading
+                    ? slowJourneyLoading
+                      ? "Taking longer than expected…"
+                      : "Loading..."
+                    : isTimeoutError
+                      ? "Query timed out"
+                      : "Latest changes not applied"}
                 </Text>
-              )}
-            </Callout>
-          </Box>
-        )}
+              </Callout>
+            </Box>
+          )}
       </Flex>
     </Flex>
   );
