@@ -539,6 +539,11 @@ describe("snapshots API", () => {
           reason: guidedMessage,
         },
       });
+      // The request path forces the full-refresh contract regardless of the
+      // triggeredBy the caller sent, so a "schedule" caller cannot opt out.
+      expect(planExperimentSnapshot).toHaveBeenCalledWith(
+        expect.objectContaining({ throwIfRequiresFullRefresh: true }),
+      );
       expect(createExperimentSnapshotFromPlan).not.toHaveBeenCalled();
       expect(createExperimentSnapshot).not.toHaveBeenCalled();
     },

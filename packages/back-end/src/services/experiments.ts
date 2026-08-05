@@ -1686,9 +1686,16 @@ export type PlannedExperimentSnapshot = {
 function shouldIncrementalThrowErrorInsteadOfFallback(
   useCache: boolean,
   triggeredBy: SnapshotTriggeredBy,
+  throwIfRequiresFullRefresh?: boolean,
 ): boolean {
   if (!useCache) {
     return false;
+  }
+
+  // A request-path caller will act on the error and resubmit, so surface it
+  // instead of guessing from triggeredBy (which a public API caller controls).
+  if (throwIfRequiresFullRefresh) {
+    return true;
   }
 
   switch (triggeredBy) {
@@ -1718,6 +1725,7 @@ export async function planSnapshot({
   metricMap,
   factTableMap,
   reweight,
+  throwIfRequiresFullRefresh,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -1731,6 +1739,7 @@ export async function planSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
+  throwIfRequiresFullRefresh?: boolean;
 }): Promise<PlannedExperimentSnapshot> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -1890,6 +1899,7 @@ export async function planSnapshot({
     throwOnErrorInsteadOfFallback: shouldIncrementalThrowErrorInsteadOfFallback(
       useCache,
       triggeredBy,
+      throwIfRequiresFullRefresh,
     ),
     isLatestPhase: phaseIndex === experiment.phases.length - 1,
   });
@@ -2390,6 +2400,7 @@ export async function planExperimentSnapshot({
   triggeredBy,
   type,
   reweight,
+  throwIfRequiresFullRefresh,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -2400,6 +2411,7 @@ export async function planExperimentSnapshot({
   triggeredBy?: SnapshotTriggeredBy;
   type?: SnapshotType;
   reweight?: boolean;
+  throwIfRequiresFullRefresh?: boolean;
 }): Promise<PlannedExperimentSnapshot> {
   const snapshotType =
     type ??
@@ -2504,6 +2516,7 @@ export async function planExperimentSnapshot({
     reweight,
     type: snapshotType,
     triggeredBy: triggeredBy ?? "manual",
+    throwIfRequiresFullRefresh,
   });
   return plan;
 }

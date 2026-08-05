@@ -88,6 +88,7 @@ export const postExperimentSnapshot = createApiRequestHandler(
         phase: phaseIndex,
         useCache: true,
         triggeredBy,
+        throwIfRequiresFullRefresh: true,
       });
     } catch (error) {
       if (

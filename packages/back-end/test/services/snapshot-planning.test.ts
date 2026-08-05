@@ -1445,6 +1445,34 @@ describe("snapshot planning", () => {
     expect(plan.overallResultsFullRefreshWouldUnblock).toBe(true);
   });
 
+  it("throws for a scheduled dimension request from a request path when Overall Results were never materialized", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+
+    const planning = planSnapshot({
+      experiment: makeExperiment(),
+      context: makeNeverMaterializedContext(),
+      type: "exploratory",
+      triggeredBy: "schedule",
+      phaseIndex: 0,
+      useCache: true,
+      throwIfRequiresFullRefresh: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["exp:country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    await expect(planning).rejects.toThrow(
+      ExperimentIncrementalPipelineRequiresFullRefreshError,
+    );
+    await expect(planning).rejects.toThrow(
+      "Overall Results have not been computed yet, so there is no units table for a dimension breakdown to read.",
+    );
+  });
+
   it("leaves a manual dimension request alone when the experiment is not covered by the Incremental Pipeline", async () => {
     getDataSourceByIdMock.mockResolvedValue(makeDatasource());
     getSourceIntegrationObjectMock.mockReturnValue({} as never);
