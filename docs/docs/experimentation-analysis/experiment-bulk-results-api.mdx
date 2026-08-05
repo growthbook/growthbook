@@ -16,14 +16,11 @@ Off by default and excluded from the [REST API reference](/api). Self-hosted dep
 
 ## Request
 
-Bearer auth with a Personal Access Token or secret key that can read the experiment's Project.
+Authenticate with a Personal Access Token or secret key that can read the experiment's Project.
 
 ```bash
-curl -G 'https://api.growthbook.io/api/v1/experiments/exp_abc123/bulk-results' \
-  -H 'Authorization: Bearer YOUR_API_KEY' \
-  'dateStart=2026-01-01T00:00:00Z' \
-  'dateEnd=2026-02-01T00:00:00Z' \
-  'limit=10'
+curl -X GET 'https://api.growthbook.io/api/v1/experiments/exp_abc123/bulk-results?dateStart=2026-01-01T00:00:00Z&dateEnd=2026-02-01T00:00:00Z' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
 ```
 
 | Param          | Required | Description                                                        |
