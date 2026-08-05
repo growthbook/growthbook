@@ -114,6 +114,10 @@ export function canTouchRevision(
 // Landing authority for a JSON-patch revision: derives the footprint and the
 // purity proofs, then defers to the shared rule. Purity is only computed on the
 // fallback arms, so publishers pay no extra revision load.
+// How long a stranded-merge recovery claim is honoured. Applying takes seconds; a
+// marker older than this means the claiming process died before releasing it.
+const MERGE_RECOVERY_LEASE_MS = 10 * 60 * 1000;
+
 // Re-publish a merge that was claimed but never applied — a crash between the
 // merge claim and the entity write. Returns null when this is not one.
 //
@@ -158,15 +162,28 @@ async function recoverStrandedMerge({
   // merge itself — hence the claim here, guarded on `dateUpdated`. Two operators
   // retrying at once would otherwise both apply and both dispatch. The loser's
   // guard fails, it re-reads, sees the marker entry, and aborts.
+  // The marker is a LEASE, not a permanent record. It exists to stop two operators
+  // applying and dispatching at once; a recovery that actually succeeded needs no
+  // marker, because live then matches the desired state and `hasChanges` keeps this
+  // path from being entered at all. So a marker older than the lease belonged to a
+  // process that died between claiming and releasing, and is reclaimable —
+  // otherwise a termination there locked recovery out permanently.
+  const leaseCutoff = new Date(Date.now() - MERGE_RECOVERY_LEASE_MS);
   const claimed = await context.models.revisions.updateWithCas(
     revision.id,
     ["dateUpdated"],
     (existing) =>
-      (existing.activityLog ?? []).some((e) => e.action === "merge-recovered")
+      (existing.activityLog ?? []).some(
+        (e) =>
+          e.action === "merge-recovered" &&
+          new Date(e.dateCreated) > leaseCutoff,
+      )
         ? null
         : {
             activityLog: [
-              ...(existing.activityLog ?? []),
+              ...(existing.activityLog ?? []).filter(
+                (e) => e.action !== "merge-recovered",
+              ),
               {
                 id: uniqid("rvl_"),
                 userId: context.userId || "",
@@ -500,6 +517,9 @@ export async function publishRevision(
   await adapter.assertPublishable?.(context, entity, desiredState, revision, {
     isRevert: !!revision.revertedFrom,
     deferred: !!deferred,
+    // Forward it: the REST publish handlers evaluate this entity's hooks as gates
+    // before calling in, so the assert must not run them a second time.
+    hooksAlreadyRan: !!skipHooks,
     ...(skipHooks ? { skipHooks: true } : {}),
   });
 

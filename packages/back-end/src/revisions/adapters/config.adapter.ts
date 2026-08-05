@@ -784,7 +784,11 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     entity: ConfigInterface,
     desiredState: Record<string, unknown>,
     revision: Revision,
-    options?: { isRevert?: boolean; deferred?: boolean },
+    options?: {
+      isRevert?: boolean;
+      deferred?: boolean;
+      hooksAlreadyRan?: boolean;
+    },
   ): Promise<void> {
     // Pre-merge lock gate for the shared publishRevision action (auto-publish on
     // approval, scheduled-publish poller). Throwing here — before the merge is
@@ -904,7 +908,11 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       },
       { value: postValue },
       revision,
-      { deferred: !!options?.deferred },
+      {
+        deferred: !!options?.deferred,
+        // Don't re-execute hooks the caller already evaluated as gates.
+        skipHooks: !!options?.hooksAlreadyRan,
+      },
     );
   },
 };

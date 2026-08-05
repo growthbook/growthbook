@@ -87,8 +87,8 @@ import {
   PutFeatureRuleBody,
 } from "shared/types/feature-rule";
 import { getValidDate } from "shared/dates";
+import { isArmedWithResolvablePublisher } from "back-end/src/revisions/approveAndPublish";
 import { assertCanRevertRevision } from "back-end/src/revisions/revertActions";
-import { isArmedForAutoPublish } from "back-end/src/revisions/approveAndPublish";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getContextForAgendaJobByOrgId,
@@ -1537,7 +1537,7 @@ export async function postFeatureApproveAndPublish(
   // armed fire publishes under the armer instead of inline as them. Same rule the
   // generic handler and REST submit-review already follow.
   const armedApproval =
-    isArmedForAutoPublish(revision) &&
+    (await isArmedWithResolvablePublisher(context, revision)) &&
     !context.permissions.canPublishFeature(feature, envsToCheck);
   if (!armedApproval) {
     await assertCanPublishFeatureRevision({

@@ -17,10 +17,7 @@ import { configPublishEnvironments } from "back-end/src/revisions/revisionPublis
 import { configChangeAffectsServedValue } from "back-end/src/services/experimentGuard";
 import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
-import {
-  applyPatchToSnapshot,
-  ensureLiveRevisionExists,
-} from "back-end/src/revisions/util";
+import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import {
   assertConfigValueValid,
   assertConfigValueValidForPublish,
@@ -166,16 +163,6 @@ export const postConfigRevisionRevert = createApiRequestHandler(
   // A locked Config is frozen at its published revision, so a landing revert is
   // refused before anything is written.
   if (isPublish) assertConfigNotLocked(config);
-
-  await ensureLiveRevisionExists(
-    req.context,
-    "config",
-    config as unknown as Record<string, unknown> & {
-      id: string;
-      owner?: string;
-      dateCreated?: Date;
-    },
-  );
 
   const title = req.body.title ?? `Revert to v${req.params.version}`;
 

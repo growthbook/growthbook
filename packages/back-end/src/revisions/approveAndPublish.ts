@@ -1,3 +1,5 @@
+import type { Context } from "back-end/src/models/BaseModel";
+import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
 // Who may take the combined "approve and publish" action, and whether the
 // publish runs as the approver.
 //
@@ -46,9 +48,45 @@ export function isArmedForAutoPublish(revision: {
   // The fire path falls back to the author when `autoPublishEnabledBy` predates
   // the field, so either identity is enough to run the publish as someone who
   // held the authority.
+  //
+  // Whether that identity still RESOLVES is checked by the caller before it
+  // commits the approval — an id belonging to a departed member reads as armed
+  // here, and treating it as publishable meant approving, then failing on the
+  // publish with the approval already written.
   return !!(
     revision.autoPublishEnabledBy ||
     revision.authorId ||
     revision.createdBy?.id
   );
+}
+
+// The identity a deferred publish would run as, or null when the revision names
+// none. Callers resolve it BEFORE committing an approval, so a revision armed by
+// someone who has since left is refused up front rather than half-applied.
+export function armedPublisherId(revision: {
+  autoPublishOnApproval?: boolean;
+  autoPublishEnabledBy?: string;
+  authorId?: string;
+  createdBy?: { id?: string } | null;
+}): string | null {
+  if (!revision.autoPublishOnApproval) return null;
+  return (
+    revision.autoPublishEnabledBy ||
+    revision.authorId ||
+    revision.createdBy?.id ||
+    null
+  );
+}
+
+// Armed AND still publishable: the armed waiver skips the approver's own publish
+// check on the grounds that whoever armed it held the authority, so it must not
+// apply when that identity no longer resolves. Otherwise the approval commits, the
+// waiver hides the missing authority, and the deferred publish fails afterwards.
+export async function isArmedWithResolvablePublisher(
+  context: Context,
+  revision: Parameters<typeof armedPublisherId>[0],
+): Promise<boolean> {
+  const id = armedPublisherId(revision);
+  if (!id) return false;
+  return !!(await getContextForUserIdInOrg(context.org, id));
 }

@@ -208,7 +208,15 @@ export interface EntityRevisionAdapter<
     // auto-publish-on-approval), whose overrides are the arm-time snapshot on the
     // revision — NOT a synchronous manual publish (where a live ignoreWarnings/
     // bypass applies).
-    options?: { isRevert?: boolean; deferred?: boolean },
+    // `hooksAlreadyRan`: the caller already evaluated this entity's custom hooks
+    // (the REST publish handlers collect them as gates), so the assert must not
+    // execute them a second time — sandboxed hooks can be slow and are not
+    // guaranteed idempotent.
+    options?: {
+      isRevert?: boolean;
+      deferred?: boolean;
+      hooksAlreadyRan?: boolean;
+    },
   ): Promise<void>;
 
   // Non-throwing view of this entity's publish guards, for the REST publish

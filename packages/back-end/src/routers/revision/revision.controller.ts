@@ -12,7 +12,7 @@ import {
 } from "shared/enterprise";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import {
-  isArmedForAutoPublish,
+  isArmedWithResolvablePublisher,
   planApproveAndPublish,
 } from "back-end/src/revisions/approveAndPublish";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -1184,7 +1184,7 @@ export const postApproveAndPublish = async (
   // Approving needs review authority; the publish needs publish authority
   // unless the revision is already armed — see planApproveAndPublish.
   const plan = planApproveAndPublish({
-    armed: isArmedForAutoPublish(revision),
+    armed: await isArmedWithResolvablePublisher(context, revision),
     canReview: (adapter.canReview ?? adapter.canUpdate)(
       context,
       entity as Record<string, unknown>,

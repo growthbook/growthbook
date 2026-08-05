@@ -14,10 +14,7 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
-import {
-  applyPatchToSnapshot,
-  ensureLiveRevisionExists,
-} from "back-end/src/revisions/util";
+import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import { assertSavedGroupArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
@@ -124,16 +121,6 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
   // accurate bypass flag.
   // Authoritative: the revert atom, plus a relocation's destination and an archive
   // restore's delete atom. Saved Groups carry no environment footprint.
-
-  await ensureLiveRevisionExists(
-    req.context,
-    "saved-group",
-    savedGroup as unknown as Record<string, unknown> & {
-      id: string;
-      owner?: string;
-      dateCreated?: Date;
-    },
-  );
 
   const defaultTitle = `Revert to v${req.params.version}`;
   const title = req.body.title ?? defaultTitle;

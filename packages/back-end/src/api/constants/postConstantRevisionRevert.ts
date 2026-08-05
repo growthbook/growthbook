@@ -15,10 +15,7 @@ import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import { constantPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
-import {
-  applyPatchToSnapshot,
-  ensureLiveRevisionExists,
-} from "back-end/src/revisions/util";
+import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
 import { constantChangeAffectsServedValue } from "back-end/src/services/experimentGuard";
@@ -119,16 +116,6 @@ export const postConstantRevisionRevert = createApiRequestHandler(
   // relocation's destination and an archive restore's delete atom.
   const patchOps: JsonPatchOperation[] = Object.entries(fieldsToUpdate).map(
     ([key, value]) => ({ op: "replace" as const, path: `/${key}`, value }),
-  );
-
-  await ensureLiveRevisionExists(
-    req.context,
-    "constant",
-    constant as unknown as Record<string, unknown> & {
-      id: string;
-      owner?: string;
-      dateCreated?: Date;
-    },
   );
 
   const title = req.body.title ?? `Revert to v${req.params.version}`;

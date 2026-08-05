@@ -6,6 +6,7 @@ import { Context } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import {
+  ensureLiveRevisionExists,
   createOrUpdateRevision,
   applyPatchToSnapshot,
   buildPatchOps,
@@ -273,6 +274,15 @@ export async function revertRevision({
     landing,
     footprint,
   });
+
+  // Only now: this writes a revision row for an entity with no history yet, and a
+  // refused revert must leave nothing behind. Handlers used to call it themselves,
+  // before the authoritative check.
+  await ensureLiveRevisionExists(
+    context as Parameters<typeof ensureLiveRevisionExists>[0],
+    entityType,
+    entity,
+  );
 
   await validate?.();
 
