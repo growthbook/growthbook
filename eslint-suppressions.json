@@ -4,46 +4,6 @@
       "count": 1
     }
   },
-<<<<<<< HEAD
-  "packages/back-end/src/jobs/updateExperimentStatus.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
-  "packages/back-end/src/services/informationSchema.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 3
-    }
-  },
-  "packages/back-end/src/services/rampSchedule.ts": {
-||||||| e08c969855
-  "packages/back-end/src/jobs/updateExperimentStatus.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
-  "packages/back-end/src/services/features.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
-  "packages/back-end/src/services/informationSchema.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 3
-    }
-  },
-  "packages/back-end/src/services/rampSchedule.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
-=======
-  "packages/back-end/src/services/features.ts": {
->>>>>>> origin/main
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Admin/EditOrganization.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -2242,25 +2202,6 @@
   },
   "packages/front-end/services/auth.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/shared/src/util/features.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-<<<<<<< HEAD
-      "count": 1
-    }
-  },
-  "packages/shared/src/util/managedWarehouse.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-||||||| e08c969855
-      "count": 2
-    }
-  },
-  "packages/shared/src/util/managedWarehouse.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-=======
->>>>>>> origin/main
       "count": 1
     }
   },
