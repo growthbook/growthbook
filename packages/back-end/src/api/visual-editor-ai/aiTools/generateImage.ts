@@ -7,6 +7,7 @@ import { optimizeAIImage } from "back-end/src/services/imageOptimization";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { generateImages } from "back-end/src/services/imageGeneration";
 import { updateTokenUsage } from "back-end/src/models/AITokenUsageModel";
+import { secondsUntilAICanBeUsedAgainForProvider } from "back-end/src/enterprise/services/ai";
 import { trackAIUsage } from "back-end/src/services/growthbook";
 import { logger } from "back-end/src/util/logger";
 import type { ApiReqContext } from "back-end/types/api";
@@ -66,6 +67,24 @@ export function generateImageTool(toolCtx: GenerateImageToolContext) {
       const imageProvider = getImageModelMeta(visualEditorImageModel)?.provider;
       const usesOwnImageKey =
         !!imageProvider && keySource[imageProvider] === "organization";
+
+      // The turn's pre-flight gate ran against the *text* model, so an org over
+      // its cap can still reach this tool and bill an image to a managed key —
+      // and with BYOK the two providers are often different ones. Gate on the
+      // image provider here, the same check postAIImageGen makes.
+      //
+      // Returned as a tool result rather than thrown: the turn is already
+      // streaming, and the model can finish its answer with the text edits it
+      // has instead of the whole conversation failing.
+      if (
+        await secondsUntilAICanBeUsedAgainForProvider(context, imageProvider)
+      ) {
+        return {
+          ok: false,
+          error:
+            "Daily AI usage limit reached — no more images can be generated today. Continue without generating images.",
+        } as const;
+      }
 
       // Defensive single-image constraint. Even with the tool
       // description telling the model to make one image per call, an

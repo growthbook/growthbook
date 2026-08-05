@@ -227,7 +227,8 @@ export default function AISettings({
   const [error, setError] = useState<string | null>(null);
   const { hasCommercialFeature } = useUser();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
-  const { hasKeyForModel, hasKeyForProvider, hasOwnKey } = useAIProviderKeys();
+  const { hasKeyForModel, hasKeyForProvider, hasOwnKeyForProvider, hasOwnKey } =
+    useAIProviderKeys();
 
   // Every field here writes org settings, which the back end gates on
   // canManageOrgSettings — putOrganization for the toggle and model choices,
@@ -245,7 +246,15 @@ export default function AISettings({
   // Only offer models we can actually call. This comes from /ai/credentials
   // rather than the org payload in UserContext so that adding a key updates the
   // dropdowns immediately, without a full org refresh.
-  const availableProviders = AI_PROVIDERS.filter(hasKeyForProvider);
+  //
+  // On Cloud that means org-stored keys only: the env keys there are
+  // GrowthBook's managed ones, so counting them would let a single stored
+  // Anthropic key unlock the OpenAI and Google lists too — the org would be
+  // picking models it isn't paying for and is still capped on. Self-hosted env
+  // vars are the host's own keys, so they count exactly as before.
+  const availableProviders = AI_PROVIDERS.filter((p) =>
+    isCloud() ? hasOwnKeyForProvider(p) : hasKeyForProvider(p),
+  );
 
   // Subscribe to formState.isDirty by reading it during render.
   // This is required for react-hook-form to properly track dirty state

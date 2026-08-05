@@ -10,8 +10,6 @@ import {
 } from "back-end/src/enterprise/services/ai";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
-const OPENAI_ENABLED = !!process.env.OPENAI_API_KEY;
-
 interface PostCopyTransformResponse {
   visualChangeset: ApiVisualChangeset;
   original: string;
@@ -51,8 +49,11 @@ ${text}
 export const postCopyTransform = createApiRequestHandler(validation)(async (
   req,
 ): Promise<PostCopyTransformResponse> => {
-  if (!OPENAI_ENABLED) throw new Error("OPENAI_API_KEY not defined");
-
+  // No env-key precheck here. This ran on `!!process.env.OPENAI_API_KEY` while
+  // the completion below uses the org's *default* model, so it rejected a BYOK
+  // org — or any host on a non-OpenAI key — with "OPENAI_API_KEY not defined".
+  // getAIProviderClass already throws missingAIKeyMessage() for whichever
+  // provider the request actually resolves to, which is the accurate error.
   const { copy, mode, visualChangesetId } = req.body;
 
   const context = req.context;

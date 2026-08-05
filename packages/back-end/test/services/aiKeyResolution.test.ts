@@ -49,8 +49,41 @@ const resolve = (mod: AICredentialsModule, context: any) =>
   mod.getResolvedAIKeys(context);
 
 describe("getResolvedAIKeys", () => {
-  it("prefers an org-stored key over the environment variable", async () => {
+  it("prefers an org-stored key over the environment variable on Cloud", async () => {
+    // Cloud's managed keys are env vars, so BYOK only means anything if a
+    // stored key outranks them.
+    const mod = loadModule({
+      ANTHROPIC_API_KEY: "env-anthropic",
+      IS_CLOUD: "true",
+    });
+    const { context } = makeContext([
+      credential("anthropic", mod.encryptAIKey("org-anthropic")),
+    ]);
+
+    const keys = await resolve(mod, context);
+
+    expect(keys.anthropic).toEqual({
+      key: "org-anthropic",
+      source: "organization",
+    });
+  });
+
+  it("prefers the environment variable over a stored key when self-hosted", async () => {
+    // Self-hosted, the env var is the deployment's own configuration and the
+    // settings UI won't offer to override it, so a stored key for the same
+    // provider is a leftover and must not take effect.
     const mod = loadModule({ ANTHROPIC_API_KEY: "env-anthropic" });
+    const { context } = makeContext([
+      credential("anthropic", mod.encryptAIKey("org-anthropic")),
+    ]);
+
+    const keys = await resolve(mod, context);
+
+    expect(keys.anthropic).toEqual({ key: "env-anthropic", source: "env" });
+  });
+
+  it("uses a stored key self-hosted when no env var is set", async () => {
+    const mod = loadModule({});
     const { context } = makeContext([
       credential("anthropic", mod.encryptAIKey("org-anthropic")),
     ]);

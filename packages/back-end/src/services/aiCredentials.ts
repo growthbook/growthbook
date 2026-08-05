@@ -7,6 +7,7 @@ import {
   ENCRYPTION_KEY,
   GEMINI_API_KEY,
   GOOGLE_AI_API_KEY,
+  IS_CLOUD,
   MISTRAL_API_KEY,
   OPENAI_API_KEY,
   XAI_API_KEY,
@@ -138,6 +139,18 @@ async function loadResolvedAIKeys(context: Context): Promise<ResolvedAIKeys> {
       );
       continue;
     }
+    // Self-hosted, an environment variable is the deployment's own
+    // configuration and wins — the settings UI won't even offer to add a key
+    // for a provider that has one, so a stored key here is a leftover from
+    // before the variable was set, not a deliberate override.
+    //
+    // Cloud inverts this, and must: GrowthBook's managed keys are env vars
+    // too, so env-wins there would mean a stored key never takes effect and
+    // BYOK does nothing.
+    if (!IS_CLOUD && resolved[credential.provider].source === "env") {
+      continue;
+    }
+
     resolved[credential.provider] = { key, source: "organization" };
   }
 
@@ -145,8 +158,9 @@ async function loadResolvedAIKeys(context: Context): Promise<ResolvedAIKeys> {
 }
 
 /**
- * Resolve every provider's API key for this org, org-stored key first and env
- * var second. Memoized per request.
+ * Resolve every provider's API key for this org. On Cloud an org-stored key
+ * wins over the env var (that is what BYOK means there); self-hosted, the env
+ * var wins. Memoized per request.
  */
 export function getResolvedAIKeys(context: Context): Promise<ResolvedAIKeys> {
   const cached = requestCache.get(context);

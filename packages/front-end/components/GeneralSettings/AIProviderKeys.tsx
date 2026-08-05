@@ -41,9 +41,14 @@ export function useAIProviderKeys() {
   const credentials = data?.credentials ?? [];
   const envProviders = data?.envProviders ?? [];
 
+  // A key the org stored itself, ignoring the environment. On Cloud the env
+  // keys are GrowthBook's managed ones, so this is the set the org actually
+  // pays for — see selectableProviders in AISettings.
+  const hasOwnKeyForProvider = (provider: AIProvider): boolean =>
+    credentials.some((c) => c.provider === provider);
+
   const hasKeyForProvider = (provider: AIProvider): boolean =>
-    credentials.some((c) => c.provider === provider) ||
-    envProviders.includes(provider);
+    hasOwnKeyForProvider(provider) || envProviders.includes(provider);
 
   const hasKeyForModel = (model: AIModel | string): boolean => {
     try {
@@ -56,6 +61,7 @@ export function useAIProviderKeys() {
   return {
     credentials,
     envProviders,
+    hasOwnKeyForProvider,
     hasKeyForProvider,
     hasKeyForModel,
     hasAnyKey: AI_PROVIDERS.some(hasKeyForProvider),
@@ -92,6 +98,15 @@ function ProviderRow({
   const { apiCall } = useAuth();
   const { label, keyPlaceholder, consoleUrl, envVar } =
     AI_PROVIDER_META[provider];
+
+  // Self-hosted, an env var is the deployment's own configuration: it wins, and
+  // there's no Add key or Replace on that row — you change it where you set it.
+  // Cloud is the exception, and has to be: `envProviders` there are
+  // GrowthBook's managed keys rather than anything the org set, and every
+  // provider we hold a managed key for is an env row for every org. Applying
+  // the rule there would leave no row with an Add key button and no addable
+  // provider in the menu, which is to say no way to BYOK on Cloud at all.
+  const envIsAuthoritative = inheritedFromEnv && !isCloud();
 
   const [editing, setEditing] = useState(startEditing);
   const [apiKey, setApiKey] = useState("");
@@ -143,14 +158,14 @@ function ProviderRow({
             <Text size="md" weight="semibold">
               {label}
             </Text>
-            {inheritedFromEnv ? (
+            {envIsAuthoritative || (!credential && inheritedFromEnv) ? (
               <Text size="sm" color="text-mid">
-                From environment readonly
+                From environment
               </Text>
             ) : null}
           </Flex>
           <Text size="sm" color="text-mid" as="div">
-            {credential ? (
+            {credential && !envIsAuthoritative ? (
               <>
                 Key ending in <code>{credential.last4 || "••••"}</code>
                 {credential.updatedByEmail
@@ -173,18 +188,20 @@ function ProviderRow({
             )}
           </Text>
         </Box>
-        {canEdit && !editing && credential && (
+        {canEdit && !editing && !envIsAuthoritative && (
           <Flex gap="2">
             <Button variant="outline" onClick={() => setEditing(true)}>
-              Replace
+              {credential ? "Replace" : "Add key"}
             </Button>
-            <Button
-              variant="ghost"
-              color="red"
-              onClick={() => setConfirmingRemove(true)}
-            >
-              Remove
-            </Button>
+            {credential && (
+              <Button
+                variant="ghost"
+                color="red"
+                onClick={() => setConfirmingRemove(true)}
+              >
+                Remove
+              </Button>
+            )}
           </Flex>
         )}
       </Flex>
@@ -323,9 +340,10 @@ export default function AIProviderKeys({
         AI providers
       </Text>
       <Text size="md" color="text-mid" as="div" mb="3">
-        Bring your own provider account. Keys are encrypted at rest, and a key
-        saved here takes precedence over any environment variable. You only need
-        a key for the providers whose models you actually use.
+        Bring your own provider account. Keys are encrypted at rest. You only
+        need a key for the providers whose models you actually use. A provider
+        configured by an environment variable is managed where that variable is
+        set.
       </Text>
 
       {visibleProviders.map((provider) => (
@@ -365,9 +383,7 @@ export default function AIProviderKeys({
                 tooltip={disabled ? "Already listed above" : undefined}
                 onClick={() => setAddingProvider(provider)}
               >
-                <Flex align="center" gap="2">
-                  {label}
-                </Flex>
+                {label}
               </DropdownMenuItem>
             ))}
           </DropdownMenu>

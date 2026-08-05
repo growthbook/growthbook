@@ -5,6 +5,7 @@ import {
   AIPromptType,
   AIProvider,
   AI_PROVIDERS,
+  AI_PROVIDER_META,
 } from "shared/ai";
 import { AICredentialFrontEndInterface } from "shared/validators";
 import {
@@ -23,6 +24,7 @@ import {
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
 import { getTokensUsedByOrganization } from "back-end/src/models/AITokenUsageModel";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 
 type GetTokenUsageResponse = {
   status: 200;
@@ -83,6 +85,22 @@ export async function putAICredential(
   // means an unauthorized caller gets a clean 403 before we touch the provider.
   if (!context.permissions.canManageOrgSettings()) {
     context.permissions.throwPermissionError();
+  }
+
+  // Self-hosted, an env var is the deployment's own configuration and always
+  // wins in the resolver, so storing a key here would be dead data that the
+  // settings UI (which offers no button on those rows) implies is in use.
+  // Refuse rather than accept a write that can never take effect. Cloud is the
+  // opposite case — its env keys are GrowthBook's managed ones, and storing a
+  // key on top of them is the whole point.
+  if (!IS_CLOUD) {
+    const { keySource } = await getAISettingsForOrg(context);
+    if (keySource[provider] === "env") {
+      return res.status(400).json({
+        status: 400,
+        message: `${AI_PROVIDER_META[provider].label} is configured by the ${AI_PROVIDER_META[provider].envVar} environment variable. Change it there instead.`,
+      });
+    }
   }
 
   // Trim rather than reject on whitespace — a key pasted from a terminal or a

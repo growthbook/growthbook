@@ -20,6 +20,21 @@ const BaseClass = MakeModelClass({
     createEvent: "aiCredential.create",
     updateEvent: "aiCredential.update",
     deleteEvent: "aiCredential.delete",
+    // Audit details default to the whole document, which would put
+    // `encryptedKey` in the audit log — readable by anyone with audit access,
+    // a wider audience than the API deliberately withholds it from. Allowlist
+    // the non-secret fields instead, the same way DataSourceModel keeps
+    // connection credentials out. What's left still answers who changed which
+    // provider's key and when, and `last4` changing is the diff that shows a
+    // rotation actually happened.
+    detailsAllowlist: [
+      "organization",
+      "provider",
+      "last4",
+      "updatedByEmail",
+      "dateCreated",
+      "dateUpdated",
+    ],
   },
 });
 
