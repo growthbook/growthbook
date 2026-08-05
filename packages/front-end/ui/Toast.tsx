@@ -1,4 +1,4 @@
-import { Box, Flex, IconButton, Tooltip } from "@radix-ui/themes";
+import { Flex, IconButton, Tooltip } from "@radix-ui/themes";
 import { ReactNode } from "react";
 import { PiX } from "react-icons/pi";
 import Callout from "./Callout";
@@ -29,30 +29,45 @@ export default function Toast({
   onDismiss?: () => void;
 }) {
   return (
-    <div className={styles.toast} role="status" aria-live="polite">
-      <Callout status={status} size="sm" variant="surface" contentsAs="div">
-        <Flex align="center" gap="3">
-          <Box flexGrow="1">{children}</Box>
-          {action ? (
-            <Button size="xs" variant="soft" onClick={action.onClick}>
-              {action.label}
-            </Button>
-          ) : null}
-          {onDismiss ? (
-            <Tooltip content="Dismiss">
-              <IconButton
-                variant="ghost"
-                color="gray"
-                size="1"
-                onClick={onDismiss}
-                aria-label="Dismiss"
-                style={{ flexShrink: 0, marginTop: 0 }}
-              >
-                <PiX />
-              </IconButton>
-            </Tooltip>
-          ) : null}
-        </Flex>
+    // The Callout owns the single ARIA live region (assertive for errors,
+    // polite otherwise), so the wrapper stays a plain positioning element —
+    // adding a second live region here would double-announce the toast.
+    <div className={styles.toast}>
+      <Callout
+        status={status}
+        size="sm"
+        role={status === "error" ? "alert" : "status"}
+        action={
+          action || onDismiss ? (
+            <Flex align="center" gap="2">
+              {action ? (
+                <Button
+                  color="inherit"
+                  variant="soft"
+                  size="sm"
+                  onClick={action.onClick}
+                >
+                  {action.label}
+                </Button>
+              ) : null}
+              {onDismiss ? (
+                <Tooltip content="Dismiss">
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    size="1"
+                    onClick={onDismiss}
+                    aria-label="Dismiss"
+                  >
+                    <PiX />
+                  </IconButton>
+                </Tooltip>
+              ) : null}
+            </Flex>
+          ) : undefined
+        }
+      >
+        {children}
       </Callout>
     </div>
   );

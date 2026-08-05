@@ -116,6 +116,11 @@ export function BackgroundRefreshErrorProvider({
   const clear = useCallback(
     (key: string) => {
       if (erroringKeys.current.delete(key)) {
+        // Drop the recovered key from the dismissal snapshot too. Otherwise, if
+        // it fails again later while a *different* dismissed key is still
+        // failing, report() would treat it as part of the old dismissal and
+        // keep the toast hidden for a genuinely new failure.
+        dismissedKeysRef.current?.delete(key);
         recompute();
       }
     },
