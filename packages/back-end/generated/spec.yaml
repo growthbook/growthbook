@@ -41086,17 +41086,10 @@ paths:
         - name: id
           in: path
           required: true
-          description: ''
+          description: The Contextual Bandit id
           schema:
+            description: The Contextual Bandit id
             type: string
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -41126,17 +41119,10 @@ paths:
         - name: id
           in: path
           required: true
-          description: ''
+          description: The Contextual Bandit id
           schema:
+            description: The Contextual Bandit id
             type: string
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -41166,17 +41152,10 @@ paths:
         - name: id
           in: path
           required: true
-          description: ''
+          description: The Contextual Bandit id
           schema:
+            description: The Contextual Bandit id
             type: string
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties: {}
-              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -41197,6 +41176,39 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}/refresh' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/contextual-bandits/{id}/cancel:
+    post:
+      operationId: cancelContextualBandit
+      summary: Cancel a running Contextual Bandit snapshot refresh
+      tags:
+        - ContextualBandits
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The Contextual Bandit id
+          schema:
+            description: The Contextual Bandit id
+            type: string
+      responses:
+        '200':
+          description: Contextual Bandit snapshot refresh canceled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: number
+                required:
+                  - status
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/contextual-bandits/{id}/cancel' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/contextual-bandit-queries/{id}:
     get:
@@ -61148,6 +61160,11 @@ components:
             - exploit
             - paused
         stageDateStarted:
+          type: string
+          format: date-time
+        autoSnapshots:
+          type: boolean
+        nextSnapshotAttempt:
           type: string
           format: date-time
       required:
