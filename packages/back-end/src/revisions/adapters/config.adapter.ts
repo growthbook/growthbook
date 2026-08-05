@@ -132,6 +132,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
   getModel(context: Context) {
     return context.models.configs as {
       getById(id: string): Promise<ConfigInterface | null>;
+      getByIds(ids: string[]): Promise<ConfigInterface[]>;
     };
   },
 

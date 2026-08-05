@@ -87,6 +87,7 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
   getModel(context: Context) {
     return context.models.savedGroups as {
       getById(id: string): Promise<SavedGroupInterface | null>;
+      getByIds(ids: string[]): Promise<SavedGroupInterface[]>;
     };
   },
 

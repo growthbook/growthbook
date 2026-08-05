@@ -124,6 +124,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
   getModel(context: Context) {
     return context.models.constants as {
       getById(id: string): Promise<ConstantInterface | null>;
+      getByIds(ids: string[]): Promise<ConstantInterface[]>;
     };
   },
 

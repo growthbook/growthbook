@@ -103,9 +103,13 @@ export interface EntityRevisionAdapter<
   TSnapshot extends Record<string, unknown> = Record<string, unknown>,
 > {
   /** Return the BaseModel for this entity type, used for loading the live entity. */
-  getModel(
-    context: Context,
-  ): { getById(id: string): Promise<TSnapshot | null> } | null;
+  getModel(context: Context): {
+    getById(id: string): Promise<TSnapshot | null>;
+    // Read-filtered batch fetch: what comes back is what the caller may READ,
+    // which is how revision listings decide visibility from the live entity
+    // rather than a snapshot that predates a project move.
+    getByIds(ids: string[]): Promise<TSnapshot[]>;
+  } | null;
 
   /** Normalize an entity object for storage as a revision snapshot. */
   buildSnapshot(entity: TSnapshot): TSnapshot;

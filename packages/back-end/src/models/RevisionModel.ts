@@ -476,6 +476,42 @@ export class RevisionModel extends BaseClass {
     return { $in: list };
   }
 
+  /**
+   * Which of these targets the caller may READ, judged on the LIVE entity.
+   *
+   * A revision's snapshot records where the entity was when the draft was
+   * opened, so snapshot-basis readability breaks BOTH ways after a move: the
+   * source project keeps seeing history for an entity it no longer owns, and the
+   * destination sees none for one it does. The live entity is the authority, and
+   * `getByIds` is itself read-filtered — a target it returns is readable.
+   *
+   * Anything it does not return is excluded, which covers both "present but
+   * unreadable" and "deleted" (entity deletion does not cascade to revisions).
+   * Fail-CLOSED on purpose, and the two are not worth distinguishing: falling
+   * back to the snapshot for a miss would restore the very leak this closes,
+   * since a moved-and-unreadable entity still carries a readable old snapshot.
+   * The cost is that a hard-deleted entity's orphaned drafts drop out of
+   * listings — they are unactionable anyway, and reachable by id.
+   */
+  private async readableTargetIds(
+    entries: { type: RevisionTargetType; id: string }[],
+  ): Promise<Set<string>> {
+    const readable = new Set<string>();
+    const byType = new Map<RevisionTargetType, string[]>();
+    for (const { type, id } of entries) {
+      byType.set(type, [...(byType.get(type) ?? []), id]);
+    }
+    for (const [type, ids] of byType) {
+      const model = getAdapter(type).getModel(this.context);
+      if (!model) continue;
+      const found = (await model.getByIds([...new Set(ids)])) as {
+        id: string;
+      }[];
+      for (const entity of found) readable.add(entity.id);
+    }
+    return readable;
+  }
+
   // Read-filtered pagination core. Pagination and `total` are computed over the
   // rows the caller may READ — a raw count both leaked how much activity exists
   // in projects the caller cannot see and broke pagination (pages under-filled
@@ -498,6 +534,7 @@ export class RevisionModel extends BaseClass {
             id: 1,
             dateCreated: 1,
             "target.type": 1,
+            "target.id": 1,
             "target.snapshot.project": 1,
             "target.snapshot.projects": 1,
           },
@@ -508,8 +545,16 @@ export class RevisionModel extends BaseClass {
       )
       .toArray();
 
+    // Readability from the LIVE entity, not the snapshot — see
+    // readableTargetIds. One batch per entity type for the whole result set.
+    const readableTargets = await this.readableTargetIds(
+      projected.map((doc) => ({
+        type: doc.target?.type as RevisionTargetType,
+        id: doc.target?.id as string,
+      })),
+    );
     const readableIds = projected
-      .filter((doc) => this.canRead(doc as unknown as Revision))
+      .filter((doc) => readableTargets.has(doc.target?.id as string))
       .map((doc) => doc.id as string);
 
     const pageIds = readableIds.slice(
@@ -589,32 +634,34 @@ export class RevisionModel extends BaseClass {
   private async countReadable(
     filter: Record<string, unknown>,
   ): Promise<number> {
-    // The common case — a caller who can read every project — keeps the O(1)
-    // count; the projected scan below exists only for project-limited callers.
-    // Sampling both scopes: readable-with-no-projects covers global entities,
-    // and the org-wide projects question covers the rest.
-    if (
-      this.context.permissions.canReadMultiProjectResource([]) &&
-      this.context.permissions.canReadMultiProjectResource(
-        await this.context.getAllProjectIds(),
-      )
-    ) {
-      return this._countDocuments(filter);
-    }
+    // No permission short-circuit here. An "can this caller read everything"
+    // fast path skipped the live-entity basis below, so the count kept including
+    // revisions whose entity has since moved out of reach or been deleted — and
+    // it read as TRUE whenever the org resolves no projects, which is fail-open.
+    // The scan is projected (a few fields, indexed filter) and bounded by the
+    // open-revision count, which is small by nature.
     const projected = await this._dangerousGetCollection()
       .find(
         { organization: this.context.org.id, ...filter },
         {
           projection: {
             "target.type": 1,
+            "target.id": 1,
             "target.snapshot.project": 1,
             "target.snapshot.projects": 1,
           },
         },
       )
       .toArray();
-    return projected.filter((doc) => this.canRead(doc as unknown as Revision))
-      .length;
+    const readableTargets = await this.readableTargetIds(
+      projected.map((doc) => ({
+        type: doc.target?.type as RevisionTargetType,
+        id: doc.target?.id as string,
+      })),
+    );
+    return projected.filter((doc) =>
+      readableTargets.has(doc.target?.id as string),
+    ).length;
   }
 
   async getByTarget(entityType: RevisionTargetType, entityId: string) {
