@@ -29,7 +29,7 @@ import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import PermissionBlocker from "@/components/PermissionBlocker";
+import PermissionBlocker from "@/ui/PermissionBlocker";
 
 function EnvStateIcon({ enabled }: { enabled: boolean }) {
   return enabled ? (

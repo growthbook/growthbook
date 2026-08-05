@@ -47,6 +47,7 @@ import {
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { format } from "date-fns";
+import { holdsFeatureMoveDestination } from "@/components/Revision/revisionAuthority";
 import EventUser from "@/components/Avatar/EventUser";
 import { getCurrentUser, useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -114,7 +115,7 @@ type ReviewSubTab = "overview" | "changes";
 import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
 import NoticeBanner from "@/components/Reviews/NoticeBanner";
 import HelperText from "@/ui/HelperText";
-import PermissionBlocker from "@/components/PermissionBlocker";
+import PermissionBlocker from "@/ui/PermissionBlocker";
 import Metadata from "@/ui/Metadata";
 import ReviewCommentPopover from "@/components/Reviews/ReviewCommentPopover";
 import CommentComposer from "@/components/Comments/CommentComposer";
@@ -1557,11 +1558,19 @@ export default function ReviewAndPublish({
     environments,
   );
   const hasPublishPermission =
-    permissionsUtil.canPublishFeature(feature, affectedRevisionEnvs) ||
-    (draftStagesRevert &&
-      permissionsUtil.canRevertFeature(feature, affectedRevisionEnvs)) ||
-    (draftStagesArchive &&
-      permissionsUtil.canDeleteFeature(feature, affectedRevisionEnvs));
+    (permissionsUtil.canPublishFeature(feature, affectedRevisionEnvs) ||
+      (draftStagesRevert &&
+        permissionsUtil.canRevertFeature(feature, affectedRevisionEnvs)) ||
+      (draftStagesArchive &&
+        permissionsUtil.canDeleteFeature(feature, affectedRevisionEnvs))) &&
+    // A draft that also relocates the flag lands in the destination, so the
+    // narrow atoms above don't carry it — same rule the publish endpoint applies.
+    holdsFeatureMoveDestination(
+      permissionsUtil,
+      feature,
+      mergeResult?.success ? mergeResult.result.metadata?.project : undefined,
+      affectedRevisionEnvs,
+    );
 
   // Publishing is currently blocked (merge conflict, required rebase/divergence,
   // ramp lockdown, or nothing to publish). Used to suppress the reviewer's

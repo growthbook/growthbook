@@ -174,26 +174,54 @@ export default function RoleForm({
     }
   });
 
-  // A policy and its individual atoms are two ways to grant the same thing, so
-  // only one is ever active: selecting the policy drops its atoms from
-  // permissions[] (they render locked instead), and clearing the policy leaves
-  // the atoms free to compose.
+  // A policy checkbox is a select-all over its individual permissions: checked
+  // when the bundle itself is granted, indeterminate when only some parts are.
+  // Toggling it grants or clears the whole group.
   const togglePolicy = (policy: Policy) => {
     const current = form.getValues("policies");
-    const selecting = !current.includes(policy);
+    const parts = new Set<string>(POLICY_PARTS[policy] || []);
+    const granted =
+      current.includes(policy) || current.some((p) => parts.has(p));
+    if (granted) {
+      // Clear the bundle and every part, so a second click after ejecting into
+      // the indeterminate state turns the whole group off rather than half of it.
+      form.setValue(
+        "policies",
+        current.filter((p) => p !== policy && !parts.has(p)),
+      );
+      return;
+    }
+    // The bundle grants everything its parts do, so store it alone.
+    form.setValue("policies", [
+      ...current.filter((p) => !parts.has(p)),
+      policy,
+    ]);
+  };
+
+  // Toggling one permission ejects from the bundle: the whole-policy grant is
+  // replaced by the individual parts it covered, minus (or plus) this one. Nothing
+  // is disabled — a locked checkbox reads as broken, and the parent falls to
+  // indeterminate on its own once the bundle is gone.
+  const togglePolicyPart = (policy: Policy, part: Policy) => {
+    const current = form.getValues("policies");
+    const parts = (POLICY_PARTS[policy] || []) as Policy[];
+    const bundled = current.includes(policy);
+    const explicit = new Set<Policy>(
+      bundled ? parts : parts.filter((p) => current.includes(p)),
+    );
+    if (explicit.has(part)) explicit.delete(part);
+    else explicit.add(part);
+
+    const rest = current.filter(
+      (p) => p !== policy && !parts.includes(p as Policy),
+    );
+    // Back to every part? Collapse to the bundle rather than storing them all.
     form.setValue(
       "policies",
-      selecting ? [...current, policy] : current.filter((p) => p !== policy),
+      explicit.size === parts.length
+        ? [...rest, policy]
+        : [...rest, ...Array.from(explicit)],
     );
-    if (selecting) {
-      // The parent grants everything its parts do, so drop them rather than
-      // storing a redundant pair.
-      const parts = new Set<string>(POLICY_PARTS[policy] || []);
-      const next = form.getValues("policies").filter((p) => !parts.has(p));
-      if (next.length !== form.getValues("policies").length) {
-        form.setValue("policies", next);
-      }
-    }
   };
 
   const toggleExpanded = (policy: Policy) => {
@@ -302,10 +330,13 @@ export default function RoleForm({
                             description={policyData.description}
                           />
                           {policyData.warning ? (
-                            // Informational, not a validation error — so it sits
-                            // beside the checkbox rather than tinting it.
+                            // These are privilege-escalation notices ("can create
+                            // admin users"), so they take the attention tier rather
+                            // than the least-prominent warning one. Still beside the
+                            // checkbox rather than tinting it — not a validation
+                            // error.
                             <Box ml="5" mt="1">
-                              <HelperText status="warning" size="sm">
+                              <HelperText status="attention" size="sm">
                                 {policyData.warning}
                               </HelperText>
                             </Box>
@@ -332,17 +363,20 @@ export default function RoleForm({
                                       <Checkbox
                                         key={part}
                                         id={`${policy}-${part}-checkbox`}
-                                        // The bundle grants every part, so they
-                                        // read as checked and locked; otherwise
-                                        // they're individually selectable.
+                                        // Checked either because the bundle grants
+                                        // it or because it was picked directly.
                                         value={
                                           checked ||
                                           currentPolicies.includes(part)
                                         }
-                                        setValue={() => togglePolicy(part)}
-                                        disabled={
-                                          status === "viewing" || checked
+                                        setValue={() =>
+                                          togglePolicyPart(policy, part)
                                         }
+                                        disabled={status === "viewing"}
+                                        // Lighter than the policy above it, so the
+                                        // parent/child tiers read apart inside the
+                                        // disclosure.
+                                        weight="regular"
                                         label={meta.displayName}
                                         description={meta.description}
                                       />
@@ -372,7 +406,7 @@ export default function RoleForm({
                 Legacy grants
               </Text>
               <Box mb="3">
-                <HelperText status="warning" size="sm">
+                <HelperText status="attention" size="sm">
                   This role still grants access through retired policies. They
                   keep working, but they are not offered for new roles — uncheck
                   one to drop the access it carries.
@@ -406,7 +440,7 @@ export default function RoleForm({
           position="sticky"
           bottom="0"
           width="100%"
-          style={{ borderTop: "1px solid var(--slate-a5)" }}
+          style={{ borderTop: "1px solid var(--border-color-200)" }}
         >
           <Flex className="container-fluid pagecontents" align="center" gap="3">
             {error ? (

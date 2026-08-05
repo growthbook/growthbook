@@ -25,6 +25,9 @@ export interface Props {
   canBypassApproval: boolean;
   canRevert: boolean;
   canLandRevert?: boolean;
+  // Per-target, since a Constant's revert footprint is the environments the
+  // restore actually changes.
+  canLandRevertForTarget?: (targetRevision: Revision) => boolean;
   canLandArchive?: boolean;
   canDraft: boolean;
   close: () => void;

@@ -29,7 +29,7 @@ import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
-import PermissionBlocker from "@/components/PermissionBlocker";
+import PermissionBlocker from "@/ui/PermissionBlocker";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -169,6 +169,11 @@ export interface ReviewAndPublishTabProps<T> {
   // Publishing. The backend also narrows this per environment; this is the
   // project-level approximation used to decide whether to offer the action.
   canPublishEntity?: boolean;
+  // Whether the viewer holds the DESTINATION side of this revision's relocation,
+  // for the narrow-atom landing fallbacks below. Pages own environment footprints,
+  // so they answer it with `holdsRevisionDestination`. Defaults to permitted for
+  // entities that never move or carry no footprint.
+  holdsLandingDestination?: (action: "revert" | "delete") => boolean;
   // The viewer can bypass the approval requirement (admin).
   canBypassApproval: boolean;
   // When set, publishing is blocked and this reason is shown (e.g. the entity is
@@ -223,6 +228,7 @@ function ReviewAndPublishRevision<T>({
   canManageDraftsEntity,
   canPublishEntity,
   canBypassApproval,
+  holdsLandingDestination,
   publishBlockedReason,
   selectRevision,
   onPublish,
@@ -571,11 +577,15 @@ function ReviewAndPublishRevision<T>({
   // also decides whether a revert can be PROPOSED) would offer Publish to a
   // reverter the server refuses.
   const canLandRevert = canLandRevertEntity ?? canRevertEntity ?? canEditEntity;
+  // A draft that relocates the entity also takes authority in the DESTINATION, so
+  // the narrow-atom fallbacks must not offer Publish on source authority alone.
+  const holdsDestination = (action: "revert" | "delete") =>
+    holdsLandingDestination ? holdsLandingDestination(action) : true;
   const canPublishOrEdit =
     (!draftArchives || !!canDeleteEntity) &&
     ((canPublishEntity ?? canEditEntity) ||
-      (draftStagesRevert && canLandRevert) ||
-      (!!canDeleteEntity && draftIsPureArchive));
+      (draftStagesRevert && canLandRevert && holdsDestination("revert")) ||
+      (!!canDeleteEntity && draftIsPureArchive && holdsDestination("delete")));
   // Whether the viewer holds any authority at all — for the overflow menu and
   // the no-permission notice. Each individual action gates on its own atom.
   const hasAnyAuthority =

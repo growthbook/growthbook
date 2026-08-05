@@ -1,6 +1,7 @@
 import {
   holdsMoveDestination,
   NO_ENVIRONMENT_BINDING,
+  RevisionAction,
   RevisionModel,
 } from "shared/permissions";
 import { proposedProjectScope } from "shared/util";
@@ -60,20 +61,45 @@ export function canPublishRevisionEntity(
   liveEntity: ProjectScoped,
   environments: string[],
 ): boolean {
-  if (
-    !permissionsUtil.canRevisionAction(
+  return (
+    permissionsUtil.canRevisionAction(
       model,
       "publish",
       liveEntity,
       environments,
+    ) &&
+    holdsRevisionDestination(
+      permissionsUtil,
+      model,
+      "publish",
+      revision,
+      liveEntity,
+      environments,
     )
-  ) {
-    return false;
-  }
+  );
+}
+
+// Whether the viewer holds the DESTINATION of a revision that relocates the
+// entity, for one verb. Vacuously true when the revision doesn't move it, so it
+// is safe to AND into any landing decision.
+//
+// Split out from `canPublishRevisionEntity` because the narrow-atom fallbacks
+// need it separately: a reverter or a deleter may land a draft the publish atom
+// doesn't cover, but neither exemption extends across a move — there is no
+// revision in the destination to judge purity against, which is exactly the rule
+// the server applies.
+export function holdsRevisionDestination(
+  permissionsUtil: PermissionsUtil,
+  model: RevisionModel,
+  action: RevisionAction,
+  revision: { target?: { proposedChanges?: unknown } } | null | undefined,
+  liveEntity: ProjectScoped,
+  environments: string[],
+): boolean {
   return holdsMoveDestination({
     permissions: permissionsUtil,
     model,
-    action: "publish",
+    action,
     existing: liveEntity,
     proposed: {
       ...liveEntity,
@@ -81,6 +107,33 @@ export function canPublishRevisionEntity(
     },
     environments,
   });
+}
+
+// Whether the viewer may LAND a revert to a specific target revision.
+//
+// Two things vary by target and so cannot be answered once per page: the
+// environment footprint (only the environments the restore actually changes) and
+// the destination (restoring an older snapshot can move the entity back). Mirrors
+// the server's revert authority, which checks the revert atom over the footprint
+// and then the destination.
+export function canLandRevertToTarget(
+  permissionsUtil: PermissionsUtil,
+  model: RevisionModel,
+  liveEntity: ProjectScoped,
+  targetScope: ProjectScoped,
+  footprint: string[],
+): boolean {
+  return (
+    permissionsUtil.canRevisionAction(model, "revert", liveEntity, footprint) &&
+    holdsMoveDestination({
+      permissions: permissionsUtil,
+      model,
+      action: "revert",
+      existing: liveEntity,
+      proposed: { ...liveEntity, ...targetScope },
+      environments: footprint,
+    })
+  );
 }
 
 // Whether the viewer may land an archive/unarchive toggle.
@@ -119,5 +172,23 @@ export function canDeleteArchivedEntity(
       entity,
       NO_ENVIRONMENT_BINDING,
     )
+  );
+}
+
+// Whether the viewer holds the DESTINATION of a Feature Flag revision that
+// relocates the flag. Feature revisions carry a move as `metadata.project`
+// rather than a patch op, and the server requires PUBLISH authority there for
+// any landing — the narrow-atom exemptions don't cross a move.
+export function holdsFeatureMoveDestination(
+  permissionsUtil: PermissionsUtil,
+  feature: { project?: string },
+  destination: string | undefined,
+  environments: string[],
+): boolean {
+  if (destination === undefined) return true;
+  if ((destination || "") === (feature.project || "")) return true;
+  return permissionsUtil.canPublishFeature(
+    { project: destination },
+    environments,
   );
 }

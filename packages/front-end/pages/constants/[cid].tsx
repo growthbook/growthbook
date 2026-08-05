@@ -24,7 +24,9 @@ import {
   canCommentOnRevisionEntity,
   canDeleteArchivedEntity,
   canLandArchiveToggle,
+  canLandRevertToTarget,
   canPublishRevisionEntity,
+  holdsRevisionDestination,
 } from "@/components/Revision/revisionAuthority";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
@@ -634,6 +636,16 @@ export default function ConstantDetailPage(): React.ReactElement {
               constant,
               NO_ENVIRONMENT_BINDING,
             )}
+            holdsLandingDestination={(action) =>
+              holdsRevisionDestination(
+                permissionsUtil,
+                "constant",
+                action,
+                selectedRevision ?? displayRevision ?? null,
+                constant,
+                publishEnvironments,
+              )
+            }
             canCommentOnEntity={canCommentOnRevisionEntity(
               permissionsUtil,
               "constant",
@@ -732,6 +744,21 @@ export default function ConstantDetailPage(): React.ReactElement {
         <ConstantRevertModal
           canRevert={canRevertEntity}
           canLandRevert={canRevertLandingEntity}
+          // Recomputed per target: the picker can change it after mount, and both
+          // the footprint and the destination depend on which snapshot is restored.
+          canLandRevertForTarget={(t) => {
+            const snapshot = t.target.snapshot as ConstantInterface;
+            return canLandRevertToTarget(
+              permissionsUtil,
+              "constant",
+              constant,
+              { project: snapshot.project },
+              constantPublishEnvironments(
+                getConstantRevisionChange(snapshot, t.target.proposedChanges)
+                  .changedEnvironments,
+              ),
+            );
+          }}
           canLandArchive={canLandArchive}
           canDraft={canDraft}
           constant={constant}

@@ -6707,8 +6707,9 @@ paths:
       summary: Create a single feature
       description: >-
         Creates a new Feature Flag. The caller needs Create access in its
-        Project and Publish access for each environment where it starts enabled.
-        Rules are supplied as a top-level `rules` array; each rule includes
+        Project, plus Publish access for any environment the flag starts enabled
+        in — a flag that starts disabled everywhere needs Create alone. Rules
+        are supplied as a top-level `rules` array; each rule includes
         `allEnvironments` / `environments` scope fields.
 
 

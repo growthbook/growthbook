@@ -90,6 +90,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   canCommentOnRevisionEntity,
   canPublishRevisionEntity,
+  holdsRevisionDestination,
 } from "@/components/Revision/revisionAuthority";
 import SavedGroupDraftSelectorForChanges, {
   DraftMode,
@@ -976,7 +977,7 @@ export default function EditSavedGroupPage() {
                   }
                   tooltip={
                     !canDraft
-                      ? "You don't have permission to edit this saved group."
+                      ? "You don't have permission to edit this Saved Group."
                       : metadataReviewRequired && isMerged
                         ? "You cannot edit a merged revision."
                         : metadataReviewRequired && isDiscarded
@@ -1096,6 +1097,16 @@ export default function EditSavedGroupPage() {
               "delete",
               savedGroup,
             )}
+            holdsLandingDestination={(action) =>
+              holdsRevisionDestination(
+                permissionsUtil,
+                "saved-group",
+                action,
+                selectedRevision ?? displayRevision ?? null,
+                savedGroup,
+                NO_ENVIRONMENT_BINDING,
+              )
+            }
             canCommentOnEntity={canCommentOnRevisionEntity(
               permissionsUtil,
               "saved-group",

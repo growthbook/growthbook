@@ -16,6 +16,7 @@ import {
   filterUpdatableChanges,
 } from "back-end/src/revisions/EntityRevisionAdapter";
 import {
+  authorityRefused,
   makeBlockingGate,
   type PublishGate,
 } from "back-end/src/revisions/publishGates";
@@ -236,6 +237,8 @@ export function makeGenericBulkAdapter(
           }),
         );
       }
+
+      if (authorityRefused(gates)) return gates;
 
       // Entity-level guards + schema validation, evaluated against the
       // multi-entity end-state: the overlay context is both the read context

@@ -270,6 +270,17 @@ export type PublishGateDisposition =
 // (so its requiresPermission handling stays the single source of truth); the
 // non-flag paths encode each gate kind's authority:
 // - config-locked: never bypassed on publish (unlock is a separate action).
+// Whether authority has already refused this item, so gate collection should stop.
+//
+// Everything after the authority checks is expensive or side-effecting to a
+// caller who cannot land the change: entity guards, schema validation and the
+// org's sandboxed Custom Hooks all run there, and the gate list is a full
+// enumeration of the org's governance. A permission-denied gate is never
+// bypassable, so stopping early cannot change the outcome.
+export function authorityRefused(gates: PublishGate[]): boolean {
+  return gates.some((g) => g.type === "permission-denied");
+}
+
 // - approval-required: bypassed by the bypass-approval permission or the org
 // REST setting (labeled by which was the reason).
 // - stale-base: bypassed only by ignoreWarnings + force-merge authority.

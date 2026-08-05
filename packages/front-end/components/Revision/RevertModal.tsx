@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useMemo, useState, useEffect } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   Revision,
@@ -59,6 +59,12 @@ export interface Props<T extends RevertableEntity> {
   // Revert authority over the environments a landed restore would touch. Absent
   // for entities with no environment footprint, where it equals `canRevert`.
   canLandRevert?: boolean;
+  // Preferred over `canLandRevert` when the footprint depends on WHICH target is
+  // selected: the picker can change the target after mount, and a value computed
+  // once from the displayed revision then authorizes the wrong environments.
+  canLandRevertForTarget?: (targetRevision: {
+    target: { snapshot: unknown; proposedChanges: unknown };
+  }) => boolean;
   // Delete authority over the environments an archive would take the entity out
   // of. Staging an archive publishes nothing and stays project-scoped.
   canLandArchive?: boolean;
@@ -95,6 +101,7 @@ export default function RevertModal<T extends RevertableEntity>({
   canBypassApproval,
   canRevert,
   canLandRevert: canLandRevertEntity,
+  canLandRevertForTarget,
   canLandArchive: canLandArchiveEntity,
   canDraft,
   renderDraftSelector,
@@ -165,10 +172,16 @@ export default function RevertModal<T extends RevertableEntity>({
   // environments the entity serves, so the two are not the same question.
   const canLandArchive = canLandArchiveEntity ?? canReArchive;
   // Default the opt-in to the recovery direction (un-archive), opt-in for the
-  // more disruptive re-archive direction.
+  // more disruptive re-archive direction. Re-derived when the target changes: a
+  // lazy initializer runs once, so switching targets used to keep the previous
+  // one's answer — including leaving the box ticked for a target that no longer
+  // drifts.
   const [includeArchive, setIncludeArchive] = useState<boolean>(
     () => archiveDrifts && liveArchived && !targetArchived,
   );
+  useEffect(() => {
+    setIncludeArchive(archiveDrifts && liveArchived && !targetArchived);
+  }, [targetId, archiveDrifts, liveArchived, targetArchived]);
 
   // Reverts restore an already-reviewed state, so when the org allows it (or
   // doesn't require approval at all, or the viewer is an admin who can bypass)
@@ -183,7 +196,9 @@ export default function RevertModal<T extends RevertableEntity>({
   // publishes nothing and is project-scoped. The server splits the two, so one
   // boolean for both left an environment-limited reverter either unable to
   // propose or wrongly offered "Publish now".
-  const canLandRevert = canLandRevertEntity ?? canRevert;
+  const canLandRevert = canLandRevertForTarget
+    ? canLandRevertForTarget(targetRevision)
+    : (canLandRevertEntity ?? canRevert);
   const canPublishNow =
     (!approvalRequired || revertsBypassApproval
       ? canLandRevert

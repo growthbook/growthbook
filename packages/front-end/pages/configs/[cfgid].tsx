@@ -58,6 +58,7 @@ import {
   canDeleteArchivedEntity,
   canLandArchiveToggle,
   canPublishRevisionEntity,
+  holdsRevisionDestination,
 } from "@/components/Revision/revisionAuthority";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
@@ -2165,6 +2166,16 @@ export default function ConfigDetailPage(): React.ReactElement {
                   config,
                   configPublishEnvironments(config),
                 )}
+                holdsLandingDestination={(action) =>
+                  holdsRevisionDestination(
+                    permissionsUtil,
+                    "config",
+                    action,
+                    selectedRevision ?? displayRevision ?? null,
+                    config,
+                    configPublishEnvironments(config),
+                  )
+                }
                 canCommentOnEntity={canCommentOnRevisionEntity(
                   permissionsUtil,
                   "config",

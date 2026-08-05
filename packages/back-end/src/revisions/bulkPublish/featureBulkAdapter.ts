@@ -66,6 +66,7 @@ import { getErrorMessage } from "back-end/src/util/errors";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 import {
+  authorityRefused,
   gateOr5xx,
   makeBlockingGate,
 } from "back-end/src/revisions/publishGates";
@@ -272,6 +273,8 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         }),
       );
     }
+
+    if (authorityRefused(gates)) return gates;
 
     // The generic no-op merge path doesn't apply to features — a publish must
     // advance the live version pointer — so an empty revision blocks.

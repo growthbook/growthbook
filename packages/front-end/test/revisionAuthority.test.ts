@@ -2,6 +2,9 @@ import {
   canCommentOnRevisionEntity,
   canDeleteArchivedEntity,
   canLandArchiveToggle,
+  canLandRevertToTarget,
+  holdsFeatureMoveDestination,
+  holdsRevisionDestination,
 } from "@/components/Revision/revisionAuthority";
 
 /**
@@ -201,5 +204,162 @@ describe("archive and delete authority", () => {
         archived: true,
       }),
     ).toBe(true);
+  });
+});
+
+/**
+ * The destination side of a relocation. Both helpers exist because the source
+ * project answers the wrong question when a change moves the entity: landing it
+ * writes to the destination, and the narrow-atom exemptions (a pure revert, a
+ * pure archive) do not extend across a move.
+ */
+
+type ActionUtil = Parameters<typeof holdsRevisionDestination>[0];
+
+// Grants `action` only in the listed projects, over any environment.
+function actionUtil(
+  action: string,
+  projects: string[],
+  environments?: string[],
+): ActionUtil {
+  return {
+    canRevisionAction: (
+      _model: string,
+      asked: string,
+      obj: { project?: string; projects?: string[] },
+      envs?: string[],
+    ) => {
+      if (asked !== action) return false;
+      const scope = obj.projects ?? (obj.project ? [obj.project] : []);
+      const inProject = scope.length
+        ? scope.some((p) => projects.includes(p))
+        : projects.includes("");
+      if (!inProject) return false;
+      if (!environments || !envs?.length) return true;
+      return envs.every((e) => environments.includes(e));
+    },
+  } as unknown as ActionUtil;
+}
+
+const movesToC = {
+  target: {
+    proposedChanges: [{ op: "replace", path: "/project", value: "c" }],
+  },
+};
+
+describe("holdsRevisionDestination", () => {
+  it("passes vacuously when the revision moves nothing", () => {
+    expect(
+      holdsRevisionDestination(
+        actionUtil("revert", []),
+        "constant",
+        "revert",
+        { target: { proposedChanges: [{ op: "replace", path: "/value" }] } },
+        { project: "b" },
+        [],
+      ),
+    ).toBe(true);
+  });
+
+  it("refuses a move into a project the viewer lacks the verb in", () => {
+    expect(
+      holdsRevisionDestination(
+        actionUtil("revert", ["b"]),
+        "constant",
+        "revert",
+        movesToC,
+        { project: "b" },
+        [],
+      ),
+    ).toBe(false);
+  });
+
+  it("accepts a move into a project the viewer holds the verb in", () => {
+    expect(
+      holdsRevisionDestination(
+        actionUtil("revert", ["b", "c"]),
+        "constant",
+        "revert",
+        movesToC,
+        { project: "b" },
+        [],
+      ),
+    ).toBe(true);
+  });
+
+  it("asks about the verb it was given, not publish", () => {
+    // A deleter landing a pure archive that also relocates needs delete THERE.
+    expect(
+      holdsRevisionDestination(
+        actionUtil("publish", ["c"]),
+        "constant",
+        "delete",
+        movesToC,
+        { project: "b" },
+        [],
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("canLandRevertToTarget", () => {
+  it("requires the revert atom over the restore's own footprint", () => {
+    const util = actionUtil("revert", ["b"], ["dev"]);
+    expect(
+      canLandRevertToTarget(util, "constant", { project: "b" }, {}, ["dev"]),
+    ).toBe(true);
+    // The same viewer, restoring a snapshot that touches production.
+    expect(
+      canLandRevertToTarget(util, "constant", { project: "b" }, {}, ["prod"]),
+    ).toBe(false);
+  });
+
+  it("refuses a restore that moves the entity somewhere the viewer cannot revert", () => {
+    expect(
+      canLandRevertToTarget(
+        actionUtil("revert", ["b"]),
+        "constant",
+        { project: "b" },
+        { project: "c" },
+        [],
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("holdsFeatureMoveDestination", () => {
+  const util = {
+    canPublishFeature: (f: { project?: string }, envs: string[]) =>
+      f.project === "c" && envs.every((e) => e === "dev"),
+  } as unknown as Parameters<typeof holdsFeatureMoveDestination>[0];
+
+  it("passes when the revision names no project", () => {
+    expect(
+      holdsFeatureMoveDestination(util, { project: "b" }, undefined, ["prod"]),
+    ).toBe(true);
+  });
+
+  it("passes when the named project is the one it already lives in", () => {
+    expect(
+      holdsFeatureMoveDestination(util, { project: "b" }, "b", ["prod"]),
+    ).toBe(true);
+  });
+
+  it("requires publish authority in the destination, over the same footprint", () => {
+    expect(
+      holdsFeatureMoveDestination(util, { project: "b" }, "c", ["dev"]),
+    ).toBe(true);
+    expect(
+      holdsFeatureMoveDestination(util, { project: "b" }, "c", ["prod"]),
+    ).toBe(false);
+    expect(
+      holdsFeatureMoveDestination(util, { project: "b" }, "d", ["dev"]),
+    ).toBe(false);
+  });
+
+  it("treats a move to no project as a move", () => {
+    expect(
+      holdsFeatureMoveDestination(util, { project: "b" }, "", ["dev"]),
+    ).toBe(false);
   });
 });
