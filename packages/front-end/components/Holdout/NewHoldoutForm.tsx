@@ -16,7 +16,12 @@ import { Tooltip, Separator } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import { FeatureEnvironment } from "shared/types/feature";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import {
+  coverageToHoldoutSize,
+  holdoutSizeToCoverage,
+  HoldoutInterfaceStringDates,
+  MAX_HOLDOUT_SIZE,
+} from "shared/validators";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
@@ -570,18 +575,28 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                     isNaN(form.watch("phases.0.coverage") ?? 0)
                       ? ""
                       : decimalToPercent(
-                          (form.watch("phases.0.coverage") ?? 0) / 2,
+                          coverageToHoldoutSize(
+                            form.watch("phases.0.coverage") ?? 0,
+                          ),
                         )
                   }
                   onChange={(e) => {
-                    let decimal = percentToDecimal(e.target.value);
-                    if (decimal > 1) decimal = 1;
-                    if (decimal < 0) decimal = 0;
-                    form.setValue("phases.0.coverage", decimal * 2);
+                    // The entered value is the holdout size, not the coverage.
+                    // Clamp it to MAX_HOLDOUT_SIZE so the held-out group plus
+                    // its equally-sized control group never exceed all traffic.
+                    let holdoutSize = percentToDecimal(e.target.value);
+                    if (holdoutSize > MAX_HOLDOUT_SIZE) {
+                      holdoutSize = MAX_HOLDOUT_SIZE;
+                    }
+                    if (holdoutSize < 0) holdoutSize = 0;
+                    form.setValue(
+                      "phases.0.coverage",
+                      holdoutSizeToCoverage(holdoutSize),
+                    );
                   }}
                   type="number"
                   min={0}
-                  max={100}
+                  max={decimalToPercent(MAX_HOLDOUT_SIZE)}
                   step="0.01"
                 />
                 <span>%</span>
