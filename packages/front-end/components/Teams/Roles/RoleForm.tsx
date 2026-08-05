@@ -176,15 +176,19 @@ export default function RoleForm({
 
   // A policy checkbox is a select-all over its individual permissions: checked
   // when the bundle itself is granted, indeterminate when only some parts are.
-  // Toggling it grants or clears the whole group.
+  // Clicking it selects the whole group, or clears it when the group is already
+  // whole — so from indeterminate it fills in rather than discarding the picks
+  // the user just made.
   const togglePolicy = (policy: Policy) => {
     const current = form.getValues("policies");
-    const parts = new Set<string>(POLICY_PARTS[policy] || []);
-    const granted =
-      current.includes(policy) || current.some((p) => parts.has(p));
-    if (granted) {
-      // Clear the bundle and every part, so a second click after ejecting into
-      // the indeterminate state turns the whole group off rather than half of it.
+    const partList = (POLICY_PARTS[policy] || []) as Policy[];
+    const parts = new Set<string>(partList);
+    // Every part selected individually reads as whole too — how a role saved
+    // before the bundle existed comes back.
+    const whole =
+      current.includes(policy) ||
+      (partList.length > 0 && partList.every((p) => current.includes(p)));
+    if (whole) {
       form.setValue(
         "policies",
         current.filter((p) => p !== policy && !parts.has(p)),
