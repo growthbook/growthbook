@@ -14,14 +14,16 @@ import {
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getQueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
-  buildExperimentBulkResultId,
   createSnapshotAnalysesBatched,
   createSnapshotAnalysis,
+  toSnapshotApiInterface,
+} from "back-end/src/services/experiments";
+import {
+  buildExperimentBulkResultId,
   safeFloatOrNull,
   toApiResultAnalysis,
   toExperimentSnapshotBulkResultsApiInterface,
-  toSnapshotApiInterface,
-} from "back-end/src/services/experiments";
+} from "back-end/src/api/experiments/bulkResultSerialization";
 
 jest.mock("back-end/src/services/stats", () => ({
   analyzeExperimentResults: jest.fn(),

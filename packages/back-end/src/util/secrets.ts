@@ -321,7 +321,7 @@ export const EXPERIMENT_BULK_RESULTS_ENABLED = stringToBoolean(
 
 export const EXPERIMENT_BULK_RESULTS_RATE_LIMIT_MAX = parseEnvInt(
   process.env.EXPERIMENT_BULK_RESULTS_RATE_LIMIT_MAX,
-  10,
+  60,
   { min: 1, name: "EXPERIMENT_BULK_RESULTS_RATE_LIMIT_MAX" },
 );
 

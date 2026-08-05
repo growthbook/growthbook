@@ -4,10 +4,8 @@ import { getExperimentBulkResultsValidator } from "shared/validators";
 import { ApiRequestLocals } from "back-end/types/api";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { findSnapshotsByExperiment } from "back-end/src/models/ExperimentSnapshotModel";
-import {
-  getMetricMapForExperimentSnapshots,
-  toExperimentSnapshotBulkResultsApiInterface,
-} from "back-end/src/services/experiments";
+import { getMetricMapForExperimentSnapshots } from "back-end/src/services/experiments";
+import { toExperimentSnapshotBulkResultsApiInterface } from "back-end/src/api/experiments/bulkResultSerialization";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
   createApiRequestHandler,
