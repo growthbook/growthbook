@@ -48,14 +48,12 @@ function FunnelCard({
   inlineSummary,
   onEdit,
   children,
-  disabled = false,
 }: {
   title: string;
   titleColor?: "text-disabled" | "text-high";
   inlineSummary?: ReactNode;
   onEdit?: (() => void) | null;
   children?: ReactNode;
-  disabled?: boolean;
 }) {
   return (
     <Box
@@ -77,7 +75,7 @@ function FunnelCard({
             </Text>
           ) : null}
         </Flex>
-        {onEdit && !disabled ? (
+        {onEdit ? (
           <IconButton
             variant="ghost"
             color="violet"
@@ -249,7 +247,6 @@ export default function TrafficAllocationFunnel({
                     {namespaceName}
                   </Text>
                 }
-                disabled={!safeToEdit}
               />
               <FunnelConnector label={includedLabel} />
             </>
@@ -266,7 +263,6 @@ export default function TrafficAllocationFunnel({
                 </Text>
               )
             }
-            disabled={!safeToEdit}
           >
             <Flex direction="column" gap="4">
               <AssignmentAttribute experiment={experiment} />
@@ -305,11 +301,7 @@ export default function TrafficAllocationFunnel({
 
           <FunnelConnector />
 
-          <FunnelCard
-            title="Traffic"
-            onEdit={editTraffic}
-            disabled={!safeToEdit}
-          >
+          <FunnelCard title="Traffic" onEdit={editTraffic}>
             {!isHoldout ? (
               <Box mb="1">
                 <Text weight="semibold" color="text-high">
