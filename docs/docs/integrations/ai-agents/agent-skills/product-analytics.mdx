@@ -1,0 +1,51 @@
+---
+title: Product Analytics skills
+description: "The GrowthBook Agent Skills for Product Analytics: search your metrics and fact tables, then chart data over time from your AI agent, with a deep link back to the rendered chart."
+sidebar_label: Product Analytics skills
+---
+
+These [Agent Skills](/integrations/ai-agents/agent-skills) let you explore your product data from your AI agent: find the metrics and fact tables you have, then chart them and read back the numbers. Install the plugin and run [`/growthbook:gb-setup`](/integrations/ai-agents/agent-skills#installation) first.
+
+You can invoke the skills directly or your agent may run these skills automatically when it detects matching intent.
+
+## Prerequisites
+
+- **A SQL warehouse datasource**, [connected in the GrowthBook UI](/warehouses). Explorations run real queries against your warehouse (Postgres, BigQuery, Snowflake, and the like). Mixpanel and Google Analytics datasources can't run explorations.
+- **At least one fact metric or [Fact Table](/app/metrics#fact-tables)** to chart. Only fact metrics (IDs starting `fact__`) can be explored. Legacy metrics work in experiments but not in Product Analytics.
+- These skills read and query your data. They never create or edit metrics, fact tables, or dashboards.
+
+## The two skills
+
+`metric-search` is the discovery front door, and `analytics-explore` runs the chart. Search for what you want, then explore it.
+
+| Skill              | What it does                                                                                                                            | Example prompt                                 |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `metric-search`    | Search, list, and audit your metrics and fact tables: inventory, look up a definition, or triage what's chartable. Read-only.          | "What metrics do we have tagged growth?"       |
+| `analytics-explore` | Build and run a Product Analytics exploration from a metric, a fact table, or a raw warehouse table, then report the numbers and a link to the chart. | "Chart daily active users over the last month" |
+
+## What you can chart
+
+`analytics-explore` supports three dataset types, and picks the right one for your request:
+
+- **A fact metric** ("signup conversion", "revenue"). Preferred when a metric exists, because it carries curated logic (filters, aggregation, capping) that a raw aggregation won't reproduce.
+- **A fact table aggregation** ("orders by country", "unique users"). Counts, distinct-unit counts, and sums straight off a fact table.
+- **A raw warehouse table** with no fact table defined on it, using your data source's information schema.
+
+You control the shape of the result through natural language: the chart type (line, bar, big number, and more), the date range, a breakdown dimension ("break that down by plan"), and row filters. Follow-ups like "make it a bar chart" or "last 90 days instead" adjust the previous chart rather than rebuilding it.
+
+## Reading the results
+
+Every exploration returns the underlying numbers plus a deep link that opens the interactive chart in GrowthBook, which is your visual. Your agent reports the key figures inline and hands you the link to explore further.
+
+:::info Analytics, not experiment results
+These skills answer general questions about your product data. For A/B test readouts (lifts, confidence intervals, guardrails), use the [`experiment-analyze`](/integrations/ai-agents/agent-skills/experiments) skill instead.
+:::
+
+## Next steps
+
+- [Experiment skills](/integrations/ai-agents/agent-skills/experiments): brainstorm, design, launch, analyze, and stop tests
+- [Feature flag skills](/integrations/ai-agents/agent-skills/feature-flags): create, target, roll out, and clean up flags
+- [Agent Skills overview](/integrations/ai-agents/agent-skills): install and setup
+- [Product Analytics documentation](/app/product-analytics): the underlying concepts
+
+[Join our community Slack for additional tips and tricks](https://join.slack.com/t/growthbookusers/shared_invite/zt-2xw8fu279-Y~hwnfCEf7WrEI9qScHURQ)

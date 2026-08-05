@@ -10,7 +10,7 @@ import TabItem from '@theme/TabItem';
 
 [Agent Skills](https://docs.claude.com/en/docs/agents-and-tools/agent-skills/overview) are folders of instructions, scripts, and resources that an AI agent loads on demand to carry out a specialized task. Anthropic introduced the format, and it works in any agent that follows the [Agent Skills standard](https://agentskills.io), including Claude Code, Cursor, and Codex.
 
-GrowthBook publishes a library of them that runs the entire feature flag and experiment lifecycle from your AI coding agent (create a flag, roll it out, run an experiment, read the results, and clean up afterward) without leaving your editor and **without running an MCP server**.
+GrowthBook publishes a library of them that runs the entire feature flag and experiment lifecycle from your AI coding agent (create a flag, roll it out, run an experiment, read the results, and clean up afterward), plus explore your product data, all without leaving your editor and **without running an MCP server**.
 
 Each skill is a playbook your agent follows: it knows the GrowthBook REST API, the right order of operations, and the guardrails (draft → review → publish, safe rollouts, two-step deletes) that keep changes safe.
 
@@ -101,11 +101,12 @@ Because each skill names its trigger phrases and routes to sibling skills, they 
 
 ## What's included
 
-The skills fall into three groups. The two reference pages list each one with an example prompt you can run.
+The skills fall into four groups. The three reference pages list each one with an example prompt you can run.
 
 - **Setup** — `gb-setup` configures and validates your API credentials.
 - **[Feature flag skills](/integrations/ai-agents/agent-skills/feature-flags)** — create, target, roll out, ramp, monitor, review, publish, search, and clean up flags across their full lifecycle.
 - **[Experiment skills](/integrations/ai-agents/agent-skills/experiments)** — brainstorm, design, launch, analyze, and stop A/B tests.
+- **[Product analytics skills](/integrations/ai-agents/agent-skills/product-analytics)** — search your metrics and fact tables, then chart your product data with a link back to the rendered chart.
 
 ## Example prompts
 
@@ -114,6 +115,7 @@ The skills fall into three groups. The two reference pages list each one with an
 - "Design an A/B test for the new pricing page and launch it on the `pricing-v2` flag."
 - "What are the results of our checkout experiment? Should we ship the winner?"
 - "Stop the `homepage-hero` experiment and roll the winning variation out to everyone."
+- "Chart daily active users over the last 30 days."
 
 ## Safety and governance
 
@@ -128,6 +130,7 @@ The skills follow GrowthBook's built-in safeguards:
 
 - [Feature flag skills](/integrations/ai-agents/agent-skills/feature-flags): the full flag catalog
 - [Experiment skills](/integrations/ai-agents/agent-skills/experiments): design, launch, analyze, and stop tests
+- [Product analytics skills](/integrations/ai-agents/agent-skills/product-analytics): search metrics and chart your product data
 - [Agent Skills vs. the MCP Server](/integrations/ai-agents)
 - [GrowthBook REST API](/app/api), which the skills call under the hood
 - [Skills source on GitHub](https://github.com/growthbook/skills)

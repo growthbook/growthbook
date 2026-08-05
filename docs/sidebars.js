@@ -686,6 +686,11 @@ export default {
                   id: "integrations/ai-agents/agent-skills/experiments",
                   label: "Experiment skills",
                 },
+                {
+                  type: "doc",
+                  id: "integrations/ai-agents/agent-skills/product-analytics",
+                  label: "Product Analytics skills",
+                },
               ],
             },
           ],
