@@ -1,10 +1,22 @@
-import { ApiContextualBanditInterface } from "shared/validators";
+import {
+  ApiContextualBanditInterface,
+  ContextualBanditSrmLatestPeriod,
+} from "shared/validators";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { SnapshotStatusSummary } from "shared/types/experiment-snapshot";
+import type {
+  ExperimentSnapshotTraffic,
+  SnapshotStatusSummary,
+} from "shared/types/experiment-snapshot";
 import type { ContextualBanditSnapshot } from "shared/types/stats";
 import type { ContextualBanditResultsView } from "shared/experiments";
 import type { LinkedFeatureInfo } from "shared/types/experiment";
+import {
+  getContextualBanditResultStatus,
+  getHealthSettings,
+} from "shared/enterprise";
+import type { IssueValue } from "@/components/HealthTab/IssueTags";
 import { useAuth } from "@/services/auth";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import useApi from "./useApi";
 
 /** Fetches CB docs from the REST API and returns the API shape directly. */
@@ -66,12 +78,22 @@ export function useContextualBandit(cbId: string | undefined) {
   };
 }
 
+export type ContextualBanditResultsLatest = SnapshotStatusSummary & {
+  srm?: {
+    statistic: number;
+    pValue: number;
+    degreesOfFreedom: number;
+    latestPeriod?: ContextualBanditSrmLatestPeriod;
+  } | null;
+  traffic?: ExperimentSnapshotTraffic | null;
+};
+
 export type ContextualBanditResultsResponse = {
   status: number;
   contextualBanditSnapshot: ContextualBanditSnapshot | null;
   overallWeights: { variationId: string; weight: number | null }[] | null;
   results: ContextualBanditResultsView | null;
-  latest: SnapshotStatusSummary | null;
+  latest: ContextualBanditResultsLatest | null;
 };
 
 /**
@@ -154,4 +176,75 @@ export function useContextualBanditLinkedFeatures(cbId: string | undefined) {
     error,
     mutate,
   };
+}
+
+/** Health inputs (srm / multipleExposures / totalUsers) driving the CB status badge and Health tab. */
+export type ContextualBanditStatusHealth = {
+  srm: number | null;
+  multipleExposures: number;
+  totalUsers: number;
+};
+
+/**
+ * Resolves the health inputs for a CB's status badge and Health tab.
+ */
+export function useContextualBanditStatusHealth(
+  cb: ApiContextualBanditInterface,
+): ContextualBanditStatusHealth | undefined {
+  const { latest } = useContextualBanditResults(cb.id);
+  return useMemo(() => {
+    if (latest?.status === "success") {
+      const totalUsers =
+        latest.traffic?.overall?.variationUnits?.reduce(
+          (sum, n) => sum + n,
+          0,
+        ) ?? 0;
+      return {
+        srm: latest.srm?.pValue ?? null,
+        multipleExposures: latest.multipleExposures ?? 0,
+        totalUsers,
+      };
+    }
+    const persisted = cb.analysisSummary?.health;
+    if (persisted) {
+      return {
+        srm: persisted.srm ?? null,
+        multipleExposures: persisted.multipleExposures,
+        totalUsers: persisted.totalUsers,
+      };
+    }
+    return undefined;
+  }, [cb.analysisSummary, latest]);
+}
+
+/**
+ * Computes the CB health issues (Balance / Multiple Exposures) for the current results snapshot.
+ */
+export function useContextualBanditHealthIssues(
+  cb: ApiContextualBanditInterface,
+): IssueValue[] {
+  const orgSettings = useOrgSettings();
+  const health = useContextualBanditStatusHealth(cb);
+  const numOfVariations = cb.variations.length;
+
+  return useMemo<IssueValue[]>(() => {
+    if (!health) return [];
+    const healthSettings = getHealthSettings(orgSettings);
+    const resultStatus = getContextualBanditResultStatus({
+      srm: health.srm,
+      multipleExposures: health.multipleExposures,
+      totalUsers: health.totalUsers,
+      numOfVariations,
+      healthSettings,
+    });
+    if (resultStatus?.status !== "unhealthy") return [];
+    const issues: IssueValue[] = [];
+    if (resultStatus.unhealthyData.srm) {
+      issues.push({ label: "Balance", value: "balanceCheck" });
+    }
+    if (resultStatus.unhealthyData.multipleExposures) {
+      issues.push({ label: "Multiple Exposures", value: "multipleExposures" });
+    }
+    return issues;
+  }, [health, orgSettings, numOfVariations]);
 }

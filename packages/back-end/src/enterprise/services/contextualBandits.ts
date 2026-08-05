@@ -1,6 +1,7 @@
 import { cloneDeep, isEqual, omit } from "lodash";
 import type {
   ExperimentSnapshotSettings,
+  ExperimentSnapshotTraffic,
   SnapshotStatusSummary,
 } from "shared/types/experiment-snapshot";
 import type { ContextualBanditSnapshot } from "shared/types/stats";
@@ -754,6 +755,9 @@ export type ContextualBanditResultsForUi = {
   latestSnapshotSummary: SnapshotStatusSummary | null;
   /** SRM of the latest snapshot run; null when the run has no SRM result. */
   srm: ContextualBanditSrmResult | null;
+  /** Health traffic of the latest snapshot run; null when unavailable. */
+  traffic: ExperimentSnapshotTraffic | null;
+  multipleExposures: number;
 };
 
 function mapCbsStatusToSnapshotStatus(
@@ -814,6 +818,8 @@ export async function getContextualBanditResultsForUi(
     contextualBanditSnapshot,
     latestSnapshotSummary,
     srm: latestSnapshot?.srm ?? null,
+    traffic: latestSnapshot?.traffic ?? null,
+    multipleExposures: latestSnapshot?.multipleExposures ?? 0,
   };
 }
 
@@ -987,7 +993,10 @@ export function contextualBanditWeightsWereUpdated(
   });
 }
 
-/** Persists one CB run's side effects: creates the CBE doc, patches parent CB leaf weights, refreshes SDK payload. */
+/**
+ * Persists one CB run's side effects: creates the CBE doc, patches parent CB leaf
+ * weights, refreshes SDK payload. Idempotent per snapshot.
+ */
 export async function persistContextualBanditEvent(
   context: ReqContext,
   cbs: ContextualBanditSnapshotInterface,
@@ -998,6 +1007,14 @@ export async function persistContextualBanditEvent(
   );
   if (!cb) {
     throw new Error(`No CB doc for ${cbs.contextualBandit}`);
+  }
+
+  // Idempotency guard: this snapshot's run may be retried (e.g. if a later write
+  // in the same success path throws before the snapshot is linked).
+  const existingEvent =
+    await context.models.contextualBanditEvents.getBySnapshotId(cbs.id);
+  if (existingEvent) {
+    return existingEvent;
   }
 
   const currentLeafWeights = cb.currentLeafWeights ?? [];

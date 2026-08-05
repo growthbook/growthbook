@@ -383,6 +383,7 @@ describe("persistContextualBanditEvent", () => {
           update: jest.fn().mockResolvedValue(cb),
         },
         contextualBanditEvents: {
+          getBySnapshotId: jest.fn().mockResolvedValue(null),
           create: createCbeMock,
         },
       },
@@ -427,6 +428,51 @@ describe("persistContextualBanditEvent", () => {
     );
   });
 
+  it("is idempotent per snapshot: reuses an existing event without creating a duplicate or re-applying weights", async () => {
+    const cb = makeCb();
+    const cbs = makeCbs();
+    const result = makeResult();
+
+    const existingEvent = {
+      id: "cbe_existing",
+      organization: "org_1",
+      contextualBandit: cb.id,
+      snapshotId: cbs.id,
+      attributes: result.attributes,
+      responses: result.responses,
+      weightsWereUpdated: true,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    const createCbeMock = jest.fn();
+    const patchLeafWeightsMock = jest.fn();
+    const getBySnapshotIdMock = jest.fn().mockResolvedValue(existingEvent);
+
+    const context = {
+      org: { id: "org_1" },
+      models: {
+        contextualBandits: {
+          getById: jest.fn().mockResolvedValue(cb),
+          patchLeafWeights: patchLeafWeightsMock,
+          update: jest.fn().mockResolvedValue(cb),
+        },
+        contextualBanditEvents: {
+          getBySnapshotId: getBySnapshotIdMock,
+          create: createCbeMock,
+        },
+      },
+    } as unknown as ReqContext;
+
+    const cbe = await persistContextualBanditEvent(context, cbs, result);
+
+    expect(getBySnapshotIdMock).toHaveBeenCalledWith(cbs.id);
+    expect(cbe).toBe(existingEvent);
+    expect(createCbeMock).not.toHaveBeenCalled();
+    expect(patchLeafWeightsMock).not.toHaveBeenCalled();
+    expect(refreshLinkedFeaturePayloadsMock).not.toHaveBeenCalled();
+  });
+
   it("patches without bumping banditVersion on a no-weight run", async () => {
     const cb = makeCb();
     const cbs = makeCbs();
@@ -454,6 +500,7 @@ describe("persistContextualBanditEvent", () => {
           update: jest.fn().mockResolvedValue(cb),
         },
         contextualBanditEvents: {
+          getBySnapshotId: jest.fn().mockResolvedValue(null),
           create: createCbeMock,
         },
       },
@@ -520,6 +567,7 @@ describe("persistContextualBanditEvent", () => {
           update: updateMock,
         },
         contextualBanditEvents: {
+          getBySnapshotId: jest.fn().mockResolvedValue(null),
           create: createCbeMock,
         },
       },
@@ -558,6 +606,7 @@ describe("persistContextualBanditEvent", () => {
           update: jest.fn().mockResolvedValue(cb),
         },
         contextualBanditEvents: {
+          getBySnapshotId: jest.fn().mockResolvedValue(null),
           create: jest.fn().mockResolvedValue({
             id: "cbe_1",
             organization: "org_1",
