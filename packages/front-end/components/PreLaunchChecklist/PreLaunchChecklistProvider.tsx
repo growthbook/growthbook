@@ -93,9 +93,6 @@ export function PreLaunchChecklistProvider({
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [analysisModal, setAnalysisModal] = useState(false);
 
-  // Project-scoped connections only. Capability (visual/redirect) requirements
-  // are surfaced as their own checklist steps rather than filtering the list,
-  // so a valid project connection isn't hidden just because it lacks a flag.
   const projectConnections = useMemo(
     () =>
       connections.filter(

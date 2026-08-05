@@ -428,10 +428,6 @@ export function getChecklistItems({
         : undefined,
   });
 
-  // A valid project SDK connection isn't enough for visual/redirect changes —
-  // the connection must also opt into that change type. Surface these as their
-  // own steps so a customer with a working connection isn't confused by the
-  // generic "add an SDK Connection" step above.
   const hasAnyVisualChanges = visualChangesets.some((vc) =>
     hasVisualChanges(vc.visualChanges),
   );
