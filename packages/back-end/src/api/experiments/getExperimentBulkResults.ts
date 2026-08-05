@@ -57,10 +57,11 @@ export const getExperimentBulkResults = createApiRequestHandler({
   const dateEnd = new Date(req.query.dateEnd);
 
   const phase =
-    req.query.phase !== undefined && req.query.phase !== ""
-      ? parseInt(req.query.phase, 10)
-      : undefined;
-  if (phase !== undefined && isNaN(phase)) {
+    req.query.phase !== undefined ? parseInt(req.query.phase, 10) : undefined;
+  if (
+    (phase !== undefined && (isNaN(phase) || phase < 0)) ||
+    req.query.phase === ""
+  ) {
     throw new BadRequestError("Invalid phase");
   }
 
