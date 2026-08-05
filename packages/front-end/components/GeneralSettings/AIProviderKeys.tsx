@@ -245,19 +245,16 @@ function ProviderRow({
           title={`Remove the ${label} API key?`}
           content={
             <>
-              This key is shared by the whole organization, and it is stored
-              encrypted — it cannot be recovered once removed, only replaced.{" "}
+              The key cannot be recovered, only replaced.{" "}
               {isCloud() ? (
                 <>
-                  AI features using {label} models revert to GrowthBook&apos;s
-                  managed key, and their usage counts against your daily limit
-                  again.
+                  {label} models fall back to GrowthBook&apos;s managed key, and
+                  usage counts against your daily limit again.
                 </>
               ) : (
                 <>
-                  AI features using {label} models stop working until the{" "}
-                  <code>{envVar}</code> environment variable is set on this
-                  installation or a new key is saved here.
+                  {label} models stop working for everyone until{" "}
+                  <code>{envVar}</code> is set or a new key is saved.
                 </>
               )}
             </>
