@@ -2,6 +2,7 @@ import {
   canCommentOnRevisionEntity,
   canDeleteArchivedEntity,
   canLandArchiveToggle,
+  canEnableEnvironmentOnCreate,
   canLandRevertToTarget,
   holdsFeatureMoveDestination,
   holdsRevisionDestination,
@@ -361,5 +362,39 @@ describe("holdsFeatureMoveDestination", () => {
     expect(
       holdsFeatureMoveDestination(util, { project: "b" }, "", ["dev"]),
     ).toBe(false);
+  });
+});
+
+describe("canEnableEnvironmentOnCreate", () => {
+  const util = (create: string[], publish: string[]) =>
+    ({
+      canCreateFeature: (f: { project?: string }, envs: string[]) =>
+        f.project === "p" && envs.every((e) => create.includes(e)),
+      canPublishFeature: (f: { project?: string }, envs: string[]) =>
+        f.project === "p" && envs.every((e) => publish.includes(e)),
+    }) as unknown as Parameters<typeof canEnableEnvironmentOnCreate>[0];
+
+  it("requires both atoms in that environment", () => {
+    expect(
+      canEnableEnvironmentOnCreate(util(["dev"], ["dev"]), "p", "dev"),
+    ).toBe(true);
+  });
+
+  it("refuses a create-only role — the endpoint would too", () => {
+    expect(canEnableEnvironmentOnCreate(util(["dev"], []), "p", "dev")).toBe(
+      false,
+    );
+  });
+
+  it("refuses when create is missing in that environment", () => {
+    expect(canEnableEnvironmentOnCreate(util([], ["dev"]), "p", "dev")).toBe(
+      false,
+    );
+  });
+
+  it("is per environment, not per project", () => {
+    const u = util(["dev", "prod"], ["dev"]);
+    expect(canEnableEnvironmentOnCreate(u, "p", "dev")).toBe(true);
+    expect(canEnableEnvironmentOnCreate(u, "p", "prod")).toBe(false);
   });
 });

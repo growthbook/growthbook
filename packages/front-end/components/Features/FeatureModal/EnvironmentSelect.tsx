@@ -4,6 +4,7 @@ import { FeatureEnvironment } from "shared/types/feature";
 import { filterProjectsByEnvironment } from "shared/util";
 import { Box, Flex, Grid, Text } from "@radix-ui/themes";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
+import { canEnableEnvironmentOnCreate } from "@/components/Revision/revisionAuthority";
 import { featureStatusColors } from "@/components/Features/FeaturesOverview";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Checkbox from "@/ui/Checkbox";
@@ -51,13 +52,13 @@ const EnvironmentSelect: FC<{
     );
   }, [environments, project]);
 
-  // This modal creates flags, and the server gates creation on CREATE authority
-  // per environment — asking for publish hid environments a create-only user is
-  // entitled to switch on.
+  // Switching an environment on at creation puts the flag in that environment's
+  // payload straight away, so it takes publish there as well as create — the same
+  // pair the create endpoints check.
   const environmentsUserCanAccess = useMemo(() => {
-    return relevantEnvironments.filter((env) => {
-      return permissionsUtil.canCreateFeature({ project }, [env.id]);
-    });
+    return relevantEnvironments.filter((env) =>
+      canEnableEnvironmentOnCreate(permissionsUtil, project, env.id),
+    );
   }, [relevantEnvironments, permissionsUtil, project]);
 
   const latestRef = useRef({ environments, environmentSettings, setValue });
@@ -166,9 +167,13 @@ const EnvironmentSelect: FC<{
             {relevantEnvironments.map((env) => (
               <Checkbox
                 disabled={
-                  !permissionsUtil.canCreateFeature({ project }, [env.id])
+                  !canEnableEnvironmentOnCreate(
+                    permissionsUtil,
+                    project,
+                    env.id,
+                  )
                 }
-                disabledMessage="You don't have permission to create features in this environment."
+                disabledMessage="You don't have permission to create features enabled in this environment."
                 value={environmentSettings[env.id].enabled}
                 setValue={(enabled) => setValue(env, enabled === true)}
                 label={env.id}

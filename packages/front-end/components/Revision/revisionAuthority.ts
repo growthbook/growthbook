@@ -192,3 +192,21 @@ export function holdsFeatureMoveDestination(
     environments,
   );
 }
+
+// Whether an environment may be switched ON while creating a Feature Flag.
+//
+// Creating takes the create atom in that environment, and a flag that starts
+// enabled reaches the SDK payload immediately — so it takes publish there too,
+// which is exactly what the create endpoints check. Asking only about create
+// offered toggles the server then refused on submit.
+export function canEnableEnvironmentOnCreate(
+  permissionsUtil: PermissionsUtil,
+  project: string | undefined,
+  environmentId: string,
+): boolean {
+  const envs = [environmentId];
+  return (
+    permissionsUtil.canCreateFeature({ project }, envs) &&
+    permissionsUtil.canPublishFeature({ project }, envs)
+  );
+}
