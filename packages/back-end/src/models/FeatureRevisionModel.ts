@@ -28,6 +28,7 @@ import {
   RevisionReview,
   reviewerKeyForEventUser,
 } from "shared/validators";
+import { ConflictError } from "back-end/src/util/errors";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -1479,19 +1480,21 @@ export async function markRevisionAsPublished(
     original: revision,
   });
 
-  await FeatureRevisionModel.updateOne(
-    {
-      organization: revision.organization,
-      featureId: revision.featureId,
-      version: revision.version,
-    },
-    {
-      // A published revision's schedule and auto-publish arming are spent —
-      // disarm so consumers don't see a published revision still "armed".
-      $set: { ...changes, autoPublishOnApproval: false },
-      $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
-    },
+  // Guarded, like the bulk claim: the filter carried no status condition, so two
+  // concurrent publishes of the same revision both reported success, and the
+  // loser's compensation would then reopen the WINNER's published revision.
+  // A published revision's schedule and auto-publish arming are spent, so the
+  // claim disarms both rather than leaving a published revision still "armed".
+  const { claimed, claimStamp } = await applyRevisionPublishClaim(
+    revision,
+    changes,
+    revisionClaimBaseline(revision),
   );
+  if (!claimed) {
+    throw new ConflictError(
+      `Revision ${revision.version} of "${revision.featureId}" was published concurrently; retry`,
+    );
+  }
 
   // Fire and forget - no route that marks the revision as published expects the log to be there immediately
   // Note: no comment in the payload — publish events are plain lifecycle
@@ -1512,21 +1515,21 @@ export async function markRevisionAsPublished(
 
   await dispatchRevisionPublishedHook(context, revision);
 
-  return changes.datePublished ?? null;
+  return claimStamp;
 }
 
-// Bulk-publish claim: a guarded, side-effect-free publish transition. Guards
-// on the plan-time baseline (status + dateUpdated), so any outside change
-// since planning aborts before any live write. Hooks already ran at plan
-// time; the revision log entry and published-hook dispatch are deferred to
-// emitFeatureRevisionPublishedSideEffects.
-export async function claimFeatureRevisionAsPublished(
+// The guarded publish transition, shared by every path that claims one: single
+// publish, bulk, and the scheduler. Guards on the baseline the caller computed
+// its changes from (status + dateUpdated), so any outside change since then
+// aborts the claim instead of overwriting it.
+//
+// `changes` is the caller's, not recomputed here — the pre-write hook payload and
+// the stamp that lands must be the same values.
+async function applyRevisionPublishClaim(
   revision: FeatureRevisionInterface,
-  user: EventUser,
+  changes: Partial<FeatureRevisionInterface>,
   expected: { status: string; dateUpdated: Date },
-  comment?: string,
 ): Promise<{ claimed: boolean; claimStamp: Date | null }> {
-  const changes = computeRevisionPublishChanges(revision, user, comment);
   const outcome = await casUpdate(
     {
       organization: revision.organization,
@@ -1559,6 +1562,35 @@ export async function claimFeatureRevisionAsPublished(
     claimed: outcome === "applied",
     claimStamp: outcome === "applied" ? (changes.datePublished ?? null) : null,
   };
+}
+
+/** The baseline a revision read in this request represents. */
+function revisionClaimBaseline(revision: FeatureRevisionInterface): {
+  status: string;
+  dateUpdated: Date;
+} {
+  return {
+    status: revision.status,
+    dateUpdated: revision.dateUpdated ?? revision.dateCreated,
+  };
+}
+
+// Bulk-publish claim: side-effect-free, guarded on the PLAN-time baseline rather
+// than the revision as read, so any change between planning and committing aborts
+// before any live write. Hooks already ran at plan time; the revision log entry
+// and published-hook dispatch are deferred to
+// emitFeatureRevisionPublishedSideEffects.
+export async function claimFeatureRevisionAsPublished(
+  revision: FeatureRevisionInterface,
+  user: EventUser,
+  expected: { status: string; dateUpdated: Date },
+  comment?: string,
+): Promise<{ claimed: boolean; claimStamp: Date | null }> {
+  return applyRevisionPublishClaim(
+    revision,
+    computeRevisionPublishChanges(revision, user, comment),
+    expected,
+  );
 }
 
 /**

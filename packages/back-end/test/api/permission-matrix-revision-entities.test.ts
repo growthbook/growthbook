@@ -174,13 +174,14 @@ const CASES: Case[] = [
     name: "archive",
     envScopedAtom: true,
     allowed: OPERATION_ORACLE["archive"],
-    // Archiving a Constant takes the entity out of EVERY environment its base
-    // value feeds, so the delete atom must hold in all of them — a dev-limited
-    // deleter is refused. Configs answer for their scoped environments (none
-    // seeded here) and Saved Groups have no environment partition, so the
-    // restriction is inert for both.
+    // Archiving takes the entity out of EVERY environment it serves, so the
+    // delete atom must hold in all of them and a dev-limited deleter is refused.
+    // True of a Constant via its base value and of the BASE Config seeded here,
+    // which names no scoped environments and so feeds them all — an empty
+    // footprint would skip the check rather than narrow it. Only Saved Groups,
+    // with no environment partition at all, are unrestricted.
     allowedDevOnly: (e) =>
-      e.label === "Constants" ? [] : OPERATION_ORACLE["archive"],
+      e.label === "Saved Groups" ? OPERATION_ORACLE["archive"] : [],
     run: (e, id) => api.post(`/api/v1/${e.base}/${id}/archive`, {}),
   },
   {

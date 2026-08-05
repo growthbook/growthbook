@@ -63,6 +63,11 @@ export async function canRebaseWithNarrowAtom({
 // Staging an archive as a draft must not require an atom that landing it in one
 // step doesn't: archiving is delete-class, so the delete atom alone stages one.
 // Project-scoped, because staging publishes nothing.
+//
+// Callers must stage the archive flip ALONE — this atom is weaker than the draft
+// atom, so any other change riding along would be staged on authority that
+// doesn't cover it. The three archive endpoints take only `archived` from the
+// body; audited 2026-08-05.
 export function canStageArchiveDraft({
   permissions,
   model,
