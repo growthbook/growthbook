@@ -49,14 +49,9 @@ export function useContextualBandits(
 export function useContextualBandit(cbId: string | undefined) {
   const { data, error, mutate } = useApi<{
     contextualBandit: ApiContextualBanditInterface;
-  }>(
-    cbId
-      ? `/api/v1/contextual-bandits/${cbId}`
-      : "/api/v1/contextual-bandits/__missing__",
-    {
-      shouldRun: () => !!cbId,
-    },
-  );
+  }>(cbId ? `/api/v1/contextual-bandits/${cbId}` : "", {
+    shouldRun: () => !!cbId,
+  });
 
   return {
     loading: !!cbId && !error && !data,
@@ -85,9 +80,7 @@ export function useContextualBanditResults(cbId: string | undefined) {
 
   const { data, error, mutate, isValidating } =
     useApi<ContextualBanditResultsResponse>(
-      cbId
-        ? `/api/v1/contextual-bandits/${cbId}/results`
-        : "/api/v1/contextual-bandits/__missing__/results",
+      cbId ? `/api/v1/contextual-bandits/${cbId}/results` : "",
       { shouldRun: () => !!cbId },
     );
 
@@ -143,9 +136,7 @@ export type ContextualBanditLinkedFeaturesResponse = {
 export function useContextualBanditLinkedFeatures(cbId: string | undefined) {
   const { data, error, mutate } =
     useApi<ContextualBanditLinkedFeaturesResponse>(
-      cbId
-        ? `/api/v1/contextual-bandits/${cbId}/linked-features`
-        : "/api/v1/contextual-bandits/__missing__/linked-features",
+      cbId ? `/api/v1/contextual-bandits/${cbId}/linked-features` : "",
       { shouldRun: () => !!cbId },
     );
 

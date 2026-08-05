@@ -1,0 +1,73 @@
+diff --git a/packages/back-end/src/enterprise/models/ContextualBanditModel.ts b/packages/back-end/src/enterprise/models/ContextualBanditModel.ts
+index 2ae603b2e..458db05dd 100644
+--- a/packages/back-end/src/enterprise/models/ContextualBanditModel.ts
++++ b/packages/back-end/src/enterprise/models/ContextualBanditModel.ts
+@@ -32,7 +32,7 @@ import {
+   executeContextualBanditStop,
+ } from "back-end/src/services/contextualBanditChanges";
+ import {
+-  cancelContextualBanditSnapshot,
++  cancelContextualBanditLatestRunningSnapshot,
+   getContextualBanditLinkedFeatureInfo,
+   runContextualBanditSnapshot,
+ } from "back-end/src/enterprise/services/contextualBandits";
+@@ -164,7 +164,7 @@ const BaseClass = MakeModelClass({
+           if (!req.context.permissions.canRunContextualBandit(cb, envs)) {
+             req.context.permissions.throwPermissionError();
+           }
+-          await cancelContextualBanditSnapshot(req.context, cb);
++          await cancelContextualBanditLatestRunningSnapshot(req.context, cb);
+           return { status: 200 };
+         },
+       }),
+diff --git a/packages/back-end/src/enterprise/services/contextualBandits.ts b/packages/back-end/src/enterprise/services/contextualBandits.ts
+index 5b6423158..1dfcd290d 100644
+--- a/packages/back-end/src/enterprise/services/contextualBandits.ts
++++ b/packages/back-end/src/enterprise/services/contextualBandits.ts
+@@ -905,7 +905,7 @@ export async function runContextualBanditSnapshot(
+   };
+ }
+ 
+-export async function cancelContextualBanditSnapshot(
++export async function cancelContextualBanditLatestRunningSnapshot(
+   context: ApiReqContext,
+   cb: ContextualBanditInterface,
+ ): Promise<void> {
+diff --git a/packages/front-end/components/ContextualBandit/ContextualBanditDetailPage.tsx b/packages/front-end/components/ContextualBandit/ContextualBanditDetailPage.tsx
+index 4487473b1..e1a87cc60 100644
+--- a/packages/front-end/components/ContextualBandit/ContextualBanditDetailPage.tsx
++++ b/packages/front-end/components/ContextualBandit/ContextualBanditDetailPage.tsx
+@@ -230,12 +230,14 @@ export default function ContextualBanditDetailPage({
+     return (match?.weight ?? fallback) * 100;
+   };
+ 
+-  const experimentForVariations = useMemo(
+-    () =>
+-      ({
+-        id: cb.id,
+-        status: cb.status,
+-      }) as unknown as ExperimentInterfaceStringDates,
++  const experimentForVariations = useMemo<
++    Pick<ExperimentInterfaceStringDates, "id" | "status" | "type">
++  >(
++    () => ({
++      id: cb.id,
++      status: cb.status,
++      type: "multi-armed-bandit",
++    }),
+     [cb.id, cb.status],
+   );
+ 
+diff --git a/packages/front-end/components/Experiment/VariationsTable.tsx b/packages/front-end/components/Experiment/VariationsTable.tsx
+index 14130251f..07c261772 100644
+--- a/packages/front-end/components/Experiment/VariationsTable.tsx
++++ b/packages/front-end/components/Experiment/VariationsTable.tsx
+@@ -227,7 +227,7 @@ export function VariationBox({
+ }: {
+   i: number;
+   v: Variation;
+-  experiment: ExperimentInterfaceStringDates;
++  experiment: Pick<ExperimentInterfaceStringDates, "id" | "status" | "type">;
+   showDescription?: boolean;
+   showIds?: boolean;
+   showNoImage?: boolean;
