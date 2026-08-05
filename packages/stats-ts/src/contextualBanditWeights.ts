@@ -253,7 +253,7 @@ function partitionByContext(
         tuple,
         condition: attributeConditionFromMetricRow(
           row as Record<string, string | number | undefined>,
-          attributes,
+          attributes.map((attr) => attr.toLowerCase()),
         ),
         arms: Array.from({ length: varIds.length }, emptyArm),
       };
