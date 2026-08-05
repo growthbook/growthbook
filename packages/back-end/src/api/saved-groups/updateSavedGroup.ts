@@ -214,6 +214,7 @@ export const updateSavedGroup = createApiRequestHandler(
           fieldsToUpdate,
         ),
       ),
+    persistedFrom: (written) => written as unknown as Record<string, unknown>,
   });
   // Fire the revision-published event so REST-bypass publishes are observable
   // like every other publish path (the revert handler dispatches this too;

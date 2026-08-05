@@ -145,7 +145,7 @@ describe("restoreEntityPreImage", () => {
   it("restores a key the failed apply still owns", async () => {
     // Live holds what the apply wrote, so the apply is the last writer.
     getById.mockResolvedValue({ id: "const_1", value: "after" });
-    applyChanges.mockResolvedValue(["value"]);
+    applyChanges.mockResolvedValue({ persistedKeys: ["value"], written: {} });
 
     await restoreEntityPreImage({
       context,
@@ -167,7 +167,7 @@ describe("restoreEntityPreImage", () => {
 
   it("re-runs the adapter's cascade with the keys it restored", async () => {
     getById.mockResolvedValue({ id: "const_1", value: "after" });
-    applyChanges.mockResolvedValue(["value"]);
+    applyChanges.mockResolvedValue({ persistedKeys: ["value"], written: {} });
 
     await restoreEntityPreImage({
       context,
@@ -225,7 +225,7 @@ describe("restoreEntityPreImage", () => {
   it("leaves a key a later writer has since changed", async () => {
     // Someone else wrote after us; their value is newer intent, not ours to undo.
     getById.mockResolvedValue({ id: "const_1", value: "someone-elses" });
-    applyChanges.mockResolvedValue([]);
+    applyChanges.mockResolvedValue({ persistedKeys: [], written: {} });
 
     await restoreEntityPreImage({
       context,
@@ -241,7 +241,7 @@ describe("restoreEntityPreImage", () => {
   it("fails loudly when the restore write drops a field", async () => {
     getById.mockResolvedValue({ id: "const_1", value: "after" });
     // Normalization swallowed the field: reported as persisting nothing.
-    applyChanges.mockResolvedValue([]);
+    applyChanges.mockResolvedValue({ persistedKeys: [], written: {} });
 
     await expect(
       restoreEntityPreImage({
@@ -282,7 +282,7 @@ describe("restoreEntityPreImage", () => {
     ).resolves.toBe(false);
 
     getById.mockResolvedValue({ id: "const_1", value: "after" });
-    applyChanges.mockResolvedValue(["value"]);
+    applyChanges.mockResolvedValue({ persistedKeys: ["value"], written: {} });
     await expect(
       tryRestoreEntityPreImage({
         context,

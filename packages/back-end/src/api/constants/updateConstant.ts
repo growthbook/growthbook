@@ -223,6 +223,7 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
             fieldsToUpdate,
           ),
         ),
+      persistedFrom: (written) => written as unknown as Record<string, unknown>,
     });
     // Fire the revision-published event so REST publishes are observable like
     // every other publish path (the internal merge path and the revert handler

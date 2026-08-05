@@ -157,6 +157,7 @@ export async function landDirectChange<T>({
   revertedFrom,
   changes,
   write,
+  persistedFrom,
 }: {
   context: Context;
   entityType: Parameters<typeof getAdapter>[0];
@@ -171,6 +172,12 @@ export async function landDirectChange<T>({
   // write that is atomic on one document.
   changes?: Record<string, unknown>;
   write: () => Promise<T>;
+  // The doc the write PERSISTED, mapped from its own result — the ownership
+  // baseline compensation compares live against. Adapters and model hooks
+  // normalize, so the caller's intended `changes` is not it, and a re-read after
+  // failure can observe a concurrent writer. Omit only when the write returns
+  // nothing usable; compensation then falls back to a re-read.
+  persistedFrom?: (result: T) => Record<string, unknown> | null;
 }): Promise<{ merged: Revision; result: T }> {
   return withBufferedPayloadRefreshes(context, "direct-landing", async () => {
     // The same landing gate the revision engine runs, on the landing's own
@@ -215,6 +222,7 @@ export async function landDirectChange<T>({
     });
 
     let result: T;
+    let persisted: Record<string, unknown> | null = null;
     // Whether the entity write was reached. Compensation is only ever right for a
     // write that STARTED: the restore decides ownership by comparing live to the
     // value this landing intended, so running it after a pre-write refusal would
@@ -234,6 +242,7 @@ export async function landDirectChange<T>({
       });
       writeStarted = true;
       result = await write();
+      persisted = persistedFrom?.(result) ?? null;
     } catch (e) {
       // Live state first: an unrecorded partial change is the one outcome no retry
       // can repair, so the merged revision is only removed once live is back where
@@ -252,7 +261,8 @@ export async function landDirectChange<T>({
       // skipping the restore while history is still removed below.
       const written =
         changes && writeStarted && !casLost
-          ? await capturePostFailureSnapshot(context, entityType, entity.id)
+          ? (persisted ??
+            (await capturePostFailureSnapshot(context, entityType, entity.id)))
           : null;
       const restored =
         changes && writeStarted && !casLost
@@ -324,6 +334,7 @@ export async function applyRevertDirectly({
           guarded: true,
         }),
       ),
+    persistedFrom: (applied) => applied.written,
   });
   return merged;
 }

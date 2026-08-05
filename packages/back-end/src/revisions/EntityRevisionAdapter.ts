@@ -79,6 +79,21 @@ export function revisionActionHooks<TSnapshot extends Record<string, unknown>>({
   };
 }
 
+/**
+ * What an apply actually persisted: the top-level keys it wrote (post
+ * updatable-filter and post-normalization) and the doc the write RETURNED.
+ *
+ * `written` is the ownership baseline compensation needs, taken from the write
+ * itself rather than a re-read — a re-read after failure can observe a
+ * concurrent writer and mistake their values for this apply's own. `null` only
+ * when the apply threw before its entity write, in which case there is nothing
+ * of ours to put back.
+ */
+export type ApplyChangesResult = {
+  persistedKeys: string[];
+  written: Record<string, unknown> | null;
+};
+
 // Adapter interface that each entity type must implement to participate in the
 // revision system. All saved-group-specific logic lives in the saved-group adapter;
 // adding a new entity type requires only creating a new adapter and registering it.
@@ -207,7 +222,7 @@ export interface EntityRevisionAdapter<
     // winner. Every landing passes it; compensation and self-heal writes do not,
     // because they re-read first and mean to write over what they found.
     options?: { isRevert?: boolean; guarded?: boolean },
-  ): Promise<string[]>;
+  ): Promise<ApplyChangesResult>;
 
   // Validate that `desiredState` (the changes a merge would apply) can be
   // published, BEFORE the merge is claimed. Throwing here leaves the revision in

@@ -1,3 +1,5 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import { proposedProjectScope } from "shared/util";
 import type { Response } from "express";
 import {
   Revision,
@@ -10,6 +12,7 @@ import {
   isUserBlockedFromApproving,
 } from "shared/enterprise";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import {
   isArmedWithAuthorizedPublisher,
   planApproveAndPublish,
@@ -250,6 +253,24 @@ export const postRevision = async (
       context,
       originalEntity as Record<string, unknown>,
     )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+  // A draft that relocates the entity is authored in the DESTINATION as much as
+  // the source. Draft, not publish: staging publishes nothing — the landing gate
+  // asks for publish there when it lands.
+  if (
+    !holdsMoveDestination({
+      permissions: context.permissions,
+      model: entityType,
+      action: "draft",
+      existing: originalEntity as Record<string, unknown>,
+      proposed: {
+        ...(originalEntity as Record<string, unknown>),
+        ...proposedProjectScope(proposedChanges),
+      },
+      environments: NO_ENVIRONMENT_BINDING,
+    })
   ) {
     context.permissions.throwPermissionError();
   }
@@ -711,6 +732,23 @@ export const putProposedChanges = async (
       context,
       existingRevision.target.snapshot as Record<string, unknown>,
     )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+  // Rewriting the draft can ADD a relocation the original draft didn't carry, so
+  // the destination is re-judged against the incoming ops.
+  if (
+    !holdsMoveDestination({
+      permissions: context.permissions,
+      model: existingRevision.target.type,
+      action: "draft",
+      existing: existingRevision.target.snapshot as Record<string, unknown>,
+      proposed: {
+        ...(existingRevision.target.snapshot as Record<string, unknown>),
+        ...proposedProjectScope(proposedChanges),
+      },
+      environments: NO_ENVIRONMENT_BINDING,
+    })
   ) {
     context.permissions.throwPermissionError();
   }

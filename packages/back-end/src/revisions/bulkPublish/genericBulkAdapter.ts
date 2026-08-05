@@ -328,7 +328,7 @@ export function makeGenericBulkAdapter(
         // publish landing in between would otherwise be silently overwritten by
         // this older plan. A lost race throws, which routes the batch into the
         // existing compensation path.
-        revision.persistedKeys = await runGuardedWrite(
+        const applied = await runGuardedWrite(
           targetType,
           (entity as { id: string }).id,
           () =>
@@ -337,6 +337,11 @@ export function makeGenericBulkAdapter(
               guarded: true,
             }),
         );
+        revision.persistedKeys = applied.persistedKeys;
+        // The ownership baseline comes from the WRITE, not a re-read: a re-read
+        // after a mid-apply failure can observe a concurrent writer and hand
+        // compensation their values as if this apply had written them.
+        revision.writtenEntity = applied.written;
       } catch (e) {
         // A rejected CAS wrote NOTHING, so this item has nothing to restore. It
         // must be marked so before the `finally` below: the post-apply read would
@@ -352,18 +357,20 @@ export function makeGenericBulkAdapter(
         }
         throw e;
       } finally {
-        // The post-apply doc is compensation's ownership baseline — the write
-        // may normalize what it persists (config schemas stripped against
-        // ancestors), so desiredState isn't it. Captured in `finally` so a
-        // mid-cascade throw (root written, reconcile then fails) still records
-        // it. If even this read fails, flag it: without a baseline the restore
-        // can't run safely, so compensation reports the item published. Never
-        // rethrow — that would mask the original apply error.
-        try {
-          revision.writtenEntity =
-            (await model?.getById((entity as { id: string }).id)) ?? null;
-        } catch {
-          revision.writtenEntityUnavailable = true;
+        // FALLBACK ONLY. The apply reports its own persisted doc above, which is
+        // exact; this covers the one case that leaves no in-process record — a
+        // throw AFTER the entity write but before the apply returned (a Config
+        // root written, its descendant cascade then failing). A re-read can
+        // observe a concurrent writer, so it is used only when there is nothing
+        // better, and a failed read flags the item so compensation refuses to
+        // guess. Never rethrows: that would mask the original apply error.
+        if (revision.writtenEntity === undefined && !revision.casLost) {
+          try {
+            revision.writtenEntity =
+              (await model?.getById((entity as { id: string }).id)) ?? null;
+          } catch {
+            revision.writtenEntityUnavailable = true;
+          }
         }
       }
     },

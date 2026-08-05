@@ -12,6 +12,7 @@ import {
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
+  ApplyChangesResult,
   EntityRevisionAdapter,
   filterUpdatableChanges,
   revisionActionHooks,
@@ -167,14 +168,15 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
     entity: SavedGroupInterface,
     changes: Record<string, unknown>,
     options?: { isRevert?: boolean; guarded?: boolean },
-  ): Promise<string[]> {
+  ): Promise<ApplyChangesResult> {
     const filteredChanges = filterUpdatableChanges(
       changes,
       entity as Record<string, unknown>,
       UPDATABLE_FIELDS,
     );
 
-    if (Object.keys(filteredChanges).length === 0) return [];
+    if (Object.keys(filteredChanges).length === 0)
+      return { persistedKeys: [], written: null };
 
     // Reverts restore a previously-published condition as-is; skip the
     // registered-attributes check so an attribute removed/archived since the
@@ -184,14 +186,17 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
           context.models.savedGroups,
         )
       : context.models.savedGroups.update.bind(context.models.savedGroups);
-    await writeEntity(
+    const written = await writeEntity(
       entity,
       filteredChanges as Parameters<
         typeof context.models.savedGroups.update
       >[1],
       options?.isRevert ? { skipAttributeValidation: true } : undefined,
     );
-    return Object.keys(filteredChanges);
+    return {
+      persistedKeys: Object.keys(filteredChanges),
+      written: written as Record<string, unknown>,
+    };
   },
 
   // Snapshot the archive-dependents fingerprint when arming a deferred publish

@@ -16,6 +16,7 @@ import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import uniqid from "uniqid";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions";
+import type { ApplyChangesResult } from "back-end/src/revisions/EntityRevisionAdapter";
 import {
   buildMergeDesiredState,
   isRevisionDiverged,
@@ -751,17 +752,21 @@ async function publishRevisionInner(
     },
   );
 
+  let applied: ApplyChangesResult | undefined;
   try {
     // The claim guards the REVISION; this guards the ENTITY. Without it, two
     // drafts of the same entity could both pass their own claim and then apply in
     // either order, leaving live state contradicting the newest merged revision.
     // A lost race surfaces as the same retryable conflict every other landing
     // reports, and the compensation below reopens this revision.
-    await runGuardedWrite(revision.target.type, revision.target.id, () =>
-      adapter.applyChanges(context, entity, desiredState, {
-        isRevert: !!revision.revertedFrom,
-        guarded: true,
-      }),
+    applied = await runGuardedWrite(
+      revision.target.type,
+      revision.target.id,
+      () =>
+        adapter.applyChanges(context, entity, desiredState, {
+          isRevert: !!revision.revertedFrom,
+          guarded: true,
+        }),
     );
   } catch (e) {
     // Couldn't apply after claiming the merge. Two very different failures: a
@@ -774,16 +779,19 @@ async function publishRevisionInner(
     const casLost =
       e instanceof LandingConflictError || e instanceof CasConflictError;
     // Ownership is judged against what the adapter PERSISTED, not the intent:
-    // adapters normalize (a Config schema stripped as ancestor-owned), and
-    // comparing live to the unnormalized desiredState misreads "ours" as
-    // "someone else's" — skipping the restore while still reopening history.
-    const written = casLost
-      ? null
-      : await capturePostFailureSnapshot(
-          context,
-          revision.target.type,
-          revision.target.id,
-        );
+    // adapters normalize (a Config schema stripped as ancestor-owned), so the
+    // unnormalized desiredState misreads "ours" as "someone else's". The apply
+    // reports it directly; only a throw that lost the return value falls back to
+    // a re-read, which is why that path refuses to guess when it fails.
+    const written =
+      applied?.written ??
+      (casLost
+        ? null
+        : await capturePostFailureSnapshot(
+            context,
+            revision.target.type,
+            revision.target.id,
+          ));
     const entityRestored =
       casLost ||
       (written !== null &&

@@ -178,11 +178,13 @@ export async function restoreEntityPreImage({
         label: `${entityType} "${preImage.id}"`,
         // A pre-image is a state that was already live, so the restore is a
         // revert: skip the validations that exist to judge new intent.
-        write: (values) =>
-          adapter.applyChanges(context, current, values, {
-            isRevert: true,
-            guarded: true,
-          }),
+        write: async (values) =>
+          (
+            await adapter.applyChanges(context, current, values, {
+              isRevert: true,
+              guarded: true,
+            })
+          ).persistedKeys,
       });
       // Dependents the failed cascade already touched answer to the restored
       // root, not the one that was rolled back — the adapter re-runs its own
