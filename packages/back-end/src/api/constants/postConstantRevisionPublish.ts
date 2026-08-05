@@ -96,6 +96,7 @@ export const postConstantRevisionPublish = createApiRequestHandler(
     )) ?? []),
   );
   const { bypassed } = resolveEntityPublishGates({
+    entityType: "constant",
     req,
     gates,
     bypassApprovalPermission: adapter.canBypassApproval(

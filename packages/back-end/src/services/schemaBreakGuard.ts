@@ -64,8 +64,8 @@ function resolveDirectSchemaBreak(
   if (!violations.length) return;
   const blocking = context.org.settings?.blockPublishOnSchemaError !== false;
   if (blocking) {
-    // `context.skipSchemaValidation` already requires FlagsBypassApprovals.
-    if (context.skipSchemaValidation) {
+    // `context.canSkipSchemaValidationFor("config")` already requires FlagsBypassApprovals.
+    if (context.canSkipSchemaValidationFor("config")) {
       logger.info(
         { ...logKey, userId: context.userId, violations },
         "Schema-break guard skipped via skipSchemaValidation",
@@ -638,7 +638,7 @@ export async function captureConstantSchemaBreakAcknowledgment(
     "Scheduling this publish would break a dependent Config or feature value:\n" +
     violations.join("\n");
   if (context.org.settings?.blockPublishOnSchemaError !== false) {
-    if (!context.skipSchemaValidation) {
+    if (!context.canSkipSchemaValidationFor("config")) {
       throw new BadRequestError(
         body +
           "\nRe-submit with skipSchemaValidation (requires the FlagsBypassApprovals permission) to schedule anyway.",
@@ -931,7 +931,7 @@ export async function captureConfigSchemaBreakAcknowledgment(
     }
     return [...new Set(violations)].sort();
   }
-  if (!context.skipSchemaValidation) {
+  if (!context.canSkipSchemaValidationFor("config")) {
     throw new BadRequestError(
       body +
         "\nRe-submit with skipSchemaValidation (requires the FlagsBypassApprovals permission) to schedule anyway.",

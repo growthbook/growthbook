@@ -30,6 +30,7 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useEnvironments } from "@/services/features";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import Owner from "@/components/Avatar/Owner";
@@ -126,6 +127,7 @@ export default function ConstantDetailPage(): React.ReactElement {
   const { projects, mutateDefinitions } = useDefinitions();
   const { organization, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const environments = useEnvironments();
 
   const [editInfoOpen, setEditInfoOpen] = useState(false);
   const [editValueOpen, setEditValueOpen] = useState(false);
@@ -364,10 +366,12 @@ export default function ConstantDetailPage(): React.ReactElement {
     permissionsUtil,
     "constant",
     constant,
-    // Environment-UNBOUND, matching the archive endpoint: archiving asks about
-    // taking the whole entity out of service, not about whichever environments
-    // the currently selected revision happens to touch.
-    constantPublishEnvironments(),
+    // The SERVE footprint, matching the archive endpoints: the base value feeds
+    // every environment, so archiving takes delete authority in all of them. An
+    // earlier alignment made this unbound "to match the endpoint" — the endpoint
+    // itself was the bug (unbound means the env check is skipped, not held
+    // everywhere), and both sides now ask over every environment.
+    environments.map((e) => e.id),
   );
   const canArchiveNow =
     (canLandArchive || canEditNow) && (!selectedRevision || isDraft);

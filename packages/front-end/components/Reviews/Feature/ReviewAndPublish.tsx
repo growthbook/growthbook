@@ -1293,13 +1293,14 @@ export default function ReviewAndPublish({
         : null;
     const canManageDrafts = permissionsUtil.canEditFeatureDrafts(feature);
     // Revert authority alone is enough to offer the action — a revert-only role
-    // holds no draft rights. The modal re-checks per environment.
+    // holds no draft rights. UNBOUND, like the server's staging check and this
+    // file's own hasRevertAuthority: opening the flow proposes a revert, and the
+    // per-environment narrowing happens in the modal against the chosen target.
+    // Scoping the entry to every environment locked env-limited reverters out
+    // of the flow entirely.
     const canRevertHere =
       canManageDrafts ||
-      permissionsUtil.canRevertFeature(
-        feature,
-        environments.map((e) => e.id),
-      );
+      permissionsUtil.canRevertFeature(feature, NO_ENVIRONMENT_BINDING);
     const canRevert = canRevertHere && !!revertTarget;
     const isDiscarded = revision.status === "discarded";
     // The first published revision has nothing behind it to roll back to, so the

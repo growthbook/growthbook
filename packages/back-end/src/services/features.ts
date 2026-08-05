@@ -3096,7 +3096,7 @@ export function validateFeatureRuleValues(
 
 // Enforce JSON-schema validation for a feature's default value and/or rule
 // values. Validation is on by default; an explicit `?skipSchemaValidation=true`
-// opts out (see context.skipSchemaValidation). Pass the EFFECTIVE feature —
+// opts out (see context.canSkipSchemaValidationFor("feature")). Pass the EFFECTIVE feature —
 // i.e. one already carrying the inbound/draft `jsonSchema`, `valueType`, so a
 // request that changes the schema validates against the new schema.
 export function assertFeatureValuesValid(
@@ -3104,7 +3104,7 @@ export function assertFeatureValuesValid(
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
 ): void {
-  if (context.skipSchemaValidation) return;
+  if (context.canSkipSchemaValidationFor("feature")) return;
   if (values.defaultValue !== undefined) {
     validateFeatureValue(feature, values.defaultValue, "Default value");
   }
@@ -3151,7 +3151,7 @@ export function assertFeatureValuesValidForPublish(
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
 ): void {
-  if (context.skipSchemaValidation) return;
+  if (context.canSkipSchemaValidationFor("feature")) return;
 
   const errors = collectFeatureValueErrorsForPublish(feature, values);
   if (!errors.length) return;
@@ -3178,7 +3178,7 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
 ): FeatureRule[] => {
   // Honor the opt-in `?skipSchemaValidation=true` escape hatch: drop the schema
   // so values are still normalized (parse / dirty-json) but not schema-checked.
-  const valFeature = context.skipSchemaValidation
+  const valFeature = context.canSkipSchemaValidationFor("feature")
     ? { ...feature, jsonSchema: undefined }
     : feature;
   return rules.map((r) => {
@@ -3752,13 +3752,6 @@ export async function getMergeResultPublishEnvs({
     getEnabledEnvironments(feature, environmentIds),
   );
 
-  const hasGlobalChange =
-    result.defaultValue !== undefined ||
-    !!result.prerequisites ||
-    result.archived !== undefined ||
-    !!result.metadata;
-  if (hasGlobalChange) return allEnabledEnvs;
-
   const changedRuleEnvs =
     result.rules === undefined
       ? []
@@ -3776,11 +3769,28 @@ export async function getMergeResultPublishEnvs({
     environmentIds,
     result.holdout,
   );
+  const envScoped = new Set([
+    ...changedRuleEnvs,
+    ...changedToggleEnvs,
+    ...holdoutEnvs,
+  ]);
 
-  const envScoped = Array.from(
-    new Set([...changedRuleEnvs, ...changedToggleEnvs, ...holdoutEnvs]),
-  );
-  return envScoped.length > 0 ? envScoped : allEnabledEnvs;
+  const hasGlobalChange =
+    result.defaultValue !== undefined ||
+    !!result.prerequisites ||
+    result.archived !== undefined ||
+    !!result.metadata;
+  if (hasGlobalChange) {
+    // The environments the change REACHES, not just the ones already serving:
+    // a draft that both edits a global field and ENABLES an environment lands
+    // in that environment too. Returning currently-enabled alone let a
+    // staging-limited publisher enable production by pairing the toggle with
+    // any global edit — the exact hole revertFootprint closed on the revert
+    // side, still open here on the publish side.
+    return Array.from(new Set([...allEnabledEnvs, ...envScoped]));
+  }
+
+  return envScoped.size > 0 ? Array.from(envScoped) : allEnabledEnvs;
 }
 
 // `undefined` = merge didn't touch holdout. Otherwise unions the active

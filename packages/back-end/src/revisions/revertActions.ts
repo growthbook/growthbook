@@ -12,6 +12,7 @@ import {
 } from "back-end/src/revisions/landingSequence";
 import { CasConflictError, Context } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions";
+import { assertCanPublishRevision } from "back-end/src/revisions/revisionActions";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import {
   ensureLiveRevisionExists,
@@ -172,6 +173,26 @@ export async function landDirectChange<T>({
   write: () => Promise<T>;
 }): Promise<{ merged: Revision; result: T }> {
   return withBufferedPayloadRefreshes(context, "direct-landing", async () => {
+    // The same landing gate the revision engine runs, on the landing's own
+    // evidence — snapshot, ops, and revert provenance. Every caller asserts its
+    // own verb-shaped variant first (clearer errors); this one exists so a
+    // caller that under-asserts is not a bypass. The arms admit exactly the
+    // callers' semantics: publish for direct updates, delete for pure archives,
+    // revert for pure reverts.
+    await assertCanPublishRevision(
+      context,
+      {
+        target: {
+          type: entityType,
+          id: entity.id,
+          snapshot: entity,
+          proposedChanges: patchOps,
+        },
+        ...(revertedFrom ? { revertedFrom } : {}),
+      } as Revision,
+      entity,
+    );
+
     const baselineDateUpdated =
       (entity as { dateUpdated?: Date }).dateUpdated ?? null;
     // Before recording anything: a landing computed against a stale read must not

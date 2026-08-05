@@ -265,6 +265,37 @@ export async function canPublishFeatureRevisionChange(
   }
 }
 
+// Whether a merge result reaches the SDK payload at all. Inert metadata —
+// description, owner, tags, staleness, custom fields — lands without publish
+// authority (the pre-split `manageFeatures` semantic, pinned by the features
+// matrix); everything else is a live write. Named keys, not a complement, so a
+// new payload-affecting field fails safe into "touches payload". Ramp actions
+// ride the REVISION (not the merge result) and always accompany rule changes,
+// which are classified above.
+const PAYLOAD_INERT_METADATA = new Set([
+  "description",
+  "owner",
+  "tags",
+  "neverStale",
+  "customFields",
+]);
+export function mergeResultTouchesPayload(result: MergeResultChanges): boolean {
+  if (
+    result.defaultValue !== undefined ||
+    result.rules !== undefined ||
+    result.environmentsEnabled !== undefined ||
+    result.prerequisites !== undefined ||
+    result.archived !== undefined ||
+    result.holdout !== undefined
+  ) {
+    return true;
+  }
+  if (!result.metadata) return false;
+  return Object.keys(result.metadata).some(
+    (key) => !PAYLOAD_INERT_METADATA.has(key),
+  );
+}
+
 export async function assertCanPublishFeatureRevision({
   context,
   feature,

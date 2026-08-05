@@ -21,10 +21,10 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { landDirectChange } from "back-end/src/revisions/revertActions";
+import { getEnvironments } from "back-end/src/services/organizations";
 import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { collectArchiveApprovalGate } from "back-end/src/revisions/governanceGates";
 import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
-import { constantPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 
 async function buildResponse(
@@ -60,7 +60,10 @@ async function setArchivedState(
       model: "constant",
       entity: constant,
       archived,
-      environments: constantPublishEnvironments(context),
+      // The serve footprint: archiving takes the base value out of EVERY
+      // environment, so the delete atom must hold in all of them — the unbound
+      // sentinel made this check vacuous for env-limited deleters.
+      environments: getEnvironments(context.org).map((e) => e.id),
     })
   ) {
     context.permissions.throwPermissionError();
@@ -115,8 +118,8 @@ async function setArchivedState(
 
   const { blocking, bypassed } = evaluatePublishGates(gates, {
     ignoreWarnings: context.ignoreWarnings,
-    skipSchemaValidation: context.skipSchemaValidation,
-    skipHooks: context.skipHooks,
+    skipSchemaValidation: context.canSkipSchemaValidationFor("constant"),
+    skipHooks: context.canSkipHooksFor("constant"),
     bypassApprovalPermission: adapter.canBypassApproval(
       context,
       constant as Record<string, unknown>,

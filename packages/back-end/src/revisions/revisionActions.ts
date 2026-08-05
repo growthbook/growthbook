@@ -1,4 +1,4 @@
-import { PermissionError } from "shared/util";
+import { PermissionError, proposedProjectScope } from "shared/util";
 import { isEqual } from "lodash";
 import {
   Revision,
@@ -410,6 +410,26 @@ export async function assertCanPublishRevision(
         current: snapshot.archived as boolean | undefined,
       }),
   });
+
+  // A change that relocates the entity lands in the DESTINATION, and none of
+  // the narrow-atom exemptions above cross a move — there is no revision there
+  // to judge purity against. In the engine rather than per handler, so a
+  // handler that forgets is not a bypass.
+  if (
+    !holdsMoveDestination({
+      permissions: context.permissions,
+      model: revision.target.type,
+      action: "publish",
+      existing: snapshot,
+      proposed: {
+        ...snapshot,
+        ...proposedProjectScope(revision.target.proposedChanges),
+      },
+      environments: footprint,
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
 }
 
 export async function approveRevision(
@@ -658,7 +678,17 @@ async function publishRevisionInner(
     const merged = await context.models.revisions.merge(
       revision.id,
       context.userId,
-      { bypass: isBypass },
+      {
+        bypass: isBypass,
+        // Pin the revision the caller AUTHORIZED: a draft edit landing between
+        // the gate phase (hooks make it seconds wide) and this claim must lose
+        // the race, not get its never-authorized ops recorded as merged. Same
+        // pin bulk passes at its claim.
+        expected: {
+          status: revision.status,
+          dateUpdated: revision.dateUpdated,
+        },
+      },
     );
     // "No changes" was decided against a read that is stale by now, and this
     // branch performs no guarded entity write to catch drift — so verify AFTER
@@ -714,7 +744,11 @@ async function publishRevisionInner(
   const merged = await context.models.revisions.merge(
     revision.id,
     context.userId,
-    { bypass: isBypass },
+    {
+      bypass: isBypass,
+      // Same authorized-content pin as the no-op branch and bulk's claim.
+      expected: { status: revision.status, dateUpdated: revision.dateUpdated },
+    },
   );
 
   try {

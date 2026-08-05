@@ -467,37 +467,52 @@ export class ReqContextClass {
   // so nothing depends on an ungated bypass.
   // These request flags are entity-agnostic; the publish gates re-check the
   // specific entity's bypass atom per gate (requiresPermission).
-  private hasAnyFlagBypassAuthority(): boolean {
-    return (["feature", "config", "constant"] as const).some((model) =>
-      this.permissions.canBypassFlagApprovalChecks(
-        { project: undefined },
-        model,
-      ),
+  // Bypass is per FAMILY now, so the authority behind a privileged skip is
+  // resolved for the entity being written — ORing across the three models let
+  // an org-wide Constants bypass clear Config and Feature schema validation.
+  // Bulk publish already resolves per item; these keep single-entity paths on
+  // the same rule.
+  private hasFlagBypassAuthorityFor(
+    model: "feature" | "config" | "constant" | "saved-group",
+  ): boolean {
+    if (model === "saved-group") {
+      return this.permissions.canRevisionAction("saved-group", "bypass", {
+        projects: [],
+      });
+    }
+    return this.permissions.canBypassFlagApprovalChecks(
+      { project: undefined },
+      model,
     );
   }
 
-  public get skipSchemaValidation(): boolean {
+  private skipRequested(flag: "skipSchemaValidation" | "skipHooks"): boolean {
     if (!this.req) return false;
-    const queryValue = this.req.query?.skipSchemaValidation;
-    const requested =
-      this.bodyFlag("skipSchemaValidation") ||
-      (typeof queryValue === "string" && stringToBoolean(queryValue));
-    if (!requested) return false;
-    return this.hasAnyFlagBypassAuthority();
+    const queryValue = this.req.query?.[flag];
+    return (
+      this.bodyFlag(flag) ||
+      (typeof queryValue === "string" && stringToBoolean(queryValue))
+    );
+  }
+
+  public canSkipSchemaValidationFor(
+    model: "feature" | "config" | "constant" | "saved-group",
+  ): boolean {
+    return (
+      this.skipRequested("skipSchemaValidation") &&
+      this.hasFlagBypassAuthorityFor(model)
+    );
   }
 
   // Force past a custom validation hook that rejected the change. Its own flag
   // (not skipSchemaValidation — a hook failure isn't a schema error), honored
-  // only for callers with org-wide bypass authority (the FlagsBypassApprovals
-  // permission on all projects); ignored otherwise.
-  public get skipHooks(): boolean {
-    if (!this.req) return false;
-    const queryValue = this.req.query?.skipHooks;
-    const requested =
-      this.bodyFlag("skipHooks") ||
-      (typeof queryValue === "string" && stringToBoolean(queryValue));
-    if (!requested) return false;
-    return this.hasAnyFlagBypassAuthority();
+  // only for callers with org-wide bypass authority on the entity's own family.
+  public canSkipHooksFor(
+    model: "feature" | "config" | "constant" | "saved-group",
+  ): boolean {
+    return (
+      this.skipRequested("skipHooks") && this.hasFlagBypassAuthorityFor(model)
+    );
   }
 
   public throwBadRequestError(message: string): never {

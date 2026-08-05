@@ -403,16 +403,20 @@ export function resolveEntityPublishGates({
   gates,
   bypassApprovalPermission,
   canForceMergeStaleBase,
+  entityType,
 }: {
   req: ReviewBypassRequest;
   gates: PublishGate[];
   bypassApprovalPermission: boolean;
   canForceMergeStaleBase: boolean;
+  entityType: "feature" | "config" | "constant" | "saved-group";
 }): { bypassed: BypassedGate[] } {
   const { blocking, bypassed } = evaluatePublishGates(gates, {
     ignoreWarnings: req.context.ignoreWarnings,
-    skipSchemaValidation: req.context.skipSchemaValidation,
-    skipHooks: req.context.skipHooks,
+    // Per-FAMILY, like bulk: the ORed authority let a Constants bypass clear
+    // Config schema gates.
+    skipSchemaValidation: req.context.canSkipSchemaValidationFor(entityType),
+    skipHooks: req.context.canSkipHooksFor(entityType),
     bypassApprovalPermission,
     restApiBypassesReviews: canUseRestApiBypassSetting(req),
     canForceMergeStaleBase,

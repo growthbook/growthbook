@@ -112,14 +112,25 @@ const ENTITIES: Entity[] = [
 type Case = {
   name: string;
   allowed: Persona[];
+  // Every seeding/behavior flag the table uses MUST be declared here: the test
+  // files sit outside tsc, so an undeclared (or typo'd) flag is silently
+  // ignored and quietly vacates the case it was supposed to arm.
+  envScopedAtom?: boolean;
+  // Dev-limited expectations when they differ from `allowed`, resolved per
+  // entity — the three entities' footprints are not uniform (a Constant's
+  // archive reaches every environment its base value feeds; a Saved Group has
+  // no environment partition at all).
+  allowedDevOnly?: (e: Entity) => Persona[];
   needsEdit?: boolean;
   needsReviewRequest?: boolean;
+  needsDraft?: boolean;
+  needsPriorPublished?: boolean;
+  needsStaleBase?: boolean;
   run: (
     e: Entity,
     id: string,
     version: number,
   ) => Promise<{ status: number; body?: unknown }>;
-  needsDraft?: boolean;
 };
 
 const CASES: Case[] = [
@@ -163,6 +174,13 @@ const CASES: Case[] = [
     name: "archive",
     envScopedAtom: true,
     allowed: OPERATION_ORACLE["archive"],
+    // Archiving a Constant takes the entity out of EVERY environment its base
+    // value feeds, so the delete atom must hold in all of them — a dev-limited
+    // deleter is refused. Configs answer for their scoped environments (none
+    // seeded here) and Saved Groups have no environment partition, so the
+    // restriction is inert for both.
+    allowedDevOnly: (e) =>
+      e.label === "Constants" ? [] : OPERATION_ORACLE["archive"],
     run: (e, id) => api.post(`/api/v1/${e.base}/${id}/archive`, {}),
   },
   {
@@ -414,14 +432,17 @@ describe.each(ENTITIES)("permission matrix — $label", (entity: Entity) => {
       needsPriorPublished,
       needsStaleBase,
       envScopedAtom,
+      allowedDevOnly,
     }: Case) => {
       const attempt = async (persona: Persona, envLimited: boolean) => {
+        const expected =
+          envLimited && allowedDevOnly ? allowedDevOnly(entity) : allowed;
         const id = await seed(entity);
         if (needsPriorPublished) {
           const target = await seedPriorPublishedRevision(entity, id);
           as(persona, envLimited);
           const priorRes = await run(entity, id, target);
-          expectVerdict(priorRes, allowed.includes(persona));
+          expectVerdict(priorRes, expected.includes(persona));
           return;
         }
         const wantsDraft =
@@ -439,14 +460,15 @@ describe.each(ENTITIES)("permission matrix — $label", (entity: Entity) => {
 
         as(persona, envLimited);
         const res = await run(entity, id, version);
-        expectVerdict(res, allowed.includes(persona));
+        expectVerdict(res, expected.includes(persona));
       };
 
       it.each(PERSONA_IDS)("%s", (persona) => attempt(persona, false));
 
-      // An environment restriction must not bite here: none of these three
-      // entities carries a per-environment value, so the footprint is empty and
-      // the verdict is unchanged. Acquiring a footprint would be the bug. Left
+      // For most cases an environment restriction must not bite: the footprint
+      // is empty and the verdict unchanged, so acquiring one would be the bug.
+      // Cases where an entity's footprint genuinely differs (a Constant's
+      // archive) declare it via `allowedDevOnly`. Left
       // off the revert cases on purpose — staging publishes nothing, so the
       // restriction is inapplicable rather than inert, and landing pins the same
       // empty footprint `publish a draft` covers for a third of the round trips.

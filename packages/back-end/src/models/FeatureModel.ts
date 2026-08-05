@@ -48,10 +48,11 @@ import {
   withBufferedPayloadRefreshes,
 } from "back-end/src/revisions/landingSequence";
 import {
-  advancedGuardStamp,
-  CasConflictError,
-} from "back-end/src/models/BaseModel";
+  assertCanPublishFeatureRevision,
+  mergeResultTouchesPayload,
+} from "back-end/src/revisions/featureDraftAuthority";
 import {
+  getMergeResultPublishEnvs,
   addIdsToFlatRules,
   getApiFeatureObj,
   getNextScheduledUpdate,
@@ -59,6 +60,10 @@ import {
   queueSDKPayloadRefresh,
   synthesizeRuleId,
 } from "back-end/src/services/features";
+import {
+  advancedGuardStamp,
+  CasConflictError,
+} from "back-end/src/models/BaseModel";
 import {
   assertConfigBackedDefaultHasNoOverrides,
   assertConfigBackedFeatureValuesValid,
@@ -3445,6 +3450,35 @@ async function publishRevisionInner({
 }: Parameters<typeof publishRevision>[0]) {
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error("Can only publish a draft revision");
+  }
+
+  // The authoritative landing gate, INSIDE the engine: several callers gated
+  // themselves on hand-built field lists and footprints, and each list that
+  // missed a field (environment toggles, prerequisites, holdout) was a publish
+  // path with no publish check. Here the evidence comes from the merge result
+  // itself, so a caller cannot under-describe the change. Callers that already
+  // asserted simply re-pass with the same inputs.
+  // A landing that reaches the payload takes publish authority; one that is
+  // entirely inert metadata is draft-class and skips the gate (the pre-split
+  // semantic the features matrix pins for drafters editing descriptions).
+  if (mergeResultTouchesPayload(result)) {
+    await assertCanPublishFeatureRevision({
+      context,
+      feature,
+      revision,
+      environments: await getMergeResultPublishEnvs({
+        context,
+        feature,
+        // The live feature's own rules are the baseline the merge lands on.
+        filledLiveRules: feature.rules ?? [],
+        result,
+        environmentIds: getApplicableEnvIds(
+          getEnvironments(context.org),
+          feature,
+        ),
+      }),
+      mergeChanges: result,
+    });
   }
 
   // Before any mutation: applyRevisionChanges advances feature.version, so a

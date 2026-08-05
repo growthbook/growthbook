@@ -20,7 +20,10 @@ import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
-import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  getContextFromReq,
+  getEnvironments,
+} from "back-end/src/services/organizations";
 import {
   createOrUpdateRevision,
   buildPatchOps,
@@ -259,7 +262,8 @@ export const putConstant = async (
       model: "constant",
       entity: existing,
       archived: !!archived,
-      environments: constantPublishEnvironments(context),
+      // Serve footprint — see the adapter's archive arm.
+      environments: getEnvironments(context.org).map((e) => e.id),
     });
 
   // If updating a specific revision, compare against its current (patched) state
@@ -380,7 +384,8 @@ export const putConstant = async (
         model: "constant",
         entity: existing,
         archived: !!archived,
-        environments: constantPublishEnvironments(context),
+        // Serve footprint — see the adapter's archive arm.
+        environments: getEnvironments(context.org).map((e) => e.id),
       })
     ) {
       context.permissions.throwPermissionError();

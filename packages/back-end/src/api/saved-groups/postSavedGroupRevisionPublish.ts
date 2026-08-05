@@ -107,6 +107,7 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
   ];
 
   const { bypassed } = resolveEntityPublishGates({
+    entityType: "saved-group",
     req,
     gates,
     bypassApprovalPermission: adapter.canBypassApproval(

@@ -161,8 +161,8 @@ export async function publishFeatureRevision(
     ignoreWarnings:
       forceMergeRequested ||
       (inlineValidationGates && req.context.ignoreWarnings),
-    skipSchemaValidation: req.context.skipSchemaValidation,
-    skipHooks: req.context.skipHooks,
+    skipSchemaValidation: req.context.canSkipSchemaValidationFor("feature"),
+    skipHooks: req.context.canSkipHooksFor("feature"),
     bypassApprovalPermission:
       req.context.permissions.canBypassFlagApprovalChecks(feature, "feature"),
     restApiBypassesReviews: canUseRestApiBypass,

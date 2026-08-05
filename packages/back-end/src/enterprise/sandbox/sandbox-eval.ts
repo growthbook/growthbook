@@ -577,7 +577,7 @@ async function _runCustomHooks(
   // permission). Its own flag, not skipSchemaValidation — a hook failure isn't a
   // schema error. This is the assert-path equivalent of the custom-hook gate the
   // REST publish handlers emit.
-  if (hardErrors.length && !context.skipHooks) {
+  if (hardErrors.length && !context.canSkipHooksFor("config")) {
     throw new Error(hardErrors.join("\n"));
   }
 

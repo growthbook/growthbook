@@ -13,6 +13,12 @@ jest.mock("back-end/src/revisions/landingSequence", () => ({
   // exported here is the identity that check sees.
   LandingConflictError: class LandingConflictError extends Error {},
 }));
+jest.mock("back-end/src/revisions/revisionActions", () => ({
+  // The self-gate landDirectChange runs before recording anything; these tests
+  // pin the landing's ORDERING, and authority has its own suites (the matrix +
+  // engine-gate pins).
+  assertCanPublishRevision: jest.fn(),
+}));
 jest.mock("back-end/src/revisions", () => ({
   getAdapter: () => ({ applyChanges: jest.fn() }),
 }));

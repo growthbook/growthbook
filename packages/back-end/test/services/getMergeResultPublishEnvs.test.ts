@@ -290,5 +290,30 @@ describe("getMergeResultPublishEnvs", () => {
       });
       expect(envs.sort()).toEqual([...ENVS].sort());
     });
+
+    it("defaultValue + enabling a disabled env includes the env being enabled", async () => {
+      // The publish-side hole revertFootprint closed on the revert side: the
+      // global arm returned currently-enabled envs only, so pairing a global
+      // edit with an ENABLE toggle dropped the enabled env from the footprint —
+      // a staging-limited publisher could switch production on.
+      const feature = feat({
+        environmentSettings: {
+          dev: { enabled: true, rules: [] },
+          staging: { enabled: true, rules: [] },
+          production: { enabled: false, rules: [] },
+        },
+      });
+      const envs = await getMergeResultPublishEnvs({
+        context: ctxWith(),
+        feature,
+        filledLiveRules: [],
+        result: {
+          defaultValue: "b",
+          environmentsEnabled: { production: true },
+        },
+        environmentIds: ENVS,
+      });
+      expect(envs).toContain("production");
+    });
   });
 });

@@ -9,15 +9,18 @@ import {
   normalizeProposedChanges,
 } from "shared/enterprise";
 import {
+  constantAutopublishOnApproval,
   constantRequiresReview,
   constantResetReviewOnChange,
-  constantAutopublishOnApproval,
+  isArchiveTransition,
+  proposedArchivedValue,
 } from "shared/util";
 import {
   constantValidator,
   constantUpdatableFieldsSchema,
 } from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
+import { getEnvironments } from "back-end/src/services/organizations";
 import {
   EntityRevisionAdapter,
   filterUpdatableChanges,
@@ -194,6 +197,20 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     snapshot: ConstantInterface,
     proposedChanges: unknown,
   ): string[] {
+    // Archiving takes the constant out of service EVERYWHERE it serves — the
+    // base value feeds every environment — so the footprint is all of them.
+    // An archive-only change has changedEnvironments [], and letting that fall
+    // through to NO_ENVIRONMENT_BINDING made the env check vacuous: a
+    // dev-limited deleter could archive away production values it cannot touch
+    // directly. Features apply the same serve-footprint rule to their archives.
+    if (
+      isArchiveTransition({
+        proposed: proposedArchivedValue(proposedChanges),
+        current: snapshot.archived,
+      })
+    ) {
+      return getEnvironments(context.org).map((e) => e.id);
+    }
     return constantPublishEnvironments(
       context,
       getConstantRevisionChange(snapshot, proposedChanges).changedEnvironments,

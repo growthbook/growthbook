@@ -1,4 +1,5 @@
 import { postConfigRevisionRecallReviewValidator } from "shared/validators";
+import { isRevisionAuthor } from "back-end/src/revisions/revisionAuthority";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
@@ -30,7 +31,7 @@ export const postConfigRevisionRecallReview = createApiRequestHandler(
   }
 
   // Author can always recall; otherwise require permission to edit the config.
-  if (revision.authorId !== req.context.userId) {
+  if (!isRevisionAuthor(revision.authorId, req.context.userId)) {
     if (!req.context.permissions.canRevisionAction("config", "draft", config)) {
       req.context.permissions.throwPermissionError();
     }

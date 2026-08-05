@@ -950,6 +950,24 @@ export const putSavedGroup = async (
   ) {
     context.permissions.throwPermissionError();
   }
+  // A landing that relocates the group takes PUBLISH in the destination — the
+  // draft-authority destination check earlier in this handler covers staging
+  // only. Without this, publish@A plus draft@B landed a move into B: the one
+  // internal handler whose landing skipped the rule its REST twin and the other
+  // entities' internal twins all apply.
+  if (
+    willPublish &&
+    !holdsMoveDestination({
+      permissions: context.permissions,
+      model: "saved-group",
+      action: "publish",
+      existing: savedGroup,
+      proposed: { ...savedGroup, ...fieldsToUpdate },
+      environments: NO_ENVIRONMENT_BINDING,
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   // When publishing or creating a fresh draft we force a new revision; an
   // implicit save while approval is required also forces one (wantsMerge but

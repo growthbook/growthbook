@@ -130,6 +130,34 @@ const CASES: Case[] = [
       api.post(`/api/v2/features/${FEATURE_ID}`, { description: "hello" }),
   },
   {
+    // The critical this round's engine gate closed: environment flips ride the
+    // v2 update BODY separately from the gated field list, so the handler's own
+    // publish check never saw them — a draft-only key could flip production.
+    // The landing gate now derives its footprint from the merge result itself.
+    name: "toggle an environment via the update body (v2)",
+    // Direct-update semantics, same as "land a change directly": the update
+    // body authors content AND lands it, so it takes both atoms — publish
+    // alone toggles via the dedicated /toggle endpoint instead.
+    allowed: ["editor", "full"],
+    // The flip lands in production, out of a dev-limited persona's reach.
+    allowedDevOnly: [],
+    run: () =>
+      api.post(`/api/v2/features/${FEATURE_ID}`, {
+        environments: { production: { enabled: false } },
+      }),
+  },
+  {
+    // Payload-AFFECTING metadata is a live write even though it's "metadata":
+    // targeting scope changes which projects the flag serves.
+    name: "update targeting metadata (v2 update)",
+    allowed: ["editor", "full"],
+    allowedDevOnly: [],
+    run: () =>
+      api.post(`/api/v2/features/${FEATURE_ID}`, {
+        targetingAllProjects: true,
+      }),
+  },
+  {
     name: "toggle an environment",
     allowed: ["publisher", "creatorPublisher", "editor", "full"],
     run: () =>

@@ -482,7 +482,15 @@ export async function commitBulkPublish(
     for (const item of plan.items) {
       if (item.hasChanges) continue;
       const adapter = getBulkAdapter(item.ref.entityType);
-      const current = await adapter.loadEntity(context, item.ref.entityId);
+      // Inside the protected span like everything else here: a bare throw from
+      // the load itself (infra) escaped past the claims, leaving every revision
+      // merged with no entity writes and the buffers still installed.
+      let current: unknown;
+      try {
+        current = await adapter.loadEntity(context, item.ref.entityId);
+      } catch (e) {
+        await abortWithBuffers(claimed, e);
+      }
       const currentDate =
         (current as { dateUpdated?: Date } | null)?.dateUpdated ?? null;
       if (

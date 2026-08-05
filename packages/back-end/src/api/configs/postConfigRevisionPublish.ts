@@ -122,6 +122,7 @@ export const postConfigRevisionPublish = createApiRequestHandler(
   );
 
   const { bypassed } = resolveEntityPublishGates({
+    entityType: "config",
     req,
     gates,
     bypassApprovalPermission: adapter.canBypassApproval(

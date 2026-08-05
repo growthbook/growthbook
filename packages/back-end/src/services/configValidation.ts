@@ -124,7 +124,7 @@ export async function assertConfigValueValid(
   leaf: ConfigLeaf,
   values: ConfigValues,
 ): Promise<void> {
-  if (context.skipSchemaValidation) return;
+  if (context.canSkipSchemaValidationFor("config")) return;
   // Warn-only mode: never block a write; the editor + REST surface the issue.
   if (context.org.settings?.blockPublishOnSchemaError === false) return;
   const errors = await collectConfigValueErrors(context, leaf, values);
@@ -389,7 +389,7 @@ export async function assertConfigValueValidForPublish(
     });
   }
 
-  if (context.skipSchemaValidation) return;
+  if (context.canSkipSchemaValidationFor("config")) return;
   const errors = [
     ...(await collectConfigValueErrors(context, leaf, values)),
     ...(await collectMissingRequiredFields(context, leaf, values.value)),
@@ -427,7 +427,7 @@ export async function assertConfigValueValidForCreate(
   leaf: ConfigLeaf,
   values: ConfigValues,
 ): Promise<void> {
-  if (context.skipSchemaValidation) return;
+  if (context.canSkipSchemaValidationFor("config")) return;
   const errors = [
     ...(await collectMissingRequiredFields(context, leaf, values.value)),
     ...(await collectInvariantViolations(context, leaf, values.value)),
@@ -449,7 +449,7 @@ export async function assertConfigInvariantsValid(
   leaf: ConfigLeaf,
   rawValue: string | undefined,
 ): Promise<void> {
-  if (context.skipSchemaValidation) return;
+  if (context.canSkipSchemaValidationFor("config")) return;
   const errors = await collectInvariantViolations(context, leaf, rawValue);
   if (!errors.length) return;
   if (context.org.settings?.blockPublishOnSchemaError === false) {
@@ -703,7 +703,7 @@ export async function assertConfigBackedFeatureValuesValid(
 ): Promise<void> {
   assertConfigBackedDefaultHasNoOverrides(feature, values.defaultValue);
 
-  if (context.skipSchemaValidation) return;
+  if (context.canSkipSchemaValidationFor("config")) return;
 
   const errors = await collectConfigBackedSchemaInvariantErrors(
     context,
