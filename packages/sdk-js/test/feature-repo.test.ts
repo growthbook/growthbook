@@ -966,6 +966,46 @@ describe("feature-repo", () => {
     cleanup();
   });
 
+  it("defaults refreshFeatures timeout to the one passed in init", async () => {
+    const payload = {
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+    };
+    // API always takes longer than the init timeout
+    const [f, cleanup] = mockApi(payload, false, 100);
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+
+    // Init times out (20ms) before the 100ms network response
+    const res = await growthbook.init({ timeout: 20 });
+    expect(res.source).toEqual("timeout");
+    expect(growthbook.getFeatures()).toEqual({});
+    expect(f.mock.calls.length).toEqual(1);
+
+    // Make the cached payload stale so refreshFeatures hits the network again
+    await clearCache();
+
+    // refreshFeatures with no explicit timeout should fall back to the
+    // init timeout (20ms) and resolve before the 100ms network response
+    const start = Date.now();
+    await growthbook.refreshFeatures();
+    const elapsed = Date.now() - start;
+
+    // Without the fallback, timeout is undefined and this would block for the
+    // full ~100ms network call instead of timing out at ~20ms
+    expect(elapsed).toBeLessThan(80);
+    expect(f.mock.calls.length).toEqual(2);
+
+    growthbook.destroy();
+    cleanup();
+  });
+
   it("handles errors with init", async () => {
     const [f, cleanup] = mockApi(null);
 
