@@ -1,16 +1,8 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { useEffect, ReactNode } from "react";
+import { useEffect } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { formatDistanceToNow } from "date-fns";
-import {
-  PiChartBarFill,
-  PiFlagFill,
-  PiFlaskFill,
-  PiPlugsConnectedFill,
-  PiTableFill,
-  PiTagFill,
-} from "react-icons/pi";
 import { ApiSetupRun } from "shared/validators";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
@@ -25,38 +17,36 @@ import { useCelebration } from "@/hooks/useCelebration";
 type Artifact = ApiSetupRun["artifacts"][number];
 type ArtifactKind = Artifact["kind"];
 
+// No icon per kind. An icon would be the one thing here that cannot come from the
+// API — it needs a component, so every new artifact type would have to be added to
+// a map in this file before it could render. The label already names the type.
 const KIND: Record<
   ArtifactKind,
-  { label: string; icon: ReactNode; cta: string; href: (id: string) => string }
+  { label: string; cta: string; href: (id: string) => string }
 > = {
   "sdk-connection": {
     label: "SDK Connection",
-    icon: <PiPlugsConnectedFill />,
     cta: "Open",
     href: (id) => `/sdks/${id}`,
   },
   feature: {
     label: "Feature Flag",
-    icon: <PiFlagFill />,
     cta: "Open the Feature Flag",
     href: (id) => `/features/${id}`,
   },
   experiment: {
     label: "Experiment",
-    icon: <PiFlaskFill />,
     cta: "Open",
     // Singular. /experiments is the list page.
     href: (id) => `/experiment/${id}`,
   },
   attribute: {
     label: "Attribute",
-    icon: <PiTagFill />,
     cta: "Review",
     href: () => "/attributes",
   },
   metric: {
     label: "Metric",
-    icon: <PiChartBarFill />,
     cta: "Review",
     // Fact metrics have their own page; /metric is the legacy route.
     href: (id) =>
@@ -64,31 +54,10 @@ const KIND: Record<
   },
   "fact-table": {
     label: "Fact Table",
-    icon: <PiTableFill />,
     cta: "Review",
     href: (id) => `/fact-tables/${id}`,
   },
 };
-
-function IconTile({ kind }: { kind: ArtifactKind }) {
-  return (
-    <Flex
-      align="center"
-      justify="center"
-      style={{
-        width: 30,
-        height: 30,
-        borderRadius: 7,
-        flexShrink: 0,
-        background: "var(--violet-a3)",
-        color: "var(--violet-11)",
-        fontSize: 15,
-      }}
-    >
-      {KIND[kind].icon}
-    </Flex>
-  );
-}
 
 function SectionHeading({
   title,
@@ -141,7 +110,6 @@ function ArtifactRow({
       py="3"
       className={first ? undefined : "border-top"}
     >
-      <IconTile kind={artifact.kind} />
       <Box style={{ minWidth: 0, flex: 1 }}>
         <Text weight="semibold" as="div">
           {kind.label} · {artifact.label}
