@@ -378,6 +378,8 @@ export default function AISettings({
                           helpText="Used by every AI feature that doesn't override it."
                           value={form.watch("defaultAIModel")}
                           onChange={(v) => form.setValue("defaultAIModel", v)}
+                          // Keep the registry's newest-first model order.
+                          sort={false}
                           options={getAvailableAIModelOptions(
                             availableProviders,
                             form.watch("defaultAIModel"),
@@ -486,6 +488,8 @@ export default function AISettings({
                                     { shouldDirty: true },
                                   )
                                 }
+                                // Keep the registry's newest-first model order.
+                                sort={false}
                                 options={getAvailablePromptModelOptions(
                                   availableProviders,
                                   promptForm.watch(
@@ -638,6 +642,8 @@ export default function AISettings({
                           onChange={(v) =>
                             form.setValue("visualEditorAIModel", v)
                           }
+                          // Keep the registry's newest-first model order.
+                          sort={false}
                           options={[
                             { value: "", label: "Use default AI model" },
                             ...getAvailableAIModelOptions(

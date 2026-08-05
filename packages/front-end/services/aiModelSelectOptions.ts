@@ -144,6 +144,11 @@ function withSelectedOption<T extends FlatOption | GroupedOption>(
  * Falls back to every provider when the list is empty, so a fresh install with
  * no key configured yet still shows a full picker (the selection then renders
  * an API key warning below it).
+ *
+ * Groups are alphabetical by provider, and models within a group keep the
+ * registry's order — which lists each provider newest-first. Callers must pass
+ * `sort={false}` to SelectField, or its default alphabetical sort re-orders the
+ * models by label and buries the newest ones at the bottom.
  */
 export function getAvailableAIModelOptions(
   availableProviders: readonly AIProvider[],
@@ -151,19 +156,21 @@ export function getAvailableAIModelOptions(
 ): (FlatOption | GroupedOption)[] {
   const allProviders = Object.keys(AI_PROVIDER_MODEL_MAP) as AIProvider[];
 
-  // Filter the full list rather than mapping availableProviders, so the
-  // dropdown keeps the registry's provider order regardless of key order.
+  // Filter the full list rather than mapping availableProviders, so provider
+  // order doesn't depend on the order keys happen to be stored in.
   const providers = availableProviders.length
     ? allProviders.filter((p) => availableProviders.includes(p))
     : allProviders;
 
-  const groups = providers.map((provider) => ({
-    label: PROVIDER_DISPLAY_NAMES[provider],
-    options: AI_PROVIDER_MODEL_MAP[provider].map((value) => ({
-      value,
-      label: AI_MODEL_DISPLAY_LABELS[value as AIModel] ?? value,
-    })),
-  }));
+  const groups = providers
+    .map((provider) => ({
+      label: PROVIDER_DISPLAY_NAMES[provider],
+      options: AI_PROVIDER_MODEL_MAP[provider].map((value) => ({
+        value,
+        label: AI_MODEL_DISPLAY_LABELS[value as AIModel] ?? value,
+      })),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   return withSelectedOption(
     groups,

@@ -50,6 +50,8 @@ export default function AIChatModelSelect({
             if (!isDisabled) onChange(v);
           }}
           options={options}
+          // Keep the registry's newest-first model order.
+          sort={false}
           disabled={isDisabled}
           placeholder="AI model"
           formatOptionLabel={(option, { context }) => {

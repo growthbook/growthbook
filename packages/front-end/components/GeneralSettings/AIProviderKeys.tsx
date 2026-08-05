@@ -20,11 +20,9 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Frame from "@/ui/Frame";
-import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import AIProviderLogo from "./AIProviderLogo";
 
 type AICredentialsResponse = {
   credentials: AICredentialFrontEndInterface[];
@@ -140,16 +138,15 @@ function ProviderRow({
   return (
     <Frame p="3" mb="3">
       <Flex align="center" gap="3" wrap="wrap">
-        <AIProviderLogo provider={provider} />
         <Box flexGrow="1" minWidth="200px">
-          <Flex align="center" gap="2">
+          <Flex align="baseline" gap="2">
             <Text size="md" weight="semibold">
               {label}
             </Text>
-            {credential ? (
-              <Badge label="Configured" color="green" />
-            ) : inheritedFromEnv ? (
-              <Badge label="From environment" color="blue" />
+            {inheritedFromEnv ? (
+              <Text size="sm" color="text-mid">
+                From environment readonly
+              </Text>
             ) : null}
           </Flex>
           <Text size="sm" color="text-mid" as="div">
@@ -163,8 +160,7 @@ function ProviderRow({
               </>
             ) : inheritedFromEnv ? (
               <>
-                Using the <code>{envVar}</code> environment variable. A key
-                saved here overrides it.
+                Using the <code>{envVar}</code> environment variable.
               </>
             ) : (
               <>
@@ -177,20 +173,18 @@ function ProviderRow({
             )}
           </Text>
         </Box>
-        {canEdit && !editing && (
+        {canEdit && !editing && credential && (
           <Flex gap="2">
             <Button variant="outline" onClick={() => setEditing(true)}>
-              {credential ? "Replace" : "Add key"}
+              Replace
             </Button>
-            {credential && (
-              <Button
-                variant="ghost"
-                color="red"
-                onClick={() => setConfirmingRemove(true)}
-              >
-                Remove
-              </Button>
-            )}
+            <Button
+              variant="ghost"
+              color="red"
+              onClick={() => setConfirmingRemove(true)}
+            >
+              Remove
+            </Button>
           </Flex>
         )}
       </Flex>
@@ -372,7 +366,6 @@ export default function AIProviderKeys({
                 onClick={() => setAddingProvider(provider)}
               >
                 <Flex align="center" gap="2">
-                  <AIProviderLogo provider={provider} size={18} />
                   {label}
                 </Flex>
               </DropdownMenuItem>

@@ -29,14 +29,6 @@ export const AI_PROVIDER_META: Record<
     keyPlaceholder: string;
     // Where a user goes to create a key for this provider.
     consoleUrl: string;
-    // Drives the provider badge in Settings. Chosen to stay legible on both
-    // the light and dark app themes.
-    brandColor: string;
-    // Optional path to a real logo under front-end/public. When set, the badge
-    // renders the image instead of the initial — drop an official SVG in and
-    // point this at it. Left unset deliberately: GrowthBook does not ship
-    // third-party AI brand marks.
-    logo?: string;
   }
 > = {
   openai: {
@@ -44,14 +36,12 @@ export const AI_PROVIDER_META: Record<
     envVar: "OPENAI_API_KEY",
     keyPlaceholder: "sk-...",
     consoleUrl: "https://platform.openai.com/api-keys",
-    brandColor: "#10A37F",
   },
   anthropic: {
     label: "Anthropic",
     envVar: "ANTHROPIC_API_KEY",
     keyPlaceholder: "sk-ant-...",
     consoleUrl: "https://console.anthropic.com/settings/keys",
-    brandColor: "#D97757",
   },
   google: {
     label: "Google",
@@ -59,21 +49,18 @@ export const AI_PROVIDER_META: Record<
     legacyEnvVars: ["GEMINI_API_KEY"],
     keyPlaceholder: "AIza...",
     consoleUrl: "https://aistudio.google.com/apikey",
-    brandColor: "#4285F4",
   },
   xai: {
     label: "xAI",
     envVar: "XAI_API_KEY",
     keyPlaceholder: "xai-...",
     consoleUrl: "https://console.x.ai",
-    brandColor: "#6B7280",
   },
   mistral: {
     label: "Mistral",
     envVar: "MISTRAL_API_KEY",
     keyPlaceholder: "...",
     consoleUrl: "https://console.mistral.ai/api-keys",
-    brandColor: "#FA500F",
   },
 };
 
