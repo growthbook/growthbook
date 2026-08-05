@@ -92,3 +92,21 @@ export type HoldoutInterface = z.infer<typeof holdoutValidator>;
 export type HoldoutInterfaceStringDates = z.infer<
   typeof _holdoutStringDatesValidator
 >;
+
+// ---------------------------------------------------------------------------
+// Stage
+// ---------------------------------------------------------------------------
+
+/**
+ * A Holdout's lifecycle stage. Not stored on the document — derived from the
+ * holdout experiment's `status` plus the holdout's `analysisStartDate` by
+ * `getHoldoutStage`. `analysis-period` is a running holdout that has entered
+ * its measurement window.
+ */
+export const holdoutStage = [
+  "draft",
+  "running",
+  "analysis-period",
+  "stopped",
+] as const;
+export type HoldoutStage = (typeof holdoutStage)[number];
