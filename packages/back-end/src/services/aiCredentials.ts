@@ -37,8 +37,22 @@ export function encryptAIKey(plaintext: string): string {
   return AES.encrypt(plaintext, ENCRYPTION_KEY).toString();
 }
 
+/**
+ * Decrypts a stored key, or returns "" when it can't be decrypted with the
+ * current ENCRYPTION_KEY.
+ *
+ * crypto-js offers no "wrong key" signal: AES.decrypt happily produces garbage
+ * bytes, and `.toString(enc.Utf8)` then either returns an empty string or throws
+ * "Malformed UTF-8 data", depending on whether those particular bytes happen to
+ * be valid UTF-8. Both mean the same thing to every caller, so collapse them
+ * into "" — otherwise the contract varies with the byte content of a failure.
+ */
 export function decryptAIKey(ciphertext: string): string {
-  return AES.decrypt(ciphertext, ENCRYPTION_KEY).toString(enc.Utf8);
+  try {
+    return AES.decrypt(ciphertext, ENCRYPTION_KEY).toString(enc.Utf8);
+  } catch {
+    return "";
+  }
 }
 
 // Last 4 characters, for masked display. Short keys (which are almost certainly
@@ -113,11 +127,11 @@ async function loadResolvedAIKeys(context: Context): Promise<ResolvedAIKeys> {
       );
       continue;
     }
-    // crypto-js does not throw when the key is wrong — it returns an empty
-    // string. Treat that as "unusable" and keep the env fallback rather than
-    // handing an empty key to the provider, which would surface as a confusing
-    // 401 from the vendor. In practice this means ENCRYPTION_KEY changed
-    // without running scripts/migrate-encryption-key.ts.
+    // decryptAIKey returns "" for anything it can't decrypt. Treat that as
+    // "unusable" and keep the env fallback rather than handing an empty key to
+    // the provider, which would surface as a confusing 401 from the vendor. In
+    // practice this means ENCRYPTION_KEY changed without running
+    // scripts/migrate-encryption-key.ts.
     if (!key) {
       logger.error(
         `aiCredentials: the stored ${credential.provider} key for organization ${credential.organization} could not be decrypted with the current ENCRYPTION_KEY`,
