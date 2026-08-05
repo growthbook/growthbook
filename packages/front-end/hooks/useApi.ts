@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import useSWR, { SWRConfiguration } from "swr";
-import { useAuth } from "@/services/auth";
+import { SESSION_EXPIRED_ERROR, useAuth } from "@/services/auth";
 import { useBackgroundRefreshError } from "@/services/BackgroundRefreshError";
 
 export interface UseApiOptions {
@@ -52,14 +52,22 @@ export default function useApi<Response = unknown>(
   const hasData = swr.data !== undefined;
   const refreshError = hasData ? swr.error : undefined;
 
+  // A session-expired failure is surfaced by AuthProvider's own "signed out"
+  // toast (with a Sign in action), so don't also report it to the generic
+  // refresh toast — that would double up.
+  const reportableError =
+    refreshError && refreshError.message !== SESSION_EXPIRED_ERROR
+      ? refreshError
+      : undefined;
+
   // The fetcher throws a *new* Error instance on every failed revalidation. Keep
   // the latest one in a ref and gate the effect on a stable boolean, so it only
   // runs when the *presence* of a background error toggles — not on every failed
   // fetch (which would otherwise churn report()/clear() and perpetually reset the
   // toast's debounce timer in the provider).
-  const refreshErrorRef = useRef(refreshError);
-  refreshErrorRef.current = refreshError;
-  const hasRefreshError = refreshError !== undefined;
+  const refreshErrorRef = useRef(reportableError);
+  refreshErrorRef.current = reportableError;
+  const hasRefreshError = reportableError !== undefined;
 
   useEffect(() => {
     if (!backgroundRefreshError || !activeKey) return;

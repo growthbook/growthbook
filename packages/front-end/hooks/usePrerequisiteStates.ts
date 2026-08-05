@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import useSWR from "swr";
 import useApi from "@/hooks/useApi";
-import { useAuth } from "@/services/auth";
+import { SESSION_EXPIRED_ERROR, useAuth } from "@/services/auth";
 import { useBackgroundRefreshError } from "@/services/BackgroundRefreshError";
 
 type PrerequisiteState = "deterministic" | "conditional" | "cyclic";
@@ -146,11 +146,18 @@ export function useBatchPrerequisiteStates({
   const hasData = data !== undefined;
   const refreshError = hasData ? error : undefined;
 
+  // A session-expired failure gets AuthProvider's own "signed out" toast, so
+  // skip reporting it here to avoid doubling up — see `useApi`.
+  const reportableError =
+    refreshError && refreshError.message !== SESSION_EXPIRED_ERROR
+      ? refreshError
+      : undefined;
+
   // Gate the effect on a stable boolean (not the per-failure Error identity) so it
   // only runs when the presence of a background error toggles — see `useApi`.
-  const refreshErrorRef = useRef(refreshError);
-  refreshErrorRef.current = refreshError;
-  const hasRefreshError = refreshError !== undefined;
+  const refreshErrorRef = useRef(reportableError);
+  refreshErrorRef.current = reportableError;
+  const hasRefreshError = reportableError !== undefined;
 
   useEffect(() => {
     if (!backgroundRefreshError || !key) return;
