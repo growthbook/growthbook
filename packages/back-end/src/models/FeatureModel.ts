@@ -3505,9 +3505,6 @@ async function publishRevisionInner({
     );
   }
 
-  // Create ramp schedules BEFORE writing the feature so that a schedule
-  // creation failure gates the publish (atomicity: no published feature without
-  // its ramp schedule).
   const createActions = (revision.rampActions ?? []).filter(
     (a) => a.mode === "create",
   );
@@ -3524,15 +3521,20 @@ async function publishRevisionInner({
   const rewinds: Rewind[] = [];
   let revisionStatusRewind: Rewind | null = null;
 
-  if (createActions.length) {
-    const preCreatedScheduleIds = await createRampSchedulesForRevision(
-      context,
-      feature,
-      revision,
-      result,
-      createActions,
-    );
-    if (preCreatedScheduleIds.length) {
+  let updatedFeature: FeatureInterface;
+  // Our own write's stamp, captured the moment it lands: the ownership token the
+  // unwind below checks before reversing any satellite.
+  let ourWriteStamp: Date | undefined;
+  try {
+    // Inside the try, and registered BEFORE the creation runs. Creating several
+    // schedules is several writes: a throw partway through has already created
+    // some, and both the return value naming them and — while this sat outside
+    // the try — the unwind that would remove them were lost with the throw. The
+    // accumulator is written as each one lands, so the rewind names them whether
+    // the call returns or throws. Still before the feature write, so a schedule
+    // failure gates the publish.
+    if (createActions.length) {
+      const preCreatedScheduleIds: string[] = [];
       rewinds.push({
         what: "ramp schedules",
         undo: () =>
@@ -3544,14 +3546,16 @@ async function publishRevisionInner({
             ),
           ),
       });
+      await createRampSchedulesForRevision(
+        context,
+        feature,
+        revision,
+        result,
+        createActions,
+        preCreatedScheduleIds,
+      );
     }
-  }
 
-  let updatedFeature: FeatureInterface;
-  // Our own write's stamp, captured the moment it lands: the ownership token the
-  // unwind below checks before reversing any satellite.
-  let ourWriteStamp: Date | undefined;
-  try {
     // Captured before any mutation — the holdout transition is several
     // non-transactional writes, so a failure partway through has already mutated
     // linkage and must still be repaired.

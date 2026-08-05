@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import DraftSelector, { DraftMode } from "@/components/DraftSelector";
 
 export type { DraftMode };
@@ -73,22 +73,36 @@ export default function DraftSelectorForChanges<K>({
     !hideExisting && maxDrafts > 0 && activeDraftKeys.length >= maxDrafts;
   const newDraftBlocked = atDraftCap && !isAdmin && !allowNewDraftAtCap;
 
-  // Without draft rights the only route is publishing, so that's the one mode.
-  if (!canDraft) {
-    if (mode !== "publish") {
+  // Correcting a mode the parent can't reach itself, in an effect rather than
+  // during render: these call the PARENT's setters, and React refuses to update
+  // another component mid-render.
+  useEffect(() => {
+    // Without draft rights the only route is publishing, so that's the one mode.
+    if (!canDraft) {
+      if (mode !== "publish") {
+        setSelectedDraft(null);
+        setMode("publish");
+      }
+    } else if (singleOption && mode !== "new") {
+      // Otherwise the sole remaining mode is "new"; keep the form in sync in case
+      // the parent initialised with a stale value.
       setSelectedDraft(null);
-      setMode("publish");
+      setMode("new");
+    } else if (newDraftBlocked && mode === "new") {
+      // "new" is disabled at the cap — fall back to the most recent active draft.
+      setMode("existing");
+      setSelectedDraft(selectedDraft ?? activeDraftKeys[0] ?? null);
     }
-  } else if (singleOption && mode !== "new") {
-    // Otherwise the sole remaining mode is "new"; keep the form in sync in case
-    // the parent initialised with a stale value.
-    setSelectedDraft(null);
-    setMode("new");
-  } else if (newDraftBlocked && mode === "new") {
-    // "new" is disabled at the cap — fall back to the most recent active draft.
-    setMode("existing");
-    setSelectedDraft(selectedDraft ?? activeDraftKeys[0] ?? null);
-  }
+  }, [
+    canDraft,
+    mode,
+    singleOption,
+    newDraftBlocked,
+    selectedDraft,
+    activeDraftKeys,
+    setMode,
+    setSelectedDraft,
+  ]);
 
   return (
     <DraftSelector

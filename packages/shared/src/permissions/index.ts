@@ -5,3 +5,4 @@ export * from "./revisionPermissions";
 export * from "./moveAuthority";
 export * from "./controlAuthority";
 export * from "./publishFootprint";
+export * from "./createScope";

@@ -1,4 +1,7 @@
-import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import {
+  NO_ENVIRONMENT_BINDING,
+  canCreateInSelectedScope,
+} from "shared/permissions";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature, useGrowthBook } from "@growthbook/growthbook-react";
@@ -613,32 +616,17 @@ export default function FeaturesPage() {
     projects,
   );
 
-  const canCreateFeatures = useMemo(() => {
-    // Create authority alone, matching the endpoint: a create-only role can
-    // create a flag even though it can't draft changes to one afterwards.
-    if (project) {
-      return permissionsUtil.canCreateFeature(
-        { project },
-        NO_ENVIRONMENT_BINDING,
-      );
-    }
-    // "All Projects" selected. Check the global (no-project) permission first so
-    // a user who can create features at the org level (e.g. an admin) isn't
-    // blocked by a non-creatable project. Otherwise the read-only sample-data
-    // project would disable the button whenever it's the only project.
-    if (
-      permissionsUtil.canCreateFeature({ project: "" }, NO_ENVIRONMENT_BINDING)
-    ) {
-      return true;
-    }
-    // Otherwise, allow if they can create in at least one specific project.
-    return (projects ?? []).some((p) =>
+  // Create authority alone, matching the endpoint: a create-only role can create a
+  // flag even though it can't draft changes to one afterwards.
+  const canCreateFeatures = canCreateInSelectedScope({
+    project,
+    projectIds: (projects ?? []).map((p) => p.id),
+    canCreateIn: (p) =>
       permissionsUtil.canCreateFeature(
-        { project: p.id },
+        { project: p ?? "" },
         NO_ENVIRONMENT_BINDING,
       ),
-    );
-  }, [project, projects, permissionsUtil]);
+  });
 
   if (error) {
     return <Callout status="error">An error occurred: {error.message}</Callout>;

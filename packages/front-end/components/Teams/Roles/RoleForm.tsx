@@ -7,6 +7,7 @@ import {
   DEPRECATED_POLICIES,
 } from "shared/permissions";
 import { FormProvider, useForm } from "react-hook-form";
+import isEqual from "lodash/isEqual";
 import { Role } from "shared/types/organization";
 import router from "next/router";
 import { useEffect, useState } from "react";
@@ -147,13 +148,18 @@ export default function RoleForm({
     return "Create & Save";
   };
 
-  const hasChanges =
-    JSON.stringify({
+  // Policies are a set, so their order carries no meaning — comparing the arrays
+  // positionally left Save enabled after toggling one off and back on, which
+  // re-appended it at a different index.
+  const hasChanges = !isEqual(
+    {
       id: role.id,
       description: role.description,
-      policies: role.policies,
+      policies: [...(role.policies ?? [])].sort(),
       displayName: role.displayName,
-    }) !== JSON.stringify(currentValue);
+    },
+    { ...currentValue, policies: [...(currentValue.policies ?? [])].sort() },
+  );
 
   const saveSettings = form.handleSubmit(async (currentValue) => {
     setError(null);

@@ -207,6 +207,12 @@ export default function FeaturesHeader({
   const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
   const enabledEnvs = getEnabledEnvironments(feature, environments);
   const canPublish = permissionsUtil.canPublishFeature(feature, enabledEnvs);
+  // Duplicating CREATES a flag, so it takes create authority — not authority over
+  // the one being copied. The modal gates its own environment toggles.
+  const canDuplicate = permissionsUtil.canCreateFeature(
+    { project: projectId },
+    NO_ENVIRONMENT_BINDING,
+  );
   // Live state, not the viewed revision's: a draft staging an archive must not
   // make the page claim the flag is already out of service.
   const isArchived = baseFeature.archived;
@@ -392,7 +398,7 @@ export default function FeaturesHeader({
             <>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
-                {canEdit && canPublish && (
+                {canDuplicate && (
                   <DropdownMenuItem
                     onClick={() => {
                       setDuplicateModal(true);

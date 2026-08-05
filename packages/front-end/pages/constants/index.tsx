@@ -1,3 +1,4 @@
+import { canCreateInSelectedScope } from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { date, datetime } from "shared/dates";
@@ -194,8 +195,10 @@ export default function ConstantsPage(): React.ReactElement {
     return <LoadingOverlay />;
   }
 
-  const canAdd = permissionsUtil.canCreateConstant({
-    project: project || undefined,
+  const canAdd = canCreateInSelectedScope({
+    project,
+    projectIds: projects.map((p) => p.id),
+    canCreateIn: (p) => permissionsUtil.canCreateConstant({ project: p }),
   });
   // Include archived so an org with only archived constants still gets the list
   // (and its `is:archived` facet) rather than the empty state.

@@ -41,6 +41,37 @@ describe("revision read basis", () => {
     return context;
   }
 
+  /**
+   * A reader with access to exactly one project. An admin reads every project, so
+   * it cannot tell the two bases apart — only a caller who can read the live
+   * project but not the snapshot's, or the reverse, makes the basis observable.
+   */
+  function readerLimitedTo(project: string) {
+    const context = new ReqContextClass({
+      org,
+      auditUser: { type: "api_key", apiKey: "k" },
+      role: "noaccess",
+      apiKeyData: {
+        role: "noaccess",
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [
+          {
+            project,
+            role: "readonly",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ],
+      } as unknown as Parameters<
+        typeof ReqContextClass.prototype.constructor
+      >[0]["apiKeyData"],
+      req: { query: {}, headers: {} } as unknown as Request,
+    });
+    context.hasPremiumFeature = () => true;
+    return context;
+  }
+
   beforeEach(async () => {
     for (const c of ["revisions", "constants"]) {
       await mongoose.connection
@@ -116,6 +147,35 @@ describe("revision read basis", () => {
       await context.models.revisions.getByTargetTypePaginated("constant", {});
     expect(total).toBe(0);
     expect(revisions).toHaveLength(0);
+  });
+
+  // The move, in both directions. The revision's snapshot says `prj_stale` and the
+  // live constant says `prj_live`, so these two readers disagree under a snapshot
+  // basis and agree with the live entity under this one.
+  it("shows history to a reader of the entity's CURRENT project", async () => {
+    await seedConstant("const_moved");
+    await seedRevision("const_moved");
+
+    const context = readerLimitedTo("prj_live");
+    const { revisions, total } =
+      await context.models.revisions.getByTargetTypePaginated("constant", {});
+    expect({ total, count: revisions.length }).toEqual({ total: 1, count: 1 });
+    expect(
+      await context.models.revisions.getOpenRevisionCount("constant"),
+    ).toBe(1);
+  });
+
+  it("hides it from a reader of only the project the snapshot names", async () => {
+    await seedConstant("const_moved");
+    await seedRevision("const_moved");
+
+    const context = readerLimitedTo("prj_stale");
+    const { revisions, total } =
+      await context.models.revisions.getByTargetTypePaginated("constant", {});
+    expect({ total, count: revisions.length }).toEqual({ total: 0, count: 0 });
+    expect(
+      await context.models.revisions.getOpenRevisionCount("constant"),
+    ).toBe(0);
   });
 
   it("pages and totals agree, both measured on live entities", async () => {
