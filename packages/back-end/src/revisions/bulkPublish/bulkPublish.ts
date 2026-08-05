@@ -70,13 +70,11 @@ function itemGate(
   };
 }
 
-/**
- * PLAN phase — read-only. Loads every item, builds the hypothetical
- * multi-entity end-state overlay, evaluates every publish gate against it,
- * captures CAS baselines and pre-images, and dispositions each gate against
- * the caller's flags and per-entity authority. The returned plan is both the
- * dry-run report and the exact input commitBulkPublish executes.
- */
+// PLAN phase — read-only. Loads every item, builds the hypothetical
+// multi-entity end-state overlay, evaluates every publish gate against it,
+// captures CAS baselines and pre-images, and dispositions each gate against
+// the caller's flags and per-entity authority. The returned plan is both the
+// dry-run report and the exact input commitBulkPublish executes.
 export async function planBulkPublish(
   context: Context,
   refs: BulkPublishItemRef[],
@@ -348,14 +346,12 @@ export async function planBulkPublish(
   return { items, gates: allGates, blockingGates, warnings, flags };
 }
 
-/**
- * COMMIT phase — writes only, no decisions. Verify entity drift, CAS-claim
- * every revision against its plan-time baseline (any conflict → release all
- * claims, 409, zero entity writes), apply every precomputed state with side
- * effects buffered, then flush: ONE deduped SDK payload refresh + per-item
- * events. An infra failure mid-apply compensates: restore pre-images, release
- * claims, drop the buffer (no refresh, no webhooks for a rolled-back release).
- */
+// COMMIT phase — writes only, no decisions. Verify entity drift, CAS-claim
+// every revision against its plan-time baseline (any conflict → release all
+// claims, 409, zero entity writes), apply every precomputed state with side
+// effects buffered, then flush: ONE deduped SDK payload refresh + per-item
+// events. An infra failure mid-apply compensates: restore pre-images, release
+// claims, drop the buffer (no refresh, no webhooks for a rolled-back release).
 export async function commitBulkPublish(
   context: Context,
   plan: BulkPublishPlan,

@@ -7,23 +7,16 @@ import { isPureRevertRevision } from "back-end/src/revisions/revertPurity";
 import { canDoRevisionAction } from "back-end/src/revisions/revisionActions";
 import { getAdapter } from "back-end/src/revisions";
 
-/**
- * Who may move a generic entity's draft along — request review on it, recall
- * that request, discard it.
- *
- * The entity-agnostic twin of `canAdvanceFeatureDraft`. Draft authority covers
- * every draft; beyond that two narrower atoms get a say so a single-purpose role
- * can finish what it was allowed to start:
- *
- * - revert authority, over a draft that only restores a published revision
- * - delete authority, over a draft that only archives the entity
- *
- * and, whatever the draft contains, over one the caller authored: you can always
- * clean up your own mess.
- *
- * The purity checks read a second revision, so they run only after the cheap
- * atom checks fail.
- */
+// Who may move a generic entity's draft along — request review on it, recall
+// that request, discard it.
+//
+// Draft authority covers every draft. Beyond that, a narrower atom gets a say so a
+// single-purpose role can finish what it was allowed to start: revert over a draft
+// that only restores a published revision, delete over one that only archives. The
+// author can always advance their own draft.
+//
+// The purity checks read a second revision, so they run only after the cheap atom
+// checks fail.
 export async function canAdvanceRevision(
   context: Context,
   revision: Revision,
@@ -63,19 +56,17 @@ export async function canAdvanceRevision(
   return isPureRevertRevision(context, revision);
 }
 
-/**
- * Whether the live state still matches the snapshot the draft was built on, so a
- * rebase would pull nothing in and only re-anchor the base version.
- *
- * Deliberately NOT named like `featureDraftAuthority`'s `rebasePullsInNothing`,
- * which answers the same question from a MergeResult. The two are not
- * interchangeable — see below for why this one cannot use that basis.
- *
- * Asked of base-vs-live directly, not of the merge result: `checkMergeConflicts`
- * only examines fields the DRAFT proposes, so a field the live state changed and
- * the draft never touches produces no conflict and no `fieldsChanged` entry — yet
- * a rebase adopts it. That field is exactly what a narrow atom must not sweep in.
- */
+// Whether the live state still matches the snapshot the draft was built on, so a
+// rebase would pull nothing in and only re-anchor the base version.
+//
+// Deliberately NOT named like `featureDraftAuthority`'s `rebasePullsInNothing`,
+// which answers the same question from a MergeResult. The two are not
+// interchangeable — see below for why this one cannot use that basis.
+//
+// Asked of base-vs-live directly, not of the merge result: `checkMergeConflicts`
+// only examines fields the DRAFT proposes, so a field the live state changed and
+// the draft never touches produces no conflict and no `fieldsChanged` entry — yet
+// a rebase adopts it. That field is exactly what a narrow atom must not sweep in.
 export function liveMatchesRevisionBase({
   baseSnapshot,
   liveSnapshot,
@@ -93,13 +84,11 @@ export function liveMatchesRevisionBase({
   );
 }
 
-/**
- * Who may rebase a draft. Draft authority covers any rebase; a narrow atom
- * covers one that pulls in nothing, over a draft the atom could already advance.
- * That lets a single-purpose role satisfy "rebase before publishing" without
- * gaining a way to sweep someone else's changes in. The generic twin of
- * `canRebaseFeatureDraft`.
- */
+// Who may rebase a draft. Draft authority covers any rebase; a narrow atom
+// covers one that pulls in nothing, over a draft the atom could already advance.
+// That lets a single-purpose role satisfy "rebase before publishing" without
+// gaining a way to sweep someone else's changes in. The generic twin of
+// `canRebaseFeatureDraft`.
 export async function canRebaseRevision({
   context,
   revision,

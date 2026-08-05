@@ -11,14 +11,12 @@ import {
   normalizeMetadataValue,
 } from "./features";
 
-/**
- * "Is this draft purely an X?" — what a narrow atom asks before acting on a
- * draft it didn't author. Revert authority may move one that only restores a
- * published revision; delete authority, one that only archives the flag.
- *
- * Shared because the client decides what to offer and the server decides what
- * to allow: a disagreement is a button that fails.
- */
+// "Is this draft purely an X?" — what a narrow atom asks before acting on a
+// draft it didn't author. Revert authority may move one that only restores a
+// published revision; delete authority, one that only archives the flag.
+//
+// Shared because the client decides what to offer and the server decides what
+// to allow: a disagreement is a button that fails.
 
 // Plain content: restoring these puts back a value that was already live.
 // `rules`, `environmentsEnabled` and `metadata` are handled separately.
@@ -102,12 +100,10 @@ function liveValueFor(
   }
 }
 
-/**
- * `metadata` is a sparse patch, not an envelope: absent inherits live, present
- * keys overlay it. Only the keys the draft carries can differ, and comparing
- * the whole object would read every draft as impure the moment either side
- * spelled an absent field differently.
- */
+// `metadata` is a sparse patch, not an envelope: absent inherits live, present
+// keys overlay it. Only the keys the draft carries can differ, and comparing
+// the whole object would read every draft as impure the moment either side
+// spelled an absent field differently.
 function metadataMatches(
   proposed: RevisionMetadata | undefined,
   against: RevisionMetadata | undefined,
@@ -143,17 +139,15 @@ function environmentsEnabledOnlyRestore({
   });
 }
 
-/**
- * Whether a feature draft restores `target`'s content and changes nothing else.
- *
- * Each content field must equal the target's value (a restoration) or live's (a
- * no-op). The no-op branch covers sparse legacy targets, whose unrecorded
- * envelopes `createRevision` fills from the live feature.
- *
- * `rampActions` and `holdout` must be no-ops even when the target recorded
- * something different — "restoring" them still fires a side effect beyond this
- * feature (ramp-schedule create/detach, holdout membership).
- */
+// Whether a feature draft restores `target`'s content and changes nothing else.
+//
+// Each content field must equal the target's value (a restoration) or live's (a
+// no-op). The no-op branch covers sparse legacy targets, whose unrecorded
+// envelopes `createRevision` fills from the live feature.
+//
+// `rampActions` and `holdout` must be no-ops even when the target recorded
+// something different — "restoring" them still fires a side effect beyond this
+// feature (ramp-schedule create/detach, holdout membership).
 export function isPureFeatureRevert({
   feature,
   draft,
@@ -241,14 +235,12 @@ export function isPureFeatureArchive({
  * The `archived` value a JSON-patch change set would land, or undefined when it
  * doesn't touch the field. Later ops win, matching patch application order.
  */
-/**
- * The project scope a revision's proposed changes would leave the entity in, as a
- * partial to spread over the live entity. Sibling of `proposedArchivedValue`.
- *
- * A revision can relocate an entity, so anything deciding whether a change may
- * LAND has to know where it lands — the live entity's own project answers the
- * wrong question.
- */
+// The project scope a revision's proposed changes would leave the entity in, as a
+// partial to spread over the live entity. Sibling of `proposedArchivedValue`.
+//
+// A revision can relocate an entity, so anything deciding whether a change may
+// LAND has to know where it lands — the live entity's own project answers the
+// wrong question.
 export function proposedProjectScope(proposedChanges: unknown): {
   project?: string;
   projects?: string[];

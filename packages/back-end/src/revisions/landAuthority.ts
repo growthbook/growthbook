@@ -1,26 +1,11 @@
 import { Context } from "back-end/src/models/BaseModel";
 
-/**
- * Landing authority for a revision, stated once.
- *
- * Feature Flags and the generic entities each had their own copy of this rule —
- * `assertCanPublishFeatureRevision` and `assertCanPublishRevision` — with the same
- * four arms in the same order. The differences were never the rule; they were two
- * inputs, and both are injected here:
- *
- *  - the environment footprint (the generic path derives it from the adapter, the
- *    feature path receives it from a merge result), and
- *  - how a narrow atom PROVES it covers this change (ops-based for JSON-patch
- *    revisions, merge-result-based for feature revisions).
- *
- * The permission atoms underneath were already shared: canPublishFeature,
- * canRevertFeature and canDeleteFeature all delegate to `canRevisionAction`.
- *
- * The rule: archiving is delete-class wherever it lands; otherwise publish
- * authority covers anything, and a narrow atom covers a change that does only what
- * that atom covers — revert for a pure restoration, delete for a pure archive.
- * Approval is a separate gate, enforced by the caller.
- */
+// Landing authority for every revisioned entity: archiving is delete-class
+// wherever it lands, publish covers anything, and a narrow atom covers a change
+// that does only what that atom covers. Approval is a separate gate.
+//
+// Callers inject the footprint and the purity proofs, which is all that differs
+// between JSON-patch revisions and feature revisions.
 export async function assertCanLandRevision({
   context,
   /** Entity-level authority for a verb, already scoped to the change's footprint. */
@@ -40,7 +25,6 @@ export async function assertCanLandRevision({
 }): Promise<void> {
   // Archiving is delete-class wherever the transition lands, not only via an
   // archive endpoint. Unarchiving returns the entity to service and is an ordinary
-  // publish, so it falls through to the arms below.
   if (archives && !holds("delete")) {
     context.permissions.throwPermissionError();
   }
@@ -57,19 +41,10 @@ export async function assertCanLandRevision({
   context.permissions.throwPermissionError();
 }
 
-/**
- * Rebase authority, stated once.
- *
- * Feature Flags and the generic entities each had their own copy — the same three
- * steps in the same order. Draft authority covers any rebase. Without it, a narrow
- * atom covers only a rebase that pulls NOTHING new into the draft, so a
- * single-purpose role can satisfy "rebase before publishing" without gaining a way
- * to sweep someone else's changes in.
- *
- * As with landing, the difference was one input: how "pulls in nothing" is proven —
- * comparing the base against live over the updatable fields, or inspecting a merge
- * result.
- */
+// Rebase authority. Draft authority covers any rebase; without it, a narrow atom
+// covers only a rebase that pulls NOTHING new in, so a single-purpose role can
+// satisfy "rebase before publishing" without gaining a way to sweep other people's
+// changes in. Callers prove "pulls in nothing" their own way.
 export async function canRebaseWithNarrowAtom({
   holdsDraftAuthority,
   pullsInNothing,

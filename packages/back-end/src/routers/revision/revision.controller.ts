@@ -125,12 +125,10 @@ function resolvePagination(query: RevisionListQuery) {
   return { limit, offset };
 }
 
-/**
- * GET /revision
- * Get a paginated list of revisions for the organization. Pass `?status=open`
- * to restrict to non-merged/non-discarded revisions, or a comma-separated list
- * of explicit statuses.
- */
+// GET /revision
+// Get a paginated list of revisions for the organization. Pass `?status=open`
+// to restrict to non-merged/non-discarded revisions, or a comma-separated list
+// of explicit statuses.
 export const getAllRevisions = async (
   req: GetAllRevisionsRequest,
   res: Response<GetAllRevisionsResponse | ApiErrorResponse>,
@@ -169,15 +167,13 @@ type GetOpenRevisionCountResponse = {
   count: number;
 };
 
-/**
- * GET /revision/count
- * Lightweight count of open revisions across the org. Used by the top-nav
- * badge so it doesn't have to fetch full revision documents.
- *
- * When `entityType` is not specified, the count is restricted to entity types
- * whose approval flow is currently enabled in the org settings — otherwise
- * stale drafts for a disabled type would inflate the badge.
- */
+// GET /revision/count
+// Lightweight count of open revisions across the org. Used by the top-nav
+// badge so it doesn't have to fetch full revision documents.
+//
+// When `entityType` is not specified, the count is restricted to entity types
+// whose approval flow is currently enabled in the org settings — otherwise
+// stale drafts for a disabled type would inflate the badge.
 export const getOpenRevisionCount = async (
   req: GetOpenRevisionCountRequest,
   res: Response<GetOpenRevisionCountResponse | ApiErrorResponse>,
@@ -1100,12 +1096,10 @@ type PostMergeResponse = {
   revision: Revision;
 };
 
-/**
- * POST /revision/:id/merge
- * Merge a revision (apply the changes). A revision with no net change vs the
- * live entity is closed out as merged (200), not an error, to self-heal
- * partial-failure retries.
- */
+// POST /revision/:id/merge
+// Merge a revision (apply the changes). A revision with no net change vs the
+// live entity is closed out as merged (200), not an error, to self-heal
+// partial-failure retries.
 export const postMerge = async (
   req: PostMergeRequest,
   res: Response<PostMergeResponse | ApiErrorResponse>,

@@ -368,13 +368,11 @@ export function isRuleEnabled(
   return true;
 }
 
-/**
- * Environments an archive takes the flag out of service in: the ones it both
- * applies to and is enabled in. A disabled environment already omits the feature
- * from its payload, so archiving changes nothing there — the same reason the
- * review gate scopes an archive to its enabled environments. Shared by every
- * path that can land an archive so they demand identical authority.
- */
+// Environments an archive takes the flag out of service in: the ones it both
+// applies to and is enabled in. A disabled environment already omits the feature
+// from its payload, so archiving changes nothing there — the same reason the
+// review gate scopes an archive to its enabled environments. Shared by every
+// path that can land an archive so they demand identical authority.
 // The environments a REST create will actually switch on. An omitted
 // environment still lands enabled when its `defaultState` says so — mirroring
 // `createInterfaceEnvSettingsFromApiEnvSettings` — so a footprint built only
@@ -1502,12 +1500,10 @@ export function getFeatureDefinition({
   return def;
 }
 
-/**
- * Populate `environmentRecord` values for env keys whose `Environment.parent`
- * chain has a defined ancestor. Only used for non-rule env fields (`enabled`,
- * `prerequisites`); rules declare their own scope on the unified array.
- * Pure.
- */
+// Populate `environmentRecord` values for env keys whose `Environment.parent`
+// chain has a defined ancestor. Only used for non-rule env fields (`enabled`,
+// `prerequisites`); rules declare their own scope on the unified array.
+// Pure.
 export function applyEnvironmentInheritance<T>(
   environments: Environment[],
   environmentRecord: Record<string, T>,

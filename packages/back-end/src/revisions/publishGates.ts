@@ -6,29 +6,20 @@ import {
 } from "back-end/src/api/features/reviewBypass";
 import { getErrorMessage } from "back-end/src/util/errors";
 
-// Aggregated publish-gate reporting for the REST revision-publish endpoints.
-// A blocked publish returns ONE structured 422 naming every gate with a uniform
-// set of fields (override flag, required permission, and a callable resolution
-// route), so a caller discovers every way past every gate in a single round
-// trip. On a SUCCESSFUL publish, any gate that WOULD have blocked but was
-// bypassed is reported in `bypassedGates`, so an audit trail records what the
-// caller's authority skipped. For the config and constant publish handlers the
-// collected guard gates plus this evaluation ARE the enforcement; the
-// approval/stale-base/value-validation asserts in the handlers remain as
-// backstops behind their gates.
+// Publish-gate reporting for the REST revision-publish endpoints. A blocked
+// publish returns one 422 naming every gate with its override flag, required
+// permission and resolution route, so a caller learns every way past in one round
+// trip; a successful publish reports whatever its authority skipped in
+// `bypassedGates`.
 //
-// Gates fall into two classes, distinguished by their `override` flag:
-//  - ACKNOWLEDGE-class (`override: "ignoreWarnings"`): "heads up, this ripples"
-//    warnings — experiment guard, stale-base, archive-dependents, custom-hook
-//    warnings. Anyone can clear them with `ignoreWarnings` (and the bypass-
-//    approval permission clears the soft ones on its own).
-//  - VALIDATION-class (`override: "skipSchemaValidation"`): "your data/rules are
-//    wrong" failures — own-schema errors, cross-field invariants, downstream
-//    schema breaks, custom-hook rejections. Clearable ONLY by the privileged
-//    `skipSchemaValidation` flag, which itself requires the entity's
-//    bypass-approval permission. `ignoreWarnings` and the org REST-bypass setting
-//    never clear them, and they are kept OUT of the flattened `warnings` list so
-//    an ignoreWarnings ack-and-retry never loops on a gate it can't clear.
+// Two classes, by `override`:
+//  - ACKNOWLEDGE (`ignoreWarnings`): this ripples — experiment guard, stale base,
+//    archive dependents, hook warnings. Anyone may clear them.
+//  - VALIDATION (`skipSchemaValidation`): the data is wrong — schema errors,
+//    cross-field invariants, downstream breaks, hook rejections. Clearable only by
+//    that privileged flag, never by `ignoreWarnings` or the org REST-bypass
+//    setting, and kept out of `warnings` so an ack-and-retry cannot loop on a gate
+//    it can't clear.
 
 // Override kinds, one per gate class:
 //  - "ignoreWarnings": acknowledge-class (experiment guard, stale-base,
@@ -126,14 +117,12 @@ export function makeBlockingGate(args: {
   };
 }
 
-/**
- * Convert a thrown error into a plan gate ONLY when it's a 4xx-class
- * application rejection; rethrow infra/5xx (or non-status) errors so a
- * transient failure surfaces as the 5xx it is instead of a permanent,
- * unfixable gate. Shared by every plan-gate collector that wraps a
- * DB-touching validation call. Generic in the gate type so callers that build
- * a tagged gate (the orchestrator's itemGate) keep their concrete type.
- */
+// Convert a thrown error into a plan gate ONLY when it's a 4xx-class
+// application rejection; rethrow infra/5xx (or non-status) errors so a
+// transient failure surfaces as the 5xx it is instead of a permanent,
+// unfixable gate. Shared by every plan-gate collector that wraps a
+// DB-touching validation call. Generic in the gate type so callers that build
+// a tagged gate (the orchestrator's itemGate) keep their concrete type.
 export function gateOr5xx<G extends PublishGate>(
   e: unknown,
   makeGate: (message: string) => G,
@@ -147,12 +136,10 @@ export function gateOr5xx<G extends PublishGate>(
 export type BypassedGate = {
   type: string;
   outcome: "bypassed";
-  /**
-   * The bypass source: an override flag ("ignoreWarnings" or the privileged
-   * "skipSchemaValidation"), the caller's bypass-approval permission for the
-   * entity ("bypassApprovalPermission"), or the org setting
-   * ("restApiBypassesReviews").
-   */
+  // The bypass source: an override flag ("ignoreWarnings" or the privileged
+  // "skipSchemaValidation"), the caller's bypass-approval permission for the
+  // entity ("bypassApprovalPermission"), or the org setting
+  // ("restApiBypassesReviews").
   via: string;
 };
 
@@ -227,13 +214,11 @@ export function hookResultsToGates(
 export type PublishGateClearance = {
   /** The request asked to force past warnings (body `ignoreWarnings`). */
   ignoreWarnings: boolean;
-  /**
-   * The caller may skip validation-class gates (schema errors, invariants,
-   * schema-break, hook failures) — i.e. they passed `skipSchemaValidation` AND
-   * hold the entity family's bypass-approval permission. Already resolves flag+permission
-   * together (mirrors `context.skipSchemaValidation`), so a skipSchemaValidation
-   * gate is bypassed iff this is true — the org REST-bypass setting never grants it.
-   */
+  // The caller may skip validation-class gates (schema errors, invariants,
+  // schema-break, hook failures) — i.e. they passed `skipSchemaValidation` AND
+  // hold the entity family's bypass-approval permission. Already resolves flag+permission
+  // together (mirrors `context.skipSchemaValidation`), so a skipSchemaValidation
+  // gate is bypassed iff this is true — the org REST-bypass setting never grants it.
   skipSchemaValidation: boolean;
   /**
    * The caller may skip a custom validation-hook rejection — passed `skipHooks`
@@ -256,13 +241,11 @@ export type PublishGateClearance = {
   canForceMergeStaleBase: boolean;
 };
 
-/**
- * The gates a request does NOT clear via a request-body flag: a gate is cleared
- * only when it has an override flag, that flag was passed, AND (when the gate
- * names a required permission) the caller holds that permission. A gate without
- * an override is never cleared here. Pure — the flag-clearing primitive shared
- * by the disposition logic and exported for unit tests.
- */
+// The gates a request does NOT clear via a request-body flag: a gate is cleared
+// only when it has an override flag, that flag was passed, AND (when the gate
+// names a required permission) the caller holds that permission. A gate without
+// an override is never cleared here. Pure — the flag-clearing primitive shared
+// by the disposition logic and exported for unit tests.
 export function unclearedGates(
   gates: PublishGate[],
   flags: PublishOverrideFlags,
@@ -282,17 +265,15 @@ export type PublishGateDisposition =
   | { outcome: "blocking" }
   | { outcome: "bypassed"; via: string };
 
-/**
- * Decide whether a single active gate blocks the publish or is bypassed (and by
- * what). Pure — exported for unit tests. The flag path reuses `unclearedGates`
- * (so its requiresPermission handling stays the single source of truth); the
- * non-flag paths encode each gate kind's authority:
- *  - config-locked: never bypassed on publish (unlock is a separate action).
- *  - approval-required: bypassed by the bypass-approval permission or the org
- *    REST setting (labeled by which was the reason).
- *  - stale-base: bypassed only by ignoreWarnings + force-merge authority.
- *  - soft guards: bypassed by ignoreWarnings, or the bypass-approval permission.
- */
+// Decide whether a single active gate blocks the publish or is bypassed (and by
+// what). Pure — exported for unit tests. The flag path reuses `unclearedGates`
+// (so its requiresPermission handling stays the single source of truth); the
+// non-flag paths encode each gate kind's authority:
+// - config-locked: never bypassed on publish (unlock is a separate action).
+// - approval-required: bypassed by the bypass-approval permission or the org
+// REST setting (labeled by which was the reason).
+// - stale-base: bypassed only by ignoreWarnings + force-merge authority.
+// - soft guards: bypassed by ignoreWarnings, or the bypass-approval permission.
 export function classifyPublishGate(
   gate: PublishGate,
   clearance: PublishGateClearance,
@@ -396,18 +377,16 @@ function formatGateLine(gate: PublishGate): string {
   return `- [${gate.type}] ${summary} (retry with "${gate.override}": true${permissionNote})`;
 }
 
-/**
- * Resolve a revision's gates against the caller's clearance, and refuse if any
- * survive.
- *
- * Every per-entity publish handler wired this identically — the four override
- * flags, the entity's bypass-approval permission, the org's REST review bypass,
- * the stale-base force — and one of them drifted: the Saved Group handler read
- * `settings.restApiBypassesReviews` directly, omitting the `!isJwtAuth` guard the
- * others get from `canUseRestApiBypassSetting`, so a JWT-backed REST call there
- * cleared reviews that Config and Constant refuse. Deciding it once is what stops
- * the next copy drifting.
- */
+// Resolve a revision's gates against the caller's clearance, and refuse if any
+// survive.
+//
+// Every per-entity publish handler wired this identically — the four override
+// flags, the entity's bypass-approval permission, the org's REST review bypass,
+// the stale-base force — and one of them drifted: the Saved Group handler read
+// `settings.restApiBypassesReviews` directly, omitting the `!isJwtAuth` guard the
+// others get from `canUseRestApiBypassSetting`, so a JWT-backed REST call there
+// cleared reviews that Config and Constant refuse. Deciding it once is what stops
+// the next copy drifting.
 export function resolveEntityPublishGates({
   req,
   gates,

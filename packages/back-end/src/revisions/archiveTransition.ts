@@ -2,14 +2,12 @@ import { projectScopeChanged } from "shared/permissions";
 import { isArchiveTransition as isArchiveTransitionPredicate } from "shared/util";
 import type { Permissions, RevisionModel } from "shared/permissions";
 
-/**
- * Archiving is delete-class: it takes the entity out of service, and being
- * archived is what lets it then be deleted freely. Unarchiving only puts it back
- * into service, so it stays an ordinary publish.
- *
- * These are the pure predicates behind that rule, shared by every path that can
- * land the transition (feature publish, bulk publish, the revision engine).
- */
+// Archiving is delete-class: it takes the entity out of service, and being
+// archived is what lets it then be deleted freely. Unarchiving only puts it back
+// into service, so it stays an ordinary publish.
+//
+// These are the pure predicates behind that rule, shared by every path that can
+// land the transition (feature publish, bulk publish, the revision engine).
 
 // Defined in shared so the client asks the same question.
 export {
@@ -40,13 +38,11 @@ export function canLandArchivedState({
     : permissions.canRevisionAction(model, "publish", entity, environments);
 }
 
-/**
- * Authority to land a direct entity write: publish-class, except an archiving
- * write, which is delete-class. Every BaseModel `canUpdate` routes through this,
- * and a backstop can't be stricter than the handler that already checked — the
- * handler proves what kind of write this is (e.g. a pure revert); from here they
- * are indistinguishable.
- */
+// Authority to land a direct entity write: publish-class, except an archiving
+// write, which is delete-class. Every BaseModel `canUpdate` routes through this,
+// and a backstop can't be stricter than the handler that already checked — the
+// handler proves what kind of write this is (e.g. a pure revert); from here they
+// are indistinguishable.
 export function canLandEntityUpdate({
   permissions,
   model,

@@ -1634,12 +1634,10 @@ export async function restartSchedule(
   return startSchedule(ctx, readied, heartbeat);
 }
 
-/**
- * Move the schedule to `targetStepIndex` (forward or backward) and leave it
- * paused. Re-applies (forward) or rolls back (backward) rule patches between
- * the old and new step, stops the linked SafeRollout, and emits
- * `rampSchedule.actions.jumped`. Use -1 for pre-start.
- */
+// Move the schedule to `targetStepIndex` (forward or backward) and leave it
+// paused. Re-applies (forward) or rolls back (backward) rule patches between
+// the old and new step, stops the linked SafeRollout, and emits
+// `rampSchedule.actions.jumped`. Use -1 for pre-start.
 export async function jumpSchedule(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -2247,19 +2245,17 @@ export async function onActivatingRevisionPublished(
   }
 }
 
-/**
- * Transition a `ready` schedule to `running` immediately (the "start now"
- * path). Called from `createRampSchedulesForRevision` when an update action
- * explicitly clears `startDate` on a schedule that has not yet started.
- *
- * Content-level fields (name, steps, cutoffDate, etc.) should already be
- * applied to `schedule` before this is called, or passed in via
- * `contentUpdates` so they land atomically in a single write.
- *
- * Returns false when the start did NOT run (schedule no longer ready, or the
- * lock stayed busy) so the caller can apply its content edits through the
- * normal update path instead of silently dropping them.
- */
+// Transition a `ready` schedule to `running` immediately (the "start now"
+// path). Called from `createRampSchedulesForRevision` when an update action
+// explicitly clears `startDate` on a schedule that has not yet started.
+//
+// Content-level fields (name, steps, cutoffDate, etc.) should already be
+// applied to `schedule` before this is called, or passed in via
+// `contentUpdates` so they land atomically in a single write.
+//
+// Returns false when the start did NOT run (schedule no longer ready, or the
+// lock stayed busy) so the caller can apply its content edits through the
+// normal update path instead of silently dropping them.
 export async function startReadyScheduleNow(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -2706,14 +2702,12 @@ type ApproveStartError =
   | { code: "permission_denied"; detail: string }
   | { code: "error"; detail: string };
 
-/**
- * Approves the one-time "start on approval" hold on the -1 → step 0 edge.
- * Sets the transient startApprovedAt marker, then either arms for a future
- * startDate (the "approve, then wait for date" compose case) or starts now.
- *
- * Idempotent: a schedule that's already been approved (or already left the
- * ready hold) returns null without side effects.
- */
+// Approves the one-time "start on approval" hold on the -1 → step 0 edge.
+// Sets the transient startApprovedAt marker, then either arms for a future
+// startDate (the "approve, then wait for date" compose case) or starts now.
+//
+// Idempotent: a schedule that's already been approved (or already left the
+// ready hold) returns null without side effects.
 export async function approveScheduleStart(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -2922,13 +2916,11 @@ export type StepMergeResult = {
   skippedIndices: number[];
 };
 
-/**
- * Merges an incoming steps array onto a running schedule with per-position guards:
- *  - past steps  : frozen — incoming changes are dropped
- *  - current step: only `holdConditions` and `approvalNotes` may change
- *  - future steps: full replacement from incoming (preserving existing `actions`
- *                  when the caller omits them, to avoid wiping coverage patches)
- */
+// Merges an incoming steps array onto a running schedule with per-position guards:
+// - past steps  : frozen — incoming changes are dropped
+// - current step: only `holdConditions` and `approvalNotes` may change
+// - future steps: full replacement from incoming (preserving existing `actions`
+// when the caller omits them, to avoid wiping coverage patches)
 export function mergeStepsForRunningSchedule(
   schedule: RampScheduleInterface,
   incomingSteps: RampScheduleInterface["steps"],
@@ -3034,12 +3026,10 @@ export async function updateRampSteps(
   return { schedule: ensured };
 }
 
-/**
- * Live ramp control — start/pause/resume/advance/rewind/complete/restart and
- * target attach/eject — changes what users are served right now, so it takes
- * publish authority over the environments the schedule reaches. Shared by the
- * internal controller and the REST handlers so the two can't drift.
- */
+// Live ramp control — start/pause/resume/advance/rewind/complete/restart and
+// target attach/eject — changes what users are served right now, so it takes
+// publish authority over the environments the schedule reaches. Shared by the
+// internal controller and the REST handlers so the two can't drift.
 export async function assertCanControlRampSchedule(
   context: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,

@@ -176,18 +176,16 @@ const BaseClass = MakeModelClass({
 });
 
 export class RevisionModel extends BaseClass {
-  /**
-   * Retry a create operation on duplicate-key error. The unique
-   * (organization, target.type, target.id, version) index can collide when two
-   * concurrent creates compute the same version number in `beforeCreate`. On a
-   * collision we re-run the operation; `beforeCreate` will recompute version
-   * against the now-larger set of existing revisions.
-   *
-   * IMPORTANT: All revision-creating call sites (including
-   * `dangerousCreateBypassPermission`) must go through this wrapper. Delegates
-   * to the shared `createWithVersionRetry` util so the retry semantics stay
-   * in lockstep with `FeatureRevisionModel.createRevision`.
-   */
+  // Retry a create operation on duplicate-key error. The unique
+  // (organization, target.type, target.id, version) index can collide when two
+  // concurrent creates compute the same version number in `beforeCreate`. On a
+  // collision we re-run the operation; `beforeCreate` will recompute version
+  // against the now-larger set of existing revisions.
+  //
+  // IMPORTANT: All revision-creating call sites (including
+  // `dangerousCreateBypassPermission`) must go through this wrapper. Delegates
+  // to the shared `createWithVersionRetry` util so the retry semantics stay
+  // in lockstep with `FeatureRevisionModel.createRevision`.
   public createWithVersionRetry<R>(op: () => Promise<R>): Promise<R> {
     return createWithVersionRetry(op);
   }
@@ -241,12 +239,10 @@ export class RevisionModel extends BaseClass {
     }
   }
 
-  /**
-   * If the entity-type's approval-flow has `resetReviewOnChange` enabled and
-   * the revision is currently `approved`, return a status update that bumps
-   * it back to `pending-review` plus an activity-log entry describing the
-   * reset. Otherwise return an empty object.
-   */
+  // If the entity-type's approval-flow has `resetReviewOnChange` enabled and
+  // the revision is currently `approved`, return a status update that bumps
+  // it back to `pending-review` plus an activity-log entry describing the
+  // reset. Otherwise return an empty object.
   private resetApprovalIfNeeded(
     existing: Revision,
     userId: string,
@@ -298,16 +294,14 @@ export class RevisionModel extends BaseClass {
     );
   }
 
-  /**
-   * Delegate create permission to the underlying target entity's adapter.
-   * Without this, any authenticated user could insert a revision document
-   * targeting any entity in their org. The adapter's `canCreate` mirrors the
-   * permission that gates editing the target itself.
-   *
-   * NOTE: `dangerousCreateBypassPermission` (inherited from BaseModel) skips
-   * this check AND skips the `createWithVersionRetry` wrapper above. Avoid it
-   * for revisions; prefer `createRequest` or `createWithVersionRetry(...)`.
-   */
+  // Delegate create permission to the underlying target entity's adapter.
+  // Without this, any authenticated user could insert a revision document
+  // targeting any entity in their org. The adapter's `canCreate` mirrors the
+  // permission that gates editing the target itself.
+  //
+  // NOTE: `dangerousCreateBypassPermission` (inherited from BaseModel) skips
+  // this check AND skips the `createWithVersionRetry` wrapper above. Avoid it
+  // for revisions; prefer `createRequest` or `createWithVersionRetry(...)`.
   protected canCreate(doc: Revision): boolean {
     return canTouchRevision(
       doc.target.type,
@@ -316,12 +310,10 @@ export class RevisionModel extends BaseClass {
     );
   }
 
-  /**
-   * The author can always update their own revision; otherwise they must hold
-   * one of the revision authorities on the target. Merged revisions cannot be
-   * updated. The controller gates the specific action — this only stops a write
-   * from someone with no standing at all.
-   */
+  // The author can always update their own revision; otherwise they must hold
+  // one of the revision authorities on the target. Merged revisions cannot be
+  // updated. The controller gates the specific action — this only stops a write
+  // from someone with no standing at all.
   protected canUpdate(
     existing: Revision,
     _updates: UpdateProps<Revision>,
@@ -491,18 +483,16 @@ export class RevisionModel extends BaseClass {
     return { $in: list };
   }
 
-  /**
-   * Paginated revision listing.
-   *
-   * IMPORTANT: BaseModel applies `limit` and `skip` AFTER read-permission
-   * filtering, while `_countDocuments` operates on the raw query. As a
-   * result, for users with restricted read access:
-   *  - A page may contain FEWER than `limit` items (some were filtered out).
-   *  - `total` may overstate the visible count.
-   * For an org admin the two stay consistent. Acceptable trade-off here
-   * since this endpoint is only used by the org-level inbox; revise if
-   * stricter consistency is required.
-   */
+  // Paginated revision listing.
+  //
+  // IMPORTANT: BaseModel applies `limit` and `skip` AFTER read-permission
+  // filtering, while `_countDocuments` operates on the raw query. As a
+  // result, for users with restricted read access:
+  // - A page may contain FEWER than `limit` items (some were filtered out).
+  // - `total` may overstate the visible count.
+  // For an org admin the two stay consistent. Acceptable trade-off here
+  // since this endpoint is only used by the org-level inbox; revise if
+  // stricter consistency is required.
   async getAllPaginated(
     opts: {
       status?: string | string[];
@@ -531,13 +521,11 @@ export class RevisionModel extends BaseClass {
     return { revisions, total };
   }
 
-  /**
-   * Same permission/count caveat as `getAllPaginated`.
-   *
-   * `entityId` / `authorId` are optional filters layered on top of the
-   * type-scoped query — used by the cross-entity REST listing endpoints
-   * (e.g. `GET /v1/saved-groups/revisions?savedGroupId=...&author=...`).
-   */
+  // Same permission/count caveat as `getAllPaginated`.
+  //
+  // `entityId` / `authorId` are optional filters layered on top of the
+  // type-scoped query — used by the cross-entity REST listing endpoints
+  // (e.g. `GET /v1/saved-groups/revisions?savedGroupId=...&author=...`).
   async getByTargetTypePaginated(
     entityType: RevisionTargetType,
     opts: {
@@ -571,15 +559,13 @@ export class RevisionModel extends BaseClass {
     return { revisions, total };
   }
 
-  /**
-   * Lightweight count of open revisions, optionally scoped to an entity type.
-   * Used by the top-nav badge so it doesn't have to fetch full revision docs.
-   *
-   * NOTE: This count uses the raw query and does NOT apply per-document read
-   * permission filters, so it can overstate what a low-permission user can
-   * actually see. Acceptable trade-off for a badge; do not rely on it for
-   * pagination total counts where exactness matters.
-   */
+  // Lightweight count of open revisions, optionally scoped to an entity type.
+  // Used by the top-nav badge so it doesn't have to fetch full revision docs.
+  //
+  // NOTE: This count uses the raw query and does NOT apply per-document read
+  // permission filters, so it can overstate what a low-permission user can
+  // actually see. Acceptable trade-off for a badge; do not rely on it for
+  // pagination total counts where exactness matters.
   async getOpenRevisionCount(entityType?: RevisionTargetType): Promise<number> {
     const filter = {
       ...(entityType ? { "target.type": entityType } : {}),
@@ -672,13 +658,11 @@ export class RevisionModel extends BaseClass {
     return results[0] ?? null;
   }
 
-  /**
-   * The most-recently-published (merged) revision for the entity — the one whose
-   * post-merge state is currently live. A merged revision is terminal, so its
-   * `dateUpdated` reflects the merge time; sort by it (then version/id) to pick the
-   * latest publish even if drafts were published out of creation order. Used to
-   * capture the pinned revision when locking a config.
-   */
+  // The most-recently-published (merged) revision for the entity — the one whose
+  // post-merge state is currently live. A merged revision is terminal, so its
+  // `dateUpdated` reflects the merge time; sort by it (then version/id) to pick the
+  // latest publish even if drafts were published out of creation order. Used to
+  // capture the pinned revision when locking a config.
   async getLatestMergedByTarget(
     entityType: RevisionTargetType,
     entityId: string,
@@ -1016,13 +1000,11 @@ export class RevisionModel extends BaseClass {
 
   // Recall / undo / comment-edit (review lifecycle)
 
-  /**
-   * Pull a review request back to draft. Clears reviews and disarms
-   * auto-publish — recall restarts the lifecycle, so prior verdicts are no
-   * longer active. Emits a "reopened" entry, which `addReview` uses as the
-   * cycle-start marker (so any straggler verdicts are correctly treated as
-   * pre-cycle history).
-   */
+  // Pull a review request back to draft. Clears reviews and disarms
+  // auto-publish — recall restarts the lifecycle, so prior verdicts are no
+  // longer active. Emits a "reopened" entry, which `addReview` uses as the
+  // cycle-start marker (so any straggler verdicts are correctly treated as
+  // pre-cycle history).
   async recallReview(id: string, userId: string) {
     const existing = await this.getById(id);
     if (!existing) throw new Error("Revision not found");
@@ -1064,13 +1046,11 @@ export class RevisionModel extends BaseClass {
     return updated;
   }
 
-  /**
-   * Retract the calling user's own active verdict in the current review cycle.
-   * Unlike recall, this must NOT reset the cycle — other reviewers' verdicts
-   * survive — so it logs a "review-retracted" entry (not a cycle-start action)
-   * and recomputes status from the remaining active verdicts. CAS-guarded like
-   * addReview.
-   */
+  // Retract the calling user's own active verdict in the current review cycle.
+  // Unlike recall, this must NOT reset the cycle — other reviewers' verdicts
+  // survive — so it logs a "review-retracted" entry (not a cycle-start action)
+  // and recomputes status from the remaining active verdicts. CAS-guarded like
+  // addReview.
   async undoReview(id: string, userId: string) {
     const updated = await this.updateWithCas(
       id,
@@ -1152,14 +1132,12 @@ export class RevisionModel extends BaseClass {
    * reviews are editable (verdicts are immutable history — change them via
    * undoReview). Does not touch status. CAS-guarded on `reviews`.
    */
-  /**
-   * Standing to write a comment on a revision. Comment writes get their own
-   * check because the general update backstop recognizes only authors and
-   * draft/review/revert/publish authority, which locks out a user whose claim
-   * is the addComments atom. Called INSIDE the CAS callback so it reads the
-   * same document the write is conditioned on — a concurrent rebase that moves
-   * the target's project can't slip between the check and the write.
-   */
+  // Standing to write a comment on a revision. Comment writes get their own
+  // check because the general update backstop recognizes only authors and
+  // draft/review/revert/publish authority, which locks out a user whose claim
+  // is the addComments atom. Called INSIDE the CAS callback so it reads the
+  // same document the write is conditioned on — a concurrent rebase that moves
+  // the target's project can't slip between the check and the write.
   private assertCanWriteCommentOn(existing: Revision): void {
     if (existing.authorId === this.context.userId) return;
     if (
@@ -1494,24 +1472,15 @@ export class RevisionModel extends BaseClass {
     return closed;
   }
 
-  /**
-   * Roll a just-merged revision back to its pre-merge state after applyChanges
-   * failed. Unlike `reopen`, restores the prior status (so an approval isn't
-   * lost) and re-arms any schedule `merge` scrubbed — otherwise a fire-time
-   * failure would permanently kill the schedule (the poller only sees
-   * autoPublishOnApproval:true) instead of retrying next tick. The
-   * experiment-guard acknowledgment is restored too, so the retry re-evaluates
-   * the guard against the keys the armer already accepted rather than treating a
-   * transient apply failure as a fresh (unacknowledged) conflict and parking.
-   *
-   * Status-guarded raw write: only applies while the doc is still "merged" from
-   * the failed publish; returns null if something else moved it concurrently.
-   * `expectedDateUpdated` (bulk publish) additionally pins the write to the
-   * exact merge this call is compensating — if a concurrent actor reopened and
-   * re-published the revision (a new, successful merge with a fresh
-   * dateUpdated), the filter misses and we return null rather than clobbering
-   * their published state.
-   */
+  // Roll a just-merged revision back after applyChanges failed. Unlike `reopen`,
+  // restores the prior status, re-arms any schedule `merge` scrubbed (else a
+  // fire-time failure kills the schedule instead of retrying), and restores the
+  // guard acknowledgment so a retry doesn't treat a transient failure as a fresh
+  // unacknowledged conflict.
+  //
+  // Guarded raw write: applies only while the doc is still "merged" from this
+  // failed publish. `expectedDateUpdated` pins it to that exact merge, so a
+  // concurrent reopen-and-republish is not clobbered.
   async reopenAfterFailedApply(
     id: string,
     userId: string,
@@ -1629,16 +1598,14 @@ export class RevisionModel extends BaseClass {
 
   // Scheduled / deferred publish
 
-  /**
-   * Arm (or cancel) a deferred publish on a revision. Scheduling implies the
-   * armed auto-publish flag; canceling disarms it. The publish later runs with
-   * `enabledBy`'s authority (falls back to the draft author when null).
-   *
-   * Uses a raw, status-guarded write so a revision published/discarded between
-   * the caller's read and this write can't get schedule fields stamped back on
-   * (which would also leave a stale lock-others doc occupying the partial unique
-   * index). Permission gating therefore happens in the controller.
-   */
+  // Arm (or cancel) a deferred publish on a revision. Scheduling implies the
+  // armed auto-publish flag; canceling disarms it. The publish later runs with
+  // `enabledBy`'s authority (falls back to the draft author when null).
+  //
+  // Uses a raw, status-guarded write so a revision published/discarded between
+  // the caller's read and this write can't get schedule fields stamped back on
+  // (which would also leave a stale lock-others doc occupying the partial unique
+  // index). Permission gating therefore happens in the controller.
   async setScheduledPublish(
     id: string,
     enabledBy: string | null,
@@ -1770,12 +1737,10 @@ export class RevisionModel extends BaseClass {
     if (conflict) throw new Error(PUBLISH_LOCK_CONFLICT_MESSAGE);
   }
 
-  /**
-   * True if another revision has a committed "lock other drafts" schedule
-   * blocking sibling publishes. Only applies once committed and no longer
-   * awaiting approval — status "approved" (approval flow) or "draft"
-   * (no-approval flow). Used by publishRevision before merging.
-   */
+  // True if another revision has a committed "lock other drafts" schedule
+  // blocking sibling publishes. Only applies once committed and no longer
+  // awaiting approval — status "approved" (approval flow) or "draft"
+  // (no-approval flow). Used by publishRevision before merging.
   async hasPublishLockingScheduledSibling(
     target: Revision["target"],
     excludeId: string,
@@ -1803,12 +1768,10 @@ export class RevisionModel extends BaseClass {
     return !!doc;
   }
 
-  /**
-   * Record a failed poller attempt so a stuck schedule is visible instead of
-   * silently retrying. Intentionally a raw write — no dateUpdated bump, audit,
-   * timeline, or webhook — so per-tick retries don't generate noise. Returns the
-   * new attempt count.
-   */
+  // Record a failed poller attempt so a stuck schedule is visible instead of
+  // silently retrying. Intentionally a raw write — no dateUpdated bump, audit,
+  // timeline, or webhook — so per-tick retries don't generate noise. Returns the
+  // new attempt count.
   async recordScheduledPublishFailure(
     id: string,
     message: string,
@@ -1842,14 +1805,12 @@ export class RevisionModel extends BaseClass {
     );
   }
 
-  /**
-   * Give up on a failing scheduled publish: clear the schedule (so the poller
-   * stops selecting it), disarm auto-publish, and stamp `scheduledPublishGaveUpAt`
-   * so the UI can flag the abandoned schedule. The draft is left open (status
-   * unchanged) with `scheduledPublishLastError` preserved for context. Raw write
-   * (no audit / dateUpdated bump), like the failure recorder — the
-   * `revision.publishFailed` webhook is the user-facing signal.
-   */
+  // Give up on a failing scheduled publish: clear the schedule (so the poller
+  // stops selecting it), disarm auto-publish, and stamp `scheduledPublishGaveUpAt`
+  // so the UI can flag the abandoned schedule. The draft is left open (status
+  // unchanged) with `scheduledPublishLastError` preserved for context. Raw write
+  // (no audit / dateUpdated bump), like the failure recorder — the
+  // `revision.publishFailed` webhook is the user-facing signal.
   async parkScheduledPublish(id: string): Promise<void> {
     await this._dangerousGetCollection().updateOne(
       { organization: this.context.org.id, id },
@@ -1870,12 +1831,10 @@ export class RevisionModel extends BaseClass {
     );
   }
 
-  /**
-   * Cross-org poller query for the Agenda job: every armed revision whose date
-   * has arrived and is still in an active review cycle. Org-agnostic by design
-   * (context is resolved per-org downstream), so this is a static that hits the
-   * collection directly rather than going through the org-scoped instance.
-   */
+  // Cross-org poller query for the Agenda job: every armed revision whose date
+  // has arrived and is still in an active review cycle. Org-agnostic by design
+  // (context is resolved per-org downstream), so this is a static that hits the
+  // collection directly rather than going through the org-scoped instance.
   static async dangerouslyFindRevisionsDueToPublish(now: Date): Promise<
     {
       organization: string;
@@ -2040,18 +1999,16 @@ export class RevisionModel extends BaseClass {
     return result;
   }
 
-  /**
-   * Create a revision that is already in `merged` status in a single write.
-   *
-   * Bypass-merge flows (e.g. PUT /saved-groups/:id) would otherwise have to
-   * create a draft and then `merge` it as two separate, non-transactional DB
-   * writes — if the merge failed after the entity was already updated, the draft
-   * would be stranded and could never be published ("no changes detected"
-   * against the now-updated live entity). Recording the merged revision in one
-   * write removes that window. Callers must persist the live entity change
-   * *before* calling this so the merged revision is a faithful record of a
-   * change that has actually landed.
-   */
+  // Create a revision that is already in `merged` status in a single write.
+  //
+  // Bypass-merge flows (e.g. PUT /saved-groups/:id) would otherwise have to
+  // create a draft and then `merge` it as two separate, non-transactional DB
+  // writes — if the merge failed after the entity was already updated, the draft
+  // would be stranded and could never be published ("no changes detected"
+  // against the now-updated live entity). Recording the merged revision in one
+  // write removes that window. Callers must persist the live entity change
+  // *before* calling this so the merged revision is a faithful record of a
+  // change that has actually landed.
   async createMerged(params: {
     type: RevisionTargetType;
     id: string;

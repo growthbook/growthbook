@@ -7,14 +7,12 @@ import type { PublishGate } from "back-end/src/revisions/publishGates";
 import { makeBlockingGate } from "back-end/src/revisions/publishGates";
 import { isRevisionDiverged } from "back-end/src/revisions/util";
 
-/**
- * The approval-required and stale-base publish gates for any entity on the
- * generic revision system — the single implementation behind both the
- * single-entity REST publish handlers and the bulk publisher. Approval
- * scoping stays per-adapter (`isApprovalRequiredForRevision`); this collector
- * must never flatten it into an org-level check. Features are deliberately
- * NOT served here — their gates live in services/featurePublishGates.ts.
- */
+// The approval-required and stale-base publish gates for any entity on the
+// generic revision system — the single implementation behind both the
+// single-entity REST publish handlers and the bulk publisher. Approval
+// scoping stays per-adapter (`isApprovalRequiredForRevision`); this collector
+// must never flatten it into an org-level check. Features are deliberately
+// NOT served here — their gates live in services/featurePublishGates.ts.
 export function collectRevisionGovernanceGates({
   context,
   adapter,
@@ -82,13 +80,11 @@ export function collectRevisionGovernanceGates({
   return gates;
 }
 
-/**
- * The approval gate for the direct archive/unarchive endpoints.
- * `approvalRequired` is computed by the caller (each handler runs the
- * adapter's change-aware check against a synthetic archive revision), and the
- * create-draft resolution path is passed in because it is not uniform across
- * entities.
- */
+// The approval gate for the direct archive/unarchive endpoints.
+// `approvalRequired` is computed by the caller (each handler runs the
+// adapter's change-aware check against a synthetic archive revision), and the
+// create-draft resolution path is passed in because it is not uniform across
+// entities.
 export function collectArchiveApprovalGate({
   approvalRequired,
   archived,

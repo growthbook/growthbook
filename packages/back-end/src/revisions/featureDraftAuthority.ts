@@ -16,26 +16,22 @@ import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 
-/**
- * Who may move a feature draft along, and who may land it.
- *
- * Draft authority covers every draft. Beyond that, revert authority reaches a
- * draft that only restores a published revision, delete authority one that only
- * archives the flag, and either reaches a draft the caller authored whatever it
- * contains — so a single-purpose role can finish what it may start.
- *
- * Purity checks read a second revision, so they run only after the cheap atom
- * check fails.
- */
+// Who may move a feature draft along, and who may land it.
+//
+// Draft authority covers every draft. Beyond that, revert authority reaches a
+// draft that only restores a published revision, delete authority one that only
+// archives the flag, and either reaches a draft the caller authored whatever it
+// contains — so a single-purpose role can finish what it may start.
+//
+// Purity checks read a second revision, so they run only after the cheap atom
+// check fails.
 
-/**
- * These gate DRAFT-advance paths only — request review, recall, discard — which
- * publish nothing, so they ask for the atom in the feature's project and not over
- * any environment. Same footprint the revert-draft endpoint uses to create the
- * draft in the first place; landing it is checked separately against the merge
- * footprint. An env list here would let an env-limited reverter create a draft it
- * could then neither advance nor discard.
- */
+// These gate DRAFT-advance paths only — request review, recall, discard — which
+// publish nothing, so they ask for the atom in the feature's project and not over
+// any environment. Same footprint the revert-draft endpoint uses to create the
+// draft in the first place; landing it is checked separately against the merge
+// footprint. An env list here would let an env-limited reverter create a draft it
+// could then neither advance nor discard.
 function hasRevertAuthority(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -220,12 +216,10 @@ export function rebasePullsInNothing(
  * or a narrow atom over a draft that only does what that atom covers. Approval
  * is a separate gate, enforced by the caller.
  */
-/**
- * Boolean form of `assertCanPublishFeatureRevision`, for callers that must decide
- * feasibility rather than refuse outright — bulk publish collects gates instead
- * of throwing. Delegates rather than reimplements so a bulk publish and a single
- * publish can never disagree about what is allowed.
- */
+// Boolean form of `assertCanPublishFeatureRevision`, for callers that must decide
+// feasibility rather than refuse outright — bulk publish collects gates instead
+// of throwing. Delegates rather than reimplements so a bulk publish and a single
+// publish can never disagree about what is allowed.
 export async function canPublishFeatureRevisionChange(
   args: Parameters<typeof assertCanPublishFeatureRevision>[0],
 ): Promise<boolean> {

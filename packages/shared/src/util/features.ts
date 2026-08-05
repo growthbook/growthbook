@@ -100,15 +100,13 @@ export function getValidation(feature: Pick<FeatureInterface, "jsonSchema">) {
   }
 }
 
-/**
- * View-only JIT migration of a v1 feature snapshot (rules under
- * `environmentSettings[env].rules`) to v2 (top-level `feature.rules`).
- *
- * Used at the front-end model boundary for audit log snapshots, cached
- * responses, fixtures. Idempotent. Does NOT merge content-identical rules
- * across envs — naive stamp with `allEnvironments: false` +
- * `environments: [env]`. For persistence use `normalizeRulesInputToV2`.
- */
+// View-only JIT migration of a v1 feature snapshot (rules under
+// `environmentSettings[env].rules`) to v2 (top-level `feature.rules`).
+//
+// Used at the front-end model boundary for audit log snapshots, cached
+// responses, fixtures. Idempotent. Does NOT merge content-identical rules
+// across envs — naive stamp with `allEnvironments: false` +
+// `environments: [env]`. For persistence use `normalizeRulesInputToV2`.
 export function toV2FeatureSnapshot<T extends Partial<FeatureInterface>>(
   snapshot: T,
 ): T {
@@ -1125,17 +1123,15 @@ export function isStrandedLiveRevision({
   );
 }
 
-/**
- * The metadata envelope as the live feature spells it. Revisions store metadata
- * sparsely — absent keys inherit live — so every baseline seeds from this before
- * being diffed, and every snapshot writes it. One definition, because a field
- * present in one spelling and absent from another reads as an edit nobody made.
- *
- * `CompleteMetadata` is the point: every key of `RevisionMetadata` is optional,
- * so without it a field added to the schema could be snapshotted but never
- * seeded into a baseline, and drafts on features using it would diff against
- * nothing. Only the keys are compulsory — values may still be undefined.
- */
+// The metadata envelope as the live feature spells it. Revisions store metadata
+// sparsely — absent keys inherit live — so every baseline seeds from this before
+// being diffed, and every snapshot writes it. One definition, because a field
+// present in one spelling and absent from another reads as an edit nobody made.
+//
+// `CompleteMetadata` is the point: every key of `RevisionMetadata` is optional,
+// so without it a field added to the schema could be snapshotted but never
+// seeded into a baseline, and drafts on features using it would diff against
+// nothing. Only the keys are compulsory — values may still be undefined.
 type CompleteMetadata = {
   [K in keyof Required<RevisionMetadata>]: RevisionMetadata[K];
 };
@@ -3036,13 +3032,11 @@ function normalizeRuleForDiff(
  * schedule's patch actions (startActions, steps, endActions).  Returns "all"
  * if any patch sets `allEnvironments: true`.
  */
-/**
- * The publish footprint for a live ramp-schedule action. Pausing, advancing or
- * rewinding a schedule changes what users are served right now, so it takes
- * publish authority over the environments the schedule actually touches — "all"
- * resolves to every environment rather than to an empty list, which would
- * satisfy the environment check vacuously.
- */
+// The publish footprint for a live ramp-schedule action. Pausing, advancing or
+// rewinding a schedule changes what users are served right now, so it takes
+// publish authority over the environments the schedule actually touches — "all"
+// resolves to every environment rather than to an empty list, which would
+// satisfy the environment check vacuously.
 export function rampSchedulePublishEnvironments(
   schedule: Parameters<typeof getEnvsFromRampSchedule>[0],
   allEnvironments: string[],
@@ -3062,13 +3056,11 @@ export function isRampScheduleServing(
   return schedule.status === "running" || schedule.status === "paused";
 }
 
-/**
- * The environments a single ramp target is acted on in. Actions carry a
- * `targetId`, so a schedule controlling rule A in dev and rule B in production
- * touches each target only in its own environments — taking the union across
- * targets and applying it to every target's project would demand authority in
- * combinations the schedule never acts on.
- */
+// The environments a single ramp target is acted on in. Actions carry a
+// `targetId`, so a schedule controlling rule A in dev and rule B in production
+// touches each target only in its own environments — taking the union across
+// targets and applying it to every target's project would demand authority in
+// combinations the schedule never acts on.
 export function getEnvsForRampTarget(
   schedule: Pick<
     RampScheduleInterface,
@@ -3120,12 +3112,10 @@ export function revisionFlipsArchived(
   return revision.archived !== undefined && revision.archived !== base.archived;
 }
 
-/**
- * The environments an `archived` flip actually touches: the ones the flag
- * serves in. Archiving a flag that is live nowhere removes nothing from any
- * payload, so it isn't treated as affecting every environment the way other
- * global changes are.
- */
+// The environments an `archived` flip actually touches: the ones the flag
+// serves in. Archiving a flag that is live nowhere removes nothing from any
+// payload, so it isn't treated as affecting every environment the way other
+// global changes are.
 export function archiveAffectedEnvironments(
   revision: RevisionFields,
   base: RevisionFields,
@@ -4011,12 +4001,10 @@ export function getExperimentIdsFromRules(rules: unknown): string[] {
   );
 }
 
-/**
- * Unlinking is doubly bounded: a holdout's experiment list is not only a
- * projection of feature rules — experiments can be added to a holdout directly —
- * so a candidate must both have been contributed by THIS feature and be
- * referenced by nothing else. Anything else belongs to another writer.
- */
+// Unlinking is doubly bounded: a holdout's experiment list is not only a
+// projection of feature rules — experiments can be added to a holdout directly —
+// so a candidate must both have been contributed by THIS feature and be
+// referenced by nothing else. Anything else belongs to another writer.
 export function computeHoldoutExperimentLinkageDelta({
   publishedRules,
   previousRules,
@@ -4069,17 +4057,15 @@ export type ContextualBanditLinkageDelta = {
   draftsToDrop: number[];
 };
 
-/**
- * - `linkedFeatures`: the feature's live revision serves a rule for this
- *   contextual bandit.
- * - `pendingFeatureDrafts`: open drafts that reference the contextual bandit, keyed by
- *   revision version. These are the drafts the bandit publishes when it starts.
- *
- * Only CBs present in `currentStateByBandit` are considered — the caller
- * decides which of the referenced bandits exist and are writable, and includes
- * the ones that still hold entries for this feature so stale linkage is swept.
- * Bandits with nothing to change are left out of the result.
- */
+// - `linkedFeatures`: the feature's live revision serves a rule for this
+// contextual bandit.
+// - `pendingFeatureDrafts`: open drafts that reference the contextual bandit, keyed by
+// revision version. These are the drafts the bandit publishes when it starts.
+//
+// Only CBs present in `currentStateByBandit` are considered — the caller
+// decides which of the referenced bandits exist and are writable, and includes
+// the ones that still hold entries for this feature so stale linkage is swept.
+// Bandits with nothing to change are left out of the result.
 export function computeContextualBanditLinkageDelta({
   featureId,
   liveRules,

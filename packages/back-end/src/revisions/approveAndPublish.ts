@@ -1,18 +1,16 @@
-/**
- * Who may take the combined "approve and publish" action, and whether the
- * publish runs as the approver.
- *
- * Approving always needs review authority. The publish normally needs publish
- * authority too — but not when the revision is already **armed** for
- * auto-publish: there the publish was authorized by whoever armed it, and this
- * approver is only the trigger. Denying them would be meaningless anyway, since
- * plain Approve fires the same publish through `maybeAutoPublishRevision`.
- *
- * An armed approver without publish authority must NOT publish inline — that
- * would run as them and fail the publish check downstream. They approve, and the
- * armed fire publishes under the armer's context, which is exactly what the REST
- * submit-review endpoint already does.
- */
+// Who may take the combined "approve and publish" action, and whether the
+// publish runs as the approver.
+//
+// Approving always needs review authority. The publish normally needs publish
+// authority too — but not when the revision is already **armed** for
+// auto-publish: there the publish was authorized by whoever armed it, and this
+// approver is only the trigger. Denying them would be meaningless anyway, since
+// plain Approve fires the same publish through `maybeAutoPublishRevision`.
+//
+// An armed approver without publish authority must NOT publish inline — that
+// would run as them and fail the publish check downstream. They approve, and the
+// armed fire publishes under the armer's context, which is exactly what the REST
+// submit-review endpoint already does.
 export type ApproveAndPublishPlan =
   | { allowed: false }
   | { allowed: true; publishInline: boolean };

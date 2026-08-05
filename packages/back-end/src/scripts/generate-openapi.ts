@@ -248,12 +248,10 @@ function rewriteRefs(obj: unknown): unknown {
   return obj;
 }
 
-/**
- * Convert a ZodType to an OpenAPI-compatible JSON Schema object.
- * - Strips the top-level `$schema` meta-field emitted by `z.toJSONSchema`.
- * - Hoists any `$defs` (produced by `namedSchema`) into `componentSchemas`.
- * - Rewrites `$ref` pointers from `#/$defs/X` to `#/components/schemas/X`.
- */
+// Convert a ZodType to an OpenAPI-compatible JSON Schema object.
+// - Strips the top-level `$schema` meta-field emitted by `z.toJSONSchema`.
+// - Hoists any `$defs` (produced by `namedSchema`) into `componentSchemas`.
+// - Rewrites `$ref` pointers from `#/$defs/X` to `#/components/schemas/X`.
 function toOpenApiSchema(schema: z.ZodType): z.core.JSONSchema.BaseSchema {
   const {
     $schema: _$schema,
@@ -296,18 +294,16 @@ function toOpenApiSchema(schema: z.ZodType): z.core.JSONSchema.BaseSchema {
   return rewriteRefs(rest) as z.core.JSONSchema.BaseSchema;
 }
 
-/**
- * Remove `default`-bearing properties from every `required` array in a schema
- * tree (recursing through properties, items, anyOf/oneOf/allOf, etc.).
- *
- * `z.toJSONSchema` runs in "output" mode, where a field with a Zod
- * `.default()` is always present in the parsed result and so gets listed as
- * `required`. That's correct for responses, but for REQUEST schemas it's
- * contradictory: `default` means the client may omit the field, so it must not
- * also be `required`. We only call this on request (params/query/body) schemas;
- * response schemas keep the output-mode `required` set. Skips `$ref` nodes, so
- * shared component schemas (used by responses) are never mutated.
- */
+// Remove `default`-bearing properties from every `required` array in a schema
+// tree (recursing through properties, items, anyOf/oneOf/allOf, etc.).
+//
+// `z.toJSONSchema` runs in "output" mode, where a field with a Zod
+// `.default()` is always present in the parsed result and so gets listed as
+// `required`. That's correct for responses, but for REQUEST schemas it's
+// contradictory: `default` means the client may omit the field, so it must not
+// also be `required`. We only call this on request (params/query/body) schemas;
+// response schemas keep the output-mode `required` set. Skips `$ref` nodes, so
+// shared component schemas (used by responses) are never mutated.
 function stripDefaultedFromRequired(node: unknown): void {
   if (Array.isArray(node)) {
     node.forEach(stripDefaultedFromRequired);

@@ -14,18 +14,8 @@ import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 
 export type RevertStrategy = "draft" | "publish";
 
-/**
- * Restoring a historical revision is one operation with two modes, and it was
- * implemented twelve times — once per entity per surface. That is why revert
- * produced more findings than any other verb in the permission split: each
- * implementation re-derived what "restore revision N" means and re-decided the
- * authority for landing it, and the four authority classes a revert can span
- * (project move, archive flip, environment footprint, holdout) were classified
- * independently every time.
- *
- * This module owns all of it: the target state, the change set, the authority
- * decision, and the two strategies.
- */
+// Everything a revert needs: the target state, the change set, the authority
+// decision, and the two strategies (stage a draft, or land it).
 
 /**
  * The state a historical revision described once published: its own snapshot with
@@ -52,20 +42,13 @@ export function resolveRevertStrategy(
   return requested ?? (revertsBypassApproval ? "publish" : "draft");
 }
 
-/**
- * Authority for a revert, in one place.
- *
- * `landing` is the whole distinction that kept going wrong: staging a revert
- * publishes nothing, so it answers for the project; landing one writes live state,
- * so it answers for the environments the restoration reaches. Deriving both from
- * the landing footprint locked environment-limited reverters out of even
- * proposing, and deriving both from the project let them land.
- *
- * A revert also restores whatever the target revision held, so it can span
- * authority classes the revert atom does not cover on its own: relocating the
- * entity takes authority in the destination, and restoring an archived state is
- * delete-class because it takes the entity out of service.
- */
+// Revert authority. `landing` is the distinction that matters: staging publishes
+// nothing so it answers for the project, while landing answers for the environments
+// the restoration reaches.
+//
+// A revert restores whatever the target held, so it can span classes the revert atom
+// does not cover: relocating takes authority in the destination, and restoring an
+// archived state is delete-class.
 export function assertCanRevertRevision({
   context,
   entityType,
@@ -140,25 +123,16 @@ export function assertCanRevertRevision({
   }
 }
 
-/**
- * Land a direct change on the live entity, recording it as a merged revision.
- *
- * Every path that writes live state without a prior draft goes through here: the
- * three revert handlers and the three "no draft mode" update endpoints. They
- * disagreed on the one thing that matters — Config and Constant recorded history
- * first, Saved Group wrote live state first, which cannot be repaired by a retry
- * because the live change is already visible with no record of it.
- *
- * History first is the answer: a merged revision with no live change is
- * detectable and removable, and stranded-merge recovery exists for exactly that.
- * The reverse is silent. When the write fails the record is removed, and a
- * failure to remove it is reported rather than swallowed — phantom history is
- * worse than the original error, and only a human can reconcile it.
- *
- * `write` stays with the caller because the writes genuinely differ:
- * `adapter.applyChanges` re-runs entity normalization and cascades to dependents,
- * while the update endpoints write the model directly.
- */
+// Land a change that has no prior draft, recording it as a merged revision first.
+//
+// History before live state, deliberately: a merged revision with no live change
+// is detectable and removable (stranded-merge recovery exists for it), whereas a
+// live change with no record of it is silent and no retry can repair it. A failed
+// rollback is reported rather than swallowed, since only a human can reconcile
+// phantom history.
+//
+// `write` stays with the caller: applyChanges re-runs normalization and cascades
+// to dependents, while the update endpoints write the model directly.
 export async function landDirectChange<T>({
   context,
   entityType,
@@ -243,23 +217,12 @@ export async function applyRevertDirectly({
   return merged;
 }
 
-/**
- * The revert pipeline: one order, for every entity and surface.
- *
- * All three handlers this replaces already ran these steps in this sequence, with
- * entity specifics in exactly two places. Making the order explicit is what closes
- * the class a narrow chokepoint cannot: a handler omitting a step, or running it in
- * the wrong place. The findings behind this were all step-ordering — a merged record
- * written before the authority decision, an experiment guard enforced ad hoc
- * "because this path calls applyChanges directly", gates collected before the
- * coarse check.
- *
- * `validate` and `assertLandable` are the entity's own slots: cross-field
- * validation and value checks in the first, production-affecting guards that only
- * apply when the change actually lands in the second. Dispatch is not a slot — the
- * webhook adapter is already registered per entity, so the pipeline looks it up and
- * three handlers stop remembering to fire it.
- */
+// The revert order, owned centrally so a handler cannot omit a step or run one in
+// the wrong place.
+//
+// The entity's own work goes in two slots: `validate` for cross-field and value
+// checks, `assertLandable` for guards that only bite once the change lands. The
+// webhook is looked up from the registry rather than passed in.
 export async function revertRevision({
   context,
   entityType,
@@ -289,12 +252,10 @@ export async function revertRevision({
   title?: string;
   /** Entity validation, run for both strategies before anything is written. */
   validate?: () => Promise<void>;
-  /**
-   * Resolve whether this landing needs approval and whether the caller may bypass
-   * it, and refuse if not. Runs only when landing, and only AFTER authority —
-   * refusing for authority outranks refusing for process, and having each handler
-   * order that itself is what got it backwards.
-   */
+  // Resolve whether this landing needs approval and whether the caller may bypass
+  // it, and refuse if not. Runs only when landing, and only AFTER authority —
+  // refusing for authority outranks refusing for process, and having each handler
+  // order that itself is what got it backwards.
   resolveApproval?: () => Promise<{
     approvalRequired: boolean;
     canBypass: boolean;

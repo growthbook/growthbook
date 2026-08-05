@@ -42,17 +42,15 @@ export async function canLinkExperimentToHoldoutFromFeatures(
   );
 }
 
-/**
- * Holdout-compatibility gate for adding an experiment-ref rule to a feature.
- *
- * `effectiveHoldout` is the holdout the rule will publish under, resolved by the
- * caller (the live `feature.holdout`, or the target revision's holdout when
- * posting to a different draft). Validation only; the publish re-checks these
- * against live state.
- *
- * Incompatibilities throw via `makeError`, so REST handlers can surface a 400
- * (`BadRequestError`) while controllers get a plain `Error` (the default).
- */
+// Holdout-compatibility gate for adding an experiment-ref rule to a feature.
+//
+// `effectiveHoldout` is the holdout the rule will publish under, resolved by the
+// caller (the live `feature.holdout`, or the target revision's holdout when
+// posting to a different draft). Validation only; the publish re-checks these
+// against live state.
+//
+// Incompatibilities throw via `makeError`, so REST handlers can surface a 400
+// (`BadRequestError`) while controllers get a plain `Error` (the default).
 export async function resolveHoldoutExperimentToLink({
   context,
   feature,
@@ -131,12 +129,10 @@ export async function resolveHoldoutExperimentToLink({
   }
 }
 
-/**
- * Delete a holdout along with its underlying experiment, unlink it from its
- * linked features and experiments, and refresh affected SDK payloads. Callers
- * are responsible for experiment-level permission checks; deleting the holdout
- * itself enforces canDeleteHoldout.
- */
+// Delete a holdout along with its underlying experiment, unlink it from its
+// linked features and experiments, and refresh affected SDK payloads. Callers
+// are responsible for experiment-level permission checks; deleting the holdout
+// itself enforces canDeleteHoldout.
 export async function deleteHoldoutAndExperiment(
   context: ReqContext,
   holdout: HoldoutInterface,
@@ -184,14 +180,12 @@ export async function deleteHoldoutAndExperiment(
   });
 }
 
-/**
- * Mirror of `getHoldoutAvailableForProject`, applied from the Holdout side:
- * narrowing a Holdout's Projects must not strand entities that are already
- * linked from outside the new scope. Without this, the same invalid pairing the
- * feature/experiment side refuses can be created by editing the Holdout, and a
- * project-scoped SDK Connection then drops the Holdout from its payload while
- * the Feature Flag still shows the rule.
- */
+// Mirror of `getHoldoutAvailableForProject`, applied from the Holdout side:
+// narrowing a Holdout's Projects must not strand entities that are already
+// linked from outside the new scope. Without this, the same invalid pairing the
+// feature/experiment side refuses can be created by editing the Holdout, and a
+// project-scoped SDK Connection then drops the Holdout from its payload while
+// the Feature Flag still shows the rule.
 export async function assertHoldoutScopeCoversLinked(
   context: ReqContext | ApiReqContext,
   holdout: HoldoutInterface,

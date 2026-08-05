@@ -88,15 +88,13 @@ export const createSchema = <
   return output.strict() as unknown as CreateZodObject<T, PKey>;
 };
 
-/**
- * UpdateProps scoped to a specific model's primary key — forbids both the
- * standard protected base fields AND whatever fields comprise the pKey.
- *
- * PK is the literal tuple of primary key field names (e.g. readonly ["id"]
- * or readonly ["userId", "organization"]).  The tuple passed to MakeModelClass
- * will be defined with `as const` so that PK[number] resolves to a narrow string
- * literal union rather than just `string`.
- */
+// UpdateProps scoped to a specific model's primary key — forbids both the
+// standard protected base fields AND whatever fields comprise the pKey.
+//
+// PK is the literal tuple of primary key field names (e.g. readonly ["id"]
+// or readonly ["userId", "organization"]).  The tuple passed to MakeModelClass
+// will be defined with `as const` so that PK[number] resolves to a narrow string
+// literal union rather than just `string`.
 type PKeyUpdateProps<
   T extends BaseSchemaWithPrimaryKey<PKey>,
   PKey extends z.ZodRawShape,
@@ -295,16 +293,14 @@ export async function waitForIndexes(): Promise<void> {
   pendingIndexOperations.clear();
 }
 
-/**
- * Extracts the Zod schema type for a specific slot (paramsSchema/bodySchema/querySchema)
- * for a specific CRUD action from the model's crudValidatorOverrides type (CVO).
- * Falls back to DefaultCrudValidators when no override is defined for that action/slot,
- * preserving structural guarantees (e.g. params.id on delete/get/update).
- *
- * CVO is inferred from the concrete crudValidatorOverrides value passed to MakeModelClass,
- * so handleApi* override signatures in subclasses are automatically derived from the validators
- * without requiring explicit type annotations on the req parameter.
- */
+// Extracts the Zod schema type for a specific slot (paramsSchema/bodySchema/querySchema)
+// for a specific CRUD action from the model's crudValidatorOverrides type (CVO).
+// Falls back to DefaultCrudValidators when no override is defined for that action/slot,
+// preserving structural guarantees (e.g. params.id on delete/get/update).
+//
+// CVO is inferred from the concrete crudValidatorOverrides value passed to MakeModelClass,
+// so handleApi* override signatures in subclasses are automatically derived from the validators
+// without requiring explicit type annotations on the req parameter.
 type ExtractCrudSchema<
   CVO extends CrudValidatorOverrides,
   Action extends CrudAction,
@@ -728,18 +724,16 @@ export abstract class BaseModel<
     }
     return this._updateOne(existing, updates, { writeOptions });
   }
-  /**
-   * Compare-and-swap update for read-modify-write hotspots (e.g. reconciling a
-   * denormalized status from an embedded array several writers touch at once).
-   * Re-reads, runs `compute`, and writes only if `guardFields` are unchanged,
-   * retrying up to `maxAttempts`. Application-level optimistic concurrency (no
-   * transactions), so it stays DocumentDB/CosmosDB compatible.
-   *
-   * Goes through canRead + `_updateOne` (canUpdate, validation, audit, hooks),
-   * which run only on the winning attempt — but `compute` may run several times,
-   * so keep it side-effect free. Returns the updated doc, or null if the doc is
-   * gone / not readable / `compute` aborts. Throws if attempts are exhausted.
-   */
+  // Compare-and-swap update for read-modify-write hotspots (e.g. reconciling a
+  // denormalized status from an embedded array several writers touch at once).
+  // Re-reads, runs `compute`, and writes only if `guardFields` are unchanged,
+  // retrying up to `maxAttempts`. Application-level optimistic concurrency (no
+  // transactions), so it stays DocumentDB/CosmosDB compatible.
+  //
+  // Goes through canRead + `_updateOne` (canUpdate, validation, audit, hooks),
+  // which run only on the winning attempt — but `compute` may run several times,
+  // so keep it side-effect free. Returns the updated doc, or null if the doc is
+  // gone / not readable / `compute` aborts. Throws if attempts are exhausted.
   public async updateWithCas(
     id: string,
     guardFields: (keyof z.infer<T>)[],
@@ -752,12 +746,10 @@ export abstract class BaseModel<
     options: {
       maxAttempts?: number;
       writeOptions?: WriteOptions;
-      /**
-       * Skip the canUpdate gate, for orchestration writes whose authority was
-       * already established by the calling flow — e.g. claiming recovery of a
-       * merged revision, which canUpdate refuses to protect history from
-       * ordinary edits. Same contract as dangerousUpdateBypassPermission.
-       */
+      // Skip the canUpdate gate, for orchestration writes whose authority was
+      // already established by the calling flow — e.g. claiming recovery of a
+      // merged revision, which canUpdate refuses to protect history from
+      // ordinary edits. Same contract as dangerousUpdateBypassPermission.
       dangerouslyBypassCanUpdate?: boolean;
     } = {},
   ): Promise<z.infer<T> | null> {
@@ -828,15 +820,13 @@ export abstract class BaseModel<
     await this._deleteOne(existing, writeOptions);
     return existing;
   }
-  /**
-   * For cascades and compensating rollbacks: a delete implied by an action the
-   * caller was already authorized to take. Re-checking the acting user here asks
-   * for authority the triggering action never needed, and these paths are
-   * best-effort — a refusal is swallowed, leaving the row orphaned with nobody
-   * told. Never use this for a delete the user asked for directly.
-   * The by-id variant resolves through `getById`, which returns null for a doc
-   * the caller cannot READ, so it no-ops rather than deleting.
-   */
+  // For cascades and compensating rollbacks: a delete implied by an action the
+  // caller was already authorized to take. Re-checking the acting user here asks
+  // for authority the triggering action never needed, and these paths are
+  // best-effort — a refusal is swallowed, leaving the row orphaned with nobody
+  // told. Never use this for a delete the user asked for directly.
+  // The by-id variant resolves through `getById`, which returns null for a doc
+  // the caller cannot READ, so it no-ops rather than deleting.
   public async dangerousDeleteBypassPermission(
     existing: z.infer<T>,
     writeOptions?: WriteOptions,

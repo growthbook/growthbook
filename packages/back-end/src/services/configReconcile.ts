@@ -44,28 +44,26 @@ function assertNoSiblingConflictsInSubtree(
   }
 }
 
-/**
- * Dry run of the descendant sibling-conflict check, evaluated against the
- * PROPOSED root (a not-yet-persisted `{ ...existing, ...changes }` doc). Call
- * this BEFORE the live root write so a publish that would create an unresolvable
- * sibling conflict at a descendant is rejected with nothing persisted — instead
- * of committing the root and then throwing from `reconcileConfigDescendants`
- * (which would leave the root changed while a descendant carries an at-rest
- * conflict).
- *
- * ACCEPTED RACE (TOCTOU): this validates a snapshot read here, but a concurrent
- * write to another family member between this check and the live write could
- * still introduce a conflict the dry run didn't see. We accept that residual
- * race rather than locking the whole config family across the read→validate→
- * write window (the contention isn't worth it for a rare, self-healing case).
- * The hit is minimized by:
- *   - the CAS-guarded revision merge (a concurrent merge of the same revision
- *     can't double-apply), which keeps the vulnerable window to the gap between
- *     this check and the immediately-following write; and
- *   - the post-write `reconcileConfigDescendants` net, which still runs and will
- *     surface/normalize anything that slipped through (at the cost of the
- *     documented partial-write only in that rare interleaving).
- */
+// Dry run of the descendant sibling-conflict check, evaluated against the
+// PROPOSED root (a not-yet-persisted `{ ...existing, ...changes }` doc). Call
+// this BEFORE the live root write so a publish that would create an unresolvable
+// sibling conflict at a descendant is rejected with nothing persisted — instead
+// of committing the root and then throwing from `reconcileConfigDescendants`
+// (which would leave the root changed while a descendant carries an at-rest
+// conflict).
+//
+// ACCEPTED RACE (TOCTOU): this validates a snapshot read here, but a concurrent
+// write to another family member between this check and the live write could
+// still introduce a conflict the dry run didn't see. We accept that residual
+// race rather than locking the whole config family across the read→validate→
+// write window (the contention isn't worth it for a rare, self-healing case).
+// The hit is minimized by:
+// - the CAS-guarded revision merge (a concurrent merge of the same revision
+// can't double-apply), which keeps the vulnerable window to the gap between
+// this check and the immediately-following write; and
+// - the post-write `reconcileConfigDescendants` net, which still runs and will
+// surface/normalize anything that slipped through (at the cost of the
+// documented partial-write only in that rare interleaving).
 export async function assertConfigDescendantsReconcilable(
   context: Context,
   proposedRoot: ConfigInterface,
@@ -108,22 +106,20 @@ function formatImpactLine(impact: ConfigSchemaChangeImpact): string {
   return `${name}: ${parts.join("; ")}`;
 }
 
-/**
- * Soft publish gate: warn when a proposed root schema/lineage change removes or
- * retypes fields that descendants still override or reference, or would drop a
- * descendant's contract-differing declaration via the cascade. Bypassable with
- * `?ignoreWarnings=true`. Always soft on a synchronous publish, regardless of
- * `blockPublishOnSchemaError`: the warning is about OTHER configs' state, not
- * the written value, so it must never hard-block an ancestor's own legitimate
- * publish — and for the same reason it ignores `skipSchemaValidation`.
- *
- * On a DEFERRED merge (scheduled poller / auto-publish-on-approval) there is no
- * user to warn and request-less contexts force `ignoreWarnings=true`, which says
- * nothing about intent — so instead of silently skipping, a tripped warning is a
- * TERMINAL failure: the publish is rejected, the draft stays open, and the
- * `revision.publishFailed` webhook fires. The publisher re-publishes manually
- * with `ignoreWarnings` to push through.
- */
+// Soft publish gate: warn when a proposed root schema/lineage change removes or
+// retypes fields that descendants still override or reference, or would drop a
+// descendant's contract-differing declaration via the cascade. Bypassable with
+// `?ignoreWarnings=true`. Always soft on a synchronous publish, regardless of
+// `blockPublishOnSchemaError`: the warning is about OTHER configs' state, not
+// the written value, so it must never hard-block an ancestor's own legitimate
+// publish — and for the same reason it ignores `skipSchemaValidation`.
+//
+// On a DEFERRED merge (scheduled poller / auto-publish-on-approval) there is no
+// user to warn and request-less contexts force `ignoreWarnings=true`, which says
+// nothing about intent — so instead of silently skipping, a tripped warning is a
+// TERMINAL failure: the publish is rejected, the draft stays open, and the
+// `revision.publishFailed` webhook fires. The publisher re-publishes manually
+// with `ignoreWarnings` to push through.
 export async function assertConfigSchemaChangeSafeForDescendants(
   context: Context,
   proposedRoot: ConfigInterface,
@@ -151,12 +147,10 @@ export async function assertConfigSchemaChangeSafeForDescendants(
   throw new SoftWarningError(message, lines);
 }
 
-/**
- * The gate form of the schema-change-impact warning above, evaluated at plan
- * time (the read context decides the baseline — under the bulk publisher's
- * per-item overlay, `before` already reflects the other items' proposals).
- * Cleared by ignoreWarnings alone, matching the assert.
- */
+// The gate form of the schema-change-impact warning above, evaluated at plan
+// time (the read context decides the baseline — under the bulk publisher's
+// per-item overlay, `before` already reflects the other items' proposals).
+// Cleared by ignoreWarnings alone, matching the assert.
 export async function collectConfigSchemaChangeImpactGates(
   context: Context,
   proposedRoot: ConfigInterface,
@@ -186,28 +180,26 @@ export async function collectConfigSchemaChangeImpactGates(
   ];
 }
 
-/**
- * Re-run "base wins" normalization across every descendant of `rootKey` after
- * that config's schema changes.
- *
- * When a base (ancestor) config publishes a new field, any descendant that had
- * already declared that key must drop its own definition: the ancestor now owns
- * it, and the descendant keeps only a value override. We walk the subtree base
- * → leaf so each node is reconciled against an already-normalized ancestor set,
- * and apply each strip as a system write (`dangerousUpdateBypassPermission`) so
- * the cascade isn't blocked by per-config/per-project edit permissions — the
- * acting user only published the base.
- *
- * The root itself is skipped: it's normalized against its own ancestors on its
- * primary write (see ConfigModel.normalizeSchemaAgainstAncestors).
- *
- * Reconcile-or-error: where an ancestor legitimately owns a descendant's field
- * we strip it (base wins). But a base's new field can also collide with a
- * SIBLING base at a shared (composing) descendant — there's no valid field to
- * strip there, since neither base is the other's ancestor. That's a structural
- * composition error, so we detect it up front and throw before mutating any
- * descendant.
- */
+// Re-run "base wins" normalization across every descendant of `rootKey` after
+// that config's schema changes.
+//
+// When a base (ancestor) config publishes a new field, any descendant that had
+// already declared that key must drop its own definition: the ancestor now owns
+// it, and the descendant keeps only a value override. We walk the subtree base
+// → leaf so each node is reconciled against an already-normalized ancestor set,
+// and apply each strip as a system write (`dangerousUpdateBypassPermission`) so
+// the cascade isn't blocked by per-config/per-project edit permissions — the
+// acting user only published the base.
+//
+// The root itself is skipped: it's normalized against its own ancestors on its
+// primary write (see ConfigModel.normalizeSchemaAgainstAncestors).
+//
+// Reconcile-or-error: where an ancestor legitimately owns a descendant's field
+// we strip it (base wins). But a base's new field can also collide with a
+// SIBLING base at a shared (composing) descendant — there's no valid field to
+// strip there, since neither base is the other's ancestor. That's a structural
+// composition error, so we detect it up front and throw before mutating any
+// descendant.
 export async function reconcileConfigDescendants(
   context: Context,
   rootKey: string,

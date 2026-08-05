@@ -79,16 +79,14 @@ export const paginationQueryFields = {
     .meta({ default: 0 }),
 };
 
-/**
- * Comma-separated query param restricted to a fixed set of values
- * (case-insensitive), e.g. `?result=won,lost`.
- *
- * At runtime the value is a plain string validated by the refinement. The
- * meta() overrides the generated OpenAPI schema to the spec-correct encoding
- * for CSV enums — `type: array` with `items.enum` and `explode: false` (the
- * generator hoists `explode` to the parameter level) — so the docs surface
- * the allowed values instead of a bare string.
- */
+// Comma-separated query param restricted to a fixed set of values
+// (case-insensitive), e.g. `?result=won,lost`.
+//
+// At runtime the value is a plain string validated by the refinement. The
+// meta() overrides the generated OpenAPI schema to the spec-correct encoding
+// for CSV enums — `type: array` with `items.enum` and `explode: false` (the
+// generator hoists `explode` to the parameter level) — so the docs surface
+// the allowed values instead of a bare string.
 export const csvQueryField = (
   allowed: readonly string[],
   description: string,

@@ -3727,16 +3727,14 @@ export async function getLiveAndBaseRevisionsForFeature({
   return { live, base };
 }
 
-/**
- * Returns the env list to permission-check publish against. Global field
- * changes (defaultValue, prerequisites, archived, metadata) widen to all
- * enabled envs; holdout assignment widens to each transitioning holdout's
- * enabled envs; per-env rule/toggle changes contribute only their envs.
- * Empty contributors fall back to all enabled envs (defensive).
- *
- * Ramp actions intentionally not included — rule diffs cover them, and
- * rule-less ramp-only drafts hit the all-enabled fallback.
- */
+// Returns the env list to permission-check publish against. Global field
+// changes (defaultValue, prerequisites, archived, metadata) widen to all
+// enabled envs; holdout assignment widens to each transitioning holdout's
+// enabled envs; per-env rule/toggle changes contribute only their envs.
+// Empty contributors fall back to all enabled envs (defensive).
+//
+// Ramp actions intentionally not included — rule diffs cover them, and
+// rule-less ramp-only drafts hit the all-enabled fallback.
 export async function getMergeResultPublishEnvs({
   context,
   feature,

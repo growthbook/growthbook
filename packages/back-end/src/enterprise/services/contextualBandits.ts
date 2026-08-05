@@ -605,12 +605,10 @@ export async function updateContextualBanditFeatureRule({
   }
 }
 
-/**
- * Mirror image of `linkFeatureToContextualBandit`: strip every
- * `contextual-bandit-ref` rule pointing at this bandit off the feature. The
- * linkage only comes off once the removal is live — until then the live revision
- * is still serving the rule, so the feature is still linked to the bandit.
- */
+// Mirror image of `linkFeatureToContextualBandit`: strip every
+// `contextual-bandit-ref` rule pointing at this bandit off the feature. The
+// linkage only comes off once the removal is live — until then the live revision
+// is still serving the rule, so the feature is still linked to the bandit.
 export async function unlinkFeatureFromContextualBandit({
   context,
   contextualBandit,
@@ -924,14 +922,12 @@ export async function runContextualBanditSnapshot(
   };
 }
 
-/**
- * Collapses a run's per-leaf `leaf_map` into one `LeafWeight` per tree leaf:
- * `{ leafId, condition, weights }`. `condition` is the targeting predicate that
- * routes a context to the leaf (derived from the leaf's structured clauses), so
- * the persisted weights are self-contained for the SDK payload without re-joining
- * the event's `leaf_map`. Leaves whose responses carry no updated weights are
- * skipped.
- */
+// Collapses a run's per-leaf `leaf_map` into one `LeafWeight` per tree leaf:
+// `{ leafId, condition, weights }`. `condition` is the targeting predicate that
+// routes a context to the leaf (derived from the leaf's structured clauses), so
+// the persisted weights are self-contained for the SDK payload without re-joining
+// the event's `leaf_map`. Leaves whose responses carry no updated weights are
+// skipped.
 export function leafWeightsFromContextualBanditResult(
   result: ContextualBanditResult,
   variations: { id: string }[],

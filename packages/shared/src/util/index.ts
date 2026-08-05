@@ -288,19 +288,17 @@ export type MatchingRule = {
   rule: FeatureRule;
 };
 
-/**
- * Scan the v2 unified rule array (from `revision.rules` if provided, else
- * `feature.rules`) and emit one `MatchingRule` entry per (rule × applicable
- * env) pair that passes `filter`. Multi-env rules fan out to one entry per
- * env they cover; single-env rules emit exactly one entry. Rules with
- * `allEnvironments: true` fan out across every valid env in `environments`.
- *
- * `i` is the rule's index in the UNIFIED rule array (same across every
- * fan-out entry for a given rule). Callers that identify a rule by
- * `(environmentId, i)` were the v1 contract; under v2 the authoritative
- * match handle is `rule.id` — `i` is preserved only for backward-compatible
- * display/logging.
- */
+// Scan the v2 unified rule array (from `revision.rules` if provided, else
+// `feature.rules`) and emit one `MatchingRule` entry per (rule × applicable
+// env) pair that passes `filter`. Multi-env rules fan out to one entry per
+// env they cover; single-env rules emit exactly one entry. Rules with
+// `allEnvironments: true` fan out across every valid env in `environments`.
+//
+// `i` is the rule's index in the UNIFIED rule array (same across every
+// fan-out entry for a given rule). Callers that identify a rule by
+// `(environmentId, i)` were the v1 contract; under v2 the authoritative
+// match handle is `rule.id` — `i` is preserved only for backward-compatible
+// display/logging.
 export function getMatchingRules(
   feature: FeatureInterface,
   filter: (rule: FeatureRule) => boolean,

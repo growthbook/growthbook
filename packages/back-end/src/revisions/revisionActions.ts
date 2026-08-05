@@ -92,15 +92,13 @@ export function canCommentOnRevision(
   );
 }
 
-/**
- * May this caller touch a revision of this entity at all — the model-layer
- * backstop behind the controller's per-action gate.
- *
- * It is the union of the four actions on purpose. A revision document is
- * written by drafting, reviewing, reverting and publishing alike, and the model
- * can't see which one it is; anything narrower would refuse writes the
- * controller had already allowed.
- */
+// May this caller touch a revision of this entity at all — the model-layer
+// backstop behind the controller's per-action gate.
+//
+// It is the union of the four actions on purpose. A revision document is
+// written by drafting, reviewing, reverting and publishing alike, and the model
+// can't see which one it is; anything narrower would refuse writes the
+// controller had already allowed.
 export function canTouchRevision(
   type: RevisionTargetType,
   context: Context,
@@ -111,33 +109,17 @@ export function canTouchRevision(
   );
 }
 
-/**
- * Publish authority, or a narrow atom over a revision that only does what that
- * atom covers: revert authority for one that only restores a previously-
- * published state, delete authority for one that only archives. Purity is
- * checked only on the fallbacks, so publishers are unaffected and pay no extra
- * revision load. Mirrors `assertCanPublishFeatureRevision`.
- */
-/**
- * Re-publish a merge that was claimed but never applied.
- *
- * Publishing claims the merge before it touches the live entity, so a crash
- * between the two leaves a revision recorded as `merged` whose changes never
- * landed. Re-publishing is the documented recovery.
- *
- * Identifying one takes three marks, and no two of them suffice:
- *
- *  - its content still differs from the live entity,
- *  - it is still the NEWEST merged revision for the target, and
- *  - the live entity still matches the revision's own base.
- *
- * Content differs from live for every superseded revision, and content can be
- * returned to an old revision's base by publishing away and back — but only via
- * a later merge, which forfeits "newest". A merge that never landed is always the
- * newest, because nothing published after it.
- *
- * Returns null when this is not a stranded merge, leaving the caller to refuse.
- */
+// Landing authority for a JSON-patch revision: derives the footprint and the
+// purity proofs, then defers to the shared rule. Purity is only computed on the
+// fallback arms, so publishers pay no extra revision load.
+// Re-publish a merge that was claimed but never applied — a crash between the
+// merge claim and the entity write. Returns null when this is not one.
+//
+// Identifying it takes all three marks, and no two suffice: content still differs
+// from live, the live entity still matches this revision's base, AND this is still
+// the NEWEST merged revision. The third is what closes the replay window — content
+// can be walked back to an old base, but only via a later merge, which forfeits
+// "newest".
 async function recoverStrandedMerge({
   context,
   revision,
@@ -476,18 +458,11 @@ export async function publishRevision(
     adapter.getUpdatableFields(),
   );
 
-  // The publish-authority check above covers the live (source) entity. If the
-  // revision moves the entity to a different project, also require update
-  // permission on the destination — publishing a project move must not land
-  // where the caller lacks access. `ownershipChanged` covers the scalar
-  // `project` (configs/constants) and the `projects[]` array (saved groups),
-  // including clears-to-global, so an ordinary publish (no move) isn't blocked.
+  // A move needs edit rights on the destination AND publish over the environments
+  // it reaches. The footprint comes from the PRE-patch entity: it is derived by
+  // diffing the snapshot against the proposed changes, so the patched destination
+  // would compare the change against itself and report nothing.
   const destination = { ...entity, ...desiredState };
-  // Edit authority in the destination is not enough on its own: the change is
-  // LANDING there, so it also takes publish authority over the environments it
-  // reaches. The footprint comes from the PRE-patch entity — it is derived by
-  // diffing the snapshot against the proposed changes, so the already-patched
-  // destination would compare the change against itself and report nothing.
   if (
     isMove(entity, destination) &&
     (!adapter.canUpdate(context, destination) ||
@@ -590,17 +565,10 @@ export async function publishRevision(
     // no-op self-heal path above if it was partially applied). Best-effort:
     // surface the original error regardless.
     try {
-      // Guarded on the merge we just wrote, so the read and the undo are one
-      // step. Anything that touched the revision in between — most importantly
-      // another request recovering this same claimed merge and landing it — moves
-      // `dateUpdated` and this no-ops rather than reopening a revision whose
-      // changes are now live. Checking a marker first and then reopening left a
-      // window where recovery could land between the two.
-      //
-      // No unguarded fallback: reopening regardless is exactly the write that
-      // would undo someone else's success. A revision left merged is recoverable
-      // (re-publishing reconciles it); one reopened after its changes landed is
-      // not.
+      // Guarded on the merge we just wrote, so the read and the undo are one step:
+      // if anything touched the revision in between — a concurrent recovery
+      // landing it — this no-ops instead of reopening a revision that is now live.
+      // No unguarded fallback, for the same reason.
       const restored = await context.models.revisions.reopenAfterFailedApply(
         merged.id,
         context.userId,
@@ -790,12 +758,10 @@ async function handleScheduledPublishFailure(
   );
 }
 
-/**
- * Poller entry point: publish a due scheduled revision with the arming user's
- * authority. Re-checks the due gate and governance (approval, conflicts, rebase,
- * sibling locks all live in publishRevision); on any failure records the attempt
- * and holds so the poller retries next tick.
- */
+// Poller entry point: publish a due scheduled revision with the arming user's
+// authority. Re-checks the due gate and governance (approval, conflicts, rebase,
+// sibling locks all live in publishRevision); on any failure records the attempt
+// and holds so the poller retries next tick.
 export async function maybePublishScheduledRevision(
   context: Context,
   revision: Revision,
@@ -854,16 +820,8 @@ export async function maybePublishScheduledRevision(
   }
 }
 
-/**
- * Discard an open revision.
- *
- * The three per-entity discard handlers were byte-for-byte identical apart from
- * the entity name, and the only thing they differed on — which webhook to fire —
- * is already registered per entity. Same for request-review, submit-review and
- * rebase: for those four actions there is no entity-specific logic to preserve,
- * so the sequence belongs here and the handlers keep only what is genuinely
- * theirs (their route, their validator, their response shape).
- */
+// Discard an open revision. The author may always discard their own draft;
+// anyone else needs authoring rights on the entity.
 export async function discardEntityRevision({
   context,
   entityType,
@@ -903,14 +861,8 @@ export async function discardEntityRevision({
   return closed;
 }
 
-/**
- * Submit a revision for review, arming auto-publish when asked for.
- *
- * Generic throughout: the adapter supplies the deferred-publish guards, the
- * webhook comes from the registry, and the arming authority is the same
- * change-aware check the eventual publish makes. The three per-entity handlers
- * differed only in which webhook they remembered to fire.
- */
+// Submit a revision for review, arming auto-publish when asked for. Arming takes
+// the same change-aware authority the eventual publish will.
 export async function requestRevisionReview({
   context,
   entityType,
@@ -961,19 +913,11 @@ export async function requestRevisionReview({
   return updated;
 }
 
-/**
- * Record a review on a revision, and auto-publish if approving armed it.
- *
- * The three handlers ran this order already but disagreed on how to test one
- * thing: Config hand-rolled the self-approval block from `constantBlockSelfApproval`
- * plus a manual contributors lookup, while Constant used the shared
- * `isUserBlockedFromApproving`. Same rule, two implementations — exactly the drift
- * a shared order prevents.
- *
- * Authority splits by decision: a verdict takes review authority over the entity, a
- * plain comment is participation and answers to the revision's own snapshot, whose
- * project may predate a move.
- */
+// Record a review, and auto-publish if approving armed it.
+//
+// Authority splits by decision: a verdict takes review authority over the entity;
+// a plain comment is participation and answers to the revision's own snapshot,
+// whose project may predate a move.
 export async function submitRevisionReview({
   context,
   entityType,
@@ -1056,22 +1000,13 @@ export async function submitRevisionReview({
   return { revision: updated, autoPublished: false };
 }
 
-/**
- * Rebase a draft onto the current live state, resolving conflicts per the caller's
- * strategies.
- *
- * The last of the revision actions to be unified, and the one that needed a safety
- * net first: unlike the others it decides DATA — which value a draft carries
- * forward when live moved underneath it — and the three implementations had drifted
- * (two loose nullish comparisons, since fixed). The behaviour here is exactly what
- * the characterization tests in test/api/*-revision-rebase.test.ts pin, including
- * the two things reading the code would get wrong: an unresolved conflict answers
- * 409, and `union` orders live values first, then the draft's additions, deduped.
- *
- * Strategies are validated per entity by the request schema — Constants offer no
- * `union` because their content has no list — so this accepts whatever arrives and
- * only needs a strategy present for every conflicting field.
- */
+// Rebase a draft onto live state, resolving conflicts per the caller's strategies.
+// Two behaviours the code alone won't tell you, both pinned by the tests in
+// test/api/*-revision-rebase.test.ts: an unresolved conflict answers 409, and
+// `union` orders live values first, then the draft's additions, deduped.
+//
+// The request schema validates which strategies an entity offers (Constants have no
+// list, so no `union`); this only requires one per conflicting field.
 export async function rebaseRevision({
   context,
   entityType,

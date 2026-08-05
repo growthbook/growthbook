@@ -228,17 +228,15 @@ export type RevisionFeatureContext = Pick<
   | "targetingAllProjects"
 >;
 
-/**
- * Pure JIT migration from a raw revision doc to a v2 `FeatureRevisionInterface`.
- * v1 `Record<env, FeatureRule[]>` is flattened via `flattenV1ToV2Rules`;
- * already-v2 arrays are filtered against the same `applicableEnvs` and
- * expanded for env inheritance so a rule scoped to a parent env also surfaces
- * in inheriting children.
- *
- * Callers should pass the parent `feature` (project + environmentSettings).
- * `undefined` is allowed for legacy paths but disables both the project
- * applicability filter and the inheritance expansion.
- */
+// Pure JIT migration from a raw revision doc to a v2 `FeatureRevisionInterface`.
+// v1 `Record<env, FeatureRule[]>` is flattened via `flattenV1ToV2Rules`;
+// already-v2 arrays are filtered against the same `applicableEnvs` and
+// expanded for env inheritance so a rule scoped to a parent env also surfaces
+// in inheriting children.
+//
+// Callers should pass the parent `feature` (project + environmentSettings).
+// `undefined` is allowed for legacy paths but disables both the project
+// applicability filter and the inheritance expansion.
 export function buildFeatureRevisionInterface(
   raw: FeatureRevisionInterface,
   context: ReqContext | ApiReqContext,
@@ -364,22 +362,18 @@ export function buildFeatureRevisionInterface(
   return revision;
 }
 
-/**
- * The LEGACY-doc revision id: a deterministic projection of the immutable
- * natural key (version-first so parsing is unambiguous even though feature
- * ids may contain underscores). Remains valid forever for old docs and
- * resolves by decoding back onto the (organization, featureId, version) index.
- */
+// The LEGACY-doc revision id: a deterministic projection of the immutable
+// natural key (version-first so parsing is unambiguous even though feature
+// ids may contain underscores). Remains valid forever for old docs and
+// resolves by decoding back onto the (organization, featureId, version) index.
 export function featureRevisionId(featureId: string, version: number): string {
   return `${FEATURE_REVISION_ID_PREFIX}${version}_${featureId}`;
 }
 
-/**
- * Decode a tuple-shaped (legacy) feature revision id; null when the shape
- * doesn't match — including for minted `frev_<uniqid>` ids, whose suffixes
- * contain no underscores and therefore never parse as tuples. Resolve those
- * via findFeatureRevisionCoordinatesByRevisionId instead.
- */
+// Decode a tuple-shaped (legacy) feature revision id; null when the shape
+// doesn't match — including for minted `frev_<uniqid>` ids, whose suffixes
+// contain no underscores and therefore never parse as tuples. Resolve those
+// via findFeatureRevisionCoordinatesByRevisionId instead.
 export function parseFeatureRevisionId(
   id: string,
 ): { featureId: string; version: number } | null {
@@ -489,16 +483,14 @@ export async function getLinkageSyncRevisionSummaries(
   };
 }
 
-/**
- * Reconcile both linkage projections after a write that only moves drafts
- * around, so there is no publish to gate.
- *
- * Bandit linkage is awaited, so the response the caller returns already reflects
- * it, but only when a bandit rule is involved on either side of the write —
- * which is also the only way linkage can go stale, since a bandit that drops out
- * of every revision was referenced by the pre-write rules. Experiment linkage
- * keeps its existing fire-and-forget behaviour.
- */
+// Reconcile both linkage projections after a write that only moves drafts
+// around, so there is no publish to gate.
+//
+// Bandit linkage is awaited, so the response the caller returns already reflects
+// it, but only when a bandit rule is involved on either side of the write —
+// which is also the only way linkage can go stale, since a bandit that drops out
+// of every revision was referenced by the pre-write rules. Experiment linkage
+// keeps its existing fire-and-forget behaviour.
 async function syncLinkagesAfterDraftWrite(
   context: ReqContext | ApiReqContext,
   revision: Pick<FeatureRevisionInterface, "organization" | "featureId">,
@@ -860,16 +852,14 @@ export async function getRevisionsByStatus(
     .map((r) => toInterface(r, context, featuresByFeatureId?.[r.featureId]));
 }
 
-/**
- * Normalize a `rules` input to the canonical v2 `FeatureRule[]` shape. v2
- * arrays pass through; v1 records get env inheritance applied before
- * flattening so a legacy caller's sparse `{dev: [r1]}` writes a rule scoped
- * to dev and any envs that inherit from dev. `applicableEnvs` is seeded from
- * org envs + feature project so fully-covering rules collapse to
- * `allEnvironments: true`. Always runs `ensureUniqueRuleIds` on the way out
- * so a buggy v2 caller passing duplicate ids can't smuggle them onto disk.
- * Exported for unit testing.
- */
+// Normalize a `rules` input to the canonical v2 `FeatureRule[]` shape. v2
+// arrays pass through; v1 records get env inheritance applied before
+// flattening so a legacy caller's sparse `{dev: [r1]}` writes a rule scoped
+// to dev and any envs that inherit from dev. `applicableEnvs` is seeded from
+// org envs + feature project so fully-covering rules collapse to
+// `allEnvironments: true`. Always runs `ensureUniqueRuleIds` on the way out
+// so a buggy v2 caller passing duplicate ids can't smuggle them onto disk.
+// Exported for unit testing.
 export function normalizeRulesInputToV2(
   rulesInput: unknown,
   opts: { orgEnvs: Environment[]; featureProject?: string },
@@ -1347,12 +1337,10 @@ export async function prevalidateRevisionUpdate(
   });
 }
 
-/**
- * `changes` is `$set` verbatim: top-level keys are patched, but a nested object
- * like `metadata` REPLACES its stored counterpart. Pass a complete envelope —
- * merge onto the draft's existing one first, as `createOrUpdateDraftWithChanges`
- * does — or the keys you leave out are dropped.
- */
+// `changes` is `$set` verbatim: top-level keys are patched, but a nested object
+// like `metadata` REPLACES its stored counterpart. Pass a complete envelope —
+// merge onto the draft's existing one first, as `createOrUpdateDraftWithChanges`
+// does — or the keys you leave out are dropped.
 export async function updateRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1524,13 +1512,11 @@ export async function markRevisionAsPublished(
   return changes.datePublished ?? null;
 }
 
-/**
- * Bulk-publish claim: a guarded, side-effect-free publish transition. Guards
- * on the plan-time baseline (status + dateUpdated), so any outside change
- * since planning aborts before any live write. Hooks already ran at plan
- * time; the revision log entry and published-hook dispatch are deferred to
- * emitFeatureRevisionPublishedSideEffects.
- */
+// Bulk-publish claim: a guarded, side-effect-free publish transition. Guards
+// on the plan-time baseline (status + dateUpdated), so any outside change
+// since planning aborts before any live write. Hooks already ran at plan
+// time; the revision log entry and published-hook dispatch are deferred to
+// emitFeatureRevisionPublishedSideEffects.
 export async function claimFeatureRevisionAsPublished(
   revision: FeatureRevisionInterface,
   user: EventUser,

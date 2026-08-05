@@ -149,19 +149,17 @@ export function hasPermission(
   return envsAllowedBy(usersPermissionsToCheck, permissionToCheck, envs);
 }
 
-/**
- * Whether a merged permission object clears `envs` for this permission.
- *
- * Shared by both check paths — this module's `hasPermission` (middleware and
- * API keys) and `Permissions.hasPermission` (everything else). They were
- * separate copies, and a fix to one silently left the other combining one
- * role's permission with another role's environments.
- *
- * Per-role grants decide it when any speaks to the permission: a single role
- * that grants it and covers every requested environment suffices. The flat
- * merged fields are the fallback for objects with no relevant grant, including
- * ones serialized before `envGrants` existed.
- */
+// Whether a merged permission object clears `envs` for this permission.
+//
+// Shared by both check paths — this module's `hasPermission` (middleware and
+// API keys) and `Permissions.hasPermission` (everything else). They were
+// separate copies, and a fix to one silently left the other combining one
+// role's permission with another role's environments.
+//
+// Per-role grants decide it when any speaks to the permission: a single role
+// that grants it and covers every requested environment suffices. The flat
+// merged fields are the fallback for objects with no relevant grant, including
+// ones serialized before `envGrants` existed.
 export function envsAllowedBy(
   userPermission: UserPermission,
   permissionToCheck: Permission,
@@ -250,15 +248,13 @@ export type EffectiveRoleSource = {
   sourceName: string;
 };
 
-/**
- * Resolve the roles that actually apply to a member, combining their own role
- * with any teams they're on, using the same precedence as the back-end
- * permission merge (mergeUserAndTeamPermissions): an explicit project-scoped
- * role — from the member or any team — takes precedence over global roles for
- * that project, and only when no explicit project role applies do global roles
- * contribute. The result is the set of contributing roles (a union, which may
- * be more than one role). Pass `project = null` to resolve global roles.
- */
+// Resolve the roles that actually apply to a member, combining their own role
+// with any teams they're on, using the same precedence as the back-end
+// permission merge (mergeUserAndTeamPermissions): an explicit project-scoped
+// role — from the member or any team — takes precedence over global roles for
+// that project, and only when no explicit project role applies do global roles
+// contribute. The result is the set of contributing roles (a union, which may
+// be more than one role). Pass `project = null` to resolve global roles.
 export function getEffectiveRolesForProject(
   member: Pick<MemberRoleInfo, "role"> & {
     projectRoles?: ProjectMemberRole[];

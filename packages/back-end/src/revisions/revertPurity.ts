@@ -7,14 +7,12 @@ import {
 import type { Context } from "back-end/src/models/BaseModel";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 
-/**
- * Whether a revision restores a previously-published state and nothing else —
- * the narrower write that revert authority covers. Only consulted on the revert
- * fallback, never for callers who can already publish.
- *
- * Compared against the target revision, not live: live may have drifted since
- * the revert was drafted, and restoring a drifted field is the point.
- */
+// Whether a revision restores a previously-published state and nothing else —
+// the narrower write that revert authority covers. Only consulted on the revert
+// fallback, never for callers who can already publish.
+//
+// Compared against the target revision, not live: live may have drifted since
+// the revert was drafted, and restoring a drifted field is the point.
 export async function isPureRevertRevision(
   context: Context,
   revision: Revision,
@@ -43,15 +41,13 @@ export async function isPureRevertRevision(
   );
 }
 
-/**
- * Pre-revision analogue of `isPureRevertRevision`, for the direct-write paths
- * that authorize before any revision document exists (`PUT /<entity>/:id` with
- * `revertedFrom` + `autoPublish`): does `revertedFrom` name a published revision
- * of THIS entity whose left-behind state these patch ops only restore?
- *
- * Deliberately independent of the org's `revertsBypassApproval` setting — that
- * governs whether a revert may skip REVIEW, not whose authority lands it.
- */
+// Pre-revision analogue of `isPureRevertRevision`, for the direct-write paths
+// that authorize before any revision document exists (`PUT /<entity>/:id` with
+// `revertedFrom` + `autoPublish`): does `revertedFrom` name a published revision
+// of THIS entity whose left-behind state these patch ops only restore?
+//
+// Deliberately independent of the org's `revertsBypassApproval` setting — that
+// governs whether a revert may skip REVIEW, not whose authority lands it.
 export async function isPureRevertPatch(
   context: Context,
   {

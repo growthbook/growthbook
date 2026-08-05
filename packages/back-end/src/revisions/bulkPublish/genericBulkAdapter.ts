@@ -41,13 +41,11 @@ function toRef(revision: Revision): BulkRevisionRef {
   };
 }
 
-/**
- * Bulk-publish surface for any entity on the generic revision system. Wraps
- * the entity's EntityRevisionAdapter for entity behavior and the shared
- * RevisionModel for revision lifecycle. `extraGates` lets a type contribute
- * gates its single-entity REST handler assembles inline (e.g. the config
- * lock gate) without the orchestrator knowing the type.
- */
+// Bulk-publish surface for any entity on the generic revision system. Wraps
+// the entity's EntityRevisionAdapter for entity behavior and the shared
+// RevisionModel for revision lifecycle. `extraGates` lets a type contribute
+// gates its single-entity REST handler assembles inline (e.g. the config
+// lock gate) without the orchestrator knowing the type.
 export function makeGenericBulkAdapter(
   targetType: RevisionTargetType,
   adapter: EntityRevisionAdapter,
@@ -209,7 +207,6 @@ export function makeGenericBulkAdapter(
 
       // Archiving is delete-class wherever the merge lands, so bulk publish
       // enforces it too — `canPublish` above only asks for publish authority.
-      // Unarchiving is covered by that check. Mirrors featureBulkAdapter.
       if (
         isArchiveTransition({
           proposed: desiredState.archived as boolean | undefined,

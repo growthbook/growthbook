@@ -375,14 +375,12 @@ export const reviewRequestedStatusSchema = revisionStatusSchema.exclude([
 
 export const REVIEW_REQUESTED_STATUSES = reviewRequestedStatusSchema.options;
 
-/**
- * Status filter for revision list endpoints. Accepts a single value
- * (`draft`), comma-separated values (`draft,approved`), or the shorthand
- * `all-drafts` (expands to draft, pending-review, approved,
- * changes-requested). On v2 endpoints, omitting this parameter defaults to
- * `all-drafts`. Parsing is handled at the handler layer via
- * `parseRevisionStatusFilter`.
- */
+// Status filter for revision list endpoints. Accepts a single value
+// (`draft`), comma-separated values (`draft,approved`), or the shorthand
+// `all-drafts` (expands to draft, pending-review, approved,
+// changes-requested). On v2 endpoints, omitting this parameter defaults to
+// `all-drafts`. Parsing is handled at the handler layer via
+// `parseRevisionStatusFilter`.
 export const revisionStatusFilterSchema = z
   .union([z.string(), z.array(z.string())])
   .describe(
@@ -392,17 +390,15 @@ export const revisionStatusFilterSchema = z
 
 export type RevisionStatusFilter = z.infer<typeof revisionStatusFilterSchema>;
 
-/**
- * Parse a raw status query-param value into the form expected by
- * `getFeatureRevisionsByStatus`. Handles:
- * - Single values:          "draft"
- * - Comma-separated:        "draft,approved"
- * - "all-drafts" shorthand: expands to all four active-draft statuses
- * - Repeated query params:  ["all-drafts", "draft"] (from Express array parsing)
- *
- * Throws a plain Error (caught as 400 by createApiRequestHandler) if any
- * token is not a recognised RevisionStatus or "all-drafts".
- */
+// Parse a raw status query-param value into the form expected by
+// `getFeatureRevisionsByStatus`. Handles:
+// - Single values:          "draft"
+// - Comma-separated:        "draft,approved"
+// - "all-drafts" shorthand: expands to all four active-draft statuses
+// - Repeated query params:  ["all-drafts", "draft"] (from Express array parsing)
+//
+// Throws a plain Error (caught as 400 by createApiRequestHandler) if any
+// token is not a recognised RevisionStatus or "all-drafts".
 export function parseRevisionStatusFilter(
   val: string | string[] | undefined,
 ): RevisionStatus | RevisionStatus[] | undefined {
@@ -1694,15 +1690,13 @@ const updateFeatureBody = z
 
 // ---- Route validators ----
 
-/**
- * RFC 8594 `Deprecation` header value for v1 feature endpoints.
- *
- * Emits `Deprecation: true` (boolean form, not a date) — signals "stop using
- * this endpoint ASAP" without committing to a removal date. V1 endpoints are
- * expected to remain available indefinitely for backward compatibility, but
- * new integrations should always use v2. If we ever commit to a removal date,
- * switch this to `@<unix-timestamp>` and add a `Sunset:` header alongside.
- */
+// RFC 8594 `Deprecation` header value for v1 feature endpoints.
+//
+// Emits `Deprecation: true` (boolean form, not a date) — signals "stop using
+// this endpoint ASAP" without committing to a removal date. V1 endpoints are
+// expected to remain available indefinitely for backward compatibility, but
+// new integrations should always use v2. If we ever commit to a removal date,
+// switch this to `@<unix-timestamp>` and add a `Sunset:` header alongside.
 export const FEATURE_V1_DEPRECATED = "true";
 
 export const listFeaturesValidator = {

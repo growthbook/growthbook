@@ -739,12 +739,10 @@ export async function collectConfigBackedFeatureValueErrors(
   return collectConfigBackedSchemaInvariantErrors(context, feature, values);
 }
 
-/**
- * Custom validation hooks for a config publish, surfaced as gates: a hard
- * error (a hook threw) is hook-class (`skipHooks`); a warning is
- * acknowledge-class (`ignoreWarnings`). Publish paths only — the archive
- * handlers deliberately exclude publish hooks.
- */
+// Custom validation hooks for a config publish, surfaced as gates: a hard
+// error (a hook threw) is hook-class (`skipHooks`); a warning is
+// acknowledge-class (`ignoreWarnings`). Publish paths only — the archive
+// handlers deliberately exclude publish hooks.
 export async function collectConfigPublishHookGates({
   context,
   config,
@@ -786,13 +784,11 @@ export async function collectConfigPublishHookGates({
   return hookResultsToGates(hookResults, bypassApprovalPermission("config"));
 }
 
-/**
- * Gate form of assertConfigValueValidForPublish's schema half — conformance,
- * required fields, and cross-field invariants of the post-publish resolved
- * value, block-vs-warn per `blockPublishOnSchemaError`. The bulk publisher
- * evaluates it at plan time (against the multi-entity overlay context) since
- * its commit phase never runs the throwing net.
- */
+// Gate form of assertConfigValueValidForPublish's schema half — conformance,
+// required fields, and cross-field invariants of the post-publish resolved
+// value, block-vs-warn per `blockPublishOnSchemaError`. The bulk publisher
+// evaluates it at plan time (against the multi-entity overlay context) since
+// its commit phase never runs the throwing net.
 export async function collectConfigPublishValueGates({
   context,
   config,

@@ -88,13 +88,11 @@ type FeatureDesiredState = {
   plan: FeatureMergePlan;
   createdRampScheduleIds?: string[];
   updatedFeature?: FeatureInterface;
-  /**
-   * Per safe rollout the apply's status sync will write: the pre-apply doc
-   * (compensation's restore source), the status the sync writes (the
-   * ownership check even when `post` is absent), and the post-apply doc
-   * (per-field ownership baseline so worker progress is never clobbered;
-   * absent when the apply threw before the feature write completed).
-   */
+  // Per safe rollout the apply's status sync will write: the pre-apply doc
+  // (compensation's restore source), the status the sync writes (the
+  // ownership check even when `post` is absent), and the post-apply doc
+  // (per-field ownership baseline so worker progress is never clobbered;
+  // absent when the apply threw before the feature write completed).
   safeRollouts?: Array<{
     pre: SafeRolloutInterface;
     writtenStatus: string;
@@ -258,7 +256,6 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
 
     // Archiving is delete-class wherever the merge lands (it takes the flag out
     // of service and is what lets it then be deleted freely), so bulk publish
-    // enforces it too. Unarchiving is covered by the publish check above.
     if (
       isArchiveTransition({
         proposed: plan.mergeResult?.archived,

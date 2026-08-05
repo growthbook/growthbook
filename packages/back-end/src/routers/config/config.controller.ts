@@ -708,9 +708,6 @@ export const putConfig = async (
   const destinationProject =
     project ?? comparisonBase.project ?? existing.project ?? "";
 
-  // A move takes draft authority on BOTH sides. Checking only the destination
-  // let a caller pull an entity out of a project they cannot write; checking
-  // only the source let them push one into a project they cannot write.
   // Both sides: authoring rights where it lives now, and where it would land.
   const canDraftEntity =
     context.permissions.canRevisionAction(
@@ -1014,9 +1011,7 @@ export const putConfig = async (
     }
     // Landing a change live is publish-class, not edit-class. A pure archive
     // carries its own landing authority (checked above), so it's exempt here.
-    // Restoring a previously-published revision is its own atom, so revert
-    // authority also lands one — but only once the ops are proven to restore the
-    // named revision, since the change set comes from the caller's body.
+    // Revert authority lands one too, once the ops are proven pure (above).
     if (
       !canLandArchive &&
       !context.permissions.canRevisionAction(

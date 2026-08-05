@@ -170,12 +170,10 @@ type GetSavedGroupsResponse = {
   savedGroups: SavedGroupWithoutValues[];
 };
 
-/**
- * GET /saved-groups
- * List for the Saved Groups admin page: includes `condition` (preview/search/
- * sort) but omits `values`. Unlike `/organization/definitions`, which drops
- * both heavy fields because it loads on every page.
- */
+// GET /saved-groups
+// List for the Saved Groups admin page: includes `condition` (preview/search/
+// sort) but omits `values`. Unlike `/organization/definitions`, which drops
+// both heavy fields because it loads on every page.
 export const getSavedGroups = async (
   req: AuthRequest,
   res: Response<GetSavedGroupsResponse>,
@@ -1163,12 +1161,10 @@ type SavedGroupReferencesResponse =
     }
   | { message: string };
 
-/**
- * GET /saved-groups/:id/references
- * Returns features, experiments, and saved groups that reference this saved group.
- * Checks direct references plus one level of saved-group chaining (saved groups whose
- * condition directly contains this group's ID, and features/experiments that reference those).
- */
+// GET /saved-groups/:id/references
+// Returns features, experiments, and saved groups that reference this saved group.
+// Checks direct references plus one level of saved-group chaining (saved groups whose
+// condition directly contains this group's ID, and features/experiments that reference those).
 export const getSavedGroupReferences = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<SavedGroupReferencesResponse>,

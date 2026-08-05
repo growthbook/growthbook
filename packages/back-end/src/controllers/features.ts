@@ -280,12 +280,10 @@ function normalizeRampStepAction(a: {
   };
 }
 
-/**
- * Routes an envelope change through the revision system.
- * Bundles into the specified draft (by version) if provided; otherwise falls
- * back to the most-recent active draft; otherwise creates a new draft.
- * Returns the draft revision so callers can return its version to the client.
- */
+// Routes an envelope change through the revision system.
+// Bundles into the specified draft (by version) if provided; otherwise falls
+// back to the most-recent active draft; otherwise creates a new draft.
+// Returns the draft revision so callers can return its version to the client.
 async function createOrUpdateDraftWithChanges(
   context: ReqContext,
   feature: FeatureInterface,

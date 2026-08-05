@@ -216,16 +216,14 @@ export const FeatureModel = mongoose.model<LegacyFeatureInterface>(
   featureSchema,
 );
 
-/**
- * JIT-migration chokepoint for features on read. Discriminates v0 / v1 / v2
- * (see `shared/types/feature.d.ts`) and normalizes to v2. Any residual
- * `env.rules` is scrubbed in-memory so the return value matches `featureEnvironment`.
- *
- * v2 docs MUST NOT flow through `upgradeV0Feature` — it redistributes top-level
- * rules back into per-env arrays and corrupts v2 data.
- *
- * Pure over `(raw, context)` so it's unit-testable without a live DB.
- */
+// JIT-migration chokepoint for features on read. Discriminates v0 / v1 / v2
+// (see `shared/types/feature.d.ts`) and normalizes to v2. Any residual
+// `env.rules` is scrubbed in-memory so the return value matches `featureEnvironment`.
+//
+// v2 docs MUST NOT flow through `upgradeV0Feature` — it redistributes top-level
+// rules back into per-env arrays and corrupts v2 data.
+//
+// Pure over `(raw, context)` so it's unit-testable without a live DB.
 export function migrateRawFeatureToV2(
   raw: LegacyFeatureInterface,
   context: ReqContext | ApiReqContext,
@@ -518,21 +516,19 @@ export async function getAllFeatures(
   );
 }
 
-/**
- * Lightweight sibling of {@link getAllFeatures} for whole-collection scans that
- * read a feature's behavior (rules, environment settings, values, links) but
- * never its editor/authoring fields: the stale-detection/dependents graph and
- * the `@const:`/`@config:` reference scanners. Skips Mongoose hydration via
- * `.lean()` and projects out the editor fields (they can be large). Same
- * migration + permission filter as `getAllFeatures`, so results are otherwise
- * interchangeable.
- *
- * NOTE: the return type is `FeatureInterface[]`, but the projected-out fields
- * (`description` / `jsonSchema` / `customFields` / legacy `draft`) will be
- * absent at runtime — and so will `legacyDraft`, which the v0 migration
- * synthesizes from the projected-out `draft`. Reach for `getAllFeatures` if you
- * need a complete feature.
- */
+// Lightweight sibling of {@link getAllFeatures} for whole-collection scans that
+// read a feature's behavior (rules, environment settings, values, links) but
+// never its editor/authoring fields: the stale-detection/dependents graph and
+// the `@const:`/`@config:` reference scanners. Skips Mongoose hydration via
+// `.lean()` and projects out the editor fields (they can be large). Same
+// migration + permission filter as `getAllFeatures`, so results are otherwise
+// interchangeable.
+//
+// NOTE: the return type is `FeatureInterface[]`, but the projected-out fields
+// (`description` / `jsonSchema` / `customFields` / legacy `draft`) will be
+// absent at runtime — and so will `legacyDraft`, which the v0 migration
+// synthesizes from the projected-out `draft`. Reach for `getAllFeatures` if you
+// need a complete feature.
 export async function getAllFeaturesWithoutEditorFields(
   context: ReqContext | ApiReqContext,
   { includeArchived = false }: { includeArchived?: boolean } = {},
@@ -1660,13 +1656,11 @@ export async function setJsonSchema(
   });
 }
 
-/**
- * The status the publish-time sync will write per safe rollout: the revision
- * rule's status, plus "stopped" for live safe-rollout rules the revision
- * removes; empty when the revision carries no rules. Exported so the bulk
- * publisher's compensation snapshots predict exactly what
- * updateSafeRolloutStatuses writes.
- */
+// The status the publish-time sync will write per safe rollout: the revision
+// rule's status, plus "stopped" for live safe-rollout rules the revision
+// removes; empty when the revision carries no rules. Exported so the bulk
+// publisher's compensation snapshots predict exactly what
+// updateSafeRolloutStatuses writes.
 export function computeSafeRolloutStatusMap(
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
@@ -2372,12 +2366,10 @@ export async function applyRampCreateActionsForRevision(
   }
 }
 
-/**
- * Delete ramp schedules a failed publish created. Returns the ids it could NOT
- * delete so the caller can surface them as a reversal failure — a swallowed
- * delete would leave an armed `pending` schedule behind while the item reports
- * a clean rollback (it activates if that revision is ever re-published).
- */
+// Delete ramp schedules a failed publish created. Returns the ids it could NOT
+// delete so the caller can surface them as a reversal failure — a swallowed
+// delete would leave an armed `pending` schedule behind while the item reports
+// a clean rollback (it activates if that revision is ever re-published).
 export async function rollbackCreatedRampSchedules(
   context: ReqContext | ApiReqContext,
   scheduleIds: string[],
@@ -3296,12 +3288,10 @@ export async function collectPublishRevisionBlockers({
   return blockers;
 }
 
-/**
- * The bandit linkage a publish is about to imply, computed before anything is
- * written. Reads the merge result as the rules about to go live, and drops the
- * revision being published from the open drafts — it stops being a queued draft
- * the moment it publishes.
- */
+// The bandit linkage a publish is about to imply, computed before anything is
+// written. Reads the merge result as the rules about to go live, and drops the
+// revision being published from the open drafts — it stops being a queued draft
+// the moment it publishes.
 async function planContextualBanditLinkageForPublish(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,

@@ -410,13 +410,11 @@ export class Permissions {
     return this.canCreateFeature({ project }, NO_ENVIRONMENT_BINDING);
   };
 
-  /**
-   * Creating a flag writes live state, so it takes the publish-class create
-   * atom with the environments the new flag is enabled in. Opening the create
-   * UI passes NO_ENVIRONMENT_BINDING — the payload doesn't exist yet, so the
-   * modal gate is "can they create anything here" and the endpoint re-checks
-   * against the real footprint on submit.
-   */
+  // Creating a flag writes live state, so it takes the publish-class create
+  // atom with the environments the new flag is enabled in. Opening the create
+  // UI passes NO_ENVIRONMENT_BINDING — the payload doesn't exist yet, so the
+  // modal gate is "can they create anything here" and the endpoint re-checks
+  // against the real footprint on submit.
   public canCreateFeature = (
     feature: Pick<FeatureInterface, "project">,
     environments: string[],

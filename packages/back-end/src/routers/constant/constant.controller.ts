@@ -284,10 +284,6 @@ export const putConstant = async (
     project ?? comparisonBase.project ?? existing.project ?? "";
 
   // Permission check always runs regardless of approval flow status.
-  // A move takes draft authority on BOTH sides. Checking only the destination
-  // let a caller pull an entity out of a project they cannot write; checking
-  // only the source let them push one into a project they cannot write.
-  // Both sides: authoring rights where it lives now, and where it would land.
   const canDraftEntity =
     context.permissions.canRevisionAction(
       "constant",
