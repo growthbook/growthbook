@@ -99,25 +99,6 @@ export default function SubscriptionInfo() {
             <Text as="span">
               Can you spare 30 seconds to let us know what we can do better?
             </Text>
-            {organizationRefreshStatus !== "idle" ? (
-              <Callout
-                status="warning"
-                mt="3"
-                action={
-                  <UIButton
-                    size="sm"
-                    color="inherit"
-                    loading={organizationRefreshStatus === "loading"}
-                    onClick={retryOrganizationRefresh}
-                  >
-                    Try again
-                  </UIButton>
-                }
-              >
-                We couldn&apos;t refresh your organization details. Try again to
-                see your updated plan.
-              </Callout>
-            ) : null}
           </Box>
         </Modal>
       )}
@@ -161,6 +142,25 @@ export default function SubscriptionInfo() {
           />
         </StripeProvider>
       )}
+      {organizationRefreshStatus !== "idle" ? (
+        <Callout
+          status="warning"
+          mb="3"
+          action={
+            <UIButton
+              size="sm"
+              color="inherit"
+              loading={organizationRefreshStatus === "loading"}
+              onClick={retryOrganizationRefresh}
+            >
+              Try again
+            </UIButton>
+          }
+        >
+          We couldn&apos;t refresh your organization details. Try again to see
+          your updated plan.
+        </Callout>
+      ) : null}
       <div className="col-auto mb-3">
         <strong>Current Plan:</strong> {isCloud() ? "Cloud" : "Self-Hosted"} Pro
         {subscription?.status === "trialing" && (
