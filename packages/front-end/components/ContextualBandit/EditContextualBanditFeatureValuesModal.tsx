@@ -168,7 +168,7 @@ export default function EditContextualBanditFeatureValuesModal({
           {cb.variations.map((v, i) => (
             <Box key={v.id}>
               <Box mb="3" minWidth="0">
-                <VariationLabel number={i} name={v.name} size="large" />
+                <VariationLabel number={i} name={v.name} size="lg" />
               </Box>
               <FeatureValueField
                 id={`variation-${v.id}`}

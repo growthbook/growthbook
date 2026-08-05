@@ -211,7 +211,7 @@ export default function ConstantsPage(): React.ReactElement {
     <>
       <Box className="contents container-fluid pagecontents" mb="3" mt="2">
         <Flex align="center" justify="between" mb="3" mt="2">
-          <Heading as="h1" size="2x-large">
+          <Heading as="h1" size="2xl">
             Constants
           </Heading>
           {hasConstants && canAdd && addButton}

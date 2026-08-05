@@ -212,11 +212,11 @@ export default function FunnelTabContent() {
         />
       ))}
       {allStepsHaveFactTable && funnelUnitOptions.length === 0 && (
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           No shared user identifier across steps.
         </Text>
       )}
-      <Button size="sm" variant="outline" onClick={handleAddStep}>
+      <Button size="md" variant="outline" onClick={handleAddStep}>
         <Flex align="center" gap="2">
           <PiPlus size={14} />
           Add step

@@ -32,9 +32,6 @@ export default class Snowflake extends SqlIntegration {
       this.datasource.settings.pipelineSettings,
     );
   }
-  getSensitiveParamKeys(): string[] {
-    return ["password", "privateKey", "privateKeyPassword"];
-  }
   runQuery(
     sql: string,
     setExternalId: ExternalIdCallback | undefined,

@@ -255,7 +255,7 @@ export default function ReportAnalysisSettingsBar({
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
+                size="md"
                 ml="2"
                 onClick={() => setEditAnalysisOpen(true)}
               >

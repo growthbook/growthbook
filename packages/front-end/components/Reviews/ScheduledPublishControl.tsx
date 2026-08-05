@@ -412,7 +412,7 @@ export default function ScheduledPublishControl({
                 <Button
                   variant="ghost"
                   color="red"
-                  size="xs"
+                  size="sm"
                   onClick={doDisarm}
                 >
                   Cancel schedule
@@ -420,7 +420,7 @@ export default function ScheduledPublishControl({
                 {canManageAutoPublish && !scheduleArmedByAdmin && (
                   <Button
                     variant="outline"
-                    size="xs"
+                    size="sm"
                     onClick={() => setEditing(true)}
                   >
                     Change
@@ -506,7 +506,7 @@ export default function ScheduledPublishControl({
         ) : (
           // Approved revisions can only defer to a date — "when approved" would
           // just publish now, so show it as text.
-          <Text size="medium">on a specific date</Text>
+          <Text size="md">on a specific date</Text>
         )}
       </Flex>
       {armed && effectiveMode === "date" && (
@@ -561,7 +561,7 @@ export default function ScheduledPublishControl({
             </>
           ) : (
             <PremiumTooltip commercialFeature="scheduled-revisions">
-              <Text size="small" as="div">
+              <Text size="sm" as="div">
                 Upgrade to publish on a specific date.
               </Text>
             </PremiumTooltip>
