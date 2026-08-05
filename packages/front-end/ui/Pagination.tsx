@@ -27,6 +27,19 @@ function getPageItems(start: number, end: number): PaginationItem[] {
   }));
 }
 
+// A gap hiding a single page renders that page instead, so the slot count stays
+// the same as when an ellipsis is needed.
+function getGapItems(
+  side: "start" | "end",
+  from: number,
+  to: number,
+): PaginationItem[] {
+  const hiddenCount = to - from + 1;
+  if (hiddenCount <= 0) return [];
+  if (hiddenCount === 1) return getPageItems(from, to);
+  return [{ type: "ellipsis", side }];
+}
+
 export function getPaginationModel({
   pageCount: pageCountInput,
   currentPage: currentPageInput,
@@ -52,7 +65,8 @@ export function getPaginationModel({
     };
   }
 
-  // Clamping the window keeps the slot count constant.
+  // Clamping the window so it slides toward the far side near an edge, rather
+  // than centering it on the current page, is what keeps the slot count constant.
   const start = Math.max(
     Math.min(
       currentPage - SIBLING_COUNT,
@@ -73,17 +87,9 @@ export function getPaginationModel({
     currentPage,
     items: [
       ...getPageItems(1, BOUNDARY_COUNT),
-      ...(start > BOUNDARY_COUNT + 2
-        ? [{ type: "ellipsis", side: "start" } satisfies PaginationItem]
-        : start === BOUNDARY_COUNT + 2
-          ? getPageItems(BOUNDARY_COUNT + 1, BOUNDARY_COUNT + 1)
-          : []),
+      ...getGapItems("start", BOUNDARY_COUNT + 1, start - 1),
       ...getPageItems(start, end),
-      ...(end < pageCount - BOUNDARY_COUNT - 1
-        ? [{ type: "ellipsis", side: "end" } satisfies PaginationItem]
-        : end === pageCount - BOUNDARY_COUNT - 1
-          ? getPageItems(pageCount - BOUNDARY_COUNT, pageCount - BOUNDARY_COUNT)
-          : []),
+      ...getGapItems("end", end + 1, pageCount - BOUNDARY_COUNT),
       ...getPageItems(pageCount - BOUNDARY_COUNT + 1, pageCount),
     ],
   };
@@ -139,7 +145,7 @@ const Pagination: FC<PaginationProps> = ({
                       isCurrent && styles.linkActive,
                     )}
                     aria-current={isCurrent ? "page" : undefined}
-                    aria-label={"Go to page " + item.page}
+                    aria-label={`Go to page ${item.page}`}
                     onClick={() => {
                       if (!isCurrent) onPageChange(item.page);
                     }}
