@@ -33,14 +33,18 @@ export const postConstantRevisionSubmitReview = createApiRequestHandler(
 
   const { decision, comment } = req.body;
 
-  // Block the author from any non-comment review action.
-  if (revision.authorId === req.context.userId && decision !== "comment") {
+  // `request-changes` by the author doesn't make sense. Author may approve
+  // their own revision and may always comment.
+  if (
+    revision.authorId === req.context.userId &&
+    decision === "request-changes"
+  ) {
     throw new BadRequestError("Cannot submit a review on a draft you created");
   }
 
-  // Block contributor self-approve when blockSelfApproval is set. The shared
-  // helper routes constants through the requireReviews model — same rule the
-  // internal /revision/:id/review endpoint enforces.
+  // Block self-approval when `blockSelfApproval` is set. The shared helper
+  // checks both the author and contributors against the org setting, so when
+  // the setting is off, self-approval is allowed.
   if (decision === "approve") {
     const blocked = isUserBlockedFromApproving({
       settings: req.context.org.settings,

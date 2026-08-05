@@ -502,7 +502,20 @@ function ReviewAndPublishRevision<T>({
   const isPendingReview =
     revision.status === "pending-review" ||
     revision.status === "changes-requested";
-  const canReview = isPendingReview && !isAuthor && canEditEntity;
+  // Author can review when blockSelfApproval is OFF (self-approval allowed).
+  // When ON, isUserBlockedFromApproving returns true for the author.
+  const isBlockedFromSelfApproval =
+    isAuthor &&
+    !!userId &&
+    hasCommercialFeature("require-approvals") &&
+    isUserBlockedFromApproving({
+      settings: organization?.settings,
+      entityType: revision.target.type,
+      revision,
+      userId,
+    });
+  const canReview =
+    isPendingReview && !isBlockedFromSelfApproval && canEditEntity;
   const approved = revision.status === "approved" || adminPublish;
 
   // ── Comments: posted as `comment`-decision reviews on the generic

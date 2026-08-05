@@ -546,18 +546,18 @@ export const postReview = async (
       .json({ message: "Cannot review a discarded or merged revision" });
   }
 
-  // Prevent self-review (author cannot approve or request changes on own revision)
-  if (existingRevision.authorId === userId && decision !== "comment") {
+  // `request-changes` by the author doesn't make sense. Author may approve
+  // their own revision and may always comment.
+  if (existingRevision.authorId === userId && decision === "request-changes") {
     return res.status(403).json({
-      message: "Cannot approve or request changes on your own revision",
+      message: "Cannot request changes on your own revision",
     });
   }
 
   // When `blockSelfApproval` is enabled for this entity type, anyone in the
   // contributors[] list (in addition to the author) is barred from approving.
   // Only `approve` is gated; `request-changes` and `comment` remain open.
-  // Legacy revisions with no `contributors` field fall back to `[authorId]`,
-  // which means the existing author check above is the only effective guard.
+  // Legacy revisions with no `contributors` field fall back to `[authorId]`.
   if (
     decision === "approve" &&
     context.hasPremiumFeature("require-approvals") &&
