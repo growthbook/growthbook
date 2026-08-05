@@ -10,7 +10,7 @@ import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
 # PHP
 
-The GrowthBook PHP SDK requires PHP version 7.1 or greater.
+The GrowthBook PHP SDK requires PHP version 8.0 or greater.
 
 <SdkResources sdk="php" />
 
@@ -99,6 +99,69 @@ To load features, we require a PSR-17 (HttpClient) and PSR-18 (RequestFactoryInt
 
 We will auto-discover most HTTP libraries without any configuration required, but if you prefer to specify it explicitly, you can use the `withHttpClient` method. Note - you'll need to specify both an `HttpClient` and a `RequestFactoryInterface` implementation.
 
+#### Cache Resilience
+
+If the GrowthBook API is unavailable and an expired cache exists, the SDK will automatically use the stale cached data as fallback instead of failing. This means a brief API outage will not affect your users — features continue to work from the last known state.
+
+The cached data is stored with a hard TTL of 10x the configured TTL, so stale data remains available as a fallback for that duration.
+
+#### API Timeout
+
+By default, the SDK applies a **2-second timeout** for API requests made by `initialize`. This prevents your application from hanging if the GrowthBook API is slow or unreachable.
+
+This works automatically when [Guzzle](https://docs.guzzlephp.org/) is installed:
+
+```bash
+composer require guzzlehttp/guzzle
+```
+
+You can customize the timeout values:
+
+```php
+// Via constructor options
+$growthbook = new Growthbook\Growthbook([
+  'apiTimeout' => 5,        // Total request timeout in seconds
+  'apiConnectTimeout' => 3,  // Connection timeout in seconds
+]);
+
+// Or via fluent interface
+$growthbook = Growthbook\Growthbook::create()
+  ->withApiTimeout(5)
+  ->withApiConnectTimeout(3);
+```
+
+If you provide your own HTTP client via `withHttpClient`, timeout configuration is your responsibility:
+
+```php
+$growthbook = Growthbook\Growthbook::create()
+  ->withHttpClient(
+    new \GuzzleHttp\Client([
+      'timeout' => 3,
+      'connect_timeout' => 2,
+    ]),
+    new \Http\Factory\Guzzle\RequestFactory()
+  );
+```
+
+:::note
+If Guzzle is not installed, the SDK will use a discovered PSR-18 client which may not have timeout guarantees. A warning will be logged in this case.
+:::
+
+#### ETag Caching
+
+The SDK automatically uses ETag-based conditional requests (HTTP Conditional GET) to reduce bandwidth. When the GrowthBook API returns an `ETag` header, the SDK stores it and sends `If-None-Match` on subsequent requests. A `304 Not Modified` response reuses the existing cached data without re-downloading the full payload.
+
+This works automatically alongside the existing PSR cache — no extra configuration needed.
+
+You can optionally configure the in-memory ETag cache size (default: 100 entries):
+
+```php
+$growthbook = new Growthbook\Growthbook([
+  'cache' => $cache,
+  'etagCacheSize' => 50,
+]);
+```
+
 The `initialize` method takes 3 arguments:
 
 - `$clientKey` (required) - Get this from your SDK Connection in GrowthBook.
@@ -129,6 +192,52 @@ $savedGroupsJSON = '{"myGroup": [1, 2, 3]}';
 $savedGroups = json_decode($savedGroupsJSON, true);
 $growthbook = $growthbook->withSavedGroups($savedGroups);
 ```
+
+## Remote Evaluation
+
+With remote evaluation, feature flags are evaluated on a self-hosted GrowthBook proxy/edge instead of locally in the SDK. 
+Instead of downloading the full feature definitions, the SDK sends the current evaluation context (attributes, forced variations, forced features and URL) to the proxy via a `POST` request, and the proxy returns only the already-evaluated features. 
+This keeps feature definitions and targeting logic off the client.
+
+Enable it by setting `remoteEval` to `true`:
+
+```php
+$growthbook = new Growthbook\Growthbook([
+  'remoteEval' => true,
+  'attributes' => ['id' => 'user-123'],
+]);
+
+// Sends a POST to https://gb-proxy.example.com/api/eval/sdk-abc123
+$growthbook->initialize('sdk-abc123', 'https://gb-proxy.example.com');
+```
+
+### Requirements and constraints
+
+Remote evaluation requires a **self-hosted** GrowthBook proxy/edge and is **not** supported on GrowthBook Cloud. The following combinations throw an exception:
+
+- A GrowthBook Cloud host (`*.growthbook.io`) — you must point `$apiHost` at your own proxy/edge.
+- A `decryptionKey` — encryption is handled by the proxy, not the SDK.
+- A `stickyBucketService` — sticky bucketing is handled server-side.
+
+### Cache key attributes
+
+When a cache is configured, remote eval responses are cached per evaluation context. By default every attribute is part of the cache key. Use `cacheKeyAttributes` to restrict the key to a subset of attributes, so that changes to irrelevant attributes don't cause unnecessary requests:
+
+```php
+$growthbook = new Growthbook\Growthbook([
+  'remoteEval' => true,
+  'cacheKeyAttributes' => ['id'], // only `id` affects the cache key
+  'cache' => $cache,
+]);
+```
+
+:::note
+Forced features are intentionally excluded from the cache key (they are applied client-side and the proxy does not filter on them).
+:::
+
+### Re-evaluation when the context changes
+
+Because the proxy evaluates features for a specific context, the SDK automatically re-fetches when that context changes after `initialize`. Calling `setAttributes`, `setForcedVariations` or `setUrl` (or their `withX` equivalents) triggers a new request. Thanks to the cache key above, repeated contexts are served from cache without a network call.
 
 ## The Growthbook Class
 
@@ -284,6 +393,25 @@ mixpanel.track("Experiment Viewed", <?=json_encode([
 ])?>);
 ```
 
+### Tracking Feature Usage
+
+You can also track every time a feature is evaluated using `featureUsageCallback`. Unlike `trackingCallback`, this fires for all feature evaluations — not just experiments.
+
+```php
+$growthbook = Growthbook\Growthbook::create()
+  ->withFeatureUsageCallback(function (
+    string $featureKey,
+    Growthbook\FeatureResult $result
+  ) {
+    echo $featureKey . ': ' . json_encode($result->value) . ' (' . $result->source . ')';
+  });
+
+// Getter method
+$featureUsageCallback = $growthbook->getFeatureUsageCallback();
+```
+
+The callback is deduplicated — it will only fire again for the same feature if the value changes.
+
 ### Logging
 
 GrowthBook can output log messages to help you debug your feature flags and experiments.
@@ -315,6 +443,7 @@ In addition, you can use `$growthbook->getFeature("feature-key")` to get back a 
 - **source** - Why the value was assigned to the user. One of `unknownFeature`, `defaultValue`, `force`, or `experiment`
 - **experiment** - Information about the experiment (if any) which was used to assign the value to the user
 - **experimentResult** - The result of the experiment (if any) which was used to assign the value to the user
+- **ruleId** - The identifier of the feature rule (if any) that assigned the value (or `null`)
 
 ## Sticky Bucketing
 
@@ -322,7 +451,22 @@ By default GrowthBook does not persist assigned experiment variations for a user
 
 Sticky Bucketing is a solution to these issues. You can provide a Sticky Bucket Service to the GrowthBook instance to persist previously seen variations and ensure that the user experience remains consistent for your users.
 
-A sample `InMemoryStickyBucketService` implementation is provided for reference, but in production you will definitely want to implement your own version using a database, cookies, or similar for persistence.
+A sample `InMemoryStickyBucketService` implementation is provided for reference. Note that it only persists within a single request, so it is not suitable for production on its own.
+
+For production, the SDK ships a `Psr16StickyBucketService` that persists assignments in any PSR-16 (SimpleCache) backend you already use — Redis, Memcached, APCu, filesystem, etc. — without adding a dependency on a specific client:
+
+```php
+// $cache is any \Psr\SimpleCache\CacheInterface implementation
+$service = new Growthbook\Psr16StickyBucketService($cache);
+
+// Optional: TTL in seconds (null = the cache's default), and a key prefix
+$service = new Growthbook\Psr16StickyBucketService($cache, 15552000, 'gbStickyBuckets_');
+
+$growthbook = Growthbook\Growthbook::create()
+  ->withStickyBucketing($service, null);
+```
+
+Alternatively you can implement your own `StickyBucketService` using a database, cookies, or similar.
 
 Sticky Bucket documents contain three fields
 
@@ -337,26 +481,26 @@ Here's an example implementation using a theoretical `db` object:
 ```php
 class InMemoryStickyBucketService extends StickyBucketService
 {
-    /** @var array<string, StickyAssignmentDocument>  */
-    public array $docs = [];
+    /** @var array<string, array>  */
+    public $docs = [];
 
     /**
      * @param string $attributeName
-     * @param mixed $attributeValue
-     * @return StickyAssignmentDocument|null
+     * @param string $attributeValue
+     * @return array<string,mixed>|null
      */
-    public function getAssignments(string $attributeName, $attributeValue): ?StickyAssignmentDocument
+    public function getAssignments(string $attributeName, string $attributeValue): ?array
     {
         return $this->docs[$this->getKey($attributeName, $attributeValue)] ?? null;
     }
 
     /**
-     * @param StickyAssignmentDocument $doc
+     * @param array<string,mixed> $doc
      * @return void
      */
-    public function saveAssignments(StickyAssignmentDocument $doc): void
+    public function saveAssignments(array $doc): void
     {
-        $this->docs[$this->getKey($doc->getAttributeName(), $doc->getAttributeValue())] = $doc;
+        $this->docs[$this->getKey($doc['attributeName'], $doc['attributeValue'])] = $doc;
     }
 
     /**
@@ -370,7 +514,7 @@ class InMemoryStickyBucketService extends StickyBucketService
 
 // Fluent interface
 $growthbook = Growthbook\Growthbook::create()
-  ->withStickyBucketing(new InMemoryStickyBucketService());
+  ->withStickyBucketing(new InMemoryStickyBucketService(), null);
 
 // Using the constructor
 $growthbook = new Growthbook([
