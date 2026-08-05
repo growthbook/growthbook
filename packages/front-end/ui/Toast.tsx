@@ -29,9 +29,7 @@ export default function Toast({
   onDismiss?: () => void;
 }) {
   return (
-    // The Callout owns the single ARIA live region (assertive for errors,
-    // polite otherwise), so the wrapper stays a plain positioning element —
-    // adding a second live region here would double-announce the toast.
+    // Callout owns the single ARIA live region; keep the wrapper plain to avoid double-announcing.
     <div className={styles.toast}>
       <Callout
         status={status}

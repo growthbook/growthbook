@@ -140,21 +140,17 @@ export function useBatchPrerequisiteStates({
     },
   );
 
-  // This hook uses `useSWR` directly (POST), so it doesn't inherit the
-  // stale-data handling in `useApi` — replicate it: keep stale data on a failed
-  // background refresh and surface the failure via the global toast.
+  // Direct useSWR (POST), so replicate useApi's stale-data + toast handling.
   const hasData = data !== undefined;
   const refreshError = hasData ? error : undefined;
 
-  // A session-expired failure gets AuthProvider's own "signed out" toast, so
-  // skip reporting it here to avoid doubling up — see `useApi`.
+  // Session-expiry has its own auth toast; don't double-report it here.
   const reportableError =
     refreshError && refreshError.message !== SESSION_EXPIRED_ERROR
       ? refreshError
       : undefined;
 
-  // Gate the effect on a stable boolean (not the per-failure Error identity) so it
-  // only runs when the presence of a background error toggles — see `useApi`.
+  // Gate on a stable boolean so the effect fires only when error presence toggles — see useApi.
   const refreshErrorRef = useRef(reportableError);
   refreshErrorRef.current = reportableError;
   const hasRefreshError = reportableError !== undefined;

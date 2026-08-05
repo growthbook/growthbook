@@ -50,9 +50,7 @@ export function isExternalApiPath(url: string): boolean {
   return /^\/api\/v\d/.test(url);
 }
 
-// Sentinel thrown when a background refresh can't recover the session. The
-// AuthProvider surfaces this as its own "signed out" toast (with a Sign in
-// action), so `useApi` skips reporting it to the generic refresh toast.
+// Sentinel for an unrecoverable session; drives the "signed out" toast.
 export const SESSION_EXPIRED_ERROR = "Your session has expired.";
 
 export interface AuthContextValue {
@@ -456,9 +454,7 @@ export const AuthProvider: React.FC<{
               init.headers["Authorization"] = `Bearer ${resp.token}`;
               return fetch(getApiHost() + url, init);
             }
-            // Refresh couldn't recover the session. Don't navigate away (that
-            // would wipe the current page); flag it so the "signed out" toast
-            // can offer to sign in, and let the caller keep any stale data.
+            // Couldn't recover — flag it (don't navigate) so the toast can offer sign-in.
             setSessionError(true);
             throw new Error(SESSION_EXPIRED_ERROR);
           }
@@ -493,16 +489,7 @@ export const AuthProvider: React.FC<{
     pending.forEach((w) => w.resolve(proceed));
   }, []);
 
-  // Try to recover an expired session by re-running the refresh flow.
-  //
-  // The refresh may now simply succeed (e.g. the user signed in on another tab,
-  // so the refresh-token cookie is valid again), in which case we clear the
-  // session error and revalidate stale data in place — no redirect needed.
-  //
-  // `allowRedirect` gates the fallback: only an explicit user action (clicking
-  // the toast) may navigate to the SSO provider or reload for a fresh login.
-  // Automatic attempts (on focus) pass `false` so they can heal silently but
-  // never wipe the current page.
+  // Re-run refresh to recover the session; allowRedirect lets only explicit clicks navigate.
   const recoverSession = useCallback(
     async (allowRedirect: boolean) => {
       try {
@@ -513,8 +500,7 @@ export const AuthProvider: React.FC<{
             setSsoConnectionId(resp.ssoConnectionId);
           }
           setSessionError(false);
-          // Revalidate every cache key so the stale page catches up to the
-          // fresh session.
+          // Revalidate everything so the stale page catches up.
           await globalMutate(() => true);
           return;
         }
@@ -531,20 +517,16 @@ export const AuthProvider: React.FC<{
           await redirectWithTimeout(resp.redirectURI);
           return;
         }
-        // Local auth (showLogin): reload the current URL so the login screen
-        // shows and the user lands back on this same page after signing in.
+        // Local auth: reload so the login screen shows and we return here.
         await redirectWithTimeout(window.location.href);
       } catch (e) {
-        // Transient failure (e.g. offline) — leave the toast up so the user can
-        // retry. Never redirect on an unexpected error.
+        // Transient failure — leave the toast up; never redirect on error.
       }
     },
     [globalMutate],
   );
 
-  // While signed out, silently retry when the tab regains focus/visibility. If
-  // the user signed in elsewhere, the refresh token is valid again and this tab
-  // heals on its own with no click and no redirect.
+  // While signed out, silently retry on focus so a sign-in elsewhere heals this tab.
   useEffect(() => {
     if (!sessionError) return;
     const onFocus = () => {
@@ -585,9 +567,7 @@ export const AuthProvider: React.FC<{
             }
             return responseData;
           }
-          // Refresh couldn't recover the session. Don't navigate away (that
-          // would wipe the current page); flag it so the "signed out" toast
-          // can offer to sign in, and let the caller keep any stale data.
+          // Couldn't recover — flag it (don't navigate) so the toast can offer sign-in.
           setSessionError(true);
           throw new Error(SESSION_EXPIRED_ERROR);
         }

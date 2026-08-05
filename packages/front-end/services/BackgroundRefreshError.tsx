@@ -12,8 +12,7 @@ import { useSWRConfig } from "swr";
 import Toast from "@/ui/Toast";
 
 interface BackgroundRefreshErrorContextValue {
-  // Register/clear an SWR key that is currently failing a *background* refresh
-  // (i.e. we still have stale data to show). See `useApi`.
+  // Track/untrack an SWR key whose background refresh is currently failing.
   report: (key: string, error: Error) => void;
   clear: (key: string) => void;
 }
@@ -21,16 +20,12 @@ interface BackgroundRefreshErrorContextValue {
 const BackgroundRefreshErrorContext =
   createContext<BackgroundRefreshErrorContextValue | null>(null);
 
-/**
- * Returns the background-refresh-error reporter, or `null` when used outside the
- * provider (e.g. pre-auth pages). Callers must no-op when it's null.
- */
+// null outside the provider (e.g. pre-auth pages); callers must no-op on null.
 export function useBackgroundRefreshError() {
   return useContext(BackgroundRefreshErrorContext);
 }
 
-// Only surface the toast once a refresh has been failing for at least this long,
-// so a transient blip that the next retry fixes never flashes a toast.
+// Debounce so a transient blip fixed by the next retry never flashes a toast.
 const SHOW_DELAY_MS = 4000;
 
 export function BackgroundRefreshErrorProvider({
@@ -40,21 +35,13 @@ export function BackgroundRefreshErrorProvider({
 }) {
   const { mutate } = useSWRConfig();
 
-  // Source of truth for which SWR keys are currently failing. A ref (not state)
-  // so the many report()/clear() calls that fire together (e.g. when offline,
-  // every request on the page fails at once) don't cause setState storms or
-  // stale-closure races — they all collapse into a single toast.
+  // Ref (not state): batched report()/clear() calls avoid setState storms.
   const erroringKeys = useRef<Map<string, Error>>(new Map());
 
   const [visible, setVisible] = useState(false);
-  // Mirrors `visible` so the stable callbacks below can read it without
-  // depending on it (which would change their identity and re-run every
-  // consumer's effect).
+  // Mirrors `visible` so the stable callbacks below can read it without depending on it.
   const shownRef = useRef(false);
-  // When the user dismisses, we snapshot the keys that were failing at that
-  // moment. We stay hidden until a key *outside* this snapshot starts failing (a
-  // brand-new problem) — a key that was already failing throwing a fresh Error on
-  // its next revalidation must not re-show the toast. `null` means "not dismissed".
+  // Keys failing when the user dismissed; null = not dismissed. Re-show only for keys outside it.
   const dismissedKeysRef = useRef<Set<string> | null>(null);
   const showTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -74,14 +61,12 @@ export function BackgroundRefreshErrorProvider({
     const hasErrors = erroringKeys.current.size > 0;
 
     if (!hasErrors) {
-      // Everything recovered (or unmounted) — reset and hide.
       clearTimer();
       dismissedKeysRef.current = null;
       if (shownRef.current) setShown(false);
       return;
     }
 
-    // User dismissed, or we're already showing / already waiting to show.
     if (
       dismissedKeysRef.current !== null ||
       shownRef.current ||
@@ -101,9 +86,7 @@ export function BackgroundRefreshErrorProvider({
   const report = useCallback(
     (key: string, error: Error) => {
       erroringKeys.current.set(key, error);
-      // A failure of a key the user didn't dismiss is a brand-new problem, so
-      // undo the dismissal. Keys in the dismiss snapshot stay suppressed even
-      // when they throw a fresh Error on a later revalidation.
+      // A failure outside the dismiss snapshot is a new problem — undo the dismissal.
       const dismissedKeys = dismissedKeysRef.current;
       if (dismissedKeys && !dismissedKeys.has(key)) {
         dismissedKeysRef.current = null;
@@ -116,10 +99,7 @@ export function BackgroundRefreshErrorProvider({
   const clear = useCallback(
     (key: string) => {
       if (erroringKeys.current.delete(key)) {
-        // Drop the recovered key from the dismissal snapshot too. Otherwise, if
-        // it fails again later while a *different* dismissed key is still
-        // failing, report() would treat it as part of the old dismissal and
-        // keep the toast hidden for a genuinely new failure.
+        // Prune from the dismiss snapshot so a later re-failure can show again.
         dismissedKeysRef.current?.delete(key);
         recompute();
       }
@@ -128,8 +108,7 @@ export function BackgroundRefreshErrorProvider({
   );
 
   const retryNow = useCallback(async () => {
-    // Snapshot the failing keys so a concurrent clear()/report() between here and
-    // SWR iterating its cache can't change which keys we revalidate.
+    // Snapshot keys so a concurrent clear()/report() can't change the set.
     const keys = new Set(erroringKeys.current.keys());
     await mutate((key) => typeof key === "string" && keys.has(key));
   }, [mutate]);
@@ -140,11 +119,10 @@ export function BackgroundRefreshErrorProvider({
     setShown(false);
   }, [clearTimer, setShown]);
 
-  // Clean up a pending timer if the provider itself unmounts.
+  // Clear any pending timer on unmount.
   useEffect(() => clearTimer, [clearTimer]);
 
-  // Stable identity — report/clear never change, so consumers' effects don't
-  // re-run on every provider render.
+  // Stable identity so consumers' effects don't re-run each render.
   const value = useMemo<BackgroundRefreshErrorContextValue>(
     () => ({ report, clear }),
     [report, clear],
