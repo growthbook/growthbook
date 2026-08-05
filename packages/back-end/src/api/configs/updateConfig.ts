@@ -568,9 +568,12 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         ? () => reconcileConfigDescendants(req.context, config.key)
         : undefined,
       write: async () => {
+        // Guarded on the SAME pre-image the landing was re-based onto: the
+        // overrides commit advanced the config's token, so guarding on the
+        // earlier read loses to our own write — overrides committed, value 409.
         const written = await runGuardedWrite("config", config.id, () =>
           req.context.models.configs.updateIfUnchanged(
-            config,
+            landingConfig,
             fieldsToUpdate as Parameters<
               typeof req.context.models.configs.update
             >[1],

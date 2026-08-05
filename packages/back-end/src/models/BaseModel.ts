@@ -1212,8 +1212,13 @@ export abstract class BaseModel<
       .map(([k]) => k) as (keyof z.infer<T>)[];
     updates = pick(updates, updatedFields);
 
-    // If no updates are needed, return immediately
-    if (!updatedFields.length) {
+    // If no updates are needed, return immediately — UNLESS the write is
+    // guarded. A guarded write is a CAS fence as much as a mutation: the caller
+    // is asserting "the doc I read is still current", and skipping the write
+    // would confirm that without checking it or advancing the token, letting an
+    // older landing slip in after a newer one already changed the doc back to
+    // the same values. The fence writes only the advanced stamp.
+    if (!updatedFields.length && !options?.guard) {
       return doc;
     }
 

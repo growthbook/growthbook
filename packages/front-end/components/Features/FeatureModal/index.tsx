@@ -81,12 +81,13 @@ const genEnvironmentSettings = ({
   const envSettings: Record<string, FeatureEnvironment> = {};
 
   environments.forEach((e) => {
-    // Creating a flag is gated on CREATE authority server-side, not publish, so
-    // asking for publish here disabled environments a create-only user is
-    // entitled to switch on — and any mismatch turns into a 403 on submit.
-    const canCreate = permissions.canCreateFeature({ project }, [e.id]);
-    const defaultEnabled = canCreate ? (e.defaultState ?? true) : false;
-    const enabled = canCreate
+    // The same rule the checkbox and the create endpoints apply: a flag that
+    // starts ENABLED in an environment is a publish there, so create authority
+    // alone must not default it on — the checkbox renders disabled, leaving the
+    // user unable to untick a default they never chose, and submit answers 403.
+    const mayEnable = canEnableEnvironmentOnCreate(permissions, project, e.id);
+    const defaultEnabled = mayEnable ? (e.defaultState ?? true) : false;
+    const enabled = mayEnable
       ? (featureToDuplicate?.environmentSettings?.[e.id]?.enabled ??
         defaultEnabled)
       : false;

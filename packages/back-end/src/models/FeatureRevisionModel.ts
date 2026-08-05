@@ -1179,8 +1179,11 @@ export async function createRevision({
     return FeatureRevisionModel.create(revision);
   });
 
-  // Fire and forget - no route that creates the revision expects the log to be there immediately
-  context.models.featureRevisionLogs
+  // Awaited, not fire-and-forget: a CAS-lost toggle deletes this revision AND
+  // its log rows, and an insert still in flight would land after that cleanup —
+  // stale history a later revision reusing the version number then adopts.
+  // Failures still only log; the revision exists either way.
+  await context.models.featureRevisionLogs
     .create({
       featureId: revision.featureId,
       version: revision.version,

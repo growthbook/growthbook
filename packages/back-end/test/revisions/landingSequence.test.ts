@@ -16,7 +16,7 @@ import {
   restoreEntityPreImage,
   tryRestoreEntityPreImage,
 } from "back-end/src/revisions/landingSequence";
-import { Context } from "back-end/src/models/BaseModel";
+import { CasConflictError, Context } from "back-end/src/models/BaseModel";
 
 /**
  * The write sequencing every landing shares. It had no coverage at all, which is
@@ -156,8 +156,30 @@ describe("restoreEntityPreImage", () => {
       context,
       expect.anything(),
       { value: "before" },
-      { isRevert: true },
+      // Guarded: the restore is itself a read-decide-write, so an unguarded
+      // write could replace a newer landing arriving after the ownership read.
+      { isRevert: true, guarded: true },
     );
+  });
+
+  it("re-decides ownership and retries when the restore loses its race", async () => {
+    getById
+      .mockResolvedValueOnce({ id: "const_1", value: "after" })
+      // The re-read after the CAS loss: a rival now owns the key.
+      .mockResolvedValueOnce({ id: "const_1", value: "someone-elses" });
+    applyChanges.mockRejectedValueOnce(new CasConflictError());
+
+    await restoreEntityPreImage({
+      context,
+      entityType: "constant",
+      preImage: { id: "const_1", value: "before" },
+      persistedKeys: ["value"],
+      written: { value: "after" },
+    });
+
+    // Second attempt saw the rival's value, so nothing was ours to restore —
+    // one guarded attempt, then a clean no-op.
+    expect(applyChanges).toHaveBeenCalledTimes(1);
   });
 
   it("leaves a key a later writer has since changed", async () => {

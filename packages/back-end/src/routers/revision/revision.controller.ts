@@ -1,5 +1,4 @@
 import type { Response } from "express";
-import { isEqual } from "lodash";
 import {
   Revision,
   RevisionTargetType,
@@ -31,14 +30,15 @@ import { isRevisionDiverged } from "back-end/src/revisions/util";
 // by revision.target.type, so adding a new approval type needs no changes here.
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import {
-  canDoRevisionAction,
-  assertCanPublishRevision,
-  canPublishRevisionChange,
-  canCommentOnRevision,
   approveRevision,
-  publishRevision as publishRevisionAction,
-  maybeAutoPublishRevision,
+  assertCanPublishRevision,
+  canCommentOnRevision,
+  canDoRevisionAction,
   canEnableAutoPublishOnApproval,
+  canPublishRevisionChange,
+  maybeAutoPublishRevision,
+  publishRevision as publishRevisionAction,
+  rebaseRevision,
 } from "back-end/src/revisions/revisionActions";
 import {
   canAdvanceRevision,
@@ -898,7 +898,6 @@ export const postRebase = async (
   res: Response<PostRebaseResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
-  const { userId } = context;
   const { id } = req.params;
   const { strategies, customValues, mergeResultSerialized } = req.body;
 
@@ -981,114 +980,19 @@ export const postRebase = async (
     });
   }
 
-  const conflicts = mergeResult.conflicts || [];
-
-  // Validate all conflicts have a strategy
-  for (const conflict of conflicts) {
-    const strategy = strategies[conflict.field];
-    if (
-      strategy !== "overwrite" &&
-      strategy !== "discard" &&
-      strategy !== "union"
-    ) {
-      return res.status(400).json({
-        message: `Please resolve conflict for field: ${conflict.field}`,
-      });
-    }
-  }
-
-  const conflictFields = new Set(conflicts.map((c) => c.field));
-
-  // Build resolved patch ops relative to the new live state:
-  // - Non-conflicting ops: keep if they still differ from the live value
-  // - Conflict "overwrite": keep the proposed op
-  // - Conflict "discard": drop the op (live value wins)
-  // - Conflict "union": build a merged array op
-  const newOps: JsonPatchOperation[] = [];
-  const seenFields = new Set<string>();
-
-  for (const op of existingOps) {
-    const field = op.path.split("/")[1];
-    if (!field || seenFields.has(field)) continue;
-    seenFields.add(field);
-
-    if (!conflictFields.has(field)) {
-      const proposedValue =
-        op.op === "replace" || op.op === "add" ? op.value : undefined;
-      if (
-        proposedValue !== undefined &&
-        !isEqual(proposedValue, liveSnapshot[field])
-      ) {
-        newOps.push(op);
-      }
-    } else {
-      const strategy = strategies[field];
-      const conflict = conflicts.find((c) => c.field === field);
-      if (strategy === "overwrite" && conflict) {
-        if (
-          conflict.proposedValue != null &&
-          !isEqual(conflict.proposedValue, liveSnapshot[field])
-        ) {
-          newOps.push({
-            op: "replace",
-            path: `/${field}`,
-            value: conflict.proposedValue,
-          });
-        }
-      } else if (strategy === "union" && conflict) {
-        const custom = customValues?.[field];
-        let resolvedValue: unknown;
-        if (custom !== undefined) {
-          resolvedValue = custom;
-        } else if (
-          Array.isArray(conflict.liveValue) &&
-          Array.isArray(conflict.proposedValue)
-        ) {
-          const seen = new Set<string>();
-          const result: unknown[] = [];
-          for (const item of [
-            ...(conflict.liveValue as unknown[]),
-            ...(conflict.proposedValue as unknown[]),
-          ]) {
-            const key =
-              typeof item === "object" ? JSON.stringify(item) : String(item);
-            if (!seen.has(key)) {
-              seen.add(key);
-              result.push(item);
-            }
-          }
-          resolvedValue = result;
-        } else {
-          resolvedValue = conflict.proposedValue;
-        }
-        if (
-          resolvedValue != null &&
-          !isEqual(resolvedValue, liveSnapshot[field])
-        ) {
-          newOps.push({
-            op: "replace",
-            path: `/${field}`,
-            value: resolvedValue,
-          });
-        }
-      }
-      // "discard" → drop op
-    }
-  }
-
-  // Update the revision with new snapshot (current live) and resolved patch ops
-  const updatedRevision = await revisionModel.rebase(
-    id,
-    liveSnapshot,
-    newOps,
-    userId,
-  );
-
-  await getRevisionWebhookAdapter(updatedRevision.target.type)?.dispatch(
+  // Resolution, persistence and the webhook all come from the shared pipeline —
+  // this handler had its own copy of the loop, which is how it kept the
+  // `!= null` that silently dropped an explicit-null resolution (a Config
+  // schema-clear) after the shared copy was fixed. The conflict-set optimistic
+  // lock above is the only route-specific part.
+  const updatedRevision = await rebaseRevision({
     context,
-    updatedRevision,
-    { type: "rebased" },
-  );
+    entityType: revision.target.type,
+    entity: liveSnapshot,
+    revision,
+    strategies,
+    customValues,
+  });
 
   res.status(200).json({
     status: 200,

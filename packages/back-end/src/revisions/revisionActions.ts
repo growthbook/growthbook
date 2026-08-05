@@ -1106,6 +1106,10 @@ export async function submitRevisionReview({
 }): Promise<{ revision: Revision; autoPublished: boolean }> {
   const isComment = decision === "comment";
 
+  // Both verbs judged on the REVISION's snapshot, not the live entity: a review
+  // belongs to the revision, whose project may predate a move — the internal
+  // route, the CAS re-check inside addReview, and the front-end prediction all
+  // answer on the snapshot, and this was the one place still asking about live.
   if (
     !(isComment
       ? canCommentOnRevision(
@@ -1113,7 +1117,11 @@ export async function submitRevisionReview({
           context,
           revision.target.snapshot as Record<string, unknown>,
         )
-      : context.permissions.canRevisionAction(entityType, "review", entity))
+      : context.permissions.canRevisionAction(
+          entityType,
+          "review",
+          revision.target.snapshot as Record<string, unknown>,
+        ))
   ) {
     context.permissions.throwPermissionError();
   }

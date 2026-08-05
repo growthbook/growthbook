@@ -151,28 +151,45 @@ export async function restoreEntityPreImage({
   written: Record<string, unknown>;
 }): Promise<void> {
   const adapter = getAdapter(entityType);
-  const current = await adapter.getModel(context)?.getById(preImage.id);
-  if (!current) {
-    throw new Error(
-      `landing compensation: ${entityType} "${preImage.id}" no longer exists — cannot restore its pre-image`,
-    );
-  }
+  // Read-decide-write under the same guard as any landing, retried: the restore
+  // decides ownership from a read, and a newer landing arriving between that
+  // read and an unguarded write would be replaced by the stale pre-image. A CAS
+  // loss here means someone else changed the doc — re-read, re-decide ownership
+  // (their keys drop out of the restore by value), and try again.
+  const maxAttempts = 3;
+  for (let attempt = 1; ; attempt++) {
+    const current = await adapter.getModel(context)?.getById(preImage.id);
+    if (!current) {
+      throw new Error(
+        `landing compensation: ${entityType} "${preImage.id}" no longer exists — cannot restore its pre-image`,
+      );
+    }
 
-  const restore = ownedRestoreValues({
-    keys: persistedKeys,
-    preImage,
-    written,
-    current: current as Record<string, unknown>,
-  });
-  await applyVerifiedRestore({
-    restore,
-    current: current as Record<string, unknown>,
-    label: `${entityType} "${preImage.id}"`,
-    // A pre-image is a state that was already live, so the restore is a revert:
-    // skip the validations that exist to judge new intent.
-    write: (values) =>
-      adapter.applyChanges(context, current, values, { isRevert: true }),
-  });
+    const restore = ownedRestoreValues({
+      keys: persistedKeys,
+      preImage,
+      written,
+      current: current as Record<string, unknown>,
+    });
+    try {
+      await applyVerifiedRestore({
+        restore,
+        current: current as Record<string, unknown>,
+        label: `${entityType} "${preImage.id}"`,
+        // A pre-image is a state that was already live, so the restore is a
+        // revert: skip the validations that exist to judge new intent.
+        write: (values) =>
+          adapter.applyChanges(context, current, values, {
+            isRevert: true,
+            guarded: true,
+          }),
+      });
+      return;
+    } catch (e) {
+      if (e instanceof CasConflictError && attempt < maxAttempts) continue;
+      throw e;
+    }
+  }
 }
 
 /**

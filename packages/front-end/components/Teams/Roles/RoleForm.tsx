@@ -9,7 +9,7 @@ import {
 import { FormProvider, useForm } from "react-hook-form";
 import { Role } from "shared/types/organization";
 import router from "next/router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiMinusBold, PiPlusBold } from "react-icons/pi";
 import {
@@ -48,6 +48,12 @@ export default function RoleForm({
   const [status, setStatus] = useState<"editing" | "viewing" | "creating">(
     action,
   );
+  // Client-side navigation between role pages reuses this mounted component, so
+  // the mode must follow the route's `action` rather than snapshot mount time —
+  // otherwise /edit reached from /view keeps rendering read-only, and vice versa.
+  useEffect(() => {
+    setStatus(action);
+  }, [action]);
 
   // Open the drill-down for any policy the saved role composes atom-by-atom —
   // those selections are otherwise invisible behind a collapsed row. A policy

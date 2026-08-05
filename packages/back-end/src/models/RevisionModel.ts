@@ -370,20 +370,23 @@ export class RevisionModel extends BaseClass {
   }
 
   protected async beforeCreate(doc: Revision) {
-    // Calculate and set the version number
-    const allRevisions = await this._find({
-      "target.type": doc.target.type,
-      "target.id": doc.target.id,
-    } as Record<string, unknown>);
-
-    // Sort by creation date to determine the next version
-    const sortedRevisions = allRevisions.sort(
-      (a, b) =>
-        new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime(),
-    );
-
-    // Set version to the next sequential number
-    doc.version = sortedRevisions.length + 1;
+    // Version allocation is bookkeeping over the RAW collection, on purpose:
+    // `_find` filters by canRead, so after a project move a destination-only
+    // caller couldn't see the source-project revisions, computed a version that
+    // already exists, and hit the unique index on every retry. Max, not count —
+    // a deleted revision (a CAS-lost toggle cleans its own up) makes any count
+    // undershoot versions that are still taken.
+    const [latest] = await this._dangerousGetCollection()
+      .find(
+        {
+          organization: this.context.org.id,
+          "target.type": doc.target.type,
+          "target.id": doc.target.id,
+        },
+        { projection: { version: 1 }, sort: { version: -1 }, limit: 1 },
+      )
+      .toArray();
+    doc.version = ((latest?.version as number | undefined) ?? 0) + 1;
 
     // No default title — an uncustomized revision has none, and the UI falls back
     // to "Revision N" (matching the feature flow).
@@ -410,15 +413,13 @@ export class RevisionModel extends BaseClass {
 
       // If this is a revert, add a note in the activity log with revision number
       if (doc.revertedFrom) {
-        const revertedFromIdx = sortedRevisions.findIndex(
-          (r) => r.id === doc.revertedFrom,
+        const revertedFrom = await this._dangerousGetCollection().findOne(
+          { organization: this.context.org.id, id: doc.revertedFrom },
+          { projection: { version: 1 } },
         );
-        const description =
-          revertedFromIdx >= 0
-            ? `This revision reverts changes from Revision ${
-                revertedFromIdx + 1
-              }`
-            : "This revision reverts changes from a prior revision";
+        const description = revertedFrom
+          ? `This revision reverts changes from Revision ${revertedFrom.version}`
+          : "This revision reverts changes from a prior revision";
 
         activityLog.push({
           id: uniqid("act_"),

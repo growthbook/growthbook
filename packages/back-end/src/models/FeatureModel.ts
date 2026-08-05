@@ -1161,6 +1161,10 @@ export async function updateFeature(
     // stamp; compensation and cascade writes stay unguarded because they re-read
     // first and mean to write over what they found.
     ifUnchangedSince?: Date;
+    // Remove the holdout pointer in the SAME write. `updates` is a $set, and a
+    // landing that removes the holdout must not split into two writes — the gap
+    // between them is a window where a rival publish can land and be overwritten.
+    unsetHoldout?: boolean;
   },
 ): Promise<FeatureInterface> {
   const allUpdates = {
@@ -1244,6 +1248,7 @@ export async function updateFeature(
     },
     {
       $set: normalizedUpdates,
+      ...(options?.unsetHoldout ? { $unset: { holdout: "" } } : {}),
     },
   );
   if (options?.ifUnchangedSince && writeResult.matchedCount === 0) {
@@ -1554,40 +1559,15 @@ export async function removeTagInFeature(
   });
 }
 
-/**
- * Returns the token the write advanced to (when guarded), so a follow-up write in
- * the same landing can be conditioned on it — an unguarded second step would let a
- * publish that read the doc between the two writes be silently overwritten.
- */
 export async function removeHoldoutFromFeature(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
-  options?: { ifUnchangedSince?: Date },
-): Promise<Date | undefined> {
-  if (!feature.holdout) return options?.ifUnchangedSince;
-  const stamp = options?.ifUnchangedSince
-    ? advancedGuardStamp(options.ifUnchangedSince)
-    : undefined;
-  const writeResult = await FeatureModel.updateOne(
-    {
-      organization: context.org.id,
-      id: feature.id,
-      ...(options?.ifUnchangedSince
-        ? { dateUpdated: options.ifUnchangedSince }
-        : {}),
-    },
-    {
-      $unset: { holdout: "" },
-      // When this is a landing's guarded first write, it must also ADVANCE the
-      // token — strictly, even inside the same millisecond — so a rival landing
-      // holding the pre-image stamp loses its own guard from here on.
-      ...(stamp ? { $set: { dateUpdated: stamp } } : {}),
-    },
+) {
+  if (!feature.holdout) return;
+  await FeatureModel.updateOne(
+    { organization: context.org.id, id: feature.id },
+    { $unset: { holdout: "" } },
   );
-  if (options?.ifUnchangedSince && writeResult.matchedCount === 0) {
-    throw new CasConflictError();
-  }
-  return stamp;
 }
 
 export async function removeProjectFromFeatures(
@@ -1921,16 +1901,17 @@ export async function applyRevisionChanges(
   // feature write; the follow-up content write is this landing's own turn, like
   // a config cascade after its guarded root write.
   if (removeHoldout) {
-    const advancedTo = await removeHoldoutFromFeature(context, feature, guard);
     // Remove holdout from the feature object so the returned feature is correct
     const { holdout: _, ...featureWithoutHoldout } = feature;
-    // Chained onto the token the $unset advanced to: an unguarded second step
-    // let a publish that read the doc between the two writes be overwritten.
+    // ONE write: the $unset rides the content $set under the same guard. As two
+    // writes — even token-chained — the gap between them was a window where a
+    // rival publish could land and then be overwritten, and a CAS loss on the
+    // second write stranded the $unset with no rewind registered yet.
     updated = await updateFeature(
       context,
       featureWithoutHoldout as FeatureInterface,
       changes,
-      advancedTo ? { ifUnchangedSince: advancedTo } : undefined,
+      { ...guard, unsetHoldout: true },
     );
   } else {
     updated = await updateFeature(context, feature, changes, guard);
