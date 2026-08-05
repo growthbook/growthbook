@@ -29,7 +29,12 @@ const queueSDKPayloadRefreshMock =
   queueSDKPayloadRefresh as jest.MockedFunction<typeof queueSDKPayloadRefresh>;
 
 function makeContext(): ReqContext {
-  return { org: { id: "org_1" } } as unknown as ReqContext;
+  // No org.settings.environments → getEnvironmentIdsFromOrg falls back to
+  // the default ["dev", "production"].
+  return {
+    org: { id: "org_1" },
+    getAllProjectIds: jest.fn().mockResolvedValue([]),
+  } as unknown as ReqContext;
 }
 
 function makeCb(
@@ -94,6 +99,8 @@ describe("refreshLinkedFeaturePayloads", () => {
 
   it("refreshes a feature that references the CB even when it is missing from cb.linkedFeatures (drift)", async () => {
     const context = makeContext();
+    // linkedFeatures is stale/empty, but a feature's rule still references the
+    // CB — the refresh must be derived from the rules, not linkedFeatures.
     const cb = makeCb({ linkedFeatures: [] });
     getAllFeaturesMock.mockResolvedValue([
       makeLinkedFeature({

@@ -342,7 +342,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
         <Box mb="5">
           <Flex direction="column" gap="2" mb="3">
             <Flex justify="between" align="center" mb="1">
-              <Heading as="h1" size="x-large">
+              <Heading as="h1" size="xl">
                 Targeting Attributes
               </Heading>
               {canCreateAttributes && (

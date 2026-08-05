@@ -1,5 +1,5 @@
+import { getExperimentIdsFromRules } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { ExperimentRefRule } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -11,28 +11,6 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
-
-function getExperimentIdsFromRules(
-  rules: FeatureRevisionInterface["rules"] | unknown,
-): string[] {
-  // Accept v2 (FeatureRule[]) and legacy v1 (Record<envId, FeatureRule[]>):
-  // raw-doc readers (e.g. getLinkageSyncRevisionSummaries) hand us v1 shapes
-  // until the migration completes.
-  const flat: unknown[] = Array.isArray(rules)
-    ? rules
-    : rules && typeof rules === "object"
-      ? Object.values(rules as Record<string, unknown[]>).flat()
-      : [];
-  return flat
-    .filter(
-      (r): r is ExperimentRefRule =>
-        !!r &&
-        typeof r === "object" &&
-        (r as { type?: string }).type === "experiment-ref",
-    )
-    .map((r) => r.experimentId)
-    .filter((id): id is string => !!id);
-}
 
 /**
  * Reconciles experiment.linkedFeatures and experiment.pendingFeatureDrafts

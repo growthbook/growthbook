@@ -26,6 +26,7 @@ export function toReportApiInterface(
     status: report.status,
     shareLevel,
     experimentId: report.experimentId,
+    owner: report.userId || undefined,
   };
 
   if (

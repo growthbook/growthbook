@@ -354,19 +354,13 @@ export const DimensionSlicesResults: FC<{
                         {dimensionValueResult.dimensionSlices.map((d, i) => {
                           totalPercent += d.percent;
                           return (
-                            <>
-                              <Fragment key={`${metadata.dimension}-${i}`}>
-                                {i ? ", " : ""}
-                                <code
-                                  key={`${metadata.dimension}-code-${d.name}`}
-                                >
-                                  {d.name}
-                                </code>
-                              </Fragment>
+                            <Fragment key={`${metadata.dimension}-${d.name}`}>
+                              {i ? ", " : ""}
+                              <code>{d.name}</code>
                               <span>{` (${smallPercentFormatter.format(
                                 d.percent / 100.0,
                               )})`}</span>
-                            </>
+                            </Fragment>
                           );
                         })}
                       </div>
@@ -403,7 +397,7 @@ export const DimensionSlicesResults: FC<{
                     {metadata?.customSlicesArray ? (
                       <>
                         <MultiSelectField
-                          size="legacy"
+                          legacyHeight
                           value={metadata?.customSlicesArray || []}
                           onChange={(values) =>
                             updateCustomSelectedSlices(

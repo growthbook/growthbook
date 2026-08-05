@@ -151,7 +151,7 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
     }
 
     const missingInQuery = columns.filter(
-      (col) => !new RegExp(`\\b${col}\\b`).test(value.query ?? ""),
+      (col) => !new RegExp(`\\b${col}\\b`, "i").test(value.query ?? ""),
     );
     if (missingInQuery.length > 0) {
       throw new Error(
@@ -192,8 +192,11 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
 
   const validateResponse = (result: TestQueryRow) => {
     if (!result) return;
+    const returnedColumns = new Set(
+      Object.keys(result).map((c) => c.toLowerCase()),
+    );
     const missingColumns = Array.from(requiredColumns).filter(
-      (col) => !(col in result),
+      (col) => !returnedColumns.has(col.toLowerCase()),
     );
     if (missingColumns.length > 0) {
       throw new Error(

@@ -407,6 +407,7 @@ describe("persistContextualBanditEvent", () => {
       patchLeafWeightsMock.mock.calls[0];
     expect(cbIdArg).toBe(cb.id);
     expect(leafWeightsArg).toHaveLength(2);
+    // Weights changed → the version bumps alongside the payload refresh
     expect(patchOptions).toEqual({ bumpVersion: true });
     const expectedLeafWeights = leafWeightsFromContextualBanditResult(
       result,
@@ -465,6 +466,8 @@ describe("persistContextualBanditEvent", () => {
       patchLeafWeightsMock.mock.calls[0];
     expect(cbIdArg).toBe(cb.id);
     expect(leafWeightsArg).toEqual([]);
+    // No weight change → no version bump and no SDK payload refresh, so the
+    // payload's banditVersion stays consistent with the DB.
     expect(patchOptions).toEqual({ bumpVersion: false });
     expect(refreshLinkedFeaturePayloadsMock).not.toHaveBeenCalled();
   });
@@ -530,13 +533,17 @@ describe("persistContextualBanditEvent", () => {
     expect(createCbeMock).toHaveBeenCalledWith(
       expect.objectContaining({ weightsWereUpdated: false }),
     );
+    // ...persistContextualBanditEvent no longer touches the schedule itself...
     expect(updateMock).not.toHaveBeenCalled();
+    // ...and explore-stage runs never queue an SDK payload refresh.
     expect(refreshLinkedFeaturePayloadsMock).not.toHaveBeenCalled();
   });
 
   it("skips the SDK payload refresh when the new weights match the current ones", async () => {
     const result = makeResult();
     const cb = makeCb();
+    // Pre-seed the CB doc with exactly the leaf weights this run will produce
+    // so weightsWereUpdated computes to false.
     cb.currentLeafWeights = leafWeightsFromContextualBanditResult(
       result,
       cb.variations,
@@ -579,6 +586,7 @@ describe("persistContextualBanditEvent", () => {
 describe("contextualBanditWeightsWereUpdated", () => {
   const variations = [{ id: "v0" }, { id: "v1" }];
 
+  /** Persisted leaf weights matching what makeResult() produces. */
   function currentFromResult() {
     return leafWeightsFromContextualBanditResult(makeResult(), variations);
   }
@@ -634,6 +642,7 @@ describe("contextualBanditWeightsWereUpdated", () => {
 
   it("returns true when a leaf is removed (persisted set shrinks)", () => {
     const result = makeResult();
+    // Drop the CA leaf; the US leaf's condition and weights are unchanged.
     result.responses = [result.responses[0]];
     result.leaf_map = [result.leaf_map[0]];
     expect(
@@ -647,6 +656,7 @@ describe("contextualBanditWeightsWereUpdated", () => {
 
   it("returns true when a leafId is renumbered for an unchanged condition", () => {
     const result = makeResult();
+    // Same conditions and weights, but the tree relabeled the leaves.
     result.responses[0].leafId = 5;
     result.responses[1].leafId = 6;
     result.leaf_map = [

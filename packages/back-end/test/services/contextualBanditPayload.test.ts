@@ -6,6 +6,9 @@ import { getFeatureDefinition } from "back-end/src/util/features";
 import { filterUsedContextualBandits } from "back-end/src/services/features";
 import { measureContextualBanditPayload } from "back-end/src/services/contextualBanditPayload";
 
+// services/features.ts transitively imports datasource integrations, which
+// load native modules (kerberos, lz4) that aren't available in all
+// environments. Nothing in these tests touches datasources.
 jest.mock("back-end/src/services/datasource", () => ({}));
 
 const groupMap: GroupMap = new Map();
@@ -112,9 +115,13 @@ describe("getFeatureDefinition contextual-bandit-ref rules", () => {
     expect(def).toBeTruthy();
     const rule = def?.rules?.[0];
     expect(rule?.contextualBanditRef).toEqual("cb_1");
+    // Sticky bucketing must be disabled — CB weights retrain each epoch
     expect(rule?.disableStickyBucketing).toEqual(true);
+    // Nothing bulky on the rule — it all lives in the top-level map
     expect(rule).not.toHaveProperty("contexts");
     expect(rule).not.toHaveProperty("banditVersion");
+    // Variations live under `contextualVariations` (not `variations`) so older
+    // SDKs skip the rule; aggregate weights remain for the CB MAB fallback.
     expect(rule).not.toHaveProperty("variations");
     expect(rule?.contextualVariations).toEqual(["control", "treatment"]);
     expect(rule?.weights).toEqual([0.5, 0.5]);
@@ -135,9 +142,14 @@ describe("getFeatureDefinition contextual-bandit-ref rules", () => {
     const rule = def?.rules?.[0];
     expect(rule).toBeTruthy();
     expect(rule).not.toHaveProperty("contextualBanditRef");
+    // Non-capable SDKs get neither `contextualVariations` (stripped, CB-gated
+    // key) nor `variations`, so they skip the rule instead of running a plain
+    // experiment split. Weights remain but are never reached.
     expect(rule).not.toHaveProperty("contextualVariations");
     expect(rule).not.toHaveProperty("variations");
     expect(rule?.weights).toEqual([0.5, 0.5]);
+    // Sticky bucketing stays disabled even for the MAB fallback (weights still
+    // retrain each epoch), independent of the contextualBandits capability.
     expect(rule?.disableStickyBucketing).toEqual(true);
   });
 });
@@ -161,6 +173,7 @@ describe("filterUsedContextualBandits", () => {
       featuresWithRef,
     );
 
+    // Two rules, ONE entry — this is the dedup
     expect(map).toEqual({
       cb_1: {
         banditVersion: 7,
@@ -422,6 +435,7 @@ describe("measureContextualBanditPayload", () => {
     );
 
     expect(stats.cbCount).toEqual(2);
+    // 3 rules point at the map; ratio 3:2 shows a shared CB
     expect(stats.cbRuleCount).toEqual(3);
     expect(stats.maxLeaves).toEqual(3);
 

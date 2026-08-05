@@ -1,4 +1,6 @@
 import {
+  apiContextualBanditCancelReturn,
+  apiContextualBanditCancelValidator,
   apiContextualBanditLifecycleReturn,
   apiContextualBanditRefreshReturn,
   apiContextualBanditRefreshValidator,
@@ -51,6 +53,15 @@ export const updateVariationsContextualBanditEndpoint = {
   summary: "Add or remove Contextual Bandit variations",
 };
 
+export const cancelContextualBanditEndpoint = {
+  pathFragment: "/:id/cancel",
+  verb: "post" as const,
+  operationId: "cancelContextualBandit",
+  validator: apiContextualBanditCancelValidator,
+  zodReturnObject: apiContextualBanditCancelReturn,
+  summary: "Cancel a running Contextual Bandit snapshot refresh",
+};
+
 export const contextualBanditApiSpec = {
   modelSingular: "contextualBandit",
   modelPlural: "contextualBandits",
@@ -69,6 +80,7 @@ export const contextualBanditApiSpec = {
     stopContextualBanditEndpoint,
     refreshContextualBanditEndpoint,
     updateVariationsContextualBanditEndpoint,
+    cancelContextualBanditEndpoint,
   ],
   navAfterTag: "experiments",
 } satisfies OpenApiModelSpec;

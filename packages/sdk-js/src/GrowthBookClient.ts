@@ -301,6 +301,7 @@ export class GrowthBookClient<
       forcedVariations: this._options.forcedVariations,
       trackingCallback: this._options.trackingCallback,
       onFeatureUsage: this._options.onFeatureUsage,
+      eventLogger: this._options.eventLogger,
     };
   }
 
@@ -453,6 +454,9 @@ export class UserScopedGrowthBook<
 
   public setTrackingCallback(cb: TrackingCallback) {
     this._userContext.trackingCallback = cb;
+  }
+  public setFeatureUsageCallback(cb: FeatureUsageCallback) {
+    this._userContext.onFeatureUsage = cb;
   }
   public getApiInfo(): [ApiHost, ClientKey] {
     return this._gb.getApiInfo();

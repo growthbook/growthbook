@@ -80,7 +80,6 @@ function makeCb(
 }
 
 function makeContext(cb: ContextualBanditInterface) {
-  const addPendingFeatureDraft = jest.fn().mockResolvedValue(undefined);
   const getById = jest.fn().mockResolvedValue(cb);
   const warn = jest.fn();
   const context = {
@@ -88,9 +87,9 @@ function makeContext(cb: ContextualBanditInterface) {
     org: { id: "org_1", settings: {} },
     auditUser: { type: "dashboard", id: "u1", email: "u@x.co", name: "U" },
     logger: { warn },
-    models: { contextualBandits: { addPendingFeatureDraft, getById } },
+    models: { contextualBandits: { getById } },
   } as unknown as ApiReqContext;
-  return { context, addPendingFeatureDraft, getById, warn };
+  return { context, getById, warn };
 }
 
 describe("addVariationValuesToLinkedFeatures", () => {
@@ -106,7 +105,7 @@ describe("addVariationValuesToLinkedFeatures", () => {
 
   it("defaults a new arm's value to the control value and stages a draft", async () => {
     const cb = makeCb();
-    const { context, addPendingFeatureDraft } = makeContext(cb);
+    const { context } = makeContext(cb);
 
     await addVariationValuesToLinkedFeatures(context, cb, ["v2"], undefined);
 
@@ -118,7 +117,6 @@ describe("addVariationValuesToLinkedFeatures", () => {
       variationId: "v2",
       value: "control",
     });
-    expect(addPendingFeatureDraft).toHaveBeenCalledWith("cb_1", "feature", 5);
     expect(publishMock).not.toHaveBeenCalled();
   });
 
@@ -188,12 +186,11 @@ describe("addVariationValuesToLinkedFeatures", () => {
 
   it("no-ops when the added arm already has a value on the rule", async () => {
     const cb = makeCb();
-    const { context, addPendingFeatureDraft } = makeContext(cb);
+    const { context } = makeContext(cb);
 
     await addVariationValuesToLinkedFeatures(context, cb, ["v1"], undefined);
 
     expect(updateRevisionMock).not.toHaveBeenCalled();
-    expect(addPendingFeatureDraft).not.toHaveBeenCalled();
   });
 
   it("no-ops when the CB has no linked features", async () => {

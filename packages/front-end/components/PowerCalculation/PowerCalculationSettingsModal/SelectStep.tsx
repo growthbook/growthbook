@@ -442,7 +442,7 @@ export const SelectStep = ({
           Pick the key metrics for which you want to estimate power.
         </div>
         <MultiSelectField
-          size="legacy"
+          legacyHeight
           sort={false}
           value={selectedMetrics}
           options={availableMetrics.map(({ name: label, id: value }) => ({

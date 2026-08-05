@@ -71,6 +71,13 @@ export const ALLOW_SELF_ORG_CREATION = stringToBoolean(
   true,
 );
 
+const prohibitedOrganizationNameRegex =
+  process.env.PROHIBITED_ORGANIZATION_NAME_REGEX;
+export const PROHIBITED_ORGANIZATION_NAME_REGEX =
+  prohibitedOrganizationNameRegex
+    ? new RegExp(prohibitedOrganizationNameRegex)
+    : null;
+
 export const UPLOAD_METHOD = (() => {
   const method = process.env.UPLOAD_METHOD;
   if (method && ["s3", "google-cloud"].includes(method)) {
@@ -304,6 +311,18 @@ export const ALLOW_CREATE_DIMENSIONS = stringToBoolean(
 
 export const API_ALLOW_SKIP_PAGINATION = stringToBoolean(
   process.env.API_ALLOW_SKIP_PAGINATION,
+);
+
+// Opt-in: the bulk experiment results export reads and hydrates every analysis
+// on every snapshot it returns, so it stays off unless a deployment enables it.
+export const EXPERIMENT_BULK_RESULTS_ENABLED = stringToBoolean(
+  process.env.EXPERIMENT_BULK_RESULTS_ENABLED,
+);
+
+export const EXPERIMENT_BULK_RESULTS_RATE_LIMIT_MAX = parseEnvInt(
+  process.env.EXPERIMENT_BULK_RESULTS_RATE_LIMIT_MAX,
+  60,
+  { min: 1, name: "EXPERIMENT_BULK_RESULTS_RATE_LIMIT_MAX" },
 );
 
 // Defines the User-Agent header for all requests made by the API
