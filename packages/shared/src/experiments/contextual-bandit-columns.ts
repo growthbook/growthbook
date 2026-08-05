@@ -18,9 +18,7 @@ export function isContextualBanditAttrColumn(key: string): boolean {
  *
  * The alias embeds the attribute's column name, which may be mixed case. We emit
  * it unquoted, so warehouses that fold identifiers (Postgres, Redshift) return
- * it lowercased while others (BigQuery, ClickHouse) preserve it as written;
- * hence lookups are case-insensitive. Every consumer must read attribute values
- * through this.
+ * it lowercased while others (BigQuery, ClickHouse) preserve it as written.
  */
 export function metricRowAttributeReader(
   row: Record<string, unknown>,

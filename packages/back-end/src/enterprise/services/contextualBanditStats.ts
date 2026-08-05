@@ -69,9 +69,7 @@ function armFromRow(
 }
 
 /**
- * Attribute values keyed by their configured name. Attributes the row has no
- * value for are omitted, which is how the stats engine recognizes them as
- * belonging to the catch-all bucket.
+ * Attribute values keyed by their configured name.
  */
 function contextFromRow(
   row: ExperimentMetricQueryResponseRows[number],
@@ -89,13 +87,7 @@ function contextFromRow(
 }
 
 /**
- * Resolve query rows into the observations the stats engine consumes. This is
- * the only place contextual-bandit rows are interpreted: it strips the metric
- * column prefix, resolves the variation to its index, and reads the attribute
- * values and metric moments, so no downstream consumer has to know how a
- * warehouse names or cases its columns.
- *
- * Rows whose variation cannot be matched to `varIds` are dropped.
+ * Resolve query rows into the observations the stats engine consumes.
  */
 export function buildContextualBanditObservations(
   rows: ExperimentMetricQueryResponseRows,
