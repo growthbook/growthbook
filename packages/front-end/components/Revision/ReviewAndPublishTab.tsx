@@ -158,7 +158,15 @@ export interface ReviewAndPublishTabProps<T> {
   // revert is project-scoped; landing one is not. Defaults to `canRevertEntity`
   // for entities with no environment footprint.
   canLandRevertEntity?: boolean;
+  // Delete authority in the entity's PROJECT. Enough to stage an archive as a
+  // draft, which publishes nothing.
   canDeleteEntity?: boolean;
+  // Delete authority over the environments an archive takes out of service. A
+  // draft that archives LANDS everywhere the entity serves, so the project-scoped
+  // atom above must not decide it — that gap offered Publish on an archive draft
+  // to a dev-limited deleter the endpoint refuses. Defaults to `canDeleteEntity`
+  // for entities with no environment footprint (Saved Groups).
+  canLandArchiveEntity?: boolean;
   // Commenting is participation, gated by addComments rather than by authority
   // over the entity. Defaults to canEditEntity for callers that don't pass it.
   canCommentOnEntity?: boolean;
@@ -224,6 +232,7 @@ function ReviewAndPublishRevision<T>({
   canRevertEntity,
   canLandRevertEntity,
   canDeleteEntity,
+  canLandArchiveEntity,
   canCommentOnEntity,
   canReviewEntity,
   canManageDraftsEntity,
@@ -582,12 +591,13 @@ function ReviewAndPublishRevision<T>({
   // DESTINATION, so the narrow-atom fallbacks must not offer Publish on source
   // authority alone.
   const holdsDestination = holdsLandingDestination ?? true;
+  const canLandArchive = canLandArchiveEntity ?? canDeleteEntity;
   const canPublishOrEdit =
-    (!draftArchives || !!canDeleteEntity) &&
+    (!draftArchives || !!canLandArchive) &&
     ((canPublishEntity ?? canEditEntity) ||
       (holdsDestination &&
         ((draftStagesRevert && canLandRevert) ||
-          (!!canDeleteEntity && draftIsPureArchive))));
+          (!!canLandArchive && draftIsPureArchive))));
   // Whether the viewer holds any authority at all — for the overflow menu and
   // the no-permission notice. Each individual action gates on its own atom.
   const hasAnyAuthority =

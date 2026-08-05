@@ -63,6 +63,7 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useEnvironments } from "@/services/features";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import Owner from "@/components/Avatar/Owner";
@@ -290,6 +291,11 @@ export default function ConfigDetailPage(): React.ReactElement {
   } = useDefinitions();
   const { organization, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const environments = useEnvironments();
+  const allEnvironmentIds = useMemo(
+    () => environments.map((e) => e.id),
+    [environments],
+  );
 
   const [editInfoOpen, setEditInfoOpen] = useState(false);
   const [confirmRevert, setConfirmRevert] = useState(false);
@@ -2168,6 +2174,17 @@ export default function ConfigDetailPage(): React.ReactElement {
                   "delete",
                   config,
                   configPublishEnvironments(config),
+                )}
+                // A base Config names no environments, so its scoped footprint is
+                // empty and SKIPS the environment check — but archiving one takes
+                // it out of service everywhere, which is what the endpoint asks.
+                canLandArchiveEntity={canLandArchiveToggle(
+                  permissionsUtil,
+                  "config",
+                  config,
+                  configPublishEnvironments(config).length
+                    ? configPublishEnvironments(config)
+                    : allEnvironmentIds,
                 )}
                 holdsLandingDestination={holdsRevisionDestination(
                   permissionsUtil,

@@ -10,12 +10,15 @@ import {
   configResetReviewOnChange,
   constantAutopublishOnApproval,
   formatAncestorFieldConflictMessage,
+  isArchiveTransition,
+  proposedArchivedValue,
 } from "shared/util";
 import {
   configValidator,
   configUpdatableFieldsSchema,
 } from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
+import { getEnvironments } from "back-end/src/services/organizations";
 import {
   ApplyChangesResult,
   EntityRevisionAdapter,
@@ -161,8 +164,26 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
   // delete-only role could archive a production-scoped Config, and a
   // dev-limited publisher could publish one, through the draft path. The
   // controllers already gate on exactly this list.
-  publishFootprint(context: Context, snapshot: ConfigInterface): string[] {
-    return configPublishEnvironments(context, snapshot);
+  publishFootprint(
+    context: Context,
+    snapshot: ConfigInterface,
+    proposedChanges: unknown,
+  ): string[] {
+    const scoped = configPublishEnvironments(context, snapshot);
+    // Archiving takes the Config out of service everywhere it serves. A scoped
+    // Config names its environments, but a BASE Config binds to none — and an
+    // empty footprint SKIPS the environment check, so archiving one asked for
+    // nothing. Constants apply the same serve-footprint rule to their archives.
+    if (
+      !scoped.length &&
+      isArchiveTransition({
+        proposed: proposedArchivedValue(proposedChanges),
+        current: snapshot.archived,
+      })
+    ) {
+      return getEnvironments(context.org).map((e) => e.id);
+    }
+    return scoped;
   },
 
   canRead(context: Context, snapshot: ConfigInterface): boolean {

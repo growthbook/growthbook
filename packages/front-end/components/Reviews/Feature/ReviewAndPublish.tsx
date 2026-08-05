@@ -56,7 +56,7 @@ import { getCurrentUser, useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
-  getAffectedRevisionEnvs,
+  getRevisionPublishEnvs,
   useEnvironments,
   useFeatureExperimentChecklists,
 } from "@/services/features";
@@ -1575,11 +1575,17 @@ export default function ReviewAndPublish({
   // authority. Staging a change as a draft must not require an atom that landing
   // it directly doesn't. Provenance is all the client can see — the server
   // re-verifies purity.
-  const affectedRevisionEnvs = getAffectedRevisionEnvs(
-    feature,
-    revision,
-    environments,
-  );
+  // The footprint the publish endpoint will derive, not a narrower one computed
+  // from the revision: a toggle, a holdout move, a prerequisite or an archive all
+  // reach environments that comparing `defaultValue` and rules alone misses.
+  const affectedRevisionEnvs = mergeResult.success
+    ? getRevisionPublishEnvs({
+        liveFeature: feature,
+        changes: mergeResult.result,
+        environments,
+        holdoutsMap,
+      })
+    : environments.map((e) => e.id);
   const hasPublishPermission =
     (permissionsUtil.canPublishFeature(feature, affectedRevisionEnvs) ||
       (draftStagesRevert &&

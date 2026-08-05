@@ -1,4 +1,4 @@
-import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import { canLandArchiveToggle } from "shared/permissions";
 import { ConstantWithoutValue } from "shared/types/constant";
 import { Revision } from "shared/enterprise";
 import ArchiveModal from "@/components/Revision/ArchiveModal";
@@ -8,6 +8,7 @@ import ConstantReferencesList from "@/components/Constants/ConstantReferencesLis
 import { useConstantReferences } from "@/hooks/useConstantReferences";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useEnvironments } from "@/services/features";
 
 // Thin wrapper around the entity-agnostic ArchiveModal.
 export default function ConstantArchiveModal({
@@ -33,6 +34,7 @@ export default function ConstantArchiveModal({
     canPublish,
   } = revisionCtx;
   const permissionsUtil = usePermissionsUtil();
+  const allEnvironmentIds = useEnvironments().map((e) => e.id);
 
   const isArchived = !!constant.archived;
 
@@ -52,11 +54,20 @@ export default function ConstantArchiveModal({
       openRevisions={openRevisions}
       approvalRequired={approvalRequired}
       canBypassApproval={canBypassApproval}
-      // Archiving is delete-class; unarchiving is an ordinary publish.
+      // Archiving is delete-class over every environment the constant serves —
+      // the base value feeds all of them, which is the footprint the publish
+      // endpoint demands. `NO_ENVIRONMENT_BINDING` here SKIPPED the environment
+      // check, offering Archive to a dev-limited deleter the server refuses.
+      // Unarchiving is an ordinary publish, already scoped by the context.
       canLand={
         isArchived
           ? canPublish
-          : permissionsUtil.canDeleteConstant(constant, NO_ENVIRONMENT_BINDING)
+          : canLandArchiveToggle(
+              permissionsUtil,
+              "constant",
+              constant,
+              allEnvironmentIds,
+            )
       }
       referenceCount={totalReferences}
       referencesLoading={loading}

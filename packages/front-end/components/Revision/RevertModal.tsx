@@ -7,8 +7,10 @@ import {
   getRevisionNumberById,
 } from "shared/enterprise";
 import { dateNoYear } from "shared/dates";
+import { canLandArchiveToggle } from "shared/permissions";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useEnvironments } from "@/services/features";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import Text from "@/ui/Text";
@@ -111,6 +113,11 @@ export default function RevertModal<T extends RevertableEntity>({
   const { apiCall } = useAuth();
   const { getUserDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const environments = useEnvironments();
+  const allEnvironmentIds = useMemo(
+    () => environments.map((e) => e.id),
+    [environments],
+  );
 
   // Revision-number map (stored version, else position by creation date) so
   // the dropdown and revert title read like the rest of the page.
@@ -169,8 +176,18 @@ export default function RevertModal<T extends RevertableEntity>({
   const archiveDrifts =
     targetArchived !== liveArchived && (willUnarchive || canReArchive);
   // Staging the flip is project-scoped; LANDING it takes delete over the
-  // environments the entity serves, so the two are not the same question.
-  const canLandArchive = canLandArchiveEntity ?? canReArchive;
+  // environments the entity serves, so the two are not the same question. The
+  // fallback asks about every environment rather than reusing the project-scoped
+  // answer: an omitted footprint SKIPS the environment check, which offered a
+  // dev-limited deleter a re-archive the endpoint refuses.
+  const canLandArchive =
+    canLandArchiveEntity ??
+    canLandArchiveToggle(
+      permissionsUtil,
+      revision.target.type,
+      liveEntity,
+      allEnvironmentIds,
+    );
   // Default the opt-in to the recovery direction (un-archive), opt-in for the
   // more disruptive re-archive direction. Re-derived when the target changes: a
   // lazy initializer runs once, so switching targets used to keep the previous

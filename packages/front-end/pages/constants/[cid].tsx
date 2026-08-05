@@ -128,6 +128,10 @@ export default function ConstantDetailPage(): React.ReactElement {
   const { organization, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const environments = useEnvironments();
+  const allEnvironmentIds = useMemo(
+    () => environments.map((e) => e.id),
+    [environments],
+  );
 
   const [editInfoOpen, setEditInfoOpen] = useState(false);
   const [editValueOpen, setEditValueOpen] = useState(false);
@@ -642,6 +646,14 @@ export default function ConstantDetailPage(): React.ReactElement {
               "delete",
               constant,
               NO_ENVIRONMENT_BINDING,
+            )}
+            // Landing an archive takes the constant out of service in every
+            // environment, which is the footprint the publish endpoint demands.
+            canLandArchiveEntity={canLandArchiveToggle(
+              permissionsUtil,
+              "constant",
+              constant,
+              allEnvironmentIds,
             )}
             holdsLandingDestination={holdsRevisionDestination(
               permissionsUtil,

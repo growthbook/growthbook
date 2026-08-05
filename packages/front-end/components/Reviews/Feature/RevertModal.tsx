@@ -4,10 +4,16 @@ import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
-import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
+import {
+  filterEnvironmentsByFeature,
+  getReviewSetting,
+  getRulesForEnvironment,
+} from "shared/util";
+import { revertFootprint } from "shared/permissions";
+import isEqual from "lodash/isEqual";
 import { Flex, Box } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
-import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
+import { useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 // eslint-disable-next-line no-restricted-imports
 import Modal from "@/components/Modal";
@@ -122,11 +128,24 @@ export default function RevertModal({
     draft: targetRevisionForAction,
   });
 
-  const affectedEnvs = getAffectedRevisionEnvs(
+  // A revert's footprint is the revert endpoints' own rule: what the flag serves
+  // now, plus any environment the restored revision switches back ON, plus any
+  // whose rules it would change. The enabled-and-changed set alone let a
+  // dev-limited reverter re-enable production.
+  const affectedEnvs = revertFootprint({
     feature,
-    targetRevisionForAction,
-    environments,
-  );
+    targetRevision: targetRevisionForAction,
+    environmentIds: environments.map((e) => e.id),
+    changedEnvs: environments
+      .map((e) => e.id)
+      .filter(
+        (env) =>
+          !isEqual(
+            getRulesForEnvironment(feature.rules, env),
+            getRulesForEnvironment(targetRevisionForAction.rules, env),
+          ),
+      ),
+  });
 
   // Mirrors the two endpoints this modal calls. Reverting is its own authority:
   // the direct revert is gated on revertFeatures rather than publish, and revert

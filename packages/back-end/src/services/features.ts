@@ -15,7 +15,6 @@ import {
   evaluatePrerequisiteState,
   filterProjectsByEnvironmentWithNull,
   getDependentFeatures,
-  getRulesForEnvironment,
   isDefined,
   MergeResultChanges,
   PrerequisiteStateResult,
@@ -45,6 +44,10 @@ import {
   ConstantValueMap,
 } from "shared/sdk-versioning";
 import { ConstantInterface } from "shared/types/constant";
+import {
+  featurePublishFootprint,
+  holdoutEnvsForChange,
+} from "shared/permissions";
 import { getLatestPhaseVariations } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import pickBy from "lodash/pickBy";
@@ -122,13 +125,11 @@ import {
 import {
   applyNamespaceToPayload,
   buildPayloadMetadata,
-  getEnabledEnvironments,
   getFeatureDefinition,
   getHoldoutFeatureDefId,
   getParsedCondition,
   pairedWeightsToPositional,
 } from "back-end/src/util/features";
-import { getEnabledEnvironments as getEnabledHoldoutEnvironments } from "back-end/src/util/holdouts";
 import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
@@ -3749,46 +3750,20 @@ export async function getMergeResultPublishEnvs({
   result: MergeResultChanges;
   environmentIds: string[];
 }): Promise<string[]> {
-  const allEnabledEnvs = Array.from(
-    getEnabledEnvironments(feature, environmentIds),
-  );
-
-  const changedRuleEnvs =
-    result.rules === undefined
-      ? []
-      : environmentIds.filter(
-          (env) =>
-            !isEqual(
-              getRulesForEnvironment(filledLiveRules, env),
-              getRulesForEnvironment(result.rules!, env),
-            ),
-        );
-  const changedToggleEnvs = Object.keys(result.environmentsEnabled || {});
-  const holdoutEnvs = await collectHoldoutAffectedEnvs(
-    context,
+  // The rule itself lives in `shared` so the Publish and Revert controls predict
+  // this exact footprint; only the holdout lookup is server-side.
+  return featurePublishFootprint({
     feature,
+    liveRules: filledLiveRules,
+    changes: result,
     environmentIds,
-    result.holdout,
-  );
-  const envScoped = new Set([
-    ...changedRuleEnvs,
-    ...changedToggleEnvs,
-    ...holdoutEnvs,
-  ]);
-
-  const hasGlobalChange =
-    result.defaultValue !== undefined ||
-    !!result.prerequisites ||
-    result.archived !== undefined ||
-    !!result.metadata;
-  if (hasGlobalChange) {
-    // The environments the change REACHES, not just the ones already serving:
-    // a draft that both edits a global field and ENABLES an environment lands
-    // in that environment too. Mirrors revertFootprint on the revert side.
-    return Array.from(new Set([...allEnabledEnvs, ...envScoped]));
-  }
-
-  return envScoped.size > 0 ? Array.from(envScoped) : allEnabledEnvs;
+    holdoutEnvs: await collectHoldoutAffectedEnvs(
+      context,
+      feature,
+      environmentIds,
+      result.holdout,
+    ),
+  });
 }
 
 // `undefined` = merge didn't touch holdout. Otherwise unions the active
@@ -3801,25 +3776,28 @@ async function collectHoldoutAffectedEnvs(
 ): Promise<string[]> {
   if (newHoldout === undefined) return [];
 
-  const envs = new Set<string>();
-  const prevId = feature.holdout?.id;
-  if (prevId && prevId !== newHoldout?.id) {
-    const prev = await context.models.holdout.getById(prevId);
-    if (prev) {
-      getEnabledHoldoutEnvironments(prev, environmentIds).forEach((e) =>
-        envs.add(e),
-      );
-    }
-  }
-  if (newHoldout?.id) {
-    const next = await context.models.holdout.getById(newHoldout.id);
-    if (next) {
-      getEnabledHoldoutEnvironments(next, environmentIds).forEach((e) =>
-        envs.add(e),
-      );
-    }
-  }
-  return [...envs];
+  // Pre-resolve so the composition itself can be the shared, synchronous rule the
+  // Publish control also runs. An id that doesn't resolve is a holdout that no
+  // longer exists and contributes no environments — the front end treats its own
+  // unresolved ids differently, which is why the shared helper reports them
+  // instead of deciding.
+  const candidateIds = [feature.holdout?.id, newHoldout?.id].filter(
+    (id): id is string => !!id,
+  );
+  const resolved = new Map(
+    await Promise.all(
+      Array.from(new Set(candidateIds)).map(
+        async (id) => [id, await context.models.holdout.getById(id)] as const,
+      ),
+    ),
+  );
+
+  return holdoutEnvsForChange({
+    currentHoldoutId: feature.holdout?.id,
+    newHoldout,
+    environmentIds,
+    resolve: (id) => resolved.get(id),
+  }).envs;
 }
 
 // Whether a draft requires approval before publishing (org review settings, env

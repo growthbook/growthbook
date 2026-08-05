@@ -35,11 +35,16 @@ import {
   getRequireRegisteredAttributesSettings,
   formatJsonMultilineObjects,
   getTargetingProjectIds,
+  type MergeResultChanges,
   type RequireRegisteredAttributesSettings,
 } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import isEqual from "lodash/isEqual";
-import { SafeRolloutRule } from "shared/validators";
+import { HoldoutInterface, SafeRolloutRule } from "shared/validators";
+import {
+  featurePublishFootprint,
+  holdoutEnvsForChange,
+  HOLDOUT_ENVS_UNRESOLVED,
+} from "shared/permissions";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getFutureScheduledStartDate } from "@/services/experiments";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
@@ -885,19 +890,42 @@ export function getDefaultValue(valueType: FeatureValueType): string {
   return "";
 }
 
-export function getAffectedRevisionEnvs(
-  liveFeature: FeatureInterface,
-  revision: FeatureRevisionInterface,
-  environments: Environment[],
-): string[] {
-  const enabledEnvs = getEnabledEnvironments(liveFeature, environments);
-  if (revision.defaultValue !== liveFeature.defaultValue) return enabledEnvs;
+/**
+ * The environments publishing a draft would reach — the footprint the Publish
+ * control needs to predict the endpoint's authority check.
+ *
+ * The rule itself is `featurePublishFootprint` in `shared`, the same call the
+ * publish endpoints make. This wrapper only supplies what differs on the client:
+ * holdout environments come from the loaded holdouts map, and a holdout that isn't
+ * loaded widens the footprint to every environment rather than being skipped.
+ */
+export function getRevisionPublishEnvs({
+  liveFeature,
+  changes,
+  environments,
+  holdoutsMap,
+}: {
+  liveFeature: FeatureInterface;
+  changes: MergeResultChanges;
+  environments: Environment[];
+  holdoutsMap: Map<string, HoldoutInterface>;
+}): string[] {
+  const environmentIds = environments.map((e) => e.id);
+  const holdout = holdoutEnvsForChange({
+    currentHoldoutId: liveFeature.holdout?.id,
+    newHoldout: changes.holdout,
+    environmentIds,
+    resolve: (id) => holdoutsMap.get(id),
+  });
 
-  return enabledEnvs.filter((env) => {
-    const liveRules = getRulesForEnvironment(liveFeature.rules, env);
-    const revisionRules = getRulesForEnvironment(revision.rules, env);
-
-    return !isEqual(liveRules, revisionRules);
+  return featurePublishFootprint({
+    feature: liveFeature,
+    liveRules: liveFeature.rules ?? [],
+    changes,
+    environmentIds,
+    holdoutEnvs: holdout.unresolved.length
+      ? HOLDOUT_ENVS_UNRESOLVED
+      : holdout.envs,
   });
 }
 
