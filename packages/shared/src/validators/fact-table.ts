@@ -311,10 +311,8 @@ export const funnelSettingsValidator = z.object({
   // Out-of-order tolerance between adjacent steps (seconds). Optional; only
   // meaningful for ordered modes (ignored for "unordered").
   concurrencyWindowSeconds: z.number().int().min(0).optional(),
-  // Fast-follow axes: modeled now, locked to v1 values by
-  // validateFunnelSettingsForV1 (windowScope "funnelWide" and sessionBased are
-  // rejected in v1).
-  windowScope: z.enum(["perStep", "funnelWide"]).optional(),
+  // Session-scoped funnels: fast-follow, locked to false in v1 by
+  // validateFunnelSettingsForV1.
   sessionBased: z.boolean().optional(),
 });
 export type FunnelSettings = z.infer<typeof funnelSettingsValidator>;
@@ -399,9 +397,6 @@ export function validateFunnelSettingsForV1(
   }
   if ((fs.ordering ?? "sequential") !== "sequential") {
     errors.push("Only 'sequential' funnel ordering is supported in v1");
-  }
-  if (fs.windowScope === "funnelWide") {
-    errors.push("Funnel-wide windows are not supported in v1 (per-step only)");
   }
   if (fs.sessionBased) {
     errors.push("Session-based funnels are not supported in v1");
