@@ -4,11 +4,6 @@
       "count": 1
     }
   },
-  "packages/back-end/src/services/features.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Admin/EditOrganization.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -2202,11 +2197,6 @@
   },
   "packages/front-end/services/auth.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/shared/src/util/features.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 1
     }
   },

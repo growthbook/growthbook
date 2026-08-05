@@ -3083,6 +3083,7 @@ export function validateFeatureRuleValues(
       );
       break;
     case "experiment-ref":
+    case "contextual-bandit-ref":
       (rule.variations ?? []).forEach((v, i) =>
         validateFeatureValue(feature, v.value, `Variation ${i + 1}`),
       );

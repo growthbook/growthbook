@@ -1,4 +1,5 @@
 import { Response } from "express";
+import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -135,6 +136,7 @@ import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
+import { legacyDocDescribesPhase } from "back-end/src/enterprise/services/data-pipeline";
 import {
   getFeature,
   getFeaturesByIds,
@@ -821,8 +823,38 @@ export async function getExperimentIncrementalRefresh(
     });
   }
 
-  const incrementalRefresh =
-    await context.models.incrementalRefresh.getByExperimentId(id);
+  const phase = experiment.phases.length - 1;
+  let incrementalRefresh =
+    await context.models.incrementalRefresh.getByExperimentIdAndPhase(
+      id,
+      phase,
+    );
+
+  if (!incrementalRefresh) {
+    const legacyDoc =
+      await context.models.incrementalRefresh.getLegacyByExperimentIdWithoutPhase(
+        id,
+      );
+    const snapshot = legacyDoc
+      ? await getLatestSuccessfulSnapshot({
+          context,
+          experiment: id,
+          phase,
+          type: "standard",
+        })
+      : null;
+
+    if (
+      legacyDoc &&
+      snapshot &&
+      legacyDocDescribesPhase({
+        legacyDoc,
+        snapshotSettings: snapshot.settings,
+      })
+    ) {
+      incrementalRefresh = legacyDoc;
+    }
+  }
 
   return res.status(200).json({
     status: 200,
@@ -2682,24 +2714,63 @@ export async function deleteExperimentPhase(
       changes.banditStage = "paused";
     }
   }
+
   await validateExperimentChange({ context, experiment, changes });
-  const updated = await updateExperiment({
-    context,
-    experiment,
-    changes,
-  });
 
-  await updateSnapshotsOnPhaseDelete(context, id, phaseIndex);
+  const mutationToken = uniqid("irdel_");
+  const claimed =
+    await context.models.incrementalRefresh.acquirePhaseSlotForMutation(
+      id,
+      phaseIndex,
+      mutationToken,
+    );
+  if (!claimed) {
+    res.status(409).json({
+      status: 409,
+      message:
+        "An incremental refresh is running for this phase. Wait for it to finish before deleting the phase.",
+    });
+    return;
+  }
 
-  // Add audit entry
-  await req.audit({
-    event: "experiment.phase.delete",
-    entity: {
-      object: "experiment",
-      id: experiment.id,
-    },
-    details: auditDetailsUpdate(experiment, updated),
-  });
+  try {
+    const updated = await updateExperiment({
+      context,
+      experiment,
+      changes,
+    });
+
+    await updateSnapshotsOnPhaseDelete(context, id, phaseIndex);
+
+    await context.models.incrementalRefresh.deleteByExperimentIdAndPhase(
+      id,
+      phaseIndex,
+    );
+    await context.models.incrementalRefresh.shiftPhasesDownAfterDelete(
+      id,
+      phaseIndex,
+    );
+
+    // Add audit entry
+    await req.audit({
+      event: "experiment.phase.delete",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsUpdate(experiment, updated),
+    });
+  } finally {
+    // The delete removes a successful claim; otherwise release it.
+    await context.models.incrementalRefresh
+      .releaseLock(id, mutationToken)
+      .catch((e) =>
+        logger.warn(
+          e,
+          "Failed to release the incremental refresh phase mutation claim",
+        ),
+      );
+  }
 
   res.status(200).json({
     status: 200,

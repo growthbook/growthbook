@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  apiContextualBanditCancelReturn,
   apiContextualBanditLifecycleReturn,
   apiContextualBanditRefreshReturn,
   apiCreateContextualBanditBody,
@@ -19,6 +20,7 @@ import {
 import { isFactMetricId } from "shared/experiments";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
+  cancelContextualBanditEndpoint,
   contextualBanditApiSpec,
   refreshContextualBanditEndpoint,
   startContextualBanditEndpoint,
@@ -30,6 +32,7 @@ import {
   executeContextualBanditStop,
 } from "back-end/src/services/contextualBanditChanges";
 import {
+  cancelContextualBanditLatestRunningSnapshot,
   getContextualBanditLinkedFeatureInfo,
   runContextualBanditSnapshot,
 } from "back-end/src/enterprise/services/contextualBandits";
@@ -145,6 +148,26 @@ const BaseClass = MakeModelClass({
           });
         },
       }),
+      defineCustomApiHandler({
+        ...cancelContextualBanditEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiContextualBanditCancelReturn>> => {
+          const cb = await req.context.models.contextualBandits.getById(
+            req.params.id,
+          );
+          if (!cb) {
+            return req.context.throwNotFoundError();
+          }
+          const envs =
+            req.context.org.settings?.environments?.map((e) => e.id) ?? [];
+          if (!req.context.permissions.canRunContextualBandit(cb, envs)) {
+            req.context.permissions.throwPermissionError();
+          }
+          await cancelContextualBanditLatestRunningSnapshot(req.context, cb);
+          return { status: 200 };
+        },
+      }),
     ],
   },
 });
@@ -197,6 +220,8 @@ export function toApiContextualBandit(
     conversionWindowUnit: doc.conversionWindowUnit,
     stage: doc.stage,
     stageDateStarted: doc.stageDateStarted?.toISOString(),
+    autoSnapshots: doc.autoSnapshots,
+    nextSnapshotAttempt: doc.nextSnapshotAttempt?.toISOString(),
   };
 }
 

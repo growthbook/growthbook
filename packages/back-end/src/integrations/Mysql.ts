@@ -18,9 +18,6 @@ export default class Mysql extends SqlIntegration {
   getSqlDialect(): SqlDialect {
     return mysqlDialect;
   }
-  getSensitiveParamKeys(): string[] {
-    return ["password"];
-  }
   async runQuery(sql: string): Promise<QueryResponse> {
     const config: ConnectionOptions = {
       host: this.params.host,
