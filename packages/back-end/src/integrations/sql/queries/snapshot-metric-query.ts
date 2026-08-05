@@ -435,6 +435,18 @@ WITH
         ${
           denominator && denominatorIsPercentileCapped
             ? `
+          ${
+            denominator.cappingSettings.ignoreZeros
+              ? ""
+              : `, __userDenominatorCapPopulation AS (
+                  -- Materialize implicit zeros without changing denominator aggregation semantics
+                  SELECT COALESCE(d.value, 0) AS value
+                  FROM __userMetricAgg m
+                  LEFT JOIN __userDenominatorAgg d ON (
+                    d.${baseIdType} = m.${baseIdType}
+                  )
+                )`
+          }
           , __capValueDenominator AS (
             ${dialect.percentileCapSelectClause(
               [
@@ -446,7 +458,9 @@ WITH
                   sourceIndex: 0,
                 },
               ],
-              "__userDenominatorAgg",
+              denominator.cappingSettings.ignoreZeros
+                ? "__userDenominatorAgg"
+                : "__userDenominatorCapPopulation",
               `WHERE value IS NOT NULL${
                 denominator.cappingSettings.ignoreZeros ? " AND value != 0" : ""
               }`,
@@ -504,7 +518,7 @@ WITH
           ],
           dimensionCols,
           hasRegressionAdjustment: regressionAdjusted,
-          hasCapping: isPercentileCapped || denominatorIsPercentileCapped,
+          hasNumeratorCapping: isPercentileCapped,
           ignoreNulls: "ignoreNulls" in metric && metric.ignoreNulls,
           denominatorIsPercentileCapped,
         })
