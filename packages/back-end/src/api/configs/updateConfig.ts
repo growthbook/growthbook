@@ -539,14 +539,18 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     // marker syncs from the pre-publish doc. A landing that then loses its race
     // leaves them applied, which a retry completes.
     //
-    // The landing's pre-image is RE-READ afterwards: this commit advances the
-    // config's own CAS token, so landing against the earlier read would lose to
-    // our own write and 409 every combined overrides+value request.
+    // The landing's pre-image is the doc the commit RETURNED — not a re-read.
+    // The commit advances the config's token (so the earlier read would lose to
+    // our own write), and a re-read could observe a THIRD request's overrides
+    // landing in between: this request's value would then publish on top of
+    // someone else's overrides while both callers report success. Chaining the
+    // landing to our own write's token makes any interleaver a clean 409.
     let landingConfig = config;
     if (commitScopedOverrides) {
-      await commitScopedOverrides();
-      landingConfig =
-        (await req.context.models.configs.getById(config.id)) ?? config;
+      landingConfig = {
+        ...config,
+        ...(await commitScopedOverrides()),
+      };
     }
 
     // One landing path whether or not approval was bypassed. This branch used to
@@ -607,6 +611,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     // first would put our own value write behind the protection it just switched
     // on. A failure here must not surface as an error that hides the committed
     // publish — the publish stands, and the unapplied toggle becomes a warning.
+    const postPublishWarnings: string[] = [];
     let guardFields: Partial<ConfigInterface> = {};
     try {
       guardFields = await commitGuardToggle();
@@ -615,9 +620,10 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         e,
         `Config ${config.id} published but its experiment-guard change failed to apply`,
       );
-      // The error must not read as a failed publish: the publish committed, and
-      // only the guard change needs retrying.
-      throw new Error(
+      // Not an error status: an error would read as a failed request when the
+      // publish COMMITTED. The response succeeds with the published state and
+      // says exactly which part still needs doing.
+      postPublishWarnings.push(
         "The value was published, but the experiment-guard change could not be applied. Retry the guard change on its own.",
       );
     }
@@ -631,6 +637,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         req.context,
       ),
       ...(warnings.length ? { warnings } : {}),
+      ...(postPublishWarnings.length ? { postPublishWarnings } : {}),
     };
   },
 );

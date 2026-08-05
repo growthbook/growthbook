@@ -450,6 +450,29 @@ export async function commitBulkPublish(
       claimed.push(item);
     }
 
+    // Side-effect buffering starts HERE, before the no-op self-heal replays:
+    // their descendant writes fire refreshes and events too, and unbuffered
+    // they leaked out of a release that then aborted. SDK payload refreshes are
+    // deduped to one flush; *.updated events are deferred per entity and
+    // dropped entirely on compensation.
+    context.sdkPayloadRefreshBuffer = {
+      keys: [],
+      treatEmptyProjectAsGlobal: false,
+    };
+    context.bulkPublishDeferredEvents = [];
+    // An abort past this point carries buffered effects: the replay's writes
+    // are REAL live writes, so their refreshes flush (a refresh rebuilds from
+    // live state and is correct whatever aborted) — while the deferred events
+    // drop, since nothing published.
+    const abortWithBuffers = async (
+      claimedSoFar: PlannedItemPublish[],
+      e: unknown,
+    ): Promise<never> => {
+      context.bulkPublishDeferredEvents = null;
+      flushPayloadRefreshBuffer(context, "bulk-publish-abort");
+      return abort(claimedSoFar, e) as Promise<never>;
+    };
+
     // No-op items never perform a guarded entity write, so nothing later would
     // catch drift for them — re-verify their baselines now that every claim is
     // held. Items WITH changes are covered by the guard at their write. Without
@@ -466,7 +489,7 @@ export async function commitBulkPublish(
         (currentDate?.getTime() ?? null) !==
         (item.baseline.entityDateUpdated?.getTime() ?? null)
       ) {
-        await abort(claimed, staleConflictError(item.ref));
+        await abortWithBuffers(claimed, staleConflictError(item.ref));
       }
       // The no-op self-heal replay (e.g. a descendant schema cascade an earlier
       // partial apply left unrun) runs INSIDE the protected span, after this
@@ -480,18 +503,10 @@ export async function commitBulkPublish(
           item.revision,
         );
       } catch (e) {
-        await abort(claimed, e);
+        await abortWithBuffers(claimed, e);
       }
     }
 
-    // Apply, with per-write side effects buffered: SDK payload refreshes
-    // (deduped to one flush) and *.updated webhook events (deferred per entity;
-    // dropped entirely on compensation).
-    context.sdkPayloadRefreshBuffer = {
-      keys: [],
-      treatEmptyProjectAsGlobal: false,
-    };
-    context.bulkPublishDeferredEvents = [];
     // Every item joins `applied` BEFORE its apply runs: a multi-step apply
     // (ramp creates → entity write → holdout) can land real writes before
     // throwing, so compensation must restore the failing item too.

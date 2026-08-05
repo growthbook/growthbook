@@ -1,9 +1,11 @@
+import { configPublishEnvironments } from "shared/util";
 import { Revision, JsonPatchOperation } from "shared/enterprise";
 import { ConfigInterface } from "shared/types/config";
 import {
   ResourceEvents,
   NotificationEventPayloadSchemaType,
 } from "shared/types/events/base-types";
+import { revisionEventProjects } from "back-end/src/events/revisionWebhookAdapters";
 import { Context } from "back-end/src/models/BaseModel";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
@@ -56,7 +58,10 @@ export async function dispatchConfigRevisionEvent(
       context as ApiReqContext,
     );
     const snapshot = revision.target.snapshot as ConfigInterface;
-    const projects = snapshot.project ? [snapshot.project] : [];
+    // Source ∪ destination for a move; environments are the config's scoped
+    // set — the same footprint the permission layer answers for.
+    const projects = revisionEventProjects(revision);
+    const environments = configPublishEnvironments(snapshot);
 
     const emit = async <T extends ConfigRevisionEvent>(
       event: T,
@@ -70,7 +75,7 @@ export async function dispatchConfigRevisionEvent(
         data: { object } as CreateEventData<"config", T>,
         projects,
         tags: [],
-        environments: [],
+        environments,
         containsSecrets: false,
       });
     };

@@ -476,16 +476,53 @@ export class RevisionModel extends BaseClass {
     return { $in: list };
   }
 
-  // Paginated revision listing.
+  // Read-filtered pagination core. Pagination and `total` are computed over the
+  // rows the caller may READ — a raw count both leaked how much activity exists
+  // in projects the caller cannot see and broke pagination (pages under-filled
+  // while `total` overstated).
   //
-  // IMPORTANT: BaseModel applies `limit` and `skip` AFTER read-permission
-  // filtering, while `_countDocuments` operates on the raw query. As a
-  // result, for users with restricted read access:
-  // - A page may contain FEWER than `limit` items (some were filtered out).
-  // - `total` may overstate the visible count.
-  // For an org admin the two stay consistent. Acceptable trade-off here
-  // since this endpoint is only used by the org-level inbox; revise if
-  // stricter consistency is required.
+  // Stays cheap the same way the beacon does: one projected pass carrying only
+  // the fields `canRead` consults (every adapter decides on project alone),
+  // then a full fetch of just the page's rows. Widen the projection if an
+  // adapter ever reads more than project.
+  private async findReadablePage(
+    filter: Record<string, unknown>,
+    { limit, skip }: { limit?: number; skip?: number },
+  ): Promise<{ revisions: Revision[]; total: number }> {
+    const sort = { dateCreated: -1 as const, id: -1 as const };
+    const projected = await this._dangerousGetCollection()
+      .find(
+        { organization: this.context.org.id, ...filter },
+        {
+          projection: {
+            id: 1,
+            dateCreated: 1,
+            "target.type": 1,
+            "target.snapshot.project": 1,
+            "target.snapshot.projects": 1,
+          },
+          // `id` as a tiebreaker keeps pagination stable when multiple
+          // revisions share a millisecond-level dateCreated.
+          sort,
+        },
+      )
+      .toArray();
+
+    const readableIds = projected
+      .filter((doc) => this.canRead(doc as unknown as Revision))
+      .map((doc) => doc.id as string);
+
+    const pageIds = readableIds.slice(
+      skip ?? 0,
+      limit ? (skip ?? 0) + limit : undefined,
+    );
+    if (!pageIds.length) return { revisions: [], total: readableIds.length };
+
+    const rows = await this._find({ id: { $in: pageIds } }, { sort });
+    return { revisions: rows, total: readableIds.length };
+  }
+
+  // Paginated revision listing (the org-level inbox).
   async getAllPaginated(
     opts: {
       status?: string | string[];
@@ -493,29 +530,14 @@ export class RevisionModel extends BaseClass {
       skip?: number;
     } = {},
   ): Promise<{ revisions: Revision[]; total: number }> {
-    const { limit, skip } = opts;
     const statusFilter = this.buildStatusFilter(opts.status);
     const filter = (statusFilter ? { status: statusFilter } : {}) as Record<
       string,
       unknown
     >;
-
-    const [revisions, total] = await Promise.all([
-      this._find(filter, {
-        limit,
-        skip,
-        // `id` as a tiebreaker keeps pagination stable when multiple revisions
-        // share a millisecond-level dateCreated.
-        sort: { dateCreated: -1, id: -1 },
-      }),
-      this._countDocuments(filter),
-    ]);
-
-    return { revisions, total };
+    return this.findReadablePage(filter, opts);
   }
 
-  // Same permission/count caveat as `getAllPaginated`.
-  //
   // `entityId` / `authorId` are optional filters layered on top of the
   // type-scoped query — used by the cross-entity REST listing endpoints
   // (e.g. `GET /v1/saved-groups/revisions?savedGroupId=...&author=...`).
@@ -529,7 +551,6 @@ export class RevisionModel extends BaseClass {
       skip?: number;
     } = {},
   ): Promise<{ revisions: Revision[]; total: number }> {
-    const { limit, skip } = opts;
     const statusFilter = this.buildStatusFilter(opts.status);
     const filter = {
       "target.type": entityType,
@@ -537,49 +558,51 @@ export class RevisionModel extends BaseClass {
       ...(opts.authorId ? { authorId: opts.authorId } : {}),
       ...(statusFilter ? { status: statusFilter } : {}),
     } as Record<string, unknown>;
-
-    const [revisions, total] = await Promise.all([
-      this._find(filter, {
-        limit,
-        skip,
-        // `id` as a tiebreaker keeps pagination stable when multiple revisions
-        // share a millisecond-level dateCreated.
-        sort: { dateCreated: -1, id: -1 },
-      }),
-      this._countDocuments(filter),
-    ]);
-
-    return { revisions, total };
+    return this.findReadablePage(filter, opts);
   }
 
-  // Lightweight count of open revisions, optionally scoped to an entity type.
-  // Used by the top-nav badge so it doesn't have to fetch full revision docs.
-  //
-  // NOTE: This count uses the raw query and does NOT apply per-document read
-  // permission filters, so it can overstate what a low-permission user can
-  // actually see. Acceptable trade-off for a badge; do not rely on it for
-  // pagination total counts where exactness matters.
+  // Count of open revisions the caller may READ, optionally scoped to an
+  // entity type. Used by the top-nav badge; a raw count leaked how much
+  // activity exists in projects outside the caller's access. Same projected
+  // pass as the paginated listing, without fetching any full docs.
   async getOpenRevisionCount(entityType?: RevisionTargetType): Promise<number> {
-    const filter = {
+    return this.countReadable({
       ...(entityType ? { "target.type": entityType } : {}),
       status: { $nin: ["merged", "discarded"] },
-    } as Record<string, unknown>;
-    return this._countDocuments(filter);
+    });
   }
 
   /**
-   * Lightweight count of open revisions across multiple entity types in a
-   * single query. Returns 0 if `entityTypes` is empty. Same permission caveat
-   * as `getOpenRevisionCount`.
+   * Count of readable open revisions across multiple entity types in a single
+   * query. Returns 0 if `entityTypes` is empty.
    */
   async getOpenRevisionCountByTypes(
     entityTypes: RevisionTargetType[],
   ): Promise<number> {
     if (entityTypes.length === 0) return 0;
-    return this._countDocuments({
+    return this.countReadable({
       "target.type": { $in: entityTypes },
       status: { $nin: ["merged", "discarded"] },
-    } as Record<string, unknown>);
+    });
+  }
+
+  private async countReadable(
+    filter: Record<string, unknown>,
+  ): Promise<number> {
+    const projected = await this._dangerousGetCollection()
+      .find(
+        { organization: this.context.org.id, ...filter },
+        {
+          projection: {
+            "target.type": 1,
+            "target.snapshot.project": 1,
+            "target.snapshot.projects": 1,
+          },
+        },
+      )
+      .toArray();
+    return projected.filter((doc) => this.canRead(doc as unknown as Revision))
+      .length;
   }
 
   async getByTarget(entityType: RevisionTargetType, entityId: string) {

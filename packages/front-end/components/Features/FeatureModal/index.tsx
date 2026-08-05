@@ -9,7 +9,7 @@ import {
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
-import React, { ReactElement, useMemo, useState } from "react";
+import React, { ReactElement, useEffect, useMemo, useState } from "react";
 import {
   validateFeatureValue,
   getConfigBackingKey,
@@ -245,6 +245,27 @@ export default function FeatureModal({
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const environmentSettings = form.watch("environmentSettings");
+
+  // Changing the project changes which environments this user may enable —
+  // toggles switched on under the old project would otherwise sit enabled but
+  // uneditable (the checkbox disables) and 403 on submit. Force any environment
+  // the new project's rule refuses back off.
+  useEffect(() => {
+    const current = form.getValues("environmentSettings");
+    let changed = false;
+    const next = { ...current };
+    for (const envId of Object.keys(next)) {
+      if (
+        next[envId]?.enabled &&
+        !canEnableEnvironmentOnCreate(permissionsUtil, selectedProject, envId)
+      ) {
+        next[envId] = { ...next[envId], enabled: false };
+        changed = true;
+      }
+    }
+    if (changed) form.setValue("environmentSettings", next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProject]);
 
   // "config" is a UI authoring type: stored as valueType "json" but the default
   // value must be backed by a config. Tracked separately from the stored type.

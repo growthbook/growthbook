@@ -22034,6 +22034,14 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/ConfigSchemaWarning'
+                  postPublishWarnings:
+                    description: >-
+                      Steps that failed AFTER the value publish committed (e.g.
+                      an experiment-guard toggle in the same request). The
+                      publish stands; retry only the named step.
+                    type: array
+                    items:
+                      type: string
                 required:
                   - config
                 additionalProperties: false
@@ -22691,6 +22699,14 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/ConfigSchemaWarning'
+                  postPublishWarnings:
+                    description: >-
+                      Steps that failed AFTER the value publish committed (e.g.
+                      an experiment-guard toggle in the same request). The
+                      publish stands; retry only the named step.
+                    type: array
+                    items:
+                      type: string
                 required:
                   - config
                 additionalProperties: false

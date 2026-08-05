@@ -52,6 +52,7 @@ import { decideScheduledPublishOutcome } from "back-end/src/revisions/publishFai
 import { logger } from "back-end/src/util/logger";
 import {
   assertLandingBaseline,
+  capturePostFailureSnapshot,
   LandingConflictError,
   liveMatchesDesiredState,
   runGuardedWrite,
@@ -738,17 +739,29 @@ async function publishRevisionInner(
     // the record of it.
     const casLost =
       e instanceof LandingConflictError || e instanceof CasConflictError;
+    // Ownership is judged against what the adapter PERSISTED, not the intent:
+    // adapters normalize (a Config schema stripped as ancestor-owned), and
+    // comparing live to the unnormalized desiredState misreads "ours" as
+    // "someone else's" — skipping the restore while still reopening history.
+    const written = casLost
+      ? null
+      : await capturePostFailureSnapshot(
+          context,
+          revision.target.type,
+          revision.target.id,
+        );
     const entityRestored =
       casLost ||
-      (await tryRestoreEntityPreImage({
-        context,
-        entityType: revision.target.type,
-        preImage: entity as Record<string, unknown> & { id: string },
-        persistedKeys: Object.keys(desiredState).filter((k) =>
-          updatableFields.has(k),
-        ),
-        written: desiredState,
-      }));
+      (written !== null &&
+        (await tryRestoreEntityPreImage({
+          context,
+          entityType: revision.target.type,
+          preImage: entity as Record<string, unknown> & { id: string },
+          persistedKeys: Object.keys(desiredState).filter((k) =>
+            updatableFields.has(k),
+          ),
+          written,
+        })));
     if (!entityRestored) {
       logger.error(
         { revisionId: merged.id },

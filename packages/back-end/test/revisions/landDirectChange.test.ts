@@ -1,6 +1,10 @@
 jest.mock("back-end/src/revisions/landingSequence", () => ({
   assertLandingBaseline: jest.fn(),
   tryRestoreEntityPreImage: jest.fn(),
+  // The post-failure ownership baseline; a null would make compensation refuse
+  // to guess, so tests that exercise the restore path get a persisted-doc
+  // stand-in by default.
+  capturePostFailureSnapshot: jest.fn(async () => ({ id: "ent_1" })),
   // Passthrough: these tests assert the landing's ordering, not the refresh
   // batching — that behavior is covered where the buffer is implemented.
   withBufferedPayloadRefreshes: jest.fn((_ctx, _event, fn) => fn()),
@@ -192,7 +196,10 @@ describe("landDirectChange", () => {
     expect(tryRestoreEntityPreImage).toHaveBeenCalledWith(
       expect.objectContaining({
         preImage: entity,
-        written: { value: "after" },
+        // The persisted-doc snapshot, not the caller's intent: adapters and
+        // model hooks normalize, so ownership is judged against what actually
+        // landed on the doc.
+        written: { id: "ent_1" },
         persistedKeys: ["value"],
       }),
     );

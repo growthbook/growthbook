@@ -610,6 +610,12 @@ const apiConfigResponseWithWarnings = z
   .object({
     config: apiConfigValidator,
     warnings: z.array(apiSchemaWarningValidator).optional(),
+    postPublishWarnings: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Steps that failed AFTER the value publish committed (e.g. an experiment-guard toggle in the same request). The publish stands; retry only the named step.",
+      ),
   })
   .strict();
 

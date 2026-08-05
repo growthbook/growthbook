@@ -532,10 +532,25 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
   },
 
   async restorePreImage(context, preImage, revision, desiredState) {
-    // A lost CAS wrote nothing — there is nothing to put back. This holds for
-    // the satellites too: applyRevisionChanges runs them AFTER its guarded
-    // feature write, so a CAS loser reached none of them.
-    if (revision.casLost) return;
+    // A lost CAS wrote no feature doc and reached none of the post-write
+    // satellites — but ramp `create` actions run BEFORE the guarded write (a
+    // creation failure gates the publish), so a CAS loser has still created
+    // schedules that must not outlive its rollback.
+    if (revision.casLost) {
+      const desired = desiredState as unknown as FeatureDesiredState;
+      if (desired.createdRampScheduleIds?.length) {
+        const failedIds = await rollbackCreatedRampSchedules(
+          context,
+          desired.createdRampScheduleIds,
+        );
+        if (failedIds.length) {
+          throw new Error(
+            `bulk publish compensation: CAS-lost feature "${(preImage as { id: string }).id}" leaked ramp schedule(s) ${failedIds.join(", ")}`,
+          );
+        }
+      }
+      return;
+    }
     const feature = preImage as unknown as FeatureInterface;
     const desired = desiredState as unknown as FeatureDesiredState;
     const reversalFailures: string[] = [];

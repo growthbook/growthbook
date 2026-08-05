@@ -4,6 +4,7 @@ import { Revision, RevisionTargetType } from "shared/enterprise";
 import { logger } from "back-end/src/util/logger";
 import {
   assertLandingBaseline,
+  capturePostFailureSnapshot,
   LandingConflictError,
   runGuardedWrite,
   tryRestoreEntityPreImage,
@@ -224,15 +225,24 @@ export async function landDirectChange<T>({
       // mistake a winner's identical values for its own, and undo them.
       const casLost =
         e instanceof LandingConflictError || e instanceof CasConflictError;
+      // Ownership against the PERSISTED doc, not the intent — the write path
+      // normalizes (adapter applyChanges and model hooks both), and comparing
+      // live to unnormalized changes misreads "ours" as "someone else's":
+      // skipping the restore while history is still removed below.
+      const written =
+        changes && writeStarted && !casLost
+          ? await capturePostFailureSnapshot(context, entityType, entity.id)
+          : null;
       const restored =
         changes && writeStarted && !casLost
-          ? await tryRestoreEntityPreImage({
+          ? written !== null &&
+            (await tryRestoreEntityPreImage({
               context,
               entityType,
               preImage: entity,
               persistedKeys: Object.keys(changes),
-              written: changes,
-            })
+              written,
+            }))
           : true;
       if (restored) {
         try {

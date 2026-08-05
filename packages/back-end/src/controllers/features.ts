@@ -1,5 +1,6 @@
 import {
   holdsMoveDestination,
+  projectScopeChanged,
   NO_ENVIRONMENT_BINDING,
 } from "shared/permissions";
 import { Request, Response } from "express";
@@ -5036,8 +5037,15 @@ export async function putFeature(
     );
   }
 
-  // Changing the project can affect SDK payload targeting; require publish permission in both old and new project
-  if ("project" in updates) {
+  // MOVING the project can affect SDK payload targeting; require publish
+  // permission in both old and new project. Judged by the shared rule, not key
+  // presence — clients echo the current project back (the edit-info modal
+  // always submits it), and an identity write is not a move. Presence-gating
+  // 403'd draft-only users whose metadata edit changed no project at all.
+  if (
+    "project" in updates &&
+    projectScopeChanged(feature, { project: updates.project })
+  ) {
     if (
       !context.permissions.canPublishFeature(
         feature,

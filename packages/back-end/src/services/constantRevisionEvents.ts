@@ -1,10 +1,16 @@
-import { Revision, JsonPatchOperation } from "shared/enterprise";
+import {
+  Revision,
+  JsonPatchOperation,
+  getConstantRevisionChange,
+} from "shared/enterprise";
 import { ConstantInterface } from "shared/types/constant";
 import {
   ResourceEvents,
   NotificationEventPayloadSchemaType,
 } from "shared/types/events/base-types";
+import { constantPublishEnvironments } from "shared/util";
 import { Context } from "back-end/src/models/BaseModel";
+import { revisionEventProjects } from "back-end/src/events/revisionWebhookAdapters";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { toApiConstantRevision } from "back-end/src/api/constants/toApiConstantRevision";
@@ -51,7 +57,15 @@ export async function dispatchConstantRevisionEvent(
       context as ApiReqContext,
     );
     const snapshot = revision.target.snapshot as ConstantInterface;
-    const projects = snapshot.project ? [snapshot.project] : [];
+    // Source ∪ destination, so a project-filtered webhook on either side of a
+    // move hears about it; environments are the change's own footprint (a
+    // per-environment override change is env-scoped, a base-value change is
+    // unbound), matching how the permission layer scopes the same change.
+    const projects = revisionEventProjects(revision);
+    const environments = constantPublishEnvironments(
+      getConstantRevisionChange(snapshot, revision.target.proposedChanges)
+        .changedEnvironments,
+    );
 
     const emit = async <T extends ConstantRevisionEvent>(
       event: T,
@@ -65,7 +79,7 @@ export async function dispatchConstantRevisionEvent(
         data: { object } as CreateEventData<"constant", T>,
         projects,
         tags: [],
-        environments: [],
+        environments,
         containsSecrets: false,
       });
     };

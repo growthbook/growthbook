@@ -1,9 +1,9 @@
 import { Revision, JsonPatchOperation } from "shared/enterprise";
-import { SavedGroupInterface } from "shared/types/saved-group";
 import {
   ResourceEvents,
   NotificationEventPayloadSchemaType,
 } from "shared/types/events/base-types";
+import { revisionEventProjects } from "back-end/src/events/revisionWebhookAdapters";
 import { Context } from "back-end/src/models/BaseModel";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
@@ -54,8 +54,9 @@ export async function dispatchSavedGroupRevisionEvent(
       revision,
       context as ApiReqContext,
     );
-    const snapshot = revision.target.snapshot as SavedGroupInterface;
-    const projects = snapshot.projects ?? [];
+    // Source ∪ destination for a projects[] move; saved groups have no
+    // environment partition, so their events stay env-unbound.
+    const projects = revisionEventProjects(revision);
 
     const emit = async <T extends SavedGroupRevisionEvent>(
       event: T,
