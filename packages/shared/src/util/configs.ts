@@ -54,6 +54,32 @@ export function isScopedConfig(config: {
 // a permission check — so it binds to no environment and the check falls back to
 // project scope. Shared by the revision adapter, the REST endpoints and the
 // front end so every surface scopes identically.
+// The footprint of a change to a Config's `scopedOverrides`. UNION of the environments
+// the current entries name and the proposed ones: adding a production override starts
+// changing what production serves, and removing one stops it, so both directions answer
+// for production. An entry naming no environments is a catch-all and reaches everything.
+//
+// The Config's own `configPublishEnvironments` is the wrong footprint here — a BASE
+// Config declares no scope, so it returns none, and an overrides-only request then
+// skipped the environment check entirely rather than narrowing it.
+export function scopedOverridesFootprint({
+  current,
+  proposed,
+  allEnvironments,
+}: {
+  current?: { environments?: string[] }[] | null;
+  proposed?: { environments?: string[] }[] | null;
+  allEnvironments: string[];
+}): string[] {
+  const entries = [...(current ?? []), ...(proposed ?? [])];
+  if (!entries.length) return [];
+  if (entries.some((e) => !e.environments?.length)) return [...allEnvironments];
+  const envs = new Set<string>();
+  for (const e of entries)
+    for (const env of e.environments ?? []) envs.add(env);
+  return [...envs].filter((e) => allEnvironments.includes(e));
+}
+
 export function configPublishEnvironments(config: {
   scopedConfig?: { environments?: string[] } | null;
 }): string[] {

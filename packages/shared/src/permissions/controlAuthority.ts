@@ -228,10 +228,13 @@ export function canWriteArchiveIntoDraft({
   userId?: string;
 }): boolean {
   if (permissions.canRevisionAction(model, "draft", entity, [])) return true;
-  // An org-scoped API key has no userId and so can never match authorship — it
-  // would be refused on a draft it created itself. Its authority is the key's, and
-  // it holds no personal draft to protect, so authorship simply does not apply.
-  if (!userId) return !revision.authorId;
+  // An identityless caller (org-scoped API key) gets NO authorship credit: it cannot
+  // prove which authorless revision is its own, so crediting it with all of them let
+  // any such key write `archived` into any other key's draft — making that draft
+  // delete-class, and without resetting review, so an approved draft kept approvals
+  // that never saw the archive. The cost is that a key must hold the draft atom to
+  // archive-write into a draft it created itself, which is the safe direction.
+  if (!userId) return false;
   return (
     revision.authorId === userId || !!revision.contributors?.includes(userId)
   );

@@ -352,6 +352,17 @@ export function appendRampEvent(
   return history.slice(-MAX_EVENT_HISTORY);
 }
 
+// The lockdown signal, as its own class. A plain Error was indistinguishable from an
+// infra failure of the schedule read, and the bulk planner converted BOTH into a
+// bypassable `ramp-locked` gate — so a database error let an approval-bypass caller
+// publish without ever establishing whether an active ramp owns the Feature.
+export class RampLockdownError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RampLockdownError";
+  }
+}
+
 export async function assertFeatureNotLockedByRamp(
   ctx: ReqContext | ApiReqContext,
   featureId: string,
@@ -362,7 +373,7 @@ export async function assertFeatureNotLockedByRamp(
       s.lockdownConfig?.mode === "locked" &&
       (LOCKDOWN_ACTIVE_STATUSES as readonly string[]).includes(s.status)
     ) {
-      throw new Error(
+      throw new RampLockdownError(
         `Feature is locked by an active ramp schedule ("${s.name}"). Pause the schedule to make immediate changes.`,
       );
     }

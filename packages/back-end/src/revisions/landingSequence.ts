@@ -88,7 +88,11 @@ export async function assertLandingBaseline({
       entityType,
       entityId,
     );
-    if (latest && latest.id !== requireLatestMergedId) {
+    // A NULL latest is a failure too, not a pass. The caller supplies
+    // `requireLatestMergedId` for a row it just created, so its absence means that row
+    // is gone — and treating that as "no competing merge" let the entity write land
+    // with no history recording it, which is the one outcome nothing can repair.
+    if (!latest || latest.id !== requireLatestMergedId) {
       throw landingConflictError(entityType, entityId);
     }
   }

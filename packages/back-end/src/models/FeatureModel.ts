@@ -2075,6 +2075,12 @@ export async function applyRevisionChanges(
         revision,
         result,
         updated,
+        // Re-point the caller's ownership token at the state this rollback just
+        // wrote. Otherwise the outer bulk compensation compared live against the
+        // ORIGINAL publish stamp, read its own successful restore as a rival taking
+        // the feature, and skipped every remaining rewind — leaving the revision
+        // published while the feature sat at its pre-publish version.
+        onStamped,
       );
     } catch (undoErr) {
       logger.error(
@@ -3403,6 +3409,11 @@ async function restorePublishedFeatureDoc(
   // The persisted post-apply doc, not the computed $set: applyRevisionChanges
   // mutates `changes` before writing and the read-back normalizes further.
   writtenFeature: FeatureInterface,
+  // Reports the stamp THIS restore put on the document. A restore is a write, so it
+  // advances `dateUpdated` — and the caller's ownership token is the stamp of the
+  // original publish write, so without this the caller's own rollback looked like a
+  // concurrent owner and every remaining rewind was skipped.
+  onStamped?: (stamp: Date) => void,
 ) {
   const { changes } = computeRevisionMergeChanges(
     context,
@@ -3442,6 +3453,7 @@ async function restorePublishedFeatureDoc(
     try {
       await updateFeature(context, current, restore, {
         ifUnchangedSince: current.dateUpdated,
+        onStamped,
       });
       return;
     } catch (e) {

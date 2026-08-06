@@ -60,12 +60,18 @@ import {
   dispatchFeatureRevisionEvent,
   getPublishedRevisionForEvents,
 } from "back-end/src/services/featureRevisionEvents";
-import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
+import {
+  assertFeatureNotLockedByRamp,
+  RampLockdownError,
+} from "back-end/src/services/rampSchedule";
 import { bulkPublishFields } from "back-end/src/events/bulkPublishCorrelation";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
-import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
+import {
+  LandingConflictError,
+  runGuardedWrite,
+} from "back-end/src/revisions/landingSequence";
 import {
   authorityRefused,
   gateOr5xx,
@@ -301,10 +307,11 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     try {
       await assertFeatureNotLockedByRamp(overlayContext, feature.id);
     } catch (e) {
-      // The lockdown signal is a plain Error (no status), so gateOr5xx can't
-      // separate it from an infra failure of the schedule read — both would be
-      // caught as a ramp-locked gate. That read is a single indexed lookup, so
-      // treat any throw as the lock it almost always is.
+      // ONLY the lockdown signal becomes a gate. Treating every throw as the lock
+      // turned an infra failure of the schedule read into a bypassable `ramp-locked`
+      // gate, so a bypass-approval caller could publish without establishing whether
+      // an active ramp owns the Feature. Anything else propagates as a 5xx.
+      if (!(e instanceof RampLockdownError)) throw e;
       gates.push(
         makeBlockingGate({
           type: "ramp-locked",
@@ -508,6 +515,21 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
             `bulk publish: post-apply safe-rollout snapshot failed for feature ${feature.id}`,
           );
         }
+      }
+    }
+
+    // FENCE before the satellites. The doc write is CAS-guarded, but these three run
+    // after it and were unguarded — so a newer publish landing in between kept its
+    // feature doc while THIS item overwrote its holdout and bandit linkage. Our own
+    // write stamp is the token, exactly as the unwind path uses it; if live has moved
+    // past it, our doc write is already superseded and the whole item is a lost race.
+    if (desired.ourWriteStamp) {
+      const live = await getFeature(context, feature.id);
+      if (live?.dateUpdated?.getTime() !== desired.ourWriteStamp.getTime()) {
+        // Nothing of ours survives on the doc, so compensation must not try to put a
+        // pre-image back over the winner's state — the same reading a rejected CAS gets.
+        revision.casLost = true;
+        throw new LandingConflictError("feature", feature.id);
       }
     }
 

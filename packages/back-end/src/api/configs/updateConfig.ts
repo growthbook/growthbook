@@ -6,6 +6,7 @@ import {
 } from "shared/validators";
 import { ConfigInterface } from "shared/types/config";
 import {
+  scopedOverridesFootprint,
   stripConfigExtends,
   apiInvariantsToStored,
   formatAncestorFieldConflictMessage,
@@ -13,6 +14,7 @@ import {
   findUndeclaredInvariantRuleFields,
   undeclaredRuleFieldWarnings,
 } from "shared/util";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { landDirectChange } from "back-end/src/revisions/revertActions";
 import { logger } from "back-end/src/util/logger";
 import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
@@ -205,12 +207,21 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       // publish authority, like the internal setConfigScopedOverrides twin. The
       // value path checks it too, but an overrides-only request short-circuits
       // before reaching it.
+      //
+      // Measured over the CURRENT AND PROPOSED entries, not the Config's own scope: a
+      // base Config declares none, so `configPublishEnvironments` returned an empty
+      // footprint and a dev-limited publisher could add a production override that
+      // changes the production payload immediately.
       if (
         !req.context.permissions.canRevisionAction(
           "config",
           "publish",
           config,
-          configPublishEnvironments(req.context, config),
+          scopedOverridesFootprint({
+            current: config.scopedOverrides,
+            proposed: nextOverrides,
+            allEnvironments: getEnvironmentIdsFromOrg(req.context.org),
+          }),
         )
       ) {
         req.context.permissions.throwPermissionError();

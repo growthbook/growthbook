@@ -126,7 +126,13 @@ describe("assertLandingBaseline", () => {
     ).resolves.toBeUndefined();
   });
 
-  it("passes when nothing has been merged for the target yet", async () => {
+  // This case used to assert that a NULL latest passes, which is exactly backwards.
+  // Both callers that supply `requireLatestMergedId` are holding a revision that is
+  // already merged — `landDirectChange` after `createMerged`, and the stranded-merge
+  // recovery — so the query must find at least that row. Null means it is GONE, and
+  // reading that as "no competing merge" let the entity write land with no history
+  // recording it.
+  it("refuses when the merged revision it requires has vanished", async () => {
     getById.mockResolvedValue({ id: "const_1", dateUpdated: new Date(BASE) });
     await expect(
       assertLandingBaseline({
@@ -134,7 +140,7 @@ describe("assertLandingBaseline", () => {
         context: contextWithLatestMerged(null),
         requireLatestMergedId: "rev_mine",
       }),
-    ).resolves.toBeUndefined();
+    ).rejects.toBeInstanceOf(ConflictError);
   });
 });
 
