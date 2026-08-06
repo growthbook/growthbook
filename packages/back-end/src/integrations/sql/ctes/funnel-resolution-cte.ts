@@ -35,9 +35,13 @@ export function getFunnelUserMetricAggColumns(
     .flatMap(({ metric, alias }) =>
       metric.funnelSettings.steps.map((_step, stepIndex) => {
         const ts = `umj.${funnelStepTimestampColumn(alias, stepIndex)}`;
+        // All arrays share one ORDER BY expression (the raw event timestamp
+        // projected by __userMetricJoin): each step column equals it whenever
+        // non-null, and Redshift requires identical WITHIN GROUP orderings
+        // across every aggregate in a SELECT.
         return stepIndex === 0
           ? `, MIN(${ts}) AS ${funnelStepResolvedTsColumn(alias, 0)}`
-          : `, ${dialect.arrayAggSorted(ts)} AS ${funnelStepArrayColumn(alias, stepIndex)}`;
+          : `, ${dialect.arrayAggSorted(ts, "umj.event_timestamp")} AS ${funnelStepArrayColumn(alias, stepIndex)}`;
       }),
     )
     .join("\n");

@@ -185,6 +185,18 @@ describe("funnel fact metric SQL", () => {
     ).toMatchSnapshot();
   });
 
+  it("shares one WITHIN GROUP ordering across all step arrays on Redshift", () => {
+    // Redshift rejects a SELECT whose WITHIN GROUP (ORDER BY) clauses differ
+    // across aggregates, so every step array must sort by the same shared
+    // event-timestamp expression.
+    const sql = buildSql([threeStepFunnel], redshiftDialect, "redshift");
+    const orderings = [
+      ...sql.matchAll(/WITHIN GROUP\s*\(\s*ORDER BY\s+([^)]+?)\s*\)/gi),
+    ].map((m) => m[1].replace(/\s+/g, " "));
+    expect(orderings.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(orderings).size).toBe(1);
+  });
+
   it("emits one sum per step and no main_sum", () => {
     const sql = buildSql([threeStepFunnel]);
 

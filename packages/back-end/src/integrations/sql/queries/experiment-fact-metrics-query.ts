@@ -576,6 +576,14 @@ export function getExperimentFactMetricsQuery(
         SELECT
           d.variation AS variation
           , d.timestamp AS timestamp
+          ${
+            // Every funnel step column is a CASE-gated copy of the metric
+            // event's timestamp, so this single column can serve as the
+            // shared ORDER BY for all of the step arrays in the per-user
+            // aggregate (Redshift requires all WITHIN GROUP orderings in a
+            // SELECT to be identical).
+            funnelMetrics.length ? `, m.timestamp AS event_timestamp` : ""
+          }
           ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
           ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
           , d.${baseIdType} AS ${baseIdType}
