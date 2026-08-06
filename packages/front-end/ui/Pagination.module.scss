@@ -41,12 +41,12 @@
       border-color 0.2s ease,
       color 0.2s ease;
 
-    &:hover:not(.current) {
+    &:enabled:hover:not(.current) {
       border-color: var(--gray-a3);
       background: var(--gray-a2);
     }
 
-    &:active:not(.current) {
+    &:enabled:active:not(.current) {
       border-color: var(--gray-a3);
       background: var(--gray-a3);
     }
