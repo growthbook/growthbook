@@ -20,9 +20,10 @@ import {
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
 import {
-  getContextForAgendaJobByOrgId,
+  getContextForDashboardOwner,
   getContextFromReq,
 } from "back-end/src/services/organizations";
+import { ApiReqContext } from "back-end/types/api";
 import {
   createExperimentSnapshot,
   createExperimentSnapshotFromPlan,
@@ -58,23 +59,36 @@ interface MultiDashboardResponse {
 async function loadPublicDashboardOrRespond(
   uid: string,
   res: Response,
-): Promise<DashboardInterface | null> {
+): Promise<{ dashboard: DashboardInterface; context: ApiReqContext } | null> {
   const dashboard = await DashboardModel.getPublicByUid(uid);
   if (!dashboard) {
     res.status(404).json({ status: 404, message: "Dashboard not found" });
     return null;
   }
-  return dashboard;
+
+  // Render the dashboard with its owner's permissions rather than an admin
+  // context, so anonymous viewers can only see resources the owner can read.
+  // Fail closed (404) if the owner can no longer be resolved.
+  const context = await getContextForDashboardOwner(
+    dashboard.organization,
+    dashboard.userId,
+  );
+  if (!context) {
+    res.status(404).json({ status: 404, message: "Dashboard not found" });
+    return null;
+  }
+
+  return { dashboard, context };
 }
 
 export async function getDashboardPublic(
   req: Request<{ uid: string }>,
   res: Response,
 ) {
-  const dashboard = await loadPublicDashboardOrRespond(req.params.uid, res);
-  if (!dashboard) return;
+  const result = await loadPublicDashboardOrRespond(req.params.uid, res);
+  if (!result) return;
+  const { dashboard, context } = result;
 
-  const context = await getContextForAgendaJobByOrgId(dashboard.organization);
   const ssrData = await generateDashboardSSRData({ context, dashboard });
 
   return res.status(200).json({ status: 200, dashboard, ssrData });
@@ -84,10 +98,10 @@ export async function getDashboardPublicBlocks(
   req: Request<{ uid: string }>,
   res: Response,
 ) {
-  const dashboard = await loadPublicDashboardOrRespond(req.params.uid, res);
-  if (!dashboard) return;
+  const result = await loadPublicDashboardOrRespond(req.params.uid, res);
+  if (!result) return;
+  const { dashboard, context } = result;
 
-  const context = await getContextForAgendaJobByOrgId(dashboard.organization);
   const blockData = await getPublicDashboardBlockData({ context, dashboard });
 
   return res.status(200).json({ status: 200, blockData });
