@@ -46,7 +46,7 @@ const ValueTypeField: FC<{
             {canUseConfig ? (
               <Tooltip
                 flipTheme={false}
-                body="A JSON value backed by a shared Config: the Config supplies the base value and schema, and this flag overrides it with a patch."
+                body="A JSON value backed by a shared Config: the Config supplies the base value and schema, and this Feature Flag overrides it with a patch."
                 style={{
                   position: "relative",
                   zIndex: 1000,

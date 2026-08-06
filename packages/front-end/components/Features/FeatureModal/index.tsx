@@ -353,7 +353,7 @@ export default function FeatureModal({
 
         // A "config" flag must actually pick a base config.
         if (configType && !baseConfigKey) {
-          throw new Error("Select a base Config for this Config flag");
+          throw new Error("Select a base Config for this Feature Flag");
         }
 
         // When duplicating, skip JSON schema validation since the value is
@@ -503,7 +503,7 @@ export default function FeatureModal({
               <Link href="/configs" target="_blank">
                 Create a Config
               </Link>{" "}
-              to back this flag.
+              to back this Feature Flag.
             </Callout>
           )}
 
@@ -555,8 +555,8 @@ export default function FeatureModal({
               required
               helpText={
                 <>
-                  The Config that backs this flag. The default value and any
-                  rules override it with a patch.{" "}
+                  The Config that backs this Feature Flag. The default value and
+                  any rules override it with a patch.{" "}
                   <strong>Cannot be changed later!</strong>
                 </>
               }
