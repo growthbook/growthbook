@@ -124,7 +124,7 @@ export default function DashboardChecklistFilter({
           />
           <Box style={{ maxHeight: 260, overflowY: "auto", marginTop: 4 }}>
             {filtered.length === 0 ? (
-              <Text size="small" color="text-low">
+              <Text size="sm" color="text-low">
                 {emptyText}
               </Text>
             ) : variant === "list" ? (
@@ -155,7 +155,7 @@ export default function DashboardChecklistFilter({
                           : undefined,
                       }}
                     >
-                      <Text size="small" truncate>
+                      <Text size="sm" truncate>
                         {o.label}
                       </Text>
                       {selected ? (

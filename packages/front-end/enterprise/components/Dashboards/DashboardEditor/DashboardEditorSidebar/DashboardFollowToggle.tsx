@@ -21,7 +21,7 @@ export default function DashboardFollowToggle({
 }: Props) {
   return (
     <Flex align="center" gap="1">
-      <Switch size="1" label={label} value={value} onChange={onChange} />
+      <Switch size="sm" label={label} value={value} onChange={onChange} />
       <Tooltip body={tooltip} tipPosition="top" />
     </Flex>
   );

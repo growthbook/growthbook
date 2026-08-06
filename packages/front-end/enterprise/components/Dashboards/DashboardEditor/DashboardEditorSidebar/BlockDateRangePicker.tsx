@@ -101,7 +101,7 @@ function LabeledRow({
 }) {
   return (
     <Grid columns="72px minmax(0, 1fr)" align="center" gapX="2">
-      <Text size="small" color="text-low">
+      <Text size="sm" color="text-low">
         {label}
       </Text>
       {children}
@@ -157,7 +157,7 @@ export default function BlockDateRangePicker({
 
   const presetSelect = (
     <Select
-      size="small"
+      size="md"
       value={value.predefined}
       placeholder="Select range"
       disabled={disabled}
@@ -212,7 +212,7 @@ export default function BlockDateRangePicker({
           />
           <Box style={{ flex: 1 }}>
             <Select
-              size="small"
+              size="md"
               value={value.lookbackUnit ?? "day"}
               disabled={disabled}
               setValue={(v) =>
@@ -243,7 +243,7 @@ export default function BlockDateRangePicker({
               />
             </LabeledRow>
             <LabeledRow label="">
-              <Text size="small" weight="semibold">
+              <Text size="sm" weight="semibold">
                 vs
               </Text>
             </LabeledRow>

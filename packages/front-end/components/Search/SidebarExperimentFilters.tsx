@@ -385,7 +385,7 @@ const SidebarExperimentFilters: FC<Props> = ({
       label={
         <Flex align="center" gap="1">
           <Text
-            size="small"
+            size="sm"
             whiteSpace="normal"
             overflowWrap="anywhere"
             color="text-high"
@@ -442,7 +442,7 @@ const SidebarExperimentFilters: FC<Props> = ({
       >
         {options.length === 0 ? (
           <Box px="2" py="2">
-            <Text size="small" color="text-low">
+            <Text size="sm" color="text-low">
               No options
             </Text>
           </Box>
@@ -474,7 +474,7 @@ const SidebarExperimentFilters: FC<Props> = ({
                     addValue(category.key, item.searchValue);
                   }}
                 >
-                  <Text size="small">{item.name}</Text>
+                  <Text size="sm">{item.name}</Text>
                 </Box>
               );
             })}
@@ -588,7 +588,7 @@ const SidebarExperimentFilters: FC<Props> = ({
         {selected.length > 0 && (
           <Box mt="2">
             <Link
-              size="1"
+              size="sm"
               color="red"
               onClick={() => clearCategory(category.key)}
             >
@@ -628,7 +628,7 @@ const SidebarExperimentFilters: FC<Props> = ({
           }
         >
           <Flex align="center" gap="2">
-            <Text weight="medium" size="medium">
+            <Text weight="medium" size="md">
               {category.heading}
             </Text>
             {countBadge(count)}
@@ -675,11 +675,11 @@ const SidebarExperimentFilters: FC<Props> = ({
           onKeyDown={(e) => activateOnKey(e, () => toggleExpand(extra.key))}
         >
           <Flex align="center" gap="2" style={{ minWidth: 0 }}>
-            <Text weight="medium" size="medium">
+            <Text weight="medium" size="md">
               {extra.heading}
             </Text>
             {extra.isActive && extra.label ? (
-              <Text size="small" color="text-low" truncate>
+              <Text size="sm" color="text-low" truncate>
                 {extra.label}
               </Text>
             ) : null}
@@ -693,7 +693,7 @@ const SidebarExperimentFilters: FC<Props> = ({
             {extra.isActive ? (
               <Box mt="2">
                 <Link
-                  size="1"
+                  size="sm"
                   color="red"
                   onClick={() => {
                     extra.onRemove();
@@ -713,11 +713,11 @@ const SidebarExperimentFilters: FC<Props> = ({
   return (
     <Flex direction="column" gap="0">
       <Flex align="center" justify="between" mb="2">
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           Filter by...
         </Text>
         {hasAnyActive && !searchDisabled ? (
-          <Link size="1" color="red" onClick={clearAll}>
+          <Link size="sm" color="red" onClick={clearAll}>
             Clear all
           </Link>
         ) : null}

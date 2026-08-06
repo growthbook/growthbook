@@ -59,7 +59,7 @@ import {
   getLatestPhaseVariations,
   getPhaseVariations,
 } from "shared/experiments";
-import { getValidDate, hoursBetween } from "shared/dates";
+import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import { v4 as uuidv4 } from "uuid";
 import { differenceInMinutes } from "date-fns";
@@ -84,7 +84,7 @@ import {
   ApiExperimentMetric,
   ApiExperimentResults,
   ApiMetric,
-  ExperimentType,
+  ScheduledStopPlan,
 } from "shared/validators";
 import { Dimension } from "shared/types/integrations";
 import {
@@ -139,6 +139,8 @@ import { ExperimentQueryMetadata } from "shared/types/query";
 import {
   isExperimentCoveredByIncrementalPipeline,
   getUnsupportedIncrementalExperimentTypeReason,
+  PRESET_DECISION_CRITERIA,
+  getPresetDecisionCriteriaForOrg,
 } from "shared/enterprise";
 import { generateId } from "back-end/src/util/uuid";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
@@ -207,6 +209,8 @@ import {
   ExperimentIncrementalPipelineRequiresFullRefreshError,
 } from "back-end/src/util/errors";
 import {
+  getExperimentSettingsHashForIncrementalRefresh,
+  legacyDocDescribesPhase,
   assertIncrementalRefreshPrerequisites,
   exploratoryOverallRequiresFullRefresh,
 } from "back-end/src/enterprise/services/data-pipeline";
@@ -267,6 +271,35 @@ export async function getExperimentMetricById(
   return getMetricById(context, actualMetricId);
 }
 
+// Resolve the decision criteria that governs an experiment: its own configured
+// criteria, else the org default, else the org/global preset. Shared so the
+// scheduling verdict and the API's enhanced status resolve it identically.
+export async function getExperimentDecisionCriteria(
+  context: Context,
+  experiment: Pick<ExperimentInterface, "decisionFrameworkSettings">,
+) {
+  const id =
+    experiment.decisionFrameworkSettings?.decisionCriteriaId ??
+    context.org.settings?.defaultDecisionCriteriaId;
+  if (id) {
+    try {
+      const dc = await context.models.decisionCriteria.getById(id);
+      if (dc) return dc;
+    } catch (e) {
+      // Degrade to the preset rather than failing the caller (e.g. the enhanced
+      // experiment API response) on a transient lookup error.
+      logger.warn(
+        e,
+        `Failed to load decision criteria ${id}; falling back to preset`,
+      );
+    }
+  }
+  return (
+    getPresetDecisionCriteriaForOrg(context.org.settings) ??
+    PRESET_DECISION_CRITERIA
+  );
+}
+
 export async function getExperimentMetricsByIds(
   context: Context,
   metricIds: string[],
@@ -300,6 +333,36 @@ export async function getMetricMapForExperiment(
     metricGroups,
   );
   const metrics = await getExperimentMetricsByIds(context, metricIds);
+  return new Map(metrics.map((m) => [m.id, m]));
+}
+
+// Like getMetricMapForExperiment, but also resolves metrics referenced only by
+// the given snapshots (e.g. metrics since removed from the experiment but still
+// present in the org). Used to enrich bulk-result display names by id.
+export async function getMetricMapForExperimentSnapshots(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  snapshots: ExperimentSnapshotInterface[],
+): Promise<Map<string, ExperimentMetricInterface>> {
+  const metricGroups = await context.models.metricGroups.getAll();
+  const metricIds = new Set(
+    getAllMetricIdsFromExperiment(experiment, true, metricGroups),
+  );
+  for (const snapshot of snapshots) {
+    const settings = snapshot.settings;
+    settings.metricSettings.forEach((m) => metricIds.add(m.id));
+    settings.goalMetrics.forEach((m) => metricIds.add(m));
+    settings.secondaryMetrics.forEach((m) => metricIds.add(m));
+    settings.guardrailMetrics.forEach((m) => metricIds.add(m));
+    if (settings.activationMetric) metricIds.add(settings.activationMetric);
+  }
+  // Snapshot ids may be slice-metric ids; resolve to base metric ids to fetch.
+  const baseMetricIds = Array.from(
+    new Set(
+      Array.from(metricIds).map((id) => parseSliceMetricId(id).baseMetricId),
+    ),
+  );
+  const metrics = await getExperimentMetricsByIds(context, baseMetricIds);
   return new Map(metrics.map((m) => [m.id, m]));
 }
 
@@ -1637,18 +1700,6 @@ export async function planSnapshot({
     throw new Error("Could not load data source");
   }
 
-  const incrementalRefreshModel = useCache
-    ? await context.models.incrementalRefresh.getByExperimentId(experiment.id)
-    : null;
-
-  const {
-    fullRefresh: standardFullRefresh,
-    fullRefreshReason: standardFullRefreshReason,
-  } = resolveFullRefresh(useCache, incrementalRefreshModel);
-  const fullRefresh = type === "standard" ? standardFullRefresh : false;
-  const fullRefreshReason =
-    type === "standard" ? standardFullRefreshReason : null;
-
   const requestedPrecomputedUnitDimensionIds =
     experiment.precomputedUnitDimensionIds ?? [];
   const eligiblePrecomputedUnitDimensionIds =
@@ -1661,7 +1712,7 @@ export async function planSnapshot({
         })
       : [];
 
-  const snapshotSettings = getSnapshotSettings({
+  const snapshotSettingsArgs = {
     experiment,
     phaseIndex,
     orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
@@ -1676,11 +1727,57 @@ export async function planSnapshot({
     metricGroups,
     reweight,
     datasource,
-    incrementalRefreshModel,
     useStickyBucketing:
       organization.settings?.useStickyBucketing &&
       !experiment.disableStickyBucketing,
     eligiblePrecomputedUnitDimensionIds,
+  };
+
+  const incrementalRefresh = useCache
+    ? await context.models.incrementalRefresh.getByExperimentIdAndPhase(
+        experiment.id,
+        phaseIndex,
+      )
+    : null;
+
+  // A pre-phase document belongs to the phase whose settings hash it matches,
+  // not to whatever phase is latest now. The hashed fields do not depend on the
+  // state document, so probing with a null model yields the same hash the real
+  // settings will carry.
+  let legacyIncrementalRefresh: IncrementalRefreshInterface | null = null;
+  if (useCache && !incrementalRefresh) {
+    const legacyDoc =
+      await context.models.incrementalRefresh.getLegacyByExperimentIdWithoutPhase(
+        experiment.id,
+      );
+    if (
+      legacyDoc &&
+      legacyDocDescribesPhase({
+        legacyDoc,
+        snapshotSettings: getSnapshotSettings({
+          ...snapshotSettingsArgs,
+          incrementalRefreshModel: null,
+        }),
+      })
+    ) {
+      legacyIncrementalRefresh = legacyDoc;
+    }
+  }
+
+  const incrementalRefreshModel =
+    incrementalRefresh ?? legacyIncrementalRefresh;
+
+  const {
+    fullRefresh: standardFullRefresh,
+    fullRefreshReason: standardFullRefreshReason,
+  } = resolveFullRefresh(useCache, incrementalRefreshModel);
+  const fullRefresh = type === "standard" ? standardFullRefresh : false;
+  const fullRefreshReason =
+    type === "standard" ? standardFullRefreshReason : null;
+
+  const snapshotSettings = getSnapshotSettings({
+    ...snapshotSettingsArgs,
+    incrementalRefreshModel,
   });
 
   const data: ExperimentSnapshotInterface = {
@@ -1827,10 +1924,15 @@ export async function createSnapshotFromPlan({
   let hasIncrementalRefreshLock = false;
   if (needsIncrementalRefreshLock) {
     hasIncrementalRefreshLock =
-      await context.models.incrementalRefresh.acquireLock(
-        experiment.id,
-        plan.snapshot.id,
-      );
+      await context.models.incrementalRefresh.acquireLock({
+        experimentId: experiment.id,
+        phase: plan.snapshot.phase,
+        snapshotId: plan.snapshot.id,
+        legacyExperimentSettingsHash:
+          getExperimentSettingsHashForIncrementalRefresh(
+            plan.snapshot.settings,
+          ),
+      });
     if (!hasIncrementalRefreshLock) {
       throw new ConcurrentIncrementalRefreshError(
         "There is already an update in progress for this experiment.",
@@ -2931,36 +3033,43 @@ export async function toExperimentApiInterface(
     precomputedUnitDimensionIds: experiment.precomputedUnitDimensionIds ?? [],
     defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
-    // Nested Mongoose path: a document with no schedule hydrates it as `{}`, so
-    // key off `startAt` rather than the object.
-    statusUpdateSchedule: experiment.statusUpdateSchedule?.startAt
+    statusUpdateSchedule: (() => {
+      const s = experiment.statusUpdateSchedule;
+      if (!s) return s === undefined ? undefined : null;
+      const out = {
+        ...(s.startAt ? { startAt: s.startAt.toISOString() } : {}),
+        ...(s.stopAt ? { stopAt: s.stopAt.toISOString() } : {}),
+        ...(s.stopAfter ? { stopAfter: s.stopAfter } : {}),
+        ...(s.scheduledStopPlan
+          ? { scheduledStopPlan: s.scheduledStopPlan }
+          : {}),
+      };
+      return Object.keys(out).length > 0 ? out : null;
+    })(),
+    nextScheduledStatusUpdate: experiment.nextScheduledStatusUpdate
       ? {
-          startAt: experiment.statusUpdateSchedule.startAt.toISOString(),
+          type: experiment.nextScheduledStatusUpdate.type,
+          date: experiment.nextScheduledStatusUpdate.date.toISOString(),
         }
-      : // null means "cleared", distinct from absent.
-        experiment.statusUpdateSchedule === null
-        ? null
-        : undefined,
-    // Only "start" is produced for experiments; updateExperimentStatus.ts
-    // clears any other type before it can be observed. Filter defensively
-    // so the API response always matches the documented schema.
-    nextScheduledStatusUpdate:
-      experiment.nextScheduledStatusUpdate?.type === "start"
-        ? {
-            type: "start" as const,
-            date: experiment.nextScheduledStatusUpdate.date.toISOString(),
-          }
-        : experiment.nextScheduledStatusUpdate === undefined
-          ? undefined
-          : null,
+      : experiment.nextScheduledStatusUpdate === undefined
+        ? undefined
+        : null,
   };
   return apiExperiment;
 }
 
 // Round to 20 decimal places to avoid returning subnormal floats (e.g. 2.7e-313)
-// that break many real-world JSON parsers.
+// that break many real-world JSON parsers. Emits 0 rather than null for missing
+// values to preserve this serializer's established API contract.
 function safeFloat(n: number | undefined, fallback = 0): number {
   if (n == null || !isFinite(n)) return fallback;
+  return parseFloat(n.toFixed(20));
+}
+
+// Round to 20 decimal places to avoid returning subnormal floats (e.g. 2.7e-313)
+// that break many real-world JSON parsers.
+export function safeFloatOrNull(n: number | undefined): number | null {
+  if (n === undefined || !Number.isFinite(n)) return null;
   return parseFloat(n.toFixed(20));
 }
 
@@ -4042,6 +4151,38 @@ function toLookbackOverrideForSave(lookbackOverride: {
  * @param datasource
  * @param userId
  */
+// Map an API statusUpdateSchedule payload to the internal (Date-based) shape.
+// Returns null for an empty/removed schedule, undefined when the key is absent.
+function apiScheduleToInterface(
+  s:
+    | {
+        startAt?: string;
+        stopAt?: string;
+        stopAfter?: { value: number; unit: "hours" | "days" };
+        scheduledStopPlan?: ScheduledStopPlan;
+      }
+    | null
+    | undefined,
+): ExperimentInterface["statusUpdateSchedule"] {
+  if (s === undefined) return undefined;
+  if (s === null) return null;
+  const dates = {
+    ...(s.startAt ? { startAt: getValidDate(s.startAt) } : {}),
+    ...(s.stopAt ? { stopAt: getValidDate(s.stopAt) } : {}),
+    ...(s.stopAfter ? { stopAfter: s.stopAfter } : {}),
+  };
+  if (Object.keys(dates).length === 0) return null;
+  // The stop plan only fires at a scheduled end, so keep it only when there is
+  // one; an inert plan on a start-only schedule is dropped.
+  const hasScheduledEnd = !!(s.stopAt || s.stopAfter);
+  return {
+    ...dates,
+    ...(hasScheduledEnd && s.scheduledStopPlan
+      ? { scheduledStopPlan: s.scheduledStopPlan }
+      : {}),
+  };
+}
+
 export function postExperimentApiPayloadToInterface(
   payload: z.infer<typeof postExperimentValidator.bodySchema>,
   organization: OrganizationInterface,
@@ -4201,10 +4342,7 @@ export function postExperimentApiPayloadToInterface(
     ...(payload.defaultDashboardId !== undefined
       ? { defaultDashboardId: payload.defaultDashboardId }
       : {}),
-    statusUpdateSchedule:
-      payload.statusUpdateSchedule && payload.statusUpdateSchedule.startAt
-        ? { startAt: getValidDate(payload.statusUpdateSchedule.startAt) }
-        : undefined,
+    statusUpdateSchedule: apiScheduleToInterface(payload.statusUpdateSchedule),
   };
 
   const { settings } = getScopedSettings({
@@ -4382,22 +4520,6 @@ function resolveExperimentUpdateVariationsAndPhases(
   };
 }
 
-export function validateStatusUpdateSchedule(
-  experimentType: ExperimentType,
-  statusUpdateSchedule: ExperimentInterfaceStringDates["statusUpdateSchedule"],
-): void {
-  if (experimentType === "multi-armed-bandit" && statusUpdateSchedule) {
-    throw new Error("Bandit experiments do not support scheduled starts.");
-  }
-  if (
-    statusUpdateSchedule &&
-    statusUpdateSchedule.startAt &&
-    getValidDate(statusUpdateSchedule.startAt) <= new Date()
-  ) {
-    throw new Error("statusUpdateSchedule.startAt must be in the future");
-  }
-}
-
 /**
  * Normalize `statusUpdateSchedule` / `nextScheduledStatusUpdate` on an in-progress
  * Changeset:
@@ -4421,8 +4543,41 @@ export function normalizeStatusUpdateScheduleChanges(
       const startAt = incoming?.startAt
         ? getValidDate(incoming.startAt)
         : undefined;
-      changes.statusUpdateSchedule = startAt ? { startAt } : null;
-      changes.nextScheduledStatusUpdate = null;
+      // Key off the ACTUAL current status, not `changes.status`: a draft→running
+      // transition must NOT resolve/stage here — executeExperimentStart resolves
+      // a relative stopAfter off the real start time. Resolving off the pre-start
+      // draft (stale/absent dateStarted) would produce a wrong stopAt.
+      const running = experiment.status === "running";
+      const dateStarted =
+        experiment.phases[experiment.phases.length - 1]?.dateStarted;
+      const { stopAt, stopAfter, stagedStop } = resolveScheduledStop({
+        stopAt: incoming?.stopAt,
+        stopAfter: incoming?.stopAfter,
+        base: dateStarted ? getValidDate(dateStarted) : new Date(),
+        active: running,
+      });
+
+      // Past stopAts (whether absolute or a stopAfter that resolves into the
+      // past) are never staged for the scheduler; validateScheduleUpdate
+      // rejects them up front, so here we just build the normalized schedule.
+      // The stop plan only fires at a scheduled end, so it's kept only when
+      // there is one; an inert plan on a start-only schedule is dropped.
+      changes.statusUpdateSchedule =
+        startAt || stopAt || stopAfter
+          ? {
+              ...(startAt ? { startAt } : {}),
+              ...(stopAt ? { stopAt } : {}),
+              ...(stopAfter ? { stopAfter } : {}),
+              ...((stopAt || stopAfter) && incoming?.scheduledStopPlan
+                ? { scheduledStopPlan: incoming.scheduledStopPlan }
+                : {}),
+            }
+          : null;
+
+      // Re-stage the single pending action from the new schedule:
+      //  - running experiment: (re)stage the stop from the resolved stopAt
+      //  - otherwise (draft): clear any staged start; it must be re-approved
+      changes.nextScheduledStatusUpdate = stagedStop;
     }
   } else if (
     changes.status &&

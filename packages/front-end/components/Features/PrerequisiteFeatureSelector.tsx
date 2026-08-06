@@ -171,7 +171,7 @@ export default function PrerequisiteFeatureSelector({
             >
               {projectName ? (
                 <Box style={{ position: "relative", zIndex: 1000 }}>
-                  <Text size="small">
+                  <Text size="sm">
                     <Text color="text-low">Project:</Text>{" "}
                     <Text color="text-high">
                       <OverflowText maxWidth={150} title={projectName}>
@@ -187,7 +187,7 @@ export default function PrerequisiteFeatureSelector({
                 <Tooltip
                   flipTheme={false}
                   body={
-                    <Text size="small" color="text-high">
+                    <Text size="sm" color="text-high">
                       Selecting this feature would create a cyclic dependency.
                     </Text>
                   }
@@ -205,7 +205,7 @@ export default function PrerequisiteFeatureSelector({
                 <Tooltip
                   flipTheme={false}
                   body={
-                    <Text as="div" size="small" color="text-high">
+                    <Text as="div" size="sm" color="text-high">
                       This feature is{" "}
                       <strong style={{ color: featureStatusColors.on }}>
                         live
@@ -233,7 +233,7 @@ export default function PrerequisiteFeatureSelector({
                 <Tooltip
                   flipTheme={false}
                   body={
-                    <Text as="div" size="small" color="text-high">
+                    <Text as="div" size="sm" color="text-high">
                       This feature is{" "}
                       <strong style={{ color: featureStatusColors.off }}>
                         not live
@@ -263,7 +263,7 @@ export default function PrerequisiteFeatureSelector({
                 <Tooltip
                   flipTheme={false}
                   body={
-                    <Text as="div" size="small" color="text-high">
+                    <Text as="div" size="sm" color="text-high">
                       This feature is currently serving{" "}
                       <span
                         style={{
@@ -299,7 +299,7 @@ export default function PrerequisiteFeatureSelector({
                 <Tooltip
                   flipTheme={false}
                   body={
-                    <Text as="div" size="small" color="text-high">
+                    <Text as="div" size="sm" color="text-high">
                       This feature is in a{" "}
                       <strong style={{ color: featureStatusColors.warning }}>
                         Schrödinger state
@@ -330,7 +330,7 @@ export default function PrerequisiteFeatureSelector({
                 <Tooltip
                   flipTheme={false}
                   body={
-                    <Text size="small" color="text-high">
+                    <Text size="sm" color="text-high">
                       This feature has a cyclic dependency.
                     </Text>
                   }

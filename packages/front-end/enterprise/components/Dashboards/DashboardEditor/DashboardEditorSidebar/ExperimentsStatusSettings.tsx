@@ -87,7 +87,7 @@ export default function ExperimentsStatusSettings({
               <Text weight="semibold">Date Granularity</Text>
             </Box>
             <Select
-              size="small"
+              size="md"
               value={granularity}
               placeholder="Granularity"
               disabled={dateControlled}

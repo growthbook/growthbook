@@ -160,12 +160,12 @@ export default function DashboardExperimentFilterControls({
           content={
             <Box>
               <Box mb="1">
-                <Text weight="semibold" size="medium">
+                <Text weight="semibold" size="md">
                   Experiment Filters
                 </Text>
               </Box>
               <Box mb="3">
-                <Text size="small" color="text-low">
+                <Text size="sm" color="text-low">
                   Applies to all blocks containing experiments
                 </Text>
               </Box>

@@ -46,6 +46,7 @@ import {
 } from "@/components/Experiment/ResultsFilter/ResultsFilter";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
+import VariationLabel from "@/ui/VariationLabel";
 import Link from "@/ui/Link";
 import Switch from "@/ui/Switch";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -76,7 +77,7 @@ import {
   useDashboardSnapshot,
   DashboardSnapshotContext,
 } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
-import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
+import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor/dashboardBlockTypes";
 import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/util";
 import MetricExplorerSettings from "./MetricExplorerSettings";
 import ProductAnalyticsExplorerSettings from "./ProductAnalyticsExplorerSettings";
@@ -1017,7 +1018,7 @@ export default function EditSingleBlock({
                 <>
                   <Box>
                     <MultiSelectField
-                      size="legacy"
+                      legacyHeight
                       label="Metrics"
                       labelClassName="font-weight-bold"
                       placeholder="All Metrics"
@@ -1268,7 +1269,7 @@ export default function EditSingleBlock({
                   ) &&
                     sliceOptions.length > 0 && (
                       <MultiSelectField
-                        size="legacy"
+                        legacyHeight
                         label="Slices"
                         labelClassName="font-weight-bold"
                         placeholder="Type to search..."
@@ -1423,32 +1424,19 @@ export default function EditSingleBlock({
                       : []
                   }
                   formatOptionLabel={({ value, label }) => (
-                    <div
-                      className={`variation variation${value} with-variation-label d-flex align-items-center`}
-                    >
-                      <span
-                        className="label"
-                        style={{ width: 20, height: 20, flex: "none" }}
-                      >
-                        {value}
-                      </span>
-                      <span
-                        className="d-inline-block"
-                        style={{
-                          width: 150,
-                          lineHeight: "14px",
-                        }}
-                      >
-                        {label}
-                      </span>
-                    </div>
+                    <VariationLabel
+                      number={parseInt(value)}
+                      name={label}
+                      size="md"
+                      maxWidth="170px"
+                    />
                   )}
                 />
               )}
             {blockHasFieldOfType(block, "variationIds", isStringArray) &&
               shouldShowEditorField(block, "variationIds") && (
                 <MultiSelectField
-                  size="legacy"
+                  legacyHeight
                   sort={false}
                   label="Variations"
                   labelClassName="font-weight-bold"
@@ -1465,32 +1453,19 @@ export default function EditSingleBlock({
                         )
                       : -1;
                     return (
-                      <div
-                        className={`variation variation${varIndex} with-variation-label d-flex align-items-center`}
-                      >
-                        <span
-                          className="label"
-                          style={{ width: 20, height: 20, flex: "none" }}
-                        >
-                          {varIndex}
-                        </span>
-                        <span
-                          className="d-inline-block"
-                          style={{
-                            width: 150,
-                            lineHeight: "14px",
-                          }}
-                        >
-                          {label}
-                        </span>
-                      </div>
+                      <VariationLabel
+                        number={varIndex}
+                        name={label}
+                        size="md"
+                        maxWidth="170px"
+                      />
                     );
                   }}
                 />
               )}
             {blockHasFieldOfType(block, "dimensionValues", isStringArray) && (
               <MultiSelectField
-                size="legacy"
+                legacyHeight
                 label="Dimension Values"
                 labelClassName="font-weight-bold"
                 placeholder="Showing all values"

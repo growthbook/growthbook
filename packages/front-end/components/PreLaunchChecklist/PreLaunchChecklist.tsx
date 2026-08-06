@@ -393,7 +393,7 @@ export function PreLaunchChecklistDrawer() {
                 role="button"
               >
                 <Flex align="center">
-                  <Heading as="h4" size="small">
+                  <Heading as="h4" size="sm">
                     Pre-Launch Checklist
                   </Heading>
                   {checklistItemsRemaining !== null && (

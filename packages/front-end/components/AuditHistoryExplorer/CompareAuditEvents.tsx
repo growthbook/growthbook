@@ -95,7 +95,7 @@ function AuditEntryCompareLabel({
               <PiWarningBold style={{ color: "var(--red-9)", flexShrink: 0 }} />
             </Tooltip>
           )}
-          <Text weight="semibold" size="large">
+          <Text weight="semibold" size="lg">
             {labelA}
           </Text>
         </Flex>
@@ -117,7 +117,7 @@ function AuditEntryCompareLabel({
               <PiWarningBold style={{ color: "var(--red-9)", flexShrink: 0 }} />
             </Tooltip>
           )}
-          <Text weight="semibold" size="large">
+          <Text weight="semibold" size="lg">
             {labelB}
           </Text>
         </Flex>
@@ -178,15 +178,15 @@ function RawAuditDetails({ entry }: { entry: CoarsenedAuditEntry<unknown> }) {
             ).map(([label, value]) => (
               <Flex key={label} gap="2" align="baseline">
                 <span style={{ minWidth: 80, flexShrink: 0 }}>
-                  <Text size="medium" color="text-mid">
+                  <Text size="md" color="text-mid">
                     {label}
                   </Text>
                 </span>
-                <Text size="medium">{value}</Text>
+                <Text size="md">{value}</Text>
               </Flex>
             ))}
           </Flex>
-          <Text size="medium" weight="medium" color="text-mid" mb="1" as="div">
+          <Text size="md" weight="medium" color="text-mid" mb="1" as="div">
             Details
           </Text>
           <div className="diff-wrapper">
@@ -381,7 +381,7 @@ export default function CompareAuditEvents<T>({
           <div className={styles.viewSingleWrapper}>
             <Button
               variant="outline"
-              size="xs"
+              size="sm"
               className={styles.viewSingleButton}
               onClick={async (e) => {
                 e?.preventDefault();
@@ -429,7 +429,7 @@ export default function CompareAuditEvents<T>({
               />
             )}
           </Flex>
-          <Text size="small" color="text-low">
+          <Text size="sm" color="text-low">
             {entry.count > 1
               ? datetime(entry.dateEnd)
               : datetime(entry.dateStart)}{" "}
@@ -485,7 +485,7 @@ export default function CompareAuditEvents<T>({
         {/* Quick actions */}
         {!singleSelect && flatEntries.length >= 2 && (
           <Box className={`${styles.section} border-bottom`} pb="2">
-            <Text size="medium" weight="medium" color="text-mid" mb="2" as="p">
+            <Text size="md" weight="medium" color="text-mid" mb="2" as="p">
               Quick actions
             </Text>
             <Flex direction="column" className={styles.quickActionsList}>
@@ -505,7 +505,7 @@ export default function CompareAuditEvents<T>({
                 <Box className={styles.rowSpacer} />
                 <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
                   <Text weight="semibold">Most recent change</Text>
-                  <Text size="small" color="text-low" as="div">
+                  <Text size="sm" color="text-low" as="div">
                     <span
                       style={{
                         display: "block",
@@ -581,7 +581,7 @@ export default function CompareAuditEvents<T>({
                     <Text weight="semibold">All changes</Text>
                     {loadingAll && !pendingRange && <LoadingSpinner />}
                   </Flex>
-                  <Text size="small" color="text-low">
+                  <Text size="sm" color="text-low">
                     {total} total
                   </Text>
                 </Flex>
@@ -593,7 +593,7 @@ export default function CompareAuditEvents<T>({
         {/* Group by + entry list */}
         <Box className={styles.section} pb="3">
           <Flex align="center" justify="between" mb="2">
-            <Text size="medium" weight="medium" color="text-mid">
+            <Text size="md" weight="medium" color="text-mid">
               {singleSelect ? "Select a version" : "Select a range of changes"}
             </Text>
             {!config.hideFilters &&
@@ -773,7 +773,7 @@ export default function CompareAuditEvents<T>({
                             background: "var(--gray-6)",
                           }}
                         />
-                        <Text size="small" weight="medium" color="text-low">
+                        <Text size="sm" weight="medium" color="text-low">
                           {getSeparatorLabel(date)}
                         </Text>
                         <Box
@@ -796,7 +796,7 @@ export default function CompareAuditEvents<T>({
                         px="2"
                         py="1"
                       >
-                        <Text color="text-low" size="small">
+                        <Text color="text-low" size="sm">
                           {item.marker.label}
                         </Text>
                       </Flex>,
@@ -824,7 +824,7 @@ export default function CompareAuditEvents<T>({
                       >
                         {lines.map((line) => (
                           <Flex key={line} align="center">
-                            <Text color="text-low" size="small">
+                            <Text color="text-low" size="sm">
                               {line}
                             </Text>
                           </Flex>
@@ -845,7 +845,7 @@ export default function CompareAuditEvents<T>({
                     <Flex gap="4" mt="1" justify="between">
                       <Button
                         variant="ghost"
-                        size="xs"
+                        size="sm"
                         onClick={loadMore}
                         disabled={loading || loadingAll}
                       >
@@ -855,7 +855,7 @@ export default function CompareAuditEvents<T>({
                       {remaining > PAGE_LIMIT && (
                         <Button
                           variant="ghost"
-                          size="xs"
+                          size="sm"
                           onClick={handleLoadAll}
                           disabled={loading || loadingAll}
                         >
@@ -894,13 +894,13 @@ export default function CompareAuditEvents<T>({
                 <Flex align="center" gap="4">
                   {diffViewMode === "steps" && (
                     <>
-                      <Heading as="h2" size="small" mb="0">
+                      <Heading as="h2" size="sm" mb="0">
                         Step {safeDiffPage + 1} of {steps.length}
                       </Heading>
                       <Flex gap="2">
                         <Button
                           variant="soft"
-                          size="sm"
+                          size="md"
                           disabled={safeDiffPage <= 0}
                           onClick={() => setDiffPage((p) => Math.max(0, p - 1))}
                         >
@@ -908,7 +908,7 @@ export default function CompareAuditEvents<T>({
                         </Button>
                         <Button
                           variant="soft"
-                          size="sm"
+                          size="md"
                           disabled={safeDiffPage >= steps.length - 1}
                           onClick={() =>
                             setDiffPage((p) =>
@@ -937,7 +937,7 @@ export default function CompareAuditEvents<T>({
                               />
                             </Tooltip>
                           )}
-                          <Text weight="semibold" size="large">
+                          <Text weight="semibold" size="lg">
                             {getEntryLabel(singleEntryFirst)}
                           </Text>
                         </Flex>
@@ -961,13 +961,13 @@ export default function CompareAuditEvents<T>({
                 </Flex>
                 {!isSingleEntry ? (
                   <Flex align="center" gap="2">
-                    <Text size="medium" weight="medium" color="text-mid">
+                    <Text size="md" weight="medium" color="text-mid">
                       Show diff as
                     </Text>
                     <Select
                       value={diffViewMode}
                       setValue={(v) => setDiffViewModeRaw(v)}
-                      size="small"
+                      size="md"
                       mb="0"
                     >
                       <SelectItem value="steps">Steps</SelectItem>
@@ -978,7 +978,7 @@ export default function CompareAuditEvents<T>({
                   <Flex align="center" gap="3">
                     {singleSelect && singleEntryFirst && (
                       <Flex align="center" gap="2">
-                        <Text size="medium" weight="medium" color="text-mid">
+                        <Text size="md" weight="medium" color="text-mid">
                           Compare against
                         </Text>
                         <Select
@@ -986,7 +986,7 @@ export default function CompareAuditEvents<T>({
                           setValue={(v) =>
                             setComparisonBase(v as typeof comparisonBase)
                           }
-                          size="small"
+                          size="md"
                           mb="0"
                         >
                           <SelectItem value="current">
@@ -1053,7 +1053,7 @@ export default function CompareAuditEvents<T>({
               <Text color="text-low">No changes between these entries.</Text>
             ) : (
               <Box>
-                <Heading as="h5" size="small" color="text-mid" mt="4">
+                <Heading as="h5" size="sm" color="text-mid" mt="4">
                   Summary of changes
                 </Heading>
 
@@ -1080,14 +1080,14 @@ export default function CompareAuditEvents<T>({
                       className="diff-format-toggle"
                     >
                       <Button
-                        size="sm"
+                        size="md"
                         variant={showContent ? "solid" : "outline"}
                         onClick={() => setShowContent(true)}
                       >
                         {contentView.label}
                       </Button>
                       <Button
-                        size="sm"
+                        size="md"
                         variant={
                           !showContent && effectiveFormat === "formatted"
                             ? "solid"
@@ -1101,7 +1101,7 @@ export default function CompareAuditEvents<T>({
                         Formatted changes
                       </Button>
                       <Button
-                        size="sm"
+                        size="md"
                         variant={
                           !showContent && effectiveFormat === "json"
                             ? "solid"
@@ -1150,12 +1150,7 @@ export default function CompareAuditEvents<T>({
                           className="rounded bg-light"
                         >
                           {!suppressCardLabel && (
-                            <Heading
-                              as="h6"
-                              size="small"
-                              color="text-mid"
-                              mb="2"
-                            >
+                            <Heading as="h6" size="sm" color="text-mid" mb="2">
                               {label}
                             </Heading>
                           )}

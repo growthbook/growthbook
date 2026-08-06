@@ -70,9 +70,6 @@ export default class ClickHouse extends SqlIntegration {
       delete this.params.host;
     }
   }
-  getSensitiveParamKeys(): string[] {
-    return ["password"];
-  }
   getSqlDialect(): SqlDialect {
     return clickHouseDialect;
   }

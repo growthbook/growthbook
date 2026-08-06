@@ -73,7 +73,7 @@ export function ConditionLabel({
 }) {
   return (
     <Flex align="center" flexShrink="0" style={{ width }} mb="1">
-      <Text weight="medium" size="medium">
+      <Text weight="medium" size="md">
         {label}
       </Text>
     </Flex>
@@ -204,7 +204,7 @@ export default function ConditionInput({
           { value: "set", label: setModeLabel ?? "Set targeting" },
           { value: "remove", label: removeModeLabel ?? "Remove targeting" },
         ]}
-        labelSize="2"
+        labelSize="md"
       />
     ) : null;
 
@@ -312,11 +312,11 @@ export default function ConditionInput({
           <Flex justify="between" align="center" mb="1">
             <Flex gap="2" align="center">
               {slimMode ? (
-                <Text as="div" size="medium" weight="semibold" color="text-mid">
+                <Text as="div" size="md" weight="semibold" color="text-mid">
                   {label}
                 </Text>
               ) : (
-                <Text as="div" size="medium" weight="semibold">
+                <Text as="div" size="md" weight="semibold">
                   {label}
                 </Text>
               )}
@@ -334,7 +334,7 @@ export default function ConditionInput({
                     }
                   }}
                   label="Advanced"
-                  size="1"
+                  size="sm"
                   ml="2"
                   disabled={locked}
                 />
@@ -347,11 +347,11 @@ export default function ConditionInput({
           <Flex gap="2" mb="1">
             <Box flexGrow="1">
               {slimMode ? (
-                <Text as="div" size="medium" weight="semibold" color="text-mid">
+                <Text as="div" size="md" weight="semibold" color="text-mid">
                   Target by Attributes
                 </Text>
               ) : (
-                <Text as="div" size="medium" weight="semibold">
+                <Text as="div" size="md" weight="semibold">
                   Target by Attributes
                 </Text>
               )}
@@ -371,7 +371,7 @@ export default function ConditionInput({
                     }
                   }}
                   label="Advanced"
-                  size="1"
+                  size="sm"
                   ml="2"
                   disabled={locked}
                 />
@@ -423,11 +423,11 @@ export default function ConditionInput({
         {(label || labelActions) && (
           <Flex mb="1" justify="between" align="center">
             {slimMode ? (
-              <Text as="div" size="medium" weight="semibold" color="text-mid">
+              <Text as="div" size="md" weight="semibold" color="text-mid">
                 {label}
               </Text>
             ) : (
-              <Text as="div" size="medium" weight="semibold">
+              <Text as="div" size="md" weight="semibold">
                 {label}
               </Text>
             )}
@@ -437,11 +437,11 @@ export default function ConditionInput({
         {!label &&
           !labelActions &&
           (slimMode ? (
-            <Text as="div" size="medium" weight="semibold" color="text-mid">
+            <Text as="div" size="md" weight="semibold" color="text-mid">
               Target by Attributes
             </Text>
           ) : (
-            <Text as="div" size="medium" weight="semibold">
+            <Text as="div" size="md" weight="semibold">
               Target by Attributes
             </Text>
           ))}
@@ -453,7 +453,7 @@ export default function ConditionInput({
                 color="text-low"
                 fontStyle="italic"
                 mb="2"
-                size={slimMode ? "small" : undefined}
+                size={slimMode ? "sm" : undefined}
               >
                 {emptyText}
               </Text>
@@ -481,7 +481,7 @@ export default function ConditionInput({
                 >
                   <Text
                     weight="semibold"
-                    size="medium"
+                    size="md"
                     color={locked ? "text-low" : undefined}
                   >
                     <PiPlusCircleBold className="mr-1" />
@@ -501,11 +501,11 @@ export default function ConditionInput({
         <Flex justify="between" align="center" mb="1">
           <Flex gap="2" align="center">
             {slimMode ? (
-              <Text as="div" size="medium" weight="semibold" color="text-mid">
+              <Text as="div" size="md" weight="semibold" color="text-mid">
                 {label}
               </Text>
             ) : (
-              <Text as="div" size="medium" weight="semibold">
+              <Text as="div" size="md" weight="semibold">
                 {label}
               </Text>
             )}
@@ -523,7 +523,7 @@ export default function ConditionInput({
                   }
                 }}
                 label="Advanced"
-                size="1"
+                size="sm"
                 ml="2"
                 disabled={locked}
               />
@@ -535,11 +535,11 @@ export default function ConditionInput({
       {!label && !labelActions && (
         <Flex justify="between" align="center" mb="1">
           {slimMode ? (
-            <Text as="div" size="medium" weight="semibold" color="text-mid">
+            <Text as="div" size="md" weight="semibold" color="text-mid">
               Target by Attributes
             </Text>
           ) : (
-            <Text as="div" size="medium" weight="semibold">
+            <Text as="div" size="md" weight="semibold">
               Target by Attributes
             </Text>
           )}
@@ -557,7 +557,7 @@ export default function ConditionInput({
                 }
               }}
               label="Advanced"
-              size="1"
+              size="sm"
               ml="2"
               disabled={locked}
             />
@@ -798,7 +798,7 @@ function ConditionAndGroupInput({
                   option={o as AttributeOptionForTooltip}
                   context={meta.context}
                 >
-                  <Text size="medium">{o.label}</Text>
+                  <Text size="md">{o.label}</Text>
                 </AttributeOptionWithTooltip>
               );
             }}
@@ -900,7 +900,7 @@ function ConditionAndGroupInput({
               attributeSlot={fieldSelector}
               valueSlot={
                 <MultiSelectField
-                  size="legacy"
+                  legacyHeight
                   disabled={disabled}
                   value={ids}
                   options={groupOptions}
@@ -1143,7 +1143,7 @@ function ConditionAndGroupInput({
                       style={{ flexBasis: "100%", minWidth: 0 }}
                     >
                       <StringArrayField
-                        size="legacy"
+                        legacyHeight
                         disabled={disabled}
                         containerClassName="w-100"
                         value={value ? value.trim().split(",") : []}
@@ -1187,7 +1187,7 @@ function ConditionAndGroupInput({
                     <Box style={{ flexBasis: "100%", minWidth: 0 }}>
                       {listOperators.includes(operator) ? (
                         <MultiSelectField
-                          size="legacy"
+                          legacyHeight
                           disabled={disabled}
                           options={attribute.enum.map((v) => ({
                             label: v,

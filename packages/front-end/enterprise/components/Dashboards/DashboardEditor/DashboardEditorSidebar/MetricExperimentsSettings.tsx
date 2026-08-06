@@ -282,7 +282,7 @@ export default function MetricExperimentsSettings({
           <Box style={{ flex: 1, minWidth: 0 }}>
             <Text
               as="div"
-              size="small"
+              size="sm"
               color="text-mid"
               truncate
               title={
@@ -306,7 +306,7 @@ export default function MetricExperimentsSettings({
               onOpenChange={setColumnsOpen}
               align="end"
               trigger={
-                <Link size="1" style={{ whiteSpace: "nowrap" }}>
+                <Link size="sm" style={{ whiteSpace: "nowrap" }}>
                   <Flex align="center" gap="1">
                     <PiSlidersHorizontal />
                     Edit
@@ -316,7 +316,7 @@ export default function MetricExperimentsSettings({
               content={
                 <Box style={{ width: 260 }}>
                   <Box mb="2">
-                    <Text size="small" color="text-low">
+                    <Text size="sm" color="text-low">
                       Drag to reorder or toggle visibility. The Experiment
                       column is always shown.
                     </Text>

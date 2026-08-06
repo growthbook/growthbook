@@ -3,6 +3,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
+  DashboardBlockType,
   blockHasFieldOfType,
   blockUsesDashboardDateControl,
   DashboardInterface,
@@ -32,6 +33,7 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownSubMenu,
 } from "@/ui/DropdownMenu";
 import { useExperiments } from "@/hooks/useExperiments";
 import {
@@ -43,8 +45,9 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
 import Badge from "@/ui/Badge";
-import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
 import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/util";
+import { DashboardBlockTypeMenuItems } from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlockTypeMenu";
+import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor/dashboardBlockTypes";
 import MarkdownBlock from "./MarkdownBlock";
 import ExperimentMetadataBlock from "./ExperimentMetadataBlock";
 import ExperimentMetricBlock from "./ExperimentMetricBlock";
@@ -107,6 +110,7 @@ interface Props<DashboardBlock extends DashboardBlockInterface> {
   isFocused: boolean;
   isEditing: boolean;
   editingBlock: boolean;
+  canMoveBlock: boolean;
   disableBlock: "full" | "partial" | "none";
   scrollAreaRef: null | React.MutableRefObject<HTMLDivElement | null>;
   setBlock:
@@ -115,6 +119,9 @@ interface Props<DashboardBlock extends DashboardBlockInterface> {
   editBlock: () => void;
   duplicateBlock: () => void;
   deleteBlock: () => void;
+  addBlockBefore?: (bType: DashboardBlockType) => void;
+  addBlockAfter?: (bType: DashboardBlockType) => void;
+  isGeneralDashboard: boolean;
   mutate: () => void;
   canEdit?: boolean;
   setIsEditing?: (value: boolean) => void;
@@ -150,12 +157,16 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   isEditing,
   isFocused,
   editingBlock,
+  canMoveBlock,
   disableBlock,
   scrollAreaRef,
   setBlock,
   editBlock,
   duplicateBlock,
   deleteBlock,
+  addBlockBefore,
+  addBlockAfter,
+  isGeneralDashboard,
   mutate,
   canEdit,
   setIsEditing,
@@ -454,7 +465,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         ></div>
       )}
       <Flex align="center" mb="2">
-        {isEditing && !editingBlock && disableBlock !== "full" && (
+        {isEditing && canMoveBlock && disableBlock !== "full" && (
           <IconButton
             className="dashboard-block-drag-handle"
             variant="ghost"
@@ -589,6 +600,28 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                 >
                   Duplicate
                 </DropdownMenuItem>
+                {disableBlock === "none" && addBlockBefore && addBlockAfter && (
+                  <>
+                    <DropdownSubMenu trigger="Add block before">
+                      <DashboardBlockTypeMenuItems
+                        isGeneralDashboard={isGeneralDashboard}
+                        onSelect={(bType) => {
+                          addBlockBefore(bType);
+                          setDropdownOpen(false);
+                        }}
+                      />
+                    </DropdownSubMenu>
+                    <DropdownSubMenu trigger="Add block after">
+                      <DashboardBlockTypeMenuItems
+                        isGeneralDashboard={isGeneralDashboard}
+                        onSelect={(bType) => {
+                          addBlockAfter(bType);
+                          setDropdownOpen(false);
+                        }}
+                      />
+                    </DropdownSubMenu>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={(e) => {

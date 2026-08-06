@@ -582,7 +582,7 @@ const SavedGroupForm: FC<{
             </Link>
           )}
           <MultiSelectField
-            size="legacy"
+            legacyHeight
             label="Projects"
             labelClassName="font-weight-bold"
             placeholder={
