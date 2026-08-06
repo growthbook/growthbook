@@ -178,11 +178,15 @@ describe("restoreEntityPreImage", () => {
     });
 
     // Dependents the failed cascade touched answer to the restored root — the
-    // adapter decides from the restored keys whether its cascade must re-run.
+    // adapter decides from the restored keys whether its cascade must re-run. The
+    // fourth argument is the reporter the repair cascade uses to declare its OWN
+    // writes, which is what stops them being the one silent write left in a
+    // compensated landing.
     expect(afterRestorePreImage).toHaveBeenCalledWith(
       context,
       expect.objectContaining({ id: "const_1" }),
       ["value"],
+      expect.any(Function),
     );
   });
 

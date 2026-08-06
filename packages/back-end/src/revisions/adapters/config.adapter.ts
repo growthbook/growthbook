@@ -438,7 +438,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     return applied;
   },
 
-  async afterRestorePreImage(context, entity, restoredKeys) {
+  async afterRestorePreImage(context, entity, restoredKeys, onCascadeWritten) {
     // A restore that put back schema or lineage must bring descendants back in
     // line with the restored root — the failed cascade may have reconciled them
     // against the value that was just rolled back. Idempotent, so re-running is
@@ -449,7 +449,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         (k) => k === "schema" || k === "parent" || k === "extends",
       )
     ) {
-      await reconcileConfigDescendants(context, entity.key);
+      await reconcileConfigDescendants(context, entity.key, onCascadeWritten);
     }
   },
 

@@ -228,6 +228,14 @@ export interface EntityRevisionAdapter<
     context: Context,
     entity: TSnapshot,
     restoredKeys: string[],
+    // The repair cascade writes OTHER entities, and those writes were the last
+    // silent ones in a compensated landing. Reachable because restoring a root
+    // that had a field REMOVED re-adds it, which then strips that field from any
+    // descendant a concurrent writer added it to during the window.
+    onCascadeWritten?: (write: {
+      before: Record<string, unknown> & { id: string };
+      written: Record<string, unknown>;
+    }) => void,
   ): Promise<void>;
 
   applyChanges(

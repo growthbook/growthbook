@@ -140,6 +140,7 @@ export async function restoreEntityPreImage({
   preImage,
   persistedKeys,
   written,
+  repairDepth = 1,
 }: {
   context: Context;
   entityType: RevisionTargetType;
@@ -154,6 +155,14 @@ export async function restoreEntityPreImage({
   persistedKeys: Iterable<string>;
   /** The values the apply intended to write, for the "do we still own it" test. */
   written: Record<string, unknown>;
+  /**
+   * How many further levels of repair-cascade rollback to attempt. The repair
+   * cascade writes other entities, and restoring THOSE re-enters this function —
+   * so the recursion is real and needs a bound rather than a comment claiming
+   * there isn't one. Each level strips strictly less than the one above, so one
+   * level covers the reachable case; the bound only stops a pathological cycle.
+   */
+  repairDepth?: number;
 }): Promise<void> {
   const adapter = getAdapter(entityType);
   // Read-decide-write under the same guard as any landing, retried: the restore
@@ -198,7 +207,39 @@ export async function restoreEntityPreImage({
       // it; re-running here would act on state that isn't ours.
       const restoredKeys = Object.keys(restore);
       if (restoredKeys.length) {
-        await adapter.afterRestorePreImage?.(context, current, restoredKeys);
+        if (repairDepth <= 0) {
+          await adapter.afterRestorePreImage?.(context, current, restoredKeys);
+          return;
+        }
+        // The repair cascade's own writes, reported so they are not the one silent
+        // write left in a compensated landing: restoring a root that had a field
+        // REMOVED re-adds it, and the cascade then strips that field from any
+        // descendant a concurrent writer added it to inside this window. Put back
+        // value-checked, so only what this cascade wrote is touched.
+        const repairWrites: {
+          before: Record<string, unknown> & { id: string };
+          written: Record<string, unknown>;
+        }[] = [];
+        await adapter.afterRestorePreImage?.(
+          context,
+          current,
+          restoredKeys,
+          (write) => repairWrites.push(write),
+        );
+        for (const write of repairWrites) {
+          // Best effort, and depth-bounded: this re-enters restoreEntityPreImage,
+          // whose own repair cascade could report again. A failure is logged by the
+          // shared helper and leaves the landing reporting partial state, which is
+          // the honest outcome.
+          await tryRestoreEntityPreImage({
+            context,
+            entityType,
+            preImage: write.before,
+            persistedKeys: Object.keys(write.written),
+            written: write.written,
+            repairDepth: repairDepth - 1,
+          });
+        }
       }
       return;
     } catch (e) {
