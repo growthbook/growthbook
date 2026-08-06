@@ -1225,6 +1225,66 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
     expect(events.filter((e) => /\.updated$/.test(e.event))).toEqual([]);
   });
 
+  // The context must not carry a release's buffers past the request, whichever way the
+  // release ended. An OPEN buffer surviving is the worst case: capture hands it out,
+  // every later event is pushed somewhere nobody will flush, and the leaked refresh
+  // buffer stops the next landing installing its own to recover.
+  //
+  // This pins the END STATE, which is what consumers of the context depend on. It does
+  // not distinguish the two mechanisms that produce it: removing the `finally`
+  // backstop alone leaves this green, because the terminals are exhaustive on every
+  // reachable path today — that is exactly what makes it a backstop. Removing a
+  // terminal clear turns it red, which is the regression it is here to catch.
+  it.each([
+    ["a rolled-back release", true],
+    ["a release that stood", false],
+  ])(
+    "leaves no buffers on the context after %s",
+    async (_label, shouldFail) => {
+      // Held by reference: the harness mutates the context in place, so assertions after
+      // the request see what the release left behind.
+      const context = makeContext();
+      setReqContext(context);
+      const now = new Date();
+
+      await mongoose.connection.collection("constants").insertOne({
+        id: "const_leak",
+        organization: ORG_ID,
+        key: "leak-const",
+        name: "leak-const",
+        owner: "",
+        type: "string",
+        value: "before",
+        dateCreated: now,
+        dateUpdated: now,
+      });
+      const staged = await request(app)
+        .put(`/api/v1/constants-revisions/leak-const/new/value`)
+        .send({ value: "after" })
+        .set("Authorization", "Bearer foo");
+      expect(staged.status).toBe(200);
+
+      mockFailConstantRestore = shouldFail;
+      mockFailConstantApply = shouldFail;
+      await request(app)
+        .post("/api/v1/releases/publish-revisions")
+        .send({
+          revisions: [
+            {
+              entityType: "constant",
+              key: "leak-const",
+              version: staged.body.revision.version,
+            },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(context.bulkPublishDeferredEvents ?? null).toBeNull();
+      expect(context.bulkPublishRestoredEntities ?? null).toBeNull();
+      expect(context.sdkPayloadRefreshBuffer ?? null).toBeNull();
+    },
+  );
+
   // The ABORT path's durable emission, which had no coverage: a no-op item's self-heal
   // replay is a real live write that nothing later restores, so its event must survive
   // an abort that happens after it. Dropping the whole buffer there was silent.

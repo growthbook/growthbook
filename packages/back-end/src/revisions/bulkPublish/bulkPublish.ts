@@ -440,8 +440,14 @@ export async function commitBulkPublish(
     throw e;
   };
 
-  // The finally clears both the correlation token AND the guard-suppression
-  // flag on every exit (success, 409/500 throw, or a raw infra throw).
+  // The finally clears every context field this commit installs, on every exit
+  // (success, 409/500 throw, or a raw infra throw). The terminals below clear the
+  // buffers earlier where ordering matters — the event clear has to precede the emit
+  // loop, or a write during that loop inherits the finished release's verdict — and
+  // this is the backstop for a throw that escapes them all. An OPEN buffer surviving
+  // here is the worst of the failure modes: capture hands it out happily, every later
+  // event is pushed into something nobody will flush, and the leaked refresh buffer
+  // stops the next landing installing its own to recover.
   try {
     // Entity drift check FIRST: claims guard revisions, not entities. Re-read
     // each target and abort (zero writes) if anything moved since plan. Before
@@ -815,6 +821,9 @@ export async function commitBulkPublish(
   } finally {
     context.bulkPublishId = null;
     context.bulkPublishApplying = false;
+    context.bulkPublishDeferredEvents = null;
+    context.bulkPublishRestoredEntities = null;
+    context.sdkPayloadRefreshBuffer = null;
   }
 }
 

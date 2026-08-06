@@ -58,6 +58,12 @@ export function captureEventBuffer(
   // landing's `restored` set — an ordinary update to an entity some earlier release
   // rolled back would go silent. Same predicate the enclosing-scope check applies, so
   // the two agree on what counts as a live landing.
+  //
+  // This ONE comparison is what makes the leftover harmless. Landings also clear the
+  // field when they end, but that is a convention repeated at five sites with nothing
+  // enforcing it, and every producer funnels through here — so the sixth landing-like
+  // construct that forgets to clear, or an edit that moves a clear below the emit loop
+  // it has to precede, costs nothing.
   const buffer = context.bulkPublishDeferredEvents;
   return buffer && !buffer.closed ? buffer : null;
 }

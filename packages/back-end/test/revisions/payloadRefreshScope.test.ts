@@ -247,11 +247,16 @@ describe("deferred event dispositions", () => {
 
   // `captureEventBuffer`'s own contract, asserted directly.
   //
-  // Both landing paths now clear the field when they end, so no production path leaves
-  // a closed buffer where capture can see one — this guard is belt-and-braces for the
-  // two invariants together. Tested here rather than through a landing precisely
-  // because a landing cannot reach it: a defensive branch that only fixtures can drive
-  // is worth less than none, and this pins what the helper promises instead.
+  // Two mechanisms keep a finished landing from judging a new write: this guard, and
+  // landings clearing the field when they end. With both in place, mutating EITHER
+  // alone is invisible to any test that goes through a landing — so both are pinned by
+  // direct assertions instead, here and at "the context stops carrying it". Neither
+  // mutation surviving a landing-driven test means the code is dead.
+  //
+  // Asserted against the helper rather than through a landing precisely because a
+  // landing cannot reach it: a defensive branch only a fixture can drive is worth less
+  // than none, while a contract test on a pure function claims nothing about
+  // reachability and so cannot mislead about it.
   it.each([
     ["an open landing", { entries: [], restored: new Set<string>() }, true],
     [
