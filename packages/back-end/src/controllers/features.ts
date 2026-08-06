@@ -2547,11 +2547,15 @@ export async function postFeatureRevert(
         },
         landing: true,
         // Includes environments the restore would switch back on, not just those
-        // enabled now — a revert that re-enables production is a production change.
+        // enabled now — a revert that re-enables production is a production change
+        // — and the ones whose rules it would change. Both REST reverts pass
+        // `changedEnvs`; omitting it here made the dashboard demand LESS than the
+        // API for the same restore.
         footprint: revertFootprint({
           feature,
           targetRevision: revision,
           environmentIds,
+          changedEnvs,
         }),
       });
       mergeChanges.metadata = metadataChanges;

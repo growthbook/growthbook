@@ -128,24 +128,41 @@ export default function RevertModal({
     draft: targetRevisionForAction,
   });
 
-  // A revert's footprint is the revert endpoints' own rule: what the flag serves
-  // now, plus any environment the restored revision switches back ON, plus any
-  // whose rules it would change. The enabled-and-changed set alone let a
-  // dev-limited reverter re-enable production.
-  const affectedEnvs = revertFootprint({
-    feature,
-    targetRevision: targetRevisionForAction,
-    environmentIds: environments.map((e) => e.id),
-    changedEnvs: environments
-      .map((e) => e.id)
-      .filter(
-        (env) =>
-          !isEqual(
-            getRulesForEnvironment(feature.rules, env),
-            getRulesForEnvironment(targetRevisionForAction.rules, env),
-          ),
+  const environmentIds = environments.map((e) => e.id);
+  const changedRuleEnvs = environmentIds.filter(
+    (env) =>
+      !isEqual(
+        getRulesForEnvironment(feature.rules, env),
+        getRulesForEnvironment(targetRevisionForAction.rules, env),
       ),
-  });
+  );
+  // Whether this restore touches anything beyond per-environment rules. The
+  // endpoint checks PER CHANGE: a rules-only revert answers for the changed
+  // environments alone, while a global field (default value, prerequisites,
+  // archived, a re-enable, a move) answers for everywhere it serves. Feeding the
+  // wide union in every case cost a dev-limited reverter the publish-now route on
+  // a revert that only differs in dev rules.
+  const revertTouchesGlobalState =
+    targetRevisionForAction.defaultValue !== feature.defaultValue ||
+    (targetRevisionForAction.prerequisites !== undefined &&
+      !isEqual(
+        targetRevisionForAction.prerequisites,
+        feature.prerequisites ?? [],
+      )) ||
+    !!targetRevisionForAction.archived !== !!feature.archived ||
+    Object.entries(targetRevisionForAction.environmentsEnabled ?? {}).some(
+      ([env, enabled]) =>
+        enabled !== !!feature.environmentSettings?.[env]?.enabled,
+    );
+
+  const affectedEnvs = revertTouchesGlobalState
+    ? revertFootprint({
+        feature,
+        targetRevision: targetRevisionForAction,
+        environmentIds,
+        changedEnvs: changedRuleEnvs,
+      })
+    : changedRuleEnvs;
 
   // Mirrors the two endpoints this modal calls. Reverting is its own authority:
   // the direct revert is gated on revertFeatures rather than publish, and revert

@@ -25,6 +25,7 @@ import {
   checkEnvironmentsMatch,
   checkIfRevisionNeedsReview,
   getDraftAffectedEnvironments,
+  getEnvsForRampTarget,
   getEnvsFromRampSchedule,
   liveRevisionFromFeature,
   resetReviewOnChange,
@@ -3638,6 +3639,51 @@ const noReviewSettings: OrganizationSettings = {
     },
   ],
 };
+
+describe("getEnvsForRampTarget", () => {
+  const target = (patch: Record<string, unknown>) => ({
+    startActions: [],
+    steps: [{ actions: [{ targetId: "t1", patch }] }],
+    endActions: [],
+  });
+
+  it("is the environments the target's patches name", () => {
+    expect(
+      getEnvsForRampTarget(
+        target({ coverage: 1, environments: ["dev"] }) as never,
+        "t1",
+      ),
+    ).toEqual(["dev"]);
+  });
+
+  it("is 'all' for an explicitly all-environments patch", () => {
+    expect(
+      getEnvsForRampTarget(
+        target({ coverage: 1, allEnvironments: true }) as never,
+        "t1",
+      ),
+    ).toBe("all");
+  });
+
+  // The gate `assertCanControlRampSchedule` actually calls. An unscoped patch
+  // inherits the rule's environments at apply time, so [] would SKIP the
+  // environment check instead of narrowing it — a minimal step against a
+  // production rule made every control action on the schedule vacuous.
+  it("widens an unscoped patch to 'all', never []", () => {
+    expect(getEnvsForRampTarget(target({ coverage: 1 }) as never, "t1")).toBe(
+      "all",
+    );
+  });
+
+  it("ignores patches aimed at another target", () => {
+    expect(
+      getEnvsForRampTarget(
+        target({ coverage: 1, environments: ["production"] }) as never,
+        "t2",
+      ),
+    ).toEqual([]);
+  });
+});
 
 describe("getEnvsFromRampSchedule", () => {
   it("collects all environments mentioned in any step patch", () => {

@@ -94,6 +94,11 @@ type FeatureDesiredState = {
   plan: FeatureMergePlan;
   createdRampScheduleIds?: string[];
   updatedFeature?: FeatureInterface;
+  // The stamp the apply's guarded write PUT on the feature document. Distinct
+  // from `updatedFeature.dateUpdated`, which is a set-then-fetch and so carries a
+  // rival's stamp when one lands in the gap — reading ownership from that says
+  // "still ours" at the one moment it isn't.
+  ourWriteStamp?: Date;
   // Per safe rollout the apply's status sync will write: the pre-apply doc
   // (compensation's restore source), the status the sync writes (the
   // ownership check even when `post` is absent), and the post-apply doc
@@ -469,7 +474,10 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       desired.updatedFeature = await runGuardedWrite(
         "feature",
         feature.id,
-        () => applyRevisionChanges(context, feature, raw, mergeResult),
+        () =>
+          applyRevisionChanges(context, feature, raw, mergeResult, (stamp) => {
+            desired.ourWriteStamp = stamp;
+          }),
       );
     } catch (e) {
       // A rejected CAS wrote no feature doc; mark it before the finally below
@@ -583,7 +591,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     // the doc restore then correctly declines. Our apply's own stamp is the
     // ownership token: if live has moved past it, this item is left whole
     // (reported published) with nothing reversed.
-    const ourStamp = desired.updatedFeature?.dateUpdated;
+    const ourStamp = desired.ourWriteStamp;
     if (
       ourStamp &&
       current.dateUpdated?.getTime() !== new Date(ourStamp).getTime()

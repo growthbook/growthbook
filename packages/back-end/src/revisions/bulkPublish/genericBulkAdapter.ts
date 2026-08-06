@@ -369,10 +369,21 @@ export function makeGenericBulkAdapter(
           `bulk publish compensation: ${targetType} "${(preImage as { id: string }).id}" no longer exists — cannot restore its pre-image`,
         );
       }
-      // The apply reports what it persisted AT the write, so a missing baseline
-      // now means the apply never reached its entity write — nothing of ours is
-      // live and there is nothing to restore.
-      if (revision.writtenEntity === undefined) return;
+      // The apply reports from INSIDE the document write, before audit logging and
+      // the afterUpdate hooks — so a missing baseline genuinely means the write
+      // never landed. That was NOT true while the report fired after the write
+      // call returned: a throw in a post-write hook left the document written and
+      // unreported, and returning here reported the item "rolled-back" while live
+      // kept the change with no record of it. Fail closed if it ever regresses:
+      // an unrestorable pre-image is reported published, not silently clean.
+      if (revision.writtenEntity === undefined) {
+        if (revision.persistedKeys?.length) {
+          throw new Error(
+            `bulk publish compensation: ${targetType} "${(preImage as { id: string }).id}" reported persisted keys with no baseline — cannot tell what landed`,
+          );
+        }
+        return;
+      }
       // Restore only the fields the apply persisted, so a key dropped by the
       // filter or by normalization can't clobber a concurrent writer's value.
       const persistedKeys = revision.persistedKeys ?? [];

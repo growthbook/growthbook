@@ -3083,7 +3083,16 @@ export function getEnvsForRampTarget(
     .map((a) => a.patch);
   for (const patch of patches) {
     if (patch.allEnvironments) return "all";
-    for (const env of patch.environments ?? []) envs.add(env);
+    const scoped = patch.environments ?? [];
+    // Same rule as `getEnvsFromRampSchedule`, which is the whole-schedule twin: an
+    // unscoped patch inherits the RULE's environments at apply time, so returning
+    // [] here handed the permission layer an empty footprint — which SKIPS the
+    // environment check rather than narrowing it. This is the function
+    // `assertCanControlRampSchedule` actually calls, and it was the one left
+    // behind: a minimal `steps:[{actions:[{patch:{coverage:1}}]}]` made every
+    // control action on the schedule vacuous.
+    if (!scoped.length) return "all";
+    for (const env of scoped) envs.add(env);
   }
   return Array.from(envs);
 }

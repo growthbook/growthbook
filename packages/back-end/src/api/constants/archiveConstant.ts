@@ -158,9 +158,16 @@ async function setArchivedState(
     patchOps,
     bypass: approvalRequired,
     changes: { archived },
-    write: () =>
+    // Reports what it persisted from inside the write, so compensation can
+    // tell "never wrote" from "wrote, then a post-write hook threw".
+    write: (report) =>
       runGuardedWrite("constant", constant.id, () =>
-        context.models.constants.updateIfUnchanged(constant, { archived }),
+        context.models.constants.updateIfUnchanged(
+          constant,
+          { archived },
+          undefined,
+          { onWritten: (doc) => report(doc as Record<string, unknown>) },
+        ),
       ),
   });
   await dispatchConstantRevisionEvent(context, merged, { type: "published" });

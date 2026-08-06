@@ -1,5 +1,8 @@
 import { putSavedGroupRevisionArchiveValidator } from "shared/validators";
-import { canStageArchiveDraft } from "back-end/src/revisions/landAuthority";
+import {
+  canStageArchiveDraft,
+  canWriteArchiveIntoDraft,
+} from "back-end/src/revisions/landAuthority";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
@@ -67,6 +70,22 @@ export const putSavedGroupRevisionArchive = createApiRequestHandler(
   );
 
   try {
+    // A pinned EXISTING draft is someone else's work: writing `archived` into
+    // it makes it delete-class, which would lock its author out of publishing
+    // their own draft. The delete atom stages a NEW archive draft, not a
+    // reach into one it does not own.
+    if (
+      !created &&
+      !canWriteArchiveIntoDraft({
+        permissions: req.context.permissions,
+        model: "saved-group",
+        entity: savedGroup,
+        revision,
+        userId: req.context.userId,
+      })
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
     if (!isDraftStatus(revision.status)) {
       throw new BadRequestError(
         `Cannot edit a revision with status "${revision.status}"`,

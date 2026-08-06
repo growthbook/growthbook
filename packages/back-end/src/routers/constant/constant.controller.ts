@@ -20,10 +20,7 @@ import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
-import {
-  getContextFromReq,
-  getEnvironments,
-} from "back-end/src/services/organizations";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   createOrUpdateRevision,
   buildPatchOps,
@@ -32,7 +29,10 @@ import {
 } from "back-end/src/revisions/util";
 import { getAdapter } from "back-end/src/revisions";
 import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
-import { constantPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
+import {
+  archiveServeFootprint,
+  constantPublishEnvironments,
+} from "back-end/src/revisions/revisionPublishEnvironments";
 import {
   ConstantReferences,
   loadConstantReferences,
@@ -262,8 +262,8 @@ export const putConstant = async (
       model: "constant",
       entity: existing,
       archived: !!archived,
-      // Serve footprint — see the adapter's archive arm.
-      environments: getEnvironments(context.org).map((e) => e.id),
+      // Serve footprint — the SAME helper the adapter's archive arm uses.
+      environments: archiveServeFootprint(context, existing),
     });
 
   // If updating a specific revision, compare against its current (patched) state
@@ -385,7 +385,7 @@ export const putConstant = async (
         entity: existing,
         archived: !!archived,
         // Serve footprint — see the adapter's archive arm.
-        environments: getEnvironments(context.org).map((e) => e.id),
+        environments: archiveServeFootprint(context, existing),
       })
     ) {
       context.permissions.throwPermissionError();

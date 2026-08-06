@@ -836,7 +836,15 @@ export class RevisionModel extends BaseClass {
     if (options.authorId) {
       filter.authorId = options.authorId;
     }
+    // Live-entity basis, like every other listing: a snapshot-basis check hides a
+    // moved entity's open draft from the project that now owns it, and shows it to
+    // the one that no longer does.
+    const readable = await this.readableTargetIds([
+      { type: entityType, id: entityId },
+    ]);
+    if (!readable.has(`${entityType}:${entityId}`)) return null;
     const results = await this._find(filter, {
+      bypassReadPermissionChecks: true,
       sort: { dateUpdated: -1, id: -1 },
       limit: 1,
     });
@@ -868,6 +876,14 @@ export class RevisionModel extends BaseClass {
       {
         sort: { "resolution.dateCreated": -1, version: -1, id: -1 },
         limit: 1,
+        // NOT read-filtered. This is a consistency query, not a user-facing read:
+        // callers compare its id against the revision they are landing, and the
+        // config lock reads which revision is live. The per-doc check decides on
+        // the SNAPSHOT, so after a project move it returned null for a caller
+        // scoped to the destination — and `assertLandingBaseline` reads a null as
+        // "no competing merge", turning the baseline re-check into a no-op exactly
+        // when a move made it matter.
+        bypassReadPermissionChecks: true,
       },
     );
     return results[0] ?? null;
@@ -1181,16 +1197,22 @@ export class RevisionModel extends BaseClass {
   // schedule and fire it without a fresh approval.
   // Returns the refreshed revision so callers don't hand back a doc that still
   // carries the now-cleared scheduledPublishAt / lock fields.
-  private async disarmScheduledPublish(id: string): Promise<Revision | null> {
+  private async disarmScheduledPublish(
+    id: string,
+    // Set by `merge`/`close`, which have JUST resolved this row under their own
+    // CAS and are scrubbing the spent schedule as part of that resolution. The
+    // open-status condition below would refuse exactly those writes — it exists
+    // for the lifecycle callers, where a concurrent publish/discard resolving the
+    // revision mid-flight means the scrub would rewrite settled history.
+    { rowResolvedByCaller = false }: { rowResolvedByCaller?: boolean } = {},
+  ): Promise<Revision | null> {
     await this._dangerousGetCollection().updateOne(
       {
         organization: this.context.org.id,
         id,
-        // Only an OPEN revision disarms. A concurrent publish/discard resolves
-        // the revision while this is in flight, and scrubbing the schedule off a
-        // merged revision rewrites settled history (and the arm fields a
-        // publish's own record kept).
-        status: { $nin: ["merged", "discarded"] },
+        ...(rowResolvedByCaller
+          ? {}
+          : { status: { $nin: ["merged", "discarded"] } }),
       },
       {
         $set: { autoPublishOnApproval: false },
@@ -1675,7 +1697,9 @@ export class RevisionModel extends BaseClass {
     // Fully scrub the schedule fields on publish (this.update can't $unset),
     // matching the feature flow's markRevisionAsPublished.
     if (hadSchedule) {
-      const refreshed = await this.disarmScheduledPublish(id);
+      const refreshed = await this.disarmScheduledPublish(id, {
+        rowResolvedByCaller: true,
+      });
       if (refreshed) return refreshed;
     }
     return merged;
@@ -1718,7 +1742,9 @@ export class RevisionModel extends BaseClass {
     // Fully scrub the schedule fields on discard (this.update can't $unset),
     // matching the feature flow.
     if (hadSchedule) {
-      const refreshed = await this.disarmScheduledPublish(id);
+      const refreshed = await this.disarmScheduledPublish(id, {
+        rowResolvedByCaller: true,
+      });
       if (refreshed) return refreshed;
     }
     return closed;
@@ -2163,12 +2189,12 @@ export class RevisionModel extends BaseClass {
   async getOpenRevisionTargetIds(
     entityType: RevisionTargetType,
   ): Promise<string[]> {
-    // A bare `distinct` over target IDs would hand back the keys of entities
-    // the caller cannot read, so the beacon runs the same `canRead` the rest of
-    // the model does. It stays lightweight by projecting only the snapshot
-    // fields that check consults — every adapter decides on project alone, and
-    // pulling whole snapshots here would drag in saved groups' full ID lists.
-    // Widen the projection if an adapter ever reads more than project.
+    // A bare `distinct` over target IDs would hand back the keys of entities the
+    // caller cannot read. Readability is decided on the LIVE entity, like every
+    // other listing — the snapshot records where the entity was when the draft
+    // opened, so a snapshot-basis beacon lit up for the project that no longer
+    // owns it and stayed dark for the one that does. Only target ids are projected
+    // here; the live scopes come from one batched lookup per entity type.
     const docs = await this._dangerousGetCollection()
       .find(
         {
@@ -2176,24 +2202,19 @@ export class RevisionModel extends BaseClass {
           "target.type": entityType,
           status: { $nin: ["merged", "discarded"] },
         },
-        {
-          projection: {
-            "target.type": 1,
-            "target.id": 1,
-            "target.snapshot.project": 1,
-            "target.snapshot.projects": 1,
-          },
-        },
+        { projection: { "target.type": 1, "target.id": 1 } },
       )
       .toArray();
 
-    const readable = new Set<string>();
+    const ids = new Set<string>();
     for (const doc of docs) {
-      if (doc?.target?.id && this.canRead(doc as unknown as Revision)) {
-        readable.add(doc.target.id);
-      }
+      if (doc?.target?.id) ids.add(doc.target.id as string);
     }
-    return Array.from(readable);
+    if (!ids.size) return [];
+    const readable = await this.readableTargetIds(
+      [...ids].map((id) => ({ type: entityType, id })),
+    );
+    return [...ids].filter((id) => readable.has(`${entityType}:${id}`));
   }
 
   // Create request (from saved-group controller)

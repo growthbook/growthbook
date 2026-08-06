@@ -7,6 +7,8 @@ import {
   canPublishRevisionEntity,
   canReviewRevisionEntity,
   holdsRevisionDestination,
+  revisionPublishFootprint,
+  serveFootprint,
 } from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
@@ -18,6 +20,7 @@ import {
   getConstantRevisionChange,
 } from "shared/enterprise";
 import {
+  proposedArchivedValue,
   constantRequiresReview,
   constantPublishEnvironments,
   getReviewSetting,
@@ -224,13 +227,24 @@ export default function ConstantDetailPage(): React.ReactElement {
   const publishEnvironments = useMemo(() => {
     const pending = selectedRevision ?? displayRevision;
     if (!pending) return constantPublishEnvironments();
-    return constantPublishEnvironments(
+    const scoped = constantPublishEnvironments(
       getConstantRevisionChange(
         pending.target.snapshot as ConstantInterface,
         pending.target.proposedChanges,
       ).changedEnvironments,
     );
-  }, [selectedRevision, displayRevision]);
+    // Widened when the revision flips `archived` EITHER way, matching the
+    // adapter: both directions reach everywhere the constant serves, and the
+    // change's own environments are empty for an archive-only revision.
+    return revisionPublishFootprint({
+      proposedChanges: {
+        archived: proposedArchivedValue(pending.target.proposedChanges),
+      },
+      currentArchived: constant?.archived,
+      scoped,
+      serving: serveFootprint(environments, constant ?? {}),
+    });
+  }, [selectedRevision, displayRevision, constant, environments]);
 
   // Count of active drafts awaiting/in review — drives the count bubble on the
   // "Review & Publish" tab, matching saved groups and the feature header.

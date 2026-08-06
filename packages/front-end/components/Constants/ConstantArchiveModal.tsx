@@ -1,4 +1,4 @@
-import { canLandArchiveToggle } from "shared/permissions";
+import { canLandArchiveToggle, serveFootprint } from "shared/permissions";
 import { ConstantWithoutValue } from "shared/types/constant";
 import { Revision } from "shared/enterprise";
 import ArchiveModal from "@/components/Revision/ArchiveModal";
@@ -34,7 +34,7 @@ export default function ConstantArchiveModal({
     canPublish,
   } = revisionCtx;
   const permissionsUtil = usePermissionsUtil();
-  const allEnvironmentIds = useEnvironments().map((e) => e.id);
+  const environments = useEnvironments();
 
   const isArchived = !!constant.archived;
 
@@ -54,20 +54,19 @@ export default function ConstantArchiveModal({
       openRevisions={openRevisions}
       approvalRequired={approvalRequired}
       canBypassApproval={canBypassApproval}
-      // Archiving is delete-class over every environment the constant serves —
-      // the base value feeds all of them, which is the footprint the publish
-      // endpoint demands. `NO_ENVIRONMENT_BINDING` here SKIPPED the environment
-      // check, offering Archive to a dev-limited deleter the server refuses.
-      // Unarchiving is an ordinary publish, already scoped by the context.
+      // BOTH directions through the shared rule, over the environments the
+      // constant serves. The server treats either flip as reaching all of them
+      // (`flipsArchivedState`), so routing only the archive direction here left
+      // Unarchive offered on a footprint the endpoint then refused — and an empty
+      // footprint SKIPS the environment check rather than narrowing it.
       canLand={
-        isArchived
-          ? canPublish
-          : canLandArchiveToggle(
-              permissionsUtil,
-              "constant",
-              constant,
-              allEnvironmentIds,
-            )
+        canPublish &&
+        canLandArchiveToggle(
+          permissionsUtil,
+          "constant",
+          constant,
+          serveFootprint(environments, constant),
+        )
       }
       referenceCount={totalReferences}
       referencesLoading={loading}

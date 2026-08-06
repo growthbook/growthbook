@@ -1,5 +1,5 @@
 import { ConfigInterface } from "shared/types/config";
-import { bypassApprovalPermission, serveFootprint } from "shared/permissions";
+import { bypassApprovalPermission } from "shared/permissions";
 import {
   Revision,
   getConstantRevisionChange,
@@ -18,7 +18,6 @@ import {
   configUpdatableFieldsSchema,
 } from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
-import { getEnvironments } from "back-end/src/services/organizations";
 import {
   ApplyChangesResult,
   EntityRevisionAdapter,
@@ -69,7 +68,10 @@ import {
   schemaFailureGateOverride,
 } from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
-import { configPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
+import {
+  archiveServeFootprint,
+  configPublishEnvironments,
+} from "back-end/src/revisions/revisionPublishEnvironments";
 import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { normalizeConfigChangesAgainstAncestors } from "./configSchemaNormalize";
@@ -181,7 +183,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         current: snapshot.archived,
       })
     ) {
-      return serveFootprint(getEnvironments(context.org), snapshot);
+      return archiveServeFootprint(context, snapshot, scoped);
     }
     return scoped;
   },
@@ -380,9 +382,23 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     const writeEntity = options?.guarded
       ? context.models.configs.updateIfUnchanged.bind(context.models.configs)
       : context.models.configs.update.bind(context.models.configs);
+    // Reported from INSIDE the write, before audit logging and the
+    // afterUpdate hooks: those run after the document has landed, so a
+    // throw there is a persisted change. Reporting after this call
+    // returned could not tell that from "never wrote", and compensation
+    // read the second as the first — leaving the change live, unrecorded.
+    const report = (doc: Record<string, unknown>) =>
+      options?.onPersisted?.({
+        persistedKeys: Object.keys(normalizedChanges),
+        written: doc,
+      });
     const written = await writeEntity(
       entity,
       normalizedChanges as Parameters<typeof context.models.configs.update>[1],
+      undefined,
+      {
+        onWritten: (doc: unknown) => report(doc as Record<string, unknown>),
+      },
     );
 
     // Only the normalized set was persisted on THIS config — a field stripped
@@ -391,10 +407,6 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       persistedKeys: Object.keys(normalizedChanges),
       written: written as Record<string, unknown>,
     };
-    // Reported BEFORE the cascade: this is the case that motivates the callback —
-    // the root write has landed, and if the cascade below throws, the return
-    // value never reaches the caller that has to compensate for it.
-    options?.onPersisted?.(applied);
 
     // Cascade the change down to descendants when the schema or lineage changed.
     if (touchesLineageOrSchema) {

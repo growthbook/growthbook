@@ -593,16 +593,25 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       // failed cascade already reconciled are re-run by the config adapter's
       // afterRestorePreImage, invoked from the shared restore.
       changes: fieldsToUpdate as Record<string, unknown>,
-      write: async () => {
+      write: async (report) => {
         // Guarded on the SAME pre-image the landing was re-based onto: the
         // overrides commit advanced the config's token, so guarding on the
         // earlier read loses to our own write — overrides committed, value 409.
+        //
+        // Reports from INSIDE the write, before audit and the afterUpdate hooks.
+        // This is the case the report callback exists for: the root write lands,
+        // the cascade below throws, and without the report compensation reads
+        // "nothing persisted" and leaves the root change live and un-restored.
         const written = await runGuardedWrite("config", config.id, () =>
           req.context.models.configs.updateIfUnchanged(
             landingConfig,
             fieldsToUpdate as Parameters<
               typeof req.context.models.configs.update
             >[1],
+            undefined,
+            {
+              onWritten: (doc) => report(doc as Record<string, unknown>),
+            },
           ),
         );
         // A schema/parent change can introduce a field a descendant already

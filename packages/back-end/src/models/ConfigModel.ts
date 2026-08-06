@@ -32,6 +32,7 @@ import {
 import { assertConfigArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { configToResolvable } from "back-end/src/services/resolvableValues";
 import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
+import { archiveServeFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
 import {
   logConfigCreatedEvent,
@@ -93,7 +94,17 @@ export class ConfigModel extends BaseClass {
       model: "config",
       existing,
       newDoc,
-      environments: configPublishEnvironments(newDoc),
+      // An archived flip reaches everywhere the Config serves, and a BASE Config's
+      // scoped list is empty — which SKIPS the environment check instead of
+      // narrowing it. Same helper the adapter and controller use.
+      environments:
+        !!existing.archived !== !!newDoc.archived
+          ? archiveServeFootprint(
+              this.context,
+              newDoc,
+              configPublishEnvironments(newDoc),
+            )
+          : configPublishEnvironments(newDoc),
     });
   }
 

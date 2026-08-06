@@ -80,7 +80,12 @@ describe("getMergeResultPublishEnvs", () => {
       ["defaultValue", { defaultValue: "b" }],
       ["prerequisites", { prerequisites: [] }],
       ["archived", { archived: true }],
-      ["metadata", { metadata: { description: "x" } }],
+      // A metadata key that DOES reach the payload. `description` does not, and
+      // pinning it here asserted the over-demand: editing a dev rule plus the
+      // description refused a dev-limited publisher, while dropping the
+      // description from the same request succeeded. The publish gate skips the
+      // check entirely for inert metadata; both now read one shared rule.
+      ["metadata", { metadata: { project: "prj_other" } }],
     ])("%s", async (_label, change) => {
       const envs = await getMergeResultPublishEnvs({
         context: ctxWith(),
@@ -90,6 +95,22 @@ describe("getMergeResultPublishEnvs", () => {
         environmentIds: ENVS,
       });
       expect(envs.sort()).toEqual([...ENVS].sort());
+    });
+
+    it("does NOT widen for metadata that never reaches an SDK", async () => {
+      const envs = await getMergeResultPublishEnvs({
+        context: ctxWith(),
+        feature: feat(),
+        filledLiveRules: [],
+        result: {
+          metadata: { description: "x" },
+          environmentsEnabled: { dev: true },
+        } as unknown as MergeResultChanges,
+        environmentIds: ENVS,
+      });
+      // Only the environment the change actually reaches. Widening to everything
+      // served refused a dev-limited publisher for adding a description.
+      expect(envs).toEqual(["dev"]);
     });
 
     it("excludes envs disabled on the feature", async () => {

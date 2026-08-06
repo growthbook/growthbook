@@ -338,6 +338,39 @@ describe("landDirectChange", () => {
     expect(h.dangerousDeleteByIdBypassPermission).not.toHaveBeenCalled();
   });
 
+  // The gap findings 5 and 6 turned on. A write that PERSISTED but never reported
+  // is indistinguishable from one that never wrote if you only look at the
+  // baseline — and treating the first as the second leaves the change live with no
+  // record. The report now fires from inside the document write, before audit and
+  // the afterUpdate hooks, so this shape means the write truly did not land.
+  it("keeps its history when a write with changes reports nothing", async () => {
+    const h = makeContext();
+
+    await expect(
+      landDirectChange({
+        context: h.context,
+        entityType: "config",
+        entity,
+        patchOps: [],
+        bypass: true,
+        changes: { value: "after" },
+        // Never calls `report` — the un-instrumented shape.
+        write: async () => {
+          throw new Error("cascade failed");
+        },
+      }),
+    ).rejects.toThrow("cascade failed");
+
+    // Nothing reported, so there is no baseline to judge ownership against and no
+    // restore is attempted. The history is KEPT — with the report wired at the
+    // write itself this shape means the write never landed, but an
+    // un-instrumented caller looks identical, and a live change with no record is
+    // the one outcome nothing can repair. `landDirectChange` logs the ambiguity
+    // rather than deciding silently.
+    expect(tryRestoreEntityPreImage).not.toHaveBeenCalled();
+    expect(h.dangerousDeleteByIdBypassPermission).not.toHaveBeenCalled();
+  });
+
   // A rejected CAS means the guarded write matched NOTHING: compensating would
   // compare live against values this landing never wrote, mistake a concurrent
   // winner's identical values for its own, and undo the winner. History is still

@@ -463,6 +463,9 @@ describe("savedGroupAdapter", () => {
         baseGroup,
         expect.objectContaining({ groupName: "renamed" }),
         undefined,
+        // The write reports what it persisted from INSIDE itself, so a throw in a
+        // post-write hook is still seen as a persisted change.
+        expect.objectContaining({ onWritten: expect.any(Function) }),
       );
       const [, changes] = update.mock.calls[0];
       expect(changes).not.toHaveProperty("description");

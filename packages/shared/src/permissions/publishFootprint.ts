@@ -171,7 +171,7 @@ export function featurePublishFootprint({
     changes.defaultValue !== undefined ||
     !!changes.prerequisites ||
     changes.archived !== undefined ||
-    !!changes.metadata;
+    metadataTouchesPayload(changes.metadata);
   if (touchesGlobalField) {
     return Array.from(new Set([...serving, ...envScoped]));
   }
@@ -211,4 +211,67 @@ export function revertFootprint({
     if (environmentIds.includes(env)) envs.add(env);
   }
   return Array.from(envs);
+}
+
+/**
+ * A revision's publish footprint, widened when it flips `archived` in EITHER
+ * direction — taking an entity out of service and returning it both reach
+ * everywhere it serves.
+ *
+ * The rule the adapters apply server-side, exposed so the controls apply the same
+ * one. Without it, a page derived the footprint from the change's own environments,
+ * which is empty for an archive-only revision and empty for a base entity — and an
+ * empty footprint SKIPS the environment check rather than narrowing it.
+ */
+export function revisionPublishFootprint({
+  proposedChanges,
+  currentArchived,
+  scoped,
+  serving,
+}: {
+  /** `archived` the revision would land, or undefined when it doesn't touch it. */
+  proposedChanges: { archived?: boolean };
+  currentArchived: boolean | undefined;
+  /** The change's own environment binding, when it has one. */
+  scoped: string[];
+  /** Everywhere the entity serves — the fallback for an unbound change. */
+  serving: string[];
+}): string[] {
+  const flips =
+    proposedChanges.archived !== undefined &&
+    proposedChanges.archived !== !!currentArchived;
+  if (flips) return scoped.length ? scoped : serving;
+  return scoped;
+}
+
+/**
+ * Metadata fields that never reach an SDK payload — the pre-split `manageFeatures`
+ * semantic, and the same set the publish GATE uses to decide a change needs no
+ * publish authority at all.
+ *
+ * Named keys rather than a complement, so a new payload-affecting field fails safe
+ * into "touches payload".
+ */
+const PAYLOAD_INERT_METADATA = new Set([
+  "description",
+  "owner",
+  "tags",
+  "neverStale",
+  "customFields",
+]);
+
+/**
+ * Whether a metadata change reaches the SDK payload.
+ *
+ * Shared with the gate for one reason: treating ANY metadata as global widened the
+ * footprint to every serving environment, so editing a dev rule AND the
+ * description refused a dev-limited publisher — while dropping the description
+ * from the same request succeeded. The gate meanwhile skipped the publish check
+ * entirely for that field. The two answers have to come from one place.
+ */
+export function metadataTouchesPayload(
+  metadata: Record<string, unknown> | undefined,
+): boolean {
+  if (!metadata) return false;
+  return Object.keys(metadata).some((key) => !PAYLOAD_INERT_METADATA.has(key));
 }

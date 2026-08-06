@@ -191,18 +191,30 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
           context.models.savedGroups,
         )
       : context.models.savedGroups.update.bind(context.models.savedGroups);
+    // Reported from INSIDE the write, before audit logging and the
+    // afterUpdate hooks: those run after the document has landed, so a
+    // throw there is a persisted change. Reporting after this call
+    // returned could not tell that from "never wrote", and compensation
+    // read the second as the first — leaving the change live, unrecorded.
+    const report = (doc: Record<string, unknown>) =>
+      options?.onPersisted?.({
+        persistedKeys: Object.keys(filteredChanges),
+        written: doc,
+      });
     const written = await writeEntity(
       entity,
       filteredChanges as Parameters<
         typeof context.models.savedGroups.update
       >[1],
       options?.isRevert ? { skipAttributeValidation: true } : undefined,
+      {
+        onWritten: (doc: unknown) => report(doc as Record<string, unknown>),
+      },
     );
     const applied = {
       persistedKeys: Object.keys(filteredChanges),
       written: written as Record<string, unknown>,
     };
-    options?.onPersisted?.(applied);
     return applied;
   },
 

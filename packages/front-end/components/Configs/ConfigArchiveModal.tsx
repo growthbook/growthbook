@@ -1,11 +1,13 @@
 import { ConfigWithoutValue } from "shared/types/config";
 import { Revision } from "shared/enterprise";
 import { configPublishEnvironments } from "shared/util";
+import { canLandArchiveToggle, serveFootprint } from "shared/permissions";
 import ArchiveModal from "@/components/Revision/ArchiveModal";
 import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
 import { useConfigFamilyReferences } from "@/hooks/useConstantReferences";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useEnvironments } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Link from "@/ui/Link";
 
@@ -36,6 +38,7 @@ export default function ConfigArchiveModal({
     canPublish,
   } = revisionCtx;
   const permissionsUtil = usePermissionsUtil();
+  const environments = useEnvironments();
 
   const isArchived = !!config.archived;
   const { references, loading, error } = useConfigFamilyReferences(
@@ -61,14 +64,20 @@ export default function ConfigArchiveModal({
       openRevisions={openRevisions}
       approvalRequired={approvalRequired}
       canBypassApproval={canBypassApproval}
-      // Archiving is delete-class; unarchiving is an ordinary publish.
+      // BOTH directions through the shared rule. A base Config names no scoped
+      // environments, and an empty footprint SKIPS the environment check — so it
+      // falls back to everywhere the Config serves, exactly as the server's
+      // archive arm does.
       canLand={
-        isArchived
-          ? canPublish
-          : permissionsUtil.canDeleteConfig(
-              config,
-              configPublishEnvironments(config),
-            )
+        canPublish &&
+        canLandArchiveToggle(
+          permissionsUtil,
+          "config",
+          config,
+          configPublishEnvironments(config).length
+            ? configPublishEnvironments(config)
+            : serveFootprint(environments, config),
+        )
       }
       referenceCount={features.length}
       referencesLoading={loading}

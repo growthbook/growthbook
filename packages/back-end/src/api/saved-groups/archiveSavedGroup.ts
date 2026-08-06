@@ -145,9 +145,16 @@ async function setArchivedState(
     patchOps,
     bypass: approvalRequired,
     changes: { archived },
-    write: () =>
+    // Reports what it persisted from inside the write, so compensation can
+    // tell "never wrote" from "wrote, then a post-write hook threw".
+    write: (report) =>
       runGuardedWrite("saved-group", savedGroup.id, () =>
-        context.models.savedGroups.updateIfUnchanged(savedGroup, { archived }),
+        context.models.savedGroups.updateIfUnchanged(
+          savedGroup,
+          { archived },
+          undefined,
+          { onWritten: (doc) => report(doc as Record<string, unknown>) },
+        ),
       ),
   });
   await dispatchSavedGroupRevisionEvent(context, merged, {

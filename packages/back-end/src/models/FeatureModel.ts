@@ -1174,12 +1174,22 @@ export async function updateFeature(
     // landing that removes the holdout must not split into two writes — the gap
     // between them is a window where a rival publish can land and be overwritten.
     unsetHoldout?: boolean;
+    // The stamp this write PUTS on the document, reported as it is computed.
+    //
+    // Compensation uses it as the ownership token, and the returned doc is a
+    // set-then-fetch — so a rival landing between the write and the re-read makes
+    // the returned `dateUpdated` THEIRS. Reading ownership from that says "still
+    // ours" at the exact moment it isn't, and the unguarded satellite rewinds then
+    // reverse the rival's holdout, experiment and bandit linkage.
+    onStamped?: (stamp: Date) => void;
   },
 ): Promise<FeatureInterface> {
+  const ourStamp = advancedGuardStamp(options?.ifUnchangedSince);
+  options?.onStamped?.(ourStamp);
   const allUpdates = {
     ...updates,
     // Strictly after the guarded token, even inside the same millisecond.
-    dateUpdated: advancedGuardStamp(options?.ifUnchangedSince),
+    dateUpdated: ourStamp,
   };
   // Used only for hooks and linkedExperiment derivation; the post-write
   // value is re-read from Mongo below. The holdout $unset is modeled here so
@@ -1866,6 +1876,10 @@ export async function applyRevisionChanges(
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   result: MergeResultChanges,
+  // Reports the stamp the landing's guarded write PUT on the document, so the
+  // caller's compensation owns the write rather than whatever a set-then-fetch
+  // happened to read back.
+  onStamped?: (stamp: Date) => void,
 ) {
   const { changes, hasChanges, removeHoldout } = computeRevisionMergeChanges(
     context,
@@ -1901,7 +1915,7 @@ export async function applyRevisionChanges(
   // pre-image `feature` — the same rule as the generic entities' guarded
   // landings: two publishes of the same feature computed from the same read
   // must not both apply, whichever the caller (publish, toggle, bulk).
-  const guard = { ifUnchangedSince: feature.dateUpdated };
+  const guard = { ifUnchangedSince: feature.dateUpdated, onStamped };
 
   if (!hasChanges) {
     return await updateFeature(context, feature, changes, guard);
@@ -3601,9 +3615,14 @@ async function publishRevisionInner({
     );
 
     updatedFeature = await runGuardedWrite("feature", feature.id, () =>
-      applyRevisionChanges(context, feature, revision, result),
+      applyRevisionChanges(context, feature, revision, result, (stamp) => {
+        // The stamp OUR write put on the doc. `updatedFeature.dateUpdated` comes
+        // from a set-then-fetch, so a rival landing in that gap would hand us
+        // THEIR stamp and compensation would read "still ours" at the one moment
+        // it isn't — then reverse their linkage.
+        ourWriteStamp = stamp;
+      }),
     );
-    ourWriteStamp = updatedFeature.dateUpdated;
 
     rewinds.push({
       what: "feature document",

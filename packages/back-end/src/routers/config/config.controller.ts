@@ -45,7 +45,10 @@ import {
 } from "back-end/src/revisions/util";
 import { getAdapter } from "back-end/src/revisions";
 import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
-import { configPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
+import {
+  archiveServeFootprint,
+  configPublishEnvironments,
+} from "back-end/src/revisions/revisionPublishEnvironments";
 import {
   ConstantReferences,
   ConfigFamilyFeatureRef,
@@ -684,7 +687,14 @@ export const putConfig = async (
       model: "config",
       entity: existing,
       archived: !!archived,
-      environments: configPublishEnvironments(context, existing),
+      // Serve footprint — the SAME helper the adapter's archive arm uses. The
+      // scoped list is empty for a base Config, and an empty footprint skips the
+      // environment check rather than narrowing it.
+      environments: archiveServeFootprint(
+        context,
+        existing,
+        configPublishEnvironments(context, existing),
+      ),
     });
 
   // If updating a specific revision, compare against its current (patched) state
@@ -810,7 +820,12 @@ export const putConfig = async (
         model: "config",
         entity: existing,
         archived: !!archived,
-        environments: configPublishEnvironments(context, existing),
+        // Serve footprint — see the adapter's archive arm.
+        environments: archiveServeFootprint(
+          context,
+          existing,
+          configPublishEnvironments(context, existing),
+        ),
       })
     ) {
       context.permissions.throwPermissionError();

@@ -278,7 +278,16 @@ export const putRampSchedule = async (
       // refused edits nobody could yet act on; but disarming a schedule that IS
       // armed re-aims a live transition just as arming one does.
       if (touchesExecution && (fresh.nextProcessAt || updates.nextProcessAt)) {
+        // Both the PRE-edit and POST-edit aim. Checking `fresh` alone authorized
+        // the schedule as it stands, so a dateless schedule with dev-only steps
+        // (draft-class, gate skipped) could be armed in ONE put that also swapped
+        // in production steps — the edit was judged against the aim it replaced.
+        // The incoming steps are what will fire, so they answer too.
         await assertCanControlRampSchedule(context, fresh);
+        await assertCanControlRampSchedule(context, {
+          ...fresh,
+          ...updates,
+        } as RampScheduleInterface);
       }
 
       const editedFields = Object.keys(updates).filter(

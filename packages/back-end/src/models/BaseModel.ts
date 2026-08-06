@@ -694,13 +694,20 @@ export abstract class BaseModel<
     existing: z.infer<T>,
     updates: PKeyUpdateProps<T, PKey, PK>,
     writeOptions?: WriteOptions,
+    options?: {
+      /** @see _updateOne's `onWritten` — fires before audit and afterUpdate. */
+      onWritten?: (newDoc: z.infer<T>) => void;
+    },
   ): Promise<z.infer<T>> {
     if (!this.hasPremiumFeature()) {
       throw new Error(
         "Your organization does not have access to this feature.",
       );
     }
-    return this._updateOne(existing, updates, { writeOptions });
+    return this._updateOne(existing, updates, {
+      writeOptions,
+      onWritten: options?.onWritten,
+    });
   }
   /**
    * `update`, conditioned on `existing` still being the current stored doc.
@@ -731,6 +738,8 @@ export abstract class BaseModel<
       // scoped-overrides commit, which takes publish authority rather than
       // manage. Same contract as updateWithCas's flag.
       dangerouslyBypassCanUpdate?: boolean;
+      /** @see _updateOne's `onWritten` — fires before audit and afterUpdate. */
+      onWritten?: (newDoc: z.infer<T>) => void;
     },
   ): Promise<z.infer<T>> {
     if (!this.hasPremiumFeature()) {
@@ -743,6 +752,7 @@ export abstract class BaseModel<
       writeOptions,
       guard: { dateUpdated: stamp === undefined ? { $exists: false } : stamp },
       forceCanUpdate: options?.dangerouslyBypassCanUpdate,
+      onWritten: options?.onWritten,
     });
   }
   public async dangerousUpdateBypassPermission(
@@ -1186,6 +1196,12 @@ export abstract class BaseModel<
       // CAS guard: write only applies if the doc still matches these field
       // values, else throws CasConflictError. Set via `updateWithCas`.
       guard?: Record<string, unknown>;
+      // Called the instant the document write lands, BEFORE audit logging and the
+      // afterUpdate hooks. Compensation needs to know a write persisted even when
+      // a later hook throws — reporting after `_updateOne` RETURNS cannot tell
+      // "never wrote" from "wrote, then a hook failed", and treating the second as
+      // the first leaves a live change with no record of it.
+      onWritten?: (newDoc: z.infer<T>) => void;
     },
   ) {
     updates = this.updateValidator.parse(updates);
@@ -1308,6 +1324,8 @@ export abstract class BaseModel<
     if (options?.guard && writeResult.matchedCount === 0) {
       throw new CasConflictError();
     }
+
+    options?.onWritten?.(newDoc);
 
     // Skip audit logging if only operational fields are being updated
     const shouldSkipAuditLog =

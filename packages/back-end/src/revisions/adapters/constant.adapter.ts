@@ -2,7 +2,6 @@ import { ConstantInterface } from "shared/types/constant";
 import {
   NO_ENVIRONMENT_BINDING,
   bypassApprovalPermission,
-  serveFootprint,
 } from "shared/permissions";
 import {
   Revision,
@@ -21,7 +20,6 @@ import {
   constantUpdatableFieldsSchema,
 } from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
-import { getEnvironments } from "back-end/src/services/organizations";
 import {
   ApplyChangesResult,
   EntityRevisionAdapter,
@@ -59,7 +57,10 @@ import {
   schemaFailureGateOverride,
 } from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
-import { constantPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
+import {
+  archiveServeFootprint,
+  constantPublishEnvironments,
+} from "back-end/src/revisions/revisionPublishEnvironments";
 import { logger } from "back-end/src/util/logger";
 
 // Whitelist of fields the snapshot is allowed to carry, derived from the schema
@@ -212,7 +213,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
         current: snapshot.archived,
       })
     ) {
-      return serveFootprint(getEnvironments(context.org), snapshot);
+      return archiveServeFootprint(context, snapshot);
     }
     return constantPublishEnvironments(
       context,
@@ -294,15 +295,28 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
           context.models.constants,
         )
       : context.models.constants.update.bind(context.models.constants);
+    // Reported from INSIDE the write, before audit logging and the
+    // afterUpdate hooks: those run after the document has landed, so a
+    // throw there is a persisted change. Reporting after this call
+    // returned could not tell that from "never wrote", and compensation
+    // read the second as the first — leaving the change live, unrecorded.
+    const report = (doc: Record<string, unknown>) =>
+      options?.onPersisted?.({
+        persistedKeys: Object.keys(filteredChanges),
+        written: doc,
+      });
     const written = await writeEntity(
       entity,
       filteredChanges as Parameters<typeof context.models.constants.update>[1],
+      undefined,
+      {
+        onWritten: (doc: unknown) => report(doc as Record<string, unknown>),
+      },
     );
     const applied = {
       persistedKeys: Object.keys(filteredChanges),
       written: written as Record<string, unknown>,
     };
-    options?.onPersisted?.(applied);
     return applied;
   },
 

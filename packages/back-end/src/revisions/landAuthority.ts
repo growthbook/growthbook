@@ -68,6 +68,9 @@ export async function canRebaseWithNarrowAtom({
 // atom, so any other change riding along would be staged on authority that
 // doesn't cover it. The three archive endpoints take only `archived` from the
 // body; audited 2026-08-05.
+//
+// This decides whether the caller may stage an archive AT ALL. Which draft it may
+// be written into is a second question — see `canWriteArchiveIntoDraft`.
 export function canStageArchiveDraft({
   permissions,
   model,
@@ -87,5 +90,42 @@ export function canStageArchiveDraft({
   return (
     permissions.canRevisionAction(model, "draft", entity, []) ||
     permissions.canRevisionAction(model, "delete", entity, [])
+  );
+}
+
+/**
+ * Whether this caller may write an archive flip into an EXISTING draft.
+ *
+ * The delete atom stages a NEW archive draft, which is fair: it could land the
+ * same change in one step. It must not reach into a draft someone else authored —
+ * writing `archived` into another author's content draft makes that draft
+ * delete-class, and its author (a publisher without delete) can then no longer
+ * publish their own work. Authorship or draft authority, the same pairing every
+ * other narrow-atom reach uses.
+ */
+export function canWriteArchiveIntoDraft({
+  permissions,
+  model,
+  entity,
+  revision,
+  userId,
+}: {
+  permissions: {
+    canRevisionAction: (
+      model: RevisionModel,
+      action: RevisionAction,
+      obj: { project?: string; projects?: string[] },
+      environments?: string[],
+    ) => boolean;
+  };
+  model: RevisionModel;
+  entity: { project?: string; projects?: string[] };
+  revision: { authorId?: string; contributors?: string[] };
+  userId?: string;
+}): boolean {
+  if (permissions.canRevisionAction(model, "draft", entity, [])) return true;
+  if (!userId) return false;
+  return (
+    revision.authorId === userId || !!revision.contributors?.includes(userId)
   );
 }

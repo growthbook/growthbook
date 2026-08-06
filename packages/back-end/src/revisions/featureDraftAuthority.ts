@@ -6,7 +6,10 @@ import {
   isPureFeatureArchive,
   isPureFeatureRevert,
 } from "shared/util";
-import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import {
+  NO_ENVIRONMENT_BINDING,
+  metadataTouchesPayload,
+} from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/validators";
 import {
@@ -276,13 +279,7 @@ export async function canPublishFeatureRevisionChange(
 // new payload-affecting field fails safe into "touches payload". Ramp actions
 // ride the REVISION (not the merge result) and always accompany rule changes,
 // which are classified above.
-const PAYLOAD_INERT_METADATA = new Set([
-  "description",
-  "owner",
-  "tags",
-  "neverStale",
-  "customFields",
-]);
+
 export function mergeResultTouchesPayload(result: MergeResultChanges): boolean {
   if (
     result.defaultValue !== undefined ||
@@ -294,9 +291,8 @@ export function mergeResultTouchesPayload(result: MergeResultChanges): boolean {
   ) {
     return true;
   }
-  if (!result.metadata) return false;
-  return Object.keys(result.metadata).some(
-    (key) => !PAYLOAD_INERT_METADATA.has(key),
+  return metadataTouchesPayload(
+    result.metadata as Record<string, unknown> | undefined,
   );
 }
 

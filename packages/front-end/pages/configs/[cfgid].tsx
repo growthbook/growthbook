@@ -7,6 +7,8 @@ import {
   canPublishRevisionEntity,
   canReviewRevisionEntity,
   holdsRevisionDestination,
+  revisionPublishFootprint,
+  serveFootprint,
 } from "shared/permissions";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
@@ -19,6 +21,7 @@ import {
   getConstantRevisionChange,
 } from "shared/enterprise";
 import {
+  proposedArchivedValue,
   ConfigChainNode,
   SchemaProjection,
   computeConfigReconciliationPreview,
@@ -818,6 +821,29 @@ export default function ConfigDetailPage(): React.ReactElement {
     squashConstants,
   ]);
 
+  // Above the early returns: hooks must run in the same order every render, so
+  // this cannot sit below the loading guard. `config` is not proven present yet,
+  // hence the null-safe body.
+  //
+  // The footprint the publish endpoint will derive for the selected revision: the
+  // Config's scoped environments, widened to everywhere it serves when the
+  // revision flips `archived` either way. A base Config scopes to none, and an
+  // empty footprint SKIPS the environment check rather than narrowing it.
+  const revisionPublishEnvironments = useMemo(() => {
+    if (!config) return [];
+    const pending = selectedRevision ?? displayRevision;
+    const scoped = configPublishEnvironments(config);
+    if (!pending) return scoped;
+    return revisionPublishFootprint({
+      proposedChanges: {
+        archived: proposedArchivedValue(pending.target.proposedChanges),
+      },
+      currentArchived: config.archived,
+      scoped,
+      serving: serveFootprint(environments, config),
+    });
+  }, [selectedRevision, displayRevision, config, environments]);
+
   if (error) {
     return (
       <div className="container-fluid pagecontents">
@@ -931,7 +957,12 @@ export default function ConfigDetailPage(): React.ReactElement {
     permissionsUtil,
     "config",
     config,
-    configPublishEnvironments(config),
+    // Flipping `archived` reaches everywhere the Config serves; a base Config
+    // names no scoped environments, and an empty footprint SKIPS the environment
+    // check instead of narrowing it.
+    configPublishEnvironments(config).length
+      ? configPublishEnvironments(config)
+      : allEnvironmentIds,
   );
   const canArchiveNow =
     (canLandArchive || canEditNow) &&
@@ -2216,7 +2247,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   "config",
                   selectedRevision ?? displayRevision ?? null,
                   config,
-                  configPublishEnvironments(config),
+                  revisionPublishEnvironments,
                 )}
                 canBypassApproval={canBypassApproval}
                 publishBlockedReason={

@@ -1,4 +1,7 @@
-import { REVISION_PERMISSIONS } from "shared/permissions";
+import {
+  REVISION_PERMISSIONS,
+  featurePublishFootprint,
+} from "shared/permissions";
 import type { RevisionModel } from "shared/permissions";
 import { revisionTargetType } from "shared/enterprise";
 import type { RevisionTargetType } from "shared/enterprise";
@@ -101,6 +104,61 @@ describe("archive-class footprints are exhaustive across models and directions",
       );
     });
   });
+});
+
+/**
+ * Feature Flags are NOT in `revisionTargetType` — they predate the generic
+ * revision system and compute their footprint through `featurePublishFootprint`
+ * rather than an adapter. So the enumeration above skipped the one model with a
+ * bespoke path, which is exactly where a gap would hide.
+ */
+describe("feature archive-class footprints", () => {
+  const environmentIds = ["dev", "staging", "production"];
+
+  it.each([
+    ["archiving", true],
+    ["unarchiving", false],
+  ])("%s answers for the environments it serves", (_label, archived) => {
+    const footprint = featurePublishFootprint({
+      feature: {
+        environmentSettings: {
+          dev: { enabled: true },
+          production: { enabled: false },
+        },
+      },
+      liveRules: [],
+      changes: { archived },
+      environmentIds,
+      holdoutEnvs: [],
+    });
+    expect(footprint).not.toEqual([]);
+  });
+
+  // Deliberately NOT widened, and the one place the flag family legitimately
+  // differs from Constants and Configs.
+  //
+  // A Constant's base value and a base Config are served in every environment they
+  // apply to, so an archive flip there reaches all of them. A flag disabled in
+  // every environment is served in NONE — archiving it changes nothing live, so an
+  // unbound footprint is the honest answer rather than an oversight, and demanding
+  // authority everywhere would refuse a change with no live effect. The feature
+  // archive control measures the same serving set.
+  it.each([
+    ["archiving", true],
+    ["unarchiving", false],
+  ])(
+    "%s a flag enabled nowhere binds to no environment",
+    (_label, archived) => {
+      const footprint = featurePublishFootprint({
+        feature: { environmentSettings: {} },
+        liveRules: [],
+        changes: { archived },
+        environmentIds,
+        holdoutEnvs: [],
+      });
+      expect(footprint).toEqual([]);
+    },
+  );
 });
 
 /**

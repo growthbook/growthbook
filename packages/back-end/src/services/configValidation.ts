@@ -703,7 +703,13 @@ export async function assertConfigBackedFeatureValuesValid(
 ): Promise<void> {
   assertConfigBackedDefaultHasNoOverrides(feature, values.defaultValue);
 
-  if (context.canSkipSchemaValidationFor("config")) return;
+  // The FEATURE family, not the Config's. The rule being enforced comes from the
+  // backing Config's schema, but the write being gated is a feature value — and
+  // every caller here is a feature path. Asking the Config family let
+  // `bypassApprovalConfigs` alone ship feature values that violate the schema,
+  // while the caller holding feature bypass (which the sibling checks four lines
+  // up in postFeatureV2) could not skip it.
+  if (context.canSkipSchemaValidationFor("feature")) return;
 
   const errors = await collectConfigBackedSchemaInvariantErrors(
     context,
