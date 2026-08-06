@@ -13,6 +13,7 @@ import { OrganizationInterface } from "shared/types/organization";
 import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { ReqContext } from "back-end/types/request";
 import {
   GB_SDK_ID,
   IS_CLOUD,
@@ -318,6 +319,23 @@ export function trackEventForOrganization(
   } catch (e) {
     logger.warn({ err: e, eventName }, "Failed to log GrowthBook event");
   }
+}
+
+export function trackEventForContext(
+  context: ReqContext,
+  eventName: string,
+  properties: EventProperties = {},
+): void {
+  const gb = (context.req as AuthRequest | undefined)?.gb;
+  if (gb) {
+    try {
+      gb.logEvent(eventName, properties);
+    } catch (e) {
+      logger.warn({ err: e, eventName }, "Failed to log GrowthBook event");
+    }
+    return;
+  }
+  trackEventForOrganization(context.org, eventName, properties);
 }
 
 /**
