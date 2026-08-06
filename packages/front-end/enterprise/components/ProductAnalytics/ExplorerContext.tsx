@@ -22,6 +22,7 @@ import { QueryInterface } from "shared/types/query";
 import {
   buildComparisonDateRangeForMode,
   computeExplorationComparisonPayload,
+  getComparisonAlignmentStrategy,
   resolveLegacyExplorerComparisonMode,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
@@ -81,6 +82,9 @@ export interface ExplorerContextValue {
     ProductAnalyticsRunComparisonPayload,
     "bigNumberTrends" | "tableTrendsByRow" | "previousPeriod"
   > | null;
+  /** Comparison leg failed but the primary succeeded. Kept off `error`, which
+   * would hide the results the user did get. */
+  comparisonError: string | null;
   setCompareEnabled: (value: boolean) => void;
   setComparisonMode: (mode: ComparisonMode) => void;
 
@@ -208,6 +212,7 @@ export function ExplorerProvider({
   );
   const [comparisonComputed, setComparisonComputed] =
     useState<ExplorerContextValue["comparisonComputed"]>(null);
+  const [comparisonError, setComparisonError] = useState<string | null>(null);
 
   const hasEverFetchedRef = useRef(hasExistingResults);
   const skipNextAutoSubmitRef = useRef(false);
@@ -354,6 +359,7 @@ export function ExplorerProvider({
         setComparisonExploration(null);
         setComparisonQuery(null);
         setComparisonComputed(null);
+        setComparisonError(null);
       }
     },
     [setDraftExploreState],
@@ -532,6 +538,7 @@ export function ExplorerProvider({
         setComparisonExploration(resultComparison);
         setComparisonQuery(resultComparisonQuery);
         setComparisonComputed(resultComparisonComputed);
+        setComparisonError(comparison?.error ?? null);
         if (result && !resultError) {
           onRunComplete?.(
             result,
@@ -600,6 +607,7 @@ export function ExplorerProvider({
           comparisonIsRunning ? null : (comparison?.query ?? null),
         );
         setComparisonComputed(null);
+        setComparisonError(comparison?.error ?? null);
         setPolling(true);
 
         let latestPrimary = fetchResult;
@@ -679,6 +687,11 @@ export function ExplorerProvider({
                   configToSubmit,
                   previousForRequest,
                   (id) => getFactMetricById(id) ?? null,
+                  // Same strategy as the sync path; the default calendar-year
+                  // probe pairs weekday-shifted modes one bucket off.
+                  getComparisonAlignmentStrategy(
+                    modeForRequest ?? "previousPeriod",
+                  ),
                 )
               : null;
           finalize(
@@ -986,6 +999,7 @@ export function ExplorerProvider({
       setComparisonExploration(null);
       setComparisonQuery(null);
       setComparisonComputed(null);
+      setComparisonError(null);
       const datasourceId: string = newDatasourceId ?? datasources[0]?.id ?? "";
       setIsStale(false);
       if (datasourceId) {
@@ -1078,6 +1092,7 @@ export function ExplorerProvider({
       comparisonExploration,
       comparisonQuery,
       comparisonComputed,
+      comparisonError,
       setCompareEnabled,
       setComparisonMode,
     }),
@@ -1091,6 +1106,7 @@ export function ExplorerProvider({
       submittedComparisonMode,
       setComparisonMode,
       comparisonComputed,
+      comparisonError,
       comparisonExploration,
       comparisonQuery,
       data,

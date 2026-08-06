@@ -40,6 +40,7 @@ function pollDelayForExploration(
 export default function ProductAnalyticsExplorerBlock({
   block,
   dashboardGlobalControls,
+  dashboardComparison,
 }: BlockProps<
   | MetricExplorationBlockInterface
   | FactTableExplorationBlockInterface
@@ -59,10 +60,11 @@ export default function ProductAnalyticsExplorerBlock({
     refreshInterval: (latest) => pollDelayForExploration(latest?.exploration),
   });
 
-  // Comparison is resolved through the shared seam so a future dashboard-wide
-  // compare toggle drives this the same way. The previous-period exploration is
-  // a separate entity produced on refresh; fetch it when present.
-  const comparison = resolveBlockComparison(block);
+  // Pass the dashboard, or a dashboard-wide comparison renders as primary-only.
+  // The previous-period exploration is a separate entity produced on refresh.
+  const comparison = resolveBlockComparison(block, {
+    comparison: dashboardComparison,
+  });
   const compareEnabled = !!comparison?.enabled;
   const comparisonMode = comparison
     ? resolveComparisonMode(comparison)
@@ -184,6 +186,7 @@ export default function ProductAnalyticsExplorerBlock({
           exploration={data.exploration}
           comparisonExploration={comparisonExploration}
           compareEnabled={compareEnabled}
+          comparisonMode={compareEnabled ? comparisonMode : null}
           serverTableTrendsByRow={comparisonPayload?.tableTrendsByRow ?? null}
           error={data.exploration.error ?? error?.message ?? null}
           submittedExploreState={submittedConfig ?? data.exploration.config}

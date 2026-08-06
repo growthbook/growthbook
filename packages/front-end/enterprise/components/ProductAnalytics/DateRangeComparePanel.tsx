@@ -162,6 +162,12 @@ export default function DateRangeComparePanel({
     compareEnabled && overlappingModes.includes(mode);
   // Named by the Select's own error instead, so don't repeat it in the list.
   const unavailableModes = overlappingModes.filter((m) => m !== mode);
+  // Half-picked custom window: resolving it falls back to a date the user never
+  // chose, so Apply refuses it the way it refuses a partial primary.
+  const isPartialCustomComparison =
+    compareEnabled &&
+    mode === "custom" &&
+    (!resolvedPrevious.startDate || !resolvedPrevious.endDate);
 
   // Left-hand month; the range end lands in the right-hand month.
   const monthForBounds = (endDate: string) =>
@@ -239,263 +245,283 @@ export default function DateRangeComparePanel({
   };
 
   return (
-    <Flex direction="column" style={{ minWidth: 0 }}>
-      <Flex align="stretch" style={{ minWidth: 0 }}>
-        <Box
-          role="group"
-          aria-label="Date range presets"
-          style={{
-            width: 168,
-            flexShrink: 0,
-            borderRight: "1px solid var(--gray-a5)",
-            padding: "var(--space-2)",
-          }}
-        >
-          {extraPresets}
-          {dateRangePredefined.map((option) => {
-            const active = dateRange.predefined === option;
-            return (
-              <Box
-                key={option}
-                role="button"
-                // The selected preset is otherwise conveyed by background and
-                // weight alone, which assistive tech can't read (WCAG 4.1.2).
-                aria-pressed={active}
-                aria-disabled={disabled || undefined}
-                tabIndex={disabled ? -1 : 0}
-                onClick={() => !disabled && selectPreset(option)}
-                onKeyDown={(e) => {
-                  if (disabled) return;
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    selectPreset(option);
-                  }
-                }}
-                style={{
-                  padding: "6px 8px",
-                  borderRadius: "var(--radius-2)",
-                  cursor: disabled ? "default" : "pointer",
-                  background: active ? "var(--violet-a4)" : undefined,
-                  color: active ? "var(--violet-11)" : "var(--gray-11)",
-                  fontWeight: active ? 500 : 400,
-                  fontSize: "var(--font-size-2)",
-                }}
-              >
-                {DATE_RANGE_PREDEFINED_LABELS[option]}
-              </Box>
-            );
-          })}
-        </Box>
-
-        <Box style={{ flex: 1, minWidth: 0, padding: "var(--space-3)" }}>
-          {dateRange.predefined === "customLookback" ? (
-            <Flex align="start" gap="2" mb="3">
-              <Field
-                type="number"
-                min="1"
-                step="1"
-                containerClassName="mb-0"
-                style={{ width: 80, height: 32 }}
-                disabled={disabled}
-                error={isInvalidLookback ? "Must be 1 or more" : undefined}
-                value={dateRange.lookbackValue ?? ""}
-                onChange={(e) => {
-                  const parsed = parseInt(e.target.value, 10);
-                  setDateRange({
-                    ...dateRange,
-                    lookbackValue: Number.isNaN(parsed) ? null : parsed,
-                  });
-                }}
-              />
-              <Select
-                size="md"
-                style={{ width: 120 }}
-                disabled={disabled}
-                value={dateRange.lookbackUnit ?? "day"}
-                setValue={(unit) =>
-                  setDateRange({
-                    ...dateRange,
-                    lookbackUnit: unit as (typeof lookbackUnit)[number],
-                  })
-                }
-              >
-                {lookbackUnit.map((unit) => (
-                  <SelectItem key={unit} value={unit}>
-                    {LOOKBACK_UNIT_LABELS[unit]}
-                  </SelectItem>
-                ))}
-              </Select>
-            </Flex>
-          ) : null}
-
-          <DayPicker
-            mode="range"
-            numberOfMonths={2}
-            showOutsideDays
-            selected={{ from: calendarFrom, to: calendarTo }}
-            month={calendarMonth}
-            onMonthChange={setCalendarMonth}
-            disabled={disabled}
-            onSelect={(range: DateRange | undefined) => {
-              if (!range) return;
-              // Any manual pick is a custom range, so the rail follows the calendar.
-              setDateRange({
-                ...dateRange,
-                predefined: "customDateRange",
-                startDate: range.from ? toYyyyMmDd(range.from) : null,
-                endDate: range.to ? toYyyyMmDd(range.to) : null,
-              });
+    // The popover caps its height against the viewport; everything above the
+    // footer absorbs that instead of pushing Apply off-screen.
+    <Flex
+      direction="column"
+      style={{ minWidth: 0, minHeight: 0, flex: "1 1 auto" }}
+    >
+      <Box style={{ overflowY: "auto", minHeight: 0 }}>
+        <Flex align="stretch" style={{ minWidth: 0 }}>
+          <Box
+            role="group"
+            aria-label="Date range presets"
+            style={{
+              width: 168,
+              flexShrink: 0,
+              borderRight: "1px solid var(--gray-a5)",
+              padding: "var(--space-2)",
             }}
-          />
+          >
+            {extraPresets}
+            {dateRangePredefined.map((option) => {
+              const active = dateRange.predefined === option;
+              return (
+                <Box
+                  key={option}
+                  role="button"
+                  // The selected preset is otherwise conveyed by background and
+                  // weight alone, which assistive tech can't read (WCAG 4.1.2).
+                  aria-pressed={active}
+                  aria-disabled={disabled || undefined}
+                  tabIndex={disabled ? -1 : 0}
+                  onClick={() => !disabled && selectPreset(option)}
+                  onKeyDown={(e) => {
+                    if (disabled) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      selectPreset(option);
+                    }
+                  }}
+                  style={{
+                    padding: "6px 8px",
+                    borderRadius: "var(--radius-2)",
+                    cursor: disabled ? "default" : "pointer",
+                    background: active ? "var(--violet-a4)" : undefined,
+                    color: active ? "var(--violet-11)" : "var(--gray-11)",
+                    fontWeight: active ? 500 : 400,
+                    fontSize: "var(--font-size-2)",
+                  }}
+                >
+                  {DATE_RANGE_PREDEFINED_LABELS[option]}
+                </Box>
+              );
+            })}
+          </Box>
 
-          <Text size="sm" color="text-low">
-            {isPartialRange
-              ? "Pick an end date to finish the range"
-              : isInvalidLookback
-                ? "Enter a lookback of 1 or more to see a date range"
-                : describeRange(dateRange)}
-          </Text>
-        </Box>
-      </Flex>
+          <Box style={{ flex: 1, minWidth: 0, padding: "var(--space-3)" }}>
+            {dateRange.predefined === "customLookback" ? (
+              <Flex align="start" gap="2" mb="3">
+                <Field
+                  type="number"
+                  min="1"
+                  step="1"
+                  containerClassName="mb-0"
+                  style={{ width: 80, height: 32 }}
+                  disabled={disabled}
+                  error={isInvalidLookback ? "Must be 1 or more" : undefined}
+                  value={dateRange.lookbackValue ?? ""}
+                  onChange={(e) => {
+                    const parsed = parseInt(e.target.value, 10);
+                    setDateRange({
+                      ...dateRange,
+                      lookbackValue: Number.isNaN(parsed) ? null : parsed,
+                    });
+                  }}
+                />
+                <Select
+                  size="md"
+                  style={{ width: 120 }}
+                  disabled={disabled}
+                  value={dateRange.lookbackUnit ?? "day"}
+                  setValue={(unit) =>
+                    setDateRange({
+                      ...dateRange,
+                      lookbackUnit: unit as (typeof lookbackUnit)[number],
+                    })
+                  }
+                >
+                  {lookbackUnit.map((unit) => (
+                    <SelectItem key={unit} value={unit}>
+                      {LOOKBACK_UNIT_LABELS[unit]}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </Flex>
+            ) : null}
 
-      {showCompare && (
-        <>
-          <Separator size="4" />
-          <Box p="3">
-            <Switch
-              label="Compare"
-              value={compareEnabled}
+            <DayPicker
+              mode="range"
+              numberOfMonths={2}
+              // Off: side-by-side months render the same date twice, so a range
+              // boundary on a duplicate reads as two different days.
+              showOutsideDays={false}
+              selected={{ from: calendarFrom, to: calendarTo }}
+              month={calendarMonth}
+              onMonthChange={setCalendarMonth}
               disabled={disabled}
-              onChange={(checked) =>
-                setDraft((prev) => ({
-                  ...prev,
-                  comparison: checked
-                    ? { enabled: true, mode: "previousPeriod" }
-                    : null,
-                }))
-              }
+              onSelect={(range: DateRange | undefined) => {
+                if (!range) return;
+                // Any manual pick is a custom range, so the rail follows the calendar.
+                setDateRange({
+                  ...dateRange,
+                  predefined: "customDateRange",
+                  startDate: range.from ? toYyyyMmDd(range.from) : null,
+                  endDate: range.to ? toYyyyMmDd(range.to) : null,
+                });
+              }}
             />
 
-            {compareEnabled && !isPartialRange && (
-              <Flex direction="column" gap="2" mt="3" style={{ minWidth: 0 }}>
-                <LabeledRow label="Compared to">
-                  <Select
-                    size="md"
-                    style={{ width: "100%" }}
-                    disabled={disabled}
-                    error={
-                      selectedModeOverlaps
-                        ? `${COMPARISON_MODE_LABELS[mode]} would overlap this date range. Pick another comparison.`
-                        : undefined
-                    }
-                    value={mode}
-                    setValue={(next) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        comparison: {
-                          enabled: true,
-                          mode: next as ComparisonMode,
-                          ...(next === "custom"
-                            ? { previousTimeFrame: resolvedPrevious }
-                            : {}),
-                        },
-                      }))
-                    }
-                  >
-                    {comparisonModes.map((m) => (
-                      <SelectItem
-                        key={m}
-                        value={m}
-                        disabled={overlappingModes.includes(m)}
-                      >
-                        {COMPARISON_MODE_LABELS[m]}
-                      </SelectItem>
-                    ))}
-                  </Select>
-                </LabeledRow>
-
-                {unavailableModes.length > 0 && (
-                  <LabeledRow label="">
-                    <Text size="sm" color="text-low">
-                      {`${unavailableModes
-                        .map((m) => COMPARISON_MODE_LABELS[m])
-                        .join(" and ")} ${
-                        unavailableModes.length > 1 ? "are" : "is"
-                      } unavailable because the window would overlap this date range`}
-                    </Text>
-                  </LabeledRow>
-                )}
-
-                <LabeledRow label="">
-                  {mode === "custom" ? (
-                    <DatePicker
-                      containerClassName="mb-0"
-                      compact
-                      disabled={disabled}
-                      precision="date"
-                      date={
-                        resolvedPrevious.startDate
-                          ? getValidDateOffsetByUTC(resolvedPrevious.startDate)
-                          : undefined
-                      }
-                      date2={
-                        resolvedPrevious.endDate
-                          ? getValidDateOffsetByUTC(resolvedPrevious.endDate)
-                          : undefined
-                      }
-                      setDate={(d) => setCustomPrevious({ startDate: d })}
-                      setDate2={(d) => setCustomPrevious({ endDate: d })}
-                    />
-                  ) : (
-                    <Text size="sm" color="text-low">
-                      {describeRange(resolvedPrevious)}
-                    </Text>
-                  )}
-                </LabeledRow>
-              </Flex>
-            )}
+            <Text size="sm" color="text-low">
+              {isPartialRange
+                ? "Pick an end date to finish the range"
+                : isInvalidLookback
+                  ? "Enter a lookback of 1 or more to see a date range"
+                  : describeRange(dateRange)}
+            </Text>
           </Box>
-        </>
-      )}
+        </Flex>
 
-      {showGranularity && (
-        <>
-          <Separator size="4" />
-          <Box p="3">
-            <Flex align="center" gap="3" justify="between">
-              <Text size="md" weight="medium">
-                Granularity
-              </Text>
-              <ControlledGranularitySelector
-                // Reads the staged range, not the applied one, so the option
-                // list matches the window the user is about to apply.
-                dateRange={dateRange}
-                granularity={draft.granularity ?? "auto"}
-                onChange={(granularity) =>
-                  setDraft((prev) => ({ ...prev, granularity }))
+        {showCompare && (
+          <>
+            <Separator size="4" />
+            <Box p="3">
+              <Switch
+                label="Compare"
+                value={compareEnabled}
+                disabled={disabled}
+                onChange={(checked) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    comparison: checked
+                      ? { enabled: true, mode: "previousPeriod" }
+                      : null,
+                  }))
                 }
-                disabled={disabled || granularityDisabled}
-                width={170}
               />
-            </Flex>
-            {granularityDisabled && granularityDisabledReason && (
-              <HelperText status="info" mt="2">
-                {granularityDisabledReason}
-              </HelperText>
-            )}
-          </Box>
-        </>
-      )}
 
-      {extraSections && (
-        <>
-          <Separator size="4" />
-          <Box p="3">{extraSections}</Box>
-        </>
-      )}
+              {compareEnabled && !isPartialRange && (
+                <Flex direction="column" gap="2" mt="3" style={{ minWidth: 0 }}>
+                  <LabeledRow label="Compared to">
+                    <Select
+                      size="md"
+                      style={{ width: "100%" }}
+                      disabled={disabled}
+                      error={
+                        selectedModeOverlaps
+                          ? `${COMPARISON_MODE_LABELS[mode]} would overlap this date range. Pick another comparison.`
+                          : undefined
+                      }
+                      value={mode}
+                      setValue={(next) =>
+                        setDraft((prev) => ({
+                          ...prev,
+                          comparison: {
+                            enabled: true,
+                            mode: next as ComparisonMode,
+                            ...(next === "custom"
+                              ? { previousTimeFrame: resolvedPrevious }
+                              : {}),
+                          },
+                        }))
+                      }
+                    >
+                      {comparisonModes.map((m) => (
+                        <SelectItem
+                          key={m}
+                          value={m}
+                          disabled={overlappingModes.includes(m)}
+                        >
+                          {COMPARISON_MODE_LABELS[m]}
+                        </SelectItem>
+                      ))}
+                    </Select>
+                  </LabeledRow>
+
+                  {unavailableModes.length > 0 && (
+                    <LabeledRow label="">
+                      <Text size="sm" color="text-low">
+                        {`${unavailableModes
+                          .map((m) => COMPARISON_MODE_LABELS[m])
+                          .join(" and ")} ${
+                          unavailableModes.length > 1 ? "are" : "is"
+                        } unavailable because the window would overlap this date range`}
+                      </Text>
+                    </LabeledRow>
+                  )}
+
+                  <LabeledRow label="">
+                    {mode === "custom" ? (
+                      <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
+                        <DatePicker
+                          containerClassName="mb-0"
+                          compact
+                          disabled={disabled}
+                          precision="date"
+                          date={
+                            resolvedPrevious.startDate
+                              ? getValidDateOffsetByUTC(
+                                  resolvedPrevious.startDate,
+                                )
+                              : undefined
+                          }
+                          date2={
+                            resolvedPrevious.endDate
+                              ? getValidDateOffsetByUTC(
+                                  resolvedPrevious.endDate,
+                                )
+                              : undefined
+                          }
+                          setDate={(d) => setCustomPrevious({ startDate: d })}
+                          setDate2={(d) => setCustomPrevious({ endDate: d })}
+                        />
+                        {isPartialCustomComparison && (
+                          <HelperText status="error">
+                            Pick both ends of the comparison range
+                          </HelperText>
+                        )}
+                      </Flex>
+                    ) : (
+                      <Text size="sm" color="text-low">
+                        {describeRange(resolvedPrevious)}
+                      </Text>
+                    )}
+                  </LabeledRow>
+                </Flex>
+              )}
+            </Box>
+          </>
+        )}
+
+        {showGranularity && (
+          <>
+            <Separator size="4" />
+            <Box p="3">
+              <Flex align="center" gap="3" justify="between">
+                <Text size="md" weight="medium">
+                  Granularity
+                </Text>
+                <ControlledGranularitySelector
+                  // Reads the staged range, not the applied one, so the option
+                  // list matches the window the user is about to apply.
+                  dateRange={dateRange}
+                  granularity={draft.granularity ?? "auto"}
+                  onChange={(granularity) =>
+                    setDraft((prev) => ({ ...prev, granularity }))
+                  }
+                  disabled={disabled || granularityDisabled}
+                  width={170}
+                />
+              </Flex>
+              {granularityDisabled && granularityDisabledReason && (
+                <HelperText status="info" mt="2">
+                  {granularityDisabledReason}
+                </HelperText>
+              )}
+            </Box>
+          </>
+        )}
+
+        {extraSections && (
+          <>
+            <Separator size="4" />
+            <Box p="3">{extraSections}</Box>
+          </>
+        )}
+      </Box>
 
       <Separator size="4" />
-      <Flex justify="end" gap="2" p="3">
+      <Flex justify="end" gap="2" p="3" style={{ flexShrink: 0 }}>
         {onCancel && (
           <Button variant="outline" onClick={onCancel}>
             Cancel
@@ -506,7 +532,8 @@ export default function DateRangeComparePanel({
             disabled ||
             isPartialRange ||
             isInvalidLookback ||
-            selectedModeOverlaps
+            selectedModeOverlaps ||
+            isPartialCustomComparison
           }
           onClick={() => onApply(draft)}
         >

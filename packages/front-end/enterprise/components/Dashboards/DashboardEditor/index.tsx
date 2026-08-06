@@ -304,6 +304,7 @@ function DashboardEditor({
         isTabActive={isTabActive}
         block={block}
         dashboardGlobalControls={globalControls}
+        dashboardComparison={dashboardComparison}
         blockIndex={i}
         isEditing={isEditing}
         isFocused={isFocused}

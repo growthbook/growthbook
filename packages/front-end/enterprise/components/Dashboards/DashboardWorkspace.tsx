@@ -103,9 +103,11 @@ export default function DashboardWorkspace({
     if (dashboard) {
       setBlocks(dashboard.blocks);
       setGlobalControls(dashboard.globalControls);
+      setDashboardComparison(dashboard.comparison);
     } else {
       setBlocks([]);
       setGlobalControls(undefined);
+      setDashboardComparison(undefined);
     }
   }, [dashboard]);
   const { metricGroups, datasources } = useDefinitions();
@@ -498,12 +500,18 @@ export default function DashboardWorkspace({
                     await submit({
                       method: "PUT",
                       dashboardId: dashboard.id,
-                      data: pick(dashboardCopy, [
-                        "blocks",
-                        "title",
-                        "editLevel",
-                        "enableAutoUpdates",
-                      ]),
+                      data: {
+                        ...pick(dashboardCopy, [
+                          "blocks",
+                          "title",
+                          "editLevel",
+                          "enableAutoUpdates",
+                          "globalControls",
+                        ]),
+                        comparison: dashboardCopy.comparison ?? {
+                          enabled: false,
+                        },
+                      },
                     });
                     close();
                   }}

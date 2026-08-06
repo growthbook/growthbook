@@ -29,6 +29,7 @@ export default function ExplorerMainSection() {
     compareEnabled,
     comparisonExploration,
     comparisonComputed,
+    comparisonError,
     submittedPreviousTimeFrame,
     submittedComparisonMode,
   } = useExplorerContext();
@@ -56,6 +57,11 @@ export default function ExplorerMainSection() {
       style={{ flex: "1", minHeight: 0 }}
     >
       <Toolbar />
+      {compareEnabled && comparisonError && !loading && (
+        <Callout status="warning" size="sm">
+          {`The comparison period could not be loaded, so only the current period is shown: ${comparisonError}`}
+        </Callout>
+      )}
 
       <Flex
         direction="column"

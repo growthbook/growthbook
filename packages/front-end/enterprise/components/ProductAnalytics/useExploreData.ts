@@ -14,6 +14,8 @@ export type CacheOption = "preferred" | "required" | "never";
 export type ProductAnalyticsRunComparisonResponse =
   ProductAnalyticsRunComparisonPayload & {
     query: QueryInterface | null;
+    /** Set when the comparison leg failed but the primary one succeeded. */
+    error?: string | null;
   };
 
 export function useExploreData() {

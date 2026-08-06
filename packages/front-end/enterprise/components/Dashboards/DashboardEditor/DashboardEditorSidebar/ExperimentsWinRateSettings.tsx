@@ -26,8 +26,7 @@ export default function ExperimentsWinRateSettings({
         value={block}
         onChange={(patch) => setBlock({ ...block, ...patch })}
         availableProjects={projects}
-        comparison={block.comparison ?? null}
-        onComparisonChange={(comparison) => setBlock({ ...block, comparison })}
+        showCompare
       />
 
       <Switch

@@ -24,13 +24,10 @@ export default function ExperimentsStatusSettings({
       {/* Team Velocity does not support period comparison, so no Compare
           toggle is offered here. */}
       <CompletedExperimentsFilterFields
-        value={block}
+        value={{ ...block, dateGranularity: block.dateGranularity || "auto" }}
         onChange={(patch) => setBlock({ ...block, ...patch })}
         availableProjects={projects}
-        granularity={block.dateGranularity || "auto"}
-        onGranularityChange={(dateGranularity) =>
-          setBlock({ ...block, dateGranularity })
-        }
+        showGranularity
       />
     </Flex>
   );

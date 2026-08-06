@@ -675,7 +675,9 @@ export default function useExplorationTableData(
               typeof rawCurr === "number" &&
               rawPrev !== 0
             ) {
-              trend = ((rawCurr - rawPrev) / rawPrev) * 100;
+              // Magnitude, matching the server and the big number. A signed
+              // denominator inverts the arrow for negative metrics.
+              trend = ((rawCurr - rawPrev) / Math.abs(rawPrev)) * 100;
             }
             entries.push(
               [currKey, formatCellForTable(rawCurr, col, fmtCtx)] as const,

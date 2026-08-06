@@ -15,6 +15,9 @@ export interface CompletedExperimentsFilterValue {
   // Raw ExperimentSearchFilters query string; applied client-side on top of the
   // date/project scope.
   experimentSearchString?: string;
+  // Both patched through the same `onChange` as `dateRange` — see below.
+  comparison?: BlockComparison;
+  dateGranularity?: (typeof dateGranularity)[number];
 }
 
 interface Props {
@@ -25,18 +28,10 @@ interface Props {
   availableProjects?: string[];
   // Optional content rendered between the Date Range and Projects fields.
   afterDateRange?: ReactNode;
-  /**
-   * Omit to hide the granularity row. Blocks that bucket a time series
-   * (Team Velocity) pass the pair; the rest don't bucket at all.
-   */
-  granularity?: (typeof dateGranularity)[number];
-  onGranularityChange?: (granularity: (typeof dateGranularity)[number]) => void;
-  comparison?: BlockComparison | null;
-  /**
-   * Omit to hide the Compare section entirely — blocks that can't render a
-   * previous period (Team Velocity, Scaled Impact) simply don't pass it.
-   */
-  onComparisonChange?: (comparison: BlockComparison | undefined) => void;
+  /** Blocks that bucket a time series (Team Velocity) opt in. */
+  showGranularity?: boolean;
+  /** Blocks that can't render a previous period leave this off. */
+  showCompare?: boolean;
 }
 
 // Shared date-range + project scoping controls for the "Completed Experiments"
@@ -46,10 +41,8 @@ export default function CompletedExperimentsFilterFields({
   onChange,
   availableProjects,
   afterDateRange,
-  granularity,
-  onGranularityChange,
-  comparison = null,
-  onComparisonChange,
+  showGranularity = false,
+  showCompare = false,
 }: Props) {
   const { projects } = useDefinitions();
   const { experiments } = useExperiments();
@@ -68,16 +61,26 @@ export default function CompletedExperimentsFilterFields({
         </Box>
         <DateRangeCompareDropdown
           fullWidth
-          showCompare={!!onComparisonChange}
-          showGranularity={!!onGranularityChange}
-          value={{ dateRange: value.dateRange, comparison, granularity }}
-          onChange={(next) => {
-            onChange({ dateRange: next.dateRange });
-            onComparisonChange?.(next.comparison ?? undefined);
-            if (next.granularity && next.granularity !== granularity) {
-              onGranularityChange?.(next.granularity);
-            }
+          showCompare={showCompare}
+          showGranularity={showGranularity}
+          value={{
+            dateRange: value.dateRange,
+            comparison: (showCompare ? value.comparison : null) ?? null,
+            granularity: value.dateGranularity,
           }}
+          // One Apply, one patch. Fanning out to separate setters, each
+          // spreading the same `block`, let the last one undo the others.
+          onChange={(next) =>
+            onChange({
+              dateRange: next.dateRange,
+              ...(showCompare
+                ? { comparison: next.comparison ?? undefined }
+                : {}),
+              ...(showGranularity && next.granularity
+                ? { dateGranularity: next.granularity }
+                : {}),
+            })
+          }
         />
       </Box>
 

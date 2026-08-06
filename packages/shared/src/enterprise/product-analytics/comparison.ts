@@ -153,8 +153,8 @@ export function buildContiguousPreviousCustomDateRange(
 
 /**
  * Inclusive UTC calendar-day bounds of a primary range. Rolling presets resolve
- * to instants and are truncated to the days they touch, so `last7Days` spans 8
- * inclusive days (7 whole days plus the partial current one).
+ * to instants and are truncated to the days they touch: `last7Days` starts at UTC
+ * midnight 6 days back, so it spans exactly 7 inclusive days.
  */
 export function getPrimaryUtcDayBounds(
   dateRange: ExplorationConfig["dateRange"],
@@ -191,7 +191,8 @@ function shiftFixedSpanRangeBack(
  * The weekday-matching variant rounds the span *up* to whole weeks rather than
  * to the nearest week: rounding down would place the previous end on the
  * primary's own start day, double-counting it across both series. A gap is
- * safe; an overlap corrupts the numbers.
+ * safe; an overlap corrupts the numbers. A span already a whole number of weeks
+ * rounds to itself and abuts.
  */
 export function getComparisonShiftDays(
   mode: Exclude<ComparisonMode, "custom" | "previousYear">,
@@ -400,10 +401,13 @@ export function explorerDimensionDateToUtcYyyyMmDd(key: string): string | null {
 /**
  * The exploration config to run for the comparison leg.
  *
- * Pins an `"auto"` date granularity to the value the primary leg resolved to.
+ * Pins the date granularity to the value the primary leg resolved to.
  * `previousYear` windows can be a day shorter than the primary (leap years), so
  * a primary sitting on a `getDateGranularity` threshold would otherwise bucket
- * the two legs differently and make the result sets unmergeable.
+ * the two legs differently and make the result sets unmergeable. Explicit values
+ * need this as much as `"auto"` does: `getDateGranularity` only honors them while
+ * they fit the window (`day` up to 94 days), so a 95-day primary resolves to
+ * `month` while its 94-day comparison leg still resolves to `day`.
  */
 export function buildComparisonExplorationConfig(
   primaryConfig: ExplorationConfig,
@@ -416,13 +420,10 @@ export function buildComparisonExplorationConfig(
     return { ...primaryConfig, dateRange: previousTimeFrame };
   }
 
-  const pinnedGranularity =
-    firstDim.dateGranularity === "auto"
-      ? getDateGranularity(
-          "auto",
-          calculateProductAnalyticsDateRange(primaryConfig.dateRange),
-        )
-      : firstDim.dateGranularity;
+  const pinnedGranularity = getDateGranularity(
+    firstDim.dateGranularity,
+    calculateProductAnalyticsDateRange(primaryConfig.dateRange),
+  );
 
   return {
     ...primaryConfig,
@@ -1046,7 +1047,10 @@ export function computeExplorationComparisonPayload(
         typeof rawCurr === "number" &&
         rawPrev !== 0
       ) {
-        trend = round2(((rawCurr - rawPrev) / rawPrev) * 100);
+        // Magnitude, matching `bigNumberTrends` above. A signed denominator
+        // flips the sign for negative metrics (net margin, revenue after
+        // refunds), so one pair of numbers reads +50% and −50% in two places.
+        trend = round2(((rawCurr - rawPrev) / Math.abs(rawPrev)) * 100);
       }
       trendRecord[trendKey] = trend;
     }

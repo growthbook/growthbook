@@ -82,6 +82,7 @@ export const postProductAnalyticsRun = async (
     query: QueryInterface | null;
     comparison?: ProductAnalyticsRunComparisonPayload & {
       query: QueryInterface | null;
+      error?: string | null;
     };
   }>,
 ) => {
@@ -127,11 +128,16 @@ export const postProductAnalyticsRun = async (
     throw primaryResult.reason;
   }
   const exploration = primaryResult.value;
+  let comparisonError: string | null = null;
   if (comparisonResult.status === "rejected") {
     logger.warn(
       { err: comparisonResult.reason },
       "Failed to run product analytics comparison query; returning primary only",
     );
+    comparisonError =
+      comparisonResult.reason instanceof Error
+        ? comparisonResult.reason.message
+        : "Failed to run the comparison query";
   }
   const comparisonExploration =
     comparisonResult.status === "fulfilled" ? comparisonResult.value : null;
@@ -171,6 +177,7 @@ export const postProductAnalyticsRun = async (
       previousPeriod: comparisonPayload.previousPeriod,
       bigNumberTrends: comparisonPayload.bigNumberTrends,
       tableTrendsByRow: comparisonPayload.tableTrendsByRow,
+      error: comparisonError ?? comparisonExploration?.error ?? null,
     },
   });
 };

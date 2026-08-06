@@ -527,11 +527,10 @@ const funnelExplorationBlockInterface = baseBlockInterface.extend({
 });
 
 /**
- * The effective comparison for an exploration block. Today this is just the
- * block's own setting (saved from the explorer). The `dashboard` arg is the
- * forward-compat seam: a future dashboard-wide compare toggle
- * (`dashboard.comparison`) takes precedence here, so refresh/render code that
- * calls this never has to change. Returns null when comparison is off.
+ * The effective comparison for an exploration block: the dashboard-wide setting
+ * wins over the block's own (saved from the explorer). Null when comparison is
+ * off. Every read path must pass `dashboard` — omitting it silently downgrades to
+ * block-only comparison.
  */
 export function resolveBlockComparison(
   block: { comparison?: BlockComparison },

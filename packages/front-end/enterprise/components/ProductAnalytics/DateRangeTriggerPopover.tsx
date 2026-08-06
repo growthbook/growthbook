@@ -59,7 +59,17 @@ export default function DateRangeTriggerPopover({
           event.preventDefault();
         }
       }}
-      contentStyle={{ padding: 0, width: 640 }}
+      contentStyle={{
+        padding: 0,
+        width: 640,
+        // The panel can outgrow the viewport and nothing scrolls it, so Apply
+        // was unreachable. Cap to the room Radix measured; the panel scrolls
+        // its own body and keeps the footer pinned.
+        maxHeight: "var(--radix-popover-content-available-height)",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
       trigger={
         <Button
           className={styles.trigger}
