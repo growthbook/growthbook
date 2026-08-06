@@ -197,14 +197,11 @@ const BaseClass = MakeModelClass({
 });
 
 export class RevisionModel extends BaseClass {
-  // Retry a create operation on duplicate-key error. The unique
-  // (organization, target.type, target.id, version) index can collide when two
-  // concurrent creates compute the same version number in `beforeCreate`. On a
-  // collision we re-run the operation; `beforeCreate` will recompute version
-  // against the now-larger set of existing revisions.
+  // Retry on duplicate key: the unique (org, target, version) index collides when two
+  // concurrent creates compute the same version in `beforeCreate`, which recomputes
+  // against the larger set on retry.
   //
-  // IMPORTANT: All revision-creating call sites (including
-  // `dangerousCreateBypassPermission`) must go through this wrapper. Delegates
+  // EVERY revision-creating call site must go through this wrapper. Delegates
   // to the shared `createWithVersionRetry` util so the retry semantics stay
   // in lockstep with `FeatureRevisionModel.createRevision`.
   public createWithVersionRetry<R>(op: () => Promise<R>): Promise<R> {
@@ -573,15 +570,10 @@ export class RevisionModel extends BaseClass {
     return readable;
   }
 
-  // Read-filtered pagination core. Pagination and `total` are computed over the
-  // rows the caller may READ — a raw count both leaked how much activity exists
-  // in projects the caller cannot see and broke pagination (pages under-filled
-  // while `total` overstated).
-  //
-  // Stays cheap the same way the beacon does: one projected pass carrying only
-  // the fields `canRead` consults (every adapter decides on project alone),
-  // then a full fetch of just the page's rows. Widen the projection if an
-  // adapter ever reads more than project.
+  // Pagination and `total` over the rows the caller may READ: a raw count leaked how much
+  // activity exists in invisible projects AND broke paging (pages under-filled while
+  // `total` overstated). One projected pass, then a full fetch of the page. Widen the
+  // projection if an adapter ever reads more than project.
   private async findReadablePage(
     filter: Record<string, unknown>,
     { limit, skip }: { limit?: number; skip?: number },
@@ -1780,11 +1772,9 @@ export class RevisionModel extends BaseClass {
     return closed;
   }
 
-  // Roll a just-merged revision back after applyChanges failed. Unlike `reopen`,
-  // restores the prior status, re-arms any schedule `merge` scrubbed (else a
-  // fire-time failure kills the schedule instead of retrying), and restores the
-  // guard acknowledgment so a retry doesn't treat a transient failure as a fresh
-  // unacknowledged conflict.
+  // Roll a just-merged revision back after applyChanges failed. Unlike `reopen` it
+  // restores the prior status, re-arms the schedule `merge` scrubbed (else a fire-time
+  // failure kills it instead of retrying), and restores the guard acknowledgment.
   //
   // Guarded raw write: applies only while the doc is still "merged" from this
   // failed publish. `expectedDateUpdated` pins it to that exact merge, so a
@@ -2342,14 +2332,9 @@ export class RevisionModel extends BaseClass {
     return result;
   }
 
-  // Create a revision that is already in `merged` status in a single write.
-  //
-  // Bypass-merge flows (e.g. PUT /saved-groups/:id) would otherwise have to
-  // create a draft and then `merge` it as two separate, non-transactional DB
-  // writes — if the merge failed after the entity was already updated, the draft
-  // would be stranded and could never be published ("no changes detected"
-  // against the now-updated live entity). Recording the merged revision in one
-  // write removes that window. Callers must persist the live entity change
+  // A revision created already `merged`, in one write. Two writes (create then merge)
+  // strand the draft if the merge fails after the entity was updated — it can never be
+  // published, since there are then "no changes" against live. Callers must persist the live entity change
   // *before* calling this so the merged revision is a faithful record of a
   // change that has actually landed.
   async createMerged(params: {

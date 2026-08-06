@@ -131,20 +131,16 @@ export function assertCanRevertRevision({
   }
 }
 
-// Land a change that has no prior draft, recording it as a merged revision first.
+// Land a change with no prior draft, recording it as a merged revision FIRST: a merged
+// revision with no live change is detectable and removable, whereas a live change with
+// no record is silent and unrepairable.
 //
-// History before live state, deliberately: a merged revision with no live change
-// is detectable and removable (stranded-merge recovery exists for it), whereas a
-// live change with no record of it is silent and no retry can repair it.
+// `assertLandingBaseline` requires both that the entity is still where the change was
+// computed from and that this landing's revision is still the newest merged one — a
+// concurrent landing that recorded newer intent wins.
 //
-// Sequencing is the bulk pipeline's, via `assertLandingBaseline`: the entity must
-// still be where the change was computed from, and this landing's own merged
-// revision must still be the newest — a concurrent landing that recorded newer
-// intent wins, and this one aborts with a retryable conflict rather than applying
-// older state over it.
-//
-// `write` stays with the caller: applyChanges re-runs normalization and cascades
-// to dependents, while the update endpoints write the model directly.
+// `write` stays with the caller: applyChanges cascades to dependents, while the update
+// endpoints write the model directly.
 export async function landDirectChange<T>({
   context,
   entityType,
@@ -258,22 +254,14 @@ export async function landDirectChange<T>({
       });
       persisted = persistedFrom?.(result) ?? persisted;
     } catch (e) {
-      // Live state first: an unrecorded partial change is the one outcome no retry
-      // can repair, so the merged revision is only removed once live is back where
-      // it started. When it can't be, the revision is KEPT as the record of what
-      // actually happened, and the original failure still surfaces.
+      // Live state first: an unrecorded partial change is the one outcome no retry can
+      // repair, so the revision is removed only once live is back — and KEPT as the
+      // record when it can't be.
       //
-      // "Nothing was written" is what the REPORT says, not what the error class
-      // says. A rejected CAS never reports — `onWritten` fires after the guard
-      // check — so an unreported failure is the wrote-nothing case, and
-      // compensating it would compare live against values this landing never
-      // wrote, mistake a winner's identical values for its own, and undo them.
-      //
-      // The class was the wrong signal: on the REST Config path the descendant
-      // cascade runs OUTSIDE `runGuardedWrite`, so a CasConflictError from a
-      // descendant escapes raw — after the root write landed and reported. Read as
-      // a lost race, that deleted the merged revision and dropped the deferred
-      // events while the root change stayed live: a change with no record of it.
+      // "Nothing was written" is what the REPORT says, not the error class. Both signals
+      // are needed: a rejected CAS proves nothing landed, but on the REST Config path a
+      // descendant cascade raises CasConflictError raw, AFTER the root write reported —
+      // and reading that as a lost race deleted the record of a live change.
       const nothingReported = persisted === null || persisted === undefined;
       // Ownership against the PERSISTED doc, not the intent — the write path
       // normalizes (adapter applyChanges and model hooks both), and comparing

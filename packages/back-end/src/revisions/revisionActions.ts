@@ -127,15 +127,10 @@ export function canCommentOnRevision(
   );
 }
 
-// May this caller touch a revision of this entity at all — the model-layer
-// backstop behind the controller's per-action gate.
-//
-// It is the union of every action on purpose. A revision document is written by
-// drafting, reviewing, reverting, publishing and archiving alike, and the model
-// can't see which one it is; anything narrower refuses writes the controller had
-// already allowed. Delete belongs in the union because archiving is delete-class:
-// a delete-only role may stage and land a revision that only archives, and
-// omitting it made that pass the handler and then fail here.
+// May this caller touch a revision of this entity AT ALL — the model-layer backstop
+// behind the controller's per-action gate, so deliberately the union of every action:
+// the model can't see which one is in play, and anything narrower refuses writes the
+// controller already allowed. Delete is in the union because archiving is delete-class.
 export function canTouchRevision(
   type: RevisionTargetType,
   context: Context,
@@ -203,13 +198,10 @@ async function recoverStrandedMerge({
   updatableFields: ReadonlySet<string>;
 }): Promise<Revision | null> {
   const adapter = getAdapter(revision.target.type);
-  // Nothing left to apply is the common case — a retry of an already-published
-  // revision. But a multi-step apply can die BETWEEN its entity write and its
-  // cascade, and the entity write alone makes hasChanges false — so a retry
-  // would land here, see nothing to recover, and the cascade would never
-  // replay. beforeNoOpMerge is each adapter's idempotent replay of exactly
-  // those side effects (a config's descendant reconcile); run it before
-  // declining, scoped to revisions this entity actually merged.
+  // Nothing to apply is usually a retry of an already-published revision. But a
+  // multi-step apply can die BETWEEN its entity write and its cascade, and the entity
+  // write alone makes `hasChanges` false — so the cascade would never replay.
+  // `beforeNoOpMerge` is each adapter's idempotent replay of those side effects.
   if (!hasChanges) {
     const latest = await context.models.revisions.getLatestMergedByTarget(
       revision.target.type,
@@ -233,16 +225,11 @@ async function recoverStrandedMerge({
       updatableFields,
     });
   if (!strandedMerge) return null;
-  // The merge was already claimed, so there is nothing left to claim in the
-  // merge itself — hence the claim here, guarded on `dateUpdated`. Two operators
-  // retrying at once would otherwise both apply and both dispatch. The loser's
-  // guard fails, it re-reads, sees the marker entry, and aborts.
-  // The marker is a LEASE, not a permanent record. It exists to stop two operators
-  // applying and dispatching at once; a recovery that actually succeeded needs no
-  // marker, because live then matches the desired state and `hasChanges` keeps this
-  // path from being entered at all. So a marker older than the lease belonged to a
-  // process that died between claiming and releasing, and is reclaimable —
-  // otherwise a termination there locked recovery out permanently.
+  // The merge is already claimed, so recovery claims here instead, guarded on
+  // `dateUpdated` — otherwise two operators retrying at once both apply and dispatch.
+  // The marker is a LEASE. A recovery that succeeded needs no marker — live then matches
+  // and `hasChanges` keeps this path unentered — so one older than the lease belongs to a
+  // process that died mid-flight and is reclaimable, or a termination locks recovery out.
   const leaseCutoff = new Date(Date.now() - MERGE_RECOVERY_LEASE_MS);
   const claimed = await context.models.revisions.updateWithCas(
     revision.id,
@@ -688,18 +675,12 @@ async function publishRevisionInner(
         },
       },
     );
-    // "No changes" was decided against a read that is stale by now, and this
-    // branch performs no guarded entity write to catch drift — so verify AFTER
-    // the claim is held. Checking before it left a window where a concurrent
-    // change landed and the merge then recorded live state that no longer
-    // existed; verified after the claim, any later change is simply a later
-    // change. On drift, unwind the claim and refuse with the same retryable
-    // 409 as any lost landing.
+    // "No changes" was decided against a now-stale read, and this branch has no guarded
+    // write to catch drift — so verify AFTER the claim is held. Any change later than
+    // the claim is simply later; drift unwinds the claim and returns a retryable 409.
     //
-    // The self-heal replay runs INSIDE the same protected span, after the claim
-    // and the baseline both hold: run before them, its descendant writes (and
-    // their audits and webhooks) survived a claim or baseline failure that then
-    // reopened the draft. Idempotent, and a failure here reopens like any other.
+    // Inside the same protected span, after claim and baseline both hold — run before
+    // them, its descendant writes outlived a failure that then reopened the draft.
     try {
       await assertLandingBaseline({
         context,
@@ -769,24 +750,15 @@ async function publishRevisionInner(
       }),
     );
   } catch (e) {
-    // Couldn't apply after claiming the merge. Two very different failures: a
-    // lost race wrote NOTHING (restoring would undo the winner), while a partial
-    // apply — a Config root written before its descendant cascade failed —
-    // leaves live changes a bare reopen would orphan against an open revision.
-    // Restore the entity for real failures; only a clean (or unneeded) restore
-    // may reopen, otherwise live is mid-change and the merged revision stays as
-    // the record of it.
-    // A rejected CAS never reports — `onWritten` fires only after the guard
-    // check — so the ABSENCE of a report already covers the lost-race case, and
-    // covers it correctly where the error class did not: a Config's descendant
-    // cascade raises CasConflictError long after the root write reported, and the
-    // class alone read that live change as having written nothing.
+    // Failed after claiming the merge. A lost race wrote NOTHING (restoring would undo
+    // the winner); a partial apply — Config root written before its cascade failed —
+    // leaves live changes a bare reopen would orphan. Only a clean restore may reopen.
+    // Keyed on the absence of a REPORT, not the error class: a Config cascade raises
+    // CasConflictError long after the root write reported, and the class alone read that
+    // live change as having written nothing.
     const nothingReported = !applied || applied.written === undefined;
-    // Ownership is judged against what the adapter PERSISTED, not the intent:
-    // adapters normalize (a Config schema stripped as ancestor-owned), so the
-    // unnormalized desiredState misreads "ours" as "someone else's". The apply
-    // reports it directly; only a throw that lost the return value falls back to
-    // a re-read, which is why that path refuses to guess when it fails.
+    // Ownership is judged against what the adapter PERSISTED, not the intent — adapters
+    // normalize, so unnormalized `desiredState` misreads "ours" as "someone else's".
     // `undefined` means the apply never reported — it threw before its entity
     // write, so nothing of ours is live. `null` means it reported writing
     // nothing. Neither is a re-read: distinguishing them is why the callback
@@ -795,12 +767,9 @@ async function publishRevisionInner(
     // Nothing reported means the apply never reached its entity write (adapters
     // report from inside it), so there is nothing to restore and the revision may
     // be reopened cleanly — the same reading bulk takes.
-    // ROOT FIRST, unconditionally, then descendants in cascade order. Two bugs lived
-    // in the previous shape: descendants restored while the root still declared the
-    // field were normalized straight back to stripped AND reported success (ancestor
-    // normalization is unconditional on a revert), and `cascadeRestored &&` in front
-    // of the root restore SHORT-CIRCUITED it — a failed cascade left the root live.
-    // All three landing paths now do the same thing in the same order.
+    // ROOT FIRST, unconditionally, then descendants in cascade order. Ancestor
+    // normalization is unconditional on a revert, so a descendant restored while the
+    // root still declares the field is re-stripped AND reports success.
     const rootRestored =
       nothingReported || written === null
         ? true
