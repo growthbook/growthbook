@@ -9,7 +9,11 @@ import {
   getSelectedColumnDatatype,
 } from "shared/experiments";
 import { UpdateProps } from "shared/types/base-model";
-import { factMetricValidator, ApiFactMetric } from "shared/validators";
+import {
+  factMetricValidator,
+  ApiFactMetric,
+  validateFunnelSettings,
+} from "shared/validators";
 import {
   ColumnRef,
   FactMetricInterface,
@@ -520,6 +524,12 @@ export class FactMetricModel extends BaseClass {
         throw new Error("Must specify `quantileSettings` for quantile metrics");
       }
     }
+    if (data.metricType === "funnel") {
+      const errors = validateFunnelSettings(data);
+      if (errors.length > 0) {
+        throw new Error(errors.join("; "));
+      }
+    }
     if (
       data.metricType === "retention" &&
       !this.context.hasPremiumFeature("retention-metrics") &&
@@ -588,6 +598,7 @@ export class FactMetricModel extends BaseClass {
   public toApiInterface(factMetric: FactMetricInterface): ApiFactMetric {
     const {
       quantileSettings,
+      funnelSettings,
       cappingSettings,
       windowSettings,
       regressionAdjustmentDays,
@@ -611,6 +622,7 @@ export class FactMetricModel extends BaseClass {
       targetMDE: targetMDE || DEFAULT_TARGET_MDE,
       metricType: metricType,
       quantileSettings: quantileSettings || undefined,
+      funnelSettings: funnelSettings || undefined,
       cappingSettings: {
         ...cappingSettings,
         type: cappingSettings.type || "none",

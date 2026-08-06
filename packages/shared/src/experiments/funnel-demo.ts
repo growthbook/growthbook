@@ -119,6 +119,7 @@ function buildEphemeralProportionMetric(
     regressionAdjustmentEnabled: false,
     regressionAdjustmentDays: 14,
     quantileSettings: null,
+    funnelSettings: null,
   };
 }
 

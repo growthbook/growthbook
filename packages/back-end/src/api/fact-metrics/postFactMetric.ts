@@ -35,6 +35,7 @@ export async function getCreateMetricPropsFromBody(
 
   const {
     quantileSettings,
+    funnelSettings,
     cappingSettings,
     windowSettings,
     regressionAdjustmentSettings,
@@ -52,7 +53,11 @@ export async function getCreateMetricPropsFromBody(
 
   // Set the correct column based on metric type
   let column: string;
-  if (body.metricType === "proportion" || body.metricType === "retention") {
+  if (
+    body.metricType === "proportion" ||
+    body.metricType === "retention" ||
+    body.metricType === "funnel"
+  ) {
     column = "$$distinctUsers";
   } else if (body.metricType === "dailyParticipation") {
     column = "$$distinctDates";
@@ -67,7 +72,8 @@ export async function getCreateMetricPropsFromBody(
     aggregation:
       body.metricType === "proportion" ||
       body.metricType === "retention" ||
-      body.metricType === "dailyParticipation"
+      body.metricType === "dailyParticipation" ||
+      body.metricType === "funnel"
         ? undefined
         : numerator.aggregation,
   });
@@ -102,6 +108,7 @@ export async function getCreateMetricPropsFromBody(
     tags: [],
     inverse: false,
     quantileSettings: quantileSettings ?? null,
+    funnelSettings: funnelSettings ?? null,
     windowSettings: {
       type: DEFAULT_FACT_METRIC_WINDOW,
       delayValue:

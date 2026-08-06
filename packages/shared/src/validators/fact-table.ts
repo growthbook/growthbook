@@ -353,7 +353,7 @@ export const funnelStepValidator = z.object({
 export type FunnelStep = z.infer<typeof funnelStepValidator>;
 
 // Step ordering for funnel metrics. v1 supports "sequential" only; "strict"
-// and "unordered" are modeled now (locked via validateFunnelSettingsForV1) so
+// and "unordered" are modeled now (locked via validateFunnelSettings) so
 // the fast-follows need no schema migration.
 export const funnelOrderingValidator = z.enum([
   "sequential",
@@ -371,7 +371,7 @@ export const funnelSettingsValidator = z.object({
   // meaningful for ordered modes (ignored for "unordered").
   concurrencyWindowSeconds: z.number().int().min(0).optional(),
   // Session-scoped funnels: fast-follow, locked to false in v1 by
-  // validateFunnelSettingsForV1.
+  // validateFunnelSettings.
   sessionBased: z.boolean().optional(),
 });
 export type FunnelSettings = z.infer<typeof funnelSettingsValidator>;
@@ -427,18 +427,11 @@ export const factMetricValidator = z
 
     quantileSettings: quantileSettingsValidator.nullable(),
 
-    // Funnel-as-experiment-metric config. Nullable like quantileSettings;
-    // populated only when metricType === "funnel".
     funnelSettings: funnelSettingsValidator.nullable(),
   })
   .strict();
 
-// v1 lock for funnel settings. Implemented as a standalone validator (invoked
-// at the create/update layer) rather than a superRefine on factMetricValidator,
-// because factMetricValidator is consumed as a bare ZodObject by the model
-// layer and wrapping it in ZodEffects would break schema composition
-// (.omit/.partial/.shape). Returns an array of human-readable errors ([] = ok).
-export function validateFunnelSettingsForV1(
+export function validateFunnelSettings(
   metric: Pick<
     z.infer<typeof factMetricValidator>,
     "metricType" | "funnelSettings"

@@ -51,7 +51,11 @@ export async function getUpdateFactMetricPropsFromBody(
   if (numerator) {
     // Set the correct column based on metric type
     let column: string;
-    if (metricType === "proportion" || metricType === "retention") {
+    if (
+      metricType === "proportion" ||
+      metricType === "retention" ||
+      metricType === "funnel"
+    ) {
       column = "$$distinctUsers";
     } else if (metricType === "dailyParticipation") {
       column = "$$distinctDates";
@@ -66,7 +70,8 @@ export async function getUpdateFactMetricPropsFromBody(
       aggregation:
         metricType === "proportion" ||
         metricType === "retention" ||
-        metricType === "dailyParticipation"
+        metricType === "dailyParticipation" ||
+        metricType === "funnel"
           ? undefined
           : numerator.aggregation,
     });
