@@ -95,9 +95,10 @@ export type ApplyChangesResult = {
   /**
    * Writes the apply made to OTHER entities on this landing's behalf — a Config's
    * descendant cascade — each with its own pre-image. Compensation restores these
-   * BEFORE the root, because a cascade that can only STRIP fields cannot be undone
-   * by re-running it against a restored root: the root comes back correct and the
-   * descendant is left permanently missing an inherited field.
+   * AFTER the root: ancestor normalization is unconditional on a revert, so a
+   * descendant restored while the root still declares the field is stripped straight
+   * back, reporting success. Re-running the cascade cannot undo it either, which is
+   * why the pre-images are recorded rather than recomputed.
    */
   cascade?: {
     before: Record<string, unknown> & { id: string };
@@ -228,14 +229,6 @@ export interface EntityRevisionAdapter<
     context: Context,
     entity: TSnapshot,
     restoredKeys: string[],
-    // The repair cascade writes OTHER entities, and those writes were the last
-    // silent ones in a compensated landing. Reachable because restoring a root
-    // that had a field REMOVED re-adds it, which then strips that field from any
-    // descendant a concurrent writer added it to during the window.
-    onCascadeWritten?: (write: {
-      before: Record<string, unknown> & { id: string };
-      written: Record<string, unknown>;
-    }) => void,
   ): Promise<void>;
 
   applyChanges(

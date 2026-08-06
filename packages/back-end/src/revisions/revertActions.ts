@@ -180,9 +180,11 @@ export async function landDirectChange<T>({
   persistedFrom?: (result: T) => Record<string, unknown> | null;
   /**
    * Writes the landing made to OTHER entities on its behalf — a Config's descendant
-   * cascade — each with its own pre-image. Restored BEFORE the root, because a
-   * cascade that can only STRIP fields cannot be undone by re-running it against a
-   * restored root. The caller pushes into this as the cascade reports.
+   * cascade — each with its own pre-image. Restored AFTER the root: a descendant put
+   * back while the root still declares the field is re-stripped by ancestor
+   * normalization, silently and while reporting success. The caller pushes into this
+   * as the cascade reports, so read it as a thunk at compensation time — the root
+   * write reports BEFORE the cascade runs, so anything captured then is empty.
    */
   cascade?: () => {
     before: Record<string, unknown> & { id: string };

@@ -140,7 +140,6 @@ export async function restoreEntityPreImage({
   preImage,
   persistedKeys,
   written,
-  repairDepth = 1,
 }: {
   context: Context;
   entityType: RevisionTargetType;
@@ -155,14 +154,6 @@ export async function restoreEntityPreImage({
   persistedKeys: Iterable<string>;
   /** The values the apply intended to write, for the "do we still own it" test. */
   written: Record<string, unknown>;
-  /**
-   * How many further levels of repair-cascade rollback to attempt. The repair
-   * cascade writes other entities, and restoring THOSE re-enters this function —
-   * so the recursion is real and needs a bound rather than a comment claiming
-   * there isn't one. Each level strips strictly less than the one above, so one
-   * level covers the reachable case; the bound only stops a pathological cycle.
-   */
-  repairDepth?: number;
 }): Promise<void> {
   const adapter = getAdapter(entityType);
   // Read-decide-write under the same guard as any landing, retried: the restore
@@ -207,39 +198,24 @@ export async function restoreEntityPreImage({
       // it; re-running here would act on state that isn't ours.
       const restoredKeys = Object.keys(restore);
       if (restoredKeys.length) {
-        if (repairDepth <= 0) {
-          await adapter.afterRestorePreImage?.(context, current, restoredKeys);
-          return;
-        }
-        // The repair cascade's own writes, reported so they are not the one silent
-        // write left in a compensated landing: restoring a root that had a field
-        // REMOVED re-adds it, and the cascade then strips that field from any
-        // descendant a concurrent writer added it to inside this window. Put back
-        // value-checked, so only what this cascade wrote is touched.
-        const repairWrites: {
-          before: Record<string, unknown> & { id: string };
-          written: Record<string, unknown>;
-        }[] = [];
-        await adapter.afterRestorePreImage?.(
-          context,
-          current,
-          restoredKeys,
-          (write) => repairWrites.push(write),
-        );
-        for (const write of repairWrites) {
-          // Best effort, and depth-bounded: this re-enters restoreEntityPreImage,
-          // whose own repair cascade could report again. A failure is logged by the
-          // shared helper and leaves the landing reporting partial state, which is
-          // the honest outcome.
-          await tryRestoreEntityPreImage({
-            context,
-            entityType,
-            preImage: write.before,
-            persistedKeys: Object.keys(write.written),
-            written: write.written,
-            repairDepth: repairDepth - 1,
-          });
-        }
+        // The repair cascade's writes are deliberately NOT rolled back.
+        //
+        // I tried: reported them through the adapter contract, recursed, bounded the
+        // recursion. It cannot work, for the same reason the descendants-first
+        // ordering couldn't. The repair strips a field from a descendant precisely
+        // BECAUSE the just-restored root declares it — so writing the descendant's
+        // pre-image back sends it through the same unconditional ancestor
+        // normalization, which strips it again, and reports success because the key
+        // is still in `persistedKeys` and nothing looks dropped. The machinery was a
+        // guaranteed no-op whose only real effects were a discarded failure signal, a
+        // fail-open exhaustion branch, and one full config-collection load per repair
+        // write inside an already-failing request.
+        //
+        // What the repair leaves is base-wins-correct given the restored root: the
+        // root owns the field, so the descendant must not declare it. That is the
+        // right resting state, not a loss — the field's value is still on the
+        // descendant's document and re-inherits from the root.
+        await adapter.afterRestorePreImage?.(context, current, restoredKeys);
       }
       return;
     } catch (e) {
@@ -411,10 +387,11 @@ export async function compensateFailedLanding({
   changes: Record<string, unknown>;
   /**
    * Writes a cascade made to OTHER entities on this landing's behalf, each with
-   * its own pre-image. Restored BEFORE the root, and this ordering is load-bearing:
-   * a Config cascade can only STRIP fields, so restoring the root alone left a
-   * descendant permanently missing an inherited field — turning an unrecorded but
-   * consistent state into silent data loss on a config nobody edited.
+   * its own pre-image. Restored AFTER the root, and this ordering is load-bearing in
+   * that direction: a restore runs through unconditional ancestor normalization, so
+   * putting a descendant back while the root still declares the field strips it
+   * again — and reports success, because the key is still in `persistedKeys` and
+   * nothing looks dropped. Root first, and each descendant's restore survives.
    */
   cascade?: {
     before: Record<string, unknown> & { id: string };

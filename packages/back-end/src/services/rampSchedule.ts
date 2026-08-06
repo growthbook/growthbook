@@ -19,6 +19,7 @@ import {
 } from "shared/validators";
 import { ResourceEvents } from "shared/types/events/base-types";
 import {
+  rampPatchesForTarget,
   getEnvsFromRampSchedule,
   filterEnvironmentsByFeature,
   MergeResultChanges,
@@ -3061,24 +3062,46 @@ export async function assertCanControlRampSchedule(
   // production change — the rule stops serving there — and a footprint read from
   // the patch alone never mentions production at all. Without this the gate asked
   // a NARROWER question than the write performs.
+  // Every rule id this schedule could touch, per target: the target's own AND every
+  // `patch.ruleId` its actions name. The executor resolves from the PATCH
+  // (`const { ruleId, ...patchFields } = patch`) and ignores `target.ruleId`
+  // entirely, so a gate keyed on the target alone asked about a DIFFERENT RULE than
+  // the write performs — a dev-only target with a production patch read as dev.
+  // `featureRulePatch.ruleId` is a bare string and the internal controller passes
+  // steps through verbatim, so nothing else reconciles the two.
+  const ruleIdsForTarget = (target: { id: string; ruleId?: string | null }) => {
+    const ids = new Set<string>();
+    if (target.ruleId) ids.add(target.ruleId);
+    for (const patch of rampPatchesForTarget(schedule, target.id)) {
+      if (patch.ruleId) ids.add(patch.ruleId);
+    }
+    return [...ids];
+  };
+
   const ruleEnvs = await getFeatureRuleEnvironmentsByIds(
     context,
-    (schedule.targets ?? []).map((t) => ({
-      featureId: t.entityId,
-      ruleId: t.ruleId ?? undefined,
-      // Honoured by `resolveRampTargets`, so the gate resolves exactly the sibling
-      // set the write will patch.
-      environment: t.environment ?? undefined,
-    })),
+    (schedule.targets ?? []).flatMap((t) =>
+      ruleIdsForTarget(t).map((ruleId) => ({
+        featureId: t.entityId,
+        ruleId,
+        // Honoured by `resolveRampTargets`, so the gate resolves exactly the sibling
+        // set the write will patch.
+        environment: t.environment ?? undefined,
+      })),
+    ),
   );
   for (const target of schedule.targets ?? []) {
+    // Union across every rule this target can reach: if ANY of them serves
+    // production, the footprint says production.
+    const reachable = ruleIdsForTarget(target).map((ruleId) =>
+      ruleEnvs.get(`${target.entityId}:${ruleId}`),
+    );
+    const currentRuleEnvs: string[] | "all" = reachable.some((r) => r === "all")
+      ? "all"
+      : reachable.flatMap((r) => (Array.isArray(r) ? r : []));
     // "all" resolves to the schedule-wide footprint, which the model has
     // already expanded against the org's environments.
-    const envs = getEnvsForRampTarget(
-      schedule,
-      target.id,
-      ruleEnvs.get(`${target.entityId}:${target.ruleId}`),
-    );
+    const envs = getEnvsForRampTarget(schedule, target.id, currentRuleEnvs);
     const existing = checks.get(target.entityId) ?? new Set<string>();
     // "all" resolves against the ORG's environments. `scheduleEnvs` is the
     // schedule-wide PATCH footprint, which is the attacker's own list whenever the

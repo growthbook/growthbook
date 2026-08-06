@@ -1211,9 +1211,9 @@ export const putConfig = async (
       );
 
       let landedDoc: Record<string, unknown> | null = null;
-      // Descendant writes the cascade makes on this landing's behalf. They must be
-      // put back BEFORE the root: the cascade can only STRIP fields, so a root-only
-      // rollback leaves a descendant permanently missing an inherited field.
+      // Descendant writes the cascade makes on this landing's behalf. Put back AFTER
+      // the root — a descendant restored while the root still declares the field is
+      // re-stripped by ancestor normalization, silently reporting success.
       const cascadeWrites: {
         before: Record<string, unknown> & { id: string };
         written: Record<string, unknown>;

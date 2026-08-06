@@ -580,7 +580,8 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       },
     );
     // Descendant writes the cascade makes on this landing's behalf; restored
-    // before the root, since the cascade can only strip fields.
+    // after the root, since a descendant restored while the root still declares the
+    // field is re-stripped by ancestor normalization.
     const cascadeWrites: {
       before: Record<string, unknown> & { id: string };
       written: Record<string, unknown>;

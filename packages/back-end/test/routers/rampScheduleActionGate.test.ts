@@ -156,6 +156,57 @@ describe("postRampScheduleAction publish gate", () => {
     ]);
   });
 
+  // The executor resolves the rule it writes from `patch.ruleId` and ignores
+  // `target.ruleId` entirely. A gate keyed on the target alone therefore asked about
+  // a DIFFERENT RULE than the write performs: a dev-only target carrying a
+  // production patch read as dev-only and passed, and the poller then rewrote the
+  // production rule under the admin agenda context.
+  it("asks about every patch's ruleId, not only the target's", async () => {
+    arrange({ canPublish: false });
+    (getContextFromReq as jest.Mock).mockReturnValue({
+      ...(getContextFromReq as jest.Mock)(),
+      models: {
+        rampSchedules: {
+          getById: jest.fn(async () => ({
+            ...SCHEDULE,
+            targets: [
+              {
+                id: "t_1",
+                entityType: "feature",
+                entityId: "feat_1",
+                ruleId: "fr_dev",
+              },
+            ],
+            steps: [
+              {
+                actions: [
+                  {
+                    targetId: "t_1",
+                    targetType: "feature-rule",
+                    // NOT the target's rule — this is the one that gets rewritten.
+                    patch: { ruleId: "fr_prod", coverage: 0 },
+                  },
+                ],
+              },
+            ],
+          })),
+          publishEnvironments: jest.fn(() => ["dev"]),
+        },
+        safeRollout: { getById: jest.fn(async () => null) },
+      },
+    });
+    const asked: string[] = [];
+    (getFeatureRuleEnvironmentsByIds as jest.Mock).mockImplementation(
+      async (_ctx: unknown, refs: { ruleId?: string }[]) => {
+        for (const r of refs) if (r.ruleId) asked.push(r.ruleId);
+        return new Map();
+      },
+    );
+
+    await postRampScheduleAction(makeReq("pause"), makeRes()).catch(() => {});
+    expect([...new Set(asked)].sort()).toEqual(["fr_dev", "fr_prod"]);
+  });
+
   // The "all" return path had no coverage, and it is the one an attacker picks: a
   // rule with `allEnvironments: true` (which flattenV1ToV2Rules produces for any
   // migrated rule covering every applicable env) makes the target answer "all",

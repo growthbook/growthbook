@@ -3066,6 +3066,28 @@ export function isRampScheduleServing(
 // touches each target only in its own environments — taking the union across
 // targets and applying it to every target's project would demand authority in
 // combinations the schedule never acts on.
+/**
+ * Every patch a schedule aims at one target. Exported because the control gate needs
+ * the patches' own `ruleId`s, not just their environments: the executor resolves the
+ * rule it writes from `patch.ruleId` and ignores `target.ruleId`, so a gate that
+ * reads only the target asks about a different rule than the write performs.
+ */
+export function rampPatchesForTarget(
+  schedule: Pick<
+    RampScheduleInterface,
+    "startActions" | "steps" | "endActions"
+  >,
+  targetId: string,
+) {
+  return [
+    ...(schedule.startActions ?? []),
+    ...schedule.steps.flatMap((s) => s.actions),
+    ...(schedule.endActions ?? []),
+  ]
+    .filter((a) => a.targetId === targetId)
+    .map((a) => a.patch);
+}
+
 export function getEnvsForRampTarget(
   schedule: Pick<
     RampScheduleInterface,
@@ -3084,13 +3106,7 @@ export function getEnvsForRampTarget(
 ): string[] | "all" {
   if (currentRuleEnvs === "all") return "all";
   const envs = new Set<string>();
-  const patches = [
-    ...(schedule.startActions ?? []),
-    ...schedule.steps.flatMap((s) => s.actions),
-    ...(schedule.endActions ?? []),
-  ]
-    .filter((a) => a.targetId === targetId)
-    .map((a) => a.patch);
+  const patches = rampPatchesForTarget(schedule, targetId);
   for (const patch of patches) {
     if (patch.allEnvironments) return "all";
     const scoped = patch.environments ?? [];

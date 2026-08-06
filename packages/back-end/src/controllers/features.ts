@@ -2573,6 +2573,18 @@ export async function postFeatureRevert(
           changedEnvs,
         }),
       });
+    }
+    // OUTSIDE the gate. `mergeChanges` is not just permission evidence here — it is
+    // the delta handed to `publishRevision` and the thing the empty-diff check
+    // measures, and `computeRevisionMergeChanges` writes description/owner/tags/
+    // neverStale/customFields ONLY from `result.metadata`. Inside the gate, a
+    // description-only revert produced an empty delta and threw "Nothing to
+    // revert"; worse, a revert of a dev rule AND the description landed the rule and
+    // dropped the description while still recording the target metadata on the new
+    // revision — leaving feature.description and the live revision permanently
+    // disagreeing, and every later diff reading phantom churn.
+    // `revertFeature.ts` already had this shape: gate inside, assignment outside.
+    if (hasMetadataChanges) {
       mergeChanges.metadata = metadataChanges;
     }
   }

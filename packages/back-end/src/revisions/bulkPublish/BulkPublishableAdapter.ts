@@ -27,8 +27,9 @@ export type BulkRevisionRef = {
   writtenEntity?: Record<string, unknown> | null;
   /**
    * Writes the apply made to OTHER entities on this item's behalf — a Config's
-   * descendant cascade. Restored BEFORE the root, since a cascade that can only
-   * STRIP fields cannot be undone by re-running it against a restored root.
+   * descendant cascade. Restored AFTER the root, since a descendant put back while
+   * the root still declares the field is re-stripped by ancestor normalization —
+   * silently, and reporting success.
    */
   cascade?: {
     before: Record<string, unknown> & { id: string };
