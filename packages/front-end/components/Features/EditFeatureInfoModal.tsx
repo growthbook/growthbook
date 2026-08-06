@@ -1,13 +1,9 @@
-import isEqual from "lodash/isEqual";
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
-import {
-  holdsFeatureMoveDestination,
-  servingEnvironments,
-} from "shared/permissions";
+import { getReviewSetting } from "shared/util";
+import { holdsFeatureMoveDestination } from "shared/permissions";
 import { Box } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import TagsInput from "@/components/Tags/TagsInput";
@@ -17,7 +13,7 @@ import SelectField from "@/components/Forms/SelectField";
 import TargetingProjectsField from "@/components/TargetingProjectsField";
 import Callout from "@/ui/Callout";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useEnvironments } from "@/services/features";
+import { getMetadataEditEnvs, useEnvironments } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
@@ -87,37 +83,19 @@ const EditFeatureInfoModal: FC<{
   // publish wherever it lands, and asking only about the source offered "Publish
   // now" for a move into a project the user cannot write to. Watched, not read
   // once, so picking a different project updates the answer.
-  // A MOVE is not inert metadata: `putFeature` measures it over the flag's enabled
-  // environments and the publish engine recomputes the same footprint, so passing
-  // [] here skipped the environment check on both halves — the comment above is
-  // true for a description edit and false for the relocation this was extended to
-  // cover.
   const moveDestination = form.watch("project");
-  const relocates = (moveDestination || "") !== (feature.project || "");
-  // The endpoint now DIFFS metadata against live rather than taking it by key
-  // presence, so a description-only save carries no payload-affecting field and the
-  // footprint is genuinely unbound. A relocation still answers for everywhere the
-  // flag serves — and over the same APPLICABLE set the endpoint uses, so neither
-  // side is a superset of the other.
-  // ANY payload-affecting field this form can dirty, not just the primary project.
-  // `targetingProjects`/`targetingAllProjects` are not in PAYLOAD_INERT_METADATA, so
-  // the endpoint's live diff makes them payload-affecting and answers for every
-  // serving environment — while `relocates` alone left the footprint unbound, which
-  // SKIPS the check. Adding a targeting project and leaving Project alone was
-  // offered and then refused.
-  const targetingChanged =
-    !!form.watch("targetingAllProjects") !== !!feature.targetingAllProjects ||
-    !isEqual(
-      [...(form.watch("targetingProjects") ?? [])].sort(),
-      [...(feature.targetingProjects ?? [])].sort(),
-    );
-  const touchesPayloadMetadata = relocates || targetingChanged;
-  const metadataEnvs = touchesPayloadMetadata
-    ? servingEnvironments(
-        feature,
-        filterEnvironmentsByFeature(allEnvironments, feature).map((e) => e.id),
-      )
-    : [];
+  // The extracted helper, so the shipped path is the one `footprintParity` holds to
+  // the endpoint. Inline it widened only for a primary-project move while the
+  // endpoint's metadata diff treats a targeting change as payload-affecting too.
+  const metadataEnvs = getMetadataEditEnvs({
+    feature,
+    proposed: {
+      project: moveDestination,
+      targetingAllProjects: form.watch("targetingAllProjects"),
+      targetingProjects: form.watch("targetingProjects"),
+    },
+    environments: allEnvironments,
+  });
   const canPublishMetadata =
     permissionsUtil.canPublishFeature(feature, metadataEnvs) &&
     holdsFeatureMoveDestination(
