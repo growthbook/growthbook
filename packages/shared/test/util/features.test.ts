@@ -3656,6 +3656,31 @@ describe("getEnvsForRampTarget", () => {
     ).toEqual(["dev"]);
   });
 
+  // The patch REPLACES the rule's `environments`, so narrowing production→dev
+  // stops the rule serving production. Reading the patch alone made that a
+  // dev-only footprint, and a caller with publish in dev could strip a rule off
+  // production traffic. The union is what the revision-embedded ramp path already
+  // computes via `getDraftAffectedEnvironments`.
+  it("unions the environments the rule currently serves", () => {
+    expect(
+      getEnvsForRampTarget(
+        target({ coverage: 0, environments: ["dev"] }) as never,
+        "t1",
+        ["production"],
+      ).sort(),
+    ).toEqual(["dev", "production"]);
+  });
+
+  it("is 'all' when the rule currently serves all environments", () => {
+    expect(
+      getEnvsForRampTarget(
+        target({ coverage: 0, environments: ["dev"] }) as never,
+        "t1",
+        "all",
+      ),
+    ).toBe("all");
+  });
+
   it("is 'all' for an explicitly all-environments patch", () => {
     expect(
       getEnvsForRampTarget(

@@ -1,7 +1,10 @@
 import { ConfigWithoutValue } from "shared/types/config";
 import { Revision } from "shared/enterprise";
 import { configPublishEnvironments } from "shared/util";
-import { canLandArchiveToggle, serveFootprint } from "shared/permissions";
+import {
+  archiveFootprintForControl,
+  canLandArchiveToggle,
+} from "shared/permissions";
 import ArchiveModal from "@/components/Revision/ArchiveModal";
 import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
@@ -71,9 +74,11 @@ export default function ConfigArchiveModal({
         permissionsUtil,
         "config",
         config,
-        configPublishEnvironments(config).length
-          ? configPublishEnvironments(config)
-          : serveFootprint(environments, config),
+        archiveFootprintForControl({
+          environments,
+          entity: config,
+          scoped: configPublishEnvironments(config),
+        }),
       )}
       referenceCount={features.length}
       referencesLoading={loading}

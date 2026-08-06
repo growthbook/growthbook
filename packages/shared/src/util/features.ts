@@ -3072,7 +3072,17 @@ export function getEnvsForRampTarget(
     "startActions" | "steps" | "endActions"
   >,
   targetId: string,
+  // The environments the target rule CURRENTLY serves. A patch naming
+  // `environments` REPLACES that field (`applyPatchToRule` sets
+  // `allEnvironments: false` and overwrites `environments`), so narrowing a rule
+  // from production to dev is a PRODUCTION change — it stops serving there. Read
+  // from the patch alone, the footprint was ["dev"] and a dev-limited caller could
+  // strip a rule off production traffic. The union is the rule the revision-embedded
+  // ramp path already applies via `getDraftAffectedEnvironments`, which seeds from
+  // the current state and treats patch envs as widening.
+  currentRuleEnvs?: string[] | "all",
 ): string[] | "all" {
+  if (currentRuleEnvs === "all") return "all";
   const envs = new Set<string>();
   const patches = [
     ...(schedule.startActions ?? []),
@@ -3100,6 +3110,7 @@ export function getEnvsForRampTarget(
   // cell over — and it is the cell an attacker picks, because a schedule created
   // with no steps at all has no patches to name anything.
   if (!envs.size) return "all";
+  for (const env of currentRuleEnvs ?? []) envs.add(env);
   return Array.from(envs);
 }
 

@@ -275,3 +275,31 @@ export function metadataTouchesPayload(
   if (!metadata) return false;
   return Object.keys(metadata).some((key) => !PAYLOAD_INERT_METADATA.has(key));
 }
+
+/**
+ * The footprint an archive/unarchive answers for, for a control to predict.
+ *
+ * A thin, NAMED wrapper over `serveFootprint` purely so call sites stop spelling
+ * the footprint themselves: the raw org-environment list reads correct at a glance
+ * and is wrong (it demands authority in environments scoped away from the entity),
+ * and it survived a sweep that converted seven sibling sites precisely because it
+ * looked right. The server's `archiveServeFootprint` is the twin of this.
+ *
+ * `scoped` is the entity's own binding when it has one — a Config's scoped
+ * overrides. Empty means unbound, and unbound means everywhere it serves.
+ */
+export function archiveFootprintForControl({
+  environments,
+  entity,
+  scoped = [],
+}: {
+  environments: { id: string; projects?: string[] }[];
+  entity: {
+    project?: string;
+    targetingProjects?: string[];
+    targetingAllProjects?: boolean;
+  };
+  scoped?: string[];
+}): string[] {
+  return scoped.length ? scoped : serveFootprint(environments, entity);
+}

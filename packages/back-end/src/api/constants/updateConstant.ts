@@ -216,11 +216,20 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
       // Marks a skipped approval requirement; an org without one skips nothing.
       bypass: approvalRequired,
       changes: fieldsToUpdate as Record<string, unknown>,
-      write: () =>
+      // Reports from INSIDE the write. `persistedFrom` maps the RETURN VALUE, so it
+      // never runs when the write throws after persisting — compensation then read
+      // "nothing written", removed the merged revision, and left the change live
+      // with no record of it at all.
+      write: (report) =>
         runGuardedWrite("constant", constant.id, () =>
           req.context.models.constants.updateIfUnchanged(
             constant,
             fieldsToUpdate,
+            undefined,
+            {
+              onWritten: (doc: unknown) =>
+                report(doc as Record<string, unknown>),
+            },
           ),
         ),
       persistedFrom: (written) => written as unknown as Record<string, unknown>,

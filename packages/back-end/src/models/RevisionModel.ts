@@ -801,12 +801,23 @@ export class RevisionModel extends BaseClass {
     entityId: string,
     authorId: string,
   ) {
-    return this._findOne({
-      "target.type": entityType,
-      "target.id": entityId,
-      authorId,
-      status: { $nin: ["merged", "discarded"] },
-    } as Record<string, unknown>);
+    // Live-entity basis, like every other read. On the snapshot basis this
+    // returned null for a moved entity and its caller silently FORKED a new draft
+    // instead of editing the author's existing one.
+    const readable = await this.readableTargetIds([
+      { type: entityType, id: entityId },
+    ]);
+    if (!readable.has(`${entityType}:${entityId}`)) return null;
+    const [doc] = await this._find(
+      {
+        "target.type": entityType,
+        "target.id": entityId,
+        authorId,
+        status: { $nin: ["merged", "discarded"] },
+      } as Record<string, unknown>,
+      { limit: 1, bypassReadPermissionChecks: true },
+    );
+    return doc ?? null;
   }
 
   /** Look up a single revision by entity type, entity id, and 1-based version. */

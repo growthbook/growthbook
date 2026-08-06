@@ -742,6 +742,49 @@ export async function getFeatureProjectsByIds(
   return new Map(features.map((f) => [f.id, f.project || undefined]));
 }
 
+/**
+ * The environments each named rule CURRENTLY serves, keyed `featureId:ruleId`.
+ *
+ * The ramp control gate needs it because a patch naming `environments` REPLACES
+ * that field on the rule — so narrowing production→dev stops serving production,
+ * and a footprint read from the patch alone never mentions it. Raw fetch, like
+ * `getFeatureProjectsByIds`: a target the caller cannot read is precisely the one
+ * that must still be checked, and a rule that is gone contributes "all" — the
+ * strictest answer available.
+ */
+export async function getFeatureRuleEnvironmentsByIds(
+  context: ReqContext | ApiReqContext,
+  refs: { featureId: string; ruleId?: string }[],
+): Promise<Map<string, string[] | "all">> {
+  const result = new Map<string, string[] | "all">();
+  const named = refs.filter((r) => !!r.ruleId);
+  if (!named.length) return result;
+
+  const features = await FeatureModel.find(
+    {
+      organization: context.org.id,
+      id: { $in: [...new Set(named.map((r) => r.featureId))] },
+    },
+    { id: 1, rules: 1, environmentSettings: 1, _id: 0 },
+  );
+  const byId = new Map(features.map((f) => [f.id, toInterface(f, context)]));
+
+  for (const { featureId, ruleId } of named) {
+    const key = `${featureId}:${ruleId}`;
+    const feature = byId.get(featureId);
+    const rule = (feature?.rules ?? []).find(
+      (r) => stemRuleId(r.id ?? "") === stemRuleId(ruleId ?? ""),
+    );
+    if (!rule) {
+      // Unresolvable: assume the widest reach rather than none.
+      result.set(key, "all");
+      continue;
+    }
+    result.set(key, rule.allEnvironments ? "all" : (rule.environments ?? []));
+  }
+  return result;
+}
+
 export async function createFeature(
   context: ReqContext | ApiReqContext,
   data: FeatureInterface,

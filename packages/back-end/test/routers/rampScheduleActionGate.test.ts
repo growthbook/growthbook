@@ -10,6 +10,11 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
   // read-filtered, and an unreadable target is exactly the one that must still
   // be checked.
   getFeatureProjectsByIds: jest.fn(),
+  // The gate also asks what each target rule CURRENTLY serves, because a patch
+  // naming `environments` REPLACES that field — narrowing production→dev is a
+  // production change. An empty map means "no current envs to union", which keeps
+  // these cases measuring exactly the patch footprint they were written for.
+  getFeatureRuleEnvironmentsByIds: jest.fn(async () => new Map()),
 }));
 // The gate itself lives here now (shared with the REST handlers), so keep the
 // real implementation and stub only the rest of the module's surface.

@@ -2,6 +2,7 @@ import {
   NO_ENVIRONMENT_BINDING,
   canCommentOnRevisionEntity,
   canDeleteArchivedEntity,
+  archiveFootprintForControl,
   canLandArchiveToggle,
   canLandRevertToTarget,
   canPublishRevisionEntity,
@@ -390,10 +391,10 @@ export default function ConstantDetailPage(): React.ReactElement {
     permissionsUtil,
     "constant",
     constant,
-    // The SERVE footprint, matching the archive endpoints: the base value
-    // feeds every environment, so archiving takes delete authority in all of
-    // them. Unbound would mean the env check is SKIPPED, not held everywhere.
-    environments.map((e) => e.id),
+    // The SERVE footprint, matching the archive endpoints. Raw org envs OVER-demand:
+    // an environment scoped away from the constant's projects never serves it, so
+    // requiring authority there hid Archive from a Deleter the endpoint allows.
+    archiveFootprintForControl({ environments, entity: constant }),
   );
   const canArchiveNow =
     (canLandArchive || canEditNow) && (!selectedRevision || isDraft);
@@ -675,7 +676,7 @@ export default function ConstantDetailPage(): React.ReactElement {
               constant,
               // Narrowed to the constant's projects, like the server's
               // `archiveServeFootprint` — raw org envs over-demanded.
-              serveFootprint(environments, constant),
+              archiveFootprintForControl({ environments, entity: constant }),
             )}
             holdsLandingDestination={holdsRevisionDestination(
               permissionsUtil,

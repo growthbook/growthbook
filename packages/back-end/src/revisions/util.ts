@@ -249,7 +249,17 @@ export async function createOrUpdateRevision(
   } = options;
 
   if (revisionId && !forceCreate) {
-    const targetRevision = await context.models.revisions.getById(revisionId);
+    // Live-entity basis: on the snapshot basis a moved entity's revision resolved
+    // to null here and the code fell through to CREATE a new draft — so a caller
+    // who had just resolved that revision on the live basis at the handler silently
+    // got a fork, once, and then everything looked normal.
+    const targetRevision =
+      await context.models.revisions.getByIdReadable(revisionId);
+    if (!targetRevision) {
+      // An explicitly named revision that cannot be resolved is a failure, never a
+      // new draft. Falling through is what made the fork silent.
+      throw new Error("Revision not found");
+    }
     if (targetRevision) {
       // Guard against cross-entity writes: a caller could pass a revisionId
       // that belongs to a different entity (same org) and we'd otherwise

@@ -1,4 +1,7 @@
-import { canLandArchiveToggle, serveFootprint } from "shared/permissions";
+import {
+  archiveFootprintForControl,
+  canLandArchiveToggle,
+} from "shared/permissions";
 import { ConstantWithoutValue } from "shared/types/constant";
 import { Revision } from "shared/enterprise";
 import ArchiveModal from "@/components/Revision/ArchiveModal";
@@ -62,7 +65,7 @@ export default function ConstantArchiveModal({
         permissionsUtil,
         "constant",
         constant,
-        serveFootprint(environments, constant),
+        archiveFootprintForControl({ environments, entity: constant }),
       )}
       referenceCount={totalReferences}
       referencesLoading={loading}

@@ -88,6 +88,7 @@ import {
   PutFeatureRuleBody,
 } from "shared/types/feature-rule";
 import { getValidDate } from "shared/dates";
+import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
 import { isArmedWithAuthorizedPublisher } from "back-end/src/revisions/approveAndPublish";
 import { assertCanRevertRevision } from "back-end/src/revisions/revertActions";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -5433,6 +5434,28 @@ export async function postFeaturesEvaluate(
   });
 }
 
+/**
+ * The draft the archive flip would be written INTO — resolved the same way
+ * `createOrUpdateDraftWithChanges` resolves it, so the injection check and the write
+ * cannot disagree about which draft is at stake. Null when a fresh one will be made.
+ */
+async function getDraftForArchiveInjectionCheck(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  targetDraftVersion?: number,
+): Promise<FeatureRevisionInterface | null> {
+  if (targetDraftVersion) {
+    return await getRevision({
+      context,
+      organization: feature.organization,
+      featureId: feature.id,
+      feature,
+      version: targetDraftVersion,
+    });
+  }
+  return await getActiveDraft(context, feature);
+}
+
 export async function postFeatureArchive(
   req: AuthRequest<
     | {
@@ -5486,6 +5509,37 @@ export async function postFeatureArchive(
   if (autoPublish && !canLand) {
     context.permissions.throwPermissionError();
   }
+  // Writing `archived` into an EXISTING draft is a write into someone else's work:
+  // it makes that draft delete-class, so its author — a publisher without delete —
+  // can no longer publish it, and `createOrUpdateDraftWithChanges` does NOT reset
+  // review, so an approved draft keeps approvals that never saw the archive. The
+  // landing authority above is enough to stage a NEW archive draft, never to reach
+  // into one this caller does not own. With no `draftVersion` this falls through to
+  // the active draft, so there is no version to guess.
+  const targetDraft = await getDraftForArchiveInjectionCheck(
+    context,
+    feature,
+    draftVersion,
+  );
+  if (
+    targetDraft &&
+    !canWriteArchiveIntoDraft({
+      permissions: context.permissions,
+      model: "feature",
+      entity: feature,
+      revision: {
+        authorId:
+          targetDraft.createdBy && "id" in targetDraft.createdBy
+            ? targetDraft.createdBy.id
+            : undefined,
+        contributors: targetDraft.contributors,
+      },
+      userId: context.userId,
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
   const archiveChanges = { archived: newArchivedState };
   const archiveComment = newArchivedState
     ? "Archive feature"

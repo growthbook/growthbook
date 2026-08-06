@@ -17,7 +17,10 @@ import {
 } from "shared/enterprise";
 import { constantRequiresReview } from "shared/util";
 import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
-import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
+import {
+  compensateFailedLanding,
+  runGuardedWrite,
+} from "back-end/src/revisions/landingSequence";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
@@ -650,17 +653,27 @@ export const putConstant = async (
         { bypass: isBypass },
       );
 
+      let landedDoc: Record<string, unknown> | null = null;
       try {
         // Guarded on the pre-image: the merge claim above guards the REVISION,
         // not the entity, so two direct saves computed from the same read could
         // still both apply. A lost race reopens the revision below and returns
         // the same retryable 409 as every other landing.
+        // Reported from inside the write so a failure AFTER it — the cascade below —
+        // can put live state back. Without the report the catch could only un-merge,
+        // which left the change live with no revision recording it.
         await runGuardedWrite("constant", existing.id, () =>
           context.models.constants.updateIfUnchanged(
             existing,
             fieldsToUpdate as Parameters<
               typeof context.models.constants.update
             >[1],
+            undefined,
+            {
+              onWritten: (doc: unknown) => {
+                landedDoc = doc as Record<string, unknown>;
+              },
+            },
           ),
         );
       } catch (e) {
@@ -670,12 +683,22 @@ export const putConstant = async (
           // merged though nothing landed. This is compensation: restore the
           // pre-merge status, guarded on the merge this flow just wrote so a
           // concurrent recovery is never clobbered.
-          await context.models.revisions.reopenAfterFailedApply(
-            revision.id,
-            context.userId,
-            priorRevision,
-            revision.dateUpdated,
-          );
+          await compensateFailedLanding({
+            context,
+            entityType: "constant",
+            entity: existing as unknown as Record<string, unknown> & {
+              id: string;
+            },
+            persisted: landedDoc,
+            changes: fieldsToUpdate as Record<string, unknown>,
+            unmerge: () =>
+              context.models.revisions.reopenAfterFailedApply(
+                revision.id,
+                context.userId,
+                priorRevision,
+                revision.dateUpdated,
+              ),
+          });
         } catch {
           // ignore — surface the original update error
         }

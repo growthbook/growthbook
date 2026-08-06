@@ -336,3 +336,67 @@ export async function withBufferedPayloadRefreshes<T>(
     flushPayloadRefreshBuffer(context, event);
   }
 }
+
+/**
+ * Compensate a failed landing that had already claimed its merge: put LIVE state
+ * back first, then un-merge the revision — and un-merge only when the restore came
+ * back clean.
+ *
+ * The internal controllers hand-rolled this and stopped at the un-merge, so a
+ * cascade failure after the root write left the change live with the revision
+ * reopened: no merged revision, no webhook, SDKs already serving it. The ordering
+ * is the whole point and it belongs in one place — a live change with no record is
+ * the one outcome nothing can repair, so the record is kept whenever live cannot be
+ * put back.
+ *
+ * `persisted` is what the write REPORTED writing. Nothing reported means the write
+ * never landed (models report from inside the document write, before audit and the
+ * afterUpdate hooks), so there is nothing to restore.
+ */
+export async function compensateFailedLanding({
+  context,
+  entityType,
+  entity,
+  persisted,
+  changes,
+  unmerge,
+}: {
+  context: Context;
+  entityType: RevisionTargetType;
+  entity: Record<string, unknown> & { id: string };
+  persisted: Record<string, unknown> | null;
+  /** The fields this landing meant to write, for the ownership comparison. */
+  changes: Record<string, unknown>;
+  /** Returns the revision to its pre-merge state. */
+  unmerge: () => Promise<unknown>;
+}): Promise<void> {
+  const restored =
+    persisted === null
+      ? true
+      : await tryRestoreEntityPreImage({
+          context,
+          entityType,
+          preImage: entity,
+          persistedKeys: Object.keys(changes),
+          written: persisted,
+        });
+
+  if (!restored) {
+    // Part of the change is live, so consumers must hear about it and the merged
+    // revision stays as the record of what actually happened.
+    context.landingLeftPartialState = true;
+    logger.error(
+      `Landing on ${entityType} "${entity.id}" failed and live state could not be restored; its merged revision is kept as the record and needs reconciling by hand`,
+    );
+    return;
+  }
+
+  try {
+    await unmerge();
+  } catch (e) {
+    logger.error(
+      e,
+      `Landing on ${entityType} "${entity.id}" was rolled back but its merged revision could not be un-merged; that revision is phantom history and needs removing by hand`,
+    );
+  }
+}

@@ -1,4 +1,5 @@
 import {
+  archiveFootprintForControl,
   NO_ENVIRONMENT_BINDING,
   canCommentOnRevisionEntity,
   canDeleteArchivedEntity,
@@ -956,11 +957,11 @@ export default function ConfigDetailPage(): React.ReactElement {
     // Flipping `archived` reaches everywhere the Config serves; a base Config
     // names no scoped environments, and an empty footprint SKIPS the environment
     // check instead of narrowing it.
-    configPublishEnvironments(config).length
-      ? configPublishEnvironments(config)
-      : // Narrowed to the Config's projects, like the server's
-        // `archiveServeFootprint` — raw org envs over-demanded.
-        serveFootprint(environments, config),
+    archiveFootprintForControl({
+      environments,
+      entity: config,
+      scoped: configPublishEnvironments(config),
+    }),
   );
   const canArchiveNow =
     (canLandArchive || canEditNow) &&
@@ -2211,9 +2212,11 @@ export default function ConfigDetailPage(): React.ReactElement {
                   permissionsUtil,
                   "config",
                   config,
-                  configPublishEnvironments(config).length
-                    ? configPublishEnvironments(config)
-                    : serveFootprint(environments, config),
+                  archiveFootprintForControl({
+                    environments,
+                    entity: config,
+                    scoped: configPublishEnvironments(config),
+                  }),
                 )}
                 holdsLandingDestination={holdsRevisionDestination(
                   permissionsUtil,

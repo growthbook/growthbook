@@ -29,6 +29,7 @@ import { getEnvironments } from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  getFeatureRuleEnvironmentsByIds,
   getFeature,
   getFeatureProjectsByIds,
   publishRevision,
@@ -3049,10 +3050,26 @@ export async function assertCanControlRampSchedule(
   // union their environments rather than the later one replacing the earlier —
   // otherwise one of the two rules would go unchecked.
   const checks = new Map<string, Set<string>>();
+  // What each target rule CURRENTLY serves. A patch naming `environments`
+  // REPLACES that field, so narrowing a rule from production to dev is a
+  // production change — the rule stops serving there — and a footprint read from
+  // the patch alone never mentions production at all. Without this the gate asked
+  // a NARROWER question than the write performs.
+  const ruleEnvs = await getFeatureRuleEnvironmentsByIds(
+    context,
+    (schedule.targets ?? []).map((t) => ({
+      featureId: t.entityId,
+      ruleId: t.ruleId ?? undefined,
+    })),
+  );
   for (const target of schedule.targets ?? []) {
     // "all" resolves to the schedule-wide footprint, which the model has
     // already expanded against the org's environments.
-    const envs = getEnvsForRampTarget(schedule, target.id);
+    const envs = getEnvsForRampTarget(
+      schedule,
+      target.id,
+      ruleEnvs.get(`${target.entityId}:${target.ruleId}`),
+    );
     const existing = checks.get(target.entityId) ?? new Set<string>();
     for (const env of envs === "all" ? scheduleEnvs : envs) existing.add(env);
     checks.set(target.entityId, existing);

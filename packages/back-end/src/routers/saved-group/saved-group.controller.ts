@@ -20,7 +20,10 @@ import {
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
-import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
+import {
+  compensateFailedLanding,
+  runGuardedWrite,
+} from "back-end/src/revisions/landingSequence";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
@@ -385,12 +388,23 @@ export const postSavedGroupAddItems = async (
       context.userId,
       { bypass: false },
     );
+    let landedDoc: Record<string, unknown> | null = null;
     try {
       // Guarded on the pre-image; the merge claim above guards the revision only.
+      // Reported from inside the write so a post-write failure can put live state
+      // back; without it the catch could only un-merge, leaving the change live
+      // with no revision recording it.
       await runGuardedWrite("saved-group", savedGroup.id, () =>
-        context.models.savedGroups.updateIfUnchanged(savedGroup, {
-          values: newValues,
-        }),
+        context.models.savedGroups.updateIfUnchanged(
+          savedGroup,
+          { values: newValues },
+          undefined,
+          {
+            onWritten: (doc: unknown) => {
+              landedDoc = doc as Record<string, unknown>;
+            },
+          },
+        ),
       );
     } catch (e) {
       try {
@@ -399,12 +413,22 @@ export const postSavedGroupAddItems = async (
         // merged though nothing landed. This is compensation: restore the
         // pre-merge status, guarded on the merge this flow just wrote so a
         // concurrent recovery is never clobbered.
-        await context.models.revisions.reopenAfterFailedApply(
-          revision.id,
-          context.userId,
-          priorRevision,
-          revision.dateUpdated,
-        );
+        await compensateFailedLanding({
+          context,
+          entityType: "saved-group",
+          entity: savedGroup as unknown as Record<string, unknown> & {
+            id: string;
+          },
+          persisted: landedDoc,
+          changes: { values: newValues } as Record<string, unknown>,
+          unmerge: () =>
+            context.models.revisions.reopenAfterFailedApply(
+              revision.id,
+              context.userId,
+              priorRevision,
+              revision.dateUpdated,
+            ),
+        });
       } catch {
         // ignore — surface the original update error
       }
@@ -593,12 +617,23 @@ export const postSavedGroupRemoveItems = async (
       context.userId,
       { bypass: false },
     );
+    let landedDoc: Record<string, unknown> | null = null;
     try {
       // Guarded on the pre-image; the merge claim above guards the revision only.
+      // Reported from inside the write so a post-write failure can put live state
+      // back; without it the catch could only un-merge, leaving the change live
+      // with no revision recording it.
       await runGuardedWrite("saved-group", savedGroup.id, () =>
-        context.models.savedGroups.updateIfUnchanged(savedGroup, {
-          values: newValues,
-        }),
+        context.models.savedGroups.updateIfUnchanged(
+          savedGroup,
+          { values: newValues },
+          undefined,
+          {
+            onWritten: (doc: unknown) => {
+              landedDoc = doc as Record<string, unknown>;
+            },
+          },
+        ),
       );
     } catch (e) {
       try {
@@ -607,12 +642,22 @@ export const postSavedGroupRemoveItems = async (
         // merged though nothing landed. This is compensation: restore the
         // pre-merge status, guarded on the merge this flow just wrote so a
         // concurrent recovery is never clobbered.
-        await context.models.revisions.reopenAfterFailedApply(
-          revision.id,
-          context.userId,
-          priorRevision,
-          revision.dateUpdated,
-        );
+        await compensateFailedLanding({
+          context,
+          entityType: "saved-group",
+          entity: savedGroup as unknown as Record<string, unknown> & {
+            id: string;
+          },
+          persisted: landedDoc,
+          changes: { values: newValues } as Record<string, unknown>,
+          unmerge: () =>
+            context.models.revisions.reopenAfterFailedApply(
+              revision.id,
+              context.userId,
+              priorRevision,
+              revision.dateUpdated,
+            ),
+        });
       } catch {
         // ignore — surface the original update error
       }
@@ -1102,12 +1147,22 @@ export const putSavedGroup = async (
         },
       );
 
+      let landedDoc: Record<string, unknown> | null = null;
       try {
         // Guarded on the pre-image; the merge claim above guards the revision only.
+        // Reported from inside the write so a post-write failure can put live state
+        // back; without it the catch could only un-merge, leaving the change live
+        // with no revision recording it.
         await runGuardedWrite("saved-group", savedGroup.id, () =>
           context.models.savedGroups.updateIfUnchanged(
             savedGroup,
             fieldsToUpdate,
+            undefined,
+            {
+              onWritten: (doc: unknown) => {
+                landedDoc = doc as Record<string, unknown>;
+              },
+            },
           ),
         );
       } catch (e) {
@@ -1117,12 +1172,22 @@ export const putSavedGroup = async (
           // merged though nothing landed. This is compensation: restore the
           // pre-merge status, guarded on the merge this flow just wrote so a
           // concurrent recovery is never clobbered.
-          await context.models.revisions.reopenAfterFailedApply(
-            revision.id,
-            context.userId,
-            priorRevision,
-            revision.dateUpdated,
-          );
+          await compensateFailedLanding({
+            context,
+            entityType: "saved-group",
+            entity: savedGroup as unknown as Record<string, unknown> & {
+              id: string;
+            },
+            persisted: landedDoc,
+            changes: fieldsToUpdate as Record<string, unknown>,
+            unmerge: () =>
+              context.models.revisions.reopenAfterFailedApply(
+                revision.id,
+                context.userId,
+                priorRevision,
+                revision.dateUpdated,
+              ),
+          });
         } catch {
           // ignore — surface the original update error
         }
