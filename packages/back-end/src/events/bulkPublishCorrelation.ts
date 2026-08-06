@@ -19,6 +19,22 @@ export function bulkPublishFields(context: Context): {
  * after the whole release commits (and never for a rolled-back one). The one
  * implementation of the defer decision, shared by every model's update hook.
  */
+/**
+ * The buffer a write belongs to, read at the moment of the write.
+ *
+ * A producer that awaits before emitting has no identity of its own, so reading the
+ * context when it RESUMES asks "which release is open now", not "which release did
+ * this write belong to". With two landings on one context — an experiment-start loop,
+ * the ramp poller — those are different questions and the answers diverge in both
+ * directions: an event dropped because an unrelated later landing rolled back, or
+ * emitted because an unrelated later landing stood.
+ */
+export function captureEventBuffer(
+  context: Context,
+): Context["bulkPublishDeferredEvents"] {
+  return context.bulkPublishDeferredEvents ?? null;
+}
+
 export async function emitOrDeferBulkPublishEvent(
   context: Context,
   emit: () => Promise<unknown>,
@@ -28,13 +44,18 @@ export async function emitOrDeferBulkPublishEvent(
   // but are restored independently, and one item-level tag cannot say that the root
   // went back while a descendant did not.
   entityId: string,
+  // The buffer this write belonged to, from `captureEventBuffer` at write time. Every
+  // producer that can await before emitting must pass one; omitting it falls back to
+  // whatever is open now, which is only correct for a producer that cannot suspend.
+  captured?: Context["bulkPublishDeferredEvents"],
 ): Promise<void> {
   // Read and push with no await between them, so a flush can't interleave and orphan
   // an event pushed while the buffer is open. That is NOT sufficient on its own: some
   // producers (`onFeatureUpdate`) are invoked fire-and-forget and await mid-way, so
   // they can arrive after the release has ended. The buffer therefore stays on the
   // context once closed, carrying what it needs to decide their fate.
-  const deferred = context.bulkPublishDeferredEvents;
+  const deferred =
+    captured !== undefined ? captured : context.bulkPublishDeferredEvents;
   if (deferred && !deferred.closed) {
     deferred.entries.push({ owner: entityId, emit });
     return;

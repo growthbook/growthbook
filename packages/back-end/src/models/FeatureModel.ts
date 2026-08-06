@@ -134,7 +134,10 @@ import {
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { ApiReqContext } from "back-end/types/api";
 import { deriveLiveFeatureEventEnvironments } from "back-end/src/events/eventEnvironments";
-import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
+import {
+  captureEventBuffer,
+  emitOrDeferBulkPublishEvent,
+} from "back-end/src/events/bulkPublishCorrelation";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {
   createVercelExperimentationItemFromFeature,
@@ -1188,6 +1191,12 @@ export async function onFeatureUpdate(
   updatedFeature: FeatureInterface,
   skipRefreshForProject?: string,
 ) {
+  // BEFORE the first await. This function is invoked fire-and-forget and suspends on
+  // `getAllProjectIds` — a real round trip on a cold cache, which is exactly the first
+  // iteration of a loop that publishes several features in turn. By the time it
+  // resumes, the next landing may have opened its own buffer, and reading the context
+  // then attributes this write to that landing.
+  const buffer = captureEventBuffer(context);
   const allProjectIds = await context.getAllProjectIds();
   queueSDKPayloadRefresh({
     context,
@@ -1218,6 +1227,7 @@ export async function onFeatureUpdate(
       context,
       () => logFeatureUpdatedEvent(context, feature, updatedFeature),
       feature.id,
+      buffer,
     );
   }
 
@@ -3657,6 +3667,34 @@ async function planContextualBanditLinkageForPublish(
   );
 }
 
+// Named once because `featureDocumentWentBack` MATCHES on it. Two free-text copies
+// meant a reword — an ordinary edit next to "ramp schedules" and "holdout linkage" —
+// would silently make that match always true, recording every feature as rolled back
+// and taking the durable-change event back out of service.
+const FEATURE_DOC_REWIND = "feature document";
+
+/**
+ * Whether a failed publish left the feature DOCUMENT back at its pre-image, which is
+ * what decides the fate of the `feature.updated` the apply deferred.
+ *
+ * A lost race is NOT "back": our write landed and the rival's followed it, so the
+ * event is factually true, and suppressing it breaks the diff chain — consumers would
+ * then receive the rival's event carrying `previous = our value`, which they were
+ * never told about. The bulk path throws before it can record, so it already answers
+ * this way; both surfaces have to answer it the same.
+ */
+export function featureDocumentWentBack({
+  ownershipLost,
+  unreversed,
+}: {
+  ownershipLost: boolean;
+  /** Labels of the rewinds that could not be performed. */
+  unreversed: string[];
+}): boolean {
+  if (ownershipLost) return false;
+  return !unreversed.includes(FEATURE_DOC_REWIND);
+}
+
 export async function publishRevision({
   context,
   feature,
@@ -3769,6 +3807,7 @@ async function publishRevisionInner({
     undo: () => Promise<unknown>;
     critical?: boolean;
   };
+
   const rewinds: Rewind[] = [];
   let revisionStatusRewind: Rewind | null = null;
 
@@ -3853,7 +3892,7 @@ async function publishRevisionInner({
     );
 
     rewinds.push({
-      what: "feature document",
+      what: FEATURE_DOC_REWIND,
       critical: true,
       undo: async () => {
         // Paired with the rules restore: a reverted rule set must not leave the
@@ -3991,15 +4030,16 @@ async function publishRevisionInner({
       }
     }
     // Report whether the feature DOCUMENT went back, which is what decides its
-    // deferred `feature.updated`. This path compensates through its own rewinds
-    // rather than the shared restore funnel, so without this the set stayed empty on
-    // the one landing that actually produces late producers — the filter below was
-    // inert exactly where it was needed, in both directions.
+    // deferred `feature.updated`. This path compensates through its own rewinds rather
+    // than the shared restore funnel, so without this the set stayed empty on the one
+    // landing that actually produces late producers.
     //
-    // Ownership lost counts as "back" for this purpose: our write is superseded, so
-    // our event would assert a value that is no longer live, and the winner emits its
-    // own.
-    if (ownershipLost || !unreversed.includes("feature document")) {
+    // A lost race is NOT "back": our write landed and the rival's followed it, so the
+    // event is factually true and suppressing it breaks the diff chain — consumers
+    // would then receive the rival's event carrying `previous = our value`, a value
+    // they were never told about. The bulk path throws before it can record, so it
+    // already answers this way; both surfaces have to answer it the same.
+    if (featureDocumentWentBack({ ownershipLost, unreversed })) {
       context.bulkPublishRestoredEntities?.add(feature.id);
     }
     // Say so in the response: continuing past a satellite keeps the feature and

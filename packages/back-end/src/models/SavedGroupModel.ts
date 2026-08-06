@@ -10,7 +10,10 @@ import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { UpdateFilter } from "mongodb";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
-import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
+import {
+  captureEventBuffer,
+  emitOrDeferBulkPublishEvent,
+} from "back-end/src/events/bulkPublishCorrelation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
@@ -197,6 +200,7 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
         this.context,
         () => logSavedGroupUpdatedEvent(this.context, previous, current),
         newDoc.id,
+        captureEventBuffer(this.context),
       );
     }
   }

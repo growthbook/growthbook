@@ -12,7 +12,10 @@ import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 import { resolvableValueChanged } from "back-end/src/services/constants";
 import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
-import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
+import {
+  captureEventBuffer,
+  emitOrDeferBulkPublishEvent,
+} from "back-end/src/events/bulkPublishCorrelation";
 import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
 import {
   logConstantCreatedEvent,
@@ -249,6 +252,7 @@ export class ConstantModel extends BaseClass {
         this.context,
         () => logConstantUpdatedEvent(this.context, previous, current),
         newDoc.id,
+        captureEventBuffer(this.context),
       );
     }
   }

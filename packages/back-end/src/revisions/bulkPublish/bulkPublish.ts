@@ -521,6 +521,7 @@ export async function commitBulkPublish(
       // Closed, and LEFT on the context: the producer reads the field fresh, so
       // nulling it would put a straggler back on the live-emit path.
       eventBuffer.closed = true;
+      context.bulkPublishRestoredEntities = null;
       flushPayloadRefreshBuffer(context, "bulk-publish-abort");
       for (const { emit } of durable) {
         try {

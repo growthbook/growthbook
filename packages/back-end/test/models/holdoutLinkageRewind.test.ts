@@ -116,6 +116,20 @@ describe("reverseHoldoutExperimentLinkage", () => {
     expect(removed).toEqual([{ holdoutId: "hld_1", ids: ["exp_E"] }]);
   });
 
+  // The toUnlink half specifically: dropping only THIS filter left the suite green,
+  // so the two directions need their own cases.
+  it("leaves an unlinked experiment alone when a different owner holds it", async () => {
+    experiments.set("exp_E", { id: "exp_E", holdoutId: "hld_OTHER" });
+    await reverseHoldoutExperimentLinkage(makeContext(), {
+      holdoutId: "hld_1",
+      toLink: [],
+      toUnlink: ["exp_E"],
+      prevExperimentHoldoutIds: { exp_E: "hld_1" },
+    });
+    expect(experiments.get("exp_E")?.holdoutId).toBe("hld_OTHER");
+    expect(added).toEqual([{ holdoutId: "hld_1", ids: [] }]);
+  });
+
   it("re-adds an unlinked experiment it still owns", async () => {
     experiments.set("exp_E", { id: "exp_E", holdoutId: "" });
     await reverseHoldoutExperimentLinkage(makeContext(), {

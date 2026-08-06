@@ -31,7 +31,10 @@ import {
 } from "back-end/src/services/constants";
 import { assertConfigArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { configToResolvable } from "back-end/src/services/resolvableValues";
-import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
+import {
+  captureEventBuffer,
+  emitOrDeferBulkPublishEvent,
+} from "back-end/src/events/bulkPublishCorrelation";
 import { archiveServeFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
 import {
@@ -410,6 +413,7 @@ export class ConfigModel extends BaseClass {
         this.context,
         () => logConfigUpdatedEvent(this.context, previous, current),
         newDoc.id,
+        captureEventBuffer(this.context),
       );
     }
   }

@@ -7,7 +7,10 @@ import {
   flushPayloadRefreshBuffer,
   withBufferedPayloadRefreshes,
 } from "back-end/src/revisions/landingSequence";
-import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
+import {
+  captureEventBuffer,
+  emitOrDeferBulkPublishEvent,
+} from "back-end/src/events/bulkPublishCorrelation";
 import type { Context } from "back-end/src/models/BaseModel";
 import { advancedGuardStamp } from "back-end/src/models/BaseModel";
 
@@ -292,6 +295,91 @@ describe("deferred event dispositions", () => {
     await withBufferedPayloadRefreshes(context, "test", async () => undefined);
 
     await emitOrDeferBulkPublishEvent(context, async () => emit(), "ent_1");
+    expect(emit).toHaveBeenCalledTimes(1);
+  });
+
+  // A straggler belongs to the landing whose WRITE it describes, not to whichever
+  // landing happens to be open when it resumes. Without capturing the buffer at write
+  // time, a loop publishing several entities in turn — an experiment start, the ramp
+  // poller — misattributes in both directions: an event dropped because an unrelated
+  // later landing rolled back, or emitted because an unrelated later landing stood.
+  it("judges a straggler by the landing it belongs to, not the one now open", async () => {
+    const context = ctx();
+    const emit = jest.fn();
+    let captured: Context["bulkPublishDeferredEvents"] = null;
+
+    // Landing #1 stands, and its producer suspends before emitting.
+    await withBufferedPayloadRefreshes(context, "test", async () => {
+      captured = captureEventBuffer(context);
+    });
+
+    // Landing #2 opens and rolls back, taking `ent_1` with it.
+    await expect(
+      withBufferedPayloadRefreshes(context, "test", async () => {
+        context.bulkPublishRestoredEntities?.add("ent_1");
+        throw new Error("second landing failed");
+      }),
+    ).rejects.toThrow("second landing failed");
+
+    // #1's producer resumes now. Reading the context would find #2's buffer and its
+    // verdict; the captured one says #1 stood.
+    await emitOrDeferBulkPublishEvent(
+      context,
+      async () => emit(),
+      "ent_1",
+      captured,
+    );
+    expect(emit).toHaveBeenCalledTimes(1);
+  });
+
+  // The mirror: #1 rolled the document back, #2 stands, and the straggler must stay
+  // silent rather than inherit #2's success.
+  it("does not let a later landing's success revive a rolled-back event", async () => {
+    const context = ctx();
+    const emit = jest.fn();
+    let captured: Context["bulkPublishDeferredEvents"] = null;
+
+    await expect(
+      withBufferedPayloadRefreshes(context, "test", async () => {
+        captured = captureEventBuffer(context);
+        context.bulkPublishRestoredEntities?.add("ent_1");
+        throw new Error("first landing failed");
+      }),
+    ).rejects.toThrow("first landing failed");
+
+    await withBufferedPayloadRefreshes(context, "test", async () => undefined);
+
+    await emitOrDeferBulkPublishEvent(
+      context,
+      async () => emit(),
+      "ent_1",
+      captured,
+    );
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  // A straggler that resumes WHILE the next landing is open must not join its buffer.
+  it("does not push into a later landing's open buffer", async () => {
+    const context = ctx();
+    const emit = jest.fn();
+    let captured: Context["bulkPublishDeferredEvents"] = null;
+
+    await withBufferedPayloadRefreshes(context, "test", async () => {
+      captured = captureEventBuffer(context);
+    });
+
+    await withBufferedPayloadRefreshes(context, "test", async () => {
+      // Mid-flight in landing #2, exactly when the producer resumes.
+      await emitOrDeferBulkPublishEvent(
+        context,
+        async () => emit(),
+        "ent_1",
+        captured,
+      );
+      expect(context.bulkPublishDeferredEvents?.entries).toEqual([]);
+    });
+
+    // Emitted on #1's verdict, not queued onto #2.
     expect(emit).toHaveBeenCalledTimes(1);
   });
 
