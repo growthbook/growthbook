@@ -9,6 +9,7 @@ import React, { forwardRef, ReactElement, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  rampTargetRuleIds,
   rampControlFootprint,
   stemRuleId,
   filterEnvironmentsByFeature,
@@ -237,6 +238,17 @@ interface SortableProps {
   holdout: HoldoutInterface | undefined;
   revisionList: MinimalFeatureRevisionInterface[];
   rampSchedule?: RampScheduleInterface;
+  /**
+   * The LIVE rule and the PERSISTED schedule, for the runtime-control authority check
+   * only. `feature` on this page is the draft projection whenever a non-live revision
+   * is selected — and the user's own draft is the DEFAULT — while `rampSchedule` has
+   * draft steps merged in. Runtime controls act on live state (see `canControlRamp`),
+   * so measuring their footprint against draft content made a dev-scoped publisher's
+   * own unpublished env-scope edit hide Pause and Advance on a live rollout the server
+   * would have let them stop.
+   */
+  liveRule?: FeatureRule;
+  liveRampSchedule?: RampScheduleInterface;
   draftRevision?: FeatureRevisionInterface | null;
   // True when rendered under the all-environments view. The `environment`
   // prop is then a cosmetic placeholder and must NOT promote a "current env"
@@ -318,6 +330,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       holdout,
       revisionList,
       rampSchedule,
+      liveRule,
+      liveRampSchedule,
       draftRevision,
       isAllEnvsView,
       onMoveUp,
@@ -455,19 +469,38 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         // is the shape the UI emits, so it disabled these controls for exactly the
         // dev-scoped publisher the server-side narrowing unblocked.
         rampControlFootprint({
-          schedule: rampSchedule,
+          // The PERSISTED schedule, not the draft-merged one: the gate reads it from
+          // `getById`, so measuring draft patches here diverged from what the endpoint
+          // demands.
+          schedule: liveRampSchedule ?? rampSchedule,
           allEnvironments: allEnvironments.map((e) => e.id),
-          ruleEnvsForTarget: (target) =>
-            // Only this rule is in hand; any other target is unresolvable and
-            // widens, which matches what the gate would demand.
-            stemRuleId(target.ruleId ?? "") === stemRuleId(rule.id ?? "")
-              ? rule.allEnvironments
-                ? "all"
-                : (rule.environments ?? [])
-              : undefined,
+          ruleEnvsForTarget: (target) => {
+            // The LIVE rule, and deliberately conservative about what this component
+            // cannot see: a target on another feature, or on a rule not held here,
+            // returns undefined and widens — the gate checks every target and resolves
+            // stem siblings, both of which reach past one rule on one page.
+            const basis = liveRule ?? rule;
+            if (target.entityId && target.entityId !== feature.id) {
+              return undefined;
+            }
+            const reachesThisRule = rampTargetRuleIds(
+              liveRampSchedule ?? rampSchedule,
+              target,
+            ).some((id) => stemRuleId(id) === stemRuleId(basis.id ?? ""));
+            if (!reachesThisRule) return undefined;
+            return basis.allEnvironments ? "all" : (basis.environments ?? []);
+          },
         }),
       );
-    }, [rampSchedule, feature, permissionsUtil, allEnvironments, rule]);
+    }, [
+      rampSchedule,
+      liveRampSchedule,
+      feature,
+      permissionsUtil,
+      allEnvironments,
+      rule,
+      liveRule,
+    ]);
 
     const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
       const raw = settings?.requireReviews;

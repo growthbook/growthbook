@@ -19,13 +19,13 @@ import {
 } from "shared/validators";
 import { ResourceEvents } from "shared/types/events/base-types";
 import {
+  rampTargetFootprint,
+  rampTargetRuleIds,
   rampRuleEnvKey,
-  rampPatchesForTarget,
   getEnvsFromRampSchedule,
   filterEnvironmentsByFeature,
   MergeResultChanges,
   isRampScheduleServing,
-  getEnvsForRampTarget,
 } from "shared/util";
 import uniqid from "uniqid";
 import {
@@ -3070,14 +3070,8 @@ export async function assertCanControlRampSchedule(
   // the write performs — a dev-only target with a production patch read as dev.
   // `featureRulePatch.ruleId` is a bare string and the internal controller passes
   // steps through verbatim, so nothing else reconciles the two.
-  const ruleIdsForTarget = (target: { id: string; ruleId?: string | null }) => {
-    const ids = new Set<string>();
-    if (target.ruleId) ids.add(target.ruleId);
-    for (const patch of rampPatchesForTarget(schedule, target.id)) {
-      if (patch.ruleId) ids.add(patch.ruleId);
-    }
-    return [...ids];
-  };
+  const ruleIdsForTarget = (target: { id: string; ruleId?: string | null }) =>
+    rampTargetRuleIds(schedule, target);
 
   const ruleEnvs = await getFeatureRuleEnvironmentsByIds(
     context,
@@ -3106,20 +3100,23 @@ export async function assertCanControlRampSchedule(
     const currentRuleEnvs: string[] | "all" = reachable.some((r) => r === "all")
       ? "all"
       : reachable.flatMap((r) => (Array.isArray(r) ? r : []));
-    // "all" resolves to the schedule-wide footprint, which the model has
-    // already expanded against the org's environments.
-    const envs = getEnvsForRampTarget(schedule, target.id, currentRuleEnvs);
+    // The SHARED per-target rule, the same call the Publish control makes. Inline
+    // here it was one shared function on one side only, and the two could still
+    // drift — which is the whole failure this consolidation exists to prevent.
+    const envs = rampTargetFootprint({
+      schedule,
+      target,
+      currentRuleEnvs,
+      allEnvironments: orgEnvironmentIds,
+    });
     const existing = checks.get(target.entityId) ?? new Set<string>();
-    // "all" resolves against the ORG's environments. `scheduleEnvs` is the
-    // schedule-wide PATCH footprint, which is the attacker's own list whenever the
-    // patches name environments — so collapsing "all" into it handed the gate
-    // ["dev"] for a rule with `allEnvironments: true`, and `flattenV1ToV2Rules`
-    // produces exactly that shape for any migrated rule covering every applicable
-    // environment. The old comment claimed scheduleEnvs was already org-expanded;
-    // that is true only in the case that doesn't matter.
-    for (const env of envs === "all" ? orgEnvironmentIds : envs) {
-      existing.add(env);
-    }
+    // `rampTargetFootprint` already resolved "all" against the ORG's environments,
+    // which is the point of passing them in. It used to be collapsed into
+    // `scheduleEnvs` — the schedule-wide PATCH footprint, i.e. the caller's own list
+    // whenever the patches name environments — so a rule with `allEnvironments: true`
+    // (the shape `flattenV1ToV2Rules` produces for any migrated rule covering every
+    // applicable environment) handed the gate ["dev"].
+    for (const env of envs) existing.add(env);
     checks.set(target.entityId, existing);
   }
   // The anchor feature is always checked, against the schedule-wide footprint

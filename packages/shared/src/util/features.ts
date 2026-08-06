@@ -3051,6 +3051,55 @@ export function rampSchedulePublishEnvironments(
 }
 
 /**
+ * Every rule id one ramp target can reach: its own, plus every `ruleId` its patches
+ * name. The executor resolves what it writes from `patch.ruleId` and ignores the
+ * target's, so anything deciding authority has to consider both.
+ */
+export function rampTargetRuleIds(
+  schedule: Pick<
+    RampScheduleInterface,
+    "startActions" | "steps" | "endActions"
+  >,
+  target: { id: string; ruleId?: string | null },
+): string[] {
+  const ids = new Set<string>();
+  if (target.ruleId) ids.add(target.ruleId);
+  for (const patch of rampPatchesForTarget(schedule, target.id)) {
+    if (patch.ruleId) ids.add(patch.ruleId);
+  }
+  return [...ids];
+}
+
+/**
+ * The environments ONE ramp target is acted on in, given what its rules serve.
+ *
+ * The unit both sides share. The gate needs it per target so it can group by feature
+ * — checking each feature separately, since the union across targets would demand
+ * authority in combinations the schedule never acts on — and the control needs it to
+ * union globally over the one feature it is rendering. Sharing the whole footprint
+ * function would have forced one of those shapes on the other; sharing the per-target
+ * answer leaves the grouping to each caller and the RULE in one place.
+ */
+export function rampTargetFootprint({
+  schedule,
+  target,
+  currentRuleEnvs,
+  allEnvironments,
+}: {
+  schedule: Pick<
+    RampScheduleInterface,
+    "startActions" | "steps" | "endActions"
+  >;
+  target: { id: string; ruleId?: string | null };
+  /** What the target's rules serve now — `"all"` widens. */
+  currentRuleEnvs: string[] | "all";
+  allEnvironments: string[];
+}): string[] {
+  const envs = getEnvsForRampTarget(schedule, target.id, currentRuleEnvs);
+  return envs === "all" ? [...allEnvironments] : envs;
+}
+
+/**
  * The footprint a live ramp CONTROL action answers for — the client's mirror of
  * `assertCanControlRampSchedule`.
  *
@@ -3080,6 +3129,8 @@ export function rampControlFootprint({
     id: string;
     ruleId?: string | null;
     environment?: string | null;
+    // So a caller holding one feature can widen for a target on another.
+    entityId?: string;
   }) => string[] | "all" | undefined;
 }): string[] {
   const targets = schedule.targets ?? [];
@@ -3091,10 +3142,17 @@ export function rampControlFootprint({
   const out = new Set<string>();
   for (const target of targets) {
     const current = ruleEnvsForTarget(target);
+    // Unresolvable: the gate checks every target while a control typically holds one
+    // rule, so this has to widen rather than contribute nothing.
     if (current === undefined) return [...allEnvironments];
-    const envs = getEnvsForRampTarget(schedule, target.id, current);
-    if (envs === "all") return [...allEnvironments];
-    for (const e of envs) out.add(e);
+    for (const e of rampTargetFootprint({
+      schedule,
+      target,
+      currentRuleEnvs: current,
+      allEnvironments,
+    })) {
+      out.add(e);
+    }
   }
   return [...out];
 }
