@@ -60,7 +60,13 @@ export async function dispatchConfigRevisionEvent(
     const snapshot = revision.target.snapshot as ConfigInterface;
     // Source ∪ destination for a move; environments are the config's scoped
     // set — the same footprint the permission layer answers for.
-    const projects = revisionEventProjects(revision);
+    // The live entity too: a draft opened before the entity moved names neither
+    // the current project in its snapshot nor in its ops, so a webhook filtered to
+    // where the entity lives today would hear nothing.
+    const liveForRouting = await context.models.configs.getById(
+      revision.target.id,
+    );
+    const projects = revisionEventProjects(revision, liveForRouting);
     const environments = configPublishEnvironments(snapshot);
 
     const emit = async <T extends ConfigRevisionEvent>(

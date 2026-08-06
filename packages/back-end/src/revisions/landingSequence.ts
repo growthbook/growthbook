@@ -128,6 +128,11 @@ export async function assertLandingBaseline({
  * Throws when the restore can't be completed. Callers treat that as "live is left
  * mid-change" and keep the merged revision, since a recorded partial change can be
  * reconciled by hand and an unrecorded one cannot.
+ *
+ * A restore is itself a write, so it bumps `dateUpdated` and records an audit
+ * entry, and a reopen leaves its activity-log trail. That residue is deliberate:
+ * these writes genuinely happened, and a rollback that erased its own tracks would
+ * leave an operator unable to see what the system did.
  */
 export async function restoreEntityPreImage({
   context,
@@ -313,8 +318,19 @@ export async function withBufferedPayloadRefreshes<T>(
     }
     return result;
   } catch (e) {
-    // Dropped: nothing landed that consumers should hear about.
+    const deferred = context.bulkPublishDeferredEvents ?? [];
     context.bulkPublishDeferredEvents = outerDeferred;
+    // Normally dropped: a rolled-back change never happened. But compensation
+    // that FAILED leaves part of it live, and consumers have to hear about state
+    // that exists — the refresh in `finally` already serves that state.
+    if (context.landingLeftPartialState) {
+      context.landingLeftPartialState = false;
+      for (const emit of deferred) {
+        await emit().catch((err) =>
+          logger.error(err, `Deferred ${event} event failed to dispatch`),
+        );
+      }
+    }
     throw e;
   } finally {
     flushPayloadRefreshBuffer(context, event);

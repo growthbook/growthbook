@@ -407,7 +407,10 @@ export const getRevisionsByEntity = async (
   const { entityType, entityId } = req.params;
 
   const revisionModel = context.models.revisions;
-  const revisions = await revisionModel.getByTarget(entityType, entityId);
+  const revisions = await revisionModel.getByTargetReadable(
+    entityType,
+    entityId,
+  );
 
   res.status(200).json({
     status: 200,
@@ -440,7 +443,7 @@ export const getRevision = async (
   const { id } = req.params;
 
   const revisionModel = context.models.revisions;
-  const revision = await revisionModel.getById(id);
+  const revision = await revisionModel.getByIdReadable(id);
 
   if (!revision) {
     return res.status(404).json({

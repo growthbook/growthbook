@@ -264,6 +264,12 @@ export class ReqContextClass {
   // record writes that genuinely happened, compensation included.
   public bulkPublishDeferredEvents?: Array<() => Promise<unknown>> | null;
 
+  // Set by compensation that could NOT put live state back. The deferred events
+  // above are dropped on a failed landing because a rolled-back change never
+  // happened — but when the rollback itself failed, part of the change IS live,
+  // and staying silent leaves consumers describing state that exists.
+  public landingLeftPartialState?: boolean;
+
   // Correlation token for the multi-entity publish ATTEMPT currently
   // committing (`pub_…`, minted per commit). Distinct from the future
   // Release id: a Release may publish over several attempts, each minting

@@ -122,10 +122,45 @@ export async function reverseFeatureContextualBanditLinkage(
           delta.contextualBanditId,
           plan.featureId,
           plan.preImage[delta.contextualBanditId],
+          // What the forward pass left this feature's slice holding. A second
+          // writer who has since moved it owns it now, and converging to our
+          // pre-image would undo their change.
+          appliedLinkageState(plan, delta),
         ),
     ),
     10,
   );
+}
+
+/**
+ * The state the forward pass wrote for one bandit: the pre-image with this
+ * delta applied. Derived rather than recorded, so it can't drift from
+ * `applyLinkageDelta`.
+ */
+function appliedLinkageState(
+  plan: ContextualBanditLinkagePlan,
+  delta: ContextualBanditLinkageDelta,
+): ContextualBanditLinkageState {
+  const pre = plan.preImage[delta.contextualBanditId];
+  const linked = new Set(pre.linkedFeatures);
+  if (delta.link) linked.add(plan.featureId);
+  if (delta.unlink) linked.delete(plan.featureId);
+
+  const dropped = new Set(delta.draftsToDrop);
+  const drafts = pre.pendingFeatureDrafts.filter(
+    (d) => d.featureId !== plan.featureId || !dropped.has(d.revisionVersion),
+  );
+  for (const version of delta.draftsToQueue) {
+    if (
+      !drafts.some(
+        (d) => d.featureId === plan.featureId && d.revisionVersion === version,
+      )
+    ) {
+      drafts.push({ featureId: plan.featureId, revisionVersion: version });
+    }
+  }
+
+  return { linkedFeatures: [...linked], pendingFeatureDrafts: drafts };
 }
 
 /**

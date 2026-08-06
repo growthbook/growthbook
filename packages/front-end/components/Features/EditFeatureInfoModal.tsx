@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { getReviewSetting } from "shared/util";
+import { holdsFeatureMoveDestination } from "shared/permissions";
 import { Box } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import TagsInput from "@/components/Tags/TagsInput";
@@ -60,11 +61,34 @@ const EditFeatureInfoModal: FC<{
     return reviewSetting.featureRequireMetadataReview !== false;
   })();
 
+  const form = useForm({
+    defaultValues: {
+      tags: feature.tags || [],
+      owner: feature.owner,
+      project: feature.project || "",
+      targetingAllProjects: feature.targetingAllProjects || false,
+      targetingProjects: feature.targetingProjects || [],
+      description: feature.description || "",
+    },
+  });
+
   // Approval-gating decides whether publish needs review; AUTHORITY decides
   // whether this user may publish at all. Without the second factor a
   // draft-only user defaulted into publish mode and 403'd on submit. Metadata
   // carries no environment footprint, so the project-scoped atom is the rule.
-  const canPublishMetadata = permissionsUtil.canPublishFeature(feature, []);
+  //
+  // The DESTINATION counts too when this edit relocates the flag: landing it is a
+  // publish wherever it lands, and asking only about the source offered "Publish
+  // now" for a move into a project the user cannot write to. Watched, not read
+  // once, so picking a different project updates the answer.
+  const canPublishMetadata =
+    permissionsUtil.canPublishFeature(feature, []) &&
+    holdsFeatureMoveDestination(
+      permissionsUtil,
+      feature,
+      form.watch("project"),
+      [],
+    );
   const canAutoPublish = (isAdmin || !metadataGated) && canPublishMetadata;
 
   const { mode: initialMode, defaultDraft } = useDefaultDraftMode(
@@ -76,17 +100,6 @@ const EditFeatureInfoModal: FC<{
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
-
-  const form = useForm({
-    defaultValues: {
-      tags: feature.tags || [],
-      owner: feature.owner,
-      project: feature.project || "",
-      targetingAllProjects: feature.targetingAllProjects || false,
-      targetingProjects: feature.targetingProjects || [],
-      description: feature.description || "",
-    },
-  });
 
   const permissionRequired = (project) =>
     permissionsUtil.canEditFeatureDrafts({ project });

@@ -56,7 +56,13 @@ export async function dispatchSavedGroupRevisionEvent(
     );
     // Source ∪ destination for a projects[] move; saved groups have no
     // environment partition, so their events stay env-unbound.
-    const projects = revisionEventProjects(revision);
+    // The live entity too: a draft opened before the entity moved names neither
+    // the current project in its snapshot nor in its ops, so a webhook filtered to
+    // where the entity lives today would hear nothing.
+    const liveForRouting = await context.models.savedGroups.getById(
+      revision.target.id,
+    );
+    const projects = revisionEventProjects(revision, liveForRouting);
 
     const emit = async <T extends SavedGroupRevisionEvent>(
       event: T,

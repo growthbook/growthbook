@@ -37,6 +37,11 @@ export function useConstantDraftTarget(
   // metadata-only shortcut: when the org requires approval but not metadata
   // review, the change can publish without admin bypass.
   isMetadataEdit: boolean,
+  // Whether the viewer also holds the DESTINATION when the form relocates the
+  // entity. `canPublish` above is measured against the entity as it lives now, so
+  // on its own it offered "Publish now" for a move into a project the viewer
+  // cannot write to. Callers with no project field leave this unset.
+  holdsDestination: boolean = true,
 ) {
   const { userId } = useUser();
   const {
@@ -69,6 +74,7 @@ export function useConstantDraftTarget(
 
   const canAutoPublish =
     canPublish &&
+    holdsDestination &&
     (!approvalRequired || canBypassApproval || autoBypassApproval);
 
   const buildQueryString = (): string => {

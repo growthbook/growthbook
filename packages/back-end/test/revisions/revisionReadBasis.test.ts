@@ -178,6 +178,80 @@ describe("revision read basis", () => {
     ).toBe(0);
   });
 
+  // Detail and history are the same rule in two more places. They read through
+  // different model methods, and only the listing was converted at first — so the
+  // destination could list a moved entity's revisions and then 404 on opening one.
+  it("opens a single revision on the live basis, not the snapshot's", async () => {
+    await seedConstant("const_moved");
+    await seedRevision("const_moved");
+
+    const destination = readerLimitedTo("prj_live");
+    const source = readerLimitedTo("prj_stale");
+    expect(
+      await destination.models.revisions.getByIdReadable("rev_const_moved"),
+    ).not.toBeNull();
+    expect(
+      await source.models.revisions.getByIdReadable("rev_const_moved"),
+    ).toBeNull();
+  });
+
+  it("lists one entity's revisions on the live basis", async () => {
+    await seedConstant("const_moved");
+    await seedRevision("const_moved");
+
+    const destination = readerLimitedTo("prj_live");
+    const source = readerLimitedTo("prj_stale");
+    expect(
+      await destination.models.revisions.getByTargetReadable(
+        "constant",
+        "const_moved",
+      ),
+    ).toHaveLength(1);
+    expect(
+      await source.models.revisions.getByTargetReadable(
+        "constant",
+        "const_moved",
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("returns merged history on the live basis", async () => {
+    await seedConstant("const_moved");
+    await mongoose.connection.collection("revisions").insertOne({
+      id: "rev_merged",
+      organization: ORG_ID,
+      version: 1,
+      status: "merged",
+      authorId: "u_admin",
+      reviews: [],
+      activityLog: [],
+      contributors: [],
+      target: {
+        type: "constant",
+        id: "const_moved",
+        snapshot: { id: "const_moved", key: "k", project: "prj_stale" },
+        proposedChanges: [],
+      },
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    });
+
+    const destination = readerLimitedTo("prj_live");
+    const source = readerLimitedTo("prj_stale");
+    expect(
+      await destination.models.revisions.getEntityRevisionHistory(
+        "constant",
+        "const_moved",
+      ),
+    ).toHaveLength(1);
+    expect(
+      await source.models.revisions.getEntityRevisionHistory(
+        "constant",
+        "const_moved",
+      ),
+    ).toHaveLength(0);
+  });
+
   it("pages and totals agree, both measured on live entities", async () => {
     for (const id of ["const_1", "const_2", "const_3"]) {
       await seedConstant(id);

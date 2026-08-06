@@ -2397,10 +2397,19 @@ export async function rewindHoldoutLinkage(
   context: ReqContext | ApiReqContext,
   pre: HoldoutLinkagePreImage,
 ) {
-  if (pre.newHoldoutId) {
-    await context.models.holdout.removeLinkageFromHoldout(pre.newHoldoutId, {
-      featureId: pre.addsFeature ? pre.featureId : null,
-    });
+  if (pre.newHoldoutId && pre.addsFeature) {
+    // Only remove the entry THIS publish added, and only while it is still the one
+    // it added: a concurrent writer who re-linked the feature to the same holdout
+    // owns that entry now, and dropping it would undo their change. The restore
+    // half below already declines on the same reasoning.
+    const newHoldout = await context.models.holdout.getByIdForLinkage(
+      pre.newHoldoutId,
+    );
+    if (newHoldout?.linkedFeatures[pre.featureId]) {
+      await context.models.holdout.removeLinkageFromHoldout(pre.newHoldoutId, {
+        featureId: pre.featureId,
+      });
+    }
   }
 
   if (pre.prevHoldoutId && pre.prevFeatureEntry) {
@@ -3735,6 +3744,9 @@ async function publishRevisionInner({
     // its revision consistent, but whatever could not be reversed is left behind
     // and the caller is the only one positioned to act on it.
     if (unreversed.length) {
+      // Same reason as the direct path: what could not be reversed is live, so the
+      // buffered update events must not be dropped as if nothing happened.
+      context.landingLeftPartialState = true;
       const residue = `(could not be rolled back: ${unreversed.join(", ")} — see server logs)`;
       // Appending keeps the original error's class, and so its status code.
       if (err instanceof Error) {

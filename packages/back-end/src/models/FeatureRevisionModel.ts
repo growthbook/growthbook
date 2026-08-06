@@ -2023,7 +2023,7 @@ export async function recordScheduledPublishFailure(
 export async function setScheduledPublishNextAttempt(
   revision: Pick<
     FeatureRevisionInterface,
-    "organization" | "featureId" | "version"
+    "organization" | "featureId" | "version" | "scheduledPublishAt"
   >,
   nextAttemptAt: Date,
 ): Promise<void> {

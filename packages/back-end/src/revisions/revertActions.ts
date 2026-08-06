@@ -285,6 +285,11 @@ export async function landDirectChange<T>({
             written,
           }))
         : true;
+      if (!restored) {
+        // The buffered `*.updated` events are otherwise dropped as a rolled-back
+        // change; here the change is partly live, so they must still fire.
+        context.landingLeftPartialState = true;
+      }
       if (restored) {
         try {
           // The landing's own authority was established before this point, and the

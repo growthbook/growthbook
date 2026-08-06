@@ -996,7 +996,10 @@ async function handleScheduledPublishFailure(
 
   // Give up: stop the poller retrying and notify a human.
   const terminal = outcome.classification === "terminal";
-  await context.models.revisions.parkScheduledPublish(revision.id);
+  await context.models.revisions.parkScheduledPublish(
+    revision.id,
+    revision.scheduledPublishAt ?? null,
+  );
   logger.error(
     { revisionId: revision.id, attempts, terminal },
     `Scheduled publish gave up (${terminal ? "terminal failure" : "max attempts reached"}): ${message}`,

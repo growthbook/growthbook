@@ -637,6 +637,46 @@ export class RevisionModel extends BaseClass {
     return { revisions: rows, total: readableIds.length };
   }
 
+  /**
+   * One revision, readable on the LIVE-entity basis the listings use.
+   *
+   * `canRead` decides on the revision's SNAPSHOT, which records where the entity
+   * was when the draft opened — so after a project move, detail reads and listings
+   * disagreed in both directions: the source could still open history for an entity
+   * it no longer owns, and the destination was denied history for one it does. The
+   * snapshot check can only be a floor, and it is bypassed here so the live basis
+   * is the only one that decides.
+   */
+  async getByIdReadable(id: string): Promise<Revision | null> {
+    const [doc] = await this._find(
+      { id },
+      { limit: 1, bypassReadPermissionChecks: true },
+    );
+    if (!doc) return null;
+    const readable = await this.readableTargetIds([
+      { type: doc.target.type, id: doc.target.id },
+    ]);
+    return readable.has(`${doc.target.type}:${doc.target.id}`) ? doc : null;
+  }
+
+  /** Every revision for one target, on the same live-entity basis. */
+  async getByTargetReadable(
+    entityType: RevisionTargetType,
+    entityId: string,
+  ): Promise<Revision[]> {
+    const readable = await this.readableTargetIds([
+      { type: entityType, id: entityId },
+    ]);
+    if (!readable.has(`${entityType}:${entityId}`)) return [];
+    return this._find(
+      { "target.type": entityType, "target.id": entityId } as Record<
+        string,
+        unknown
+      >,
+      { sort: { version: -1 }, bypassReadPermissionChecks: true },
+    );
+  }
+
   // Paginated revision listing (the org-level inbox).
   async getAllPaginated(
     opts: {
@@ -1562,69 +1602,74 @@ export class RevisionModel extends BaseClass {
     // draft) rewrite the content after that computation: live received the stale
     // content while history recorded the newer. A CAS has to guard every field the
     // computation it protects actually read.
-    // Resolved before the CAS compute, which must stay side-effect free (it can
-    // run several times). A retry re-uses this stamp; since it only has to beat
-    // the PREVIOUS merge, a stamp computed a moment earlier is still correct.
     const target = await this._dangerousGetCollection().findOne(
       { organization: this.context.org.id, id },
       { projection: { "target.type": 1, "target.id": 1 } },
     );
-    const mergeStamp = target
-      ? await this.nextMergeStamp(
-          target.target.type as RevisionTargetType,
-          target.target.id as string,
-        )
-      : new Date();
     const guardFields: (keyof Revision)[] = options?.expected
       ? ["status", "dateUpdated", "target"]
       : ["status", "target"];
-    const merged = await this.updateWithCas(id, guardFields, (existing) => {
-      if (existing.status === "merged" || existing.status === "discarded") {
-        throw new ConflictError(
-          "Cannot merge a discarded or already-merged revision",
-        );
-      }
-      const expected = options?.expected;
-      if (
-        expected &&
-        (existing.status !== expected.status ||
-          existing.dateUpdated.getTime() !== expected.dateUpdated.getTime())
-      ) {
-        throw new ConflictError(
-          "The revision changed after the publish was planned — re-plan and retry",
-        );
-      }
-      hadSchedule =
-        !!existing.autoPublishOnApproval ||
-        (existing.scheduledPublishAt ?? null) !== null;
-      const base = options?.bypass
-        ? "Merged revision (bypass)"
-        : "Merged revision";
-      const description = options?.comment
-        ? `${base}: ${options.comment}`
-        : base;
-      return {
-        status: "merged",
-        // Publishing disarms any pending schedule and releases the lock-others
-        // partial index (which keys on autoPublishOnApproval:true).
-        autoPublishOnApproval: false,
-        resolution: {
-          action: "merged",
-          userId,
-          dateCreated: mergeStamp,
-        },
-        activityLog: [
-          ...this.cleanActivityLog(existing.activityLog),
-          {
-            id: uniqid("act_"),
-            userId,
+    const merged = await this.updateWithCas(
+      id,
+      guardFields,
+      async (existing) => {
+        // Re-derived per attempt, not once before the loop: a rival that merged
+        // during our retry window would otherwise leave us stamping a value equal to
+        // or behind theirs, and merge ORDER is what every landing baseline reads. A
+        // read is side-effect free, so it is safe to repeat.
+        const mergeStamp = target
+          ? await this.nextMergeStamp(
+              target.target.type as RevisionTargetType,
+              target.target.id as string,
+            )
+          : new Date();
+        if (existing.status === "merged" || existing.status === "discarded") {
+          throw new ConflictError(
+            "Cannot merge a discarded or already-merged revision",
+          );
+        }
+        const expected = options?.expected;
+        if (
+          expected &&
+          (existing.status !== expected.status ||
+            existing.dateUpdated.getTime() !== expected.dateUpdated.getTime())
+        ) {
+          throw new ConflictError(
+            "The revision changed after the publish was planned — re-plan and retry",
+          );
+        }
+        hadSchedule =
+          !!existing.autoPublishOnApproval ||
+          (existing.scheduledPublishAt ?? null) !== null;
+        const base = options?.bypass
+          ? "Merged revision (bypass)"
+          : "Merged revision";
+        const description = options?.comment
+          ? `${base}: ${options.comment}`
+          : base;
+        return {
+          status: "merged",
+          // Publishing disarms any pending schedule and releases the lock-others
+          // partial index (which keys on autoPublishOnApproval:true).
+          autoPublishOnApproval: false,
+          resolution: {
             action: "merged",
-            description,
-            dateCreated: new Date(),
+            userId,
+            dateCreated: mergeStamp,
           },
-        ],
-      } as UpdateProps<Revision>;
-    });
+          activityLog: [
+            ...this.cleanActivityLog(existing.activityLog),
+            {
+              id: uniqid("act_"),
+              userId,
+              action: "merged",
+              description,
+              dateCreated: new Date(),
+            },
+          ],
+        } as UpdateProps<Revision>;
+      },
+    );
     if (!merged) throw new Error("Revision not found");
 
     // Fully scrub the schedule fields on publish (this.update can't $unset),
@@ -2023,9 +2068,19 @@ export class RevisionModel extends BaseClass {
   // unchanged) with `scheduledPublishLastError` preserved for context. Raw write
   // (no audit / dateUpdated bump), like the failure recorder — the
   // `revision.publishFailed` webhook is the user-facing signal.
-  async parkScheduledPublish(id: string): Promise<void> {
+  async parkScheduledPublish(
+    id: string,
+    // The ARM the poller was working on. Without it, a user who cancels and
+    // re-arms while a failing attempt is in flight has their new schedule cleared
+    // when the old attempt gives up. `null` matches a missing field.
+    expectedScheduledPublishAt: Date | null,
+  ): Promise<void> {
     await this._dangerousGetCollection().updateOne(
-      { organization: this.context.org.id, id },
+      {
+        organization: this.context.org.id,
+        id,
+        scheduledPublishAt: expectedScheduledPublishAt,
+      },
       {
         $set: {
           scheduledPublishGaveUpAt: new Date(),
@@ -2086,11 +2141,21 @@ export class RevisionModel extends BaseClass {
     entityType: RevisionTargetType,
     entityId: string,
   ) {
-    return this._find({
-      "target.type": entityType,
-      "target.id": entityId,
-      status: "merged",
-    } as Record<string, unknown>);
+    // Live-entity basis, like every other listing: a `canRead` over the snapshot
+    // would hide a moved entity's history from the project that now owns it while
+    // showing it to the one that no longer does.
+    const readable = await this.readableTargetIds([
+      { type: entityType, id: entityId },
+    ]);
+    if (!readable.has(`${entityType}:${entityId}`)) return [];
+    return this._find(
+      {
+        "target.type": entityType,
+        "target.id": entityId,
+        status: "merged",
+      } as Record<string, unknown>,
+      { bypassReadPermissionChecks: true },
+    );
   }
 
   // Beacon: lightweight query returning just target IDs with open revisions

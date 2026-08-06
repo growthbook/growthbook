@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useForm } from "react-hook-form";
@@ -73,7 +74,8 @@ export default function ConstantModal({
   );
 
   // Called unconditionally (rules of hooks); unused on the create path.
-  const draft = useConstantDraftTarget(revisionCtx ?? EMPTY_REVISION_CTX, true);
+
+  const permissionsUtil = usePermissionsUtil();
 
   const form = useForm<FormValues>({
     defaultValues: {
@@ -88,6 +90,26 @@ export default function ConstantModal({
       value: "",
     },
   });
+
+  // Only an EXISTING entity can be relocated; a create lands in whatever project
+  // the form names, and the create gate on the options already covers that.
+  const holdsMoveDestination =
+    !existing ||
+    (form.watch("project") || "") === (existing.project || "") ||
+    permissionsUtil.canRevisionAction(
+      "constant",
+      "publish",
+      {
+        project: form.watch("project") || "",
+      },
+      NO_ENVIRONMENT_BINDING,
+    );
+
+  const draft = useConstantDraftTarget(
+    revisionCtx ?? EMPTY_REVISION_CTX,
+    true,
+    holdsMoveDestination,
+  );
 
   // Auto-derive the slug key from the name until the user edits the key.
   const keyTouched = useRef(editing);
@@ -110,7 +132,6 @@ export default function ConstantModal({
 
   const type = form.watch("type");
 
-  const permissionsUtil = usePermissionsUtil();
   // The server refuses a destination the caller cannot author in, so listing
   // those projects only produces a predictable rejection.
   const projectOptions = useMemo(

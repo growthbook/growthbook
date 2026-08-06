@@ -11,13 +11,21 @@ import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisio
 
 /**
  * Event routing scope for a revision lifecycle event: every project the change
- * touches — the snapshot's (source) plus any destination its proposed changes
- * relocate it to. The snapshot alone predates a move, so a project-filtered
- * webhook on the destination never heard about changes arriving in it.
+ * touches — the snapshot's (source), any destination its proposed changes relocate
+ * it to, and where the entity actually LIVES now.
+ *
+ * All three, because each alone has a blind spot. The snapshot predates a move, so
+ * a project-filtered webhook on the destination heard nothing about changes
+ * arriving in it. And an old draft publishing after the entity moved by some other
+ * route names neither the live project in its snapshot nor in its ops, so the
+ * project that owns the entity today heard nothing at all.
  */
-export function revisionEventProjects(revision: {
-  target: { snapshot?: unknown; proposedChanges?: unknown };
-}): string[] {
+export function revisionEventProjects(
+  revision: {
+    target: { snapshot?: unknown; proposedChanges?: unknown };
+  },
+  liveEntity?: { project?: string; projects?: string[] } | null,
+): string[] {
   const snapshot = (revision.target.snapshot ?? {}) as {
     project?: string;
     projects?: string[];
@@ -26,6 +34,8 @@ export function revisionEventProjects(revision: {
   const all = new Set<string>([
     ...(snapshot.projects ?? (snapshot.project ? [snapshot.project] : [])),
     ...(proposed.projects ?? (proposed.project ? [proposed.project] : [])),
+    ...(liveEntity?.projects ??
+      (liveEntity?.project ? [liveEntity.project] : [])),
   ]);
   return [...all];
 }

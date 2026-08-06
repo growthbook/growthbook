@@ -1,4 +1,5 @@
 import { z } from "zod";
+import isEqual from "lodash/isEqual";
 import {
   apiContextualBanditCancelReturn,
   apiContextualBanditLifecycleReturn,
@@ -517,13 +518,46 @@ export class ContextualBanditModel extends BaseClass {
    * other feature's entries as they stand now. Used to rewind a linkage write
    * whose publish then failed.
    */
+  /** Just this feature's part of a bandit's linkage — what a rollback owns. */
+  private featureLinkageSlice(
+    cb: {
+      linkedFeatures?: string[];
+      pendingFeatureDrafts?: { featureId: string; revisionVersion: number }[];
+    },
+    featureId: string,
+  ): { linked: boolean; drafts: number[] } {
+    return {
+      linked: (cb.linkedFeatures ?? []).includes(featureId),
+      drafts: (cb.pendingFeatureDrafts ?? [])
+        .filter((d) => d.featureId === featureId)
+        .map((d) => d.revisionVersion)
+        .sort((a, b) => a - b),
+    };
+  }
+
   public async setLinkageState(
     cbId: string,
     featureId: string,
     state: ContextualBanditLinkageState,
+    // Compensation only: converge to `state` while this feature's slice still
+    // holds what the forward pass wrote. Writes here are already scoped to the one
+    // feature, so a concurrent change to ANOTHER feature's linkage is unaffected —
+    // this covers the remaining case, a second writer moving THIS feature's
+    // linkage before our rollback runs, which the pre-image would otherwise undo.
+    expectedFeatureSlice?: ContextualBanditLinkageState,
   ): Promise<void> {
     const cb = await this.getById(cbId);
     if (!cb) return;
+
+    if (
+      expectedFeatureSlice &&
+      !isEqual(
+        this.featureLinkageSlice(cb, featureId),
+        this.featureLinkageSlice(expectedFeatureSlice, featureId),
+      )
+    ) {
+      return;
+    }
 
     const shouldBeLinked = state.linkedFeatures.includes(featureId);
     const linked = cb.linkedFeatures ?? [];

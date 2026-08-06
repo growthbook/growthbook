@@ -5037,25 +5037,27 @@ export async function putFeature(
     );
   }
 
-  // MOVING the project can affect SDK payload targeting; require publish
-  // permission in both old and new project. Judged by the shared rule, not key
+  // MOVING the project can affect SDK payload targeting, so LANDING one takes
+  // publish in both the old and new project. Judged by the shared rule, not key
   // presence — clients echo the current project back (the edit-info modal
   // always submits it), and an identity write is not a move. Presence-gating
   // 403'd draft-only users whose metadata edit changed no project at all.
+  //
+  // Staging one is a different question: a draft publishes nothing, so it takes
+  // AUTHORING rights in both projects — read access there must not be enough to
+  // line a flag up to land somewhere the author cannot write, but publish rights
+  // must not be required to propose it either. Same split the revert path applies.
   if (
     "project" in updates &&
     projectScopeChanged(feature, { project: updates.project })
   ) {
-    if (
-      !context.permissions.canPublishFeature(
-        feature,
-        Array.from(getEnabledEnvironments(feature, environments)),
-      ) ||
-      !context.permissions.canPublishFeature(
-        updates,
-        Array.from(getEnabledEnvironments(feature, environments)),
-      )
-    ) {
+    const envs = Array.from(getEnabledEnvironments(feature, environments));
+    const holdsBothSides = autoPublish
+      ? context.permissions.canPublishFeature(feature, envs) &&
+        context.permissions.canPublishFeature(updates, envs)
+      : context.permissions.canEditFeatureDrafts(feature) &&
+        context.permissions.canEditFeatureDrafts(updates);
+    if (!holdsBothSides) {
       context.permissions.throwPermissionError();
     }
   }

@@ -61,7 +61,13 @@ export async function dispatchConstantRevisionEvent(
     // move hears about it; environments are the change's own footprint (a
     // per-environment override change is env-scoped, a base-value change is
     // unbound), matching how the permission layer scopes the same change.
-    const projects = revisionEventProjects(revision);
+    // The live entity too: a draft opened before the entity moved names neither
+    // the current project in its snapshot nor in its ops, so a webhook filtered to
+    // where the entity lives today would hear nothing.
+    const liveForRouting = await context.models.constants.getById(
+      revision.target.id,
+    );
+    const projects = revisionEventProjects(revision, liveForRouting);
     const environments = constantPublishEnvironments(
       getConstantRevisionChange(snapshot, revision.target.proposedChanges)
         .changedEnvironments,
