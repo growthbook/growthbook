@@ -1231,12 +1231,14 @@ export async function updateFeature(
   feature: FeatureInterface,
   updates: Partial<FeatureInterface>,
   options?: {
-    // Landing guard: condition the write on the doc still carrying this
-    // `dateUpdated`, and throw `CasConflictError` when it doesn't — the feature
-    // twin of `updateIfUnchanged` on BaseModel. Landings pass the pre-image's
-    // stamp; compensation and cascade writes stay unguarded because they re-read
-    // first and mean to write over what they found.
-    ifUnchangedSince?: Date;
+    // A compare-and-swap, degenerate: one guard field, no compute callback, no
+    // retry. Conditions the write on the doc still carrying this `dateUpdated` and
+    // throws `CasConflictError` when it doesn't — the feature twin of
+    // `updateIfUnchanged` on BaseModel, and named for the mechanism because the
+    // previous name hid it from a change that swept every other CAS site.
+    // Landings pass the pre-image's stamp; compensation and cascade writes stay
+    // unguarded because they re-read first and mean to write over what they found.
+    casOnDateUpdated?: Date;
     // Remove the holdout pointer in the SAME write. `updates` is a $set, and a
     // landing that removes the holdout must not split into two writes — the gap
     // between them is a window where a rival publish can land and be overwritten.
@@ -1254,7 +1256,7 @@ export async function updateFeature(
     onStamped?: (stamp: Date) => void;
   },
 ): Promise<FeatureInterface> {
-  const ourStamp = advancedGuardStamp(options?.ifUnchangedSince);
+  const ourStamp = advancedGuardStamp(options?.casOnDateUpdated);
   const allUpdates = {
     ...updates,
     // Strictly after the guarded token, even inside the same millisecond.
@@ -1333,8 +1335,8 @@ export async function updateFeature(
     {
       organization: feature.organization,
       id: feature.id,
-      ...(options?.ifUnchangedSince
-        ? { dateUpdated: options.ifUnchangedSince }
+      ...(options?.casOnDateUpdated
+        ? { dateUpdated: options.casOnDateUpdated }
         : {}),
     },
     {
@@ -1342,7 +1344,7 @@ export async function updateFeature(
       ...(options?.unsetHoldout ? { $unset: { holdout: "" } } : {}),
     },
   );
-  if (options?.ifUnchangedSince && writeResult.matchedCount === 0) {
+  if (options?.casOnDateUpdated && writeResult.matchedCount === 0) {
     throw new CasConflictError();
   }
 
@@ -2030,7 +2032,7 @@ export async function applyRevisionChanges(
   // pre-image `feature` — the same rule as the generic entities' guarded
   // landings: two publishes of the same feature computed from the same read
   // must not both apply, whichever the caller (publish, toggle, bulk).
-  const guard = { ifUnchangedSince: feature.dateUpdated, onStamped };
+  const guard = { casOnDateUpdated: feature.dateUpdated, onStamped };
 
   if (!hasChanges) {
     return await updateFeature(context, feature, changes, guard);
@@ -3452,7 +3454,7 @@ async function restorePublishedFeatureDoc(
     if (!Object.keys(restore).length) return;
     try {
       await updateFeature(context, current, restore, {
-        ifUnchangedSince: current.dateUpdated,
+        casOnDateUpdated: current.dateUpdated,
         onStamped,
       });
       return;

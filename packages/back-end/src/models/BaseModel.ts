@@ -48,6 +48,7 @@ import {
   resolveOwnerEmails,
   resolveOwnerToUserId,
 } from "back-end/src/services/owner";
+import { runCasLoop } from "./casLoop";
 
 export type Context = ApiReqContext | ReqContext;
 
@@ -828,45 +829,59 @@ export abstract class BaseModel<
       );
     }
     const maxAttempts = options.maxAttempts ?? 5;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      // Read raw so guard + compute share one snapshot of the stored doc.
-      const raw = (await this._dangerousGetCollection().findOne(
-        this.applyBaseQuery({ id }),
-      )) as Record<string, unknown> | null;
-      if (!raw) return null;
+    const outcome = await runCasLoop<
+      z.infer<T>,
+      PKeyUpdateProps<T, PKey, PK>,
+      z.infer<T>
+    >({
+      guardFields: guardFields.map(String),
+      maxAttempts,
+      read: async () => {
+        // Read raw so the guard describes the STORED doc while `compute` gets a
+        // migrated one.
+        const raw = (await this._dangerousGetCollection().findOne(
+          this.applyBaseQuery({ id }),
+        )) as Record<string, unknown> | null;
+        if (!raw) return null;
 
-      const existing = this._stripLegacyNullFields(
-        this.migrate(this._removeMongooseFields(raw)) as z.infer<T>,
+        const existing = this._stripLegacyNullFields(
+          this.migrate(this._removeMongooseFields(raw)) as z.infer<T>,
+        );
+
+        // Read gate mirrors getById/_findOne; canUpdate is enforced in _updateOne.
+        // Denial ends the loop the same way a missing doc does, which is what this
+        // method's `null` return has always meant.
+        await this.populateForeignRefs([existing]);
+        if (!this.canRead(existing)) return null;
+
+        return { snapshot: existing, observed: raw };
+      },
+      compute,
+      write: async (updates, guard, existing) => {
+        try {
+          return {
+            applied: true as const,
+            result: await this._updateOne(existing, updates, {
+              writeOptions: options.writeOptions,
+              guard,
+              forceCanUpdate: options.dangerouslyBypassCanUpdate,
+            }),
+          };
+        } catch (e) {
+          if (e instanceof CasConflictError) return { applied: false };
+          throw e;
+        }
+      },
+    });
+
+    if (outcome.status === "applied") return outcome.result;
+    if (outcome.status === "exhausted") {
+      throw new Error(
+        `updateWithCas: exhausted ${maxAttempts} attempts for ${this.config.collectionName} ${id}`,
       );
-
-      // Read gate mirrors getById/_findOne; canUpdate is enforced in _updateOne.
-      await this.populateForeignRefs([existing]);
-      if (!this.canRead(existing)) return null;
-
-      const updates = await compute(existing);
-      if (!updates) return null;
-
-      const guard = Object.fromEntries(
-        guardFields.map((f) => {
-          const v = raw[f as string];
-          return [f as string, v === undefined ? { $exists: false } : v];
-        }),
-      );
-
-      try {
-        return await this._updateOne(existing, updates, {
-          writeOptions: options.writeOptions,
-          guard,
-          forceCanUpdate: options.dangerouslyBypassCanUpdate,
-        });
-      } catch (e) {
-        if (e instanceof CasConflictError) continue;
-        throw e;
-      }
     }
-    throw new Error(
-      `updateWithCas: exhausted ${maxAttempts} attempts for ${this.config.collectionName} ${id}`,
-    );
+    // `aborted` and `not-found` are one answer here, as they always were.
+    return null;
   }
   public async delete(
     existing: z.infer<T>,

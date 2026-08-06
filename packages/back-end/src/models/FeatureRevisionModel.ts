@@ -62,6 +62,7 @@ import {
   isDuplicateKeyErrorForIndex,
 } from "back-end/src/util/mongo.util";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import { runCasLoop } from "./casLoop";
 import {
   migrateRampScheduleEndCondition,
   migrateRampStepTriggers,
@@ -2207,8 +2208,13 @@ export async function cancelScheduledPublishesForFeature(
 // current doc, then write only if those fields are unchanged — retrying on a
 // lost race. `build` returning null aborts. Lets concurrent reviewers reconcile
 // shared fields without an aggregation-pipeline update (DocumentDB/Cosmos reject
-// those). Mirrors RevisionModel.casUpdate.
-async function casUpdate(
+// those).
+//
+// Feature revisions are addressed by `{organization, featureId, version}` rather
+// than a single id, which is why this doesn't go through `BaseModel.updateWithCas`.
+// Exported for its own tests: the loop's subtleties — absence guarding, the re-read
+// per attempt, aborted vs exhausted — are invisible from the four call sites.
+export async function casUpdate(
   filter: mongoose.FilterQuery<FeatureRevisionInterface>,
   guardFields: (keyof FeatureRevisionInterface)[],
   build: (
@@ -2220,28 +2226,40 @@ async function casUpdate(
   maxAttempts = 5,
 ): Promise<"applied" | "aborted" | "exhausted"> {
   const projection = Object.fromEntries(guardFields.map((f) => [f, 1]));
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const current = await FeatureRevisionModel.findOne(
-      filter,
-      projection,
-    ).lean<Partial<FeatureRevisionInterface> | null>();
-    if (!current) return "aborted";
-    const update = await build(current);
-    if (!update) return "aborted";
-    // Missing fields guard on absence so legacy self-heal writes stay correct.
-    const guard = Object.fromEntries(
-      guardFields.map((f) => [
-        f,
-        current[f] === undefined ? { $exists: false } : current[f],
-      ]),
-    );
-    const res = await FeatureRevisionModel.updateOne(
-      { ...filter, ...guard },
-      update,
-    );
-    if (res.matchedCount > 0) return "applied";
-  }
-  return "exhausted";
+  const outcome = await runCasLoop<
+    Partial<FeatureRevisionInterface>,
+    mongoose.UpdateQuery<FeatureRevisionInterface>,
+    void
+  >({
+    guardFields: guardFields.map(String),
+    maxAttempts,
+    read: async () => {
+      // Guard fields ONLY — `applyRevisionPublishClaim` lists an immutable field
+      // purely to have it fetched, which relies on this projection.
+      const current = await FeatureRevisionModel.findOne(
+        filter,
+        projection,
+      ).lean<Partial<FeatureRevisionInterface> | null>();
+      return current ? { snapshot: current, observed: current } : null;
+    },
+    compute: build,
+    write: async (update, guard) => {
+      const res = await FeatureRevisionModel.updateOne(
+        { ...filter, ...guard },
+        update,
+      );
+      return res.matchedCount > 0
+        ? { applied: true, result: undefined }
+        : { applied: false };
+    },
+  });
+  // A missing revision is an abort to this caller, as it always was — the enum's
+  // `not-found` only exists for callers that tell the two apart.
+  return outcome.status === "applied"
+    ? "applied"
+    : outcome.status === "exhausted"
+      ? "exhausted"
+      : "aborted";
 }
 
 export async function submitReviewAndComments(

@@ -63,7 +63,7 @@ describe("updateFeature's landing guard", () => {
       context,
       preImage,
       { defaultValue: "true" },
-      { ifUnchangedSince: preImage.dateUpdated, unsetHoldout: true },
+      { casOnDateUpdated: preImage.dateUpdated, unsetHoldout: true },
     );
     expect(updated.defaultValue).toBe("true");
     expect(updated.holdout).toBeUndefined();
@@ -82,7 +82,7 @@ describe("updateFeature's landing guard", () => {
         context,
         preImage,
         { defaultValue: "loser" },
-        { ifUnchangedSince: preImage.dateUpdated, unsetHoldout: true },
+        { casOnDateUpdated: preImage.dateUpdated, unsetHoldout: true },
       ),
     ).rejects.toBeInstanceOf(CasConflictError);
 

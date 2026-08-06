@@ -767,7 +767,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       // means someone else owns the doc now; leave-whole (reported published)
       // beats overwriting them, same as every other reversal failure here.
       await updateFeature(context, current, restore, {
-        ifUnchangedSince: current.dateUpdated,
+        casOnDateUpdated: current.dateUpdated,
       });
     }
   },
