@@ -26,6 +26,7 @@ import {
   checkIfRevisionNeedsReview,
   getDraftAffectedEnvironments,
   getEnvsForRampTarget,
+  rampControlFootprint,
   getEnvsFromRampSchedule,
   liveRevisionFromFeature,
   resetReviewOnChange,
@@ -3731,6 +3732,103 @@ describe("getEnvsForRampTarget", () => {
         "t1",
       ),
     ).toBe("all");
+  });
+});
+
+describe("rampControlFootprint", () => {
+  const ORG_ENVS = ["dev", "staging", "production"];
+
+  const schedule = (
+    patch: Record<string, unknown>,
+    targets: { id: string; ruleId?: string }[],
+  ) =>
+    ({
+      startActions: [],
+      steps: [{ actions: targets.map((t) => ({ targetId: t.id, patch })) }],
+      endActions: [],
+      targets,
+    }) as never;
+
+  // The case the whole function exists for: the shape `buildPatch` emits. Widening
+  // here is what disabled every control on a dev-only ramp for a dev-scoped
+  // publisher, so the answer must be the rule's own environments.
+  it("answers for what the rule serves when the patch names no environments", () => {
+    expect(
+      rampControlFootprint({
+        schedule: schedule({ coverage: 0 }, [{ id: "t1", ruleId: "fr_1" }]),
+        allEnvironments: ORG_ENVS,
+        ruleEnvsForTarget: () => ["dev"],
+      }),
+    ).toEqual(["dev"]);
+  });
+
+  it("unions the patch's environments with the rule's", () => {
+    expect(
+      rampControlFootprint({
+        schedule: schedule({ coverage: 0, environments: ["staging"] }, [
+          { id: "t1", ruleId: "fr_1" },
+        ]),
+        allEnvironments: ORG_ENVS,
+        ruleEnvsForTarget: () => ["dev"],
+      }).sort(),
+    ).toEqual(["dev", "staging"]);
+  });
+
+  // FAIL-CLOSED, and the branch I most wanted pinned: a control typically holds one
+  // rule while the gate checks every target, so a target it cannot resolve has to
+  // widen. Getting this backwards would offer an action the endpoint refuses.
+  it("widens to every environment when a target's rule cannot be resolved", () => {
+    expect(
+      rampControlFootprint({
+        schedule: schedule({ coverage: 0 }, [
+          { id: "t1", ruleId: "fr_1" },
+          { id: "t2", ruleId: "fr_other" },
+        ]),
+        allEnvironments: ORG_ENVS,
+        ruleEnvsForTarget: (t) => (t.ruleId === "fr_1" ? ["dev"] : undefined),
+      }).sort(),
+    ).toEqual([...ORG_ENVS].sort());
+  });
+
+  it("widens when a target's rule serves every environment", () => {
+    expect(
+      rampControlFootprint({
+        schedule: schedule({ coverage: 0 }, [{ id: "t1", ruleId: "fr_1" }]),
+        allEnvironments: ORG_ENVS,
+        ruleEnvsForTarget: () => "all",
+      }).sort(),
+    ).toEqual([...ORG_ENVS].sort());
+  });
+
+  it("unions across resolvable targets rather than taking the first", () => {
+    expect(
+      rampControlFootprint({
+        schedule: schedule({ coverage: 0 }, [
+          { id: "t1", ruleId: "fr_dev" },
+          { id: "t2", ruleId: "fr_prod" },
+        ]),
+        allEnvironments: ORG_ENVS,
+        ruleEnvsForTarget: (t) =>
+          t.ruleId === "fr_dev" ? ["dev"] : ["production"],
+      }).sort(),
+    ).toEqual(["dev", "production"]);
+  });
+
+  // No targets means no rule to measure against, so the schedule-wide answer is all
+  // there is — and it must not collapse to [], which would SKIP the check.
+  it("falls back to the schedule-wide footprint with no targets", () => {
+    expect(
+      rampControlFootprint({
+        schedule: {
+          startActions: [],
+          steps: [],
+          endActions: [],
+          targets: [],
+        } as never,
+        allEnvironments: ORG_ENVS,
+        ruleEnvsForTarget: () => undefined,
+      }).sort(),
+    ).toEqual([...ORG_ENVS].sort());
   });
 });
 
