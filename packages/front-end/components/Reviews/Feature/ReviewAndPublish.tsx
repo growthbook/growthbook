@@ -1456,12 +1456,12 @@ export default function ReviewAndPublish({
                 ) : isLive ? (
                   <>
                     This revision is currently live. Rolling back reverts the
-                    feature to the previously published revision.
+                    Feature Flag to the previously published revision.
                   </>
                 ) : (
                   <>
                     This revision was published and is now locked. You can
-                    revert the feature back to this revision.
+                    revert the Feature Flag back to this revision.
                   </>
                 )}
               </HelperText>
@@ -1491,12 +1491,13 @@ export default function ReviewAndPublish({
 
           {isDiscarded && !canManageDrafts && (
             <PermissionBlocker mt="2">
-              You don&apos;t have permission to edit drafts for this feature.
+              You don&apos;t have permission to edit drafts for this Feature
+              Flag.
             </PermissionBlocker>
           )}
           {!isDiscarded && !nothingToRevertTo && !canRevertHere && (
             <PermissionBlocker mt="2">
-              You don&apos;t have permission to revert this feature.
+              You don&apos;t have permission to revert this Feature Flag.
             </PermissionBlocker>
           )}
         </Box>

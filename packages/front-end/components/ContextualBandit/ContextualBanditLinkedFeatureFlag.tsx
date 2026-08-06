@@ -182,7 +182,7 @@ export default function ContextualBanditLinkedFeatureFlag({
       >
         {info.state === "archived" && (
           <Callout status="warning" my="4">
-            This feature flag has been archived. Unarchive it to make this
+            This Feature Flag has been archived. Unarchive it to make this
             contextual bandit active.
           </Callout>
         )}
@@ -312,8 +312,8 @@ export default function ContextualBanditLinkedFeatureFlag({
 
                   {info.rulesAbove && (
                     <Callout status="info">
-                      <strong>Notice:</strong> There are feature rules above
-                      this contextual bandit so some users might not be
+                      <strong>Notice:</strong> There are Feature Flag rules
+                      above this contextual bandit so some users might not be
                       included.
                     </Callout>
                   )}

@@ -514,7 +514,7 @@ export default function RampScheduleTemplates() {
         <Text color="text-low" size="md">
           No templates yet.{" "}
           {hasFeature
-            ? "Create one to quickly apply standard ramp schedules to feature rules."
+            ? "Create one to quickly apply standard ramp schedules to Feature Flag rules."
             : "Upgrade to Enterprise to create and manage ramp schedule templates."}
         </Text>
       ) : (

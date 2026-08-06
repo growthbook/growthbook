@@ -61,7 +61,7 @@ export default function LinkedFeatureFlag({
     !experiment.nextScheduledStatusUpdate;
 
   const handleRemove = async () => {
-    if (!confirm("Remove this feature flag from the experiment?")) return;
+    if (!confirm("Remove this Feature Flag from the experiment?")) return;
     setRemoving(true);
     try {
       await apiCall(
@@ -173,7 +173,7 @@ export default function LinkedFeatureFlag({
       >
         {info.state === "archived" && (
           <Callout status="warning" my="4">
-            This feature flag has been archived. Unarchive it to make this
+            This Feature Flag has been archived. Unarchive it to make this
             experiment active.
           </Callout>
         )}
@@ -183,7 +183,7 @@ export default function LinkedFeatureFlag({
             experiment-ref rule is no longer queued.{" "}
             {canAddLinkedChanges && onReAdd ? (
               <Link onClick={onReAdd} style={{ cursor: "pointer" }}>
-                Re-add feature flag
+                Re-add Feature Flag
               </Link>
             ) : (
               <Link href={`/features/${info.feature?.id}`} target="_blank">
@@ -323,8 +323,8 @@ export default function LinkedFeatureFlag({
 
                   {info.rulesAbove && (
                     <Callout status="info">
-                      <strong>Notice:</strong> There are feature rules above
-                      this experiment so some users might not be included.
+                      <strong>Notice:</strong> There are Feature Flag rules
+                      above this experiment so some users might not be included.
                     </Callout>
                   )}
                 </>

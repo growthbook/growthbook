@@ -172,7 +172,7 @@ export default function FeatureSettings() {
             <Checkbox
               id="toggle-defaultFeatureRulesInAllEnvs"
               label="Create rules in all environments by default"
-              description="If enabled, new feature rules will be created in all environments by default."
+              description="If enabled, new Feature Flag rules will be created in all environments by default."
               value={!!form.watch("defaultFeatureRulesInAllEnvs")}
               setValue={(value) =>
                 form.setValue("defaultFeatureRulesInAllEnvs", value, {
@@ -200,7 +200,7 @@ export default function FeatureSettings() {
             <Checkbox
               id="toggle-configsExtensibleByDefault"
               label="Allow Configs to be extended by default"
-              description="New base Configs permit child Configs and feature rules to add keys beyond the declared schema. Each Config can override this from its own settings."
+              description="New base Configs permit child Configs and Feature Flag rules to add keys beyond the declared schema. Each Config can override this from its own settings."
               value={!!form.watch("configsExtensibleByDefault")}
               setValue={(value) =>
                 form.setValue("configsExtensibleByDefault", value, {
@@ -228,7 +228,7 @@ export default function FeatureSettings() {
             <Checkbox
               id="toggle-blockPublishOnSchemaError"
               label="Block publishing on JSON schema errors"
-              description={`When publishing a revision, re-check feature and Config values against their JSON schema and block the publish if they don't match. Disable to surface a bypassable warning instead. Per-request edits are always validated unless the request body passes "skipSchemaValidation": true.`}
+              description={`When publishing a revision, re-check Feature Flag and Config values against their JSON schema and block the publish if they don't match. Disable to surface a bypassable warning instead. Per-request edits are always validated unless the request body passes "skipSchemaValidation": true.`}
               value={form.watch("blockPublishOnSchemaError") ?? true}
               setValue={(value) =>
                 form.setValue("blockPublishOnSchemaError", value, {

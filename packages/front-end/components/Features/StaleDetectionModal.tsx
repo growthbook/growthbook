@@ -68,7 +68,7 @@ export default function StaleDetectionModal({
       close={close}
       header={`${
         enabling ? "Enable" : "Disable"
-      } stale feature flag detection for ${feature.id}`}
+      } stale Feature Flag detection for ${feature.id}`}
       cta={
         mode === "publish" ? (enabling ? "Enable" : "Disable") : "Save to draft"
       }
