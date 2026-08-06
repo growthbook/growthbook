@@ -28,7 +28,7 @@ import BlockDateRangePicker, {
   PREDEFINED_LABELS,
 } from "./BlockDateRangePicker";
 import SidebarSettingField from "./SidebarSettingField";
-import DashboardFollowToggle from "./DashboardFollowToggle";
+import DashboardInheritControl from "./DashboardInheritControl";
 
 // Short human-readable label for a date range, shown on the filter pill.
 function formatDateRange(dr: ExplorationDateRange): string {
@@ -181,11 +181,10 @@ export default function MetricExperimentsSettings({
         label="Metric"
         accessory={
           metricSet ? (
-            <DashboardFollowToggle
-              label="Use dashboard metric"
-              tooltip="Follow the dashboard's metric instead of this block's own. Turn off to choose a metric just for this block."
-              value={metricFollowing}
-              onChange={(enabled) => setFollow("metricId", enabled)}
+            <DashboardInheritControl
+              label="Metric"
+              inherited={metricFollowing}
+              onChange={(inherited) => setFollow("metricId", inherited)}
             />
           ) : undefined
         }
@@ -217,14 +216,13 @@ export default function MetricExperimentsSettings({
       />
 
       <SidebarSettingField
-        label="Projects Filter"
+        label="Projects"
         accessory={
           projectsSet ? (
-            <DashboardFollowToggle
-              label="Use dashboard filter"
-              tooltip="Follow the dashboard's projects filter instead of this block's own. Turn off to set projects just for this block."
-              value={projectsFollowing}
-              onChange={(enabled) => setFollow("projects", enabled)}
+            <DashboardInheritControl
+              label="Projects"
+              inherited={projectsFollowing}
+              onChange={(inherited) => setFollow("projects", inherited)}
             />
           ) : undefined
         }
@@ -239,15 +237,14 @@ export default function MetricExperimentsSettings({
       </SidebarSettingField>
 
       <SidebarSettingField
-        label="Filter Experiments"
+        label="Experiment filters"
         accessory={
           searchSet ? (
-            <DashboardFollowToggle
-              label="Use dashboard filter"
-              tooltip="Follow the dashboard's experiment filter instead of this block's own. Turn off to filter experiments just for this block."
-              value={searchFollowing}
-              onChange={(enabled) =>
-                setFollow("experimentSearchString", enabled)
+            <DashboardInheritControl
+              label="Experiment filters"
+              inherited={searchFollowing}
+              onChange={(inherited) =>
+                setFollow("experimentSearchString", inherited)
               }
             />
           ) : undefined

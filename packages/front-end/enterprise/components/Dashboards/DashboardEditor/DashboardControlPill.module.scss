@@ -1,0 +1,36 @@
+// Shared pill treatment for the dashboard's control rows — the topbar (Update,
+// view queries) and the filter bar (date picker, filter pills, "Add filter").
+// Each control reads as a card sitting on the page background, so it gets an
+// opaque panel fill instead of the outline variant's transparent one. The class
+// is doubled to outrank Radix's own `.rt-variant-outline` background rules.
+.controlPill {
+  &.controlPill {
+    background-color: var(--color-panel-solid);
+  }
+
+  // A solid step rather than an alpha tint, so the page background can't show
+  // through the pill on hover.
+  &.controlPill:hover:not(:disabled) {
+    background-color: var(--gray-2);
+  }
+}
+
+// The ✕ inside a removable filter pill. Sized to the pill's text so it lines up
+// with the label, and it darkens on hover to read as its own target rather than
+// part of the pill.
+.pillRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-1);
+  padding: 2px;
+  margin-right: -2px;
+  color: var(--gray-a10);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--gray-12);
+    background-color: var(--gray-a4);
+  }
+}

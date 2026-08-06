@@ -7,7 +7,7 @@ import { useExperiments } from "@/hooks/useExperiments";
 import SidebarExperimentFilters from "@/components/Search/SidebarExperimentFilters";
 import BlockDateRangePicker from "./BlockDateRangePicker";
 import SidebarSettingField from "./SidebarSettingField";
-import DashboardFollowToggle from "./DashboardFollowToggle";
+import DashboardInheritControl from "./DashboardInheritControl";
 
 export interface CompletedExperimentsFilterValue {
   dateRange: ExplorationDateRange;
@@ -107,11 +107,10 @@ export default function CompletedExperimentsFilterFields({
         label="Date Range"
         accessory={
           dateSet ? (
-            <DashboardFollowToggle
-              label="Use dashboard date filter"
-              tooltip="Follow the dashboard's date range instead of this block's own. Turn off to set a date range just for this block."
-              value={dateFollowing}
-              onChange={(enabled) => onToggleFollow("dateRange", enabled)}
+            <DashboardInheritControl
+              label="Date Range"
+              inherited={dateFollowing}
+              onChange={(inherited) => onToggleFollow("dateRange", inherited)}
             />
           ) : undefined
         }
@@ -129,14 +128,13 @@ export default function CompletedExperimentsFilterFields({
       {afterDateRange}
 
       <SidebarSettingField
-        label="Projects Filter"
+        label="Projects"
         accessory={
           projectsSet ? (
-            <DashboardFollowToggle
-              label="Use dashboard filter"
-              tooltip="Follow the dashboard's projects filter instead of this block's own. Turn off to set projects just for this block."
-              value={projectsFollowing}
-              onChange={(enabled) => onToggleFollow("projects", enabled)}
+            <DashboardInheritControl
+              label="Projects"
+              inherited={projectsFollowing}
+              onChange={(inherited) => onToggleFollow("projects", inherited)}
             />
           ) : undefined
         }
@@ -151,15 +149,14 @@ export default function CompletedExperimentsFilterFields({
       </SidebarSettingField>
 
       <SidebarSettingField
-        label="Filter Experiments"
+        label="Experiment filters"
         accessory={
           searchSet ? (
-            <DashboardFollowToggle
-              label="Use dashboard filter"
-              tooltip="Follow the dashboard's experiment filter instead of this block's own. Turn off to filter experiments just for this block."
-              value={searchFollowing}
-              onChange={(enabled) =>
-                onToggleFollow("experimentSearchString", enabled)
+            <DashboardInheritControl
+              label="Experiment filters"
+              inherited={searchFollowing}
+              onChange={(inherited) =>
+                onToggleFollow("experimentSearchString", inherited)
               }
             />
           ) : undefined

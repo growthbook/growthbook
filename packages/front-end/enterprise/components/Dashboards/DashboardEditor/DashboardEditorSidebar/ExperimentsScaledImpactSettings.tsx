@@ -10,7 +10,7 @@ import {
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import CompletedExperimentsFilterFields from "./CompletedExperimentsFilterFields";
 import SidebarSettingField from "./SidebarSettingField";
-import DashboardFollowToggle from "./DashboardFollowToggle";
+import DashboardInheritControl from "./DashboardInheritControl";
 
 interface Props {
   block: DashboardBlockInterfaceOrData<ExperimentsScaledImpactBlockInterface>;
@@ -53,11 +53,10 @@ export default function ExperimentsScaledImpactSettings({
         label="Metric"
         accessory={
           metricSet ? (
-            <DashboardFollowToggle
-              label="Use dashboard metric"
-              tooltip="Follow the dashboard's metric instead of this block's own. Turn off to choose a metric just for this block."
-              value={metricFollowing}
-              onChange={(enabled) => setFollow("metricId", enabled)}
+            <DashboardInheritControl
+              label="Metric"
+              inherited={metricFollowing}
+              onChange={(inherited) => setFollow("metricId", inherited)}
             />
           ) : undefined
         }

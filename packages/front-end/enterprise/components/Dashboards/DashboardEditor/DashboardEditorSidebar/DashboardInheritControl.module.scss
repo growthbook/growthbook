@@ -1,0 +1,44 @@
+// Two small buttons on a block field's label row: does this field carry the
+// block's own value, or inherit the dashboard's filter? Separate badges rather
+// than one joined track, so they read as two distinct choices.
+.group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.segment {
+  appearance: none;
+  border: 0;
+  background-color: transparent;
+  border-radius: var(--radius-2);
+  padding: 1px 8px;
+  font-size: var(--font-size-1);
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--color-text-low);
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover:not(:disabled):not(.active):not(.activeCustom) {
+    color: var(--gray-12);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+}
+
+// Inheriting: neutral, the resting state.
+.active {
+  background-color: var(--gray-a4);
+  color: var(--gray-12);
+}
+
+// Overridden: violet, so a block that has diverged from the dashboard stands out
+// while scanning the sidebar.
+.activeCustom {
+  background-color: var(--violet-a4);
+  color: var(--violet-11);
+}

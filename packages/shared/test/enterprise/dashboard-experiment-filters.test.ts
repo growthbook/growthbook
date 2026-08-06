@@ -12,6 +12,7 @@ import {
   experimentBlockFollowsGlobalFilters,
   experimentBlockOptedOutOfGlobalFilters,
   setExperimentBlockGlobalFilterFollowing,
+  getDefaultExperimentBlockGlobalControlSettings,
 } from "../../src/enterprise/dashboards/utils";
 import {
   DashboardBlockInterface,
@@ -400,5 +401,45 @@ describe("setExperimentBlockGlobalFilterFollowing", () => {
       true,
     );
     expect(settings).toEqual({ projects: true });
+  });
+});
+
+describe("getDefaultExperimentBlockGlobalControlSettings", () => {
+  it("inherits every filter the block type supports", () => {
+    expect(
+      getDefaultExperimentBlockGlobalControlSettings(scaledImpactBlock()),
+    ).toEqual({
+      dateRange: true,
+      projects: true,
+      metricId: true,
+      experimentSearchString: true,
+    });
+  });
+
+  it("omits filters the block type doesn't support", () => {
+    // Experiments with Lift has its own phase date windows, so it never follows
+    // the dashboard date range.
+    expect(
+      getDefaultExperimentBlockGlobalControlSettings(metricExperimentsBlock()),
+    ).toEqual({
+      projects: true,
+      metricId: true,
+      experimentSearchString: true,
+    });
+    // Team Velocity has no metric field.
+    expect(
+      getDefaultExperimentBlockGlobalControlSettings(statusBlock()),
+    ).toEqual({
+      dateRange: true,
+      projects: true,
+      experimentSearchString: true,
+    });
+  });
+
+  it("does not depend on what the dashboard currently has set", () => {
+    const settings =
+      getDefaultExperimentBlockGlobalControlSettings(scaledImpactBlock());
+    expect(settings.metricId).toBe(true);
+    expect(settings.experimentSearchString).toBe(true);
   });
 });

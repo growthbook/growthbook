@@ -20,6 +20,7 @@ import {
   LOOKBACK_UNIT_LABELS,
   formatExplorationDateRange,
 } from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
+import styles from "./DashboardControlPill.module.scss";
 
 const DEFAULT_DATE_RANGE: ExplorationDateRange = {
   predefined: "last30Days",
@@ -288,7 +289,9 @@ export default function DashboardDateControlsDropdown({
       trigger={
         <Button
           variant="outline"
+          color="gray"
           size="md"
+          className={styles.controlPill}
           disabled={disabled}
           icon={<PiCalendarBlank aria-hidden />}
           iconPosition="left"
@@ -302,7 +305,7 @@ export default function DashboardDateControlsDropdown({
           </Flex>
         </Button>
       }
-      align="end"
+      align="start"
       showArrow={false}
       onInteractOutside={(event) => {
         const target = event.target;

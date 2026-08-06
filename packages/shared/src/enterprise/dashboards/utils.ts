@@ -232,6 +232,24 @@ export function experimentBlockOptedOutOfGlobalFilters(
   );
 }
 
+/**
+ * The per-filter opt-in a newly created experiment block starts with: it inherits
+ * every dashboard filter it supports. Unlike auto-enrollment (which only fills in
+ * filters the dashboard already has a value for), this opts the block in up front,
+ * so a filter set on the dashboard later applies without the block being touched.
+ */
+export function getDefaultExperimentBlockGlobalControlSettings(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+): GlobalControlSettings {
+  const settings: GlobalControlSettings = {};
+  DASHBOARD_GLOBAL_FILTER_KEYS.forEach((key) => {
+    if (experimentBlockSupportsGlobalFilter(block, key)) {
+      settings[key] = true;
+    }
+  });
+  return settings;
+}
+
 // Compute the block's next per-filter opt-in settings when the single
 // "Use dashboard experiment filters" toggle is flipped: every active supported
 // filter is set to `enabled`, leaving any unrelated stored flags untouched.

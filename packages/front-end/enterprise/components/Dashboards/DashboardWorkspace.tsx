@@ -14,6 +14,7 @@ import {
   autoEnrollDashboardBlocksInDateControl,
   autoEnrollDashboardBlocksInGlobalFilter,
   blockUsesDashboardDateControl,
+  getDefaultExperimentBlockGlobalControlSettings,
   getEffectiveExplorationConfig,
   globalFilterIsSet,
   DASHBOARD_GLOBAL_FILTER_KEYS,
@@ -350,9 +351,10 @@ export default function DashboardWorkspace({
         : undefined,
     });
 
-    // Exploration blocks default to following the dashboard date control.
-    // Experiment blocks are enrolled into whichever global filters are currently
-    // active so a block added after a filter is set still follows it.
+    // A new block inherits the dashboard by default: exploration blocks follow
+    // the date control, and experiment blocks inherit every filter they support —
+    // including ones the dashboard has no value for yet, so a filter set later
+    // applies without the block having to be edited.
     let stagedBlock: DashboardBlockInterfaceOrData<DashboardBlockInterface> =
       blockData;
     if (isDashboardGlobalControlSupportedBlock(blockData)) {
@@ -364,12 +366,13 @@ export default function DashboardWorkspace({
         },
       };
     } else if (isDashboardExperimentBlock(blockData)) {
-      stagedBlock = DASHBOARD_GLOBAL_FILTER_KEYS.filter((key) =>
-        globalFilterIsSet(globalControls, key),
-      ).reduce(
-        (b, key) => autoEnrollDashboardBlocksInGlobalFilter([b], key)[0],
-        stagedBlock,
-      );
+      stagedBlock = {
+        ...blockData,
+        globalControlSettings: {
+          ...blockData.globalControlSettings,
+          ...getDefaultExperimentBlockGlobalControlSettings(blockData),
+        },
+      };
     }
     setStagedInsert({
       block: initialLayout
