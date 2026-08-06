@@ -160,12 +160,8 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
   ];
 }
 
-/**
- * Warns when the selected model's provider has no API key — neither one stored
- * on the org nor one inherited from the environment. `hasKey` comes from
- * useAIProviderKeys so the check reflects org-stored keys, not just the
- * front-end server's environment.
- */
+// Warns when the selected model's provider has no key, stored or inherited.
+// `hasKey` comes from useAIProviderKeys so org-stored keys count.
 const ApiKeyWarning: React.FC<{
   model?: string;
   hasKey: (model: AIModel | string) => boolean;
@@ -188,10 +184,7 @@ const ApiKeyWarning: React.FC<{
   );
 };
 
-/**
- * Same warning as ApiKeyWarning, for embedding models. Embedding models live in
- * their own registry, so they need their own model → provider lookup.
- */
+// ApiKeyWarning for embedding models, which live in their own registry.
 const EmbeddingKeyWarning: React.FC<{
   embeddingModel: string;
   hasKey: (provider: AIProvider) => boolean;
@@ -231,27 +224,19 @@ export default function AISettings({
     useAIProviderKeys();
 
   // Every field here writes org settings, which the back end gates on
-  // canManageOrgSettings — putOrganization for the toggle and model choices,
-  // postAgreeToAgreement for the Cloud opt-in. Without this the controls look
-  // editable to a non-admin and only fail on save, which is also how the
-  // AIProviderKeys section below already behaves.
+  // canManageOrgSettings. Without this the controls look editable to a non-admin
+  // and only fail on save.
   const permissionsUtil = usePermissionsUtil();
   const canEdit = permissionsUtil.canManageOrgSettings();
 
-  // Model and embedding pickers are hidden on Cloud because usage runs on
-  // GrowthBook's managed keys and models. An org on its own key pays its own
-  // provider bill, so it chooses its own models — same as self-hosted.
+  // Hidden on Cloud because usage runs on the managed keys and models. An org on
+  // its own key chooses its own, same as self-hosted.
   const canChooseModels = !isCloud() || hasOwnKey;
 
-  // Only offer models we can actually call. This comes from /ai/credentials
-  // rather than the org payload in UserContext so that adding a key updates the
-  // dropdowns immediately, without a full org refresh.
-  //
-  // On Cloud that means org-stored keys only: the env keys there are
-  // GrowthBook's managed ones, so counting them would let a single stored
-  // Anthropic key unlock the OpenAI and Google lists too — the org would be
-  // picking models it isn't paying for and is still capped on. Self-hosted env
-  // vars are the host's own keys, so they count exactly as before.
+  // Only offer models we can call. From /ai/credentials rather than UserContext
+  // so adding a key updates the dropdowns without a full org refresh. Cloud
+  // counts org-stored keys only — counting the managed env keys would let one
+  // stored Anthropic key unlock the OpenAI and Google lists too.
   const availableProviders = AI_PROVIDERS.filter((p) =>
     isCloud() ? hasOwnKeyForProvider(p) : hasKeyForProvider(p),
   );
@@ -364,9 +349,8 @@ export default function AISettings({
               )}
               {form.watch("aiEnabled") && (
                 <>
-                  {/* Per-org provider keys. Rendered on Cloud too: this is how
-                      an org opts out of GrowthBook's managed keys and onto its
-                      own provider account. */}
+                  {/* Rendered on Cloud too: this is how an org opts off the
+                      managed keys and onto its own provider account. */}
                   <AIProviderKeys showPermissionCallout={false} />
 
                   {canChooseModels && (
@@ -721,8 +705,8 @@ export default function AISettings({
                         const embeddingModel =
                           form.watch("embeddingModel") ||
                           "text-embedding-ada-002";
-                        // Assume a key is present until we can prove otherwise,
-                        // so an unrecognized model doesn't disable the button.
+                        // Assume a key until proven otherwise, so an unknown
+                        // model doesn't disable the button.
                         let hasKey = true;
                         try {
                           hasKey = hasKeyForProvider(

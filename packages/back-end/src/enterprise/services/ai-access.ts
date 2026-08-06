@@ -10,15 +10,9 @@ type OrgAIPromptConfig = Awaited<
   ReturnType<ReqContext["models"]["aiPrompts"]["getAIPrompt"]>
 >;
 
-/**
- * Runs the checks that don't depend on which model the request will use:
- * premium feature and AI-enabled. Returns false (and writes an error response)
- * if the request should be rejected.
- *
- * The usage cap is deliberately *not* checked here — it is provider-exact, so it
- * can only be evaluated once the model is resolved. Call `enforceAIUsageCap`
- * with that model.
- */
+// Model-independent checks: premium feature and AI-enabled. Writes the error
+// response and returns false if the request should be rejected. The usage cap is
+// provider-exact, so it lives in enforceAIUsageCap once the model is known.
 export async function runAccessGates(
   context: ReqContext,
   res: Response,
@@ -43,14 +37,9 @@ export async function runAccessGates(
   return true;
 }
 
-/**
- * Enforces the Cloud daily token cap for a request that will run `model`.
- * Returns false (and writes a 429) if the org is over its cap.
- *
- * Split from `runAccessGates` because the exemption is per provider: an org that
- * brought its own Anthropic key is exempt on Claude models but still capped on a
- * managed OpenAI one, so this can only run once the model is known.
- */
+// Cloud daily cap for a request that will run `model`; writes a 429 and returns
+// false when over. Split out because the exemption is per provider: a BYOK
+// Anthropic key doesn't exempt a managed OpenAI model.
 export async function enforceAIUsageCap(
   context: ReqContext,
   res: Response,

@@ -1300,11 +1300,8 @@ app.get("/meta/ai", (async (
   res: express.Response,
   _next: express.NextFunction,
 ) => {
-  // Whether this org can reach any provider at all — a key it stored in
-  // GrowthBook counts. This read OPENAI_API_KEY off the environment, which
-  // told the Visual Editor extension "no AI" for a BYOK org (and for any host
-  // that set a non-OpenAI key), so the extension opened without its AI
-  // features even though the org had a working key.
+  // Any reachable provider, stored key included. This read OPENAI_API_KEY, so
+  // the Visual Editor extension saw "no AI" for a BYOK org.
   const context = getContextFromReq(req as AuthRequest);
   const { keySource } = await getAISettingsForOrg(context);
   return res.json({

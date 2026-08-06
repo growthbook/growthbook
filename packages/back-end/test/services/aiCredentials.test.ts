@@ -6,17 +6,11 @@ import {
   missingAIKeyMessage,
 } from "back-end/src/services/aiCredentials";
 
-// Keys are stored as AES ciphertext under the install's ENCRYPTION_KEY (which is
-// "dev" in tests unless another suite in the same worker set it first).
-//
-// The wrong-key case has no clean signal, and the assertions below are written
-// around what is actually guaranteed. AES.decrypt on a wrong key yields garbage
-// bytes, and `.toString(enc.Utf8)` on those does one of three things depending
-// on the bytes: returns "" (overwhelmingly common), throws "Malformed UTF-8
-// data" (~5%), or — rarely — returns a short string that happens to be valid
-// UTF-8. decryptAIKey turns the throw into "", so the only invariants that hold
-// every time are "never throws" and "never returns the original plaintext".
-// Asserting `=== ""` on a wrong key is a flaky test, not a stronger one.
+// The wrong-key case has no clean signal: garbage bytes make `.toString(enc.Utf8)`
+// return "" (usually), throw "Malformed UTF-8 data" (~5%), or rarely return a
+// short valid string. decryptAIKey collapses the throw into "", so the only
+// invariants that always hold are "never throws" and "never returns the
+// plaintext" — asserting `=== ""` would be a flaky test, not a stronger one.
 describe("AI credential encryption", () => {
   it("round-trips a key", () => {
     const key = "sk-ant-api03-abcdefghijklmnop";
@@ -29,20 +23,16 @@ describe("AI credential encryption", () => {
   });
 
   it("produces different ciphertext for the same key each time", () => {
-    // crypto-js salts each encryption, so identical keys must not produce
-    // identical ciphertext — otherwise the stored value leaks equality.
+    // Salted, so identical keys must not produce identical ciphertext.
     const key = "sk-proj-supersecretvalue";
     expect(encryptAIKey(key)).not.toBe(encryptAIKey(key));
   });
 
   it("never throws on a wrong key, whatever the garbage bytes decode to", () => {
-    // This is the regression guard for the try/catch in decryptAIKey. Which of
-    // the three outcomes a given ciphertext produces depends on its random
-    // salt, so one iteration only exercises whichever branch that run happened
-    // to draw; repeating makes the throwing branch effectively certain to be
-    // covered. Callers rely on this: getResolvedAIKeys must be able to fall
-    // back to the env var rather than have an undecryptable stored key take
-    // down every AI request.
+    // Regression guard for the try/catch in decryptAIKey. Which outcome a given
+    // ciphertext draws depends on its salt, so repeating makes the throwing
+    // branch effectively certain to be covered — getResolvedAIKeys relies on it
+    // to fall back to the env var instead of failing every AI request.
     for (let i = 0; i < 200; i++) {
       const ciphertext = AES.encrypt("sk-real-key", "another-key").toString();
       expect(() => decryptAIKey(ciphertext)).not.toThrow();

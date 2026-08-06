@@ -23,29 +23,29 @@ import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
 type AICredentialsResponse = {
   credentials: AICredentialFrontEndInterface[];
   envProviders: AIProvider[];
+  canUseOwnKeys: boolean;
 };
 
-/**
- * Read model for the AI credentials endpoint. Exported so other settings UI can
- * warn about a model whose provider has no key, without each caller
- * re-deriving the env-var-vs-stored-key precedence.
- */
+// Read model for /ai/credentials. Exported so other settings UI can warn about
+// a model whose provider has no key without re-deriving the precedence rules.
 export function useAIProviderKeys() {
   const { data, mutate, isLoading } =
     useApi<AICredentialsResponse>("/ai/credentials");
 
   const credentials = data?.credentials ?? [];
   const envProviders = data?.envProviders ?? [];
+  // The back end's ai-byok gate, not re-derived here.
+  const canUseOwnKeys = !!data?.canUseOwnKeys;
 
-  // A key the org stored itself, ignoring the environment. On Cloud the env
-  // keys are GrowthBook's managed ones, so this is the set the org actually
-  // pays for — see selectableProviders in AISettings.
+  // A key the org stored itself. On Cloud the env keys are GrowthBook's, so this
+  // is the set the org pays for. Gated on canUseOwnKeys because the resolver is.
   const hasOwnKeyForProvider = (provider: AIProvider): boolean =>
-    credentials.some((c) => c.provider === provider);
+    canUseOwnKeys && credentials.some((c) => c.provider === provider);
 
   const hasKeyForProvider = (provider: AIProvider): boolean =>
     hasOwnKeyForProvider(provider) || envProviders.includes(provider);
@@ -61,18 +61,17 @@ export function useAIProviderKeys() {
   return {
     credentials,
     envProviders,
+    canUseOwnKeys,
     hasOwnKeyForProvider,
     hasKeyForProvider,
     hasKeyForModel,
     hasAnyKey: AI_PROVIDERS.some(hasKeyForProvider),
-    // The org stores at least one key of its own, so it is paying its own
-    // provider bill. On Cloud that unlocks model selection, which is otherwise
-    // pinned to the managed default.
-    hasOwnKey: credentials.length > 0,
+    // Paying its own provider bill. On Cloud this unlocks model selection.
+    hasOwnKey: AI_PROVIDERS.some(hasOwnKeyForProvider),
     mutate,
     isLoading,
-    // Distinguishes "still loading" from "loaded, and there really is no key",
-    // so callers don't flash a scary warning on first paint.
+    // Separates "still loading" from "loaded, and there is no key", so callers
+    // don't flash a warning on first paint.
     loaded: !!data,
   };
 }
@@ -82,6 +81,7 @@ function ProviderRow({
   credential,
   inheritedFromEnv,
   canEdit,
+  canUseOwnKeys,
   startEditing = false,
   onChanged,
 }: {
@@ -89,9 +89,9 @@ function ProviderRow({
   credential?: AICredentialFrontEndInterface;
   inheritedFromEnv: boolean;
   canEdit: boolean;
-  // Open the key input immediately. Set for the provider the admin just picked
-  // from the "Add a provider" dropdown, so choosing one lands them on the input
-  // instead of an extra "Add key" click.
+  // Separate from canEdit: a downgraded org can still remove a leftover key.
+  canUseOwnKeys: boolean;
+  // Open the input immediately, for the provider just picked from the dropdown.
   startEditing?: boolean;
   onChanged: () => Promise<unknown>;
 }) {
@@ -99,19 +99,17 @@ function ProviderRow({
   const { label, keyPlaceholder, consoleUrl, envVar } =
     AI_PROVIDER_META[provider];
 
-  // Self-hosted, an env var is the deployment's own configuration: it wins, and
-  // there's no Add key or Replace on that row — you change it where you set it.
-  // Cloud is the exception, and has to be: `envProviders` there are
-  // GrowthBook's managed keys rather than anything the org set, and every
-  // provider we hold a managed key for is an env row for every org. Applying
-  // the rule there would leave no row with an Add key button and no addable
-  // provider in the menu, which is to say no way to BYOK on Cloud at all.
+  // Self-hosted, the env var wins and the row is read-only. Cloud must be
+  // exempt: its env rows are GrowthBook's managed keys, so applying the rule
+  // there would leave no way to BYOK at all.
   const envIsAuthoritative = inheritedFromEnv && !isCloud();
 
-  // Same `env` key source, entirely different thing to say about it. On Cloud
-  // it's GrowthBook's managed key: the admin never set it, can't go change it
-  // where it lives, and adding their own key on top is the supported move.
+  // Same `env` source, different thing to say: the admin never set this one and
+  // can't go change it, so adding their own on top is the supported move.
   const managedByGrowthBook = inheritedFromEnv && isCloud() && !credential;
+
+  // A stored key the plan no longer covers, so the resolver ignores it.
+  const inactiveForPlan = !!credential && !canUseOwnKeys;
 
   const [editing, setEditing] = useState(startEditing);
   const [apiKey, setApiKey] = useState("");
@@ -144,9 +142,8 @@ function ProviderRow({
     }
   };
 
-  // Deliberately not try/caught: ConfirmDialog's confirm button awaits this and
-  // renders a rejection inside the dialog, so a failure stays next to the action
-  // that caused it instead of also painting the row's callout behind it.
+  // Not try/caught on purpose: ConfirmDialog renders the rejection itself, so
+  // the failure stays next to the action instead of also hitting the row.
   const remove = async () => {
     setError(null);
     setWarning(null);
@@ -167,6 +164,10 @@ function ProviderRow({
               <Text size="sm" color="text-mid">
                 From environment
               </Text>
+            ) : inactiveForPlan ? (
+              <Text size="sm" color="text-mid">
+                Inactive
+              </Text>
             ) : managedByGrowthBook ? (
               <Text size="sm" color="text-mid">
                 GrowthBook managed
@@ -181,6 +182,15 @@ function ProviderRow({
                   ? ` · set by ${credential.updatedByEmail}`
                   : ""}{" "}
                 on {date(credential.dateUpdated)}
+                {inactiveForPlan ? (
+                  <>
+                    . Not in use — your plan no longer includes your own
+                    provider keys.{" "}
+                    {isCloud()
+                      ? "AI features run on GrowthBook's managed keys."
+                      : `AI features use ${envVar} if it is set.`}
+                  </>
+                ) : null}
               </>
             ) : managedByGrowthBook ? (
               <>
@@ -202,22 +212,28 @@ function ProviderRow({
             )}
           </Text>
         </Box>
-        {canEdit && !editing && !envIsAuthoritative && (
-          <Flex gap="2">
-            <Button variant="outline" onClick={() => setEditing(true)}>
-              {credential ? "Replace" : "Add key"}
-            </Button>
-            {credential && (
-              <Button
-                variant="ghost"
-                color="red"
-                onClick={() => setConfirmingRemove(true)}
-              >
-                Remove
-              </Button>
-            )}
-          </Flex>
-        )}
+        {canEdit &&
+          !editing &&
+          !envIsAuthoritative &&
+          (canUseOwnKeys || credential) && (
+            <Flex gap="2">
+              {/* Remove stays available without the plan feature; adding doesn't. */}
+              {canUseOwnKeys && (
+                <Button variant="outline" onClick={() => setEditing(true)}>
+                  {credential ? "Replace" : "Add key"}
+                </Button>
+              )}
+              {credential && (
+                <Button
+                  variant="ghost"
+                  color="red"
+                  onClick={() => setConfirmingRemove(true)}
+                >
+                  Remove
+                </Button>
+              )}
+            </Flex>
+          )}
       </Flex>
 
       {editing && (
@@ -293,18 +309,11 @@ function ProviderRow({
   );
 }
 
-/**
- * Per-org AI provider API keys. Rendered under the "Enable AI features" toggle
- * on both Cloud and self-hosted, but they mean different things: on Cloud a key
- * stored here outranks GrowthBook's managed key, which is how an org brings its
- * own provider account; self-hosted, the host's environment variables win and
- * those providers are shown read-only.
- */
+// Per-org AI provider API keys. On Cloud a key here outranks GrowthBook's
+// managed key; self-hosted the host's env vars win and show as read-only.
 export default function AIProviderKeys({
-  // The AI Settings page renders its own permission callout covering this
-  // section and everything above it, so it opts out of this one rather than
-  // banner the same gap twice. Defaults to showing it, so the component stays
-  // self-explanatory anywhere else it's mounted.
+  // AI Settings renders its own callout covering this section, so it opts out
+  // rather than banner the same gap twice.
   showPermissionCallout = true,
 }: {
   showPermissionCallout?: boolean;
@@ -312,28 +321,26 @@ export default function AIProviderKeys({
   const permissionsUtil = usePermissionsUtil();
   const canEdit = permissionsUtil.canManageOrgSettings();
 
-  const { credentials, envProviders, mutate, isLoading, loaded } =
-    useAIProviderKeys();
+  const {
+    credentials,
+    envProviders,
+    canUseOwnKeys,
+    mutate,
+    isLoading,
+    loaded,
+  } = useAIProviderKeys();
   const { refreshOrganization } = useUser();
 
-  // The provider whose row the admin just opened from the "Add a new provider"
-  // menu, so the common case — one org, one provider — is one pick plus one
-  // paste. The menu itself keeps no selection: it closes on pick and the row it
-  // opened is the only state that matters.
+  // The row just opened from the "New provider" menu, so the common case is one
+  // pick plus one paste. The menu itself keeps no selection.
   const configured = new Set(credentials.map((c) => c.provider));
   const [addingProvider, setAddingProvider] = useState<AIProvider | "">("");
 
   if (isLoading && !loaded) return null;
 
-  // Show a row for every provider that is already set up somehow, plus the one
-  // the admin is actively adding. Listing all five unconditionally turns a
-  // simple setting into a wall of empty rows.
-  //
-  // Env rows count only self-hosted, where they're real configuration the host
-  // chose. On Cloud every provider we hold a managed key for reports as `env`,
-  // so including them would list all five for every org — the wall this filter
-  // exists to avoid — and none of them is something the admin set up. Cloud
-  // shows the org's own keys, and "New provider" is where the rest live.
+  // Only providers already set up, plus the one being added — listing all five
+  // is a wall of empty rows. Env rows count only self-hosted; on Cloud every
+  // managed provider reports as `env`, which would list all five for every org.
   const visibleProviders = AI_PROVIDERS.filter(
     (p) =>
       configured.has(p) ||
@@ -341,11 +348,8 @@ export default function AIProviderKeys({
       p === addingProvider,
   );
 
-  // Every provider stays in the menu so the full set is discoverable, but one
-  // that already has a row above can't be added twice: it's disabled and sorted
-  // below the ones that are still addable. Its row is where you replace or
-  // override its key. This includes the provider just picked from here — the row
-  // appears immediately, so picking it again would do nothing.
+  // Every provider stays in the menu for discoverability, but one that already
+  // has a row is disabled and sorted last — its row is where you replace it.
   const providerOptions = AI_PROVIDERS.map((p) => ({
     provider: p,
     label: AI_PROVIDER_META[p].label,
@@ -388,21 +392,31 @@ export default function AIProviderKeys({
           credential={credentials.find((c) => c.provider === provider)}
           inheritedFromEnv={envProviders.includes(provider)}
           canEdit={canEdit}
+          canUseOwnKeys={canUseOwnKeys}
           startEditing={provider === addingProvider}
           onChanged={async () => {
             // Let the row be driven by the saved credential from here on.
             setAddingProvider("");
             // Both caches: this section reads /ai/credentials, but AI gating
-            // app-wide reads `aiKeyProviders` off the /organization payload.
-            // Refreshing only the first leaves every other AI control stale —
-            // still disabled after the first key is added, still enabled after
-            // the last one is removed.
+            // app-wide reads `aiKeyProviders` off /organization. Refreshing only
+            // the first leaves every other AI control stale.
             await Promise.all([mutate(), refreshOrganization()]);
           }}
         />
       ))}
 
-      {canEdit && showProviderPicker && (
+      {canEdit && !canUseOwnKeys && (
+        <Callout status="info">
+          <PremiumTooltip commercialFeature="ai-byok">
+            Using your own AI provider keys
+          </PremiumTooltip>{" "}
+          {isCloud()
+            ? "requires a Pro or Enterprise plan. AI features still work on GrowthBook's managed keys."
+            : "requires an Enterprise plan."}
+        </Callout>
+      )}
+
+      {canEdit && canUseOwnKeys && showProviderPicker && (
         <Box mt="3">
           <DropdownMenu
             trigger={

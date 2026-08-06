@@ -48,16 +48,9 @@ import { logCloudAIUsage } from "back-end/src/services/licenseServerManagedClick
 import { trackAIUsage } from "back-end/src/services/growthbook";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
-/**
- * Whether this org is spending its own provider budget for `model`, i.e. the key
- * we resolved for the model's provider is one the org stored in GrowthBook
- * rather than one of the host's environment variables.
- *
- * Cloud meters AI usage against a daily token cap because GrowthBook pays for
- * the managed keys. That rationale disappears when the org brings its own key,
- * so those requests are exempt from the cap — usage is still reported for
- * analytics, just not rate limited.
- */
+// Whether the org is spending its own budget for `model`. Cloud's daily cap
+// exists because GrowthBook pays for the managed keys, so BYOK requests are
+// exempt — still reported for analytics, just not rate limited.
 const usesOwnAIKey = (
   keySource: Record<AIProvider, AIKeySource>,
   model: AIModel,
@@ -203,18 +196,10 @@ export const secondsUntilAICanBeUsedAgain = async (
     : 0;
 };
 
-/**
- * Seconds until the org may call AI again, or 0 if it may right now — the
- * provider-exact form of `secondsUntilAICanBeUsedAgain`, and what request gates
- * should use.
- *
- * The daily cap exists because GrowthBook pays for the managed keys, so it is
- * skipped only when the org stored the key for the provider *this* call will
- * hit. Checking "does the org own any key at all" would let an org-owned
- * Anthropic key buy uncapped access to a managed OpenAI model, and would also
- * cap a BYOK org on the very provider it is paying for. `undefined` means we
- * could not work out the provider, which meters the request.
- */
+// Provider-exact form of secondsUntilAICanBeUsedAgain, and what gates should
+// use. Skipped only for the provider *this* call will hit: "owns any key at all"
+// would let an Anthropic key buy uncapped managed OpenAI access, and would cap a
+// BYOK org on the provider it pays for. `undefined` meters the request.
 export const secondsUntilAICanBeUsedAgainForProvider = async (
   context: ReqContext | ApiReqContext,
   provider: AIProvider | undefined,
@@ -224,11 +209,8 @@ export const secondsUntilAICanBeUsedAgainForProvider = async (
   return secondsUntilAICanBeUsedAgain(context.org);
 };
 
-/**
- * Provider-exact cap check for a text model. Pass the model the request will
- * actually use — a per-prompt or per-surface override, not just the org
- * default. Omit it to check against the org's default model.
- */
+// Pass the model the request will actually use, override included. Omit to
+// check the org's default model.
 export const secondsUntilAICanBeUsedAgainForModel = async (
   context: ReqContext | ApiReqContext,
   model?: AIModel,
@@ -243,12 +225,8 @@ export const secondsUntilAICanBeUsedAgainForModel = async (
   return secondsUntilAICanBeUsedAgainForProvider(context, provider);
 };
 
-/**
- * Provider-exact cap check for a request that will run one of the org's
- * configurable prompts. Resolves that prompt's model override — the same
- * resolution `simpleCompletion` does — so the gate and the call agree on which
- * provider is about to be billed.
- */
+// Resolves the prompt's model override the same way simpleCompletion does, so
+// the gate and the call agree on which provider is about to be billed.
 export const secondsUntilAICanBeUsedAgainForPrompt = async (
   context: ReqContext | ApiReqContext,
   type: AIPromptType,
@@ -257,10 +235,7 @@ export const secondsUntilAICanBeUsedAgainForPrompt = async (
   return secondsUntilAICanBeUsedAgainForModel(context, overrideModel);
 };
 
-/**
- * Provider-exact cap check for the org's embedding model. Embedding models live
- * in their own registry, so they need their own model → provider lookup.
- */
+// Embedding models live in their own registry, so they need their own lookup.
 export const secondsUntilAICanBeUsedAgainForEmbeddings = async (
   context: ReqContext | ApiReqContext,
 ): Promise<number> => {
@@ -728,8 +703,8 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
         "parsePrompt: model returned no usable output after retry; giving up",
       );
       // Bill both failed attempts before surfacing the error so Cloud
-      // rate-limiting doesn't under-count a double failure. Orgs on their own
-      // key aren't rate limited, so there is nothing to bill.
+      // rate-limiting doesn't under-count a double failure. BYOK orgs aren't
+      // rate limited, so there is nothing to bill.
       if (IS_CLOUD && !ownKey && retriedTokens > 0) {
         await updateTokenUsage({
           numTokensUsed: retriedTokens,
@@ -868,10 +843,9 @@ export async function generateEmbeddings({
       embeddings.push(result.embedding);
     }
 
-    // One event per batch — a batch is one logical operation. Counted as prompt
-    // tokens: embeddings consume input and return vectors, not completions.
-    // Still not metered against the daily cap; they never were, and starting now
-    // would silently shrink every managed-key org's text budget.
+    // One event per batch, counted as prompt tokens. Still not metered against
+    // the daily cap — they never were, and starting now would silently shrink
+    // every managed-key org's text budget.
     trackAIUsage({
       organizationId: context.org.id,
       userId: context.userId,

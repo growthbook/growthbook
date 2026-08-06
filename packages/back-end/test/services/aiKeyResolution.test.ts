@@ -34,13 +34,19 @@ const credential = (
 });
 
 // Minimal stand-in for ReqContext. getResolvedAIKeys only touches
-// context.models.aiCredentials.getAll(), and the WeakMap cache keys off object
-// identity, so a plain object is a faithful stub.
-const makeContext = (credentials: AICredentialInterface[]) => {
+// aiCredentials.getAll() and hasPremiumFeature(), and the WeakMap cache keys off
+// object identity, so a plain object is a faithful stub. BYOK defaults to
+// allowed so the precedence tests stay about precedence.
+const makeContext = (
+  credentials: AICredentialInterface[],
+  { canUseOwnKeys = true }: { canUseOwnKeys?: boolean } = {},
+) => {
   const getAll = jest.fn().mockResolvedValue(credentials);
+  const hasPremiumFeature = jest.fn().mockReturnValue(canUseOwnKeys);
   return {
-    context: { models: { aiCredentials: { getAll } } },
+    context: { models: { aiCredentials: { getAll } }, hasPremiumFeature },
     getAll,
+    hasPremiumFeature,
   };
 };
 
@@ -144,7 +150,10 @@ describe("getResolvedAIKeys", () => {
   it("falls back to env keys when the credential query fails", async () => {
     const mod = loadModule({ OPENAI_API_KEY: "env-openai" });
     const getAll = jest.fn().mockRejectedValue(new Error("mongo is down"));
-    const context = { models: { aiCredentials: { getAll } } };
+    const context = {
+      models: { aiCredentials: { getAll } },
+      hasPremiumFeature: () => true,
+    };
 
     const keys = await resolve(mod, context);
 
@@ -211,5 +220,45 @@ describe("getResolvedAIKeys", () => {
       key: "legacy",
       source: "env",
     });
+  });
+
+  it("ignores a stored key when the plan does not include BYOK", async () => {
+    const mod = loadModule({ IS_CLOUD: "true" });
+    const { context, hasPremiumFeature } = makeContext(
+      [credential("anthropic", mod.encryptAIKey("org-anthropic"))],
+      { canUseOwnKeys: false },
+    );
+
+    const keys = await resolve(mod, context);
+
+    expect(hasPremiumFeature).toHaveBeenCalledWith("ai-byok");
+    expect(keys.anthropic).toEqual({ key: "", source: "none" });
+  });
+
+  it("falls back to the managed key when the plan does not include BYOK", async () => {
+    // Downgrade on Cloud: still works on the managed key, and because the
+    // source is no longer "organization" it is metered and capped again.
+    const mod = loadModule({
+      ANTHROPIC_API_KEY: "env-anthropic",
+      IS_CLOUD: "true",
+    });
+    const { context } = makeContext(
+      [credential("anthropic", mod.encryptAIKey("org-anthropic"))],
+      { canUseOwnKeys: false },
+    );
+
+    expect((await resolve(mod, context)).anthropic).toEqual({
+      key: "env-anthropic",
+      source: "env",
+    });
+  });
+
+  it("does not query for credentials at all when the plan does not include BYOK", async () => {
+    const mod = loadModule({});
+    const { context, getAll } = makeContext([], { canUseOwnKeys: false });
+
+    await resolve(mod, context);
+
+    expect(getAll).not.toHaveBeenCalled();
   });
 });

@@ -103,10 +103,8 @@ export const postAIImageGen = createApiRequestHandler(validation)(async (
     );
   }
 
-  // Image models have their own registry, so the provider comes from there
-  // rather than getProviderFromModel. An org paying for this provider itself is
-  // neither capped nor metered — same rule the text path applies in
-  // simpleCompletion.
+  // Image models have their own registry. BYOK on this provider is neither
+  // capped nor metered, same rule simpleCompletion applies.
   const imageProvider = getImageModelMeta(visualEditorImageModel)?.provider;
   const usesOwnImageKey =
     !!imageProvider && keySource[imageProvider] === "organization";
@@ -157,9 +155,7 @@ export const postAIImageGen = createApiRequestHandler(validation)(async (
   // before we return; try/catch because a transient billing-DB failure
   // shouldn't surface to the user (worst case: one batch under-counted).
   if (generated.length > 0) {
-    // Reported for every org whichever key paid. The token figure is the same
-    // cost-equivalent the cap uses, as completion tokens — the images are what
-    // was generated.
+    // Reported whichever key paid. Tokens are the cost-equivalent the cap uses.
     trackAIUsage({
       organizationId: org.id,
       userId: context.userId,

@@ -107,12 +107,8 @@ export const EMBEDDING_MODEL_OPTIONS =
     { value: "gemini-embedding-001", label: "Google: gemini-embedding-001" },
   ]);
 
-/**
- * Keeps the saved model selectable even when its provider has no key. Without
- * this, filtering the list would drop the stored value out of the dropdown and
- * SelectField would render an empty control while the form still held that
- * model — it would look unset, and saving the form would silently keep it.
- */
+// Keeps the saved model selectable even when its provider has no key —
+// otherwise SelectField renders empty while the form still holds that model.
 function withSelectedOption<T extends FlatOption | GroupedOption>(
   options: T[],
   selected: string | undefined,
@@ -135,20 +131,13 @@ function withSelectedOption<T extends FlatOption | GroupedOption>(
 }
 
 /**
- * Model options grouped by provider, restricted to `availableProviders` — the
- * providers this org can actually reach, meaning it stored a key in GrowthBook
- * or the host set the provider's environment variable. Callers pass that in
- * rather than having this read the front-end server's env flags, which cannot
- * see org-stored keys at all.
+ * Model options grouped by provider, restricted to the providers this org can
+ * reach. Callers pass those in because the front-end server's env flags can't
+ * see org-stored keys. Empty falls back to every provider, so a fresh install
+ * still shows a full picker.
  *
- * Falls back to every provider when the list is empty, so a fresh install with
- * no key configured yet still shows a full picker (the selection then renders
- * an API key warning below it).
- *
- * Groups are alphabetical by provider, and models within a group keep the
- * registry's order — which lists each provider newest-first. Callers must pass
- * `sort={false}` to SelectField, or its default alphabetical sort re-orders the
- * models by label and buries the newest ones at the bottom.
+ * Groups are alphabetical; models keep the registry's newest-first order, so
+ * callers must pass `sort={false}` to SelectField or it re-sorts by label.
  */
 export function getAvailableAIModelOptions(
   availableProviders: readonly AIProvider[],

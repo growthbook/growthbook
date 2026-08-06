@@ -26,9 +26,7 @@ export default function AIChatModelSelect({
   height = "35px",
 }: AIChatModelSelectProps) {
   const { defaultAIModel } = useAISettings();
-  // Providers the org has a key for — its own stored keys plus any the host set
-  // in the environment. Comes from the org payload so this doesn't add a
-  // request to every chat surface.
+  // From the org payload, so this doesn't add a request to every chat surface.
   const { aiKeyProviders } = useUser();
   const options = useMemo(
     () => getAvailableAIModelOptions(aiKeyProviders, value),

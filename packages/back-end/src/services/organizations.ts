@@ -282,9 +282,8 @@ export async function getAISettingsForOrg(
   xaiAPIKey: string;
   mistralAPIKey: string;
   googleAPIKey: string;
-  // Where each provider's key came from — "organization" for a key the org
-  // stored in GrowthBook, "env" for an environment variable, "none" when
-  // unset. Non-secret, so it is safe to return regardless of `includeKey`.
+  // Where each provider's key came from. Non-secret, so returned regardless of
+  // `includeKey`.
   keySource: Record<AIProvider, AIKeySource>;
   defaultAIModel: AIModel;
   embeddingModel: EmbeddingModel;
@@ -295,9 +294,9 @@ export async function getAISettingsForOrg(
   // Free-text brand guidelines appended to the AI system prompt.
   visualEditorAIContext: string;
 }> {
-  // Org-stored keys beat environment variables, on Cloud and self-hosted
-  // alike. Memoized per request, so calling this repeatedly in one request
-  // costs a single query.
+  // Cloud: a stored key beats the env var. Self-hosted: the env var wins.
+  // Either way it only counts while the plan allows it — see getResolvedAIKeys.
+  // Memoized per request, so repeated calls cost one query.
   const resolvedKeys = await getResolvedAIKeys(context);
 
   const keySource = AI_PROVIDERS.reduce(
@@ -309,9 +308,8 @@ export async function getAISettingsForOrg(
   );
 
   const hasValidKey = AI_PROVIDERS.some((p) => !!resolvedKeys[p].key);
-  // True when at least one key belongs to the org rather than the host. On
-  // Cloud this means the org is paying its own provider bill, which unlocks
-  // free model choice and exempts it from the managed daily token cap.
+  // On Cloud this means the org pays its own provider bill, which unlocks model
+  // choice and exempts it from the daily token cap.
   const usesOwnKey = AI_PROVIDERS.some(
     (p) => resolvedKeys[p].source === "organization",
   );
@@ -322,8 +320,8 @@ export async function getAISettingsForOrg(
     ? !!context.org.settings?.aiEnabled
     : !!(context.org.settings?.aiEnabled && hasValidKey);
 
-  // Cloud normally pins the cheap managed model because GrowthBook pays for
-  // it. An org on its own key pays its own bill, so it picks its own model.
+  // Cloud pins the cheap managed model because GrowthBook pays for it; an org on
+  // its own key picks its own.
   const orgDefaultAIModel =
     context.org.settings?.defaultAIModel ||
     context.org.settings?.openAIDefaultModel;
@@ -334,23 +332,15 @@ export async function getAISettingsForOrg(
         (IS_CLOUD ? "claude-haiku-4-5-20251001" : "gpt-5.4-mini");
 
   // Visual editor AI. An explicit per-surface override always wins.
-  // Otherwise: on managed Cloud, default to Sonnet — the visual editor's
-  // structured-output + vision workload (mutations schema, figma-to-
-  // variant) needs more capability than the cheap managed default
-  // (Haiku), which fails schema adherence too often here. Self-hosted — and
-  // Cloud on an org's own key — falls back to the org's general default
-  // model instead, so admins stay in control of cost/model and we never
-  // silently route to a provider they have no key for.
+  // Otherwise managed Cloud gets Sonnet: the structured-output + vision workload
+  // fails schema adherence on Haiku too often. Self-hosted and BYOK Cloud fall
+  // back to the org's default, so we never route to a provider they lack.
   const visualEditorAIModel: AIModel =
     context.org.settings?.visualEditorAIModel ||
     (IS_CLOUD && !usesOwnKey ? "claude-sonnet-4-5-20250929" : defaultAIModel);
-  // On managed Cloud, default the visual editor's image model to Gemini 3 Pro
-  // Image: it honors the requested aspect ratio (so replacements aren't
-  // center-cropped/clipped) and renders at higher resolution, while still
-  // supporting reference images for img2img. Self-hosted — and Cloud on an
-  // org's own key — gets the stable nano-banana default
-  // (GEMINI_IMAGE_MODEL, env-overridable), because a preview model isn't
-  // enabled on every Google account. An explicit org setting always wins.
+  // Managed Cloud gets Gemini 3 Pro Image: it honors the requested aspect ratio
+  // and renders higher-res. Self-hosted and BYOK Cloud get the stable
+  // nano-banana default, since a preview model isn't enabled on every account.
   const visualEditorImageModel: string =
     context.org.settings?.visualEditorImageModel ||
     (IS_CLOUD && !usesOwnKey

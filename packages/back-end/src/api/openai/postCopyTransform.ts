@@ -49,11 +49,9 @@ ${text}
 export const postCopyTransform = createApiRequestHandler(validation)(async (
   req,
 ): Promise<PostCopyTransformResponse> => {
-  // No env-key precheck here. This ran on `!!process.env.OPENAI_API_KEY` while
-  // the completion below uses the org's *default* model, so it rejected a BYOK
-  // org — or any host on a non-OpenAI key — with "OPENAI_API_KEY not defined".
-  // getAIProviderClass already throws missingAIKeyMessage() for whichever
-  // provider the request actually resolves to, which is the accurate error.
+  // No env-key precheck: it gated on OPENAI_API_KEY while the completion below
+  // runs the org's *default* model, so it failed BYOK orgs and any host on a
+  // non-OpenAI key. getAIProviderClass throws the accurate error instead.
   const { copy, mode, visualChangesetId } = req.body;
 
   const context = req.context;
@@ -64,8 +62,7 @@ export const postCopyTransform = createApiRequestHandler(validation)(async (
 
   if (!visualChangeset) throw new Error("Visual Changeset not found");
 
-  // simpleCompletion below runs the org's default model, so gate on that
-  // model's provider — a BYOK org isn't spending GrowthBook's budget.
+  // Gate on the default model's provider — BYOK isn't spending our budget.
   if (await secondsUntilAICanBeUsedAgainForModel(context)) {
     return {
       visualChangeset: toVisualChangesetApiInterface(visualChangeset),

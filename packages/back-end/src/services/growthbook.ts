@@ -190,19 +190,12 @@ export function trackRequestCompletion(
   next();
 }
 
-/**
- * Logs one AI call for analytics. Reported for every org on Cloud, whichever
- * key paid for it — `usedOwnKey` is what separates traffic the org funded with
- * a provider key it stored in GrowthBook from traffic on GrowthBook's managed
- * keys. Only the latter is metered against the daily cap, so without the flag
- * the event stream can't be reconciled against the counter.
- *
- * Fire and forget, and never throws: analytics must not be able to fail an AI
- * request. Called from service functions that only have a `context`, so it
- * builds its own scoped instance rather than using `req.gb` — the attributes
- * are a deliberate subset of what the auth middleware sets, enough to attribute
- * the event to an org and user.
- */
+// One event per AI call, whichever key paid. `usedOwnKey` separates BYOK traffic
+// from managed-key traffic — only the latter is metered, so without it the event
+// stream can't be reconciled against the cap counter.
+//
+// Fire and forget, never throws: analytics must not fail an AI request. Callers
+// hold a `context`, not a `req`, so it builds its own scoped SDK instance.
 function hashOrganizationId(orgId: string): string {
   if (!orgId) return "";
   return createHash("sha256")

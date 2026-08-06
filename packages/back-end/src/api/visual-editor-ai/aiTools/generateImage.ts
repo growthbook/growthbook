@@ -60,22 +60,16 @@ export function generateImageTool(toolCtx: GenerateImageToolContext) {
       const { visualEditorImageModel, visualEditorAIContext, keySource } =
         await getAISettingsForOrg(context, true);
 
-      // An org paying for this provider itself is not metered against the
-      // managed daily cap — same rule postAIImageGen and simpleCompletion
-      // apply. Image models have their own registry, so the provider comes
-      // from there rather than getProviderFromModel.
+      // BYOK on this provider isn't metered — same rule postAIImageGen and
+      // simpleCompletion apply. Image models have their own registry.
       const imageProvider = getImageModelMeta(visualEditorImageModel)?.provider;
       const usesOwnImageKey =
         !!imageProvider && keySource[imageProvider] === "organization";
 
-      // The turn's pre-flight gate ran against the *text* model, so an org over
-      // its cap can still reach this tool and bill an image to a managed key —
-      // and with BYOK the two providers are often different ones. Gate on the
-      // image provider here, the same check postAIImageGen makes.
-      //
-      // Returned as a tool result rather than thrown: the turn is already
-      // streaming, and the model can finish its answer with the text edits it
-      // has instead of the whole conversation failing.
+      // The turn's pre-flight ran against the *text* model, so an over-cap org
+      // could still bill an image to a managed key. Gate on the image provider,
+      // as postAIImageGen does. Returned as a tool result rather than thrown so
+      // the streaming turn still finishes with its text edits.
       if (
         await secondsUntilAICanBeUsedAgainForProvider(context, imageProvider)
       ) {

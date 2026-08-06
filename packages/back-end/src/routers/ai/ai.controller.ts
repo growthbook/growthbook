@@ -47,13 +47,20 @@ export async function getTokenUsage(
   });
 }
 
+// Cloud grants ai-byok to Pro and above; self-hosted it is Enterprise only.
+const BYOK_PLAN_ERROR = IS_CLOUD
+  ? "Using your own AI provider API key requires a Pro or Enterprise plan."
+  : "Using your own AI provider API key requires an Enterprise plan.";
+
 type GetAICredentialsResponse = {
   status: 200;
   credentials: AICredentialFrontEndInterface[];
-  // Providers that have a usable key from an environment variable. Lets the UI
-  // say "inherited from ANTHROPIC_API_KEY" for a provider with no stored key,
-  // and is org-scoped rather than read off the front-end server's own env.
+  // Providers with a usable env-var key, so the UI can say "inherited from
+  // ANTHROPIC_API_KEY". Org-scoped, not the front-end server's own env.
   envProviders: AIProvider[];
+  // The read itself isn't gated: no secrets here, and a downgraded org still
+  // needs to see the rows it can remove.
+  canUseOwnKeys: boolean;
 };
 
 export async function getAICredentials(
@@ -71,6 +78,7 @@ export async function getAICredentials(
     status: 200,
     credentials,
     envProviders: AI_PROVIDERS.filter((p) => keySource[p] === "env"),
+    canUseOwnKeys: context.hasPremiumFeature("ai-byok"),
   });
 }
 
@@ -81,18 +89,20 @@ export async function putAICredential(
   const context = getContextFromReq(req);
   const { provider } = req.params;
 
-  // The model's own canCreate/canUpdate enforce this too; checking up front
-  // means an unauthorized caller gets a clean 403 before we touch the provider.
+  // The model enforces this too; up front means a clean 403 before we egress.
   if (!context.permissions.canManageOrgSettings()) {
     context.permissions.throwPermissionError();
   }
 
-  // Self-hosted, an env var is the deployment's own configuration and always
-  // wins in the resolver, so storing a key here would be dead data that the
-  // settings UI (which offers no button on those rows) implies is in use.
-  // Refuse rather than accept a write that can never take effect. Cloud is the
-  // opposite case — its env keys are GrowthBook's managed ones, and storing a
-  // key on top of them is the whole point.
+  // The model asserts this too; here it names the plan and runs before we send
+  // the key to the provider to be verified.
+  if (!context.hasPremiumFeature("ai-byok")) {
+    context.throwPlanDoesNotAllowError(BYOK_PLAN_ERROR);
+  }
+
+  // Self-hosted, the env var always wins in the resolver, so this would store
+  // dead data the UI implies is in use. Cloud is the opposite case: its env keys
+  // are GrowthBook's managed ones, and overriding them is the whole point.
   if (!IS_CLOUD) {
     const { keySource } = await getAISettingsForOrg(context);
     if (keySource[provider] === "env") {
@@ -103,8 +113,7 @@ export async function putAICredential(
     }
   }
 
-  // Trim rather than reject on whitespace — a key pasted from a terminal or a
-  // password manager very often carries a trailing newline.
+  // Trim rather than reject: pasted keys often carry a trailing newline.
   const apiKey = req.body.apiKey.trim();
   if (!apiKey) {
     return res.status(400).json({
@@ -127,8 +136,7 @@ export async function putAICredential(
     updatedByEmail: context.email,
   });
 
-  // The resolver memoizes per request; drop it so anything later in this
-  // request sees the key we just stored.
+  // The resolver memoizes per request; drop it so later reads see this write.
   clearResolvedAIKeysCache(context);
 
   return res.status(200).json({

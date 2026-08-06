@@ -10,8 +10,8 @@ import { CasConflictError, MakeModelClass } from "./BaseModel";
 const BaseClass = MakeModelClass({
   schema: aiCredentialSchema,
   collectionName: "aicredentials",
-  // (organization, provider) — BaseModel builds a unique index from the primary
-  // key, so an org physically cannot end up with two keys for one provider.
+  // BaseModel builds a unique index from this, so an org can't hold two keys
+  // for one provider.
   pKey: ["organization", "provider"] as const,
   // No idPrefix: composite-key models don't auto-generate an id.
   readonlyFields: [],
@@ -20,13 +20,9 @@ const BaseClass = MakeModelClass({
     createEvent: "aiCredential.create",
     updateEvent: "aiCredential.update",
     deleteEvent: "aiCredential.delete",
-    // Audit details default to the whole document, which would put
-    // `encryptedKey` in the audit log — readable by anyone with audit access,
-    // a wider audience than the API deliberately withholds it from. Allowlist
-    // the non-secret fields instead, the same way DataSourceModel keeps
-    // connection credentials out. What's left still answers who changed which
-    // provider's key and when, and `last4` changing is the diff that shows a
-    // rotation actually happened.
+    // Details default to the whole document, which would put `encryptedKey` in
+    // the audit log — a wider audience than the API withholds it from. Allowlist
+    // the non-secret fields, as DataSourceModel does for connection params.
     detailsAllowlist: [
       "organization",
       "provider",
@@ -39,11 +35,9 @@ const BaseClass = MakeModelClass({
 });
 
 export class AICredentialModel extends BaseClass {
-  // Reading a credential row yields ciphertext plus the masked last4, never a
-  // usable key, so any member of the org may read it — the AI services need to
-  // resolve keys on behalf of whoever triggered the request, including API-key
-  // and background-job contexts that have no org-admin role. Writes are
-  // org-admin only.
+  // Reads yield ciphertext and last4, never a usable key, and the AI services
+  // resolve keys for whoever triggered the request — including API-key and job
+  // contexts with no admin role. Writes are org-admin only.
   protected canRead(): boolean {
     return true;
   }
@@ -55,6 +49,12 @@ export class AICredentialModel extends BaseClass {
   }
   protected canDelete(): boolean {
     return this.context.permissions.canManageOrgSettings();
+  }
+
+  // BaseModel applies this to create/update but not delete, which is what we
+  // want: a downgraded org can still clear a key the resolver is ignoring.
+  protected hasPremiumFeature(): boolean {
+    return this.context.hasPremiumFeature("ai-byok");
   }
 
   public getByProvider(
@@ -72,22 +72,18 @@ export class AICredentialModel extends BaseClass {
       updatedByEmail: string;
     },
   ): Promise<AICredentialInterface> {
-    // Read-then-write, so either branch can lose a race with another writer on
-    // this same (organization, provider) row — and the key we were handed is
-    // already verified, so losing a race should cost a retry, not the save:
-    //
-    // - create loses to the unique index when another admin got there first;
-    //   the next pass finds their row and updates it instead.
-    // - update loses its CAS guard when the row was replaced or deleted in
-    //   between; the next pass re-reads and either updates or recreates.
-    //
-    // The guard is what makes this honest. An unguarded `_updateOne` whose filter
-    // matches nothing still returns the merged document, so a delete landing
-    // between the read and the write would report a saved key that isn't stored.
-    //
-    // Three attempts: each pass only loses if a *different* write landed in the
-    // meantime, and the number of admins editing one provider's key at once is
-    // small.
+    // _createOne/_updateOne below skip the wrappers that would apply this.
+    if (!this.hasPremiumFeature()) {
+      throw new Error(
+        "Your organization does not have access to this feature.",
+      );
+    }
+
+    // Read-then-write, so either branch can lose a race — create to the unique
+    // index, update to its CAS guard — and the key is already verified, so a
+    // loss should cost a retry, not the save. The guard is what makes this
+    // honest: an unguarded _updateOne matching nothing still returns the merged
+    // document, so a concurrent delete would report a key that isn't stored.
     for (let attempt = 0; attempt < 3; attempt++) {
       const existing = await this.getByProvider(provider);
 
@@ -102,8 +98,8 @@ export class AICredentialModel extends BaseClass {
 
       try {
         return await this._updateOne(existing, fields, {
-          // Ciphertext is salted, so this differs on every save — it doubles as
-          // a version marker for the row we read.
+          // Salted, so this differs on every save — a version marker for the
+          // row we read.
           guard: { encryptedKey: existing.encryptedKey },
         });
       } catch (e) {
@@ -125,9 +121,8 @@ export class AICredentialModel extends BaseClass {
 
   public async getAllForFrontEnd(): Promise<AICredentialFrontEndInterface[]> {
     const docs = await this.getAll();
-    // Drop the ciphertext by construction rather than with `omit`, so a future
-    // secret-bearing field can't be added to the schema and silently ride along
-    // into an API response.
+    // Built by construction rather than `omit`, so a future secret-bearing
+    // field can't silently ride along into an API response.
     return docs.map(
       ({
         organization,

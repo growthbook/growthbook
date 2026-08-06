@@ -65,18 +65,15 @@ async function run() {
     }
   }
 
-  // Loop through all org-level AI provider keys. These are written through
-  // BaseModel, but re-encryption is a raw field rewrite with no permission or
-  // audit-log meaning, so go straight at the collection instead of building a
-  // context per org.
+  // Written through BaseModel normally, but re-encryption is a raw field rewrite
+  // with no permission or audit meaning, so go straight at the collection.
   const aiCredentials = getCollection("aicredentials");
   const allAICredentials = await aiCredentials.find({}).toArray();
   for (const credential of allAICredentials) {
     const { organization, provider, encryptedKey } = credential;
     if (typeof encryptedKey !== "string" || !encryptedKey) continue;
 
-    // AES.decrypt with the wrong key returns an empty string rather than
-    // throwing, so check the value, not just the absence of an exception.
+    // Wrong key returns "" rather than throwing, so check the value.
     const decrypted = AES.decrypt(
       encryptedKey,
       oldEncryptionKey || "dev",

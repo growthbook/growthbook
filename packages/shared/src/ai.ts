@@ -1,8 +1,7 @@
 import { parseOptionalInt } from "./util/numbers";
 
-// AI Provider types and configurations.
-// Declared as a const tuple (not a bare union) so it can be fed straight to
-// `z.enum()` and iterated in the UI without a second hand-maintained list.
+// A const tuple, not a bare union, so it feeds z.enum() and can be iterated in
+// the UI without a second hand-maintained list.
 export const AI_PROVIDERS = [
   "openai",
   "anthropic",
@@ -12,10 +11,8 @@ export const AI_PROVIDERS = [
 ] as const;
 export type AIProvider = (typeof AI_PROVIDERS)[number];
 
-// Per-provider display + configuration metadata, shared by the settings UI
-// (labels, logos, input hints) and the back end (error messages that name the
-// right env var). Single source of truth — these strings used to be duplicated
-// as local maps inside AISettings.tsx.
+// Per-provider display and config metadata, shared by the settings UI and the
+// back end's error messages. Replaces duplicated local maps in AISettings.tsx.
 export const AI_PROVIDER_META: Record<
   AIProvider,
   {
@@ -24,8 +21,8 @@ export const AI_PROVIDER_META: Record<
     envVar: string;
     // Any additional env vars accepted for backwards compatibility.
     legacyEnvVars?: string[];
-    // Shown as the API key input's placeholder. Not validated against — key
-    // formats change, and a stale regex would lock users out of a valid key.
+    // Placeholder only. Not validated against: a stale regex would lock users
+    // out of a valid key.
     keyPlaceholder: string;
     // Where a user goes to create a key for this provider.
     consoleUrl: string;

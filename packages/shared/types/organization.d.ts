@@ -496,10 +496,8 @@ export type GetOrganizationResponse = {
     features: string[];
   };
   usage: OrganizationUsage;
-  // AI providers this org has a usable API key for, whether stored on the org
-  // or inherited from an environment variable. Non-secret — it lets the app
-  // decide whether AI features can run without a separate request, which is why
-  // it rides along here rather than on /ai/credentials.
+  // Providers with a usable key, stored or inherited from the environment.
+  // Non-secret, and rides along here so AI gating needs no separate request.
   aiKeyProviders: AIProvider[];
 };
 

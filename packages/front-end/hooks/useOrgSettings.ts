@@ -36,10 +36,9 @@ export const useAISettings = (): {
 } => {
   const { settings, agreements, aiKeyProviders } = useUser();
 
-  // Self-hosted needs a key from somewhere before AI can do anything.
-  // `aiKeyProviders` counts both the org's own stored keys and the back end's
-  // environment variables — the front-end server's env (hasAnyAIKey) can't see
-  // either reliably, so it is only a fallback for a stale org payload.
+  // Self-hosted needs a key from somewhere. `aiKeyProviders` counts stored keys
+  // and back-end env vars; hasAnyAIKey only sees the front-end server's env, so
+  // it is just a fallback for a stale org payload.
   const hasKey = aiKeyProviders.length > 0 || hasAnyAIKey();
 
   const aiEnabled = isCloud()

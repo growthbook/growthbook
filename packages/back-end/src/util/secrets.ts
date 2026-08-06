@@ -343,10 +343,8 @@ if ((prod || !IS_LOCALHOST) && secretAPIKey === "dev") {
 }
 export const SECRET_API_KEY = secretAPIKey;
 
-// Provider API keys used as the FALLBACK for AI features. An org-level key
-// stored in Mongo (see services/aiCredentials.ts) always takes precedence over
-// these — they exist so a self-hosted install can be configured entirely from
-// the environment, with no per-org setup.
+// Fallback provider API keys, so a self-hosted install can be configured
+// entirely from the environment. See services/aiCredentials.ts for precedence.
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
 export const XAI_API_KEY = process.env.XAI_API_KEY || "";

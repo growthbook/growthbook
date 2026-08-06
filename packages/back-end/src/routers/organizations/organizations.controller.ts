@@ -954,9 +954,8 @@ export async function getOrganization(
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
 
-  // Which providers AI features can actually reach. Returned here so every page
-  // can gate AI affordances off the org's real key state without a second
-  // request; the keys themselves never leave the back end.
+  // Returned here so every page can gate AI affordances off the org's real key
+  // state without a second request. The keys never leave the back end.
   const { keySource } = await getAISettingsForOrg(context);
   const aiKeyProviders = AI_PROVIDERS.filter((p) => keySource[p] !== "none");
 
