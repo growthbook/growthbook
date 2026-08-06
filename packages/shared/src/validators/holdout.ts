@@ -93,23 +93,9 @@ export type HoldoutInterfaceStringDates = z.infer<
   typeof _holdoutStringDatesValidator
 >;
 
-// ---------------------------------------------------------------------------
-// Holdout size
-// ---------------------------------------------------------------------------
-
-/**
- * Largest share of traffic that can be held out. The Holdout buckets an equal
- * control group alongside the held-out group, so anything above 0.5 would need
- * more than all available traffic.
- */
+// Capped at 0.5 because an equal control group is reserved alongside the holdout.
 export const MAX_HOLDOUT_SIZE = 0.5;
 
-/**
- * Converts the public `holdoutSize` to the stored phase `coverage`, and back.
- *
- * Both are exact in binary floating point (multiplying and dividing by two only
- * shifts the exponent), so a value round-trips through the API unchanged.
- */
 export function holdoutSizeToCoverage(holdoutSize: number): number {
   return holdoutSize * 2;
 }
