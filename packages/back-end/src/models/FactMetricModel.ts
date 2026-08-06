@@ -10,11 +10,7 @@ import {
   isFactFunnelMetric,
 } from "shared/experiments";
 import { UpdateProps } from "shared/types/base-model";
-import {
-  factMetricValidator,
-  ApiFactMetric,
-  validateFunnelSettings,
-} from "shared/validators";
+import { factMetricValidator, ApiFactMetric } from "shared/validators";
 import {
   ColumnRef,
   FactMetricInterface,
@@ -613,40 +609,6 @@ export class FactMetricModel extends BaseClass {
           errorPrefix: "Invalid denominator row filter SQL: ",
         });
       }
-    }
-
-    if (data.metricType === "quantile") {
-      if (!this.context.hasPremiumFeature("quantile-metrics")) {
-        throw new Error("Quantile metrics are a premium feature");
-      }
-
-      if (!data.quantileSettings) {
-        throw new Error("Must specify `quantileSettings` for quantile metrics");
-      }
-    }
-    if (data.metricType === "funnel") {
-      const errors = validateFunnelSettings(data);
-      if (errors.length > 0) {
-        throw new Error(errors.join("; "));
-      }
-    }
-    if (
-      data.metricType === "retention" &&
-      !this.context.hasPremiumFeature("retention-metrics") &&
-      data.id !== "fact__demo-d7-purchase-retention"
-    ) {
-      throw new Error("Retention metrics are a premium feature");
-    }
-    if (data.loseRisk < data.winRisk) {
-      throw new Error(
-        `riskThresholdDanger (${data.loseRisk}) must be greater than riskThresholdSuccess (${data.winRisk})`,
-      );
-    }
-
-    if (data.minPercentChange >= data.maxPercentChange) {
-      throw new Error(
-        `maxPercentChange (${data.maxPercentChange}) must be greater than minPercentChange (${data.minPercentChange})`,
-      );
     }
   }
 
