@@ -10,9 +10,13 @@ import {
   getInitialConfigByBlockType,
   DASHBOARD_GRID_COLS,
   isDashboardGlobalControlSupportedBlock,
+  isDashboardExperimentBlock,
   autoEnrollDashboardBlocksInDateControl,
+  autoEnrollDashboardBlocksInGlobalFilter,
   blockUsesDashboardDateControl,
   getEffectiveExplorationConfig,
+  globalFilterIsSet,
+  DASHBOARD_GLOBAL_FILTER_KEYS,
   resolveBlockComparison,
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
@@ -281,19 +285,22 @@ export default function DashboardWorkspace({
   >(undefined);
 
   useEffect(() => {
-    if (!globalControls?.dateRange) return;
+    const activeKeys = DASHBOARD_GLOBAL_FILTER_KEYS.filter((key) =>
+      globalFilterIsSet(globalControls, key),
+    );
+    if (activeKeys.length === 0) return;
+    const enroll = (
+      block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+    ) =>
+      activeKeys.reduce(
+        (b, key) => autoEnrollDashboardBlocksInGlobalFilter([b], key)[0],
+        block,
+      );
     setStagedInsert((insert) =>
-      insert
-        ? {
-            ...insert,
-            block: autoEnrollDashboardBlocksInDateControl([insert.block])[0],
-          }
-        : insert,
+      insert ? { ...insert, block: enroll(insert.block) } : insert,
     );
-    setStagedEditBlock((block) =>
-      block ? autoEnrollDashboardBlocksInDateControl([block])[0] : block,
-    );
-  }, [globalControls?.dateRange]);
+    setStagedEditBlock((block) => (block ? enroll(block) : block));
+  }, [globalControls]);
 
   // Whenever a block becomes staged (via add, duplicate, or edit), make sure
   // the editing drawer is open so the user can actually configure/save it.
@@ -343,21 +350,31 @@ export default function DashboardWorkspace({
         : undefined,
     });
 
-    const blockWithGlobalControls = isDashboardGlobalControlSupportedBlock(
-      blockData,
-    )
-      ? {
-          ...blockData,
-          globalControlSettings: {
-            ...blockData.globalControlSettings,
-            dateRange: true,
-          },
-        }
-      : blockData;
+    // Exploration blocks default to following the dashboard date control.
+    // Experiment blocks are enrolled into whichever global filters are currently
+    // active so a block added after a filter is set still follows it.
+    let stagedBlock: DashboardBlockInterfaceOrData<DashboardBlockInterface> =
+      blockData;
+    if (isDashboardGlobalControlSupportedBlock(blockData)) {
+      stagedBlock = {
+        ...blockData,
+        globalControlSettings: {
+          ...blockData.globalControlSettings,
+          dateRange: true,
+        },
+      };
+    } else if (isDashboardExperimentBlock(blockData)) {
+      stagedBlock = DASHBOARD_GLOBAL_FILTER_KEYS.filter((key) =>
+        globalFilterIsSet(globalControls, key),
+      ).reduce(
+        (b, key) => autoEnrollDashboardBlocksInGlobalFilter([b], key)[0],
+        stagedBlock,
+      );
+    }
     setStagedInsert({
       block: initialLayout
-        ? { ...blockWithGlobalControls, layout: initialLayout }
-        : blockWithGlobalControls,
+        ? { ...stagedBlock, layout: initialLayout }
+        : stagedBlock,
       index,
       placement,
     });

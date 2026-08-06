@@ -52,6 +52,13 @@ export const dashboardGlobalControlsValidator = z
   .object({
     dateRange: baseExplorationConfigValidator.shape.dateRange.optional(),
     dateGranularity: z.enum(dateGranularity).optional(),
+    // Experiment-block filters (Experiments with Lift, Scaled Impact, Win
+    // Percentage, Team Velocity). Each is applied per-block through the block's
+    // globalControlSettings opt-in; empty/undefined means "no dashboard-wide
+    // filter". `projects` empty array means all projects.
+    projects: z.array(z.string()).optional(),
+    metricId: z.string().optional(),
+    experimentSearchString: z.string().optional(),
   })
   .strict();
 export type DashboardGlobalControls = z.infer<

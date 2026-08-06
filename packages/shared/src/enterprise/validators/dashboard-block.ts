@@ -218,6 +218,22 @@ const legacyExperimentMetricBlockInterface = experimentMetricBlockInterface
     sliceTagsFilter: z.array(z.string()).nullable().optional(),
   });
 
+// Per-block opt-in for each dashboard-wide global filter. `dateRange` is used by
+// exploration blocks and by the experiment blocks that support it (Scaled
+// Impact, Win Percentage, Team Velocity). `projects` / `metricId` /
+// `experimentSearchString` are used only by the experiment blocks. A field set
+// to `true` means the block follows the dashboard filter; `false` means the user
+// opted out; `undefined` means "not yet decided" and is auto-enrolled the first
+// time the corresponding filter is enabled.
+const globalControlSettingsValidator = z
+  .object({
+    dateRange: z.boolean().optional(),
+    projects: z.boolean().optional(),
+    metricId: z.boolean().optional(),
+    experimentSearchString: z.boolean().optional(),
+  })
+  .strict();
+
 const metricExperimentsBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("metric-experiments"),
@@ -240,6 +256,10 @@ const metricExperimentsBlockInterface = baseBlockInterface
     columns: z
       .array(z.object({ id: z.string(), visible: z.boolean() }))
       .optional(),
+    // Per-block opt-in for dashboard-wide global filters. Experiments with Lift
+    // does not support the dashboard Date Range filter (it has its own separate
+    // start/end phase-date windows), so `dateRange` is intentionally unused here.
+    globalControlSettings: globalControlSettingsValidator.optional(),
   })
   .strict();
 
@@ -278,6 +298,9 @@ const completedExperimentsBlockCommon = {
   // comparison". The previous window is derived from the current one on each
   // refresh (span-shift), so we don't persist `previousTimeFrame` here.
   comparison: blockComparisonValidator.optional(),
+  // Per-block opt-in for dashboard-wide global filters (date range, projects,
+  // experiment search, and — for Scaled Impact — metric).
+  globalControlSettings: globalControlSettingsValidator.optional(),
 };
 
 const experimentsScaledImpactBlockInterface = baseBlockInterface
@@ -477,12 +500,6 @@ const apiMetricExplorerBlockInterface = metricExplorerBlockInterface
 export type MetricExplorerBlockInterface = z.infer<
   typeof metricExplorerBlockInterface
 >;
-
-const globalControlSettingsValidator = z
-  .object({
-    dateRange: z.boolean().optional(),
-  })
-  .strict();
 
 // Fields shared by every product-analytics exploration block. `comparison` and
 // `comparisonExplorerAnalysisId` are optional so pre-existing blocks read as

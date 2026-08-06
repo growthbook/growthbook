@@ -1,8 +1,11 @@
 import {
   DashboardBlockInterfaceOrData,
+  DashboardInterface,
   MetricExperimentsBlockInterface,
   isDifferenceType,
   DIFFERENCE_TYPE_OPTIONS,
+  blockUsesGlobalFilter,
+  globalFilterIsSet,
 } from "shared/enterprise";
 import { ExplorationDateRange } from "shared/validators";
 import React, { useState } from "react";
@@ -24,6 +27,8 @@ import MetricExperimentsColumnSettings from "./MetricExperimentsColumnSettings";
 import BlockDateRangePicker, {
   PREDEFINED_LABELS,
 } from "./BlockDateRangePicker";
+import SidebarSettingField from "./SidebarSettingField";
+import DashboardFollowToggle from "./DashboardFollowToggle";
 
 // Short human-readable label for a date range, shown on the filter pill.
 function formatDateRange(dr: ExplorationDateRange): string {
@@ -49,22 +54,64 @@ interface Props {
     DashboardBlockInterfaceOrData<MetricExperimentsBlockInterface>
   >;
   projects: string[];
+  dashboardGlobalControls?: DashboardInterface["globalControls"];
 }
 
 export default function MetricExperimentsSettings({
   block,
   setBlock,
   projects,
+  dashboardGlobalControls,
 }: Props) {
   const { projects: allProjects } = useDefinitions();
   const { experiments } = useExperiments();
   const [columnsOpen, setColumnsOpen] = useState(false);
+
+  // Per-field follow state: a field follows the dashboard only when the block
+  // has opted in to that filter AND the dashboard currently has a value for it.
+  const metricSet = globalFilterIsSet(dashboardGlobalControls, "metricId");
+  const projectsSet = globalFilterIsSet(dashboardGlobalControls, "projects");
+  const searchSet = globalFilterIsSet(
+    dashboardGlobalControls,
+    "experimentSearchString",
+  );
+
+  const metricFollowing = blockUsesGlobalFilter(block, "metricId");
+  const projectsFollowing = blockUsesGlobalFilter(block, "projects");
+  const searchFollowing = blockUsesGlobalFilter(
+    block,
+    "experimentSearchString",
+  );
+
+  const metricControlled = metricFollowing && metricSet;
+  const projectsControlled = projectsFollowing && projectsSet;
+  const experimentControlled = searchFollowing && searchSet;
+
+  const setFollow = (
+    key: "metricId" | "projects" | "experimentSearchString",
+    enabled: boolean,
+  ) =>
+    setBlock({
+      ...block,
+      globalControlSettings: {
+        ...(block.globalControlSettings ?? {}),
+        [key]: enabled,
+      },
+    });
+
+  const dashboardProjects = dashboardGlobalControls?.projects ?? [];
 
   const projectOptions = (
     projects.length > 0
       ? allProjects.filter((p) => projects.includes(p.id))
       : allProjects
   ).map((p) => ({ label: p.name, value: p.id }));
+
+  const metricValue =
+    metricControlled && dashboardGlobalControls?.metricId
+      ? dashboardGlobalControls.metricId
+      : block.metricId;
+  const projectsValue = projectsControlled ? dashboardProjects : block.projects;
 
   const resolvedColumns = resolveMetricExperimentColumns(
     block.columns,
@@ -76,9 +123,16 @@ export default function MetricExperimentsSettings({
   const hiddenCount = resolvedColumns.length - visibleLabels.length;
   const columnsSummary = ["Experiment", ...visibleLabels].join(", ");
 
-  const searchValue = block.experimentSearchString;
-  const setSearchValue = (value: string) =>
-    setBlock({ ...block, experimentSearchString: value });
+  // When the experiment text filter follows the dashboard it's locked; it shows
+  // the dashboard value when one is set, otherwise the block's own value
+  // read-only. The block's own start/end phase-date windows below stay editable
+  // (they are never driven by the dashboard filter).
+  const searchValue = experimentControlled
+    ? (dashboardGlobalControls?.experimentSearchString ?? "")
+    : block.experimentSearchString;
+  const setSearchValue = experimentControlled
+    ? () => {}
+    : (value: string) => setBlock({ ...block, experimentSearchString: value });
 
   // Start Date filters on the experiment's phase start (so running experiments
   // can be included); End Date filters on the phase end date.
@@ -123,16 +177,29 @@ export default function MetricExperimentsSettings({
 
   return (
     <Flex direction="column" gap="5">
-      <MetricSelector
+      <SidebarSettingField
         label="Metric"
-        labelClassName="font-weight-bold"
-        containerClassName="mb-0"
-        value={block.metricId}
-        onChange={(metricId) => setBlock({ ...block, metricId })}
-        includeFacts={true}
-        projects={projects}
-        placeholder="Select a metric..."
-      />
+        accessory={
+          metricSet ? (
+            <DashboardFollowToggle
+              label="Use dashboard metric"
+              tooltip="Follow the dashboard's metric instead of this block's own. Turn off to choose a metric just for this block."
+              value={metricFollowing}
+              onChange={(enabled) => setFollow("metricId", enabled)}
+            />
+          ) : undefined
+        }
+      >
+        <MetricSelector
+          containerClassName="mb-0"
+          value={metricValue}
+          onChange={(metricId) => setBlock({ ...block, metricId })}
+          includeFacts={true}
+          projects={projects}
+          placeholder="Select a metric..."
+          disabled={metricControlled}
+        />
+      </SidebarSettingField>
 
       <SelectField
         label="Difference Type"
@@ -149,30 +216,55 @@ export default function MetricExperimentsSettings({
         sort={false}
       />
 
-      <Box>
-        <Box mb="2">
-          <Text weight="semibold">Projects Filter</Text>
-        </Box>
+      <SidebarSettingField
+        label="Projects Filter"
+        accessory={
+          projectsSet ? (
+            <DashboardFollowToggle
+              label="Use dashboard filter"
+              tooltip="Follow the dashboard's projects filter instead of this block's own. Turn off to set projects just for this block."
+              value={projectsFollowing}
+              onChange={(enabled) => setFollow("projects", enabled)}
+            />
+          ) : undefined
+        }
+      >
         <MultiSelectField
-          value={block.projects}
+          value={projectsValue}
           options={projectOptions}
           onChange={(v) => setBlock({ ...block, projects: v })}
           placeholder="All projects"
+          disabled={projectsControlled}
         />
-      </Box>
+      </SidebarSettingField>
 
-      <Box>
-        <Box mb="2">
-          <Text weight="semibold">Filter Experiments</Text>
-        </Box>
+      <SidebarSettingField
+        label="Filter Experiments"
+        accessory={
+          searchSet ? (
+            <DashboardFollowToggle
+              label="Use dashboard filter"
+              tooltip="Follow the dashboard's experiment filter instead of this block's own. Turn off to filter experiments just for this block."
+              value={searchFollowing}
+              onChange={(enabled) =>
+                setFollow("experimentSearchString", enabled)
+              }
+            />
+          ) : undefined
+        }
+      >
+        {/* The start/end phase-date windows below are specific to this block and
+            are never driven by the dashboard filter, so they stay editable even
+            when the experiment text filter follows the dashboard. */}
         <SidebarExperimentFilters
           searchValue={searchValue}
           setSearchValue={setSearchValue}
           experiments={experiments}
           extraFilters={dateFilters}
           showProjectFilter={false}
+          searchDisabled={experimentControlled}
         />
-      </Box>
+      </SidebarSettingField>
 
       <Box>
         <Box mb="2">
