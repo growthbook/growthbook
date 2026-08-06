@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useState } from "react";
 import { Revision } from "shared/enterprise";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useAuth } from "@/services/auth";
@@ -65,7 +65,15 @@ export interface Props {
     setSelectedDraftId: (v: string | null) => void;
     canAutoPublish: boolean;
     approvalRequired: boolean;
+    // Handed BACK to the caller so the picker filters by the same predicate this
+    // modal used to choose the initial selection — passing it in two places let the
+    // default land on a draft the picker itself would have excluded.
+    canWriteIntoDraft?: (revision: Revision) => boolean;
   }) => ReactNode;
+  // Drafts this caller may write the archive flip into. Used for the INITIAL
+  // selection: filtering only the picker still opened the modal on another author's
+  // draft, which the endpoint then refuses with no user action at all.
+  canWriteIntoDraft?: (revision: Revision) => boolean;
   trackingEventModalType: string;
   close: () => void;
   onRevisionCreated?: (revision: Revision) => void;
@@ -96,6 +104,7 @@ export default function ArchiveModal({
   elevatedWarning = false,
   preserveNounCase = false,
   renderDraftSelector,
+  canWriteIntoDraft,
   trackingEventModalType,
   close,
   onRevisionCreated,
@@ -110,16 +119,14 @@ export default function ArchiveModal({
   // without it the modal can still stage the change as a draft.
   const canAutoPublish = canLand && (canBypassApproval || !archiveGated);
 
-  const activeDrafts = useMemo(
-    () => openRevisions.filter(isDraftRevision),
-    [openRevisions],
-  );
-
   const [mode, setMode] = useState<DraftMode>(
     archiveGated || !canLand ? "new" : "publish",
   );
   const [selectedDraftId, setSelectedDraftId] = useState<string | null>(
-    activeDrafts[0]?.id ?? null,
+    () =>
+      openRevisions.find(
+        (r) => isDraftRevision(r) && (canWriteIntoDraft?.(r) ?? true),
+      )?.id ?? null,
   );
 
   // Reference-blocking policy is archive-only: archiving a still-referenced
@@ -215,6 +222,7 @@ export default function ArchiveModal({
         setSelectedDraftId,
         canAutoPublish,
         approvalRequired: archiveGated,
+        canWriteIntoDraft,
       })}
       {isArchived ? (
         <p>

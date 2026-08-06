@@ -571,9 +571,45 @@ export class RevisionModel extends BaseClass {
   // projection if an adapter ever reads more than project.
   private async findReadablePage(
     filter: Record<string, unknown>,
-    { limit, skip }: { limit?: number; skip?: number },
+    {
+      limit,
+      skip,
+      singleTarget,
+    }: {
+      limit?: number;
+      skip?: number;
+      // Set when the filter is already scoped to one entity, so readability is a
+      // single decision rather than one per row.
+      singleTarget?: { type: RevisionTargetType; id: string };
+    },
   ): Promise<{ revisions: Revision[]; total: number }> {
     const sort = { dateCreated: -1 as const, id: -1 as const };
+
+    // Readability comes from the LIVE entity, which cannot be expressed as a filter
+    // on this collection — so the general path below has to load every matching row's
+    // projection before it can slice. Acceptable for the org inbox; not for an
+    // entity's own history page, which is the hot call and needs exactly one
+    // readability lookup. With that answered, the database does the paging.
+    if (singleTarget) {
+      const readable = await this.readableTargetIds([singleTarget]);
+      if (!readable.has(`${singleTarget.type}:${singleTarget.id}`)) {
+        return { revisions: [], total: 0 };
+      }
+      const total = await this._dangerousGetCollection().countDocuments({
+        organization: this.context.org.id,
+        ...filter,
+      });
+      // Same reason as below: `_find`'s per-doc check reads the revision SNAPSHOT,
+      // which would undo the live-basis decision just made.
+      const rows = await this._find(filter, {
+        sort,
+        limit,
+        skip,
+        bypassReadPermissionChecks: true,
+      });
+      return { revisions: rows, total };
+    }
+
     const projected = await this._dangerousGetCollection()
       .find(
         { organization: this.context.org.id, ...filter },
@@ -704,7 +740,12 @@ export class RevisionModel extends BaseClass {
       ...(opts.authorId ? { authorId: opts.authorId } : {}),
       ...(statusFilter ? { status: statusFilter } : {}),
     } as Record<string, unknown>;
-    return this.findReadablePage(filter, opts);
+    return this.findReadablePage(filter, {
+      ...opts,
+      ...(opts.entityId
+        ? { singleTarget: { type: entityType, id: opts.entityId } }
+        : {}),
+    });
   }
 
   // Count of open revisions the caller may READ, optionally scoped to an
@@ -924,7 +965,10 @@ export class RevisionModel extends BaseClass {
     // Same live-entity basis as the cross-entity listings — this one was left on
     // the snapshot basis, so a moved entity's own history page disagreed with the
     // org-level list about what the caller may see.
-    return this.findReadablePage(filter, opts);
+    return this.findReadablePage(filter, {
+      ...opts,
+      singleTarget: { type: entityType, id: entityId },
+    });
   }
 
   // Review

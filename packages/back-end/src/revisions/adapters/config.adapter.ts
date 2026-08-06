@@ -431,6 +431,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
             id: string;
           },
           written: w.written,
+          stamp: w.stamp,
         }),
       );
     }

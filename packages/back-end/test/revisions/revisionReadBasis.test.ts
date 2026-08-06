@@ -80,11 +80,11 @@ describe("revision read basis", () => {
     }
   });
 
-  async function seedRevision(targetId: string) {
+  async function seedRevision(targetId: string, version = 1) {
     await mongoose.connection.collection("revisions").insertOne({
-      id: `rev_${targetId}`,
+      id: `rev_${targetId}_v${version}`,
       organization: ORG_ID,
-      version: 1,
+      version,
       status: "draft",
       authorId: "u_admin",
       reviews: [],
@@ -188,10 +188,10 @@ describe("revision read basis", () => {
     const destination = readerLimitedTo("prj_live");
     const source = readerLimitedTo("prj_stale");
     expect(
-      await destination.models.revisions.getByIdReadable("rev_const_moved"),
+      await destination.models.revisions.getByIdReadable("rev_const_moved_v1"),
     ).not.toBeNull();
     expect(
-      await source.models.revisions.getByIdReadable("rev_const_moved"),
+      await source.models.revisions.getByIdReadable("rev_const_moved_v1"),
     ).toBeNull();
   });
 
@@ -275,5 +275,68 @@ describe("revision read basis", () => {
       "const_1",
       "const_3",
     ]);
+  });
+  // An entity-scoped listing pages in the DATABASE: readability is one decision, so
+  // it needs neither the projected scan nor the in-memory slice the org-wide inbox
+  // does. These pin the two properties that path could silently lose — the total
+  // still counts every matching row rather than the page, and an unreadable or
+  // deleted target still yields nothing at all.
+  it("pages one entity's revisions without over-reporting the total", async () => {
+    await seedConstant("const_paged");
+    for (const version of [1, 2, 3]) {
+      await seedRevision("const_paged", version);
+    }
+
+    const context = adminContext();
+    const first = await context.models.revisions.getByTargetPaginated(
+      "constant",
+      "const_paged",
+      { limit: 2 },
+    );
+    expect(first.revisions).toHaveLength(2);
+    expect(first.total).toBe(3);
+
+    const second = await context.models.revisions.getByTargetPaginated(
+      "constant",
+      "const_paged",
+      { limit: 2, skip: 2 },
+    );
+    expect(second.revisions).toHaveLength(1);
+    expect(second.total).toBe(3);
+    // Disjoint pages: a skip applied to the wrong side of the query repeats rows.
+    expect(first.revisions.some((r) => r.id === second.revisions[0]?.id)).toBe(
+      false,
+    );
+  });
+
+  it("pages nothing for an entity the caller cannot read", async () => {
+    await seedConstant("const_moved");
+    await seedRevision("const_moved");
+
+    const source = readerLimitedTo("prj_stale");
+    const { revisions, total } =
+      await source.models.revisions.getByTargetPaginated(
+        "constant",
+        "const_moved",
+        { limit: 10 },
+      );
+    expect(revisions).toHaveLength(0);
+    // Zero, not 1: a total counted before the readability decision leaks how much
+    // history exists for an entity outside the caller's projects.
+    expect(total).toBe(0);
+  });
+
+  it("pages nothing when the target entity is gone", async () => {
+    await seedRevision("const_deleted");
+
+    const context = adminContext();
+    const { revisions, total } =
+      await context.models.revisions.getByTargetPaginated(
+        "constant",
+        "const_deleted",
+        { limit: 10 },
+      );
+    expect(revisions).toHaveLength(0);
+    expect(total).toBe(0);
   });
 });

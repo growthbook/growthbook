@@ -103,6 +103,8 @@ export type ApplyChangesResult = {
   cascade?: {
     before: Record<string, unknown> & { id: string };
     written: Record<string, unknown>;
+    /** `dateUpdated` the cascade write left, for callers re-anchoring a CAS baseline. */
+    stamp?: Date | null;
   }[];
 };
 

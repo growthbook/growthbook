@@ -346,6 +346,43 @@ export async function planBulkPublish(
   return { items, gates: allGates, blockingGates, warnings, flags };
 }
 
+// Reverse apply order, except that an item whose cascade rewrote ANOTHER item's
+// entity is restored before that item. Ancestor normalization is unconditional on a
+// revert, so a descendant Config restored while its parent still declares a field is
+// re-stripped — and reports success, because the key was still persisted. Same
+// root-first rule the single-revision compensation follows.
+export function restoreOrder(
+  applied: PlannedItemPublish[],
+): PlannedItemPublish[] {
+  const byEntity = new Map(applied.map((i) => [i.ref.entityId, i]));
+  const cascadeParents = new Map<PlannedItemPublish, Set<PlannedItemPublish>>();
+  for (const item of applied) {
+    for (const write of item.revision.cascade ?? []) {
+      const target = byEntity.get(write.before.id);
+      if (!target || target === item) continue;
+      const parents = cascadeParents.get(target) ?? new Set();
+      parents.add(item);
+      cascadeParents.set(target, parents);
+    }
+  }
+  if (!cascadeParents.size) return [...applied].reverse();
+
+  const ordered: PlannedItemPublish[] = [];
+  const done = new Set<PlannedItemPublish>();
+  const visiting = new Set<PlannedItemPublish>();
+  const visit = (item: PlannedItemPublish) => {
+    // A cascade cycle is impossible (lineage is acyclic) but must never hang.
+    if (done.has(item) || visiting.has(item)) return;
+    visiting.add(item);
+    for (const parent of cascadeParents.get(item) ?? []) visit(parent);
+    visiting.delete(item);
+    done.add(item);
+    ordered.push(item);
+  };
+  for (const item of [...applied].reverse()) visit(item);
+  return ordered;
+}
+
 // COMMIT phase — writes only, no decisions. Verify entity drift, CAS-claim
 // every revision against its plan-time baseline (any conflict → release all
 // claims, 409, zero entity writes), apply every precomputed state with side
@@ -519,17 +556,39 @@ export async function commitBulkPublish(
     // (ramp creates → entity write → holdout) can land real writes before
     // throwing, so compensation must restore the failing item too.
     const applied: PlannedItemPublish[] = [];
+    // Entities an earlier item's descendant cascade rewrote, and the stamp it left:
+    // publishing a parent Config and its child in one release moves the child's
+    // `dateUpdated` before the child's own guarded write, whose CAS is anchored on the
+    // plan-time pre-image. The release then succeeded or 409'd purely on item order.
+    const cascadeStamps = new Map<string, Date | null>();
     try {
       for (const item of plan.items) {
         if (!item.hasChanges) continue;
         const adapter = getBulkAdapter(item.ref.entityType);
+        // Re-anchor on the doc OUR OWN cascade left, and only that one — any other
+        // stamp is a foreign write and must still conflict. `entityPreImage` is
+        // untouched, so compensation still restores the pre-release state.
+        let writeBasis = item.entityPreImage;
+        if (cascadeStamps.has(item.ref.entityId)) {
+          const ours = cascadeStamps.get(item.ref.entityId) ?? null;
+          const live = await adapter.loadEntity(context, item.ref.entityId);
+          const liveStamp =
+            (live as { dateUpdated?: Date } | null)?.dateUpdated ?? null;
+          if ((liveStamp?.getTime() ?? null) !== (ours?.getTime() ?? null)) {
+            throw staleConflictError(item.ref);
+          }
+          writeBasis = live as typeof item.entityPreImage;
+        }
         applied.push(item);
         await adapter.applyPrecomputed(
           context,
-          item.entityPreImage,
+          writeBasis,
           item.revision,
           item.desiredState,
         );
+        for (const write of item.revision.cascade ?? []) {
+          cascadeStamps.set(write.before.id, write.stamp ?? null);
+        }
       }
     } catch (e) {
       // Compensation: drop the buffered side effects (nothing from the aborted
@@ -548,7 +607,7 @@ export async function commitBulkPublish(
       context.bulkPublishDeferredEvents = [];
       const appliedSet = new Set(applied);
       const restoreFailed = new Set<PlannedItemPublish>();
-      for (const item of [...applied].reverse()) {
+      for (const item of restoreOrder(applied)) {
         const adapter = getBulkAdapter(item.ref.entityType);
         try {
           await adapter.restorePreImage(

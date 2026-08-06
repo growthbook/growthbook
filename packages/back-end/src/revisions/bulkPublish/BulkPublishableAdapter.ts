@@ -34,6 +34,12 @@ export type BulkRevisionRef = {
   cascade?: {
     before: Record<string, unknown> & { id: string };
     written: Record<string, unknown>;
+    /**
+     * `dateUpdated` the cascade write left. A release publishing an ancestor and a
+     * descendant together re-anchors the descendant's CAS baseline on this, so its
+     * own guarded write isn't refused by the cascade that just preceded it.
+     */
+    stamp?: Date | null;
   }[];
   /**
    * Set by applyPrecomputed(): the entity fields the apply actually persisted

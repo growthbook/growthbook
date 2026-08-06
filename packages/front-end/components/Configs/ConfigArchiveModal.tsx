@@ -95,6 +95,17 @@ export default function ConfigArchiveModal({
           ))}
         </ul>
       }
+      // Drafts the archive flip may be written into, for both the picker and
+      // this modal's initial selection.
+      canWriteIntoDraft={(r) =>
+        canWriteArchiveIntoDraft({
+          permissions: permissionsUtil,
+          model: "config",
+          entity: config,
+          revision: r,
+          userId,
+        })
+      }
       renderDraftSelector={({
         mode,
         setMode,
@@ -102,20 +113,12 @@ export default function ConfigArchiveModal({
         setSelectedDraftId,
         canAutoPublish,
         approvalRequired: gated,
+        canWriteIntoDraft,
       }) => (
         <RevisionDraftSelectorForChanges
           entityId={config.id}
           openRevisions={openRevisions}
-          // Exclude drafts this caller cannot modify.
-          canWriteIntoDraft={(r) =>
-            canWriteArchiveIntoDraft({
-              permissions: permissionsUtil,
-              model: "config",
-              entity: config,
-              revision: r,
-              userId,
-            })
-          }
+          canWriteIntoDraft={canWriteIntoDraft}
           allRevisions={allRevisions}
           mode={mode}
           setMode={setMode}

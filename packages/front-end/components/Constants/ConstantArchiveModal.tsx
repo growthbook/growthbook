@@ -75,6 +75,17 @@ export default function ConstantArchiveModal({
           constants={references?.constants ?? []}
         />
       }
+      // Drafts the archive flip may be written into, for both the picker and
+      // this modal's initial selection.
+      canWriteIntoDraft={(r) =>
+        canWriteArchiveIntoDraft({
+          permissions: permissionsUtil,
+          model: "constant",
+          entity: constant,
+          revision: r,
+          userId,
+        })
+      }
       renderDraftSelector={({
         mode,
         setMode,
@@ -82,20 +93,12 @@ export default function ConstantArchiveModal({
         setSelectedDraftId,
         canAutoPublish,
         approvalRequired: gated,
+        canWriteIntoDraft,
       }) => (
         <ConstantDraftSelectorForChanges
           constantId={constant.id}
           openRevisions={openRevisions}
-          // Exclude drafts this caller cannot modify.
-          canWriteIntoDraft={(r) =>
-            canWriteArchiveIntoDraft({
-              permissions: permissionsUtil,
-              model: "constant",
-              entity: constant,
-              revision: r,
-              userId,
-            })
-          }
+          canWriteIntoDraft={canWriteIntoDraft}
           allRevisions={allRevisions}
           mode={mode}
           setMode={setMode}

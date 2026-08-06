@@ -29,6 +29,7 @@ import {
   formatAncestorFieldConflictMessage,
   collectConfigInvariantViolations,
   stripConfigExtends,
+  scopedOverridesFootprint,
   ScopedOverrideEntry,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
@@ -47,6 +48,7 @@ import {
   applyPatchToSnapshot,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { getAdapter } from "back-end/src/revisions";
 import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
 import {
@@ -1499,12 +1501,23 @@ export const setConfigScopedOverrides = async (
   if (!config) {
     return context.throwNotFoundError("Config not found");
   }
+  const scopedOverrides = req.body?.scopedOverrides ?? [];
+  // Measured over the current AND proposed entries, matching the REST route. The
+  // Config's own `configPublishEnvironments` is the wrong question here: the config
+  // that OWNS overrides is the base one, which declares no scope, so the footprint
+  // came back empty and skipped the environment check — letting a dev-limited
+  // publisher attach a production flavor. This write also bypasses model permissions,
+  // so this gate is the only one.
   if (
     !context.permissions.canRevisionAction(
       "config",
       "publish",
       config,
-      configPublishEnvironments(context, config),
+      scopedOverridesFootprint({
+        current: config.scopedOverrides,
+        proposed: scopedOverrides,
+        allEnvironments: getEnvironmentIdsFromOrg(context.org),
+      }),
     )
   ) {
     context.permissions.throwPermissionError();
@@ -1513,7 +1526,6 @@ export const setConfigScopedOverrides = async (
   // flavor is value-affecting (it changes what resolves per env), so it must not
   // bypass the lock. Unlock first to change overrides.
   assertConfigNotLocked(config);
-  const scopedOverrides = req.body?.scopedOverrides ?? [];
   await assertScopedOverridesValid(
     context,
     { key: config.key, project: config.project, scopedOverrides },

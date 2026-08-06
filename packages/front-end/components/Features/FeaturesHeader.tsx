@@ -218,9 +218,21 @@ export default function FeaturesHeader({
   const isArchived = baseFeature.archived;
   // Archiving is scoped to the environments the flag serves in. Deleting is
   // not: it is only reachable once archived, when there is no footprint left.
-  const canArchive = permissionsUtil.canDeleteFeature(feature, enabledEnvs);
+  //
+  // Measured on the LIVE flag, like `isArchived` above and like the endpoint's
+  // `getArchiveFootprint`. `feature` here is the draft projection, so a draft staging a
+  // project move or an environment toggle had these asking about a state that is not
+  // what the archive would act on.
+  const liveArchiveEnvs = getEnabledEnvironments(
+    baseFeature,
+    filterEnvironmentsByFeature(allEnvironments, baseFeature),
+  );
+  const canArchive = permissionsUtil.canDeleteFeature(
+    baseFeature,
+    liveArchiveEnvs,
+  );
   const canDelete = permissionsUtil.canDeleteFeature(
-    feature,
+    baseFeature,
     NO_ENVIRONMENT_BINDING,
   );
   // Archiving carries delete authority; unarchiving is an ordinary publish.
@@ -391,7 +403,11 @@ export default function FeaturesHeader({
             </DropdownMenuItem>
           )}
         </DropdownMenuGroup>
-        {((canEdit && canPublish) ||
+        {/* `canDuplicate` belongs in this predicate, not only on its own item: a
+            create-only user holds none of the other three, so the whole group was
+            hidden and Duplicate never rendered even though its own check passed. */}
+        {(canDuplicate ||
+          (canEdit && canPublish) ||
           canToggleArchive ||
           (isArchived && canDelete)) &&
           !isReadOnly && (

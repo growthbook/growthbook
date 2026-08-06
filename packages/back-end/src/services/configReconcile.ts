@@ -211,6 +211,10 @@ export async function collectConfigSchemaChangeImpactGates(
 export type ConfigCascadeWrite = {
   before: ConfigInterface;
   written: Record<string, unknown>;
+  // `dateUpdated` this cascade write left on the descendant. A release publishing an
+  // ancestor and a descendant together needs it to tell its OWN cascade from a
+  // foreign write when re-anchoring the descendant's CAS baseline.
+  stamp: Date | null;
 };
 
 export async function reconcileConfigDescendants(
@@ -288,10 +292,11 @@ export async function reconcileConfigDescendants(
             // put THIS one back. `preImage` is the doc this attempt wrote against —
             // after a CAS retry that is the refreshed row, which is what ownership
             // has to be judged against.
-            onWritten: () =>
+            onWritten: (doc) =>
               onDescendantWritten?.({
                 before: preImage,
                 written: { schema: newSchema },
+                stamp: (doc as { dateUpdated?: Date }).dateUpdated ?? null,
               }),
           },
         );

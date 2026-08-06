@@ -89,6 +89,18 @@ export default function SavedGroupArchiveModal({
           savedGroups={references?.savedGroups ?? []}
         />
       }
+      // Only drafts this caller may write `archived` into — the endpoint refuses a
+      // write into another author's draft, so listing them turned a picker choice
+      // into a 403.
+      canWriteIntoDraft={(r) =>
+        canWriteArchiveIntoDraft({
+          permissions: permissionsUtil,
+          model: "saved-group",
+          entity: savedGroup,
+          revision: r,
+          userId,
+        })
+      }
       renderDraftSelector={({
         mode,
         setMode,
@@ -96,22 +108,12 @@ export default function SavedGroupArchiveModal({
         setSelectedDraftId,
         canAutoPublish,
         approvalRequired: gated,
+        canWriteIntoDraft,
       }) => (
         <SavedGroupDraftSelectorForChanges
           savedGroup={savedGroup}
           openRevisions={openRevisions}
-          // Only drafts this caller may write `archived` into — the endpoint refuses a
-          // write into another author's draft, so listing them turned a picker choice
-          // into a 403.
-          canWriteIntoDraft={(r) =>
-            canWriteArchiveIntoDraft({
-              permissions: permissionsUtil,
-              model: "saved-group",
-              entity: savedGroup,
-              revision: r,
-              userId,
-            })
-          }
+          canWriteIntoDraft={canWriteIntoDraft}
           allRevisions={allRevisions}
           mode={mode}
           setMode={setMode}
