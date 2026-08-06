@@ -518,6 +518,7 @@ export async function commitBulkPublish(
       // the same answer from the same set, through the reference it captured.
       const durable = eventBuffer.entries;
       eventBuffer.closed = true;
+      context.bulkPublishDeferredEvents = null;
       context.bulkPublishRestoredEntities = null;
       flushPayloadRefreshBuffer(context, "bulk-publish-abort");
       for (const { emit } of durable) {
@@ -708,6 +709,7 @@ export async function commitBulkPublish(
       // Closed, with its `restored` set intact — a producer holding a reference to it
       // is judged by that set, whenever it resumes.
       eventBuffer.closed = true;
+      context.bulkPublishDeferredEvents = null;
       context.bulkPublishRestoredEntities = null;
       flushPayloadRefreshBuffer(context, "bulk-publish-compensation");
       for (const { emit } of survivingEvents) {
@@ -772,6 +774,7 @@ export async function commitBulkPublish(
     const deferredEvents = eventBuffer.entries;
     // The release stands, so nothing is in `restored` and every straggler emits.
     eventBuffer.closed = true;
+    context.bulkPublishDeferredEvents = null;
     context.bulkPublishRestoredEntities = null;
     flushPayloadRefreshBuffer(context, "bulk-publish");
 

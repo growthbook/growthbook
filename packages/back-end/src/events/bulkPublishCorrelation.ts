@@ -53,7 +53,13 @@ export function bulkPublishFields(context: Context): {
 export function captureEventBuffer(
   context: Context,
 ): DeferredEventBuffer | null {
-  return context.bulkPublishDeferredEvents ?? null;
+  // A write can only belong to an OPEN landing. A closed buffer left on the context is
+  // a finished landing's, and capturing it would judge a brand-new write by that
+  // landing's `restored` set — an ordinary update to an entity some earlier release
+  // rolled back would go silent. Same predicate the enclosing-scope check applies, so
+  // the two agree on what counts as a live landing.
+  const buffer = context.bulkPublishDeferredEvents;
+  return buffer && !buffer.closed ? buffer : null;
 }
 
 export async function emitOrDeferBulkPublishEvent(
@@ -74,6 +80,9 @@ export async function emitOrDeferBulkPublishEvent(
   // time. With no fallback branch there is nothing to fall back TO.
   captured: DeferredEventBuffer | null,
 ): Promise<void> {
+  // Capture never returns a closed buffer, so reaching the closed branch below means
+  // it closed while this producer was suspended — the straggler case, and nothing
+  // else.
   // No context parameter, deliberately: this decision reads no ambient state. A
   // producer that suspends resumes into whatever landing is open then, and on a
   // context publishing several entities in turn that is a different release with a

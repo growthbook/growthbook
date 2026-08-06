@@ -11,6 +11,7 @@ import {
   captureEventBuffer,
   emitOrDeferBulkPublishEvent,
 } from "back-end/src/events/bulkPublishCorrelation";
+import type { DeferredEventBuffer } from "back-end/src/events/bulkPublishCorrelation";
 import type { Context } from "back-end/src/models/BaseModel";
 import { advancedGuardStamp } from "back-end/src/models/BaseModel";
 
@@ -167,9 +168,10 @@ describe("withBufferedPayloadRefreshes — entity events", () => {
 
     // The change was compensated; consumers must never have heard about it.
     expect(emit).not.toHaveBeenCalled();
-    // The buffer is left in place, CLOSED — not nulled. A straggler reads this field
-    // fresh, so nulling it would hide the answer and send it to an unconditional emit.
-    expect(context.bulkPublishDeferredEvents?.closed).toBe(true);
+    // The buffer belonged to the landing, so the context stops carrying it the moment
+    // the landing ends. A suspended producer holds its own reference and needs nothing
+    // here; a NEW write must see "no landing", not a finished one's verdict.
+    expect(context.bulkPublishDeferredEvents).toBeNull();
   });
 
   it("leaves an enclosing bulk commit in charge of its own events", async () => {
@@ -222,9 +224,12 @@ describe("deferred event dispositions", () => {
   it("drops a straggler whose document was restored", async () => {
     const context = ctx();
     const emit = jest.fn();
+    let captured: DeferredEventBuffer | null = null;
 
     await expect(
       withBufferedPayloadRefreshes(context, "test", async () => {
+        // Captured DURING the landing, as a real producer does before suspending.
+        captured = captureEventBuffer(context);
         // What a compensating restore reports.
         context.bulkPublishRestoredEntities?.add("ent_rolled_back");
         throw new Error("apply failed");
@@ -234,9 +239,56 @@ describe("deferred event dispositions", () => {
     await emitOrDeferBulkPublishEvent(
       async () => emit(),
       "ent_rolled_back",
-      captureEventBuffer(context),
+      captured,
     );
     expect(emit).not.toHaveBeenCalled();
+  });
+
+  // `captureEventBuffer`'s own contract, asserted directly.
+  //
+  // Both landing paths now clear the field when they end, so no production path leaves
+  // a closed buffer where capture can see one — this guard is belt-and-braces for the
+  // two invariants together. Tested here rather than through a landing precisely
+  // because a landing cannot reach it: a defensive branch that only fixtures can drive
+  // is worth less than none, and this pins what the helper promises instead.
+  it.each([
+    ["an open landing", { entries: [], restored: new Set<string>() }, true],
+    [
+      "a finished landing",
+      { entries: [], restored: new Set(["ent_1"]), closed: true },
+      false,
+    ],
+  ])("capture returns the buffer for %s", (_label, buffer, expected) => {
+    const context = ctx();
+    context.bulkPublishDeferredEvents = buffer as DeferredEventBuffer;
+    expect(captureEventBuffer(context)).toBe(expected ? buffer : null);
+  });
+
+  it("capture returns null when no landing is open", () => {
+    expect(captureEventBuffer(ctx())).toBeNull();
+  });
+
+  // Capture happening AFTER a landing must not adopt it: that is a new write, not a
+  // straggler, and judging it by a finished landing's `restored` set silences an
+  // ordinary update to an entity some earlier release happened to roll back.
+  it("does not adopt a finished landing when capturing after it", async () => {
+    const context = ctx();
+    const emit = jest.fn();
+
+    await expect(
+      withBufferedPayloadRefreshes(context, "test", async () => {
+        context.bulkPublishRestoredEntities?.add("ent_1");
+        throw new Error("apply failed");
+      }),
+    ).rejects.toThrow("apply failed");
+
+    expect(captureEventBuffer(context)).toBeNull();
+    await emitOrDeferBulkPublishEvent(
+      async () => emit(),
+      "ent_1",
+      captureEventBuffer(context),
+    );
+    expect(emit).toHaveBeenCalledTimes(1);
   });
 
   // The case a release-wide "drop" got wrong: an entity left durably published by a

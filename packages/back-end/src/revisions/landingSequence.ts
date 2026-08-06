@@ -295,10 +295,11 @@ export async function withBufferedPayloadRefreshes<T>(
   try {
     const result = await fn();
     const deferred = buffer.entries;
-    // The landing stands, so nothing is in `restored` and every straggler emits. Hand
-    // the context back to an enclosing release if there is one.
+    // The landing stands, so nothing is in `restored` and every straggler emits. The
+    // buffer belongs to the landing, not the context: hand the context back to an
+    // enclosing release, or to nothing. A suspended producer holds its own reference.
     buffer.closed = true;
-    context.bulkPublishDeferredEvents = outerDeferred ?? buffer;
+    context.bulkPublishDeferredEvents = outerDeferred;
     for (const { emit } of deferred) {
       // Best effort, one at a time: a consumer failure must not undo a landing
       // that has already committed.
@@ -312,7 +313,7 @@ export async function withBufferedPayloadRefreshes<T>(
     // Whatever survived is already decided. A straggler is judged per document by
     // `buffer.restored`, exactly like the entries below.
     buffer.closed = true;
-    context.bulkPublishDeferredEvents = outerDeferred ?? buffer;
+    context.bulkPublishDeferredEvents = outerDeferred;
     // Normally dropped: a rolled-back change never happened. But compensation
     // that FAILED leaves part of it live, and consumers have to hear about state
     // that exists — the refresh in `finally` already serves that state.
