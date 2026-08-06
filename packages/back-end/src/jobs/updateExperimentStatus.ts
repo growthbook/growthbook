@@ -219,6 +219,8 @@ const updateSingleExperimentStatus = async (
             },
             details: auditDetailsUpdate(experiment, latest),
           });
+          // `isStopped` means "editing an already-stopped experiment" (see
+          // StopExperimentForm); a scheduled stop only runs from `running`.
           trackEventForOrganization(context.org, "Stop Experiment", {
             source: "scheduled-status-update",
             result: latest.results,

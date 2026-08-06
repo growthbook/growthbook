@@ -274,37 +274,50 @@ export function getBackendFeatureValue<K extends string & keyof AppFeatures>(
   }) as AppFeatures[K];
 }
 
+// Org id is a secure attribute: targeting works off the hash, never the raw id.
+export function hashOrganizationId(orgId: string): string {
+  if (!orgId) return "";
+  return createHash("sha256")
+    .update(GROWTHBOOK_SECURE_ATTRIBUTE_SALT + orgId)
+    .digest("hex");
+}
+
+// Server-derived attributes only — never request context, whose url would
+// enable query-string variation overrides. Names mirror the front-end.
+export function getTrustedOrgAttributes(
+  org: OrganizationInterface,
+): Record<string, unknown> {
+  return {
+    organizationId: hashOrganizationId(org.id),
+    cloudOrgId: IS_CLOUD ? org.id : "",
+    orgDateCreated: org.dateCreated
+      ? new Date(org.dateCreated).toISOString()
+      : "",
+    accountPlan: getEffectiveAccountPlan(org),
+    hasLicenseKey: !!org.licenseKey,
+  };
+}
+
 /**
- * Log a GrowthBook telemetry event from a background job (no request-scoped
- * `req.gb`). Sets org attributes so the accountPlan filter does not drop the
- * event. Event names should match the corresponding front-end `track()` calls.
+ * Log a telemetry event from a background job, where there is no `req.gb`.
+ * Sets org attributes so the accountPlan filter doesn't drop the event, and
+ * never throws — callers fire these inside business-logic try/catch blocks.
  */
 export function trackEventForOrganization(
   org: OrganizationInterface,
   eventName: string,
   properties: EventProperties = {},
 ): void {
-  const client = getGrowthBookClient();
-  if (!client) return;
+  try {
+    const client = getGrowthBookClient();
+    if (!client) return;
 
-  const orgId = org.id;
-  const hashedOrganizationId = orgId
-    ? createHash("sha256")
-        .update(GROWTHBOOK_SECURE_ATTRIBUTE_SALT + orgId)
-        .digest("hex")
-    : "";
-
-  client.logEvent(eventName, properties, {
-    attributes: {
-      organizationId: hashedOrganizationId,
-      cloudOrgId: IS_CLOUD ? orgId : "",
-      orgDateCreated: org.dateCreated
-        ? new Date(org.dateCreated).toISOString()
-        : "",
-      accountPlan: getEffectiveAccountPlan(org),
-      hasLicenseKey: !!org.licenseKey,
-    },
-  });
+    client.logEvent(eventName, properties, {
+      attributes: getTrustedOrgAttributes(org),
+    });
+  } catch (e) {
+    logger.warn({ err: e, eventName }, "Failed to log GrowthBook event");
+  }
 }
 
 /**
