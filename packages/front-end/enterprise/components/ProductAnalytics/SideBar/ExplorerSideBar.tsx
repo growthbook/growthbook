@@ -106,7 +106,7 @@ export default function ExplorerSideBar({
       ? dataset
       : null;
   const hasFunnelInputs =
-    dataset?.type === "funnel" && !!dataset.steps?.some((s) => !!s.factTable);
+    dataset?.type === "funnel" && !!dataset.steps?.some((s) => !!s.factTableId);
   const hasInputs =
     dataset?.type === "funnel"
       ? hasFunnelInputs
