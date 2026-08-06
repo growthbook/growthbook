@@ -201,9 +201,25 @@ export async function collectConfigSchemaChangeImpactGates(
 // strip there, since neither base is the other's ancestor. That's a structural
 // composition error, so we detect it up front and throw before mutating any
 // descendant.
+/**
+ * One descendant write the cascade performed: the doc it wrote against, and the
+ * fields it wrote. Compensation needs the PRE-IMAGE because
+ * `stripAncestorOwnedFields` can only REMOVE keys — re-running the cascade against
+ * a restored root can never un-strip one, so a root-only rollback silently deletes
+ * a field from a config the user never touched.
+ */
+export type ConfigCascadeWrite = {
+  before: ConfigInterface;
+  written: Record<string, unknown>;
+};
+
 export async function reconcileConfigDescendants(
   context: Context,
   rootKey: string,
+  // Called as each descendant write LANDS, before its audit and afterUpdate hooks.
+  // The cascade is the one entity write in a compensated landing that used to
+  // persist silently.
+  onDescendantWritten?: (write: ConfigCascadeWrite) => void,
 ): Promise<void> {
   const all = await context.models.configs.getAllForReconcile();
   const byKey = new Map(all.map((c) => [c.key, c]));
@@ -259,13 +275,25 @@ export async function reconcileConfigDescendants(
         fields: kept,
       };
       try {
+        const preImage = current;
         const updated = await context.models.configs.updateIfUnchanged(
           current,
           { schema: newSchema },
           undefined,
           // Same authority contract as the bypass write this replaces: the
           // cascade acts under the ancestor publish already authorized.
-          { dangerouslyBypassCanUpdate: true },
+          {
+            dangerouslyBypassCanUpdate: true,
+            // Reported from inside the write, so a later descendant's failure can
+            // put THIS one back. `preImage` is the doc this attempt wrote against —
+            // after a CAS retry that is the refreshed row, which is what ownership
+            // has to be judged against.
+            onWritten: () =>
+              onDescendantWritten?.({
+                before: preImage,
+                written: { schema: newSchema },
+              }),
+          },
         );
         // Keep the working map current so a deeper descendant sees the parent's
         // post-strip schema when computing its own ancestor-owned keys.

@@ -389,35 +389,50 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     const writeEntity = options?.guarded
       ? context.models.configs.updateIfUnchanged.bind(context.models.configs)
       : context.models.configs.update.bind(context.models.configs);
-    // Reported from INSIDE the write, before audit logging and the
-    // afterUpdate hooks: those run after the document has landed, so a
-    // throw there is a persisted change. Reporting after this call
-    // returned could not tell that from "never wrote", and compensation
-    // read the second as the first — leaving the change live, unrecorded.
-    const report = (doc: Record<string, unknown>) =>
-      options?.onPersisted?.({
-        persistedKeys: Object.keys(normalizedChanges),
-        written: doc,
-      });
+    // ONE result object, reported from inside the write and then filled in as the
+    // landing proceeds. The caller holds this exact reference, so cascade entries
+    // recorded after the report still reach compensation even though the return
+    // value never arrives when a later step throws.
+    //
+    // Reported from INSIDE the write, before audit logging and the afterUpdate
+    // hooks: those run after the document has landed, so a throw there is a
+    // persisted change. Reporting after the call RETURNED could not tell that from
+    // "never wrote", and compensation read the second as the first.
+    //
+    // Only the normalized set was persisted on THIS config — a field stripped as
+    // ancestor-owned was never written, so it must not be rolled back.
+    const applied: ApplyChangesResult = {
+      persistedKeys: Object.keys(normalizedChanges),
+      written: null,
+      cascade: [],
+    };
     const written = await writeEntity(
       entity,
       normalizedChanges as Parameters<typeof context.models.configs.update>[1],
       undefined,
       {
-        onWritten: (doc: unknown) => report(doc as Record<string, unknown>),
+        onWritten: (doc: unknown) => {
+          applied.written = doc as Record<string, unknown>;
+          options?.onPersisted?.(applied);
+        },
       },
     );
-
-    // Only the normalized set was persisted on THIS config — a field stripped
-    // as ancestor-owned was never written, so it must not be rolled back.
-    const applied = {
-      persistedKeys: Object.keys(normalizedChanges),
-      written: written as Record<string, unknown>,
-    };
+    // The re-read the write returns, for callers that use the result directly.
+    applied.written = written as Record<string, unknown>;
 
     // Cascade the change down to descendants when the schema or lineage changed.
+    // Each descendant write is recorded on the SAME object the report already
+    // handed the caller, so a cascade failure is compensable even though the
+    // return value never arrives.
     if (touchesLineageOrSchema) {
-      await reconcileConfigDescendants(context, entity.key);
+      await reconcileConfigDescendants(context, entity.key, (w) =>
+        applied.cascade?.push({
+          before: w.before as unknown as Record<string, unknown> & {
+            id: string;
+          },
+          written: w.written,
+        }),
+      );
     }
 
     return applied;

@@ -93,6 +93,11 @@ const EditFeatureInfoModal: FC<{
   // cover.
   const moveDestination = form.watch("project");
   const relocates = (moveDestination || "") !== (feature.project || "");
+  // The endpoint now DIFFS metadata against live rather than taking it by key
+  // presence, so a description-only save carries no payload-affecting field and the
+  // footprint is genuinely unbound. A relocation still answers for everywhere the
+  // flag serves — and over the same APPLICABLE set the endpoint uses, so neither
+  // side is a superset of the other.
   const metadataEnvs = relocates
     ? servingEnvironments(
         feature,

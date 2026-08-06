@@ -1,4 +1,7 @@
-import { holdsMoveDestination } from "shared/permissions";
+import {
+  metadataTouchesPayload,
+  holdsMoveDestination,
+} from "shared/permissions";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import type { EventUser } from "shared/types/events/event-types";
 import type { OrganizationInterface } from "shared/types/organization";
@@ -275,7 +278,12 @@ export async function revertFeatureRevision(
       metadataChanges.valueType = m.valueType;
       hasMetaChange = true;
     }
-    if (hasMetaChange) {
+    if (
+      hasMetaChange &&
+      // PAYLOAD-AFFECTING metadata only — one rule across the publish footprint,
+      // both reverts and the Revert control. Inert metadata reaches no SDK.
+      metadataTouchesPayload(metadataChanges as Record<string, unknown>)
+    ) {
       if (
         isPublish &&
         !context.permissions.canRevertFeature(feature, allEnabledEnvs)

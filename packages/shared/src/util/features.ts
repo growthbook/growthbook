@@ -3109,8 +3109,11 @@ export function getEnvsForRampTarget(
   // serves. Returning [] here left the same vacuity the loop above closes, one
   // cell over — and it is the cell an attacker picks, because a schedule created
   // with no steps at all has no patches to name anything.
-  if (!envs.size) return "all";
+  // The union comes FIRST. Ordered the other way, a target no patch names hit the
+  // widening below and its known production-serving envs were discarded — the
+  // caller then collapsed "all" to their own narrow list.
   for (const env of currentRuleEnvs ?? []) envs.add(env);
+  if (!envs.size) return "all";
   return Array.from(envs);
 }
 

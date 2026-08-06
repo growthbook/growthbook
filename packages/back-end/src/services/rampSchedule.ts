@@ -19,13 +19,17 @@ import {
 } from "shared/validators";
 import { ResourceEvents } from "shared/types/events/base-types";
 import {
+  getEnvsFromRampSchedule,
   filterEnvironmentsByFeature,
   MergeResultChanges,
   isRampScheduleServing,
   getEnvsForRampTarget,
 } from "shared/util";
 import uniqid from "uniqid";
-import { getEnvironments } from "back-end/src/services/organizations";
+import {
+  getEnvironmentIdsFromOrg,
+  getEnvironments,
+} from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -3041,6 +3045,8 @@ export async function assertCanControlRampSchedule(
 ): Promise<void> {
   const scheduleEnvs =
     context.models.rampSchedules.publishEnvironments(schedule);
+  // The strictest answer available: every environment the org has.
+  const orgEnvironmentIds = getEnvironmentIdsFromOrg(context.org);
   // A multi-target schedule mutates every attached flag, so control takes
   // publish over each target's project — not just the primary entity's. Each
   // target is checked against ITS OWN environments: the union across targets
@@ -3060,6 +3066,9 @@ export async function assertCanControlRampSchedule(
     (schedule.targets ?? []).map((t) => ({
       featureId: t.entityId,
       ruleId: t.ruleId ?? undefined,
+      // Honoured by `resolveRampTargets`, so the gate resolves exactly the sibling
+      // set the write will patch.
+      environment: t.environment ?? undefined,
     })),
   );
   for (const target of schedule.targets ?? []) {
@@ -3071,13 +3080,28 @@ export async function assertCanControlRampSchedule(
       ruleEnvs.get(`${target.entityId}:${target.ruleId}`),
     );
     const existing = checks.get(target.entityId) ?? new Set<string>();
-    for (const env of envs === "all" ? scheduleEnvs : envs) existing.add(env);
+    // "all" resolves against the ORG's environments. `scheduleEnvs` is the
+    // schedule-wide PATCH footprint, which is the attacker's own list whenever the
+    // patches name environments — so collapsing "all" into it handed the gate
+    // ["dev"] for a rule with `allEnvironments: true`, and `flattenV1ToV2Rules`
+    // produces exactly that shape for any migrated rule covering every applicable
+    // environment. The old comment claimed scheduleEnvs was already org-expanded;
+    // that is true only in the case that doesn't matter.
+    for (const env of envs === "all" ? orgEnvironmentIds : envs) {
+      existing.add(env);
+    }
     checks.set(target.entityId, existing);
   }
   // The anchor feature is always checked, against the schedule-wide footprint
   // when it isn't itself a target.
   if (!checks.has(schedule.entityId)) {
-    checks.set(schedule.entityId, new Set(scheduleEnvs));
+    // Same resolution as the per-target arm: an unscoped schedule-wide answer is
+    // every org environment, never the patch list.
+    const anchorEnvs =
+      getEnvsFromRampSchedule(schedule) === "all"
+        ? orgEnvironmentIds
+        : scheduleEnvs;
+    checks.set(schedule.entityId, new Set(anchorEnvs));
   }
 
   // Raw projects, not a read-filtered fetch: `getFeature` returns null for a

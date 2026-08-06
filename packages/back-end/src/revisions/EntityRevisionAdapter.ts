@@ -92,6 +92,17 @@ export function revisionActionHooks<TSnapshot extends Record<string, unknown>>({
 export type ApplyChangesResult = {
   persistedKeys: string[];
   written: Record<string, unknown> | null;
+  /**
+   * Writes the apply made to OTHER entities on this landing's behalf — a Config's
+   * descendant cascade — each with its own pre-image. Compensation restores these
+   * BEFORE the root, because a cascade that can only STRIP fields cannot be undone
+   * by re-running it against a restored root: the root comes back correct and the
+   * descendant is left permanently missing an inherited field.
+   */
+  cascade?: {
+    before: Record<string, unknown> & { id: string };
+    written: Record<string, unknown>;
+  }[];
 };
 
 // Adapter interface that each entity type must implement to participate in the

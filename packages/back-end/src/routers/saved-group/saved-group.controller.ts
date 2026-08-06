@@ -801,7 +801,8 @@ export const putSavedGroup = async (
   let comparisonBase: SavedGroupInterface = savedGroup;
 
   if (revisionId) {
-    targetRevision = await context.models.revisions.getById(revisionId);
+    // Live basis, matching the WRITE.
+    targetRevision = await context.models.revisions.getByIdReadable(revisionId);
     // Writing `archived` into a PINNED revision is a write into someone else's
     // draft: it makes that draft delete-class, and its author — a publisher
     // without delete — can then no longer publish their own work.

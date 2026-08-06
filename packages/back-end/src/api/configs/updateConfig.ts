@@ -579,6 +579,12 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         dateCreated?: Date;
       },
     );
+    // Descendant writes the cascade makes on this landing's behalf; restored
+    // before the root, since the cascade can only strip fields.
+    const cascadeWrites: {
+      before: Record<string, unknown> & { id: string };
+      written: Record<string, unknown>;
+    }[] = [];
     const { merged, result: updated } = await landDirectChange({
       context: req.context,
       entityType: "config",
@@ -593,6 +599,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       // failed cascade already reconciled are re-run by the config adapter's
       // afterRestorePreImage, invoked from the shared restore.
       changes: fieldsToUpdate as Record<string, unknown>,
+      cascade: cascadeWrites,
       write: async (report) => {
         // Guarded on the SAME pre-image the landing was re-based onto: the
         // overrides commit advanced the config's token, so guarding on the
@@ -620,7 +627,14 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         // "published" revision and the root write persist with stale
         // descendants and no webhook.
         if (needsDescendantReconcile) {
-          await reconcileConfigDescendants(req.context, config.key);
+          await reconcileConfigDescendants(req.context, config.key, (w) =>
+            cascadeWrites.push({
+              before: w.before as unknown as Record<string, unknown> & {
+                id: string;
+              },
+              written: w.written,
+            }),
+          );
         }
         return written;
       },

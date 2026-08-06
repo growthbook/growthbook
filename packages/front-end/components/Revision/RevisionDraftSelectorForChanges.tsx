@@ -19,6 +19,7 @@ const ACTIVE_DRAFT_STATUSES = new Set([
 export default function RevisionDraftSelectorForChanges({
   entityId,
   openRevisions,
+  canWriteIntoDraft,
   allRevisions,
   mode,
   setMode,
@@ -60,10 +61,22 @@ export default function RevisionDraftSelectorForChanges({
    * groups use the org approval flow (true); constants opt out (false).
    */
   dropdownRequiresApproval?: boolean;
+  /**
+   * Drafts this flow may WRITE into. Filtering by status alone offered another
+   * author's draft to a caller the endpoint refuses — the archive flows submit
+   * `?revisionId=<picked draft>`, which `canWriteArchiveIntoDraft` now rejects, so
+   * picking one produced a 403 from a list that should never have contained it.
+   */
+  canWriteIntoDraft?: (revision: Revision) => boolean;
 }) {
   const activeDrafts = useMemo(
-    () => openRevisions.filter((r) => ACTIVE_DRAFT_STATUSES.has(r.status)),
-    [openRevisions],
+    () =>
+      openRevisions.filter(
+        (r) =>
+          ACTIVE_DRAFT_STATUSES.has(r.status) &&
+          (canWriteIntoDraft?.(r) ?? true),
+      ),
+    [openRevisions, canWriteIntoDraft],
   );
 
   const selectedDraftRevision = useMemo(

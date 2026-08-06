@@ -795,9 +795,24 @@ async function publishRevisionInner(
     // Nothing reported means the apply never reached its entity write (adapters
     // report from inside it), so there is nothing to restore and the revision may
     // be reopened cleanly — the same reading bulk takes.
+    // Descendant writes the apply made on this landing's behalf, innermost first
+    // and BEFORE the root — a cascade that can only strip fields cannot be undone
+    // by re-running it against a restored root.
+    let cascadeRestored = true;
+    for (const write of [...(applied?.cascade ?? [])].reverse()) {
+      const ok = await tryRestoreEntityPreImage({
+        context,
+        entityType: revision.target.type,
+        preImage: write.before,
+        persistedKeys: Object.keys(write.written),
+        written: write.written,
+      });
+      if (!ok) cascadeRestored = false;
+    }
     const entityRestored = nothingReported
-      ? true
-      : written !== null &&
+      ? cascadeRestored
+      : cascadeRestored &&
+        written !== null &&
         (await tryRestoreEntityPreImage({
           context,
           entityType: revision.target.type,

@@ -1,4 +1,5 @@
 import {
+  canWriteArchiveIntoDraft,
   archiveFootprintForControl,
   canLandArchiveToggle,
 } from "shared/permissions";
@@ -11,6 +12,7 @@ import ConstantReferencesList from "@/components/Constants/ConstantReferencesLis
 import { useConstantReferences } from "@/hooks/useConstantReferences";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
 
 // Thin wrapper around the entity-agnostic ArchiveModal.
@@ -32,6 +34,7 @@ export default function ConstantArchiveModal({
   const { openRevisions, allRevisions, approvalRequired, canBypassApproval } =
     revisionCtx;
   const permissionsUtil = usePermissionsUtil();
+  const { userId } = useUser();
   const environments = useEnvironments();
 
   const isArchived = !!constant.archived;
@@ -91,6 +94,18 @@ export default function ConstantArchiveModal({
         <ConstantDraftSelectorForChanges
           constantId={constant.id}
           openRevisions={openRevisions}
+          // Only drafts this caller may write `archived` into. The endpoint refuses
+          // a write into someone else's draft, so listing them turned a picker
+          // choice into a 403.
+          canWriteIntoDraft={(r) =>
+            canWriteArchiveIntoDraft({
+              permissions: permissionsUtil,
+              model: "constant",
+              entity: constant,
+              revision: r,
+              userId,
+            })
+          }
           allRevisions={allRevisions}
           mode={mode}
           setMode={setMode}

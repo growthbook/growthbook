@@ -223,9 +223,13 @@ export default function ConstantDetailPage(): React.ReactElement {
   const publishEnvironments = useMemo(() => {
     const pending = selectedRevision ?? displayRevision;
     if (!pending) return constantPublishEnvironments();
+    // Diffed against the LIVE constant, like the adapter — diffing against the
+    // snapshot reported no changed environments whenever the proposed values merely
+    // restate the snapshot while live has drifted, which SKIPS the env check for a
+    // publish that really does overwrite those environments.
     const scoped = constantPublishEnvironments(
       getConstantRevisionChange(
-        pending.target.snapshot as ConstantInterface,
+        (constant ?? pending.target.snapshot) as ConstantInterface,
         pending.target.proposedChanges,
       ).changedEnvironments,
     );
@@ -237,17 +241,17 @@ export default function ConstantDetailPage(): React.ReactElement {
     // dev override demanded only dev on the client while the server demanded
     // everywhere.
     //
-    // `currentArchived` comes from the revision's SNAPSHOT, like the adapter's, so a
-    // draft opened before an intervening flip is judged the same way the endpoint
-    // judges it.
+    // Judged against the LIVE constant, which is what the endpoint uses. Every
+    // caller of `assertCanPublishRevision` passes a freshly-loaded live row — the
+    // adapter's parameter is merely NAMED `snapshot` — so reading the revision's
+    // snapshot here made this the only flag-family publish control on a basis the
+    // server never uses, and it diverged in both directions.
     const proposedArchived = proposedArchivedValue(
       pending.target.proposedChanges,
     );
-    const snapshotArchived = (
-      pending.target.snapshot as ConstantInterface | undefined
-    )?.archived;
     const flipsArchived =
-      proposedArchived !== undefined && proposedArchived !== !!snapshotArchived;
+      proposedArchived !== undefined &&
+      proposedArchived !== !!constant?.archived;
     return flipsArchived
       ? serveFootprint(environments, constant ?? {})
       : scoped;
@@ -502,7 +506,9 @@ export default function ConstantDetailPage(): React.ReactElement {
                           setShowArchiveModal(true);
                         }}
                       >
-                        {displayedConstant.archived ? "Unarchive" : "Archive"}
+                        {/* LIVE state: the endpoint flips against live, so the projected
+                            state labels the opposite action. */}
+                        {constant.archived ? "Unarchive" : "Archive"}
                       </DropdownMenuItem>
                     )}
                     {canDeleteNow && (
@@ -773,7 +779,12 @@ export default function ConstantDetailPage(): React.ReactElement {
 
       {showArchiveModal && (
         <ConstantArchiveModal
-          constant={displayedConstant}
+          // LIVE state, like the feature page does: the endpoint flips against
+          // live, so handing the revision-PROJECTED Constant here inverted the
+          // action whenever the viewed draft staged the opposite archive state —
+          // the modal predicted one atom and submitted the other, and the endpoint
+          // saw no transition at all and wrote nothing.
+          constant={constant}
           revisionCtx={revisionCtx}
           onSaved={onRevisionCreated}
           selectFlow={selectRevision}

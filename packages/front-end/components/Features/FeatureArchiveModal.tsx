@@ -1,3 +1,4 @@
+import { canWriteArchiveIntoDraft } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
 import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
@@ -14,6 +15,7 @@ import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useUser } from "@/services/UserContext";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
@@ -37,6 +39,7 @@ export default function FeatureArchiveModal({
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
+  const { userId } = useUser();
 
   const { dependents, loading } = useFeatureDependents(feature.id);
   const totalDependents =
@@ -161,6 +164,20 @@ export default function FeatureArchiveModal({
         canAutoPublish={canAutoPublish}
         gatedEnvSet={archiveGated ? "all" : "none"}
         allowNewDraftAtCap
+        // Only drafts this caller may write `archived` into — the endpoint refuses
+        // a write into another author's draft.
+        canWriteIntoDraft={(r) =>
+          canWriteArchiveIntoDraft({
+            permissions: permissionsUtil,
+            model: "feature",
+            entity: feature,
+            revision: {
+              authorId:
+                r.createdBy && "id" in r.createdBy ? r.createdBy.id : undefined,
+            },
+            userId,
+          })
+        }
       />
       {loading ? (
         <Text color="text-disabled">

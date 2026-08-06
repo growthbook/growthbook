@@ -1,7 +1,9 @@
+import { canWriteArchiveIntoDraft } from "shared/permissions";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { Revision } from "shared/enterprise";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useUser } from "@/services/UserContext";
 import { useSavedGroupReferences } from "@/hooks/useSavedGroupReferences";
 import ArchiveModal from "@/components/Revision/ArchiveModal";
 import SavedGroupDraftSelectorForChanges from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
@@ -29,6 +31,7 @@ export default function SavedGroupArchiveModal({
 }: SavedGroupArchiveModalProps) {
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
+  const { userId } = useUser();
 
   const isArchived = !!savedGroup.archived;
 
@@ -97,6 +100,18 @@ export default function SavedGroupArchiveModal({
         <SavedGroupDraftSelectorForChanges
           savedGroup={savedGroup}
           openRevisions={openRevisions}
+          // Only drafts this caller may write `archived` into — the endpoint refuses a
+          // write into another author's draft, so listing them turned a picker choice
+          // into a 403.
+          canWriteIntoDraft={(r) =>
+            canWriteArchiveIntoDraft({
+              permissions: permissionsUtil,
+              model: "saved-group",
+              entity: savedGroup,
+              revision: r,
+              userId,
+            })
+          }
           allRevisions={allRevisions}
           mode={mode}
           setMode={setMode}

@@ -2,6 +2,7 @@ import { ConfigWithoutValue } from "shared/types/config";
 import { Revision } from "shared/enterprise";
 import { configPublishEnvironments } from "shared/util";
 import {
+  canWriteArchiveIntoDraft,
   archiveFootprintForControl,
   canLandArchiveToggle,
 } from "shared/permissions";
@@ -12,6 +13,7 @@ import { useConfigFamilyReferences } from "@/hooks/useConstantReferences";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useUser } from "@/services/UserContext";
 import Link from "@/ui/Link";
 
 // Thin wrapper around the entity-agnostic ArchiveModal for configs (mirrors
@@ -36,6 +38,7 @@ export default function ConfigArchiveModal({
   const { openRevisions, allRevisions, approvalRequired, canBypassApproval } =
     revisionCtx;
   const permissionsUtil = usePermissionsUtil();
+  const { userId } = useUser();
   const environments = useEnvironments();
 
   const isArchived = !!config.archived;
@@ -110,6 +113,18 @@ export default function ConfigArchiveModal({
         <RevisionDraftSelectorForChanges
           entityId={config.id}
           openRevisions={openRevisions}
+          // Only drafts this caller may write `archived` into. The endpoint refuses
+          // a write into someone else's draft, so listing them turned a picker
+          // choice into a 403.
+          canWriteIntoDraft={(r) =>
+            canWriteArchiveIntoDraft({
+              permissions: permissionsUtil,
+              model: "config",
+              entity: config,
+              revision: r,
+              userId,
+            })
+          }
           allRevisions={allRevisions}
           mode={mode}
           setMode={setMode}

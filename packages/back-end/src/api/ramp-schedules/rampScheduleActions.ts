@@ -16,6 +16,7 @@ import {
 import { getHealthSettings } from "shared/enterprise";
 import { expandMetricGroups } from "shared/experiments";
 import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
+import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import {
   advanceScheduleManually,
   approveAndPublishStep,
@@ -49,6 +50,7 @@ import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnap
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { ConflictError } from "back-end/src/util/errors";
 import {
+  resolveRampTargets,
   rampTargetsEquivalent,
   resolveRampTarget,
 } from "back-end/src/util/flattenRules";
@@ -514,12 +516,33 @@ export const addTargetRampSchedule = createApiRequestHandler({
   // The gate above covered the schedule's existing targets; the flag being
   // attached needs the same authority, or a schedule anchored in one project
   // becomes a lever over flags in another.
+  //
+  // Measured over the ATTACHED RULE's environments as well as the schedule's patch
+  // footprint. The patch footprint alone let a production-serving rule be attached
+  // to a dev-only schedule — and `completeRollout({disableActiveTargets:true})` and
+  // `buildEnabledActions` act on EVERY active target whether or not a patch names
+  // it, so the attachment itself is the production-reaching act.
+  const attachedRuleEnvs = resolveRampTargets(
+    { ruleId, environment: environment ?? null },
+    feature.rules ?? [],
+  );
+  const attachEnvs = new Set(
+    req.context.models.rampSchedules.publishEnvironments(schedule),
+  );
   if (
-    !req.context.permissions.canPublishFeature(
-      feature,
-      req.context.models.rampSchedules.publishEnvironments(schedule),
-    )
+    !attachedRuleEnvs.length ||
+    attachedRuleEnvs.some((r) => r.allEnvironments)
   ) {
+    // Unresolvable or all-environments: the strictest answer.
+    for (const env of getEnvironmentIdsFromOrg(req.context.org)) {
+      attachEnvs.add(env);
+    }
+  } else {
+    for (const r of attachedRuleEnvs) {
+      for (const env of r.environments ?? []) attachEnvs.add(env);
+    }
+  }
+  if (!req.context.permissions.canPublishFeature(feature, [...attachEnvs])) {
     req.context.permissions.throwPermissionError();
   }
   const rule = resolveRampTarget(

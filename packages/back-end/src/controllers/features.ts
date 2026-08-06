@@ -1,4 +1,5 @@
 import {
+  metadataTouchesPayload,
   holdsMoveDestination,
   projectScopeChanged,
   NO_ENVIRONMENT_BINDING,
@@ -88,6 +89,7 @@ import {
   PutFeatureRuleBody,
 } from "shared/types/feature-rule";
 import { getValidDate } from "shared/dates";
+import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
 import { isArmedWithAuthorizedPublisher } from "back-end/src/revisions/approveAndPublish";
 import { assertCanRevertRevision } from "back-end/src/revisions/revertActions";
@@ -1526,6 +1528,7 @@ export async function postFeatureApproveAndPublish(
     filledLiveRules: filledLive.rules ?? [],
     result: mergeResult.result,
     environmentIds: featureEnvironmentIds,
+    rampActions: revision.rampActions,
   });
   // Approving needs review authority (enforced by the review path). The publish
   // needs publish authority unless the revision is already armed — then it was
@@ -2060,6 +2063,7 @@ export async function postFeaturePublish(
     filledLiveRules: filledLive.rules ?? [],
     result: mergeResult.result,
     environmentIds,
+    rampActions: revision.rampActions,
   });
   await assertCanPublishFeatureRevision({
     context,
@@ -2532,7 +2536,17 @@ export async function postFeatureRevert(
       metadataChanges.jsonSchema = m.jsonSchema;
       hasMetadataChanges = true;
     }
-    if (hasMetadataChanges) {
+    // PAYLOAD-AFFECTING metadata only, the same rule the publish footprint and the
+    // Revert control apply via `metadataTouchesPayload`. Gating on ANY metadata
+    // diff meant a description-only revert answered for every serving environment,
+    // so a dev-limited reverter was offered Revert and then refused — the control
+    // and the endpoint disagreed in the direction that offers the action. Inert
+    // metadata (description, owner, tags, neverStale, customFields) reaches no SDK,
+    // which is exactly why the publish gate skips the check for it.
+    if (
+      hasMetadataChanges &&
+      metadataTouchesPayload(metadataChanges as Record<string, unknown>)
+    ) {
       // Restored metadata can carry a project (relocating the flag) or an archived
       // flag, each with its own authority class. One decision for all of it,
       // shared with the REST reverts and the generic entities.
@@ -5010,7 +5024,7 @@ export async function putFeature(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { org, environments } = context;
+  const { org } = context;
   const { id } = req.params;
   const feature = await getFeature(context, id);
 
@@ -5056,7 +5070,16 @@ export async function putFeature(
     "project" in updates &&
     projectScopeChanged(feature, { project: updates.project })
   ) {
-    const envs = Array.from(getEnabledEnvironments(feature, environments));
+    // APPLICABLE environments, not every org env — an environment scoped away from
+    // the flag's projects never serves it, and the archive path on this same file
+    // already filters. The unfiltered set is a superset, so the control (which does
+    // filter) was predicting a narrower demand than this check made.
+    const envs = Array.from(
+      getEnabledEnvironments(
+        feature,
+        getApplicableEnvIds(getEnvironments(context.org), feature),
+      ),
+    );
     const holdsBothSides = autoPublish
       ? context.permissions.canPublishFeature(feature, envs) &&
         context.permissions.canPublishFeature(updates, envs)
@@ -5112,9 +5135,18 @@ export async function putFeature(
     "owner",
     "customFields",
   ];
+  // Diffed against live, not taken by KEY PRESENCE. The edit-info modal submits all
+  // of its form fields on every save, so `project` / `targetingAllProjects` /
+  // `targetingProjects` were always present — and none is payload-inert, so
+  // `mergeResultTouchesPayload` was true for a description-only edit and the
+  // footprint widened to every serving environment. A control cannot predict that
+  // (it has no reason to think a description edit reaches production), so the
+  // request has to carry only what actually changed.
   const metadataUpdates = Object.fromEntries(
-    Object.entries(updates).filter(([k]) =>
-      metadataKeys.includes(k as keyof FeatureInterface),
+    Object.entries(updates).filter(
+      ([k, v]) =>
+        metadataKeys.includes(k as keyof FeatureInterface) &&
+        !isEqual(v, feature[k as keyof FeatureInterface]),
     ),
   ) as Partial<FeatureInterface>;
   normalizeTargetingInUpdates(metadataUpdates, feature);
@@ -5443,7 +5475,13 @@ async function getDraftForArchiveInjectionCheck(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   targetDraftVersion?: number,
+  forceNewDraft?: boolean,
 ): Promise<FeatureRevisionInterface | null> {
+  // A write that will CREATE a fresh revision touches nobody's draft, so there is
+  // nothing to protect. Without this the check resolved the active draft — which is
+  // author-blind — and refused a Deleter whose write would have made a new one:
+  // the exact persona `canStageArchiveDraft` exists to serve.
+  if (forceNewDraft) return null;
   if (targetDraftVersion) {
     return await getRevision({
       context,
@@ -5516,10 +5554,14 @@ export async function postFeatureArchive(
   // landing authority above is enough to stage a NEW archive draft, never to reach
   // into one this caller does not own. With no `draftVersion` this falls through to
   // the active draft, so there is no version to guess.
+  // The SAME resolution the write performs below — `autoPublish` forces a new
+  // revision and clears the pinned version, so passing the raw body values asked a
+  // different question than the write answers.
   const targetDraft = await getDraftForArchiveInjectionCheck(
     context,
     feature,
-    draftVersion,
+    autoPublish ? undefined : draftVersion,
+    autoPublish ? true : forceNewDraft,
   );
   if (
     targetDraft &&

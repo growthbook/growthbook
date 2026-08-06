@@ -26,6 +26,15 @@ export type BulkRevisionRef = {
    */
   writtenEntity?: Record<string, unknown> | null;
   /**
+   * Writes the apply made to OTHER entities on this item's behalf — a Config's
+   * descendant cascade. Restored BEFORE the root, since a cascade that can only
+   * STRIP fields cannot be undone by re-running it against a restored root.
+   */
+  cascade?: {
+    before: Record<string, unknown> & { id: string };
+    written: Record<string, unknown>;
+  }[];
+  /**
    * Set by applyPrecomputed(): the entity fields the apply actually persisted
    * (post updatable-filter and post-normalization). restorePreImage rolls back
    * ONLY these, so a field the write dropped never clobbers a concurrent value.

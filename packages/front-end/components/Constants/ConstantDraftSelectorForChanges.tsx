@@ -12,6 +12,8 @@ export default function ConstantDraftSelectorForChanges({
 }: {
   constantId: string;
   openRevisions: Revision[];
+  /** Forwarded: only drafts this flow may write into. */
+  canWriteIntoDraft?: (revision: Revision) => boolean;
   allRevisions: Revision[];
   mode: DraftMode;
   setMode: (m: DraftMode) => void;

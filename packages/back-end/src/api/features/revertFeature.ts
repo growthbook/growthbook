@@ -1,4 +1,7 @@
-import { holdsMoveDestination } from "shared/permissions";
+import {
+  metadataTouchesPayload,
+  holdsMoveDestination,
+} from "shared/permissions";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import type { EventUser } from "shared/types/events/event-types";
 import type { OrganizationInterface } from "shared/types/organization";
@@ -220,7 +223,13 @@ export async function revertFeatureCore(
       hasMetaChange = true;
     }
     if (hasMetaChange) {
+      // PAYLOAD-AFFECTING metadata only, matching the publish footprint, the
+      // dashboard revert and the Revert control — all four now read one rule.
+      // Inert metadata (description, owner, tags, neverStale, customFields) reaches
+      // no SDK, so demanding revert authority over every serving environment for a
+      // description-only restore refused changes with no live effect.
       if (
+        metadataTouchesPayload(metadataChanges as Record<string, unknown>) &&
         !context.permissions.canRevertFeature(
           feature,
           Array.from(getEnabledEnvironments(feature, environmentIds)),

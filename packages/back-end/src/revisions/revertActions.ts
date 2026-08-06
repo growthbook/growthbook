@@ -156,6 +156,7 @@ export async function landDirectChange<T>({
   changes,
   write,
   persistedFrom,
+  cascade,
 }: {
   context: Context;
   entityType: Parameters<typeof getAdapter>[0];
@@ -177,6 +178,16 @@ export async function landDirectChange<T>({
   // `report` callback for the case where the write throws AFTER persisting (a
   // Config cascade), when there is no return value to map.
   persistedFrom?: (result: T) => Record<string, unknown> | null;
+  /**
+   * Writes the landing made to OTHER entities on its behalf — a Config's descendant
+   * cascade — each with its own pre-image. Restored BEFORE the root, because a
+   * cascade that can only STRIP fields cannot be undone by re-running it against a
+   * restored root. The caller pushes into this as the cascade reports.
+   */
+  cascade?: {
+    before: Record<string, unknown> & { id: string };
+    written: Record<string, unknown>;
+  }[];
 }): Promise<{ merged: Revision; result: T }> {
   return withBufferedPayloadRefreshes(context, "direct-landing", async () => {
     // The same landing gate the revision engine runs, on the landing's own
@@ -276,6 +287,18 @@ export async function landDirectChange<T>({
       // inside it, before audit and the afterUpdate hooks — so there is nothing to
       // restore and the merged revision is phantom history to be removed. The same
       // reading bulk and the generic publish take.
+      // Innermost first, and before the root — see the `cascade` docs above.
+      let cascadeRestored = true;
+      for (const write of [...(cascade ?? [])].reverse()) {
+        const ok = await tryRestoreEntityPreImage({
+          context,
+          entityType,
+          preImage: write.before,
+          persistedKeys: Object.keys(write.written),
+          written: write.written,
+        });
+        if (!ok) cascadeRestored = false;
+      }
       const restored = compensating
         ? await tryRestoreEntityPreImage({
             context,
@@ -285,7 +308,7 @@ export async function landDirectChange<T>({
             written,
           })
         : true;
-      if (!restored) {
+      if (!restored || !cascadeRestored) {
         // The buffered `*.updated` events are otherwise dropped as a rolled-back
         // change; here the change is partly live, so they must still fire.
         context.landingLeftPartialState = true;

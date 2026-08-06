@@ -88,6 +88,7 @@ import {
   upgradeV0Feature,
 } from "back-end/src/util/migrations";
 import {
+  resolveRampTargets,
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
   getApplicableEnvIds,
@@ -754,7 +755,7 @@ export async function getFeatureProjectsByIds(
  */
 export async function getFeatureRuleEnvironmentsByIds(
   context: ReqContext | ApiReqContext,
-  refs: { featureId: string; ruleId?: string }[],
+  refs: { featureId: string; ruleId?: string; environment?: string }[],
 ): Promise<Map<string, string[] | "all">> {
   const result = new Map<string, string[] | "all">();
   const named = refs.filter((r) => !!r.ruleId);
@@ -769,18 +770,33 @@ export async function getFeatureRuleEnvironmentsByIds(
   );
   const byId = new Map(features.map((f) => [f.id, toInterface(f, context)]));
 
-  for (const { featureId, ruleId } of named) {
+  for (const { featureId, ruleId, environment } of named) {
     const key = `${featureId}:${ruleId}`;
     const feature = byId.get(featureId);
-    const rule = (feature?.rules ?? []).find(
-      (r) => stemRuleId(r.id ?? "") === stemRuleId(ruleId ?? ""),
+    // EVERY sibling the execution path will patch, resolved the way it resolves
+    // them — `resolveRampTargets`, honouring `environment`. Taking the first stem
+    // match read whichever rule came first: with siblings `fr_x__dev` (["dev"]) and
+    // `fr_x` (["dev","production"]), the dev sibling gave a ["dev"] footprint while
+    // the write rescoped `fr_x` out of production. flattenRules states the rule
+    // explicitly: execution paths must iterate every match.
+    const matches = resolveRampTargets(
+      { ruleId, environment },
+      feature?.rules ?? [],
     );
-    if (!rule) {
+    if (!matches.length) {
       // Unresolvable: assume the widest reach rather than none.
       result.set(key, "all");
       continue;
     }
-    result.set(key, rule.allEnvironments ? "all" : (rule.environments ?? []));
+    if (matches.some((r) => r.allEnvironments)) {
+      result.set(key, "all");
+      continue;
+    }
+    const envs = new Set<string>();
+    for (const rule of matches) {
+      for (const env of rule.environments ?? []) envs.add(env);
+    }
+    result.set(key, [...envs]);
   }
   return result;
 }
@@ -3592,6 +3608,8 @@ async function publishRevisionInner({
           getEnvironments(context.org),
           feature,
         ),
+        // The draft's ramp actions reach environments no rule diff mentions.
+        rampActions: revision.rampActions,
       }),
       mergeChanges: result,
     });

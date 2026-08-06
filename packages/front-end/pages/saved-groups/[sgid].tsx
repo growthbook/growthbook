@@ -307,7 +307,9 @@ export default function EditSavedGroupPage() {
   // service, so it's an ordinary publish. Either authority is enough: the
   // landing atom stands on its own for a pure archive, and an editor without it
   // can still stage the flip as a draft.
-  const isArchivedInView = !!displayedSavedGroup?.archived;
+  // LIVE state, matching the endpoint and the modal — the projected state inverts
+  // the menu label and the atom whenever the viewed draft stages the opposite flip.
+  const isArchivedInView = !!savedGroup?.archived;
   const canToggleArchive =
     !!savedGroup &&
     ((isArchivedInView
@@ -687,7 +689,12 @@ export default function EditSavedGroupPage() {
       )}
       {showArchiveModal && displayedSavedGroup && (
         <SavedGroupArchiveModal
-          savedGroup={displayedSavedGroup}
+          // LIVE state, like the feature page does: the endpoint flips against
+          // live, so handing the revision-PROJECTED Saved Group here inverted the
+          // action whenever the viewed draft staged the opposite archive state —
+          // the modal predicted one atom and submitted the other, and the endpoint
+          // saw no transition at all and wrote nothing.
+          savedGroup={savedGroup}
           close={() => setShowArchiveModal(false)}
           openRevisions={openRevisions}
           allRevisions={allRevisions}

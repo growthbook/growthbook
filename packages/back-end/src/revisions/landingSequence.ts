@@ -359,6 +359,7 @@ export async function compensateFailedLanding({
   entity,
   persisted,
   changes,
+  cascade = [],
   unmerge,
 }: {
   context: Context;
@@ -367,9 +368,35 @@ export async function compensateFailedLanding({
   persisted: Record<string, unknown> | null;
   /** The fields this landing meant to write, for the ownership comparison. */
   changes: Record<string, unknown>;
+  /**
+   * Writes a cascade made to OTHER entities on this landing's behalf, each with
+   * its own pre-image. Restored BEFORE the root, and this ordering is load-bearing:
+   * a Config cascade can only STRIP fields, so restoring the root alone left a
+   * descendant permanently missing an inherited field — turning an unrecorded but
+   * consistent state into silent data loss on a config nobody edited.
+   */
+  cascade?: {
+    before: Record<string, unknown> & { id: string };
+    written: Record<string, unknown>;
+  }[];
   /** Returns the revision to its pre-merge state. */
   unmerge: () => Promise<unknown>;
 }): Promise<void> {
+  // Innermost first, and before the root: a deeper descendant's pre-image was
+  // computed against its parent's post-strip schema, so unwinding outside-in would
+  // restore against state that is about to change again.
+  let cascadeRestored = true;
+  for (const write of [...cascade].reverse()) {
+    const ok = await tryRestoreEntityPreImage({
+      context,
+      entityType,
+      preImage: write.before,
+      persistedKeys: Object.keys(write.written),
+      written: write.written,
+    });
+    if (!ok) cascadeRestored = false;
+  }
+
   const restored =
     persisted === null
       ? true
@@ -381,7 +408,7 @@ export async function compensateFailedLanding({
           written: persisted,
         });
 
-  if (!restored) {
+  if (!restored || !cascadeRestored) {
     // Part of the change is live, so consumers must hear about it and the merged
     // revision stays as the record of what actually happened.
     context.landingLeftPartialState = true;

@@ -1478,7 +1478,10 @@ export class RevisionModel extends BaseClass {
   ) {
     this.assertSupportedPatchOps(proposedChanges);
 
-    const existing = await this.getById(id);
+    // Live-entity basis, so this resolves the same set of revisions the handler and
+    // `createOrUpdateRevision` do — check and write disagreeing about which
+    // revisions EXIST is how the silent-fork bug happened one layer up.
+    const existing = await this.getByIdReadable(id);
     if (!existing) throw new Error("Revision not found");
 
     if (existing.status === "merged" || existing.status === "discarded") {

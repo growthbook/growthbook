@@ -3,6 +3,10 @@ import { PermissionError } from "shared/util";
 
 jest.mock("back-end/src/services/organizations", () => ({
   getContextFromReq: jest.fn(),
+  // The gate resolves an "all" answer against the ORG's environments, never the
+  // schedule's own patch list — collapsing "all" into the patch list was how an
+  // `allEnvironments` rule could be rescoped by a dev-limited caller.
+  getEnvironmentIdsFromOrg: jest.fn(() => ["dev", "staging", "production"]),
 }));
 jest.mock("back-end/src/models/FeatureModel", () => ({
   getFeature: jest.fn(),
@@ -33,6 +37,7 @@ jest.mock("back-end/src/models/DataSourceModel", () => ({
 import { postRampScheduleAction } from "back-end/src/routers/ramp-schedule/ramp-schedule.controller";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
+  getFeatureRuleEnvironmentsByIds,
   getFeature,
   getFeatureProjectsByIds,
 } from "back-end/src/models/FeatureModel";
@@ -49,11 +54,19 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
  * live rollout while a publisher was refused.
  */
 
+// A schedule whose patches NAME an environment. The previous fixture had zero
+// patches, which now legitimately widens to every org environment — a patch-less
+// schedule still fires and enables every attached target, so the narrow
+// patch-footprint answer was exactly the collapse that let a dev-limited caller
+// rescope a production rule. Naming production here keeps this case testing what it
+// says it tests: the gate asks about the schedule's OWN environments.
 const SCHEDULE = {
   id: "ramp_1",
   entityId: "feat_1",
   status: "running",
-  steps: [],
+  steps: [
+    { actions: [{ targetId: "t_1", patch: { environments: ["production"] } }] },
+  ],
   targets: [],
 };
 
@@ -83,7 +96,14 @@ function arrange({
     ? {
         ...SCHEDULE,
         currentStepIndex: 0,
-        steps: [{ monitored: true, actions: [] }],
+        steps: [
+          {
+            monitored: true,
+            actions: [
+              { targetId: "t_1", patch: { environments: ["production"] } },
+            ],
+          },
+        ],
         monitoringConfig: { datasourceId: "ds_1" },
       }
     : SCHEDULE;
@@ -134,6 +154,42 @@ describe("postRampScheduleAction publish gate", () => {
     expect(canPublishFeature).toHaveBeenCalledWith({ project: "prj_1" }, [
       "production",
     ]);
+  });
+
+  // The "all" return path had no coverage, and it is the one an attacker picks: a
+  // rule with `allEnvironments: true` (which flattenV1ToV2Rules produces for any
+  // migrated rule covering every applicable env) makes the target answer "all",
+  // and collapsing that into the schedule's own patch list handed the gate the
+  // caller's ["production"]-free footprint.
+  it("resolves an all-environments target against the ORG's environments", async () => {
+    const { canPublishFeature } = arrange({ canPublish: false });
+    (getContextFromReq as jest.Mock).mockReturnValue({
+      ...(getContextFromReq as jest.Mock)(),
+      models: {
+        rampSchedules: {
+          getById: jest.fn(async () => ({
+            ...SCHEDULE,
+            targets: [
+              {
+                id: "t_1",
+                entityType: "feature",
+                entityId: "feat_1",
+                ruleId: "fr_1",
+              },
+            ],
+          })),
+          publishEnvironments: jest.fn(() => ["dev"]),
+        },
+        safeRollout: { getById: jest.fn(async () => null) },
+      },
+    });
+    (getFeatureRuleEnvironmentsByIds as jest.Mock).mockResolvedValue(
+      new Map([["feat_1:fr_1", "all"]]),
+    );
+
+    await postRampScheduleAction(makeReq("pause"), makeRes()).catch(() => {});
+    const envs = canPublishFeature.mock.calls[0]?.[1] as string[];
+    expect([...envs].sort()).toEqual(["dev", "production", "staging"]);
   });
 
   it("refuses refresh-monitoring before the write that creates a monitoring experiment", async () => {

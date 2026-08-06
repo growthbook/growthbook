@@ -41,6 +41,7 @@ export default function DraftSelectorForChanges({
   hideExisting = false,
   triggerPrefix = "Changes will be",
   allowNewDraftAtCap = false,
+  canWriteIntoDraft,
 }: {
   feature: FeatureInterface;
   // Un-merged live feature doc; fallback for env state on old sparse live revisions.
@@ -60,6 +61,8 @@ export default function DraftSelectorForChanges({
   // Keep "create a new draft" available even when the org's soft draft cap is
   // reached — for critical flows (revert, archive) that shouldn't be blocked.
   allowNewDraftAtCap?: boolean;
+  /** Only drafts this flow may WRITE into; omit when every active draft is fine. */
+  canWriteIntoDraft?: (revision: MinimalFeatureRevisionInterface) => boolean;
 }) {
   const permissionsUtil = usePermissionsUtil();
   const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
@@ -187,6 +190,16 @@ export default function DraftSelectorForChanges({
   return (
     <SharedDraftSelectorForChanges<number>
       activeDraftKeys={activeDrafts.map((r) => r.version)}
+      // Only drafts this flow may write into, when narrower than "active". The
+      // feature archive endpoint refuses a write into another author's draft, so
+      // listing them turned a picker choice into a 403.
+      writableDraftKeys={
+        canWriteIntoDraft
+          ? activeDrafts
+              .filter((r) => canWriteIntoDraft(r))
+              .map((r) => r.version)
+          : undefined
+      }
       selectedDraft={selectedDraft}
       setSelectedDraft={setSelectedDraft}
       mode={mode}

@@ -197,6 +197,8 @@ export async function publishFeatureRevision(
     filledLiveRules: plan.filledLiveRules,
     result: mergeChanges,
     environmentIds,
+    // The draft's ramp actions reach environments no rule diff mentions.
+    rampActions: revision.rampActions,
   });
   await assertCanPublishFeatureRevision({
     context: req.context,

@@ -16,7 +16,8 @@ export type { DraftMode };
  * entity bundles any environment badges into `revisionDropdown`.
  */
 export default function DraftSelectorForChanges<K>({
-  activeDraftKeys,
+  activeDraftKeys: allActiveDraftKeys,
+  writableDraftKeys,
   selectedDraft,
   setSelectedDraft,
   mode,
@@ -59,7 +60,14 @@ export default function DraftSelectorForChanges<K>({
   allowNewDraftAtCap?: boolean;
   // Subject of the cap message, e.g. "This feature". Defaults to "This".
   capNoun?: string;
+  /**
+   * Draft keys this flow may WRITE into, when that is narrower than "active".
+   * Offering another author's draft to a caller the endpoint refuses turns a
+   * picker choice into a 403 — see RevisionDraftSelectorForChanges.
+   */
+  writableDraftKeys?: K[];
 }) {
+  const activeDraftKeys = writableDraftKeys ?? allActiveDraftKeys;
   const singleOption = !canDraft
     ? true
     : hideExisting

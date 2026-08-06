@@ -225,6 +225,8 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       filledLiveRules: plan.filledLiveRules,
       result: plan.mergeResult,
       environmentIds: plan.environmentIds,
+      // Same blind spot as the single publish: ramp reach is not in any rule diff.
+      rampActions: raw.rampActions,
     });
     // Delegates to the same assertion a single publish makes, so the two cannot
     // disagree: publish authority over those environments, OR a narrow atom over

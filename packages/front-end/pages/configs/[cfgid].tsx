@@ -1730,7 +1730,9 @@ export default function ConfigDetailPage(): React.ReactElement {
                               setShowArchiveModal(true);
                             }}
                           >
-                            {displayedConfig.archived ? "Unarchive" : "Archive"}
+                            {/* LIVE state: the endpoint flips against live, so the
+                                projected state labels the opposite action. */}
+                            {config.archived ? "Unarchive" : "Archive"}
                           </DropdownMenuItem>
                         )}
                         {canDeleteNow && (
@@ -2291,7 +2293,12 @@ export default function ConfigDetailPage(): React.ReactElement {
 
       {showArchiveModal && (
         <ConfigArchiveModal
-          config={displayedConfig}
+          // LIVE state, like the feature page does: the endpoint flips against
+          // live, so handing the revision-PROJECTED Config here inverted the
+          // action whenever the viewed draft staged the opposite archive state —
+          // the modal predicted one atom and submitted the other, and the endpoint
+          // saw no transition at all and wrote nothing.
+          config={config}
           revisionCtx={revisionCtx}
           onSaved={onRevisionCreated}
           selectFlow={selectRevision}

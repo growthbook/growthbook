@@ -335,6 +335,9 @@ export function makeGenericBulkAdapter(
             onPersisted: (applied) => {
               revision.persistedKeys = applied.persistedKeys;
               revision.writtenEntity = applied.written;
+              // The SAME array the adapter keeps appending to, so descendant writes
+              // made after this report still reach compensation.
+              revision.cascade = applied.cascade;
             },
           }),
         );
@@ -389,6 +392,18 @@ export function makeGenericBulkAdapter(
       // move it back after the write returns and this becomes a silent
       // live-change-with-no-record, which is what H1 was.
       if (revision.writtenEntity === undefined) return;
+      // Descendant writes the apply made on this item's behalf, innermost first and
+      // BEFORE the root — a cascade that can only strip fields cannot be undone by
+      // re-running it against a restored root.
+      for (const write of [...(revision.cascade ?? [])].reverse()) {
+        await restoreEntityPreImage({
+          context,
+          entityType: targetType,
+          preImage: write.before,
+          persistedKeys: Object.keys(write.written),
+          written: write.written,
+        });
+      }
       // Restore only the fields the apply persisted, so a key dropped by the
       // filter or by normalization can't clobber a concurrent writer's value.
       const persistedKeys = revision.persistedKeys ?? [];

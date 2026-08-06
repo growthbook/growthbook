@@ -706,7 +706,9 @@ export const putConfig = async (
   const revisionId = req.query.revisionId;
   let comparisonBase: ConfigInterface = existing;
   if (revisionId) {
-    const targetRevision = await context.models.revisions.getById(revisionId);
+    const // Live basis, matching the WRITE.
+      targetRevision =
+        await context.models.revisions.getByIdReadable(revisionId);
     // Writing `archived` into a PINNED revision is a write into someone
     // else's draft: it makes that draft delete-class, and its author — a
     // publisher without delete — can then no longer publish their own work.
@@ -1209,6 +1211,13 @@ export const putConfig = async (
       );
 
       let landedDoc: Record<string, unknown> | null = null;
+      // Descendant writes the cascade makes on this landing's behalf. They must be
+      // put back BEFORE the root: the cascade can only STRIP fields, so a root-only
+      // rollback leaves a descendant permanently missing an inherited field.
+      const cascadeWrites: {
+        before: Record<string, unknown> & { id: string };
+        written: Record<string, unknown>;
+      }[] = [];
       try {
         // Guarded on the pre-image: the merge claim above guards the REVISION,
         // not the entity. A lost race reopens the revision below and returns the
@@ -1240,7 +1249,14 @@ export const putConfig = async (
           fieldsToUpdate.parent !== undefined ||
           "extends" in fieldsToUpdate
         ) {
-          await reconcileConfigDescendants(context, existing.key);
+          await reconcileConfigDescendants(context, existing.key, (w) =>
+            cascadeWrites.push({
+              before: w.before as unknown as Record<string, unknown> & {
+                id: string;
+              },
+              written: w.written,
+            }),
+          );
         }
       } catch (e) {
         try {
@@ -1257,6 +1273,7 @@ export const putConfig = async (
             },
             persisted: landedDoc,
             changes: fieldsToUpdate as Record<string, unknown>,
+            cascade: cascadeWrites,
             unmerge: () =>
               context.models.revisions.reopenAfterFailedApply(
                 revision.id,

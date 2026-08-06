@@ -93,42 +93,6 @@ export function canStageArchiveDraft({
   );
 }
 
-/**
- * Whether this caller may write an archive flip into an EXISTING draft.
- *
- * The delete atom stages a NEW archive draft, which is fair: it could land the
- * same change in one step. It must not reach into a draft someone else authored —
- * writing `archived` into another author's content draft makes that draft
- * delete-class, and its author (a publisher without delete) can then no longer
- * publish their own work. Authorship or draft authority, the same pairing every
- * other narrow-atom reach uses.
- */
-export function canWriteArchiveIntoDraft({
-  permissions,
-  model,
-  entity,
-  revision,
-  userId,
-}: {
-  permissions: {
-    canRevisionAction: (
-      model: RevisionModel,
-      action: RevisionAction,
-      obj: { project?: string; projects?: string[] },
-      environments?: string[],
-    ) => boolean;
-  };
-  model: RevisionModel;
-  entity: { project?: string; projects?: string[] };
-  revision: { authorId?: string; contributors?: string[] };
-  userId?: string;
-}): boolean {
-  if (permissions.canRevisionAction(model, "draft", entity, [])) return true;
-  // An org-scoped API key has no userId and so can never match authorship — it
-  // would be refused on a draft it created itself. Its authority is the key's, and
-  // it holds no personal draft to protect, so authorship simply does not apply.
-  if (!userId) return !revision.authorId;
-  return (
-    revision.authorId === userId || !!revision.contributors?.includes(userId)
-  );
-}
+// Lives in `shared` so the archive CONTROLS filter their draft pickers by the same
+// rule this endpoint enforces; re-exported here because callers look for it here.
+export { canWriteArchiveIntoDraft } from "shared/permissions";

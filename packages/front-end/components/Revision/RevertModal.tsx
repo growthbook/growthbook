@@ -7,7 +7,10 @@ import {
   getRevisionNumberById,
 } from "shared/enterprise";
 import { dateNoYear } from "shared/dates";
-import { canLandArchiveToggle } from "shared/permissions";
+import {
+  archiveFootprintForControl,
+  canLandArchiveToggle,
+} from "shared/permissions";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useEnvironments } from "@/services/features";
@@ -114,10 +117,6 @@ export default function RevertModal<T extends RevertableEntity>({
   const { getUserDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const environments = useEnvironments();
-  const allEnvironmentIds = useMemo(
-    () => environments.map((e) => e.id),
-    [environments],
-  );
 
   // Revision-number map (stored version, else position by creation date) so
   // the dropdown and revert title read like the rest of the page.
@@ -186,7 +185,10 @@ export default function RevertModal<T extends RevertableEntity>({
       permissionsUtil,
       revision.target.type,
       liveEntity,
-      allEnvironmentIds,
+      // The SERVE footprint, narrowed to the entity's projects — the raw org-env
+      // list over-demands, since an environment scoped away from those projects
+      // never serves the entity.
+      archiveFootprintForControl({ environments, entity: liveEntity }),
     );
   // Default the opt-in to the recovery direction (un-archive), opt-in for the
   // more disruptive re-archive direction. Re-derived when the target changes: a

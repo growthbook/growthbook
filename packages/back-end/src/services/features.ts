@@ -67,6 +67,7 @@ import {
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
 import {
+  RevisionRampAction,
   HoldoutInterface,
   ContextualBanditInterface,
   SdkConnectionCacheAuditContext,
@@ -130,7 +131,10 @@ import {
   getParsedCondition,
   pairedWeightsToPositional,
 } from "back-end/src/util/features";
-import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
+import {
+  resolveRampTargets,
+  getApplicableEnvIds,
+} from "back-end/src/util/flattenRules";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
@@ -3735,24 +3739,31 @@ export async function getLiveAndBaseRevisionsForFeature({
 // enabled envs; per-env rule/toggle changes contribute only their envs.
 // Empty contributors fall back to all enabled envs (defensive).
 //
-// Ramp actions intentionally not included — rule diffs cover them, and
-// rule-less ramp-only drafts hit the all-enabled fallback.
+// Ramp actions ARE included. The old note said rule diffs cover them; they don't —
+// a draft that also edits a dev-only rule makes the env-scoped set non-empty, so
+// the all-enabled fallback never fires and the ramp actions' reach was never in the
+// footprint at all. `assertCanControlRampSchedule` is called only from the three
+// ramp surfaces, never from a revision publish, so arming a schedule through a
+// revision consulted no ramp footprint whatsoever: stage a step patch scoping a
+// production rule to dev, edit any dev-only rule in the same draft, publish with a
+// ["dev"] footprint, and the poller applies it under an admin context.
 export async function getMergeResultPublishEnvs({
   context,
   feature,
   filledLiveRules,
   result,
   environmentIds,
+  rampActions,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
   filledLiveRules: FeatureRule[];
   result: MergeResultChanges;
   environmentIds: string[];
+  /** The revision's ramp actions, whose reach the publish must answer for. */
+  rampActions?: RevisionRampAction[];
 }): Promise<string[]> {
-  // The rule itself lives in `shared` so the Publish and Revert controls predict
-  // this exact footprint; only the holdout lookup is server-side.
-  return featurePublishFootprint({
+  const base = await featurePublishFootprint({
     feature,
     liveRules: filledLiveRules,
     changes: result,
@@ -3764,6 +3775,64 @@ export async function getMergeResultPublishEnvs({
       result.holdout,
     ),
   });
+
+  const rampEnvs = rampActionFootprint({
+    rampActions,
+    liveRules: filledLiveRules,
+    environmentIds,
+  });
+  return rampEnvs === "all"
+    ? [...environmentIds]
+    : [...new Set([...base, ...rampEnvs])];
+}
+
+/**
+ * The environments a revision's ramp actions reach: each action's patch
+ * environments UNIONED with what its target rule currently serves, since a patch
+ * naming `environments` REPLACES that field. Same rule the REST/internal ramp gate
+ * applies via `getEnvsForRampTarget`; this is the revision-path half that had none.
+ */
+function rampActionFootprint({
+  rampActions,
+  liveRules,
+  environmentIds,
+}: {
+  rampActions?: RevisionRampAction[];
+  liveRules: FeatureRule[];
+  environmentIds: string[];
+}): string[] | "all" {
+  if (!rampActions?.length) return [];
+  const envs = new Set<string>();
+  for (const action of rampActions) {
+    if (action.mode === "detach") {
+      // Detaching stops the schedule acting on the rule, which is felt wherever
+      // that rule serves.
+      const targets = resolveRampTargets({ ruleId: action.ruleId }, liveRules);
+      if (!targets.length || targets.some((r) => r.allEnvironments))
+        return "all";
+      for (const r of targets)
+        for (const e of r.environments ?? []) envs.add(e);
+      continue;
+    }
+    const patches = [
+      ...(action.startActions ?? []),
+      ...(action.steps ?? []).flatMap((st) => st.actions ?? []),
+      ...(action.endActions ?? []),
+    ].map((a) => a.patch);
+    for (const patch of patches) {
+      if (patch?.allEnvironments) return "all";
+      const scoped = patch?.environments ?? [];
+      if (!scoped.length) return "all";
+      for (const e of scoped) envs.add(e);
+    }
+    // The rule the actions aim at: a patch REPLACES its environments, so what it
+    // serves now is part of the reach.
+    const targets = resolveRampTargets({ ruleId: action.ruleId }, liveRules);
+    if (!targets.length || targets.some((r) => r.allEnvironments)) return "all";
+    for (const r of targets) for (const e of r.environments ?? []) envs.add(e);
+  }
+  void environmentIds;
+  return [...envs];
 }
 
 // `undefined` = merge didn't touch holdout. Otherwise unions the active
