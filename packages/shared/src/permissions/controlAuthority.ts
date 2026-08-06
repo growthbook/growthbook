@@ -21,6 +21,14 @@ import type { Permissions } from "./permissionsClass";
 // the endpoint matrix holds the endpoints to, so a control and its endpoint cannot
 // disagree without CI failing.
 
+// NOT here, deliberately: the ramp-schedule footprint rules live in
+// `shared/util/features.ts` — `rampTargetFootprint`, `rampTargetRuleIds`,
+// `getEnvsForRampTarget`, `getEnvsFromRampSchedule`, `rampControlFootprint`. They are
+// not MIRRORS of a server rule; the gate and the control call the same functions, so
+// there is no second implementation to drift. Splitting them from each other to satisfy
+// this module's naming would separate pieces whose division of responsibility took four
+// review rounds to get right, which is the drift risk this module exists to prevent.
+
 type PermissionsUtil = Pick<
   Permissions,
   | "canAddComment"
