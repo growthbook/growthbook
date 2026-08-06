@@ -1,5 +1,9 @@
 import md5 from "md5";
-import { isFactMetricId, expandMetricGroups } from "shared/experiments";
+import {
+  isFactMetricId,
+  expandMetricGroups,
+  getFactMetricFactTableId,
+} from "shared/experiments";
 import { SAFE_ROLLOUT_VARIATIONS } from "shared/constants";
 import {
   CreateMetricTimeSeriesSingleDataPoint,
@@ -174,7 +178,7 @@ function getSafeRolloutMetricSettingsHash(
   if (!factMetric) {
     return hashObject(metricSettings ?? { id: metricId });
   } else {
-    const numeratorFactTableId = factMetric.numerator.factTableId;
+    const numeratorFactTableId = getFactMetricFactTableId(factMetric);
     const numeratorFactTable = numeratorFactTableId
       ? factTableMap?.get(numeratorFactTableId)
       : undefined;

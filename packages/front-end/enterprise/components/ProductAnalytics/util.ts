@@ -18,7 +18,10 @@ import type {
 } from "shared/validators";
 import { isEqual } from "lodash";
 import { createParser } from "nuqs";
-import { canInlineFilterColumn } from "shared/experiments";
+import {
+  canInlineFilterColumn,
+  getFactMetricFactTableId,
+} from "shared/experiments";
 import {
   encodeExplorationConfig,
   calculateProductAnalyticsDateRange,
@@ -482,7 +485,7 @@ export function getCommonColumns(
 
       const factMetric = getFactMetricById(metricId);
       if (factMetric) {
-        const ft = getFactTableById(factMetric.numerator.factTableId);
+        const ft = getFactTableById(getFactMetricFactTableId(factMetric));
         valueColumns = ft?.columns || [];
         ft?.userIdTypes?.forEach((u) => userIdTypes.add(u));
       }
@@ -672,7 +675,7 @@ export function fillMissingUnits(
     if (v.unit || !v.metricId) return v;
     const metric = getFactMetricById(v.metricId);
     if (!metric) return v;
-    const factTable = getFactTableById(metric.numerator.factTableId);
+    const factTable = getFactTableById(getFactMetricFactTableId(metric));
     const defaultUnit = factTable?.userIdTypes?.[0];
     if (!defaultUnit) return v;
     changed = true;

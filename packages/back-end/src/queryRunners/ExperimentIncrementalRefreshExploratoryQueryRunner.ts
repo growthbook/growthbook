@@ -223,7 +223,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     // live in the cross-FT pair pass below.
     const sameFtMetrics = group.metrics.filter(
       (m) =>
-        m.numerator.factTableId === group.factTableId &&
+        m.numerator?.factTableId === group.factTableId &&
         (!isRatioMetric(m) || m.denominator?.factTableId === group.factTableId),
     );
     if (sameFtMetrics.length === 0) continue;

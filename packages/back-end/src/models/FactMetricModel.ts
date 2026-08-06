@@ -7,6 +7,7 @@ import {
 import {
   getAggregateFilters,
   getSelectedColumnDatatype,
+  isFactFunnelMetric,
 } from "shared/experiments";
 import { UpdateProps } from "shared/types/base-model";
 import {
@@ -19,8 +20,10 @@ import {
   FactMetricInterface,
   FactMetricType,
   FactTableInterface,
+  FunnelFactMetricInterface,
   LegacyColumnRef,
   LegacyFactMetricInterface,
+  StandardFactMetricInterface,
 } from "shared/types/fact-table";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
 import { promiseAllChunks } from "back-end/src/util/promise";
@@ -374,6 +377,103 @@ export class FactMetricModel extends BaseClass {
 
     const factTableMap = await this.getFactTableMap();
 
+    if (isFactFunnelMetric(data)) {
+      this.validateFunnelSettings(data, factTableMap);
+    } else {
+      await this.validateColumnRefs(data, existingMetric, factTableMap);
+    }
+
+    if (data.metricType === "quantile") {
+      if (!this.context.hasPremiumFeature("quantile-metrics")) {
+        throw new Error("Quantile metrics are a premium feature");
+      }
+
+      if (!data.quantileSettings) {
+        throw new Error("Must specify `quantileSettings` for quantile metrics");
+      }
+    }
+    if (
+      data.metricType === "retention" &&
+      !this.context.hasPremiumFeature("retention-metrics") &&
+      data.id !== "fact__demo-d7-purchase-retention" // Allows demo retention metric to be created without premium feature
+    ) {
+      throw new Error("Retention metrics are a premium feature");
+    }
+    if (data.loseRisk < data.winRisk) {
+      throw new Error(
+        `riskThresholdDanger (${data.loseRisk}) must be greater than riskThresholdSuccess (${data.winRisk})`,
+      );
+    }
+
+    if (data.minPercentChange >= data.maxPercentChange) {
+      throw new Error(
+        `maxPercentChange (${data.maxPercentChange}) must be greater than minPercentChange (${data.minPercentChange})`,
+      );
+    }
+  }
+
+  /**
+   * Funnel metrics describe their events through ordered steps rather than a
+   * numerator ColumnRef, so none of the column/aggregation rules apply. V1
+   * keeps the surface deliberately small: one fact table, no capping, no
+   * quantiles, no slices.
+   */
+  private validateFunnelSettings(
+    data: FunnelFactMetricInterface,
+    factTableMap: Map<string, FactTableInterface>,
+  ): void {
+    const { steps } = data.funnelSettings;
+    if (steps.length < 2) {
+      throw new Error("Funnel metrics need at least 2 steps");
+    }
+
+    const factTableIds = new Set(steps.map((s) => s.factTableId));
+    if (factTableIds.size > 1) {
+      throw new Error(
+        "All funnel steps must come from the same fact table for now",
+      );
+    }
+
+    const factTableId = steps[0].factTableId;
+    const factTable = factTableMap.get(factTableId);
+    if (!factTable) {
+      throw new Error("Could not find funnel fact table");
+    }
+
+    steps.forEach((step, i) => {
+      if (!step.name) {
+        throw new Error(`Funnel step ${i + 1} must have a name`);
+      }
+      validateSavedFilterIds({
+        columnRef: { factTableId, column: "", rowFilters: step.rowFilters },
+        factTable,
+        filterType: "numerator",
+      });
+    });
+
+    if (data.denominator) {
+      throw new Error("Denominator not allowed for funnel metrics");
+    }
+    if (data.cappingSettings.type) {
+      throw new Error("Capping is not supported for funnel metrics");
+    }
+    if (data.quantileSettings) {
+      throw new Error("Quantile settings are not supported for funnel metrics");
+    }
+    if (data.metricAutoSlices?.length) {
+      throw new Error("Slices are not supported for funnel metrics");
+    }
+  }
+
+  private async validateColumnRefs(
+    data: StandardFactMetricInterface,
+    existingMetric: FactMetricInterface | null,
+    factTableMap: Map<string, FactTableInterface>,
+  ): Promise<void> {
+    if (data.funnelSettings) {
+      throw new Error("funnelSettings is only allowed for funnel metrics");
+    }
+
     const numeratorFactTable = factTableMap.get(data.numerator.factTableId);
     if (!numeratorFactTable) {
       throw new Error("Could not find numerator fact table");
@@ -466,10 +566,10 @@ export class FactMetricModel extends BaseClass {
 
     const numeratorSqlExprFiltersToValidate = getNetNewSqlExprRowFilters({
       rowFilters: data.numerator.rowFilters,
-      previousRowFilters: existingMetric?.numerator.rowFilters,
+      previousRowFilters: existingMetric?.numerator?.rowFilters,
       validateAll:
         !existingMetric ||
-        existingMetric.numerator.factTableId !== data.numerator.factTableId,
+        existingMetric.numerator?.factTableId !== data.numerator.factTableId,
     });
 
     const denominatorSqlExprFiltersToValidate =
@@ -533,7 +633,7 @@ export class FactMetricModel extends BaseClass {
     if (
       data.metricType === "retention" &&
       !this.context.hasPremiumFeature("retention-metrics") &&
-      data.id !== "fact__demo-d7-purchase-retention" // Allows demo retention metric to be created without premium feature
+      data.id !== "fact__demo-d7-purchase-retention"
     ) {
       throw new Error("Retention metrics are a premium feature");
     }
@@ -633,7 +733,9 @@ export class FactMetricModel extends BaseClass {
         type: windowSettings.type || "none",
       },
       managedBy: factMetric.managedBy || "",
-      numerator: FactMetricModel.addLegacyFiltersToColumnRef(numerator),
+      numerator: numerator
+        ? FactMetricModel.addLegacyFiltersToColumnRef(numerator)
+        : undefined,
       denominator: denominator
         ? FactMetricModel.addLegacyFiltersToColumnRef(denominator)
         : undefined,

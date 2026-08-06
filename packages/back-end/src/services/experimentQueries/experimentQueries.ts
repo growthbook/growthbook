@@ -7,6 +7,8 @@ import {
   isRegressionAdjusted,
   quantileMetricType,
   eligibleForUncappedMetric,
+  isFactFunnelMetric,
+  getFactMetricFactTableId,
 } from "shared/experiments";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { MetricInterface } from "shared/types/metric";
@@ -34,8 +36,8 @@ import {
   RATIO_METRIC_FLOAT_COLS_UNCAPPED,
 } from "./constants";
 
-// Gets all columns besides the speciality quantile columns for all metrics
-export function getNonQuantileFloatColumns({
+// Gets all columns besides the speciality quantile and funnel columns for all metrics
+export function getNonQuantileNonFunnelFloatColumns({
   metric,
   regressionAdjusted,
   isBandit,
@@ -44,13 +46,16 @@ export function getNonQuantileFloatColumns({
   regressionAdjusted: boolean;
   isBandit: boolean;
 }): string[] {
+  // Funnel metrics emit none of the standard float columns; their block is one
+  // `m{i}_step_{k}_sum` per step, sized in maxColumnsNeededForMetric.
+  if (metric.metricType === "funnel") return [];
+
   const baseCols = (() => {
     switch (metric.metricType) {
       case "mean":
       case "proportion":
       case "dailyParticipation":
       case "retention":
-      case "funnel":
         return BASE_METRIC_FLOAT_COLS;
       case "ratio":
         return [...BASE_METRIC_FLOAT_COLS, ...RATIO_METRIC_FLOAT_COLS];
@@ -68,7 +73,6 @@ export function getNonQuantileFloatColumns({
       case "proportion":
       case "dailyParticipation":
       case "retention":
-      case "funnel":
         return BASE_METRIC_CUPED_FLOAT_COLS;
       case "ratio":
         return [
@@ -92,7 +96,6 @@ export function getNonQuantileFloatColumns({
       case "proportion":
       case "dailyParticipation":
       case "retention":
-      case "funnel":
         return BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS;
       case "ratio":
         return [
@@ -112,7 +115,6 @@ export function getNonQuantileFloatColumns({
       case "proportion":
       case "retention":
       case "quantile":
-      case "funnel":
         return [];
       case "mean":
       case "dailyParticipation":
@@ -158,7 +160,13 @@ export function maxColumnsNeededForMetric({
   // id column
   const boilerplateCols = 1;
 
-  const floatCols = getNonQuantileFloatColumns({
+  // A funnel occupies one metric slot but emits one sum column per step, so
+  // chunkMetrics has to budget for the step count, not for a fixed block.
+  if (isFactFunnelMetric(metric)) {
+    return boilerplateCols + metric.funnelSettings.steps.length;
+  }
+
+  const floatCols = getNonQuantileNonFunnelFloatColumns({
     metric,
     regressionAdjusted,
     isBandit,
@@ -169,7 +177,6 @@ export function maxColumnsNeededForMetric({
     case "dailyParticipation":
     case "retention":
     case "ratio":
-    case "funnel":
       return boilerplateCols + floatCols.length;
     case "quantile":
       return (
@@ -244,6 +251,14 @@ export function getFactMetricGroup(
   const conversionWindowKey = skipPartialData
     ? `_cw${getMaxHoursToConvert(false, [metric], null)}`
     : "";
+
+  // Funnel metrics build a chain of resolution CTEs on top of the shared
+  // per-user aggregate, so they can ride along with other metrics on the same
+  // fact table and conversion window.
+  if (isFactFunnelMetric(metric)) {
+    const factTableId = getFactMetricFactTableId(metric);
+    return factTableId ? `${factTableId}${conversionWindowKey}` : "";
+  }
 
   // Ratio metrics must have the same numerator and denominator fact table to be grouped
   if (isRatioMetric(metric)) {

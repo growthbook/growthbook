@@ -23,6 +23,7 @@ import {
   createExperimentSnapshot,
   getSnapshotSettings,
   planSnapshot,
+  resolveSnapshotRunner,
 } from "back-end/src/services/experiments";
 import { planMetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
@@ -708,6 +709,31 @@ describe("snapshot planning", () => {
         currentMetricSettingsHashes: new Map([["m1", plannedCurrentHash]]),
       }),
     ).toEqual(new Set(["ft_a"]));
+  });
+
+  it("falls back to the results runner for an experiment containing a funnel metric", () => {
+    const baseArgs = {
+      datasource: makeIncrementalDatasource(),
+      experiment: makeExperiment({ goalMetrics: ["m1"], metricOverrides: [] }),
+      snapshotType: "standard" as const,
+      hasSnapshotDimensions: false,
+      hasMaterializedUnitsTable: true,
+    };
+
+    expect(
+      resolveSnapshotRunner({ ...baseArgs, hasFunnelMetric: false }),
+    ).toEqual({
+      runnerFamily: "incremental",
+      incrementalFallbackReason: null,
+    });
+
+    expect(
+      resolveSnapshotRunner({ ...baseArgs, hasFunnelMetric: true }),
+    ).toEqual({
+      runnerFamily: "results",
+      incrementalFallbackReason:
+        "Funnel metrics are not supported by incremental refresh.",
+    });
   });
 
   it("does not promote to full refresh when stale config is detected outside the scheduled job", async () => {

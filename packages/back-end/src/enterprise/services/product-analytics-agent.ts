@@ -794,7 +794,7 @@ async function normalizeConfigForExplorer(
         new Set(
           dataset.values
             .filter((v) => !v.unit && v.metricId)
-            .map((v) => metricById.get(v.metricId!)?.numerator.factTableId)
+            .map((v) => metricById.get(v.metricId!)?.numerator?.factTableId)
             .filter((id): id is string => !!id),
         ),
       );
@@ -812,7 +812,9 @@ async function normalizeConfigForExplorer(
         if (v.unit || !v.metricId) return v;
         const metric = metricById.get(v.metricId);
         if (!metric) return v;
-        const factTable = factTableById.get(metric.numerator.factTableId);
+        const factTable = factTableById.get(
+          metric.numerator?.factTableId ?? "",
+        );
         const defaultUnit = factTable?.userIdTypes?.[0];
         if (!defaultUnit) return v;
         filledCount++;
@@ -989,7 +991,7 @@ async function executeGetAvailableColumns(
       const ftIds = [
         ...new Set(
           metrics
-            .map((m) => m.numerator.factTableId)
+            .map((m) => m.numerator?.factTableId)
             .filter((id): id is string => !!id),
         ),
       ];
@@ -1004,7 +1006,7 @@ async function executeGetAvailableColumns(
           m.metricType === "retention" ||
           m.metricType === "dailyParticipation" ||
           (m.metricType === "ratio" &&
-            m.numerator.column === "$$distinctUsers");
+            m.numerator?.column === "$$distinctUsers");
 
         metricUnitInfo.push({
           metricId: m.id,
@@ -1012,7 +1014,7 @@ async function executeGetAvailableColumns(
           needsUnit,
         });
 
-        if (!m.numerator.factTableId) continue;
+        if (!m.numerator?.factTableId) continue;
         const ft = ftMap.get(m.numerator.factTableId) ?? null;
         if (!userIdTypes.length && ft?.userIdTypes?.length) {
           userIdTypes = ft.userIdTypes;
@@ -1074,8 +1076,8 @@ async function executeGetColumnValues(
       const { metricIds } = input;
       if (!metricIds?.length) return "metricIds is required for metric source.";
       const metrics = await ctx.models.factMetrics.getByIds(metricIds);
-      const firstWithFt = metrics.find((m) => m.numerator.factTableId);
-      if (!firstWithFt?.numerator.factTableId) {
+      const firstWithFt = metrics.find((m) => m.numerator?.factTableId);
+      if (!firstWithFt?.numerator?.factTableId) {
         return "Could not resolve a fact table from the provided metric IDs.";
       }
       const ft = await getFactTable(ctx, firstWithFt.numerator.factTableId);

@@ -9,12 +9,10 @@ import {
 } from "shared/constants";
 import { isProjectListValidForProject } from "shared/util";
 import {
-  CreateFactMetricProps,
   FactMetricInterface,
   ColumnRef,
   UpdateFactMetricProps,
   MetricQuantileSettings,
-  FactMetricType,
   FactTableDefinition,
   FactTableInterface,
   MetricWindowSettings,
@@ -22,6 +20,7 @@ import {
   ColumnAggregation,
   FactTableColumnType,
   RowFilter,
+  StandardFactMetricInterface,
 } from "shared/types/fact-table";
 import {
   canInlineFilterColumn,
@@ -35,6 +34,7 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useFullFactTable from "@/hooks/useFullFactTable";
 import {
+  CreateStandardFactMetricProps,
   formatNumber,
   getDefaultFactMetricProps,
   getInitialInlineFilters,
@@ -351,7 +351,7 @@ function getAggregationOptions(
 function RetentionWindowSelector({
   form,
 }: {
-  form: UseFormReturn<CreateFactMetricProps>;
+  form: UseFormReturn<CreateStandardFactMetricProps>;
 }) {
   return (
     <div>
@@ -703,7 +703,7 @@ function getWHERE({
   columnRef: ColumnRef | null;
   windowSettings: MetricWindowSettings;
   quantileSettings: MetricQuantileSettings;
-  type: FactMetricType;
+  type: StandardFactMetricInterface["metricType"];
 }) {
   const whereParts =
     factTable && columnRef
@@ -783,7 +783,7 @@ function getPreviewSQL({
   numeratorFactTable,
   denominatorFactTable,
 }: {
-  type: FactMetricType;
+  type: StandardFactMetricInterface["metricType"];
   quantileSettings: MetricQuantileSettings;
   windowSettings: MetricWindowSettings;
   numerator: ColumnRef;
@@ -1006,9 +1006,9 @@ function FieldMappingModal({
   onSave,
   close,
 }: {
-  factMetric: Partial<FactMetricInterface>;
+  factMetric: Partial<StandardFactMetricInterface>;
   datasource: DataSourceInterfaceWithParams | null;
-  onSave: (metric: Partial<FactMetricInterface>) => void;
+  onSave: (metric: Partial<StandardFactMetricInterface>) => void;
   close?: () => void;
 }) {
   const { factTables, getFactTableById } = useDefinitions();
@@ -1292,7 +1292,28 @@ function FieldMappingModal({
   );
 }
 
-export default function FactMetricModal({
+export default function FactMetricModal(props: Props) {
+  if (props.existing?.metricType === "funnel") {
+    return (
+      <Modal
+        useRadixButton={false}
+        trackingEventModalType=""
+        open={true}
+        header="Edit Metric"
+        close={props.close}
+        closeCta="Close"
+      >
+        <Callout status="info">
+          Funnel metrics can&apos;t be edited here.
+        </Callout>
+      </Modal>
+    );
+  }
+
+  return <StandardFactMetricModal {...props} />;
+}
+
+function StandardFactMetricModal({
   close,
   initialFactTable,
   existing,
@@ -1364,7 +1385,7 @@ export default function FactMetricModal({
   defaultValues.maxPercentChange = defaultValues.maxPercentChange * 100;
   defaultValues.targetMDE = defaultValues.targetMDE * 100;
 
-  const form = useForm<CreateFactMetricProps>({
+  const form = useForm<CreateStandardFactMetricProps>({
     defaultValues,
   });
 
@@ -1661,7 +1682,7 @@ export default function FactMetricModal({
             });
           }
 
-          const createPayload: CreateFactMetricProps = {
+          const createPayload: CreateStandardFactMetricProps = {
             ...values,
             projects:
               numeratorFactTable?.projects || selectedDataSource.projects || [],
@@ -1808,7 +1829,10 @@ export default function FactMetricModal({
                     form.setValue("windowSettings.delayUnit", "hours");
                   }
 
-                  form.setValue("metricType", type as FactMetricType);
+                  form.setValue(
+                    "metricType",
+                    type as StandardFactMetricInterface["metricType"],
+                  );
 
                   // Set better defaults for retention metrics
                   if (type === "retention") {

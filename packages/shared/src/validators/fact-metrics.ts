@@ -299,6 +299,14 @@ const apiMetricTypeEnum = z.enum([
   "funnel",
 ]);
 
+// Funnel metrics cannot be created or updated through the REST API yet, so the
+// response enum is wider than the request enum: existing funnel metrics still
+// need to serialize.
+const apiResponseMetricTypeEnum = z.enum([
+  ...apiMetricTypeEnum.options,
+  "funnel",
+]);
+
 // Corresponds to schemas/FactMetric.yaml
 export const apiFactMetricValidator = namedSchema(
   "FactMetric",
@@ -312,8 +320,8 @@ export const apiFactMetricValidator = namedSchema(
       projects: z.array(z.string()),
       tags: z.array(z.string()),
       datasource: z.string(),
-      metricType: apiMetricTypeEnum,
-      numerator: apiNumeratorRef,
+      metricType: apiResponseMetricTypeEnum,
+      numerator: apiNumeratorRef.optional(),
       denominator: apiDenominatorRef.optional(),
       inverse: z
         .boolean()

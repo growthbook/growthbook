@@ -56713,7 +56713,6 @@ components:
         - tags
         - datasource
         - metricType
-        - numerator
         - inverse
         - cappingSettings
         - windowSettings
