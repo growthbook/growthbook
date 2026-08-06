@@ -287,8 +287,15 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
       UPDATABLE_FIELDS,
     );
 
-    if (Object.keys(filteredChanges).length === 0)
-      return { persistedKeys: [], written: null };
+    if (Object.keys(filteredChanges).length === 0) {
+      // REPORTED, not just returned: `null` means "ran and wrote nothing",
+      // which compensation must be able to tell apart from "never reported".
+      // Without this the two collapse into `undefined` and a no-op apply is
+      // indistinguishable from a failure that left state behind.
+      const nothing = { persistedKeys: [] as string[], written: null };
+      options?.onPersisted?.(nothing);
+      return nothing;
+    }
 
     const writeEntity = options?.guarded
       ? context.models.constants.updateIfUnchanged.bind(

@@ -180,8 +180,15 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
       UPDATABLE_FIELDS,
     );
 
-    if (Object.keys(filteredChanges).length === 0)
-      return { persistedKeys: [], written: null };
+    if (Object.keys(filteredChanges).length === 0) {
+      // REPORTED, not just returned: `null` means "ran and wrote nothing",
+      // which compensation must be able to tell apart from "never reported".
+      // Without this the two collapse into `undefined` and a no-op apply is
+      // indistinguishable from a failure that left state behind.
+      const nothing = { persistedKeys: [] as string[], written: null };
+      options?.onPersisted?.(nothing);
+      return nothing;
+    }
 
     // Reverts restore a previously-published condition as-is; skip the
     // registered-attributes check so an attribute removed/archived since the

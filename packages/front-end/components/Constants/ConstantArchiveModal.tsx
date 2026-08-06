@@ -26,13 +26,8 @@ export default function ConstantArchiveModal({
 }) {
   const { mutateDefinitions } = useDefinitions();
 
-  const {
-    openRevisions,
-    allRevisions,
-    approvalRequired,
-    canBypassApproval,
-    canPublish,
-  } = revisionCtx;
+  const { openRevisions, allRevisions, approvalRequired, canBypassApproval } =
+    revisionCtx;
   const permissionsUtil = usePermissionsUtil();
   const environments = useEnvironments();
 
@@ -54,20 +49,21 @@ export default function ConstantArchiveModal({
       openRevisions={openRevisions}
       approvalRequired={approvalRequired}
       canBypassApproval={canBypassApproval}
-      // BOTH directions through the shared rule, over the environments the
+      // BOTH directions through the shared rule, which picks the atom per
+      // direction: delete to take it out of service, publish to return it. NOT
+      // ANDed with publish — the endpoint lets a delete-only role archive with no
+      // edit rights at all, and requiring publish here hid Archive from the very
+      // Deleter role this work introduces, over the environments the
       // constant serves. The server treats either flip as reaching all of them
       // (`flipsArchivedState`), so routing only the archive direction here left
       // Unarchive offered on a footprint the endpoint then refused — and an empty
       // footprint SKIPS the environment check rather than narrowing it.
-      canLand={
-        canPublish &&
-        canLandArchiveToggle(
-          permissionsUtil,
-          "constant",
-          constant,
-          serveFootprint(environments, constant),
-        )
-      }
+      canLand={canLandArchiveToggle(
+        permissionsUtil,
+        "constant",
+        constant,
+        serveFootprint(environments, constant),
+      )}
       referenceCount={totalReferences}
       referencesLoading={loading}
       referencesError={(error ?? null) !== null}

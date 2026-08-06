@@ -30,13 +30,8 @@ export default function ConfigArchiveModal({
   close: () => void;
 }) {
   const { mutateDefinitions } = useDefinitions();
-  const {
-    openRevisions,
-    allRevisions,
-    approvalRequired,
-    canBypassApproval,
-    canPublish,
-  } = revisionCtx;
+  const { openRevisions, allRevisions, approvalRequired, canBypassApproval } =
+    revisionCtx;
   const permissionsUtil = usePermissionsUtil();
   const environments = useEnvironments();
 
@@ -64,21 +59,22 @@ export default function ConfigArchiveModal({
       openRevisions={openRevisions}
       approvalRequired={approvalRequired}
       canBypassApproval={canBypassApproval}
-      // BOTH directions through the shared rule. A base Config names no scoped
+      // BOTH directions through the shared rule, which picks the atom per
+      // direction: delete to take it out of service, publish to return it. NOT
+      // ANDed with publish — the endpoint lets a delete-only role archive with no
+      // edit rights at all, and requiring publish here hid Archive from the very
+      // Deleter role this work introduces. A base Config names no scoped
       // environments, and an empty footprint SKIPS the environment check — so it
       // falls back to everywhere the Config serves, exactly as the server's
       // archive arm does.
-      canLand={
-        canPublish &&
-        canLandArchiveToggle(
-          permissionsUtil,
-          "config",
-          config,
-          configPublishEnvironments(config).length
-            ? configPublishEnvironments(config)
-            : serveFootprint(environments, config),
-        )
-      }
+      canLand={canLandArchiveToggle(
+        permissionsUtil,
+        "config",
+        config,
+        configPublishEnvironments(config).length
+          ? configPublishEnvironments(config)
+          : serveFootprint(environments, config),
+      )}
       referenceCount={features.length}
       referencesLoading={loading}
       referencesError={(error ?? null) !== null}

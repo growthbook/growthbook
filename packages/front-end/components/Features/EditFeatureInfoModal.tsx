@@ -2,8 +2,11 @@ import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { getReviewSetting } from "shared/util";
-import { holdsFeatureMoveDestination } from "shared/permissions";
+import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
+import {
+  holdsFeatureMoveDestination,
+  servingEnvironments,
+} from "shared/permissions";
 import { Box } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import TagsInput from "@/components/Tags/TagsInput";
@@ -13,6 +16,7 @@ import SelectField from "@/components/Forms/SelectField";
 import TargetingProjectsField from "@/components/TargetingProjectsField";
 import Callout from "@/ui/Callout";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useEnvironments } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
@@ -43,6 +47,7 @@ const EditFeatureInfoModal: FC<{
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
+  const allEnvironments = useEnvironments();
   const [showProjectWarningMsg, setShowProjectWarningMsg] = useState(false);
   const { requireProjectForFeatures } = settings;
 
@@ -81,13 +86,26 @@ const EditFeatureInfoModal: FC<{
   // publish wherever it lands, and asking only about the source offered "Publish
   // now" for a move into a project the user cannot write to. Watched, not read
   // once, so picking a different project updates the answer.
+  // A MOVE is not inert metadata: `putFeature` measures it over the flag's enabled
+  // environments and the publish engine recomputes the same footprint, so passing
+  // [] here skipped the environment check on both halves — the comment above is
+  // true for a description edit and false for the relocation this was extended to
+  // cover.
+  const moveDestination = form.watch("project");
+  const relocates = (moveDestination || "") !== (feature.project || "");
+  const metadataEnvs = relocates
+    ? servingEnvironments(
+        feature,
+        filterEnvironmentsByFeature(allEnvironments, feature).map((e) => e.id),
+      )
+    : [];
   const canPublishMetadata =
-    permissionsUtil.canPublishFeature(feature, []) &&
+    permissionsUtil.canPublishFeature(feature, metadataEnvs) &&
     holdsFeatureMoveDestination(
       permissionsUtil,
       feature,
-      form.watch("project"),
-      [],
+      moveDestination,
+      metadataEnvs,
     );
   const canAutoPublish = (isAdmin || !metadataGated) && canPublishMetadata;
 

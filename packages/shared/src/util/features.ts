@@ -3094,6 +3094,12 @@ export function getEnvsForRampTarget(
     if (!scoped.length) return "all";
     for (const env of scoped) envs.add(env);
   }
+  // A target NO patch names is still acted on: with no steps, the start actions
+  // enable every active target, so an unnamed target reaches whatever its rule
+  // serves. Returning [] here left the same vacuity the loop above closes, one
+  // cell over — and it is the cell an attacker picks, because a schedule created
+  // with no steps at all has no patches to name anything.
+  if (!envs.size) return "all";
   return Array.from(envs);
 }
 
@@ -3126,6 +3132,11 @@ export function getEnvsFromRampSchedule(
       envs.add(env);
     }
   }
+  // Zero patches never enters the loop, so the widening above is skipped entirely
+  // — and a schedule armed with only a start date has zero patches. The poller
+  // still fires it and enables every attached target, so [] would hand the control
+  // gate an empty footprint for a schedule that publishes live state.
+  if (!envs.size) return "all";
   return [...envs];
 }
 

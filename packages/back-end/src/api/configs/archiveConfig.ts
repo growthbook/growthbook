@@ -28,7 +28,10 @@ import { landDirectChange } from "back-end/src/revisions/revertActions";
 import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { collectArchiveApprovalGate } from "back-end/src/revisions/governanceGates";
 import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
-import { configPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
+import {
+  archiveServeFootprint,
+  configPublishEnvironments,
+} from "back-end/src/revisions/revisionPublishEnvironments";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 
 async function buildResponse(
@@ -64,7 +67,15 @@ async function setArchivedState(
       model: "config",
       entity: config,
       archived,
-      environments: configPublishEnvironments(context, config),
+      // Serve footprint — the same helper the adapter and both controllers use.
+      // The scoped list is empty for a base Config, so this pre-check demanded
+      // nothing; the engine backstopped it, but a gate that answers differently
+      // from the one behind it is a gate nobody can reason about.
+      environments: archiveServeFootprint(
+        context,
+        config,
+        configPublishEnvironments(context, config),
+      ),
     })
   ) {
     context.permissions.throwPermissionError();

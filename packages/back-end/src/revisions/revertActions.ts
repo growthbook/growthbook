@@ -4,12 +4,11 @@ import { Revision, RevisionTargetType } from "shared/enterprise";
 import { logger } from "back-end/src/util/logger";
 import {
   assertLandingBaseline,
-  LandingConflictError,
   runGuardedWrite,
   tryRestoreEntityPreImage,
   withBufferedPayloadRefreshes,
 } from "back-end/src/revisions/landingSequence";
-import { CasConflictError, Context } from "back-end/src/models/BaseModel";
+import { Context } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions";
 import { assertCanPublishRevision } from "back-end/src/revisions/revisionActions";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
@@ -251,12 +250,18 @@ export async function landDirectChange<T>({
       // it started. When it can't be, the revision is KEPT as the record of what
       // actually happened, and the original failure still surfaces.
       //
-      // A rejected CAS is different from a failed write: the guarded write is the
-      // landing's first write, so losing it means NOTHING was written — and
-      // compensating would compare live against values this landing never wrote,
-      // mistake a winner's identical values for its own, and undo them.
-      const casLost =
-        e instanceof LandingConflictError || e instanceof CasConflictError;
+      // "Nothing was written" is what the REPORT says, not what the error class
+      // says. A rejected CAS never reports — `onWritten` fires after the guard
+      // check — so an unreported failure is the wrote-nothing case, and
+      // compensating it would compare live against values this landing never
+      // wrote, mistake a winner's identical values for its own, and undo them.
+      //
+      // The class was the wrong signal: on the REST Config path the descendant
+      // cascade runs OUTSIDE `runGuardedWrite`, so a CasConflictError from a
+      // descendant escapes raw — after the root write landed and reported. Read as
+      // a lost race, that deleted the merged revision and dropped the deferred
+      // events while the root change stayed live: a change with no record of it.
+      const nothingReported = persisted === null || persisted === undefined;
       // Ownership against the PERSISTED doc, not the intent — the write path
       // normalizes (adapter applyChanges and model hooks both), and comparing
       // live to unnormalized changes misreads "ours" as "someone else's":
@@ -264,26 +269,21 @@ export async function landDirectChange<T>({
       // Only what the write REPORTED persisting. No re-read fallback: a re-read
       // after failure can observe a concurrent writer and hand compensation
       // their values as if this landing had written them.
-      const written = changes && writeStarted && !casLost ? persisted : null;
-      const compensating = !!changes && writeStarted && !casLost;
-      if (compensating && written === null) {
-        // Nothing reported persisted, and a re-read can't tell "never wrote" from
-        // "a rival wrote after us". Keeping the revision is the safe reading — a
-        // live change with no record is the one outcome nothing can repair — but
-        // it looks like phantom history to whoever finds it, so say so.
-        logger.warn(
-          `Direct change to ${entityType} ${entity.id} failed before reporting what it persisted; merged revision ${merged.id} is kept as the record and live state needs checking by hand`,
-        );
-      }
+      const written =
+        changes && writeStarted && !nothingReported ? persisted : null;
+      const compensating = !!changes && writeStarted && written !== null;
+      // Nothing reported means the write never landed — the model reports from
+      // inside it, before audit and the afterUpdate hooks — so there is nothing to
+      // restore and the merged revision is phantom history to be removed. The same
+      // reading bulk and the generic publish take.
       const restored = compensating
-        ? written !== null &&
-          (await tryRestoreEntityPreImage({
+        ? await tryRestoreEntityPreImage({
             context,
             entityType,
             preImage: entity,
             persistedKeys: Object.keys(changes),
             written,
-          }))
+          })
         : true;
       if (!restored) {
         // The buffered `*.updated` events are otherwise dropped as a rolled-back

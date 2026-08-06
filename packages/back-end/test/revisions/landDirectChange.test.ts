@@ -343,7 +343,7 @@ describe("landDirectChange", () => {
   // baseline — and treating the first as the second leaves the change live with no
   // record. The report now fires from inside the document write, before audit and
   // the afterUpdate hooks, so this shape means the write truly did not land.
-  it("keeps its history when a write with changes reports nothing", async () => {
+  it("removes its history when a write with changes reports nothing", async () => {
     const h = makeContext();
 
     await expect(
@@ -361,14 +361,13 @@ describe("landDirectChange", () => {
       }),
     ).rejects.toThrow("cascade failed");
 
-    // Nothing reported, so there is no baseline to judge ownership against and no
-    // restore is attempted. The history is KEPT — with the report wired at the
-    // write itself this shape means the write never landed, but an
-    // un-instrumented caller looks identical, and a live change with no record is
-    // the one outcome nothing can repair. `landDirectChange` logs the ambiguity
-    // rather than deciding silently.
+    // Nothing reported means the write never landed: the model reports from INSIDE
+    // the document write, before audit and the afterUpdate hooks. So there is
+    // nothing to restore, and the merged revision is phantom history — a record of
+    // a landing that wrote nothing must not survive. The same reading bulk and the
+    // generic publish take; it holds only because of where the report fires.
     expect(tryRestoreEntityPreImage).not.toHaveBeenCalled();
-    expect(h.dangerousDeleteByIdBypassPermission).not.toHaveBeenCalled();
+    expect(h.dangerousDeleteByIdBypassPermission).toHaveBeenCalled();
   });
 
   // A rejected CAS means the guarded write matched NOTHING: compensating would

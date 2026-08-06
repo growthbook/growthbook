@@ -7,7 +7,6 @@ import {
   canPublishRevisionEntity,
   canReviewRevisionEntity,
   holdsRevisionDestination,
-  revisionPublishFootprint,
   serveFootprint,
 } from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
@@ -131,10 +130,6 @@ export default function ConstantDetailPage(): React.ReactElement {
   const { organization, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const environments = useEnvironments();
-  const allEnvironmentIds = useMemo(
-    () => environments.map((e) => e.id),
-    [environments],
-  );
 
   const [editInfoOpen, setEditInfoOpen] = useState(false);
   const [editValueOpen, setEditValueOpen] = useState(false);
@@ -234,16 +229,27 @@ export default function ConstantDetailPage(): React.ReactElement {
       ).changedEnvironments,
     );
     // Widened when the revision flips `archived` EITHER way, matching the
-    // adapter: both directions reach everywhere the constant serves, and the
-    // change's own environments are empty for an archive-only revision.
-    return revisionPublishFootprint({
-      proposedChanges: {
-        archived: proposedArchivedValue(pending.target.proposedChanges),
-      },
-      currentArchived: constant?.archived,
-      scoped,
-      serving: serveFootprint(environments, constant ?? {}),
-    });
+    // constant adapter — which ignores the change's own environments on a flip and
+    // answers for everywhere the constant serves. `scoped` is deliberately NOT
+    // passed through here: that is the CONFIG rule (a scoped Config keeps its own
+    // environments), and borrowing it meant a revision that archived AND edited a
+    // dev override demanded only dev on the client while the server demanded
+    // everywhere.
+    //
+    // `currentArchived` comes from the revision's SNAPSHOT, like the adapter's, so a
+    // draft opened before an intervening flip is judged the same way the endpoint
+    // judges it.
+    const proposedArchived = proposedArchivedValue(
+      pending.target.proposedChanges,
+    );
+    const snapshotArchived = (
+      pending.target.snapshot as ConstantInterface | undefined
+    )?.archived;
+    const flipsArchived =
+      proposedArchived !== undefined && proposedArchived !== !!snapshotArchived;
+    return flipsArchived
+      ? serveFootprint(environments, constant ?? {})
+      : scoped;
   }, [selectedRevision, displayRevision, constant, environments]);
 
   // Count of active drafts awaiting/in review — drives the count bubble on the
@@ -667,7 +673,9 @@ export default function ConstantDetailPage(): React.ReactElement {
               permissionsUtil,
               "constant",
               constant,
-              allEnvironmentIds,
+              // Narrowed to the constant's projects, like the server's
+              // `archiveServeFootprint` — raw org envs over-demanded.
+              serveFootprint(environments, constant),
             )}
             holdsLandingDestination={holdsRevisionDestination(
               permissionsUtil,

@@ -646,6 +646,10 @@ export class RevisionModel extends BaseClass {
    * it no longer owns, and the destination was denied history for one it does. The
    * snapshot check can only be a floor, and it is bypassed here so the live basis
    * is the only one that decides.
+   *
+   * Every handler in the revision controller opens its row through here, not just
+   * the GETs. Converting only the reads left the destination able to LIST a moved
+   * entity's revisions and then 404 on every verb — the same split, one layer down.
    */
   async getByIdReadable(id: string): Promise<Revision | null> {
     const [doc] = await this._find(
@@ -2295,6 +2299,20 @@ export class RevisionModel extends BaseClass {
       )
       .toArray();
 
+    // Read-filtered on the LIVE entity, like the beacon one method over. Without
+    // it, calling this with no ids — which the draft-state hook does — returned
+    // every entity id in the org plus its draft activity, to any authenticated
+    // member. One batched projected lookup, not a fetch per row.
+    const seen = new Set<string>();
+    for (const doc of docs) {
+      const entityId = doc.target?.id as string;
+      if (entityId) seen.add(entityId);
+    }
+    if (!seen.size) return {};
+    const readable = await this.readableTargetIds(
+      [...seen].map((id) => ({ type, id })),
+    );
+
     const result: Record<
       string,
       Partial<Record<ActiveDraftStatus, number>>
@@ -2303,6 +2321,7 @@ export class RevisionModel extends BaseClass {
       const entityId = doc.target?.id as string;
       const status = doc.status as ActiveDraftStatus;
       if (!entityId) continue;
+      if (!readable.has(`${type}:${entityId}`)) continue;
       if (!result[entityId]) result[entityId] = {};
       result[entityId][status] = (result[entityId][status] ?? 0) + 1;
     }

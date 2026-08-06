@@ -124,7 +124,10 @@ export function canWriteArchiveIntoDraft({
   userId?: string;
 }): boolean {
   if (permissions.canRevisionAction(model, "draft", entity, [])) return true;
-  if (!userId) return false;
+  // An org-scoped API key has no userId and so can never match authorship — it
+  // would be refused on a draft it created itself. Its authority is the key's, and
+  // it holds no personal draft to protect, so authorship simply does not apply.
+  if (!userId) return !revision.authorId;
   return (
     revision.authorId === userId || !!revision.contributors?.includes(userId)
   );

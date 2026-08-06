@@ -19,6 +19,7 @@ import {
   getApprovalFlowSettings,
   normalizeProposedChanges,
 } from "shared/enterprise";
+import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
 import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -756,6 +757,24 @@ export const putSavedGroup = async (
 
   if (revisionId) {
     targetRevision = await context.models.revisions.getById(revisionId);
+    // Writing `archived` into a PINNED revision is a write into someone else's
+    // draft: it makes that draft delete-class, and its author — a publisher
+    // without delete — can then no longer publish their own work.
+    // `archiveOnlyRequest` inspects only the BODY, and `revisionId` is a QUERY
+    // param, so the delete-atom exemption passed straight through.
+    if (
+      targetRevision &&
+      typeof archived === "boolean" &&
+      !canWriteArchiveIntoDraft({
+        permissions: context.permissions,
+        model: "saved-group",
+        entity: savedGroup,
+        revision: targetRevision,
+        userId: context.userId,
+      })
+    ) {
+      context.permissions.throwPermissionError();
+    }
     if (targetRevision && targetRevision.target.type === "saved-group") {
       // Apply patch ops to snapshot to get current state of the revision
       const patchedSnapshot = applyPatchToSnapshot(

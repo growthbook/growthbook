@@ -53,13 +53,11 @@ import { decideScheduledPublishOutcome } from "back-end/src/revisions/publishFai
 import { logger } from "back-end/src/util/logger";
 import {
   assertLandingBaseline,
-  LandingConflictError,
   liveMatchesDesiredState,
   runGuardedWrite,
   tryRestoreEntityPreImage,
   withBufferedPayloadRefreshes,
 } from "back-end/src/revisions/landingSequence";
-import { CasConflictError } from "back-end/src/models/BaseModel";
 
 // Actions the generic revision controller dispatches to adapter hooks.
 export type RevisionActionKind =
@@ -778,8 +776,12 @@ async function publishRevisionInner(
     // Restore the entity for real failures; only a clean (or unneeded) restore
     // may reopen, otherwise live is mid-change and the merged revision stays as
     // the record of it.
-    const casLost =
-      e instanceof LandingConflictError || e instanceof CasConflictError;
+    // A rejected CAS never reports — `onWritten` fires only after the guard
+    // check — so the ABSENCE of a report already covers the lost-race case, and
+    // covers it correctly where the error class did not: a Config's descendant
+    // cascade raises CasConflictError long after the root write reported, and the
+    // class alone read that live change as having written nothing.
+    const nothingReported = !applied || applied.written === undefined;
     // Ownership is judged against what the adapter PERSISTED, not the intent:
     // adapters normalize (a Config schema stripped as ancestor-owned), so the
     // unnormalized desiredState misreads "ours" as "someone else's". The apply
@@ -789,10 +791,13 @@ async function publishRevisionInner(
     // write, so nothing of ours is live. `null` means it reported writing
     // nothing. Neither is a re-read: distinguishing them is why the callback
     // exists, and conflating them with `??` sent both down a guessing path.
-    const written = casLost ? null : (applied?.written ?? null);
-    const entityRestored =
-      casLost ||
-      (written !== null &&
+    const written = nothingReported || !applied ? null : applied.written;
+    // Nothing reported means the apply never reached its entity write (adapters
+    // report from inside it), so there is nothing to restore and the revision may
+    // be reopened cleanly — the same reading bulk takes.
+    const entityRestored = nothingReported
+      ? true
+      : written !== null &&
         (await tryRestoreEntityPreImage({
           context,
           entityType: revision.target.type,
@@ -801,7 +806,7 @@ async function publishRevisionInner(
             updatableFields.has(k),
           ),
           written,
-        })));
+        }));
     if (!entityRestored) {
       logger.error(
         { revisionId: merged.id },

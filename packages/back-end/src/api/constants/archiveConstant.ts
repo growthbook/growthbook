@@ -4,6 +4,7 @@ import {
   unarchiveConstantValidator,
 } from "shared/validators";
 import { ConstantInterface } from "shared/types/constant";
+import { archiveServeFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { ApiReqContext, ApiRequestLocals } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -21,7 +22,6 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { landDirectChange } from "back-end/src/revisions/revertActions";
-import { getEnvironments } from "back-end/src/services/organizations";
 import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { collectArchiveApprovalGate } from "back-end/src/revisions/governanceGates";
 import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
@@ -63,7 +63,10 @@ async function setArchivedState(
       // The serve footprint: archiving takes the base value out of EVERY
       // environment, so the delete atom must hold in all of them — the unbound
       // sentinel made this check vacuous for env-limited deleters.
-      environments: getEnvironments(context.org).map((e) => e.id),
+      // Serve footprint, narrowed to the constant's projects — the raw org env
+      // list OVER-demanded here, so a deleteConstants role limited to one
+      // environment was refused via REST while the dashboard PUT allowed it.
+      environments: archiveServeFootprint(context, constant),
     })
   ) {
     context.permissions.throwPermissionError();

@@ -9,7 +9,7 @@ import {
   getReviewSetting,
   getRulesForEnvironment,
 } from "shared/util";
-import { revertFootprint } from "shared/permissions";
+import { metadataTouchesPayload, revertFootprint } from "shared/permissions";
 import isEqual from "lodash/isEqual";
 import { Flex, Box } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
@@ -150,6 +150,14 @@ export default function RevertModal({
         feature.prerequisites ?? [],
       )) ||
     !!targetRevisionForAction.archived !== !!feature.archived ||
+    // Metadata — the case the comment above always listed and the check never
+    // included. A metadata-only revert produced NO changed rule environments, so
+    // the footprint was empty, which SKIPS the environment check rather than
+    // narrowing it: "Publish now" was offered to a dev-limited reverter for a
+    // production flag. Payload-affecting keys only, matching the endpoint.
+    metadataTouchesPayload(
+      targetRevisionForAction.metadata as Record<string, unknown> | undefined,
+    ) ||
     Object.entries(targetRevisionForAction.environmentsEnabled ?? {}).some(
       ([env, enabled]) =>
         enabled !== !!feature.environmentSettings?.[env]?.enabled,

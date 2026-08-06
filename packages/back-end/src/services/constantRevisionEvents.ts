@@ -1,3 +1,4 @@
+import { serveFootprint } from "shared/permissions";
 import {
   Revision,
   JsonPatchOperation,
@@ -9,6 +10,7 @@ import {
   NotificationEventPayloadSchemaType,
 } from "shared/types/events/base-types";
 import { constantPublishEnvironments } from "shared/util";
+import { getEnvironments } from "back-end/src/services/organizations";
 import { Context } from "back-end/src/models/BaseModel";
 import { revisionEventProjects } from "back-end/src/events/revisionWebhookAdapters";
 import { ApiReqContext } from "back-end/types/api";
@@ -68,10 +70,18 @@ export async function dispatchConstantRevisionEvent(
       revision.target.id,
     );
     const projects = revisionEventProjects(revision, liveForRouting);
-    const environments = constantPublishEnvironments(
+    // A base-value change names NO environment but is felt in every one the
+    // constant applies to, and `[]` means "affects nothing" to the delivery filter
+    // — so an environment-filtered subscription heard nothing about exactly the
+    // changes with the widest reach. Resolved HERE, where the difference between
+    // "affects nothing" and "affects everything" is knowable.
+    const scopedEnvironments = constantPublishEnvironments(
       getConstantRevisionChange(snapshot, revision.target.proposedChanges)
         .changedEnvironments,
     );
+    const environments = scopedEnvironments.length
+      ? scopedEnvironments
+      : serveFootprint(getEnvironments(context.org), snapshot);
 
     const emit = async <T extends ConstantRevisionEvent>(
       event: T,

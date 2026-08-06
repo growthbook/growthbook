@@ -33,15 +33,11 @@ export const filterEventForEnvironments = ({
     return true;
   }
 
-  // An event that names NO environment isn't scoped to one — a Constant or Config
-  // base-value change binds to none and is felt in all of them. Intersecting an
-  // empty list matches nothing, so an environment-filtered subscription silently
-  // stopped hearing about exactly the changes with the widest reach. A filter is
-  // there to drop OTHER environments' noise, not unscoped events.
-  const eventEnvironments = event.environments || [];
-  if (eventEnvironments.length === 0) {
-    return true;
-  }
-
-  return intersection(eventEnvironments, environments).length > 0;
+  // `[]` means "no environment-scoped impact" (see eventEnvironments.ts), so it
+  // correctly matches nothing here. Widening it at this layer sent every
+  // description edit — metadata isn't in RELEVANT_KEYS_FOR_ALL_ENVS, so its
+  // producer emits [] — to every environment-filtered subscription. An event that
+  // reaches ALL environments has to say so at the PRODUCER, which is the only place
+  // that can tell "affects nothing" from "affects everything".
+  return intersection(event.environments || [], environments).length > 0;
 };

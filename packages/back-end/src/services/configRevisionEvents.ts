@@ -1,10 +1,12 @@
 import { configPublishEnvironments } from "shared/util";
+import { serveFootprint } from "shared/permissions";
 import { Revision, JsonPatchOperation } from "shared/enterprise";
 import { ConfigInterface } from "shared/types/config";
 import {
   ResourceEvents,
   NotificationEventPayloadSchemaType,
 } from "shared/types/events/base-types";
+import { getEnvironments } from "back-end/src/services/organizations";
 import { revisionEventProjects } from "back-end/src/events/revisionWebhookAdapters";
 import { Context } from "back-end/src/models/BaseModel";
 import { ApiReqContext } from "back-end/types/api";
@@ -67,7 +69,13 @@ export async function dispatchConfigRevisionEvent(
       revision.target.id,
     );
     const projects = revisionEventProjects(revision, liveForRouting);
-    const environments = configPublishEnvironments(snapshot);
+    // A BASE Config scopes to no environment but is felt in every one it applies
+    // to, and `[]` means "affects nothing" to the delivery filter. Resolved here,
+    // where the two are distinguishable — see constantRevisionEvents.
+    const scopedEnvironments = configPublishEnvironments(snapshot);
+    const environments = scopedEnvironments.length
+      ? scopedEnvironments
+      : serveFootprint(getEnvironments(context.org), snapshot);
 
     const emit = async <T extends ConfigRevisionEvent>(
       event: T,

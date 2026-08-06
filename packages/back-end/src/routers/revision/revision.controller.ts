@@ -488,7 +488,7 @@ export const postSubmit = async (
 
   const revisionModel = context.models.revisions;
 
-  const existingRevision = await revisionModel.getById(id);
+  const existingRevision = await revisionModel.getByIdReadable(id);
   if (!existingRevision) {
     return res.status(404).json({ message: "Revision not found" });
   }
@@ -577,7 +577,7 @@ export const postReview = async (
 
   const revisionModel = context.models.revisions;
 
-  const existingRevision = await revisionModel.getById(id);
+  const existingRevision = await revisionModel.getByIdReadable(id);
   if (!existingRevision) {
     return res.status(404).json({ message: "Revision not found" });
   }
@@ -707,7 +707,7 @@ export const putProposedChanges = async (
 
   const revisionModel = context.models.revisions;
 
-  const existingRevision = await revisionModel.getById(id);
+  const existingRevision = await revisionModel.getByIdReadable(id);
   if (!existingRevision) {
     return res.status(404).json({ message: "Revision not found" });
   }
@@ -818,7 +818,7 @@ export const patchTitle = async (
 
   const revisionModel = context.models.revisions;
 
-  const existingRevision = await revisionModel.getById(id);
+  const existingRevision = await revisionModel.getByIdReadable(id);
   if (!existingRevision) {
     return res.status(404).json({ message: "Revision not found" });
   }
@@ -886,7 +886,7 @@ export const patchDescription = async (
 
   const revisionModel = context.models.revisions;
 
-  const existingRevision = await revisionModel.getById(id);
+  const existingRevision = await revisionModel.getByIdReadable(id);
   if (!existingRevision) {
     return res.status(404).json({ message: "Revision not found" });
   }
@@ -956,7 +956,7 @@ export const postRebase = async (
 
   const revisionModel = context.models.revisions;
 
-  const revision = await revisionModel.getById(id);
+  const revision = await revisionModel.getByIdReadable(id);
   if (!revision) {
     return res.status(404).json({ message: "Revision not found" });
   }
@@ -1076,7 +1076,7 @@ export const postMerge = async (
   const { id } = req.params;
 
   const revisionModel = context.models.revisions;
-  const revision = await revisionModel.getById(id);
+  const revision = await revisionModel.getByIdReadable(id);
 
   if (!revision) {
     return res.status(404).json({
@@ -1126,7 +1126,7 @@ export const postApproveAndPublish = async (
   const { comment } = req.body;
 
   const revisionModel = context.models.revisions;
-  const revision = await revisionModel.getById(id);
+  const revision = await revisionModel.getByIdReadable(id);
   if (!revision) {
     return res.status(404).json({ message: "Revision not found" });
   }
@@ -1262,7 +1262,7 @@ export const postToggleAutoPublish = async (
   const { enabled } = req.body;
 
   const revisionModel = context.models.revisions;
-  const existing = await revisionModel.getById(id);
+  const existing = await revisionModel.getByIdReadable(id);
   if (!existing) {
     return res.status(404).json({ message: "Revision not found" });
   }
@@ -1354,7 +1354,7 @@ export const postClose = async (
 
   const revisionModel = context.models.revisions;
 
-  const existingRevision = await revisionModel.getById(id);
+  const existingRevision = await revisionModel.getByIdReadable(id);
   if (!existingRevision) {
     return res.status(404).json({ message: "Revision not found" });
   }
@@ -1417,7 +1417,7 @@ export const postReopen = async (
 
   const revisionModel = context.models.revisions;
 
-  const existingRevision = await revisionModel.getById(id);
+  const existingRevision = await revisionModel.getByIdReadable(id);
   if (!existingRevision) {
     return res.status(404).json({ message: "Revision not found" });
   }
@@ -1484,7 +1484,7 @@ export const postRecallReview = async (
 
   const revisionModel = context.models.revisions;
 
-  const existingRevision = await revisionModel.getById(id);
+  const existingRevision = await revisionModel.getByIdReadable(id);
   if (!existingRevision) {
     return res.status(404).json({ message: "Revision not found" });
   }
@@ -1549,7 +1549,7 @@ export const postUndoReview = async (
 
   const revisionModel = context.models.revisions;
 
-  const existingRevision = await revisionModel.getById(id);
+  const existingRevision = await revisionModel.getByIdReadable(id);
   if (!existingRevision) {
     return res.status(404).json({ message: "Revision not found" });
   }
@@ -1624,7 +1624,7 @@ export const putComment = async (
 
   const revisionModel = context.models.revisions;
 
-  const existingRevision = await revisionModel.getById(id);
+  const existingRevision = await revisionModel.getByIdReadable(id);
   if (!existingRevision) {
     return res.status(404).json({ message: "Revision not found" });
   }
@@ -1677,7 +1677,7 @@ export const deleteComment = async (
 
   const revisionModel = context.models.revisions;
 
-  const existingRevision = await revisionModel.getById(id);
+  const existingRevision = await revisionModel.getByIdReadable(id);
   if (!existingRevision) {
     return res.status(404).json({ message: "Revision not found" });
   }
@@ -1732,7 +1732,7 @@ export const postSchedulePublish = async (
 
   const revisionModel = context.models.revisions;
 
-  const existingRevision = await revisionModel.getById(id);
+  const existingRevision = await revisionModel.getByIdReadable(id);
   if (!existingRevision) {
     return res.status(404).json({ message: "Revision not found" });
   }
@@ -1929,7 +1929,7 @@ export const getConflicts = async (
   const { id } = req.params;
 
   const revisionModel = context.models.revisions;
-  const revision = await revisionModel.getById(id);
+  const revision = await revisionModel.getByIdReadable(id);
   if (!revision) {
     return res.status(404).json({ message: "Revision not found" });
   }

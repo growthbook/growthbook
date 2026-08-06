@@ -11,7 +11,6 @@ import {
 import { canPublishRevisionChange } from "back-end/src/revisions/revisionActions";
 import { buildMergeDesiredState } from "back-end/src/revisions/util";
 import type { Context } from "back-end/src/models/BaseModel";
-import { CasConflictError } from "back-end/src/models/BaseModel";
 import {
   type EntityRevisionAdapter,
   filterUpdatableChanges,
@@ -25,7 +24,6 @@ import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
 import { displayEntityName } from "back-end/src/revisions/entityNames";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
 import {
-  LandingConflictError,
   restoreEntityPreImage,
   runGuardedWrite,
 } from "back-end/src/revisions/landingSequence";
@@ -341,15 +339,26 @@ export function makeGenericBulkAdapter(
           }),
         );
       } catch (e) {
-        // A rejected CAS wrote NOTHING, so this item has nothing to restore. It
-        // must be marked so before the `finally` below: the post-apply read would
-        // otherwise snapshot the concurrent WINNER's doc as this item's output,
-        // and compensation — comparing live to values it believes this apply
-        // wrote — would mistake the winner's work for ours and erase it.
-        if (
-          e instanceof LandingConflictError ||
-          e instanceof CasConflictError
-        ) {
+        // Whether anything landed is decided by the REPORT, not the error class.
+        // A rejected CAS never reports — `onWritten` fires after the guard check —
+        // so an unreported failure is the "wrote nothing" case. Keying off the
+        // class instead was wrong in the one direction that matters:
+        // `reconcileConfigDescendants` re-throws CasConflictError from a
+        // DESCENDANT write, long after the root write landed AND reported, so a
+        // live change was marked as having written nothing and compensation
+        // returned clean while the item was reported rolled-back.
+        //
+        // Marked before the `finally` below either way: the post-apply read would
+        // otherwise snapshot a concurrent WINNER's doc as this item's output, and
+        // compensation would mistake their work for ours and erase it.
+        // A rejected CAS matched zero documents, which PROVES nothing landed — but
+        // only when this apply also reported nothing. `reconcileConfigDescendants`
+        // re-throws CasConflictError from a DESCENDANT write, after the root write
+        // landed and reported, and the class alone marked that live change as
+        // having written nothing. An unreported non-CAS failure is neither: it
+        // falls through with no baseline, and `restorePreImage` leaves the item
+        // reported published rather than claiming a clean rollback.
+        if (revision.writtenEntity === undefined) {
           revision.persistedKeys = [];
           revision.casLost = true;
         }
@@ -358,7 +367,9 @@ export function makeGenericBulkAdapter(
     },
 
     async restorePreImage(context, preImage, revision) {
-      // A lost CAS wrote nothing — there is nothing to put back.
+      // Nothing was reported written, so there is nothing to put back. Set in the
+      // apply's catch from the absence of a report rather than from the error
+      // class — see there for why the class was the wrong signal.
       if (revision.casLost) return;
       const model = adapter.getModel(context);
       const current = await model?.getById((preImage as { id: string }).id);
@@ -370,20 +381,21 @@ export function makeGenericBulkAdapter(
         );
       }
       // The apply reports from INSIDE the document write, before audit logging and
-      // the afterUpdate hooks — so a missing baseline genuinely means the write
-      // never landed. That was NOT true while the report fired after the write
-      // call returned: a throw in a post-write hook left the document written and
-      // unreported, and returning here reported the item "rolled-back" while live
-      // kept the change with no record of it. Fail closed if it ever regresses:
-      // an unrestorable pre-image is reported published, not silently clean.
-      if (revision.writtenEntity === undefined) {
-        if (revision.persistedKeys?.length) {
-          throw new Error(
-            `bulk publish compensation: ${targetType} "${(preImage as { id: string }).id}" reported persisted keys with no baseline — cannot tell what landed`,
-          );
-        }
-        return;
-      }
+      // the afterUpdate hooks, so a missing baseline means the write never landed —
+      // and the `casLost` return above already covers that, because the apply's
+      // catch derives it from the same absent report. A guard here comparing
+      // `persistedKeys` against the baseline could never fire: `onPersisted`
+      // assigns both together, and the only other writer clears both.
+      // `null` is a REPORT: the apply ran and wrote nothing, so there is nothing to
+      // put back and the item is cleanly not-applied.
+      if (revision.writtenEntity === null) return;
+      // `undefined` is the absence of a report, which now means the apply never
+      // reached its entity write — every adapter reports from INSIDE that write,
+      // before audit and the afterUpdate hooks. Nothing of ours is live, so the
+      // item rolls back cleanly. That reading depends on the reporting placement:
+      // move it back after the write returns and this becomes a silent
+      // live-change-with-no-record, which is what H1 was.
+      if (revision.writtenEntity === undefined) return;
       // Restore only the fields the apply persisted, so a key dropped by the
       // filter or by normalization can't clobber a concurrent writer's value.
       const persistedKeys = revision.persistedKeys ?? [];

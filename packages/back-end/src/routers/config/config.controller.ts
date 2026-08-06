@@ -32,6 +32,7 @@ import {
   ScopedOverrideEntry,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
+import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
 import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -703,6 +704,24 @@ export const putConfig = async (
   let comparisonBase: ConfigInterface = existing;
   if (revisionId) {
     const targetRevision = await context.models.revisions.getById(revisionId);
+    // Writing `archived` into a PINNED revision is a write into someone
+    // else's draft: it makes that draft delete-class, and its author — a
+    // publisher without delete — can then no longer publish their own work.
+    // `archiveOnlyRequest` above inspects only the BODY, and `revisionId` is
+    // a QUERY param, so the delete-atom exemption passed straight through.
+    if (
+      targetRevision &&
+      typeof archived === "boolean" &&
+      !canWriteArchiveIntoDraft({
+        permissions: context.permissions,
+        model: "config",
+        entity: existing,
+        revision: targetRevision,
+        userId: context.userId,
+      })
+    ) {
+      context.permissions.throwPermissionError();
+    }
     if (targetRevision && targetRevision.target.type === "config") {
       const patchedSnapshot = applyPatchToSnapshot(
         targetRevision.target.snapshot as ConfigInterface,

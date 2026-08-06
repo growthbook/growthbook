@@ -3675,17 +3675,42 @@ describe("getEnvsForRampTarget", () => {
     );
   });
 
-  it("ignores patches aimed at another target", () => {
+  // My previous version of this case asserted [], which PINNED the vacuity as
+  // correct one cell over from the one it closed. A target no patch names is still
+  // acted on — with no steps, the start actions enable every attached target — so
+  // an empty footprint here made every control action on the schedule vacuous.
+  it("widens a target no patch names to 'all', never []", () => {
     expect(
       getEnvsForRampTarget(
         target({ coverage: 1, environments: ["production"] }) as never,
         "t2",
       ),
-    ).toEqual([]);
+    ).toBe("all");
+  });
+
+  it("widens a schedule with no patches at all to 'all'", () => {
+    expect(
+      getEnvsForRampTarget(
+        { startActions: [], steps: [], endActions: [] } as never,
+        "t1",
+      ),
+    ).toBe("all");
   });
 });
 
 describe("getEnvsFromRampSchedule", () => {
+  // The arming gate's footprint. A schedule created with only a start date has no
+  // patches, so the loop never runs and the unscoped widening never applies.
+  it("widens a schedule with no patches to 'all', never []", () => {
+    expect(
+      getEnvsFromRampSchedule({
+        startActions: [],
+        steps: [],
+        endActions: [],
+      } as never),
+    ).toBe("all");
+  });
+
   it("collects all environments mentioned in any step patch", () => {
     const sched = makeSchedule([
       { environments: ["dev"] },

@@ -295,10 +295,6 @@ export default function ConfigDetailPage(): React.ReactElement {
   const { organization, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const environments = useEnvironments();
-  const allEnvironmentIds = useMemo(
-    () => environments.map((e) => e.id),
-    [environments],
-  );
 
   const [editInfoOpen, setEditInfoOpen] = useState(false);
   const [confirmRevert, setConfirmRevert] = useState(false);
@@ -962,7 +958,9 @@ export default function ConfigDetailPage(): React.ReactElement {
     // check instead of narrowing it.
     configPublishEnvironments(config).length
       ? configPublishEnvironments(config)
-      : allEnvironmentIds,
+      : // Narrowed to the Config's projects, like the server's
+        // `archiveServeFootprint` — raw org envs over-demanded.
+        serveFootprint(environments, config),
   );
   const canArchiveNow =
     (canLandArchive || canEditNow) &&
@@ -2215,7 +2213,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   config,
                   configPublishEnvironments(config).length
                     ? configPublishEnvironments(config)
-                    : allEnvironmentIds,
+                    : serveFootprint(environments, config),
                 )}
                 holdsLandingDestination={holdsRevisionDestination(
                   permissionsUtil,
