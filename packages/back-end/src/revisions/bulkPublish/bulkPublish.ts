@@ -600,7 +600,17 @@ export async function commitBulkPublish(
         context.sdkPayloadRefreshBuffer.treatEmptyProjectAsGlobal ||=
           applyBuffer.treatEmptyProjectAsGlobal;
       }
-      // Drop the restores' *.updated events; flush their payload refreshes once.
+      // Drop the deferred *.updated events; flush their payload refreshes once.
+      //
+      // KNOWN LIMITATION, same root as the stuck-item one below: an item left
+      // stuck-published has DURABLE live state, and dropping its events means
+      // consumers never hear about a change that exists. Emitting the buffer
+      // instead would fire success-shaped events for the items that DID roll back
+      // cleanly, which is worse. The buffered closures carry no item identity, so
+      // telling the two apart needs identity threaded through
+      // `emitOrDeferBulkPublishEvent` — the same work the dedicated
+      // stuck/needs-attention event wants. The payload refresh below always
+      // flushes, so SDKs serve whatever state actually survived.
       context.bulkPublishDeferredEvents = null;
       flushPayloadRefreshBuffer(context, "bulk-publish-compensation");
       // A commit failure is the incident-worthy outcome: the release was

@@ -621,6 +621,10 @@ export const putConstant = async (
 
       // Claim the merge first (CAS-guarded) so a concurrent discard can't orphan
       // a half-applied change; reopen if the live write then fails.
+      // The pre-merge revision, for compensation below: the claim overwrites
+      // `revision` with the merged row, and un-merging has to restore the status
+      // it actually had.
+      const priorRevision = revision;
       revision = await context.models.revisions.merge(
         revision.id,
         context.userId,
@@ -642,7 +646,17 @@ export const putConstant = async (
         );
       } catch (e) {
         try {
-          await context.models.revisions.reopen(revision.id, context.userId);
+          // Un-merge. `reopen` is the LIFECYCLE action and now accepts only a
+          // DISCARDED revision, so it silently refused here and left the revision
+          // merged though nothing landed. This is compensation: restore the
+          // pre-merge status, guarded on the merge this flow just wrote so a
+          // concurrent recovery is never clobbered.
+          await context.models.revisions.reopenAfterFailedApply(
+            revision.id,
+            context.userId,
+            priorRevision,
+            revision.dateUpdated,
+          );
         } catch {
           // ignore — surface the original update error
         }

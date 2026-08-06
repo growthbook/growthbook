@@ -811,11 +811,23 @@ export class RevisionModel extends BaseClass {
     entityId: string,
     version: number,
   ) {
-    return this._findOne({
-      "target.type": entityType,
-      "target.id": entityId,
-      version,
-    } as Record<string, unknown>);
+    // Live-entity basis, joining the listings, detail and history. `_findOne`
+    // applies the per-doc check, which decides on the revision's SNAPSHOT — so
+    // after a project move a pinned version resolved for the project that no
+    // longer owns the entity and 404'd for the one that does.
+    const readable = await this.readableTargetIds([
+      { type: entityType, id: entityId },
+    ]);
+    if (!readable.has(`${entityType}:${entityId}`)) return null;
+    const [doc] = await this._find(
+      {
+        "target.type": entityType,
+        "target.id": entityId,
+        version,
+      } as Record<string, unknown>,
+      { limit: 1, bypassReadPermissionChecks: true },
+    );
+    return doc ?? null;
   }
 
   /**

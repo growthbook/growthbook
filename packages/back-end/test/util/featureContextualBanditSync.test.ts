@@ -227,6 +227,11 @@ describe("reverseFeatureContextualBanditLinkage", () => {
       "cb_1",
       "feat_1",
       preImage.cb_1,
+      // What the forward pass left this feature's slice holding — the unlink and
+      // the dropped draft applied. The rollback converges to the pre-image only
+      // while live still matches this, so a second writer who moved the same
+      // feature's linkage since is not undone.
+      { linkedFeatures: [], pendingFeatureDrafts: [] },
     );
   });
 });

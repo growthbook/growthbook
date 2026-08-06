@@ -375,6 +375,10 @@ export const postSavedGroupAddItems = async (
   // (CAS-guarded) merge before the live write so a concurrent discard can't
   // orphan a half-applied change; reopen if the write then fails.
   if (!approvalRequired) {
+    // The pre-merge revision, for compensation below: the claim overwrites
+    // `revision` with the merged row, and un-merging has to restore the status
+    // it actually had.
+    const priorRevision = revision;
     revision = await context.models.revisions.merge(
       revision.id,
       context.userId,
@@ -389,7 +393,17 @@ export const postSavedGroupAddItems = async (
       );
     } catch (e) {
       try {
-        await context.models.revisions.reopen(revision.id, context.userId);
+        // Un-merge. `reopen` is the LIFECYCLE action and now accepts only a
+        // DISCARDED revision, so it silently refused here and left the revision
+        // merged though nothing landed. This is compensation: restore the
+        // pre-merge status, guarded on the merge this flow just wrote so a
+        // concurrent recovery is never clobbered.
+        await context.models.revisions.reopenAfterFailedApply(
+          revision.id,
+          context.userId,
+          priorRevision,
+          revision.dateUpdated,
+        );
       } catch {
         // ignore — surface the original update error
       }
@@ -569,6 +583,10 @@ export const postSavedGroupRemoveItems = async (
   // (CAS-guarded) merge before the live write so a concurrent discard can't
   // orphan a half-applied change; reopen if the write then fails.
   if (!approvalRequired) {
+    // The pre-merge revision, for compensation below: the claim overwrites
+    // `revision` with the merged row, and un-merging has to restore the status
+    // it actually had.
+    const priorRevision = revision;
     revision = await context.models.revisions.merge(
       revision.id,
       context.userId,
@@ -583,7 +601,17 @@ export const postSavedGroupRemoveItems = async (
       );
     } catch (e) {
       try {
-        await context.models.revisions.reopen(revision.id, context.userId);
+        // Un-merge. `reopen` is the LIFECYCLE action and now accepts only a
+        // DISCARDED revision, so it silently refused here and left the revision
+        // merged though nothing landed. This is compensation: restore the
+        // pre-merge status, guarded on the merge this flow just wrote so a
+        // concurrent recovery is never clobbered.
+        await context.models.revisions.reopenAfterFailedApply(
+          revision.id,
+          context.userId,
+          priorRevision,
+          revision.dateUpdated,
+        );
       } catch {
         // ignore — surface the original update error
       }
@@ -1043,6 +1071,10 @@ export const putSavedGroup = async (
 
       // Claim the (CAS-guarded) merge before the live write so a concurrent
       // discard can't orphan a half-applied change; reopen if the write fails.
+      // The pre-merge revision, for compensation below: the claim overwrites
+      // `revision` with the merged row, and un-merging has to restore the status
+      // it actually had.
+      const priorRevision = revision;
       revision = await context.models.revisions.merge(
         revision.id,
         context.userId,
@@ -1061,7 +1093,17 @@ export const putSavedGroup = async (
         );
       } catch (e) {
         try {
-          await context.models.revisions.reopen(revision.id, context.userId);
+          // Un-merge. `reopen` is the LIFECYCLE action and now accepts only a
+          // DISCARDED revision, so it silently refused here and left the revision
+          // merged though nothing landed. This is compensation: restore the
+          // pre-merge status, guarded on the merge this flow just wrote so a
+          // concurrent recovery is never clobbered.
+          await context.models.revisions.reopenAfterFailedApply(
+            revision.id,
+            context.userId,
+            priorRevision,
+            revision.dateUpdated,
+          );
         } catch {
           // ignore — surface the original update error
         }

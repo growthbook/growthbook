@@ -1923,10 +1923,17 @@ export async function setRevisionScheduledPublish(
   };
 
   if (scheduledPublishAt === null) {
-    await FeatureRevisionModel.updateOne(filter, {
-      $set: { autoPublishOnApproval: false, dateUpdated: new Date() },
-      $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
-    });
+    // Terminal statuses ride the filter: `revision` is the caller's read, and one
+    // that published or was discarded since then must not be rewritten — its
+    // schedule fields are already spent, and bumping dateUpdated rewrites settled
+    // history.
+    await FeatureRevisionModel.updateOne(
+      { ...filter, status: { $nin: ["published", "discarded"] } },
+      {
+        $set: { autoPublishOnApproval: false, dateUpdated: new Date() },
+        $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
+      },
+    );
     logScheduledPublishChange(context, revision, {
       action: "cancel scheduled publish",
     });
@@ -2032,6 +2039,9 @@ export async function setScheduledPublishNextAttempt(
       organization: revision.organization,
       featureId: revision.featureId,
       version: revision.version,
+      // Same arm generation as parking: a backoff computed for the old attempt
+      // must not delay a schedule the user has since re-armed.
+      scheduledPublishAt: revision.scheduledPublishAt ?? null,
     },
     { $set: { scheduledPublishNextAttemptAt: nextAttemptAt } },
   );
@@ -2046,7 +2056,7 @@ export async function setScheduledPublishNextAttempt(
 export async function parkScheduledPublish(
   revision: Pick<
     FeatureRevisionInterface,
-    "organization" | "featureId" | "version"
+    "organization" | "featureId" | "version" | "scheduledPublishAt"
   >,
 ): Promise<void> {
   await FeatureRevisionModel.updateOne(
@@ -2054,6 +2064,11 @@ export async function parkScheduledPublish(
       organization: revision.organization,
       featureId: revision.featureId,
       version: revision.version,
+      // The ARM the poller was working on. A user who cancels and re-arms while a
+      // failing attempt is in flight would otherwise have their new schedule
+      // cleared by the old attempt giving up. `null` matches a missing field, so
+      // an unarmed revision stays the no-op it already was.
+      scheduledPublishAt: revision.scheduledPublishAt ?? null,
     },
     {
       $set: {
@@ -2633,11 +2648,16 @@ export async function reopenRevision(
     throw new Error(`Can only reopen discarded revisions`);
   }
 
-  await FeatureRevisionModel.updateOne(
+  // `status` rides the FILTER, not just the check above: that check reads the
+  // caller's copy, which a concurrent publish may already have superseded, and an
+  // unconditioned write would then demote merged history back to `draft`. The
+  // generic revision reopen re-checks the same way inside its CAS.
+  const reopened = await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
       featureId: revision.featureId,
       version: revision.version,
+      status: "discarded",
     },
     {
       // Reopening starts the review lifecycle over — clear baked verdicts,
@@ -2656,6 +2676,11 @@ export async function reopenRevision(
       },
     },
   );
+  if (!reopened.matchedCount) {
+    throw new ConflictError(
+      `Revision ${revision.version} of "${revision.featureId}" is no longer discarded; reload and try again`,
+    );
+  }
 
   // Fire and forget — callers don't depend on the log entry being there
   context.models.featureRevisionLogs
@@ -2698,11 +2723,19 @@ export async function discardRevision(
     );
   }
 
-  await FeatureRevisionModel.updateOne(
+  // Pinned to the exact row the caller read. A status predicate is not enough
+  // here: a revision discarded, REOPENED, and then armed with a fresh schedule is
+  // back in the same status, so a stale discard still in flight would land and
+  // scrub the new schedule. `dateUpdated` moves on every one of those steps.
+  const discarded = await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
       featureId: revision.featureId,
       version: revision.version,
+      dateUpdated:
+        revision.dateUpdated === undefined
+          ? { $exists: false }
+          : revision.dateUpdated,
     },
     {
       // Discarding a revision also disarms auto-publish so the dead revision
@@ -2715,6 +2748,12 @@ export async function discardRevision(
       $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
     },
   );
+
+  if (!discarded.matchedCount) {
+    throw new ConflictError(
+      `Revision ${revision.version} of "${revision.featureId}" changed since it was read; reload and try again`,
+    );
+  }
 
   // Fire and forget - no route that discards the revision expects the log to be there immediately
   context.models.featureRevisionLogs

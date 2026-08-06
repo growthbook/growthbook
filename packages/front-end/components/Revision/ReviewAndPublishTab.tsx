@@ -592,12 +592,19 @@ function ReviewAndPublishRevision<T>({
   // authority alone.
   const holdsDestination = holdsLandingDestination ?? true;
   const canLandArchive = canLandArchiveEntity ?? canDeleteEntity;
+  // `holdsDestination` gates EVERY landing route, not just the narrow-atom
+  // fallbacks. Landing a relocating draft is a publish wherever it lands, and it
+  // is vacuously true for a draft that relocates nothing — so ANDing it once is
+  // both safe and structural. Sitting inside the fallback arm, it was skipped
+  // entirely whenever `canPublishEntity` was true, which relied on every caller
+  // having composed the destination into that value; the `canEditEntity` fallback
+  // never does.
   const canPublishOrEdit =
     (!draftArchives || !!canLandArchive) &&
+    holdsDestination &&
     ((canPublishEntity ?? canEditEntity) ||
-      (holdsDestination &&
-        ((draftStagesRevert && canLandRevert) ||
-          (!!canLandArchive && draftIsPureArchive))));
+      (draftStagesRevert && canLandRevert) ||
+      (!!canLandArchive && draftIsPureArchive));
   // Whether the viewer holds any authority at all — for the overflow menu and
   // the no-permission notice. Each individual action gates on its own atom.
   const hasAnyAuthority =

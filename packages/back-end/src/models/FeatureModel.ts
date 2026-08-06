@@ -1176,6 +1176,9 @@ export async function updateFeature(
     unsetHoldout?: boolean;
     // The stamp this write PUTS on the document, reported as it is computed.
     //
+    // Fires only after Mongo confirms the write, so it means "this landed", never
+    // "this was attempted".
+    //
     // Compensation uses it as the ownership token, and the returned doc is a
     // set-then-fetch — so a rival landing between the write and the re-read makes
     // the returned `dateUpdated` THEIRS. Reading ownership from that says "still
@@ -1185,7 +1188,6 @@ export async function updateFeature(
   },
 ): Promise<FeatureInterface> {
   const ourStamp = advancedGuardStamp(options?.ifUnchangedSince);
-  options?.onStamped?.(ourStamp);
   const allUpdates = {
     ...updates,
     // Strictly after the guarded token, even inside the same millisecond.
@@ -1276,6 +1278,13 @@ export async function updateFeature(
   if (options?.ifUnchangedSince && writeResult.matchedCount === 0) {
     throw new CasConflictError();
   }
+
+  // Reported only once Mongo has CONFIRMED the write. Reporting it alongside the
+  // computation claimed ownership for a write that might never land: a CAS loser
+  // then looked like it owned a stamp live had never carried, its caller read that
+  // as "a rival took the feature", and every rewind was skipped — including the
+  // ramp schedules created before the write, which leaked.
+  options?.onStamped?.(ourStamp);
 
   if (experimentsAdded.size > 0) {
     await Promise.all(
@@ -1747,8 +1756,18 @@ const updateSafeRolloutStatuses = async (
 
   const safeRollouts = await context.models.safeRollout.getByIds(ids);
 
-  await Promise.all(
-    safeRollouts.map(async (safeRollout) => {
+  // SEQUENTIAL, with a rewind list. Under `Promise.all` one rollout could start
+  // while another failed, and the caller's compensation restores only the feature
+  // document — leaving a started rollout attached to a revision that never
+  // published. One at a time makes the set that landed knowable; the counts here
+  // are a handful per feature, so nothing is lost by not overlapping them.
+  const applied: {
+    before: SafeRolloutInterface;
+    written: UpdateProps<SafeRolloutInterface>;
+  }[] = [];
+
+  try {
+    for (const safeRollout of safeRollouts) {
       // sync the status of the safe rollout to the status of the revision
       const safeRolloutUpdates: UpdateProps<SafeRolloutInterface> = {
         status: statusMap[safeRollout.id],
@@ -1765,8 +1784,37 @@ const updateSafeRolloutStatuses = async (
       }
 
       await context.models.safeRollout.update(safeRollout, safeRolloutUpdates);
-    }),
-  );
+      applied.push({ before: safeRollout, written: safeRolloutUpdates });
+    }
+  } catch (e) {
+    // Value-checked, the same rule every other compensation here follows: put a
+    // key back only while live still holds what THIS sync wrote, so a concurrent
+    // writer's newer value survives. Reversed order, innermost first.
+    for (const { before, written } of applied.reverse()) {
+      try {
+        const current = await context.models.safeRollout.getById(before.id);
+        if (!current) continue;
+        const restore = ownedRestoreValues({
+          keys: Object.keys(written),
+          preImage: before as unknown as Record<string, unknown>,
+          written: written as Record<string, unknown>,
+          current: current as unknown as Record<string, unknown>,
+        });
+        if (Object.keys(restore).length) {
+          await context.models.safeRollout.update(
+            current,
+            restore as UpdateProps<SafeRolloutInterface>,
+          );
+        }
+      } catch (undoErr) {
+        logger.error(
+          undoErr,
+          `Safe-rollout sync failed for feature ${feature.id} and rollout ${before.id} could not be put back; it is left advanced while its revision is unpublished`,
+        );
+      }
+    }
+    throw e;
+  }
 };
 
 // Pure computation of the feature-doc changes a revision merge will produce; no writes
