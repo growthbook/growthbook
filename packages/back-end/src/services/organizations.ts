@@ -1434,14 +1434,9 @@ export async function getContextForUserIdInOrg(
   });
 }
 
-// Builds the context used to render a publicly-shared dashboard. The dashboard
-// is scoped to its owner's permissions rather than an admin context, so an
-// anonymous viewer can never see resources the owner themselves can't read.
-// Returns null when the owner can no longer be resolved (e.g. they left the
-// org), so callers can fail closed instead of falling back to admin access.
-export async function getContextForDashboardOwner(
+export async function getContextForUserIdInOrgByOrgId(
   orgId: string,
-  ownerId: string,
+  userId: string,
 ): Promise<ApiReqContext | null> {
   const organization = await findOrganizationById(orgId);
 
@@ -1451,5 +1446,5 @@ export async function getContextForDashboardOwner(
     await licenseInit(organization, getUserCodesForOrg, getLicenseMetaData);
   }
 
-  return getContextForUserIdInOrg(organization, ownerId);
+  return getContextForUserIdInOrg(organization, userId);
 }

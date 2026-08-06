@@ -20,8 +20,8 @@ import {
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
 import {
-  getContextForDashboardOwner,
   getContextFromReq,
+  getContextForUserIdInOrgByOrgId,
 } from "back-end/src/services/organizations";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -66,10 +66,7 @@ async function loadPublicDashboardOrRespond(
     return null;
   }
 
-  // Render the dashboard with its owner's permissions rather than an admin
-  // context, so anonymous viewers can only see resources the owner can read.
-  // Fail closed (404) if the owner can no longer be resolved.
-  const context = await getContextForDashboardOwner(
+  const context = await getContextForUserIdInOrgByOrgId(
     dashboard.organization,
     dashboard.userId,
   );
