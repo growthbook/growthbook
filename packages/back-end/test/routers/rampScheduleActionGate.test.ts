@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { PermissionError } from "shared/util";
+import { rampRuleEnvKey, PermissionError } from "shared/util";
 
 jest.mock("back-end/src/services/organizations", () => ({
   getContextFromReq: jest.fn(),
@@ -255,8 +255,8 @@ describe("postRampScheduleAction publish gate", () => {
     (getFeatureRuleEnvironmentsByIds as jest.Mock).mockImplementation(
       async () =>
         new Map([
-          ["feat_1:fr_x:production", ["production"]],
-          ["feat_1:fr_x:dev", ["dev"]],
+          [rampRuleEnvKey("feat_1", "fr_x", "production"), ["production"]],
+          [rampRuleEnvKey("feat_1", "fr_x", "dev"), ["dev"]],
         ]),
     );
 
@@ -297,7 +297,7 @@ describe("postRampScheduleAction publish gate", () => {
     (getFeatureRuleEnvironmentsByIds as jest.Mock).mockResolvedValue(
       // Keyed on the full (feature, rule, environment) triple — the environment is
       // part of the identity because the resolution honours it.
-      new Map([["feat_1:fr_1:", "all"]]),
+      new Map([[rampRuleEnvKey("feat_1", "fr_1"), "all"]]),
     );
 
     await postRampScheduleAction(makeReq("pause"), makeRes()).catch(() => {});

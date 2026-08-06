@@ -119,11 +119,20 @@ export function resolveRampTargets(
  * The lookup key for a ramp target's current environments. Exported so the gate and
  * the loader cannot spell it differently — the environment is part of the identity
  * because `resolveRampTargets` resolves a different rule set with it than without.
+ *
+ * Components are ESCAPED, because a bare `:` join is ambiguous and that ambiguity is
+ * the same last-write-wins collision the environment field was added to close, through
+ * a different door. Feature ids permit `:` (`/^[a-zA-Z0-9_.:|-]+$/`) and rule ids are
+ * an unconstrained string a client can supply, so `("a:b","c",…)` and `("a","b:c",…)`
+ * both joined to `a:b:c:…` — letting a decoy target on a feature the caller DOES
+ * control overwrite the answer for one it does not.
  */
 export function rampRuleEnvKey(
   featureId: string,
   ruleId?: string,
   environment?: string,
 ): string {
-  return `${featureId}:${ruleId ?? ""}:${environment ?? ""}`;
+  return [featureId, ruleId ?? "", environment ?? ""]
+    .map(encodeURIComponent)
+    .join(":");
 }

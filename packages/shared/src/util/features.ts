@@ -3051,6 +3051,55 @@ export function rampSchedulePublishEnvironments(
 }
 
 /**
+ * The footprint a live ramp CONTROL action answers for — the client's mirror of
+ * `assertCanControlRampSchedule`.
+ *
+ * Per target, unioned, with each target's answer measured against what its rule
+ * currently serves. `rampSchedulePublishEnvironments` is the wrong function for this:
+ * it goes through `getEnvsFromRampSchedule`, which widens an unscoped patch to "all"
+ * because its callers have no rule in hand — and `buildPatch` emits
+ * `{ruleId, coverage}` for every ramp created through the UI. So a dev-scoped
+ * publisher saw pause/advance/complete disabled on their own dev-only ramp, which is
+ * the user the server-side narrowing was written to unblock.
+ *
+ * A target whose rule the caller cannot resolve contributes "all" — fail-closed,
+ * since the gate checks every target and the client may only hold one.
+ */
+export function rampControlFootprint({
+  schedule,
+  allEnvironments,
+  ruleEnvsForTarget,
+}: {
+  schedule: Pick<
+    RampScheduleInterface,
+    "startActions" | "steps" | "endActions" | "targets"
+  >;
+  allEnvironments: string[];
+  /** What the target's rule serves now, or undefined when it can't be resolved. */
+  ruleEnvsForTarget: (target: {
+    id: string;
+    ruleId?: string | null;
+    environment?: string | null;
+  }) => string[] | "all" | undefined;
+}): string[] {
+  const targets = schedule.targets ?? [];
+  if (!targets.length) {
+    const envs = getEnvsFromRampSchedule(schedule);
+    return envs === "all" ? [...allEnvironments] : envs;
+  }
+
+  const out = new Set<string>();
+  for (const target of targets) {
+    const current = ruleEnvsForTarget(target);
+    if (current === undefined) return [...allEnvironments];
+    const envs = getEnvsForRampTarget(schedule, target.id, current);
+    if (envs === "all") return [...allEnvironments];
+    for (const e of envs) out.add(e);
+  }
+  return [...out];
+}
+
+/**
  * Whether the schedule is acting on live traffic right now. Everything else —
  * not started yet, or already finished — is inert, which is what separates a
  * live ramp control from housekeeping.

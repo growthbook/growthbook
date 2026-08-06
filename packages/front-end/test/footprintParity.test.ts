@@ -127,6 +127,24 @@ describe("control footprint === endpoint footprint", () => {
     ).toEqual(["dev", "edge", "production"]);
   });
 
+  // The TOGGLE term, which had no coverage at all: deleting it from
+  // `featurePublishFootprint` outright survived every case. `revertFootprint`'s own
+  // docstring calls this out as the half historically missed.
+  it("feature publish, an environment toggle: exactly the toggled environments", () => {
+    expect(
+      [
+        ...getRevisionPublishEnvs({
+          liveFeature: feature,
+          // One ON and one OFF: both change live state, and `qa` is outside the
+          // serving set, so only the toggle term can contribute it.
+          changes: { environmentsEnabled: { qa: true, production: false } },
+          environments,
+          holdoutsMap: new Map(),
+        }),
+      ].sort(),
+    ).toEqual(["production", "qa"]);
+  });
+
   // Holdout resolution is the ONLY behaviour this wrapper uniquely has, and it was
   // untested: `holdoutsMap` was always empty and `changes.holdout` never set.
   it("feature publish, a holdout move: the holdout's own environments", () => {
@@ -290,6 +308,15 @@ describe("control footprint === endpoint footprint", () => {
     },
   );
 
+  // POSITIVELY, because `not.toContain` alone is satisfied by `return []` — and an
+  // empty footprint is the exact failure this helper exists to prevent, since it SKIPS
+  // the environment check rather than narrowing it.
+  it("archive answers for every environment the flag is reachable in", () => {
+    expect(
+      [...archiveFootprintForControl({ environments, entity: feature })].sort(),
+    ).toEqual(["dev", "production", "qa", "staging"]);
+  });
+
   // The revert footprint, with BOTH union terms actually non-empty. Passing an
   // already-narrowed universe, no `environmentsEnabled` and no `changedEnvs` made
   // this tautological — `return [...environmentIds]` satisfied it.
@@ -304,11 +331,14 @@ describe("control footprint === endpoint footprint", () => {
             environmentsEnabled: { staging: true, edge: true },
           },
           environmentIds: applicableIds,
-          changedEnvs: ["dev"],
+          // `qa`, NOT `dev`: dev is already in the serving set, so ["dev"] contributed
+          // nothing and deleting this term entirely survived — the same masking I
+          // removed elsewhere while the comment here claimed both terms were live.
+          changedEnvs: ["qa"],
         }),
       ].sort(),
-      // serving (dev, edge→excluded by the universe, production) ∪ {staging} ∪ {dev}.
-    ).toEqual(["dev", "production", "staging"]);
+      // serving ∩ universe (dev, production) ∪ {staging} ∪ {qa}.
+    ).toEqual(["dev", "production", "qa", "staging"]);
   });
 
   // `getRevisionPublishEnvs` is universe-in, universe-out: it answers over exactly

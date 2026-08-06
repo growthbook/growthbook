@@ -9,7 +9,8 @@ import React, { forwardRef, ReactElement, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
-  rampSchedulePublishEnvironments,
+  rampControlFootprint,
+  stemRuleId,
   filterEnvironmentsByFeature,
   getReviewSetting,
   getTargetingProjectIds,
@@ -448,12 +449,25 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       if (!rampSchedule) return false;
       return permissionsUtil.canPublishFeature(
         feature,
-        rampSchedulePublishEnvironments(
-          rampSchedule,
-          allEnvironments.map((e) => e.id),
-        ),
+        // The gate's own rule, per target, measured against what each target's rule
+        // serves. `rampSchedulePublishEnvironments` widens an unscoped patch to every
+        // environment — right for callers with no rule in hand, wrong here — and that
+        // is the shape the UI emits, so it disabled these controls for exactly the
+        // dev-scoped publisher the server-side narrowing unblocked.
+        rampControlFootprint({
+          schedule: rampSchedule,
+          allEnvironments: allEnvironments.map((e) => e.id),
+          ruleEnvsForTarget: (target) =>
+            // Only this rule is in hand; any other target is unresolvable and
+            // widens, which matches what the gate would demand.
+            stemRuleId(target.ruleId ?? "") === stemRuleId(rule.id ?? "")
+              ? rule.allEnvironments
+                ? "all"
+                : (rule.environments ?? [])
+              : undefined,
+        }),
       );
-    }, [rampSchedule, feature, permissionsUtil, allEnvironments]);
+    }, [rampSchedule, feature, permissionsUtil, allEnvironments, rule]);
 
     const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
       const raw = settings?.requireReviews;

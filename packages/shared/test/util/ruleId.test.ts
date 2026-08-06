@@ -1,4 +1,5 @@
 import {
+  rampRuleEnvKey,
   stemRuleId,
   suffixRuleId,
   isMigrationSuffixedRuleId,
@@ -121,5 +122,29 @@ describe("ruleId helpers", () => {
     // Lock-test: nothing else in the codebase should split on `__`. If we
     // ever change the delimiter, it happens here and the test moves with it.
     expect(RULE_ID_ENV_SUFFIX_DELIMITER).toBe("__");
+  });
+});
+
+// The key must be INJECTIVE. A bare `:` join was not: feature ids permit `:` and rule
+// ids are an unconstrained client-supplied string, so a decoy target on a feature the
+// caller controls could collide with one it does not — the same last-write-wins
+// collision the environment component was added to close, through a different door.
+describe("rampRuleEnvKey", () => {
+  it("cannot be made ambiguous by a `:` in either id", () => {
+    expect(rampRuleEnvKey("a:b", "c", "dev")).not.toEqual(
+      rampRuleEnvKey("a", "b:c", "dev"),
+    );
+  });
+
+  it("still distinguishes the environment, which is the identity it carries", () => {
+    expect(rampRuleEnvKey("f", "r", "dev")).not.toEqual(
+      rampRuleEnvKey("f", "r", "production"),
+    );
+  });
+
+  it("treats a missing id and a missing environment as empty, not as each other", () => {
+    expect(rampRuleEnvKey("f", undefined, "dev")).not.toEqual(
+      rampRuleEnvKey("f", "dev", undefined),
+    );
   });
 });
