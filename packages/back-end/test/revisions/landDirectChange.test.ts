@@ -370,6 +370,85 @@ describe("landDirectChange", () => {
     expect(h.dangerousDeleteByIdBypassPermission).toHaveBeenCalled();
   });
 
+  // The THUNK, tested rather than reasoned about. `cascade` has to be read at
+  // compensation time, not at call time: the apply reports its root write BEFORE
+  // running the cascade, so a value captured in the reporter is still empty. My
+  // first version copied the array there and silently compensated nothing.
+  it("sees cascade entries appended AFTER the write reported", async () => {
+    const h = makeContext();
+    // The adapter's own array: created before the write, handed over at report
+    // time, appended to as the cascade proceeds.
+    const adapterCascade: {
+      before: Record<string, unknown> & { id: string };
+      written: Record<string, unknown>;
+    }[] = [];
+
+    await expect(
+      landDirectChange({
+        context: h.context,
+        entityType: "config",
+        entity,
+        patchOps: [],
+        bypass: true,
+        changes: { value: "after" },
+        cascade: () => adapterCascade,
+        write: async (report) => {
+          report({ id: "ent_1", value: "after" });
+          // Only now does the cascade run and record a descendant write.
+          adapterCascade.push({
+            before: { id: "desc_1", schema: "before" },
+            written: { schema: "after" },
+          });
+          throw new Error("cascade failed");
+        },
+      }),
+    ).rejects.toThrow("cascade failed");
+
+    // Compensation restored the DESCENDANT, which only happens if the thunk's
+    // RESULT is iterated late. Mutation-checked: copying the contents early
+    // (`[...cascade()]` before the write) fails this, while reading the reference
+    // early still passes — a reference read sees later pushes, a copy does not. The
+    // copy is the shape my first version had.
+    expect(tryRestoreEntityPreImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        preImage: { id: "desc_1", schema: "before" },
+        persistedKeys: ["schema"],
+      }),
+    );
+  });
+
+  // Ordering, at this level: the ROOT goes back before the descendant. Restoring a
+  // descendant while the root still declares a field is normalized straight back to
+  // stripped AND reports success, so the wrong order is silent.
+  it("restores the root before any cascade entry", async () => {
+    const h = makeContext();
+    const order: string[] = [];
+    tryRestoreEntityPreImage.mockImplementation(async (args) => {
+      order.push((args.preImage as { id: string }).id);
+      return true;
+    });
+
+    await expect(
+      landDirectChange({
+        context: h.context,
+        entityType: "config",
+        entity,
+        patchOps: [],
+        bypass: true,
+        changes: { value: "after" },
+        cascade: () => [
+          { before: { id: "desc_1" }, written: { schema: "after" } },
+        ],
+        write: async (report) => {
+          report({ id: "ent_1", value: "after" });
+          throw new Error("cascade failed");
+        },
+      }),
+    ).rejects.toThrow("cascade failed");
+
+    expect(order).toEqual(["const_1", "desc_1"]);
+  });
+
   // A rejected CAS means the guarded write matched NOTHING: compensating would
   // compare live against values this landing never wrote, mistake a concurrent
   // winner's identical values for its own, and undo the winner. History is still
