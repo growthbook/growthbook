@@ -810,11 +810,6 @@ export async function publishPendingFeatureDraftsForContextualBandit(
         result: mergeResult.result,
         comment: `Contextual Bandit "${cb.name}" started`,
       });
-      await cbModel.removePendingFeatureDraft(
-        cb.id,
-        featureId,
-        revisionVersion,
-      );
       published.push({ featureId, revisionVersion });
     } catch (err) {
       logger.error(

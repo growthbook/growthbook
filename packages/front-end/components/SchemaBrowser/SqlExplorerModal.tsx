@@ -436,6 +436,13 @@ export default function SqlExplorerModal({
                 );
               }
               break;
+
+            case "today":
+            case "last7Days":
+            case "last30Days":
+            case "greaterThanOrEqualTo":
+            case "lessThanOrEqualTo":
+              break;
           }
         });
       }
@@ -863,7 +870,7 @@ export default function SqlExplorerModal({
                             />
                             <Button
                               variant="outline"
-                              size="xs"
+                              size="sm"
                               onClick={() => {
                                 setDirty(true);
                                 form.setValue("name", tempName);
@@ -875,7 +882,7 @@ export default function SqlExplorerModal({
                             <Button
                               color="red"
                               variant="outline"
-                              size="xs"
+                              size="sm"
                               onClick={() => {
                                 setTempName(form.watch("name"));
                                 setIsEditingName(false);
@@ -989,7 +996,7 @@ export default function SqlExplorerModal({
                     >
                       <Button
                         variant="ghost"
-                        size="sm"
+                        size="md"
                         onClick={() => {
                           setDirty(true);
                           const currentConfig = [...dataVizConfig];
@@ -1022,7 +1029,7 @@ export default function SqlExplorerModal({
                   {!readOnlyMode ? (
                     <Button
                       variant="outline"
-                      size="xs"
+                      size="sm"
                       onClick={() => setSidePanel(!showSidePanel)}
                     >
                       <PiCaretDoubleRight
@@ -1081,7 +1088,7 @@ export default function SqlExplorerModal({
                                     }
                                   >
                                     <Button
-                                      size="xs"
+                                      size="sm"
                                       variant="ghost"
                                       onClick={handleAIClick}
                                     >
@@ -1120,7 +1127,7 @@ export default function SqlExplorerModal({
                                         disabled={true}
                                       />
                                       <Text
-                                        size="small"
+                                        size="sm"
                                         weight="regular"
                                         color="text-low"
                                       >
@@ -1136,7 +1143,7 @@ export default function SqlExplorerModal({
                                     </Tooltip>
                                   )}
                                   <Button
-                                    size="xs"
+                                    size="sm"
                                     variant="ghost"
                                     onClick={handleFormatClick}
                                     disabled={!form.watch("sql") || !canFormat}
@@ -1148,7 +1155,7 @@ export default function SqlExplorerModal({
                                     shouldDisplay={!form.watch("datasourceId")}
                                   >
                                     <Button
-                                      size="xs"
+                                      size="sm"
                                       onClick={handleQuery}
                                       disabled={
                                         !form.watch("sql") ||

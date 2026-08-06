@@ -97,7 +97,7 @@ export default function ConversationSidebar({
           <Button onClick={onNewChat}>
             <Flex align="center" justify="center" gap="1">
               <PiPlus size={13} />
-              <Text size="medium" weight="medium">
+              <Text size="md" weight="medium">
                 New chat
               </Text>
             </Flex>
@@ -112,7 +112,7 @@ export default function ConversationSidebar({
           >
             <Flex align="center" justify="center" gap="1">
               <PiMagnifyingGlass size={13} />
-              <Text size="medium" weight="medium">
+              <Text size="md" weight="medium">
                 Search chats
               </Text>
             </Flex>
@@ -130,7 +130,7 @@ export default function ConversationSidebar({
           style={{ flex: 1, minHeight: 0 }}
         >
           <Box pl="1">
-            <Text size="small" weight="medium" color="text-low">
+            <Text size="sm" weight="medium" color="text-low">
               Your Chats
             </Text>
           </Box>
@@ -152,10 +152,10 @@ export default function ConversationSidebar({
                 px="3"
               >
                 <PiChat size={20} color="var(--violet-a11)" />
-                <Text size="small" color="text-high" weight="semibold">
+                <Text size="sm" color="text-high" weight="semibold">
                   No chats yet
                 </Text>
-                <Text size="small" color="text-low" align="center">
+                <Text size="sm" color="text-low" align="center">
                   Start a new conversation to explore data.
                 </Text>
               </Flex>
@@ -186,7 +186,7 @@ export default function ConversationSidebar({
                       style={{ flex: 1, minWidth: 0 }}
                     >
                       <Text
-                        size="small"
+                        size="sm"
                         weight="semibold"
                         color={isActive ? undefined : "text-high"}
                       >
@@ -240,7 +240,7 @@ export default function ConversationSidebar({
                       >
                         <Button
                           variant="ghost"
-                          size="xs"
+                          size="sm"
                           title="Delete conversation"
                           stopPropagation
                           onClick={() =>

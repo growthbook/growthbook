@@ -327,7 +327,7 @@ export default function ExperimentRefNewFields({
                   return (
                     <Flex as="div" align="baseline">
                       <Text>{value.label}</Text>
-                      <Text size="small" color="text-mid" ml="auto">
+                      <Text size="sm" color="text-mid" ml="auto">
                         Created {date(t.dateCreated)}
                       </Text>
                     </Flex>

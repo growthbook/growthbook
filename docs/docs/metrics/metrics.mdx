@@ -180,6 +180,8 @@ Row Filters support a wide variety of operators:
 - `<`
 - `>=`
 - `<=`
+- `between` (takes two values: a lower and an upper bound)
+- `not_between`
 - `in`
 - `not_in`
 - `is_null`
@@ -192,6 +194,8 @@ Row Filters support a wide variety of operators:
 - `ends_with`
 - `sql_expr` (raw SQL for advanced use cases)
 - `saved_filter` (a saved SQL expression that can be reused across metrics)
+
+Filters on date and timestamp columns are compared in UTC. The UI offers `=`, `<`, `<=`, `>`, `>=`, `between`, `not_between`, and `is not null` for these columns, and a value is either a calendar day (`2024-01-15`) or a minute-precision timestamp (`2024-01-15T09:30`). A calendar day matches the whole day rather than the instant at its midnight, so `= 2024-01-15` includes every row stamped on that date.
 
 #### Auto Prompting for Row Filters
 

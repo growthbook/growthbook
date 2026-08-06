@@ -474,7 +474,7 @@ export function RevisionLogRow({
             {visual.icon}
           </Flex>
         )}
-        <Text size="small" color="text-high">
+        <Text size="sm" color="text-high">
           <Text size="inherit" weight="medium">
             <EventUser user={log.user} display="name" size="sm" />
           </Text>{" "}
@@ -495,7 +495,7 @@ export function RevisionLogRow({
           <Button
             variant="ghost"
             color="gray"
-            size="xs"
+            size="sm"
             mt="0"
             mb="0"
             icon={open ? <PiCaretDown /> : <PiCaretRight />}
@@ -705,7 +705,7 @@ export default function RevisionTimeline({
       >
         <PiGitCommit />
       </Box>
-      <Text size="small" weight="semibold" color="text-mid" mb="3" as="div">
+      <Text size="sm" weight="semibold" color="text-mid" mb="3" as="div">
         {group.date}
       </Text>
       <Flex direction="column" gap="3">
@@ -739,7 +739,7 @@ export default function RevisionTimeline({
                   <Button
                     variant="ghost"
                     color="gray"
-                    size="xs"
+                    size="sm"
                     mt="0"
                     mb="0"
                     icon={isOpen ? <PiCaretDown /> : <PiCaretRight />}

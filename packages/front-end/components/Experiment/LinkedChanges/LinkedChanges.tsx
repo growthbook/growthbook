@@ -72,7 +72,7 @@ export default function LinkedChanges({
   return (
     <Frame>
       <Flex justify="between" align="center" mb="4" gap="3">
-        <Heading color="text-high" as="h4" size="small">
+        <Heading color="text-high" as="h4" size="sm">
           {isPublic || hideVariations
             ? "Linked Changes"
             : "Variations & Values"}
@@ -100,10 +100,10 @@ export default function LinkedChanges({
                   >
                     <Icon />
                   </Avatar>
-                  <Text size="large" weight="medium" color="text-high">
+                  <Text size="lg" weight="medium" color="text-high">
                     {label}:
                   </Text>
-                  <Text size="large" weight="medium" color="text-mid">
+                  <Text size="lg" weight="medium" color="text-mid">
                     {count}
                   </Text>
                 </Flex>
@@ -169,7 +169,7 @@ export default function LinkedChanges({
             setVisualEditorModal &&
             setUrlRedirectModal && (
               <Flex justify="between" px="1">
-                <Text color="text-high" size="large" weight="semibold">
+                <Text color="text-high" size="lg" weight="semibold">
                   Add Feature, URL Redirect or Visual Editor
                 </Text>
                 <AddLinkedChangeButton

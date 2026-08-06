@@ -46,6 +46,8 @@ export const getApprovalFlowSettings = (
       return approvalFlows.savedGroups?.[0];
     // Constants don't use this config — they inherit the feature `requireReviews`
     // settings (see constantRequiresReview).
+    case "config":
+    case "constant":
     default:
       return undefined;
   }

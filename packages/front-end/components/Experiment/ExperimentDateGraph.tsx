@@ -219,6 +219,7 @@ const getYVal = (
       return variation.v;
     case "effect":
       return variation.up ?? 0;
+    case undefined:
     default:
       return variation.v;
   }

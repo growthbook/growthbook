@@ -270,12 +270,37 @@ export class HoldoutModel extends BaseClass {
   }
 
   public async addExperimentToHoldout(holdoutId: string, experimentId: string) {
+    await this.addExperimentsToHoldout(holdoutId, [experimentId]);
+  }
+
+  public async addExperimentsToHoldout(
+    holdoutId: string,
+    experimentIds: string[],
+  ) {
+    if (!experimentIds.length) return;
     const holdout = await this.getLinkageTarget(holdoutId);
+    const added = Object.fromEntries(
+      experimentIds.map((id) => [id, { id, dateAdded: new Date() }]),
+    );
     await this.writeLinkage(holdout, {
-      linkedExperiments: {
-        ...holdout.linkedExperiments,
-        [experimentId]: { id: experimentId, dateAdded: new Date() },
-      },
+      // Existing entries win, so re-linking keeps the original `dateAdded`.
+      linkedExperiments: { ...added, ...holdout.linkedExperiments },
+    });
+  }
+
+  public async removeExperimentsFromHoldout(
+    holdoutId: string,
+    experimentIds: string[],
+  ) {
+    if (!experimentIds.length) return;
+    const holdout = await this.getLinkageTarget(holdoutId);
+    const drop = new Set(experimentIds);
+    await this.writeLinkage(holdout, {
+      linkedExperiments: Object.fromEntries(
+        Object.entries(holdout.linkedExperiments).filter(
+          ([id]) => !drop.has(id),
+        ),
+      ),
     });
   }
 

@@ -51,7 +51,7 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
+        legacyHeight
         value={[]}
         options={flatOptions}
         onChange={onChange}
@@ -72,7 +72,7 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
+        legacyHeight
         value={[]}
         options={flatOptions}
         onChange={onChange}
@@ -93,7 +93,7 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
+        legacyHeight
         value={[]}
         options={flatOptions}
         onChange={onChange}
@@ -114,7 +114,7 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
+        legacyHeight
         value={[]}
         options={flatOptions}
         onChange={onChange}
@@ -135,7 +135,7 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
+        legacyHeight
         value={[]}
         options={flatOptions}
         onChange={onChange}
@@ -156,7 +156,7 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
+        legacyHeight
         value={[]}
         options={flatOptions}
         onChange={onChange}
@@ -177,7 +177,7 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
+        legacyHeight
         value={[]}
         options={flatOptions}
         onChange={onChange}
@@ -198,7 +198,7 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
+        legacyHeight
         value={[]}
         options={flatOptions}
         onChange={onChange}
@@ -219,7 +219,7 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
+        legacyHeight
         value={[]}
         options={groupedOptions}
         onChange={onChange}
@@ -240,7 +240,7 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
+        legacyHeight
         value={[]}
         options={groupedOptions}
         onChange={onChange}
@@ -261,7 +261,7 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
+        legacyHeight
         value={["opt1"]}
         options={flatOptions}
         onChange={onChange}
@@ -282,7 +282,7 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
+        legacyHeight
         value={[]}
         options={flatOptions}
         onChange={onChange}
@@ -304,7 +304,7 @@ describe("MultiSelectField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <MultiSelectField
-        size="legacy"
+        legacyHeight
         value={[]}
         options={flatOptions}
         onChange={onChange}
@@ -329,7 +329,7 @@ describe("StringArrayField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <StringArrayField
-        size="legacy"
+        legacyHeight
         value={[]}
         onChange={onChange}
         label="Test"
@@ -349,7 +349,7 @@ describe("StringArrayField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <StringArrayField
-        size="legacy"
+        legacyHeight
         value={[]}
         onChange={onChange}
         label="Test"
@@ -369,7 +369,7 @@ describe("StringArrayField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <StringArrayField
-        size="legacy"
+        legacyHeight
         value={[]}
         onChange={onChange}
         label="Test"
@@ -389,7 +389,7 @@ describe("StringArrayField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <StringArrayField
-        size="legacy"
+        legacyHeight
         value={[]}
         onChange={onChange}
         label="Test"
@@ -409,7 +409,7 @@ describe("StringArrayField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <StringArrayField
-        size="legacy"
+        legacyHeight
         value={["foo"]}
         onChange={onChange}
         removeDuplicates={true}
@@ -430,7 +430,7 @@ describe("StringArrayField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <StringArrayField
-        size="legacy"
+        legacyHeight
         value={[]}
         onChange={onChange}
         removeDuplicates={false}
@@ -451,7 +451,7 @@ describe("StringArrayField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <StringArrayField
-        size="legacy"
+        legacyHeight
         value={[]}
         onChange={onChange}
         pattern="^[a-z]+$"
@@ -472,7 +472,7 @@ describe("StringArrayField paste handling", () => {
     const onChange = vi.fn();
     renderWithProviders(
       <StringArrayField
-        size="legacy"
+        legacyHeight
         value={[]}
         onChange={onChange}
         label="Test"

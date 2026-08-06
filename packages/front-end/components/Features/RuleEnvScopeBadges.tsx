@@ -135,13 +135,7 @@ export default function RuleEnvScopeBadges({
           flipTheme={false}
           body={
             <>
-              <Text
-                as="div"
-                weight="regular"
-                mb="1"
-                size="small"
-                color="text-low"
-              >
+              <Text as="div" weight="regular" mb="1" size="sm" color="text-low">
                 {overflow.length} more environment
                 {overflow.length === 1 ? "" : "s"}
               </Text>
@@ -151,7 +145,7 @@ export default function RuleEnvScopeBadges({
             </>
           }
         >
-          <Text as="span" color="text-low" size="small">
+          <Text as="span" color="text-low" size="sm">
             ...
           </Text>
         </Tooltip>
