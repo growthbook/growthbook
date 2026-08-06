@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { CSSProperties, ReactNode, useState } from "react";
 import { Box, Flex, Grid, Separator } from "@radix-ui/themes";
 import { format, startOfMonth, subMonths } from "date-fns";
 import { DateRange, DayPicker } from "react-day-picker";
@@ -29,6 +29,7 @@ import { Select, SelectItem } from "@/ui/Select";
 import HelperText from "@/ui/HelperText";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { formatCollapsedDateRange } from "@/enterprise/components/ProductAnalytics/comparison-chart";
 import { ControlledGranularitySelector } from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GranularitySelector";
 import {
@@ -42,6 +43,12 @@ export type DateRangeCompareValue = {
   comparison: BlockComparison | null;
   /** Only meaningful when the surface opts in with `showGranularity`. */
   granularity?: (typeof dateGranularity)[number];
+  /**
+   * "No date range at all", staged. Only surfaces passing `clearOption` can reach
+   * it (the dashboard's "Chart Default"). `dateRange` stays populated so every
+   * derived value keeps working — read this, not a null range, to decide.
+   */
+  cleared?: boolean;
 };
 
 function toYyyyMmDd(d: Date): string {
@@ -86,7 +93,7 @@ export default function DateRangeComparePanel({
   granularityDisabled = false,
   granularityDisabledReason,
   disabled,
-  extraPresets,
+  clearOption,
   extraSections,
 }: {
   value: DateRangeCompareValue;
@@ -105,8 +112,10 @@ export default function DateRangeComparePanel({
    * broken, so surfaces that disable it should say what would re-enable it. */
   granularityDisabledReason?: string;
   disabled?: boolean;
-  /** Rendered above the presets — e.g. the dashboard's "Chart Default" option. */
-  extraPresets?: ReactNode;
+  /** Adds a first rail item that stages "no date range" — the dashboard's
+   * "Chart Default". Selecting it deselects every preset and empties the
+   * calendar; touching either clears it again. Read back as `cleared` on apply. */
+  clearOption?: { label: string; tooltip?: string };
   /** Rendered between the granularity section and the footer. */
   extraSections?: ReactNode;
 }) {
@@ -116,6 +125,12 @@ export default function DateRangeComparePanel({
   const [draft, setDraft] = useState<DateRangeCompareValue>(value);
 
   const { dateRange, comparison } = draft;
+  // Only reachable when the surface passes `clearOption`; guarded so a stale
+  // `cleared` on a surface without one can't blank the rail.
+  const cleared = !!clearOption && !!draft.cleared;
+  // Cleared means no dashboard-wide series left to bucket, so granularity goes
+  // inert as soon as it's staged rather than only after Apply.
+  const granularityInert = granularityDisabled || cleared;
   const compareEnabled = !!comparison?.enabled;
   const mode = comparison
     ? resolveComparisonMode(comparison)
@@ -176,8 +191,14 @@ export default function DateRangeComparePanel({
     monthForBounds(primaryBounds.endDate),
   );
 
+  // Every edit to the primary window — preset, calendar, lookback — is also an
+  // exit from the cleared state. Otherwise the rail would show both selected.
   const setDateRange = (next: ExplorationDateRange) =>
-    setDraft((prev) => ({ ...prev, dateRange: next }));
+    setDraft((prev) => ({ ...prev, dateRange: next, cleared: false }));
+
+  // `dateRange` is left as-is: it seeds the calendar and the resolved-range text
+  // again the moment the user picks a preset, and callers read `cleared` instead.
+  const stageCleared = () => setDraft((prev) => ({ ...prev, cleared: true }));
 
   /**
    * Patches one end of the custom comparison window. The range picker sets both
@@ -244,6 +265,17 @@ export default function DateRangeComparePanel({
     setCalendarMonth(monthForBounds(getPrimaryUtcDayBounds(next).endDate));
   };
 
+  const railItemStyle = (active: boolean): CSSProperties => ({
+    padding: "6px 8px",
+    borderRadius: "var(--radius-2)",
+    cursor: disabled ? "default" : "pointer",
+    background: active ? "var(--violet-a4)" : undefined,
+    color: active ? "var(--violet-11)" : "var(--gray-11)",
+    fontWeight: active ? 500 : 400,
+    fontSize: "var(--font-size-2)",
+    whiteSpace: "nowrap",
+  });
+
   return (
     // The popover caps its height against the viewport; everything above the
     // footer absorbs that instead of pushing Apply off-screen.
@@ -254,8 +286,6 @@ export default function DateRangeComparePanel({
       <Box style={{ overflowY: "auto", minHeight: 0 }}>
         <Flex align="stretch" style={{ minWidth: 0 }}>
           <Box
-            role="group"
-            aria-label="Date range presets"
             style={{
               width: 168,
               flexShrink: 0,
@@ -263,40 +293,60 @@ export default function DateRangeComparePanel({
               padding: "var(--space-2)",
             }}
           >
-            {extraPresets}
-            {dateRangePredefined.map((option) => {
-              const active = dateRange.predefined === option;
-              return (
+            <Box role="group" aria-label="Date range presets">
+              {clearOption ? (
                 <Box
-                  key={option}
                   role="button"
-                  // The selected preset is otherwise conveyed by background and
-                  // weight alone, which assistive tech can't read (WCAG 4.1.2).
-                  aria-pressed={active}
+                  aria-pressed={cleared}
                   aria-disabled={disabled || undefined}
                   tabIndex={disabled ? -1 : 0}
-                  onClick={() => !disabled && selectPreset(option)}
+                  onClick={() => !disabled && stageCleared()}
                   onKeyDown={(e) => {
                     if (disabled) return;
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      selectPreset(option);
+                      stageCleared();
                     }
                   }}
-                  style={{
-                    padding: "6px 8px",
-                    borderRadius: "var(--radius-2)",
-                    cursor: disabled ? "default" : "pointer",
-                    background: active ? "var(--violet-a4)" : undefined,
-                    color: active ? "var(--violet-11)" : "var(--gray-11)",
-                    fontWeight: active ? 500 : 400,
-                    fontSize: "var(--font-size-2)",
-                  }}
+                  style={railItemStyle(cleared)}
                 >
-                  {DATE_RANGE_PREDEFINED_LABELS[option]}
+                  {clearOption.label}
+                  {clearOption.tooltip ? (
+                    <Tooltip
+                      body={clearOption.tooltip}
+                      tipPosition="right"
+                      className="ml-1"
+                    />
+                  ) : null}
                 </Box>
-              );
-            })}
+              ) : null}
+              {dateRangePredefined.map((option) => {
+                // Never both: the cleared state means no preset is in effect.
+                const active = !cleared && dateRange.predefined === option;
+                return (
+                  <Box
+                    key={option}
+                    role="button"
+                    // The selected preset is otherwise conveyed by background and
+                    // weight alone, which assistive tech can't read (WCAG 4.1.2).
+                    aria-pressed={active}
+                    aria-disabled={disabled || undefined}
+                    tabIndex={disabled ? -1 : 0}
+                    onClick={() => !disabled && selectPreset(option)}
+                    onKeyDown={(e) => {
+                      if (disabled) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        selectPreset(option);
+                      }
+                    }}
+                    style={railItemStyle(active)}
+                  >
+                    {DATE_RANGE_PREDEFINED_LABELS[option]}
+                  </Box>
+                );
+              })}
+            </Box>
           </Box>
 
           <Box style={{ flex: 1, minWidth: 0, padding: "var(--space-3)" }}>
@@ -346,7 +396,11 @@ export default function DateRangeComparePanel({
               // Off: side-by-side months render the same date twice, so a range
               // boundary on a duplicate reads as two different days.
               showOutsideDays={false}
-              selected={{ from: calendarFrom, to: calendarTo }}
+              // Nothing shaded while cleared: there is no window in effect, and
+              // shading one would contradict the rail.
+              selected={
+                cleared ? undefined : { from: calendarFrom, to: calendarTo }
+              }
               month={calendarMonth}
               onMonthChange={setCalendarMonth}
               disabled={disabled}
@@ -363,11 +417,13 @@ export default function DateRangeComparePanel({
             />
 
             <Text size="sm" color="text-low">
-              {isPartialRange
-                ? "Pick an end date to finish the range"
-                : isInvalidLookback
-                  ? "Enter a lookback of 1 or more to see a date range"
-                  : describeRange(dateRange)}
+              {cleared
+                ? "Each chart keeps its own date range"
+                : isPartialRange
+                  ? "Pick an end date to finish the range"
+                  : isInvalidLookback
+                    ? "Enter a lookback of 1 or more to see a date range"
+                    : describeRange(dateRange)}
             </Text>
           </Box>
         </Flex>
@@ -499,11 +555,11 @@ export default function DateRangeComparePanel({
                   onChange={(granularity) =>
                     setDraft((prev) => ({ ...prev, granularity }))
                   }
-                  disabled={disabled || granularityDisabled}
+                  disabled={disabled || granularityInert}
                   width={170}
                 />
               </Flex>
-              {granularityDisabled && granularityDisabledReason && (
+              {granularityInert && granularityDisabledReason && (
                 <HelperText status="info" mt="2">
                   {granularityDisabledReason}
                 </HelperText>

@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { useState } from "react";
 import {
   BlockComparison,
   calculateProductAnalyticsDateRange,
@@ -85,7 +85,7 @@ export default function DateRangeCompareDropdown({
   granularityDisabled = false,
   granularityDisabledReason,
   disabled,
-  extraPresets,
+  clearOption,
   triggerFallbackLabel = "Date range",
   fullWidth = false,
 }: {
@@ -99,7 +99,7 @@ export default function DateRangeCompareDropdown({
   /** Why granularity is inert, surfaced under the disabled control. */
   granularityDisabledReason?: string;
   disabled?: boolean;
-  extraPresets?: ReactNode;
+  clearOption?: { label: string; tooltip?: string };
   /** Trigger text when a custom range has no bounds set yet. */
   triggerFallbackLabel?: string;
   fullWidth?: boolean;
@@ -128,7 +128,7 @@ export default function DateRangeCompareDropdown({
         granularityDisabled={granularityDisabled}
         granularityDisabledReason={granularityDisabledReason}
         disabled={disabled}
-        extraPresets={extraPresets}
+        clearOption={clearOption}
         onCancel={() => setOpen(false)}
         onApply={(next) => {
           // Freeze the window for `custom` so later primary edits can't move it.

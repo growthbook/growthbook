@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Box } from "@radix-ui/themes";
 import { dateGranularity } from "shared/validators";
 import type { ExplorationDateRange } from "shared/validators";
 import {
@@ -7,7 +6,6 @@ import {
   resolveComparisonMode,
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import DateRangeTriggerPopover from "@/enterprise/components/ProductAnalytics/DateRangeTriggerPopover";
 import DateRangeComparePanel, {
   DateRangeCompareValue,
@@ -75,57 +73,6 @@ export default function DashboardDateControlsDropdown({
   // comparison to hang off, so "vs prior" would describe nothing.
   const suffix = value ? comparisonSuffix(value, comparison) : null;
 
-  // Selecting "Chart Default" applies immediately rather than waiting for
-  // Apply. It only clears the dashboard-wide range; granularity follows from
-  // that on the caller's side, and the comparison is left as it was.
-  const selectChartDefault = () => {
-    onApply({
-      dateRange: null,
-      granularity,
-      comparison: comparison ?? undefined,
-    });
-    setOpen(false);
-  };
-
-  const chartDefaultOption = (
-    <Box
-      role="button"
-      // Matches the preset rail below it: selection is otherwise conveyed by
-      // background and weight alone, which assistive tech can't read.
-      aria-pressed={value === null}
-      aria-disabled={disabled || undefined}
-      tabIndex={disabled ? -1 : 0}
-      onClick={() => {
-        if (disabled) return;
-        selectChartDefault();
-      }}
-      onKeyDown={(e) => {
-        if (disabled) return;
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          selectChartDefault();
-        }
-      }}
-      style={{
-        padding: "6px 8px",
-        borderRadius: "var(--radius-2)",
-        cursor: disabled ? "default" : "pointer",
-        background: value === null ? "var(--violet-a4)" : undefined,
-        color: value === null ? "var(--violet-11)" : "var(--gray-11)",
-        fontWeight: value === null ? 500 : 400,
-        fontSize: "var(--font-size-2)",
-        whiteSpace: "nowrap",
-      }}
-    >
-      Chart Default
-      <Tooltip
-        body="Use each chart's own configured date range instead of applying a dashboard-wide date filter."
-        tipPosition="right"
-        className="ml-1"
-      />
-    </Box>
-  );
-
   return (
     <DateRangeTriggerPopover
       open={open}
@@ -137,19 +84,28 @@ export default function DashboardDateControlsDropdown({
     >
       <DateRangeComparePanel
         key={open ? "open" : "closed"}
-        value={{ dateRange: activeDateRange, comparison, granularity }}
+        // `dateRange` still seeds the calendar on "Chart Default" so picking a
+        // preset starts from something sensible; `cleared` is what says nothing
+        // is in effect. The panel owns the rail item and stages it like the rest.
+        value={{
+          dateRange: activeDateRange,
+          comparison,
+          granularity,
+          cleared: value === null,
+        }}
         disabled={disabled}
         showCompare={showCompare}
         showGranularity
-        // "Chart Default" means each block keeps its own range, so there is
-        // no dashboard-wide series for a granularity to bucket.
-        granularityDisabled={!value}
         granularityDisabledReason="Pick a dashboard-wide date range to set granularity. On Chart Default, each chart keeps its own."
-        extraPresets={chartDefaultOption}
+        clearOption={{
+          label: "Chart Default",
+          tooltip:
+            "Use each chart's own configured date range instead of applying a dashboard-wide date filter.",
+        }}
         onCancel={() => setOpen(false)}
         onApply={(next: DateRangeCompareValue) => {
           onApply({
-            dateRange: next.dateRange,
+            dateRange: next.cleared ? null : next.dateRange,
             granularity: next.granularity ?? granularity,
             // Freeze the window for `custom` so later primary edits can't move it.
             comparison: next.comparison?.enabled
