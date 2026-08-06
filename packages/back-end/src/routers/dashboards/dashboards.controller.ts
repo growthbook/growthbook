@@ -176,7 +176,6 @@ export async function createDashboard(
       nextBlocks: createdBlocks,
     }) ?? createdBlocks;
 
-  // Ensure the creator can view every resource referenced by the blocks.
   await assertCanReadDashboardResourceRefs(
     context,
     getAddedDashboardBlockResourceRefs(blocksWithGlobalControls),
@@ -235,10 +234,7 @@ export async function updateDashboard(
         nextBlocks: createdBlocks,
       }) ?? createdBlocks;
 
-    // Only validate resources introduced by this update, so an editor can save
-    // a dashboard that already references resources they can't read. Global
-    // controls enrollment doesn't change which resources a block references, so
-    // checking createdBlocks matches the persisted blocks.
+    // Allow updates when an existing block references an unreadable resource.
     await assertCanReadDashboardResourceRefs(
       context,
       getAddedDashboardBlockResourceRefs(createdBlocks, dashboard.blocks),

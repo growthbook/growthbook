@@ -78,10 +78,6 @@ import { logger } from "back-end/src/util/logger";
 const refKey = (ref: DashboardBlockResourceRef): string =>
   `${ref.type}:${ref.id}`;
 
-// Returns the subset of resource refs the context can't read. Each resource is
-// resolved through a permission-aware reader that filters out anything the
-// acting user isn't allowed to view, so a ref that fails to resolve is one they
-// can't read.
 export async function getUnreadableDashboardResourceRefs(
   context: ReqContext | ApiReqContext,
   refs: DashboardBlockResourceRef[],
@@ -115,9 +111,6 @@ export async function getUnreadableDashboardResourceRefs(
   return uniqueRefs.filter((ref) => !readableByType[ref.type].has(ref.id));
 }
 
-// Throws a permission error if the context can't read every referenced
-// resource. Used to stop a user from adding a dashboard block that surfaces a
-// resource they don't have access to.
 export async function assertCanReadDashboardResourceRefs(
   context: ReqContext | ApiReqContext,
   refs: DashboardBlockResourceRef[],
@@ -130,10 +123,6 @@ export async function assertCanReadDashboardResourceRefs(
   }
 }
 
-// Collects the resource refs from a list of blocks, optionally excluding refs
-// that already existed on the dashboard so only newly-added references are
-// checked (e.g. when a co-editor saves a dashboard containing pre-existing
-// blocks they can't fully read).
 export function getAddedDashboardBlockResourceRefs(
   nextBlocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
   existingBlocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],

@@ -1,8 +1,6 @@
 import { getDashboardBlockResourceRefs } from "shared/enterprise";
 import type { DashboardBlockInterface } from "shared/enterprise";
 
-// Minimal block fixtures — getDashboardBlockResourceRefs only inspects the
-// discriminant `type` and the resource id fields, so partial objects are enough.
 function block(fields: Record<string, unknown>): DashboardBlockInterface {
   return {
     organization: "org_1",
