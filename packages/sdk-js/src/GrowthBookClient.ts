@@ -39,6 +39,7 @@ import {
   evalFeature as _evalFeature,
   getAllStickyBucketAssignmentDocs,
   getApiHosts,
+  getTrackingUserContext,
   runExperiment,
 } from "./core";
 import { StickyBucketService } from "./sticky-bucket-service";
@@ -252,7 +253,11 @@ export class GrowthBookClient<
   ) {
     if (this._options.eventLogger) {
       const ctx = this._getEvalContext(userContext);
-      this._options.eventLogger(eventName, properties, ctx.user);
+      this._options.eventLogger(
+        eventName,
+        properties,
+        getTrackingUserContext(ctx.user),
+      );
     }
   }
 
