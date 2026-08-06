@@ -18,11 +18,7 @@ import {
   FactMetricInterface,
   FactTableDefinition,
 } from "shared/types/fact-table";
-import {
-  ExperimentMetricDefinition,
-  getFunnelEphemeralMetricById,
-  isFactMetricId,
-} from "shared/experiments";
+import { ExperimentMetricDefinition, isFactMetricId } from "shared/experiments";
 import { SavedGroupForDefinitions } from "shared/types/saved-group";
 import { ConstantWithoutValue } from "shared/types/constant";
 import { ConfigWithoutValue } from "shared/types/config";
@@ -363,8 +359,6 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
 
   const getExperimentMetricById = useCallback(
     (id: string) => {
-      const funnelMetric = getFunnelEphemeralMetricById(id);
-      if (funnelMetric) return funnelMetric;
       if (isFactMetricId(id)) {
         return getFactMetricById(id);
       }

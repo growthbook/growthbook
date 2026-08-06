@@ -3,9 +3,12 @@ import {
   conversionWindowToSeconds,
 } from "shared/funnels";
 import {
+  ExperimentMetricInterface,
   funnelStepMetricId,
+  getAllExpandedMetricIdsFromExperiment,
   parseFunnelStepMetricId,
 } from "shared/experiments";
+import { FunnelFactMetricInterface } from "shared/types/fact-table";
 
 describe("conversionWindowToSeconds", () => {
   it("converts each supported unit", () => {
@@ -99,5 +102,33 @@ describe("funnel step metric ids", () => {
     expect(
       parseFunnelStepMetricId("fact__abc?dim:country=US").isFunnelStepMetric,
     ).toBe(false);
+  });
+});
+
+describe("getAllExpandedMetricIdsFromExperiment funnel expansion", () => {
+  const funnelMetric = {
+    id: "fact__funnel",
+    name: "Signup Funnel",
+    metricType: "funnel",
+    numerator: null,
+    denominator: null,
+    funnelSettings: {
+      steps: [
+        { name: "View", factTableId: "ft", rowFilters: [], optional: false },
+        { name: "Signup", factTableId: "ft", rowFilters: [], optional: false },
+      ],
+    },
+  } as unknown as FunnelFactMetricInterface;
+
+  it("derives a step id per funnel step for a real funnel goal metric", () => {
+    const ids = getAllExpandedMetricIdsFromExperiment({
+      exp: { goalMetrics: [funnelMetric.id] },
+      expandedMetricMap: new Map<string, ExperimentMetricInterface>([
+        [funnelMetric.id, funnelMetric],
+      ]),
+    });
+    expect(ids).toContain(funnelMetric.id);
+    expect(ids).toContain(funnelStepMetricId(funnelMetric.id, 0));
+    expect(ids).toContain(funnelStepMetricId(funnelMetric.id, 1));
   });
 });

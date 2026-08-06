@@ -6,7 +6,7 @@ import {
   ExperimentMetricDefinition,
   ExperimentSortBy,
   isDimensionPrecomputed,
-  isFunnelMetricId,
+  isFactFunnelMetric,
 } from "shared/experiments";
 import {
   DifferenceType,
@@ -330,7 +330,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
     }
   }, [localBaselineRow, visibleSliceTimeSeriesRowIds.length]);
 
-  const isFunnelMetric = isFunnelMetricId(metric.id);
+  const isFunnelMetric = isFactFunnelMetric(metric);
 
   return (
     <>
@@ -380,7 +380,11 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
               flexDirection: "column",
             }}
           >
-            <ExperimentFunnelChart variations={variations} />
+            <ExperimentFunnelChart
+              metric={metric}
+              results={results}
+              variations={variations}
+            />
           </Box>
         </TabsContent>
       ) : (
@@ -493,7 +497,7 @@ const MetricDrilldownModal = ({
 }: MetricDrilldownModalProps) => {
   useBodyScrollLock(true);
   const { metric } = row;
-  const isFunnelMetric = isFunnelMetricId(metric.id);
+  const isFunnelMetric = isFactFunnelMetric(metric);
   const { hasCommercialFeature } = useUser();
 
   // Check if the owning org has the feature (via SSR data), falling back to the current user's org

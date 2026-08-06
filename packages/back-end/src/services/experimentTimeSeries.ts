@@ -3,7 +3,6 @@ import {
   getAllExpandedMetricIdsFromExperiment,
   isFactMetricId,
   expandAllSliceMetricsInMap,
-  addFunnelEphemeralMetricsToMap,
   getLatestPhaseVariations,
   isDimensionPrecomputed,
   getFactMetricFactTableId,
@@ -111,11 +110,6 @@ export async function getExperimentTimeSeriesContext({
     experiment,
     metricGroups,
   });
-
-  // Add the ephemeral funnel step metrics so they are scooped into allMetricIds
-  // below. This map only feeds the expanded-id list and the change-detection
-  // hash, never query generation, so it is safe to mutate directly.
-  addFunnelEphemeralMetricsToMap(metricMap);
 
   const allMetricIds = getAllExpandedMetricIdsFromExperiment({
     exp: experimentSnapshot.settings,

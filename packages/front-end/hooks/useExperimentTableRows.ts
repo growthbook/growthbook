@@ -13,8 +13,8 @@ import {
   expandMetricGroups,
   ExperimentMetricDefinition,
   ExperimentSortBy,
-  FUNNEL_DEMO_METRIC_ID,
-  getFunnelParentStepDescriptors,
+  funnelStepMetricId,
+  isFactFunnelMetric,
   createCustomSliceDataForMetric,
   createAutoSliceDataForMetric,
   setAdjustedCIs,
@@ -119,10 +119,6 @@ export function useExperimentTableRows({
     useMemo(() => {
       const allMetricGroups = ssrPolyfills?.metricGroups || metricGroups;
 
-      const goalMetricsWithFunnel = goalMetrics.includes(FUNNEL_DEMO_METRIC_ID)
-        ? goalMetrics
-        : [...goalMetrics, FUNNEL_DEMO_METRIC_ID];
-
       // Check for selector IDs in metricsFilter (they constrain which categories to show)
       const hasGoalSelector =
         metricsFilter?.includes("experiment-goal") ?? false;
@@ -183,7 +179,7 @@ export function useExperimentTableRows({
         // Filter metrics by group or allowed metric IDs
         // Only include categories that are selected via selector IDs
         if (includeGoals) {
-          filteredGoalMetrics = goalMetricsWithFunnel.filter((id) => {
+          filteredGoalMetrics = goalMetrics.filter((id) => {
             // If no actual metric filter, include all goal metrics (selector-only case)
             if (actualMetricFilter.length === 0) return true;
             // Otherwise, filter by actual metric filter (within goal category)
@@ -234,7 +230,7 @@ export function useExperimentTableRows({
         }
       } else {
         // No filter at all - include all metrics
-        filteredGoalMetrics = goalMetricsWithFunnel;
+        filteredGoalMetrics = goalMetrics;
         filteredSecondaryMetrics = secondaryMetrics;
         filteredGuardrailMetrics = guardrailMetrics;
       }
@@ -714,12 +710,13 @@ export function generateRowsForMetric({
     }
   }
 
-  const funnelSteps = getFunnelParentStepDescriptors(metricId);
-  if (funnelSteps) {
+  if (isFactFunnelMetric(metric)) {
+    const funnelSteps = metric.funnelSettings.steps;
     parentRow.numChildren = funnelSteps.length;
-    funnelSteps.forEach(({ index, name, stepMetricId }) => {
+    funnelSteps.forEach((step, stepIndex) => {
+      const stepMetricId = funnelStepMetricId(metricId, stepIndex);
       rows.push({
-        label: name,
+        label: step.name,
         metric: newMetric,
         metricOverrideFields: overrideFields,
         rowClass: newMetric?.inverse ? "inverse" : "",
@@ -737,7 +734,7 @@ export function generateRowsForMetric({
         numChildren: 0,
         isChildRow: true,
         childRowType: "funnelStep",
-        funnelStepIndex: index,
+        funnelStepIndex: stepIndex,
         parentRowId: metricId,
         isHiddenByFilter: false,
       });

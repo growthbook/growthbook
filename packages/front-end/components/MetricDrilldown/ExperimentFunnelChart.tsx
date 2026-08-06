@@ -1,35 +1,47 @@
 import { useMemo } from "react";
 import {
-  getFunnelMetricNumbers,
-  HARDCODED_FUNNEL_METRIC,
+  ExperimentMetricDefinition,
+  funnelStepMetricId,
+  isFactFunnelMetric,
 } from "shared/experiments";
-import { ExperimentReportVariation } from "shared/types/report";
+import {
+  ExperimentReportResultDimension,
+  ExperimentReportVariation,
+} from "shared/types/report";
 import FunnelStepsChart from "@/enterprise/components/ProductAnalytics/MainSection/FunnelStepsChart";
 
 export default function ExperimentFunnelChart({
+  metric,
+  results,
   variations,
   yAxisScale = "percent",
   animate = true,
 }: {
+  metric: ExperimentMetricDefinition;
+  results?: ExperimentReportResultDimension;
   variations: ExperimentReportVariation[];
   yAxisScale?: "count" | "percent";
   animate?: boolean;
 }) {
-  // The same getFunnelMetricNumbers mock feeds the gbstats pipeline
-  // (back-end getFunnelResultsForStatsEngine in services/stats.ts), so the
-  // per-step counts shown here stay consistent with the results table.
   const { stepLabels, series } = useMemo(() => {
-    const numbers = getFunnelMetricNumbers(HARDCODED_FUNNEL_METRIC, variations);
+    const steps = isFactFunnelMetric(metric) ? metric.funnelSettings.steps : [];
     return {
-      stepLabels: HARDCODED_FUNNEL_METRIC.steps.map((s) => s.name),
+      stepLabels: steps.map((s) => s.name),
       series: variations.map((v) => ({
         key: String(v.index),
         label: v.name,
-        counts: numbers.steps.map((step) => step.count[v.index] ?? 0),
-        avgTimes: numbers.steps.map(() => null),
+        // Each step's per-variation count is the "reached step k" binomial the
+        // stats pipeline emits under funnelStepMetricId; missing cells read 0.
+        counts: steps.map(
+          (_step, stepIndex) =>
+            results?.variations?.[v.index]?.metrics?.[
+              funnelStepMetricId(metric.id, stepIndex)
+            ]?.value ?? 0,
+        ),
+        avgTimes: steps.map(() => null),
       })),
     };
-  }, [variations]);
+  }, [metric, results, variations]);
 
   return (
     <FunnelStepsChart

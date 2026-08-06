@@ -34,7 +34,7 @@ import {
   getMetricLink,
   ExperimentSortBy,
   SetExperimentSortBy,
-  isFunnelMetricId,
+  isFactFunnelMetric,
 } from "shared/experiments";
 import Link from "@/ui/Link";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
@@ -714,7 +714,7 @@ export function getRenderLabelColumn({
               <div style={{ position: "absolute", left: 7, marginTop: 3 }}>
                 <RadixTooltip
                   content={
-                    isFunnelMetricId(metric.id)
+                    isFactFunnelMetric(metric)
                       ? isExpanded
                         ? "Collapse funnel steps"
                         : "Expand funnel steps"
@@ -806,7 +806,7 @@ export function getRenderLabelColumn({
                   </Link>
                 )}
               </Text>
-              {isFunnelMetricId(metric.id) && (
+              {isFactFunnelMetric(metric) && (
                 <PiFunnelSimple
                   size={16}
                   style={{

@@ -1,17 +1,28 @@
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { MetricDefaults } from "shared/types/organization";
-import {
-  ExperimentMetricDefinition,
-  FUNNEL_DEMO_METRIC_ID,
-  getFunnelEphemeralMetricById,
-} from "shared/experiments";
+import { ExperimentMetricDefinition } from "shared/experiments";
+import { FunnelFactMetricInterface } from "shared/types/fact-table";
 import { sortExperimentTableRows } from "@/hooks/useTableSorting";
 import { ExperimentTableRow } from "@/services/experiments";
 
 const metricDefaults: MetricDefaults = { minimumSampleSize: 0 };
 
-const funnelMetric = getFunnelEphemeralMetricById(FUNNEL_DEMO_METRIC_ID);
-if (!funnelMetric) throw new Error("funnel metric fixture missing");
+const FUNNEL_METRIC_ID = "fact__funnel";
+const funnelMetric = {
+  id: FUNNEL_METRIC_ID,
+  name: "Signup Funnel",
+  metricType: "funnel",
+  numerator: null,
+  denominator: null,
+  inverse: false,
+  funnelSettings: {
+    steps: [
+      { name: "View", factTableId: "ft", rowFilters: [], optional: false },
+      { name: "Signup", factTableId: "ft", rowFilters: [], optional: false },
+      { name: "Purchase", factTableId: "ft", rowFilters: [], optional: false },
+    ],
+  },
+} as unknown as FunnelFactMetricInterface;
 const realMetric = { ...funnelMetric, id: "fact__real_metric" };
 
 // A baseline plus one treatment variation; `expected` drives the change sort.
@@ -58,9 +69,9 @@ function childRow(
 describe("sortExperimentTableRows", () => {
   // Insertion order deliberately does NOT match the `expected` sort order.
   const funnelChildren = [
-    childRow(FUNNEL_DEMO_METRIC_ID, "funnelStep", 10, { funnelStepIndex: 0 }),
-    childRow(FUNNEL_DEMO_METRIC_ID, "funnelStep", 30, { funnelStepIndex: 1 }),
-    childRow(FUNNEL_DEMO_METRIC_ID, "funnelStep", 20, { funnelStepIndex: 2 }),
+    childRow(FUNNEL_METRIC_ID, "funnelStep", 10, { funnelStepIndex: 0 }),
+    childRow(FUNNEL_METRIC_ID, "funnelStep", 30, { funnelStepIndex: 1 }),
+    childRow(FUNNEL_METRIC_ID, "funnelStep", 20, { funnelStepIndex: 2 }),
   ];
   const sliceChildren = [
     childRow("fact__real_metric", "slice", 10, {}),
@@ -83,7 +94,7 @@ describe("sortExperimentTableRows", () => {
 
   it("keeps funnel step children in funnel order regardless of the sort", () => {
     const funnelSteps = sorted.filter(
-      (r) => r.parentRowId === FUNNEL_DEMO_METRIC_ID,
+      (r) => r.parentRowId === FUNNEL_METRIC_ID,
     );
     expect(funnelSteps.map((r) => r.funnelStepIndex)).toEqual([0, 1, 2]);
   });
