@@ -10,6 +10,7 @@ import {
   DEFAULT_STATS_ENGINE,
   DEFAULT_TEST_QUERY_DAYS,
   DEFAULT_SRM_THRESHOLD,
+  DEFAULT_NO_DATA_ALERT_GRACE_PERIOD_HOURS,
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
@@ -151,6 +152,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
       },
       runHealthTrafficQuery: false,
       srmThreshold: DEFAULT_SRM_THRESHOLD,
+      noDataAlertGracePeriodHours:
+        settings.noDataAlertGracePeriodHours ??
+        DEFAULT_NO_DATA_ALERT_GRACE_PERIOD_HOURS,
       multipleExposureMinPercent: 0.01,
       confidenceLevel: 0.95,
       pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
@@ -277,6 +281,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     updateSchedule: form.watch("updateSchedule"),
     runHealthTrafficQuery: form.watch("runHealthTrafficQuery"),
     srmThreshold: form.watch("srmThreshold"),
+    noDataAlertGracePeriodHours: form.watch("noDataAlertGracePeriodHours"),
     multipleExposureMinPercent: form.watch("multipleExposureMinPercent"),
     statsEngine: form.watch("statsEngine"),
     confidenceLevel: form.watch("confidenceLevel"),

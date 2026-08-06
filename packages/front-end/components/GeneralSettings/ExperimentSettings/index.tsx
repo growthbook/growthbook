@@ -453,6 +453,33 @@ export default function ExperimentSettings({
                     multiple variations.
                   </HelperText>
                 </Box>
+
+                <Box mt="4">
+                  <Text className="font-weight-semibold" size="2">
+                    <label>No data alert grace period</label>
+                  </Text>
+                  <Box width="150px">
+                    <Field
+                      size="sm"
+                      type="number"
+                      step="1"
+                      min="0"
+                      max="168"
+                      containerClassName="mt-1 mb-1"
+                      append="hours"
+                      disabled={hasFileConfig()}
+                      {...form.register("noDataAlertGracePeriodHours", {
+                        valueAsNumber: true,
+                        min: 0,
+                        max: 168,
+                      })}
+                    />
+                  </Box>
+                  <HelperText status="info" size="sm">
+                    Wait this long after an experiment starts before sending
+                    &quot;no data&quot; alerts. Set to 0 to alert immediately.
+                  </HelperText>
+                </Box>
               </Box>
             </Box>
 

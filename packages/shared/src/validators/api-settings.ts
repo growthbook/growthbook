@@ -38,6 +38,7 @@ export const apiSettingsValidator = namedSchema(
         })
         .nullable(),
       multipleExposureMinPercent: z.coerce.number(),
+      noDataAlertGracePeriodHours: z.coerce.number().optional(),
       defaultRole: z.object({
         role: z.string().optional(),
         limitAccessByEnvironment: z.boolean().optional(),
