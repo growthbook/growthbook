@@ -189,17 +189,7 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
     }
   }
 
-  // No diff between the revision's desired state and the live entity. This is
-  // No-op publishes are NOT short-circuited here. The engine has its own no-op
-  // branch — same beforeNoOpMerge, merge and dispatch — and reaching it means a
-  // no-op still passes assertPublishable, which is the point: publishing is the
-  // gated action even when nothing changes, so a locked Config cannot have its
-  // latest-merged pointer advanced past the pin by publishing an empty diff.
-
-  // Delegates claim → apply → compensate → dispatch to the shared engine rather
-  // than repeating it. This handler's job is the gate layer above; the engine
-  // owns the write sequence, its CAS claim, the guarded compensation, and
-  // stranded-merge recovery.
+  // Keep no-op publishes on the shared gated path.
   const merged = await publishRevision(
     req.context,
     revision,

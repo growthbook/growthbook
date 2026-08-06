@@ -354,11 +354,6 @@ export async function applyRevertDirectly({
   title?: string;
   bypass: boolean;
 }): Promise<Revision> {
-  // The FIFTH compensated landing that runs a config cascade. It forwarded only
-  // `applied.written` and passed no `cascade`, so its compensation had no descendant
-  // entries — and `cascadeRestored` was vacuously true on the empty list, so the
-  // merged revision was DELETED while a descendant sat stripped and live. Reachable
-  // through a revert whose target had a field a descendant has since declared.
   let cascadeRef:
     | {
         before: Record<string, unknown> & { id: string };

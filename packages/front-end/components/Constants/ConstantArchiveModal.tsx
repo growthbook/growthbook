@@ -55,15 +55,7 @@ export default function ConstantArchiveModal({
       openRevisions={openRevisions}
       approvalRequired={approvalRequired}
       canBypassApproval={canBypassApproval}
-      // BOTH directions through the shared rule, which picks the atom per
-      // direction: delete to take it out of service, publish to return it. NOT
-      // ANDed with publish — the endpoint lets a delete-only role archive with no
-      // edit rights at all, and requiring publish here hid Archive from the very
-      // Deleter role this work introduces, over the environments the
-      // constant serves. The server treats either flip as reaching all of them
-      // (`flipsArchivedState`), so routing only the archive direction here left
-      // Unarchive offered on a footprint the endpoint then refused — and an empty
-      // footprint SKIPS the environment check rather than narrowing it.
+      // Archive requires delete authority; unarchive requires publish authority.
       canLand={canLandArchiveToggle(
         permissionsUtil,
         "constant",
@@ -94,9 +86,7 @@ export default function ConstantArchiveModal({
         <ConstantDraftSelectorForChanges
           constantId={constant.id}
           openRevisions={openRevisions}
-          // Only drafts this caller may write `archived` into. The endpoint refuses
-          // a write into someone else's draft, so listing them turned a picker
-          // choice into a 403.
+          // Exclude drafts this caller cannot modify.
           canWriteIntoDraft={(r) =>
             canWriteArchiveIntoDraft({
               permissions: permissionsUtil,

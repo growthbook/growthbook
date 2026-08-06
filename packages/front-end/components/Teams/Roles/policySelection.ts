@@ -1,21 +1,9 @@
 import { Policy, POLICY_PARTS } from "shared/permissions";
 
-// The select-all state machine behind the role editor's policy checkboxes, as
-// pure functions over the stored `policies` list.
-//
-// It lives apart from the form for one reason: the interesting behaviour is the
-// state space, not the rendering. A checkbox that reads "checked" must clear when
-// clicked, and one that reads "indeterminate" must fill in — properties worth
-// asserting over every subset and every click order, which a component test walks
-// one path of at a time. The bug this file was extracted for (a policy holding
-// every part rendered indeterminate but cleared when clicked) survived a scripted
-// browser walkthrough precisely because the walkthrough only tried the path the
-// author had in mind.
-
 export type PolicyCheckboxState = boolean | "indeterminate";
 
 function partsOf(policy: Policy): Policy[] {
-  return (POLICY_PARTS[policy] || []) as Policy[];
+  return POLICY_PARTS[policy] ?? [];
 }
 
 /**
@@ -81,9 +69,8 @@ export function togglePolicyPart(
   if (explicit.has(part)) explicit.delete(part);
   else explicit.add(part);
 
-  const rest = policies.filter(
-    (p) => p !== policy && !parts.includes(p as Policy),
-  );
+  const partSet = new Set<string>(parts);
+  const rest = policies.filter((p) => p !== policy && !partSet.has(p));
   return explicit.size === parts.length
     ? [...rest, policy]
     : [...rest, ...Array.from(explicit)];

@@ -245,11 +245,6 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     { skipHooks: true },
   );
 
-  // Delegates claim → apply → compensate → dispatch to the shared engine rather
-  // than repeating it. This handler's job is the gate layer above; the engine
-  // owns the write sequence, its CAS claim, the guarded compensation, and
-  // stranded-merge recovery — all of which had to be fixed three times while
-  // each publish surface carried its own copy.
   const merged = await publishRevision(
     req.context,
     revision,

@@ -65,14 +65,7 @@ export default function ConfigArchiveModal({
       openRevisions={openRevisions}
       approvalRequired={approvalRequired}
       canBypassApproval={canBypassApproval}
-      // BOTH directions through the shared rule, which picks the atom per
-      // direction: delete to take it out of service, publish to return it. NOT
-      // ANDed with publish — the endpoint lets a delete-only role archive with no
-      // edit rights at all, and requiring publish here hid Archive from the very
-      // Deleter role this work introduces. A base Config names no scoped
-      // environments, and an empty footprint SKIPS the environment check — so it
-      // falls back to everywhere the Config serves, exactly as the server's
-      // archive arm does.
+      // Archive requires delete authority; unarchive requires publish authority.
       canLand={canLandArchiveToggle(
         permissionsUtil,
         "config",
@@ -113,9 +106,7 @@ export default function ConfigArchiveModal({
         <RevisionDraftSelectorForChanges
           entityId={config.id}
           openRevisions={openRevisions}
-          // Only drafts this caller may write `archived` into. The endpoint refuses
-          // a write into someone else's draft, so listing them turned a picker
-          // choice into a 403.
+          // Exclude drafts this caller cannot modify.
           canWriteIntoDraft={(r) =>
             canWriteArchiveIntoDraft({
               permissions: permissionsUtil,

@@ -12,26 +12,7 @@ import {
   getRevisionPublishEnvs,
 } from "@/services/features";
 
-/**
- * Does a CONTROL derive the same footprint its ENDPOINT will?
- *
- * The previous version of this lived in the back-end suite and imported only
- * `shared/` and `back-end/` — so it compared two HELPERS and never evaluated a
- * control at all. It would have caught none of the six front-end findings from the
- * round it was written for, because the helper was never where the bugs were: they
- * were in what the control FEEDS the helper — which entity it receives, which basis
- * it reads, which environment universe it builds.
- *
- * So this runs in the FRONT-END suite, calls the real control functions, and holds
- * them to the shared functions the endpoints call. The fixture is deliberately
- * awkward in the ways that have caught bugs:
- *
- *  - `edge` is scoped to a project the flag is NOT in, so a control that builds its
- *    universe from raw org environments over-demands observably.
- *  - the flag serves dev and production but not staging, so "serving" and "all"
- *    differ.
- *  - a ramp patch names no environments, which is the shape the UI actually emits.
- */
+// Hold the real control functions to the footprints used by their endpoints.
 
 const environments: Environment[] = [
   { id: "dev", description: "" },

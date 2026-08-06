@@ -68,11 +68,9 @@ export default function DraftSelectorForChanges<K>({
   writableDraftKeys?: K[];
 }) {
   const activeDraftKeys = writableDraftKeys ?? allActiveDraftKeys;
-  const singleOption = !canDraft
-    ? true
-    : hideExisting
-      ? !canAutoPublish
-      : activeDraftKeys.length === 0 && !canAutoPublish;
+  const singleOption =
+    !canDraft ||
+    (!canAutoPublish && (hideExisting || activeDraftKeys.length === 0));
 
   // Soft per-entity draft cap (org setting). At/over the cap we steer users to
   // an existing draft and block creating a new one — except admins and critical

@@ -15,35 +15,7 @@ import {
   Persona,
 } from "./permission-personas.fixture";
 
-/**
- * Does a CONTROL predict what its ENDPOINT will do?
- *
- * Every review round of the granular-permissions work has produced at least one
- * finding of the same shape: a control offering an action the endpoint then
- * refused, because the two derived the same rule separately and disagreed about
- * one input — the verb at a move's destination, the basis a footprint is measured
- * against, whether an action publishes at all.
- *
- * Patching each site only fixes the sites already found. This closes the class:
- * `permission-matrix-revision-entities` proves the ENDPOINTS answer the oracle
- * below, and this file proves the PREDICTIONS answer the same oracle — so a
- * control and its endpoint cannot drift apart without CI failing.
- *
- * In-process on purpose. Predictions are pure functions over a `Permissions`
- * instance, so no HTTP is needed, and the assertions cost milliseconds instead of
- * adding hundreds of requests to the slowest suite in the repo.
- *
- * COVERAGE, stated so it isn't assumed: this holds the five predictions that have a
- * matching operation in the oracle — publish, archive, revert-landing, review, and
- * the move destination. Three others are unit-tested in
- * `shared/test/permissions/controlAuthority.test.ts` but have no endpoint case here
- * to be held against:
- *
- *  - `canCommentOnRevisionEntity` and `canDeleteArchivedEntity` — the matrix has no
- *    comment or permanent-delete case yet.
- *  - `holdsFeatureMoveDestination` and `canEnableEnvironmentOnCreate` — Feature Flag
- *    rules, so their oracle is permission-matrix-features, not this one.
- */
+// Keep client-side authority predictions aligned with the endpoint oracle.
 
 const org = buildOrg("org_prediction_parity");
 
