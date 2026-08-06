@@ -3170,15 +3170,14 @@ export function getEnvsForRampTarget(
     // by `if (!envs.size) return "all"` below, after the union.
     for (const env of scoped) envs.add(env);
   }
-  // A target NO patch names is still acted on: with no steps, the start actions
-  // enable every active target, so an unnamed target reaches whatever its rule
-  // serves. Returning [] here left the same vacuity the loop above closes, one
-  // cell over — and it is the cell an attacker picks, because a schedule created
-  // with no steps at all has no patches to name anything.
-  // The union comes FIRST. Ordered the other way, a target no patch names hit the
-  // widening below and its known production-serving envs were discarded — the
-  // caller then collapsed "all" to their own narrow list.
+  // The rule's own environments, unioned BEFORE the widening below. Ordered the other
+  // way, a target no patch names hit the widening and its known production-serving
+  // envs were discarded — the caller then collapsed "all" to their own narrow list.
   for (const env of currentRuleEnvs ?? []) envs.add(env);
+  // Nothing known from either source. A target no patch names is still acted on —
+  // with no steps the start actions enable every active target — so [] here would
+  // hand the permission layer an empty footprint, which SKIPS the environment check
+  // rather than narrowing it. This is the vacuity backstop.
   if (!envs.size) return "all";
   return Array.from(envs);
 }

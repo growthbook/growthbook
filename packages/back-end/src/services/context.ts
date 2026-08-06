@@ -268,6 +268,13 @@ export class ReqContextClass {
   // above are dropped on a failed landing because a rolled-back change never
   // happened — but when the rollback itself failed, part of the change IS live,
   // and staying silent leaves consumers describing state that exists.
+  //
+  // Only CONSUMED inside `withBufferedPayloadRefreshes`. The five landings that set
+  // it through `compensateFailedLanding` are not wrapped in it, so on those paths this
+  // is currently inert — harmless because they rethrow immediately and the request
+  // ends. That stops being true the moment one of them is wrapped: the flag would then
+  // be live and would need clearing, or a buffered landing later in the same request
+  // would fire deferred events for a change that was cleanly rolled back.
   public landingLeftPartialState?: boolean;
 
   // Correlation token for the multi-entity publish ATTEMPT currently

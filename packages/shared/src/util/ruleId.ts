@@ -132,7 +132,19 @@ export function rampRuleEnvKey(
   ruleId?: string,
   environment?: string,
 ): string {
-  return [featureId, ruleId ?? "", environment ?? ""]
-    .map(encodeURIComponent)
-    .join(":");
+  const parts = [featureId, ruleId ?? "", environment ?? ""];
+  try {
+    return parts.map(encodeURIComponent).join(":");
+  } catch {
+    // `encodeURIComponent` THROWS on a lone surrogate, and rule ids are an
+    // unconstrained client-supplied string — so a crafted id turned the gate's key
+    // computation into a 500 instead of a decision. Fail-closed either way, but a
+    // total function is better than a crash.
+    //
+    // JSON handles lone surrogates (well-formed stringify escapes them) and is
+    // injective, and its output starts with `[`, which `encodeURIComponent` always
+    // escapes to `%5B` — so the fallback namespace cannot collide with the normal
+    // one, and injectivity holds across both.
+    return JSON.stringify(parts);
+  }
 }

@@ -148,3 +148,31 @@ describe("rampRuleEnvKey", () => {
     );
   });
 });
+
+// `encodeURIComponent` throws on a lone surrogate, and rule ids carry no charset
+// constraint — so a crafted id made the gate's key computation a 500 rather than a
+// decision. The fallback must stay injective and must not collide with normal keys.
+describe("rampRuleEnvKey with characters encodeURIComponent rejects", () => {
+  const LONE_SURROGATE = "\uD800";
+
+  it("does not throw", () => {
+    expect(() => rampRuleEnvKey("f", LONE_SURROGATE, "dev")).not.toThrow();
+  });
+
+  it("stays injective across the fallback", () => {
+    expect(rampRuleEnvKey("f", LONE_SURROGATE, "dev")).not.toEqual(
+      rampRuleEnvKey("f", LONE_SURROGATE, "production"),
+    );
+    expect(rampRuleEnvKey("a:b", LONE_SURROGATE, "dev")).not.toEqual(
+      rampRuleEnvKey("a", `b:${LONE_SURROGATE}`, "dev"),
+    );
+  });
+
+  it("cannot collide with a normally-encoded key", () => {
+    // The fallback starts with `[`, which encodeURIComponent always escapes.
+    expect(rampRuleEnvKey("f", LONE_SURROGATE, "dev")).not.toEqual(
+      rampRuleEnvKey("f", "r", "dev"),
+    );
+    expect(rampRuleEnvKey("f", "r", "dev").startsWith("[")).toBe(false);
+  });
+});
