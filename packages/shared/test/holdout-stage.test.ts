@@ -5,9 +5,7 @@ describe("getHoldoutStage", () => {
     expect(getHoldoutStage({}, { status: "draft" })).toBe("draft");
   });
 
-  it("returns draft even when an analysisStartDate is somehow set", () => {
-    // Starting from draft clears analysisStartDate, but the experiment status
-    // is the authority on whether the holdout has started at all.
+  it("returns draft when analysisStartDate is set", () => {
     expect(
       getHoldoutStage({ analysisStartDate: new Date() }, { status: "draft" }),
     ).toBe("draft");
@@ -56,7 +54,6 @@ describe("getHoldoutStage", () => {
     });
 
     it("treats an empty-string analysisStartDate as running", () => {
-      // The string-dates form can carry "" from a cleared form field.
       expect(
         getHoldoutStage({ analysisStartDate: "" }, { status: "running" }),
       ).toBe("running");

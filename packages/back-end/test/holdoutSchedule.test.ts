@@ -1,6 +1,5 @@
 import { normalizeHoldoutScheduleUpdates } from "back-end/src/services/holdouts";
 
-// Fixed clock so "future" and "past" are unambiguous.
 const NOW = new Date("2026-07-28T12:00:00.000Z");
 const PAST = new Date("2026-07-01T00:00:00.000Z");
 const SOON = new Date("2026-08-01T00:00:00.000Z");
