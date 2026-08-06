@@ -208,6 +208,7 @@ export type ExperimentTableRow = {
   allSliceLevels?: string[];
   // Funnel step row properties
   funnelStepIndex?: number;
+  funnelStepOptional?: boolean;
   isHiddenByFilter?: boolean;
   labelOnly?: boolean;
 };

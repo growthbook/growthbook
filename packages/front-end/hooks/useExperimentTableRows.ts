@@ -549,6 +549,15 @@ export function generateRowsForMetric({
     numSlices > 0 &&
     !sliceTagsFilter.includes("overall");
 
+  // A funnel has no results of its own; completing it is completing its last
+  // step, so the parent row reads that step's results.
+  const funnelSteps = isFactFunnelMetric(metric)
+    ? metric.funnelSettings.steps
+    : [];
+  const resultsMetricId = funnelSteps.length
+    ? funnelStepMetricId(metricId, funnelSteps.length - 1)
+    : metricId;
+
   const parentRow: ExperimentTableRow = {
     label: newMetric?.name,
     metric: newMetric,
@@ -563,7 +572,7 @@ export function generateRowsForMetric({
         }))
       : resultsArray[0].variations.map((v) => {
           return (
-            v.metrics?.[metricId] || {
+            v.metrics?.[resultsMetricId] || {
               users: 0,
               value: 0,
               cr: 0,
@@ -710,8 +719,7 @@ export function generateRowsForMetric({
     }
   }
 
-  if (isFactFunnelMetric(metric)) {
-    const funnelSteps = metric.funnelSettings.steps;
+  if (funnelSteps.length) {
     parentRow.numChildren = funnelSteps.length;
     funnelSteps.forEach((step, stepIndex) => {
       const stepMetricId = funnelStepMetricId(metricId, stepIndex);
@@ -735,6 +743,8 @@ export function generateRowsForMetric({
         isChildRow: true,
         childRowType: "funnelStep",
         funnelStepIndex: stepIndex,
+        // The first step can never be skipped, whatever the setting says.
+        funnelStepOptional: stepIndex > 0 && step.optional,
         parentRowId: metricId,
         isHiddenByFilter: false,
       });

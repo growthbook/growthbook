@@ -602,6 +602,7 @@ export function getRenderLabelColumn({
             style={{ fontSize: "0.75rem", color: "var(--color-text-low)" }}
           >
             Step {(row?.funnelStepIndex ?? 0) + 1}
+            {row?.funnelStepOptional ? " (optional)" : ""}
           </div>
         </div>
       );
