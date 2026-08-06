@@ -498,8 +498,12 @@ export async function commitBulkPublish(
     };
     const eventBuffer: NonNullable<Context["bulkPublishDeferredEvents"]> = {
       entries: [],
+      restored: new Set<string>(),
     };
     context.bulkPublishDeferredEvents = eventBuffer;
+    // Restores report into the buffer's own set, so it survives alongside the closed
+    // buffer and a late producer can consult it.
+    context.bulkPublishRestoredEntities = eventBuffer.restored;
     // An abort past this point carries buffered effects: the replay's writes are REAL
     // live writes, so their refreshes flush (a refresh rebuilds from live state and is
     // correct whatever aborted) — and so do their EVENTS, for the same reason. Nothing
@@ -510,10 +514,13 @@ export async function commitBulkPublish(
     ): Promise<never> => {
       // Nothing has been applied yet at an abort, so the only entries here are the
       // no-op self-heal replay's — real live writes that no compensation undoes.
-      const durable = eventBuffer.entries.filter((ev) => ev.owner !== null);
+      // Nothing has been applied, so nothing is in `restored` and every entry is a
+      // self-heal replay's — real live writes no compensation undoes. Late ones take
+      // the same answer from the same set.
+      const durable = eventBuffer.entries;
       // Closed, and LEFT on the context: the producer reads the field fresh, so
       // nulling it would put a straggler back on the live-emit path.
-      eventBuffer.closed = "drop";
+      eventBuffer.closed = true;
       flushPayloadRefreshBuffer(context, "bulk-publish-abort");
       for (const { emit } of durable) {
         try {
@@ -630,8 +637,6 @@ export async function commitBulkPublish(
       // buffer plus the per-document rule below decides all of them the same way — an
       // event is emitted only if its document was not put back, which excludes every
       // restore write (its document is, by definition, restored).
-      // Filled by the restores themselves, per DOCUMENT.
-      context.bulkPublishRestoredEntities = new Set<string>();
       const appliedSet = new Set(applied);
       const restoreFailed = new Set<PlannedItemPublish>();
       for (const item of restoreOrder(applied)) {
@@ -688,26 +693,11 @@ export async function commitBulkPublish(
       // owns — and excludes the case an item-level flag could not: a Config root that
       // WAS restored while a descendant of the same item was not, whose event would
       // otherwise assert the published value over live pre-publish state.
-      const restoredIds =
-        context.bulkPublishRestoredEntities ?? new Set<string>();
       // Read AFTER the restores, so entries a straggler added mid-rollback are judged
       // by the same rule rather than silently discarded with a separate buffer.
       const survivingEvents = eventBuffer.entries.filter(
-        (e) => e.owner !== null && !restoredIds.has(e.owner),
+        (e) => !eventBuffer.restored.has(e.owner),
       );
-      // An unattributed entry has no document to check against, so whether its change
-      // survived is unknown. Dropped, on the preference the buffering encodes — an
-      // event for a change that no longer exists is worse than none — but logged,
-      // because silence is what made this invisible.
-      const unattributed = eventBuffer.entries.filter(
-        (e) => e.owner === null,
-      ).length;
-      if (unattributed) {
-        logger.warn(
-          { unattributed },
-          "bulk publish: dropped unattributable *.updated events during compensation",
-        );
-      }
       if (
         restoreFailed.size &&
         applyBuffer &&
@@ -717,11 +707,11 @@ export async function commitBulkPublish(
         context.sdkPayloadRefreshBuffer.treatEmptyProjectAsGlobal ||=
           applyBuffer.treatEmptyProjectAsGlobal;
       }
-      // Close the buffer and LEAVE IT on the context. Nulling the field put the
-      // disposition out of reach: the producer reads the context fresh at resume time
-      // and captures no reference, so a straggler saw "no buffer" and emitted live —
-      // the exact outcome the flag exists to prevent.
-      eventBuffer.closed = "drop";
+      // Close the buffer and LEAVE IT, with its `restored` set intact. Nulling either
+      // put the answer out of reach: the producer reads the context fresh at resume
+      // time and captures no reference, so a straggler saw "no buffer" and emitted
+      // live, or saw a release-wide verdict and dropped a durable document's event.
+      eventBuffer.closed = true;
       context.bulkPublishRestoredEntities = null;
       flushPayloadRefreshBuffer(context, "bulk-publish-compensation");
       for (const { emit } of survivingEvents) {
@@ -784,9 +774,11 @@ export async function commitBulkPublish(
     // Success: detach the buffers FIRST so the flushes themselves fire, then
     // emit everything deferred — only after the commit is known-good.
     const deferredEvents = eventBuffer.entries;
-    // The release stands, so a straggler may emit live — but it has to be able to
-    // SEE that, which means leaving the closed buffer where the producer looks.
-    eventBuffer.closed = "emit";
+    // The release stands, so nothing is in `restored` and every straggler emits — but
+    // it has to be able to SEE that, which means leaving the closed buffer where the
+    // producer looks.
+    eventBuffer.closed = true;
+    context.bulkPublishRestoredEntities = null;
     flushPayloadRefreshBuffer(context, "bulk-publish");
 
     for (const { emit } of deferredEvents) {

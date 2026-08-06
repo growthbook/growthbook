@@ -261,7 +261,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       // not fall through to the publish arm and 403 a no-op.
       (updates.archived != null &&
         !archiving &&
-        updates.archived !== feature.archived)
+        (updates.archived ?? false) !== (feature.archived ?? false))
     ) {
       if (
         !req.context.permissions.canPublishFeature(

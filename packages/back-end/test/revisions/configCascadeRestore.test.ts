@@ -3,6 +3,7 @@ import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
 import { restoreEntityPreImage } from "back-end/src/revisions/landingSequence";
+import { getAdapter } from "back-end/src/revisions";
 import { setupApp } from "../api/api.setup";
 
 /**
@@ -172,6 +173,50 @@ describe("restoring a Config descendant after a failed cascade", () => {
 
     expect(await schemaKeysOf("root")).toEqual([]);
     expect(await schemaKeysOf("child")).toEqual(["foo"]);
+  });
+
+  // The restore is reported BEFORE the repair cascade, which can throw. Reported after,
+  // a repair failure left the document unrecorded even though its own restore had
+  // committed — so the apply's deferred `*.updated` was emitted as durable over a
+  // document holding its pre-image.
+  it("reports the restored document even when the repair cascade throws", async () => {
+    const context = adminContext();
+    await seedConfig("root", []);
+    await seedConfig("child", [], "root");
+    const restored = new Set<string>();
+    context.bulkPublishRestoredEntities = restored;
+
+    const preImage = await mongoose.connection
+      .collection("configs")
+      .findOne({ organization: ORG_ID, key: "child" });
+
+    const adapter = getAdapter("config") as {
+      afterRestorePreImage?: unknown;
+    };
+    const original = adapter.afterRestorePreImage;
+    adapter.afterRestorePreImage = async () => {
+      throw new Error("repair cascade failed");
+    };
+    try {
+      await expect(
+        restoreEntityPreImage({
+          context,
+          entityType: "config",
+          preImage: {
+            ...(preImage as Record<string, unknown>),
+            schema: schemaOf(["foo"]),
+          } as Record<string, unknown> & { id: string },
+          persistedKeys: ["schema"],
+          written: { schema: schemaOf([]) },
+        }),
+      ).rejects.toThrow("repair cascade failed");
+    } finally {
+      adapter.afterRestorePreImage = original;
+    }
+
+    // The document itself went back, whatever the repair did.
+    expect(await schemaKeysOf("child")).toEqual(["foo"]);
+    expect(restored.has("cfg_child")).toBe(true);
   });
 
   // The corrected order. Once the root no longer owns `foo`, the same restore lands.

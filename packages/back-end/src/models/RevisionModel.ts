@@ -139,9 +139,6 @@ const BaseClass = MakeModelClass({
     {
       fields: { organization: 1, authorId: 1 },
     },
-    {
-      fields: { organization: 1, status: 1 },
-    },
     // The LISTING sort. Every paginated read sorts `{dateCreated: -1, id: -1}`, and
     // without the sort keys on the filter's prefix each one was a blocking sort over
     // the whole match — including an entity history page with no status filter, which

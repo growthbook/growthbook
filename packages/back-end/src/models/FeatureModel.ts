@@ -3990,6 +3990,18 @@ async function publishRevisionInner({
         );
       }
     }
+    // Report whether the feature DOCUMENT went back, which is what decides its
+    // deferred `feature.updated`. This path compensates through its own rewinds
+    // rather than the shared restore funnel, so without this the set stayed empty on
+    // the one landing that actually produces late producers — the filter below was
+    // inert exactly where it was needed, in both directions.
+    //
+    // Ownership lost counts as "back" for this purpose: our write is superseded, so
+    // our event would assert a value that is no longer live, and the winner emits its
+    // own.
+    if (ownershipLost || !unreversed.includes("feature document")) {
+      context.bulkPublishRestoredEntities?.add(feature.id);
+    }
     // Say so in the response: continuing past a satellite keeps the feature and
     // its revision consistent, but whatever could not be reversed is left behind
     // and the caller is the only one positioned to act on it.

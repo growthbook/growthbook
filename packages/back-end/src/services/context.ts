@@ -275,13 +275,18 @@ export class ReqContextClass {
   // window. Falling through to a live emit — what a missing buffer means — announced a
   // value from a release that had already rolled back.
   public bulkPublishDeferredEvents?: {
-    entries: Array<{ owner: string | null; emit: () => Promise<unknown> }>;
-    closed?: "emit" | "drop";
+    entries: Array<{ owner: string; emit: () => Promise<unknown> }>;
+    // Set when the release ends. The buffer stays reachable afterwards so a late
+    // producer can be judged by `restored` rather than by its absence.
+    closed?: boolean;
+    // Documents compensation put back. An event — buffered or late — is emitted only
+    // for a document NOT in here, which is the one rule both paths apply.
+    restored: Set<string>;
   } | null;
   /**
-   * Entity ids compensation has put back. An event is emitted only for a document NOT
-   * in this set — which is what tells a durable change (restore failed, or never
-   * attempted) from one that was rolled back.
+   * Where a restore reports the document it put back. Points at the live buffer's
+   * `restored` set for the duration of a landing, so the in-window flush and any late
+   * producer read the same answer.
    */
   public bulkPublishRestoredEntities?: Set<string> | null;
 

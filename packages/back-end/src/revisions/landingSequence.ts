@@ -278,23 +278,28 @@ export async function withBufferedPayloadRefreshes<T>(
   };
   // `*.updated` events defer alongside the refreshes: a landing that compensates would
   // otherwise have told consumers about a change that no longer exists.
-  const outerDeferred = context.bulkPublishDeferredEvents;
+  // A CLOSED buffer left by an EARLIER landing is not an enclosing scope — it is a
+  // leftover kept reachable for that landing's stragglers. Treating it as one handed
+  // the previous landing's verdict to this one, so a loop publishing several features
+  // on one context let a later failure govern the earlier successes.
+  const outer = context.bulkPublishDeferredEvents;
+  const outerDeferred = outer && !outer.closed ? outer : null;
   const buffer: NonNullable<Context["bulkPublishDeferredEvents"]> = {
     entries: [],
+    restored: new Set<string>(),
   };
   context.bulkPublishDeferredEvents = buffer;
-  // Populated by `restoreEntityPreImage` if this landing compensates, so the partial-
-  // state branch below can tell a document that went back from one that didn't.
+  // Where `restoreEntityPreImage` and the feature rewind report what they put back.
   const outerRestored = context.bulkPublishRestoredEntities;
-  context.bulkPublishRestoredEntities = outerRestored ?? new Set<string>();
+  context.bulkPublishRestoredEntities = buffer.restored;
   try {
     const result = await fn();
     const deferred = buffer.entries;
-    // The landing stands, so a straggler may emit live. Hand the context back to an
-    // enclosing release if there is one; with none, leave the CLOSED buffer rather
-    // than null — the producer reads this field fresh at resume time, so nulling it
-    // hides the disposition and puts a straggler back on the live-emit path.
-    buffer.closed = "emit";
+    // The landing stands, so nothing is in `restored` and every straggler emits. Hand
+    // the context back to an enclosing release if there is one; with none, leave the
+    // CLOSED buffer rather than null — the producer reads this field fresh at resume
+    // time, so nulling it puts a straggler back on an unconditional live emit.
+    buffer.closed = true;
     context.bulkPublishDeferredEvents = outerDeferred ?? buffer;
     for (const { emit } of deferred) {
       // Best effort, one at a time: a consumer failure must not undo a landing
@@ -306,9 +311,9 @@ export async function withBufferedPayloadRefreshes<T>(
     return result;
   } catch (e) {
     const deferred = buffer.entries;
-    // Whatever survived is already decided, so a straggler must not emit live: it
-    // would describe the change this landing just took back.
-    buffer.closed = context.landingLeftPartialState ? "emit" : "drop";
+    // Whatever survived is already decided. A straggler is judged per document by
+    // `buffer.restored`, exactly like the entries below.
+    buffer.closed = true;
     context.bulkPublishDeferredEvents = outerDeferred ?? buffer;
     // Normally dropped: a rolled-back change never happened. But compensation
     // that FAILED leaves part of it live, and consumers have to hear about state
@@ -319,9 +324,8 @@ export async function withBufferedPayloadRefreshes<T>(
       // descendant of the same landing is not, and emitting the root's event then
       // asserts the published value over live pre-image state. Emitting everything
       // self-healed only because the restore's own event followed it.
-      const restored = context.bulkPublishRestoredEntities ?? new Set<string>();
       for (const { owner, emit } of deferred) {
-        if (owner !== null && restored.has(owner)) continue;
+        if (buffer.restored.has(owner)) continue;
         await emit().catch((err: unknown) =>
           logger.error(err, `Deferred ${event} event failed to dispatch`),
         );

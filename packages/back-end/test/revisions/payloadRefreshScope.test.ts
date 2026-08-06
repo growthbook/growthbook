@@ -165,8 +165,8 @@ describe("withBufferedPayloadRefreshes — entity events", () => {
     // The change was compensated; consumers must never have heard about it.
     expect(emit).not.toHaveBeenCalled();
     // The buffer is left in place, CLOSED — not nulled. A straggler reads this field
-    // fresh, so nulling it would hide the disposition and send it to a live emit.
-    expect(context.bulkPublishDeferredEvents?.closed).toBe("drop");
+    // fresh, so nulling it would hide the answer and send it to an unconditional emit.
+    expect(context.bulkPublishDeferredEvents?.closed).toBe(true);
   });
 
   it("leaves an enclosing bulk commit in charge of its own events", async () => {
@@ -210,21 +210,79 @@ describe("deferred event dispositions", () => {
 
   // A straggler captures NO reference: `emitOrDeferBulkPublishEvent` reads the context
   // fresh when the producer resumes. So these call it plainly after the landing has
-  // ended — the earlier versions re-installed the buffer by hand, which faked a
-  // capture the real producer never performs and let both cases pass while the
-  // disposition was unreachable.
-  it("drops a straggler when the landing rolled back", async () => {
+  // ended — an earlier version re-installed the buffer by hand, which faked a capture
+  // the real producer never performs and passed while the branch was unreachable.
+  //
+  // And it is judged by the SAME question the in-window flush asks: was this DOCUMENT
+  // put back? A release-wide verdict cannot answer it — a rollback that leaves one
+  // entity durably published must stay silent about the rest and speak about that one.
+  it("drops a straggler whose document was restored", async () => {
     const context = ctx();
     const emit = jest.fn();
 
     await expect(
       withBufferedPayloadRefreshes(context, "test", async () => {
+        // What a compensating restore reports.
+        context.bulkPublishRestoredEntities?.add("ent_rolled_back");
         throw new Error("apply failed");
       }),
     ).rejects.toThrow("apply failed");
 
-    await emitOrDeferBulkPublishEvent(context, async () => emit(), "ent_1");
+    await emitOrDeferBulkPublishEvent(
+      context,
+      async () => emit(),
+      "ent_rolled_back",
+    );
     expect(emit).not.toHaveBeenCalled();
+  });
+
+  // The case a release-wide "drop" got wrong: an entity left durably published by a
+  // failed rollback, whose straggler is the only announcement consumers would get.
+  it("emits a straggler whose document was NOT restored", async () => {
+    const context = ctx();
+    const emit = jest.fn();
+
+    await expect(
+      withBufferedPayloadRefreshes(context, "test", async () => {
+        context.bulkPublishRestoredEntities?.add("ent_rolled_back");
+        throw new Error("apply failed");
+      }),
+    ).rejects.toThrow("apply failed");
+
+    await emitOrDeferBulkPublishEvent(context, async () => emit(), "ent_stuck");
+    expect(emit).toHaveBeenCalledTimes(1);
+  });
+
+  // The partial-state branch, per DOCUMENT. Compensation that fails partway leaves
+  // some documents live and puts others back, and one landing emits for both sets —
+  // so the root of a Config cascade that WAS restored would otherwise assert its
+  // published value over live pre-image state.
+  it("on partial state, emits only for documents that were not restored", async () => {
+    const context = ctx();
+    const stuck = jest.fn();
+    const rolledBack = jest.fn();
+
+    await expect(
+      withBufferedPayloadRefreshes(context, "test", async () => {
+        await emitOrDeferBulkPublishEvent(
+          context,
+          async () => stuck(),
+          "cfg_child",
+        );
+        await emitOrDeferBulkPublishEvent(
+          context,
+          async () => rolledBack(),
+          "cfg_root",
+        );
+        // The root went back; the descendant could not.
+        context.bulkPublishRestoredEntities?.add("cfg_root");
+        context.landingLeftPartialState = true;
+        throw new Error("compensation left partial state");
+      }),
+    ).rejects.toThrow("compensation left partial state");
+
+    expect(stuck).toHaveBeenCalledTimes(1);
+    expect(rolledBack).not.toHaveBeenCalled();
   });
 
   it("lets a straggler emit live when the landing stood", async () => {
@@ -233,6 +291,27 @@ describe("deferred event dispositions", () => {
 
     await withBufferedPayloadRefreshes(context, "test", async () => undefined);
 
+    await emitOrDeferBulkPublishEvent(context, async () => emit(), "ent_1");
+    expect(emit).toHaveBeenCalledTimes(1);
+  });
+
+  // A closed buffer is a leftover for ITS landing's stragglers, not an enclosing
+  // scope. Treating it as one let a later failure govern an earlier success on the
+  // same context — reachable from any loop that publishes several entities in turn.
+  it("does not let one landing's verdict govern the next", async () => {
+    const context = ctx();
+    const emit = jest.fn();
+
+    await expect(
+      withBufferedPayloadRefreshes(context, "test", async () => {
+        context.bulkPublishRestoredEntities?.add("ent_1");
+        throw new Error("first landing failed");
+      }),
+    ).rejects.toThrow("first landing failed");
+
+    await withBufferedPayloadRefreshes(context, "test", async () => undefined);
+
+    // Same document, second landing, which stood.
     await emitOrDeferBulkPublishEvent(context, async () => emit(), "ent_1");
     expect(emit).toHaveBeenCalledTimes(1);
   });

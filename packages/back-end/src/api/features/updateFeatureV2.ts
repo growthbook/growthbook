@@ -353,7 +353,7 @@ export const updateFeatureV2 = createApiRequestHandler(
     // transition either way, so it must not fall through and 403 a no-op.
     (updates.archived != null &&
       !archiving &&
-      updates.archived !== feature.archived) ||
+      (updates.archived ?? false) !== (feature.archived ?? false)) ||
     inboundFlatRules != null
   ) {
     if (

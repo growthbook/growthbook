@@ -32,23 +32,21 @@ export async function emitOrDeferBulkPublishEvent(
   // Read and push with no await between them, so a flush can't interleave and orphan
   // an event pushed while the buffer is open. That is NOT sufficient on its own: some
   // producers (`onFeatureUpdate`) are invoked fire-and-forget and await mid-way, so
-  // they can arrive after the release has ended — which is what `closed` decides, and
-  // why the buffer stays on the context after it is closed rather than being nulled.
+  // they can arrive after the release has ended. The buffer therefore stays on the
+  // context once closed, carrying what it needs to decide their fate.
   const deferred = context.bulkPublishDeferredEvents;
   if (deferred && !deferred.closed) {
     deferred.entries.push({ owner: entityId, emit });
     return;
   }
-  // A straggler: its producer awaited past the end of the release. What it means
-  // depends on how the release ended, which is why the buffer stays reachable with a
-  // disposition instead of being nulled.
-  if (deferred?.closed === "drop") {
-    // The release rolled back. Emitting now would announce a change that no longer
-    // exists — the outcome the buffering exists to prevent. The payload refresh
-    // always flushes, so SDKs still serve whatever survived.
-    context.logger.warn(
-      "bulk publish: dropped a late *.updated event from a rolled-back release",
-    );
+  // A straggler, judged by the SAME question the in-window flush asks: was this
+  // document put back? A release-wide verdict cannot answer it — a rollback that left
+  // one entity durably published has to stay silent about the rest and speak about
+  // that one — and each time these were two separate dispositions, one of them was
+  // wrong. They are one rule now.
+  if (deferred?.closed) {
+    if (deferred.restored.has(entityId)) return;
+    await emit();
     return;
   }
   await emit();
