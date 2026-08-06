@@ -979,9 +979,12 @@ Similar to the Next.js middleware example above, you are responsible for parsing
 
 ### Node.js (platform agnostic)
 
-We provide a simple `devtoolsPlugin` for other Node.js back-end implementations. This plugin is a stub for the other platform-specific plugins (Next.js, Express); however, it may be used directly.
+We provide a simple `devtoolsPlugin` for other Node.js back-end implementations. This plugin is a stub for the other
+platform-specific plugins (Next.js, Express); however, it may be used directly.
 
-When using this plugin, you are responsible for building the `devtoolsState` object by parsing the `_gbdebug` cookie and the `_gbdebug` URL query parameter. `devtoolsState` represents the overrides applied to attributes, features, and experiments; it takes the form:
+When using this plugin, you are responsible for building the `devtoolsState` object by parsing the `_gbdebug` cookie
+and the `_gbdebug` URL query parameter. `devtoolsState` represents the overrides applied to attributes, features, and
+experiments; it takes the form:
 
 ```ts
 type DevtoolsState = {
@@ -991,7 +994,34 @@ type DevtoolsState = {
 };
 ```
 
-Similar to the Express and Next.js middleware examples above, you can generate your own `_gbdebugEvents` payload using `getDebugEvent()`.
+Note: unlike the query param (already decoded by most URL parsers), the `_gbdebug` **cookie** value is
+percent-encoded. Decode it before parsing, or overrides will silently fail to apply:
+
+```ts
+import { devtoolsPlugin } from "@growthbook/growthbook/plugins";
+
+function getDevtoolsState(request): DevtoolsState {
+  const raw =
+    new URL(request.url).searchParams.get("_gbdebug") ??
+    decodeURIComponent(getCookie(request, "_gbdebug") ?? "");
+
+  try {
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+const growthbook = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  enableDevMode: true,
+  plugins: [devtoolsPlugin(getDevtoolsState(request))],
+});
+```
+
+Similar to the Express and Next.js middleware examples above, you can generate your own `_gbdebugEvents` payload using
+`getDebugEvent()`.
 
 ## Examples
 
