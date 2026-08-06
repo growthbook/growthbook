@@ -119,8 +119,16 @@ export interface SqlDialect {
    * sorted timestamp array per user per step in a single GROUP BY pass —
    * the chained step-resolution CTEs then look up matching timestamps via
    * `arrayMinInRange` instead of self-joining the full event log.
+   *
+   * `orderBy` is an optional shared sort expression (defaults to `col`).
+   * Redshift requires every WITHIN GROUP (ORDER BY ...) aggregate in a
+   * SELECT to use an identical ORDER BY clause, so when a query aggregates
+   * several columns, callers must pass the same `orderBy` to each call.
+   * This is only sound when each `col` equals `orderBy` on every row where
+   * `col` is non-null — true for funnel step timestamps, which are
+   * CASE-gated copies of the row's event timestamp.
    */
-  arrayAggSorted: (col: string) => string;
+  arrayAggSorted: (col: string, orderBy?: string) => string;
   /**
    * Aggregate value: returns `valueCol` from the row where `tsCol` is the
    * minimum non-null timestamp in the group. Used by funnel SQL to capture
