@@ -10,7 +10,12 @@ import {
 import { putBaselineVariationFirst } from "shared/util";
 import {
   ExperimentMetricInterface,
+  FUNNEL_DEMO_METRIC_ID,
+  HARDCODED_FUNNEL_METRIC,
   eligibleForUncappedMetric,
+  funnelStepMetricId,
+  getFunnelEphemeralMetrics,
+  getFunnelMetricNumbers,
   isBinomialMetric,
   isFactMetric,
   isRatioMetric,
@@ -351,6 +356,65 @@ export function getMetricSettingsForStatsEngine(
   };
 }
 
+export function getFunnelResultsForStatsEngine(
+  metricMap: Map<string, ExperimentMetricInterface>,
+  settings: ExperimentSnapshotSettings,
+): {
+  queryResults: QueryResultsForStatsEngine[];
+  metricSettings: Record<string, MetricSettingsForStatsEngine>;
+} {
+  const queryResults: QueryResultsForStatsEngine[] = [];
+  const metricSettings: Record<string, MetricSettingsForStatsEngine> = {};
+
+  const metrics = getFunnelEphemeralMetrics(HARDCODED_FUNNEL_METRIC);
+
+  const numbers = getFunnelMetricNumbers(
+    HARDCODED_FUNNEL_METRIC,
+    settings.variations.map((_, index) => ({ index })),
+  );
+
+  const stepIndexByMetricId = new Map<string, number>(
+    HARDCODED_FUNNEL_METRIC.steps.map((_, index) => [
+      funnelStepMetricId(index),
+      index,
+    ]),
+  );
+
+  const countForVariation = (metricId: string, index: number): number => {
+    if (metricId === FUNNEL_DEMO_METRIC_ID) {
+      return numbers.overall[index].count;
+    }
+    const stepIndex = stepIndexByMetricId.get(metricId);
+    return stepIndex === undefined ? 0 : numbers.steps[stepIndex].count[index];
+  };
+
+  metrics.forEach((metric) => {
+    // proportion → binomial, so main_sum_squares equals main_sum for 0/1 values.
+    const rows: ExperimentMetricQueryResponseRows = settings.variations.map(
+      (variation, index) => {
+        const count = countForVariation(metric.id, index);
+        return {
+          variation: variation.id,
+          users: numbers.population[index],
+          count: numbers.population[index],
+          main_sum: count,
+          main_sum_squares: count,
+          dimension: "",
+        };
+      },
+    );
+
+    queryResults.push({ metrics: [metric.id], rows });
+    metricSettings[metric.id] = getMetricSettingsForStatsEngine(
+      metric,
+      metricMap,
+      settings,
+    );
+  });
+
+  return { queryResults, metricSettings };
+}
+
 export function getMetricsAndQueryDataForStatsEngine(
   queryData: QueryMap,
   metricMap: Map<string, ExperimentMetricInterface>,
@@ -461,6 +525,11 @@ export function getMetricsAndQueryDataForStatsEngine(
       });
     });
   }
+
+  const funnel = getFunnelResultsForStatsEngine(metricMap, settings);
+  queryResults.push(...funnel.queryResults);
+  Object.assign(metricSettings, funnel.metricSettings);
+
   return {
     queryResults,
     metricSettings,

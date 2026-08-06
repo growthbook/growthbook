@@ -26,6 +26,7 @@ import {
   PiArrowSquareOut,
   PiCaretCircleRight,
   PiCaretCircleDown,
+  PiFunnelSimple,
 } from "react-icons/pi";
 import {
   expandMetricGroups,
@@ -33,13 +34,14 @@ import {
   getMetricLink,
   ExperimentSortBy,
   SetExperimentSortBy,
+  isFunnelMetricId,
 } from "shared/experiments";
 import Link from "@/ui/Link";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ExperimentTableRow } from "@/services/experiments";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import RadixTooltip from "@/ui/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
@@ -326,8 +328,8 @@ const CompactResults: FC<{
     }
     // When no filter, filter out slice rows that aren't expanded
     return rows.filter((row) => {
-      if (!row.isSliceRow) return true; // Always include parent rows
-      // For slice rows, check if parent metric is expanded
+      if (!row.isChildRow) return true; // Always include parent rows
+      // Check if parent metric is expanded
       if (row.parentRowId) {
         const expandedKey = `${row.parentRowId}:${row.resultGroup}`;
         return !!expandedMetrics?.[expandedKey];
@@ -577,6 +579,33 @@ export function getRenderLabelColumn({
     const isExpanded = !!expandedMetrics?.[expandedKey];
 
     const isSliceRow = !!row?.isSliceRow;
+    const isFunnelStepRow = row?.childRowType === "funnelStep";
+
+    // Funnel step row
+    if (isFunnelStepRow) {
+      return (
+        <div className="pl-4" style={{ position: "relative" }}>
+          <div
+            className="ml-2 font-weight-bold"
+            style={{
+              display: "-webkit-box",
+              WebkitLineClamp: 1,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+              color: "var(--color-text-high)",
+            }}
+          >
+            {row?.label ?? label}
+          </div>
+          <div
+            className="ml-2"
+            style={{ fontSize: "0.75rem", color: "var(--color-text-low)" }}
+          >
+            Step {(row?.funnelStepIndex ?? 0) + 1}
+          </div>
+        </div>
+      );
+    }
 
     // Slice row
     if (isSliceRow) {
@@ -683,13 +712,17 @@ export function getRenderLabelColumn({
           >
             {shouldShowExpandButton ? (
               <div style={{ position: "absolute", left: 7, marginTop: 3 }}>
-                <Tooltip
-                  body={
-                    isExpanded
-                      ? "Collapse metric slices"
-                      : "Expand metric slices"
+                <RadixTooltip
+                  content={
+                    isFunnelMetricId(metric.id)
+                      ? isExpanded
+                        ? "Collapse funnel steps"
+                        : "Expand funnel steps"
+                      : isExpanded
+                        ? "Collapse metric slices"
+                        : "Expand metric slices"
                   }
-                  tipPosition="top"
+                  side="top"
                 >
                   <IconButton
                     size="1"
@@ -711,7 +744,7 @@ export function getRenderLabelColumn({
                       <PiCaretCircleRight size={16} />
                     )}
                   </IconButton>
-                </Tooltip>
+                </RadixTooltip>
               </div>
             ) : null}
             <span
@@ -773,6 +806,16 @@ export function getRenderLabelColumn({
                   </Link>
                 )}
               </Text>
+              {isFunnelMetricId(metric.id) && (
+                <PiFunnelSimple
+                  size={16}
+                  style={{
+                    marginLeft: 6,
+                    verticalAlign: "middle",
+                    color: "var(--color-text-mid)",
+                  }}
+                />
+              )}
             </span>
           </span>
         </div>

@@ -2036,11 +2036,11 @@ export function getAllExpandedMetricIdsFromExperiment({
   );
   const expandedMetricIds = new Set<string>(baseMetricIds);
 
-  // Add all slice metrics that are already in the expandedMetricMap
-  // This includes both standard and custom dimension metrics
+  // Scoop up expanded metric ids that only exist in the map, not in the base
+  // experiment: slice metrics (dim:, standard and custom) and ephemeral funnel
+  // step metrics (funnelStep=).
   expandedMetricMap.forEach((_, metricId) => {
-    // Check if this is a dimension metric (contains dim: parameter)
-    if (/[?&]dim:/.test(metricId)) {
+    if (/[?&]dim:/.test(metricId) || /[?&]funnelStep=/.test(metricId)) {
       expandedMetricIds.add(metricId);
     }
   });

@@ -44,6 +44,8 @@ import {
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
   expandAllSliceMetricsInMap,
+  FUNNEL_DEMO_METRIC_ID,
+  addFunnelEphemeralMetricsToMap,
   getEqualWeights,
   getEffectiveLookbackOverride,
   getMetricResultStatus,
@@ -648,6 +650,13 @@ export function getSnapshotSettings({
       datasource,
     }),
   );
+  // The ephemeral demo funnel lives only in synthesized snapshot results, so
+  // persist its overall id here (the per-step ids are scooped from the
+  // augmented map below). It never reaches a query runner because the runner's
+  // metricMap does not contain it.
+  if (!goalMetrics.includes(FUNNEL_DEMO_METRIC_ID)) {
+    goalMetrics = [...goalMetrics, FUNNEL_DEMO_METRIC_ID];
+  }
   let secondaryMetrics = expandMetricGroups(
     experiment.secondaryMetrics,
     metricGroups,
@@ -730,6 +739,12 @@ export function getSnapshotSettings({
             }
           : undefined;
 
+  // Resolve the ephemeral funnel (overall + per-step) for the persisted
+  // metricSettings without leaking it into the caller's metricMap, which query
+  // runners reuse and must never see (it has no fact table to query).
+  const metricMapWithFunnel = new Map(metricMap);
+  addFunnelEphemeralMetricsToMap(metricMapWithFunnel);
+
   const metricSettings = getAllExpandedMetricIdsFromExperiment({
     exp: {
       goalMetrics,
@@ -737,14 +752,14 @@ export function getSnapshotSettings({
       guardrailMetrics,
       activationMetric: experiment.activationMetric,
     },
-    expandedMetricMap: metricMap,
+    expandedMetricMap: metricMapWithFunnel,
     includeActivationMetric: true,
     metricGroups,
   })
     .map((m) =>
       getMetricForSnapshot({
         id: m,
-        metricMap,
+        metricMap: metricMapWithFunnel,
         settingsForSnapshotMetrics,
         metricOverrides: experiment.metricOverrides,
         decisionFrameworkSettings: experiment.decisionFrameworkSettings,
