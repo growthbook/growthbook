@@ -235,9 +235,9 @@ export default function ConfigModal({
     >
       {!editing && (
         <Callout status="info" mb="3">
-          Configs are referenced from a feature flag — define the fields and
-          values here, then reference the Config from a flag to deliver it to
-          your SDKs.
+          Configs are referenced from a Feature Flag — define the fields and
+          values here, then reference the Config from a Feature Flag to deliver
+          it to your SDKs.
         </Callout>
       )}
 

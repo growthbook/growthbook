@@ -9,28 +9,16 @@ import { displayEntityName } from "back-end/src/revisions/entityNames";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
 import { applyVerifiedRestore } from "back-end/src/revisions/bulkPublish/verifiedRestore";
 
-// The write sequencing every landing shares, extracted from the bulk pipeline so
-// the single-entity paths get the same discipline: check the baseline the change
-// was computed from before writing, and put the live entity back when the write
-// fails partway.
+// The write sequencing every landing shares: check the baseline the change was
+// computed from before writing, and put live state back when the write fails partway.
+// Optimistic checks only — no transactions, so DocumentDB/CosmosDB stay supported.
 //
-// Without it a direct landing is read-compute-write with no guard, so two of them
-// can apply in either order and leave live state contradicting the newest merged
-// revision. These are optimistic (application-level) checks, matching the rest of
-// the codebase — no transactions, so DocumentDB/CosmosDB stay supported.
-//
-// Cost: one extra indexed entity read before recording history, plus a read and a
-// latest-merged lookup before the write. The pre-flight read is deliberate rather
-// than folded into the second check — a doomed landing that never becomes history
-// cannot leave phantom history behind if its removal then fails.
+// The pre-flight read is separate from the pre-write one on purpose: a doomed landing
+// that never becomes history can't leave phantom history if its removal then fails.
 
-/**
- * A landing lost its race: the guarded write matched nothing, so NOTHING was
- * written. Its own class because compensation must be able to tell this apart
- * from a write that failed partway — restoring a pre-image after a rejected CAS
- * would compare live against values THIS landing never wrote, mistake the
- * concurrent winner's identical values for its own, and undo them.
- */
+// Nothing was written. Its own class so compensation can tell it from a write that
+// failed partway: restoring after a rejected CAS would compare live against values this
+// landing never wrote, mistake the winner's identical values for its own, and undo them.
 export class LandingConflictError extends ConflictError {
   constructor(entityType: RevisionTargetType | "feature", entityId: string) {
     super(
@@ -47,15 +35,9 @@ function landingConflictError(
   return new LandingConflictError(entityType, entityId);
 }
 
-/**
- * Run a landing's entity write, turning a lost CAS race into the same retryable
- * conflict a failed baseline check produces.
- *
- * The guarded write is what actually closes the check/write gap: `assertLandingBaseline`
- * can only prove the baseline held a moment ago, while the guard proves it still held
- * at the instant of the write. Callers wrap their write in this so the two failures
- * are indistinguishable to the client — both mean "nothing was written, retry".
- */
+// Turns a lost CAS race into the same retryable conflict a failed baseline check gives.
+// The guard is what closes the check/write gap: `assertLandingBaseline` proves the
+// baseline held a moment ago, the guard proves it still held at the write.
 export async function runGuardedWrite<T>(
   entityType: RevisionTargetType | "feature",
   entityId: string,
@@ -87,11 +69,8 @@ export async function assertLandingBaseline({
   entityId: string;
   /** `dateUpdated` of the entity the change was computed against. */
   baselineDateUpdated: Date | null;
-  /**
-   * When set, this revision must still be the newest merged one for the target.
-   * A newer merge means another landing already recorded intent that supersedes
-   * this one, so applying would overwrite it with older state.
-   */
+  // When set, this revision must still be the newest merged one for the target — a
+  // newer merge supersedes this one, so applying would overwrite it with older state.
   requireLatestMergedId?: string;
 }): Promise<void> {
   const fresh = await getAdapter(entityType)
@@ -115,25 +94,15 @@ export async function assertLandingBaseline({
   }
 }
 
-/**
- * Put back the fields a failed write persisted, so a partial apply doesn't leave
- * an unrecorded live change behind.
- *
- * The same rule the bulk pipeline compensates with, and the same helpers: restore
- * a key only while live still holds the value this apply wrote, then verify every
- * restored key actually landed. Value-based, so it can't catch a concurrent writer
- * that set a key to the same value — that residual is the entity-write lost-update
- * window, closed only by CAS-guarding the apply itself.
- *
- * Throws when the restore can't be completed. Callers treat that as "live is left
- * mid-change" and keep the merged revision, since a recorded partial change can be
- * reconciled by hand and an unrecorded one cannot.
- *
- * A restore is itself a write, so it bumps `dateUpdated` and records an audit
- * entry, and a reopen leaves its activity-log trail. That residue is deliberate:
- * these writes genuinely happened, and a rollback that erased its own tracks would
- * leave an operator unable to see what the system did.
- */
+// Put back the fields a failed write persisted. Restores a key only while live still
+// holds the value this apply wrote — value-based, so a concurrent writer who set the
+// same value is indistinguishable; that residual closes only by CAS-guarding the apply.
+//
+// Throws when the restore can't complete: callers keep the merged revision, since a
+// recorded partial change can be reconciled by hand and an unrecorded one cannot.
+//
+// The `dateUpdated`/audit residue a restore leaves is deliberate — these writes
+// happened, and a rollback that erased its tracks would hide what the system did.
 export async function restoreEntityPreImage({
   context,
   entityType,
@@ -145,12 +114,9 @@ export async function restoreEntityPreImage({
   entityType: RevisionTargetType;
   /** The entity as it was before the failed write. */
   preImage: Record<string, unknown> & { id: string };
-  /**
-   * The keys to consider putting back. Callers pass what the apply reported
-   * persisting, or the intended changes when it threw before reporting — the
-   * value check below makes the difference harmless, since a key the apply never
-   * wrote restores to itself.
-   */
+  // What the apply reported persisting, or the intended changes if it threw before
+  // reporting: the value check makes the difference harmless, since a key the apply
+  // never wrote restores to itself.
   persistedKeys: Iterable<string>;
   /** The values the apply intended to write, for the "do we still own it" test. */
   written: Record<string, unknown>;
@@ -225,11 +191,8 @@ export async function restoreEntityPreImage({
   }
 }
 
-/**
- * Whether the live entity still holds exactly what a set of changes intended,
- * i.e. the write landed. Used to decide whether a landing that raced can report
- * success instead of asking the caller to retry.
- */
+// Whether live still holds exactly what the changes intended — i.e. the write landed.
+// Lets a landing that raced report success instead of asking the caller to retry.
 export function liveMatchesDesiredState({
   live,
   desiredState,
@@ -261,11 +224,8 @@ export async function tryRestoreEntityPreImage(
   }
 }
 
-/**
- * Detach the context's payload-refresh buffer and issue ONE deduped refresh —
- * refreshSDKPayloadCache rebuilds each affected SDK connection once per call,
- * which is what guarantees at most one rebuild per connection per request.
- */
+// Detach the buffer and issue ONE deduped refresh: `refreshSDKPayloadCache` rebuilds
+// each affected connection once per call, so one call = one rebuild per connection.
 export function flushPayloadRefreshBuffer(
   context: Context,
   event: string,
@@ -292,20 +252,11 @@ export function flushPayloadRefreshBuffer(
   });
 }
 
-/**
- * Buffer the SDK payload refreshes a landing produces and flush them ONCE when it
- * settles — the single-entity half of what bulk publish already does.
- *
- * A multi-step apply (a config root write, then its descendant cascade; a feature
- * write, then its holdout pointer) otherwise fires a refresh per step, briefly
- * broadcasting the mid-landing mix to SDKs. Deferring costs nothing: refreshes
- * rebuild from live state at flush time, so the one flush serves the landed state
- * on success and the restored state after compensation — flushed in `finally` for
- * exactly that reason.
- *
- * A scope already holding a buffer (a bulk commit, or an enclosing landing) is
- * left in charge of its own flush.
- */
+// Buffer a landing's SDK refreshes and flush ONCE when it settles. A multi-step apply
+// (config root then cascade; feature write then holdout pointer) otherwise briefly
+// broadcasts the mid-landing mix. Refreshes rebuild from live state at flush time, so
+// one flush in `finally` serves the landed state on success and the restored state after
+// compensation. A scope already holding a buffer keeps charge of its own flush.
 export async function withBufferedPayloadRefreshes<T>(
   context: Context,
   event: string,
@@ -316,10 +267,8 @@ export async function withBufferedPayloadRefreshes<T>(
     keys: [],
     treatEmptyProjectAsGlobal: false,
   };
-  // Entity `*.updated` events are deferred alongside the refreshes, using the
-  // same mechanism bulk uses: a landing that fails and compensates would
-  // otherwise have already told consumers about a change that no longer exists.
-  // They fire only if the landing returns, and are dropped when it throws.
+  // `*.updated` events defer alongside the refreshes: a landing that compensates would
+  // otherwise have told consumers about a change that no longer exists.
   const outerDeferred = context.bulkPublishDeferredEvents;
   context.bulkPublishDeferredEvents = [];
   try {

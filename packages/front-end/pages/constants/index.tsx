@@ -220,14 +220,14 @@ export default function ConstantsPage(): React.ReactElement {
           {hasConstants && canAdd && addButton}
         </Flex>
         <Text as="p" mb="3" color="text-mid">
-          Define a value once and reference it across your feature flags. Change
+          Define a value once and reference it across your Feature Flags. Change
           it in one place and every consumer updates.
         </Text>
 
         {!hasConstants ? (
           <EmptyState
             title="Reusable values for your Configs"
-            description="Define a value once and reference it from feature flags with {{ @const:key }}. Change it in one place and every consumer updates."
+            description="Define a value once and reference it from Feature Flags with {{ @const:key }}. Change it in one place and every consumer updates."
             leftButton={
               <LinkButton
                 href="https://docs.growthbook.io/features/constants"

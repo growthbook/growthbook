@@ -7,45 +7,27 @@ import { resolveRampTargets } from "../util/ruleId";
 import { getRulesForEnvironment } from "../util/index";
 import type { MergeResultChanges } from "../util/features";
 
-// The environment footprint of publishing a Feature Flag draft: which
-// environments the change actually reaches, and so which ones authority is
-// required in.
+// Which environments publishing a Feature Flag draft reaches, and so which ones
+// authority is required in. ONE function for endpoint and control alike — they derived
+// it separately and disagreed every time, always in the direction that offered a
+// landing the server then refused.
 //
-// One function because the two callers kept disagreeing. The endpoints derived
-// the footprint from the merge result; the Publish and Revert controls derived
-// their own from the revision, and theirs answered a narrower question — only
-// `defaultValue` and `rules`, never a toggle, a holdout move, a prerequisite or an
-// archive, and never the environments a global change newly REACHES. Every gap ran
-// the same direction: the control offered a landing an env-limited user could not
-// perform, which the server then refused.
-//
-// Deliberately synchronous. Resolving a holdout's environments needs a lookup the
-// front end and the back end do differently, so that one input is injected and
-// everything downstream of it is shared.
+// Synchronous on purpose: holdout resolution differs between the apps, so that one
+// input is injected and everything downstream of it is shared.
 
-/**
- * A holdout's environments could not be resolved. The footprint then widens to
- * every environment, which is the only safe answer: a holdout may be enabled
- * where the flag itself is not, so no narrower set is guaranteed to contain what
- * the server will compute.
- */
+// Unresolvable holdout → widen to every environment. A holdout may be enabled where the
+// flag is not, so no narrower set is guaranteed to contain what the server computes.
 export const HOLDOUT_ENVS_UNRESOLVED = "unresolved" as const;
 
 export type HoldoutFootprint = string[] | typeof HOLDOUT_ENVS_UNRESOLVED;
 
-/**
- * Every environment the entity is reachable in — the footprint for a change with
- * no narrower binding, an ARCHIVE above all: it takes the entity out of service
- * wherever it serves.
- *
- * Narrowed to the entity's projects, because an environment scoped away from them
- * never serves it and demanding authority there refuses archives that should be
- * allowed. Raw org environments were the first cut, and they over-demanded.
- *
- * Never returns an empty list for an entity with projects the environments cover —
- * but if it does come back empty, callers must NOT pass it as a footprint: an
- * empty footprint skips the environment check instead of narrowing it.
- */
+// Every environment the entity is reachable in — the footprint for a change with no
+// narrower binding, an archive above all. Narrowed to the entity's projects: an
+// environment scoped away from them never serves it, so demanding authority there
+// refuses archives that should be allowed.
+//
+// If this ever returns empty, callers must NOT pass it as a footprint — an empty
+// footprint SKIPS the environment check instead of narrowing it.
 export function serveFootprint(
   environments: { id: string; projects?: string[] }[],
   entity: {
@@ -77,17 +59,10 @@ export function servingEnvironments(
   return environmentIds.filter((env) => !!settings[env]?.enabled);
 }
 
-/**
- * The environments a holdout move reaches: those active in the holdout being left
- * and in the one being joined. A holdout may be enabled where the flag is not, so
- * this can widen the footprint beyond the flag's own environments.
- *
- * Ids that don't resolve come back separately rather than being dropped — the two
- * callers mean different things by it. The server resolves from the database, so an
- * unresolvable id is a holdout that no longer exists and contributes nothing; the
- * front end resolves from a loaded map, so an unresolvable id means "not loaded",
- * which has to widen the footprint instead of narrowing it.
- */
+// The environments a holdout move reaches: those active in the one being left and the
+// one being joined. Unresolvable ids come back SEPARATELY rather than dropped, because
+// the callers mean different things by it — for the server the holdout is gone and
+// contributes nothing; for the client it is merely unloaded, which must widen.
 export function holdoutEnvsForChange({
   currentHoldoutId,
   newHoldout,
@@ -166,9 +141,8 @@ export function featurePublishFootprint({
     ...holdoutEnvs,
   ]);
 
-  // A global field serves every environment, so the footprint is everything the
-  // change reaches — including an environment this same draft ENABLES, which is
-  // not yet in `serving`. `revertFootprint` applies the same rule.
+  // A global field serves everywhere, so the footprint is everything the change
+  // reaches — including an environment this same draft ENABLES, not yet in `serving`.
   const touchesGlobalField =
     changes.defaultValue !== undefined ||
     !!changes.prerequisites ||
@@ -181,16 +155,10 @@ export function featurePublishFootprint({
   return envScoped.size > 0 ? Array.from(envScoped) : serving;
 }
 
-/**
- * The environments a REVERT answers for: those the flag serves now, plus any the
- * restored revision would switch back ON, plus any whose rules it would change.
- *
- * Currently-serving alone under-counts — restoring a revision that re-enables
- * production is a production change, and pairing that with a project move let one
- * land without production authority in the destination. An environment re-enabled
- * with identical rules shows up in the enable half and not the rule half, which is
- * how each half came to be missed on its own.
- */
+// What a REVERT answers for: serving now, plus any the restored revision switches back
+// ON, plus any whose rules it changes. Each of the three was missed on its own — an
+// environment re-enabled with identical rules appears in the enable half and not the
+// rule half, and vice versa.
 export function revertFootprint({
   feature,
   targetRevision,
@@ -278,18 +246,11 @@ export function metadataTouchesPayload(
   return Object.keys(metadata).some((key) => !PAYLOAD_INERT_METADATA.has(key));
 }
 
-/**
- * The footprint an archive/unarchive answers for, for a control to predict.
- *
- * A thin, NAMED wrapper over `serveFootprint` purely so call sites stop spelling
- * the footprint themselves: the raw org-environment list reads correct at a glance
- * and is wrong (it demands authority in environments scoped away from the entity),
- * and it survived a sweep that converted seven sibling sites precisely because it
- * looked right. The server's `archiveServeFootprint` is the twin of this.
- *
- * `scoped` is the entity's own binding when it has one — a Config's scoped
- * overrides. Empty means unbound, and unbound means everywhere it serves.
- */
+// What an archive/unarchive answers for. NAMED so call sites stop spelling it: the raw
+// org-environment list reads correct and is wrong, and survived a sweep that fixed seven
+// siblings precisely because it looked right. Twin of the server's
+// `archiveServeFootprint`. `scoped` is the entity's own binding (a Config's overrides);
+// empty means unbound, and unbound means everywhere it serves.
 export function archiveFootprintForControl({
   environments,
   entity,

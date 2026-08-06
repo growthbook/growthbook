@@ -6,20 +6,13 @@ import { NO_ENVIRONMENT_BINDING } from "./revisionPermissions";
 import type { RevisionAction, RevisionModel } from "./revisionPermissions";
 import type { Permissions } from "./permissionsClass";
 
-// What a control may OFFER: the client-side prediction of the authority decision
-// an endpoint is about to make. Every such decision lives here, as a pure function
-// with tests.
+// What a control may OFFER: the client-side prediction of an endpoint's authority
+// decision, as pure tested functions. Inline predictions drift — the recurring failure
+// is a page asking about the source project of a move, the live entity instead of the
+// selected revision, or a footprint for an action that publishes nothing.
 //
-// Inline predictions drift. Most front-end findings in the granular-permissions
-// work were a page re-deriving a rule the server already owned and getting a scope
-// wrong — asking about the source project of a move, the live entity instead of the
-// selected revision, an environment footprint for an action that publishes nothing,
-// or the wrong verb at a move's destination.
-//
-// It lives in `shared` rather than the front end for one reason: the parity test
-// (permission-prediction-parity) can then evaluate these against the same oracle
-// the endpoint matrix holds the endpoints to, so a control and its endpoint cannot
-// disagree without CI failing.
+// In `shared` so `permission-prediction-parity` can hold these to the same oracle the
+// endpoint matrix holds the endpoints to.
 
 // NOT here, deliberately: the ramp-schedule footprint rules live in
 // `shared/util/features.ts` — `rampTargetFootprint`, `rampTargetRuleIds`,
@@ -39,13 +32,9 @@ type PermissionsUtil = Pick<
 
 type ProjectScoped = { project?: string; projects?: string[] };
 
-// Whether the viewer may comment on a revision, mirroring the server's
-// `canCommentOnRevision`: commenting is participation, so the addComments atom
-// allows it, and so does draft or review authority.
-//
-// Decided on the REVISION's snapshot rather than the live entity — a comment
-// belongs to the revision, whose project may predate a move, and the server
-// authorizes it the same way. Falls back to the live entity when no revision is
+// Commenting is participation: the addComments atom allows it, and so does draft or
+// review authority. Decided on the REVISION's snapshot — a comment belongs to the
+// revision, whose project may predate a move — falling back to live when none is
 // selected.
 export function canCommentOnRevisionEntity(
   permissionsUtil: PermissionsUtil,
@@ -63,13 +52,8 @@ export function canCommentOnRevisionEntity(
   );
 }
 
-// Whether the viewer may rule on a revision — approve or request changes.
-//
-// Decided on the REVISION's snapshot, like commenting: the server re-asserts the
-// verdict against the row its write is conditioned on, whose project may predate
-// a move. A control judging the live entity offers Approve to a reviewer the
-// endpoint then refuses (or hides it from one it would accept). Falls back to
-// the live entity when no revision is selected.
+// Approve or request changes. Snapshot basis like commenting: the server asserts the
+// verdict against the row its write is conditioned on, whose project may predate a move.
 export function canReviewRevisionEntity(
   permissionsUtil: PermissionsUtil,
   model: RevisionModel,
@@ -81,15 +65,9 @@ export function canReviewRevisionEntity(
   return permissionsUtil.canRevisionAction(model, "review", basis);
 }
 
-// Whether the viewer may LAND the selected revision.
-//
-// The live entity's own project answers the wrong question when the revision
-// relocates the entity: landing it is a write to the destination, so authority
-// there is required too. Asking only about the source offered a Publish button
-// the endpoint then refused.
-//
-// Runs the same `holdsMoveDestination` the server does, so the button and the
-// endpoint cannot disagree.
+// Landing a relocating revision is a write to the DESTINATION, so authority there is
+// required too — asking only about the source offered a Publish the endpoint refused.
+// Runs the server's own `holdsMoveDestination`.
 export function canPublishRevisionEntity(
   permissionsUtil: PermissionsUtil,
   model: RevisionModel,
@@ -115,15 +93,10 @@ export function canPublishRevisionEntity(
   );
 }
 
-// Whether the viewer holds the DESTINATION of a revision that relocates the
-// entity, for one verb. Vacuously true when the revision doesn't move it, so it
-// is safe to AND into any landing decision.
-//
-// Split out from `canPublishRevisionEntity` because the narrow-atom fallbacks
-// need it separately: a reverter or a deleter may land a draft the publish atom
-// doesn't cover, but neither exemption extends across a move — there is no
-// revision in the destination to judge purity against, which is exactly the rule
-// the server applies.
+// The DESTINATION of a relocating revision, for one verb. Vacuously true when nothing
+// moves, so it is safe to AND into any landing decision. Split out because the
+// narrow-atom fallbacks need it separately: a reverter or deleter may land a draft the
+// publish atom doesn't cover, but neither exemption crosses a move.
 export function holdsRevisionDestination(
   permissionsUtil: PermissionsUtil,
   model: RevisionModel,
@@ -145,13 +118,9 @@ export function holdsRevisionDestination(
   });
 }
 
-// Whether the viewer may LAND a revert to a specific target revision.
-//
-// Two things vary by target and so cannot be answered once per page: the
-// environment footprint (only the environments the restore actually changes) and
-// the destination (restoring an older snapshot can move the entity back). Mirrors
-// the server's revert authority, which checks the revert atom over the footprint
-// and then the destination.
+// Landing a revert to a specific target. Two things vary BY TARGET and so can't be
+// answered once per page: the footprint, and the destination (an older snapshot can move
+// the entity back).
 export function canLandRevertToTarget(
   permissionsUtil: PermissionsUtil,
   model: RevisionModel,
@@ -172,12 +141,9 @@ export function canLandRevertToTarget(
   );
 }
 
-// Whether the viewer may land an archive/unarchive toggle.
-//
-// Archiving takes the entity out of service, so the server treats it as
-// delete-class over the environments it serves; unarchiving returns it to service
-// and is an ordinary publish. Staging either as a draft is a separate, weaker
-// question the caller answers itself.
+// Archiving is delete-class over the environments the entity serves; unarchiving returns
+// it to service and is an ordinary publish. Staging either as a draft is a separate,
+// weaker question the caller answers itself.
 export function canLandArchiveToggle(
   permissionsUtil: PermissionsUtil,
   model: RevisionModel,
@@ -189,12 +155,9 @@ export function canLandArchiveToggle(
     : permissionsUtil.canRevisionAction(model, "delete", entity, footprint);
 }
 
-// Whether the viewer may permanently delete the entity.
-//
-// Only reachable once archived, and at that point it carries no environment
-// footprint — an archived entity serves nowhere, which is exactly what the server
-// checks. Callers add their own structural preconditions (a Config with
-// descendants, for instance).
+// Permanent delete. Only reachable once archived, and an archived entity serves nowhere,
+// so it carries no environment footprint. Callers add structural preconditions of their
+// own (a Config with descendants, say).
 export function canDeleteArchivedEntity(
   permissionsUtil: PermissionsUtil,
   model: RevisionModel,
@@ -211,10 +174,8 @@ export function canDeleteArchivedEntity(
   );
 }
 
-// Whether the viewer holds the DESTINATION of a Feature Flag revision that
-// relocates the flag. Feature revisions carry a move as `metadata.project`
-// rather than a patch op, and the server requires PUBLISH authority there for
-// any landing — the narrow-atom exemptions don't cross a move.
+// The destination of a relocating Feature Flag revision. Features carry a move as
+// `metadata.project` rather than a patch op, and any landing takes PUBLISH there.
 export function holdsFeatureMoveDestination(
   permissionsUtil: PermissionsUtil,
   feature: { project?: string },
@@ -229,12 +190,8 @@ export function holdsFeatureMoveDestination(
   );
 }
 
-// Whether an environment may be switched ON while creating a Feature Flag.
-//
-// Creating takes the create atom in that environment, and a flag that starts
-// enabled reaches the SDK payload immediately — so it takes publish there too,
-// which is exactly what the create endpoints check. Asking only about create
-// offered toggles the server then refused on submit.
+// A flag that starts ENABLED reaches the SDK payload immediately, so switching an
+// environment on at create time takes publish there as well as create.
 export function canEnableEnvironmentOnCreate(
   permissionsUtil: PermissionsUtil,
   project: string | undefined,
