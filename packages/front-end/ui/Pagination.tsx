@@ -124,12 +124,12 @@ const Pagination: FC<PaginationProps> = ({
         <li>
           <button
             type="button"
-            className={styles.linkArrow}
+            className={clsx(styles.button, styles.arrow)}
+            aria-label="Go to previous page"
             disabled={model.currentPage <= 1}
             onClick={() => onPageChange(model.currentPage - 1)}
           >
-            <PiCaretLeft size={14} />
-            Prev
+            <PiCaretLeft size={15} />
           </button>
         </li>
         {model.items.map((item) => {
@@ -141,8 +141,9 @@ const Pagination: FC<PaginationProps> = ({
                   <button
                     type="button"
                     className={clsx(
-                      styles.link,
-                      isCurrent && styles.linkActive,
+                      styles.button,
+                      styles.page,
+                      isCurrent && styles.current,
                     )}
                     aria-current={isCurrent ? "page" : undefined}
                     aria-label={`Go to page ${item.page}`}
@@ -175,12 +176,12 @@ const Pagination: FC<PaginationProps> = ({
         <li>
           <button
             type="button"
-            className={styles.linkArrow}
+            className={clsx(styles.button, styles.arrow)}
+            aria-label="Go to next page"
             disabled={model.currentPage >= model.pageCount}
             onClick={() => onPageChange(model.currentPage + 1)}
           >
-            Next
-            <PiCaretRight size={14} />
+            <PiCaretRight size={15} />
           </button>
         </li>
       </ul>
