@@ -457,7 +457,7 @@ export const POLICY_METADATA_MAP: Record<
   ReadData: {
     displayName: "Read Data",
     description:
-      "View all resources - features, metrics, experiments, data sources, etc.",
+      "View all resources — Feature Flags, metrics, experiments, Data Sources, etc.",
   },
   Comments: {
     displayName: "Comments",
@@ -513,7 +513,7 @@ export const POLICY_METADATA_MAP: Record<
   },
   FeaturesBypassApprovals: {
     displayName: "Features Bypass Approvals",
-    description: "Bypass required approval checks for feature flag changes",
+    description: "Bypass required approval checks for Feature Flag changes",
   },
   ConstantsFullAccess: {
     displayName: "Constants Full Access",
@@ -539,17 +539,17 @@ export const POLICY_METADATA_MAP: Record<
   },
   DataSourcesFullAccess: {
     displayName: "Data Sources Full Access",
-    description: "Create, edit, and delete data sources",
+    description: "Create, edit, and delete Data Sources",
   },
   DataSourceConfiguration: {
     displayName: "Data Source Configuration",
     description:
-      "Edit existing data source configuration settings (identifier types, experiment assignment queries)",
+      "Edit existing Data Source configuration settings (identifier types, experiment assignment queries)",
   },
   RunQueries: {
     displayName: "Run Queries",
     description:
-      "Execute queries against data sources. Required to refresh experiment results. Does not include SQL Explorer access.",
+      "Execute queries against Data Sources. Required to refresh experiment results. Does not include SQL Explorer access.",
   },
   SqlExplorerFullAccess: {
     displayName: "SQL Explorer Full Access",
@@ -566,7 +566,7 @@ export const POLICY_METADATA_MAP: Record<
   },
   FactMetricsFullAccess: {
     displayName: "Fact Metrics Full Access",
-    description: "Create, edit, and delete fact metrics and filters.",
+    description: "Create, edit, and delete Fact Metrics and filters.",
   },
   DimensionsFullAccess: {
     displayName: "Dimensions Full Access",
@@ -652,7 +652,7 @@ export const POLICY_METADATA_MAP: Record<
   },
   SavedGroupsBypassSizeLimit: {
     displayName: "Saved Groups Bypass Size Limit",
-    description: "Bypass org-defined size limits for saved groups",
+    description: "Bypass org-defined size limits for Saved Groups",
   },
   GeneralSettingsFullAccess: {
     displayName: "General Settings Full Access",
@@ -720,7 +720,7 @@ export const POLICY_METADATA_MAP: Record<
   },
   TemplatesFullAccess: {
     displayName: "Manage Templates",
-    description: "Create, edit, and delete experiment templates",
+    description: "Create, edit, and delete Experiment Templates",
   },
   DecisionCriteriaFullAccess: {
     displayName: "Decision Criteria Full Access",
