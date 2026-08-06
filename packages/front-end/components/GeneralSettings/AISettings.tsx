@@ -266,9 +266,14 @@ export default function AISettings({
               <Box mb="6">
                 <span className="text-muted">View AI Settings</span>
               </Box>
-              {/* A downgrade shouldn't strand a stored key. The rows render as
-                  Inactive with Remove as the only action. */}
-              <AIProviderKeys access={aiProviderAccess} />
+              {/* Recovery only: a downgrade shouldn't strand a stored key, and
+                  a failed load shouldn't hide one. Without a key to remove
+                  there is nothing to recover, and rendering the section anyway
+                  would pitch BYOK under a section this plan has locked. */}
+              {(aiProviderAccess.error ||
+                aiProviderAccess.credentials.length > 0) && (
+                <AIProviderKeys access={aiProviderAccess} />
+              )}
             </Flex>
           ) : (
             <Flex align="start" direction="column" flexGrow="1" pt="6">
