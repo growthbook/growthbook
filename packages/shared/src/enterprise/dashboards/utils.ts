@@ -405,6 +405,57 @@ export function blockHasFieldOfType<Field extends string, T>(
   );
 }
 
+export type DashboardBlockResourceRef =
+  | { type: "experiment"; id: string }
+  | { type: "factMetric"; id: string }
+  | { type: "savedQuery"; id: string }
+  | { type: "datasource"; id: string }
+  | { type: "factTable"; id: string };
+
+// Enumerates the organization resources a dashboard block reads, so callers can
+// verify the acting user has permission to view them (e.g. before saving a
+// block that references a resource, or when rendering a shared dashboard). Only
+// the primary, permission-gated resource for each block type is returned;
+// derived artifacts (snapshots, metric/exploration analyses) inherit their
+// access from these source resources.
+export function getDashboardBlockResourceRefs(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+): DashboardBlockResourceRef[] {
+  const refs: DashboardBlockResourceRef[] = [];
+
+  const addRef = (type: DashboardBlockResourceRef["type"], id: unknown) => {
+    if (isString(id) && id.length > 0) {
+      refs.push({ type, id });
+    }
+  };
+
+  if (blockHasFieldOfType(block, "experimentId", isString)) {
+    addRef("experiment", block.experimentId);
+  }
+  if (blockHasFieldOfType(block, "savedQueryId", isString)) {
+    addRef("savedQuery", block.savedQueryId);
+  }
+  if (blockHasFieldOfType(block, "factMetricId", isString)) {
+    addRef("factMetric", block.factMetricId);
+  }
+
+  // Product-analytics exploration blocks query a datasource directly, so the
+  // datasource read permission gates the data they surface. Fact-table
+  // explorations additionally reference a specific fact table.
+  if (
+    block.type === "metric-exploration" ||
+    block.type === "fact-table-exploration" ||
+    block.type === "data-source-exploration"
+  ) {
+    addRef("datasource", block.config?.datasource);
+    if (block.type === "fact-table-exploration") {
+      addRef("factTable", block.config?.dataset?.factTableId);
+    }
+  }
+
+  return refs;
+}
+
 export function getBlockSnapshotSettings(
   block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
 ): BlockSnapshotSettings {

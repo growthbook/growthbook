@@ -21,6 +21,9 @@ import {
   DashboardInterface,
   MetricExplorerBlockInterface,
   DashboardBlockInterface,
+  DashboardBlockInterfaceOrData,
+  DashboardBlockResourceRef,
+  getDashboardBlockResourceRefs,
   resolveBlockComparison,
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
@@ -54,7 +57,10 @@ import {
 } from "back-end/src/models/FactTableModel";
 import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import {
+  getExperimentById,
+  getExperimentsByIds,
+} from "back-end/src/models/ExperimentModel";
 import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourcesByIds } from "back-end/src/models/DataSourceModel";
@@ -68,6 +74,80 @@ import {
 import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { logger } from "back-end/src/util/logger";
+
+const refKey = (ref: DashboardBlockResourceRef): string =>
+  `${ref.type}:${ref.id}`;
+
+// Returns the subset of resource refs the context can't read. Each resource is
+// resolved through a permission-aware reader that filters out anything the
+// acting user isn't allowed to view, so a ref that fails to resolve is one they
+// can't read.
+export async function getUnreadableDashboardResourceRefs(
+  context: ReqContext | ApiReqContext,
+  refs: DashboardBlockResourceRef[],
+): Promise<DashboardBlockResourceRef[]> {
+  const uniqueRefs = uniqWith(refs, isEqual);
+  if (uniqueRefs.length === 0) return [];
+
+  const idsByType = (type: DashboardBlockResourceRef["type"]): string[] =>
+    uniqueRefs.filter((ref) => ref.type === type).map((ref) => ref.id);
+
+  const [experiments, factMetrics, savedQueries, datasources, factTables] =
+    await Promise.all([
+      getExperimentsByIds(context, idsByType("experiment")),
+      context.models.factMetrics.getByIds(idsByType("factMetric")),
+      context.models.savedQueries.getByIds(idsByType("savedQuery")),
+      getDataSourcesByIds(context, idsByType("datasource")),
+      getFactTablesByIds(context, idsByType("factTable")),
+    ]);
+
+  const readableByType: Record<
+    DashboardBlockResourceRef["type"],
+    Set<string>
+  > = {
+    experiment: new Set(experiments.map((e) => e.id)),
+    factMetric: new Set(factMetrics.map((m) => m.id)),
+    savedQuery: new Set(savedQueries.map((q) => q.id)),
+    datasource: new Set(datasources.map((d) => d.id)),
+    factTable: new Set(factTables.map((f) => f.id)),
+  };
+
+  return uniqueRefs.filter((ref) => !readableByType[ref.type].has(ref.id));
+}
+
+// Throws a permission error if the context can't read every referenced
+// resource. Used to stop a user from adding a dashboard block that surfaces a
+// resource they don't have access to.
+export async function assertCanReadDashboardResourceRefs(
+  context: ReqContext | ApiReqContext,
+  refs: DashboardBlockResourceRef[],
+): Promise<void> {
+  const unreadable = await getUnreadableDashboardResourceRefs(context, refs);
+  if (unreadable.length > 0) {
+    throw new Error(
+      "You do not have permission to view one or more of the resources referenced by these dashboard blocks.",
+    );
+  }
+}
+
+// Collects the resource refs from a list of blocks, optionally excluding refs
+// that already existed on the dashboard so only newly-added references are
+// checked (e.g. when a co-editor saves a dashboard containing pre-existing
+// blocks they can't fully read).
+export function getAddedDashboardBlockResourceRefs(
+  nextBlocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+  existingBlocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+): DashboardBlockResourceRef[] {
+  const existingKeys = new Set(
+    (existingBlocks ?? []).flatMap(getDashboardBlockResourceRefs).map(refKey),
+  );
+  return uniqWith(
+    nextBlocks
+      .flatMap(getDashboardBlockResourceRefs)
+      .filter((ref) => !existingKeys.has(refKey(ref))),
+    isEqual,
+  );
+}
 
 /**
  * Determines if nextUpdate should be recalculated based on changes to auto-updates or schedule
