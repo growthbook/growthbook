@@ -192,7 +192,10 @@ export type ExperimentTableRow = {
   metricSnapshotSettings?: MetricSnapshotSettings;
   resultGroup: "goal" | "secondary" | "guardrail";
   error?: RowError;
-  numSlices?: number;
+  // Child row presentation (generic parent/child)
+  numChildren?: number;
+  isChildRow?: boolean;
+  childRowType?: "slice" | "funnelStep";
   // Slice row properties
   isSliceRow?: boolean;
   parentRowId?: string;
@@ -203,6 +206,8 @@ export type ExperimentTableRow = {
     levels: string[];
   }>;
   allSliceLevels?: string[];
+  // Funnel step row properties
+  funnelStepIndex?: number;
   isHiddenByFilter?: boolean;
   labelOnly?: boolean;
 };

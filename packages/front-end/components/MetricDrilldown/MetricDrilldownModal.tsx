@@ -6,6 +6,7 @@ import {
   ExperimentMetricDefinition,
   ExperimentSortBy,
   isDimensionPrecomputed,
+  isFunnelMetricId,
 } from "shared/experiments";
 import {
   DifferenceType,
@@ -48,6 +49,7 @@ import styles from "./MetricDrilldownModal.module.scss";
 import MetricDrilldownOverview from "./MetricDrilldownOverview";
 import MetricDrilldownSlices from "./MetricDrilldownSlices";
 import MetricDrilldownDebug from "./MetricDrilldownDebug";
+import ExperimentFunnelChart from "./ExperimentFunnelChart";
 import {
   MetricDrilldownContext,
   type MetricDrilldownTab,
@@ -328,6 +330,8 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
     }
   }, [localBaselineRow, visibleSliceTimeSeriesRowIds.length]);
 
+  const isFunnelMetric = isFunnelMetricId(metric.id);
+
   return (
     <>
       <TabsContent value="overview">
@@ -364,40 +368,57 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           dimensionInfo={dimensionInfo}
         />
       </TabsContent>
-      <TabsContent value="slices">
-        <MetricDrilldownSlices
-          metric={metric}
-          rows={allRows}
-          variationNames={variations.map((v) => v.name)}
-          differenceType={localDifferenceType}
-          setDifferenceType={setLocalDifferenceType}
-          statsEngine={statsEngine}
-          baselineRow={localBaselineRow}
-          setBaselineRow={setLocalBaselineRow}
-          variationFilter={localVariationFilter}
-          setVariationFilter={setLocalVariationFilter}
-          experimentId={experimentId}
-          significanceThresholds={significanceThresholds}
-          phase={phase}
-          variations={variations}
-          startDate={startDate}
-          endDate={endDate}
-          reportDate={reportDate}
-          isLatestPhase={isLatestPhase}
-          pValueCorrection={pValueCorrection}
-          sequentialTestingEnabled={sequentialTestingEnabled}
-          experimentStatus={experimentStatus}
-          initialSortBy={localSortBy}
-          initialSortDirection={localSortDirection}
-          searchTerm={sliceSearchTerm}
-          setSearchTerm={setSliceSearchTerm}
-          visibleTimeSeriesRowIds={visibleSliceTimeSeriesRowIds}
-          setVisibleTimeSeriesRowIds={setVisibleSliceTimeSeriesRowIds}
-          ssrPolyfills={ssrPolyfills}
-          hideTimeSeries={hideTimeSeries}
-          dimensionInfo={dimensionInfo}
-        />
-      </TabsContent>
+      {isFunnelMetric ? (
+        <TabsContent value="funnel">
+          <Box
+            style={{
+              // Cap the chart on tall screens but shrink with the viewport so
+              // the modal's 95vh body never scrolls the x-axis step labels
+              // below the fold.
+              height: "min(440px, 55vh)",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <ExperimentFunnelChart variations={variations} />
+          </Box>
+        </TabsContent>
+      ) : (
+        <TabsContent value="slices">
+          <MetricDrilldownSlices
+            metric={metric}
+            rows={allRows}
+            variationNames={variations.map((v) => v.name)}
+            differenceType={localDifferenceType}
+            setDifferenceType={setLocalDifferenceType}
+            statsEngine={statsEngine}
+            baselineRow={localBaselineRow}
+            setBaselineRow={setLocalBaselineRow}
+            variationFilter={localVariationFilter}
+            setVariationFilter={setLocalVariationFilter}
+            experimentId={experimentId}
+            significanceThresholds={significanceThresholds}
+            phase={phase}
+            variations={variations}
+            startDate={startDate}
+            endDate={endDate}
+            reportDate={reportDate}
+            isLatestPhase={isLatestPhase}
+            pValueCorrection={pValueCorrection}
+            sequentialTestingEnabled={sequentialTestingEnabled}
+            experimentStatus={experimentStatus}
+            initialSortBy={localSortBy}
+            initialSortDirection={localSortDirection}
+            searchTerm={sliceSearchTerm}
+            setSearchTerm={setSliceSearchTerm}
+            visibleTimeSeriesRowIds={visibleSliceTimeSeriesRowIds}
+            setVisibleTimeSeriesRowIds={setVisibleSliceTimeSeriesRowIds}
+            ssrPolyfills={ssrPolyfills}
+            hideTimeSeries={hideTimeSeries}
+            dimensionInfo={dimensionInfo}
+          />
+        </TabsContent>
+      )}
       <TabsContent value="debug">
         <MetricDrilldownDebug
           row={mainMetricRow}
@@ -472,6 +493,7 @@ const MetricDrilldownModal = ({
 }: MetricDrilldownModalProps) => {
   useBodyScrollLock(true);
   const { metric } = row;
+  const isFunnelMetric = isFunnelMetricId(metric.id);
   const { hasCommercialFeature } = useUser();
 
   // Check if the owning org has the feature (via SSR data), falling back to the current user's org
@@ -547,7 +569,11 @@ const MetricDrilldownModal = ({
   };
 
   return (
-    <Tabs defaultValue={initialTab}>
+    <Tabs
+      defaultValue={
+        isFunnelMetric && initialTab === "slices" ? "funnel" : initialTab
+      }
+    >
       <Modal
         useRadixButton={false}
         open={true}
@@ -613,17 +639,21 @@ const MetricDrilldownModal = ({
 
             <TabsList mt="5">
               <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="slices">
-                <Flex align="center" gap="1">
-                  Slices
-                  {!ownerHasMetricSlices && (
-                    <PaidFeatureBadge
-                      commercialFeature="metric-slices"
-                      useTip={false}
-                    />
-                  )}
-                </Flex>
-              </TabsTrigger>
+              {isFunnelMetric ? (
+                <TabsTrigger value="funnel">Funnel</TabsTrigger>
+              ) : (
+                <TabsTrigger value="slices">
+                  <Flex align="center" gap="1">
+                    Slices
+                    {!ownerHasMetricSlices && (
+                      <PaidFeatureBadge
+                        commercialFeature="metric-slices"
+                        useTip={false}
+                      />
+                    )}
+                  </Flex>
+                </TabsTrigger>
+              )}
               <TabsTrigger value="debug">Debug</TabsTrigger>
             </TabsList>
           </Box>

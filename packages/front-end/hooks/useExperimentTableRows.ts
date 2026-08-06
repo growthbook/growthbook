@@ -13,6 +13,8 @@ import {
   expandMetricGroups,
   ExperimentMetricDefinition,
   ExperimentSortBy,
+  FUNNEL_DEMO_METRIC_ID,
+  getFunnelParentStepDescriptors,
   createCustomSliceDataForMetric,
   createAutoSliceDataForMetric,
   setAdjustedCIs,
@@ -117,6 +119,10 @@ export function useExperimentTableRows({
     useMemo(() => {
       const allMetricGroups = ssrPolyfills?.metricGroups || metricGroups;
 
+      const goalMetricsWithFunnel = goalMetrics.includes(FUNNEL_DEMO_METRIC_ID)
+        ? goalMetrics
+        : [...goalMetrics, FUNNEL_DEMO_METRIC_ID];
+
       // Check for selector IDs in metricsFilter (they constrain which categories to show)
       const hasGoalSelector =
         metricsFilter?.includes("experiment-goal") ?? false;
@@ -177,7 +183,7 @@ export function useExperimentTableRows({
         // Filter metrics by group or allowed metric IDs
         // Only include categories that are selected via selector IDs
         if (includeGoals) {
-          filteredGoalMetrics = goalMetrics.filter((id) => {
+          filteredGoalMetrics = goalMetricsWithFunnel.filter((id) => {
             // If no actual metric filter, include all goal metrics (selector-only case)
             if (actualMetricFilter.length === 0) return true;
             // Otherwise, filter by actual metric filter (within goal category)
@@ -228,7 +234,7 @@ export function useExperimentTableRows({
         }
       } else {
         // No filter at all - include all metrics
-        filteredGoalMetrics = goalMetrics;
+        filteredGoalMetrics = goalMetricsWithFunnel;
         filteredSecondaryMetrics = secondaryMetrics;
         filteredGuardrailMetrics = guardrailMetrics;
       }
@@ -571,7 +577,7 @@ export function generateRowsForMetric({
         }),
     metricSnapshotSettings,
     resultGroup,
-    numSlices,
+    numChildren: numSlices,
     labelOnly: isLabelOnly,
   };
 
@@ -655,7 +661,7 @@ export function generateRowsForMetric({
           name: slice.name,
         },
         metricOverrideFields: overrideFields,
-        rowClass: `${newMetric?.inverse ? "inverse" : ""} slice-row`,
+        rowClass: newMetric?.inverse ? "inverse" : "",
         sliceId: slice.id,
         variations: resultsArray[0].variations.map((v) => {
           // Use the slice metric's data instead of the parent metric's data
@@ -670,8 +676,10 @@ export function generateRowsForMetric({
         }),
         metricSnapshotSettings,
         resultGroup,
-        numSlices: 0,
+        numChildren: 0,
         isSliceRow: true,
+        isChildRow: true,
+        childRowType: "slice",
         parentRowId: metricId,
         sliceLevels: slice.sliceLevels.map((dl) => ({
           column: dl.column,
@@ -704,6 +712,36 @@ export function generateRowsForMetric({
     ) {
       return [];
     }
+  }
+
+  const funnelSteps = getFunnelParentStepDescriptors(metricId);
+  if (funnelSteps) {
+    parentRow.numChildren = funnelSteps.length;
+    funnelSteps.forEach(({ index, name, stepMetricId }) => {
+      rows.push({
+        label: name,
+        metric: newMetric,
+        metricOverrideFields: overrideFields,
+        rowClass: newMetric?.inverse ? "inverse" : "",
+        variations: resultsArray[0].variations.map(
+          (v) =>
+            v.metrics?.[stepMetricId] || {
+              users: 0,
+              value: 0,
+              cr: 0,
+              errorMessage: "No data",
+            },
+        ),
+        metricSnapshotSettings,
+        resultGroup,
+        numChildren: 0,
+        isChildRow: true,
+        childRowType: "funnelStep",
+        funnelStepIndex: index,
+        parentRowId: metricId,
+        isHiddenByFilter: false,
+      });
+    });
   }
 
   // Add parent row only if we should show it
