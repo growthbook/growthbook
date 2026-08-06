@@ -86,7 +86,7 @@ export default function DateRangeCompareDropdown({
   granularityDisabledReason,
   disabled,
   extraPresets,
-  triggerFallbackLabel = "Date Range",
+  triggerFallbackLabel = "Date range",
   fullWidth = false,
 }: {
   value: DateRangeCompareValue;

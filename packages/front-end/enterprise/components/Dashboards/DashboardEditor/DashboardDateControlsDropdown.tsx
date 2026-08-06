@@ -29,7 +29,7 @@ const DEFAULT_DATE_RANGE: ExplorationDateRange = {
 function getDisplayLabel(value: ExplorationDateRange | null): string {
   if (!value) return "Chart Default";
   return formatExplorationDateRange(value, {
-    customDateRangeFallback: "Date Range",
+    customDateRangeFallback: "Date range",
   });
 }
 
@@ -42,21 +42,30 @@ function getDisplayTooltip(
   return `Compared to ${COMPARISON_MODE_LABELS[resolveComparisonMode(comparison)]}`;
 }
 
+/** Everything one Apply changes, so the caller can persist it in one write. */
+export type DashboardDateControlsValue = {
+  /** Null means "Chart Default" — no dashboard-wide range. */
+  dateRange: ExplorationDateRange | null;
+  granularity: (typeof dateGranularity)[number];
+  comparison: BlockComparison | undefined;
+};
+
 export default function DashboardDateControlsDropdown({
   value,
   granularity = "auto",
-  onChange,
-  onGranularityChange,
   comparison = null,
-  onComparisonChange,
+  showCompare = false,
+  onApply,
   disabled,
 }: {
   value: ExplorationDateRange | null;
   granularity?: (typeof dateGranularity)[number];
-  onChange: (dateRange: ExplorationDateRange | null) => void;
-  onGranularityChange: (granularity: (typeof dateGranularity)[number]) => void;
   comparison?: BlockComparison | null;
-  onComparisonChange?: (comparison: BlockComparison | undefined) => void;
+  showCompare?: boolean;
+  /** One callback for all three fields. Separate per-field callbacks each
+   * persisted from the same render-scope state, so the last write undid the
+   * others. */
+  onApply: (next: DashboardDateControlsValue) => void;
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -65,6 +74,18 @@ export default function DashboardDateControlsDropdown({
   // No suffix on "Chart Default": there is no dashboard-wide window for a
   // comparison to hang off, so "vs prior" would describe nothing.
   const suffix = value ? comparisonSuffix(value, comparison) : null;
+
+  // Selecting "Chart Default" applies immediately rather than waiting for
+  // Apply. It only clears the dashboard-wide range; granularity follows from
+  // that on the caller's side, and the comparison is left as it was.
+  const selectChartDefault = () => {
+    onApply({
+      dateRange: null,
+      granularity,
+      comparison: comparison ?? undefined,
+    });
+    setOpen(false);
+  };
 
   const chartDefaultOption = (
     <Box
@@ -76,15 +97,13 @@ export default function DashboardDateControlsDropdown({
       tabIndex={disabled ? -1 : 0}
       onClick={() => {
         if (disabled) return;
-        onChange(null);
-        setOpen(false);
+        selectChartDefault();
       }}
       onKeyDown={(e) => {
         if (disabled) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          onChange(null);
-          setOpen(false);
+          selectChartDefault();
         }
       }}
       style={{
@@ -120,7 +139,7 @@ export default function DashboardDateControlsDropdown({
         key={open ? "open" : "closed"}
         value={{ dateRange: activeDateRange, comparison, granularity }}
         disabled={disabled}
-        showCompare={!!onComparisonChange}
+        showCompare={showCompare}
         showGranularity
         // "Chart Default" means each block keeps its own range, so there is
         // no dashboard-wide series for a granularity to bucket.
@@ -129,12 +148,11 @@ export default function DashboardDateControlsDropdown({
         extraPresets={chartDefaultOption}
         onCancel={() => setOpen(false)}
         onApply={(next: DateRangeCompareValue) => {
-          onChange(next.dateRange);
-          if (next.granularity && next.granularity !== granularity) {
-            onGranularityChange(next.granularity);
-          }
-          if (onComparisonChange) {
-            const nextComparison = next.comparison?.enabled
+          onApply({
+            dateRange: next.dateRange,
+            granularity: next.granularity ?? granularity,
+            // Freeze the window for `custom` so later primary edits can't move it.
+            comparison: next.comparison?.enabled
               ? {
                   ...next.comparison,
                   ...(resolveComparisonMode(next.comparison) === "custom"
@@ -146,9 +164,8 @@ export default function DashboardDateControlsDropdown({
                       }
                     : {}),
                 }
-              : undefined;
-            onComparisonChange(nextComparison);
-          }
+              : undefined,
+          });
           setOpen(false);
         }}
       />

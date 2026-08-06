@@ -11,19 +11,21 @@ export const COMPARISON_MODE_LABELS: Record<ComparisonMode, string> = {
   custom: "Custom",
 };
 
+// Sentence case for the same reason as the map above — and these now sit in the
+// same panel as it, the preset rail beside the "Compared to" Select.
 export const DATE_RANGE_PREDEFINED_LABELS: Record<
   (typeof dateRangePredefined)[number],
   string
 > = {
   today: "Today",
   yesterday: "Yesterday",
-  last7Days: "Past 7 Days",
-  last30Days: "Past 30 Days",
-  last90Days: "Past 90 Days",
-  last12Months: "Past 12 Months",
-  lastCalendarYear: "Last Calendar Year",
-  customLookback: "Custom Lookback",
-  customDateRange: "Custom Date Range",
+  last7Days: "Past 7 days",
+  last30Days: "Past 30 days",
+  last90Days: "Past 90 days",
+  last12Months: "Past 12 months",
+  lastCalendarYear: "Last calendar year",
+  customLookback: "Custom lookback",
+  customDateRange: "Custom date range",
 };
 
 export const LOOKBACK_UNIT_LABELS: Record<

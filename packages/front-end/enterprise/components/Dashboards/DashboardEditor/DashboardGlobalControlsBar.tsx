@@ -1,6 +1,7 @@
 import { useContext, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiSlidersHorizontal } from "react-icons/pi";
+import { isEqual } from "lodash";
 import {
   canAutoRefreshDashboard,
   autoEnrollDashboardBlocksInDateControl,
@@ -150,33 +151,33 @@ export default function DashboardGlobalControlsBar({
           value={globalControls?.dateRange ?? null}
           granularity={globalControls?.dateGranularity ?? "auto"}
           disabled={!canModifyControls || saving}
-          onChange={(dateRange) => {
+          comparison={dashboardComparison ?? null}
+          showCompare={!!onDashboardComparisonChange}
+          // One write for the date range and its granularity: persisting them
+          // separately spread the same `globalControls` twice, so the second
+          // call dropped the first's date range.
+          onApply={async ({ dateRange, granularity, comparison }) => {
             const nextGlobalControls = { ...(globalControls ?? {}) };
             if (dateRange) {
               nextGlobalControls.dateRange = dateRange;
-              nextGlobalControls.dateGranularity ??= "auto";
+              nextGlobalControls.dateGranularity = granularity;
             } else {
+              // "Chart Default": each block keeps its own range, so there is no
+              // dashboard-wide series left for a granularity to bucket.
               delete nextGlobalControls.dateRange;
               delete nextGlobalControls.dateGranularity;
             }
-            persistGlobalControls(nextGlobalControls);
+            await persistGlobalControls(nextGlobalControls);
+            // A separate field on the dashboard, so its own PUT. Only sent when
+            // it changed, or every Apply would force a manual refresh.
+            if (
+              onDashboardComparisonChange &&
+              !isEqual(comparison ?? null, dashboardComparison ?? null)
+            ) {
+              setNeedsUpdate(true);
+              await onDashboardComparisonChange(comparison);
+            }
           }}
-          onGranularityChange={(granularity) => {
-            if (!globalControls?.dateRange) return;
-            persistGlobalControls({
-              ...(globalControls ?? {}),
-              dateGranularity: granularity,
-            });
-          }}
-          comparison={dashboardComparison ?? null}
-          onComparisonChange={
-            onDashboardComparisonChange
-              ? (comparison) => {
-                  setNeedsUpdate(true);
-                  void onDashboardComparisonChange(comparison);
-                }
-              : undefined
-          }
         />
       </Flex>
     </Flex>
