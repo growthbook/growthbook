@@ -3111,13 +3111,14 @@ export function getEnvsForRampTarget(
     if (patch.allEnvironments) return "all";
     const scoped = patch.environments ?? [];
     // Same rule as `getEnvsFromRampSchedule`, which is the whole-schedule twin: an
-    // unscoped patch inherits the RULE's environments at apply time, so returning
-    // [] here handed the permission layer an empty footprint — which SKIPS the
-    // environment check rather than narrowing it. This is the function
-    // `assertCanControlRampSchedule` actually calls, and it was the one left
-    // behind: a minimal `steps:[{actions:[{patch:{coverage:1}}]}]` made every
-    // control action on the schedule vacuous.
-    if (!scoped.length) return "all";
+    // A patch naming no environments does not TOUCH the field —
+    // `applyPatchToRule` writes it only on `"environments" in patch` — so its reach
+    // is wherever the rule already serves, which `currentRuleEnvs` supplies below.
+    // Widening to "all" here was the same over-demand `rampActionFootprint` had:
+    // `buildPatch` emits `{ruleId, coverage}` for every ramp created through the UI,
+    // so a publisher scoped to dev could create and publish a dev-only ramp and then
+    // control none of it. The vacuity this used to guard against is still guarded —
+    // by `if (!envs.size) return "all"` below, after the union.
     for (const env of scoped) envs.add(env);
   }
   // A target NO patch names is still acted on: with no steps, the start actions

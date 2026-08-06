@@ -3690,11 +3690,22 @@ describe("getEnvsForRampTarget", () => {
     ).toBe("all");
   });
 
-  // The gate `assertCanControlRampSchedule` actually calls. An unscoped patch
-  // inherits the rule's environments at apply time, so [] would SKIP the
-  // environment check instead of narrowing it — a minimal step against a
-  // production rule made every control action on the schedule vacuous.
-  it("widens an unscoped patch to 'all', never []", () => {
+  // An unscoped patch does not TOUCH the rule's environments, so its reach is
+  // wherever the rule already serves — which the gate always supplies. This case
+  // used to assert "all" and called the function with TWO arguments, omitting
+  // `currentRuleEnvs`: for that shape "all" is right, but the gate never uses it, so
+  // the test read as a blessing of a widening the production call shape never wants.
+  // Widening there meant a dev-scoped publisher could create and publish a dev-only
+  // ramp and then control none of it.
+  it("answers for what the rule serves when the patch names nothing", () => {
+    expect(
+      getEnvsForRampTarget(target({ coverage: 1 }) as never, "t1", ["dev"]),
+    ).toEqual(["dev"]);
+  });
+
+  // The vacuity backstop is still there: nothing known at all widens rather than
+  // handing the permission layer an empty footprint.
+  it("widens to 'all' when nothing is known — patch and rule both silent", () => {
     expect(getEnvsForRampTarget(target({ coverage: 1 }) as never, "t1")).toBe(
       "all",
     );

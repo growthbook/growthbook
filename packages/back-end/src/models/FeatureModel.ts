@@ -9,6 +9,7 @@ import {
   autoMerge,
   liveRevisionFromFeature,
   PermissionError,
+  rampRuleEnvKey,
   stemRuleId,
   resolveTargetingProjectIds,
   computeHoldoutExperimentLinkageDelta,
@@ -771,7 +772,14 @@ export async function getFeatureRuleEnvironmentsByIds(
   const byId = new Map(features.map((f) => [f.id, toInterface(f, context)]));
 
   for (const { featureId, ruleId, environment } of named) {
-    const key = `${featureId}:${ruleId}`;
+    // The key must carry `environment`, because the RESOLUTION does. Two targets
+    // sharing a `ruleId` but naming different environments — the shape
+    // `flattenV1ToV2Rules` produces for a migrated feature — collided on
+    // `featureId:ruleId`, and the last one written won. A dev target could therefore
+    // overwrite a production target's answer, and the gate read ["dev"] for both
+    // while the executor resolved the production sibling and rescoped it. Unioning
+    // per rule id could not fix it: both refs agree on the id and differ only here.
+    const key = rampRuleEnvKey(featureId, ruleId, environment);
     const feature = byId.get(featureId);
     // EVERY sibling the execution path will patch, resolved the way it resolves
     // them — `resolveRampTargets`, honouring `environment`. Taking the first stem

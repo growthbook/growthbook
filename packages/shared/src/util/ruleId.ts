@@ -114,3 +114,16 @@ export function resolveRampTargets(
   // Bare id, no env — stem fan-out.
   return unifiedRules.filter((r) => stemRuleId(r.id) === stem);
 }
+
+/**
+ * The lookup key for a ramp target's current environments. Exported so the gate and
+ * the loader cannot spell it differently — the environment is part of the identity
+ * because `resolveRampTargets` resolves a different rule set with it than without.
+ */
+export function rampRuleEnvKey(
+  featureId: string,
+  ruleId?: string,
+  environment?: string,
+): string {
+  return `${featureId}:${ruleId ?? ""}:${environment ?? ""}`;
+}

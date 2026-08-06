@@ -207,6 +207,66 @@ describe("postRampScheduleAction publish gate", () => {
     expect([...new Set(asked)].sort()).toEqual(["fr_dev", "fr_prod"]);
   });
 
+  // Two targets sharing a `ruleId` and differing only in `environment` — the shape
+  // `flattenV1ToV2Rules` produces for a migrated feature. The lookup key dropped the
+  // environment while the resolution honoured it, so the last ref written WON: a dev
+  // target overwrote a production target's answer and the gate read ["dev"] for both.
+  it("keeps per-environment answers distinct for targets sharing a rule id", async () => {
+    const { canPublishFeature } = arrange({ canPublish: false });
+    (getContextFromReq as jest.Mock).mockReturnValue({
+      ...(getContextFromReq as jest.Mock)(),
+      models: {
+        rampSchedules: {
+          getById: jest.fn(async () => ({
+            ...SCHEDULE,
+            targets: [
+              {
+                id: "t_prod",
+                entityType: "feature",
+                entityId: "feat_1",
+                ruleId: "fr_x",
+                environment: "production",
+              },
+              {
+                id: "t_dev",
+                entityType: "feature",
+                entityId: "feat_1",
+                ruleId: "fr_x",
+                environment: "dev",
+              },
+            ],
+            steps: [
+              {
+                actions: [
+                  {
+                    targetId: "t_prod",
+                    patch: { ruleId: "fr_x", coverage: 0 },
+                  },
+                  { targetId: "t_dev", patch: { ruleId: "fr_x", coverage: 0 } },
+                ],
+              },
+            ],
+          })),
+          publishEnvironments: jest.fn(() => ["dev"]),
+        },
+        safeRollout: { getById: jest.fn(async () => null) },
+      },
+    });
+    (getFeatureRuleEnvironmentsByIds as jest.Mock).mockImplementation(
+      async () =>
+        new Map([
+          ["feat_1:fr_x:production", ["production"]],
+          ["feat_1:fr_x:dev", ["dev"]],
+        ]),
+    );
+
+    await postRampScheduleAction(makeReq("pause"), makeRes()).catch(() => {});
+    // Both answers survive, so production is demanded — under the collision the dev
+    // entry replaced it and the caller passed with dev-only authority.
+    const envs = canPublishFeature.mock.calls[0]?.[1] as string[];
+    expect([...envs].sort()).toEqual(["dev", "production"]);
+  });
+
   // The "all" return path had no coverage, and it is the one an attacker picks: a
   // rule with `allEnvironments: true` (which flattenV1ToV2Rules produces for any
   // migrated rule covering every applicable env) makes the target answer "all",
@@ -235,7 +295,9 @@ describe("postRampScheduleAction publish gate", () => {
       },
     });
     (getFeatureRuleEnvironmentsByIds as jest.Mock).mockResolvedValue(
-      new Map([["feat_1:fr_1", "all"]]),
+      // Keyed on the full (feature, rule, environment) triple — the environment is
+      // part of the identity because the resolution honours it.
+      new Map([["feat_1:fr_1:", "all"]]),
     );
 
     await postRampScheduleAction(makeReq("pause"), makeRes()).catch(() => {});

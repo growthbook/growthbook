@@ -19,6 +19,7 @@ import {
 } from "shared/validators";
 import { ResourceEvents } from "shared/types/events/base-types";
 import {
+  rampRuleEnvKey,
   rampPatchesForTarget,
   getEnvsFromRampSchedule,
   filterEnvironmentsByFeature,
@@ -3094,7 +3095,13 @@ export async function assertCanControlRampSchedule(
     // Union across every rule this target can reach: if ANY of them serves
     // production, the footprint says production.
     const reachable = ruleIdsForTarget(target).map((ruleId) =>
-      ruleEnvs.get(`${target.entityId}:${ruleId}`),
+      ruleEnvs.get(
+        rampRuleEnvKey(
+          target.entityId,
+          ruleId,
+          target.environment ?? undefined,
+        ),
+      ),
     );
     const currentRuleEnvs: string[] | "all" = reachable.some((r) => r === "all")
       ? "all"
