@@ -279,7 +279,9 @@ function OrganizationRow({
                   {ssoInfo
                     ? `yes (${
                         ssoInfo.id
-                      } for domains: ${ssoInfo.emailDomains?.join(", ")})`
+                      } for domains: ${ssoInfo.emailDomains?.join(", ")})${
+                        ssoInfo.disabled ? " — DISABLED" : ""
+                      }`
                     : "no"}
                 </div>
                 {isCloud() && (
