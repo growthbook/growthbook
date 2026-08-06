@@ -24,6 +24,7 @@ import {
   FactTableInterface,
   FactTableMap,
   FunnelStep,
+  FunnelFactMetricInterface,
   MetricQuantileSettings,
   MetricWindowSettings,
   RowFilter,
@@ -1100,10 +1101,12 @@ export function getMetricTemplateVariables(
   useDenominator?: boolean,
 ): TemplateVariables {
   if (isFactMetric(m)) {
-    const columnRef = useDenominator ? m.denominator : m.numerator;
-    if (!columnRef) return {};
+    const factTableId = useDenominator
+      ? m.denominator?.factTableId
+      : getFactMetricFactTableId(m);
+    if (!factTableId) return {};
 
-    const factTable = factTableMap.get(columnRef.factTableId);
+    const factTable = factTableMap.get(factTableId);
     if (!factTable) return {};
 
     return {
@@ -1120,8 +1123,35 @@ export function isCappableMetricType(m: ExperimentMetricDefinition) {
 
 export function isBinomialMetric(m: ExperimentMetricDefinition) {
   if (isFactMetric(m))
+    // TODO(luke-funnel): validate that setting funnel here is the righty type
     return ["proportion", "retention", "funnel"].includes(m.metricType);
   return m.type === "binomial";
+}
+
+/**
+ * Fact table the metric's primary events come from: the numerator's for most
+ * metric types, the first step's for funnels (which have no numerator).
+ */
+export function getFactMetricFactTableId(m: FactMetricInterface): string {
+  return isFactFunnelMetric(m)
+    ? (m.funnelSettings.steps[0]?.factTableId ?? "")
+    : m.numerator.factTableId;
+}
+
+/**
+ * Every ColumnRef the metric reads from, for dependency scans over fact table
+ * columns and filters. Funnel steps have no column of their own, so they are
+ * surfaced as column-less refs that still carry their row filters.
+ */
+export function getFactMetricColumnRefs(m: FactMetricInterface): ColumnRef[] {
+  if (isFactFunnelMetric(m)) {
+    return m.funnelSettings.steps.map((step) => ({
+      factTableId: step.factTableId,
+      column: "",
+      rowFilters: step.rowFilters,
+    }));
+  }
+  return m.denominator ? [m.numerator, m.denominator] : [m.numerator];
 }
 
 export function isRetentionMetric(m: ExperimentMetricDefinition) {
@@ -1164,8 +1194,8 @@ export function isLegacyFunnelMetric(
  * fact-metric funnel: a fact metric with metricType === "funnel"
  */
 export function isFactFunnelMetric(
-  m: ExperimentMetricInterface,
-): m is FactMetricInterface {
+  m: ExperimentMetricDefinition,
+): m is FunnelFactMetricInterface {
   return isFactMetric(m) && m.metricType === "funnel";
 }
 
@@ -1283,7 +1313,7 @@ export function getUserIdTypes(
     const factTable = factTableMap.get(
       useDenominator
         ? metric.denominator?.factTableId || ""
-        : metric.numerator.factTableId,
+        : getFactMetricFactTableId(metric),
     );
     return factTable?.userIdTypes || [];
   }
@@ -1384,6 +1414,43 @@ export function parseSliceMetricId(
     isSliceMetric: true,
     baseMetricId,
     sliceLevels: sliceLevels,
+  };
+}
+
+export interface FunnelStepMetricInfo {
+  isFunnelStepMetric: boolean;
+  baseMetricId: string;
+  stepIndex: number | null;
+}
+
+/**
+ * Id of the ephemeral binomial metric representing "did the unit reach step k".
+ * These never exist as saved fact metrics; the stats-engine packaging layer
+ * mints them when it splits a funnel's multi-column query block, and results,
+ * snapshots, and time series are keyed by them.
+ */
+export function funnelStepMetricId(
+  baseMetricId: string,
+  stepIndex: number,
+): string {
+  return `${baseMetricId}?step=${stepIndex}`;
+}
+
+export function parseFunnelStepMetricId(
+  metricId: string,
+): FunnelStepMetricInfo {
+  const match = metricId.match(/^(.+)\?step=(\d+)$/);
+  if (!match) {
+    return {
+      isFunnelStepMetric: false,
+      baseMetricId: metricId,
+      stepIndex: null,
+    };
+  }
+  return {
+    isFunnelStepMetric: true,
+    baseMetricId: match[1],
+    stepIndex: parseInt(match[2], 10),
   };
 }
 
@@ -2045,6 +2112,17 @@ export function getAllExpandedMetricIdsFromExperiment({
     }
   });
 
+  // Funnel step metrics are derived rather than stored, so they are not in the
+  // map to be scanned for. Results are reported per step, so the step ids have
+  // to appear here for snapshot metric settings and time series to cover them.
+  baseMetricIds.forEach((metricId) => {
+    const metric = expandedMetricMap.get(metricId);
+    if (!metric || !isFactFunnelMetric(metric)) return;
+    metric.funnelSettings.steps.forEach((_, stepIndex) => {
+      expandedMetricIds.add(funnelStepMetricId(metricId, stepIndex));
+    });
+  });
+
   return Array.from(expandedMetricIds);
 }
 
@@ -2654,6 +2732,9 @@ export function expandAllSliceMetricsInMap({
   for (const metric of baseMetrics) {
     if (!metric) continue;
     if (!isFactMetric(metric)) continue;
+    // Slices are not supported for funnel metrics yet; their steps are
+    // expanded separately by getAllExpandedMetricIdsFromExperiment.
+    if (isFactFunnelMetric(metric)) continue;
 
     const factTable = factTableMap.get(metric.numerator.factTableId);
     if (!factTable) continue;

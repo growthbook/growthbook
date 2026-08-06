@@ -1,6 +1,7 @@
 import { isProjectListValidForProject } from "shared/util";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { date } from "shared/dates";
+import { getFactMetricFactTableId } from "shared/experiments";
 import { FaArrowRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { Box, Flex, Separator } from "@radix-ui/themes";
@@ -98,7 +99,7 @@ export default function FactTablesPage() {
 
   const factMetricCounts: Record<string, number> = {};
   factMetrics.forEach((m) => {
-    const key = m.numerator.factTableId;
+    const key = getFactMetricFactTableId(m);
     factMetricCounts[key] = factMetricCounts[key] || 0;
     factMetricCounts[key]++;
 

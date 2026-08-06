@@ -7,7 +7,7 @@ import {
   FUNNEL_DEMO_METRIC_ID,
   HARDCODED_FUNNEL_METRIC,
   addFunnelEphemeralMetricsToMap,
-  funnelStepMetricId,
+  funnelDemoStepMetricId,
   getFunnelEphemeralMetricById,
   getFunnelEphemeralMetrics,
   getFunnelMetricNumbers,
@@ -81,7 +81,7 @@ describe("getFunnelEphemeralMetrics", () => {
   it("emits a valid proportion Fact Metric for each step keyed by its step id", () => {
     HARDCODED_FUNNEL_METRIC.steps.forEach((step, index) => {
       const stepMetric = metrics[index + 1];
-      expect(stepMetric.id).toBe(funnelStepMetricId(index));
+      expect(stepMetric.id).toBe(funnelDemoStepMetricId(index));
       expect(stepMetric.name).toBe(step.name);
       expect(stepMetric.metricType).toBe("proportion");
       expect(factMetricValidator.safeParse(stepMetric).success).toBe(true);
@@ -97,9 +97,9 @@ describe("getFunnelEphemeralMetricById", () => {
   });
 
   it("resolves a funnel step metric by id", () => {
-    const metric = getFunnelEphemeralMetricById(funnelStepMetricId(0));
+    const metric = getFunnelEphemeralMetricById(funnelDemoStepMetricId(0));
     expect(metric).not.toBeNull();
-    expect(metric?.id).toBe(funnelStepMetricId(0));
+    expect(metric?.id).toBe(funnelDemoStepMetricId(0));
     expect(metric?.name).toBe(HARDCODED_FUNNEL_METRIC.steps[0].name);
   });
 
@@ -116,13 +116,15 @@ describe("getFunnelParentStepDescriptors", () => {
     descriptors?.forEach((descriptor, index) => {
       expect(descriptor.index).toBe(index);
       expect(descriptor.name).toBe(HARDCODED_FUNNEL_METRIC.steps[index].name);
-      expect(descriptor.stepMetricId).toBe(funnelStepMetricId(index));
+      expect(descriptor.stepMetricId).toBe(funnelDemoStepMetricId(index));
     });
   });
 
   it("returns null for any other metric id", () => {
     expect(getFunnelParentStepDescriptors("fact__other")).toBeNull();
-    expect(getFunnelParentStepDescriptors(funnelStepMetricId(0))).toBeNull();
+    expect(
+      getFunnelParentStepDescriptors(funnelDemoStepMetricId(0)),
+    ).toBeNull();
   });
 });
 
@@ -132,7 +134,9 @@ describe("addFunnelEphemeralMetricsToMap", () => {
     addFunnelEphemeralMetricsToMap(map);
     expect(map.get(FUNNEL_DEMO_METRIC_ID)?.metricType).toBe("proportion");
     HARDCODED_FUNNEL_METRIC.steps.forEach((_, index) => {
-      expect(map.get(funnelStepMetricId(index))?.metricType).toBe("proportion");
+      expect(map.get(funnelDemoStepMetricId(index))?.metricType).toBe(
+        "proportion",
+      );
     });
     expect(map.size).toBe(1 + HARDCODED_FUNNEL_METRIC.steps.length);
   });
@@ -148,7 +152,7 @@ describe("getAllExpandedMetricIdsFromExperiment funnel expansion", () => {
     });
     expect(ids).toContain(FUNNEL_DEMO_METRIC_ID);
     HARDCODED_FUNNEL_METRIC.steps.forEach((_, index) => {
-      expect(ids).toContain(funnelStepMetricId(index));
+      expect(ids).toContain(funnelDemoStepMetricId(index));
     });
   });
 
@@ -158,6 +162,6 @@ describe("getAllExpandedMetricIdsFromExperiment funnel expansion", () => {
       expandedMetricMap: new Map<string, ExperimentMetricInterface>(),
     });
     expect(ids).toContain(FUNNEL_DEMO_METRIC_ID);
-    expect(ids).not.toContain(funnelStepMetricId(0));
+    expect(ids).not.toContain(funnelDemoStepMetricId(0));
   });
 });

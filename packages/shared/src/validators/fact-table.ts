@@ -386,7 +386,7 @@ export const metricTypeValidator = z.enum([
   "funnel",
 ]);
 
-export const factMetricValidator = z
+const factMetricObjectValidator = z
   .object({
     id: z.string(),
     organization: z.string(),
@@ -403,7 +403,10 @@ export const factMetricValidator = z
     archived: z.boolean().optional(),
 
     metricType: metricTypeValidator,
-    numerator: columnRefValidator,
+    // Null only for funnel metrics, which describe their events through
+    // funnelSettings.steps instead. Cross-field rules live in
+    // FactMetricModel.customValidation.
+    numerator: columnRefValidator.nullable(),
     denominator: columnRefValidator.nullable(),
 
     cappingSettings: cappingSettingsValidator,
@@ -438,6 +441,7 @@ export const factMetricValidator = z
 // because factMetricValidator is consumed as a bare ZodObject by the model
 // layer and wrapping it in ZodEffects would break schema composition
 // (.omit/.partial/.shape). Returns an array of human-readable errors ([] = ok).
+// TODO(funnel-lj): use this method
 export function validateFunnelSettingsForV1(
   metric: Pick<
     z.infer<typeof factMetricValidator>,
@@ -462,6 +466,46 @@ export function validateFunnelSettingsForV1(
   }
   return errors;
 }
+type FactMetricFields = z.infer<typeof factMetricObjectValidator>;
+type FactMetricSharedFields = Omit<
+  FactMetricFields,
+  "metricType" | "numerator" | "funnelSettings"
+>;
+
+/** Every metric type except "funnel": describes its events with a ColumnRef. */
+export type StandardFactMetric = FactMetricSharedFields & {
+  metricType: Exclude<FactMetricFields["metricType"], "funnel">;
+  numerator: z.infer<typeof columnRefValidator>;
+  // Required-null (like quantileSettings) rather than optional: this keeps the
+  // member a subtype of the flat schema output, which MakeModelClass's
+  // BaseSchemaWithPrimaryKey constraint intersects with the union.
+  funnelSettings: null;
+};
+
+/** Describes its events with an ordered list of funnel steps instead. */
+export type FunnelFactMetric = FactMetricSharedFields & {
+  metricType: "funnel";
+  numerator: null;
+  funnelSettings: z.infer<typeof funnelSettingsValidator>;
+};
+
+/**
+ * The runtime schema stays a plain ZodObject so MakeModelClass can call
+ * `.omit()` / `.partial()` / `.shape` on it, but the declared output is
+ * narrowed to a discriminated union. That makes `numerator` non-null wherever
+ * the metric type has been narrowed away from "funnel", instead of forcing
+ * every reader into optional chaining. The `metricType` / `numerator` /
+ * `funnelSettings` combinations are enforced at runtime by
+ * FactMetricModel.customValidation.
+ *
+ * `z.infer` of this intersection is `flatObjectOutput & (Standard | Funnel)`.
+ * Both union members are deliberately kept as subtypes of the flat output
+ * (see StandardFactMetric.funnelSettings), so the intersection distributes to
+ * exactly the union instead of re-widening or over-requiring fields.
+ */
+export const factMetricValidator =
+  factMetricObjectValidator as typeof factMetricObjectValidator &
+    z.ZodType<StandardFactMetric | FunnelFactMetric>;
 
 export const createFactFilterPropsValidator = z
   .object({

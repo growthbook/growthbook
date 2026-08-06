@@ -17,7 +17,6 @@ import {
   cappingSettingsValidator,
   windowSettingsValidator,
   cappingTypeValidator,
-  factMetricValidator,
   quantileSettingsValidator,
   priorSettingsValidator,
   columnAggregationValidator,
@@ -25,10 +24,8 @@ import {
   jsonColumnFieldsValidator,
   rowFilterValidator,
   aggregatedFactTableSettingsValidator,
-  conversionWindowValidator,
-  funnelStepValidator,
-  funnelOrderingValidator,
-  funnelSettingsValidator,
+  StandardFactMetric,
+  FunnelFactMetric,
 } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { TestQueryRow } from "shared/types/integrations";
@@ -152,7 +149,12 @@ export type LegacyMetricWindowSettings = z.infer<
 >;
 export type MetricPriorSettings = z.infer<typeof priorSettingsValidator>;
 
-export type FactMetricInterface = z.infer<typeof factMetricValidator>;
+export type StandardFactMetricInterface = StandardFactMetric;
+export type FunnelFactMetricInterface = FunnelFactMetric;
+
+export type FactMetricInterface =
+  | StandardFactMetricInterface
+  | FunnelFactMetricInterface;
 
 export type LegacyColumnRef = ColumnRef & {
   filters?: string[];

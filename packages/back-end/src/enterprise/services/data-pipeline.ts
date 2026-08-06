@@ -2,6 +2,7 @@ import md5 from "md5";
 import {
   ExperimentMetricInterface,
   getAutoSliceMetrics,
+  getFactMetricFactTableId,
   isSliceMetric,
 } from "shared/experiments";
 import {
@@ -184,7 +185,7 @@ export function getMetricSettingsHashForIncrementalRefresh({
   factTableMap: Map<string, FactTableInterface>;
   metricSettings?: MetricForSnapshot;
 }): string {
-  const numeratorFactTableId = factMetric.numerator.factTableId;
+  const numeratorFactTableId = getFactMetricFactTableId(factMetric);
   const numeratorFactTable = numeratorFactTableId
     ? factTableMap?.get(numeratorFactTableId)
     : undefined;
@@ -314,7 +315,7 @@ export function getMetricSettingsHashForAggregatedFactTable({
   factMetric: FactMetricInterface;
   factTableId: string;
 }): string {
-  const includeNumerator = factMetric.numerator.factTableId === factTableId;
+  const includeNumerator = factMetric.numerator?.factTableId === factTableId;
   const includeDenominator =
     !!factMetric.denominator &&
     factMetric.denominator.factTableId === factTableId;

@@ -102,6 +102,8 @@ export async function getCreateMetricPropsFromBody(
     tags: [],
     inverse: false,
     quantileSettings: quantileSettings ?? null,
+    // The REST API does not accept funnel metrics, so this is always null.
+    funnelSettings: null,
     windowSettings: {
       type: DEFAULT_FACT_METRIC_WINDOW,
       delayValue:

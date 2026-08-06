@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { isFactMetricId } from "shared/experiments";
+import { isFactMetricId, getFactMetricFactTableId } from "shared/experiments";
 import { daysBetween } from "shared/dates";
 import { isDefined } from "shared/util";
 import { IdeaInterface } from "shared/types/idea";
@@ -781,7 +781,7 @@ export const getGeneratedDescription = async (
     // get the fact table:
     const factTable = await getFactTable(
       context,
-      factMetric.numerator.factTableId,
+      getFactMetricFactTableId(factMetric),
     );
 
     const factTableSQL = factTable?.sql ?? "";

@@ -10,7 +10,9 @@ export type HardcodedFunnelMetric = {
 
 export const FUNNEL_DEMO_METRIC_ID = "fact__funnel_demo";
 
-export const funnelStepMetricId = (index: number): string =>
+// Demo-only: builds step ids for the hardcoded demo funnel. The general
+// helper for real metrics is funnelStepMetricId in experiments.ts.
+export const funnelDemoStepMetricId = (index: number): string =>
   `${FUNNEL_DEMO_METRIC_ID}?funnelStep=${index}`;
 
 // True for the overall funnel id and any of its per-step ids.
@@ -119,6 +121,7 @@ function buildEphemeralProportionMetric(
     regressionAdjustmentEnabled: false,
     regressionAdjustmentDays: 14,
     quantileSettings: null,
+    funnelSettings: null,
   };
 }
 
@@ -128,7 +131,7 @@ export function getFunnelEphemeralMetrics(
   return [
     buildEphemeralProportionMetric(funnel.id, funnel.name),
     ...funnel.steps.map((step, index) =>
-      buildEphemeralProportionMetric(funnelStepMetricId(index), step.name),
+      buildEphemeralProportionMetric(funnelDemoStepMetricId(index), step.name),
     ),
   ];
 }
@@ -160,6 +163,6 @@ export function getFunnelParentStepDescriptors(
   return HARDCODED_FUNNEL_METRIC.steps.map((step, index) => ({
     index,
     name: step.name,
-    stepMetricId: funnelStepMetricId(index),
+    stepMetricId: funnelDemoStepMetricId(index),
   }));
 }

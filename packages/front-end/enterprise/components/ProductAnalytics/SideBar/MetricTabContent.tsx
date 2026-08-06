@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import type { MetricValue } from "shared/validators";
+import { getFactMetricFactTableId } from "shared/experiments";
 import SelectField, {
   GroupedValue,
   SingleValue,
@@ -106,7 +107,7 @@ export default function MetricTabContent() {
                 onChange={(val) => {
                   const newMetric = factMetrics.find((m) => m.id === val);
                   const newFactTable = newMetric
-                    ? getFactTableById(newMetric.numerator.factTableId)
+                    ? getFactTableById(getFactMetricFactTableId(newMetric))
                     : null;
 
                   let unit = v.unit;
