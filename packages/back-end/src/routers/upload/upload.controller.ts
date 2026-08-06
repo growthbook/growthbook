@@ -14,16 +14,21 @@ import {
 } from "back-end/src/services/files";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
+  getContextForAgendaJobByOrgId,
   getContextFromReq,
   getOrganizationById,
 } from "back-end/src/services/organizations";
 import { UPLOAD_METHOD } from "back-end/src/util/secrets";
-import { getExperimentByUid } from "back-end/src/models/ExperimentModel";
+import {
+  getExperimentById,
+  getExperimentByUid,
+} from "back-end/src/models/ExperimentModel";
 import {
   getReportByUid,
   getReportsByExperimentId,
 } from "back-end/src/models/ReportModel";
 import { getOrgScopedPath } from "back-end/src/routers/upload/upload.util";
+import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 
 const SIGNED_IMAGE_EXPIRY_MINUTES = 15;
 
@@ -202,13 +207,58 @@ export async function getSignedUploadToken(
   });
 }
 
+function screenshotMatchesPath(
+  screenshotUrl: string,
+  fullPath: string,
+): boolean {
+  let screenshotPath = screenshotUrl;
+  try {
+    const url = new URL(screenshotUrl);
+    screenshotPath = url.pathname;
+    if (screenshotPath.startsWith("/")) {
+      screenshotPath = screenshotPath.substring(1);
+    }
+    if (screenshotPath.startsWith("upload/")) {
+      screenshotPath = screenshotPath.substring(7);
+    }
+  } catch {
+    // Not a full URL, use as-is
+  }
+  return (
+    screenshotPath === fullPath ||
+    contentReferencesPath(screenshotUrl, fullPath)
+  );
+}
+
+// Match `fullPath` only as a complete path token so a substring or directory
+// prefix of a different referenced object cannot be authorized.
+function contentReferencesPath(content: string, fullPath: string): boolean {
+  const isFilenameChar = (c: string | undefined) =>
+    c !== undefined && /[A-Za-z0-9._-]/.test(c);
+  let idx = content.indexOf(fullPath);
+  while (idx !== -1) {
+    const before = content[idx - 1];
+    const after = content[idx + fullPath.length];
+    // "/" is allowed before (URL separator) but not after (directory prefix).
+    if (!isFilenameChar(before) && !isFilenameChar(after) && after !== "/") {
+      return true;
+    }
+    idx = content.indexOf(fullPath, idx + 1);
+  }
+  return false;
+}
+
 export async function getSignedPublicImageToken(
   req: Request<{ path: string }>,
   res: Response<SignedImageUrlResponse | { status: number; message: string }>,
 ) {
   // Get the shareUid and shareType from query parameters
   const shareUid = req.query.shareUid as string | undefined;
-  const shareType = req.query.shareType as "experiment" | "report" | undefined;
+  const shareType = req.query.shareType as
+    | "experiment"
+    | "report"
+    | "dashboard"
+    | undefined;
 
   if (!shareUid) {
     res.status(400).json({
@@ -218,17 +268,23 @@ export async function getSignedPublicImageToken(
     return;
   }
 
-  if (!shareType || (shareType !== "experiment" && shareType !== "report")) {
+  if (
+    !shareType ||
+    (shareType !== "experiment" &&
+      shareType !== "report" &&
+      shareType !== "dashboard")
+  ) {
     res.status(400).json({
       status: 400,
       message:
-        "Invalid or missing shareType query parameter. Must be 'experiment' or 'report'",
+        "Invalid or missing shareType query parameter. Must be 'experiment', 'report', or 'dashboard'",
     });
     return;
   }
 
   let organizationId: string;
   let experiment;
+  let dashboard;
 
   if (shareType === "experiment") {
     // Look up the experiment by UID
@@ -252,8 +308,7 @@ export async function getSignedPublicImageToken(
     }
 
     organizationId = experiment.organization;
-  } else {
-    // shareType === "report"
+  } else if (shareType === "report") {
     // Look up the report by UID
     const report = await getReportByUid(shareUid);
 
@@ -278,6 +333,18 @@ export async function getSignedPublicImageToken(
 
     // Note: We check the report description below, but we don't load the experiment
     // variation screenshots for reports since those are not included in reports
+  } else {
+    dashboard = await DashboardModel.getPublicByUid(shareUid);
+
+    if (!dashboard) {
+      res.status(404).json({
+        status: 404,
+        message: "Dashboard not found",
+      });
+      return;
+    }
+
+    organizationId = dashboard.organization;
   }
 
   // Get the organization to check settings
@@ -322,27 +389,7 @@ export async function getSignedPublicImageToken(
     for (const variation of getAllVariations(experiment)) {
       if (variation.screenshots) {
         for (const screenshot of variation.screenshots) {
-          // Extract the path from the screenshot URL if it's a full URL
-          let screenshotPath = screenshot.path;
-          try {
-            const url = new URL(screenshot.path);
-            screenshotPath = url.pathname;
-            // Remove leading slash if present
-            if (screenshotPath.startsWith("/")) {
-              screenshotPath = screenshotPath.substring(1);
-            }
-            // Remove /upload/ prefix if present
-            if (screenshotPath.startsWith("upload/")) {
-              screenshotPath = screenshotPath.substring(7);
-            }
-          } catch {
-            // Not a full URL, use as-is
-          }
-
-          if (
-            screenshotPath === fullPath ||
-            screenshot.path.includes(fullPath)
-          ) {
+          if (screenshotMatchesPath(screenshot.path, fullPath)) {
             imageFound = true;
             break;
           }
@@ -355,7 +402,7 @@ export async function getSignedPublicImageToken(
     if (
       !imageFound &&
       experiment.description &&
-      experiment.description.includes(fullPath)
+      contentReferencesPath(experiment.description, fullPath)
     ) {
       imageFound = true;
     }
@@ -371,7 +418,10 @@ export async function getSignedPublicImageToken(
       );
 
       for (const report of publicReports) {
-        if (report.description && report.description.includes(fullPath)) {
+        if (
+          report.description &&
+          contentReferencesPath(report.description, fullPath)
+        ) {
           imageFound = true;
           break;
         }
@@ -380,15 +430,53 @@ export async function getSignedPublicImageToken(
   } else if (shareType === "report") {
     // For reports, we already loaded the report above
     const report = await getReportByUid(shareUid);
-    if (report && report.description && report.description.includes(fullPath)) {
+    if (
+      report &&
+      report.description &&
+      contentReferencesPath(report.description, fullPath)
+    ) {
       imageFound = true;
+    }
+  } else if (shareType === "dashboard" && dashboard) {
+    imageFound = dashboard.blocks.some(
+      (block) =>
+        block.type === "markdown" &&
+        typeof block.content === "string" &&
+        contentReferencesPath(block.content, fullPath),
+    );
+
+    if (!imageFound && dashboard.experimentId) {
+      const context = await getContextForAgendaJobByOrgId(organizationId);
+      const dashboardExperiment = await getExperimentById(
+        context,
+        dashboard.experimentId,
+      );
+      if (dashboardExperiment) {
+        for (const variation of getAllVariations(dashboardExperiment)) {
+          for (const screenshot of variation.screenshots || []) {
+            if (screenshotMatchesPath(screenshot.path, fullPath)) {
+              imageFound = true;
+              break;
+            }
+          }
+          if (imageFound) break;
+        }
+
+        if (
+          !imageFound &&
+          dashboardExperiment.description &&
+          contentReferencesPath(dashboardExperiment.description, fullPath)
+        ) {
+          imageFound = true;
+        }
+      }
     }
   }
 
   if (!imageFound) {
     res.status(404).json({
       status: 404,
-      message: "Image not found in experiment or report data",
+      message: "Image not found in experiment, report, or dashboard data",
     });
     return;
   }

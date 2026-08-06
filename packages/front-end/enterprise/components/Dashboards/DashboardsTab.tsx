@@ -518,6 +518,7 @@ function DashboardsTab({
                       <DashboardEditor
                         isTabActive={isTabActive}
                         id={dashboard.id}
+                        uid={dashboard.uid}
                         title={dashboard.title}
                         initialEditLevel={dashboard.editLevel}
                         ownerId={dashboard.userId}

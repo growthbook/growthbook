@@ -1,5 +1,6 @@
 import React, { useEffect, useState, FC } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { PiImageBrokenLight } from "react-icons/pi";
 import { SignedImageUrlResponse } from "shared/types/upload";
 import { useAuth } from "@/services/auth";
 import { getApiHost, getGcsDomain, getS3Domain } from "@/services/env";
@@ -10,7 +11,7 @@ interface AuthorizedImageProps extends React.HTMLProps<HTMLImageElement> {
   onErrorMsg?: (msg: string) => JSX.Element | null;
   isPublic?: boolean;
   shareUid?: string;
-  shareType?: "experiment" | "report";
+  shareType?: "experiment" | "report" | "dashboard";
 }
 
 /**
@@ -131,6 +132,26 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
   if (errorMsg) {
     if (onErrorMsg) {
       return onErrorMsg(errorMsg);
+    }
+    if (isPublic) {
+      const altText =
+        typeof props.alt === "string" && props.alt ? props.alt : undefined;
+      return (
+        <span
+          {...props}
+          title={altText ?? "Image unavailable"}
+          style={{
+            ...props.style,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            color: "var(--color-text-mid)",
+          }}
+        >
+          <PiImageBrokenLight size={16} />
+          {altText ?? "Image unavailable"}
+        </span>
+      );
     }
     return (
       <span {...props} style={{ ...props.style, display: "inline-block" }}>

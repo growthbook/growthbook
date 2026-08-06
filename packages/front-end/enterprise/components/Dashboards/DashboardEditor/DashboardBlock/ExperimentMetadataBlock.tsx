@@ -9,6 +9,8 @@ import { BlockProps } from ".";
 export default function ExperimentMetadataBlock({
   block: { showDescription, showHypothesis, showVariationImages, variationIds },
   experiment,
+  isPublic,
+  publicShareUid,
 }: BlockProps<ExperimentMetadataBlockInterface>) {
   const variationsList =
     (variationIds ?? []).length === 0
@@ -30,7 +32,13 @@ export default function ExperimentMetadataBlock({
                 maxHeight: "491px",
               }}
             >
-              <Markdown>{experiment.description}</Markdown>
+              <Markdown
+                isPublic={isPublic}
+                shareUid={publicShareUid}
+                shareType="dashboard"
+              >
+                {experiment.description}
+              </Markdown>
             </ScrollArea>
           </div>
         ) : (
@@ -72,6 +80,9 @@ export default function ExperimentMetadataBlock({
             canEditExperiment={false}
             allowImages={true}
             noMargin={true}
+            isPublic={isPublic}
+            shareUid={publicShareUid}
+            shareType="dashboard"
           />
         </div>
       </>,

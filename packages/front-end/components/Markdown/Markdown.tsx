@@ -12,7 +12,7 @@ interface MarkdownProps
   extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
   isPublic?: boolean;
   shareUid?: string;
-  shareType?: "experiment" | "report";
+  shareType?: "experiment" | "report" | "dashboard";
   /**
    * When provided, relative (same-origin) links are handled by this callback
    * instead of opening in a new tab — e.g. to navigate in-app via the router.

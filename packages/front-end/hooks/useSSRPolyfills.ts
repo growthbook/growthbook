@@ -4,10 +4,14 @@ import {
   DEFAULT_P_VALUE_THRESHOLD,
 } from "shared/constants";
 import { ExperimentReportSSRData } from "shared/types/report";
-import { ExperimentMetricDefinition } from "shared/experiments";
-import { CommercialFeature } from "shared/enterprise";
+import { ExperimentMetricDefinition, isFactMetric } from "shared/experiments";
+import { CommercialFeature, DashboardSSRData } from "shared/enterprise";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { FactTableDefinition } from "shared/types/fact-table";
+import {
+  FactMetricInterface,
+  FactTableDefinition,
+} from "shared/types/fact-table";
 import { DimensionInterface } from "shared/types/dimension";
 import { ProjectInterface } from "shared/types/project";
 import { getScopedSettings } from "shared/settings";
@@ -27,6 +31,7 @@ export interface SSRPolyfills {
   metricGroups: MetricGroupInterface[];
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
   getFactTableById: (id: string) => null | FactTableDefinition;
+  getFactMetricById: (id: string) => null | FactMetricInterface;
   useOrgSettings: typeof useOrgSettings;
   getProjectById: (id: string) => null | ProjectInterface;
   useCurrency: typeof useCurrency;
@@ -36,15 +41,19 @@ export interface SSRPolyfills {
   dimensions: DimensionInterface[];
   getDimensionById: (id: string) => null | DimensionInterface;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
+  getExperimentById: (
+    id: string,
+  ) => null | Partial<ExperimentInterfaceStringDates>;
 }
 
 export default function useSSRPolyfills(
-  ssrData: ExperimentReportSSRData | null,
+  ssrData: ExperimentReportSSRData | DashboardSSRData | null,
 ): SSRPolyfills {
   const {
     getExperimentMetricById,
     getMetricGroupById,
     getFactTableById,
+    getFactMetricById,
     metricGroups,
     dimensions,
     getDimensionById,
@@ -65,7 +74,7 @@ export default function useSSRPolyfills(
   const getMetricGroupByIdSSR = useCallback(
     (metricGroupId: string) =>
       getMetricGroupById(metricGroupId) ||
-      metricGroupsSSR?.[metricGroupId] ||
+      metricGroupsSSR.find((mg) => mg.id === metricGroupId) ||
       null,
     [getMetricGroupById, metricGroupsSSR],
   );
@@ -73,10 +82,20 @@ export default function useSSRPolyfills(
     (id: string) => getFactTableById(id) || ssrData?.factTables?.[id] || null,
     [getFactTableById, ssrData?.factTables],
   );
+  const getFactMetricByIdSSR = useCallback(
+    (id: string): FactMetricInterface | null => {
+      const metric = getFactMetricById(id) || ssrData?.metrics?.[id] || null;
+      return metric && isFactMetric(metric) ? metric : null;
+    },
+    [getFactMetricById, ssrData?.metrics],
+  );
 
   const useOrgSettingsSSR = () => {
     const orgSettings = useOrgSettings();
-    return hasCsrSettings ? orgSettings : ssrData?.settings || {};
+    // Anonymous viewers can have non-empty stub settings.
+    return hasCsrSettings
+      ? { ...(ssrData?.settings || {}), ...orgSettings }
+      : ssrData?.settings || {};
   };
   const getProjectByIdSSR = useCallback(
     (id: string) => getProjectById(id) || ssrData?.projects?.[id] || null,
@@ -138,7 +157,8 @@ export default function useSSRPolyfills(
     [dimensions, ssrData?.dimensions],
   );
   const getDimensionByIdSSR = useCallback(
-    (id: string) => getDimensionById(id) || dimensionsSSR?.[id] || null,
+    (id: string) =>
+      getDimensionById(id) || dimensionsSSR.find((d) => d.id === id) || null,
     [getDimensionById, dimensionsSSR],
   );
 
@@ -151,11 +171,19 @@ export default function useSSRPolyfills(
     [ssrCommercialFeatures],
   );
 
+  const ssrExperiments =
+    ssrData && "experiments" in ssrData ? ssrData.experiments : undefined;
+  const getExperimentByIdSSR = useCallback(
+    (id: string) => ssrExperiments?.[id] ?? null,
+    [ssrExperiments],
+  );
+
   return {
     getExperimentMetricById: getExperimentMetricByIdSSR,
     metricGroups: metricGroupsSSR,
     getMetricGroupById: getMetricGroupByIdSSR,
     getFactTableById: getFactTableByIdSSR,
+    getFactMetricById: getFactMetricByIdSSR,
     useOrgSettings: useOrgSettingsSSR,
     getProjectById: getProjectByIdSSR,
     useCurrency: useCurrencySSR,
@@ -165,5 +193,6 @@ export default function useSSRPolyfills(
     dimensions: dimensionsSSR,
     getDimensionById: getDimensionByIdSSR,
     hasCommercialFeature: hasCommercialFeatureSSR,
+    getExperimentById: getExperimentByIdSSR,
   };
 }

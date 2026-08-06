@@ -55,5 +55,8 @@ next-env.d.ts
 .claude/worktrees/
 .claude/projects/
 
+# Internal design docs (not for the public docs site / PRs)
+docs-internal/
+
 # Agent scratch space
 .context/

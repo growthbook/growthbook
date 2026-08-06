@@ -162,6 +162,7 @@ interface Props {
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   globalControlBlocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   id: string;
+  uid: string;
   isEditing: boolean;
   projects: string[];
   enableAutoUpdates: boolean;
@@ -208,6 +209,7 @@ function DashboardEditor({
   initialEditLevel,
   initialShareLevel,
   id,
+  uid,
   dashboardOwnerId,
   nextUpdate,
   dashboardLastUpdated,
@@ -428,6 +430,7 @@ function DashboardEditor({
         }}
         isGeneralDashboard={isGeneralDashboard}
         dashboardId={id}
+        uid={uid}
       />
       <Box mt={isEditing ? "1" : undefined} mb="3">
         <Flex align="center" height={DASHBOARD_TOPBAR_HEIGHT} gap="1">
@@ -442,7 +445,11 @@ function DashboardEditor({
               </Text>
               <ShareStatusBadge
                 shareLevel={
-                  initialShareLevel === "published" ? "organization" : "private"
+                  initialShareLevel === "published"
+                    ? "organization"
+                    : initialShareLevel === "public"
+                      ? "public"
+                      : "private"
                 }
                 editLevel={
                   initialEditLevel === "private" ? "private" : "organization"
@@ -711,7 +718,7 @@ function DashboardEditor({
   );
 }
 
-interface DashboardGridProps {
+export interface DashboardGridProps {
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   isEditing: boolean;
   editSidebarDirty: boolean;
@@ -732,7 +739,7 @@ interface DashboardGridProps {
 // Drag/resize are disabled outside edit mode and while a new block is being
 // added. We only persist layout changes from the canonical (lg)
 // breakpoint; smaller breakpoints are auto-derived for responsive viewing only.
-function DashboardGrid({
+export function DashboardGrid({
   blocks,
   isEditing,
   editSidebarDirty,

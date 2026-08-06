@@ -33,7 +33,8 @@ export const gbContext: Context = {
   apiHost: "https://cdn.growthbook.io",
   clientKey: GB_SDK_ID,
   enableDevMode: true,
-  trackingCallback: (experiment, result, user) => {
+  trackingCallback: (experiment, result) => {
+    const attributes = growthbook.getAttributes();
     track(
       "Experiment Viewed",
       {
@@ -42,11 +43,11 @@ export const gbContext: Context = {
         userContextAttributes: {
           attributes: {
             // hardcoded sublist of attributes without PII
-            accountPlan: user?.attributes?.accountPlan,
-            hash_device_id: hashAttr(user?.attributes?.device_id),
-            page_id: user?.attributes?.page_id,
-            hash_anonymous_id: hashAttr(user?.attributes?.anonymous_id),
-            role: user?.attributes?.role,
+            accountPlan: attributes.accountPlan,
+            hash_device_id: hashAttr(attributes.device_id),
+            page_id: attributes.page_id,
+            hash_anonymous_id: hashAttr(attributes.anonymous_id),
+            role: attributes.role,
           },
         },
       },

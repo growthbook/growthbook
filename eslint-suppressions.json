@@ -1906,9 +1906,6 @@
     }
   },
   "packages/front-end/enterprise/components/Dashboards/DashboardModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
     "no-restricted-syntax": {
       "count": 3
     }

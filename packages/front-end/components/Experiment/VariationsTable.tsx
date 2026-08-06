@@ -68,7 +68,7 @@ const ScreenshotCarousel: FC<{
   onClick?: (i: number) => void;
   isPublic?: boolean;
   shareUid?: string;
-  shareType?: "experiment" | "report";
+  shareType?: "experiment" | "report" | "dashboard";
 }> = ({
   variation,
   maxChildHeight,
@@ -154,7 +154,7 @@ interface Props {
   noMargin?: boolean;
   isPublic?: boolean;
   shareUid?: string;
-  shareType?: "experiment" | "report";
+  shareType?: "experiment" | "report" | "dashboard";
   onEditMetadata?: (variationIndex: number) => void;
   onAddVariation?: () => void;
   onEditTraffic?: (variationId?: string) => void;
@@ -241,7 +241,7 @@ export function VariationBox({
   minWidth?: string | number;
   isPublic?: boolean;
   shareUid?: string;
-  shareType?: "experiment" | "report";
+  shareType?: "experiment" | "report" | "dashboard";
   onEditMetadata?: (variationIndex: number) => void;
   onEditTraffic?: (variationId?: string) => void;
   capWidth?: boolean;

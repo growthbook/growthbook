@@ -16,6 +16,7 @@ import { BlockProps } from ".";
 export default function SqlExplorerBlock({
   block,
   savedQuery,
+  hideSql,
 }: BlockProps<SqlExplorerBlockInterface>) {
   // Generate a unique ID for this block's charts
   const blockId = useMemo(() => {
@@ -66,6 +67,7 @@ export default function SqlExplorerBlock({
               allowDownload={true}
               showSampleHeader={false}
               renderedSQLLabel="SQL"
+              hideSql={hideSql}
             />
           </Box>
         </div>

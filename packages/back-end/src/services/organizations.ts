@@ -1526,3 +1526,18 @@ export async function getContextForUserIdInOrg(
     teams,
   });
 }
+
+export async function getContextForUserIdInOrgByOrgId(
+  orgId: string,
+  userId: string,
+): Promise<ApiReqContext | null> {
+  const organization = await findOrganizationById(orgId);
+
+  if (!organization) throw new Error("Organization not found");
+
+  if (organization.licenseKey && !getLicense(organization.licenseKey)) {
+    await licenseInit(organization, getUserCodesForOrg, getLicenseMetaData);
+  }
+
+  return getContextForUserIdInOrg(organization, userId);
+}

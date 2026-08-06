@@ -3,6 +3,7 @@ import type {
   ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import {
   calculateProductAnalyticsDateRange,
   getDateGranularity,
@@ -370,9 +371,13 @@ export default function useExplorationTableData(
     comparisonExploration?: ProductAnalyticsExploration | null;
     /** When set, `%` trend cells come from the server (aligned to sorted primary rows). */
     serverTableTrendsByRow?: Record<string, number | null>[] | null;
+    /** Override for the public dashboard page; defaults to useDefinitions(). */
+    getFactMetricById?: (id: string) => FactMetricInterface | null;
   },
 ): ExplorationTableData {
-  const { getFactMetricById, getFactTableById } = useDefinitions();
+  const { getFactMetricById: defGetFactMetricById, getFactTableById } =
+    useDefinitions();
+  const getFactMetricById = options?.getFactMetricById ?? defGetFactMetricById;
   const compareEnabled = options?.compareEnabled ?? false;
   const comparisonExploration = options?.comparisonExploration ?? null;
   const serverTableTrendsByRow = options?.serverTableTrendsByRow ?? null;
