@@ -95,10 +95,27 @@ export default function RevisionDraftSelectorForChanges({
       }`
     : null;
 
+  // The DROPDOWN has to be filtered too, not just the radio. `activeDrafts` gated
+  // the radio and the cap logic while the dropdown was built from every revision, so
+  // a caller could still pick another author's draft — and the archive flows submit
+  // `?revisionId=<picked>`, which `canWriteArchiveIntoDraft` refuses. The currently
+  // selected one is kept regardless, so a selection made before a permission change
+  // still renders its label instead of vanishing.
+  const selectableRevisions = useMemo(
+    () =>
+      allRevisions.filter(
+        (r) =>
+          r.id === selectedDraftId ||
+          !ACTIVE_DRAFT_STATUSES.has(r.status) ||
+          (canWriteIntoDraft?.(r) ?? true),
+      ),
+    [allRevisions, selectedDraftId, canWriteIntoDraft],
+  );
+
   const revisionDropdown = (
     <RevisionDropdown
       entityId={entityId}
-      allRevisions={allRevisions}
+      allRevisions={selectableRevisions}
       selectedRevisionId={selectedDraftId}
       onSelectRevision={(rev) => setSelectedDraftId(rev?.id ?? null)}
       draftsOnly

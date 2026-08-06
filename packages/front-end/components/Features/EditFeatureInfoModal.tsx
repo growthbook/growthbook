@@ -1,3 +1,4 @@
+import isEqual from "lodash/isEqual";
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
@@ -98,7 +99,20 @@ const EditFeatureInfoModal: FC<{
   // footprint is genuinely unbound. A relocation still answers for everywhere the
   // flag serves — and over the same APPLICABLE set the endpoint uses, so neither
   // side is a superset of the other.
-  const metadataEnvs = relocates
+  // ANY payload-affecting field this form can dirty, not just the primary project.
+  // `targetingProjects`/`targetingAllProjects` are not in PAYLOAD_INERT_METADATA, so
+  // the endpoint's live diff makes them payload-affecting and answers for every
+  // serving environment — while `relocates` alone left the footprint unbound, which
+  // SKIPS the check. Adding a targeting project and leaving Project alone was
+  // offered and then refused.
+  const targetingChanged =
+    !!form.watch("targetingAllProjects") !== !!feature.targetingAllProjects ||
+    !isEqual(
+      [...(form.watch("targetingProjects") ?? [])].sort(),
+      [...(feature.targetingProjects ?? [])].sort(),
+    );
+  const touchesPayloadMetadata = relocates || targetingChanged;
+  const metadataEnvs = touchesPayloadMetadata
     ? servingEnvironments(
         feature,
         filterEnvironmentsByFeature(allEnvironments, feature).map((e) => e.id),

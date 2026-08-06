@@ -45,6 +45,7 @@ import {
 } from "shared/sdk-versioning";
 import { ConstantInterface } from "shared/types/constant";
 import {
+  rampActionFootprint,
   featurePublishFootprint,
   holdoutEnvsForChange,
 } from "shared/permissions";
@@ -131,10 +132,7 @@ import {
   getParsedCondition,
   pairedWeightsToPositional,
 } from "back-end/src/util/features";
-import {
-  resolveRampTargets,
-  getApplicableEnvIds,
-} from "back-end/src/util/flattenRules";
+import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
@@ -3784,55 +3782,6 @@ export async function getMergeResultPublishEnvs({
   return rampEnvs === "all"
     ? [...environmentIds]
     : [...new Set([...base, ...rampEnvs])];
-}
-
-/**
- * The environments a revision's ramp actions reach: each action's patch
- * environments UNIONED with what its target rule currently serves, since a patch
- * naming `environments` REPLACES that field. Same rule the REST/internal ramp gate
- * applies via `getEnvsForRampTarget`; this is the revision-path half that had none.
- */
-function rampActionFootprint({
-  rampActions,
-  liveRules,
-  environmentIds,
-}: {
-  rampActions?: RevisionRampAction[];
-  liveRules: FeatureRule[];
-  environmentIds: string[];
-}): string[] | "all" {
-  if (!rampActions?.length) return [];
-  const envs = new Set<string>();
-  for (const action of rampActions) {
-    if (action.mode === "detach") {
-      // Detaching stops the schedule acting on the rule, which is felt wherever
-      // that rule serves.
-      const targets = resolveRampTargets({ ruleId: action.ruleId }, liveRules);
-      if (!targets.length || targets.some((r) => r.allEnvironments))
-        return "all";
-      for (const r of targets)
-        for (const e of r.environments ?? []) envs.add(e);
-      continue;
-    }
-    const patches = [
-      ...(action.startActions ?? []),
-      ...(action.steps ?? []).flatMap((st) => st.actions ?? []),
-      ...(action.endActions ?? []),
-    ].map((a) => a.patch);
-    for (const patch of patches) {
-      if (patch?.allEnvironments) return "all";
-      const scoped = patch?.environments ?? [];
-      if (!scoped.length) return "all";
-      for (const e of scoped) envs.add(e);
-    }
-    // The rule the actions aim at: a patch REPLACES its environments, so what it
-    // serves now is part of the reach.
-    const targets = resolveRampTargets({ ruleId: action.ruleId }, liveRules);
-    if (!targets.length || targets.some((r) => r.allEnvironments)) return "all";
-    for (const r of targets) for (const e of r.environments ?? []) envs.add(e);
-  }
-  void environmentIds;
-  return [...envs];
 }
 
 // `undefined` = merge didn't touch holdout. Otherwise unions the active

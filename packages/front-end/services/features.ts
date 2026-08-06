@@ -39,9 +39,14 @@ import {
   type RequireRegisteredAttributesSettings,
 } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { HoldoutInterface, SafeRolloutRule } from "shared/validators";
+import {
+  HoldoutInterface,
+  RevisionRampAction,
+  SafeRolloutRule,
+} from "shared/validators";
 import {
   featurePublishFootprint,
+  rampActionFootprint,
   holdoutEnvsForChange,
   HOLDOUT_ENVS_UNRESOLVED,
 } from "shared/permissions";
@@ -904,11 +909,19 @@ export function getRevisionPublishEnvs({
   changes,
   environments,
   holdoutsMap,
+  rampActions,
 }: {
   liveFeature: FeatureInterface;
   changes: MergeResultChanges;
   environments: Environment[];
   holdoutsMap: Map<string, HoldoutInterface>;
+  /**
+   * The revision's ramp actions. They ride the REVISION rather than the merge
+   * result, so they were absent from this side entirely while the endpoint added
+   * their reach — a draft carrying a ramp made the server answer for environments
+   * the control never mentioned.
+   */
+  rampActions?: RevisionRampAction[];
 }): string[] {
   const environmentIds = environments.map((e) => e.id);
   const holdout = holdoutEnvsForChange({
@@ -918,7 +931,7 @@ export function getRevisionPublishEnvs({
     resolve: (id) => holdoutsMap.get(id),
   });
 
-  return featurePublishFootprint({
+  const base = featurePublishFootprint({
     feature: liveFeature,
     liveRules: liveFeature.rules ?? [],
     changes,
@@ -927,6 +940,17 @@ export function getRevisionPublishEnvs({
       ? HOLDOUT_ENVS_UNRESOLVED
       : holdout.envs,
   });
+
+  // Same function the endpoint calls, over the same live rules, so the ramp term
+  // cannot drift the way it did when only one side had it.
+  const rampEnvs = rampActionFootprint({
+    rampActions,
+    liveRules: liveFeature.rules ?? [],
+    environmentIds,
+  });
+  return rampEnvs === "all"
+    ? [...environmentIds]
+    : [...new Set([...base, ...rampEnvs])];
 }
 
 export function getDefaultVariationValue(defaultValue: string) {

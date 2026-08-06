@@ -1,7 +1,9 @@
 // Specific files, not the package barrels: this module is imported by both apps
 // and a barrel round-trip risks a runtime cycle.
 import { isEqual } from "lodash";
+import type { RevisionRampAction } from "shared/validators";
 import type { FeatureRule } from "shared/types/feature";
+import { resolveRampTargets } from "../util/ruleId";
 import { getRulesForEnvironment } from "../util/index";
 import type { MergeResultChanges } from "../util/features";
 
@@ -302,4 +304,60 @@ export function archiveFootprintForControl({
   scoped?: string[];
 }): string[] {
   return scoped.length ? scoped : serveFootprint(environments, entity);
+}
+
+/**
+ * The environments a revision's ramp actions reach: each action's patch
+ * environments UNIONED with what its target rule currently serves, since a patch
+ * naming `environments` REPLACES that field. Same rule the REST/internal ramp gate
+ * applies via `getEnvsForRampTarget`; this is the revision-path half that had none.
+ */
+export function rampActionFootprint({
+  rampActions,
+  liveRules,
+  environmentIds,
+}: {
+  rampActions?: RevisionRampAction[];
+  liveRules: FeatureRule[];
+  environmentIds: string[];
+}): string[] | "all" {
+  if (!rampActions?.length) return [];
+  const envs = new Set<string>();
+  for (const action of rampActions) {
+    if (action.mode === "detach") {
+      // Detaching stops the schedule acting on the rule, which is felt wherever
+      // that rule serves.
+      const targets = resolveRampTargets({ ruleId: action.ruleId }, liveRules);
+      if (!targets.length || targets.some((r) => r.allEnvironments))
+        return "all";
+      for (const r of targets)
+        for (const e of r.environments ?? []) envs.add(e);
+      continue;
+    }
+    const patches = [
+      ...(action.startActions ?? []),
+      ...(action.steps ?? []).flatMap((st) => st.actions ?? []),
+      ...(action.endActions ?? []),
+    ].map((a) => a.patch);
+    for (const patch of patches) {
+      if (patch?.allEnvironments) return "all";
+      // A patch WITHOUT an `environments` key does not touch the field —
+      // `applyPatchToRule` only writes it on `"environments" in patch` — so its
+      // reach is simply wherever the rule already serves, which the union below
+      // supplies. Widening to "all" here demanded publish in every org environment
+      // for the ordinary coverage-only step the UI emits, while the control asked
+      // for the rule's own environments. `environments: []` is the same answer: the
+      // rule stops serving where it served, and nowhere new.
+      for (const e of patch?.environments ?? []) envs.add(e);
+    }
+    // The rule the actions aim at: a patch REPLACES its environments, so what it
+    // serves now is part of the reach.
+    const targets = resolveRampTargets({ ruleId: action.ruleId }, liveRules);
+    if (!targets.length || targets.some((r) => r.allEnvironments)) return "all";
+    for (const r of targets) for (const e of r.environments ?? []) envs.add(e);
+  }
+  // Intersected with the feature's applicable set: an environment scoped away from
+  // its projects never serves it, so demanding authority there refuses a change with
+  // no effect. `environmentIds` was taken and discarded before.
+  return [...envs].filter((e) => environmentIds.includes(e));
 }

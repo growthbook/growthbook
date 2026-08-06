@@ -73,3 +73,44 @@ export function parseRuleId(id: string): ParsedRuleId {
   }
   return { stem, env: parts.slice(1).join(RULE_ID_ENV_SUFFIX_DELIMITER) };
 }
+
+import type { FeatureRule } from "shared/types/feature";
+
+export interface RampTargetQuery {
+  ruleId?: string | null;
+  environment?: string | null;
+}
+
+// Resolve a ramp target to every matching unified rule. Semantics by
+// (ruleId shape, environment?):
+//   (bare, env)      → match stem or stem__env, filtered by rule scope
+//   (suffixed, env)  → stemmed; falls through to (bare, env)
+//   (bare, no env)   → stem fan-out across all env siblings
+//   (suffixed, no env) → exact id match
+// `target.environment` is retained for pre-migration stored ramps.
+export function resolveRampTargets(
+  target: RampTargetQuery,
+  unifiedRules: FeatureRule[],
+): FeatureRule[] {
+  if (!target.ruleId) return [];
+  const stem = stemRuleId(target.ruleId);
+
+  if (target.environment) {
+    const env = target.environment;
+    const suffixed = suffixRuleId(stem, env);
+    return unifiedRules.filter((r) => {
+      if (r.id !== stem && r.id !== suffixed) return false;
+      if (r.allEnvironments) return true;
+      return r.environments?.includes(env) ?? false;
+    });
+  }
+
+  // No env supplied.
+  if (isMigrationSuffixedRuleId(target.ruleId)) {
+    // Caller explicitly disambiguated with a suffix — exact match only.
+    const exact = target.ruleId;
+    return unifiedRules.filter((r) => r.id === exact);
+  }
+  // Bare id, no env — stem fan-out.
+  return unifiedRules.filter((r) => stemRuleId(r.id) === stem);
+}

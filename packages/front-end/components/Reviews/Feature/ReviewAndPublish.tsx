@@ -1584,6 +1584,9 @@ export default function ReviewAndPublish({
         changes: mergeResult.result,
         environments,
         holdoutsMap,
+        // Ramp actions ride the revision, not the merge result, so they have to be
+        // passed explicitly — the endpoint adds their reach either way.
+        rampActions: revision?.rampActions,
       })
     : environments.map((e) => e.id);
   const hasPublishPermission =

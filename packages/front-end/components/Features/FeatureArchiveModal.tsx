@@ -1,6 +1,6 @@
 import { canWriteArchiveIntoDraft } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
@@ -96,9 +96,27 @@ export default function FeatureArchiveModal({
 
   const canAutoPublish = (isAdmin || !archiveGated) && canLandArchiveFlip;
 
+  // Only drafts this caller may write `archived` into — the same predicate the
+  // picker uses, so the DEFAULT can't land on one the endpoint refuses.
+  const canWriteArchiveInto = useCallback(
+    (r: MinimalFeatureRevisionInterface) =>
+      canWriteArchiveIntoDraft({
+        permissions: permissionsUtil,
+        model: "feature",
+        entity: feature,
+        revision: {
+          authorId:
+            r.createdBy && "id" in r.createdBy ? r.createdBy.id : undefined,
+        },
+        userId,
+      }),
+    [permissionsUtil, feature, userId],
+  );
+
   const { mode: initialMode, defaultDraft } = useDefaultDraftMode(
     revisionList,
     canAutoPublish,
+    canWriteArchiveInto,
   );
 
   const [mode, setMode] = useState<DraftMode>(initialMode);
@@ -166,18 +184,7 @@ export default function FeatureArchiveModal({
         allowNewDraftAtCap
         // Only drafts this caller may write `archived` into — the endpoint refuses
         // a write into another author's draft.
-        canWriteIntoDraft={(r) =>
-          canWriteArchiveIntoDraft({
-            permissions: permissionsUtil,
-            model: "feature",
-            entity: feature,
-            revision: {
-              authorId:
-                r.createdBy && "id" in r.createdBy ? r.createdBy.id : undefined,
-            },
-            userId,
-          })
-        }
+        canWriteIntoDraft={canWriteArchiveInto}
       />
       {loading ? (
         <Text color="text-disabled">
