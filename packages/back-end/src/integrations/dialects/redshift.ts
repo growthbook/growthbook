@@ -40,9 +40,10 @@ export const redshiftDialect: SqlDialect = {
   },
   // Redshift rejects a SELECT whose WITHIN GROUP (ORDER BY) clauses differ
   // across aggregates ("within group ORDER BY clauses for aggregate functions
-  // must be the same"), so honor the shared `orderBy` when provided.
-  arrayAggSorted: (col: string, orderBy?: string) =>
-    `SPLIT_TO_ARRAY(LISTAGG(CAST(${col} AS VARCHAR), '||~gb~||') WITHIN GROUP (ORDER BY ${orderBy ?? col}), '||~gb~||')`,
+  // must be the same"), so honor the shared alias when provided. See the
+  // SqlDialect docs: the alias must equal `col` wherever `col` is non-null.
+  arrayAggSorted: (col: string, orderByColAlias?: string) =>
+    `SPLIT_TO_ARRAY(LISTAGG(CAST(${col} AS VARCHAR), '||~gb~||') WITHIN GROUP (ORDER BY ${orderByColAlias ?? col}), '||~gb~||')`,
   argMinByTimestamp: (valueCol: string, tsCol: string) =>
     `SPLIT_PART(MIN(CAST(${tsCol} AS VARCHAR) || '||~gb~||' || CAST(${valueCol} AS VARCHAR)), '||~gb~||', 2)`,
   arrayMinInRange: (col, lowerBound, upperBound) => {
