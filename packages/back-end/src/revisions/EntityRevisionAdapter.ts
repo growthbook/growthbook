@@ -205,16 +205,14 @@ export interface EntityRevisionAdapter<
 
   // ---------- Merge ----------
 
-  // Persist the computed changes (already filtered to updatable fields) back to
-  // the live entity. Called by postMerge after conflicts are resolved.
+  // Persist the computed changes back to the live entity.
   //
-  // `options.isRevert` is set when the revision being merged carries a
-  // `revertedFrom` link, so adapters can skip validations that would otherwise
-  // block restoring a previously-published state.
+  // `isRevert` lets adapters skip validations that would block restoring a
+  // previously-published state.
   //
-  // Returns the keys this call actually persisted on the entity — the changes
-  // that survived the updatable filter AND any adapter normalization (e.g. a
-  // config field stripped as owned by an ancestor). Bulk compensation restores
+  // Returns the keys ACTUALLY persisted — what survived the updatable filter and any
+  // adapter normalization (a config field stripped as ancestor-owned, say). Bulk
+  // compensation restores
   // ONLY these keys, so a field the write dropped is never rolled back over a
   // concurrent writer's value. Single-entity callers ignore the return.
   /**
@@ -251,14 +249,10 @@ export interface EntityRevisionAdapter<
     },
   ): Promise<ApplyChangesResult>;
 
-  // Validate that `desiredState` (the changes a merge would apply) can be
-  // published, BEFORE the merge is claimed. Throwing here leaves the revision in
-  // its current open status — nothing is marked merged — so a publish that fails
-  // validation (e.g. a config value that violates a cross-field rule) errors
-  // cleanly and keeps the draft editable, instead of stranding it "merged" and
-  // relying on a post-merge reopen. Runs on every internal publish path,
-  // including admin/bypass-approval publishes (bypass skips approval, not
-  // validation). Optional: adapters without publish-time invariants can omit it.
+  // Validate what a merge would apply BEFORE the merge is claimed: throwing here leaves
+  // the revision open and editable, instead of stranding it "merged" and relying on a
+  // post-merge reopen. Runs on every internal publish path — bypass skips approval, not
+  // validation. Optional: adapters without publish-time invariants can omit it.
   assertPublishable?(
     context: Context,
     entity: TSnapshot,
@@ -279,13 +273,10 @@ export interface EntityRevisionAdapter<
     },
   ): Promise<void>;
 
-  // Non-throwing view of this entity's publish guards, for the REST publish
-  // handlers' aggregated 422 (PublishBlockedError): evaluate the same guard
-  // conditions the sequential asserts enforce and return one PublishGate per
-  // live conflict set, so a blocked publish reports every gate — and the flag
-  // that clears it — in one response. Gates the caller's authority or request
-  // disposition already clears implicitly (bypass-approval permission, a live
-  // ignoreWarnings) are omitted, matching the asserts' synchronous override —
+  // Non-throwing view of the same guards the sequential asserts enforce, so a blocked
+  // REST publish reports EVERY gate — and the flag that clears it — in one 422 rather
+  // than one per round trip. Gates the caller's authority or request disposition already
+  // clears are omitted, matching the asserts' synchronous override —
   // but the overridden conflicts must still be logged, matching the asserts'
   // override logging. On the REST publish path this plus the handler's
   // evaluatePublishGates IS the guard enforcement; deferred/internal paths keep
@@ -330,12 +321,9 @@ export interface EntityRevisionAdapter<
    */
   assertSchedulable?(context: Context, entity: TSnapshot): Promise<void> | void;
 
-  // Capture arm-time acknowledgments when a deferred publish is armed (scheduled
-  // or auto-publish-on-approval). Returns a per-guard map of keys to snapshot on
-  // the revision and re-check at merge time; throws (e.g. SoftWarningError) when
-  // the armer must acknowledge a condition first. The config/constant adapters use
-  // this for the experiment / config-lock / schema-break guards; adapters without
-  // an arm-time precondition omit it.
+  // Acknowledgments captured when a deferred publish is armed: a per-guard map of keys
+  // to snapshot on the revision and re-check at merge time, throwing when the armer must
+  // acknowledge first. Omitted by adapters with no arm-time precondition.
   //
   // `proposedChanges` are the revision's staged ops, so an adapter can skip the
   // precondition for a change that can't trigger it (e.g. a metadata-only config

@@ -122,13 +122,10 @@ const BaseClass = MakeModelClass({
         status: 1,
       },
     },
-    // Merge ORDER, for "which revision merged last" — read on every landing
-    // (nextMergeStamp, getLatestMergedByTarget, the baseline re-check). The
-    // index above serves the equality filter but leaves the sort blocking, so
-    // each landing sorted every merged revision of that entity in memory —
-    // thousands of them, for an entity with a long history. Extending the same
-    // prefix with the sort keys makes it an indexed walk of one row. Ties break
-    // on `id` in memory, which is at most a handful of rows.
+    // Merge ORDER, read on every landing. The index above serves the equality filter
+    // but leaves the sort blocking — each landing sorted every merged revision of the
+    // entity in memory. Extending the same prefix with the sort keys makes it a
+    // one-row indexed walk.
     {
       fields: {
         organization: 1,
@@ -303,10 +300,8 @@ export class RevisionModel extends BaseClass {
     );
   }
 
-  // Delegate create permission to the underlying target entity's adapter.
-  // Without this, any authenticated user could insert a revision document
-  // targeting any entity in their org. The adapter's `canCreate` mirrors the
-  // permission that gates editing the target itself.
+  // Without this, any authenticated user could insert a revision targeting any entity
+  // in their org.
   //
   // NOTE: `dangerousCreateBypassPermission` (inherited from BaseModel) skips
   // this check AND skips the `createWithVersionRetry` wrapper above. Avoid it
@@ -885,23 +880,18 @@ export class RevisionModel extends BaseClass {
         "target.id": entityId,
         status: "merged",
       } as Record<string, unknown>,
-      // By WHEN IT MERGED. Version orders creation, not landing — publishing v3
-      // and then v2 leaves v2's content live, and every landing decision needs
-      // the revision whose merge is newest, not whose draft is. dateUpdated was
-      // wrong the other way: any later touch of an old revision (a recovery
-      // claim being released, say) made it "latest" again. resolution.dateCreated
-      // is stamped once, at the merge itself, by every path that merges; version
-      // breaks same-millisecond ties in creation order.
+      // By WHEN IT MERGED, not by version: publishing v3 then v2 leaves v2's content
+      // live. `dateUpdated` was wrong the other way — any later touch of an old
+      // revision made it "latest" again. `resolution.dateCreated` is stamped once, at
+      // the merge, by every path that merges; version breaks same-ms ties.
       {
         sort: { "resolution.dateCreated": -1, version: -1, id: -1 },
         limit: 1,
-        // NOT read-filtered. This is a consistency query, not a user-facing read:
-        // callers compare its id against the revision they are landing, and the
-        // config lock reads which revision is live. The per-doc check decides on
-        // the SNAPSHOT, so after a project move it returned null for a caller
-        // scoped to the destination — and `assertLandingBaseline` reads a null as
-        // "no competing merge", turning the baseline re-check into a no-op exactly
-        // when a move made it matter.
+        // NOT read-filtered: a consistency query, not a user-facing read. The per-doc
+        // check decides on the SNAPSHOT, so after a move this returned null for a
+        // destination-scoped caller — and `assertLandingBaseline` reads null as "no
+        // competing merge", making the baseline re-check a no-op exactly when it
+        // mattered.
         bypassReadPermissionChecks: true,
       },
     );
@@ -1627,13 +1617,10 @@ export class RevisionModel extends BaseClass {
       bypass?: boolean;
       /** Publish comment, recorded in the merge activity-log entry. */
       comment?: string;
-      // Plan-time baseline for bulk publishes: the claim fails if the revision
-      // was touched at all since planning (content edit, review, competing
-      // lifecycle change), not just if its status moved. dateUpdated rides in
-      // the guard fields so a same-status edit racing the read→write window
-      // trips the CAS retry, which re-runs this compute and re-checks the
-      // baseline. Conflicts throw ConflictError so callers can tell a lost
-      // race from an infra failure.
+      // Plan-time baseline for bulk: the claim fails if the revision was touched AT
+      // ALL since planning, not just if its status moved — `dateUpdated` rides the
+      // guard fields so a same-status edit trips the CAS retry. Conflicts throw
+      // ConflictError so callers can tell a lost race from an infra failure.
       expected?: { status: string; dateUpdated: Date };
     },
   ) {
