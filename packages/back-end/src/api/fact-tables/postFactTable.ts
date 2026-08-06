@@ -1,3 +1,4 @@
+import { omit } from "lodash";
 import { postFactTableValidator } from "shared/validators";
 import { CreateFactTableProps } from "shared/types/fact-table";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
@@ -12,7 +13,11 @@ import {
   resolveOwnerToUserId,
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
-import { validateAggregatedFactTableSettings } from "back-end/src/util/factTable";
+import {
+  columnsHaveAutoSlices,
+  validateAggregatedFactTableSettings,
+  validateVirtualColumnProps,
+} from "back-end/src/util/factTable";
 
 export const postFactTable = createApiRequestHandler(postFactTableValidator)(
   async (req) => {
@@ -25,8 +30,36 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
       projects: [],
       tags: [],
       ...req.body,
+      // A new fact table can define its virtual columns up front, but `sql`
+      // only ever belongs to a virtual column — on a SQL-detected column it is
+      // inert (see `getColumnExpression`) and would just be misleading state.
+      ...(req.body.columns
+        ? {
+            columns: req.body.columns.map((col) =>
+              col.isVirtual ? col : omit(col, ["sql"]),
+            ),
+          }
+        : {}),
       owner,
     };
+
+    // Virtual columns carry raw SQL that gets inlined into generated queries,
+    // so they must clear the same bar here as on the dedicated virtual-column
+    // endpoints and bulk import: a `_vc` id, an explicit datatype, and a
+    // structurally safe expression. (The official-resources gate is already
+    // applied by `canCreateFactTable` inside `createFactTable`.)
+    for (const col of data.columns || []) {
+      if (col.isVirtual) {
+        validateVirtualColumnProps(col);
+      }
+    }
+
+    if (
+      columnsHaveAutoSlices(req.body.columns) &&
+      !req.context.hasPremiumFeature("metric-slices")
+    ) {
+      throw new Error("Metric slices require an enterprise license");
+    }
 
     const datasource = await getDataSourceById(
       req.context,

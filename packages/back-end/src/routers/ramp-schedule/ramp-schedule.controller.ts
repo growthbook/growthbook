@@ -1,5 +1,8 @@
 import type { Response } from "express";
-import { RampScheduleInterface } from "shared/validators";
+import {
+  RampScheduleInterface,
+  isAwaitingStartApproval,
+} from "shared/validators";
 import { PermissionError } from "shared/util";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -8,6 +11,7 @@ import {
   appendRampEvent,
   assertCanUpdateLinkedSafeRolloutMonitoringConfig,
   approveAndPublishStep,
+  approveScheduleStart,
   completeRampKeepCutoff,
   completeRollout,
   computeNextProcessAt,
@@ -229,6 +233,12 @@ export const putRampSchedule = async (
         startDate: ("startDate" in updates
           ? updates.startDate
           : fresh.startDate) as RampScheduleInterface["startDate"],
+        requiresStartApproval: ("requiresStartApproval" in updates
+          ? updates.requiresStartApproval
+          : fresh.requiresStartApproval) as boolean | undefined,
+        startApprovedAt: ("startApprovedAt" in updates
+          ? updates.startApprovedAt
+          : fresh.startApprovedAt) as Date | null | undefined,
       });
 
       const editedFields = Object.keys(updates).filter(
@@ -319,6 +329,15 @@ export const postRampScheduleAction = async (
           message: `Cannot start a schedule in status "${schedule.status}" — must be "ready"`,
         });
       }
+      // An approval-gated schedule can only be launched by approving it, so the
+      // approval is recorded and audited. `start` (start-early) is refused.
+      if (isAwaitingStartApproval(schedule)) {
+        return res.status(400).json({
+          status: 400,
+          message:
+            "This schedule requires start approval — use the approve action to start it.",
+        });
+      }
       updated = await runLockedRampScheduleAction(
         context,
         schedule.id,
@@ -326,6 +345,11 @@ export const postRampScheduleAction = async (
           if (fresh.status !== "ready") {
             throw new ConflictError(
               `Cannot start: schedule changed to "${fresh.status}" while the request was in flight`,
+            );
+          }
+          if (isAwaitingStartApproval(fresh)) {
+            throw new ConflictError(
+              "This schedule now requires start approval — use the approve action to start it.",
             );
           }
           return startSchedule(context, fresh, heartbeat);
@@ -460,6 +484,15 @@ export const postRampScheduleAction = async (
           message: `Schedule is already in terminal status "${schedule.status}"`,
         });
       }
+      // Completing a held ramp would enable the rule (serve traffic) without the
+      // required start approval — refuse it; approve to launch first.
+      if (isAwaitingStartApproval(schedule)) {
+        return res.status(400).json({
+          status: 400,
+          message:
+            "This schedule requires start approval — approve it before completing.",
+        });
+      }
       updated = await runLockedRampScheduleAction(
         context,
         schedule.id,
@@ -467,6 +500,11 @@ export const postRampScheduleAction = async (
           if (["completed", "rolled-back"].includes(fresh.status)) {
             throw new ConflictError(
               `Cannot complete: schedule changed to "${fresh.status}" while the request was in flight`,
+            );
+          }
+          if (isAwaitingStartApproval(fresh)) {
+            throw new ConflictError(
+              "This schedule now requires start approval — approve it before completing.",
             );
           }
           const isSimple = fresh.steps.length === 0 && !!fresh.cutoffDate;
@@ -564,23 +602,39 @@ export const postRampScheduleAction = async (
       break;
     }
 
+    // Clears whichever approval gate is pending: the pre-start hold
+    // (requiresStartApproval, schedule sitting at step -1) or a running step's
+    // requiresApproval gate. Same "approve the pending hold" action either way.
     case "approve-step": {
+      const awaitingStart = isAwaitingStartApproval(schedule);
       const currentStep = schedule.steps[schedule.currentStepIndex];
-      const awaitingApproval =
+      const awaitingStepApproval =
         schedule.status === "running" &&
         currentStep?.holdConditions?.requiresApproval &&
         schedule.stepApproval?.stepIndex !== schedule.currentStepIndex;
 
-      if (!awaitingApproval) {
+      if (!awaitingStart && !awaitingStepApproval) {
         return res.status(400).json({
           status: 400,
-          message: `Cannot approve step: schedule is not awaiting approval (currently "${schedule.status}")`,
+          message: `Cannot approve: schedule is not awaiting approval (currently "${schedule.status}")`,
         });
       }
       const approveErr = await runLockedRampScheduleAction(
         context,
         schedule.id,
         (fresh) => {
+          // Pin the gate to what the caller saw pre-lock. If it flipped under us
+          // (e.g. a concurrent rollback re-held a running step, or vice versa),
+          // refuse — a "approve step N" click must never become a full re-start.
+          if (isAwaitingStartApproval(fresh) !== awaitingStart) {
+            throw new ConflictError(
+              "The schedule's approval state changed while the request was in flight",
+            );
+          }
+          // Pre-start hold: approving starts the ramp (crosses -1 → 0).
+          if (awaitingStart) {
+            return approveScheduleStart(context, fresh);
+          }
           // Pin to the step the reviewer saw — a queued approval must not
           // land on a step that was never reviewed.
           if (fresh.currentStepIndex !== schedule.currentStepIndex) {

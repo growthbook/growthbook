@@ -151,6 +151,7 @@ const MemberList: FC<{
           </div>
           <div className="ml-3">
             <Field
+              size="legacy"
               placeholder="Search..."
               type="search"
               {...searchInputProps}
@@ -352,7 +353,7 @@ const MemberList: FC<{
                                   member.managedByIdp ? (
                                     <Callout status="warning">
                                       <Flex direction="column" gap="2">
-                                        <Text weight="semibold" size="medium">
+                                        <Text weight="semibold" size="md">
                                           This user is managed by an external
                                           identity provider.
                                         </Text>

@@ -6,6 +6,7 @@ import { load, dump } from "js-yaml";
 import { createPatch } from "diff";
 import { html } from "diff2html";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { isSecretDatasourceParamKey } from "shared/util";
 import cloneDeep from "lodash/cloneDeep";
 import {
   MetricCappingSettings,
@@ -29,17 +30,7 @@ import UploadConfigYml from "./UploadConfigYml";
 function sanitizeSecrets(d: DataSourceInterfaceWithParams) {
   if (!d || !d.params) return;
   Object.keys(d.params).forEach((p) => {
-    if (
-      [
-        "password",
-        "pass",
-        "secretAccessKey",
-        "accessKeyId",
-        "privateKey",
-        "refreshToken",
-        "secret",
-      ].includes(p)
-    ) {
+    if (isSecretDatasourceParamKey(p)) {
       d.params[p] = "********";
     }
   });
@@ -305,6 +296,7 @@ export default function RestoreConfigYamlButton({
             </div>
 
             <Field
+              size="legacy"
               textarea
               label={
                 <>

@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { abbreviateAgo } from "shared/dates";
 import {
   isReadyForApproval,
+  isAwaitingStartApproval,
   RampScheduleInterface,
   RampScheduleStatus,
   RampStepAction,
@@ -40,14 +41,14 @@ export function formatStepGate(
       return (
         <div style={{ textAlign: "center", lineHeight: 1 }}>
           <div>
-            <Text size="small">approval</Text>
+            <Text size="sm">approval</Text>
           </div>
         </div>
       );
     return (
       <div style={{ textAlign: "center", lineHeight: 1 }}>
         <div>
-          <Text size="small">instant</Text>
+          <Text size="sm">instant</Text>
         </div>
       </div>
     );
@@ -71,10 +72,10 @@ export function formatStepGate(
     return (
       <div style={{ textAlign: "center", lineHeight: 1 }}>
         <div>
-          <Text size="small">{duration},</Text>
+          <Text size="sm">{duration},</Text>
         </div>
         <div>
-          <Text size="small">approval</Text>
+          <Text size="sm">approval</Text>
         </div>
       </div>
     );
@@ -82,7 +83,7 @@ export function formatStepGate(
   return (
     <div style={{ textAlign: "center", lineHeight: 1 }}>
       <div>
-        <Text size="small">{duration}</Text>
+        <Text size="sm">{duration}</Text>
       </div>
     </div>
   );
@@ -126,7 +127,7 @@ export function formatScheduledDate(
   const timeLine = format(parsed, "h:mm a");
   if (inline) {
     return (
-      <Text size="small">
+      <Text size="sm">
         {dateLine}, {timeLine}
       </Text>
     );
@@ -134,20 +135,20 @@ export function formatScheduledDate(
   return (
     <>
       <div className={styles.scheduledDateLine}>
-        <Text size="small">{dateLine}</Text>
+        <Text size="sm">{dateLine}</Text>
       </div>
       <div className={styles.scheduledDateLine}>
-        <Text size="small">{timeLine}</Text>
+        <Text size="sm">{timeLine}</Text>
       </div>
     </>
   );
 }
 
 function formatRemaining(ms: number): ReactNode {
-  if (ms <= 0) return <Text size="small">any moment</Text>;
+  if (ms <= 0) return <Text size="sm">any moment</Text>;
   const future = new Date(Date.now() + ms);
   const label = abbreviateAgo(future).replace(/^in /, "");
-  return <Text size="small">{label}</Text>;
+  return <Text size="sm">{label}</Text>;
 }
 
 // ─── PopoverEffectRow ─────────────────────────────────────────────────────────
@@ -162,12 +163,12 @@ function PopoverEffectRow({
   return (
     <Flex align="start" gap="2">
       <Box className={styles.effectLabel}>
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           {label}:
         </Text>
       </Box>
       <Box className={styles.effectValue}>
-        <Text size="small">{children}</Text>
+        <Text size="sm">{children}</Text>
       </Box>
     </Flex>
   );
@@ -219,7 +220,7 @@ function PopoverPatchDisplay({
           {p.condition && p.condition !== "{}" ? (
             <ConditionDisplay condition={p.condition} />
           ) : (
-            <Text size="small" fontStyle="italic">
+            <Text size="sm" fontStyle="italic">
               None
             </Text>
           )}
@@ -232,7 +233,7 @@ function PopoverPatchDisplay({
           {p.savedGroups && p.savedGroups.length > 0 ? (
             <SavedGroupTargetingDisplay savedGroups={p.savedGroups} />
           ) : (
-            <Text size="small" fontStyle="italic">
+            <Text size="sm" fontStyle="italic">
               None
             </Text>
           )}
@@ -245,7 +246,7 @@ function PopoverPatchDisplay({
           {p.prerequisites && p.prerequisites.length > 0 ? (
             <ConditionDisplay prerequisites={p.prerequisites} />
           ) : (
-            <Text size="small" fontStyle="italic">
+            <Text size="sm" fontStyle="italic">
               None
             </Text>
           )}
@@ -258,11 +259,11 @@ function PopoverPatchDisplay({
       additionalItems.push(
         <PopoverEffectRow key={k("env-scope")} label="Environments">
           {allEnvironments ? (
-            <Text size="small">All environments</Text>
+            <Text size="sm">All environments</Text>
           ) : selectedEnvironments.length > 0 ? (
-            <Text size="small">{selectedEnvironments.join(", ")}</Text>
+            <Text size="sm">{selectedEnvironments.join(", ")}</Text>
           ) : (
-            <Text size="small" fontStyle="italic">
+            <Text size="sm" fontStyle="italic">
               None
             </Text>
           )}
@@ -311,7 +312,7 @@ function PopoverPatchDisplay({
             color="text-mid"
             mt="4"
             mb="2"
-            size="small"
+            size="sm"
           >
             Additional Effects
           </Text>,
@@ -322,7 +323,7 @@ function PopoverPatchDisplay({
 
   if (items.length === 0) {
     return (
-      <Text size="small" color="text-low">
+      <Text size="sm" color="text-low">
         No changes
       </Text>
     );
@@ -440,7 +441,7 @@ function NodePopoverContent({
       {monitored && (
         <Flex align="center" gap="1" mb="2" style={{ color: "var(--blue-9)" }}>
           <MonitoredIcon size={16} />
-          <Text size="small">Monitored</Text>
+          <Text size="sm">Monitored</Text>
         </Flex>
       )}
 
@@ -461,7 +462,7 @@ function NodePopoverContent({
           {interval !== null && interval !== undefined && (
             <Box mb="2">
               <PopoverEffectRow label={monitored ? "Min hold" : "Hold"}>
-                <Text size="small">
+                <Text size="sm">
                   {formatStepGateInline(interval, undefined)}
                 </Text>
               </PopoverEffectRow>
@@ -472,14 +473,14 @@ function NodePopoverContent({
             !holdConditions?.minSampleSize && (
               <Box mb="2">
                 <PopoverEffectRow label="Hold">
-                  <Text size="small">instant</Text>
+                  <Text size="sm">instant</Text>
                 </PopoverEffectRow>
               </Box>
             )}
           {holdConditions?.requiresApproval && (
             <Box mb="2">
               <PopoverEffectRow label="Approval">
-                <Text size="small">
+                <Text size="sm">
                   {isActive &&
                   rs.stepApproval?.stepIndex === rs.currentStepIndex
                     ? "Approved"
@@ -493,7 +494,7 @@ function NodePopoverContent({
           {!!holdConditions?.minSampleSize && (
             <Box mb="2">
               <PopoverEffectRow label="Min. sample">
-                <Text size="small">
+                <Text size="sm">
                   {holdConditions.minSampleSize.toLocaleString()}
                 </Text>
               </PopoverEffectRow>
@@ -525,7 +526,7 @@ function NodePopoverContent({
           ctaLabel && hasCtaHandler ? (
             <Box mt="2" mb="1">
               <Button
-                size="xs"
+                size="sm"
                 variant="outline"
                 loading={loading}
                 onClick={handleCta}
@@ -764,12 +765,15 @@ export default function RampTimeline({
     (t) => !!t.activatingRevisionVersion,
   )?.activatingRevisionVersion;
   const doneCount = completedNodeCount(rs);
+  const awaitingStartApproval = isAwaitingStartApproval(rs);
 
   function getState(i: number): NodeState {
     if (pendingDetach) return "future";
     if (i < doneCount) return "completed";
     if (status === "pending") return "future";
     if (status === "ready") {
+      // An approval hold parks the playhead at Start until approved.
+      if (awaitingStartApproval) return i === 0 ? "active" : "future";
       if (startDate && i === 0) return "active";
       return "future";
     }
@@ -830,7 +834,7 @@ export default function RampTimeline({
         connectorLabel:
           i === 0 ? (
             !startDate ? (
-              <Text size="small">auto</Text>
+              <Text size="sm">auto</Text>
             ) : undefined
           ) : (
             formatStepGate(steps[i - 1].interval, steps[i - 1].holdConditions)
@@ -953,12 +957,21 @@ export default function RampTimeline({
 
   const revisionSublabel = (
     <>
-      {sublabelLine(<Text size="small">awaiting publish</Text>)}
+      {sublabelLine(<Text size="sm">awaiting publish</Text>)}
+      {awaitingStartApproval &&
+        sublabelLine(<Text size="sm">starts on approval</Text>)}
       {!!activatingRevisionVersion &&
         sublabelLine(
-          <Text size="small">Revision {activatingRevisionVersion}</Text>,
+          <Text size="sm">Revision {activatingRevisionVersion}</Text>,
         )}
     </>
+  );
+
+  // Live (published) approval hold: the schedule is "ready" with the rule
+  // off until approved. Surface a pre-Start indicator so it reads the same as
+  // the draft-preview hold.
+  const approvalSublabel = sublabelLine(
+    <Text size="sm">awaiting approval</Text>,
   );
 
   // Resolve each node's visuals once, shared by the node and its connector.
@@ -991,13 +1004,20 @@ export default function RampTimeline({
             </>
           ) : (
             /* Normal pre-timeline indicator node for states where the ramp hasn't started yet */
-            status === "pending" && (
+            (status === "pending" ||
+              (awaitingStartApproval && status === "ready")) && (
               <>
                 <Node
                   node={{
                     key: "pre-indicator",
-                    label: "pending",
-                    sublabel: revisionSublabel,
+                    label:
+                      awaitingStartApproval && status === "ready"
+                        ? "approve"
+                        : "pending",
+                    sublabel:
+                      awaitingStartApproval && status === "ready"
+                        ? approvalSublabel
+                        : revisionSublabel,
                   }}
                   state="active"
                   dotColor={pendingVisual.dotColor}

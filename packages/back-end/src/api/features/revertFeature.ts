@@ -6,6 +6,7 @@ import {
   MergeResultChanges,
   PermissionError,
   checkIfRevisionNeedsReview,
+  getRevertTargetHoldout,
   getRevertValueValidationWarnings,
   getRulesForEnvironment,
 } from "shared/util";
@@ -20,6 +21,10 @@ import {
 } from "back-end/src/models/FeatureModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
+  dispatchFeatureRevisionEvent,
+  getPublishedRevisionForEvents,
+} from "back-end/src/services/featureRevisionEvents";
+import {
   getApiFeatureObj,
   getSavedGroupMap,
 } from "back-end/src/services/features";
@@ -29,6 +34,7 @@ import { NotFoundError, SoftWarningError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { assertValidHoldout } from "./v2Shared";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function revertFeatureCore(
@@ -152,6 +158,20 @@ export async function revertFeatureCore(
       metadataChanges.project = m.project;
       hasMetaChange = true;
     }
+    if (
+      m.targetingAllProjects !== undefined &&
+      m.targetingAllProjects !== (feature.targetingAllProjects ?? false)
+    ) {
+      metadataChanges.targetingAllProjects = m.targetingAllProjects;
+      hasMetaChange = true;
+    }
+    if (
+      m.targetingProjects !== undefined &&
+      !isEqual(m.targetingProjects, feature.targetingProjects ?? [])
+    ) {
+      metadataChanges.targetingProjects = m.targetingProjects;
+      hasMetaChange = true;
+    }
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags)) {
       metadataChanges.tags = m.tags;
       hasMetaChange = true;
@@ -189,6 +209,27 @@ export async function revertFeatureCore(
       }
       changes.metadata = metadataChanges;
     }
+  }
+
+  // Runs before the empty-diff check: a holdout-only difference is a real revert.
+  const targetHoldout = getRevertTargetHoldout(revision);
+  // Read-gated: restoring a holdout the caller cannot see would attach the
+  // feature outside their scope, since publish resolves linkage unscoped.
+  await assertValidHoldout(
+    targetHoldout,
+    context,
+    changes.metadata?.project ?? feature.project,
+  );
+  if (!isEqual(targetHoldout, feature.holdout ?? null)) {
+    if (
+      !context.permissions.canPublishFeature(
+        feature,
+        Array.from(getEnabledEnvironments(feature, environmentIds)),
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
+    changes.holdout = targetHoldout;
   }
 
   // No diff against live — refuse before creating an empty "Locked" revision.
@@ -255,6 +296,7 @@ export async function revertFeatureCore(
       changes,
       comment: comment ?? `Reverted to revision #${version}`,
       canBypassApprovalChecks: canBypass,
+      revertedFrom: version,
     });
 
   await audit({
@@ -270,13 +312,30 @@ export async function revertFeatureCore(
 
   const groupMap = await getSavedGroupMap(context);
   const experimentMap = await getExperimentMapForFeature(context, feature.id);
-  const latestRevision = await getRevision({
+  // Re-read so events and the response carry the published status; falls back
+  // to the in-memory revision instead of failing the already-committed revert.
+  const latestRevision = await getPublishedRevisionForEvents(
     context,
-    organization: updatedFeature.organization,
-    featureId: updatedFeature.id,
-    feature: updatedFeature,
-    version: updatedFeature.version,
-  });
+    updatedFeature,
+    newRevision,
+  );
+  // Emit the same revision lifecycle events as the app's revert flow so
+  // webhook consumers see API-initiated reverts too.
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    latestRevision,
+    "revision.reverted",
+    { revertedToVersion: version },
+  );
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    latestRevision,
+    "revision.published",
+    {},
+  );
+
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
 

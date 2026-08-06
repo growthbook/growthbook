@@ -8,6 +8,7 @@ import {
   ExperimentMetricBlockInterface,
   ExperimentTimeSeriesBlockInterface,
   FactTableExplorationBlockInterface,
+  FunnelExplorationBlockInterface,
   getBlockSnapshotAnalysis,
   MetricExplorationBlockInterface,
   resolveExperimentBlockMetricIds,
@@ -25,7 +26,7 @@ import {
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
+import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor/dashboardBlockTypes";
 import MarkdownBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/MarkdownBlock";
 import SqlExplorerBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/SqlExplorerBlock";
 import ExperimentMetadataBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/ExperimentMetadataBlock";
@@ -175,7 +176,8 @@ export default function PublicDashboardBlock({
     b:
       | MetricExplorationBlockInterface
       | FactTableExplorationBlockInterface
-      | DataSourceExplorationBlockInterface,
+      | DataSourceExplorationBlockInterface
+      | FunnelExplorationBlockInterface,
   ): ReactNode => {
     const exploration = b.explorerAnalysisId
       ? explorationsMap.get(b.explorerAnalysisId)
@@ -322,7 +324,14 @@ export default function PublicDashboardBlock({
     case "metric-exploration":
     case "fact-table-exploration":
     case "data-source-exploration":
+    case "funnel-exploration":
       content = renderExplorationBlock(block);
+      break;
+    case "metric-experiments":
+    case "experiments-scaled-impact":
+    case "experiments-win-rate":
+    case "experiments-status":
+      content = blockFallback();
       break;
     default: {
       const _exhaustiveCheck: never = block;

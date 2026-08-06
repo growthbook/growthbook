@@ -1,5 +1,5 @@
 import { getLatestPhaseVariations, getAllVariations } from "shared/experiments";
-import { getValidDate } from "shared/dates";
+import { getValidDate, resolveScheduledStop } from "shared/dates";
 import {
   ExperimentInterface,
   LinkedFeatureInfo,
@@ -15,6 +15,10 @@ import {
   experimentHasLiveLinkedChanges,
 } from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import {
+  customHooksActive,
+  runValidateExperimentHooks,
+} from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { getExperimentLaunchChecklist } from "back-end/src/models/ExperimentLaunchChecklistModel";
 import {
   getExperimentById,
@@ -53,6 +57,35 @@ export type ExperimentStartChecklistResult = {
   checklistItems: StartChecklistItemStatus[];
   status: ExperimentStartChecklistStatus;
 };
+
+/** User-initiated experiment writes only. Start/schedule-start paths validate the would-be running state. */
+export async function validateExperimentChange({
+  context,
+  experiment,
+  changes,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  changes: Changeset;
+}): Promise<void> {
+  if (!customHooksActive(context)) return;
+
+  const merged = { ...experiment, ...changes };
+  const willRun =
+    merged.status === "running" ||
+    merged.nextScheduledStatusUpdate?.type === "start";
+
+  const effectiveChanges =
+    willRun && experiment.status !== "running"
+      ? { ...changes, ...(await getChangesToStartExperiment(context, merged)) }
+      : changes;
+
+  await runValidateExperimentHooks({
+    context,
+    experiment: { ...experiment, ...effectiveChanges },
+    original: experiment,
+  });
+}
 
 export async function completeExperimentStartChecklistItems({
   context,
@@ -103,10 +136,12 @@ export async function completeExperimentStartChecklistItems({
     ([key, status]) => ({ key, status }),
   );
 
+  const changes: Changeset = { manualLaunchChecklist };
+  await validateExperimentChange({ context, experiment, changes });
   return await updateExperiment({
     context,
     experiment,
-    changes: { manualLaunchChecklist },
+    changes,
   });
 }
 
@@ -395,10 +430,37 @@ export async function executeExperimentStart(
     changes.phases = startExperimentTarget.phases;
   }
 
+  // Starting consumes any staged start. Resolve the scheduled end now that we
+  // know the real start time: an absolute stopAt is used directly; a deferred
+  // relative stopAfter is resolved to a concrete stopAt (start + offset) and
+  // written back. If there's a future stop, stage it so the 1-minute job stops
+  // (and applies shipping) at the cutoff; otherwise clear the staged update.
+  const startedAt = new Date();
+  const sched = experiment.statusUpdateSchedule;
+  const { stopAt, stagedStop: nextScheduledStatusUpdate } =
+    resolveScheduledStop({
+      stopAt: sched?.stopAt,
+      stopAfter: sched?.stopAfter,
+      base: startedAt,
+      active: true,
+      now: startedAt,
+    });
+  // Persist the resolved concrete stop and drop the now-consumed relative
+  // offset, so the stored schedule reflects the actual end going forward.
+  if (sched?.stopAfter) {
+    changes.statusUpdateSchedule = {
+      ...(sched.startAt ? { startAt: sched.startAt } : {}),
+      ...(stopAt ? { stopAt } : {}),
+      ...(sched.scheduledStopPlan
+        ? { scheduledStopPlan: sched.scheduledStopPlan }
+        : {}),
+    };
+  }
+
   const updated = await updateExperiment({
     context,
     experiment,
-    changes: { nextScheduledStatusUpdate: null, ...changes },
+    changes: { ...changes, nextScheduledStatusUpdate },
   });
   return { updated, publishResult };
 }
@@ -534,15 +596,17 @@ export async function approveScheduledExperimentStart({
     }
   }
 
+  const changes: Changeset = {
+    nextScheduledStatusUpdate: {
+      type: "start",
+      date: startAt,
+    },
+  };
+  await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperiment({
     context,
     experiment,
-    changes: {
-      nextScheduledStatusUpdate: {
-        type: "start",
-        date: startAt,
-      },
-    },
+    changes,
   });
 
   return { experiment, updated };
@@ -576,12 +640,14 @@ export async function unapproveScheduledExperimentStart({
     return { experiment, updated: experiment };
   }
 
+  const changes: Changeset = {
+    nextScheduledStatusUpdate: null,
+  };
+
   const updated = await updateExperiment({
     context,
     experiment,
-    changes: {
-      nextScheduledStatusUpdate: null,
-    },
+    changes,
   });
 
   return { experiment, updated };
@@ -707,11 +773,16 @@ export async function stopExperiment({
     isEnding = true;
   }
 
+  if (experiment.nextScheduledStatusUpdate) {
+    changes.nextScheduledStatusUpdate = null;
+  }
+
   if (experiment.type === "multi-armed-bandit") {
     changes.banditStage = "paused";
     changes.banditStageDateStarted = new Date();
   }
 
+  await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperiment({
     context,
     experiment,
@@ -774,6 +845,7 @@ export async function modifyTemporaryRollout({
     }
   }
 
+  await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperiment({
     context,
     experiment,

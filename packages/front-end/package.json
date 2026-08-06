@@ -72,7 +72,7 @@
     "handlebars": "^4.7.9",
     "js-confetti": "^0.11.0",
     "js-cookie": "^3.0.7",
-    "js-yaml": "^4.2.0",
+    "js-yaml": "^4.3.0",
     "json-stringify-pretty-compact": "^3.0.0",
     "json2csv": "^5.0.7",
     "lodash": "^4.17.23",

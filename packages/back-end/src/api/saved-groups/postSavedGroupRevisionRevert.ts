@@ -14,6 +14,7 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
+import { assertSavedGroupArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
@@ -127,6 +128,15 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
         "This revert requires approval before changes can be published. " +
           'Use `strategy: "draft"` to create a draft for review, ' +
           "or use a role/token that grants bypassApprovalChecks.",
+      );
+    }
+    // Reverting to a historically-archived state re-archives the group; soft-warn
+    // (bypassably) if it still has live dependents. Only the archive transition.
+    if (fieldsToUpdate.archived === true && !savedGroup.archived) {
+      await assertSavedGroupArchiveDependentsGuard(
+        req.context,
+        { id: savedGroup.id },
+        { armed: false },
       );
     }
   }

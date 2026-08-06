@@ -2,22 +2,17 @@ import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
   buildManagedWarehouseEventsFactTableSql,
   buildManagedWarehouseExposureQueries,
-  getManagedWarehouseCustomIdentifiers,
   getManagedWarehouseEventsFactTableColumns,
+  getManagedWarehouseTypedAttributeColumns,
   getManagedWarehouseUserIdTypes,
   getManagedWarehouseUserIdTypeSettings,
-  isManagedWarehouseAwaitingJsonMigration,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseMigrating,
   MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
-  MANAGED_WAREHOUSE_BUILTIN_IDENTIFIERS,
   MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
+  ManagedWarehouseIdAttributeIdentifier,
 } from "shared/util";
-import {
-  DataSourceInterface,
-  GrowthbookClickhouseDataSource,
-  MaterializedColumn,
-} from "shared/types/datasource";
+import { DataSourceInterface } from "shared/types/datasource";
 import { SDKAttributeSchema } from "shared/types/organization";
 import type {
   ExperimentEvalItem,
@@ -31,156 +26,17 @@ import type { ApiReqContext } from "back-end/types/api";
 import {
   dangerouslyGetFactTableByIdBypassPermission,
   dangerouslySyncManagedWarehouseFactTable,
-  getFactTablesForDatasource,
-  updateFactTableColumns,
 } from "back-end/src/models/FactTableModel";
 import {
   getGrowthbookDatasource,
   dangerouslyGetGrowthbookDatasourceBypassPermission,
-  clearManagedWarehouseRecreateStatus,
-  getManagedWarehouseRecreateState,
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
-import {
-  dangerousRecreateClickhouseTables,
-  updateMaterializedColumnsInClickhouse,
-} from "back-end/src/services/licenseServerManagedClickhouse";
-import { getMigratedDimensionColumns } from "back-end/src/util/migrateManagedWarehouseColumns";
+import { getCollection } from "back-end/src/util/mongo.util";
+import { syncJsonErgonomicsInClickhouse } from "back-end/src/services/licenseServerManagedClickhouse";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { logger } from "back-end/src/util/logger";
-
-type ClickHouseDataType =
-  | "DateTime"
-  | "Float64"
-  | "Boolean"
-  | "String"
-  | "LowCardinality(String)";
-
-const REMAINING_COLUMNS_SCHEMA: Record<string, ClickHouseDataType> = {
-  environment: "LowCardinality(String)",
-  sdk_language: "LowCardinality(String)",
-  sdk_version: "LowCardinality(String)",
-  event_uuid: "String",
-  ip: "String",
-};
-
-export function getReservedColumnNames(): Set<string> {
-  return new Set(
-    [
-      "timestamp",
-      "client_key",
-      "event_name",
-      "properties",
-      "attributes",
-      "experiment_id",
-      "variation_id",
-      ...Object.keys(REMAINING_COLUMNS_SCHEMA),
-    ].map((col) => col.toLowerCase()),
-  );
-}
-export async function updateMaterializedColumns({
-  context,
-  datasource,
-  columnsToAdd,
-  columnsToDelete,
-  columnsToRename,
-  finalColumns,
-  originalColumns,
-}: {
-  context: ReqContext;
-  datasource: GrowthbookClickhouseDataSource;
-  columnsToAdd: MaterializedColumn[];
-  columnsToDelete: string[];
-  columnsToRename: { from: string; to: string }[];
-  finalColumns: MaterializedColumn[];
-  originalColumns: MaterializedColumn[];
-}) {
-  if (isManagedWarehouseAwaitingProvisioning(datasource)) {
-    return;
-  }
-  const orgId = datasource.organization;
-
-  await updateMaterializedColumnsInClickhouse({
-    orgId,
-    columnsToAdd,
-    columnsToDelete,
-    columnsToRename,
-    finalColumns,
-    originalColumns,
-  });
-
-  // Update the main events fact table with the new columns
-  const factTables = await getFactTablesForDatasource(context, datasource.id);
-  const ft = factTables.find(
-    (ft) => ft.id === MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
-  );
-  if (ft) {
-    const newColumns = [...ft.columns];
-    newColumns.forEach((col) => {
-      if (col.numberFormat === undefined) {
-        col.numberFormat = "";
-      }
-    });
-
-    columnsToAdd.forEach((col) => {
-      const existingCol = newColumns.find((c) => c.column === col.columnName);
-      if (!existingCol) {
-        newColumns.push({
-          column: col.columnName,
-          name: col.columnName,
-          datatype: col.datatype,
-          dateCreated: new Date(),
-          dateUpdated: new Date(),
-          deleted: false,
-          description: "",
-          numberFormat: "",
-        });
-      } else {
-        // If the column already exists but was previously removed, restore it.
-        existingCol.deleted = false;
-        existingCol.dateUpdated = new Date();
-      }
-    });
-    columnsToRename.forEach(({ from, to }) => {
-      const col = newColumns.find((c) => c.column === from);
-      if (col) {
-        const existingDestinationCol = newColumns.find((c) => c.column === to);
-        // Destination already exists
-        if (existingDestinationCol) {
-          // Restore destination if it had been previously removed.
-          existingDestinationCol.deleted = false;
-          existingDestinationCol.dateUpdated = new Date();
-          // Mark the old column as deleted.
-          col.deleted = true;
-          col.dateUpdated = new Date();
-        } else {
-          // Otherwise, rename in place
-          col.column = to;
-          col.name = to;
-          col.dateUpdated = new Date();
-        }
-      }
-    });
-    columnsToDelete.forEach((name) => {
-      const col = newColumns.find((c) => c.column === name);
-      if (col) {
-        col.deleted = true;
-        col.dateUpdated = new Date();
-      }
-    });
-
-    const newIdentifierTypes = finalColumns
-      .filter((col) => col.type === "identifier")
-      .map((col) => col.columnName);
-
-    await updateFactTableColumns(
-      ft,
-      { columns: newColumns, userIdTypes: newIdentifierTypes },
-      context,
-    );
-  }
-}
 
 // --- Session Replay ---
 
@@ -396,10 +252,23 @@ export async function syncManagedWarehouseIdentifiers(
   // names (so bare references keep resolving).
   const extraIdentifiers = datasource.settings.migratedIdentifiers || [];
   const migratedColumns = datasource.settings.migratedColumns || [];
+  const idAttributeIdentifier =
+    datasource.settings.idAttributeIdentifier === "user_id"
+      ? "user_id"
+      : "device_id";
 
   const newUserIdTypes = getManagedWarehouseUserIdTypes(
     attributeSchema,
     extraIdentifiers,
+  );
+
+  // Desired typed `attributes.<property>` ALIAS columns. Persisted on the
+  // datasource doc as the source of truth the license server reads when it
+  // (re)applies the DDL — at provision, recreate, or an explicit sync.
+  const typedAttributeColumns = getManagedWarehouseTypedAttributeColumns(
+    attributeSchema,
+    extraIdentifiers,
+    migratedColumns,
   );
 
   // Update datasource settings (userIdTypes + exposure queries).
@@ -417,12 +286,14 @@ export async function syncManagedWarehouseIdentifiers(
           attributeSchema,
           extraIdentifiers,
         ),
+        typedAttributeColumns,
         queries: {
           ...datasource.settings.queries,
           exposure: buildManagedWarehouseExposureQueries(
             attributeSchema,
             extraIdentifiers,
             migratedColumns,
+            idAttributeIdentifier,
           ),
         },
       },
@@ -519,6 +390,7 @@ export async function syncManagedWarehouseIdentifiers(
     attributeSchema,
     extraIdentifiers,
     migratedColumns,
+    idAttributeIdentifier,
   );
 
   // Skip the write when nothing changed (e.g. a tag/description-only edit on an
@@ -538,6 +410,33 @@ export async function syncManagedWarehouseIdentifiers(
   });
 }
 
+/**
+ * Ask the license server to (re)apply the JSON-ergonomics DDL — per-org user
+ * settings + typed `attributes.<property>` ALIAS columns — from the
+ * `typedAttributeColumns` persisted on the datasource doc. Idempotent and
+ * metadata-only, so safe to call on every attribute change. Skips warehouses
+ * with no physical JSON tables to alter (unprovisioned, legacy, or
+ * mid-recreate); those get the columns at provision/recreate time instead.
+ * Throws on failure — callers decide whether that's fatal (the backfill job)
+ * or logged (attribute changes). Returns whether the DDL was actually applied.
+ */
+export async function applyManagedWarehouseJsonErgonomics(
+  context: ReqContext | ApiReqContext,
+): Promise<boolean> {
+  const datasource =
+    await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
+  if (
+    !datasource ||
+    datasource.type !== "growthbook_clickhouse" ||
+    !datasource.settings.useJsonColumns ||
+    isManagedWarehouseAwaitingProvisioning(datasource) ||
+    isManagedWarehouseMigrating(datasource)
+  ) {
+    return false;
+  }
+  return syncJsonErgonomicsInClickhouse(datasource.organization);
+}
+
 // Best-effort wrapper for attribute create/update/delete (internal + REST API):
 // a managed-warehouse sync failure must never fail the attribute change itself.
 // Runs for any attribute change (not just identifiers) so the `attributes` JSON
@@ -549,6 +448,10 @@ export async function syncManagedWarehouseIdentifiersOnAttributeChange(
 ): Promise<void> {
   try {
     await syncManagedWarehouseIdentifiers(context, attributeSchema);
+    // Push the (possibly changed) typed attribute columns to ClickHouse. Also
+    // best-effort: a stale column set degrades bare SQL for the new attribute,
+    // and the next attribute change or table recreate re-syncs it.
+    await applyManagedWarehouseJsonErgonomics(context);
   } catch (e) {
     logger.error(
       e,
@@ -597,165 +500,60 @@ export async function removeManagedWarehouseLegacyIdentifier(
     ...datasource,
     settings: updatedSettings,
   });
+
+  // Drop the identifier's typed ALIAS column in ClickHouse. Best-effort: the
+  // Mongo state above is already correct, and a lingering column is harmless
+  // until the next attribute change or recreate re-syncs it.
+  await applyManagedWarehouseJsonErgonomics(context).catch((e) =>
+    logger.error(
+      e,
+      "Failed to sync typed attribute columns after removing legacy identifier",
+    ),
+  );
 }
 
-// Kick off the async table rebuild. The license server acks and rebuilds in the
-// background, so this doesn't wait for the tables — a later run finalizes once the
-// rebuild's lock frees (see migrateManagedWarehouseToJson).
-async function fireManagedWarehouseRecreate(
-  organization: string,
+// Change which built-in identifier the `id` attribute folds into in generated SQL
+// (see GrowthbookClickhouseSettings.idAttributeIdentifier), then regenerate the
+// exposure queries and fact-table SQL from the new mapping. Query-time only — no
+// ClickHouse DDL changes — so flipping it back fully reverts. Experiments assigned
+// on the `id` attribute read their exposures through the other identifier's
+// Experiment Assignment Query after a flip and need to be re-pointed.
+export async function setManagedWarehouseIdAttributeIdentifier(
+  context: ReqContext | ApiReqContext,
+  datasource: DataSourceInterface,
+  identifier: ManagedWarehouseIdAttributeIdentifier,
 ): Promise<void> {
-  const result = await dangerousRecreateClickhouseTables(organization);
-  if (result === "already-running") {
-    // The lock was taken between our read and this call; the in-progress rebuild
-    // will record its own outcome, so just wait for it.
-    logger.info(
-      `Managed warehouse migration for org ${organization}: recreate already in progress; waiting`,
+  if (
+    datasource.type !== "growthbook_clickhouse" ||
+    !datasource.settings.useJsonColumns
+  ) {
+    throw new Error(
+      "The id attribute mapping can only be changed on a JSON-columns Managed Warehouse",
     );
   }
-}
 
-// Migrate a legacy (materialized-column) managed warehouse to native JSON columns.
-// Recreate now acks and rebuilds the per-org tables in the background under a
-// datasource lock (holding the connection open for the whole rebuild 504'd behind the
-// proxy), so this is idempotent + resumable and re-driven by the sweep / next query
-// until it settles: it prepares metadata and fires the rebuild, then finalizes on
-// success or retries on failure once the lock frees — reading `lockUntil` (rebuild in
-// progress) and `recreateStatus` (its outcome) via getManagedWarehouseRecreateState.
-// A crash at any step leaves a re-runnable state, and `migrating` blocks queries
-// throughout so nothing hits the tables mid-rebuild.
-export async function migrateManagedWarehouseToJson(
-  context: ReqContext | ApiReqContext,
-): Promise<void> {
-  const datasource =
-    await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
-  if (!datasource || datasource.type !== "growthbook_clickhouse") {
-    return;
-  }
-
-  // Defer until provisioned: recreating tables for a never-provisioned org would
-  // race the normal provisioning flow (and spam Sentry).
-  if (isManagedWarehouseAwaitingProvisioning(datasource)) {
-    return;
-  }
-
-  const migrating = isManagedWarehouseMigrating(datasource);
-  const awaiting = isManagedWarehouseAwaitingJsonMigration(datasource);
-  // Fully migrated and settled — nothing to do.
-  if (!migrating && !awaiting) {
-    return;
-  }
-
-  const { locked, recreateStatus } =
-    await getManagedWarehouseRecreateState(context);
-
-  // A rebuild is running on the license server (ours or another operation's). It
-  // holds the lock for its duration, so wait rather than re-request — the sweep /
-  // next query re-drives this once the lock frees.
-  if (locked) {
-    return;
-  }
-
-  // We already prepared the migration (materializedColumns cleared) and the rebuild
-  // we fired is no longer running — settle based on its recorded outcome.
-  if (migrating && !awaiting) {
-    if (recreateStatus === "success") {
-      // Tables were rebuilt as JSON and the fact table was synced before we fired the
-      // rebuild, so unblocking queries now is safe.
-      await updateDataSource(
-        context,
-        datasource,
-        { settings: { ...datasource.settings, migrating: false } },
-        { skipExposureQueryValidation: true },
-      );
-      return;
-    }
-    // "error", or missing (rebuild crashed before recording its outcome, or we
-    // crashed before firing it): retry. The rebuild is idempotent and matcols stay
-    // cleared (JSON tables ignore them), so re-firing rebuilds the JSON tables cleanly.
-    await fireManagedWarehouseRecreate(datasource.organization);
-    return;
-  }
-
-  // awaiting === true: (re)start the migration.
-  const matColumns = datasource.settings.materializedColumns || [];
-  const attributeSchema = context.org.settings?.attributeSchema;
-
-  // Preserve every legacy custom identifier (a `userIdType` that isn't a built-in or a
-  // current hashAttribute) by carrying it as an `attributes`-aliased top-level column,
-  // exactly like a hashAttribute identifier. This keeps the join keys experiments/metrics
-  // depend on, so the migration never has to skip a warehouse over identifier drift.
-  // Persisted in `migratedIdentifiers` so the attribute-change sync re-includes them.
-  const builtins = new Set<string>(MANAGED_WAREHOUSE_BUILTIN_IDENTIFIERS);
-  const schemaIdentifiers = new Set(
-    getManagedWarehouseCustomIdentifiers(attributeSchema),
-  );
-  const migratedIdentifiers = (datasource.settings.userIdTypes || [])
-    .map((u) => u.userIdType)
-    .filter((t) => !builtins.has(t) && !schemaIdentifiers.has(t));
-
-  // Non-identifier dimensions to preserve as top-level aliases (so bare references in
-  // raw-SQL filters, exposure breakdowns, and fact-table-routed metrics keep resolving).
-  const migratedColumns = getMigratedDimensionColumns(
-    matColumns,
-    MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
-  );
-
-  // Enter the transient "migrating" state (still provisioned) so in-flight usage
-  // degrades to "warehouse upgrading" instead of hitting tables mid-rebuild, and flip
-  // the flag (the license server reads `useJsonColumns` to pick the JSON DDL). Record the
-  // preserved identifiers + dimensions up front so the sync (below) aliases them. Keep
-  // `materializedColumns` for now so a crash before we clear them re-runs this branch.
-  await updateDataSource(
-    context,
-    datasource,
+  // Targeted single-key $set (the sweep job's pattern): a full settings write
+  // from a snapshot could revert a concurrent update (an attribute sync's
+  // derived metadata, a provisioning flag flip), while a dot-path write can't
+  // clobber anything. Filter-guarded so a same-value PUT leaves the doc alone.
+  await getCollection("datasources").updateOne(
     {
-      settings: {
-        ...datasource.settings,
-        useJsonColumns: true,
-        migrating: true,
-        migratedIdentifiers,
-        migratedColumns,
+      organization: context.org.id,
+      id: datasource.id,
+      "settings.idAttributeIdentifier": { $ne: identifier },
+    },
+    {
+      $set: {
+        "settings.idAttributeIdentifier": identifier,
+        dateUpdated: new Date(),
       },
     },
-    // Never run live exposure-query validation here: the warehouse is about to be
-    // recreated, so a validation query would fail or hang against it.
-    { skipExposureQueryValidation: true },
   );
 
-  // Regenerate the ch_events fact table + datasource userIdTypes/exposure queries.
-  // Mongo-only (queries stay blocked by `migrating`), and re-exposes the preserved
-  // identifiers/dimensions as top-level aliases so existing metric refs keep resolving —
-  // no metric rewrite needed. Must finish before we fire the rebuild, so that when a
-  // later run unblocks queries on success, the fact table already matches the tables.
+  // Always re-sync — even when the flag already matches — and let the sync
+  // re-fetch the doc it derives from. A retry after a failed regeneration then
+  // heals the persisted SQL instead of short-circuiting on the already-persisted
+  // flag, and the audit entry / definitions-version bump for the resulting
+  // generated-SQL change happen through the sync's own updateDataSource.
   await syncManagedWarehouseIdentifiers(context);
-
-  // Clear materializedColumns (re-fetch: sync mutated the datasource settings). Only once
-  // this is persisted is the warehouse structurally migrated; the rebuild we fire next
-  // produces the physical JSON tables.
-  const synced =
-    await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
-  if (!synced || synced.type !== "growthbook_clickhouse") {
-    // Couldn't re-fetch to clear materializedColumns: it stays awaiting-migration and
-    // re-runs this branch on next use. Log so the (rare) re-trigger loop is visible.
-    logger.error(
-      `Managed warehouse migration for org ${datasource.organization}: could not re-fetch datasource after sync; migration will re-trigger on next use`,
-    );
-    return;
-  }
-  // Forget any prior rebuild outcome BEFORE clearing materializedColumns, so once the
-  // warehouse is structurally migrated (matcols cleared) the settle branch can't read a
-  // stale `recreateStatus="success"` from an earlier recreate and unblock over the wrong
-  // tables. The rebuild we fire below records this migration's fresh outcome.
-  await clearManagedWarehouseRecreateStatus(context);
-  await updateDataSource(
-    context,
-    synced,
-    { settings: { ...synced.settings, materializedColumns: undefined } },
-    { skipExposureQueryValidation: true },
-  );
-
-  // Fire the async rebuild last: the license server acks and rebuilds in the background,
-  // recording the outcome. A later run finalizes (unblocks) once the lock frees.
-  await fireManagedWarehouseRecreate(datasource.organization);
 }

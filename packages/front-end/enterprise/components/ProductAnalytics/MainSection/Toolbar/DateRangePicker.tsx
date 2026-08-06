@@ -17,7 +17,7 @@ import { useMergedDateRangeUpdates } from "./useMergedDateRangeUpdates";
 
 function MicroLabel({ children }: { children: ReactNode }) {
   return (
-    <Text size="small" color="text-low" weight="regular">
+    <Text size="sm" color="text-low" weight="regular">
       {children}
     </Text>
   );
@@ -120,7 +120,7 @@ function DateRangePresetSelect({
 
   const lookbackUnitSelect = (
     <Select
-      size="2"
+      size="md"
       style={fullWidth ? { width: "100%" } : undefined}
       value={activeDateRange.lookbackUnit || "day"}
       disabled={disabled}
@@ -141,7 +141,7 @@ function DateRangePresetSelect({
 
   const presetSelect = (
     <Select
-      size="2"
+      size="md"
       style={fullWidth ? { width: "100%" } : undefined}
       value={value.predefined}
       placeholder="Select range"
@@ -506,7 +506,7 @@ export default function DateRangePicker({
 function CompareFieldLabel({ children }: { children: ReactNode }) {
   return (
     <Box display={{ initial: "none", sm: "inline-block" }}>
-      <Text size="small" color="text-low" weight="medium">
+      <Text size="sm" color="text-low" weight="medium">
         {children}
       </Text>
     </Box>
@@ -555,7 +555,7 @@ export function ComparisonDateControls({
           {labeledRow("Prior", <ComparisonPreviousRangePicker fullWidth />)}
           {labeledRow(
             "",
-            <Text size="small" weight="semibold">
+            <Text size="sm" weight="semibold">
               vs
             </Text>,
           )}
@@ -572,7 +572,7 @@ export function ComparisonDateControls({
         <CompareFieldLabel>Current</CompareFieldLabel>
         <ExplorerCurrentCustomRangeField />
       </Flex>
-      <Text size="small" color="text-low" weight="medium">
+      <Text size="sm" color="text-low" weight="medium">
         vs
       </Text>
       <Flex align="center" gap="2">

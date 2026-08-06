@@ -769,6 +769,117 @@ export const getMetricValidator = {
   exampleRequest: { params: { id: "abc123" } },
 };
 
+const apiMetricExperimentVariationResultValidator = z.object({
+  variationId: z.string(),
+  variationName: z.string(),
+  users: z.number().optional(),
+  value: z.number().optional(),
+  mean: z.number().optional(),
+  lift: z
+    .number()
+    .describe("Relative uplift mean for this variation, if available")
+    .optional(),
+  ci: z
+    .tuple([z.number(), z.number()])
+    .describe("Confidence interval [lower, upper]")
+    .optional(),
+  pValue: z.number().optional(),
+  chanceToWin: z.number().optional(),
+});
+
+const apiMetricExperimentResultValidator = z.object({
+  experimentId: z.string(),
+  experimentName: z.string(),
+  status: z.string(),
+  result: z
+    .string()
+    .describe("Result of the experiment, set when stopped")
+    .optional(),
+  date: z.string(),
+  datasourceId: z.string(),
+  variations: z.array(apiMetricExperimentVariationResultValidator),
+});
+
+export const listMetricExperimentsValidator = {
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      ...paginationQueryFields,
+      q: z
+        .string()
+        .describe(
+          "Raw experiment search/filter string (same syntax as the app's experiment list filters, e.g. `status:running tag:checkout`). Negation (`!`) and operators (`~`, `^`, `>`, `<`, `=`) are not supported and return a 400",
+        )
+        .optional(),
+      projectId: z
+        .string()
+        .describe("Filter by comma-separated project ids or names")
+        .optional(),
+      owner: ownerInputField
+        .describe("Filter by comma-separated owner ids, names, or emails")
+        .optional(),
+      status: z
+        .string()
+        .describe(
+          "Filter by comma-separated statuses (draft, running, stopped)",
+        )
+        .optional(),
+      result: z
+        .string()
+        .describe(
+          "Filter by comma-separated results (won, lost, inconclusive, dnf)",
+        )
+        .optional(),
+      tag: z.string().describe("Filter by comma-separated tags").optional(),
+      type: z
+        .string()
+        .describe(
+          "Filter by comma-separated experiment types (feature, visualChange, redirect)",
+        )
+        .optional(),
+      bandits: z
+        .enum(["true", "false"])
+        .describe(
+          "When true, return only multi-armed bandits; when false, exclude them",
+        )
+        .optional(),
+      startDate: z
+        .string()
+        .refine((v) => !Number.isNaN(Date.parse(v)), {
+          message: "Invalid date",
+        })
+        .describe(
+          "Only include experiments that have a phase which ended on or after this date",
+        )
+        .optional(),
+      endDate: z
+        .string()
+        .refine((v) => !Number.isNaN(Date.parse(v)), {
+          message: "Invalid date",
+        })
+        .describe(
+          "Only include experiments that have a phase which ended on or before this date",
+        )
+        .optional(),
+    })
+    .strict(),
+  paramsSchema: idParams,
+  responseSchema: z.intersection(
+    z.object({
+      experimentResults: z.array(apiMetricExperimentResultValidator),
+    }),
+    apiPaginationFieldsValidator,
+  ),
+  summary: "Get results for all experiments that use a metric",
+  description:
+    "Returns, for each experiment that uses the given metric (directly or via a metric group), the per-variation results for that metric from the latest snapshot. Supports the same filtering as the experiment list views via a raw search string or structured query params. Note: at most the 1000 most recent experiments using the metric are considered; filters and pagination are applied within that set, so results may be incomplete for metrics used by more than 1000 experiments.",
+  operationId: "listMetricExperiments",
+  tags: ["metrics"],
+  method: "get" as const,
+  path: "/metrics/:id/experiments",
+  exampleRequest: { params: { id: "met_abc123" } },
+};
+
 export const putMetricValidator = {
   bodySchema: putMetricBody,
   querySchema: z.never(),

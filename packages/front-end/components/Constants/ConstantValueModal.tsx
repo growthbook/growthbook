@@ -4,7 +4,7 @@ import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
 import { Revision } from "shared/enterprise";
 import { filterProjectsByEnvironment } from "shared/util";
 import {
-  validateConstantValue,
+  validateResolvableValue,
   getConstantReferenceKeys,
 } from "shared/validators";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -151,9 +151,19 @@ export default function ConstantValueModal({
           ...values.environmentValues,
         };
 
-        validateConstantValue(type, values.value, "Value");
+        validateResolvableValue({
+          type,
+          value: values.value,
+          label: "Value",
+          refSource: "constant",
+        });
         for (const [envId, v] of Object.entries(environmentValues)) {
-          validateConstantValue(type, v, envId);
+          validateResolvableValue({
+            type,
+            value: v,
+            label: envId,
+            refSource: "constant",
+          });
         }
 
         // The PUT controller treats `undefined` as "field untouched", so an
@@ -201,7 +211,7 @@ export default function ConstantValueModal({
           id="constant-value"
           value={form.watch("value")}
           setValue={(v) => form.setValue("value", v)}
-          valueType={type}
+          valueType={type === "string" ? "string" : "json"}
           useCodeInput={type === "json"}
           showFullscreenButton={type === "json"}
           constantContext={constantContext}
@@ -228,7 +238,7 @@ export default function ConstantValueModal({
                 menuPlacement="end"
                 variant="soft"
                 trigger={
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="md">
                     <Flex align="center" gap="1">
                       <PiPlus /> Add override <PiCaretDownFill size={10} />
                     </Flex>
@@ -247,7 +257,7 @@ export default function ConstantValueModal({
             )}
           </Flex>
           {overrideEnvIds.length === 0 ? (
-            <Text as="div" size="small" color="text-mid">
+            <Text as="div" size="sm" color="text-mid">
               No overrides yet.
             </Text>
           ) : (
@@ -270,7 +280,7 @@ export default function ConstantValueModal({
                   id={`constant-env-${envId}`}
                   value={envValues[envId] || ""}
                   setValue={(v) => setOverrideValue(envId, v)}
-                  valueType={type}
+                  valueType={type === "string" ? "string" : "json"}
                   useCodeInput={type === "json"}
                   showFullscreenButton={type === "json"}
                   constantContext={constantContext}

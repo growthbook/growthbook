@@ -89,7 +89,7 @@ function ConstantValueDisplay({
   return (
     <ValueDisplay
       value={value}
-      type={type}
+      type={type === "string" ? "string" : "json"}
       full
       showFullscreenButton
       fullscreenHeader="Constant Value"
@@ -126,6 +126,22 @@ export default function ConstantDetailPage(): React.ReactElement {
   );
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // The page instance is reused across constants, so close any modal carried
+  // over from the previous constant.
+  useEffect(() => {
+    setEditInfoOpen(false);
+    setEditValueOpen(false);
+    setEditDescriptionModal(false);
+    setShowArchiveModal(false);
+    setShowAuditModal(false);
+    setShowReferencesModal(false);
+    setCompareOpen(false);
+    setConfirmRevert(false);
+    setRevisionToRevert(null);
+    setConfirmDelete(false);
+    setMenuOpen(false);
+  }, [constantKey]);
 
   const { data, error, mutate } = useApi<{
     status: number;
@@ -314,7 +330,7 @@ export default function ConstantDetailPage(): React.ReactElement {
       <div className="container-fluid pagecontents">
         <Flex align="start" justify="between" gap="2" mb="2">
           <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
-            <Heading size="2x-large" as="h1" mb="0">
+            <Heading size="2xl" as="h1" mb="0">
               {displayedConstant.name}
             </Heading>
             {displayedConstant.archived && (
@@ -428,7 +444,7 @@ export default function ConstantDetailPage(): React.ReactElement {
             value={tab}
             onValueChange={(v) => setTabAndScroll(v as ConstantTab)}
           >
-            <TabsList>
+            <TabsList size="lg">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="review">
                 Review &amp; Publish
@@ -470,11 +486,13 @@ export default function ConstantDetailPage(): React.ReactElement {
               }}
               onNewDraft={canUpdate ? handleNewDraft : undefined}
               onReviewPublish={() => setTabAndScroll("review")}
-              onEditDescription={() => setEditDescriptionModal(true)}
+              onEditDescription={
+                canUpdate ? () => setEditDescriptionModal(true) : undefined
+              }
             />
             <Frame mb="4" px="6" py="5">
               <Flex justify="between" align="center" gap="3" mb="3">
-                <Heading size="medium" as="h2" mb="0">
+                <Heading size="md" as="h2" mb="0">
                   Value
                 </Heading>
                 {canEditNow && (
@@ -494,7 +512,7 @@ export default function ConstantDetailPage(): React.ReactElement {
               {Object.keys(displayedConstant.environmentValues || {}).length >
                 0 && (
                 <>
-                  <Heading size="medium" as="h2" mt="6" mb="3">
+                  <Heading size="md" as="h2" mt="6" mb="3">
                     Environment overrides
                   </Heading>
                   <Flex direction="column" gap="5">
@@ -502,7 +520,7 @@ export default function ConstantDetailPage(): React.ReactElement {
                       displayedConstant.environmentValues || {},
                     ).map(([env, value]) => (
                       <Box key={env}>
-                        <Text as="div" size="large" weight="semibold" mb="2">
+                        <Text as="div" size="lg" weight="semibold" mb="2">
                           {env}
                         </Text>
                         <ConstantValueDisplay
@@ -614,6 +632,8 @@ export default function ConstantDetailPage(): React.ReactElement {
           }}
           onRevisionCreated={async (rev) => {
             await onRevisionCreated(rev);
+            // A revert may publish immediately; refresh the global cache too.
+            await mutateDefinitions();
             setConfirmRevert(false);
             setRevisionToRevert(null);
           }}
@@ -628,9 +648,6 @@ export default function ConstantDetailPage(): React.ReactElement {
           allRevisions={allRevisions}
           currentRevisionId={selectedRevisionId}
           onClose={() => setCompareOpen(false)}
-          mutate={async () => {
-            await Promise.all([mutateRevisions(), mutate()]);
-          }}
           requiresApproval={approvalRequired}
         />
       )}

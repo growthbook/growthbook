@@ -30,7 +30,6 @@ import {
   getConfigDatasources,
 } from "back-end/src/init/config";
 import { upgradeDatasourceObject } from "back-end/src/util/migrations";
-import { getCollection } from "back-end/src/util/mongo.util";
 import { queueCreateInformationSchema } from "back-end/src/jobs/createInformationSchema";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
@@ -41,6 +40,10 @@ import { createModelAuditLogger } from "back-end/src/services/audit";
 import { syncEventForwarderAfterDatasourceDeleted } from "back-end/src/services/eventForwarder/datasourceLifecycle";
 import { deleteEventForwarderEventsFactTableForDatasource } from "back-end/src/services/eventForwarder/factTable";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
+import {
+  definitionsScope,
+  touchDefinitionsVersion,
+} from "./DefinitionsVersionModel";
 
 const dataSourceAuditConfig = {
   entity: "datasource",
@@ -164,46 +167,6 @@ export async function dangerouslyGetGrowthbookDatasourceBypassPermission(
   return doc ? toInterface(doc) : null;
 }
 
-/**
- * Read the managed-warehouse recreate coordination fields the license server
- * writes to the shared datasource doc: `lockUntil` (a rebuild is in progress) and
- * `recreateStatus` (its outcome). Both live top-level (outside `settings`, which
- * GrowthBook rewrites), so they aren't on the Mongoose schema — read them raw.
- */
-export async function getManagedWarehouseRecreateState(
-  context: ReqContext | ApiReqContext,
-): Promise<{ locked: boolean; recreateStatus: "success" | "error" | null }> {
-  const doc = await getCollection<{
-    lockUntil?: Date | string | number | null;
-    recreateStatus?: { status?: string } | null;
-  }>("datasources").findOne(
-    { organization: context.org.id, type: "growthbook_clickhouse" },
-    { projection: { lockUntil: 1, recreateStatus: 1 } },
-  );
-  const lockUntil = doc?.lockUntil ? new Date(doc.lockUntil) : null;
-  const locked = lockUntil !== null && lockUntil.getTime() > Date.now();
-  const status = doc?.recreateStatus?.status;
-  return {
-    locked,
-    recreateStatus: status === "success" || status === "error" ? status : null,
-  };
-}
-
-/**
- * Clear the license-server recreate outcome at the start of a migration so a stale
- * `recreateStatus` from an earlier rebuild (e.g. a prior super-admin recreate) can't
- * be misread as the current migration's result. Raw `$unset` since `recreateStatus`
- * is a top-level field the license server owns, not on the Mongoose schema.
- */
-export async function clearManagedWarehouseRecreateStatus(
-  context: ReqContext | ApiReqContext,
-): Promise<void> {
-  await getCollection<{ recreateStatus?: unknown }>("datasources").updateOne(
-    { organization: context.org.id, type: "growthbook_clickhouse" },
-    { $unset: { recreateStatus: "" } },
-  );
-}
-
 export async function getDataSourceById(
   context: ReqContext | ApiReqContext,
   id: string,
@@ -257,8 +220,9 @@ export async function removeProjectFromDatasources(
 ) {
   await DataSourceModel.updateMany(
     { organization, projects: project },
-    { $pull: { projects: project } },
+    { $pull: { projects: project }, $set: { dateUpdated: new Date() } },
   );
+  await touchDefinitionsVersion(organization);
 }
 
 export async function deleteDatasource(
@@ -303,12 +267,26 @@ export async function deleteDatasource(
   });
 
   await audit.logDelete(context, datasource);
+  await touchDefinitionsVersion(
+    context.org.id,
+    definitionsScope(datasource.projects),
+  );
 }
 
 /**
  * Deletes data sources where the provided project is the only project of that data source.
  * Runs event-forwarder teardown per datasource before removal so Confluent resources are not orphaned.
  */
+export async function projectHasDataSources(
+  organizationId: string,
+  projectId: string,
+): Promise<boolean> {
+  return !!(await DataSourceModel.exists({
+    organization: organizationId,
+    projects: [projectId],
+  }));
+}
+
 export async function deleteAllDataSourcesForAProject({
   context,
   projectId,
@@ -336,6 +314,9 @@ export async function deleteAllDataSourcesForAProject({
     organization: organizationId,
     projects: [projectId],
   });
+  // Only datasources whose sole project is projectId are deleted here, so only
+  // that project's readers are affected.
+  await touchDefinitionsVersion(organizationId, definitionsScope([projectId]));
 }
 
 export async function createDataSource(
@@ -409,6 +390,10 @@ export async function createDataSource(
 
   const datasourceInterface = toInterface(model);
   await audit.logCreate(context, datasourceInterface);
+  await touchDefinitionsVersion(
+    context.org.id,
+    definitionsScope(datasourceInterface.projects),
+  );
   return datasourceInterface;
 }
 
@@ -606,6 +591,10 @@ export async function updateDataSource(
     return;
   }
 
+  // Several service callers mutate `settings` without stamping dateUpdated;
+  // stamp it here at the model choke point so every real change is recorded.
+  updates = { ...updates, dateUpdated: new Date() };
+
   await DataSourceModel.updateOne(
     {
       id: datasource.id,
@@ -617,6 +606,13 @@ export async function updateDataSource(
   );
 
   await audit.logUpdate(context, datasource, { ...datasource, ...updates });
+  await touchDefinitionsVersion(
+    context.org.id,
+    definitionsScope(
+      datasource.projects,
+      updates.projects ?? datasource.projects,
+    ),
+  );
 }
 
 // WARNING: This does not restrict by organization

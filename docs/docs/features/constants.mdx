@@ -40,7 +40,7 @@ Constants are referenced by their **key** — a slug auto-generated from the nam
 
 ### String constants — `{{ @const:key }}`
 
-Interpolate a string constant anywhere inside a feature's string value (including inside a string field of a JSON value):
+Interpolate a string constant anywhere inside a feature's or a [config](/features/configs)'s string value (including inside a string field of a JSON value):
 
 ```
 Connect to {{ @const:api-server }} on port {{ @const:api-port }}.
@@ -78,7 +78,15 @@ Merge precedence, lowest to highest:
 
 So the position of `$extends` in the object doesn't matter — own keys always win — but the order of references _within_ the array does.
 
-A constant's value can itself reference other constants; they're resolved recursively.
+**Own keys replace wholesale.** A constant is an atomic building block: whatever an own key states is exactly what it resolves to. When an own key and the merged base are both objects, the own value **replaces** the inherited one outright — it is not merged into it. For example, extending a base of `{ "retry": { "connect": 1000, "read": 5000 } }` with own keys `{ "retry": { "read": 8000 } }` resolves to `{ "retry": { "read": 8000 } }` — `connect` is dropped, not inherited. Restate any inherited fields you want to keep. (Writing `null` sets the value to `null`; it does not delete the key.)
+
+:::info Constants replace; configs and feature values patch
+
+This is deliberately the opposite of how [configs](/features/configs) and feature values compose. A child config — or a config-backed feature value — is a **deep, targeted patch**: it merges recursively, key by key, restating only the leaves it changes. A constant's own keys are authoritative wholesale. The same `$extends` syntax written directly in a feature or config value follows the deep-patch rule, not this one — the mode depends on which entity's keys they are, not on what is being extended.
+
+:::
+
+A referenced chunk is always applied **whole**: an `$extends` reference (or a nested object that itself uses `$extends`) drops in as a complete unit. A constant's value can itself reference other constants; they're resolved recursively.
 
 :::note Advanced: control merge order with inline objects
 
@@ -98,10 +106,14 @@ References are resolved **when the SDK payload is built**, on the server. SDKs r
 
 A few rules:
 
-- **On by default.** Feature values are scanned for references automatically.
+- **On by default.** Feature and config values are scanned for references automatically.
 - **Escape literals.** To keep a literal `{{ @const:... }}` or `@const:` key in a value, wrap it in backticks.
 - **Graceful failure.** An unresolvable `{{ @const:... }}` interpolation — unknown constant, type mismatch, or a cycle — is left in place as literal text rather than failing the build. An unresolvable `$extends` reference is dropped instead (a leftover directive would be invalid config).
 - **Archived references are stripped.** Archiving a referenced constant is blocked (see [Editing and approvals](#editing-and-approvals)), but any reference that still points at an archived constant is removed from the value (string interpolations dropped, JSON references removed) rather than resolved.
+
+## Protecting keys used by running experiments
+
+If a constant feeds a [config](/features/configs) whose running-experiment guard is enabled, publishing a change to the constant is subject to that same guard: it is blocked when the change would alter a config key currently used by a running experiment or contextual bandit. The guard is computed live, so it clears on its own once the experiment stops. To publish anyway, acknowledge the block — confirm the warning in the app, or pass `"ignoreWarnings": true` in the body of the REST publish request. See [Protecting keys used by running experiments](/features/configs#protecting-keys-used-by-running-experiments) for the config-side details.
 
 ## Editing and approvals
 

@@ -5,11 +5,13 @@ import {
   Link as RadixLink,
   LinkProps as RadixLinkProps,
 } from "@radix-ui/themes";
+import { radixSize, Size } from "@/ui/sizes";
 import styles from "./Link.module.scss";
 
-type RadixProps = Omit<RadixLinkProps, "color" | "href"> & {
+type RadixProps = Omit<RadixLinkProps, "color" | "href" | "size"> & {
   type?: "submit" | "reset" | "button";
   color?: RadixLinkProps["color"] | "dark";
+  size?: Size<"sm" | "md" | "lg" | "xl">;
 };
 
 type NextProps = Omit<
@@ -33,7 +35,7 @@ type Props = RadixProps & ConditionalProps;
 
 const Link = forwardRef<HTMLAnchorElement, Props>(
   (
-    { children, className, color, href, type = "button", ...props },
+    { children, className, color, href, size, type = "button", ...props },
     ref: ForwardedRef<HTMLAnchorElement>,
   ) => {
     const isCustomDarkColor = color === "dark";
@@ -79,6 +81,7 @@ const Link = forwardRef<HTMLAnchorElement, Props>(
           [styles.darkLink]: isCustomDarkColor,
         })}
         color={isCustomDarkColor ? undefined : color}
+        size={size !== undefined ? radixSize(size) : undefined}
         {...radixProps}
         asChild
       >

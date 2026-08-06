@@ -196,7 +196,10 @@ export default function PublicDashboardPage({
             isEditing={false}
             editSidebarDirty={false}
             stagedBlockIndex={undefined}
+            isAddingBlock={false}
             updateLayout={undefined}
+            addBlockType={undefined}
+            isGeneralDashboard={dashboard.experimentId === ""}
             renderBlock={(block) => (
               <PublicDashboardBlock
                 block={block as DashboardBlockInterface}

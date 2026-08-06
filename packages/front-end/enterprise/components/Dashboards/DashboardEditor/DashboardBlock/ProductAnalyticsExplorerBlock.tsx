@@ -4,6 +4,7 @@ import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  FunnelExplorationBlockInterface,
   blockUsesDashboardDateControl,
   getEffectiveExplorationConfig,
   getExplorationDateControlFingerprint,
@@ -14,6 +15,7 @@ import { isEqual } from "lodash";
 import { ProductAnalyticsExploration } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
 import useApi from "@/hooks/useApi";
+import { explorationPollDelayMs } from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExplorerChart from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerChart";
 import ExplorerDataTable from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerDataTable";
@@ -21,12 +23,25 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 import { BlockProps } from ".";
 
+// Poll interval for a tile's exploration: back off while it's still running,
+// stop (0) once it's terminal (success/error) or absent.
+function pollDelayForExploration(
+  exploration: ProductAnalyticsExploration | undefined | null,
+): number {
+  if (exploration?.status !== "running") return 0;
+  const started = exploration.runStarted
+    ? new Date(exploration.runStarted).getTime()
+    : Date.now();
+  return explorationPollDelayMs(Math.floor((Date.now() - started) / 1000));
+}
+
 // The public page supplies the exploration data directly so blocks render
 // without the authenticated fetches below.
 type ProductAnalyticsExplorerBlockProps = BlockProps<
   | MetricExplorationBlockInterface
   | FactTableExplorationBlockInterface
   | DataSourceExplorationBlockInterface
+  | FunnelExplorationBlockInterface
 > & {
   exploration?: ProductAnalyticsExploration;
   comparisonExploration?: ProductAnalyticsExploration | null;
@@ -46,12 +61,17 @@ export default function ProductAnalyticsExplorerBlock({
   // ssrPolyfills covers the public page where there's no DefinitionsContext.
   const getFactMetricById =
     ssrPolyfills?.getFactMetricById ?? definitionsGetFactMetricById;
+
   const { data, error, isLoading } = useApi<{
     status: number;
     exploration: ProductAnalyticsExploration;
     query: QueryInterface | null;
   }>(`/product-analytics/exploration/${block.explorerAnalysisId}`, {
     shouldRun: () => !explorationProp && !!block.explorerAnalysisId,
+    // A tile's exploration can be returned still "running" (a refresh query
+    // that exceeded the ~5s sync budget keeps executing server-side). Poll on
+    // a backoff until it reaches a terminal state; 0 stops the interval.
+    refreshInterval: (latest) => pollDelayForExploration(latest?.exploration),
   });
 
   const exploration = explorationProp ?? data?.exploration;
@@ -72,6 +92,7 @@ export default function ProductAnalyticsExplorerBlock({
       !explorationProp &&
       compareEnabled &&
       !!block.comparisonExplorerAnalysisId,
+    refreshInterval: (latest) => pollDelayForExploration(latest?.exploration),
   });
   const rawComparisonExploration =
     comparisonExplorationProp ?? comparisonData?.exploration ?? null;
@@ -148,6 +169,10 @@ export default function ProductAnalyticsExplorerBlock({
     );
   }
 
+  if (exploration.status === "running") {
+    return <LoadingSpinner />;
+  }
+
   if (hasStaleDashboardDateResults) {
     return (
       <Box p="4" style={{ textAlign: "center" }}>
@@ -164,7 +189,7 @@ export default function ProductAnalyticsExplorerBlock({
   );
 
   return (
-    <Flex direction="column" gap="2" style={{ height: "100%" }}>
+    <Flex direction="column" gap="2" style={{ height: "100%", minHeight: 0 }}>
       {shouldShowTable ? (
         <ExplorerDataTable
           exploration={exploration}

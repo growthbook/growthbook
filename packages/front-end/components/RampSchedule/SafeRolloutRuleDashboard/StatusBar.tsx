@@ -126,10 +126,10 @@ export function SafeRolloutStatusBar({
               <MonitoredIcon size={18} style={{ color: statusIconColor }} />
             </Box>
             <Flex direction="column" style={{ minWidth: 0 }}>
-              <Text size="large" weight="semibold" color="text-high" truncate>
+              <Text size="lg" weight="semibold" color="text-high" truncate>
                 {overview.label}
               </Text>
-              <Text size="medium" color="text-mid">
+              <Text size="md" color="text-mid">
                 {overview.summary}
               </Text>
             </Flex>
@@ -145,16 +145,16 @@ export function SafeRolloutStatusBar({
               />
             )}
             {monitoringHasStarted && lastSnapshotAt && (
-              <Text size="medium" color="text-mid" whiteSpace="nowrap">
+              <Text size="md" color="text-mid" whiteSpace="nowrap">
                 {formatShortAgo(lastSnapshotAt)}
               </Text>
             )}
             {monitoringHasStarted && totalUsers !== undefined && (
               <>
-                <Text size="medium" color="text-low">
+                <Text size="md" color="text-low">
                   ·
                 </Text>
-                <Text size="medium" color="text-mid" whiteSpace="nowrap">
+                <Text size="md" color="text-mid" whiteSpace="nowrap">
                   {numberFmt.format(totalUsers)} users
                 </Text>
               </>
@@ -388,7 +388,7 @@ export function MonitoringControls({
                 <Tooltip
                   body={`Last update: ${getValidDate(lastUpdated).toLocaleString()}`}
                 >
-                  <Text size="medium" color="text-mid" whiteSpace="nowrap">
+                  <Text size="md" color="text-mid" whiteSpace="nowrap">
                     Updated: {formatShortAgo(lastUpdated)}
                   </Text>
                 </Tooltip>
@@ -404,7 +404,7 @@ export function MonitoringControls({
             <Tooltip
               body={`Last update: ${getValidDate(lastUpdated).toLocaleString()}`}
             >
-              <Text size="medium" color="text-mid" whiteSpace="nowrap">
+              <Text size="md" color="text-mid" whiteSpace="nowrap">
                 Updated: {formatShortAgo(lastUpdated)}
               </Text>
             </Tooltip>
@@ -481,7 +481,7 @@ export function MonitoringControls({
                   }}
                   icon="refresh"
                   radixVariant="outline"
-                  size="xs"
+                  size="sm"
                   onSubmit={async () => {
                     try {
                       await apiCall(`/safe-rollout/${safeRolloutId}/snapshot`, {

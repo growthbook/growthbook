@@ -1,10 +1,12 @@
 import { useFormContext } from "react-hook-form";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { RampScheduleInterface } from "shared/validators";
+import { ensureConfigBacking } from "shared/util";
 import { PiLockSimple } from "react-icons/pi";
+import { useConfigBacking } from "@/hooks/useConfigBacking";
 import Heading from "@/ui/Heading";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
@@ -33,6 +35,9 @@ import ScheduleInputs from "@/components/Features/RuleModal/ScheduleInputs";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
+import RuleProjectScopeField, {
+  type ProjectScopeProps,
+} from "@/components/Features/RuleModal/ProjectScopeField";
 export type ScheduleType = "none" | "schedule" | "ramp";
 type ScheduleSelectorType = ScheduleType | "ramp-monitored";
 
@@ -63,7 +68,6 @@ export default function StandardRuleFields({
   isCyclic,
   cyclicFeatureId,
   conditionKey,
-  scheduleToggleEnabled: _scheduleToggleEnabled,
   setScheduleToggleEnabled,
   ruleRampSchedule,
   rampSectionState,
@@ -71,6 +75,7 @@ export default function StandardRuleFields({
   scheduleType,
   setScheduleType,
   envScope,
+  projectScope,
   isLiveRule,
   isNew,
   onRuleCyclicChange,
@@ -91,11 +96,33 @@ export default function StandardRuleFields({
   scheduleType: ScheduleType;
   setScheduleType: (t: ScheduleType) => void;
   envScope: EnvScopeProps;
+  projectScope: ProjectScopeProps;
   isLiveRule?: boolean;
   isNew?: boolean;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
+
+  // A config-backed feature default makes every rule an implicit sparse patch on
+  // that config. The rule may override with the default's config or a descendant,
+  // and the sparse toggle is dropped (rules are always sparse here).
+  const { defaultConfigKey, isConfigBacked, configBackingOptionKeys } =
+    useConfigBacking(feature);
+
+  // Config-backed rules are always sparse and always serve a config. Seed the
+  // value with the default's config (the user can switch to a compatible child)
+  // when it isn't already backed.
+  useEffect(() => {
+    if (!isConfigBacked || !defaultConfigKey) return;
+    if (!form.watch("sparse")) form.setValue("sparse", true);
+    const v = form.watch("value");
+    const normalized = ensureConfigBacking(v, defaultConfigKey);
+    if (normalized !== v) form.setValue("value", normalized);
+    // Re-run if the default re-points to a different config (else the rule keeps
+    // a stale backing key); `form` is stable (react-hook-form).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConfigBacked, defaultConfigKey]);
+
   const [advancedOptionsOpen, setadvancedOptionsOpen] = useState(
     !!form.watch("seed") ||
       (!isNew &&
@@ -223,7 +250,9 @@ export default function StandardRuleFields({
 
     setScheduleToggleEnabled(false);
     if (saved) {
-      setRampSectionState(saved.ramp);
+      // Start-approval is a ramp-only concept; never carry it into a non-ramp
+      // mode, or the rule publishes disabled with no way to clear it here.
+      setRampSectionState({ ...saved.ramp, requiresStartApproval: false });
       form.setValue("coverage", saved.coverage);
     } else {
       setRampSectionState({
@@ -232,6 +261,7 @@ export default function StandardRuleFields({
         steps: [],
         startDate: "",
         endScheduleAt: "",
+        requiresStartApproval: false,
       });
       if (leavingRamp) form.setValue("coverage", 1);
     }
@@ -240,6 +270,7 @@ export default function StandardRuleFields({
   return (
     <>
       <Field
+        size="legacy"
         label="Description"
         textarea
         minRows={1}
@@ -249,6 +280,7 @@ export default function StandardRuleFields({
       />
 
       <RuleEnvironmentScopeField {...envScope} my="5" />
+      <RuleProjectScopeField {...projectScope} mb="5" />
 
       <Box mb="5">
         <FeatureValueField
@@ -262,12 +294,20 @@ export default function StandardRuleFields({
           useCodeInput={true}
           showFullscreenButton={true}
           sparse={!!form.watch("sparse")}
-          setSparse={(v) => form.setValue("sparse", v)}
+          // Config-backed rules are always sparse, so the toggle is dropped and a
+          // config picker (restricted to the default's subtree) is offered instead.
+          setSparse={
+            isConfigBacked ? undefined : (v) => form.setValue("sparse", v)
+          }
+          allowConfigBacking={isConfigBacked}
+          configBackingOptionKeys={configBackingOptionKeys}
+          configBackingShowPatch={isConfigBacked}
+          lockConfigBacking={isConfigBacked}
         />
       </Box>
 
       <div className="mb-3">
-        <Heading as="h3" size="small" mb="2">
+        <Heading as="h3" size="sm" mb="2">
           Release plan
         </Heading>
         {releasePlanLocked && (
@@ -279,7 +319,7 @@ export default function StandardRuleFields({
                   : `Locked while ${isSimpleSchedule ? "Schedule" : "Ramp-up"} is running`}
               </Text>
               {!pendingScheduleRemoval && (
-                <Text as="div" mt="1" size="small">
+                <Text as="div" mt="1" size="sm">
                   To change the release plan, pause or end the Ramp-up
                 </Text>
               )}
@@ -403,7 +443,7 @@ export default function StandardRuleFields({
                           action={
                             <Button
                               color="inherit"
-                              size="xs"
+                              size="sm"
                               variant="outline"
                               onClick={() =>
                                 setRampSectionState({
@@ -445,14 +485,14 @@ export default function StandardRuleFields({
         {/* Ramp-up schedule editor is rendered on page 2 (see index.tsx) */}
       </div>
 
-      <Heading as="h3" size="small" mb="4" mt="6">
+      <Heading as="h3" size="sm" mb="4" mt="6">
         Targeting
       </Heading>
       {rampLocksTargeting ? (
         <HelperText status="info" mb="2" icon={<PiLockSimple />}>
           <Box>
             <Text as="div">Controlled by ramp schedule</Text>
-            <Text as="div" mt="1" size="small">
+            <Text as="div" mt="1" size="sm">
               Coverage and targeting are controlled by the live ramp schedule.
               Pause or end the ramp-up to make immediate changes.
             </Text>

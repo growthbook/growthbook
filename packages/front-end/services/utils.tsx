@@ -8,6 +8,7 @@ import {
 } from "@growthbook/growthbook-react";
 import { GrowthBook } from "@growthbook/growthbook";
 import Cookies from "js-cookie";
+import md5 from "md5";
 import { v4 as uuidv4 } from "uuid";
 import { AccountPlan } from "shared/enterprise";
 import { GB_SDK_ID_DEV, GB_SDK_ID_PROD } from "shared/constants";
@@ -22,6 +23,9 @@ const DEVICE_ID_COOKIE = "gb_device_id";
 const SESSION_ID_COOKIE = "gb_session_id";
 const pageIds: Record<string, string> = {};
 
+const hashAttr = (value: unknown): string | undefined =>
+  typeof value === "string" && value ? md5(value) : undefined;
+
 export const GB_SDK_ID =
   process.env.NODE_ENV === "production" ? GB_SDK_ID_PROD : GB_SDK_ID_DEV;
 
@@ -30,11 +34,22 @@ export const gbContext: Context = {
   clientKey: GB_SDK_ID,
   enableDevMode: true,
   trackingCallback: (experiment, result) => {
+    const attributes = growthbook.getAttributes();
     track(
       "Experiment Viewed",
       {
         experimentId: experiment.key,
         variationId: result.key,
+        userContextAttributes: {
+          attributes: {
+            // hardcoded sublist of attributes without PII
+            accountPlan: attributes.accountPlan,
+            hash_device_id: hashAttr(attributes.device_id),
+            page_id: attributes.page_id,
+            hash_anonymous_id: hashAttr(attributes.anonymous_id),
+            role: attributes.role,
+          },
+        },
       },
       true,
     );

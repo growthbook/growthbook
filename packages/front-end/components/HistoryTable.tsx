@@ -11,6 +11,8 @@ import Callout from "@/ui/Callout";
 import Button from "./Button";
 import Code from "./SyntaxHighlighting/Code";
 import LoadingOverlay from "./LoadingOverlay";
+import EventUser from "./Avatar/EventUser";
+import { auditInterfaceUserToEventUser } from "./Avatar/auditUserToEventUser";
 
 function EventDetails({
   eventType,
@@ -101,12 +103,6 @@ export function HistoryTableRow({
   itemName?: string;
   url?: string;
 }) {
-  const user = event.user;
-  const userDisplay =
-    ("name" in user && user.name) ||
-    ("email" in user && user.email) ||
-    ("apiKey" in user && "API Key") ||
-    ("system" in user && "System");
   let colSpanNum = 4;
   if (showName) colSpanNum++;
   if (showType) colSpanNum++;
@@ -135,7 +131,12 @@ export function HistoryTableRow({
         {showName && (
           <td>{url ? <Link href={url}>{displayName}</Link> : displayName}</td>
         )}
-        <td>{userDisplay}</td>
+        <td>
+          <EventUser
+            user={auditInterfaceUserToEventUser(event.user)}
+            display="name"
+          />
+        </td>
         <td>{event.event}</td>
         <td style={{ width: 30 }}>
           {event.details && (open ? <FaAngleUp /> : <FaAngleDown />)}

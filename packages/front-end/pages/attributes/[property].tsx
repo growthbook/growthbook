@@ -7,14 +7,14 @@ import { FeatureInterface } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { FaQuestionCircle } from "react-icons/fa";
-import { BiShow } from "react-icons/bi";
+import ReferencesLink from "@/components/References/ReferencesLink";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import PageHead from "@/components/Layout/PageHead";
 import { useAttributeSchema, useFeaturesList } from "@/services/features";
 import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import useApi from "@/hooks/useApi";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -43,9 +43,29 @@ export default function AttributeDetailPage() {
     [attributeSchema, property],
   );
 
-  const { savedGroups } = useDefinitions();
-  const { features } = useFeaturesList({ useCurrentProject: false });
-  const { experiments } = useExperiments();
+  const { data: savedGroupsData, error: savedGroupsError } = useApi<{
+    savedGroups: SavedGroupWithoutValues[];
+  }>("/saved-groups");
+  const savedGroupsLoading = !savedGroupsData && !savedGroupsError;
+  // Match definitions behavior by excluding archived groups.
+  const savedGroups = useMemo(
+    () => (savedGroupsData?.savedGroups ?? []).filter((sg) => !sg.archived),
+    [savedGroupsData],
+  );
+  const {
+    features,
+    loading: featuresLoading,
+    error: featuresError,
+  } = useFeaturesList({ useCurrentProject: false });
+  const {
+    experiments,
+    loading: experimentsLoading,
+    error: experimentsError,
+  } = useExperiments();
+  const referencesError =
+    savedGroupsError || featuresError || experimentsError || null;
+  const referencesLoading =
+    savedGroupsLoading || featuresLoading || experimentsLoading;
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -246,7 +266,7 @@ export default function AttributeDetailPage() {
       />
       <div className="p-3 container-fluid pagecontents">
         <Flex align="center" justify="between" mb="4">
-          <Heading as="h1" size="x-large">
+          <Heading as="h1" size="xl">
             {attribute.property}
           </Heading>
           {canEdit && (
@@ -334,20 +354,18 @@ export default function AttributeDetailPage() {
             </Text>
           </Flex>
           <Flex direction="column" align="end" gap="2">
-            {totalReferences > 0 ? (
-              <Link onClick={() => setShowReferencesModal(true)}>
-                <BiShow /> {totalReferences} reference
-                {totalReferences !== 1 && "s"}
-              </Link>
-            ) : (
-              <Tooltip body="No features, experiments, or saved groups currently reference this attribute.">
-                <span
-                  style={{ color: "var(--gray-10)", cursor: "not-allowed" }}
-                >
-                  <BiShow /> {totalReferences} references
-                </span>
-              </Tooltip>
-            )}
+            <ReferencesLink
+              total={totalReferences}
+              onShow={() => setShowReferencesModal(true)}
+              emptyTooltip="No features, experiments, or saved groups currently reference this attribute."
+              status={
+                referencesError
+                  ? "error"
+                  : referencesLoading
+                    ? "loading"
+                    : undefined
+              }
+            />
           </Flex>
         </Flex>
 

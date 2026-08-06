@@ -33,6 +33,7 @@ coverage.xml
 
 # Python virtual environment
 venv/
+.venv/
 .eslintcache
 
 # Docs
@@ -56,3 +57,6 @@ next-env.d.ts
 
 # Internal design docs (not for the public docs site / PRs)
 docs-internal/
+
+# Agent scratch space
+.context/

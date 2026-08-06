@@ -5,9 +5,9 @@ import {
   isManagedWarehouseAwaitingProvisioning,
   supportsEventForwarder,
 } from "shared/util";
+import { isSampleDatasource } from "shared/demo-datasource";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiLinkBold } from "react-icons/pi";
+import { PiDotsThreeVertical, PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import { useFeatureIsOn, useFeatureValue } from "@growthbook/growthbook-react";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
@@ -38,7 +38,6 @@ import {
 } from "@/ui/DropdownMenu";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
-import ClickhouseMaterializedColumns from "@/components/Settings/EditDataSource/ClickhouseMaterializedColumns";
 import ClickhouseManagedWarehouseIdentifiers from "@/components/Settings/EditDataSource/ClickhouseManagedWarehouseIdentifiers";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
@@ -48,6 +47,7 @@ import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HistoryTable from "@/components/HistoryTable";
 import EventForwarder from "@/components/Settings/EditDataSource/EventForwarder/EventForwarder";
+import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenInExplorerButton";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -96,7 +96,7 @@ const DataSourcePage: FC = () => {
   const metrics = combinedMetrics.filter((m) => m.datasource === did);
   const factTables = allFactTables.filter((ft) => ft.datasource === did);
 
-  const { apiCall } = useAuth();
+  const { apiCall, orgId } = useAuth();
   const { hasCommercialFeature } = useUser();
   const contextualBanditsEnabled = useFeatureIsOn("contextual-bandits");
 
@@ -117,9 +117,21 @@ const DataSourcePage: FC = () => {
 
   const deleteBlockedByEventForwarder = Boolean(d?.eventForwarderConfig);
 
+  // The sample Data Source connects to a shared, GrowthBook-operated database.
+  // Its connection info is never editable — repointing it would break the
+  // sample data and it would still be removed by "Delete Sample Data".
+  const isSampleDataSource = isSampleDatasource({
+    datasourceId: d?.id,
+    type: d?.type,
+    host: d?.params && "host" in d.params ? d.params.host : undefined,
+    projects: d?.projects,
+    organizationId: orgId ?? undefined,
+  });
+
   const canUpdateConnectionParams =
     (d &&
       !isManagedWarehouse &&
+      !isSampleDataSource &&
       permissionsUtil.canUpdateDataSourceParams(d) &&
       !hasFileConfig()) ||
     false;
@@ -176,6 +188,10 @@ const DataSourcePage: FC = () => {
   const supportsSQL = d.properties?.queryLanguage === "sql";
   const supportsEvents = d.properties?.events || false;
   const datasourceSupportsEventForwarder = supportsEventForwarder(d);
+  const canOpenInExplorer =
+    supportsSQL &&
+    !!d.properties?.supportsInformationSchema &&
+    permissionsUtil.canRunFactQueries(d);
 
   return (
     <div className="container pagecontents">
@@ -201,7 +217,7 @@ const DataSourcePage: FC = () => {
       )}
       <Flex align="center" justify="between">
         <Flex align="center" gap="3">
-          <Heading as="h1" size="x-large" mb="0">
+          <Heading as="h1" size="xl" mb="0">
             {d.name}
           </Heading>
           <Badge
@@ -216,10 +232,17 @@ const DataSourcePage: FC = () => {
             radius="full"
           />
         </Flex>
-        {(canUpdateConnectionParams ||
-          canUpdateDataSourceSettings ||
-          canDelete) && (
-          <Flex align="center" pr="2">
+        <Flex align="center" gap="2" pr="2">
+          <OpenInExplorerButton
+            enabled={canOpenInExplorer}
+            href={`/product-analytics/explore/data-source?datasourceId=${encodeURIComponent(
+              d.id,
+            )}`}
+            tooltip="Open this Data Source in Product Analytics to choose a table and visualize its data. Chart trends, compare time periods, and slice/dice your data."
+          />
+          {(canUpdateConnectionParams ||
+            canUpdateDataSourceSettings ||
+            canDelete) && (
             <DropdownMenu
               trigger={
                 <IconButton
@@ -228,8 +251,9 @@ const DataSourcePage: FC = () => {
                   radius="full"
                   size="2"
                   highContrast
+                  aria-label="Data source actions"
                 >
-                  <BsThreeDotsVertical size={16} />
+                  <PiDotsThreeVertical size={18} />
                 </IconButton>
               }
               menuPlacement="end"
@@ -322,8 +346,8 @@ const DataSourcePage: FC = () => {
                 </>
               )}
             </DropdownMenu>
-          </Flex>
-        )}
+          )}
+        </Flex>
       </Flex>
       {d.type === "mixpanel" && (
         <Callout status="warning" mt="3">
@@ -393,18 +417,18 @@ const DataSourcePage: FC = () => {
       <Box mt="4" mb="4">
         {supportsEvents && (
           <>
-            <div className="my-5">
+            <Box my="5">
               <DataSourceViewEditExperimentProperties
                 dataSource={d}
                 onSave={updateDataSourceSettings}
                 onCancel={() => undefined}
                 canEdit={canUpdateDataSourceSettings}
               />
-            </div>
+            </Box>
 
             {d.type === "mixpanel" && (
               <div>
-                <Heading size="small" as="h3" mb="1">
+                <Heading size="sm" as="h3" mb="1">
                   Mixpanel Tracking Instructions
                 </Heading>
                 <p>
@@ -455,7 +479,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               ) : (
                 <>
                   <Frame>
-                    <Heading as="h3" size="medium" mb="2">
+                    <Heading as="h3" size="md" mb="2">
                       Sending Events
                     </Heading>
                     <Text>
@@ -470,25 +494,16 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     </Text>
                   </Frame>
                   <Frame>
-                    {d.settings.useJsonColumns ? (
-                      <ClickhouseManagedWarehouseIdentifiers
-                        dataSource={d}
-                        canEdit={canUpdateDataSourceSettings}
-                        mutate={async () => {
-                          await Promise.all([
-                            mutateDefinitions({}),
-                            mutateCurrentDataSource(),
-                          ]);
-                        }}
-                      />
-                    ) : (
-                      <ClickhouseMaterializedColumns
-                        dataSource={d}
-                        onCancel={() => undefined}
-                        canEdit={canUpdateDataSourceSettings}
-                        mutate={mutateDefinitions}
-                      />
-                    )}
+                    <ClickhouseManagedWarehouseIdentifiers
+                      dataSource={d}
+                      canEdit={canUpdateDataSourceSettings}
+                      mutate={async () => {
+                        await Promise.all([
+                          mutateDefinitions({}),
+                          mutateCurrentDataSource(),
+                        ]);
+                      }}
+                    />
                   </Frame>
                 </>
               )
@@ -593,10 +608,6 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           </>
         )}
       </Box>
-      <div className="row">
-        <div className="col-md-12"></div>
-      </div>
-
       {editConn && (
         <DataSourceForm
           existing={true}

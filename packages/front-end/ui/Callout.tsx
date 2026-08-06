@@ -8,9 +8,9 @@ import {
 } from "@radix-ui/themes";
 import React, { forwardRef, ReactNode } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import { PiX } from "react-icons/pi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { radixSize } from "@/ui/sizes";
 import { RadixStatusIcon, Status, getRadixColor, Size } from "./HelperText";
 import styles from "./Callout.module.scss";
 
@@ -26,21 +26,12 @@ type UndismissibleProps = {
   renderWhenDismissed?: never;
 };
 
-export function getRadixSize(size: Size): Responsive<"1" | "2"> {
-  switch (size) {
-    case "sm":
-      return "1";
-    case "md":
-      return "2";
-  }
-}
-
 export default forwardRef<
   HTMLDivElement,
   {
     children: ReactNode;
     status: Status;
-    size?: "sm" | "md";
+    size?: Size;
     icon?: ReactNode | null;
     action?: ReactNode;
     role?: string;
@@ -92,7 +83,7 @@ export default forwardRef<
         role ??
         (status === "error" || status === "attention" ? "alert" : undefined)
       }
-      size={getRadixSize(size)}
+      size={radixSize(size)}
       {...containerProps}
       style={
         {
@@ -108,29 +99,36 @@ export default forwardRef<
           {renderedIcon}
         </RadixCallout.Icon>
       ) : null}
-      <Flex align="start" gap={action ? "3" : "1"} flexGrow="1">
+      <Flex
+        wrap="wrap"
+        align="start"
+        gapX="3"
+        gapY="2"
+        flexGrow="1"
+        minWidth="0"
+      >
         {/* Rendered as a div (not the default <p>) so block-level children
             and nested layout don't produce invalid <div>-inside-<p> nesting. */}
-        <Text as="div" size={getRadixSize(size)} style={{ flex: 1 }}>
+        <Text as="div" size={radixSize(size)} className={styles.body}>
           {children}
         </Text>
         {action ? <Box className={styles.firstLineSlot}>{action}</Box> : null}
-        {dismissible && id ? (
-          <Box className={styles.firstLineSlot}>
-            <Tooltip content="Dismiss">
-              <IconButton
-                variant="ghost"
-                color="gray"
-                size="1"
-                onClick={() => setDismissed(true)}
-                aria-label="Dismiss"
-              >
-                <PiX />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        ) : null}
       </Flex>
+      {dismissible && id ? (
+        <Box className={styles.firstLineSlot}>
+          <Tooltip content="Dismiss">
+            <IconButton
+              variant="ghost"
+              color="gray"
+              size="1"
+              onClick={() => setDismissed(true)}
+              aria-label="Dismiss"
+            >
+              <PiX />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ) : null}
     </RadixCallout.Root>
   );
 });

@@ -1,6 +1,7 @@
 import type {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
+  DataSourceType,
   ExposureQuery,
   UserIdType,
 } from "shared/types/datasource";
@@ -39,6 +40,18 @@ function makeSettings(
     userIdTypes,
     queries: { exposure },
   } as DataSourceSettings;
+}
+
+function makeDatasourceWithSettings(
+  settings: DataSourceSettings,
+  type: DataSourceType = "postgres",
+): DataSourceInterfaceWithParams {
+  return {
+    id: "ds_1",
+    projects: [],
+    type,
+    settings,
+  } as unknown as DataSourceInterfaceWithParams;
 }
 
 // ---------------------------------------------------------------------------
@@ -178,7 +191,9 @@ describe("getAutoExposureQueryId", () => {
   it("auto-selects the only exposure query", () => {
     expect(
       getAutoExposureQueryId({
-        dsSettings: makeSettings([makeExposureQuery("eq_1", "user_id")]),
+        datasource: makeDatasourceWithSettings(
+          makeSettings([makeExposureQuery("eq_1", "user_id")]),
+        ),
         hashAttribute: "id",
       }),
     ).toBe("eq_1");
@@ -187,10 +202,12 @@ describe("getAutoExposureQueryId", () => {
   it("does not auto-select when multiple queries are not linked to the hash attribute", () => {
     expect(
       getAutoExposureQueryId({
-        dsSettings: makeSettings([
-          makeExposureQuery("eq_1", "user_id"),
-          makeExposureQuery("eq_2", "anonymous_id"),
-        ]),
+        datasource: makeDatasourceWithSettings(
+          makeSettings([
+            makeExposureQuery("eq_1", "user_id"),
+            makeExposureQuery("eq_2", "anonymous_id"),
+          ]),
+        ),
         hashAttribute: "id",
       }),
     ).toBe("");
@@ -199,15 +216,17 @@ describe("getAutoExposureQueryId", () => {
   it("auto-selects the single query linked to the hash attribute", () => {
     expect(
       getAutoExposureQueryId({
-        dsSettings: makeSettings(
-          [
-            makeExposureQuery("eq_1", "user_id"),
-            makeExposureQuery("eq_2", "anonymous_id"),
-          ],
-          [
-            makeUserIdType("user_id", ["userId"]),
-            makeUserIdType("anonymous_id", ["deviceId"]),
-          ],
+        datasource: makeDatasourceWithSettings(
+          makeSettings(
+            [
+              makeExposureQuery("eq_1", "user_id"),
+              makeExposureQuery("eq_2", "anonymous_id"),
+            ],
+            [
+              makeUserIdType("user_id", ["userId"]),
+              makeUserIdType("anonymous_id", ["deviceId"]),
+            ],
+          ),
         ),
         hashAttribute: "userId",
       }),
@@ -217,15 +236,17 @@ describe("getAutoExposureQueryId", () => {
   it("does not auto-select when multiple queries are linked to the hash attribute", () => {
     expect(
       getAutoExposureQueryId({
-        dsSettings: makeSettings(
-          [
-            makeExposureQuery("eq_1", "user_id"),
-            makeExposureQuery("eq_2", "logged_in_id"),
-          ],
-          [
-            makeUserIdType("user_id", ["userId"]),
-            makeUserIdType("logged_in_id", ["userId"]),
-          ],
+        datasource: makeDatasourceWithSettings(
+          makeSettings(
+            [
+              makeExposureQuery("eq_1", "user_id"),
+              makeExposureQuery("eq_2", "logged_in_id"),
+            ],
+            [
+              makeUserIdType("user_id", ["userId"]),
+              makeUserIdType("logged_in_id", ["userId"]),
+            ],
+          ),
         ),
         hashAttribute: "userId",
       }),
@@ -235,10 +256,12 @@ describe("getAutoExposureQueryId", () => {
   it("uses the template exposure query when it is valid", () => {
     expect(
       getAutoExposureQueryId({
-        dsSettings: makeSettings([
-          makeExposureQuery("eq_1", "user_id"),
-          makeExposureQuery("eq_2", "anonymous_id"),
-        ]),
+        datasource: makeDatasourceWithSettings(
+          makeSettings([
+            makeExposureQuery("eq_1", "user_id"),
+            makeExposureQuery("eq_2", "anonymous_id"),
+          ]),
+        ),
         hashAttribute: "id",
         templateExposureQueryId: "eq_2",
       }),
@@ -248,10 +271,60 @@ describe("getAutoExposureQueryId", () => {
   it("falls back to auto-selection when the template exposure query is invalid", () => {
     expect(
       getAutoExposureQueryId({
-        dsSettings: makeSettings([makeExposureQuery("eq_1", "user_id")]),
+        datasource: makeDatasourceWithSettings(
+          makeSettings([makeExposureQuery("eq_1", "user_id")]),
+        ),
         hashAttribute: "id",
         templateExposureQueryId: "eq_missing",
       }),
     ).toBe("eq_1");
+  });
+
+  it("auto-selects the managed warehouse query the hash attribute folds into", () => {
+    // Managed warehouses don't populate userIdType.attributes, but the hash
+    // attribute maps to an identifier column (here `id` folds into device_id).
+    expect(
+      getAutoExposureQueryId({
+        datasource: makeDatasourceWithSettings(
+          makeSettings([
+            makeExposureQuery("user_id", "user_id"),
+            makeExposureQuery("device_id", "device_id"),
+          ]),
+          "growthbook_clickhouse",
+        ),
+        hashAttribute: "id",
+      }),
+    ).toBe("device_id");
+  });
+
+  it("auto-selects the managed warehouse query for a custom identifier", () => {
+    expect(
+      getAutoExposureQueryId({
+        datasource: makeDatasourceWithSettings(
+          makeSettings([
+            makeExposureQuery("user_id", "user_id"),
+            makeExposureQuery("device_id", "device_id"),
+            makeExposureQuery("company_id", "company_id"),
+          ]),
+          "growthbook_clickhouse",
+        ),
+        hashAttribute: "company_id",
+      }),
+    ).toBe("company_id");
+  });
+
+  it("does not auto-select a managed warehouse query for an unmapped attribute", () => {
+    expect(
+      getAutoExposureQueryId({
+        datasource: makeDatasourceWithSettings(
+          makeSettings([
+            makeExposureQuery("user_id", "user_id"),
+            makeExposureQuery("device_id", "device_id"),
+          ]),
+          "growthbook_clickhouse",
+        ),
+        hashAttribute: "some_non_identifier",
+      }),
+    ).toBe("");
   });
 });

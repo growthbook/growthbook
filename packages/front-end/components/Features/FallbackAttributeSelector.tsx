@@ -122,6 +122,7 @@ export default function FallbackAttributeSelector({
         attribute may be used instead.
       </Text>
       <SelectField
+        size="legacy"
         withRadixThemedPortal
         options={fallbackAttributeOptions}
         formatOptionLabel={(o, meta) => {
@@ -213,7 +214,7 @@ export default function FallbackAttributeSelector({
         }
       />
       {disableStickyBucketing ? (
-        <Text as="div" color="text-mid" size="small" mt="1">
+        <Text as="div" color="text-mid" size="sm" mt="1">
           Fallback attributes require Sticky Bucketing, which is disabled for
           this experiment.
         </Text>

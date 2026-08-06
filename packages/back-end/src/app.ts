@@ -26,6 +26,7 @@ import {
   ENVIRONMENT,
   EXPRESS_TRUST_PROXY_OPTS,
   IS_CLOUD,
+  OAUTH_AS_ENABLED,
   SENTRY_DSN,
 } from "./util/secrets";
 import {
@@ -33,10 +34,15 @@ import {
   getExperimentsScript,
 } from "./controllers/config";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
+import { trackRequestCompletion } from "./services/growthbook";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
 import scimRouter from "./scim/scim.router";
 import { getBuild } from "./util/build";
+import {
+  oauthAsAuthedRouter,
+  oauthAsPublicRouter,
+} from "./routers/oauth-as/oauth-as.router";
 
 // Begin Controllers
 import * as authControllerRaw from "./controllers/auth";
@@ -110,6 +116,7 @@ import {
   ExperimentIncrementalPipelineRequiresFullRefreshError,
   shouldSkipErrorLog,
   SoftWarningError,
+  SQLExecutionError,
 } from "./util/errors";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
@@ -125,6 +132,10 @@ import {
   constantsRouter,
   constantDraftStatesRouter,
 } from "./routers/constant/constant.router";
+import {
+  configsRouter,
+  configDraftStatesRouter,
+} from "./routers/config/config.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
@@ -273,9 +284,10 @@ app.get("/", (req, res) => {
     res.json({
       name: "GrowthBook API",
       production: ENVIRONMENT === "production",
-      api_host:
+      api_host: (
         process.env.API_HOST ||
-        req.protocol + "://" + req.hostname + ":" + app.get("port"),
+        req.protocol + "://" + req.hostname + ":" + app.get("port")
+      ).replace(/\/+$/, ""),
       app_origin: APP_ORIGIN,
       config_source: usingFileConfig() ? "file" : "db",
       email_enabled: isEmailEnabled(),
@@ -521,12 +533,22 @@ app.post("/auth/refresh", authController.postRefresh);
 app.post("/auth/logout", authController.postLogout);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
 
+// OAuth 2.1 Authorization Server (public) — discovery, DCR, token, revoke.
+// CORS is per-route on the router; don't add app-wide cors(*) here.
+if (OAUTH_AS_ENABLED) {
+  app.use(oauthAsPublicRouter);
+}
+
 // All other routes require a valid JWT
 const auth = getAuthConnection();
 app.use(auth.middleware as RequestHandler);
 
 // Add logged in user props to the request
 app.use(asyncHandler(processJWT as unknown as RequestHandler));
+
+// Track request completion for GrowthBook telemetry — only routes past this
+// point can have `req.gb` set, so earlier (public/SDK) routes never pay for it
+app.use(trackRequestCompletion as unknown as RequestHandler);
 
 // Add logged in user props to the logger
 app.use(((
@@ -573,6 +595,11 @@ const requireUserIdHandler: RequestHandler = async (req, res, next) => {
   next();
 };
 app.use(asyncHandler(requireUserIdHandler));
+
+// OAuth consent helpers (authenticated)
+if (OAUTH_AS_ENABLED) {
+  app.use(oauthAsAuthedRouter);
+}
 
 // Organization and Settings
 app.use(organizationsRouter);
@@ -662,6 +689,8 @@ app.use("/custom-fields", customFieldsRouter);
 
 app.use("/constants", constantsRouter);
 app.use("/constants-draft-states", constantDraftStatesRouter);
+app.use("/configs", configsRouter);
+app.use("/configs-draft-states", configDraftStatesRouter);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);
@@ -1106,24 +1135,16 @@ app.post(
   datasourcesController.fetchBigQueryDatasets,
 );
 app.post(
-  "/datasource/:datasourceId/materializedColumn",
-  datasourcesController.postMaterializedColumn,
-);
-app.put(
-  "/datasource/:datasourceId/materializedColumn/:matColumnName",
-  datasourcesController.updateMaterializedColumn,
-);
-app.delete(
-  "/datasource/:datasourceId/materializedColumn/:matColumnName",
-  datasourcesController.deleteMaterializedColumn,
-);
-app.post(
   "/datasource/:datasourceId/recreate-managed-warehouse",
   datasourcesController.postRecreateManagedWarehouse,
 );
 app.post(
   "/datasource/:datasourceId/managed-warehouse/remove-legacy-identifier",
   datasourcesController.postRemoveManagedWarehouseLegacyIdentifier,
+);
+app.put(
+  "/datasource/:datasourceId/managed-warehouse/id-attribute-identifier",
+  datasourcesController.putManagedWarehouseIdAttributeIdentifier,
 );
 
 if (IS_CLOUD) {
@@ -1332,6 +1353,7 @@ const errorHandler: ErrorRequestHandler = (
     warnings?: string[];
     code?: string;
     details?: unknown;
+    sql?: string;
   } = {
     status: status,
     message: err.message || "An error occurred",
@@ -1340,6 +1362,10 @@ const errorHandler: ErrorRequestHandler = (
   // Picked up by front-end (when combined with 422 status code) to show a "Save anyway" dialog
   if (err instanceof SoftWarningError) {
     body.warnings = err.warnings;
+  }
+  // Surface the rendered SQL so the front-end can display it alongside the error
+  if (err instanceof SQLExecutionError) {
+    body.sql = err.query;
   }
   // Structured errors carry a machine-readable code + details so the front-end
   // can render richer error states.

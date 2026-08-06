@@ -23,6 +23,10 @@ export const mssqlDialect: SqlDialect = {
     }
     return `DATETRUNC(${granularity}, ${col})`;
   },
+  dateDiffMs: (startCol: string, endCol: string) =>
+    `DATEDIFF_BIG(millisecond, ${startCol}, ${endCol})`,
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
+    `DATEADD(second, ${sign === "-" ? "-" : ""}${amount}, ${col})`,
   castToFloat: (col: string) => `CAST(${col} as FLOAT)`,
   formatDate: (col: string) => `FORMAT(${col}, 'yyyy-MM-dd')`,
   castToString: (col: string) => `cast(${col} as varchar(256))`,

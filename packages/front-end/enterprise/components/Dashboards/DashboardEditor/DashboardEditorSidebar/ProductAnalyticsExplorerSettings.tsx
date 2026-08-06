@@ -5,6 +5,7 @@ import {
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
   blockUsesDashboardDateControl,
+  FunnelExplorationBlockInterface,
   buildComparisonDateRange,
   dashboardBlockHasIds,
   getEffectiveExplorationConfig,
@@ -28,12 +29,14 @@ interface Props {
     | MetricExplorationBlockInterface
     | FactTableExplorationBlockInterface
     | DataSourceExplorationBlockInterface
+    | FunnelExplorationBlockInterface
   >;
   setBlock: React.Dispatch<
     DashboardBlockInterfaceOrData<
       | MetricExplorationBlockInterface
       | FactTableExplorationBlockInterface
       | DataSourceExplorationBlockInterface
+      | FunnelExplorationBlockInterface
     >
   >;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
@@ -169,7 +172,8 @@ export default function ProductAnalyticsExplorerSettings({
         } as
           | MetricExplorationBlockInterface
           | FactTableExplorationBlockInterface
-          | DataSourceExplorationBlockInterface);
+          | DataSourceExplorationBlockInterface
+          | FunnelExplorationBlockInterface);
       }}
     >
       <ProductAnalyticsExplorerSideBarWrapper

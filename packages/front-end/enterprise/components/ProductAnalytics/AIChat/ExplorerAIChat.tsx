@@ -275,7 +275,7 @@ export default function ExplorerAIChat() {
           <Flex align="center" gap="2">
             <Button
               variant="ghost"
-              size="xs"
+              size="sm"
               onClick={() => setSidebarOpen((o) => !o)}
               title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
             >

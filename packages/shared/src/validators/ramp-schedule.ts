@@ -156,6 +156,8 @@ export const rampEventTypeArray = [
   "resumed",
   "approval-requested",
   "approval-granted",
+  "awaiting-start-approval",
+  "start-approved",
   "rollback",
   "reset",
   "restart",
@@ -193,6 +195,15 @@ export const rampScheduleValidator = baseSchema
     endActions: z.array(rampStepAction).optional(),
     // When set, the rule stays disabled until this activation date.
     startDate: z.date().nullish(),
+    // Persistent config: when true, the -1 → step 0 crossing is gated behind an
+    // explicit human approval instead of firing on publish / at startDate.
+    // The rule stays disabled (zero traffic) until approved. Composes with
+    // startDate: "hold until approved, then arm for that date".
+    requiresStartApproval: z.boolean().optional(),
+    // Transient marker: set when the current launch is approved, cleared on
+    // every return to step -1 (publish, rollback). While requiresStartApproval
+    // is true and this is unset, the schedule is held awaiting approval.
+    startApprovedAt: z.date().nullish(),
     cutoffDate: z.date().nullish(),
     status: z.enum(rampScheduleStatusArray),
     currentStepIndex: z.number().int().min(-1),
@@ -283,6 +294,52 @@ export const rampScheduleValidator = baseSchema
   });
 
 export type RampScheduleInterface = z.infer<typeof rampScheduleValidator>;
+
+// The start-approval gate is armed but not yet cleared for the current launch:
+// the schedule opted into requiresStartApproval and hasn't recorded an approval.
+// Status-independent — use this at the actual -1 → 0 crossing (where the status
+// is already "running") as the invariant. `isAwaitingStartApproval` layers the
+// pre-start status/step conditions on top for UI/notification display.
+export function startApprovalPending(schedule: {
+  requiresStartApproval?: boolean | null;
+  startApprovedAt?: Date | null;
+}): boolean {
+  return !!schedule.requiresStartApproval && !schedule.startApprovedAt;
+}
+
+// Resolve the post-edit start-approval value from a pending action against a
+// base (live/existing) schedule. Tri-state: `true`/`false` = explicit set,
+// `null` = explicit off, `undefined` = leave the base value. Centralizes the
+// null-vs-undefined handling so serialization/merge sites can't drift.
+export function resolveStartApproval(
+  actionValue: boolean | null | undefined,
+  baseValue: boolean | null | undefined,
+): boolean {
+  return actionValue !== undefined ? !!actionValue : !!baseValue;
+}
+
+// Derives the "awaiting start approval" state: a pre-start schedule that
+// opted into requiresStartApproval and hasn't been approved for the
+// current launch yet. This is the one-time hold on the -1 → step 0 crossing;
+// it re-arms on every return to step -1 (publish, rollback) because
+// startApprovedAt is cleared there. Used by UI, notifications, and the
+// engine's start/advance gating in lieu of a stored status.
+export function isAwaitingStartApproval(schedule: {
+  status: string;
+  currentStepIndex: number;
+  requiresStartApproval?: boolean;
+  startApprovedAt?: Date | null;
+}): boolean {
+  return (
+    startApprovalPending(schedule) &&
+    schedule.currentStepIndex < 0 &&
+    // "ready" is the live pre-start hold. "pending" is the same intent before
+    // the activating revision publishes (including synthetic draft-preview
+    // schedules) — both surface as "awaiting approval". A running schedule
+    // at -1 is a transient mid-transition state, not a user-facing hold.
+    (schedule.status === "ready" || schedule.status === "pending")
+  );
+}
 
 // Derives the "awaiting approval" display state. A `running` schedule whose
 // current step has `holdConditions.requiresApproval` set and whose
@@ -490,6 +547,18 @@ export const apiRampScheduleInterface = namedSchema(
       .describe(
         "Rule-level kill date. When reached, the ramp is completed and the rule is disabled (enabled=false). Use for time-boxed rules that must stop serving on a fixed date regardless of ramp progress. Set to null to clear.",
       ),
+    requiresStartApproval: z
+      .boolean()
+      .optional()
+      .describe(
+        "When true, the ramp holds at step -1 with its rule disabled (zero traffic) until a human approves the start via /actions/approve-step. Composes with startDate ('hold until approved, then arm for that date').",
+      ),
+    startApprovedAt: z.iso
+      .datetime()
+      .nullish()
+      .describe(
+        "When the current launch's start was approved. Cleared on every return to step -1 (publish, rollback), re-arming the approval gate.",
+      ),
     status: z.enum(rampScheduleStatusArray),
     currentStepIndex: z
       .number()
@@ -537,6 +606,11 @@ export const apiRampScheduleInterface = namedSchema(
       .nullish()
       .describe(
         "Approval record for the current step. Valid only while `stepApproval.stepIndex === currentStepIndex`.",
+      ),
+    awaitingApproval: z
+      .boolean()
+      .describe(
+        "Computed at read time: whether a human approval is the gate blocking the schedule right now — either the start-approval gate (`requiresStartApproval` before step 0) or the current step's `holdConditions.requiresApproval` once its time hold (if any) has elapsed. Paused schedules report `false` (the pause is the blocking gate). For monitored steps the approve-step endpoint may still reject an approval until analysis-based gates clear.",
       ),
     monitoringStartDate: z.iso
       .datetime()

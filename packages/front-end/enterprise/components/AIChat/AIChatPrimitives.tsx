@@ -77,7 +77,7 @@ export function ThinkingBubble({ label }: { label: string }) {
         <span className={aiChatStyles.spinIcon}>
           <PiCircleNotch size={12} />
         </span>
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           {label}
         </Text>
       </Flex>
@@ -106,7 +106,7 @@ export function AIAnalystLabel({
       >
         <PiSparkle size={12} color="var(--violet-11)" />
       </Flex>
-      <Text size="small" weight="medium" color="text-low">
+      <Text size="sm" weight="medium" color="text-low">
         {label}
       </Text>
     </Flex>

@@ -65,6 +65,7 @@ export default function FeatureSettings() {
           </Box>
           <Box mb="4" width="100%">
             <Field
+              size="legacy"
               label={
                 <PremiumTooltip
                   commercialFeature="hash-secure-attributes"
@@ -121,6 +122,7 @@ export default function FeatureSettings() {
               spaces.
             </Text>
             <Field
+              size="legacy"
               id="featureKeyExample"
               {...form.register("featureKeyExample")}
               placeholder="my-feature"
@@ -142,6 +144,7 @@ export default function FeatureSettings() {
               companies.
             </Text>
             <Field
+              size="legacy"
               id="featureRegexValidator"
               {...form.register("featureRegexValidator")}
               placeholder=""
@@ -194,6 +197,48 @@ export default function FeatureSettings() {
           </Box>
 
           <Box mb="6" width="100%">
+            <Checkbox
+              id="toggle-configsExtensibleByDefault"
+              label="Allow configs to be extended by default"
+              description="New base configs permit child configs and feature rules to add keys beyond the declared schema. Each config can override this from its own settings."
+              value={!!form.watch("configsExtensibleByDefault")}
+              setValue={(value) =>
+                form.setValue("configsExtensibleByDefault", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </Box>
+
+          <Box mb="6" width="100%">
+            <Checkbox
+              id="toggle-configExperimentGuardDefault"
+              label="Guard configs used by running experiments by default"
+              description="New configs enable the experiment guard: publishing a change served to a running experiment soft-blocks until acknowledged. Each config can override this from its own settings."
+              value={!!form.watch("configExperimentGuardDefault")}
+              setValue={(value) =>
+                form.setValue("configExperimentGuardDefault", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </Box>
+
+          <Box mb="6" width="100%">
+            <Checkbox
+              id="toggle-blockPublishOnSchemaError"
+              label="Block publishing on JSON schema errors"
+              description={`When publishing a revision, re-check feature and config values against their JSON schema and block the publish if they don't match. Disable to surface a bypassable warning instead. Per-request edits are always validated unless the request body passes "skipSchemaValidation": true.`}
+              value={form.watch("blockPublishOnSchemaError") ?? true}
+              setValue={(value) =>
+                form.setValue("blockPublishOnSchemaError", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </Box>
+
+          <Box mb="6" width="100%">
             {/* TODO(UI): move to a neutral org-level "Revisions" section once
                 saved groups & others enforce this cap (it's not feature-only). */}
             <Checkbox
@@ -224,6 +269,7 @@ export default function FeatureSettings() {
 
           <Box mb="5">
             <SelectField
+              size="legacy"
               id="preferredEnvironment"
               label="Preferred environment for Feature Flag pages"
               labelClassName="font-weight-semibold"
@@ -355,6 +401,7 @@ export default function FeatureSettings() {
                   </Box>
                   <Box mb="5">
                     <Field
+                      size="legacy"
                       label="Only show code refs from the following branches (comma-separated)"
                       type="text"
                       placeholder="main, qa, dev"
@@ -367,6 +414,7 @@ export default function FeatureSettings() {
 
                   <Box mb="5">
                     <SelectField
+                      size="legacy"
                       label="Platform (to allow direct linking)"
                       labelClassName="font-weight-semibold"
                       containerClassName="mb-0"

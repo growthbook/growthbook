@@ -9,6 +9,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { toApiSavedGroupRevision } from "back-end/src/api/saved-groups/toApiSavedGroupRevision";
 import type { RevisionLifecycleAction } from "back-end/src/events/revisionWebhookAdapters";
+import { bulkPublishFields } from "back-end/src/events/bulkPublishCorrelation";
 import { logger } from "back-end/src/util/logger";
 
 type SavedGroupRevisionEvent = Extract<
@@ -82,10 +83,12 @@ export async function dispatchSavedGroupRevisionEvent(
           ...apiRevision,
           // Field-specific handlers pass the exact change; the generic
           // /revision controller omits it, so derive from the proposed changes.
-          // The cross-entity `change` union includes the constant-only "value";
-          // saved groups never emit it, so ignore it and re-derive.
+          // The cross-entity `change` union includes kinds saved groups never
+          // emit (constant "value", config "schema"); ignore those and re-derive.
           change:
-            action.change && action.change !== "value"
+            action.change &&
+            action.change !== "value" &&
+            action.change !== "schema"
               ? action.change
               : deriveChange(revision.target.proposedChanges),
         });
@@ -129,7 +132,19 @@ export async function dispatchSavedGroupRevisionEvent(
         await emit("revision.rebased", apiRevision);
         break;
       case "published":
-        await emit("revision.published", apiRevision);
+        await emit("revision.published", {
+          ...apiRevision,
+          ...bulkPublishFields(context),
+        });
+        break;
+      case "publishFailed":
+        await emit("revision.publishFailed", {
+          ...apiRevision,
+          ...bulkPublishFields(context),
+          failureReason: action.reason,
+          terminal: action.terminal,
+          attempts: action.attempts,
+        });
         break;
       case "discarded":
         await emit("revision.discarded", apiRevision);
@@ -148,7 +163,8 @@ export async function dispatchSavedGroupRevisionEvent(
           : null;
         await emit("revision.reverted", {
           ...apiRevision,
-          ...(source?.version != null
+          ...bulkPublishFields(context),
+          ...(source && source.version !== undefined
             ? { revertedToVersion: source.version }
             : {}),
         });

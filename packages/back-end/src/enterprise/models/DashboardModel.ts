@@ -24,9 +24,12 @@ import {
   DASHBOARD_GRID_COLS,
   getBlockSizeBounds,
 } from "shared/enterprise";
+import {
+  ExplorationDateRange,
+  defaultPrimaryKeyShape,
+} from "shared/validators";
 import omit from "lodash/omit";
 import { getValidDate } from "shared/dates";
-import { defaultPrimaryKeyShape } from "shared/validators";
 import {
   MakeModelClass,
   ScopedFilterQuery,
@@ -117,6 +120,18 @@ export class DashboardModel extends BaseClass {
 
   public async getAllNonExperimentDashboards(): Promise<DashboardInterface[]> {
     return this._find({ experimentId: null });
+  }
+
+  // Every dashboard in the org, ignoring the caller's read permissions. Only
+  // for authoritative dependency scans (e.g. blocking deletion of a fact table
+  // column a dashboard still references), where missing a dashboard the caller
+  // cannot read would let the delete through and leave that dashboard
+  // generating SQL for a column that no longer exists. Never return these to
+  // the caller.
+  public async dangerousGetAllForDependencyScan(): Promise<
+    DashboardInterface[]
+  > {
+    return this._find({}, { bypassReadPermissionChecks: true });
   }
 
   public static async getDashboardsToUpdate(): Promise<
@@ -587,6 +602,75 @@ export function generateDashboardBlockIds(
   return blockToInterface(block);
 }
 
+// Convert a legacy "Completed Experiments" preset ("30" | "60" | "90" | "180" |
+// "365" | "custom") into the Metric-Explorer ExplorationDateRange shape. Fixed
+// presets without a direct equivalent (60/180/365) fold into a Custom Lookback.
+function legacyPresetToExplorationDateRange(
+  preset: string,
+  startDate?: string,
+  endDate?: string,
+): ExplorationDateRange {
+  const toYmd = (iso?: string) =>
+    iso ? getValidDate(iso).toISOString().slice(0, 10) : undefined;
+  switch (preset) {
+    case "custom":
+      return {
+        predefined: "customDateRange",
+        startDate: toYmd(startDate),
+        endDate: toYmd(endDate),
+      };
+    case "7":
+      return { predefined: "last7Days" };
+    case "30":
+      return { predefined: "last30Days" };
+    case "90":
+      return { predefined: "last90Days" };
+    default: {
+      const days = parseInt(preset, 10);
+      if (!isNaN(days) && days > 0) {
+        return {
+          predefined: "customLookback",
+          lookbackValue: days,
+          lookbackUnit: "day",
+        };
+      }
+      return { predefined: "last90Days" };
+    }
+  }
+}
+
+// Rewrite a completed-experiments block's legacy string `dateRange` (+ optional
+// top-level startDate/endDate) into the ExplorationDateRange object. Already
+// migrated blocks (object dateRange) pass through unchanged.
+function migrateCompletedExperimentsDateRange(
+  doc:
+    | LegacyDashboardBlockInterface
+    | DashboardBlockInterface
+    | CreateDashboardBlockInterface,
+): DashboardBlockInterface | CreateDashboardBlockInterface {
+  const raw = doc as unknown as {
+    dateRange?: unknown;
+    startDate?: string;
+    endDate?: string;
+  };
+  if (raw.dateRange && typeof raw.dateRange === "object") {
+    return doc as DashboardBlockInterface | CreateDashboardBlockInterface;
+  }
+  const preset = typeof raw.dateRange === "string" ? raw.dateRange : "90";
+  const dateRange = legacyPresetToExplorationDateRange(
+    preset,
+    raw.startDate,
+    raw.endDate,
+  );
+  const copy: Record<string, unknown> = { ...(doc as Record<string, unknown>) };
+  delete copy.startDate;
+  delete copy.endDate;
+  copy.dateRange = dateRange;
+  return copy as unknown as
+    | DashboardBlockInterface
+    | CreateDashboardBlockInterface;
+}
+
 export function migrateBlock(
   doc:
     | LegacyDashboardBlockInterface
@@ -797,6 +881,66 @@ export function migrateBlock(
         blockConfig: doc.blockConfig ?? [],
       };
     }
+    case "metric-experiments": {
+      // Legacy blocks stored a single top-level startDate/endDate window (a
+      // Custom Date Range applied to phase end dates). Migrate it to the new
+      // `endDateRange` field and drop the deprecated keys.
+      const legacy = doc as {
+        startDate?: string;
+        endDate?: string;
+        projects?: string[];
+      };
+      const copy = { ...(doc as Record<string, unknown>) };
+      let changed = false;
+
+      if (legacy.startDate !== undefined || legacy.endDate !== undefined) {
+        delete copy.startDate;
+        delete copy.endDate;
+        const toYmd = (iso?: string) =>
+          iso ? getValidDate(iso).toISOString().slice(0, 10) : undefined;
+        copy.endDateRange = {
+          predefined: "customDateRange",
+          startDate: toYmd(legacy.startDate),
+          endDate: toYmd(legacy.endDate),
+        };
+        changed = true;
+      }
+
+      // Legacy blocks predate the `projects` field; default to all projects.
+      if (legacy.projects === undefined) {
+        copy.projects = [];
+        changed = true;
+      }
+
+      if (!changed) return doc;
+      return copy as unknown as
+        | DashboardBlockInterface
+        | CreateDashboardBlockInterface;
+    }
+    case "experiments-scaled-impact":
+    case "experiments-win-rate":
+    case "experiments-status": {
+      // Migrate the legacy string date range ("30"/"90"/"custom"…) to the
+      // Metric-Explorer-style ExplorationDateRange object.
+      const migrated = migrateCompletedExperimentsDateRange(doc);
+      // Team Velocity was renamed from "Experiment Status"; rewrite only the
+      // old default title so pre-existing blocks pick up the new name.
+      if (
+        migrated.type === "experiments-status" &&
+        migrated.title === "Experiment Status"
+      ) {
+        return { ...migrated, title: "Team Velocity" };
+      }
+      return migrated;
+    }
+    case "metric-explorer":
+    case "markdown":
+    case "experiment-metadata":
+    case "experiment-traffic":
+    case "metric-exploration":
+    case "fact-table-exploration":
+    case "data-source-exploration":
+    case "funnel-exploration":
     default:
       return doc;
   }
@@ -817,6 +961,21 @@ function toBlockApiInterface(
           endDate: getValidDate(block.analysisSettings.endDate).toISOString(),
         },
       };
+    case "experiment-metric":
+    case "experiment-dimension":
+    case "experiment-time-series":
+    case "sql-explorer":
+    case "markdown":
+    case "experiment-metadata":
+    case "metric-experiments":
+    case "experiments-scaled-impact":
+    case "experiments-win-rate":
+    case "experiments-status":
+    case "experiment-traffic":
+    case "metric-exploration":
+    case "fact-table-exploration":
+    case "data-source-exploration":
+    case "funnel-exploration":
     default:
       return block;
   }
@@ -840,6 +999,20 @@ export function fromBlockApiInterface(
         ...apiBlock,
         blockConfig: apiBlock.blockConfig ?? [],
       };
+    case "experiment-metric":
+    case "experiment-dimension":
+    case "experiment-time-series":
+    case "markdown":
+    case "experiment-metadata":
+    case "metric-experiments":
+    case "experiments-scaled-impact":
+    case "experiments-win-rate":
+    case "experiments-status":
+    case "experiment-traffic":
+    case "metric-exploration":
+    case "fact-table-exploration":
+    case "data-source-exploration":
+    case "funnel-exploration":
     default:
       return apiBlock;
   }

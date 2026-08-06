@@ -16,6 +16,8 @@ import {
   LicenseInterface,
   LicenseMetaData,
   LicenseUserCodes,
+  makeOrgLimits,
+  OrgLimitsAccessor,
   SubscriptionInfo,
 } from "shared/enterprise";
 import { StripeAddress, TaxIdType } from "shared/types/subscriptions";
@@ -34,7 +36,10 @@ export const LICENSE_SERVER_URL =
   "https://central-license-server.growthbook.io/api/v1/";
 
 // mimic behavior in back-end/src/util/secrets.ts
-const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
+const APP_ORIGIN = (process.env.APP_ORIGIN || "http://localhost:3000").replace(
+  /\/+$/,
+  "",
+);
 
 const logBase = parseProcessLogBase();
 
@@ -987,7 +992,15 @@ export function getLicenseError(org: MinimalOrganization): string {
     }
   }
 
-  if (shouldLimitAccessDueToExpiredLicense(licenseData)) {
+  if (
+    shouldLimitAccessDueToExpiredLicense(
+      licenseData,
+      // Use licenseData.id, not the org's key: licenseInit may have fallen
+      // back to the LICENSE_KEY env var license and cached it under the
+      // org's key, so `key` can describe a different license than the data.
+      isAirGappedLicenseKey(licenseData.id),
+    )
+  ) {
     return "License expired";
   }
 
@@ -1047,12 +1060,31 @@ export function getEffectiveAccountPlan(org: MinimalOrganization): AccountPlan {
   return license.plan;
 }
 
+// Raw plan limits only — does NOT honor the pricing-limits flag's kill switch.
+// Enforcement paths must use getEffectiveOrgLimits (services/plan-limits.ts).
+export function getOrgLimits(
+  org: MinimalOrganization & Pick<OrganizationInterface, "limits">,
+): OrgLimitsAccessor {
+  return makeOrgLimits({
+    effectivePlan: getEffectiveAccountPlan(org),
+    orgLimits: org.limits,
+    licenseLimits: getLicense(org.licenseKey || process.env.LICENSE_KEY)
+      ?.limits,
+  });
+}
+
+// Air-gapped licenses never contact the license server, so they can't be
+// remotely downgraded. Instead, access ends locally once the license has been
+// expired for longer than this grace period.
+export const AIR_GAPPED_EXPIRATION_GRACE_PERIOD_DAYS = 14;
+
 /**
  * Checks if the license is expired.
  * @returns {boolean} True if the license is expired, false otherwise.
  */
 function shouldLimitAccessDueToExpiredLicense(
   licenseData: Partial<LicenseInterface>,
+  isAirGapped: boolean,
 ): boolean {
   // If licenseData is not available, consider it as not expired
   if (!licenseData) {
@@ -1078,6 +1110,19 @@ function shouldLimitAccessDueToExpiredLicense(
 
     if (expirationDate < new Date()) {
       // The license is expired
+      return true;
+    }
+  }
+
+  // Air-gapped licenses end access after a grace period past the expiration
+  // date, since they can't be remotely downgraded.
+  if (isAirGapped && licenseData.dateExpires) {
+    const graceEndDate = new Date(licenseData.dateExpires);
+    graceEndDate.setDate(
+      graceEndDate.getDate() + AIR_GAPPED_EXPIRATION_GRACE_PERIOD_DAYS,
+    );
+
+    if (graceEndDate < new Date()) {
       return true;
     }
   }

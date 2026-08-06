@@ -137,7 +137,7 @@ export default function GroupBySection() {
           content="No group by columns are available."
         >
           <Button
-            size="xs"
+            size="sm"
             variant="ghost"
             disabled={
               getMaxDimensions(draftExploreState.dataset) <=
@@ -171,6 +171,7 @@ export default function GroupBySection() {
           >
             <Flex direction="row" gap="2" align="center">
               <SelectField
+                size="legacy"
                 containerStyle={{ flex: 1, minWidth: 0 }}
                 value={dim.column || ""}
                 onChange={(val) =>
@@ -185,7 +186,7 @@ export default function GroupBySection() {
                 forceUndefinedValueToNull
               />
               <Button
-                size="xs"
+                size="sm"
                 variant="ghost"
                 onClick={() => handleRemoveDimension(i)}
               >
@@ -195,7 +196,7 @@ export default function GroupBySection() {
 
             <Flex direction="row" gap="2" mt="2">
               <Button
-                size="xs"
+                size="sm"
                 variant="ghost"
                 onClick={() =>
                   setAdvancedSettingsOpen((prev) => {
@@ -211,7 +212,7 @@ export default function GroupBySection() {
                   ) : (
                     <PiCaretRight size={14} />
                   )}
-                  <Text size="small" weight="medium">
+                  <Text size="sm" weight="medium">
                     Advanced Options
                   </Text>
                 </Flex>
@@ -224,10 +225,11 @@ export default function GroupBySection() {
               triggerDisabled
             >
               <Flex direction="column" gap="2" mt="1">
-                <Text size="small" weight="semibold">
+                <Text size="sm" weight="semibold">
                   Max values
                 </Text>
                 <Field
+                  size="legacy"
                   type="number"
                   min="1"
                   max="20"

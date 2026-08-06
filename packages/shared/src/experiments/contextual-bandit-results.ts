@@ -1,6 +1,7 @@
 import type {
   ContextualBanditSnapshot,
   ContextualBanditResponseSnapshot,
+  ContextualLeafClause,
   ContextualLeafMapEntry,
   ContextualLeafStatsEntry,
   ContextualSseTrajectoryEntry,
@@ -47,6 +48,8 @@ export type ContextualBanditResultsLeaf = {
   leafId: number;
   updateMessage: string | null;
   error: string | null;
+  /** Per-attribute targeting clauses defining the leaf (AND-ed together). */
+  clauses: ContextualLeafClause[];
   variations: ContextualBanditLeafVariation[];
   contexts: ContextualBanditResultsContext[];
 };
@@ -93,8 +96,8 @@ export function buildContextualBanditResultsView(
 
   const indicesByLeaf = new Map<number, number[]>();
   const leafOrder: number[] = [];
-  responses.forEach((_, i) => {
-    const leafId = leafMap[i]?.leafId ?? 0;
+  responses.forEach((response, i) => {
+    const leafId = response.leafId ?? 0;
     const existing = indicesByLeaf.get(leafId);
     if (existing) {
       existing.push(i);
@@ -105,6 +108,17 @@ export function buildContextualBanditResultsView(
   });
 
   const leafStatsById = new Map(leafStats.map((s) => [s.leafId, s]));
+  const clausesByLeaf = new Map(leafMap.map((e) => [e.leafId, e.context]));
+
+  const contextAttributes = (
+    response: ContextualBanditResponseSnapshot | undefined,
+  ): Record<string, string> => {
+    const attributes: Record<string, string> = {};
+    Object.entries(response?.context ?? {}).forEach(([key, value]) => {
+      if ((value ?? null) !== null) attributes[key] = String(value);
+    });
+    return attributes;
+  };
 
   const leaves: ContextualBanditResultsLeaf[] = leafOrder
     .sort((a, b) => a - b)
@@ -135,7 +149,7 @@ export function buildContextualBanditResultsView(
       const contexts: ContextualBanditResultsContext[] = indices.map((i) => {
         const row = responses[i];
         return {
-          attributes: leafMap[i]?.context ?? {},
+          attributes: contextAttributes(row),
           variations: Array.from({ length: numVariations }, (_, j) => ({
             ...meta(j),
             users: row?.sampleSizePerVariation?.[j] ?? null,
@@ -149,6 +163,7 @@ export function buildContextualBanditResultsView(
         leafId,
         updateMessage: head?.updateMessage ?? null,
         error: head?.error ?? null,
+        clauses: clausesByLeaf.get(leafId) ?? [],
         variations: leafVariations,
         contexts,
       };

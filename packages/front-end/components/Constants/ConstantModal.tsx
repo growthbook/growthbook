@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useForm } from "react-hook-form";
 import { ConstantWithoutValue } from "shared/types/constant";
-import { validateConstantValue } from "shared/validators";
+import { validateResolvableValue } from "shared/validators";
 import { Revision } from "shared/enterprise";
 import { generateTrackingKey } from "shared/experiments";
 import { Box, Flex } from "@radix-ui/themes";
@@ -43,9 +43,7 @@ type FormValues = {
   value: string;
 };
 
-// Create a constant, or edit its info (name, projects, owner, description).
-// The value is edited separately via ConstantValueModal. Edits route through the
-// revision system when `revisionMode` is set.
+// Create a constant or edit its info; the value is edited via ConstantValueModal.
 export default function ConstantModal({
   existing,
   close,
@@ -71,15 +69,15 @@ export default function ConstantModal({
     !!existing?.description,
   );
 
-  // Info edits are metadata-only. Hook is called unconditionally (rules of
-  // hooks); on the create path it runs against an empty context and is unused.
+  // Called unconditionally (rules of hooks); unused on the create path.
   const draft = useConstantDraftTarget(revisionCtx ?? EMPTY_REVISION_CTX, true);
 
   const form = useForm<FormValues>({
     defaultValues: {
       key: existing?.key ?? "",
       name: existing?.name ?? "",
-      type: existing?.type ?? "string",
+      type:
+        existing && "type" in existing ? (existing.type ?? "string") : "string",
       // Owner is stored as a userId; backend defaults it to the creator when blank.
       owner: existing?.owner ?? "",
       description: existing?.description ?? "",
@@ -94,6 +92,8 @@ export default function ConstantModal({
   useEffect(() => {
     if (editing || keyTouched.current || !name) return;
     let active = true;
+    // Constant keys are unique within the constant namespace only (a config may
+    // share the key), so derive the slug against existing constants.
     generateTrackingKey({ name }, async (k) => getConstantByKey(k)).then(
       (k) => {
         if (active) form.setValue("key", k);
@@ -129,7 +129,10 @@ export default function ConstantModal({
               body: JSON.stringify({
                 name: values.name,
                 owner: values.owner,
-                description: values.description || undefined,
+                // The PUT controller treats `undefined` as untouched; send an
+                // explicit "" when clearing a previously-set description.
+                description:
+                  values.description || (existing.description ? "" : undefined),
                 project: values.project,
               }),
             },
@@ -139,7 +142,12 @@ export default function ConstantModal({
             await onSaved(res.revision);
           }
         } else {
-          validateConstantValue(values.type, values.value, "Value");
+          validateResolvableValue({
+            type: values.type,
+            value: values.value,
+            label: "Value",
+            refSource: "constant",
+          });
           const res = await apiCall<{ constant: { key: string } }>(
             `/constants`,
             {
@@ -149,8 +157,7 @@ export default function ConstantModal({
                 name: values.name,
                 owner: values.owner || undefined,
                 type: values.type,
-                // Empty is allowed: a string sends "", JSON omits the field
-                // entirely (treated as "no value").
+                // Empty JSON omits value entirely (treated as "no value").
                 ...(values.type === "json" && !values.value
                   ? {}
                   : { value: values.value }),
@@ -263,8 +270,7 @@ export default function ConstantModal({
           valueType={type}
           useCodeInput={type === "json"}
           showFullscreenButton={type === "json"}
-          // A new constant can't be referenced yet (no cycles possible); just
-          // scrub a self-reference to the key being created.
+          // No cycles possible yet; just scrub a self-reference.
           constantContext={{
             project: form.watch("project") || undefined,
             excludeKeys: [form.watch("key")],
