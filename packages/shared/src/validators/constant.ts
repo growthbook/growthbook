@@ -502,6 +502,12 @@ const apiConstantResponse = z
   .object({ constant: apiConstantValidator })
   .strict();
 
+// An update lands directly, so it can skip an approval requirement — reported the
+// same way every other publish surface reports one.
+const apiConstantUpdateResponse = apiConstantResponse.extend({
+  bypassedGates: publishBypassedGatesField,
+});
+
 // Archive/unarchive publish through the standard gate contract, so a successful
 // call can report gates that were bypassed by the caller's authority.
 const apiConstantArchiveResponse = apiConstantResponse.extend({
@@ -587,7 +593,7 @@ export const updateConstantValidator = {
   bodySchema: updateConstantApiBody,
   querySchema: z.never(),
   paramsSchema: constantKeyParams,
-  responseSchema: apiConstantResponse,
+  responseSchema: apiConstantUpdateResponse,
   summary: "Partially update a single constant",
   description:
     "Applies the change immediately and records it as a published revision, so it appears in history and fires revision webhooks. When the organization requires approvals, open a draft instead or pass `bypassApproval` with the bypass permission.",

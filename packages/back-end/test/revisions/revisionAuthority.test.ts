@@ -4,6 +4,8 @@ import type { Context } from "back-end/src/models/BaseModel";
 import {
   canAdvanceRevision,
   canRebaseRevision,
+  isRevisionAuthor,
+  mayBeRevisionAuthor,
 } from "back-end/src/revisions/revisionAuthority";
 import {
   assertCanPublishRevision,
@@ -372,10 +374,74 @@ describe("canTouchRevision", () => {
       permissions: context.permissions,
       model: "saved-group",
       entity: { projects: [] },
+      archived: true,
     });
     expect(stagingAllowed).toBe(true);
     expect(canTouchRevision("saved-group", context, { projects: [] })).toBe(
       stagingAllowed,
     );
+  });
+
+  // The delete arm is directional. Returning an entity to service is publish-class
+  // both here and at `canLandArchivedState`, so a delete-only caller staging an
+  // UNARCHIVE was staging a draft it could never land.
+  it.each([
+    ["archiving", true, true],
+    ["unarchiving", false, false],
+  ])("delete-only staging, %s", (_label, archived, expected) => {
+    expect(
+      canStageArchiveDraft({
+        permissions: makeContext({ granted: ["delete"] }).permissions,
+        model: "saved-group",
+        entity: { projects: [] },
+        archived,
+      }),
+    ).toBe(expected);
+  });
+
+  it.each([true, false])(
+    "draft authority stages either direction (archived=%s)",
+    (archived) => {
+      expect(
+        canStageArchiveDraft({
+          permissions: makeContext({ granted: ["draft"] }).permissions,
+          model: "saved-group",
+          entity: { projects: [] },
+          archived,
+        }),
+      ).toBe(true);
+    },
+  );
+});
+
+/**
+ * Author separation across the identityless boundary.
+ *
+ * Two questions look like one. "Is this caller provably the author?" grants rights
+ * (discard, edit your own draft) and must be NO when nobody can be identified.
+ * "Could this caller be the author?" withholds one — the review — and must be YES for
+ * the same reason. Answering both with `isRevisionAuthor` let an org-scoped API key
+ * with draft and review open a revision and approve it.
+ */
+describe("mayBeRevisionAuthor", () => {
+  it.each([
+    ["a user reviewing their own draft", "u_1", "u_1", true],
+    ["a user reviewing someone else's", "u_1", "u_2", false],
+    // Both identityless: two org API keys are indistinguishable, so the review is
+    // refused rather than assumed to be a different key.
+    ["an org key on an authorless revision", "", "", true],
+    [undefined, undefined, undefined, true],
+    // A named author is definitively not this key.
+    ["an org key on a user's revision", "u_1", "", false],
+    ["a user on an authorless revision", "", "u_1", false],
+  ])("%s", (_label, authorId, userId, expected) => {
+    expect(mayBeRevisionAuthor(authorId, userId)).toBe(expected);
+  });
+
+  // The grant direction keeps its old answer — widening it would hand every org key
+  // authorship of every authorless revision, which is the bug in the other direction.
+  it("does not grant authorship to an identityless caller", () => {
+    expect(isRevisionAuthor("", "")).toBe(false);
+    expect(isRevisionAuthor(undefined, undefined)).toBe(false);
   });
 });

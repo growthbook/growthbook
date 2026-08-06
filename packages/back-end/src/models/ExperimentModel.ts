@@ -64,6 +64,7 @@ import {
 } from "back-end/src/enterprise/licenseUtil";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { runValidateExperimentHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import { CasConflictError } from "./BaseModel";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -788,11 +789,17 @@ export async function updateExperiment({
   experiment,
   changes,
   bypassWebhooks = false,
+  guard,
 }: {
   context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
   changes: Changeset;
   bypassWebhooks?: boolean;
+  // Compare-and-swap clause folded into the write filter, so the decision and the
+  // write are one operation. `updateFeature`'s `ifUnchangedSince` is the same shape.
+  // A non-match throws `CasConflictError`: the caller computed from a value that is
+  // no longer there.
+  guard?: Record<string, unknown>;
 }): Promise<ExperimentInterface> {
   // If no actual changes, return the experiment as-is
   if (!hasActualChanges(experiment, changes)) {
@@ -808,15 +815,19 @@ export async function updateExperiment({
 
   validateMetricOverrides(allChanges.metricOverrides);
 
-  await ExperimentModel.updateOne(
+  const writeResult = await ExperimentModel.updateOne(
     {
       id: experiment.id,
       organization: context.org.id,
+      ...(guard ?? {}),
     },
     {
       $set: allChanges,
     },
   );
+  if (guard && writeResult.matchedCount === 0) {
+    throw new CasConflictError();
+  }
 
   const updated = { ...experiment, ...allChanges };
 

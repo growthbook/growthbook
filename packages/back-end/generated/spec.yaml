@@ -20676,6 +20676,14 @@ paths:
                 properties:
                   constant:
                     $ref: '#/components/schemas/Constant'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - constant
                 additionalProperties: false
@@ -22707,6 +22715,14 @@ paths:
                     type: array
                     items:
                       type: string
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - config
                 additionalProperties: false

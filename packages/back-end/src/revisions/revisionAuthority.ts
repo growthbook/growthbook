@@ -20,6 +20,24 @@ export function isRevisionAuthor(
   return !!userId && !!authorId && authorId === userId;
 }
 
+// Whether the caller COULD be the author — the question author separation has to ask.
+//
+// `isRevisionAuthor` answers the opposite one ("provably the author") and so returns
+// false for an identityless caller, which is right where authorship GRANTS something
+// and wrong where it withholds. An org-scoped API key has userId "" and authors
+// revisions with authorId "": indistinguishable from every other such key, so a key
+// holding draft and review could open a revision and approve it, which is the whole
+// of author separation.
+export function mayBeRevisionAuthor(
+  authorId: string | undefined,
+  userId: string | undefined,
+): boolean {
+  if (isRevisionAuthor(authorId, userId)) return true;
+  // Neither side identifies anyone: we cannot tell this key from the one that wrote
+  // the revision, so we must assume they are the same principal.
+  return !userId && !authorId;
+}
+
 // The verdict authority re-check every review path hands to `addReview`, so the
 // decision is judged against the row the write is conditioned on rather than a
 // read a concurrent rebase may have invalidated. A rebase re-snapshots the

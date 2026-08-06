@@ -237,7 +237,21 @@ export default function FeaturesHeader({
   );
   // Archiving carries delete authority; unarchiving is an ordinary publish.
   // A draft author without either can still stage the flip.
-  const canToggleArchive = (isArchived ? canPublish : canArchive) || canEdit;
+  //
+  // Both arms read the LIVE flag over the archive footprint: the general `canPublish`
+  // above is the draft projection's, so a draft moving projects or toggling an
+  // environment answered the unarchive question about a state the flip never touches.
+  const canUnarchive = permissionsUtil.canPublishFeature(
+    baseFeature,
+    liveArchiveEnvs,
+  );
+  // The draft-authority fallback reads the live flag too. `canEdit` above is the
+  // viewed draft's, so a draft staging a move into a project the user CAN draft in
+  // enabled the control while the endpoint — which asks about the live flag — refused
+  // it. Same class as the two arms above, one line away.
+  const canDraftArchive = permissionsUtil.canEditFeatureDrafts(baseFeature);
+  const canToggleArchive =
+    (isArchived ? canUnarchive : canArchive) || canDraftArchive;
 
   // Tab chip + tooltip count revisions at "request review" or beyond; drafts
   // still being edited don't need reviewer/publisher attention.

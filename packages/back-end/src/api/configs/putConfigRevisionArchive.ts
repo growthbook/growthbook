@@ -33,6 +33,7 @@ export const putConfigRevisionArchive = createApiRequestHandler(
       permissions: req.context.permissions,
       model: "config",
       entity: config,
+      archived: req.body.archived,
     })
   ) {
     req.context.permissions.throwPermissionError();

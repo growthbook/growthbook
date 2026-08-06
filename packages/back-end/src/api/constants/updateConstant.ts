@@ -180,6 +180,10 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
         } as unknown as Revision)
       : adapter.isApprovalRequired(req.context);
 
+    // See updateConfig: this route enforces approval itself, so it reports its own
+    // bypass rather than inheriting one from the gate pipeline.
+    const bypassedGates: { type: string; outcome: "bypassed"; via: string }[] =
+      [];
     if (approvalRequired) {
       if (!bypassApproval) {
         throw new BadRequestError(
@@ -188,12 +192,19 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
             'or pass `{ "bypassApproval": true }` if you have the bypass permission.',
         );
       }
+      const viaRestSetting = canUseRestApiBypassSetting(req);
       const canBypass =
-        canUseRestApiBypassSetting(req) ||
-        adapter.canBypassApproval(req.context, constant);
+        viaRestSetting || adapter.canBypassApproval(req.context, constant);
       if (!canBypass) {
         req.context.permissions.throwPermissionError();
       }
+      bypassedGates.push({
+        type: "approval-required",
+        outcome: "bypassed",
+        via: viaRestSetting
+          ? "restApiBypassesReviews"
+          : "bypassApprovalPermission",
+      });
     }
 
     // One landing path whether or not approval was bypassed: every direct
@@ -248,6 +259,7 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
         }),
         req.context,
       ),
+      ...(bypassedGates.length ? { bypassedGates } : {}),
     };
   },
 );

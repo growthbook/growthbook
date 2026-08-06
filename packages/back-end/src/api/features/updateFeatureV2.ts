@@ -331,11 +331,12 @@ export const updateFeatureV2 = createApiRequestHandler(
   // Archiving takes the flag out of service, so it is delete-class wherever it
   // lands — the same rule the archive endpoints and the revision publish path
   // apply. Unarchiving returns it to service and stays an ordinary publish.
+  const archiving = isArchiveTransition({
+    proposed: updates.archived ?? undefined,
+    current: feature.archived,
+  });
   if (
-    isArchiveTransition({
-      proposed: updates.archived ?? undefined,
-      current: feature.archived,
-    }) &&
+    archiving &&
     !req.context.permissions.canDeleteFeature(
       { project: effectiveProject },
       getArchiveFootprint(feature, req.context.org),
@@ -347,7 +348,12 @@ export const updateFeatureV2 = createApiRequestHandler(
   if (
     updates.defaultValue != null ||
     updates.project != null ||
-    updates.archived != null ||
+    // Archiving is delete-class INSTEAD of publish-class, not as well as — the gate
+    // above is the whole check. A re-send of the state the flag already has isn't a
+    // transition either way, so it must not fall through and 403 a no-op.
+    (updates.archived != null &&
+      !archiving &&
+      updates.archived !== feature.archived) ||
     inboundFlatRules != null
   ) {
     if (

@@ -13,10 +13,13 @@
  */
 
 /**
- * Distinguishes the three ways a loop can end without applying. `BaseModel` collapses
- * `aborted` and `not-found` into a single `null` at its boundary; the feature revision
- * caller keeps them apart, because "no such revision" and "a concurrent update won"
- * are different errors to its callers.
+ * Distinguishes the three ways a loop can end without applying.
+ *
+ * NO caller currently tells `aborted` and `not-found` apart — `BaseModel` returns
+ * `null` for both and the feature revision caller reports both as `"aborted"`. The
+ * loop keeps them separate anyway so a caller that wants "no such document" doesn't
+ * have to re-read to find out, and so the two are testable here rather than only
+ * through a boundary that has already merged them.
  */
 export type CasOutcome<TResult> =
   | { status: "applied"; result: TResult }

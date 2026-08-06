@@ -162,11 +162,16 @@ export async function revertFeatureCore(
       // they do — this path publishes directly, bypassing the publish engine's
       // destination check. The footprint comes from revertFootprint, which unions
       // what the flag serves now with what the restore would switch on or rewrite.
+      //
+      // REVERT, not publish: restoring a published state is what the revert atom is
+      // for, and the generic engine gates the same move the same way. Asking for
+      // publish here meant a revert-only role could restore everything about a
+      // revision except the project it was published in.
       if (
         !holdsMoveDestination({
           permissions: context.permissions,
           model: "feature",
-          action: "publish",
+          action: "revert",
           existing: feature,
           proposed: { ...feature, project: m.project },
           environments: revertFootprint({

@@ -619,6 +619,13 @@ const apiConfigResponseWithWarnings = z
   })
   .strict();
 
+// Only an UPDATE lands directly, so only it can skip an approval requirement. Create
+// shares the warnings shape but never emits this, and documenting it there advertises
+// a field `POST /configs` cannot return.
+const apiConfigUpdateResponse = apiConfigResponseWithWarnings.extend({
+  bypassedGates: publishBypassedGatesField,
+});
+
 export const apiConfigReferencesValidator = namedSchema(
   "ConfigReferences",
   z
@@ -912,7 +919,7 @@ export const updateConfigValidator = {
   bodySchema: updateConfigApiBody,
   querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   paramsSchema: configKeyParams,
-  responseSchema: apiConfigResponseWithWarnings,
+  responseSchema: apiConfigUpdateResponse,
   summary: "Partially update a single config",
   description:
     "Applies the change immediately and records it as a published revision, so it appears in history and fires revision webhooks. When the organization requires approvals, open a draft instead or pass `bypassApproval` with the bypass permission.",

@@ -35,6 +35,7 @@ export const putSavedGroupRevisionArchive = createApiRequestHandler(
       permissions: req.context.permissions,
       model: "saved-group",
       entity: savedGroup,
+      archived: req.body.archived,
     })
   ) {
     req.context.permissions.throwPermissionError();

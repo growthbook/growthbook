@@ -142,6 +142,27 @@ const BaseClass = MakeModelClass({
     {
       fields: { organization: 1, status: 1 },
     },
+    // The LISTING sort. Every paginated read sorts `{dateCreated: -1, id: -1}`, and
+    // without the sort keys on the filter's prefix each one was a blocking sort over
+    // the whole match — including an entity history page with no status filter, which
+    // several views mount at a high limit.
+    {
+      fields: {
+        organization: 1,
+        "target.type": 1,
+        "target.id": 1,
+        dateCreated: -1,
+        id: -1,
+      },
+    },
+    {
+      fields: {
+        organization: 1,
+        status: 1,
+        dateCreated: -1,
+        id: -1,
+      },
+    },
     // Index for efficient querying of open revisions by author and target
     {
       fields: {
@@ -587,9 +608,19 @@ export class RevisionModel extends BaseClass {
 
     // Readability comes from the LIVE entity, which cannot be expressed as a filter
     // on this collection — so the general path below has to load every matching row's
-    // projection before it can slice. Acceptable for the org inbox; not for an
-    // entity's own history page, which is the hot call and needs exactly one
-    // readability lookup. With that answered, the database does the paging.
+    // projection before it can slice.
+    //
+    // Two callers still take that path: the org inbox and a whole-type listing. Both
+    // are bounded by the six projected fields, not whole documents, and both keep an
+    // exact `total` over readable rows — which is the property the scan exists for.
+    // Inverting the join (resolve readable entity ids, then `target.id: {$in: …}`) is
+    // semantically identical and would page in the database, but it is NOT the
+    // difference between an `$in` and no `$in`: the fetch below already issues one,
+    // sized by the page. Inverting only changes which unbounded list you carry, so
+    // the exact `total` is what would have to give first. Left as-is deliberately.
+    //
+    // Anything scoped to ONE entity — every history page, the hot call — needs a
+    // single readability lookup instead. With that answered, the database pages.
     if (singleTarget) {
       const readable = await this.readableTargetIds([singleTarget]);
       if (!readable.has(`${singleTarget.type}:${singleTarget.id}`)) {
@@ -1926,7 +1957,16 @@ export class RevisionModel extends BaseClass {
         ],
       } as UpdateProps<Revision>;
     });
-    if (!reopened) throw new Error("Revision not found");
+    // `updateWithCas` returns null for a missing row AND for a compute that refused,
+    // so reporting "not found" told the loser of a two-operator race that the revision
+    // does not exist. Re-read on the failure path only, to say which it was.
+    if (!reopened) {
+      const existing = await this.getById(id);
+      if (!existing) throw new Error("Revision not found");
+      throw new Error(
+        `Only a discarded revision can be reopened (this one is "${existing.status}").`,
+      );
+    }
     return reopened;
   }
 

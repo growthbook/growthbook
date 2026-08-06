@@ -538,6 +538,12 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         } as unknown as Revision)
       : adapter.isApprovalRequired(req.context);
 
+    // A direct update that skips a live approval requirement is a bypassed gate, and
+    // the contract says a successful publish names the ones it skipped. This route
+    // enforces approval on its own rather than through the gate pipeline, so it has
+    // to report the outcome itself.
+    const bypassedGates: { type: string; outcome: "bypassed"; via: string }[] =
+      [];
     if (approvalRequired) {
       if (!bypassApproval) {
         throw new BadRequestError(
@@ -546,8 +552,9 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
             'or pass `{ "bypassApproval": true }` if you have the bypass permission.',
         );
       }
+      const viaRestSetting = canUseRestApiBypassSetting(req);
       const canBypass =
-        canUseRestApiBypassSetting(req) ||
+        viaRestSetting ||
         adapter.canBypassApproval(
           req.context,
           config as unknown as Record<string, unknown>,
@@ -555,6 +562,13 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       if (!canBypass) {
         req.context.permissions.throwPermissionError();
       }
+      bypassedGates.push({
+        type: "approval-required",
+        outcome: "bypassed",
+        via: viaRestSetting
+          ? "restApiBypassesReviews"
+          : "bypassApprovalPermission",
+      });
     }
 
     // Scoped overrides commit BEFORE the landing. They were validated and
@@ -685,6 +699,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       ),
       ...(warnings.length ? { warnings } : {}),
       ...(postPublishWarnings.length ? { postPublishWarnings } : {}),
+      ...(bypassedGates.length ? { bypassedGates } : {}),
     };
   },
 );

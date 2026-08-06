@@ -496,17 +496,35 @@ export async function commitBulkPublish(
       keys: [],
       treatEmptyProjectAsGlobal: false,
     };
-    context.bulkPublishDeferredEvents = [];
-    // An abort past this point carries buffered effects: the replay's writes
-    // are REAL live writes, so their refreshes flush (a refresh rebuilds from
-    // live state and is correct whatever aborted) — while the deferred events
-    // drop, since nothing published.
+    const eventBuffer: NonNullable<Context["bulkPublishDeferredEvents"]> = {
+      entries: [],
+    };
+    context.bulkPublishDeferredEvents = eventBuffer;
+    // An abort past this point carries buffered effects: the replay's writes are REAL
+    // live writes, so their refreshes flush (a refresh rebuilds from live state and is
+    // correct whatever aborted) — and so do their EVENTS, for the same reason. Nothing
+    // published, but the self-heal writes are durable and nothing will restore them.
     const abortWithBuffers = async (
       claimedSoFar: PlannedItemPublish[],
       e: unknown,
     ): Promise<never> => {
-      context.bulkPublishDeferredEvents = null;
+      // Nothing has been applied yet at an abort, so the only entries here are the
+      // no-op self-heal replay's — real live writes that no compensation undoes.
+      const durable = eventBuffer.entries.filter((ev) => ev.owner !== null);
+      // Closed, and LEFT on the context: the producer reads the field fresh, so
+      // nulling it would put a straggler back on the live-emit path.
+      eventBuffer.closed = "drop";
       flushPayloadRefreshBuffer(context, "bulk-publish-abort");
+      for (const { emit } of durable) {
+        try {
+          await emit();
+        } catch (emitErr) {
+          logger.error(
+            emitErr,
+            "bulk publish: self-heal event emission failed on abort",
+          );
+        }
+      }
       return abort(claimedSoFar, e) as Promise<never>;
     };
 
@@ -597,14 +615,23 @@ export async function commitBulkPublish(
       // events are dropped too, while their payload refreshes flush once after
       // the restores, healing any payload built from the partial state.
       const applyBuffer = context.sdkPayloadRefreshBuffer;
-      // Close the apply-phase buffer so straggler producers still holding its
-      // reference fall through to live refreshes instead of a drained array.
+      // Refreshes get a fresh buffer for the restore phase; the old one is closed so
+      // straggler producers fall through to a live refresh, which rebuilds from live
+      // state and is right whatever happened.
       if (applyBuffer) applyBuffer.closed = true;
       context.sdkPayloadRefreshBuffer = {
         keys: [],
         treatEmptyProjectAsGlobal: false,
       };
-      context.bulkPublishDeferredEvents = [];
+      // EVENTS keep the SAME buffer across the restore phase. A separate one had to
+      // guess in both directions and got both wrong: an apply-phase straggler resuming
+      // during the restores landed in it and was dropped even when its entity stayed
+      // durably published, and a restore's own event needed dropping regardless. One
+      // buffer plus the per-document rule below decides all of them the same way — an
+      // event is emitted only if its document was not put back, which excludes every
+      // restore write (its document is, by definition, restored).
+      // Filled by the restores themselves, per DOCUMENT.
+      context.bulkPublishRestoredEntities = new Set<string>();
       const appliedSet = new Set(applied);
       const restoreFailed = new Set<PlannedItemPublish>();
       for (const item of restoreOrder(applied)) {
@@ -650,6 +677,37 @@ export async function commitBulkPublish(
       // refresh keys must still flush or SDK payloads serve the pre-publish
       // state indefinitely. Restored items' extra keys are harmless (the
       // refresh rebuilds from live state and dedupes per connection).
+      // An item whose restore failed is durably published, so the `*.updated` events
+      // its apply produced describe live state and must still fire. Everything else
+      // rolled back, and an event for a change that no longer exists is worse than
+      // none. Ownership comes from the apply loop's stamp, so a cascade write made on
+      // an item's behalf travels with that item.
+      // Emit an event exactly when its DOCUMENT was not put back. That covers the
+      // three durable cases with one rule — an item whose restore failed, a document
+      // the feature adapter left whole, and a self-heal replay's write that no item
+      // owns — and excludes the case an item-level flag could not: a Config root that
+      // WAS restored while a descendant of the same item was not, whose event would
+      // otherwise assert the published value over live pre-publish state.
+      const restoredIds =
+        context.bulkPublishRestoredEntities ?? new Set<string>();
+      // Read AFTER the restores, so entries a straggler added mid-rollback are judged
+      // by the same rule rather than silently discarded with a separate buffer.
+      const survivingEvents = eventBuffer.entries.filter(
+        (e) => e.owner !== null && !restoredIds.has(e.owner),
+      );
+      // An unattributed entry has no document to check against, so whether its change
+      // survived is unknown. Dropped, on the preference the buffering encodes — an
+      // event for a change that no longer exists is worse than none — but logged,
+      // because silence is what made this invisible.
+      const unattributed = eventBuffer.entries.filter(
+        (e) => e.owner === null,
+      ).length;
+      if (unattributed) {
+        logger.warn(
+          { unattributed },
+          "bulk publish: dropped unattributable *.updated events during compensation",
+        );
+      }
       if (
         restoreFailed.size &&
         applyBuffer &&
@@ -659,19 +717,23 @@ export async function commitBulkPublish(
         context.sdkPayloadRefreshBuffer.treatEmptyProjectAsGlobal ||=
           applyBuffer.treatEmptyProjectAsGlobal;
       }
-      // Drop the deferred *.updated events; flush their payload refreshes once.
-      //
-      // KNOWN LIMITATION, same root as the stuck-item one below: an item left
-      // stuck-published has DURABLE live state, and dropping its events means
-      // consumers never hear about a change that exists. Emitting the buffer
-      // instead would fire success-shaped events for the items that DID roll back
-      // cleanly, which is worse. The buffered closures carry no item identity, so
-      // telling the two apart needs identity threaded through
-      // `emitOrDeferBulkPublishEvent` — the same work the dedicated
-      // stuck/needs-attention event wants. The payload refresh below always
-      // flushes, so SDKs serve whatever state actually survived.
-      context.bulkPublishDeferredEvents = null;
+      // Close the buffer and LEAVE IT on the context. Nulling the field put the
+      // disposition out of reach: the producer reads the context fresh at resume time
+      // and captures no reference, so a straggler saw "no buffer" and emitted live —
+      // the exact outcome the flag exists to prevent.
+      eventBuffer.closed = "drop";
+      context.bulkPublishRestoredEntities = null;
       flushPayloadRefreshBuffer(context, "bulk-publish-compensation");
+      for (const { emit } of survivingEvents) {
+        try {
+          await emit();
+        } catch (emitErr) {
+          logger.error(
+            emitErr,
+            "bulk publish: deferred update-event emission failed for a stuck item",
+          );
+        }
+      }
       // A commit failure is the incident-worthy outcome: the release was
       // attempted and rolled back. Notify per revision (best-effort) — plan
       // rejections and claim conflicts never reach here and stay silent.
@@ -721,11 +783,13 @@ export async function commitBulkPublish(
 
     // Success: detach the buffers FIRST so the flushes themselves fire, then
     // emit everything deferred — only after the commit is known-good.
-    const deferredEvents = context.bulkPublishDeferredEvents ?? [];
-    context.bulkPublishDeferredEvents = null;
+    const deferredEvents = eventBuffer.entries;
+    // The release stands, so a straggler may emit live — but it has to be able to
+    // SEE that, which means leaving the closed buffer where the producer looks.
+    eventBuffer.closed = "emit";
     flushPayloadRefreshBuffer(context, "bulk-publish");
 
-    for (const emit of deferredEvents) {
+    for (const { emit } of deferredEvents) {
       try {
         await emit();
       } catch (e) {

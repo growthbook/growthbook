@@ -406,8 +406,10 @@ export class ConfigModel extends BaseClass {
     if (
       !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
     ) {
-      await emitOrDeferBulkPublishEvent(this.context, () =>
-        logConfigUpdatedEvent(this.context, previous, current),
+      await emitOrDeferBulkPublishEvent(
+        this.context,
+        () => logConfigUpdatedEvent(this.context, previous, current),
+        newDoc.id,
       );
     }
   }

@@ -66,6 +66,7 @@ import {
 } from "back-end/src/services/rampSchedule";
 import { bulkPublishFields } from "back-end/src/events/bulkPublishCorrelation";
 import { getErrorMessage } from "back-end/src/util/errors";
+import { CasConflictError } from "back-end/src/models/BaseModel";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 import {
@@ -533,22 +534,39 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       }
     }
 
-    if (mergeResult.holdout !== undefined) {
-      // Guard already ran above, before any mutation.
-      await applyHoldoutSideEffects(context, feature, mergeResult.holdout, {
-        skipGuard: true,
-      });
-    }
+    // The fence above narrows the window but cannot close it: these writes land in
+    // other collections, so no guard on the feature doc covers them. The forward
+    // linkage write carries its own guard on each experiment's prior `holdoutId`, so
+    // a rival that re-linked one refuses us here instead of being overwritten.
+    try {
+      if (mergeResult.holdout !== undefined) {
+        // Guard already ran above, before any mutation.
+        await applyHoldoutSideEffects(context, feature, mergeResult.holdout, {
+          skipGuard: true,
+        });
+      }
 
-    for (const plan of desired.holdoutExperimentLinkage ?? []) {
-      await applyHoldoutExperimentLinkage(context, plan);
-    }
+      // One chain across the sequence — see applyHoldoutExperimentLinkage.
+      const linkageChain: Record<string, string> = {};
+      for (const plan of desired.holdoutExperimentLinkage ?? []) {
+        await applyHoldoutExperimentLinkage(context, plan, linkageChain);
+      }
 
-    if (desired.contextualBanditLinkage) {
-      await applyFeatureContextualBanditLinkage(
-        context,
-        desired.contextualBanditLinkage,
-      );
+      if (desired.contextualBanditLinkage) {
+        await applyFeatureContextualBanditLinkage(
+          context,
+          desired.contextualBanditLinkage,
+        );
+      }
+    } catch (e) {
+      if (!(e instanceof CasConflictError)) throw e;
+      // NOT `casLost`: that means the guarded doc write was refused and nothing ran,
+      // and `restorePreImage` skips the whole rollback on it. By here the doc write
+      // has landed and satellites may have written, so claiming otherwise would
+      // strand them silently. The ordinary path is already right for both outcomes —
+      // its ownership check leaves the item whole and reported needs-attention when a
+      // rival took the doc, and rewinds normally when it is still ours.
+      throw new LandingConflictError("feature", feature.id);
     }
   },
 
@@ -770,6 +788,13 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         casOnDateUpdated: current.dateUpdated,
       });
     }
+    // This feature is back at its pre-release state, so the apply's deferred
+    // `feature.updated` describes a value that no longer exists. The generic adapter
+    // records this inside `restoreEntityPreImage`; this adapter restores through its
+    // own path, and without recording here every feature looked durable — so a clean
+    // rollback broadcast the value it had just taken back, with no corrective event
+    // ever following.
+    context.bulkPublishRestoredEntities?.add(feature.id);
   },
 
   async emitPublished(context, entity, revision, desiredState) {

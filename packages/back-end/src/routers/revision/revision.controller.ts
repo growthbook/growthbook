@@ -47,6 +47,7 @@ import {
   canAdvanceRevision,
   canRebaseRevision,
   isRevisionAuthor,
+  mayBeRevisionAuthor,
   reviewAuthorityOnRow,
 } from "back-end/src/revisions/revisionAuthority";
 
@@ -594,7 +595,7 @@ export const postReview = async (
 
   // Prevent self-review (author cannot approve or request changes on own revision)
   if (
-    isRevisionAuthor(existingRevision.authorId, userId) &&
+    mayBeRevisionAuthor(existingRevision.authorId, userId) &&
     decision !== "comment"
   ) {
     return res.status(403).json({

@@ -262,7 +262,28 @@ export class ReqContextClass {
   // whole commit lands, and drops them on compensation so a rolled-back
   // release emits no update events. Audit-log entries are NOT deferred: they
   // record writes that genuinely happened, compensation included.
-  public bulkPublishDeferredEvents?: Array<() => Promise<unknown>> | null;
+  // `*.updated` events held for the duration of a release.
+  //
+  // Entries are tagged with the release item whose apply produced them: compensation
+  // drops the events of items it rolled back, and must still emit those of an item
+  // whose restore FAILED — that entity is durably changed, so silence would leave
+  // consumers permanently behind live state.
+  //
+  // `closed` is the terminal disposition for a producer that arrives after the release
+  // has been decided. Some producers await mid-way and are invoked fire-and-forget
+  // (`onFeatureUpdate`), so read-and-push atomicity does not keep them inside the
+  // window. Falling through to a live emit — what a missing buffer means — announced a
+  // value from a release that had already rolled back.
+  public bulkPublishDeferredEvents?: {
+    entries: Array<{ owner: string | null; emit: () => Promise<unknown> }>;
+    closed?: "emit" | "drop";
+  } | null;
+  /**
+   * Entity ids compensation has put back. An event is emitted only for a document NOT
+   * in this set — which is what tells a durable change (restore failed, or never
+   * attempted) from one that was rolled back.
+   */
+  public bulkPublishRestoredEntities?: Set<string> | null;
 
   // Set by compensation that could NOT put live state back. The deferred events
   // above are dropped on a failed landing because a rolled-back change never

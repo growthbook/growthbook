@@ -6,6 +6,7 @@ import { dispatchRevisionReviewEvent } from "back-end/src/services/featureRevisi
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { mayBeRevisionAuthor } from "back-end/src/revisions/revisionAuthority";
 import {
   getRevision,
   ReviewSubmittedType,
@@ -49,11 +50,20 @@ export async function submitRevisionReview(
   const review = actionToReviewType[action];
 
   // Block the creator from any non-comment review action.
+  //
+  // An org-scoped API key carries no `id` on either side — `eventUserApiKey.id` is
+  // optional and a key context has userId "" — so an identity comparison here was
+  // structurally skipped, not merely tied, and such a key could create a draft,
+  // request review and approve it. `mayBeRevisionAuthor` asks the question this gate
+  // actually needs: not "is this provably the creator" but "could it be". Same rule
+  // the generic revision paths apply.
+  const creatorId =
+    revision.createdBy != null && "id" in revision.createdBy
+      ? revision.createdBy.id
+      : "";
   if (
-    revision.createdBy != null &&
-    "id" in revision.createdBy &&
-    revision.createdBy.id === req.context.userId &&
-    action !== "comment"
+    action !== "comment" &&
+    mayBeRevisionAuthor(creatorId, req.context.userId)
   ) {
     throw new BadRequestError("Cannot submit a review on a draft you created");
   }

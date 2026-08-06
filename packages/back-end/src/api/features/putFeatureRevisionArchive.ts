@@ -35,6 +35,7 @@ export async function archiveRevision(
       permissions: context.permissions,
       model: "feature",
       entity: feature,
+      archived: body.archived,
     })
   ) {
     context.permissions.throwPermissionError();

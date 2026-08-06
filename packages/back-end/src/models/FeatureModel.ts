@@ -1214,8 +1214,10 @@ export async function onFeatureUpdate(
   ) {
     // Event-based webhooks. During a bulk-publish commit the emission defers
     // to the post-commit flush (dropped entirely if the commit compensates).
-    await emitOrDeferBulkPublishEvent(context, () =>
-      logFeatureUpdatedEvent(context, feature, updatedFeature),
+    await emitOrDeferBulkPublishEvent(
+      context,
+      () => logFeatureUpdatedEvent(context, feature, updatedFeature),
+      feature.id,
     );
   }
 
@@ -2431,26 +2433,74 @@ async function planLinkageForHoldout(
   return { holdoutId, toLink, toUnlink, prevExperimentHoldoutIds };
 }
 
+// `holdoutId` is a scalar last-writer-wins field: a batch that lost the feature doc to
+// a newer publish would still stamp its own holdout over the winner's. `expectedPrior`
+// turns the forward pass into a compare-and-swap, so a rival that re-linked an
+// experiment refuses us instead of being overwritten.
+//
+// The expectation goes in the WRITE FILTER, not a read-then-compare: between the read
+// and the write there are no awaits, but "no awaits" is not "no window" — the enclosing
+// `Promise.all` and event-loop lag both widen it, and a loss there is silent.
+//
+// Absent and `""` are the same state here (the field has no default, so absent is the
+// normal one) and a bare `holdoutId: ""` clause matches neither. The empty expectation
+// has to match both — the same absence subtlety `buildCasGuard` documents.
 async function setExperimentHoldoutIds(
   context: ReqContext | ApiReqContext,
   targets: Record<string, string>,
-) {
+  expected?: Record<string, string>,
+  // What a mismatch means. Going FORWARD it is a lost race and the landing must not
+  // proceed. Going BACK it means someone else now owns this experiment's linkage, and
+  // the rollback leaves them alone — the same disposition `setLinkageState` and
+  // `safeRollout.restoreAfterFailedBulkPublish` take.
+  onMismatch: "conflict" | "skip" = "conflict",
+): Promise<Set<string>> {
+  // Which experiments this call actually wrote. The membership arrays have to follow
+  // the same decision — see `reverseHoldoutExperimentLinkage`.
+  const applied = new Set<string>();
   await Promise.all(
     Object.entries(targets).map(async ([id, next]) => {
       const exp = await getExperimentById(context, id);
-      if (!exp || (exp.holdoutId ?? "") === next) return;
-      await updateExperiment({
-        context,
-        experiment: exp,
-        changes: { holdoutId: next },
-      });
+      if (!exp) return;
+      // Already where we want it: nothing to write, but it IS at the target, so it
+      // counts as ours for the membership decision. A forward pass that failed
+      // between the membership write and the scalar leaves exactly this state, and
+      // treating it as "not ours" would strand the membership half.
+      if ((exp.holdoutId ?? "") === next) {
+        applied.add(id);
+        return;
+      }
+      const want = expected?.[id];
+      try {
+        await updateExperiment({
+          context,
+          experiment: exp,
+          changes: { holdoutId: next },
+          ...(expected
+            ? { guard: { holdoutId: want ? want : { $in: [null, ""] } } }
+            : {}),
+        });
+        applied.add(id);
+      } catch (e) {
+        if (onMismatch === "skip" && e instanceof CasConflictError) return;
+        throw e;
+      }
     }),
   );
+  return applied;
 }
 
 export async function applyHoldoutExperimentLinkage(
   context: ReqContext | ApiReqContext,
   plan: HoldoutExperimentLinkagePlan,
+  // What this SEQUENCE of plans has already written, mutated as each one applies.
+  //
+  // A holdout change emits two plans — leave, then join — and both are computed
+  // before either applies, so they share one pre-image. For an experiment named by
+  // both, the join's expectation is stale the moment the leave writes it, and the
+  // guard would reject a conflict with our own earlier step: the same revert failing
+  // identically on every retry. Chaining makes each plan expect what the last left.
+  chain?: Record<string, string>,
 ) {
   await context.models.holdout.addExperimentsToHoldout(
     plan.holdoutId,
@@ -2460,30 +2510,77 @@ export async function applyHoldoutExperimentLinkage(
     plan.holdoutId,
     plan.toUnlink,
   );
-  await setExperimentHoldoutIds(context, {
-    ...Object.fromEntries(plan.toLink.map((id) => [id, plan.holdoutId])),
-    ...Object.fromEntries(plan.toUnlink.map((id) => [id, ""])),
-  });
+  const { targets, expectedPrior } = holdoutLinkageWrites(plan, chain);
+  await setExperimentHoldoutIds(context, targets, expectedPrior);
+  if (chain) Object.assign(chain, targets);
 }
 
-// Converges to the pre-image rather than inverting each write, so a forward pass
-// that failed partway still lands on the pre-publish state.
+/**
+ * What one plan writes, and what each write expects to find.
+ *
+ * Pure and exported for its own test: the expectation is the whole correctness
+ * question, and getting it from the shared pre-image alone made a holdout CHANGE
+ * fail its own second plan — identically on every retry.
+ */
+export function holdoutLinkageWrites(
+  plan: HoldoutExperimentLinkagePlan,
+  chain?: Record<string, string>,
+): { targets: Record<string, string>; expectedPrior: Record<string, string> } {
+  const targets: Record<string, string> = {
+    ...Object.fromEntries(plan.toLink.map((id) => [id, plan.holdoutId])),
+    ...Object.fromEntries(plan.toUnlink.map((id) => [id, ""])),
+  };
+  return {
+    targets,
+    expectedPrior: Object.fromEntries(
+      Object.keys(targets).map((id) => [
+        id,
+        // What an earlier plan in this sequence left, falling back to the pre-image
+        // for an experiment this sequence has not touched yet.
+        chain?.[id] ?? plan.prevExperimentHoldoutIds[id] ?? "",
+      ]),
+    ),
+  };
+}
+
+// Converges to the pre-image rather than inverting each write, so a forward pass that
+// failed partway still lands on the pre-publish state — but only for experiments still
+// holding what THIS plan wrote. The bulk ownership check proves the feature doc is
+// still ours; it says nothing about an experiment, which another feature's publish or
+// a direct edit can move while we are in flight. Converging unconditionally would
+// erase them. An experiment the forward pass never reached needs nothing undone, and
+// is skipped by the same comparison.
 export async function reverseHoldoutExperimentLinkage(
   context: ReqContext | ApiReqContext,
   plan: HoldoutExperimentLinkagePlan,
 ) {
+  // The SCALAR first, because it decides ownership. Throws on failure: publishRevision
+  // treats this as a satellite and carries on to the feature document, while bulk
+  // compensation records it and reports the item stuck rather than cleanly rolled
+  // back. A skipped experiment is not a failure — it is a different owner.
+  const { targets } = holdoutLinkageWrites(plan);
+  const reverted = await setExperimentHoldoutIds(
+    context,
+    plan.prevExperimentHoldoutIds,
+    targets,
+    "skip",
+  );
+  // Membership follows the scalar. Rewinding it unconditionally undid the teammate's
+  // half of a linkage whose scalar we had just declined to touch, leaving
+  // `linkedExperiments` and `holdoutId` disagreeing — and a later publish reads the
+  // live scalar as its expectation, matches, and quietly pulls the experiment out of
+  // their holdout. The two have to move together or not at all.
+  //
+  // An experiment the forward pass never reached is absent from `reverted` too, and
+  // needs no membership change either.
   await context.models.holdout.addExperimentsToHoldout(
     plan.holdoutId,
-    plan.toUnlink,
+    plan.toUnlink.filter((id) => reverted.has(id)),
   );
   await context.models.holdout.removeExperimentsFromHoldout(
     plan.holdoutId,
-    plan.toLink,
+    plan.toLink.filter((id) => reverted.has(id)),
   );
-  // Throws on failure: publishRevision treats this as a satellite and carries on
-  // to the feature document, while bulk compensation records it and reports the
-  // item stuck rather than cleanly rolled back.
-  await setExperimentHoldoutIds(context, plan.prevExperimentHoldoutIds);
 }
 
 // The linkage a holdout transition is about to write, captured before the forward
@@ -3795,12 +3892,15 @@ async function publishRevisionInner({
       });
     }
 
+    // One chain across the whole sequence: a leave plan and a join plan can name the
+    // same experiment, and the second must expect what the first wrote.
+    const linkageChain: Record<string, string> = {};
     for (const plan of experimentLinkagePlans) {
       rewinds.push({
         what: `holdout experiment linkage (${plan.holdoutId})`,
         undo: () => reverseHoldoutExperimentLinkage(context, plan),
       });
-      await applyHoldoutExperimentLinkage(context, plan);
+      await applyHoldoutExperimentLinkage(context, plan, linkageChain);
     }
 
     if (contextualBanditLinkagePlan) {

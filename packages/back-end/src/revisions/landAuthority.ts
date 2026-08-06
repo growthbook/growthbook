@@ -71,10 +71,15 @@ export async function canRebaseWithNarrowAtom({
 //
 // This decides whether the caller may stage an archive AT ALL. Which draft it may
 // be written into is a second question — see `canWriteArchiveIntoDraft`.
+//
+// The delete arm is DIRECTIONAL, matching `canLandArchivedState`: taking an entity out
+// of service is delete-class, returning it to service is publish-class. Without the
+// direction, a delete-only role could stage an unarchive it has no authority to land.
 export function canStageArchiveDraft({
   permissions,
   model,
   entity,
+  archived,
 }: {
   permissions: {
     canRevisionAction: (
@@ -86,11 +91,11 @@ export function canStageArchiveDraft({
   };
   model: RevisionModel;
   entity: { project?: string; projects?: string[] };
+  /** The state being staged: `true` archives, `false` returns to service. */
+  archived: boolean;
 }): boolean {
-  return (
-    permissions.canRevisionAction(model, "draft", entity, []) ||
-    permissions.canRevisionAction(model, "delete", entity, [])
-  );
+  if (permissions.canRevisionAction(model, "draft", entity, [])) return true;
+  return archived && permissions.canRevisionAction(model, "delete", entity, []);
 }
 
 // Lives in `shared` so the archive CONTROLS filter their draft pickers by the same

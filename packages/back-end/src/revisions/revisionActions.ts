@@ -24,7 +24,7 @@ import {
 import {
   canAdvanceRevision,
   canRebaseRevision,
-  isRevisionAuthor,
+  mayBeRevisionAuthor,
   liveMatchesRevisionBase,
   reviewAuthorityOnRow,
 } from "back-end/src/revisions/revisionAuthority";
@@ -429,7 +429,7 @@ export async function approveRevision(
     context.permissions.throwPermissionError();
   }
 
-  if (isRevisionAuthor(revision.authorId, context.userId)) {
+  if (mayBeRevisionAuthor(revision.authorId, context.userId)) {
     throw new BadRequestError("Cannot approve your own revision");
   }
 
@@ -1204,7 +1204,7 @@ export async function submitRevisionReview({
   }
 
   // The author may comment on their own draft, but not rule on it.
-  if (isRevisionAuthor(revision.authorId, context.userId) && !isComment) {
+  if (mayBeRevisionAuthor(revision.authorId, context.userId) && !isComment) {
     throw new BadRequestError("Cannot submit a review on a draft you created");
   }
 

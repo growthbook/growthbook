@@ -331,8 +331,14 @@ export function advancedGuardStamp(guardedOn: Date | undefined): Date {
 // between read and write). `updateWithCas` catches it to retry; landing paths
 // catch it to refuse, since a landing that lost the race must not be re-applied.
 export class CasConflictError extends Error {
+  // A lost race, not a malformed request: the same interleaving is reported as 409 by
+  // every path that converts it, and a plain retry usually succeeds. Without a status
+  // the handler defaulted to 400, which tells a client not to retry.
+  status = 409;
   constructor() {
-    super("Compare-and-swap conflict");
+    super(
+      "This change could not be applied because the record was updated concurrently. Retry the request.",
+    );
     this.name = "CasConflictError";
   }
 }
@@ -998,6 +1004,9 @@ export abstract class BaseModel<
     const fullQuery = this.applyBaseQuery(query, dangerousCrossOrganization);
     let rawDocs;
     let omittedFields: ReadonlySet<string> | undefined;
+    // Set only on the Mongo path: the config-file branch sorts in memory and has no
+    // cursor to page with, so it keeps slicing.
+    let pagedInDatabase = false;
 
     if (this.useConfigFile()) {
       const docs =
@@ -1030,6 +1039,17 @@ export abstract class BaseModel<
             [key: string]: 1 | -1;
           },
         );
+      // Page in the DATABASE when nothing downstream can drop a row. With read
+      // permissions applied per document, a post-filter shortens the result, so a
+      // cursor-side limit would under-fill the page — that case still slices below.
+      // Bypassed, the two are equivalent, and the caller stops materialising the whole
+      // match: an entity's revision history is full documents, snapshots included, so
+      // "load everything, keep 25" was tens of megabytes per page view.
+      pagedInDatabase = !!bypassReadPermissionChecks && !!(skip || limit);
+      if (pagedInDatabase) {
+        if (skip) cursor.skip(skip);
+        if (limit) cursor.limit(limit);
+      }
       rawDocs = await cursor.toArray();
     }
 
@@ -1045,7 +1065,7 @@ export abstract class BaseModel<
       : await this.filterByReadPermissions(migrated);
 
     const paged =
-      !skip && !limit
+      pagedInDatabase || (!skip && !limit)
         ? filtered
         : filtered.slice(skip || 0, limit ? (skip || 0) + limit : undefined);
 
