@@ -176,8 +176,9 @@ describe("withBufferedPayloadRefreshes — entity events", () => {
 
   it("leaves an enclosing bulk commit in charge of its own events", async () => {
     const context = ctx();
-    const outer: NonNullable<Context["bulkPublishDeferredEvents"]> = {
+    const outer: DeferredEventBuffer = {
       entries: [],
+      restored: new Set<string>(),
     };
     context.bulkPublishDeferredEvents = outer;
     context.sdkPayloadRefreshBuffer = {
@@ -481,7 +482,10 @@ describe("deferred event dispositions", () => {
   // an item-level tag cannot say that the root went back while a descendant did not.
   it("tags a deferred event with the entity it describes", async () => {
     const context = ctx();
-    context.bulkPublishDeferredEvents = { entries: [] };
+    context.bulkPublishDeferredEvents = {
+      entries: [],
+      restored: new Set<string>(),
+    };
     await emitOrDeferBulkPublishEvent(
       async () => undefined,
       "cfg_root",
