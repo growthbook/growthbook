@@ -618,20 +618,26 @@ export async function commitBulkPublish(
       // rejections and claim conflicts never reach here and stay silent.
       const reason = `Release publish failed and was rolled back: ${getErrorMessage(e)}`;
       for (const item of plan.items) {
-        // An item whose revision stays merged must NOT get a "rolled back"
-        // event — its `status: "published"` result row is the signal instead.
-        // KNOWN LIMITATION: stuck items therefore emit no event at all (running
-        // the success chain mid-compensation would fire normal-success signals
-        // on a needs-attention state). A dedicated stuck/needs-attention event
-        // is deliberately deferred: it's new public webhook semantics, designed
-        // alongside the uniform publish-failure webhook work.
-        if (stuckPublished(item)) continue;
+        // A stuck item must NOT get the plain "rolled back" reason — its state is
+        // the opposite, and its `status: "published"` result row says so. But it
+        // emitted NOTHING at all, which made the one incident-worthy outcome the
+        // only silent one while its cleanly-reverted neighbours each notified. The
+        // reason is free text, so the distinction rides there rather than needing a
+        // new event type — and the single-entity path already re-emits for exactly
+        // this situation, so the two publish surfaces now agree.
+        //
+        // A dedicated stuck/needs-attention event is still the right end state
+        // (new public webhook semantics, designed with the uniform publish-failure
+        // work); this stops the silence in the meantime.
+        const itemReason = stuckPublished(item)
+          ? `Release publish failed and this entity could NOT be rolled back — it remains published and needs reconciling by hand: ${getErrorMessage(e)}`
+          : reason;
         try {
           await getBulkAdapter(item.ref.entityType).emitPublishFailed(
             context,
             item.entityPreImage,
             item.revision,
-            reason,
+            itemReason,
           );
         } catch (emitErr) {
           logger.error(

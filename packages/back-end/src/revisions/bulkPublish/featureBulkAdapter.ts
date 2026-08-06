@@ -65,11 +65,7 @@ import { bulkPublishFields } from "back-end/src/events/bulkPublishCorrelation";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
-import {
-  LandingConflictError,
-  runGuardedWrite,
-} from "back-end/src/revisions/landingSequence";
-import { CasConflictError } from "back-end/src/models/BaseModel";
+import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import {
   authorityRefused,
   gateOr5xx,
@@ -480,10 +476,13 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
           }),
       );
     } catch (e) {
-      // A rejected CAS wrote no feature doc; mark it before the finally below
-      // snapshots the concurrent winner's satellites as this apply's output.
-      if (e instanceof LandingConflictError || e instanceof CasConflictError)
-        revision.casLost = true;
+      // Decided by the REPORT, not the error class — the last place that had not
+      // adopted the unified signal. `ourWriteStamp` is set only once Mongo confirms
+      // the feature write, so its absence means no doc landed, which also covers a
+      // non-CAS failure before the write that the class check missed. Marked before
+      // the finally below, which would otherwise snapshot a concurrent winner's
+      // satellites as this apply's output.
+      if (desired.ourWriteStamp === undefined) revision.casLost = true;
       throw e;
     } finally {
       // Re-snapshot the safe rollouts after applyRevisionChanges' sync wrote

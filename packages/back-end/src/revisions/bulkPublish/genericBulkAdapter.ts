@@ -348,16 +348,9 @@ export function makeGenericBulkAdapter(
         // live change was marked as having written nothing and compensation
         // returned clean while the item was reported rolled-back.
         //
-        // Marked before the `finally` below either way: the post-apply read would
-        // otherwise snapshot a concurrent WINNER's doc as this item's output, and
-        // compensation would mistake their work for ours and erase it.
-        // A rejected CAS matched zero documents, which PROVES nothing landed — but
-        // only when this apply also reported nothing. `reconcileConfigDescendants`
-        // re-throws CasConflictError from a DESCENDANT write, after the root write
-        // landed and reported, and the class alone marked that live change as
-        // having written nothing. An unreported non-CAS failure is neither: it
-        // falls through with no baseline, and `restorePreImage` leaves the item
-        // reported published rather than claiming a clean rollback.
+        // Marked HERE rather than left to compensation, so a later post-apply read
+        // cannot snapshot a concurrent WINNER's doc as this item's output —
+        // compensation would then mistake their work for ours and erase it.
         if (revision.writtenEntity === undefined) {
           revision.persistedKeys = [];
           revision.casLost = true;

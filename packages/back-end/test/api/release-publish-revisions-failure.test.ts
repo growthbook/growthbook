@@ -707,16 +707,22 @@ describe("POST /api/v1/releases/publish-revisions — commit failure", () => {
     expect(byId["noop-feat"]).toBe("published");
     expect(byId["noop-reopen"]).toBe("rolled-back");
 
-    // No publishFailed for the still-merged feature; only the rolled-back
-    // constant gets one.
+    // BOTH items notify, and the stuck one says so. It used to emit nothing at
+    // all, which made the single incident-worthy outcome the only silent one while
+    // its cleanly-reverted neighbour notified. The reason distinguishes them, so no
+    // new event type is needed — and the single-entity path already re-emits for
+    // this situation, so the two publish surfaces now agree.
     const failed = await mongoose.connection
       .collection("events")
       .find({ organizationId: ORG_ID, event: /revision\.publishFailed/ })
       .toArray();
-    expect(
-      failed.some((e) => e.data?.data?.object?.featureId === "noop-feat"),
-    ).toBe(false);
-    expect(failed.length).toBe(1);
+    expect(failed.length).toBe(2);
+    const stuck = failed.find(
+      (e) => e.data?.data?.object?.featureId === "noop-feat",
+    );
+    expect(stuck).toBeDefined();
+    // Not the plain "rolled back" reason — its state is the opposite.
+    expect(JSON.stringify(stuck)).toContain("could NOT be rolled back");
   });
 
   it("does not clobber a generic revision re-published concurrently during compensation", async () => {
