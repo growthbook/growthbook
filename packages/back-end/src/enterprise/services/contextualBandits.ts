@@ -905,6 +905,30 @@ export async function runContextualBanditSnapshot(
   };
 }
 
+export async function cancelContextualBanditLatestRunningSnapshot(
+  context: ApiReqContext,
+  cb: ContextualBanditInterface,
+): Promise<void> {
+  const latest =
+    await context.models.contextualBanditSnapshots.getLatestForContextualBandit(
+      cb.id,
+    );
+  if (!latest || latest.status !== "running") return;
+
+  const ds = await getDataSourceById(context, cb.datasource);
+  if (!ds) throw new Error(`Datasource missing: ${cb.datasource}`);
+
+  const integration = getSourceIntegrationObject(context, ds, true);
+  const runner = new ContextualBanditResultsQueryRunner(
+    context,
+    latest,
+    integration,
+    false,
+  );
+  await runner.cancelQueries();
+  await context.models.contextualBanditSnapshots.delete(latest);
+}
+
 /**
  * Collapses a run's per-leaf `leaf_map` into one `LeafWeight` per tree leaf:
  * `{ leafId, condition, weights }`. `condition` is the targeting predicate that
