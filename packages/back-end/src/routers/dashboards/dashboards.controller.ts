@@ -35,6 +35,7 @@ import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel"
 import {
   generateDashboardSSRData,
   getPublicDashboardBlockData,
+  redactDashboardForPublic,
   updateDashboardMetricAnalyses,
   updateDashboardExplorations,
   updateDashboardSavedQueries,
@@ -88,7 +89,11 @@ export async function getDashboardPublic(
 
   const ssrData = await generateDashboardSSRData({ context, dashboard });
 
-  return res.status(200).json({ status: 200, dashboard, ssrData });
+  return res.status(200).json({
+    status: 200,
+    dashboard: redactDashboardForPublic(dashboard),
+    ssrData,
+  });
 }
 
 export async function getDashboardPublicBlocks(

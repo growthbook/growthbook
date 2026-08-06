@@ -3,6 +3,7 @@ import { isDefined, isString } from "shared/util";
 import {
   ExperimentMetricInterface,
   expandMetricGroups,
+  isFactMetric,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import {
@@ -24,7 +25,11 @@ import {
   resolveBlockComparison,
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
-import { ProductAnalyticsExploration, SavedQuery } from "shared/validators";
+import {
+  ExplorationConfig,
+  ProductAnalyticsExploration,
+  SavedQuery,
+} from "shared/validators";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -34,7 +39,11 @@ import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
-import { FactTableInterface } from "shared/types/fact-table";
+import {
+  ColumnRef,
+  FactTableInterface,
+  RowFilter,
+} from "shared/types/fact-table";
 import { DimensionInterface } from "shared/types/dimension";
 import { ProjectInterface } from "shared/types/project";
 import { OrganizationSettings } from "shared/types/organization";
@@ -573,6 +582,42 @@ function redactDimensionForPublic(
   return { ...dimension, sql: "" };
 }
 
+// Fact-metric column refs nest raw SQL/filter data (`sql_expr` row filters and
+// aggregate filters). Strip those; keep `factTableId`/`column`/`aggregation`,
+// which the public renderer needs to look up and label the metric.
+function redactColumnRefForPublic(ref: ColumnRef): ColumnRef {
+  return omit(ref, [
+    "rowFilters",
+    "aggregateFilter",
+    "aggregateFilterColumn",
+  ]) as ColumnRef;
+}
+
+// Metrics can leak warehouse SQL/schema: legacy metrics via `sql` /
+// `templateVariables` / `userIdColumns`, and fact metrics via the row filters
+// and aggregate filters nested in their numerator/denominator column refs.
+// Strip those (plus the existing analysis/query internals) while keeping the
+// display and lookup fields the public renderer uses.
+export function redactMetricForPublic(
+  metric: ExperimentMetricInterface,
+): ExperimentMetricInterface {
+  if (isFactMetric(metric)) {
+    return {
+      ...omit(metric, SENSITIVE_METRIC_FIELDS),
+      numerator: redactColumnRefForPublic(metric.numerator),
+      denominator: metric.denominator
+        ? redactColumnRefForPublic(metric.denominator)
+        : metric.denominator,
+    } as ExperimentMetricInterface;
+  }
+  return omit(metric, [
+    ...SENSITIVE_METRIC_FIELDS,
+    "sql",
+    "templateVariables",
+    "userIdColumns",
+  ]) as ExperimentMetricInterface;
+}
+
 export async function generateDashboardSSRData({
   context,
   dashboard,
@@ -674,10 +719,7 @@ export async function generateDashboardSSRData({
     ...denominatorMetrics,
     ...explorationFactMetrics,
   ].forEach((metric) => {
-    metricMap[metric.id] = omit(
-      metric,
-      SENSITIVE_METRIC_FIELDS,
-    ) as ExperimentMetricInterface;
+    metricMap[metric.id] = redactMetricForPublic(metric);
   });
 
   const factTableIds = uniq(
@@ -807,6 +849,189 @@ export function redactMetricAnalysisForPublic(
   };
 }
 
+// Row filters with the `sql_expr` operator carry raw SQL in their `values`.
+// Blank those while leaving other operators intact so human-readable filter
+// previews (e.g. `event_name = signup`) still render on the public page.
+function redactRowFiltersForPublic(filters: RowFilter[]): RowFilter[] {
+  return filters.map((f) =>
+    f.operator === "sql_expr" ? { ...f, values: [] } : { ...f },
+  );
+}
+
+// Exploration configs embed warehouse schema (data-source table/path/columns,
+// fact-table ids, value columns) and raw SQL (`sql_expr` row filters). Strip the
+// never-rendered internals and raw SQL while preserving the display fields the
+// read-only renderer reads (chart type, date range, dimension labels, value
+// names/units, funnel step names). Used for both exploration entities and the
+// exploration block configs returned by the config endpoint.
+export function redactExplorationConfigForPublic(
+  config: ExplorationConfig,
+): ExplorationConfig {
+  const dimensions = config.dimensions.map((d) =>
+    d.dimensionType === "slice"
+      ? {
+          ...d,
+          slices: d.slices.map((s) => ({
+            ...s,
+            filters: redactRowFiltersForPublic(s.filters),
+          })),
+        }
+      : { ...d },
+  );
+
+  switch (config.type) {
+    case "metric":
+      return {
+        ...config,
+        dimensions,
+        dataset: {
+          ...config.dataset,
+          values: config.dataset.values.map((v) => ({
+            ...v,
+            rowFilters: redactRowFiltersForPublic(v.rowFilters),
+          })),
+        },
+      };
+    case "fact_table":
+      return {
+        ...config,
+        dimensions,
+        dataset: {
+          ...config.dataset,
+          factTableId: null,
+          values: config.dataset.values.map((v) => ({
+            ...v,
+            valueColumn: null,
+            rowFilters: redactRowFiltersForPublic(v.rowFilters),
+          })),
+        },
+      };
+    case "data_source":
+      return {
+        ...config,
+        dimensions,
+        dataset: {
+          ...config.dataset,
+          table: "",
+          path: "",
+          timestampColumn: "",
+          columnTypes: {},
+          values: config.dataset.values.map((v) => ({
+            ...v,
+            valueColumn: null,
+            rowFilters: redactRowFiltersForPublic(v.rowFilters),
+          })),
+        },
+      };
+    case "funnel":
+      return {
+        ...config,
+        dimensions,
+        dataset: {
+          ...config.dataset,
+          steps: config.dataset.steps.map((s) => ({
+            ...s,
+            factTable: "",
+            rowFilters: redactRowFiltersForPublic(s.rowFilters),
+          })),
+        },
+      };
+    default: {
+      const _exhaustiveCheck: never = config;
+      return _exhaustiveCheck;
+    }
+  }
+}
+
+// Product-analytics explorations expose their full config (schema + SQL) plus
+// internal query pointers and org id. Redact the config and drop the internals,
+// keeping the result rows and display settings the UI renders.
+export function redactExplorationForPublic(
+  exploration: ProductAnalyticsExploration,
+): ProductAnalyticsExploration {
+  return {
+    ...exploration,
+    organization: "",
+    queries: [],
+    config: redactExplorationConfigForPublic(exploration.config),
+  };
+}
+
+// The config endpoint returns the full DashboardInterface. Strip internal
+// ownership/org identifiers and redact per-block configs that embed SQL/schema:
+// exploration block configs (same as exploration entities) and metric-explorer
+// adhoc SQL filters. Resource lookup IDs (explorerAnalysisId, savedQueryId,
+// snapshotId, metricAnalysisId, factMetricId, ...) are kept — the renderer needs
+// them to join the redacted block data.
+export function redactDashboardForPublic(
+  dashboard: DashboardInterface,
+): DashboardInterface {
+  const blocks = dashboard.blocks.map((block) => {
+    switch (block.type) {
+      case "metric-exploration":
+        return {
+          ...block,
+          config: redactExplorationConfigForPublic(
+            block.config,
+          ) as typeof block.config,
+        };
+      case "fact-table-exploration":
+        return {
+          ...block,
+          config: redactExplorationConfigForPublic(
+            block.config,
+          ) as typeof block.config,
+        };
+      case "data-source-exploration":
+        return {
+          ...block,
+          config: redactExplorationConfigForPublic(
+            block.config,
+          ) as typeof block.config,
+        };
+      case "funnel-exploration":
+        return {
+          ...block,
+          config: redactExplorationConfigForPublic(
+            block.config,
+          ) as typeof block.config,
+        };
+      case "metric-explorer":
+        return {
+          ...block,
+          analysisSettings: omit(block.analysisSettings, [
+            "additionalNumeratorFilters",
+            "additionalDenominatorFilters",
+          ]) as typeof block.analysisSettings,
+        };
+      case "markdown":
+      case "experiment-metadata":
+      case "experiment-traffic":
+      case "experiment-metric":
+      case "metric-experiments":
+      case "experiments-scaled-impact":
+      case "experiments-win-rate":
+      case "experiments-status":
+      case "experiment-dimension":
+      case "experiment-time-series":
+      case "sql-explorer":
+        return block;
+      default: {
+        const _exhaustiveCheck: never = block;
+        return _exhaustiveCheck;
+      }
+    }
+  });
+
+  return {
+    ...dashboard,
+    userId: "",
+    organization: "",
+    projects: [],
+    blocks,
+  };
+}
+
 export async function getPublicDashboardBlockData({
   context,
   dashboard,
@@ -891,6 +1116,6 @@ export async function getPublicDashboardBlockData({
     snapshots: snapshots.map(redactSnapshotForPublic),
     savedQueries: savedQueries.map(redactSavedQueryForPublic),
     metricAnalyses: metricAnalyses.map(redactMetricAnalysisForPublic),
-    explorations,
+    explorations: explorations.map(redactExplorationForPublic),
   };
 }
