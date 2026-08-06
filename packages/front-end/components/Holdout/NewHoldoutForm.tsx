@@ -581,13 +581,9 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                         )
                   }
                   onChange={(e) => {
-                    // The entered value is the holdout size, not the coverage.
-                    // Clamp it to MAX_HOLDOUT_SIZE so the held-out group plus
-                    // its equally-sized control group never exceed all traffic.
                     let holdoutSize = percentToDecimal(e.target.value);
-                    if (holdoutSize > MAX_HOLDOUT_SIZE) {
+                    if (holdoutSize > MAX_HOLDOUT_SIZE)
                       holdoutSize = MAX_HOLDOUT_SIZE;
-                    }
                     if (holdoutSize < 0) holdoutSize = 0;
                     form.setValue(
                       "phases.0.coverage",
