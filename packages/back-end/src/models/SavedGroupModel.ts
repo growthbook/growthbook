@@ -197,7 +197,6 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
     ) {
       await emitOrDeferBulkPublishEvent(
-        this.context,
         () => logSavedGroupUpdatedEvent(this.context, previous, current),
         newDoc.id,
         captureEventBuffer(this.context),

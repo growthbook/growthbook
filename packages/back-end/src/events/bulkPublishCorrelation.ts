@@ -1,6 +1,27 @@
 import type { Context } from "back-end/src/models/BaseModel";
 
 /**
+ * `*.updated` events held for the duration of one landing.
+ *
+ * Owned by the landing, not by the context: a producer that suspends carries a
+ * REFERENCE to the buffer its write belonged to, because by the time it resumes the
+ * context may be pointing at a different landing's buffer.
+ */
+export type DeferredEventBuffer = {
+  entries: Array<{ owner: string; emit: () => Promise<unknown> }>;
+  /**
+   * Set when the landing ends. The buffer stays reachable afterwards so a late
+   * producer is judged by `restored` rather than by the buffer's absence.
+   */
+  closed?: boolean;
+  /**
+   * Documents compensation put back. An event — buffered or late — is emitted only
+   * for a document NOT in here, which is the one rule every path applies.
+   */
+  restored: Set<string>;
+};
+
+/**
  * Correlation fields for events emitted by a multi-entity publish. The commit
  * phase sets `context.bulkPublishId`; every revision lifecycle event emitted
  * while it is set carries it, so webhook consumers can group one release's
@@ -31,12 +52,11 @@ export function bulkPublishFields(context: Context): {
  */
 export function captureEventBuffer(
   context: Context,
-): Context["bulkPublishDeferredEvents"] {
+): DeferredEventBuffer | null {
   return context.bulkPublishDeferredEvents ?? null;
 }
 
 export async function emitOrDeferBulkPublishEvent(
-  context: Context,
   emit: () => Promise<unknown>,
   // The entity this event DESCRIBES. Compensation emits an event only when its
   // entity was not put back, so the tag has to name the document, not the release
@@ -44,29 +64,30 @@ export async function emitOrDeferBulkPublishEvent(
   // but are restored independently, and one item-level tag cannot say that the root
   // went back while a descendant did not.
   entityId: string,
-  // The buffer this write belonged to, from `captureEventBuffer` at write time. Every
-  // producer that can await before emitting must pass one; omitting it falls back to
-  // whatever is open now, which is only correct for a producer that cannot suspend.
-  captured?: Context["bulkPublishDeferredEvents"],
+  // The buffer this write belonged to, from `captureEventBuffer` at write time.
+  //
+  // REQUIRED, and `null` rather than optional on purpose. An optional parameter makes
+  // `undefined` mean two things — "didn't capture" and "captured, nothing was open" —
+  // told apart only by a `??` inside the capture helper. A future caller passing
+  // `context.bulkPublishDeferredEvents` directly would type-check and silently restore
+  // the bug this parameter exists to prevent, whenever no buffer is open at write
+  // time. With no fallback branch there is nothing to fall back TO.
+  captured: DeferredEventBuffer | null,
 ): Promise<void> {
-  // Read and push with no await between them, so a flush can't interleave and orphan
-  // an event pushed while the buffer is open. That is NOT sufficient on its own: some
-  // producers (`onFeatureUpdate`) are invoked fire-and-forget and await mid-way, so
-  // they can arrive after the release has ended. The buffer therefore stays on the
-  // context once closed, carrying what it needs to decide their fate.
-  const deferred =
-    captured !== undefined ? captured : context.bulkPublishDeferredEvents;
-  if (deferred && !deferred.closed) {
-    deferred.entries.push({ owner: entityId, emit });
+  // No context parameter, deliberately: this decision reads no ambient state. A
+  // producer that suspends resumes into whatever landing is open then, and on a
+  // context publishing several entities in turn that is a different release with a
+  // different verdict — so the only correct input is the buffer handed in.
+  if (captured && !captured.closed) {
+    captured.entries.push({ owner: entityId, emit });
     return;
   }
-  // A straggler, judged by the SAME question the in-window flush asks: was this
-  // document put back? A release-wide verdict cannot answer it — a rollback that left
-  // one entity durably published has to stay silent about the rest and speak about
-  // that one — and each time these were two separate dispositions, one of them was
-  // wrong. They are one rule now.
-  if (deferred?.closed) {
-    if (deferred.restored.has(entityId)) return;
+  // The landing has ended. Judged by the SAME question the in-window flush asks: was
+  // this document put back? A release-wide verdict cannot answer it — a rollback that
+  // left one entity durably published has to stay silent about the rest and speak
+  // about that one — and each time these were two dispositions, one was wrong.
+  if (captured?.closed) {
+    if (captured.restored.has(entityId)) return;
     await emit();
     return;
   }

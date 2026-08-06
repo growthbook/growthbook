@@ -1224,7 +1224,6 @@ export async function onFeatureUpdate(
     // Event-based webhooks. During a bulk-publish commit the emission defers
     // to the post-commit flush (dropped entirely if the commit compensates).
     await emitOrDeferBulkPublishEvent(
-      context,
       () => logFeatureUpdatedEvent(context, feature, updatedFeature),
       feature.id,
       buffer,

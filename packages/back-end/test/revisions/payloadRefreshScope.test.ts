@@ -131,7 +131,7 @@ describe("withBufferedPayloadRefreshes — entity events", () => {
     context: Context,
     emit: () => Promise<unknown>,
     entityId = "ent_1",
-  ) => emitOrDeferBulkPublishEvent(context, emit, entityId);
+  ) => emitOrDeferBulkPublishEvent(emit, entityId, captureEventBuffer(context));
 
   function ctx(): Context {
     return {
@@ -232,9 +232,9 @@ describe("deferred event dispositions", () => {
     ).rejects.toThrow("apply failed");
 
     await emitOrDeferBulkPublishEvent(
-      context,
       async () => emit(),
       "ent_rolled_back",
+      captureEventBuffer(context),
     );
     expect(emit).not.toHaveBeenCalled();
   });
@@ -252,7 +252,11 @@ describe("deferred event dispositions", () => {
       }),
     ).rejects.toThrow("apply failed");
 
-    await emitOrDeferBulkPublishEvent(context, async () => emit(), "ent_stuck");
+    await emitOrDeferBulkPublishEvent(
+      async () => emit(),
+      "ent_stuck",
+      captureEventBuffer(context),
+    );
     expect(emit).toHaveBeenCalledTimes(1);
   });
 
@@ -268,14 +272,14 @@ describe("deferred event dispositions", () => {
     await expect(
       withBufferedPayloadRefreshes(context, "test", async () => {
         await emitOrDeferBulkPublishEvent(
-          context,
           async () => stuck(),
           "cfg_child",
+          captureEventBuffer(context),
         );
         await emitOrDeferBulkPublishEvent(
-          context,
           async () => rolledBack(),
           "cfg_root",
+          captureEventBuffer(context),
         );
         // The root went back; the descendant could not.
         context.bulkPublishRestoredEntities?.add("cfg_root");
@@ -294,7 +298,11 @@ describe("deferred event dispositions", () => {
 
     await withBufferedPayloadRefreshes(context, "test", async () => undefined);
 
-    await emitOrDeferBulkPublishEvent(context, async () => emit(), "ent_1");
+    await emitOrDeferBulkPublishEvent(
+      async () => emit(),
+      "ent_1",
+      captureEventBuffer(context),
+    );
     expect(emit).toHaveBeenCalledTimes(1);
   });
 
@@ -323,12 +331,7 @@ describe("deferred event dispositions", () => {
 
     // #1's producer resumes now. Reading the context would find #2's buffer and its
     // verdict; the captured one says #1 stood.
-    await emitOrDeferBulkPublishEvent(
-      context,
-      async () => emit(),
-      "ent_1",
-      captured,
-    );
+    await emitOrDeferBulkPublishEvent(async () => emit(), "ent_1", captured);
     expect(emit).toHaveBeenCalledTimes(1);
   });
 
@@ -349,12 +352,7 @@ describe("deferred event dispositions", () => {
 
     await withBufferedPayloadRefreshes(context, "test", async () => undefined);
 
-    await emitOrDeferBulkPublishEvent(
-      context,
-      async () => emit(),
-      "ent_1",
-      captured,
-    );
+    await emitOrDeferBulkPublishEvent(async () => emit(), "ent_1", captured);
     expect(emit).not.toHaveBeenCalled();
   });
 
@@ -370,16 +368,34 @@ describe("deferred event dispositions", () => {
 
     await withBufferedPayloadRefreshes(context, "test", async () => {
       // Mid-flight in landing #2, exactly when the producer resumes.
-      await emitOrDeferBulkPublishEvent(
-        context,
-        async () => emit(),
-        "ent_1",
-        captured,
-      );
+      await emitOrDeferBulkPublishEvent(async () => emit(), "ent_1", captured);
       expect(context.bulkPublishDeferredEvents?.entries).toEqual([]);
     });
 
     // Emitted on #1's verdict, not queued onto #2.
+    expect(emit).toHaveBeenCalledTimes(1);
+  });
+
+  // A write made OUTSIDE any landing captures `null`, and null must mean "emit live",
+  // not "look at whatever is open now". An ordinary update whose producer suspends
+  // while a release starts would otherwise be swallowed by that release's verdict —
+  // the same misattribution, from the other side.
+  it("emits a write that belonged to no landing at all", async () => {
+    const context = ctx();
+    const emit = jest.fn();
+
+    // Captured with nothing open.
+    const captured = captureEventBuffer(context);
+    expect(captured).toBeNull();
+
+    await expect(
+      withBufferedPayloadRefreshes(context, "test", async () => {
+        context.bulkPublishRestoredEntities?.add("ent_1");
+        throw new Error("unrelated landing failed");
+      }),
+    ).rejects.toThrow("unrelated landing failed");
+
+    await emitOrDeferBulkPublishEvent(async () => emit(), "ent_1", captured);
     expect(emit).toHaveBeenCalledTimes(1);
   });
 
@@ -400,7 +416,11 @@ describe("deferred event dispositions", () => {
     await withBufferedPayloadRefreshes(context, "test", async () => undefined);
 
     // Same document, second landing, which stood.
-    await emitOrDeferBulkPublishEvent(context, async () => emit(), "ent_1");
+    await emitOrDeferBulkPublishEvent(
+      async () => emit(),
+      "ent_1",
+      captureEventBuffer(context),
+    );
     expect(emit).toHaveBeenCalledTimes(1);
   });
 
@@ -411,14 +431,14 @@ describe("deferred event dispositions", () => {
     const context = ctx();
     context.bulkPublishDeferredEvents = { entries: [] };
     await emitOrDeferBulkPublishEvent(
-      context,
       async () => undefined,
       "cfg_root",
+      captureEventBuffer(context),
     );
     await emitOrDeferBulkPublishEvent(
-      context,
       async () => undefined,
       "cfg_child",
+      captureEventBuffer(context),
     );
 
     expect(

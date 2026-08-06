@@ -94,6 +94,7 @@ import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
 import { OAuthGrantModel } from "back-end/src/models/OAuthGrantModel";
 import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
 import { getUserByEmail, getUsersByIds } from "back-end/src/models/UserModel";
+import type { DeferredEventBuffer } from "back-end/src/events/bulkPublishCorrelation";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -272,17 +273,8 @@ export class ReqContextClass {
   // `closed` is the terminal disposition for a producer that arrives after the release
   // has been decided. Some producers await mid-way and are invoked fire-and-forget
   // (`onFeatureUpdate`), so read-and-push atomicity does not keep them inside the
-  // window. Falling through to a live emit — what a missing buffer means — announced a
-  // value from a release that had already rolled back.
-  public bulkPublishDeferredEvents?: {
-    entries: Array<{ owner: string; emit: () => Promise<unknown> }>;
-    // Set when the release ends. The buffer stays reachable afterwards so a late
-    // producer can be judged by `restored` rather than by its absence.
-    closed?: boolean;
-    // Documents compensation put back. An event — buffered or late — is emitted only
-    // for a document NOT in here, which is the one rule both paths apply.
-    restored: Set<string>;
-  } | null;
+  // window — they carry a reference to THIS buffer instead of consulting the field.
+  public bulkPublishDeferredEvents?: DeferredEventBuffer | null;
   /**
    * Where a restore reports the document it put back. Points at the live buffer's
    * `restored` set for the duration of a landing, so the in-window flush and any late

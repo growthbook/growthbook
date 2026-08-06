@@ -2,6 +2,7 @@ import { isEqual } from "lodash";
 import type { RevisionTargetType } from "shared/enterprise";
 import { getAdapter } from "back-end/src/revisions";
 import { CasConflictError, Context } from "back-end/src/models/BaseModel";
+import type { DeferredEventBuffer } from "back-end/src/events/bulkPublishCorrelation";
 import { ConflictError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
@@ -278,13 +279,12 @@ export async function withBufferedPayloadRefreshes<T>(
   };
   // `*.updated` events defer alongside the refreshes: a landing that compensates would
   // otherwise have told consumers about a change that no longer exists.
-  // A CLOSED buffer left by an EARLIER landing is not an enclosing scope — it is a
-  // leftover kept reachable for that landing's stragglers. Treating it as one handed
-  // the previous landing's verdict to this one, so a loop publishing several features
-  // on one context let a later failure govern the earlier successes.
+  // A CLOSED buffer left by an EARLIER landing is not an enclosing scope. Treating it
+  // as one handed the previous landing's verdict to this one, so a loop publishing
+  // several features on one context let a later failure govern the earlier successes.
   const outer = context.bulkPublishDeferredEvents;
   const outerDeferred = outer && !outer.closed ? outer : null;
-  const buffer: NonNullable<Context["bulkPublishDeferredEvents"]> = {
+  const buffer: DeferredEventBuffer = {
     entries: [],
     restored: new Set<string>(),
   };
@@ -296,9 +296,7 @@ export async function withBufferedPayloadRefreshes<T>(
     const result = await fn();
     const deferred = buffer.entries;
     // The landing stands, so nothing is in `restored` and every straggler emits. Hand
-    // the context back to an enclosing release if there is one; with none, leave the
-    // CLOSED buffer rather than null — the producer reads this field fresh at resume
-    // time, so nulling it puts a straggler back on an unconditional live emit.
+    // the context back to an enclosing release if there is one.
     buffer.closed = true;
     context.bulkPublishDeferredEvents = outerDeferred ?? buffer;
     for (const { emit } of deferred) {

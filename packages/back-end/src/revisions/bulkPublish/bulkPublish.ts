@@ -2,6 +2,7 @@ import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import uniqid from "uniqid";
 import { flushPayloadRefreshBuffer } from "back-end/src/revisions/landingSequence";
 import type { Context } from "back-end/src/models/BaseModel";
+import type { DeferredEventBuffer } from "back-end/src/events/bulkPublishCorrelation";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import {
   BadRequestError,
@@ -496,7 +497,7 @@ export async function commitBulkPublish(
       keys: [],
       treatEmptyProjectAsGlobal: false,
     };
-    const eventBuffer: NonNullable<Context["bulkPublishDeferredEvents"]> = {
+    const eventBuffer: DeferredEventBuffer = {
       entries: [],
       restored: new Set<string>(),
     };
@@ -512,14 +513,10 @@ export async function commitBulkPublish(
       claimedSoFar: PlannedItemPublish[],
       e: unknown,
     ): Promise<never> => {
-      // Nothing has been applied yet at an abort, so the only entries here are the
-      // no-op self-heal replay's — real live writes that no compensation undoes.
       // Nothing has been applied, so nothing is in `restored` and every entry is a
-      // self-heal replay's — real live writes no compensation undoes. Late ones take
-      // the same answer from the same set.
+      // self-heal replay's — real live writes no compensation undoes. A late one takes
+      // the same answer from the same set, through the reference it captured.
       const durable = eventBuffer.entries;
-      // Closed, and LEFT on the context: the producer reads the field fresh, so
-      // nulling it would put a straggler back on the live-emit path.
       eventBuffer.closed = true;
       context.bulkPublishRestoredEntities = null;
       flushPayloadRefreshBuffer(context, "bulk-publish-abort");
@@ -708,10 +705,8 @@ export async function commitBulkPublish(
         context.sdkPayloadRefreshBuffer.treatEmptyProjectAsGlobal ||=
           applyBuffer.treatEmptyProjectAsGlobal;
       }
-      // Close the buffer and LEAVE IT, with its `restored` set intact. Nulling either
-      // put the answer out of reach: the producer reads the context fresh at resume
-      // time and captures no reference, so a straggler saw "no buffer" and emitted
-      // live, or saw a release-wide verdict and dropped a durable document's event.
+      // Closed, with its `restored` set intact — a producer holding a reference to it
+      // is judged by that set, whenever it resumes.
       eventBuffer.closed = true;
       context.bulkPublishRestoredEntities = null;
       flushPayloadRefreshBuffer(context, "bulk-publish-compensation");
@@ -775,9 +770,7 @@ export async function commitBulkPublish(
     // Success: detach the buffers FIRST so the flushes themselves fire, then
     // emit everything deferred — only after the commit is known-good.
     const deferredEvents = eventBuffer.entries;
-    // The release stands, so nothing is in `restored` and every straggler emits — but
-    // it has to be able to SEE that, which means leaving the closed buffer where the
-    // producer looks.
+    // The release stands, so nothing is in `restored` and every straggler emits.
     eventBuffer.closed = true;
     context.bulkPublishRestoredEntities = null;
     flushPayloadRefreshBuffer(context, "bulk-publish");

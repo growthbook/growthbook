@@ -249,7 +249,6 @@ export class ConstantModel extends BaseClass {
       !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
     ) {
       await emitOrDeferBulkPublishEvent(
-        this.context,
         () => logConstantUpdatedEvent(this.context, previous, current),
         newDoc.id,
         captureEventBuffer(this.context),
