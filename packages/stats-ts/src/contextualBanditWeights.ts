@@ -1,4 +1,3 @@
-import type { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
 import type {
   ContextualBanditResponseSnapshot,
   ContextualBanditSnapshot,
@@ -7,11 +6,7 @@ import type {
   ContextualSseTrajectoryEntry,
   MetricSettingsForStatsEngine,
 } from "shared/types/stats";
-import {
-  attributeConditionFromMetricRow,
-  contextualBanditAttrCol,
-  leafClausesFromContexts,
-} from "shared/experiments";
+import { leafClausesFromContexts } from "shared/experiments";
 import {
   updateVariationWeights,
   type VariationWeightResult,
@@ -56,18 +51,8 @@ interface kMeansResult {
   converged: boolean;
 }
 
-/** Inputs for `computeContextualBanditWeights`; `keep_theta` is forced off internally. */
-export type ContextualBanditWeightsInput = {
-  varIds: string[];
-  attributes: string[];
-  maxLeaves: number;
-  minUsersPerLeaf: number;
-  metricSettings: MetricSettingsForStatsEngine;
-  analysisWeights: number[];
-  rows: ExperimentMetricQueryResponseRows;
-};
-
-type ArmColumns = {
+/** Metric moments for one variation; also the accumulator when arms are pooled. */
+export type ContextualBanditArm = {
   n: number;
   main_sum: number;
   main_sum_squares: number;
@@ -79,6 +64,30 @@ type ArmColumns = {
   main_covariate_sum_product: number;
 };
 
+/**
+ * One pre-aggregated (context, variation) cell of the decision metric.
+ *
+ * `context` holds the attribute values keyed by their configured name;
+ * attributes the underlying data had no value for are absent, and land in the
+ * catch-all bucket during grouping.
+ */
+export type ContextualBanditObservation = {
+  variationIndex: number;
+  context: Record<string, string>;
+  arm: ContextualBanditArm;
+};
+
+/** Inputs for `computeContextualBanditWeights`; `keep_theta` is forced off internally. */
+export type ContextualBanditWeightsInput = {
+  varIds: string[];
+  attributes: string[];
+  maxLeaves: number;
+  minUsersPerLeaf: number;
+  metricSettings: MetricSettingsForStatsEngine;
+  analysisWeights: number[];
+  observations: ContextualBanditObservation[];
+};
+
 type MomentStat = {
   n: number;
   mean: number;
@@ -87,7 +96,7 @@ type MomentStat = {
   unadjustedVariance: number;
 };
 
-function emptyArm(): ArmColumns {
+function emptyArm(): ContextualBanditArm {
   return {
     n: 0,
     main_sum: 0,
@@ -101,33 +110,10 @@ function emptyArm(): ArmColumns {
   };
 }
 
-function num(value: unknown): number {
-  const n = Number(value ?? 0);
-  return Number.isFinite(n) ? n : 0;
-}
-
-function rowUnits(row: ExperimentMetricQueryResponseRows[number]): number {
-  if ("count" in row && row.count != null) return num(row.count);
-  if ("users" in row && row.users != null) return num(row.users);
-  return 0;
-}
-
-function addRowToArm(
-  arm: ArmColumns,
-  row: ExperimentMetricQueryResponseRows[number],
-): void {
-  arm.n += rowUnits(row);
-  arm.main_sum += num(row.main_sum);
-  arm.main_sum_squares += num(row.main_sum_squares);
-  arm.denominator_sum += num(row.denominator_sum);
-  arm.denominator_sum_squares += num(row.denominator_sum_squares);
-  arm.main_denominator_sum_product += num(row.main_denominator_sum_product);
-  arm.covariate_sum += num(row.covariate_sum);
-  arm.covariate_sum_squares += num(row.covariate_sum_squares);
-  arm.main_covariate_sum_product += num(row.main_covariate_sum_product);
-}
-
-function addArms(a: ArmColumns, b: ArmColumns): ArmColumns {
+function addArms(
+  a: ContextualBanditArm,
+  b: ContextualBanditArm,
+): ContextualBanditArm {
   return {
     n: a.n + b.n,
     main_sum: a.main_sum + b.main_sum,
@@ -164,7 +150,7 @@ function assertSupportedContextualBanditMetric(
  * Binomial metrics are recast to SampleMean for Thompson sampling.
  */
 function armMomentStatForBandit(
-  arm: ArmColumns,
+  arm: ContextualBanditArm,
   metric: MetricSettingsForStatsEngine,
 ): MomentStat {
   assertSupportedContextualBanditMetric(metric);
@@ -193,7 +179,7 @@ function armMomentStatForBandit(
 }
 
 function computeLeafWeights(
-  armsByVariation: ArmColumns[],
+  armsByVariation: ContextualBanditArm[],
   metric: MetricSettingsForStatsEngine,
   currentWeights: number[],
 ): VariationWeightResult {
@@ -205,61 +191,55 @@ function computeLeafWeights(
 
 type ContextEntry = {
   tuple: string[];
-  condition: Record<string, unknown>;
-  arms: ArmColumns[];
+  condition: Record<string, string>;
+  arms: ContextualBanditArm[];
 };
 
-function contextTuple(
-  row: ExperimentMetricQueryResponseRows[number],
-  attrColumns: string[],
-): string[] {
-  return attrColumns.map((col) => {
-    const v = (row as Record<string, unknown>)[col];
-    return v === undefined || v === null
-      ? COMBINED_CONTEXT_ATTRIBUTE_VALUE
-      : String(v);
-  });
-}
-
-function variationIndexFromRow(
-  row: ExperimentMetricQueryResponseRows[number],
-  varIds: string[],
-): number | null {
-  const key = String(row.variation ?? "");
-  const byId = varIds.indexOf(key);
-  if (byId >= 0) return byId;
-  const asNum = Number(key);
-  if (Number.isInteger(asNum) && asNum >= 0 && asNum < varIds.length) {
-    return asNum;
+/**
+ * The two views of an observation's context, both restricted to `attributes`
+ * (the attributes in play after the cap): the positional `tuple` that drives
+ * grouping and tree splits, which falls back to the catch-all bucket for
+ * attributes with no value, and the `condition` reported for the context, which
+ * omits them. Deriving both here keeps them from disagreeing.
+ */
+function contextViews(
+  context: Record<string, string>,
+  attributes: string[],
+): { tuple: string[]; condition: Record<string, string> } {
+  const tuple: string[] = [];
+  const condition: Record<string, string> = {};
+  for (const attr of attributes) {
+    const value = context[attr];
+    if (value === undefined) {
+      tuple.push(COMBINED_CONTEXT_ATTRIBUTE_VALUE);
+    } else {
+      tuple.push(value);
+      condition[attr] = value;
+    }
   }
-  return null;
+  return { tuple, condition };
 }
 
 function partitionByContext(
-  rows: ExperimentMetricQueryResponseRows,
+  observations: ContextualBanditObservation[],
   attributes: string[],
-  attrColumns: string[],
-  varIds: string[],
+  numVariations: number,
 ): ContextEntry[] {
   const byKey = new Map<string, ContextEntry>();
-  for (const row of rows) {
-    const variationIndex = variationIndexFromRow(row, varIds);
-    if (variationIndex === null) continue;
-    const tuple = contextTuple(row, attrColumns);
+  for (const { variationIndex, context, arm } of observations) {
+    if (variationIndex < 0 || variationIndex >= numVariations) continue;
+    const { tuple, condition } = contextViews(context, attributes);
     const key = JSON.stringify(tuple);
     let entry = byKey.get(key);
     if (!entry) {
       entry = {
         tuple,
-        condition: attributeConditionFromMetricRow(
-          row as Record<string, string | number | undefined>,
-          attributes,
-        ),
-        arms: Array.from({ length: varIds.length }, emptyArm),
+        condition,
+        arms: Array.from({ length: numVariations }, emptyArm),
       };
       byKey.set(key, entry);
     }
-    addRowToArm(entry.arms[variationIndex], row);
+    entry.arms[variationIndex] = addArms(entry.arms[variationIndex], arm);
   }
   return [...byKey.values()].sort((a, b) =>
     JSON.stringify(a.tuple) < JSON.stringify(b.tuple) ? -1 : 1,
@@ -271,7 +251,7 @@ function partitionByContext(
  * arms per variation, then sum `(n - 1) * variance` across variations.
  */
 function sumOfSquaredErrorsFromArms(
-  armsPerMember: ArmColumns[][],
+  armsPerMember: ContextualBanditArm[][],
   metric: MetricSettingsForStatsEngine,
   numVariations: number,
 ): number {
@@ -309,7 +289,7 @@ function sumOfSquaredErrors(
 
 /**
  * Compact per-category sufficient statistics for the split search: exactly the
- * three `ArmColumns` fields the SSE objective reads (`n`, `main_sum`,
+ * three `ContextualBanditArm` fields the SSE objective reads (`n`, `main_sum`,
  * `main_sum_squares`), laid out per variation as `[n, sum, sumSquares]` in a
  * single `Float64Array` of length `3 * numVariations`.
  */
@@ -947,7 +927,7 @@ export function computeContextualBanditWeights(
     maxLeaves,
     metricSettings: metricSettingsInput,
     analysisWeights,
-    rows,
+    observations,
   } = input;
 
   // Only the first MAX_ATTRIBUTES attributes are included in the analysis.
@@ -966,9 +946,7 @@ export function computeContextualBanditWeights(
       ? analysisWeights.slice()
       : Array(numVariations).fill(1 / numVariations);
 
-  const attrColumns = attributes.map(contextualBanditAttrCol);
-
-  const contexts = partitionByContext(rows, attributes, attrColumns, varIds);
+  const contexts = partitionByContext(observations, attributes, numVariations);
 
   if (contexts.length === 0) {
     return { attributes, responses: [], leaf_map: [] };
@@ -989,7 +967,7 @@ export function computeContextualBanditWeights(
     for (const c of memberContexts) leafByContext[c] = leafId;
   }
 
-  const leafArms = new Map<number, ArmColumns[]>();
+  const leafArms = new Map<number, ContextualBanditArm[]>();
   for (let c = 0; c < contexts.length; c++) {
     const leafId = leafByContext[c];
     let arms = leafArms.get(leafId);
