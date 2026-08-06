@@ -104,16 +104,6 @@ export function coverageToHoldoutSize(coverage: number): number {
   return coverage / 2;
 }
 
-// ---------------------------------------------------------------------------
-// Stage
-// ---------------------------------------------------------------------------
-
-/**
- * A Holdout's lifecycle stage. Not stored on the document — derived from the
- * holdout experiment's `status` plus the holdout's `analysisStartDate` by
- * `getHoldoutStage`. `analysis-period` is a running holdout that has entered
- * its measurement window.
- */
 export const holdoutStage = [
   "draft",
   "running",

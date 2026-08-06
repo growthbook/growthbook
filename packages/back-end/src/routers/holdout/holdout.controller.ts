@@ -122,7 +122,6 @@ export const createHoldout = async (
   const context = getContextFromReq(req);
 
   try {
-    // The organization is taken from the request context, not the body.
     const { holdout, experiment, datasource, metricIds } =
       await createHoldoutWithExperiment(context, req.body);
 
@@ -156,8 +155,6 @@ export const createHoldout = async (
       holdout: holdout,
     });
   } catch (e) {
-    // Let these through so the wrapper can map them to their own status codes
-    // (403 for permissions) rather than flattening everything to a 400.
     if (e instanceof SoftWarningError || e instanceof PermissionError) throw e;
     res.status(400).json({
       status: 400,
@@ -247,9 +244,6 @@ export const updateHoldout = async (
 
   const updates = { ...req.body };
 
-  // Coerce the incoming schedule dates and recompute the next scheduled
-  // transition. Only when the caller actually sent a schedule — otherwise any
-  // explicit nextScheduledStatusUpdate in the body is left as-is.
   if (updates.statusUpdateSchedule) {
     const { statusUpdateSchedule, nextScheduledStatusUpdate } =
       normalizeHoldoutScheduleUpdates({
@@ -306,18 +300,14 @@ export const editStatus = async (
     context.permissions.throwPermissionError();
   }
 
-  // The internal contract predates the single `stage` concept: starting from a
-  // draft always means "running" regardless of holdoutRunningStatus.
-  const stage: HoldoutStage =
-    req.body.status === "stopped"
-      ? "stopped"
-      : req.body.status === "draft"
-        ? "draft"
-        : experiment.status === "draft"
-          ? "running"
-          : req.body.holdoutRunningStatus === "analysis-period"
-            ? "analysis-period"
-            : "running";
+  let stage: HoldoutStage;
+  if (req.body.status === "stopped" || req.body.status === "draft") {
+    stage = req.body.status;
+  } else if (experiment.status === "draft") {
+    stage = "running";
+  } else {
+    stage = req.body.holdoutRunningStatus ?? "running";
+  }
 
   await advanceHoldoutStage(context, { holdout, experiment, stage });
 

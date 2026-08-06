@@ -6,7 +6,6 @@ import {
   HoldoutInterface,
   HoldoutNextScheduledStatusUpdate,
   HoldoutStage,
-  SavedGroupTargeting,
 } from "shared/validators";
 import {
   Changeset,
@@ -32,7 +31,7 @@ import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { isHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { BadRequestError } from "back-end/src/util/errors";
+import { BadRequestError, InternalServerError } from "back-end/src/util/errors";
 import {
   getChangesToStartExperiment,
   validateExperimentData,
@@ -144,15 +143,6 @@ export async function resolveHoldoutExperimentToLink({
   }
 }
 
-/**
- * Creates a holdout and its companion experiment. A holdout is always stored as
- * two documents, so this is the single place that builds the pair — shared by
- * the internal controller and the REST API so they cannot drift.
- *
- * Enforces `canCreateHoldout` and validates the referenced Data Source and
- * metrics. Returns the resolved Data Source and metric ids so callers that want
- * to auto-refresh results can do so without re-querying.
- */
 export async function createHoldoutWithExperiment(
   context: ReqContext | ApiReqContext,
   data: Partial<ExperimentInterfaceStringDates> & Partial<HoldoutInterface>,
@@ -172,8 +162,6 @@ export async function createHoldoutWithExperiment(
 
   const { metricIds, datasource } = await validateExperimentData(context, data);
 
-  // A holdout is always a two-variation experiment: the held-out group and an
-  // equally-sized control group.
   const variations = [
     {
       name: "Holdout",
@@ -268,23 +256,12 @@ export async function createHoldoutWithExperiment(
   });
 
   if (!holdout) {
-    throw new Error("Failed to create Holdout");
+    throw new InternalServerError("Failed to create holdout");
   }
 
   return { holdout, experiment, datasource, metricIds };
 }
 
-/**
- * Merges a partial `statusUpdateSchedule` onto the stored one and recomputes
- * `nextScheduledStatusUpdate` — the earliest still-applicable future transition,
- * which is what the scheduler job polls on.
- *
- * Only keys present in `scheduleInput` are applied, so a partial update
- * preserves the other stored dates. Pass `null` to clear the whole schedule.
- *
- * Pure so it can be unit tested; validation of the dates themselves lives in
- * `HoldoutModel.beforeUpdate`.
- */
 export function normalizeHoldoutScheduleUpdates({
   holdout,
   experiment,
@@ -339,10 +316,6 @@ export function normalizeHoldoutScheduleUpdates({
     }),
   };
 
-  // Only transitions that still make sense for the current stage are eligible:
-  // a start only applies to a draft, an analysis start only to a running
-  // holdout that has not entered its analysis period, and a stop to anything
-  // not already stopped.
   const potentialUpdates: Array<{
     date: Date;
     type: HoldoutNextScheduledStatusUpdate["type"];
@@ -388,18 +361,6 @@ export function normalizeHoldoutScheduleUpdates({
   };
 }
 
-/**
- * Moves a holdout to `stage`, updating both the companion experiment's status
- * and phases and the holdout's own analysis/schedule bookkeeping, then queues an
- * SDK payload refresh.
- *
- * `running` and `analysis-period` are both backed by a `running` experiment and
- * are distinguished by `analysisStartDate`, so moving between them rewrites the
- * phase list rather than the status. Transitioning to the stage a holdout is
- * already in is a no-op.
- *
- * Callers are responsible for the `canRunHoldout` / `canUpdateHoldout` check.
- */
 export async function advanceHoldoutStage(
   context: ReqContext | ApiReqContext,
   {
@@ -434,7 +395,6 @@ export async function advanceHoldoutStage(
 
   switch (stage) {
     case "stopped": {
-      // End both the main and analysis phases.
       if (phases[0]) {
         phases[0].dateEnded = new Date();
       }
@@ -453,7 +413,7 @@ export async function advanceHoldoutStage(
 
     case "draft": {
       if (!phases[0]) {
-        throw new Error("Holdout does not have a phase");
+        throw new BadRequestError("Holdout does not have a phase");
       }
       phases[0].dateEnded = undefined;
       Object.assign(changes, { phases: [phases[0]], status: "draft" });
@@ -467,7 +427,6 @@ export async function advanceHoldoutStage(
     }
 
     case "running": {
-      // Starting a holdout for the first time.
       if (experiment.status === "draft") {
         Object.assign(
           changes,
@@ -489,10 +448,8 @@ export async function advanceHoldoutStage(
         return;
       }
 
-      // Reverting out of the analysis period back to plain running: drop the
-      // analysis phase and reopen the main one.
       if (!phases[0]) {
-        throw new Error("Holdout does not have a phase");
+        throw new BadRequestError("Holdout does not have a phase");
       }
       phases[0] = { ...phases[0], dateEnded: undefined };
       if (phases[1]) {
@@ -510,14 +467,13 @@ export async function advanceHoldoutStage(
 
     case "analysis-period": {
       if (experiment.status === "draft") {
-        throw new Error(
+        throw new BadRequestError(
           "A Holdout must be running before it can enter its analysis period",
         );
       }
       if (!phases[0]) {
-        throw new Error("Holdout does not have a phase");
+        throw new BadRequestError("Holdout does not have a phase");
       }
-      // The analysis phase mirrors the main phase but starts its lookback now.
       phases[1] = {
         ...phases[0],
         lookbackStartDate: new Date(),
@@ -536,53 +492,10 @@ export async function advanceHoldoutStage(
       refreshPayload("status changed to analysis period");
       return;
     }
+    default: {
+      stage satisfies never;
+    }
   }
-}
-
-/**
- * Applies targeting and sizing changes to a holdout's current phase.
- *
- * Mirrors the holdout branch of the internal targeting endpoint: only
- * `condition`, `savedGroups`, and `coverage` are written to the phase, and
- * `hashAttribute` to the experiment. Holdouts deliberately skip the namespace,
- * sticky-bucketing, and tracking-key handling that standard experiments get.
- */
-export async function applyHoldoutTargetingChanges(
-  context: ReqContext | ApiReqContext,
-  {
-    experiment,
-    coverage,
-    condition,
-    savedGroups,
-    hashAttribute,
-  }: {
-    experiment: ExperimentInterface;
-    coverage?: number;
-    condition?: string;
-    savedGroups?: SavedGroupTargeting[];
-    hashAttribute?: string;
-  },
-): Promise<ExperimentInterface> {
-  const phases = [...experiment.phases];
-  if (!phases.length) {
-    throw new Error("Holdout does not have a phase to target");
-  }
-
-  const current = phases[phases.length - 1];
-  phases[phases.length - 1] = {
-    ...current,
-    condition: condition ?? current.condition,
-    savedGroups: savedGroups ?? current.savedGroups,
-    coverage: coverage ?? current.coverage,
-  };
-
-  const changes: Changeset = { phases };
-  if (hashAttribute !== undefined) {
-    changes.hashAttribute = hashAttribute;
-  }
-
-  await validateExperimentChange({ context, experiment, changes });
-  return updateExperiment({ context, experiment, changes });
 }
 
 /**
