@@ -5,6 +5,7 @@ import Link from "@/ui/Link";
 import Frame from "@/ui/Frame";
 
 import AnalysisResultSummaryStories from "@/ui/AnalysisResultSummary.stories";
+import SizeCohesionStories from "@/ui/SizeCohesion.stories";
 import AvatarStories from "@/ui/Avatar.stories";
 import BadgeStories from "@/ui/Badge.stories";
 import BreadcrumbsStories from "@/ui/Breadcrumbs.stories";
@@ -163,6 +164,9 @@ export default function DesignSystemPage() {
               paddingRight: 8,
             }}
           >
+            <li style={{ marginBottom: 8 }}>
+              <Link href="#size-cohesion">Size cohesion</Link>
+            </li>
             {entries.map(({ name, id }) => (
               <li key={id} style={{ marginBottom: 8 }}>
                 <Link href={`#${id}`}>{name}</Link>
@@ -175,6 +179,21 @@ export default function DesignSystemPage() {
           <h1 className="mb-4">GrowthBook Design System</h1>
           <div className="pagecontents">
             <Flex gap="4" direction="column">
+              <Frame id="size-cohesion" style={{ scrollMarginTop: 90 }}>
+                <Flex direction="column" gap="3">
+                  <h3 className="mb-1">Size cohesion</h3>
+                  <Text>
+                    Every @/ui component takes a t-shirt size. sm / md / lg / xl
+                    map to Radix 1 / 2 / 3 / 4 through one shared map in
+                    ui/sizes.ts, and xs and 2xl are names with no shared
+                    meaning. A component supports a subset of the ladder and
+                    never renames it, so the gaps listed under each step are
+                    real. The break-outs at the end keep their own map; Heading
+                    and Modal are the two that matter.
+                  </Text>
+                  <SizeCohesionStories />
+                </Flex>
+              </Frame>
               {entries.map(({ name, description, Stories, id }) => (
                 <Frame key={id} id={id} style={{ scrollMarginTop: 90 }}>
                   <Flex direction="column" gap="3">

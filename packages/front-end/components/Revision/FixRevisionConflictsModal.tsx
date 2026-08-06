@@ -108,15 +108,15 @@ export function ExpandableConflict({
             >
               <Flex align="center" justify="between" gap="2" mb="2">
                 <Flex align="center" gap="2" wrap="wrap">
-                  <Heading as="h4" size="x-small" mb="0">
+                  <Heading as="h4" size="xs" mb="0">
                     External Change
                   </Heading>
-                  <Text size="small" color="text-low">
+                  <Text size="sm" color="text-low">
                     The change that is currently live
                   </Text>
                 </Flex>
                 <Button
-                  size="sm"
+                  size="md"
                   variant={strategy === "discard" ? "solid" : "outline"}
                   style={{ flexShrink: 0 }}
                   preventDefault
@@ -138,15 +138,15 @@ export function ExpandableConflict({
             <Box px="3" pt="2" pb="3">
               <Flex align="center" justify="between" gap="2" mb="2">
                 <Flex align="center" gap="2" wrap="wrap">
-                  <Heading as="h4" size="x-small" mb="0">
+                  <Heading as="h4" size="xs" mb="0">
                     Your Change
                   </Heading>
-                  <Text size="small" color="text-low">
+                  <Text size="sm" color="text-low">
                     The change in this draft
                   </Text>
                 </Flex>
                 <Button
-                  size="sm"
+                  size="md"
                   variant={strategy === "overwrite" ? "solid" : "outline"}
                   style={{ flexShrink: 0 }}
                   preventDefault
@@ -395,7 +395,7 @@ export default function FixRevisionConflictsModal({
 
                     return (
                       <Box key={field}>
-                        <Text weight="semibold" size="large">
+                        <Text weight="semibold" size="lg">
                           {field}
                         </Text>
                         <Box className="diff-wrapper" mt="2">

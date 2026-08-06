@@ -5,6 +5,9 @@ export const experimentDecisionNotificationPayload = z
     experimentName: z.string(),
     experimentId: z.string(),
     decisionDescription: z.string().optional(),
+    // Distinguishes a decision surfaced by a fresh analysis snapshot from one
+    // surfaced because a scheduled end date passed.
+    source: z.enum(["scheduled-end", "analysis"]),
   })
   .strict();
 

@@ -33,6 +33,7 @@ import {
   GrowthbookClickhouseDataSource,
   GrowthbookClickhouseSettings,
 } from "shared/types/datasource";
+import type { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
 import type { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import { SDKAttributeSchema } from "shared/types/organization";
@@ -101,7 +102,10 @@ import {
 import { DimensionSlicesQueryRunner } from "back-end/src/queryRunners/DimensionSlicesQueryRunner";
 import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { removeManagedWarehouseLegacyIdentifier } from "back-end/src/services/clickhouse";
+import {
+  removeManagedWarehouseLegacyIdentifier,
+  setManagedWarehouseIdAttributeIdentifier,
+} from "back-end/src/services/clickhouse";
 import { dangerousRecreateClickhouseTables } from "back-end/src/services/licenseServerManagedClickhouse";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
@@ -627,7 +631,7 @@ export async function putEventForwarderForDataSource(
     if (parsed.data.params) {
       mergeParams(integration, parsed.data.params as Partial<DataSourceParams>);
       await integration.testConnection();
-      updates.params = encryptParams(integration.params as DataSourceParams);
+      updates.params = encryptParams(integration.params);
     }
 
     await updateDataSource(context, datasource, updates);
@@ -638,7 +642,7 @@ export async function putEventForwarderForDataSource(
     };
     const eventForwarderDatasourceParams = getEventForwarderDatasourceParams(
       updatedDatasource.type,
-      integration.params as DataSourceParams,
+      integration.params,
     );
     const restartAfterProvision =
       !!existingEventForwarderConfig?.connectorName?.trim();
@@ -891,11 +895,11 @@ export async function postTestEventForwarderAccessForDatasource(
 
   const candidateDatasource = {
     ...datasource,
-    params: encryptParams(integration.params as DataSourceParams),
+    params: encryptParams(integration.params),
   } as DataSourceInterface;
   const result = await runEventForwarderAccessTest(context, {
     datasource: candidateDatasource,
-    params: integration.params as DataSourceParams,
+    params: integration.params,
     draft,
     existingModel: existingEventForwarderConfig,
   });
@@ -1687,15 +1691,43 @@ export async function fetchBigQueryDatasets(
     projectId: string;
     client_email: string;
     private_key: string;
+    datasourceId?: string;
   }>,
   res: Response,
 ) {
-  const { projectId, client_email, private_key } = req.body;
+  const { projectId, client_email, private_key, datasourceId } = req.body;
+  const submittedParams: Partial<BigQueryConnectionParams> = {
+    projectId,
+    clientEmail: client_email,
+    privateKey: private_key,
+  };
+
+  let connectionParams = submittedParams;
+  if (datasourceId) {
+    const context = getContextFromReq(req);
+    const datasource = await getDataSourceById(context, datasourceId);
+    if (!datasource || datasource.type !== "bigquery") {
+      throw new Error("Cannot find BigQuery data source");
+    }
+    if (
+      !context.permissions.canUpdateDataSourceSettings(datasource) ||
+      !context.permissions.canUpdateDataSourceParams(datasource)
+    ) {
+      context.permissions.throwPermissionError();
+    }
+
+    const integration = getSourceIntegrationObject(context, datasource);
+    mergeParams(integration, submittedParams);
+    connectionParams = integration.params;
+  }
 
   try {
     const client = new bq.BigQuery({
-      projectId,
-      credentials: { client_email, private_key },
+      projectId: connectionParams.projectId,
+      credentials: {
+        client_email: connectionParams.clientEmail,
+        private_key: connectionParams.privateKey,
+      },
     });
 
     const [datasets] = await client.getDatasets();
@@ -1781,6 +1813,42 @@ export async function postRemoveManagedWarehouseLegacyIdentifier(
   });
 }
 
+export async function putManagedWarehouseIdAttributeIdentifier(
+  req: AuthRequest<{ identifier?: string }, { datasourceId: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { datasourceId } = req.params;
+  const { identifier } = req.body;
+
+  if (identifier !== "user_id" && identifier !== "device_id") {
+    throw new Error('Identifier must be "user_id" or "device_id"');
+  }
+
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
+    throw new Error("Cannot find datasource");
+  }
+  if (datasource.type !== "growthbook_clickhouse") {
+    throw new Error(
+      "Can only change the id attribute mapping on a Managed Warehouse datasource",
+    );
+  }
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  await setManagedWarehouseIdAttributeIdentifier(
+    context,
+    datasource,
+    identifier,
+  );
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
 // Managed-warehouse settings for the JSON-columns model: identifiers and exposure
 // queries derive from the org's hashAttribute attributes.
 function getManagedWarehouseJsonSettings(
@@ -1794,7 +1862,12 @@ function getManagedWarehouseJsonSettings(
     userIdTypes: getManagedWarehouseUserIdTypeSettings(attributeSchema),
     queries: {
       ...existing.queries,
-      exposure: buildManagedWarehouseExposureQueries(attributeSchema),
+      exposure: buildManagedWarehouseExposureQueries(
+        attributeSchema,
+        [],
+        [],
+        existing.idAttributeIdentifier === "user_id" ? "user_id" : "device_id",
+      ),
     },
   };
 }

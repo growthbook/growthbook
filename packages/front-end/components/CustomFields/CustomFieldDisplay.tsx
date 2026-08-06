@@ -249,7 +249,7 @@ const CustomFieldDisplay: FC<{
           <>
             <Flex justify="between" align="center" mt={mt}>
               <Flex align="center" gap="1">
-                <Heading as="h4" size="small" mb="0">
+                <Heading as="h4" size="sm" mb="0">
                   {label ? label : ""}
                 </Heading>
               </Flex>
@@ -266,7 +266,7 @@ const CustomFieldDisplay: FC<{
           <Frame className={className} my="3">
             <Box>
               <Flex justify="between" align="center" mb="3">
-                <Heading color="text-high" as="h4" size="small" mb="0">
+                <Heading color="text-high" as="h4" size="sm" mb="0">
                   {label ? label : ""}
                 </Heading>
                 <div className="flex-1" />

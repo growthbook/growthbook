@@ -18,8 +18,8 @@ export default function SelectStories() {
   return (
     <Flex direction="column" gap="3" maxWidth="300px">
       <Select
-        label="Size x-small"
-        size="x-small"
+        label="Size sm"
+        size="sm"
         defaultValue="carrot"
         value={selectValue}
         setValue={setSelectValue}
@@ -27,7 +27,7 @@ export default function SelectStories() {
         {ITEMS}
       </Select>
       <Select
-        label="Size small (default)"
+        label="Size md (default)"
         defaultValue="carrot"
         value={selectValue}
         setValue={setSelectValue}
@@ -35,17 +35,8 @@ export default function SelectStories() {
         {ITEMS}
       </Select>
       <Select
-        label="Size legacy"
-        size="legacy"
-        defaultValue="carrot"
-        value={selectValue}
-        setValue={setSelectValue}
-      >
-        {ITEMS}
-      </Select>
-      <Select
-        label="Size medium"
-        size="medium"
+        label="Size lg"
+        size="lg"
         defaultValue="carrot"
         value={selectValue}
         setValue={setSelectValue}

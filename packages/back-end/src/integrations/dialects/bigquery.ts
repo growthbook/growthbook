@@ -108,6 +108,7 @@ const bigQueryEscapeStringLiteral = (value: string) =>
 
 export const bigQueryDialect: SqlDialect = {
   ...baseDialect,
+  identifierQuote: "`",
   formatDialect: "bigquery",
   addTime: (
     col: string,
