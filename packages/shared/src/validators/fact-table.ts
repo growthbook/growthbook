@@ -341,9 +341,7 @@ export type ConversionWindow = z.infer<typeof conversionWindowValidator>;
 export const funnelStepValidator = z.object({
   // Display name shown in the sidebar / chart / table.
   name: z.string(),
-  // Id of the fact table the step's events come from.
-  factTable: z.string(),
-  // Filters that decide whether an event row counts as this step.
+  factTableId: z.string(),
   rowFilters: z.array(rowFilterValidator),
   // Ignored for the initial step. When true, the step is allowed to be
   // skipped without breaking the funnel.
