@@ -1,30 +1,53 @@
 import { ContextualBanditInterface } from "shared/validators";
+import {
+  ContextualBanditRefRule,
+  FeatureInterface,
+  FeatureRule,
+} from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ApiReqContext } from "back-end/types/api";
-import { addVariationValuesToLinkedFeatures } from "back-end/src/enterprise/services/contextualBandits";
-import { getFeature } from "back-end/src/models/FeatureModel";
-import { getDraftRevision } from "back-end/src/services/features";
-import { updateRevision } from "back-end/src/models/FeatureRevisionModel";
-import { publishPendingFeatureDraftsForContextualBandit } from "back-end/src/services/experiment-feature";
+import { reconcileLinkedFeatureVariations } from "back-end/src/enterprise/services/contextualBandits";
+import {
+  getDraftRevision,
+  getLiveAndBaseRevisionsForFeature,
+} from "back-end/src/services/features";
+import {
+  getRevision,
+  updateRevision,
+} from "back-end/src/models/FeatureRevisionModel";
+import { publishRevision } from "back-end/src/models/FeatureModel";
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeature: jest.fn(),
-}));
 jest.mock("back-end/src/services/features", () => ({
+  queueSDKPayloadRefresh: jest.fn(),
+  generateRuleId: jest.fn(() => "fr_new"),
   getDraftRevision: jest.fn(),
+  assertCanAutoPublish: jest.fn(),
+  getLiveAndBaseRevisionsForFeature: jest.fn(),
 }));
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
+  getRevision: jest.fn(),
   updateRevision: jest.fn(),
+  getLinkageSyncRevisionSummaries: jest
+    .fn()
+    .mockResolvedValue({ openDrafts: [], liveRevision: null }),
+}));
+jest.mock("back-end/src/models/FeatureModel", () => ({
+  publishRevision: jest.fn(),
+}));
+jest.mock("back-end/src/util/featureContextualBanditSync", () => ({
+  syncFeatureContextualBanditLinkages: jest.fn(),
 }));
 jest.mock("back-end/src/services/featureRevisionEvents", () => ({
   recordRevisionUpdate: jest.fn(),
 }));
-jest.mock("back-end/src/services/experiment-feature", () => ({
-  publishPendingFeatureDraftsForContextualBandit: jest
-    .fn()
-    .mockResolvedValue({ published: [], failed: [] }),
+jest.mock("back-end/src/services/configValidation", () => ({
+  assertConfigBackedFeatureValuesValid: jest.fn(),
 }));
 jest.mock("back-end/src/services/contextualBanditChanges", () => ({
   refreshLinkedFeaturePayloads: jest.fn(),
+}));
+jest.mock("back-end/src/services/experiments", () => ({
+  getRefLinkedFeatureInfo: jest.fn().mockResolvedValue([]),
 }));
 jest.mock("back-end/src/models/DataSourceModel", () => ({
   getDataSourceById: jest.fn(),
@@ -37,33 +60,76 @@ jest.mock(
   () => ({ ContextualBanditResultsQueryRunner: jest.fn() }),
 );
 
-const getFeatureMock = getFeature as jest.Mock;
 const getDraftRevisionMock = getDraftRevision as jest.Mock;
+const getRevisionMock = getRevision as jest.Mock;
 const updateRevisionMock = updateRevision as jest.Mock;
-const publishMock = publishPendingFeatureDraftsForContextualBandit as jest.Mock;
+const publishRevisionMock = publishRevision as jest.Mock;
+const getLiveAndBaseRevisionsMock =
+  getLiveAndBaseRevisionsForFeature as jest.Mock;
 
-function cbRefRule() {
+function cbRefRule(
+  overrides: Partial<ContextualBanditRefRule> = {},
+): FeatureRule {
   return {
     id: "rule_1",
     type: "contextual-bandit-ref",
     contextualBanditId: "cb_1",
+    description: "",
     enabled: true,
+    condition: "",
+    scheduleRules: [],
     allEnvironments: true,
     variations: [
       { variationId: "v0", value: "control" },
       { variationId: "v1", value: "treatment" },
     ],
-  };
+    ...overrides,
+  } as FeatureRule;
 }
 
-function makeFeature(valueType = "string", defaultValue = "control") {
+function makeFeature(
+  overrides: Partial<FeatureInterface> = {},
+): FeatureInterface {
   return {
     id: "feature",
     organization: "org_1",
     version: 4,
-    valueType,
-    defaultValue,
-    environmentSettings: {},
+    valueType: "string",
+    defaultValue: "control",
+    environmentSettings: { production: { enabled: true } },
+    rules: [cbRefRule()],
+    ...overrides,
+  } as unknown as FeatureInterface;
+}
+
+function makeRevision(
+  overrides: Partial<FeatureRevisionInterface> = {},
+): FeatureRevisionInterface {
+  return {
+    organization: "org_1",
+    featureId: "feature",
+    version: 5,
+    baseVersion: 4,
+    status: "draft",
+    rules: [cbRefRule()],
+    environmentsEnabled: {},
+    ...overrides,
+  } as unknown as FeatureRevisionInterface;
+}
+
+function linkedInfo(
+  feature: FeatureInterface,
+  overrides: Record<string, unknown> = {},
+) {
+  const rule = ((feature.rules ?? []) as FeatureRule[]).find(
+    (r) => r.type === "contextual-bandit-ref",
+  ) as ContextualBanditRefRule | undefined;
+  return {
+    feature,
+    state: "live",
+    values: rule?.variations ?? [],
+    environmentStates: { production: "active" },
+    ...overrides,
   };
 }
 
@@ -79,127 +145,265 @@ function makeCb(
   } as unknown as ContextualBanditInterface;
 }
 
-function makeContext(cb: ContextualBanditInterface) {
-  const getById = jest.fn().mockResolvedValue(cb);
+function makeContext() {
   const warn = jest.fn();
   const context = {
     environments: ["production"],
     org: { id: "org_1", settings: {} },
     auditUser: { type: "dashboard", id: "u1", email: "u@x.co", name: "U" },
+    auditLog: jest.fn(),
     logger: { warn },
-    models: { contextualBandits: { getById } },
+    permissions: {
+      canUpdateFeature: jest.fn().mockReturnValue(true),
+      canManageFeatureDrafts: jest.fn().mockReturnValue(true),
+      canPublishFeature: jest.fn().mockReturnValue(true),
+      canBypassApprovalChecks: jest.fn().mockReturnValue(false),
+      throwPermissionError: jest.fn(() => {
+        throw new Error("permission error");
+      }),
+    },
+    models: { contextualBandits: {} },
   } as unknown as ApiReqContext;
-  return { context, getById, warn };
+  return { context, warn };
 }
 
-describe("addVariationValuesToLinkedFeatures", () => {
+function cbRefVariationsFromUpdateRevision(n = 0) {
+  const changes = updateRevisionMock.mock.calls[n][3] as {
+    rules: FeatureRule[];
+  };
+  return (
+    changes.rules.find(
+      (r) => r.type === "contextual-bandit-ref",
+    ) as ContextualBanditRefRule
+  ).variations;
+}
+
+describe("reconcileLinkedFeatureVariations", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    getFeatureMock.mockResolvedValue(makeFeature());
-    getDraftRevisionMock.mockImplementation(async () => ({
-      version: 5,
-      rules: [cbRefRule()],
+    getDraftRevisionMock.mockResolvedValue(makeRevision());
+    updateRevisionMock.mockImplementation(async (_c, _f, rev, changes) => ({
+      ...rev,
+      ...changes,
     }));
-    updateRevisionMock.mockImplementation(async (_c, _f, rev) => rev);
+    const liveRevision = makeRevision({ version: 4, status: "published" });
+    getLiveAndBaseRevisionsMock.mockResolvedValue({
+      live: liveRevision,
+      base: liveRevision,
+    });
   });
 
   it("defaults a new arm's value to the control value and stages a draft", async () => {
     const cb = makeCb();
-    const { context } = makeContext(cb);
+    const { context } = makeContext();
 
-    await addVariationValuesToLinkedFeatures(context, cb, ["v2"], undefined);
+    await reconcileLinkedFeatureVariations(context, cb, {
+      addedIds: ["v2"],
+      removedIds: [],
+      linkedInfo: [linkedInfo(makeFeature())],
+    });
 
-    const [, , , changes] = updateRevisionMock.mock.calls[0];
-    const rule = changes.rules.find(
-      (r: { type: string }) => r.type === "contextual-bandit-ref",
-    );
-    expect(rule.variations).toContainEqual({
+    expect(cbRefVariationsFromUpdateRevision()).toContainEqual({
       variationId: "v2",
       value: "control",
     });
-    expect(publishMock).not.toHaveBeenCalled();
+    expect(publishRevisionMock).not.toHaveBeenCalled();
   });
 
   it("uses a caller-supplied value when provided", async () => {
     const cb = makeCb();
-    const { context } = makeContext(cb);
+    const { context } = makeContext();
 
-    await addVariationValuesToLinkedFeatures(context, cb, ["v2"], {
-      feature: { v2: "added" },
+    await reconcileLinkedFeatureVariations(context, cb, {
+      addedIds: ["v2"],
+      removedIds: [],
+      providedValues: { feature: { v2: "added" } },
+      linkedInfo: [linkedInfo(makeFeature())],
     });
 
-    const [, , , changes] = updateRevisionMock.mock.calls[0];
-    const rule = changes.rules.find(
-      (r: { type: string }) => r.type === "contextual-bandit-ref",
-    );
-    expect(rule.variations).toContainEqual({
+    expect(cbRefVariationsFromUpdateRevision()).toContainEqual({
       variationId: "v2",
       value: "added",
     });
   });
 
-  it("publishes staged drafts immediately for a running CB (and reports the payload was refreshed)", async () => {
-    publishMock.mockResolvedValueOnce({
-      published: [{ featureId: "feature", revisionVersion: 5 }],
-      failed: [],
+  it("drops a removed arm from the rule", async () => {
+    const feature = makeFeature({
+      rules: [
+        cbRefRule({
+          variations: [
+            { variationId: "v0", value: "control" },
+            { variationId: "v1", value: "treatment" },
+            { variationId: "v2", value: "extra" },
+          ],
+        }),
+      ],
+    } as Partial<FeatureInterface>);
+    getDraftRevisionMock.mockResolvedValue(
+      makeRevision({ rules: feature.rules as FeatureRule[] }),
+    );
+    const cb = makeCb();
+    const { context } = makeContext();
+
+    await reconcileLinkedFeatureVariations(context, cb, {
+      addedIds: [],
+      removedIds: ["v2"],
+      linkedInfo: [linkedInfo(feature)],
     });
-    const cb = makeCb({ status: "running" });
-    const { context } = makeContext(cb);
 
-    const { failures, refreshedPayload } =
-      await addVariationValuesToLinkedFeatures(context, cb, ["v2"], undefined);
-
-    expect(publishMock).toHaveBeenCalledTimes(1);
-    expect(failures).toEqual([]);
-    // Clean publish rebuilt the payload → caller can skip the extra refresh.
-    expect(refreshedPayload).toBe(true);
+    expect(cbRefVariationsFromUpdateRevision()).toEqual([
+      { variationId: "v0", value: "control" },
+      { variationId: "v1", value: "treatment" },
+    ]);
   });
 
-  it("surfaces + logs publish failures instead of swallowing them (#2)", async () => {
-    const failed = [
-      { featureId: "feature", revisionVersion: 5, reason: "needs-approval" },
-    ];
-    publishMock.mockResolvedValueOnce({ published: [], failed });
+  it("applies a combined add + remove as one rule replacement", async () => {
+    const cb = makeCb();
+    const { context } = makeContext();
+
+    await reconcileLinkedFeatureVariations(context, cb, {
+      addedIds: ["v2"],
+      removedIds: ["v1"],
+      linkedInfo: [linkedInfo(makeFeature())],
+    });
+
+    expect(updateRevisionMock).toHaveBeenCalledTimes(1);
+    expect(cbRefVariationsFromUpdateRevision()).toEqual([
+      { variationId: "v0", value: "control" },
+      { variationId: "v2", value: "control" },
+    ]);
+  });
+
+  it("publishes the rule change immediately for a running CB", async () => {
     const cb = makeCb({ status: "running" });
-    const { context, warn } = makeContext(cb);
+    const { context } = makeContext();
 
-    const { failures, refreshedPayload } =
-      await addVariationValuesToLinkedFeatures(context, cb, ["v2"], undefined);
+    const { failures } = await reconcileLinkedFeatureVariations(context, cb, {
+      addedIds: ["v2"],
+      removedIds: [],
+      linkedInfo: [linkedInfo(makeFeature())],
+    });
 
-    expect(failures).toEqual(failed);
+    expect(publishRevisionMock).toHaveBeenCalledTimes(1);
+    expect(failures).toEqual([]);
+  });
+
+  it("downgrades a failed publish to a staged draft and reports the failure", async () => {
+    publishRevisionMock.mockRejectedValueOnce(
+      new Error(
+        "Unable to auto-publish: please resolve conflicts on draft #5 before publishing.",
+      ),
+    );
+    const cb = makeCb({ status: "running" });
+    const { context, warn } = makeContext();
+
+    const { failures } = await reconcileLinkedFeatureVariations(context, cb, {
+      addedIds: ["v2"],
+      removedIds: [],
+      linkedInfo: [linkedInfo(makeFeature())],
+    });
+
+    expect(updateRevisionMock).toHaveBeenCalledTimes(2);
+    expect(failures).toEqual([
+      { featureId: "feature", revisionVersion: 5, reason: "merge-conflict" },
+    ]);
     expect(warn).toHaveBeenCalledTimes(1);
-    // A failed/partial publish leaves payloads stale → caller must still refresh.
-    expect(refreshedPayload).toBe(false);
+  });
+
+  it("targets the pending draft that already carries the bandit's rule", async () => {
+    const feature = makeFeature({ rules: [] } as Partial<FeatureInterface>);
+    const draftRules = [cbRefRule()];
+    getRevisionMock.mockResolvedValue(
+      makeRevision({ version: 6, rules: draftRules }),
+    );
+    getDraftRevisionMock.mockResolvedValue(
+      makeRevision({ version: 6, rules: draftRules }),
+    );
+    const cb = makeCb();
+    const { context } = makeContext();
+
+    await reconcileLinkedFeatureVariations(context, cb, {
+      addedIds: ["v2"],
+      removedIds: [],
+      linkedInfo: [
+        linkedInfo(feature, {
+          state: "draft",
+          draftRevisionVersion: 6,
+          values: (draftRules[0] as ContextualBanditRefRule).variations,
+        }),
+      ],
+    });
+
+    expect(getDraftRevisionMock).toHaveBeenCalledWith(context, feature, 6);
+    expect(cbRefVariationsFromUpdateRevision()).toContainEqual({
+      variationId: "v2",
+      value: "control",
+    });
   });
 
   it("throws on a value that fails the feature's type validation", async () => {
-    getFeatureMock.mockResolvedValue(makeFeature("number", "1"));
+    const feature = makeFeature({
+      valueType: "number",
+      defaultValue: "1",
+      rules: [
+        cbRefRule({
+          variations: [
+            { variationId: "v0", value: "1" },
+            { variationId: "v1", value: "2" },
+          ],
+        }),
+      ],
+    } as Partial<FeatureInterface>);
     const cb = makeCb();
-    const { context } = makeContext(cb);
+    const { context } = makeContext();
 
     await expect(
-      addVariationValuesToLinkedFeatures(context, cb, ["v2"], {
-        feature: { v2: "not-a-number" },
+      reconcileLinkedFeatureVariations(context, cb, {
+        addedIds: ["v2"],
+        removedIds: [],
+        providedValues: { feature: { v2: "not-a-number" } },
+        linkedInfo: [linkedInfo(feature)],
       }),
     ).rejects.toThrow();
+    expect(updateRevisionMock).not.toHaveBeenCalled();
   });
 
-  it("no-ops when the added arm already has a value on the rule", async () => {
+  it("no-ops when the arm set change doesn't alter the rule", async () => {
     const cb = makeCb();
-    const { context } = makeContext(cb);
+    const { context } = makeContext();
 
-    await addVariationValuesToLinkedFeatures(context, cb, ["v1"], undefined);
+    await reconcileLinkedFeatureVariations(context, cb, {
+      addedIds: ["v1"],
+      removedIds: ["v9"],
+      linkedInfo: [linkedInfo(makeFeature())],
+    });
 
     expect(updateRevisionMock).not.toHaveBeenCalled();
   });
 
-  it("no-ops when the CB has no linked features", async () => {
-    const cb = makeCb({ linkedFeatures: [] });
-    const { context } = makeContext(cb);
+  it("skips features without an editable rule state", async () => {
+    const cb = makeCb();
+    const { context } = makeContext();
 
-    await addVariationValuesToLinkedFeatures(context, cb, ["v2"], undefined);
+    await reconcileLinkedFeatureVariations(context, cb, {
+      addedIds: ["v2"],
+      removedIds: [],
+      linkedInfo: [linkedInfo(makeFeature(), { state: "archived" })],
+    });
 
-    expect(getFeatureMock).not.toHaveBeenCalled();
+    expect(updateRevisionMock).not.toHaveBeenCalled();
+  });
+
+  it("no-ops when there is nothing to reconcile", async () => {
+    const cb = makeCb();
+    const { context } = makeContext();
+
+    await reconcileLinkedFeatureVariations(context, cb, {
+      addedIds: [],
+      removedIds: [],
+      linkedInfo: [linkedInfo(makeFeature())],
+    });
+
     expect(updateRevisionMock).not.toHaveBeenCalled();
   });
 });

@@ -133,7 +133,7 @@ export default function ContextualBanditVariationsModal({
               new Set(failures.map((f) => f.featureId)),
             ).join(", ");
             throw new Error(
-              `Variations saved. But the value for the new variation couldn't be published to: ${features}. Publish those feature(s) to finish rolling it out.`,
+              `Variations saved. But the rule change couldn't be published to: ${features}. Publish those feature(s) to finish applying it.`,
             );
           }
         })}
@@ -142,6 +142,8 @@ export default function ContextualBanditVariationsModal({
           {exploiting
             ? "This bandit is exploiting. Removing a variation redistributes its weight proportionally across the others; a new variation starts with an even share and the bandit re-learns its weight from there."
             : "Traffic is split evenly across variations while the bandit explores. Adding or removing a variation re-balances that even split."}
+          {linkedFeatures.length > 0 &&
+            " Linked features are updated automatically: removed variations are dropped from their rules, and new variations serve the values you set below."}
         </Callout>
         <FeatureVariationsInput
           label={null}
