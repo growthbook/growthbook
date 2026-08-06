@@ -392,18 +392,7 @@ export function makeGenericBulkAdapter(
       // move it back after the write returns and this becomes a silent
       // live-change-with-no-record, which is what H1 was.
       if (revision.writtenEntity === undefined) return;
-      // Descendant writes the apply made on this item's behalf, innermost first and
-      // BEFORE the root — a cascade that can only strip fields cannot be undone by
-      // re-running it against a restored root.
-      for (const write of [...(revision.cascade ?? [])].reverse()) {
-        await restoreEntityPreImage({
-          context,
-          entityType: targetType,
-          preImage: write.before,
-          persistedKeys: Object.keys(write.written),
-          written: write.written,
-        });
-      }
+
       // Restore only the fields the apply persisted, so a key dropped by the
       // filter or by normalization can't clobber a concurrent writer's value.
       const persistedKeys = revision.persistedKeys ?? [];
@@ -418,6 +407,21 @@ export function makeGenericBulkAdapter(
         persistedKeys,
         written,
       });
+
+      // Descendants AFTER the root, in cascade order. Ancestor normalization is
+      // unconditional on a revert, so a descendant restored while the root still
+      // declares the field is stripped straight back — and reports success, because
+      // the key is still in `persistedKeys` so nothing looks dropped. A throw here
+      // keeps the claim, which is what leaves the item reported published.
+      for (const write of revision.cascade ?? []) {
+        await restoreEntityPreImage({
+          context,
+          entityType: targetType,
+          preImage: write.before,
+          persistedKeys: Object.keys(write.written),
+          written: write.written,
+        });
+      }
     },
 
     async emitPublished(context, entity, revision) {

@@ -184,7 +184,7 @@ export async function landDirectChange<T>({
    * cascade that can only STRIP fields cannot be undone by re-running it against a
    * restored root. The caller pushes into this as the cascade reports.
    */
-  cascade?: {
+  cascade?: () => {
     before: Record<string, unknown> & { id: string };
     written: Record<string, unknown>;
   }[];
@@ -287,18 +287,10 @@ export async function landDirectChange<T>({
       // inside it, before audit and the afterUpdate hooks — so there is nothing to
       // restore and the merged revision is phantom history to be removed. The same
       // reading bulk and the generic publish take.
-      // Innermost first, and before the root — see the `cascade` docs above.
-      let cascadeRestored = true;
-      for (const write of [...(cascade ?? [])].reverse()) {
-        const ok = await tryRestoreEntityPreImage({
-          context,
-          entityType,
-          preImage: write.before,
-          persistedKeys: Object.keys(write.written),
-          written: write.written,
-        });
-        if (!ok) cascadeRestored = false;
-      }
+      // ROOT FIRST, then descendants in cascade order — see `compensateFailedLanding`
+      // for why the intuitive order silently no-ops: ancestor normalization runs
+      // unconditionally on a revert, so a descendant restored while the root still
+      // declares the field is stripped straight back AND reports success.
       const restored = compensating
         ? await tryRestoreEntityPreImage({
             context,
@@ -308,12 +300,28 @@ export async function landDirectChange<T>({
             written,
           })
         : true;
+      let cascadeRestored = true;
+      // Read HERE, not at the call site: `onPersisted` fires before the cascade
+      // runs, so anything captured then is still empty.
+      for (const write of cascade?.() ?? []) {
+        const ok = await tryRestoreEntityPreImage({
+          context,
+          entityType,
+          preImage: write.before,
+          persistedKeys: Object.keys(write.written),
+          written: write.written,
+        });
+        if (!ok) cascadeRestored = false;
+      }
       if (!restored || !cascadeRestored) {
         // The buffered `*.updated` events are otherwise dropped as a rolled-back
         // change; here the change is partly live, so they must still fire.
         context.landingLeftPartialState = true;
       }
-      if (restored) {
+      // BOTH restores. Gating on the root alone deleted the record while a
+      // descendant was left stripped and live — no revision, no webhook, one log
+      // line. The other three landings already required both.
+      if (restored && cascadeRestored) {
         try {
           // The landing's own authority was established before this point, and the
           // revision exists only because of it — so removing it is not a fresh
@@ -356,6 +364,17 @@ export async function applyRevertDirectly({
   title?: string;
   bypass: boolean;
 }): Promise<Revision> {
+  // The FIFTH compensated landing that runs a config cascade. It forwarded only
+  // `applied.written` and passed no `cascade`, so its compensation had no descendant
+  // entries — and `cascadeRestored` was vacuously true on the empty list, so the
+  // merged revision was DELETED while a descendant sat stripped and live. Reachable
+  // through a revert whose target had a field a descendant has since declared.
+  let cascadeRef:
+    | {
+        before: Record<string, unknown> & { id: string };
+        written: Record<string, unknown>;
+      }[]
+    | undefined;
   const { merged } = await landDirectChange({
     context,
     entityType,
@@ -365,12 +384,20 @@ export async function applyRevertDirectly({
     bypass,
     revertedFrom: targetRevisionId,
     changes: fields,
+    cascade: () => cascadeRef ?? [],
     write: (report) =>
       runGuardedWrite(entityType, entity.id, () =>
         getAdapter(entityType).applyChanges(context, entity, fields, {
           isRevert: true,
           guarded: true,
-          onPersisted: (applied) => report(applied.written),
+          onPersisted: (applied) => {
+            report(applied.written);
+            // The adapter's OWN array, held by reference — it is created before the
+            // write and appended to as the cascade proceeds, so reading it at
+            // compensation time sees every descendant write. Copying it here would
+            // capture nothing, since this fires before the cascade runs.
+            cascadeRef = applied.cascade;
+          },
         }),
       ),
     persistedFrom: (applied) => applied.written,

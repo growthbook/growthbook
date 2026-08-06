@@ -795,11 +795,26 @@ async function publishRevisionInner(
     // Nothing reported means the apply never reached its entity write (adapters
     // report from inside it), so there is nothing to restore and the revision may
     // be reopened cleanly — the same reading bulk takes.
-    // Descendant writes the apply made on this landing's behalf, innermost first
-    // and BEFORE the root — a cascade that can only strip fields cannot be undone
-    // by re-running it against a restored root.
+    // ROOT FIRST, unconditionally, then descendants in cascade order. Two bugs lived
+    // in the previous shape: descendants restored while the root still declared the
+    // field were normalized straight back to stripped AND reported success (ancestor
+    // normalization is unconditional on a revert), and `cascadeRestored &&` in front
+    // of the root restore SHORT-CIRCUITED it — a failed cascade left the root live.
+    // All three landing paths now do the same thing in the same order.
+    const rootRestored =
+      nothingReported || written === null
+        ? true
+        : await tryRestoreEntityPreImage({
+            context,
+            entityType: revision.target.type,
+            preImage: entity as Record<string, unknown> & { id: string },
+            persistedKeys: Object.keys(desiredState).filter((k) =>
+              updatableFields.has(k),
+            ),
+            written,
+          });
     let cascadeRestored = true;
-    for (const write of [...(applied?.cascade ?? [])].reverse()) {
+    for (const write of applied?.cascade ?? []) {
       const ok = await tryRestoreEntityPreImage({
         context,
         entityType: revision.target.type,
@@ -809,19 +824,7 @@ async function publishRevisionInner(
       });
       if (!ok) cascadeRestored = false;
     }
-    const entityRestored = nothingReported
-      ? cascadeRestored
-      : cascadeRestored &&
-        written !== null &&
-        (await tryRestoreEntityPreImage({
-          context,
-          entityType: revision.target.type,
-          preImage: entity as Record<string, unknown> & { id: string },
-          persistedKeys: Object.keys(desiredState).filter((k) =>
-            updatableFields.has(k),
-          ),
-          written,
-        }));
+    const entityRestored = rootRestored && cascadeRestored;
     if (!entityRestored) {
       logger.error(
         { revisionId: merged.id },

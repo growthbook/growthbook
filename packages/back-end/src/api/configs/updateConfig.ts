@@ -599,7 +599,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       // failed cascade already reconciled are re-run by the config adapter's
       // afterRestorePreImage, invoked from the shared restore.
       changes: fieldsToUpdate as Record<string, unknown>,
-      cascade: cascadeWrites,
+      cascade: () => cascadeWrites,
       write: async (report) => {
         // Guarded on the SAME pre-image the landing was re-based onto: the
         // overrides commit advanced the config's token, so guarding on the

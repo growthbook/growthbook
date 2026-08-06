@@ -382,21 +382,19 @@ export async function compensateFailedLanding({
   /** Returns the revision to its pre-merge state. */
   unmerge: () => Promise<unknown>;
 }): Promise<void> {
-  // Innermost first, and before the root: a deeper descendant's pre-image was
-  // computed against its parent's post-strip schema, so unwinding outside-in would
-  // restore against state that is about to change again.
-  let cascadeRestored = true;
-  for (const write of [...cascade].reverse()) {
-    const ok = await tryRestoreEntityPreImage({
-      context,
-      entityType,
-      preImage: write.before,
-      persistedKeys: Object.keys(write.written),
-      written: write.written,
-    });
-    if (!ok) cascadeRestored = false;
-  }
-
+  // ROOT FIRST, then descendants top-down. The order matters and the intuitive one
+  // is wrong: a restore writes through `applyChanges({isRevert: true})`, and
+  // ancestor normalization is UNCONDITIONAL there — `isRevert` suppresses only the
+  // veto. So while the root still declares the field, restoring a descendant is
+  // normalized straight back to the stripped schema, and because the key is still in
+  // `persistedKeys` the verification sees nothing dropped and reports SUCCESS. The
+  // whole mechanism became a no-op that claimed a clean rollback.
+  //
+  // Once the root no longer owns the field, each descendant restore survives
+  // normalization — and the root's own `afterRestorePreImage` cascade is then a
+  // no-op, because there is nothing left to strip. Descendants go in cascade order
+  // (parents before children) for the same reason: a child's restore normalizes
+  // against ancestors that must already be back.
   const restored =
     persisted === null
       ? true
@@ -407,6 +405,18 @@ export async function compensateFailedLanding({
           persistedKeys: Object.keys(changes),
           written: persisted,
         });
+
+  let cascadeRestored = true;
+  for (const write of cascade) {
+    const ok = await tryRestoreEntityPreImage({
+      context,
+      entityType,
+      preImage: write.before,
+      persistedKeys: Object.keys(write.written),
+      written: write.written,
+    });
+    if (!ok) cascadeRestored = false;
+  }
 
   if (!restored || !cascadeRestored) {
     // Part of the change is live, so consumers must hear about it and the merged
