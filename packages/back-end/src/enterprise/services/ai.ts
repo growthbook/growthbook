@@ -39,13 +39,16 @@ import {
   updateTokenUsage,
 } from "back-end/src/models/AITokenUsageModel";
 import { ApiReqContext } from "back-end/types/api";
-import { getAISettingsForOrg } from "back-end/src/services/organizations";
+import {
+  getAISettingsForOrg,
+  getAllowedAIModel,
+} from "back-end/src/services/organizations";
 import {
   AIKeySource,
   missingAIKeyMessage,
 } from "back-end/src/services/aiCredentials";
 import { logCloudAIUsage } from "back-end/src/services/licenseServerManagedClickhouse";
-import { trackAIUsage } from "back-end/src/services/growthbook";
+import { AIUsageOutcome, trackAIUsage } from "back-end/src/services/growthbook";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
 // Whether the org is spending its own budget for `model`. Cloud's daily cap
@@ -314,7 +317,8 @@ export const simpleCompletion = async ({
     true,
   );
 
-  const model = overrideModel || defaultAIModel;
+  const model =
+    getAllowedAIModel("text", overrideModel, keySource) || defaultAIModel;
   const ownKey = usesOwnAIKey(keySource, model);
 
   const aiProvider = await getAIProviderClass(context, model);
@@ -427,7 +431,8 @@ export const streamingChatCompletion = async ({
     context,
     true,
   );
-  const model = overrideModel || defaultAIModel;
+  const model =
+    getAllowedAIModel("text", overrideModel, keySource) || defaultAIModel;
   const ownKey = usesOwnAIKey(keySource, model);
   const aiProvider = await getAIProviderClass(context, model);
 
@@ -441,6 +446,63 @@ export const streamingChatCompletion = async ({
     ? undefined
     : temperature;
 
+  const recordUsage = async ({
+    inputTokens,
+    outputTokens,
+    totalTokens,
+    outcome,
+  }: {
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+    outcome: AIUsageOutcome;
+  }) => {
+    trackAIUsage({
+      organizationId: context.org.id,
+      userId: context.userId,
+      type,
+      model,
+      provider: getProviderFromModel(model),
+      numPromptTokensUsed: inputTokens,
+      numCompletionTokensUsed: outputTokens,
+      usedDefaultPrompt: isDefaultPrompt,
+      usedOwnKey: ownKey,
+      outcome,
+    });
+
+    if (!IS_CLOUD) return;
+
+    // Only meter usage against the daily cap when GrowthBook is paying.
+    const numTokensUsed = totalTokens ?? 0;
+    if (numTokensUsed && !ownKey) {
+      try {
+        await updateTokenUsage({ numTokensUsed, organization: context.org });
+      } catch (e) {
+        // Accounting failures must not turn a completed AI response into a 500.
+        logger.error(e, "streamingChatCompletion: could not meter token usage");
+      }
+    }
+
+    logCloudAIUsage({
+      organization: context.org.id,
+      type,
+      model,
+      numPromptTokensUsed: inputTokens,
+      numCompletionTokensUsed: outputTokens,
+      temperature: effectiveTemperature,
+      usedDefaultPrompt: isDefaultPrompt,
+    });
+  };
+
+  type TerminalUsage = {
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+    outcome: AIUsageOutcome;
+  };
+  let terminalUsage: TerminalUsage | undefined;
+  let streamErrored = false;
+
   const result = streamText({
     model: aiProvider(model) as Parameters<typeof streamText>[0]["model"],
     system,
@@ -451,40 +513,54 @@ export const streamingChatCompletion = async ({
       : {}),
     ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
     ...(abortSignal ? { abortSignal } : {}),
-    onFinish: async ({ usage }) => {
-      if (IS_CLOUD) {
-        const numTokensUsed = usage?.totalTokens ?? 0;
-        // Only meter usage against the daily cap when GrowthBook is paying.
-        if (numTokensUsed && !ownKey) {
-          await updateTokenUsage({ numTokensUsed, organization: context.org });
-        }
-
-        trackAIUsage({
-          organizationId: context.org.id,
-          userId: context.userId,
-          type,
-          model,
-          provider: getProviderFromModel(model),
-          numPromptTokensUsed: usage?.inputTokens,
-          numCompletionTokensUsed: usage?.outputTokens,
-          usedDefaultPrompt: isDefaultPrompt,
-          usedOwnKey: ownKey,
-        });
-
-        logCloudAIUsage({
-          organization: context.org.id,
-          type,
-          model,
-          numPromptTokensUsed: usage?.inputTokens,
-          numCompletionTokensUsed: usage?.outputTokens,
-          temperature: effectiveTemperature,
-          usedDefaultPrompt: isDefaultPrompt,
-        });
+    onFinish: ({ totalUsage }) => {
+      // onFinish's `usage` is only the last step; totalUsage covers the run.
+      if (terminalUsage?.outcome !== "aborted") {
+        terminalUsage = {
+          inputTokens: totalUsage.inputTokens,
+          outputTokens: totalUsage.outputTokens,
+          totalTokens: totalUsage.totalTokens,
+          outcome: streamErrored ? "error" : "success",
+        };
       }
+    },
+    onAbort: ({ steps }) => {
+      const usage = steps.reduce(
+        (acc, step) => ({
+          inputTokens: acc.inputTokens + (step.usage?.inputTokens ?? 0),
+          outputTokens: acc.outputTokens + (step.usage?.outputTokens ?? 0),
+          totalTokens: acc.totalTokens + (step.usage?.totalTokens ?? 0),
+        }),
+        { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      );
+      terminalUsage = { ...usage, outcome: "aborted" };
+    },
+    onError: ({ error }) => {
+      logger.error(error, "streamingChatCompletion: stream error");
+      streamErrored = true;
     },
   });
 
-  return result;
+  let accountingPromise: Promise<void> | undefined;
+  const completeAccounting = (): Promise<void> => {
+    if (!accountingPromise) {
+      accountingPromise = (async () => {
+        try {
+          await result.response;
+        } catch {
+          // The terminal outcome is recorded below.
+        }
+        await recordUsage(
+          terminalUsage ?? {
+            outcome: streamErrored ? "error" : "aborted",
+          },
+        );
+      })();
+    }
+    return accountingPromise;
+  };
+
+  return { result, completeAccounting };
 };
 
 export { aiTool };
@@ -557,7 +633,8 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     context,
     true,
   );
-  const model = overrideModel || defaultAIModel;
+  const model =
+    getAllowedAIModel("text", overrideModel, keySource) || defaultAIModel;
   const ownKey = usesOwnAIKey(keySource, model);
 
   const aiProvider = await getAIProviderClass(context, model);
@@ -681,14 +758,37 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     NoObjectGeneratedError.isInstance(e) ? (e.usage?.totalTokens ?? 0) : 0;
 
   let retriedTokens = 0;
+  const recordFailedAttempts = async () => {
+    if (IS_CLOUD && !ownKey && retriedTokens > 0) {
+      await updateTokenUsage({
+        numTokensUsed: retriedTokens,
+        organization: context.org,
+      });
+    }
+    trackAIUsage({
+      organizationId: context.org.id,
+      userId: context.userId,
+      type,
+      model,
+      provider: getProviderFromModel(model),
+      numRetriedTokensUsed: retriedTokens,
+      usedDefaultPrompt: isDefaultPrompt,
+      usedOwnKey: ownKey,
+      outcome: "error",
+    });
+  };
+
   let response: Awaited<ReturnType<typeof generateOnce>>;
   try {
     response = await generateOnce();
   } catch (err) {
     if (!isGenerationFailure(err)) throw err;
-    // Don't stack retries when the caller is already a retry path.
-    if (!retryOnNoObject) throw err;
     retriedTokens += failureTokens(err);
+    // Don't stack retries when the caller is already a retry path.
+    if (!retryOnNoObject) {
+      await recordFailedAttempts();
+      throw err;
+    }
     logger.warn(
       { type, model, ...noOutputDiag(err) },
       "parsePrompt: model returned no usable output; retrying once",
@@ -696,21 +796,16 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     try {
       response = await generateOnce();
     } catch (retryErr) {
-      if (!isGenerationFailure(retryErr)) throw retryErr;
+      if (!isGenerationFailure(retryErr)) {
+        await recordFailedAttempts();
+        throw retryErr;
+      }
       retriedTokens += failureTokens(retryErr);
       logger.warn(
         { type, model, ...noOutputDiag(retryErr) },
         "parsePrompt: model returned no usable output after retry; giving up",
       );
-      // Bill both failed attempts before surfacing the error so Cloud
-      // rate-limiting doesn't under-count a double failure. BYOK orgs aren't
-      // rate limited, so there is nothing to bill.
-      if (IS_CLOUD && !ownKey && retriedTokens > 0) {
-        await updateTokenUsage({
-          numTokensUsed: retriedTokens,
-          organization: context.org,
-        });
-      }
+      await recordFailedAttempts();
       // If either attempt stopped on the output-token ceiling, the JSON was
       // cut off mid-stream — a generic "try again" won't help an inherently
       // too-large response, so point the user at narrowing the request.
@@ -735,6 +830,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     provider: getProviderFromModel(model),
     numPromptTokensUsed: response.usage?.inputTokens,
     numCompletionTokensUsed: response.usage?.outputTokens,
+    numRetriedTokensUsed: retriedTokens,
     usedDefaultPrompt: isDefaultPrompt,
     usedOwnKey: ownKey,
   });

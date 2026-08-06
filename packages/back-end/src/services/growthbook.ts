@@ -203,6 +203,10 @@ function hashOrganizationId(orgId: string): string {
     .digest("hex");
 }
 
+// How the call ended, so a cancelled or failed one is visible rather than simply
+// absent. Defaults to "success", leaving existing callers unchanged.
+export type AIUsageOutcome = "success" | "aborted" | "error";
+
 export function trackAIUsage({
   organizationId,
   userId,
@@ -211,8 +215,10 @@ export function trackAIUsage({
   provider,
   numPromptTokensUsed,
   numCompletionTokensUsed,
+  numRetriedTokensUsed,
   usedDefaultPrompt,
   usedOwnKey,
+  outcome = "success",
 }: {
   organizationId: string;
   userId?: string;
@@ -221,8 +227,11 @@ export function trackAIUsage({
   provider?: string;
   numPromptTokensUsed?: number;
   numCompletionTokensUsed?: number;
+  // Spent on attempts that produced nothing usable, but still billed.
+  numRetriedTokensUsed?: number;
   usedDefaultPrompt: boolean;
   usedOwnKey: boolean;
+  outcome?: AIUsageOutcome;
 }): void {
   try {
     const client = getGrowthBookClient();
@@ -243,8 +252,10 @@ export function trackAIUsage({
       provider,
       numPromptTokensUsed,
       numCompletionTokensUsed,
+      numRetriedTokensUsed,
       usedDefaultPrompt,
       usedOwnKey,
+      outcome,
     });
   } catch (e) {
     logger.warn(e, "Failed to log AI usage event");

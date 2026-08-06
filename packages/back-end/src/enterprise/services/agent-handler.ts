@@ -14,12 +14,12 @@ import {
 import {
   getContextFromReq,
   getAISettingsForOrg,
+  getAllowedAIModel,
 } from "back-end/src/services/organizations";
 import {
   streamingChatCompletion,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
-import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   type ConversationBuffer,
   loadOrInitConversation,
@@ -201,23 +201,21 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
 
     const storedModel = buffer.getModel() as AIModel | undefined;
 
-    // Resolve the model override. `undefined` falls through to the org's
-    // `defaultAIModel` below — which on Cloud is always the hardcoded model.
-    //
-    // Cloud: continued conversations keep their stored model; new ones fall
-    // through to the hardcoded default. `body.model` and `dbOverrideModel`
-    // are deliberately ignored — Cloud users cannot pick a model.
-    //
-    // Self-hosted: continued conversations keep their stored model; on the
-    // first turn we honor the user's per-request choice, else the org-level
-    // prompt override, else the org default. The model selector is disabled
-    // in the UI after the first turn, so `body.model` won't be set on
-    // follow-ups in normal usage.
-    const overrideModel: AIModel | undefined = IS_CLOUD
-      ? storedModel
-      : storedModel || body.model || dbOverrideModel;
+    // Stored model, else the user's per-request choice, else the org-level
+    // prompt override, else the org default. Each candidate is filtered through
+    // the org's key state, so on Cloud a managed org stays pinned to
+    // GrowthBook's model while a BYOK org gets the one it picked — silently
+    // discarding those picks was the bug. Also catches a stored model
+    // disallowed mid-conversation by a downgrade.
+    const { keySource, defaultAIModel } = await getAISettingsForOrg(
+      context,
+      false,
+    );
+    const overrideModel: AIModel | undefined =
+      getAllowedAIModel("text", storedModel, keySource) ||
+      getAllowedAIModel("text", body.model, keySource) ||
+      getAllowedAIModel("text", dbOverrideModel, keySource);
 
-    const { defaultAIModel } = await getAISettingsForOrg(context, false);
     const resolvedModel = overrideModel || defaultAIModel;
 
     // Waits until here because the BYOK exemption is per provider, so it needs
@@ -325,28 +323,39 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
         abortSignal: abortController.signal,
       });
 
-      await processStream(stream, config, buffer, emit, abortController, () => {
-        // A tool just parked a mutation for confirmation: stop the turn
-        // deterministically so the model can't continue past the gate. The
-        // pending state is persisted below and acted on next turn.
-        if (buffer.getPendingAction()) {
-          abortController.abort();
-        }
-        void (async () => {
-          if (await checkCancellation()) return;
-          await persistConversation(context.models.aiConversations, buffer);
-        })().catch((err) => {
-          logger.error(
-            err,
-            "Failed to persist intermediate conversation state",
-          );
-        });
-      });
-
       try {
-        await stream.response;
-      } catch {
-        // Provider errors after stream close — already handled
+        await processStream(
+          stream.result,
+          config,
+          buffer,
+          emit,
+          abortController,
+          () => {
+            // A tool just parked a mutation for confirmation: stop the turn
+            // deterministically so the model can't continue past the gate. The
+            // pending state is persisted below and acted on next turn.
+            if (buffer.getPendingAction()) {
+              abortController.abort();
+            }
+            void (async () => {
+              if (await checkCancellation()) return;
+              await persistConversation(context.models.aiConversations, buffer);
+            })().catch((err) => {
+              logger.error(
+                err,
+                "Failed to persist intermediate conversation state",
+              );
+            });
+          },
+        );
+
+        try {
+          await stream.result.response;
+        } catch {
+          // Provider errors after stream close — already handled
+        }
+      } finally {
+        await stream.completeAccounting();
       }
 
       await titlePromise;
@@ -551,7 +560,7 @@ function debugNonTextPart(
 }
 
 async function processStream<TParams>(
-  stream: Awaited<ReturnType<typeof streamingChatCompletion>>,
+  stream: Awaited<ReturnType<typeof streamingChatCompletion>>["result"],
   config: AgentConfig<TParams>,
   buffer: ConversationBuffer,
   emit: AgentEmit,

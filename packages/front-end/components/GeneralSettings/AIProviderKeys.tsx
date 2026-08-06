@@ -16,6 +16,7 @@ import { isCloud } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
+import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
@@ -34,12 +35,13 @@ type AICredentialsResponse = {
 // Read model for /ai/credentials. Exported so other settings UI can warn about
 // a model whose provider has no key without re-deriving the precedence rules.
 export function useAIProviderKeys() {
-  const { data, mutate, isLoading } =
+  const { data, error, mutate, isLoading } =
     useApi<AICredentialsResponse>("/ai/credentials");
 
   const credentials = data?.credentials ?? [];
   const envProviders = data?.envProviders ?? [];
-  // The back end's ai-byok gate, not re-derived here.
+  // The back end's ai-byok gate, not re-derived here. A failed request leaves it
+  // false, which is not "the plan doesn't include it" — check `error` first.
   const canUseOwnKeys = !!data?.canUseOwnKeys;
 
   // A key the org stored itself. On Cloud the env keys are GrowthBook's, so this
@@ -58,6 +60,9 @@ export function useAIProviderKeys() {
     }
   };
 
+  // Paying its own provider bill. On Cloud this unlocks model selection.
+  const hasOwnKey = AI_PROVIDERS.some(hasOwnKeyForProvider);
+
   return {
     credentials,
     envProviders,
@@ -66,15 +71,26 @@ export function useAIProviderKeys() {
     hasKeyForProvider,
     hasKeyForModel,
     hasAnyKey: AI_PROVIDERS.some(hasKeyForProvider),
-    // Paying its own provider bill. On Cloud this unlocks model selection.
-    hasOwnKey: AI_PROVIDERS.some(hasOwnKeyForProvider),
+    hasOwnKey,
+    // Exported so the settings page and the pickers can't disagree.
+    canChooseModels: !isCloud() || hasOwnKey,
+    // Cloud counts stored keys only; counting the managed env keys would let one
+    // stored Anthropic key unlock the OpenAI and Google lists too.
+    selectableProviders: data
+      ? AI_PROVIDERS.filter((p) =>
+          isCloud() ? hasOwnKeyForProvider(p) : hasKeyForProvider(p),
+        )
+      : undefined,
     mutate,
     isLoading,
+    error,
     // Separates "still loading" from "loaded, and there is no key", so callers
     // don't flash a warning on first paint.
     loaded: !!data,
   };
 }
+
+export type AIProviderAccess = ReturnType<typeof useAIProviderKeys>;
 
 function ProviderRow({
   provider,
@@ -165,9 +181,8 @@ function ProviderRow({
                 From environment
               </Text>
             ) : inactiveForPlan ? (
-              <Text size="sm" color="text-mid">
-                Inactive
-              </Text>
+              /* A Badge, not muted text like the source labels beside it. */
+              <Badge label="Inactive" color="amber" />
             ) : managedByGrowthBook ? (
               <Text size="sm" color="text-mid">
                 GrowthBook managed
@@ -182,15 +197,6 @@ function ProviderRow({
                   ? ` · set by ${credential.updatedByEmail}`
                   : ""}{" "}
                 on {date(credential.dateUpdated)}
-                {inactiveForPlan ? (
-                  <>
-                    . Not in use — your plan no longer includes your own
-                    provider keys.{" "}
-                    {isCloud()
-                      ? "AI features run on GrowthBook's managed keys."
-                      : `AI features use ${envVar} if it is set.`}
-                  </>
-                ) : null}
               </>
             ) : managedByGrowthBook ? (
               <>
@@ -235,6 +241,19 @@ function ProviderRow({
             </Flex>
           )}
       </Flex>
+
+      {/* Its own Callout: appending it to the key metadata buried it. */}
+      {inactiveForPlan && (
+        <Box mt="2">
+          <Callout status="warning">
+            This key is not in use — your plan no longer includes your own
+            provider keys.{" "}
+            {isCloud()
+              ? "AI features run on GrowthBook's managed keys."
+              : `AI features use ${envVar} if it is set.`}
+          </Callout>
+        </Box>
+      )}
 
       {editing && (
         <Box mt="3">
@@ -312,12 +331,14 @@ function ProviderRow({
 // Per-org AI provider API keys. On Cloud a key here outranks GrowthBook's
 // managed key; self-hosted the host's env vars win and show as read-only.
 export default function AIProviderKeys({
+  access,
   // AI Settings renders its own callout covering this section, so it opts out
   // rather than banner the same gap twice.
   showPermissionCallout = true,
 }: {
+  access: AIProviderAccess;
   showPermissionCallout?: boolean;
-} = {}) {
+}) {
   const permissionsUtil = usePermissionsUtil();
   const canEdit = permissionsUtil.canManageOrgSettings();
 
@@ -327,14 +348,30 @@ export default function AIProviderKeys({
     canUseOwnKeys,
     mutate,
     isLoading,
+    error,
     loaded,
-  } = useAIProviderKeys();
+  } = access;
   const { refreshOrganization } = useUser();
 
   // The row just opened from the "New provider" menu, so the common case is one
   // pick plus one paste. The menu itself keeps no selection.
   const configured = new Set(credentials.map((c) => c.provider));
   const [addingProvider, setAddingProvider] = useState<AIProvider | "">("");
+
+  // A failed load is not a downgrade: `canUseOwnKeys` is false and `credentials`
+  // empty either way, so without this the section renders the upgrade callout.
+  if (error) {
+    return (
+      <Box mb="6" width="100%">
+        <Text size="lg" weight="semibold" as="div" mb="3">
+          AI providers
+        </Text>
+        <Callout status="error">
+          Could not load your AI provider keys. {error.message}
+        </Callout>
+      </Box>
+    );
+  }
 
   if (isLoading && !loaded) return null;
 
@@ -367,8 +404,22 @@ export default function AIProviderKeys({
       <Text size="lg" weight="semibold" as="div">
         AI providers
       </Text>
+      {/* Don't pitch a key the plan won't allow; the callout below upsells. */}
       <Text size="md" color="text-mid" as="div" mb="3">
-        {isCloud() ? (
+        {!canUseOwnKeys ? (
+          isCloud() ? (
+            <>
+              AI features run on GrowthBook&apos;s managed keys, under a daily
+              usage limit.
+            </>
+          ) : (
+            <>
+              AI features use the keys set by this deployment&apos;s environment
+              variables. A provider configured that way is managed where that
+              variable is set.
+            </>
+          )
+        ) : isCloud() ? (
           <>
             Bring your own provider account. AI features run on
             GrowthBook&apos;s managed keys by default — add your own key to bill

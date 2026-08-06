@@ -501,6 +501,27 @@ export function getProviderFromEmbeddingModel(
   throw new Error(`Embedding model ${model} is not supported.`);
 }
 
+// Text, embedding and image models each have their own registry, so callers
+// holding an org setting must say which one it came from.
+export type AIModelKind = "text" | "embedding" | "image";
+
+// Provider that serves `model`, or null when the id isn't in that registry.
+// Null rather than a throw: a stale org setting should read as "not selectable",
+// not fail the request that looked at it.
+export function getProviderForAIModel(
+  kind: AIModelKind,
+  model: string,
+): AIProvider | null {
+  try {
+    if (kind === "text") return getProviderFromModel(model as AIModel);
+    if (kind === "embedding")
+      return getProviderFromEmbeddingModel(model as EmbeddingModel);
+    return getImageModelMeta(model)?.provider ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export interface AITokenUsageInterface {
   id?: string;
   organization: string;

@@ -21,7 +21,14 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
-import { AIModel, AIProvider, AI_PROVIDERS, EmbeddingModel } from "shared/ai";
+import {
+  AIModel,
+  AIModelKind,
+  AIProvider,
+  AI_PROVIDERS,
+  EmbeddingModel,
+  getProviderForAIModel,
+} from "shared/ai";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import {
   MetricCappingSettings,
@@ -65,6 +72,7 @@ import {
 } from "back-end/src/util/secrets";
 import {
   AIKeySource,
+  canOrgChooseProviderModels,
   getResolvedAIKeys,
 } from "back-end/src/services/aiCredentials";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -308,11 +316,6 @@ export async function getAISettingsForOrg(
   );
 
   const hasValidKey = AI_PROVIDERS.some((p) => !!resolvedKeys[p].key);
-  // On Cloud this means the org pays its own provider bill, which unlocks model
-  // choice and exempts it from the daily token cap.
-  const usesOwnKey = AI_PROVIDERS.some(
-    (p) => resolvedKeys[p].source === "organization",
-  );
 
   // Cloud ships with GrowthBook's own managed keys, so AI only needs the org
   // toggle. Self-hosted additionally needs a key from somewhere.
@@ -321,29 +324,39 @@ export async function getAISettingsForOrg(
     : !!(context.org.settings?.aiEnabled && hasValidKey);
 
   // Cloud pins the cheap managed model because GrowthBook pays for it; an org on
-  // its own key picks its own.
-  const orgDefaultAIModel =
+  // its own key for that model's provider picks its own.
+  const orgDefaultAIModel = getAllowedAIModel(
+    "text",
     context.org.settings?.defaultAIModel ||
-    context.org.settings?.openAIDefaultModel;
+      context.org.settings?.openAIDefaultModel,
+    keySource,
+  );
   const defaultAIModel: AIModel =
-    IS_CLOUD && !usesOwnKey
-      ? "claude-haiku-4-5-20251001"
-      : orgDefaultAIModel ||
-        (IS_CLOUD ? "claude-haiku-4-5-20251001" : "gpt-5.4-mini");
+    orgDefaultAIModel ||
+    (IS_CLOUD ? "claude-haiku-4-5-20251001" : "gpt-5.4-mini");
 
-  // Visual editor AI. An explicit per-surface override always wins.
-  // Otherwise managed Cloud gets Sonnet: the structured-output + vision workload
-  // fails schema adherence on Haiku too often. Self-hosted and BYOK Cloud fall
-  // back to the org's default, so we never route to a provider they lack.
+  // Managed Cloud gets Sonnet: the visual editor's structured-output + vision
+  // workload fails schema adherence on Haiku too often. `!orgDefaultAIModel` on
+  // Cloud is exactly "still on the managed default".
   const visualEditorAIModel: AIModel =
-    context.org.settings?.visualEditorAIModel ||
-    (IS_CLOUD && !usesOwnKey ? "claude-sonnet-4-5-20250929" : defaultAIModel);
-  // Managed Cloud gets Gemini 3 Pro Image: it honors the requested aspect ratio
-  // and renders higher-res. Self-hosted and BYOK Cloud get the stable
-  // nano-banana default, since a preview model isn't enabled on every account.
+    getAllowedAIModel(
+      "text",
+      context.org.settings?.visualEditorAIModel,
+      keySource,
+    ) ||
+    (IS_CLOUD && !orgDefaultAIModel
+      ? "claude-sonnet-4-5-20250929"
+      : defaultAIModel);
+  // Managed Cloud gets Gemini 3 Pro Image for aspect-ratio fidelity. An org on
+  // its own Google key gets the stable default, since a preview model isn't
+  // enabled on every account.
   const visualEditorImageModel: string =
-    context.org.settings?.visualEditorImageModel ||
-    (IS_CLOUD && !usesOwnKey
+    getAllowedAIModel(
+      "image",
+      context.org.settings?.visualEditorImageModel,
+      keySource,
+    ) ||
+    (IS_CLOUD && !canOrgChooseProviderModels(keySource, "google")
       ? "gemini-3-pro-image-preview"
       : GEMINI_IMAGE_MODEL);
 
@@ -357,13 +370,31 @@ export async function getAISettingsForOrg(
     keySource,
     defaultAIModel,
     embeddingModel:
-      context.org.settings?.embeddingModel || "text-embedding-ada-002",
+      getAllowedAIModel(
+        "embedding",
+        context.org.settings?.embeddingModel,
+        keySource,
+      ) || "text-embedding-ada-002",
     visualEditorAIModel,
     visualEditorImageModel,
     visualEditorAIContext: (
       context.org.settings?.visualEditorAIContext || ""
     ).trim(),
   };
+}
+
+// Stored and request-level model choices use the same runtime entitlement rule.
+// A disallowed legacy value reads as unset so callers fall back safely.
+export function getAllowedAIModel<T extends string>(
+  kind: AIModelKind,
+  model: T | undefined,
+  keySource: Record<AIProvider, AIKeySource>,
+): T | undefined {
+  if (!model) return undefined;
+  const provider = getProviderForAIModel(kind, model);
+  return provider && canOrgChooseProviderModels(keySource, provider)
+    ? model
+    : undefined;
 }
 
 export function getMetricDefaultsForOrg(context: ReqContext): MetricDefaults {

@@ -1,6 +1,8 @@
 import type { AIModel, AIProvider, EmbeddingModel } from "shared/ai";
 import {
+  AI_IMAGE_MODELS,
   AI_PROVIDER_MODEL_MAP,
+  getImageModelMeta,
   getProviderFromEmbeddingModel,
 } from "shared/ai";
 import { ensureValuesExactlyMatchUnion } from "shared/util";
@@ -133,23 +135,24 @@ function withSelectedOption<T extends FlatOption | GroupedOption>(
 /**
  * Model options grouped by provider, restricted to the providers this org can
  * reach. Callers pass those in because the front-end server's env flags can't
- * see org-stored keys. Empty falls back to every provider, so a fresh install
- * still shows a full picker.
+ * see org-stored keys. `undefined` means access is still loading; an empty list
+ * means access loaded and no provider is available.
  *
  * Groups are alphabetical; models keep the registry's newest-first order, so
  * callers must pass `sort={false}` to SelectField or it re-sorts by label.
  */
 export function getAvailableAIModelOptions(
-  availableProviders: readonly AIProvider[],
+  availableProviders: readonly AIProvider[] | undefined,
   selectedModel?: string,
 ): (FlatOption | GroupedOption)[] {
   const allProviders = Object.keys(AI_PROVIDER_MODEL_MAP) as AIProvider[];
 
   // Filter the full list rather than mapping availableProviders, so provider
   // order doesn't depend on the order keys happen to be stored in.
-  const providers = availableProviders.length
-    ? allProviders.filter((p) => availableProviders.includes(p))
-    : allProviders;
+  const providers =
+    availableProviders === undefined
+      ? allProviders
+      : allProviders.filter((p) => availableProviders.includes(p));
 
   const groups = providers
     .map((provider) => ({
@@ -173,7 +176,7 @@ export function getAvailableAIModelOptions(
  * Filtered and grouped the same way as getAvailableAIModelOptions().
  */
 export function getAvailablePromptModelOptions(
-  availableProviders: readonly AIProvider[],
+  availableProviders: readonly AIProvider[] | undefined,
   selectedModel?: string,
 ): (FlatOption | GroupedOption)[] {
   return [
@@ -183,28 +186,60 @@ export function getAvailablePromptModelOptions(
 }
 
 /**
+ * Image-generation model options, filtered like getAvailableAIModelOptions().
+ * Grouped by reference-image support rather than by provider: that capability
+ * decides whether the Visual Editor's "use current image" flow works at all.
+ * The leading "use default" entry always stays — it needs no key of its own.
+ */
+export function getAvailableImageModelOptions(
+  availableProviders: readonly AIProvider[] | undefined,
+  selectedModel?: string,
+): (FlatOption | GroupedOption)[] {
+  const models =
+    availableProviders === undefined
+      ? AI_IMAGE_MODELS
+      : AI_IMAGE_MODELS.filter((m) => availableProviders.includes(m.provider));
+
+  const group = (label: string, supportsReferenceImage: boolean) => {
+    const options = models
+      .filter((m) => m.supportsReferenceImage === supportsReferenceImage)
+      .map((m) => ({ value: m.id, label: m.label }));
+    return options.length ? [{ label, options }] : [];
+  };
+
+  return withSelectedOption(
+    [
+      { value: "", label: "Use default (Gemini 2.5 Flash Image)" },
+      ...group("Supports reference image", true),
+      ...group("Text prompt only", false),
+    ],
+    selectedModel,
+    (value) => getImageModelMeta(value)?.label ?? value,
+  );
+}
+
+/**
  * Embedding model options, restricted to providers with a key the same way as
  * getAvailableAIModelOptions(). Embedding models live in their own registry, so
  * they need their own model → provider lookup.
  */
 export function getAvailableEmbeddingModelOptions(
-  availableProviders: readonly AIProvider[],
+  availableProviders: readonly AIProvider[] | undefined,
   selectedModel?: string,
 ): (FlatOption | GroupedOption)[] {
-  const available = availableProviders.length
-    ? EMBEDDING_MODEL_OPTIONS.filter((o) => {
-        try {
-          return availableProviders.includes(
-            getProviderFromEmbeddingModel(o.value),
-          );
-        } catch {
-          // Unknown provider mapping — keep the option rather than hide it.
-          return true;
-        }
-      })
-    : EMBEDDING_MODEL_OPTIONS;
-
-  const options = available.length ? available : [...EMBEDDING_MODEL_OPTIONS];
+  const options =
+    availableProviders === undefined
+      ? EMBEDDING_MODEL_OPTIONS
+      : EMBEDDING_MODEL_OPTIONS.filter((o) => {
+          try {
+            return availableProviders.includes(
+              getProviderFromEmbeddingModel(o.value),
+            );
+          } catch {
+            // Unknown provider mapping — keep the option rather than hide it.
+            return true;
+          }
+        });
 
   return withSelectedOption(
     [...options],

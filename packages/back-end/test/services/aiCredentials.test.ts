@@ -6,11 +6,8 @@ import {
   missingAIKeyMessage,
 } from "back-end/src/services/aiCredentials";
 
-// The wrong-key case has no clean signal: garbage bytes make `.toString(enc.Utf8)`
-// return "" (usually), throw "Malformed UTF-8 data" (~5%), or rarely return a
-// short valid string. decryptAIKey collapses the throw into "", so the only
-// invariants that always hold are "never throws" and "never returns the
-// plaintext" — asserting `=== ""` would be a flaky test, not a stronger one.
+// CryptoJS has no wrong-key signal: invalid bytes may return an empty string,
+// throw during UTF-8 decoding, or rarely decode to another string.
 describe("AI credential encryption", () => {
   it("round-trips a key", () => {
     const key = "sk-ant-api03-abcdefghijklmnop";
@@ -23,25 +20,18 @@ describe("AI credential encryption", () => {
   });
 
   it("produces different ciphertext for the same key each time", () => {
-    // Salted, so identical keys must not produce identical ciphertext.
     const key = "sk-proj-supersecretvalue";
     expect(encryptAIKey(key)).not.toBe(encryptAIKey(key));
   });
 
-  it("never throws on a wrong key, whatever the garbage bytes decode to", () => {
-    // Regression guard for the try/catch in decryptAIKey. Which outcome a given
-    // ciphertext draws depends on its salt, so repeating makes the throwing
-    // branch effectively certain to be covered — getResolvedAIKeys relies on it
-    // to fall back to the env var instead of failing every AI request.
+  it("does not throw when the key is wrong", () => {
     for (let i = 0; i < 200; i++) {
       const ciphertext = AES.encrypt("sk-real-key", "another-key").toString();
       expect(() => decryptAIKey(ciphertext)).not.toThrow();
     }
   });
 
-  it("never returns the original plaintext when the key is wrong", () => {
-    // Simulates ENCRYPTION_KEY changing without running the migration script.
-    // The security property, unlike the exact return value, always holds.
+  it("does not return the plaintext when the key is wrong", () => {
     for (let i = 0; i < 200; i++) {
       const ciphertext = AES.encrypt(
         "sk-real-key",

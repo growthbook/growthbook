@@ -3,8 +3,6 @@ import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useFormContext, UseFormReturn } from "react-hook-form";
 import {
   AI_PROMPT_DEFAULTS,
-  AI_IMAGE_MODELS,
-  AI_PROVIDERS,
   AI_PROVIDER_META,
   AIPromptInterface,
   AIModel,
@@ -17,6 +15,7 @@ import {
 import {
   getAvailableAIModelOptions,
   getAvailableEmbeddingModelOptions,
+  getAvailableImageModelOptions,
   getAvailablePromptModelOptions,
 } from "@/services/aiModelSelectOptions";
 import { useAuth } from "@/services/auth";
@@ -25,7 +24,6 @@ import Frame from "@/ui/Frame";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
-import { isCloud } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import Button from "@/ui/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
@@ -34,42 +32,6 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
 import AIProviderKeys, { useAIProviderKeys } from "./AIProviderKeys";
-
-// Curated list of image-generation models the Visual Editor supports.
-// We present a closed dropdown rather than free text — letting users
-// type an arbitrary model name just produces 404s at generation time.
-// The empty value means "use the GEMINI_IMAGE_MODEL env var / canonical
-// default". The rest is sourced from the shared AI_IMAGE_MODELS
-// registry so adding a new model is a one-line change there — no fork
-// needed in the front-end. The selected id is stored on the org
-// settings and dispatched to the right Vercel AI SDK provider at gen
-// time by back-end/src/services/imageGeneration.ts.
-//
-// Models are grouped by whether they accept a reference image. This is
-// an important capability gap (the visual editor's "use current image
-// as context" flow only works on reference-capable models), so we
-// surface it as a top-level grouping in the dropdown rather than
-// burying it in helpText. Inside each group, registry order is
-// preserved (which groups by provider: Google → OpenAI → xAI).
-const VISUAL_EDITOR_IMAGE_MODEL_OPTIONS = (() => {
-  const referenceCapable = AI_IMAGE_MODELS.filter(
-    (m) => m.supportsReferenceImage,
-  ).map((m) => ({ value: m.id, label: m.label }));
-  const textOnly = AI_IMAGE_MODELS.filter((m) => !m.supportsReferenceImage).map(
-    (m) => ({ value: m.id, label: m.label }),
-  );
-  return [
-    { value: "", label: "Use default (Gemini 2.5 Flash Image)" },
-    {
-      label: "Supports reference image",
-      options: referenceCapable,
-    },
-    {
-      label: "Text prompt only",
-      options: textOnly,
-    },
-  ];
-})();
 
 function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
   promptType: string;
@@ -220,26 +182,19 @@ export default function AISettings({
   const [error, setError] = useState<string | null>(null);
   const { hasCommercialFeature } = useUser();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
-  const { hasKeyForModel, hasKeyForProvider, hasOwnKeyForProvider, hasOwnKey } =
-    useAIProviderKeys();
+  const aiProviderAccess = useAIProviderKeys();
+  const {
+    hasKeyForModel,
+    hasKeyForProvider,
+    canChooseModels,
+    selectableProviders: availableProviders,
+  } = aiProviderAccess;
 
   // Every field here writes org settings, which the back end gates on
   // canManageOrgSettings. Without this the controls look editable to a non-admin
   // and only fail on save.
   const permissionsUtil = usePermissionsUtil();
   const canEdit = permissionsUtil.canManageOrgSettings();
-
-  // Hidden on Cloud because usage runs on the managed keys and models. An org on
-  // its own key chooses its own, same as self-hosted.
-  const canChooseModels = !isCloud() || hasOwnKey;
-
-  // Only offer models we can call. From /ai/credentials rather than UserContext
-  // so adding a key updates the dropdowns without a full org refresh. Cloud
-  // counts org-stored keys only — counting the managed env keys would let one
-  // stored Anthropic key unlock the OpenAI and Google lists too.
-  const availableProviders = AI_PROVIDERS.filter((p) =>
-    isCloud() ? hasOwnKeyForProvider(p) : hasKeyForProvider(p),
-  );
 
   // Subscribe to formState.isDirty by reading it during render.
   // This is required for react-hook-form to properly track dirty state
@@ -275,7 +230,7 @@ export default function AISettings({
     }
   };
 
-  const { data, isLoading } = useApi<{
+  const { data, error: promptsError } = useApi<{
     prompts: AIPromptInterface[];
   }>(`/ai/prompts`);
 
@@ -292,9 +247,7 @@ export default function AISettings({
     }
   }, [data, promptForm]);
 
-  if (isLoading || !data) return null;
-
-  const prompts = getPrompts(data);
+  const prompts = data ? getPrompts(data) : [];
 
   return (
     <>
@@ -309,9 +262,14 @@ export default function AISettings({
           </Box>
 
           {!hasAISuggestions ? (
-            <Box mb="6">
-              <span className="text-muted">View AI Settings</span>
-            </Box>
+            <Flex align="start" direction="column" flexGrow="1">
+              <Box mb="6">
+                <span className="text-muted">View AI Settings</span>
+              </Box>
+              {/* A downgrade shouldn't strand a stored key. The rows render as
+                  Inactive with Remove as the only action. */}
+              <AIProviderKeys access={aiProviderAccess} />
+            </Flex>
           ) : (
             <Flex align="start" direction="column" flexGrow="1" pt="6">
               <Flex align="start" gap="3" mb="6">
@@ -347,77 +305,74 @@ export default function AISettings({
                   </Callout>
                 </Box>
               )}
-              {form.watch("aiEnabled") && (
-                <>
-                  {/* Rendered on Cloud too: this is how an org opts off the
-                      managed keys and onto its own provider account. */}
-                  <AIProviderKeys showPermissionCallout={false} />
+              {/* Rendered even when AI is disabled or the plan was downgraded,
+                  so stored credentials and load errors stay reachable. */}
+              <AIProviderKeys
+                access={aiProviderAccess}
+                showPermissionCallout={false}
+              />
 
-                  {canChooseModels && (
-                    <>
-                      <Box mb="6" width="100%">
-                        <Text
-                          as="label"
-                          htmlFor="defaultAIModel"
-                          size="3"
-                          className="font-weight-semibold"
-                        >
-                          Default AI model
-                        </Text>
-                        <SelectField
-                          size="medium"
-                          id="defaultAIModel"
-                          disabled={!canEdit}
-                          helpText="Used by every AI feature that doesn't override it."
-                          value={form.watch("defaultAIModel")}
-                          onChange={(v) => form.setValue("defaultAIModel", v)}
-                          // Keep the registry's newest-first model order.
-                          sort={false}
-                          options={getAvailableAIModelOptions(
-                            availableProviders,
-                            form.watch("defaultAIModel"),
-                          )}
-                        />
-                        <ApiKeyWarning
-                          model={form.watch("defaultAIModel") || "gpt-4o-mini"}
-                          hasKey={hasKeyForModel}
-                        />
-                      </Box>
-                      <Box mb="6" width="100%">
-                        <Text
-                          as="label"
-                          htmlFor="embeddingModel"
-                          size="3"
-                          className="font-weight-semibold"
-                        >
-                          Embedding model
-                        </Text>
-                        <SelectField
-                          size="medium"
-                          id="embeddingModel"
-                          disabled={!canEdit}
-                          helpText="Used for semantic search across experiments. Supports OpenAI, Mistral, and Google. Default is text-embedding-ada-002."
-                          value={
-                            form.watch("embeddingModel") ||
-                            "text-embedding-ada-002"
-                          }
-                          onChange={(v) => form.setValue("embeddingModel", v)}
-                          options={getAvailableEmbeddingModelOptions(
-                            availableProviders,
-                            form.watch("embeddingModel") ||
-                              "text-embedding-ada-002",
-                          )}
-                        />
-                        <EmbeddingKeyWarning
-                          embeddingModel={
-                            form.watch("embeddingModel") ||
-                            "text-embedding-ada-002"
-                          }
-                          hasKey={hasKeyForProvider}
-                        />
-                      </Box>
-                    </>
-                  )}
+              {form.watch("aiEnabled") && canChooseModels && (
+                <>
+                  <Box mb="6" width="100%">
+                    <Text
+                      as="label"
+                      htmlFor="defaultAIModel"
+                      size="3"
+                      className="font-weight-semibold"
+                    >
+                      Default AI model
+                    </Text>
+                    <SelectField
+                      size="medium"
+                      id="defaultAIModel"
+                      disabled={!canEdit}
+                      helpText="Used by every AI feature that doesn't override it."
+                      value={form.watch("defaultAIModel")}
+                      onChange={(v) => form.setValue("defaultAIModel", v)}
+                      // Keep the registry's newest-first model order.
+                      sort={false}
+                      options={getAvailableAIModelOptions(
+                        availableProviders,
+                        form.watch("defaultAIModel"),
+                      )}
+                    />
+                    <ApiKeyWarning
+                      model={form.watch("defaultAIModel") || "gpt-4o-mini"}
+                      hasKey={hasKeyForModel}
+                    />
+                  </Box>
+                  <Box mb="6" width="100%">
+                    <Text
+                      as="label"
+                      htmlFor="embeddingModel"
+                      size="3"
+                      className="font-weight-semibold"
+                    >
+                      Embedding model
+                    </Text>
+                    <SelectField
+                      size="medium"
+                      id="embeddingModel"
+                      disabled={!canEdit}
+                      helpText="Used for semantic search across experiments. Supports OpenAI, Mistral, and Google. Default is text-embedding-ada-002."
+                      value={
+                        form.watch("embeddingModel") || "text-embedding-ada-002"
+                      }
+                      onChange={(v) => form.setValue("embeddingModel", v)}
+                      options={getAvailableEmbeddingModelOptions(
+                        availableProviders,
+                        form.watch("embeddingModel") ||
+                          "text-embedding-ada-002",
+                      )}
+                    />
+                    <EmbeddingKeyWarning
+                      embeddingModel={
+                        form.watch("embeddingModel") || "text-embedding-ada-002"
+                      }
+                      hasKey={hasKeyForProvider}
+                    />
+                  </Box>
                 </>
               )}
             </Flex>
@@ -425,7 +380,14 @@ export default function AISettings({
         </Flex>
       </Frame>
 
-      {hasAISuggestions && form.watch("aiEnabled") && (
+      {hasAISuggestions && form.watch("aiEnabled") && promptsError && (
+        <Frame>
+          <Callout status="error">
+            Could not load AI prompts. {promptsError.message}
+          </Callout>
+        </Frame>
+      )}
+      {hasAISuggestions && form.watch("aiEnabled") && data && (
         <>
           <Frame>
             <Flex gap="4">
@@ -670,7 +632,11 @@ export default function AISettings({
                           onChange={(v) =>
                             form.setValue("visualEditorImageModel", v)
                           }
-                          options={VISUAL_EDITOR_IMAGE_MODEL_OPTIONS}
+                          sort={false}
+                          options={getAvailableImageModelOptions(
+                            availableProviders,
+                            form.watch("visualEditorImageModel") || "",
+                          )}
                         />
                       </Box>
                     </>

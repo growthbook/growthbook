@@ -122,7 +122,7 @@ async function loadResolvedAIKeys(context: Context): Promise<ResolvedAIKeys> {
     }
     // Unusable, so keep the env fallback rather than send an empty key to the
     // provider. Means ENCRYPTION_KEY changed without running the migration.
-    if (!key) {
+    if (!key || getKeyLast4(key) !== credential.last4) {
       logger.error(
         `aiCredentials: the stored ${credential.provider} key for organization ${credential.organization} could not be decrypted with the current ENCRYPTION_KEY`,
       );
@@ -159,6 +159,17 @@ export function getResolvedAIKeys(context: Context): Promise<ResolvedAIKeys> {
 // Call after a write so a later read in the same request sees the new value.
 export function clearResolvedAIKeysCache(context: Context): void {
   requestCache.delete(context);
+}
+
+// Per provider, not per org: accepting an `env` source on Cloud would let one
+// BYOK Anthropic key unlock the OpenAI and Google lists, billed to GrowthBook.
+// Self-hosted the env keys are the host's own, so nothing needs authorizing.
+export function canOrgChooseProviderModels(
+  keySource: Record<AIProvider, AIKeySource>,
+  provider: AIProvider,
+): boolean {
+  if (!IS_CLOUD) return true;
+  return keySource[provider] === "organization";
 }
 
 // Error message for a provider with no usable key.

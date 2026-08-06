@@ -23,11 +23,12 @@ const loadModule = (env: Record<string, string>): AICredentialsModule => {
 const credential = (
   provider: AIProvider,
   encryptedKey: string,
+  last4: string,
 ): AICredentialInterface => ({
   organization: "org_1",
   provider,
   encryptedKey,
-  last4: "1234",
+  last4,
   updatedByEmail: "admin@example.com",
   dateCreated: new Date(),
   dateUpdated: new Date(),
@@ -63,7 +64,7 @@ describe("getResolvedAIKeys", () => {
       IS_CLOUD: "true",
     });
     const { context } = makeContext([
-      credential("anthropic", mod.encryptAIKey("org-anthropic")),
+      credential("anthropic", mod.encryptAIKey("org-anthropic"), "opic"),
     ]);
 
     const keys = await resolve(mod, context);
@@ -80,7 +81,7 @@ describe("getResolvedAIKeys", () => {
     // provider is a leftover and must not take effect.
     const mod = loadModule({ ANTHROPIC_API_KEY: "env-anthropic" });
     const { context } = makeContext([
-      credential("anthropic", mod.encryptAIKey("org-anthropic")),
+      credential("anthropic", mod.encryptAIKey("org-anthropic"), "opic"),
     ]);
 
     const keys = await resolve(mod, context);
@@ -91,7 +92,7 @@ describe("getResolvedAIKeys", () => {
   it("uses a stored key self-hosted when no env var is set", async () => {
     const mod = loadModule({});
     const { context } = makeContext([
-      credential("anthropic", mod.encryptAIKey("org-anthropic")),
+      credential("anthropic", mod.encryptAIKey("org-anthropic"), "opic"),
     ]);
 
     const keys = await resolve(mod, context);
@@ -123,7 +124,7 @@ describe("getResolvedAIKeys", () => {
   it("resolves each provider independently", async () => {
     const mod = loadModule({ OPENAI_API_KEY: "env-openai" });
     const { context } = makeContext([
-      credential("google", mod.encryptAIKey("org-google")),
+      credential("google", mod.encryptAIKey("org-google"), "ogle"),
     ]);
 
     const keys = await resolve(mod, context);
@@ -139,12 +140,24 @@ describe("getResolvedAIKeys", () => {
     // would surface as an opaque 401, so the env key must survive instead.
     const mod = loadModule({ ANTHROPIC_API_KEY: "env-anthropic" });
     const { context } = makeContext([
-      credential("anthropic", "garbage-not-decryptable"),
+      credential("anthropic", "garbage-not-decryptable", "1234"),
     ]);
 
     const keys = await resolve(mod, context);
 
     expect(keys.anthropic).toEqual({ key: "env-anthropic", source: "env" });
+  });
+
+  it("rejects decrypted text that does not match the stored fingerprint", async () => {
+    const mod = loadModule({ ANTHROPIC_API_KEY: "env-anthropic" });
+    const { context } = makeContext([
+      credential("anthropic", mod.encryptAIKey("wrong-plaintext"), "real"),
+    ]);
+
+    expect((await resolve(mod, context)).anthropic).toEqual({
+      key: "env-anthropic",
+      source: "env",
+    });
   });
 
   it("falls back to env keys when the credential query fails", async () => {
@@ -177,10 +190,10 @@ describe("getResolvedAIKeys", () => {
   it("does not share cached keys between two contexts", async () => {
     const mod = loadModule({});
     const first = makeContext([
-      credential("openai", mod.encryptAIKey("first-org-key")),
+      credential("openai", mod.encryptAIKey("first-org-key"), "-key"),
     ]);
     const second = makeContext([
-      credential("openai", mod.encryptAIKey("second-org-key")),
+      credential("openai", mod.encryptAIKey("second-org-key"), "-key"),
     ]);
 
     expect((await resolve(mod, first.context)).openai.key).toBe(
@@ -225,7 +238,7 @@ describe("getResolvedAIKeys", () => {
   it("ignores a stored key when the plan does not include BYOK", async () => {
     const mod = loadModule({ IS_CLOUD: "true" });
     const { context, hasPremiumFeature } = makeContext(
-      [credential("anthropic", mod.encryptAIKey("org-anthropic"))],
+      [credential("anthropic", mod.encryptAIKey("org-anthropic"), "opic")],
       { canUseOwnKeys: false },
     );
 
@@ -243,7 +256,7 @@ describe("getResolvedAIKeys", () => {
       IS_CLOUD: "true",
     });
     const { context } = makeContext(
-      [credential("anthropic", mod.encryptAIKey("org-anthropic"))],
+      [credential("anthropic", mod.encryptAIKey("org-anthropic"), "opic")],
       { canUseOwnKeys: false },
     );
 
