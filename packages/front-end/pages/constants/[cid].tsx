@@ -543,7 +543,7 @@ export default function ConstantDetailPage(): React.ReactElement {
             <ReferencesLink
               total={totalReferences}
               onShow={() => setShowReferencesModal(true)}
-              emptyTooltip="No features or Constants currently reference this Constant."
+              emptyTooltip="No Feature Flags or Constants currently reference this Constant."
             />
           </Flex>
         </Flex>
@@ -744,8 +744,8 @@ export default function ConstantDetailPage(): React.ReactElement {
           closeCta="Close"
         >
           <Text as="p" mb="3">
-            This Constant is referenced by the following features and Constants
-            via <code>@const:{constant.key}</code>.
+            This Constant is referenced by the following Feature Flags and
+            Constants via <code>@const:{constant.key}</code>.
           </Text>
           <ConstantReferencesList
             features={references.features}

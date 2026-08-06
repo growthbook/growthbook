@@ -574,12 +574,12 @@ export default function FeaturesHeader({
           </Box>
           {isArchived ? (
             <Callout status="info" mb="2">
-              <strong>This feature is archived.</strong> It will not be included
-              in SDK Endpoints or Webhook payloads.
+              <strong>This Feature Flag is archived.</strong> It will not be
+              included in SDK Endpoints or Webhook payloads.
             </Callout>
           ) : feature.archived ? (
             <Callout status="warning" mb="2">
-              <strong>This draft will archive the feature.</strong> Once
+              <strong>This draft will archive the Feature Flag.</strong> Once
               published it will be removed from SDK Endpoints and Webhook
               payloads.
             </Callout>

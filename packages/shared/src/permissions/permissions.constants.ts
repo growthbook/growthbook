@@ -495,7 +495,7 @@ export const POLICY_METADATA_MAP: Record<
   FlagsDelete: {
     displayName: "Archive & delete",
     description:
-      "Archive (environment-scoped) or delete Feature Flags, Constants, and Configs. Deleting is not environment-scoped — an archived flag already serves nowhere.",
+      "Archive (environment-scoped) or delete Feature Flags, Constants, and Configs. Deleting is not environment-scoped — an archived entity already serves nowhere.",
   },
   FlagsBypassApprovals: {
     displayName: "Bypass draft approvals",
@@ -504,7 +504,7 @@ export const POLICY_METADATA_MAP: Record<
   },
   FeaturesFullAccess: {
     displayName: "Features Full Access",
-    description: "Create, edit, and delete feature flags",
+    description: "Create, edit, and delete Feature Flags",
   },
   ArchetypesFullAccess: {
     displayName: "Archetypes",

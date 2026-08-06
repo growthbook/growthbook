@@ -6707,9 +6707,9 @@ paths:
       summary: Create a single feature
       description: >-
         Creates a new Feature Flag. The caller needs Create access in its
-        Project, plus Publish access for any environment the flag starts enabled
-        in — a flag that starts disabled everywhere needs Create alone. Rules
-        are supplied as a top-level `rules` array; each rule includes
+        Project, plus Publish access for any environment the Feature Flag starts
+        enabled in — one that starts disabled everywhere needs Create alone.
+        Rules are supplied as a top-level `rules` array; each rule includes
         `allEnvironments` / `environments` scope fields.
 
 
@@ -6727,8 +6727,8 @@ paths:
 
 
         - **Top-level (`baseConfig`):** set `valueType: "json"` and `baseConfig:
-        "<configKey>"` to put the flag in Config mode. The config must be live.
-        This is the family root and the base the default value patches.
+        "<configKey>"` to put the Feature Flag in Config mode. The config must
+        be live. This is the family root and the base the default value patches.
 
         - **Default value:** unlike rules, the default is exactly a config with
         no overrides of its own — send `defaultValue: "{}"` to use `baseConfig`.

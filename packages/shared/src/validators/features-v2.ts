@@ -778,10 +778,10 @@ export const postFeatureV2Validator = {
   responseSchema: featureV2ResponseSchema,
   summary: "Create a single feature",
   description:
-    "Creates a new Feature Flag. The caller needs Create access in its Project, plus Publish access for any environment the flag starts enabled in — a flag that starts disabled everywhere needs Create alone. Rules are supplied as a top-level `rules` array; each rule includes `allEnvironments` / `environments` scope fields.\n\n" +
+    "Creates a new Feature Flag. The caller needs Create access in its Project, plus Publish access for any environment the Feature Flag starts enabled in — one that starts disabled everywhere needs Create alone. Rules are supplied as a top-level `rules` array; each rule includes `allEnvironments` / `environments` scope fields.\n\n" +
     "### Config-backed features (Config mode)\n\n" +
     'A JSON feature can be backed by a shared **config** — the config supplies the base JSON value and schema, and the feature\'s *rule* values become override *patches* merged on top (nested objects deep-merge; arrays and scalars replace). The default value is exactly a config with no overrides (see below). Config backing is set exclusively through dedicated fields — never a raw `$extends: ["@config:…"]` inside a value string (that is rejected). `@const:` references inside values still work.\n\n' +
-    '- **Top-level (`baseConfig`):** set `valueType: "json"` and `baseConfig: "<configKey>"` to put the flag in Config mode. The config must be live. This is the family root and the base the default value patches.\n' +
+    '- **Top-level (`baseConfig`):** set `valueType: "json"` and `baseConfig: "<configKey>"` to put the Feature Flag in Config mode. The config must be live. This is the family root and the base the default value patches.\n' +
     "- **Default value:** unlike rules, the default is exactly a config with no overrides of its own — send `defaultValue: \"{}\"` to use `baseConfig`. To resolve the default to a *descendant* of `baseConfig` instead, set `defaultValueConfig` to that descendant's key (it must be within `baseConfig`'s family); omit/null to use `baseConfig` directly.\n" +
     "- **Rules & experiment variations:** each carries its own `config` field naming the family config that value patches (omit/null to patch the base). `value` is the override patch.\n\n" +
     "Example:\n\n" +
