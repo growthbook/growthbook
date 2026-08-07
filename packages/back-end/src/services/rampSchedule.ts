@@ -2872,6 +2872,16 @@ export async function updateRampMonitoringConfig(
   schedule: RampScheduleInterface,
   newConfig: RampMonitoringConfig,
 ): Promise<RampScheduleInterface> {
+  // A started SafeRollout freezes its metrics and cadence too, not just its data
+  // source. This lived only at the INTERNAL controller's call site, so the REST
+  // twin could mutate guardrail metrics and cadence on a running SafeRollout —
+  // pulled in here so both surfaces enforce it and neither can drift again.
+  await assertCanUpdateLinkedSafeRolloutMonitoringConfig(
+    ctx,
+    schedule,
+    newConfig,
+  );
+
   // Datasource and exposureQuery are baked into the linked SafeRollout at
   // creation and cannot be changed post-start. Reject early to avoid silent
   // drift between the schedule config and what the SafeRollout actually queries.

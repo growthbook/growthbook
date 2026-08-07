@@ -1966,16 +1966,23 @@ export async function setRevisionScheduledPublish(
     // that published or was discarded since then must not be rewritten — its
     // schedule fields are already spent, and bumping dateUpdated rewrites settled
     // history.
-    await FeatureRevisionModel.updateOne(
+    const res = await FeatureRevisionModel.updateOne(
       { ...filter, status: { $nin: ["published", "discarded"] } },
       {
         $set: { autoPublishOnApproval: false, dateUpdated: new Date() },
         $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
       },
     );
-    logScheduledPublishChange(context, revision, {
-      action: "cancel scheduled publish",
-    });
+    // Only when something actually changed. The write is guarded but the log was
+    // not, so a cancel that matched nothing — a revision published since the
+    // caller's read, or one already disarmed — still wrote "cancelled a scheduled
+    // publish" into the timeline. The changes-requested disarm below already
+    // conditions on this.
+    if (res.modifiedCount > 0) {
+      logScheduledPublishChange(context, revision, {
+        action: "cancel scheduled publish",
+      });
+    }
     return;
   }
 
@@ -2351,10 +2358,18 @@ export async function submitReviewAndComments(
     // concurrent verdicts converge to one entry per reviewer.
     // Legacy revision (no baked `reviews`): self-heal from the log, CAS-guarded
     // on the field still being absent so concurrent first-verdicts don't clobber.
+    // Step 1 rides the same "still in the review cycle" predicate step 2 bails on.
+    // Without it, a publish landing mid-request had this step bake a verdict into
+    // released history and null its `datePublished` — step 2 then correctly
+    // refused, leaving the damage from step 1 behind with nothing to undo it.
+    const cycleFilter = {
+      ...filter,
+      status: { $nin: ["published", "discarded"] },
+    };
     let seeded = false;
     if (revision.reviews === undefined) {
       const priorReviews = await getActiveReviewsFromLog(context, revision);
-      const outcome = await casUpdate(filter, ["reviews"], (current) =>
+      const outcome = await casUpdate(cycleFilter, ["reviews"], (current) =>
         current.reviews === undefined
           ? {
               $set: {
@@ -2373,10 +2388,10 @@ export async function submitReviewAndComments(
     if (!seeded) {
       // $pull then $push (Mongo can't do both on one field at once); each op is
       // atomic and scoped to this reviewer's userId.
-      await FeatureRevisionModel.updateOne(filter, {
+      await FeatureRevisionModel.updateOne(cycleFilter, {
         $pull: { reviews: { userId: newReview.userId } },
       });
-      await FeatureRevisionModel.updateOne(filter, {
+      await FeatureRevisionModel.updateOne(cycleFilter, {
         $push: { reviews: newReview },
         $set: { datePublished: null, dateUpdated: new Date() },
       });

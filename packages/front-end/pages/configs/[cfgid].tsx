@@ -2257,6 +2257,13 @@ export default function ConfigDetailPage(): React.ReactElement {
                   config,
                   revisionPublishEnvironments,
                 )}
+                // Coarse: no destination term, matching what the cancel endpoint asks.
+                canPublishEntityCoarse={permissionsUtil.canRevisionAction(
+                  "config",
+                  "publish",
+                  config,
+                  revisionPublishEnvironments,
+                )}
                 canBypassApproval={canBypassApproval}
                 publishBlockedReason={
                   config.lock

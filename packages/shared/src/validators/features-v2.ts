@@ -302,6 +302,26 @@ export const apiFeatureRevisionV2Validator = namedSchema(
           "Set when a due scheduled publish keeps failing (e.g. still awaiting approval, merge conflict). Indicates the schedule is stuck and retrying.",
         )
         .optional(),
+      autoPublishEnabledBy: z
+        .string()
+        .describe(
+          "User the deferred publish will run as. Its authority is re-checked when the publish fires.",
+        )
+        .optional(),
+      scheduledPublishAttempts: z
+        .number()
+        .int()
+        .describe(
+          "How many times the poller has tried to publish this revision. Read with `scheduledPublishGaveUpAt` to tell a schedule that is still retrying from one that has been parked.",
+        )
+        .optional(),
+      scheduledPublishGaveUpAt: z
+        .string()
+        .meta({ format: "date-time" })
+        .describe(
+          "When the poller stopped retrying. The revision stays armed but will not fire again without a re-arm.",
+        )
+        .optional(),
       reviews: z
         .array(
           z

@@ -33,7 +33,6 @@ import {
   restartSchedule,
   resumeSchedule,
   runControlledRampScheduleAction,
-  runLockedRampScheduleAction,
   setRampMonitoringMode,
   startSchedule,
   syncLinkedSafeRolloutForRampState,
@@ -1365,7 +1364,7 @@ export const updateMonitoringConfigRampSchedule = createApiRequestHandler({
   operationId: "updateRampScheduleMonitoring",
   summary: "Update ramp monitoring configuration",
   description:
-    "Replaces the monitoring configuration. Metric IDs, snapshot cadence, and health-action thresholds (`srmAction`, `noTrafficAction`, etc.) can be updated at any time.\n\n`datasourceId` and `exposureQueryId` are locked once monitoring starts — stop and recreate the schedule to change the data source.\n\nChanges to guardrail or signal metric IDs take effect on the next analysis run.\n",
+    "Replaces the monitoring configuration. Health-action thresholds (`srmAction`, `noTrafficAction`, etc.) can be updated at any time.\n\nOnce a linked SafeRollout has started, `datasourceId`, `exposureQueryId`, the metric IDs and the snapshot cadence are all locked — stop and recreate the schedule to change the data source.\n\nChanges to guardrail or signal metric IDs take effect on the next analysis run.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -1549,7 +1548,11 @@ export const refreshMonitoringRampSchedule = createApiRequestHandler({
   if (!safeRollout && currentStep?.monitored) {
     // Serialize against the tick, which runs the same ensure — otherwise both
     // create a SafeRollout and one becomes an orphan.
-    const updated = await runLockedRampScheduleAction(
+    //
+    // `runControlled…`, matching the internal twin: this branch WRITES (it creates
+    // the SafeRollout), and the plain locked runner re-asserts nothing, so the only
+    // authority screening it had was the pre-lock datasource check above.
+    const updated = await runControlledRampScheduleAction(
       req.context,
       schedule.id,
       (fresh) => ensureSafeRolloutForMonitoredRamp(req.context, fresh),

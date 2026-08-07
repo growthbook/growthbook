@@ -178,6 +178,17 @@ export interface ReviewAndPublishTabProps<T> {
   // Publishing. The backend also narrows this per environment; this is the
   // project-level approximation used to decide whether to offer the action.
   canPublishEntity?: boolean;
+  /**
+   * Publish authority over the LIVE entity, without the revision's destination term.
+   *
+   * `canPublishEntity` is change-aware (it folds in `holdsRevisionDestination` for
+   * the selected revision), which is right for offering Publish and wrong for
+   * offering CANCEL: the cancel endpoint judges a pending schedule on coarse
+   * live-entity publish authority, so a relocating revision hid the one action still
+   * permitted — the exact stranding the `canCancel` prop exists to prevent.
+   * Defaults to `canPublishEntity` for callers that don't distinguish them.
+   */
+  canPublishEntityCoarse?: boolean;
   // Whether the viewer holds the DESTINATION side of this revision's relocation.
   // Publishing a draft is a publish wherever it lands, so the question is always
   // about the publish atom there — the narrow atoms below carry only the source
@@ -238,6 +249,7 @@ function ReviewAndPublishRevision<T>({
   canReviewEntity,
   canManageDraftsEntity,
   canPublishEntity,
+  canPublishEntityCoarse,
   canBypassApproval,
   holdsLandingDestination,
   publishBlockedReason,
@@ -1223,7 +1235,11 @@ function ReviewAndPublishRevision<T>({
         {revision.status === "discarded" ? (
           <Button
             onClick={() => setConfirmReopen(true)}
-            disabled={!canAdvanceDraft}
+            // The endpoint asks author-or-draft, NOT the widened advance rule:
+            // `canAdvanceDraft` also admits the narrow atoms over a pure revert or
+            // archive, and reopen has no such exemption — so a reverter or deleter
+            // got an enabled button that 403s.
+            disabled={!canDraftOrEdit && !isAuthor}
             style={{ width: "100%" }}
           >
             Reopen as draft
@@ -1430,7 +1446,11 @@ function ReviewAndPublishRevision<T>({
                     // Cancelling is judged by the endpoint on COARSE live-entity publish
                     // authority, so a change-aware `canEdit` failing for THIS revision
                     // must not hide the one action still permitted.
-                    canCancel={canPublishEntity ?? canEditEntity}
+                    canCancel={
+                      canPublishEntityCoarse ??
+                      canPublishEntity ??
+                      canEditEntity
+                    }
                     canDraft={canDraftOrEdit}
                     canBypassApproval={canBypassApproval}
                     requiresApproval={requiresApproval}

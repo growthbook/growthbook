@@ -716,6 +716,13 @@ export default function ConstantDetailPage(): React.ReactElement {
               constant,
               publishEnvironments,
             )}
+            // Coarse: no destination term, matching what the cancel endpoint asks.
+            canPublishEntityCoarse={permissionsUtil.canRevisionAction(
+              "constant",
+              "publish",
+              constant,
+              publishEnvironments,
+            )}
             canBypassApproval={canBypassApproval}
             selectRevision={selectRevision}
             onPublish={handlePublish}

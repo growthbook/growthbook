@@ -11721,9 +11721,13 @@ paths:
               type: object
               properties:
                 scheduledPublishAt:
+                  description: >-
+                    When to publish, as an RFC3339 UTC timestamp (e.g.
+                    `2026-01-31T09:00:00Z`), or `null` to cancel a pending
+                    schedule. Numeric UTC offsets are not accepted.
                   anyOf:
-                    - format: date-time
-                      type: string
+                    - type: string
+                      format: date-time
                     - type: 'null'
                 ignoreWarnings:
                   description: >-
@@ -20229,6 +20233,10 @@ paths:
               type: object
               properties:
                 scheduledPublishAt:
+                  description: >-
+                    When to publish, as an RFC3339 UTC timestamp (e.g.
+                    `2026-01-31T09:00:00Z`), or `null` to cancel a pending
+                    schedule. Numeric UTC offsets are not accepted.
                   anyOf:
                     - type: string
                       format: date-time
@@ -21986,6 +21994,10 @@ paths:
               type: object
               properties:
                 scheduledPublishAt:
+                  description: >-
+                    When to publish, as an RFC3339 UTC timestamp (e.g.
+                    `2026-01-31T09:00:00Z`), or `null` to cancel a pending
+                    schedule. Numeric UTC offsets are not accepted.
                   anyOf:
                     - type: string
                       format: date-time
@@ -24833,6 +24845,10 @@ paths:
               type: object
               properties:
                 scheduledPublishAt:
+                  description: >-
+                    When to publish, as an RFC3339 UTC timestamp (e.g.
+                    `2026-01-31T09:00:00Z`), or `null` to cancel a pending
+                    schedule. Numeric UTC offsets are not accepted.
                   anyOf:
                     - type: string
                       format: date-time
@@ -31207,13 +31223,13 @@ paths:
       operationId: updateRampScheduleMonitoring
       summary: Update ramp monitoring configuration
       description: >
-        Replaces the monitoring configuration. Metric IDs, snapshot cadence, and
-        health-action thresholds (`srmAction`, `noTrafficAction`, etc.) can be
-        updated at any time.
+        Replaces the monitoring configuration. Health-action thresholds
+        (`srmAction`, `noTrafficAction`, etc.) can be updated at any time.
 
 
-        `datasourceId` and `exposureQueryId` are locked once monitoring starts —
-        stop and recreate the schedule to change the data source.
+        Once a linked SafeRollout has started, `datasourceId`,
+        `exposureQueryId`, the metric IDs and the snapshot cadence are all
+        locked — stop and recreate the schedule to change the data source.
 
 
         Changes to guardrail or signal metric IDs take effect on the next
@@ -51573,6 +51589,23 @@ components:
             Set when a due scheduled publish keeps failing (e.g. still awaiting
             approval, merge conflict). Indicates the schedule is stuck and
             retrying.
+          type: string
+        autoPublishEnabledBy:
+          description: >-
+            User the deferred publish will run as. Its authority is re-checked
+            when the publish fires.
+          type: string
+        scheduledPublishAttempts:
+          description: >-
+            How many times the poller has tried to publish this revision. Read
+            with `scheduledPublishGaveUpAt` to tell a schedule that is still
+            retrying from one that has been parked.
+          type: integer
+        scheduledPublishGaveUpAt:
+          format: date-time
+          description: >-
+            When the poller stopped retrying. The revision stays armed but will
+            not fire again without a re-arm.
           type: string
         reviews:
           description: >-

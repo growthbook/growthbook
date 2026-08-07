@@ -245,6 +245,9 @@ export const putRampSchedule = async (
         const monitoringConfig = normalizeMonitoringConfig(
           body.monitoringConfig,
         );
+        // The guard now lives inside `updateRampMonitoringConfig`, which every
+        // surface goes through; this path writes `monitoringConfig` directly, so
+        // it still calls it explicitly.
         await assertCanUpdateLinkedSafeRolloutMonitoringConfig(
           context,
           fresh,

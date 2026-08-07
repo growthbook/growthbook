@@ -2462,6 +2462,21 @@ export function revisionToApiInterfaceV2(
     ...(rev.scheduledPublishLastError !== undefined && {
       scheduledPublishLastError: rev.scheduledPublishLastError,
     }),
+    // The three that were missing. Without `attempts` and `gaveUpAt` a REST
+    // watcher can't tell a schedule that is still retrying from one the poller has
+    // parked — the difference between "wait" and "re-arm it yourself" — and without
+    // `autoPublishEnabledBy` it can't tell whose authority the publish will use.
+    ...(rev.autoPublishEnabledBy !== undefined && {
+      autoPublishEnabledBy: rev.autoPublishEnabledBy,
+    }),
+    ...(rev.scheduledPublishAttempts !== undefined && {
+      scheduledPublishAttempts: rev.scheduledPublishAttempts,
+    }),
+    ...((rev.scheduledPublishGaveUpAt ?? null) !== null && {
+      scheduledPublishGaveUpAt: new Date(
+        rev.scheduledPublishGaveUpAt as Date,
+      ).toISOString(),
+    }),
     ...(rev.reviews !== undefined && {
       reviews: rev.reviews.map((r) => {
         const user = eventUserToApiEventUser(r.user);

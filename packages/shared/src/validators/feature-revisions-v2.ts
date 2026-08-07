@@ -725,10 +725,13 @@ export const postFeatureRevisionSchedulePublishV2Validator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      scheduledPublishAt: z.union([
-        z.string().meta({ format: "date-time" }),
-        z.null(),
-      ]),
+      // Documented as date-time but never VALIDATED as one — the generic three
+      // cite this endpoint as their model, so make the claim true.
+      scheduledPublishAt: z
+        .union([z.iso.datetime(), z.null()])
+        .describe(
+          "When to publish, as an RFC3339 UTC timestamp (e.g. `2026-01-31T09:00:00Z`), or `null` to cancel a pending schedule. Numeric UTC offsets are not accepted.",
+        ),
       // Arming captures the guard acknowledgments and throws asking for
       // `ignoreWarnings` when the draft conflicts with live — which a strict body
       // without these rejects. The other three entities already carried them.

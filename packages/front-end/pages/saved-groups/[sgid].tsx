@@ -1151,6 +1151,13 @@ export default function EditSavedGroupPage() {
               // deliberately unbound rather than scoped to an empty list.
               NO_ENVIRONMENT_BINDING,
             )}
+            // Coarse: no destination term, matching what the cancel endpoint asks.
+            canPublishEntityCoarse={permissionsUtil.canRevisionAction(
+              "saved-group",
+              "publish",
+              savedGroup,
+              NO_ENVIRONMENT_BINDING,
+            )}
             canBypassApproval={!!canAdminPublish}
             selectRevision={selectFlow}
             onPublish={handlePublish}
