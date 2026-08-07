@@ -1,4 +1,4 @@
-import { FC, useEffect, useMemo, useState } from "react";
+import { FC, useEffect, useMemo, useRef } from "react";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { Flex, Box } from "@radix-ui/themes";
 import { filterCustomFieldsForSectionAndProject } from "@/hooks/useCustomFields";
@@ -9,6 +9,10 @@ import DatePicker from "@/components/DatePicker";
 import Link from "@/ui/Link";
 import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
+import {
+  isCustomFieldBooleanTrue,
+  toCustomFieldBooleanString,
+} from "./constants";
 
 const CustomFieldInput: FC<{
   customFields: CustomField[];
@@ -30,65 +34,83 @@ const CustomFieldInput: FC<{
     section,
     project,
   );
-  const [loadedDefaults, setLoadedDefaults] = useState(false);
+  // react-hook-form ignores setValue called synchronously from a child mount
+  // effect; seed once after mount instead. Ref avoids re-seeding over user edits.
+  const hasSeededDefaults = useRef(false);
   const normalizedCustomFields = useMemo<Record<string, string>>(() => {
     // todo: investigate further: sometimes custom fields are incorrectly provided as strings (e.g. duplicate exp)
+    let fields: Record<string, unknown>;
     if (typeof currentCustomFields === "string") {
       try {
-        return JSON.parse(currentCustomFields);
-      } catch (e) {
-        return {};
+        fields = JSON.parse(currentCustomFields);
+      } catch {
+        fields = {};
       }
+    } else {
+      fields = currentCustomFields ?? {};
     }
 
-    return currentCustomFields;
+    const normalized: Record<string, string> = {};
+    for (const [key, value] of Object.entries(fields)) {
+      if (typeof value === "boolean") {
+        normalized[key] = toCustomFieldBooleanString(value);
+      } else if (value === undefined || value === null) {
+        normalized[key] = "";
+      } else {
+        normalized[key] = String(value);
+      }
+    }
+    return normalized;
   }, [currentCustomFields]);
 
   useEffect(() => {
-    if (!loadedDefaults) {
-      // here we are setting the default values in the form, otherwise
-      // boolean/toggles or inputs with default values will not be saved.
-      if (availableFields) {
-        const nextCustomFields = { ...normalizedCustomFields };
-        availableFields.forEach((v) => {
-          const currentValue = nextCustomFields?.[v.id];
-          const missingCurrentValue =
-            currentValue === undefined ||
-            currentValue === null ||
-            currentValue === "";
-          const hasDefaultValue =
-            v.defaultValue !== undefined &&
-            v.defaultValue !== null &&
-            (Array.isArray(v.defaultValue)
-              ? v.defaultValue.length > 0
-              : v.defaultValue !== "");
+    if (hasSeededDefaults.current || !availableFields) return;
 
-          if (missingCurrentValue && hasDefaultValue) {
-            if (v.type === "multiselect") {
-              nextCustomFields[v.id] = Array.isArray(v.defaultValue)
-                ? JSON.stringify(v.defaultValue)
-                : JSON.stringify([v.defaultValue]);
-            } else if (v.type === "boolean") {
-              const normalizedDefault =
-                typeof v.defaultValue === "boolean"
-                  ? v.defaultValue
-                  : String(v.defaultValue).toLowerCase() === "true";
-              nextCustomFields[v.id] = String(normalizedDefault);
-            } else {
-              nextCustomFields[v.id] = String(v.defaultValue);
-            }
-          }
-        });
-        setCustomFields(nextCustomFields);
-        setLoadedDefaults(true);
+    const nextCustomFields = { ...normalizedCustomFields };
+    let changed = false;
+
+    availableFields.forEach((v) => {
+      const currentValue = nextCustomFields[v.id];
+      // "false" is a real boolean value — do not treat it as missing
+      const missingCurrentValue =
+        currentValue === undefined ||
+        currentValue === null ||
+        currentValue === "";
+      const hasDefaultValue =
+        v.defaultValue !== undefined &&
+        v.defaultValue !== null &&
+        (Array.isArray(v.defaultValue)
+          ? v.defaultValue.length > 0
+          : v.defaultValue !== "");
+
+      if (missingCurrentValue && hasDefaultValue) {
+        if (v.type === "multiselect") {
+          nextCustomFields[v.id] = Array.isArray(v.defaultValue)
+            ? JSON.stringify(v.defaultValue)
+            : JSON.stringify([v.defaultValue]);
+        } else if (v.type === "boolean") {
+          nextCustomFields[v.id] = toCustomFieldBooleanString(
+            isCustomFieldBooleanTrue(v.defaultValue),
+          );
+        } else {
+          nextCustomFields[v.id] = String(v.defaultValue);
+        }
+        changed = true;
+      } else if (missingCurrentValue && v.type === "boolean") {
+        // Persist unchecked as an explicit "false" so saves include the key
+        nextCustomFields[v.id] = "false";
+        changed = true;
       }
-    }
-  }, [
-    availableFields,
-    loadedDefaults,
-    normalizedCustomFields,
-    setCustomFields,
-  ]);
+    });
+
+    hasSeededDefaults.current = true;
+    // Defer so parent react-hook-form setValue applies after mount
+    queueMicrotask(() => {
+      if (changed) {
+        setCustomFields(nextCustomFields);
+      }
+    });
+  }, [availableFields, normalizedCustomFields, setCustomFields]);
 
   // Clear previously set fields if they change so we don't send
   // fields that are not accepted when changing projects for example
@@ -107,7 +129,7 @@ const CustomFieldInput: FC<{
     }
   }, [availableFields, normalizedCustomFields, setCustomFields]);
 
-  const updateCustomField = (name, value) => {
+  const updateCustomField = (name: string, value: string) => {
     setCustomFields({ ...normalizedCustomFields, [name]: value });
   };
 
@@ -138,13 +160,14 @@ const CustomFieldInput: FC<{
                     id={`bool-${v.id}`}
                     label={v.name}
                     description={v.description}
-                    value={
-                      normalizedCustomFields?.[v.id]
-                        ? normalizedCustomFields[v.id] === "true"
-                        : false
-                    }
-                    setValue={(t) => {
-                      updateCustomField(v.id, "" + JSON.stringify(t));
+                    value={isCustomFieldBooleanTrue(
+                      normalizedCustomFields?.[v.id],
+                    )}
+                    setValue={(checked) => {
+                      updateCustomField(
+                        v.id,
+                        toCustomFieldBooleanString(checked),
+                      );
                     }}
                   />
                 ) : v.type === "enum" ? (
