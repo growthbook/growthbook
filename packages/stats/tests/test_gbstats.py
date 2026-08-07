@@ -1,6 +1,8 @@
 import dataclasses
 from functools import partial
+from types import SimpleNamespace
 from unittest import TestCase, main as unittest_main
+from unittest.mock import patch
 import numpy as np
 import pandas as pd
 import copy
@@ -15,9 +17,11 @@ from gbstats.gbstats import (
     get_metric_dfs,
     variation_statistic_from_metric_row,
     process_analysis,
+    process_experiment_results,
     get_bandit_result,
     create_bandit_statistics,
     preprocess_bandits,
+    process_single_metric,
 )
 from gbstats.bayesian.bandits import BanditsSimple, BanditConfig
 
@@ -32,6 +36,8 @@ from gbstats.models.results import (
     FrequentistVariationResponseIndividual,
     MetricStats,
     FrequentistVariationResponse,
+    ExperimentMetricAnalysis,
+    ExperimentMetricAnalysisResult,
 )
 
 DECIMALS = 9
@@ -1554,6 +1560,168 @@ class TestThreeArmedCuped(TestCase):
             round_(baseline_stats_three_armed.stddev),
             round_(baseline_stats_02.stddev),
             "Baseline stddev should be the same, implying theta from 0 vs 2 comparison is used",
+        )
+
+
+class TestProcessExperimentResultsErrorIsolation(TestCase):
+    def test_bandit_error_does_not_discard_metric_analysis(self):
+        analysis = copy.deepcopy(DEFAULT_ANALYSIS)
+        analysis.dimension = ""
+        bandit_settings = copy.deepcopy(BANDIT_ANALYSIS)
+        bandit_settings.decision_metric = COUNT_METRIC.id
+        d = SimpleNamespace(
+            metrics={COUNT_METRIC.id: COUNT_METRIC},
+            analyses=[analysis],
+            query_results=[
+                SimpleNamespace(
+                    metrics=[COUNT_METRIC.id],
+                    rows=[{"m0_main_sum": 1}],
+                )
+            ],
+            bandit_settings=bandit_settings,
+        )
+        metric_result = ExperimentMetricAnalysis(
+            metric=COUNT_METRIC.id,
+            analyses=[
+                ExperimentMetricAnalysisResult(
+                    unknownVariations=[],
+                    multipleExposures=0,
+                    dimensions=[],
+                )
+            ],
+        )
+
+        with patch("gbstats.gbstats.process_data_dict", return_value=d), patch(
+            "gbstats.gbstats.get_bandit_result",
+            side_effect=ValueError("simulated bandit failure"),
+        ), patch(
+            "gbstats.gbstats.process_single_metric",
+            return_value=metric_result,
+        ):
+            results, bandit_result = process_experiment_results({})
+
+        self.assertEqual(results, [metric_result])
+        self.assertIsNotNone(bandit_result)
+        self.assertEqual(
+            bandit_result.error if bandit_result else None,
+            "simulated bandit failure",
+        )
+
+    def test_per_analysis_error_is_isolated(self):
+        good_analysis = copy.deepcopy(DEFAULT_ANALYSIS)
+        good_analysis.dimension = "good"
+        bad_analysis = copy.deepcopy(DEFAULT_ANALYSIS)
+        bad_analysis.dimension = "bad"
+
+        def fake_process_analysis(rows, var_id_map, metric, analysis):
+            if analysis.dimension == "bad":
+                raise ValueError("simulated analysis failure")
+            return []
+
+        with patch(
+            "gbstats.gbstats.detect_unknown_variations", return_value=set()
+        ), patch(
+            "gbstats.gbstats.process_analysis",
+            side_effect=fake_process_analysis,
+        ):
+            result = process_single_metric(
+                rows=[{"variation": "0"}],
+                metric=COUNT_METRIC,
+                analyses=[good_analysis, bad_analysis],
+            )
+
+        self.assertEqual(len(result.analyses), 2)
+        self.assertIsNone(result.analyses[0].error)
+        self.assertEqual(result.analyses[0].dimensions, [])
+        self.assertEqual(
+            result.analyses[1].error,
+            "simulated analysis failure",
+        )
+        self.assertIn("ValueError", result.analyses[1].traceback or "")
+
+    def test_skipped_quantile_analysis_preserves_result_index(self):
+        metric = copy.deepcopy(COUNT_METRIC)
+        metric.statistic_type = "quantile_event"
+        skipped_analysis = copy.deepcopy(DEFAULT_ANALYSIS)
+        skipped_analysis.dimension = "precomputed:country"
+        included_analysis = copy.deepcopy(DEFAULT_ANALYSIS)
+        included_analysis.dimension = "country"
+
+        with patch(
+            "gbstats.gbstats.detect_unknown_variations", return_value=set()
+        ), patch("gbstats.gbstats.process_analysis", return_value=[]):
+            result = process_single_metric(
+                rows=[{"variation": "0"}],
+                metric=metric,
+                analyses=[skipped_analysis, included_analysis],
+            )
+
+        self.assertEqual(len(result.analyses), 2)
+        self.assertEqual(result.analyses[0].dimensions, [])
+        self.assertIsNone(result.analyses[0].error)
+        self.assertEqual(result.analyses[1].dimensions, [])
+
+    def test_outer_metric_error_creates_one_error_slot_per_analysis(self):
+        # Two metrics share one combined query; one raises during analysis while
+        # the other analyzes normally. The raising metric should get its own
+        # ExperimentMetricAnalysis carrying an error slot for every requested
+        # analysis, and the surviving metric should still return normally.
+        good_metric = copy.deepcopy(COUNT_METRIC)
+        good_metric.id = "good_metric"
+        bad_metric = copy.deepcopy(COUNT_METRIC)
+        bad_metric.id = "bad_metric"
+
+        d = SimpleNamespace(
+            metrics={"good_metric": good_metric, "bad_metric": bad_metric},
+            analyses=[copy.deepcopy(DEFAULT_ANALYSIS), copy.deepcopy(DEFAULT_ANALYSIS)],
+            query_results=[
+                SimpleNamespace(
+                    metrics=["good_metric", "bad_metric"],
+                    rows=[{"m0_main_sum": 1, "m1_main_sum": 1}],
+                )
+            ],
+            bandit_settings=None,
+        )
+
+        def fake_process_single_metric(rows, metric, analyses):
+            if metric.id == "bad_metric":
+                raise ValueError("simulated analysis failure")
+            return ExperimentMetricAnalysis(
+                metric=metric.id,
+                analyses=[
+                    ExperimentMetricAnalysisResult(
+                        unknownVariations=[],
+                        multipleExposures=0,
+                        dimensions=[],
+                    )
+                ],
+            )
+
+        with patch("gbstats.gbstats.process_data_dict", return_value=d), patch(
+            "gbstats.gbstats.process_single_metric",
+            side_effect=fake_process_single_metric,
+        ):
+            results, bandit_result = process_experiment_results({})
+
+        self.assertIsNone(bandit_result)
+        by_metric = {r.metric: r for r in results}
+        self.assertEqual(set(by_metric.keys()), {"good_metric", "bad_metric"})
+
+        good = by_metric["good_metric"]
+        self.assertIsNone(good.error)
+        self.assertIsNone(good.traceback)
+        self.assertEqual(len(good.analyses), 1)
+
+        bad = by_metric["bad_metric"]
+        self.assertEqual(len(bad.analyses), 2)
+        self.assertTrue(
+            all(
+                analysis.error == "simulated analysis failure"
+                for analysis in bad.analyses
+            )
+        )
+        self.assertTrue(
+            all("ValueError" in (analysis.traceback or "") for analysis in bad.analyses)
         )
 
 
