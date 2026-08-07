@@ -25732,6 +25732,8 @@ paths:
                       type: integer
                       minimum: 1
                       maximum: 7
+                    useSharedStagingRestate:
+                      type: boolean
                   required:
                     - idTypes
                     - updateTime
@@ -25885,6 +25887,8 @@ paths:
                       type: integer
                       minimum: 1
                       maximum: 7
+                    useSharedStagingRestate:
+                      type: boolean
                   required:
                     - idTypes
                     - updateTime
@@ -55699,6 +55703,8 @@ components:
               type: integer
               minimum: 1
               maximum: 7
+            useSharedStagingRestate:
+              type: boolean
           required:
             - idTypes
             - updateTime
@@ -56109,6 +56115,7 @@ components:
           type: string
           enum:
             - started
+            - completed
             - failed
             - skipped
         reason:

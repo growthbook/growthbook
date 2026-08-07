@@ -7,7 +7,9 @@ import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
 import { castToTimestamp } from "back-end/src/integrations/sql/primitives/cast-to-timestamp";
+import { toTimestampWithMs } from "back-end/src/integrations/sql/primitives/to-timestamp-with-ms";
 import { getAggregatedFactTableSchema } from "back-end/src/integrations/sql/fact-metrics/aggregated-fact-table-schema";
+import { getAggregatedFactTableStagingColumns } from "back-end/src/integrations/sql/queries/aggregated-fact-table-staging-query";
 
 // Append-only INSERT materializing a new slice of daily aggregates per
 // `(idType, event_date)`. Each output row is a disjoint partial of one event
@@ -39,24 +41,49 @@ export function getInsertAggregatedFactTableDataQuery(
   const columnNames = Array.from(schema.keys());
 
   // No id join is needed: the aggregated table is keyed on a native id type of
-  // this fact table.
-  const factTableCTE = getFactMetricCTE(dialect, {
-    baseIdType: idType,
-    idJoinMap: {},
-    factTable,
-    startDate: params.windowStartDate,
-    endDate: params.windowEndDate ?? null,
-    metricsWithIndices: sortedMetrics.map((metric, index) => ({
-      metric,
-      index,
-    })),
-    addFiltersToWhere: true,
-    exclusiveStartDateFilter: params.exclusiveStart,
-    // Chunk boundaries are half-open [start, end) so chained chunks tile the
-    // window without overlap or gaps.
-    exclusiveEndDateFilter: true,
-    castIdToString: true,
-  });
+  // this fact table. When `sourceTableFullName` is set (shared-staging restate),
+  // the event-grain rows have already been materialized with all idType columns
+  // and `m{index}_*` value columns, so read the projection from there instead of
+  // wrapping the fact-table SQL again.
+  let factTableCTE: string;
+  if (params.sourceTableFullName) {
+    const stagingCols = getAggregatedFactTableStagingColumns({
+      idTypes: [idType],
+      metrics: sortedMetrics,
+      factTableId: factTable.id,
+    });
+    const bounds: string[] = [
+      `timestamp ${params.exclusiveStart ? ">" : ">="} ${toTimestampWithMs(
+        params.windowStartDate,
+      )}`,
+    ];
+    if (params.windowEndDate) {
+      bounds.push(`timestamp < ${toTimestampWithMs(params.windowEndDate)}`);
+    }
+    factTableCTE = `
+      SELECT ${stagingCols.join(", ")}
+      FROM ${params.sourceTableFullName}
+      WHERE ${bounds.join(" AND ")}
+    `;
+  } else {
+    factTableCTE = getFactMetricCTE(dialect, {
+      baseIdType: idType,
+      idJoinMap: {},
+      factTable,
+      startDate: params.windowStartDate,
+      endDate: params.windowEndDate ?? null,
+      metricsWithIndices: sortedMetrics.map((metric, index) => ({
+        metric,
+        index,
+      })),
+      addFiltersToWhere: true,
+      exclusiveStartDateFilter: params.exclusiveStart,
+      // Chunk boundaries are half-open [start, end) so chained chunks tile the
+      // window without overlap or gaps.
+      exclusiveEndDateFilter: true,
+      castIdToString: true,
+    });
+  }
 
   // Per-metric column shape, computed once so the partial / merge / final
   // projections stay aligned.
