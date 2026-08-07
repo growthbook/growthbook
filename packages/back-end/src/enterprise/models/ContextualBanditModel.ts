@@ -3,6 +3,7 @@ import {
   apiContextualBanditCancelReturn,
   apiContextualBanditLifecycleReturn,
   apiContextualBanditRefreshReturn,
+  apiContextualBanditVariationsReturn,
   apiCreateContextualBanditBody,
   apiUpdateContextualBanditBody,
   ApiContextualBanditInterface,
@@ -25,6 +26,7 @@ import {
   refreshContextualBanditEndpoint,
   startContextualBanditEndpoint,
   stopContextualBanditEndpoint,
+  updateVariationsContextualBanditEndpoint,
 } from "back-end/src/api/specs/contextual-bandit.spec";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
@@ -32,6 +34,7 @@ import {
   executeContextualBanditStop,
 } from "back-end/src/services/contextualBanditChanges";
 import {
+  executeContextualBanditVariationChange,
   cancelContextualBanditLatestRunningSnapshot,
   getContextualBanditLinkedFeatureInfo,
   runContextualBanditSnapshot,
@@ -146,6 +149,35 @@ const BaseClass = MakeModelClass({
           return runContextualBanditSnapshot(req.context, cb, {
             triggeredBy: "manual",
           });
+        },
+      }),
+      defineCustomApiHandler({
+        ...updateVariationsContextualBanditEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiContextualBanditVariationsReturn>> => {
+          const cb = await req.context.models.contextualBandits.getById(
+            req.params.id,
+          );
+          if (!cb) {
+            return req.context.throwNotFoundError();
+          }
+          if (!req.context.permissions.canUpdateContextualBandit(cb, cb)) {
+            req.context.permissions.throwPermissionError();
+          }
+          const { updated, featureDraftPublishFailures } =
+            await executeContextualBanditVariationChange(
+              req.context,
+              cb,
+              req.body.variations,
+              req.body.newVariationValues,
+            );
+          return {
+            contextualBandit: toApiContextualBandit(updated),
+            ...(featureDraftPublishFailures.length > 0
+              ? { featureDraftPublishFailures }
+              : {}),
+          };
         },
       }),
       defineCustomApiHandler({

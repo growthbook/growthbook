@@ -272,7 +272,6 @@ export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
   "tags",
   "trackingKey",
   "hashAttribute",
-  "variations",
   "datasource",
   "contextualBanditQueryId",
   "contextualAttributes",
@@ -292,7 +291,6 @@ export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
   "savedGroups",
   "prerequisites",
   "seed",
-  "variationWeights",
 ] as const satisfies readonly (keyof ApiUpdateContextualBanditBody)[];
 
 export const apiContextualBanditStartValidator = {
@@ -311,8 +309,37 @@ export const apiContextualBanditStopValidator = {
   querySchema: z.never(),
 };
 
+export const apiContextualBanditUpdateVariationsValidator = {
+  paramsSchema: z.strictObject({ id: z.string() }),
+  bodySchema: z.strictObject({
+    variations: z.array(variation),
+    newVariationValues: z
+      .record(z.string(), z.record(z.string(), z.string()))
+      .optional(),
+  }),
+  querySchema: z.never(),
+};
+
 export const apiContextualBanditLifecycleReturn = z.object({
   contextualBandit: apiContextualBanditValidator,
+});
+
+/**
+ * Return shape for the add/remove-variations endpoint. `featureDraftPublishFailures`
+ * lists linked features whose value for a newly-added arm was staged as a draft
+ * but could not be auto-published (e.g. needs approval), so the caller/UI can warn.
+ */
+export const apiContextualBanditVariationsReturn = z.object({
+  contextualBandit: apiContextualBanditValidator,
+  featureDraftPublishFailures: z
+    .array(
+      z.object({
+        featureId: z.string(),
+        revisionVersion: z.number(),
+        reason: z.string(),
+      }),
+    )
+    .optional(),
 });
 
 export const apiContextualBanditRefreshValidator = {

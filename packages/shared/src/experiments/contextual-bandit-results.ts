@@ -5,7 +5,7 @@ import type {
   ContextualLeafMapEntry,
   ContextualLeafStatsEntry,
   ContextualSseTrajectoryEntry,
-} from "../../types/stats";
+} from "shared/types/stats";
 import { computeOverallVariationWeights } from "./contextual-bandit-weights";
 
 /** Minimal variation identity needed to label the leaf-first results view. */
