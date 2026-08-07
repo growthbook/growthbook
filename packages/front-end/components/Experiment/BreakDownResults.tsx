@@ -13,6 +13,7 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
+  MetricError,
 } from "shared/types/experiment-snapshot";
 import {
   DifferenceType,
@@ -30,7 +31,10 @@ import { NULL_DIMENSION_VALUE } from "shared/constants";
 import { FaCaretRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { ExperimentTableRow } from "@/services/experiments";
+import {
+  ExperimentTableRow,
+  getMetricErrorsForDisplay,
+} from "@/services/experiments";
 import ResultsTable, {
   RESULTS_TABLE_COLUMNS,
 } from "@/components/Experiment/ResultsTable";
@@ -104,6 +108,7 @@ const BreakDownResults: FC<{
   setBaselineRow?: (baselineRow: number) => void;
   snapshot?: ExperimentSnapshotInterface;
   analysis?: ExperimentSnapshotAnalysis;
+  metricErrors?: Record<string, MetricError>;
   setAnalysisSettings?: (
     settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
@@ -154,6 +159,7 @@ const BreakDownResults: FC<{
   setBaselineRow,
   snapshot,
   analysis,
+  metricErrors,
   setAnalysisSettings,
   mutate,
   setDifferenceType,
@@ -165,6 +171,11 @@ const BreakDownResults: FC<{
 
   // Detect drilldown context for automatic row click handling
   const drilldownContext = useMetricDrilldownContext();
+  const displayMetricErrors = getMetricErrorsForDisplay({
+    metricErrors: metricErrors ?? analysis?.metricErrors,
+    queries: snapshot?.queries,
+    failedQueryNames: queryStatusData?.failedNames,
+  });
 
   const dimension =
     ssrPolyfills?.getDimensionById?.(dimensionId)?.name ||
@@ -191,6 +202,7 @@ const BreakDownResults: FC<{
     dimensionValuesFilter,
     showErrorsOnQuantileMetrics,
     pValueThreshold: significanceThresholds.pValueThreshold,
+    metricErrors: displayMetricErrors,
   });
 
   const activationMetricObj = activationMetric

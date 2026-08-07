@@ -1,12 +1,26 @@
+import { analyzeExperimentPower } from "shared/enterprise";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { tabulateCovariateImbalance } from "shared/health";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { QueryPointer } from "shared/types/query";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
-import { startExperimentResultQueries } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import {
+  ExperimentResultsQueryRunner,
+  startExperimentResultQueries,
+  TRAFFIC_QUERY_NAME,
+} from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { getFactMetricGroups } from "back-end/src/services/experimentQueries/experimentQueries";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { parseDimension } from "back-end/src/services/experiments";
+import {
+  analyzeExperimentResults,
+  analyzeExperimentTraffic,
+} from "back-end/src/services/stats";
 import { shouldRunHealthTrafficQuery } from "back-end/src/queryRunners/snapshotQueryHelpers";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import { ReqContext } from "back-end/types/api";
 import { factMetricFactory } from "back-end/test/factories/FactMetric.factory";
 
 // Only override the specific collaborators the build-isolation path touches;
@@ -39,6 +53,22 @@ jest.mock("shared/util", () => ({
   buildUnitsQuerySettingsFromSnapshot: jest.fn(),
 }));
 
+jest.mock("back-end/src/services/stats", () => ({
+  ...jest.requireActual("back-end/src/services/stats"),
+  analyzeExperimentResults: jest.fn(),
+  analyzeExperimentTraffic: jest.fn(),
+}));
+
+jest.mock("shared/enterprise", () => ({
+  ...jest.requireActual("shared/enterprise"),
+  analyzeExperimentPower: jest.fn(),
+}));
+
+jest.mock("shared/health", () => ({
+  ...jest.requireActual("shared/health"),
+  tabulateCovariateImbalance: jest.fn(),
+}));
+
 jest.mock("back-end/src/util/logger", () => ({
   logger: {
     error: jest.fn(),
@@ -56,6 +86,11 @@ const mockedShouldRunHealthTrafficQuery =
   shouldRunHealthTrafficQuery as jest.Mock;
 const mockedBuildUnitsQuerySettings =
   buildUnitsQuerySettingsFromSnapshot as jest.Mock;
+const mockedAnalyzeExperimentResults = analyzeExperimentResults as jest.Mock;
+const mockedAnalyzeExperimentTraffic = analyzeExperimentTraffic as jest.Mock;
+const mockedAnalyzeExperimentPower = analyzeExperimentPower as jest.Mock;
+const mockedTabulateCovariateImbalance =
+  tabulateCovariateImbalance as jest.Mock;
 
 function buildLegacyMetric(id: string): ExperimentMetricInterface {
   return { id, denominator: null } as unknown as ExperimentMetricInterface;
@@ -303,5 +338,162 @@ describe("startExperimentResultQueries build-time error isolation", () => {
     // ...and the dependent metric query is still created, so the runtime
     // cascade can mark it "Dependencies failed: …".
     expect(byName.get("met_ok")?.status).toBe("queued");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// runAnalysis step isolation
+// ---------------------------------------------------------------------------
+
+const METRIC_DIMENSION = {
+  name: "",
+  srm: 1,
+  variations: [
+    { users: 100, metrics: { met_1: { value: 10, cr: 0.1, users: 100 } } },
+    { users: 100, metrics: { met_1: { value: 12, cr: 0.12, users: 100 } } },
+  ],
+};
+
+const TRAFFIC_HEALTH = {
+  overall: { name: "All", srm: 1, variationUnits: [100, 100] },
+  dimension: {},
+};
+
+function makeSnapshotModel(): ExperimentSnapshotInterface {
+  return {
+    id: "snp_1",
+    organization: "org_1",
+    experiment: "exp_1",
+    phase: 0,
+    dimension: null,
+    dateCreated: new Date("2026-01-01T00:00:00Z"),
+    runStarted: new Date("2026-01-01T00:00:00Z"),
+    status: "running",
+    queries: [],
+    unknownVariations: [],
+    multipleExposures: 0,
+    settings: {
+      metricSettings: [{ id: "met_1" }],
+      goalMetrics: ["met_1"],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      variations: [
+        { id: "0", weight: 0.5 },
+        { id: "1", weight: 0.5 },
+      ],
+      startDate: new Date("2026-01-01T00:00:00Z"),
+      endDate: new Date("2026-01-08T00:00:00Z"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any,
+    analyses: [
+      {
+        analysisKey: "default",
+        dateCreated: new Date("2026-01-01T00:00:00Z"),
+        status: "running",
+        results: [],
+        settings: {
+          dimensions: [],
+          statsEngine: "frequentist",
+          differenceType: "relative",
+          numGoalMetrics: 1,
+          numGuardrailMetrics: 0,
+          // Makes both the power and covariate-imbalance steps eligible.
+          useCovariateAsResponse: true,
+        },
+      },
+    ],
+  };
+}
+
+function makeRunner(
+  model: ExperimentSnapshotInterface,
+): ExperimentResultsQueryRunner {
+  const context = {
+    org: { id: "org_1", settings: {} },
+    permissions: {
+      canRunExperimentQueries: () => true,
+      throwPermissionError: () => {
+        throw new Error("permission error");
+      },
+    },
+  } as unknown as ReqContext;
+  const integration = {
+    datasource: { id: "ds_1", settings: {} },
+    getSourceProperties: () => ({ separateExperimentResultQueries: true }),
+  } as unknown as SourceIntegrationInterface;
+
+  return new ExperimentResultsQueryRunner(context, model, integration, false);
+}
+
+function makeQueryMap(): QueryMap {
+  return new Map([
+    [
+      TRAFFIC_QUERY_NAME,
+      // One row is enough to make the snapshot eligible for power analysis.
+      { result: [{ variation: "0", users: 100 }] },
+    ],
+  ]) as unknown as QueryMap;
+}
+
+describe("ExperimentResultsQueryRunner.runAnalysis step isolation", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedAnalyzeExperimentResults.mockResolvedValue({
+      results: [
+        {
+          dimensions: [METRIC_DIMENSION],
+          unknownVariations: [],
+          multipleExposures: 0,
+        },
+      ],
+      banditResult: undefined,
+      metricErrors: [
+        {
+          met_2: { type: "query", message: "Query failed: boom" },
+        },
+      ],
+    });
+    mockedAnalyzeExperimentTraffic.mockImplementation(
+      ({ error }: { error?: string }) =>
+        error ? { ...TRAFFIC_HEALTH, error } : TRAFFIC_HEALTH,
+    );
+    mockedAnalyzeExperimentPower.mockReturnValue({
+      type: "success",
+      power: 0.9,
+      isLowPowered: false,
+      additionalDaysNeeded: 0,
+      metricVariationPowerResults: [],
+    });
+    mockedTabulateCovariateImbalance.mockReturnValue({
+      isImbalanced: false,
+      pValueThreshold: 0.001,
+      numGoalMetrics: 1,
+      numGoalMetricsImbalanced: 0,
+      numGuardrailMetrics: 0,
+      numGuardrailMetricsImbalanced: 0,
+      numSecondaryMetrics: 0,
+      numSecondaryMetricsImbalanced: 0,
+      metricVariationCovariateImbalanceResults: [],
+    });
+  });
+
+  it("still analyzes metrics when recomputing fact-metric group membership throws", async () => {
+    mockedGetFactMetricGroups.mockImplementation(() => {
+      throw new Error("grouping failed");
+    });
+    const metric = { id: "met_1" } as ExperimentMetricInterface;
+    const model = makeSnapshotModel();
+    const runner = makeRunner(model);
+    // metricMap is normally populated by startQueries.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (runner as any).metricMap = new Map([[metric.id, metric]]);
+
+    const result = await runner.runAnalysis(makeQueryMap());
+
+    // Attribution degrades to an empty group map; results are unaffected.
+    expect(mockedAnalyzeExperimentResults).toHaveBeenCalledWith(
+      expect.objectContaining({ factMetricGroups: {} }),
+    );
+    expect(result.analyses[0].results).toEqual([METRIC_DIMENSION]);
   });
 });

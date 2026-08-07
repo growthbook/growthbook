@@ -13,6 +13,7 @@ import {
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { useResultPopover } from "./useResultPopover";
 
 interface Props
@@ -129,7 +130,9 @@ export default function ChangeColumn({
         ) : null}
       </span>{" "}
       {expected === 0 && stats.errorMessage ? (
-        <span className="expected">n/a</span>
+        <Tooltip body={stats.errorMessage}>
+          <span className="expected">n/a</span>
+        </Tooltip>
       ) : (
         <span className="expected">
           {formatter(expected, formatterOptions)}{" "}

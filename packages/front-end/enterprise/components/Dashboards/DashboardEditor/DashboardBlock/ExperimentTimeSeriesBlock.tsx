@@ -10,6 +10,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
+import { getMetricErrorsForDisplay } from "@/services/experiments";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import { BlockProps } from ".";
 
@@ -41,6 +42,10 @@ export default function ExperimentTimeSeriesBlock({
     ssrPolyfills?.usePValueThreshold?.(experiment.project) || _pValueThreshold;
 
   const result = analysis.results[0];
+  const displayMetricErrors = getMetricErrorsForDisplay({
+    metricErrors: analysis.metricErrors,
+    queries: snapshot.queries,
+  });
 
   const currentPhase = experiment.phases[snapshot.phase];
   const phaseStartDate = currentPhase?.dateStarted
@@ -102,6 +107,7 @@ export default function ExperimentTimeSeriesBlock({
         ? blockMetricIds
         : undefined,
     pValueThreshold,
+    metricErrors: displayMetricErrors,
   });
 
   // Filter rows based on expansion state when there's no slice filter

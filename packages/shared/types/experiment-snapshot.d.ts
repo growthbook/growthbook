@@ -33,6 +33,27 @@ import {
   LookbackOverride,
 } from "./experiment";
 
+/**
+ * Class of a per-metric failure, used by the UI to pick copy:
+ * - `query`: the metric's warehouse query failed at runtime
+ * - `build`: the metric's query failed to build (SQL generation threw)
+ * - `analysis`: the metric's analysis math failed inside gbstats
+ * - `dependency`: an upstream query the metric depends on failed (cascade)
+ * - `config-drift`: the metric changed or disappeared after its query started
+ */
+export type MetricErrorType =
+  | "query"
+  | "build"
+  | "analysis"
+  | "dependency"
+  | "config-drift";
+
+export interface MetricError {
+  type: MetricErrorType;
+  /** Human-readable detail, chained up to the metric (e.g. "Query failed: …"). */
+  message: string;
+}
+
 export interface SnapshotMetric {
   value: number;
   cr: number;
@@ -162,6 +183,8 @@ export interface ExperimentSnapshotAnalysis {
   dateCreated: Date;
   status: "running" | "success" | "error";
   error?: string;
+  // Per-metric errors for this analysis. Keyed by metricId.
+  metricErrors?: Record<string, MetricError>;
   results: ExperimentReportResultDimension[];
 }
 
@@ -325,6 +348,7 @@ export type ExperimentMetricAnalysisContext = {
 export type ExperimentMetricAnalysisData = {
   analysisObj: ExperimentSnapshotAnalysis;
   unknownVariations: string[];
+  metricErrors: Record<string, MetricError>;
 };
 
 export type ExperimentAnalysisParamsContextData = {

@@ -2460,6 +2460,114 @@ describe("experiments API", () => {
       expect(res.body.result.queryStatus).toBe("partially-succeeded");
     });
 
+    it("lists a failed metric in metricErrors and keeps it out of results", async () => {
+      updateReqContext({
+        org,
+        permissions: {
+          canViewExperiment: () => true,
+        },
+      });
+
+      (getMetricsByIds as jest.Mock).mockResolvedValue([
+        { id: "met_bad", name: "Broken Revenue" },
+      ]);
+      (getExperimentById as jest.Mock).mockResolvedValue({
+        ...experiment,
+        phases: [
+          {
+            name: "Main",
+            dateStarted: new Date("2024-01-01"),
+            dateEnded: null,
+            reason: "",
+            seed: "test-seed",
+            coverage: 1,
+            variationWeights: [0.5, 0.5],
+            condition: "",
+            savedGroups: [],
+            prerequisites: [],
+            namespace: { enabled: false },
+          },
+        ],
+      });
+      (getLatestSuccessfulSnapshot as jest.Mock).mockResolvedValue({
+        id: "snap_123",
+        organization: "org_1",
+        experiment: "exp_123",
+        phase: 0,
+        dimension: null,
+        dateCreated: new Date(),
+        runStarted: new Date(),
+        queries: [],
+        unknownVariations: [],
+        multipleExposures: 0,
+        hasCorrectedStats: false,
+        results: [],
+        analyses: [
+          {
+            dateCreated: new Date(),
+            status: "success",
+            settings: {
+              dimensions: [],
+              statsEngine: "bayesian",
+              differenceType: "relative",
+              baselineVariationIndex: 0,
+            },
+            // met_bad never produced a row, so it is absent from results and
+            // only reachable through metricErrors.
+            metricErrors: {
+              met_bad: {
+                type: "query",
+                message: "Query failed: table not found",
+              },
+            },
+            results: [
+              {
+                name: "",
+                srm: 1,
+                variations: [{ users: 100, metrics: {} }],
+              },
+            ],
+          },
+        ],
+        settings: {
+          manual: false,
+          activationMetric: null,
+          queryFilter: "",
+          segment: "",
+          skipPartialData: false,
+          attributionModel: "firstExposure",
+          experimentId: "exp_123",
+          statsEngine: "bayesian",
+          regressionAdjustmentEnabled: false,
+          sequentialTestingEnabled: false,
+          sequentialTestingTuningParameter: 5000,
+          pValueThreshold: 0.05,
+          pValueCorrection: null,
+          differenceType: "relative",
+        },
+      });
+
+      const res = await request(app)
+        .get("/api/v1/experiments/exp_123/results")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.result.metricErrors).toEqual([
+        {
+          metricId: "met_bad",
+          metricName: "Broken Revenue",
+          type: "query",
+          message: "Query failed: table not found",
+        },
+      ]);
+      // The failed metric is not reported as a row of zeros.
+      const reportedMetricIds = (res.body.result.results ?? []).flatMap(
+        (d: { metrics: { metricId: string }[] }) =>
+          d.metrics.map((m) => m.metricId),
+      );
+      expect(reportedMetricIds).not.toContain("met_bad");
+    });
+
     it("includes metricName and variationName for each metric/variation pair", async () => {
       updateReqContext({
         org,

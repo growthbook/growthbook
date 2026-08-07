@@ -14,6 +14,7 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
+  MetricError,
 } from "shared/types/experiment-snapshot";
 import {
   DifferenceType,
@@ -37,7 +38,10 @@ import {
 import Link from "@/ui/Link";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { ExperimentTableRow } from "@/services/experiments";
+import {
+  ExperimentTableRow,
+  getMetricErrorsForDisplay,
+} from "@/services/experiments";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -101,6 +105,7 @@ const CompactResults: FC<{
   setBaselineRow?: (baselineRow: number) => void;
   snapshot?: ExperimentSnapshotInterface;
   analysis?: ExperimentSnapshotAnalysis;
+  metricErrors?: Record<string, MetricError>;
   setAnalysisSettings?: (
     settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
@@ -156,6 +161,7 @@ const CompactResults: FC<{
   setBaselineRow,
   snapshot,
   analysis,
+  metricErrors,
   setAnalysisSettings,
   mutate,
   setDifferenceType,
@@ -183,6 +189,11 @@ const CompactResults: FC<{
   const [expandedMetrics, setExpandedMetrics] = useState<
     Record<string, boolean>
   >({});
+  const displayMetricErrors = getMetricErrorsForDisplay({
+    metricErrors: metricErrors ?? analysis?.metricErrors,
+    queries: snapshot?.queries,
+    failedQueryNames: queryStatusData?.failedNames,
+  });
   const toggleExpandedMetric = (
     metricId: string,
     resultGroup: "goal" | "secondary" | "guardrail",
@@ -215,6 +226,7 @@ const CompactResults: FC<{
     enableExpansion: true,
     expandedMetrics,
     pValueThreshold: significanceThresholds.pValueThreshold,
+    metricErrors: displayMetricErrors,
   });
 
   const expandedGoals = useMemo(

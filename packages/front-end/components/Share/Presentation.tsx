@@ -489,6 +489,7 @@ const Presentation = ({
                 )}
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={snapshot?.analyses?.[0]?.results?.[0]}
+                metricErrors={snapshot?.analyses?.[0]?.metricErrors}
                 reportDate={snapshot.dateCreated}
                 startDate={phase?.dateStarted ?? ""}
                 endDate={phase?.dateEnded ?? ""}
