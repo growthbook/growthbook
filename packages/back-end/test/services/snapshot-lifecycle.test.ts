@@ -52,6 +52,7 @@ jest.mock("back-end/src/queryRunners/ExperimentResultsQueryRunner", () => ({
     .mockImplementation((_context, snapshot) => ({
       model: snapshot,
       startAnalysis: jest.fn(),
+      waitForResults: jest.fn().mockResolvedValue(undefined),
       setExperimentUpdateExecutionLogger: jest.fn(),
     })),
 }));
@@ -64,6 +65,7 @@ jest.mock(
       .mockImplementation((_context, snapshot) => ({
         model: snapshot,
         startAnalysis: jest.fn(),
+        waitForResults: jest.fn().mockResolvedValue(undefined),
         setExperimentUpdateExecutionLogger: jest.fn(),
       })),
   }),
@@ -77,6 +79,7 @@ jest.mock(
       .mockImplementation((_context, snapshot) => ({
         model: snapshot,
         startAnalysis: jest.fn(),
+        waitForResults: jest.fn().mockResolvedValue(undefined),
         setExperimentUpdateExecutionLogger: jest.fn(),
       })),
   }),
@@ -298,6 +301,54 @@ describe("snapshot lifecycle", () => {
         queryParentId: plan.snapshot.id,
       }),
     );
+    expect(updateExperimentDashboardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        context,
+        experiment,
+        mainSnapshot: plan.snapshot,
+        metricMap,
+        factTableMap,
+      }),
+    );
+  });
+
+  it("waits for the standard snapshot to finish before refreshing dashboards", async () => {
+    const context = makeContext();
+    const experiment = makeExperiment();
+    const plan = makePlan({
+      runnerKind: "incremental-full",
+      fullRefresh: true,
+    });
+    const metricMap = new Map<string, ExperimentMetricInterface>();
+    const factTableMap = new Map() as FactTableMap;
+    let finishSnapshot: () => void = () => {};
+    const waitForResults = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishSnapshot = resolve;
+        }),
+    );
+    incrementalQueryRunnerMock.mockImplementationOnce((_context, snapshot) => ({
+      model: snapshot,
+      startAnalysis: jest.fn(),
+      waitForResults,
+      setExperimentUpdateExecutionLogger: jest.fn(),
+    }));
+
+    await createSnapshotFromPlan({
+      plan,
+      context,
+      experiment,
+      metricMap,
+      factTableMap,
+    });
+
+    expect(waitForResults).toHaveBeenCalledTimes(1);
+    expect(updateExperimentDashboardsMock).not.toHaveBeenCalled();
+
+    finishSnapshot();
+    await waitForResults.mock.results[0].value;
+
     expect(updateExperimentDashboardsMock).toHaveBeenCalledWith(
       expect.objectContaining({
         context,
