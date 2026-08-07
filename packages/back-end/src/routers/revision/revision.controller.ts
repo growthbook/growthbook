@@ -1268,7 +1268,13 @@ export const postToggleAutoPublish = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Arming additionally requires publish authority — see the check below.
+  // Arming and DISARMING take the same authority, deliberately.
+  //
+  // Disarming used to need only draft, so a draft manager without publish rights
+  // could turn auto-publish off but never on — a one-way control, which reads as a
+  // broken toggle whichever way the UI renders it. It also disagreed with the dated
+  // schedule next to it, where cancelling already requires publish ("it withdraws a
+  // pending publish rather than landing one"). Same operation, same rule.
   if (
     !canDoRevisionAction(
       existing.target.type,
@@ -1282,7 +1288,6 @@ export const postToggleAutoPublish = async (
 
   const liveEntity = await loadLiveEntityForRevision(context, existing);
   if (
-    enabled &&
     !(
       liveEntity &&
       (await canEnableAutoPublishOnApproval(context, existing, liveEntity))

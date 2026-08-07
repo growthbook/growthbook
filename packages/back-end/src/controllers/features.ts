@@ -1665,15 +1665,15 @@ export async function postFeatureToggleAutoPublish(
   }
 
   // Baseline: only draft managers may change auto-publish arming (else any org
-  // member could disarm another's draft). Enabling additionally needs publish
-  // authority, since auto-publish runs under this user's authority.
+  // member could disarm another's draft). Arming and DISARMING take the same
+  // authority, deliberately: requiring less to turn it off than to turn it on gave a
+  // draft manager without publish rights a control they could only move one way,
+  // which reads as broken however it is rendered — and it disagreed with the dated
+  // schedule beside it, where cancelling already requires publish.
   if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
-  if (
-    enabled &&
-    !canEnableFeatureAutoPublishOnApproval(context, feature, revision)
-  ) {
+  if (!canEnableFeatureAutoPublishOnApproval(context, feature, revision)) {
     context.permissions.throwPermissionError();
   }
 

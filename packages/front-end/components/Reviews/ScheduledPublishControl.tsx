@@ -156,7 +156,6 @@ export default function ScheduledPublishControl({
   // manager without publish rights saw only a read-only checkbox for something the
   // endpoint would let them turn off, while a publisher without draft rights got an
   // interactive one the endpoint then refused.
-  const canDisarmNoDate = !isScheduled && persistedArmed && (canDraft ?? true);
   // The schedule's admin bypass is only relevant when the revision would
   // otherwise need approval (review required, not yet approved).
   const canBypassScheduleApproval =
@@ -514,32 +513,19 @@ export default function ScheduledPublishControl({
   // schedule's failure notice shows.
   if (!canManageAutoPublish) {
     if (persistedArmed) {
-      // Read-only indicator plus an explicit action, mirroring how a DATED schedule
-      // renders its summary card. Not an interactive checkbox: the only transition
-      // available here is turning it off, and a checkbox that can be unchecked but
-      // never re-checked reads as a broken toggle rather than as a one-way action.
+      // Read-only for anyone who cannot manage it. Arming and disarming now take the
+      // same authority, so no role can move this one way — whoever may turn it off may
+      // turn it back on, and this branch is simply "not yours to change".
       return (
         <Box mb="5">
           {gaveUpNotice}
-          {error && (
-            <HelperText status="error" size="sm" mb="2">
-              {error}
-            </HelperText>
-          )}
-          <Flex align="center" gap="3">
-            <Checkbox
-              label="Automatically publish when approved"
-              weight="regular"
-              disabled
-              value={true}
-              setValue={() => {}}
-            />
-            {canDisarmNoDate && (
-              <Button variant="ghost" color="red" size="sm" onClick={doDisarm}>
-                Turn off
-              </Button>
-            )}
-          </Flex>
+          <Checkbox
+            label="Automatically publish when approved"
+            weight="regular"
+            disabled
+            value={true}
+            setValue={() => {}}
+          />
         </Box>
       );
     }
