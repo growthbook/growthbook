@@ -278,6 +278,9 @@ export default function ScheduledPublishControl({
       await mutate();
     } catch (e) {
       setError((e as Error).message || "Failed to arm auto-publish");
+      // Rethrown so the caller can undo its optimistic check — swallowing it left the
+      // box armed with nothing behind it.
+      throw e;
     }
   };
 
@@ -336,8 +339,10 @@ export default function ScheduledPublishControl({
       return;
     }
     if (effectiveMode === "approve") {
-      // Only reachable when canArmWhenApproved — persist immediately.
-      void doArmApprove();
+      // Only reachable when canArmWhenApproved — persist immediately. The optimistic
+      // check is REVERTED if the request fails, or the box sits armed showing a
+      // schedule that was never persisted.
+      void doArmApprove().catch(() => setArmed(false));
       return;
     }
     // "date" mode: keep the controls open while configuring; persist now only
@@ -509,20 +514,32 @@ export default function ScheduledPublishControl({
   // schedule's failure notice shows.
   if (!canManageAutoPublish) {
     if (persistedArmed) {
+      // Read-only indicator plus an explicit action, mirroring how a DATED schedule
+      // renders its summary card. Not an interactive checkbox: the only transition
+      // available here is turning it off, and a checkbox that can be unchecked but
+      // never re-checked reads as a broken toggle rather than as a one-way action.
       return (
         <Box mb="5">
           {gaveUpNotice}
-          <Checkbox
-            label="Automatically publish when approved"
-            weight="regular"
-            // Interactive for someone who may turn it OFF even though they may not
-            // turn it on — unchecking is the only transition offered.
-            disabled={!canDisarmNoDate}
-            value={true}
-            setValue={(v) => {
-              if (!v && canDisarmNoDate) doDisarm();
-            }}
-          />
+          {error && (
+            <HelperText status="error" size="sm" mb="2">
+              {error}
+            </HelperText>
+          )}
+          <Flex align="center" gap="3">
+            <Checkbox
+              label="Automatically publish when approved"
+              weight="regular"
+              disabled
+              value={true}
+              setValue={() => {}}
+            />
+            {canDisarmNoDate && (
+              <Button variant="ghost" color="red" size="sm" onClick={doDisarm}>
+                Turn off
+              </Button>
+            )}
+          </Flex>
         </Box>
       );
     }
