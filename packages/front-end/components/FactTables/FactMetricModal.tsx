@@ -2202,6 +2202,7 @@ function StandardFactMetricModal({
                   setValue={setFunnelSettings}
                   datasource={form.watch("datasource")}
                   project={project}
+                  initialFactTable={initialFactTable}
                 />
               ) : type === "proportion" ? (
                 <div>
