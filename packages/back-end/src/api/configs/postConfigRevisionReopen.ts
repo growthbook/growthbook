@@ -22,7 +22,6 @@ export const postConfigRevisionReopen = createApiRequestHandler(
   const reopened = await reopenRevision({
     context: req.context,
     type: "config",
-    entity: config as unknown as Record<string, unknown>,
     revision,
   });
 

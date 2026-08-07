@@ -22,7 +22,6 @@ export const postConstantRevisionReopen = createApiRequestHandler(
   const reopened = await reopenRevision({
     context: req.context,
     type: "constant",
-    entity: constant as unknown as Record<string, unknown>,
     revision,
   });
 

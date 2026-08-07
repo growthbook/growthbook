@@ -802,8 +802,15 @@ export default function ReviewAndPublish({
   // "when approved" only makes sense before approval — once approved it would
   // just publish now (which Publish already does), so approved revisions only
   // offer "on a date".
+  // The draft term matches the endpoint (`postFeatureToggleAutoPublish` requires
+  // `canEditFeatureDrafts` before anything else). Without it, a publisher WITHOUT
+  // draft rights — precisely the role split this PR enables — got a checked,
+  // enabled box that 403s the moment they uncheck it.
   const canArmWhenApproved =
-    autopublishOnApproval && isArmingOwner && revision?.status !== "approved";
+    autopublishOnApproval &&
+    isArmingOwner &&
+    permissionsUtil.canEditFeatureDrafts(feature) &&
+    revision?.status !== "approved";
   // Arming/editing a dated schedule needs only publish authority — not draft /
   // review-request ownership — matching the backend `canScheduleFeaturePublish`
   // gate, so a reviewer with publish permission can manage the schedule from the
@@ -821,7 +828,19 @@ export default function ReviewAndPublish({
     scheduledPending && !!revision?.scheduledPublishBypassApproval;
   const canCancelAdminSchedule = scheduleArmedByAdmin && holdsSchedulePublish;
 
-  const canManageAutoPublish = canArmWhenApproved || canArmOnDate;
+  // Standing an ALREADY-ARMED no-date schedule down survives everything that gates
+  // ARMING — the org switching auto-publish-on-approval off, and the licence
+  // lapsing. Both describe taking a future publish ON; the endpoint asks neither on
+  // the way out. Without this arm the checkbox vanished exactly when disarming was
+  // the thing needed. The shared ScheduledPublishControl gained the same term; this
+  // surface has its own sibling implementation and had been missed.
+  const canDisarmWhenApproved =
+    revisionAutoPublishArmed &&
+    isArmingOwner &&
+    permissionsUtil.canEditFeatureDrafts(feature);
+
+  const canManageAutoPublish =
+    canArmWhenApproved || canArmOnDate || canDisarmWhenApproved;
   // Admin-armed schedules render read-only for everyone, so route them through
   // the read-only card (with an optional Cancel) rather than the editable/owner
   // controls.
@@ -1207,6 +1226,10 @@ export default function ReviewAndPublish({
           revision={revision}
           ref={revisionLogRef}
           onRevisionMutate={mutate}
+          // The same gate the generic timeline passes. Wired unconditionally
+          // before, so "Retract review" showed on published revisions and to
+          // viewers with no verdict of their own.
+          canRetractVerdict={state.canUndoReview}
           // Overview foregrounds the conversation: comments, verdicts, and
           // lifecycle events. Granular content-edit entries collapse into
           // per-run "N other events" toggles.
@@ -1691,6 +1714,9 @@ export default function ReviewAndPublish({
   }
 
   const state = getReviewAndPublishState({
+    // Feature edits demote a changes-requested revision back to `draft`, and the
+    // request-review endpoint only accepts `draft`.
+    editsResetStatus: true,
     requireReviews,
     status: revision.status,
     mergeSuccess: mergeResult.success,

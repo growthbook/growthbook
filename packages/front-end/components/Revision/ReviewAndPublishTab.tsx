@@ -766,6 +766,9 @@ function ReviewAndPublishRevision<T>({
   // are neutralized: no experiments, ramps, scheduled-publish locks, or
   // rebase governance here — conflicts gate publishing via `mergeSuccess`. ──
   const state = getReviewAndPublishState({
+    // The generic engine leaves status alone on edit, so `changes-requested`
+    // re-submits rather than dead-ending.
+    editsResetStatus: false,
     requireReviews: requiresApproval,
     status: toBadgeStatus(revision.status) as Parameters<
       typeof getReviewAndPublishState

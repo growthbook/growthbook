@@ -60,6 +60,19 @@ export interface RnPStateInput {
   checklistBlocked: boolean;
   // Governance allows publishing (false when a stale draft must be rebased).
   governanceCanPublish: boolean;
+  /**
+   * Does editing this entity's draft reset its status back to `draft`?
+   *
+   * TRUE on Feature Flags, whose edits demote a `changes-requested` revision, so the
+   * author lands back on "Request Review" naturally and the request-review endpoint
+   * only ever accepts `draft`.
+   *
+   * FALSE on the generic revision engine, where edits leave the status alone and
+   * `submitForReview` explicitly accepts `changes-requested` as the re-submit path.
+   * Assuming feature semantics there dead-ended the draft: the author had no CTA at
+   * all until a reviewer retracted their verdict.
+   */
+  editsResetStatus: boolean;
 }
 
 export interface RnPState {
@@ -112,6 +125,7 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     featureLockedBySchedule,
     checklistBlocked,
     governanceCanPublish,
+    editsResetStatus,
   } = input;
 
   // Ramp and scheduled-publish locks freeze publishing identically (lock glyph,
@@ -180,7 +194,11 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
   const hasNextStep =
     mergeSuccess && approved && hasSelectedExperiments && !experimentsStep;
 
-  let ctaLabel = "Request Review";
+  // Where edits don't reset the status, `changes-requested` is the author's ball and
+  // re-submitting is the documented way forward — so it keeps its CTA.
+  const canResubmit = !editsResetStatus && status === "changes-requested";
+
+  let ctaLabel = canResubmit ? "Re-request Review" : "Request Review";
   let ctaLocked = false;
   if (approved && !hasNextStep) {
     ctaLabel = publishLabel(publishLocked, onlyScheduledSelected);
@@ -192,7 +210,7 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
   let submitAction: RnPSubmitAction;
   if (hasNextStep) {
     submitAction = "next-experiments";
-  } else if (!isPendingReview && !approved) {
+  } else if ((!isPendingReview && !approved) || canResubmit) {
     submitAction = "request-review";
   } else if (approved) {
     submitAction = "publish";
@@ -200,9 +218,10 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     submitAction = "none";
   }
 
-  // A pending-review draft is read-only for non-reviewers; approved drafts and
-  // request-review actions have step CTAs. Reviewers use the ReviewCommentPopover.
-  const hasSubmit = !isPendingReview || approved;
+  // A pending-review draft is read-only for non-reviewers; approved drafts,
+  // request-review actions and a re-submittable changes-requested draft have step
+  // CTAs. Reviewers use the ReviewCommentPopover.
+  const hasSubmit = !isPendingReview || approved || canResubmit;
 
   // Only "pending-review" waits on someone else; "changes-requested" hands
   // the ball back to the author, who has edit actions elsewhere on the page.

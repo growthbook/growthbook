@@ -263,6 +263,7 @@ import {
   UnrecoverableApiError,
 } from "back-end/src/util/errors";
 import {
+  canDisarmFeatureAutoPublishOnApproval,
   canEnableFeatureAutoPublishOnApproval,
   canPublishFeatureRevision,
   canScheduleFeaturePublish,
@@ -1694,7 +1695,15 @@ export async function postFeatureToggleAutoPublish(
   if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
-  if (!canEnableFeatureAutoPublishOnApproval(context, feature, revision)) {
+  // Publish authority governs both directions; the ELIGIBILITY gates (premium, the
+  // org's approval flow) are a precondition for taking on a future publish, not for
+  // standing one down. Asking them on the way out left an armed revision
+  // un-disarmable the moment either changed — while the arm still fired. Same split
+  // the generic toggle makes.
+  const mayToggle = enabled
+    ? canEnableFeatureAutoPublishOnApproval(context, feature, revision)
+    : canDisarmFeatureAutoPublishOnApproval(context, feature, revision);
+  if (!mayToggle) {
     context.permissions.throwPermissionError();
   }
 

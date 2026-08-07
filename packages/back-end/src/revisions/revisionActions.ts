@@ -575,11 +575,17 @@ async function publishRevisionInner(
 
   // Another draft's committed "lock other drafts" schedule blocks this publish.
   // Excludes this revision by id, so the locking revision can still fire itself.
+  //
+  // Bypassable, like the same rule on all three other publish paths — feature
+  // single skips it under `bypassLockdown`, and both bulk adapters raise it as a
+  // gate the approval-bypass permission clears. This path was the lone absolute
+  // refusal, so an admin could clear a sibling's lock everywhere except here.
   if (
-    await context.models.revisions.hasPublishLockingScheduledSibling(
+    !canBypass &&
+    (await context.models.revisions.hasPublishLockingScheduledSibling(
       revision.target,
       revision.id,
-    )
+    ))
   ) {
     throw new BadRequestError(
       "Another draft of this entity has a scheduled publish that locks other drafts. Cancel that schedule to publish this revision.",

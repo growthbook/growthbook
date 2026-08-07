@@ -8,6 +8,8 @@ function base(overrides: Partial<RnPStateInput> = {}): RnPStateInput {
   return {
     requireReviews: false,
     status: "draft",
+    // Default to the FEATURE engine, which is what most of these cases model.
+    editsResetStatus: true,
     mergeSuccess: true,
     hasChanges: true,
     hasReviewPermission: false,
@@ -330,5 +332,66 @@ describe("waitingForReview", () => {
   it("is never set on the direct-publish path", () => {
     const s = getReviewAndPublishState(base({ status: "pending-review" }));
     expect(s.waitingForReview).toBe(false);
+  });
+});
+
+/**
+ * The two revision engines disagree about what an edit does to a
+ * `changes-requested` draft, and this state has to model both.
+ *
+ * Feature edits demote the revision to `draft`, so its author naturally lands back
+ * on "Request Review" — and the feature request-review endpoint only accepts
+ * `draft`. The generic engine leaves the status alone and its `submitForReview`
+ * explicitly accepts `changes-requested` as the re-submit path. Assuming feature
+ * semantics on the generic tab dead-ended the draft: no CTA at all until a reviewer
+ * retracted their own verdict.
+ */
+describe("changes-requested depends on whether edits reset the status", () => {
+  const changesRequested = (editsResetStatus: boolean) =>
+    getReviewAndPublishState(
+      base({
+        requireReviews: true,
+        status: "changes-requested",
+        editsResetStatus,
+      }),
+    );
+
+  it("offers a re-submit CTA on the generic engine", () => {
+    const s = changesRequested(false);
+    expect({
+      hasSubmit: s.hasSubmit,
+      submitAction: s.submitAction,
+      ctaLabel: s.ctaLabel,
+    }).toEqual({
+      hasSubmit: true,
+      submitAction: "request-review",
+      ctaLabel: "Re-request Review",
+    });
+  });
+
+  it("offers none on the feature engine, whose endpoint would refuse it", () => {
+    const s = changesRequested(true);
+    expect({ hasSubmit: s.hasSubmit, submitAction: s.submitAction }).toEqual({
+      hasSubmit: false,
+      submitAction: "none",
+    });
+  });
+
+  it("leaves the OTHER in-review status alone on both engines", () => {
+    // A canary: a fix that simply un-gated `isPendingReview` would hand
+    // pending-review a CTA too, which is someone else's ball on either engine.
+    for (const editsResetStatus of [true, false]) {
+      const s = getReviewAndPublishState(
+        base({
+          requireReviews: true,
+          status: "pending-review",
+          editsResetStatus,
+        }),
+      );
+      expect({ editsResetStatus, submitAction: s.submitAction }).toEqual({
+        editsResetStatus,
+        submitAction: "none",
+      });
+    }
   });
 });

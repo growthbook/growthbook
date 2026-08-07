@@ -3,7 +3,6 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
-  ignoreWarningsBodyField,
   publishOverrideBodyFields,
   bypassApprovalPublishBodyField,
   publishBypassedGatesField,
@@ -390,7 +389,11 @@ export const postConstantRevisionRequestReviewValidator = {
   bodySchema: z
     .object({
       autoPublishOnApproval: z.boolean().optional(),
-      ignoreWarnings: ignoreWarningsBodyField,
+      // Arming captures the entity's guard acknowledgments and throws asking for
+      // these when the draft conflicts with live — a strict body without them
+      // rejects the very retry the 422 instructs the caller to send. Config
+      // already carried the full set.
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),

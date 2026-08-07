@@ -546,7 +546,18 @@ export default function ScheduledPublishControl({
         <Checkbox
           label="Automatically publish"
           weight="regular"
-          disabled={saving}
+          // Un-checking a PERSISTED no-date arm posts to the toggle endpoint, which
+          // requires DRAFT authority. A publish-only caller reaches this branch via
+          // `canArmOnDate` and would have got an interactive box that 403s. An
+          // unpersisted arm is local intent and clears without a request.
+          disabled={
+            saving ||
+            (armed &&
+              !isScheduled &&
+              persistedArmed &&
+              !canDisarmWhenApproved &&
+              !canArmWhenApproved)
+          }
           value={armed}
           setValue={(val) => onToggleArmed(!!val)}
         />

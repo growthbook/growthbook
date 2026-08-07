@@ -24,7 +24,6 @@ export const postSavedGroupRevisionRecallReview = createApiRequestHandler(
   const recalled = await recallRevisionReview({
     context: req.context,
     type: "saved-group",
-    entity: savedGroup as unknown as Record<string, unknown>,
     revision,
   });
 

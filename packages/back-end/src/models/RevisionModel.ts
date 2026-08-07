@@ -1017,7 +1017,14 @@ export class RevisionModel extends BaseClass {
     // and this write then demoted the merged revision to `pending-review`.
     const updated = await this.updateWithCas(
       id,
-      ["status", "reviews", "activityLog"],
+      // `target` because this verb's AUTHORITY is row-scoped: callers gate on
+      // `canAdvanceRevision(target.snapshot)`, so a rebase that re-scopes the
+      // revision changes the answer and must lose the race rather than ride it.
+      // Same rule as `addReview` and `undoReview`. `armAcknowledgments` because the
+      // callback reads it to decide whether to clear a stale fingerprint — a
+      // concurrent arm's fresh set would otherwise survive a re-arm that should
+      // have cleared it.
+      ["status", "reviews", "activityLog", "target", "armAcknowledgments"],
       (existing) => {
         // `changes-requested` is also re-submittable: after a reviewer requests
         // changes and the author edits the revision, this is the transition back
@@ -1098,6 +1105,13 @@ export class RevisionModel extends BaseClass {
     // Status-guarded, like every other transition here: the check below reads
     // `status`, so an unguarded write let a publish or discard land in between and
     // stamped auto-publish state onto a terminal revision.
+    //
+    // Deliberately NOT guarded on `target`, unlike submit/recall/review: arming
+    // commits a publish into the entity AS IT WILL STAND WHEN IT FIRES, so its
+    // authority is judged on the LIVE entity (`loadLiveEntityForRevision`), not the
+    // revision's snapshot. A rebase that re-scopes the revision therefore cannot
+    // change this verdict, and guarding on `target` would only add spurious
+    // conflicts. If arming ever moves to a snapshot basis, this guard grows.
     const updated = await this.updateWithCas(id, ["status"], (existing) => {
       if (
         !["draft", "pending-review", "changes-requested", "approved"].includes(
@@ -1327,7 +1341,9 @@ export class RevisionModel extends BaseClass {
     // released change stayed live with its record demoted to an open draft.
     const updated = await this.updateWithCas(
       id,
-      ["status", "reviews", "activityLog"],
+      // `target` for the same reason as `submitForReview`: the non-author path is
+      // gated on draft authority over `target.snapshot`.
+      ["status", "reviews", "activityLog", "target"],
       (existing) => {
         if (
           !["pending-review", "changes-requested", "approved"].includes(

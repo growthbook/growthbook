@@ -22,7 +22,6 @@ export const postConfigRevisionRecallReview = createApiRequestHandler(
   const recalled = await recallRevisionReview({
     context: req.context,
     type: "config",
-    entity: config as unknown as Record<string, unknown>,
     revision,
   });
 

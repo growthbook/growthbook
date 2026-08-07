@@ -1385,11 +1385,17 @@ export async function updateRevision(
   const contributorUpdate =
     contributorId != null ? { $addToSet: { contributors: contributorId } } : {};
 
+  // `status` rides the FILTER: the `status` being written was COMPUTED from the
+  // caller's copy (an edit can demote an approval), so a status that moved
+  // underneath us — a publish claiming the revision, a reviewer's verdict landing —
+  // means that computation is stale and must not be written. The generic engine
+  // CAS-guards plain content edits for the same reason (`writeContentEdit`).
   const doc = await FeatureRevisionModel.findOneAndUpdate(
     {
       organization: revision.organization,
       featureId: revision.featureId,
       version: revision.version,
+      status: revision.status,
     },
     {
       $set: {
@@ -1413,6 +1419,14 @@ export async function updateRevision(
     },
     { new: true },
   );
+  // Previously this could only be null for a missing revision and every caller
+  // ignored it; now it also means the status moved, which is a lost race the
+  // caller must hear about rather than read as a successful no-op.
+  if (!doc) {
+    throw new Error(
+      "This revision changed while the request was in flight — reload and try again.",
+    );
+  }
 
   // Fire and forget - no route that updates the revision expects the log to be there immediately
   context.models.featureRevisionLogs
@@ -1740,11 +1754,18 @@ export async function markRevisionAsReviewRequested(
     });
 
   try {
-    await FeatureRevisionModel.updateOne(
+    // `status` rides the FILTER, like `reopenRevision` below and the generic
+    // `submitForReview`. Both callers screen `status === "draft"` on a copy read
+    // several awaits earlier, and an unconditioned write let a publish claim the
+    // revision in that window and then rewrote the LIVE revision to
+    // `pending-review` with `datePublished` nulled — and, if this call armed a
+    // schedule, handed the poller an already-published revision to retry forever.
+    const { matchedCount } = await FeatureRevisionModel.updateOne(
       {
         organization: revision.organization,
         featureId: revision.featureId,
         version: revision.version,
+        status: "draft",
       },
       {
         $set: {
@@ -1768,6 +1789,11 @@ export async function markRevisionAsReviewRequested(
         ...(Object.keys(unset).length > 0 ? { $unset: unset } : {}),
       },
     );
+    if (!matchedCount) {
+      throw new Error(
+        "This revision is no longer a draft — it was published or discarded while the request was in flight.",
+      );
+    }
   } catch (e) {
     if (isPublishLockIndexConflict(e)) {
       throw new Error(PUBLISH_LOCK_CONFLICT_MESSAGE);
@@ -1808,11 +1834,18 @@ export async function setAutoPublishOnApproval(
   // falls back to `createdBy`).
   enabledBy: string | null,
 ) {
-  await FeatureRevisionModel.updateOne(
+  // Status rides the FILTER. This write had no status predicate at all, so it
+  // stamped auto-publish state onto a revision a concurrent publish had already
+  // released — corrupt state the REST response then reports back forever. The
+  // generic `setAutoPublishOnApproval` is CAS-guarded on status for this.
+  const { matchedCount } = await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
       featureId: revision.featureId,
       version: revision.version,
+      status: {
+        $in: ["draft", "pending-review", "changes-requested", "approved"],
+      },
     },
     enabled && enabledBy !== null
       ? {
@@ -1830,6 +1863,11 @@ export async function setAutoPublishOnApproval(
           $unset: { autoPublishEnabledBy: 1, ...SCHEDULED_PUBLISH_UNSET },
         },
   );
+  if (!matchedCount) {
+    throw new Error(
+      "Cannot change auto-publish on a published or discarded revision.",
+    );
+  }
 }
 
 // Poller-failure bookkeeping. Cleared on cancel and on every (re)arm so a fresh
@@ -2449,11 +2487,17 @@ export async function recallReview(
     );
   }
 
-  await FeatureRevisionModel.updateOne(
+  // `status` rides the FILTER, like `reopenRevision` below. The check above reads
+  // the caller's copy, which a concurrent publish may already have superseded, and
+  // an unconditioned write then demoted the LIVE revision to `draft` and wiped its
+  // verdicts — leaving released history showing as an open draft that discard and
+  // publish would both act on. Same fix the generic `recallReview` got.
+  const { matchedCount } = await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
       featureId: revision.featureId,
       version: revision.version,
+      status: { $in: [...allowed] },
     },
     {
       // Recalling restarts the review lifecycle: clear verdicts and disarm any
@@ -2471,6 +2515,11 @@ export async function recallReview(
       },
     },
   );
+  if (!matchedCount) {
+    throw new Error(
+      "This revision is no longer in review — it was published or discarded while the request was in flight.",
+    );
+  }
 
   context.models.featureRevisionLogs
     .create({

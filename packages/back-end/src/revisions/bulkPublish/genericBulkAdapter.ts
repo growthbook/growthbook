@@ -1,3 +1,4 @@
+import { bypassApprovalPermission } from "shared/permissions";
 import {
   Revision,
   RevisionTargetType,
@@ -230,6 +231,32 @@ export function makeGenericBulkAdapter(
                 targetType,
               )}.`,
             ],
+          }),
+        );
+      }
+
+      // Another draft's committed "lock other drafts" schedule blocks this
+      // publish. The single-publish path has refused this since it shipped, and
+      // the FEATURE bulk adapter raises it as a gate — but no generic gate
+      // collector emitted it, so a lock-others schedule on a Config sibling
+      // blocked POST /configs-revisions/.../publish and not the bulk endpoint.
+      // Bypassable by the approval-bypass permission, matching the feature bulk
+      // gate and the (now bypassable) generic single path.
+      if (
+        await callerContext.models.revisions.hasPublishLockingScheduledSibling(
+          raw.target,
+          raw.id,
+        )
+      ) {
+        gates.push(
+          makeBlockingGate({
+            type: "publish-locking-sibling",
+            messages: [
+              `Another draft of this ${displayEntityName(
+                targetType,
+              )} has a scheduled publish that locks other drafts. Cancel that schedule first.`,
+            ],
+            requiresPermission: bypassApprovalPermission(targetType),
           }),
         );
       }

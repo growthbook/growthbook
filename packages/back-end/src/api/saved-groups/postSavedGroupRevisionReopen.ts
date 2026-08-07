@@ -24,7 +24,6 @@ export const postSavedGroupRevisionReopen = createApiRequestHandler(
   const reopened = await reopenRevision({
     context: req.context,
     type: "saved-group",
-    entity: savedGroup as unknown as Record<string, unknown>,
     revision,
   });
 

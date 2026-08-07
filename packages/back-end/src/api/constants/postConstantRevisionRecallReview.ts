@@ -22,7 +22,6 @@ export const postConstantRevisionRecallReview = createApiRequestHandler(
   const recalled = await recallRevisionReview({
     context: req.context,
     type: "constant",
-    entity: constant as unknown as Record<string, unknown>,
     revision,
   });
 

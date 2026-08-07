@@ -37,12 +37,12 @@ const REVIEW_STATUSES = ["pending-review", "changes-requested", "approved"];
 export async function recallRevisionReview({
   context,
   type,
-  entity,
   revision,
 }: {
   context: ApiReqContext;
   type: RevisionTargetType;
-  entity: Record<string, unknown>;
+  // No `entity`: this verb is judged on the revision's own snapshot (see below),
+  // so the live entity is not part of the decision.
   revision: Revision;
 }): Promise<Revision> {
   if (!REVIEW_STATUSES.includes(revision.status)) {
@@ -51,9 +51,20 @@ export async function recallRevisionReview({
     );
   }
 
-  // Author can always recall their own request; otherwise draft authority.
+  // Author can always recall their own request; otherwise draft authority, judged
+  // on the REVISION's snapshot — the basis the internal controller and the
+  // comment/review helpers already use. A revision belongs to the project it was
+  // opened in, which a later move on the live entity does not change; asking about
+  // live made the two surfaces answer differently for the same revision.
   if (!isRevisionAuthor(revision.authorId, context.userId)) {
-    if (!canDoRevisionAction(type, "draft", context, entity)) {
+    if (
+      !canDoRevisionAction(
+        type,
+        "draft",
+        context,
+        revision.target.snapshot as Record<string, unknown>,
+      )
+    ) {
       context.permissions.throwPermissionError();
     }
   }
@@ -72,21 +83,29 @@ export async function recallRevisionReview({
 export async function reopenRevision({
   context,
   type,
-  entity,
   revision,
 }: {
   context: ApiReqContext;
   type: RevisionTargetType;
-  entity: Record<string, unknown>;
+  // No `entity`: this verb is judged on the revision's own snapshot (see below),
+  // so the live entity is not part of the decision.
   revision: Revision;
 }): Promise<Revision> {
   if (revision.status !== "discarded") {
     throw new BadRequestError("Only discarded revisions can be reopened");
   }
 
-  // Authors can always reopen their own drafts; otherwise draft authority.
+  // Authors can always reopen their own drafts; otherwise draft authority, on the
+  // revision's snapshot for the same reason as recall above.
   if (!isRevisionAuthor(revision.authorId, context.userId)) {
-    if (!canDoRevisionAction(type, "draft", context, entity)) {
+    if (
+      !canDoRevisionAction(
+        type,
+        "draft",
+        context,
+        revision.target.snapshot as Record<string, unknown>,
+      )
+    ) {
       context.permissions.throwPermissionError();
     }
   }
