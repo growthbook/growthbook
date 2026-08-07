@@ -12,6 +12,7 @@ import {
   isDashboardGlobalControlSupportedBlock,
   autoEnrollDashboardBlocksInDateControl,
   blockUsesDashboardDateControl,
+  isEnablingDashboardDateControl,
   getEffectiveExplorationConfig,
   resolveBlockComparison,
   resolveComparisonMode,
@@ -218,16 +219,18 @@ export default function DashboardWorkspace({
 
   const setGlobalControlsAndSubmit = useMemo(() => {
     return async (
-      globalControls: DashboardInterface["globalControls"],
+      nextGlobalControls: DashboardInterface["globalControls"],
       controlBlocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
     ) => {
+      // Only on first enable. Re-enrolling on every date change would flip
+      // blocks the user had opted out of back onto the dashboard filter.
       const nextControlBlocks =
         controlBlocks ??
-        (globalControls?.dateRange
+        (isEnablingDashboardDateControl(globalControls, nextGlobalControls)
           ? autoEnrollDashboardBlocksInDateControl(blocks)
           : undefined);
       setHasMadeChanges(true);
-      setGlobalControls(globalControls);
+      setGlobalControls(nextGlobalControls);
       if (nextControlBlocks) {
         setBlocks(nextControlBlocks);
       }
@@ -235,7 +238,7 @@ export default function DashboardWorkspace({
       if (dashboardFirstSave) {
         updateTemporaryDashboard?.({
           ...(nextControlBlocks ? { blocks: nextControlBlocks } : {}),
-          globalControls,
+          globalControls: nextGlobalControls,
         });
       } else {
         await submit({
@@ -243,7 +246,7 @@ export default function DashboardWorkspace({
           dashboardId: dashboard.id,
           data: {
             ...(nextControlBlocks ? { blocks: nextControlBlocks } : {}),
-            globalControls,
+            globalControls: nextGlobalControls,
           },
         });
       }
@@ -252,6 +255,7 @@ export default function DashboardWorkspace({
     dashboard.id,
     dashboardFirstSave,
     blocks,
+    globalControls,
     setBlocks,
     submit,
     updateTemporaryDashboard,

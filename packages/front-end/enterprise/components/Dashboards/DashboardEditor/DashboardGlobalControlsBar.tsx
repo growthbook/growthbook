@@ -9,6 +9,7 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardInterface,
   getDashboardGlobalControlApplicability,
+  isEnablingDashboardDateControl,
 } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
@@ -87,14 +88,18 @@ export default function DashboardGlobalControlsBar({
   ) => {
     setSaving(true);
     try {
+      // Only on first enable — re-enrolling on every date change would flip
+      // blocks the user had opted out of back onto the dashboard filter.
+      const enrolling = isEnablingDashboardDateControl(
+        globalControls,
+        nextGlobalControls,
+      );
       const blocksForRefresh =
         nextBlocks ??
-        (nextGlobalControls?.dateRange
-          ? autoEnrollDashboardBlocksInDateControl(blocks)
-          : blocks);
+        (enrolling ? autoEnrollDashboardBlocksInDateControl(blocks) : blocks);
       await onGlobalControlsChange(
         nextGlobalControls,
-        nextGlobalControls?.dateRange ? blocksForRefresh : nextBlocks,
+        enrolling ? blocksForRefresh : nextBlocks,
       );
       const nextApplicability = getDashboardGlobalControlApplicability({
         blocks: blocksForRefresh,
