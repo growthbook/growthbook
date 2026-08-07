@@ -92,22 +92,14 @@ function createHistogramData(values: number[]): HistogramDatapoint[] {
   });
 
   for (const value of values) {
-    // Clamp value to the range [minVal, maxVal] for bin assignment
-    const clampedValue = Math.max(minVal, Math.min(value, maxVal));
-
-    let binIndex;
-    if (clampedValue === maxVal) {
-      binIndex = numBins - 1; // Max value goes into the last bin
-    } else {
-      // Subtract a tiny epsilon to handle floating point inaccuracies for values equal to bin boundaries
-      binIndex = Math.floor((clampedValue - minVal - 1e-9) / binSize);
+    // Assign each value to the displayed bin whose (already shifted) [start, end)
+    // range actually contains it, so counts always match the rendered edges.
+    let binIndex = bins.findIndex((b) => value >= b.start && value < b.end);
+    if (binIndex === -1) {
+      // Outside the displayed range (e.g. the max value or float edge): clamp to an end bin.
+      binIndex = value < bins[0].start ? 0 : bins.length - 1;
     }
-
-    binIndex = Math.max(0, Math.min(binIndex, numBins - 1));
-
-    if (bins[binIndex]) {
-      bins[binIndex].units++;
-    }
+    bins[binIndex].units++;
   }
   return bins;
 }
@@ -460,12 +452,27 @@ const MetricEffectCard = ({
         const variationMetric = variation.metrics[metric];
         if (!variationMetric || variationMetric.errorMessage) return;
 
+        // Exclude no-data variations. A variation can run but produce no usable
+        // result (missing/NaN mean, zero users, or a degenerate CI). Backend
+        // no-data sentinels (e.g. lift -1 with CI [0, 0]) also land here.
+        // Letting them through and coercing a missing mean to 0 produces false
+        // spikes at 0 / -1 and inflates the "has data" bookkeeping.
+        const mean = variationMetric.uplift?.mean;
+        if (mean == null || !isFinite(mean)) return; // no usable point estimate
+        if (variationMetric.users === 0) return; // no units observed
+        if (
+          variationMetric.ci &&
+          variationMetric.ci[0] === 0 &&
+          variationMetric.ci[1] === 0
+        )
+          return; // degenerate CI ([0, 0] no-data signature)
+
         experimentsWithData.set(experiment.id, {
           ...experiment,
           snapshot,
         });
 
-        histogramValues.push(variationMetric.uplift?.mean || 0);
+        histogramValues.push(mean);
       });
     });
 
