@@ -3385,6 +3385,15 @@ Triggered when a new draft revision is created for a saved group
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -3500,6 +3509,15 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -3616,6 +3634,15 @@ Triggered when a draft revision is submitted for review
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -3731,6 +3758,15 @@ Triggered when a draft revision is approved by a reviewer
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -3852,6 +3888,15 @@ Triggered when a reviewer requests changes on a draft revision
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -3973,6 +4018,15 @@ Triggered when a comment is added to a draft revision
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -4094,6 +4148,15 @@ Triggered when a draft revision is discarded
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -4209,6 +4272,15 @@ Triggered when a draft revision is rebased onto the latest live state
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -4324,6 +4396,15 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -4440,6 +4521,15 @@ Triggered when a saved group is reverted to a previous published revision
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -4557,6 +4647,15 @@ Triggered when a discarded revision is reopened
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -4672,6 +4771,15 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -4996,6 +5104,15 @@ Triggered when a new draft revision is created for a constant
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -5111,6 +5228,15 @@ Triggered when a draft revision's proposed changes are modified (value, archive,
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -5227,6 +5353,15 @@ Triggered when a draft revision is submitted for review
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -5342,6 +5477,15 @@ Triggered when a draft revision is approved by a reviewer
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -5463,6 +5607,15 @@ Triggered when a reviewer requests changes on a draft revision
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -5584,6 +5737,15 @@ Triggered when a comment is added to a draft revision
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -5705,6 +5867,15 @@ Triggered when a draft revision is discarded
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -5820,6 +5991,15 @@ Triggered when a draft revision is rebased onto the latest live state
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -5935,6 +6115,15 @@ Triggered when a draft revision is published. Overlaps with `constant.updated` b
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -6051,6 +6240,15 @@ Triggered when a constant is reverted to a previous published revision
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -6168,6 +6366,15 @@ Triggered when a discarded revision is reopened
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -6283,6 +6490,15 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -6803,6 +7019,15 @@ Triggered when a new draft revision is created for a config
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -7016,6 +7241,15 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -7230,6 +7464,15 @@ Triggered when a draft revision is submitted for review
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -7443,6 +7686,15 @@ Triggered when a draft revision is approved by a reviewer
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -7662,6 +7914,15 @@ Triggered when a reviewer requests changes on a draft revision
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -7881,6 +8142,15 @@ Triggered when a comment is added to a draft revision
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -8100,6 +8370,15 @@ Triggered when a draft revision is discarded
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -8313,6 +8592,15 @@ Triggered when a draft revision is rebased onto the latest live state
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -8526,6 +8814,15 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -8740,6 +9037,15 @@ Triggered when a config is reverted to a previous published revision
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -8955,6 +9261,15 @@ Triggered when a discarded revision is reopened
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
@@ -9168,6 +9483,15 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 action: string;
                 dateCreated: string;
             }[];
+            autoPublishOnApproval?: boolean | undefined;
+            autoPublishEnabledBy?: string | undefined;
+            scheduledPublishAt?: string | undefined;
+            scheduledPublishLockEdits?: boolean | undefined;
+            scheduledPublishLockOthers?: boolean | undefined;
+            scheduledPublishBypassApproval?: boolean | undefined;
+            scheduledPublishAttempts?: number | undefined;
+            scheduledPublishLastError?: string | undefined;
+            scheduledPublishGaveUpAt?: string | undefined;
             resolution?: {
                 action: "merged" | "discarded";
                 userId: string;
