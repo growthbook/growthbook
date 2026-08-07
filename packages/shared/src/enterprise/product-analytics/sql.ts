@@ -1515,8 +1515,12 @@ export function buildFunnelSql(
   userAggregateCols.push(`MIN(step1_ts) AS step1_resolved_ts`);
   for (let i = 1; i < steps.length; i++) {
     const stepN = i + 1;
+    // Order every array by the shared raw event timestamp instead of the
+    // step's own column: each stepN_ts is a CASE-gated copy of `ts`, so the
+    // resulting order is identical, and using one shared expression keeps
+    // Redshift happy (all WITHIN GROUP ORDER BYs in a SELECT must match).
     userAggregateCols.push(
-      `${dialect.arrayAggSorted(`step${stepN}_ts`)} AS step${stepN}_arr`,
+      `${dialect.arrayAggSorted(`step${stepN}_ts`, "ts")} AS step${stepN}_arr`,
     );
   }
   const userAggregatesCte: CTE = {
