@@ -24,6 +24,10 @@ import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import CustomFieldInput from "./CustomFieldInput";
+import {
+  isCustomFieldBooleanTrue,
+  toCustomFieldBooleanString,
+} from "./constants";
 
 /** Optional draft-mode context for feature metadata approval flows. */
 export interface CustomFieldDraftInfo {
@@ -83,19 +87,33 @@ const CustomFieldDisplay: FC<{
     section,
     target.project,
   );
-  const customFieldsMap = new Map();
+  const customFieldsMap = new Map<string, CustomField>();
   const defaultFields: Record<string, string> = {};
   if (customFields && customFields.length) {
-    customFields.map((v) => {
+    customFields.forEach((v) => {
       defaultFields[v.id] =
         v.type === "boolean"
-          ? JSON.stringify(!!v.defaultValue)
+          ? toCustomFieldBooleanString(isCustomFieldBooleanTrue(v.defaultValue))
           : v.type === "multiselect"
             ? JSON.stringify([v?.defaultValue ? v.defaultValue : ""])
             : "" + (v?.defaultValue ? v.defaultValue : "");
       customFieldsMap.set(v.id, v);
     });
   }
+
+  const normalizeCustomFieldValues = (
+    values: Record<string, unknown> | undefined,
+  ): Record<string, string> => {
+    const normalized: Record<string, string> = { ...defaultFields };
+    for (const [key, value] of Object.entries(values || {})) {
+      if (typeof value === "boolean") {
+        normalized[key] = toCustomFieldBooleanString(value);
+      } else if (value !== undefined && value !== null) {
+        normalized[key] = String(value);
+      }
+    }
+    return normalized;
+  };
 
   const currentCustomFields = target?.customFields || {};
   const { hasCommercialFeature } = useUser();
@@ -104,9 +122,16 @@ const CustomFieldDisplay: FC<{
     Partial<ExperimentInterfaceStringDates | FeatureInterface>
   >({
     defaultValues: {
-      customFields: target?.customFields || defaultFields,
+      customFields: normalizeCustomFieldValues(target?.customFields),
     },
   });
+
+  const openEditModal = () => {
+    form.reset({
+      customFields: normalizeCustomFieldValues(target?.customFields),
+    });
+    setEditModal(true);
+  };
   const { apiCall } = useAuth();
   const submitForm = async (value) => {
     if (section === "experiment") {
@@ -156,25 +181,29 @@ const CustomFieldDisplay: FC<{
       return value;
     }
   };
-  const getDisplayValue = (v: CustomField, cValue: string) => {
+  const getDisplayValue = (v: CustomField, cValue: unknown) => {
+    const stringValue =
+      typeof cValue === "boolean"
+        ? toCustomFieldBooleanString(cValue)
+        : String(cValue ?? "");
     return v.type === "multiselect" ? (
-      getMultiSelectValue(cValue)
+      getMultiSelectValue(stringValue)
     ) : v.type === "markdown" ? (
-      <Markdown className="card-text">{cValue ?? ""}</Markdown>
+      <Markdown className="card-text">{stringValue}</Markdown>
     ) : v.type === "textarea" ? (
-      <div style={{ whiteSpace: "pre" }}>{cValue ?? ""}</div>
-    ) : v.type === "url" && cValue !== "" ? (
-      <a href={cValue} target="_blank" rel="noreferrer">
-        {cValue ?? ""}
+      <div style={{ whiteSpace: "pre" }}>{stringValue}</div>
+    ) : v.type === "url" && stringValue !== "" ? (
+      <a href={stringValue} target="_blank" rel="noreferrer">
+        {stringValue}
       </a>
     ) : v.type === "boolean" ? (
-      <>{cValue ? "yes" : "no"}</>
-    ) : v.type === "date" && cValue ? (
-      new Date(cValue).toLocaleDateString()
-    ) : v.type === "datetime" && cValue ? (
-      new Date(cValue).toLocaleString()
-    ) : cValue ? (
-      cValue
+      <>{isCustomFieldBooleanTrue(cValue) ? "yes" : "no"}</>
+    ) : v.type === "date" && stringValue ? (
+      new Date(stringValue).toLocaleDateString()
+    ) : v.type === "datetime" && stringValue ? (
+      new Date(stringValue).toLocaleString()
+    ) : stringValue ? (
+      stringValue
     ) : (
       <Text color="text-mid">--</Text>
     );
@@ -255,7 +284,7 @@ const CustomFieldDisplay: FC<{
               </Flex>
               <div className="flex-1" />
               {canEdit && hasCustomFieldAccess && (
-                <Link onClick={() => setEditModal(true)}>
+                <Link onClick={openEditModal}>
                   <Text weight="semibold">Edit</Text>
                 </Link>
               )}
@@ -271,7 +300,7 @@ const CustomFieldDisplay: FC<{
                 </Heading>
                 <div className="flex-1" />
                 {canEdit && hasCustomFieldAccess && (
-                  <Link onClick={() => setEditModal(true)}>
+                  <Link onClick={openEditModal}>
                     <Text weight="semibold">Edit</Text>
                   </Link>
                 )}
