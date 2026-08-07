@@ -39,8 +39,7 @@ export default function ExperimentSettings({
     () => queryParams.get("editCheckListModal") || false,
   );
 
-  // HTML min/max only constrain the stepper arrows, not typed values. These
-  // rules block save on out-of-range values; render the message via `error`.
+  // These rules block save on out-of-range values; render the message via `error`.
   // A cleared field is NaN, which passes min/max and falls back to the
   // default on save.
   const registerBoundedNumber = (name: string, min: number, max: number) =>
