@@ -1030,74 +1030,89 @@ export class RevisionModel extends BaseClass {
     // A date implies the armed flag, the same unification the feature twin makes.
     const dated = (scheduledPublishAt ?? null) !== null;
     const armed = !!autoPublishOnApproval || dated;
+
+    // Both of the dedicated arm path's lock-others protections, which this write
+    // had neither of: the friendly pre-check, and the index-conflict translation
+    // below. Arming lock-others here while a sibling holds it otherwise surfaced a
+    // raw E11000. The feature twin this flow was ported from
+    // (`markRevisionAsReviewRequested`) catches the index conflict for exactly this
+    // write — the port took the flow and left the conflict handling behind.
+    if (dated && lockOthers) {
+      const existing = await this.getById(id);
+      if (existing) {
+        await this.assertNoConflictingPublishLock(existing.target, id);
+      }
+    }
     // CAS-guarded on the fields the transition reads, like `recallReview` and
     // `undoReview`: an unguarded read-modify-write let a publish merge in between
     // and this write then demoted the merged revision to `pending-review`.
-    const updated = await this.updateWithCas(
-      id,
-      // `target` because this verb's AUTHORITY is row-scoped: callers gate on
-      // `canAdvanceRevision(target.snapshot)`, so a rebase that re-scopes the
-      // revision changes the answer and must lose the race rather than ride it.
-      // Same rule as `addReview` and `undoReview`. `armAcknowledgments` because the
-      // callback reads it to decide whether to clear a stale fingerprint — a
-      // concurrent arm's fresh set would otherwise survive a re-arm that should
-      // have cleared it.
-      ["status", "reviews", "activityLog", "target", "armAcknowledgments"],
-      (existing) => {
-        // `changes-requested` is also re-submittable: after a reviewer requests
-        // changes and the author edits the revision, this is the transition back
-        // into `pending-review`. (Saved-group edits don't auto-reset the status the
-        // way feature edits do, so this is the only path out of changes-requested.)
-        if (
-          existing.status !== "draft" &&
-          existing.status !== "changes-requested"
-        ) {
-          throw new Error(
-            "Only draft or changes-requested revisions can be submitted for review",
-          );
-        }
-        return {
-          status: "pending-review",
-          // Submitting (or re-submitting from changes-requested) starts a fresh
-          // review cycle — demote any prior verdicts.
-          reviews: this.staleVerdicts(existing.reviews),
-          autoPublishOnApproval: armed,
-          ...(dated
-            ? {
-                scheduledPublishAt,
-                scheduledPublishLockEdits: !!lockEdits,
-                scheduledPublishLockOthers: !!lockOthers,
-              }
-            : {}),
-          // The auto-publish runs with the arming user's authority. A stale
-          // value from a previous cycle is harmless — `autoPublishOnApproval`
-          // gates everything. `userId` is empty for API-key actors; skip so the
-          // publish falls back to `authorId`.
-          ...(armed && userId ? { autoPublishEnabledBy: userId } : {}),
-          // Arm-time guard fingerprints: set the new acknowledgments, or clear a
-          // stale set from a prior arm (to {}) so a re-arm with no current conflicts
-          // can't be covered by an outdated fingerprint.
-          ...(armed &&
-          (hasArmAcknowledgments(armAcknowledgments) ||
-            hasArmAcknowledgments(existing.armAcknowledgments))
-            ? { armAcknowledgments: armAcknowledgments ?? {} }
-            : {}),
-          activityLog: [
-            ...this.cleanActivityLog(existing.activityLog),
-            {
-              id: uniqid("act_"),
-              userId,
-              // Dedicated action so the timeline renders a "Review Requested" event
-              // (mirrors FeatureRevisionModel.markRevisionAsReviewRequested) rather
-              // than a confusing "reopened"/"created" row. Recognized as a review
-              // cycle-start marker by addReview/undoReview.
-              action: "review-requested",
-              description: "Submitted for review",
-              dateCreated: new Date(),
-            },
-          ],
-        } as UpdateProps<Revision>;
-      },
+    const updated = await this.runTranslatingPublishLockConflict(() =>
+      this.updateWithCas(
+        id,
+        // `target` because this verb's AUTHORITY is row-scoped: callers gate on
+        // `canAdvanceRevision(target.snapshot)`, so a rebase that re-scopes the
+        // revision changes the answer and must lose the race rather than ride it.
+        // Same rule as `addReview` and `undoReview`. `armAcknowledgments` because the
+        // callback reads it to decide whether to clear a stale fingerprint — a
+        // concurrent arm's fresh set would otherwise survive a re-arm that should
+        // have cleared it.
+        ["status", "reviews", "activityLog", "target", "armAcknowledgments"],
+        (existing) => {
+          // `changes-requested` is also re-submittable: after a reviewer requests
+          // changes and the author edits the revision, this is the transition back
+          // into `pending-review`. (Saved-group edits don't auto-reset the status the
+          // way feature edits do, so this is the only path out of changes-requested.)
+          if (
+            existing.status !== "draft" &&
+            existing.status !== "changes-requested"
+          ) {
+            throw new Error(
+              "Only draft or changes-requested revisions can be submitted for review",
+            );
+          }
+          return {
+            status: "pending-review",
+            // Submitting (or re-submitting from changes-requested) starts a fresh
+            // review cycle — demote any prior verdicts.
+            reviews: this.staleVerdicts(existing.reviews),
+            autoPublishOnApproval: armed,
+            ...(dated
+              ? {
+                  scheduledPublishAt,
+                  scheduledPublishLockEdits: !!lockEdits,
+                  scheduledPublishLockOthers: !!lockOthers,
+                }
+              : {}),
+            // The auto-publish runs with the arming user's authority. A stale
+            // value from a previous cycle is harmless — `autoPublishOnApproval`
+            // gates everything. `userId` is empty for API-key actors; skip so the
+            // publish falls back to `authorId`.
+            ...(armed && userId ? { autoPublishEnabledBy: userId } : {}),
+            // Arm-time guard fingerprints: set the new acknowledgments, or clear a
+            // stale set from a prior arm (to {}) so a re-arm with no current conflicts
+            // can't be covered by an outdated fingerprint.
+            ...(armed &&
+            (hasArmAcknowledgments(armAcknowledgments) ||
+              hasArmAcknowledgments(existing.armAcknowledgments))
+              ? { armAcknowledgments: armAcknowledgments ?? {} }
+              : {}),
+            activityLog: [
+              ...this.cleanActivityLog(existing.activityLog),
+              {
+                id: uniqid("act_"),
+                userId,
+                // Dedicated action so the timeline renders a "Review Requested" event
+                // (mirrors FeatureRevisionModel.markRevisionAsReviewRequested) rather
+                // than a confusing "reopened"/"created" row. Recognized as a review
+                // cycle-start marker by addReview/undoReview.
+                action: "review-requested",
+                description: "Submitted for review",
+                dateCreated: new Date(),
+              },
+            ],
+          } as UpdateProps<Revision>;
+        },
+      ),
     );
     if (!updated) throw new Error("Revision not found");
 
@@ -2175,6 +2190,28 @@ export class RevisionModel extends BaseClass {
   // mutually block each other at fire time. Fast pre-check; the partial unique
   // index is the atomic guard against the race. Raw query (org-scoped) so a
   // sibling the caller can't read still counts.
+  /**
+   * Turn the `uniqueArmedPublishLockOthers` index conflict into the same friendly
+   * message the dedicated arm path produces.
+   *
+   * The pre-check above is the common case; this is the race that beats it. Both
+   * exist on `setScheduledPublish`, and both were missing from the arm inside
+   * `submitForReview`, so a lost race there surfaced a raw E11000 duplicate-key
+   * error to the caller.
+   */
+  private async runTranslatingPublishLockConflict<T>(
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await fn();
+    } catch (e) {
+      if (isPublishLockIndexConflict(e)) {
+        throw new Error(PUBLISH_LOCK_CONFLICT_MESSAGE);
+      }
+      throw e;
+    }
+  }
+
   private async assertNoConflictingPublishLock(
     target: Revision["target"],
     excludeId: string,

@@ -8,6 +8,7 @@ import {
   markRevisionAsReviewRequested,
   recallReview,
   setAutoPublishOnApproval,
+  setRevisionScheduledPublish,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { setupApp } from "../api/api.setup";
@@ -74,6 +75,18 @@ describe("feature revision status guards", () => {
     }) as unknown as FeatureRevisionInterface;
 
   const seed = async (status: string) => {
+    // The parent feature has to exist: the revision log is written through a model
+    // whose canCreate resolves a foreign ref to it, and the write is fire-and-forget
+    // — so without this the log assertions below would pass by silently logging
+    // nothing, which is precisely the bug they exist to catch.
+    await mongoose.connection
+      .collection("features")
+      .deleteMany({ organization: ORG_ID });
+    await mongoose.connection.collection("features").insertOne({
+      ...feature,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    });
     await mongoose.connection
       .collection("featurerevisions")
       .deleteMany({ organization: ORG_ID });
@@ -170,6 +183,112 @@ describe("feature revision status guards", () => {
     // values are the record of what went live.
     const doc = await stored();
     expect(doc?.defaultValue).toBe("false");
+  });
+
+  /**
+   * Cancelling a schedule. Both halves of its guard shipped untested before this:
+   * the terminal-status filter, and the "something is armed" clause that makes
+   * `modifiedCount` mean what the log below it reads it to mean.
+   */
+  describe("cancelling a scheduled publish", () => {
+    const armed = async () => {
+      await seed("approved");
+      await mongoose.connection.collection("featurerevisions").updateOne(
+        { organization: ORG_ID, featureId: FEATURE_ID, version: 2 },
+        {
+          $set: {
+            autoPublishOnApproval: true,
+            scheduledPublishAt: new Date(Date.now() + 86_400_000),
+          },
+        },
+      );
+    };
+
+    // The log write is fire-and-forget, so a count taken immediately reads 0 whether
+    // the write was suppressed or merely hasn't settled — which would make both
+    // "logs NOTHING" cases below pass for the wrong reason. Settle first, always.
+    const logCount = async () => {
+      await new Promise((r) => setTimeout(r, 50));
+      return mongoose.connection
+        .collection("featurerevisionlog")
+        .countDocuments({
+          organization: ORG_ID,
+          featureId: FEATURE_ID,
+          action: "cancel scheduled publish",
+        });
+    };
+
+    beforeEach(async () => {
+      await mongoose.connection
+        .collection("featurerevisionlog")
+        .deleteMany({ organization: ORG_ID });
+    });
+
+    it("disarms an armed revision and records it once", async () => {
+      await armed();
+      await setRevisionScheduledPublish(context, asRead("approved"), {
+        scheduledPublishAt: null,
+      });
+
+      const doc = await stored();
+      expect({
+        armed: doc?.autoPublishOnApproval,
+        at: doc?.scheduledPublishAt ?? null,
+      }).toEqual({ armed: false, at: null });
+      expect(await logCount()).toBe(1);
+    });
+
+    it("writes and logs NOTHING when the revision was never armed", async () => {
+      // `dateUpdated` is unconditionally in the `$set`, so without the
+      // "something is armed" clause on the FILTER this always modified — logging a
+      // cancellation nobody performed and bumping the timestamp for a no-op.
+      await seed("approved");
+      const before = await stored();
+      await setRevisionScheduledPublish(context, asRead("approved"), {
+        scheduledPublishAt: null,
+      });
+
+      const after = await stored();
+      expect({
+        logs: await logCount(),
+        touched:
+          after?.dateUpdated?.getTime?.() !== before?.dateUpdated?.getTime?.(),
+      }).toEqual({ logs: 0, touched: false });
+    });
+
+    it("refuses a revision published mid-request", async () => {
+      await armed();
+      const stale = asRead("approved");
+      await publishConcurrently();
+
+      await setRevisionScheduledPublish(context, stale, {
+        scheduledPublishAt: null,
+      });
+
+      // Terminal history keeps its schedule fields and gains no log entry.
+      const doc = await stored();
+      expect({
+        status: doc?.status,
+        armed: doc?.autoPublishOnApproval,
+        logs: await logCount(),
+      }).toEqual({ status: "published", armed: true, logs: 0 });
+    });
+  });
+
+  it("updateRevision applies to a NON-draft whose status has not moved", async () => {
+    // The guards suite otherwise only ever edits drafts, so hardcoding the filter
+    // to `status: "draft"` — a plausible mis-fix of the same bug — would survive
+    // every other case here.
+    await seed("changes-requested");
+    await updateRevision(
+      context,
+      feature,
+      asRead("changes-requested"),
+      { defaultValue: "edited" },
+      { user, action: "edit", subject: "", value: "{}" },
+      false,
+    );
+    expect((await stored())?.defaultValue).toBe("edited");
   });
 
   /**

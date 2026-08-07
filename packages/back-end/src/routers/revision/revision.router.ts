@@ -134,6 +134,27 @@ router.get(
 );
 
 // Submit a draft for review (changes status from "draft" to "pending-review")
+/**
+ * The submit body, exported so it can be asserted directly.
+ *
+ * STRICT: an undeclared key 400s the whole request in middleware, before the
+ * controller runs. When `postSubmit` learned to arm a dated schedule, this schema
+ * was not updated — so the front-end sending the new fields turned a submit that
+ * used to succeed (silently dropping the schedule) into one that failed outright.
+ * A model-level test could not see it, because the break was two layers above.
+ */
+export const submitBodySchema = z
+  .object({
+    autoPublishOnApproval: z.boolean().optional(),
+    // A dated schedule armed as part of the same request. A review-required draft
+    // cannot arm one through the schedule endpoint — it refuses until review is
+    // requested — so the control stages it and sends it here.
+    scheduledPublishAt: z.string().nullable().optional(),
+    scheduledPublishLockEdits: z.boolean().optional(),
+    scheduledPublishLockOthers: z.boolean().optional(),
+  })
+  .strict();
+
 router.post(
   "/:id/submit",
   validateRequestMiddleware({
@@ -142,11 +163,7 @@ router.post(
         id: z.string(),
       })
       .strict(),
-    body: z
-      .object({
-        autoPublishOnApproval: z.boolean().optional(),
-      })
-      .strict(),
+    body: submitBodySchema,
   }),
   revisionController.postSubmit,
 );

@@ -158,6 +158,8 @@ describe("submitForReview arming a dated publish", () => {
     });
   });
 
+  // Honest only because the case above asserts the LOCKS: this one's `?? null`
+  // half is absent-by-default and survives an always-write mutant on its own.
   it("arms the no-date variant without inventing a schedule", async () => {
     const context = adminContext();
     await context.models.revisions.submitForReview(REV_ID, "u_admin", {

@@ -4,7 +4,12 @@ import {
   featurePublishFootprint,
   revertFootprint,
   serveFootprint,
+  NO_ENVIRONMENT_BINDING,
 } from "shared/permissions";
+import {
+  configPublishEnvironments,
+  constantPublishEnvironments,
+} from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import type { Environment } from "shared/types/organization";
 import {
@@ -336,5 +341,46 @@ describe("control footprint === endpoint footprint", () => {
         holdoutsMap: new Map(),
       }),
     ).not.toContain("edge");
+  });
+});
+
+/**
+ * The CANCEL footprint, which is not the publish footprint.
+ *
+ * Cancelling a pending schedule is judged by the endpoint on the adapter's
+ * `canPublishRevision(snapshot)` — the entity's OWN scoped environments, with no
+ * destination term and no archive-flip widening. The control originally passed its
+ * publish footprint, which carries both, so an env-limited publisher lost the Cancel
+ * button for a schedule the endpoint would have let them withdraw.
+ *
+ * The first fix dropped only the destination term. These pin the axis that was left:
+ * a basis mismatch has more than one, and closing one reads as closing the finding.
+ */
+describe("the cancel footprint is the entity's own scope, unwidened", () => {
+  const scopedConfig = { scopedConfig: { environments: ["dev"] } };
+  const baseConfig = {};
+
+  it("a scoped Config answers with exactly its own environments", () => {
+    expect(configPublishEnvironments(scopedConfig)).toEqual(["dev"]);
+  });
+
+  it("a base Config answers unbound rather than widening to everywhere", () => {
+    // NOT the serve footprint. `archiveFootprintForControl` widens a base Config to
+    // every environment it serves, which is right for archiving and wrong here —
+    // that widening is what kept hiding Cancel from an env-limited publisher.
+    expect(configPublishEnvironments(baseConfig)).toEqual(
+      NO_ENVIRONMENT_BINDING,
+    );
+    expect(
+      archiveFootprintForControl({
+        environments,
+        entity: { project: "prj_flag" },
+        scoped: configPublishEnvironments(baseConfig),
+      }),
+    ).not.toEqual(configPublishEnvironments(baseConfig));
+  });
+
+  it("a Constant answers unbound when no environment override changes", () => {
+    expect(constantPublishEnvironments()).toEqual(NO_ENVIRONMENT_BINDING);
   });
 });
