@@ -29,7 +29,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import SortedTags from "@/components/Tags/SortedTags";
 import { ArchetypeValueDisplay } from "@/components/Features/ValueDisplay";
-import Pagination from "@/components/Pagination";
+import Pagination from "@/ui/Pagination";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import SimulateFeatureModal from "@/components/Archetype/SimulateFeatureModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -39,6 +39,14 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+  TableRowHeaderCell,
+} from "@/ui/Table";
 
 export const SimulateFeatureValues: FC<{
   archetypes: ArchetypeInterface[];
@@ -80,7 +88,7 @@ export const SimulateFeatureValues: FC<{
   const { hasCommercialFeature, getOwnerDisplay } = useUser();
   const hasSimulateFeature = hasCommercialFeature("simulate");
 
-  const { searchInputProps, items, SortableTH } = useSearch({
+  const { searchInputProps, items, SortableTableColumnHeader } = useSearch({
     items: allFeatures.filter((f) => !f.archived),
     searchFields: ["id^3", "description"],
     localStorageKey: "simulate-features",
@@ -205,7 +213,11 @@ export const SimulateFeatureValues: FC<{
   }
 
   const showEnvDropdown = true;
-  const numColumns = showEnvDropdown ? 3 : environments.length + 2;
+  const numColumns =
+    2 +
+    (selectedEnvironment !== "all"
+      ? 1
+      : Math.min(environments.length, maxEnvironments));
   const environmentOptions = [
     ...environments.map((e) => {
       return { label: e.id, value: e.id };
@@ -259,61 +271,66 @@ export const SimulateFeatureValues: FC<{
             </div>
           </div>
 
-          <table className="table gbtable table-hover appbox">
-            <thead
-              className="sticky-top bg-white shadow-sm"
-              style={{ top: "56px", zIndex: 900 }}
-            >
-              <tr>
-                <th>Feature Name</th>
-                <SortableTH field="tags">Tags</SortableTH>
+          <Table variant="list">
+            <TableHeader>
+              <TableRow>
+                <TableColumnHeader>Feature Name</TableColumnHeader>
+                <SortableTableColumnHeader field="tags">
+                  Tags
+                </SortableTableColumnHeader>
                 {selectedEnvironment !== "all" ? (
-                  <th>{selectedEnvironment}</th>
+                  <TableColumnHeader>{selectedEnvironment}</TableColumnHeader>
                 ) : (
                   <>
                     {environments.slice(0, maxEnvironments).map((en) => (
-                      <th key={en.id + "head"} className="">
+                      <TableColumnHeader key={en.id + "head"}>
                         {en.id}
-                      </th>
+                      </TableColumnHeader>
                     ))}
                   </>
                 )}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {featureItems.map((feature) => {
                 return (
                   <Fragment key={feature.id + "results"}>
-                    <tr className={feature.archived ? "text-muted" : ""}>
-                      <td>
+                    <TableRow
+                      style={{
+                        color: feature.archived
+                          ? "var(--color-text-low)"
+                          : undefined,
+                      }}
+                    >
+                      <TableRowHeaderCell>
                         <Link
                           href={`/features/${feature.id}`}
                           className={feature.archived ? "text-muted" : ""}
                         >
                           {feature.id}
                         </Link>
-                      </td>
-                      <td>
+                      </TableRowHeaderCell>
+                      <TableCell>
                         <SortedTags tags={feature?.tags || []} useFlex />
-                      </td>
+                      </TableCell>
                       {selectedEnvironment !== "all" ? (
                         (() => {
                           const res = featureResultsMap.get(
                             feature.id + selectedEnvironment,
                           );
                           if (!res) {
-                            return <td>-</td>;
+                            return <TableCell>-</TableCell>;
                           }
                           return (
-                            <td>
+                            <TableCell>
                               <div>
                                 {ArchetypeValueDisplay({
                                   result: res,
                                   feature,
                                 })}
                               </div>
-                            </td>
-                          ); // Replace this with what you want to render
+                            </TableCell>
+                          );
                         })()
                       ) : (
                         <>
@@ -323,11 +340,15 @@ export const SimulateFeatureValues: FC<{
                             );
                             if (!res) {
                               return (
-                                <td key={"unknown-" + en.id + feature.id}>-</td>
+                                <TableCell
+                                  key={"unknown-" + en.id + feature.id}
+                                >
+                                  -
+                                </TableCell>
                               );
                             }
                             return (
-                              <td
+                              <TableCell
                                 key={feature.id + en.id + "row"}
                                 className="position-relative  cursor-pointer"
                               >
@@ -337,22 +358,24 @@ export const SimulateFeatureValues: FC<{
                                     feature,
                                   })}
                                 </div>
-                              </td>
+                              </TableCell>
                             );
                           })}
                         </>
                       )}
-                    </tr>
+                    </TableRow>
                   </Fragment>
                 );
               })}
               {!envFilteredItems.length && (
-                <tr>
-                  <td colSpan={numColumns}>No matching features</td>
-                </tr>
+                <TableRow>
+                  <TableCell colSpan={numColumns}>
+                    No matching features
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           {Math.ceil(envFilteredItems.length / NUM_PER_PAGE) > 1 && (
             <Pagination
               numItemsTotal={envFilteredItems.length}
