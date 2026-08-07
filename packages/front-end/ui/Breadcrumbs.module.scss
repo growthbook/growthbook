@@ -1,3 +1,8 @@
+.nav {
+  min-width: 0;
+  overflow: hidden;
+}
+
 // Non-last breadcrumb items are hidden on small screens
 .ancestor {
   display: none;
@@ -10,6 +15,23 @@
   }
 }
 
+// The current page is the only crumb holding a user-supplied resource name, so
+// it is the one that absorbs the shrinking. Ancestors are short fixed labels.
+.current {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  // Radix Link renders an inline anchor, which ignores the ellipsis on this
+  // block box unless it participates as an inline run.
+  a,
+  span {
+    white-space: nowrap;
+  }
+}
+
 // Separator icons are hidden on small screens (even for the last item's
 // separator, since its preceding ancestors are hidden and a floating ">"
 // would appear before the current page name)
@@ -19,5 +41,6 @@
   @media (min-width: 992px) {
     display: inline-flex;
     align-items: center;
+    flex: 0 0 auto;
   }
 }

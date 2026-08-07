@@ -12,8 +12,8 @@ export interface BreadcrumbItem {
 
 export default function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
   return (
-    <nav aria-label="Breadcrumb">
-      <Flex align="center" gap="1">
+    <nav aria-label="Breadcrumb" className={styles.nav}>
+      <Flex align="center" gap="1" wrap="nowrap" minWidth="0">
         {items.map((item, i) => {
           const isLast = i === items.length - 1;
 
@@ -29,7 +29,7 @@ export default function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
               )}
               <span
                 title={item.display}
-                className={!isLast ? styles.ancestor : undefined}
+                className={isLast ? styles.current : styles.ancestor}
               >
                 {item.href ? (
                   <Link
@@ -42,7 +42,12 @@ export default function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
                   </Link>
                 ) : (
                   <span aria-current={isLast ? "page" : undefined}>
-                    <Text size="md" weight="semibold" color="text-high">
+                    <Text
+                      size="md"
+                      weight="semibold"
+                      color="text-high"
+                      whiteSpace="nowrap"
+                    >
                       {item.display}
                     </Text>
                   </span>
