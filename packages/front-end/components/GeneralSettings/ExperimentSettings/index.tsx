@@ -1,6 +1,11 @@
 import React, { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import {
+  DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
+  DEFAULT_NO_DATA_ALERT_GRACE_PERIOD_HOURS,
+  DEFAULT_SRM_THRESHOLD,
+} from "shared/constants";
 import Checkbox from "@/ui/Checkbox";
 import { hasFileConfig } from "@/services/env";
 import { useUser } from "@/services/UserContext";
@@ -37,9 +42,9 @@ export default function ExperimentSettings({
   const srmThreshold = form.watch("srmThreshold");
   const srmWarningMsg =
     srmThreshold && srmThreshold > 0.01
-      ? "Thresholds above 0.01 may lead to many false positives, especially if you refresh results regularly."
+      ? "Thresholds above 0.01 may lead to many false positives, especially if you refresh results regularly. Our default is 0.001."
       : srmThreshold && srmThreshold < 0.001
-        ? "Thresholds below 0.001 may make it hard to detect imbalances without lots of traffic."
+        ? "Thresholds below 0.001 may make it hard to detect imbalances without lots of traffic. Our default is 0.001."
         : "";
 
   return (
@@ -376,7 +381,8 @@ export default function ExperimentSettings({
                     max={0.1}
                     disabled={hasFileConfig()}
                     style={{ width: 150 }}
-                    helpText={"Default is 0.001."}
+                    placeholder={String(DEFAULT_SRM_THRESHOLD)}
+                    helpText={`Default is ${DEFAULT_SRM_THRESHOLD}.`}
                     error={srmWarningMsg || undefined}
                     errorLevel="warning"
                     {...form.register("srmThreshold", {
@@ -392,8 +398,11 @@ export default function ExperimentSettings({
                     max={100}
                     append="%"
                     disabled={hasFileConfig()}
-                    style={{ width: 62 }}
-                    helpText="Warn when at least this percent of experiment users are in multiple variations. Default is 1%."
+                    style={{ width: 90 }}
+                    placeholder={String(
+                      DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD * 100,
+                    )}
+                    helpText={`Warn when at least this percent of experiment users are in multiple variations. Default is ${DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD * 100}%.`}
                     {...form.register("multipleExposureMinPercent", {
                       valueAsNumber: true,
                     })}
@@ -408,7 +417,10 @@ export default function ExperimentSettings({
                     append="hours"
                     disabled={hasFileConfig()}
                     style={{ width: 150 }}
-                    helpText='Wait this long after an experiment starts before showing the "no data" status badge or sending alerts when an experiment updates. Default is 0 hours.'
+                    placeholder={String(
+                      DEFAULT_NO_DATA_ALERT_GRACE_PERIOD_HOURS,
+                    )}
+                    helpText={`Wait this long after an experiment starts before showing the "no data" status badge or sending alerts when an experiment updates. Default is ${DEFAULT_NO_DATA_ALERT_GRACE_PERIOD_HOURS} hours.`}
                     {...form.register("noDataAlertGracePeriodHours", {
                       valueAsNumber: true,
                     })}
