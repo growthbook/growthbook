@@ -94,13 +94,23 @@ export async function planFeatureContextualBanditLinkage(
 export async function applyFeatureContextualBanditLinkage(
   context: ReqContext | ApiReqContext,
   plan: ContextualBanditLinkagePlan,
+  // Refuse when this feature's slice has moved since the plan was computed. A landing
+  // that lost the feature document to a newer publish would otherwise stamp its stale
+  // delta over the winner's linkage — the same ownership question the rewind asks,
+  // asked on the way in.
+  { guarded }: { guarded?: boolean } = {},
 ): Promise<void> {
   const cbModel = context.models.contextualBandits;
   // Each bandit is independent, so bounded concurrency is safe — a feature can
   // reference thousands of distinct contextual bandits.
   await promiseAllChunks(
     plan.deltas.map(
-      (delta) => () => cbModel.applyLinkageDelta(plan.featureId, delta),
+      (delta) => () =>
+        cbModel.applyLinkageDelta(
+          plan.featureId,
+          delta,
+          guarded ? plan.preImage[delta.contextualBanditId] : undefined,
+        ),
     ),
     10,
   );

@@ -534,10 +534,17 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       }
     }
 
-    // The fence above narrows the window but cannot close it: these writes land in
-    // other collections, so no guard on the feature doc covers them. The forward
-    // linkage write carries its own guard on each experiment's prior `holdoutId`, so
-    // a rival that re-linked one refuses us here instead of being overwritten.
+    // These writes land in OTHER collections, so no guard on the feature document can
+    // cover them and no fence around them can be atomic — this deployment cannot
+    // assume Mongo transactions (standalone self-hosted, DocumentDB/Cosmos). Defence
+    // is therefore per-write plus detection, in that order:
+    //
+    //  - the experiment `holdoutId` write guards on each experiment's prior value;
+    //  - the contextual-bandit write guards on this feature's planned slice;
+    //  - holdout MEMBERSHIP is per-feature add/remove on another document, and the
+    //    condition it would need ("the feature still points at our holdout") lives in
+    //    a different collection, so it cannot be expressed as a write filter;
+    //  - the re-fence below catches whatever the first three could not.
     try {
       if (mergeResult.holdout !== undefined) {
         // Guard already ran above, before any mutation.
@@ -556,7 +563,21 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         await applyFeatureContextualBanditLinkage(
           context,
           desired.contextualBanditLinkage,
+          { guarded: true },
         );
+      }
+
+      // RE-FENCE. The check before the satellites proves nothing about the moment of
+      // each write, and the unguardable one is exactly the case that needs it. If a
+      // rival took the document while we were writing, our satellite state is stale:
+      // raise the same conflict the guarded writes raise, so the item routes into
+      // compensation — whose reversals are ownership-aware and skip whatever the rival
+      // now owns — instead of leaving the divergence silent and unreported.
+      if (desired.ourWriteStamp) {
+        const after = await getFeature(context, feature.id);
+        if (after?.dateUpdated?.getTime() !== desired.ourWriteStamp.getTime()) {
+          throw new CasConflictError();
+        }
       }
     } catch (e) {
       if (!(e instanceof CasConflictError)) throw e;

@@ -37,7 +37,10 @@ import {
   getContextualBanditLinkedFeatureInfo,
   runContextualBanditSnapshot,
 } from "back-end/src/enterprise/services/contextualBandits";
-import { MakeModelClass } from "back-end/src/models/BaseModel";
+import {
+  CasConflictError,
+  MakeModelClass,
+} from "back-end/src/models/BaseModel";
 import { getCollection } from "back-end/src/util/mongo.util";
 
 const COLLECTION = "contextualbandits";
@@ -478,9 +481,25 @@ export class ContextualBanditModel extends BaseClass {
   public async applyLinkageDelta(
     featureId: string,
     delta: ContextualBanditLinkageDelta,
+    // The slice this delta was PLANNED against. A landing that lost the feature
+    // document to a newer publish would otherwise apply its stale delta on top of the
+    // winner's linkage — the forward twin of the ownership check `setLinkageState`
+    // already makes on the way back, and a conflict rather than a skip because going
+    // forward a lost race must stop the landing.
+    expectedFeatureSlice?: ContextualBanditLinkageState,
   ): Promise<void> {
     const cb = await this.getById(delta.contextualBanditId);
     if (!cb) return;
+
+    if (
+      expectedFeatureSlice &&
+      !isEqual(
+        this.featureLinkageSlice(cb, featureId),
+        this.featureLinkageSlice(expectedFeatureSlice, featureId),
+      )
+    ) {
+      throw new CasConflictError();
+    }
 
     const changes: LinkageChanges = {};
 
