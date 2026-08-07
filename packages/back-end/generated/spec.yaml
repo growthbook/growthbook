@@ -51677,8 +51677,10 @@ components:
         scheduledPublishGaveUpAt:
           format: date-time
           description: >-
-            When the poller stopped retrying. The revision stays armed but will
-            not fire again without a re-arm.
+            When the poller stopped retrying. Giving up CLEARS the schedule and
+            disarms auto-publish, so nothing fires again until the revision is
+            re-armed. The draft is left open, with `scheduledPublishLastError`
+            preserved for context.
           type: string
         reviews:
           description: >-
@@ -54346,8 +54348,10 @@ components:
           type: string
         scheduledPublishGaveUpAt:
           description: >-
-            When the poller stopped retrying. The revision stays armed but will
-            not fire again without a re-arm.
+            When the poller stopped retrying. Giving up CLEARS the schedule and
+            disarms auto-publish, so nothing fires again until the revision is
+            re-armed. The draft is left open, with `scheduledPublishLastError`
+            preserved for context.
           format: date-time
           type: string
         resolution:
@@ -54771,8 +54775,10 @@ components:
           type: string
         scheduledPublishGaveUpAt:
           description: >-
-            When the poller stopped retrying. The revision stays armed but will
-            not fire again without a re-arm.
+            When the poller stopped retrying. Giving up CLEARS the schedule and
+            disarms auto-publish, so nothing fires again until the revision is
+            re-armed. The draft is left open, with `scheduledPublishLastError`
+            preserved for context.
           format: date-time
           type: string
         resolution:
@@ -55461,8 +55467,10 @@ components:
           type: string
         scheduledPublishGaveUpAt:
           description: >-
-            When the poller stopped retrying. The revision stays armed but will
-            not fire again without a re-arm.
+            When the poller stopped retrying. Giving up CLEARS the schedule and
+            disarms auto-publish, so nothing fires again until the revision is
+            re-armed. The draft is left open, with `scheduledPublishLastError`
+            preserved for context.
           format: date-time
           type: string
         resolution:

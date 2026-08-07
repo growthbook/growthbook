@@ -94,6 +94,16 @@ import { getValidDate } from "shared/dates";
 import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
 import { isArmedWithAuthorizedPublisher } from "back-end/src/revisions/approveAndPublish";
+import {
+  holdsFeaturePublishAuthority,
+  assertCanCreateFeatureInState,
+  assertCanPublishFeatureRevision,
+  canAdvanceFeatureDraft,
+  canDiscardFeatureDraft,
+  canRebaseFeatureDraft,
+  canRecallFeatureReview,
+  revertFootprint,
+} from "back-end/src/revisions/featureDraftAuthority";
 import { assertCanRevertRevision } from "back-end/src/revisions/revertActions";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -148,15 +158,6 @@ import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archi
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
-import {
-  assertCanCreateFeatureInState,
-  assertCanPublishFeatureRevision,
-  canAdvanceFeatureDraft,
-  canDiscardFeatureDraft,
-  canRebaseFeatureDraft,
-  canRecallFeatureReview,
-  revertFootprint,
-} from "back-end/src/revisions/featureDraftAuthority";
 import {
   canLandArchivedState,
   isArchiveTransition,
@@ -1568,13 +1569,30 @@ export async function postFeatureApproveAndPublish(
   // authorized by whoever armed it and this approver is only the trigger, so the
   // armed fire publishes under the armer instead of inline as them. Same rule the
   // generic handler and REST submit-review already follow.
+  //
+  // Asked over the FULL footprint, destination included. Asking only about the
+  // source cleared an armer who had since lost authority in the project this
+  // draft moves the flag into: the approval committed, the armed publish then
+  // failed its own destination check, and that failure is swallowed — so the
+  // endpoint answered 200 with an approved draft that never published.
   const armedApproval =
     (await isArmedWithAuthorizedPublisher(
       context,
       revision,
       (publisherContext) =>
-        publisherContext.permissions.canPublishFeature(feature, envsToCheck),
-    )) && !context.permissions.canPublishFeature(feature, envsToCheck);
+        holdsFeaturePublishAuthority({
+          context: publisherContext,
+          feature,
+          environments: envsToCheck,
+          mergeChanges: mergeResult.result,
+        }),
+    )) &&
+    !holdsFeaturePublishAuthority({
+      context,
+      feature,
+      environments: envsToCheck,
+      mergeChanges: mergeResult.result,
+    });
   if (!armedApproval) {
     await assertCanPublishFeatureRevision({
       context,
@@ -1658,13 +1676,22 @@ export async function postFeatureApproveAndPublish(
   );
 
   if (armedApproval) {
-    // Publishes under the armer's context (or leaves it approved if that user no
-    // longer resolves), rather than as this approver.
+    // Publishes under the armer's context, rather than as this approver.
     const published = await maybeAutoPublishFeatureRevision(
       context,
       feature,
       finalApproved,
     );
+    if (published.status !== "published") {
+      // The approval landed and stands — it is already written. The PUBLISH did
+      // not, and this endpoint's whole contract is "approve and publish", so
+      // answering 200 leaves a draft nobody knows to go back for. Reached only on
+      // a transient failure now that the preflight asks the same question the
+      // publish does; the permanent causes refuse before the approval commits.
+      throw new Error(
+        "Approved, but the publish did not run. The draft is still approved — publish it directly.",
+      );
+    }
     res.status(200).json({ status: 200, version: published.version });
     return;
   }

@@ -319,7 +319,7 @@ export const apiFeatureRevisionV2Validator = namedSchema(
         .string()
         .meta({ format: "date-time" })
         .describe(
-          "When the poller stopped retrying. The revision stays armed but will not fire again without a re-arm.",
+          "When the poller stopped retrying. Giving up CLEARS the schedule and disarms auto-publish, so nothing fires again until the revision is re-armed. The draft is left open, with `scheduledPublishLastError` preserved for context.",
         )
         .optional(),
       reviews: z

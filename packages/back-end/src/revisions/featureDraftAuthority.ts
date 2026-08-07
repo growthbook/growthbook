@@ -303,6 +303,43 @@ export function mergeResultTouchesPayload(result: MergeResultChanges): boolean {
   );
 }
 
+/**
+ * Publish authority over a revision's FULL footprint, destination included.
+ *
+ * A move has to land where the publisher has authority, not just leave where they
+ * do — whoever stages it needn't be whoever publishes it. Shared so a preflight
+ * cannot ask a narrower question than the publish it is predicting: asking only
+ * about the source cleared an armed publisher who had lost the destination, and
+ * the failure then surfaced inside the swallowed auto-publish, which reported
+ * success on a draft it never published.
+ */
+export function holdsFeaturePublishAuthority({
+  context,
+  feature,
+  environments,
+  mergeChanges,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  environments: string[];
+  mergeChanges?: MergeResultChanges;
+}): boolean {
+  if (!context.permissions.canPublishFeature(feature, environments)) {
+    return false;
+  }
+  const destination = mergeChanges?.metadata?.project;
+  if (
+    destination !== undefined &&
+    (destination || "") !== (feature.project || "")
+  ) {
+    return context.permissions.canPublishFeature(
+      { project: destination },
+      environments,
+    );
+  }
+  return true;
+}
+
 export async function assertCanPublishFeatureRevision({
   context,
   feature,
@@ -316,11 +353,9 @@ export async function assertCanPublishFeatureRevision({
   environments: string[];
   mergeChanges?: MergeResultChanges;
 }): Promise<void> {
-  // A move has to land where the publisher has authority, not just leave where
-  // they do — whoever stages it needn't be whoever publishes it. Checked here
-  // rather than in the shared rule because only this path has the merge result
-  // that names the destination; the generic engine checks it where it has the
-  // desired state.
+  // The destination half of the footprint. `assertCanLandRevision` below covers
+  // the source; this is the same predicate every preflight asks, so the two
+  // cannot answer differently.
   const destination = mergeChanges?.metadata?.project;
   if (
     destination !== undefined &&

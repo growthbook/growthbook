@@ -286,7 +286,14 @@ export async function maybeAutoPublishFeatureRevision(
       { featureId: feature.id, version: revision.version },
       "auto-publish-on-approval skipped: enabling user could not be resolved; revision left approved",
     );
-    return revision;
+    // Returning quietly let "approve and publish" report success having only
+    // approved — the same hole the generic twin closed. The approval itself
+    // stands; the caller has to learn the publish did not run, or nobody goes
+    // back for it. Permanent and actionable, unlike the transient failures below,
+    // which stay approved for a manual publish.
+    throw new BadRequestError(
+      "Approved, but the publish did not run: the user who armed auto-publish is no longer a member of this organization. Publish it directly.",
+    );
   }
 
   try {

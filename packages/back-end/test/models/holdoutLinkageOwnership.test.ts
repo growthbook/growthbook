@@ -15,6 +15,11 @@ import { setupApp } from "../api/api.setup";
  *
  * `dateAdded` is the discriminator, and the comparison belongs inside the model's
  * own read-modify-write rather than in a caller that reads, decides, then writes.
+ *
+ * Being inside the method is still not enough on its own: read, decide, then
+ * replace the WHOLE map is the same ABA one layer down, just narrowed to the
+ * moment between the read and the write. The last case below drives exactly that
+ * interleaving.
  */
 
 const ORG_ID = "org_holdout_ownership";
@@ -112,6 +117,76 @@ describe("holdout linkage removal is ownership-checked", () => {
     });
 
     expect(await linkedFeatures()).toEqual({});
+  });
+
+  it("declines a relink that lands between its own read and write", async () => {
+    // The ownership test above proves the COMPARISON; this proves it is asked at
+    // the right moment. `dateAdded` decided against an earlier read, followed by an
+    // unguarded whole-map write, deletes a relink that arrived in between — the
+    // check passes, and the write it authorized is already stale.
+    //
+    // Injected into `compute`, which by construction runs after the CAS has read
+    // the row and before it writes it — the one window the whole finding is about.
+    // Without the guard the write matches anyway and their entry is gone; with it,
+    // the write is refused, the loop re-reads, and the comparison — now against
+    // THEIR entry — declines.
+    const ours = new Date("2026-01-01T00:00:00Z");
+    const theirs = new Date("2026-03-01T00:00:00Z");
+    await seed({ [FEATURE_ID]: { id: FEATURE_ID, dateAdded: ours } });
+
+    const holdoutModel = context().models.holdout;
+    const model = Object.getPrototypeOf(holdoutModel);
+    const realCas = model.updateWithCas;
+    let raced = false;
+    jest.spyOn(model, "updateWithCas").mockImplementation(async function (
+      this: unknown,
+      id: string,
+      fields: string[],
+      compute: (doc: unknown) => unknown,
+      options: unknown,
+    ) {
+      return await realCas.call(
+        this,
+        id,
+        fields,
+        async (doc: unknown) => {
+          if (!raced) {
+            raced = true;
+            await mongoose.connection.collection("holdouts").updateOne(
+              { organization: ORG_ID, id: HOLDOUT_ID },
+              {
+                $set: {
+                  [`linkedFeatures.${FEATURE_ID}`]: {
+                    id: FEATURE_ID,
+                    dateAdded: theirs,
+                  },
+                },
+              },
+            );
+          }
+          return compute(doc);
+        },
+        options,
+      );
+    });
+
+    try {
+      await holdoutModel.removeLinkageFromHoldout(HOLDOUT_ID, {
+        featureId: FEATURE_ID,
+        expectFeatureEntry: { dateAdded: ours },
+      });
+    } finally {
+      jest.restoreAllMocks();
+    }
+
+    expect(raced).toBe(true);
+    const live = (await linkedFeatures()) as Record<
+      string,
+      { dateAdded: Date }
+    >;
+    expect(new Date(live[FEATURE_ID]?.dateAdded).toISOString()).toBe(
+      theirs.toISOString(),
+    );
   });
 
   it("reports the entry it wrote, and null when one was already there", async () => {

@@ -826,10 +826,22 @@ export abstract class BaseModel<
       // merged revision, which canUpdate refuses to protect history from
       // ordinary edits. Same contract as dangerousUpdateBypassPermission.
       dangerouslyBypassCanUpdate?: boolean;
+      // Skip the read gate, for models whose linkage is a side effect of an
+      // authorized write on ANOTHER entity — e.g. a Feature Flag publish updating
+      // a Holdout in Projects the publisher cannot see. Those callers already read
+      // through an explicit bypass; without this they would silently get `null`
+      // (this method's not-found answer) and skip the write entirely.
+      dangerouslyBypassCanRead?: boolean;
+      // Skip the licence gate, for the same class of caller. `update` checks it and
+      // `_updateOne` does not, so the raw writers these callers used before
+      // (dangerousUpdateBypassPermission) were never gated — moving them onto this
+      // method would newly fail a publish rewind on an org whose licence lapsed,
+      // stranding linkage that the flag write has already committed to removing.
+      dangerouslyBypassPremium?: boolean;
     } = {},
   ): Promise<z.infer<T> | null> {
     this._assertHasIdField();
-    if (!this.hasPremiumFeature()) {
+    if (!options.dangerouslyBypassPremium && !this.hasPremiumFeature()) {
       throw new Error(
         "Your organization does not have access to this feature.",
       );
@@ -858,7 +870,9 @@ export abstract class BaseModel<
         // Denial ends the loop the same way a missing doc does, which is what this
         // method's `null` return has always meant.
         await this.populateForeignRefs([existing]);
-        if (!this.canRead(existing)) return null;
+        if (!options.dangerouslyBypassCanRead && !this.canRead(existing)) {
+          return null;
+        }
 
         return { snapshot: existing, observed: raw };
       },
