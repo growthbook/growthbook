@@ -640,3 +640,18 @@ export const putConfigRevisionArchiveValidator = {
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
+
+// The fourth lifecycle verb, previously only on Feature Flags.
+export const postConfigRevisionUndoReviewValidator = {
+  method: "post" as const,
+  path: "/configs-revisions/:key/:version/undo-review",
+  operationId: "postConfigRevisionUndoReview",
+  summary: "Retract your own review verdict",
+  description:
+    "Retracts the calling user's own active `approve` or `request-changes` verdict, returning the revision to `pending-review`. Review comments stay in the log. Retracting a `request-changes` can leave the revision approved by someone else, in which case an armed auto-publish fires.",
+  tags: ["config-revisions"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};

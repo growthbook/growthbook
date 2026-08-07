@@ -134,6 +134,24 @@ export const OPERATION_ORACLE: Record<string, Persona[]> = {
   // draft is a value edit, which refuses a deleter for the ordinary reason and
   // would go on passing if discard were content-aware again.
   "discard an archive-only draft": ["drafter", "editor", "full"],
+
+  // The lifecycle verbs. All four are draft-or-review authority over a revision
+  // that is already someone's work — none of them publishes anything, so no
+  // environment footprint applies. Their handlers share one implementation
+  // (`revisionLifecycle`), and these rows are what keeps that true per entity.
+  //
+  // Recall and reopen also admit the AUTHOR, but the matrix seeds every revision
+  // as admin, so authorship is never what carries these.
+  "recall a review request": ["drafter", "editor", "full"],
+  "reopen a discarded revision": ["drafter", "editor", "full"],
+  "retract your own review verdict": ["reviewer", "full"],
+  // Arming a deferred publish takes the authority the fire-time publish will.
+  "schedule a deferred publish": [
+    "publisher",
+    "creatorPublisher",
+    "editor",
+    "full",
+  ],
 };
 
 export function buildOrg(orgId: string): OrganizationInterface {

@@ -19997,6 +19997,235 @@ paths:
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/submit-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/recall-review:
+    post:
+      operationId: postSavedGroupRevisionRecallReview
+      summary: Recall a review request
+      description: >-
+        Pulls a revision in review (`pending-review`, `changes-requested`, or
+        `approved`) back to `draft`, clearing existing reviews and disarming any
+        auto-publish-on-approval.
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SavedGroupRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/recall-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/reopen:
+    post:
+      operationId: postSavedGroupRevisionReopen
+      summary: Reopen a discarded revision
+      description: >-
+        Returns a previously discarded revision to `draft` status so it can be
+        edited and published again. Only discarded revisions can be reopened.
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SavedGroupRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/reopen'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/schedule-publish:
+    post:
+      operationId: postSavedGroupRevisionSchedulePublish
+      summary: Schedule (or cancel) a deferred publish
+      description: >-
+        Arms a revision to publish automatically at a future time. Pass
+        `scheduledPublishAt` as an RFC3339 timestamp in the future to arm, or
+        `null` to cancel a pending schedule. Requires the `scheduled-revisions`
+        commercial feature and publish permission on the Saved Group. A draft
+        that still requires approval must request review first (or be armed with
+        `bypassApproval` by a caller who can bypass).
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scheduledPublishAt:
+                  anyOf:
+                    - type: string
+                    - type: 'null'
+                lockEdits:
+                  type: boolean
+                lockOthers:
+                  type: boolean
+                bypassApproval:
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Set to true to publish despite schema validation errors,
+                    failed invariants, or schema changes that invalidate
+                    dependent resources. This does not bypass a rejected Custom
+                    Hook; use `skipHooks` for that. The caller must have Bypass
+                    draft approvals access for Feature Flags, Configs, and
+                    Constants in every Project. Otherwise, this field is
+                    ignored.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to publish despite a Custom Hook rejection. This
+                    does not bypass schema validation; use
+                    `skipSchemaValidation` for that. The caller must have Bypass
+                    draft approvals access for Feature Flags, Configs, and
+                    Constants in every Project. Otherwise, this field is
+                    ignored.
+                  type: boolean
+              required:
+                - scheduledPublishAt
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SavedGroupRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/schedule-publish'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/undo-review:
+    post:
+      operationId: postSavedGroupRevisionUndoReview
+      summary: Retract your own review verdict
+      description: >-
+        Retracts the calling user's own active `approve` or `request-changes`
+        verdict, returning the revision to `pending-review`. Review comments
+        stay in the log. Retracting a `request-changes` can leave the revision
+        approved by someone else, in which case an armed auto-publish fires.
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SavedGroupRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/undo-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/saved-groups-revisions/{savedGroupId}/{version}/merge-status:
     get:
       operationId: getSavedGroupRevisionMergeStatus
@@ -21481,6 +21710,235 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/submit-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/constants-revisions/{key}/{version}/recall-review:
+    post:
+      operationId: postConstantRevisionRecallReview
+      summary: Recall a review request
+      description: >-
+        Pulls a revision in review (`pending-review`, `changes-requested`, or
+        `approved`) back to `draft`, clearing existing reviews and disarming any
+        auto-publish-on-approval.
+      tags:
+        - constant-revisions
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/ConstantRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/recall-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/constants-revisions/{key}/{version}/reopen:
+    post:
+      operationId: postConstantRevisionReopen
+      summary: Reopen a discarded revision
+      description: >-
+        Returns a previously discarded revision to `draft` status so it can be
+        edited and published again. Only discarded revisions can be reopened.
+      tags:
+        - constant-revisions
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/ConstantRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/reopen'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/constants-revisions/{key}/{version}/schedule-publish:
+    post:
+      operationId: postConstantRevisionSchedulePublish
+      summary: Schedule (or cancel) a deferred publish
+      description: >-
+        Arms a revision to publish automatically at a future time. Pass
+        `scheduledPublishAt` as an RFC3339 timestamp in the future to arm, or
+        `null` to cancel a pending schedule. Requires the `scheduled-revisions`
+        commercial feature and publish permission on the Constant. A draft that
+        still requires approval must request review first (or be armed with
+        `bypassApproval` by a caller who can bypass).
+      tags:
+        - constant-revisions
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scheduledPublishAt:
+                  anyOf:
+                    - type: string
+                    - type: 'null'
+                lockEdits:
+                  type: boolean
+                lockOthers:
+                  type: boolean
+                bypassApproval:
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Set to true to publish despite schema validation errors,
+                    failed invariants, or schema changes that invalidate
+                    dependent resources. This does not bypass a rejected Custom
+                    Hook; use `skipHooks` for that. The caller must have Bypass
+                    draft approvals access for Feature Flags, Configs, and
+                    Constants in every Project. Otherwise, this field is
+                    ignored.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to publish despite a Custom Hook rejection. This
+                    does not bypass schema validation; use
+                    `skipSchemaValidation` for that. The caller must have Bypass
+                    draft approvals access for Feature Flags, Configs, and
+                    Constants in every Project. Otherwise, this field is
+                    ignored.
+                  type: boolean
+              required:
+                - scheduledPublishAt
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/ConstantRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/schedule-publish'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/constants-revisions/{key}/{version}/undo-review:
+    post:
+      operationId: postConstantRevisionUndoReview
+      summary: Retract your own review verdict
+      description: >-
+        Retracts the calling user's own active `approve` or `request-changes`
+        verdict, returning the revision to `pending-review`. Review comments
+        stay in the log. Retracting a `request-changes` can leave the revision
+        approved by someone else, in which case an armed auto-publish fires.
+      tags:
+        - constant-revisions
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/ConstantRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/constants-revisions/{key}/{version}/undo-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/constants-revisions/{key}/{version}/merge-status:
@@ -24051,6 +24509,53 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/submit-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/configs-revisions/{key}/{version}/undo-review:
+    post:
+      operationId: postConfigRevisionUndoReview
+      summary: Retract your own review verdict
+      description: >-
+        Retracts the calling user's own active `approve` or `request-changes`
+        verdict, returning the revision to `pending-review`. Review comments
+        stay in the log. Retracting a `request-changes` can leave the revision
+        approved by someone else, in which case an armed auto-publish fires.
+      tags:
+        - config-revisions
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/ConfigRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/undo-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/configs-revisions/{key}/{version}/recall-review:

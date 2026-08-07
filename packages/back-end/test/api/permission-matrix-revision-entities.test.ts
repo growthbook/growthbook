@@ -128,6 +128,8 @@ type Case = {
   needsStaleBase?: boolean;
   /** Take the live entity out of service first, so the case acts on an archived one. */
   needsArchived?: boolean;
+  /** Discard the draft first, so the case acts on a discarded revision. */
+  needsDiscarded?: boolean;
   /** Stage an archive into the draft, so its only proposed change is the flip. */
   needsArchiveDraft?: boolean;
   run: (
@@ -341,6 +343,50 @@ const CASES: Case[] = [
     run: (e, id, v) =>
       api.post(`/api/v1/${e.base}-revisions/${id}/${v}/discard`, {}),
   },
+  {
+    // The lifecycle verbs, which existed on Configs and Feature Flags and nowhere
+    // else until these rows. All three entities share one implementation now, and
+    // this is what holds them to it.
+    name: "recall a review request",
+    allowed: OPERATION_ORACLE["recall a review request"],
+    needsReviewRequest: true,
+    run: (e, id, v) =>
+      api.post(`/api/v1/${e.base}-revisions/${id}/${v}/recall-review`, {}),
+  },
+  {
+    name: "reopen a discarded revision",
+    allowed: OPERATION_ORACLE["reopen a discarded revision"],
+    needsDiscarded: true,
+    run: (e, id, v) =>
+      api.post(`/api/v1/${e.base}-revisions/${id}/${v}/reopen`, {}),
+  },
+  {
+    // Only your OWN verdict can be retracted, so the persona casts one first and
+    // the case asserts on the retraction. A persona without review authority is
+    // refused by both calls, which is the same verdict either way; seeding an
+    // ADMIN verdict instead would have made every allowed persona fail for
+    // "nothing of yours to retract" rather than pass.
+    name: "retract your own review verdict",
+    allowed: OPERATION_ORACLE["retract your own review verdict"],
+    needsReviewRequest: true,
+    run: async (e, id, v) => {
+      await api.post(`/api/v1/${e.base}-revisions/${id}/${v}/submit-review`, {
+        decision: "approve",
+      });
+      return api.post(`/api/v1/${e.base}-revisions/${id}/${v}/undo-review`, {});
+    },
+  },
+  {
+    // Arming commits a future publish, so it asks the publish question — but
+    // project-scoped here, since the seeded entities name no scoped environments.
+    name: "schedule a deferred publish",
+    allowed: OPERATION_ORACLE["schedule a deferred publish"],
+    needsEdit: true,
+    run: (e, id, v) =>
+      api.post(`/api/v1/${e.base}-revisions/${id}/${v}/schedule-publish`, {
+        scheduledPublishAt: new Date(Date.now() + 86400000).toISOString(),
+      }),
+  },
 ];
 
 /** A fresh entity per case, so no case can be affected by an earlier one. */
@@ -515,6 +561,24 @@ async function seedArchiveDraft(
   }
 }
 
+/** Throw the draft away, so the case acts on a discarded revision. */
+async function seedDiscarded(
+  e: Entity,
+  id: string,
+  version: number,
+): Promise<void> {
+  as("admin");
+  const res = await api.post(
+    `/api/v1/${e.base}-revisions/${id}/${version}/discard`,
+    {},
+  );
+  if (res.status >= 400) {
+    throw new Error(
+      `discard seed failed: ${res.status} ${JSON.stringify(res.body)}`,
+    );
+  }
+}
+
 async function seedDraft(e: Entity, id: string): Promise<number> {
   as("admin");
   const res = await api.post(`/api/v1/${e.base}-revisions/${id}`, {});
@@ -559,6 +623,7 @@ describe.each(ENTITIES)("permission matrix — $label", (entity: Entity) => {
       needsStaleBase,
       needsArchived,
       needsArchiveDraft,
+      needsDiscarded,
       envScopedAtom,
       allowedDevOnly,
     }: Case) => {
@@ -581,7 +646,8 @@ describe.each(ENTITIES)("permission matrix — $label", (entity: Entity) => {
           needsEdit ||
           needsReviewRequest ||
           needsStaleBase ||
-          needsArchiveDraft;
+          needsArchiveDraft ||
+          needsDiscarded;
         const version = wantsDraft ? await seedDraft(entity, id) : 0;
         if (needsArchiveDraft) {
           await seedArchiveDraft(entity, id, version);
@@ -594,6 +660,9 @@ describe.each(ENTITIES)("permission matrix — $label", (entity: Entity) => {
         }
         if (needsReviewRequest) {
           await seedReviewRequest(entity, id, version);
+        }
+        if (needsDiscarded) {
+          await seedDiscarded(entity, id, version);
         }
 
         as(persona, envLimited);

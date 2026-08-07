@@ -1,8 +1,7 @@
 import { postConfigRevisionRecallReviewValidator } from "shared/validators";
-import { isRevisionAuthor } from "back-end/src/revisions/revisionAuthority";
+import { recallRevisionReview } from "back-end/src/revisions/revisionLifecycle";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
+import { NotFoundError } from "back-end/src/util/errors";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
@@ -20,30 +19,11 @@ export const postConfigRevisionRecallReview = createApiRequestHandler(
     req.params.version,
   );
 
-  if (
-    !["pending-review", "changes-requested", "approved"].includes(
-      revision.status,
-    )
-  ) {
-    throw new BadRequestError(
-      "Only a revision in review can be returned to draft",
-    );
-  }
-
-  // Author can always recall; otherwise require permission to edit the config.
-  if (!isRevisionAuthor(revision.authorId, req.context.userId)) {
-    if (!req.context.permissions.canRevisionAction("config", "draft", config)) {
-      req.context.permissions.throwPermissionError();
-    }
-  }
-
-  const recalled = await req.context.models.revisions.recallReview(
-    revision.id,
-    req.context.userId,
-  );
-
-  await dispatchConfigRevisionEvent(req.context, recalled, {
-    type: "reopened",
+  const recalled = await recallRevisionReview({
+    context: req.context,
+    type: "config",
+    entity: config as unknown as Record<string, unknown>,
+    revision,
   });
 
   return { revision: await toApiConfigRevision(recalled, req.context) };

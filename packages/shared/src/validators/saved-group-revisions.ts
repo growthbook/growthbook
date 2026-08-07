@@ -4,6 +4,7 @@ import {
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
   ignoreWarningsBodyField,
+  publishOverrideBodyFields,
   bypassApprovalPublishBodyField,
   publishBypassedGatesField,
 } from "./shared";
@@ -583,3 +584,73 @@ export type SavedGroupRevisionArchiveBody = z.infer<
 export type SavedGroupRevisionItemsBody = z.infer<
   typeof postSavedGroupRevisionItemsAddValidator.bodySchema
 >;
+
+// ---- Revision lifecycle: recall / reopen / schedule / undo-review ----
+//
+// The same four verbs Configs and Feature Flags expose, on the same rules — the
+// handlers all delegate to `revisionLifecycle`. They were missing here, so an API
+// consumer could withdraw a review request on a Config and not on a Saved Group.
+
+export const postSavedGroupRevisionSchedulePublishValidator = {
+  method: "post" as const,
+  path: "/saved-groups-revisions/:savedGroupId/:version/schedule-publish",
+  operationId: "postSavedGroupRevisionSchedulePublish",
+  summary: "Schedule (or cancel) a deferred publish",
+  description:
+    "Arms a revision to publish automatically at a future time. Pass `scheduledPublishAt` as an RFC3339 timestamp in the future to arm, or `null` to cancel a pending schedule. Requires the `scheduled-revisions` commercial feature and publish permission on the Saved Group. A draft that still requires approval must request review first (or be armed with `bypassApproval` by a caller who can bypass).",
+  tags: ["saved-group-revisions"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z
+    .object({
+      scheduledPublishAt: z.string().nullable(),
+      lockEdits: z.boolean().optional(),
+      lockOthers: z.boolean().optional(),
+      bypassApproval: z.boolean().optional(),
+      ...publishOverrideBodyFields,
+    })
+    .strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};
+
+export const postSavedGroupRevisionReopenValidator = {
+  method: "post" as const,
+  path: "/saved-groups-revisions/:savedGroupId/:version/reopen",
+  operationId: "postSavedGroupRevisionReopen",
+  summary: "Reopen a discarded revision",
+  description:
+    "Returns a previously discarded revision to `draft` status so it can be edited and published again. Only discarded revisions can be reopened.",
+  tags: ["saved-group-revisions"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};
+
+export const postSavedGroupRevisionRecallReviewValidator = {
+  method: "post" as const,
+  path: "/saved-groups-revisions/:savedGroupId/:version/recall-review",
+  operationId: "postSavedGroupRevisionRecallReview",
+  summary: "Recall a review request",
+  description:
+    "Pulls a revision in review (`pending-review`, `changes-requested`, or `approved`) back to `draft`, clearing existing reviews and disarming any auto-publish-on-approval.",
+  tags: ["saved-group-revisions"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};
+
+export const postSavedGroupRevisionUndoReviewValidator = {
+  method: "post" as const,
+  path: "/saved-groups-revisions/:savedGroupId/:version/undo-review",
+  operationId: "postSavedGroupRevisionUndoReview",
+  summary: "Retract your own review verdict",
+  description:
+    "Retracts the calling user's own active `approve` or `request-changes` verdict, returning the revision to `pending-review`. Review comments stay in the log. Retracting a `request-changes` can leave the revision approved by someone else, in which case an armed auto-publish fires.",
+  tags: ["saved-group-revisions"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};

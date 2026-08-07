@@ -483,3 +483,73 @@ export const putConstantRevisionArchiveValidator = {
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
+
+// ---- Revision lifecycle: recall / reopen / schedule / undo-review ----
+//
+// The same four verbs Configs and Feature Flags expose, on the same rules — the
+// handlers all delegate to `revisionLifecycle`. They were missing here, so an API
+// consumer could withdraw a review request on a Config and not on a Constant.
+
+export const postConstantRevisionSchedulePublishValidator = {
+  method: "post" as const,
+  path: "/constants-revisions/:key/:version/schedule-publish",
+  operationId: "postConstantRevisionSchedulePublish",
+  summary: "Schedule (or cancel) a deferred publish",
+  description:
+    "Arms a revision to publish automatically at a future time. Pass `scheduledPublishAt` as an RFC3339 timestamp in the future to arm, or `null` to cancel a pending schedule. Requires the `scheduled-revisions` commercial feature and publish permission on the Constant. A draft that still requires approval must request review first (or be armed with `bypassApproval` by a caller who can bypass).",
+  tags: ["constant-revisions"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z
+    .object({
+      scheduledPublishAt: z.string().nullable(),
+      lockEdits: z.boolean().optional(),
+      lockOthers: z.boolean().optional(),
+      bypassApproval: z.boolean().optional(),
+      ...publishOverrideBodyFields,
+    })
+    .strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};
+
+export const postConstantRevisionReopenValidator = {
+  method: "post" as const,
+  path: "/constants-revisions/:key/:version/reopen",
+  operationId: "postConstantRevisionReopen",
+  summary: "Reopen a discarded revision",
+  description:
+    "Returns a previously discarded revision to `draft` status so it can be edited and published again. Only discarded revisions can be reopened.",
+  tags: ["constant-revisions"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};
+
+export const postConstantRevisionRecallReviewValidator = {
+  method: "post" as const,
+  path: "/constants-revisions/:key/:version/recall-review",
+  operationId: "postConstantRevisionRecallReview",
+  summary: "Recall a review request",
+  description:
+    "Pulls a revision in review (`pending-review`, `changes-requested`, or `approved`) back to `draft`, clearing existing reviews and disarming any auto-publish-on-approval.",
+  tags: ["constant-revisions"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};
+
+export const postConstantRevisionUndoReviewValidator = {
+  method: "post" as const,
+  path: "/constants-revisions/:key/:version/undo-review",
+  operationId: "postConstantRevisionUndoReview",
+  summary: "Retract your own review verdict",
+  description:
+    "Retracts the calling user's own active `approve` or `request-changes` verdict, returning the revision to `pending-review`. Review comments stay in the log. Retracting a `request-changes` can leave the revision approved by someone else, in which case an armed auto-publish fires.",
+  tags: ["constant-revisions"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};
