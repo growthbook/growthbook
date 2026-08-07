@@ -1299,7 +1299,7 @@ function ReviewAndPublishRevision<T>({
         {/* Each button above greys out on its own atom, so a viewer holding
             some other authority needs the reason spelled out — otherwise the
             disabled control reads as a bug. */}
-        {revision.status === "discarded" && !canDraftOrEdit && (
+        {revision.status === "discarded" && !canDraftOrEdit && !isAuthor && (
           <PermissionBlocker mt="2">
             You don&apos;t have permission to edit drafts for this {entityNoun}.
           </PermissionBlocker>

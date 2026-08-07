@@ -585,6 +585,16 @@ export default function ScheduledPublishControl({
     return gaveUpNotice ? <Box mb="5">{gaveUpNotice}</Box> : null;
   }
 
+  // One predicate for both `disabled` and `disabledMessage` below. Stating a lock
+  // and explaining it are two expressions of one rule, and the sibling review
+  // finding on this PR was precisely a button and its blocker drifting apart.
+  const lockedNoDateArm =
+    armed &&
+    !isScheduled &&
+    persistedArmed &&
+    !canDisarmWhenApproved &&
+    !canArmWhenApproved;
+
   // ── Editable form (auto-saves on change; no explicit schedule button) ──
   // Unified arming: one checkbox + an inline mode dropdown ("when approved" vs
   // "on a specific date" are mutually exclusive), matching the feature flow.
@@ -599,13 +609,14 @@ export default function ScheduledPublishControl({
           // requires DRAFT authority. A publish-only caller reaches this branch via
           // `canArmOnDate` and would have got an interactive box that 403s. An
           // unpersisted arm is local intent and clears without a request.
-          disabled={
-            saving ||
-            (armed &&
-              !isScheduled &&
-              persistedArmed &&
-              !canDisarmWhenApproved &&
-              !canArmWhenApproved)
+          disabled={saving || lockedNoDateArm}
+          // ...and says WHY. Everything else on this row is editable for that
+          // viewer, so a silently locked checkbox reads as a bug rather than as a
+          // permission boundary.
+          disabledMessage={
+            lockedNoDateArm
+              ? "You need permission to edit drafts to turn off publish-on-approval."
+              : undefined
           }
           value={armed}
           setValue={(val) => onToggleArmed(!!val)}
