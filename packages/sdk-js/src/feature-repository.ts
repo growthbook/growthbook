@@ -23,6 +23,7 @@ type CacheEntry = {
 type ScopedChannel = {
   src: EventSource | null;
   cb: (event: MessageEvent<string>) => void;
+  key: string;
   host: string;
   clientKey: string;
   headers?: Record<string, string>;
@@ -115,6 +116,7 @@ const cache: Map<string, CacheEntry> = new Map();
 const activeFetches: Map<string, Promise<FetchResponse>> = new Map();
 const streams: Map<string, ScopedChannel> = new Map();
 const supportsSSE: Set<string> = new Set();
+const streamingWarnings: Set<string> = new Set();
 
 // Public functions
 export function setPolyfills(overrides: Partial<Polyfills>): void {
@@ -189,6 +191,15 @@ export function onVisible() {
 }
 
 // Private functions
+
+// Streaming stays silent when it can't start, so the SDK looks healthy while serving a frozen payload
+function warnStreamingUnavailable(reason: string): void {
+  if (streamingWarnings.has(reason)) return;
+  streamingWarnings.add(reason);
+  console.warn(
+    `[GrowthBook] Streaming is enabled, but not active: ${reason}. Features will not be updated in the background. See https://docs.growthbook.io/lib/node#refreshing-features`,
+  );
+}
 
 async function updatePersistentCache() {
   try {
@@ -467,6 +478,7 @@ function startAutoRefresh(
     if (streams.has(key)) return;
     const channel: ScopedChannel = {
       src: null,
+      key,
       host: streamingHost,
       clientKey,
       headers: streamingHostRequestHeaders,
@@ -513,6 +525,10 @@ function onSSEError(channel: ScopedChannel) {
     setTimeout(
       () => {
         if (["idle", "active"].includes(channel.state)) return;
+        // A channel dropped from the map while backing off (destroy, clearCache) must
+        // not reconnect: it would open an EventSource nothing tracks or can close,
+        // while still pushing payloads to whichever channel replaced it
+        if (streams.get(channel.key) !== channel) return;
         enableChannel(channel);
       },
       Math.min(delay, 300000),
@@ -532,18 +548,47 @@ function disableChannel(channel: ScopedChannel) {
 }
 
 function enableChannel(channel: ScopedChannel) {
-  channel.src = helpers.eventSourceCall({
-    host: channel.host,
-    clientKey: channel.clientKey,
-    headers: channel.headers,
-  }) as EventSource;
-  channel.state = "active";
-  channel.src.addEventListener("features", channel.cb);
-  channel.src.addEventListener("features-updated", channel.cb);
-  channel.src.onerror = () => onSSEError(channel);
-  channel.src.onopen = () => {
-    channel.errors = 0;
-  };
+  try {
+    channel.src = helpers.eventSourceCall({
+      host: channel.host,
+      clientKey: channel.clientKey,
+      headers: channel.headers,
+    }) as EventSource;
+    channel.state = "active";
+    channel.src.addEventListener("features", channel.cb);
+    channel.src.addEventListener("features-updated", channel.cb);
+    channel.src.onerror = () => onSSEError(channel);
+    channel.src.onopen = () => {
+      channel.errors = 0;
+    };
+  } catch (e) {
+    // An incompatible EventSource must not take the feature payload down with it.
+    // The constructor may have already opened a connection, so close it before
+    // dropping the only reference we have to it.
+    try {
+      if (channel.src) {
+        // Close first; detaching handlers is best-effort and may throw again
+        channel.src.close();
+        channel.src.onerror = null;
+        channel.src.onopen = null;
+      }
+    } catch (closeError) {
+      // Ignore cleanup errors from incompatible implementations
+    }
+    channel.src = null;
+    channel.state = "disabled";
+    // A channel with no EventSource must not sit in the map, where the existing-key
+    // guard would block streaming from ever being retried for this key. Done here so
+    // it also covers the reconnect and visibility paths, which have no other cleanup.
+    // Identity-checked because a pending re-connect can outlive clearAutoRefresh, and
+    // must not evict the healthy channel that replaced it.
+    if (streams.get(channel.key) === channel) streams.delete(channel.key);
+    warnStreamingUnavailable(
+      `the EventSource implementation threw an error (${
+        e ? (e as Error).message : "unknown error"
+      })`,
+    );
+  }
 }
 
 function destroyChannel(channel: ScopedChannel, key: string) {
@@ -554,6 +599,7 @@ function destroyChannel(channel: ScopedChannel, key: string) {
 export function clearAutoRefresh() {
   // Clear list of which keys are auto-updated
   supportsSSE.clear();
+  streamingWarnings.clear();
 
   // Stop listening for any SSE events
   streams.forEach(destroyChannel);
@@ -577,5 +623,20 @@ export function startStreaming(
       startAutoRefresh(instance, true);
     }
     subscribe(instance);
+
+    if (!polyfills.EventSource) {
+      warnStreamingUnavailable(
+        "no EventSource implementation is available. In Node.js, install the `eventsource` package and pass it to setPolyfills({ EventSource })",
+      );
+    } else if (
+      cacheSettings.backgroundSync &&
+      !supportsSSE.has(getKey(instance))
+    ) {
+      // Keyed on supportsSSE rather than an absent stream, so an EventSource that
+      // failed to start (already warned about above) doesn't also get blamed here
+      warnStreamingUnavailable(
+        "the API host did not report SSE support (missing `x-sse-support` response header). This is also expected when the initial payload fetch fails",
+      );
+    }
   }
 }

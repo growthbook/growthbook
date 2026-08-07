@@ -6,6 +6,8 @@ import {
   setPolyfills,
   FeatureApiResponse,
   prefetchPayload,
+  onHidden,
+  onVisible,
 } from "../src";
 
 /* eslint-disable */
@@ -584,6 +586,370 @@ describe("feature-repo", () => {
     growthbook.destroy();
     cleanup();
     event.clear();
+  });
+
+  it("keeps the payload when the EventSource polyfill is not a constructor", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const [, cleanup] = mockApi(apiPayload, true);
+    const warn = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    // Simulates `require("eventsource")` on v3+, which returns the module instead of the constructor
+    setPolyfills({ EventSource: { EventSource } });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    const res = await growthbook.init({ streaming: true });
+
+    // Streaming can't start, but that must not discard the payload we just fetched
+    expect(res.success).toEqual(true);
+    expect(res.source).toEqual("network");
+    expect(growthbook.evalFeature("foo").value).toEqual("api");
+    expect(growthbook.getPayload()).toEqual(apiPayload);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("Streaming is enabled, but not active"),
+    );
+
+    setPolyfills({ EventSource });
+    warn.mockRestore();
+    growthbook.destroy();
+    cleanup();
+  });
+
+  it("closes the connection when EventSource setup fails after construction", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const [, cleanup] = mockApi(apiPayload, true);
+    const warn = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    // Constructor succeeds (opening a connection), but listener setup throws
+    const closed: string[] = [];
+    setPolyfills({
+      EventSource: class {
+        url: string;
+        constructor(url: string) {
+          this.url = url;
+        }
+        addEventListener() {
+          throw new Error("addEventListener not implemented");
+        }
+        close() {
+          closed.push(this.url);
+        }
+      },
+    });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    const res = await growthbook.init({ streaming: true });
+
+    // The half-built connection must be closed, not just dereferenced
+    expect(closed).toEqual(["https://fakeapi.sample.io/sub/sdk-abc123"]);
+    expect(res.success).toEqual(true);
+    expect(growthbook.evalFeature("foo").value).toEqual("api");
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("addEventListener not implemented"),
+    );
+
+    setPolyfills({ EventSource });
+    warn.mockRestore();
+    growthbook.destroy();
+    cleanup();
+  });
+
+  it("allows streaming to recover after a failed EventSource setup", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const [, cleanup] = mockApi(apiPayload, true);
+    const warn = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    // First attempt fails - the module object isn't a constructor
+    setPolyfills({ EventSource: { EventSource } });
+    const growthbook1 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    await growthbook1.init({ streaming: true });
+    expect(growthbook1.evalFeature("foo").value).toEqual("api");
+
+    // Correcting the polyfill must let a later init establish a stream, rather than
+    // being blocked forever by the dead channel left in the streams map
+    setPolyfills({ EventSource });
+    const streamingPayload = {
+      features: {
+        foo: {
+          defaultValue: "streaming",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2010-05-01T00:00:12Z",
+    };
+    const event = new MockEvent({
+      url: "https://fakeapi.sample.io/sub/sdk-abc123",
+      setInterval: 20,
+      responses: [
+        {
+          type: "features",
+          data: JSON.stringify(streamingPayload),
+        },
+      ],
+    });
+
+    const growthbook2 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    await growthbook2.init({ streaming: true });
+
+    await sleep(80);
+    expect(growthbook2.evalFeature("foo").value).toEqual("streaming");
+
+    warn.mockRestore();
+    growthbook1.destroy();
+    growthbook2.destroy();
+    cleanup();
+    event.clear();
+  });
+
+  it("allows streaming to recover when a re-connect attempt fails", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const [, cleanup] = mockApi(apiPayload, true);
+    const warn = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    // Establish a channel, then park it so re-connecting goes back through enableChannel
+    const growthbook1 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    await growthbook1.init({ streaming: true });
+    onHidden();
+
+    // Break the polyfill so the re-connect throws. The initial-setup cleanup doesn't run
+    // on this path, so the dead channel would otherwise stay parked in the streams map.
+    setPolyfills({ EventSource: { EventSource } });
+    onVisible();
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("the EventSource implementation threw an error"),
+    );
+
+    setPolyfills({ EventSource });
+    const streamingPayload = {
+      features: {
+        foo: {
+          defaultValue: "streaming",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2010-05-01T00:00:12Z",
+    };
+    const event = new MockEvent({
+      url: "https://fakeapi.sample.io/sub/sdk-abc123",
+      setInterval: 20,
+      responses: [
+        {
+          type: "features",
+          data: JSON.stringify(streamingPayload),
+        },
+      ],
+    });
+
+    const growthbook2 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    await growthbook2.init({ streaming: true });
+
+    await sleep(80);
+    expect(growthbook2.evalFeature("foo").value).toEqual("streaming");
+
+    warn.mockRestore();
+    growthbook1.destroy();
+    growthbook2.destroy();
+    cleanup();
+    event.clear();
+  });
+
+  it("does not reconnect a channel that was dropped while backing off", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const [, cleanup] = mockApi(apiPayload, true, 0);
+
+    // readyState 2 (CLOSED) makes onSSEError back off on the very first error, which
+    // keeps the retry delay at ~111-222ms instead of the multi-second 4-error path
+    const sources: {
+      closed: boolean;
+      onerror: null | (() => void);
+    }[] = [];
+    setPolyfills({
+      EventSource: class {
+        readyState = 2;
+        closed = false;
+        onerror: null | (() => void) = null;
+        onopen: null | (() => void) = null;
+        constructor() {
+          sources.push(this);
+        }
+        addEventListener() {
+          // Payload delivery is irrelevant here; this test only counts connections
+        }
+        close() {
+          this.closed = true;
+        }
+      },
+    });
+
+    const growthbook1 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    await growthbook1.init({ streaming: true });
+    expect(sources.length).toEqual(1);
+
+    // One error is enough to disable the channel and schedule a reconnect
+    sources[0].onerror && sources[0].onerror();
+    expect(sources[0].closed).toEqual(true);
+
+    // Drop the channel from the map mid-backoff, then let a new instance take the key
+    await clearCache();
+    const growthbook2 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    await growthbook2.init({ streaming: true });
+    expect(sources.length).toEqual(2);
+
+    // The stale reconnect must not fire. It would open a third EventSource that nothing
+    // tracks and nothing can close, while still pushing payloads to growthbook2.
+    await sleep(300);
+    expect(sources.length).toEqual(2);
+
+    setPolyfills({ EventSource });
+    growthbook1.destroy();
+    growthbook2.destroy();
+    cleanup();
+  });
+
+  it("warns when streaming is enabled without an EventSource polyfill", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    const [, cleanup] = mockApi(apiPayload, true);
+    const warn = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    setPolyfills({ EventSource: undefined });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    const res = await growthbook.init({ streaming: true });
+
+    expect(res.success).toEqual(true);
+    expect(growthbook.evalFeature("foo").value).toEqual("api");
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("no EventSource implementation is available"),
+    );
+
+    setPolyfills({ EventSource });
+    warn.mockRestore();
+    growthbook.destroy();
+    cleanup();
+  });
+
+  it("warns when the host does not report SSE support", async () => {
+    const apiPayload = {
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+      experiments: [],
+      dateUpdated: "2000-05-01T00:00:12Z",
+    };
+
+    // No x-sse-support response header
+    const [, cleanup] = mockApi(apiPayload, false);
+    const warn = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "sdk-abc123",
+    });
+    const res = await growthbook.init({ streaming: true });
+
+    expect(res.success).toEqual(true);
+    expect(growthbook.evalFeature("foo").value).toEqual("api");
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("did not report SSE support"),
+    );
+
+    warn.mockRestore();
+    growthbook.destroy();
+    cleanup();
   });
 
   it("updates features based on SSE", async () => {

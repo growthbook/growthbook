@@ -307,8 +307,8 @@ configureCache({
   cacheKey: "gbFeaturesCache",
   // Consider features stale after this much time (60 seconds default)
   staleTTL: 1000 * 60,
-  // Cached features older than this will be ignored (24 hours default)
-  maxAge: 1000 * 60 * 60 * 24,
+  // Cached features older than this will be ignored (4 hours default)
+  maxAge: 1000 * 60 * 60 * 4,
   // For Remote Eval only - limit the number of cache entries (~1 entry per user)
   maxEntries: 10,
   // When `false`, we add a `visibilitychange` listener to disable SSE when the page is idle
