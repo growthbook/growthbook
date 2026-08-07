@@ -56,11 +56,7 @@ export default function RoleForm({
     setStatus(action);
   }, [action]);
 
-  // Open the drill-down for any policy the saved role composes atom-by-atom —
-  // those selections are otherwise invisible behind a collapsed row. A policy
-  // granted whole stays collapsed: its atoms are implied, not chosen.
-  // Open any bundle whose parts are granted individually, so a composed role
-  // doesn't look empty on load.
+  // Expand policies whose component grants are selected individually.
   const [expandedPolicies, setExpandedPolicies] = useState<Set<Policy>>(() => {
     const granted = new Set(role.policies || []);
     return new Set(

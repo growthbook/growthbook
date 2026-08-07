@@ -6,21 +6,7 @@ import { NO_ENVIRONMENT_BINDING } from "./revisionPermissions";
 import type { RevisionAction, RevisionModel } from "./revisionPermissions";
 import type { Permissions } from "./permissionsClass";
 
-// What a control may OFFER: the client-side prediction of an endpoint's authority
-// decision, as pure tested functions. Inline predictions drift — the recurring failure
-// is a page asking about the source project of a move, the live entity instead of the
-// selected revision, or a footprint for an action that publishes nothing.
-//
-// In `shared` so `permission-prediction-parity` can hold these to the same oracle the
-// endpoint matrix holds the endpoints to.
-
-// NOT here, deliberately: the ramp-schedule footprint rules live in
-// `shared/util/features.ts` — `rampTargetFootprint`, `rampTargetRuleIds`,
-// `getEnvsForRampTarget`, `getEnvsFromRampSchedule`, `rampControlFootprint`. They are
-// not MIRRORS of a server rule; the gate and the control call the same functions, so
-// there is no second implementation to drift. Splitting them from each other to satisfy
-// this module's naming would separate pieces whose division of responsibility took four
-// review rounds to get right, which is the drift risk this module exists to prevent.
+// Pure client-side predictions of endpoint authority decisions.
 
 type PermissionsUtil = Pick<
   Permissions,
@@ -32,10 +18,7 @@ type PermissionsUtil = Pick<
 
 type ProjectScoped = { project?: string; projects?: string[] };
 
-// Commenting is participation: the addComments atom allows it, and so does draft or
-// review authority. Decided on the REVISION's snapshot — a comment belongs to the
-// revision, whose project may predate a move — falling back to live when none is
-// selected.
+// Revision-scoped actions use the snapshot, falling back to live when none is selected.
 export function canCommentOnRevisionEntity(
   permissionsUtil: PermissionsUtil,
   model: RevisionModel,
@@ -52,8 +35,6 @@ export function canCommentOnRevisionEntity(
   );
 }
 
-// Approve or request changes. Snapshot basis like commenting: the server asserts the
-// verdict against the row its write is conditioned on, whose project may predate a move.
 export function canReviewRevisionEntity(
   permissionsUtil: PermissionsUtil,
   model: RevisionModel,
@@ -65,9 +46,7 @@ export function canReviewRevisionEntity(
   return permissionsUtil.canRevisionAction(model, "review", basis);
 }
 
-// Landing a relocating revision is a write to the DESTINATION, so authority there is
-// required too — asking only about the source offered a Publish the endpoint refused.
-// Runs the server's own `holdsMoveDestination`.
+// Landing a move requires authority in both source and destination.
 export function canPublishRevisionEntity(
   permissionsUtil: PermissionsUtil,
   model: RevisionModel,
@@ -93,10 +72,6 @@ export function canPublishRevisionEntity(
   );
 }
 
-// The DESTINATION of a relocating revision, for one verb. Vacuously true when nothing
-// moves, so it is safe to AND into any landing decision. Split out because the
-// narrow-atom fallbacks need it separately: a reverter or deleter may land a draft the
-// publish atom doesn't cover, but neither exemption crosses a move.
 export function holdsRevisionDestination(
   permissionsUtil: PermissionsUtil,
   model: RevisionModel,
@@ -118,9 +93,7 @@ export function holdsRevisionDestination(
   });
 }
 
-// Landing a revert to a specific target. Two things vary BY TARGET and so can't be
-// answered once per page: the footprint, and the destination (an older snapshot can move
-// the entity back).
+// Revert authority depends on the selected target's footprint and destination.
 export function canLandRevertToTarget(
   permissionsUtil: PermissionsUtil,
   model: RevisionModel,
@@ -141,19 +114,7 @@ export function canLandRevertToTarget(
   );
 }
 
-/**
- * Whether this caller may OPEN a draft that stages an archive flip.
- *
- * Weaker than landing it: staging publishes nothing, so this is project-scoped and
- * the delete atom stages an archive on its own — proposing a change must never take
- * more authority than making it. The delete arm is DIRECTIONAL, matching
- * `canLandArchiveToggle`: taking the entity out of service is delete-class, putting
- * it back is publish-class, so a delete-only role cannot stage a return it could not
- * land.
- *
- * Writing the flip into a draft that already exists is a third question — see
- * `canWriteArchiveIntoDraft`.
- */
+// Staging an archive is project-scoped; restoring service requires draft authority.
 export function canStageArchiveDraft({
   permissions,
   model,
@@ -163,7 +124,6 @@ export function canStageArchiveDraft({
   permissions: PermissionsUtil;
   model: RevisionModel;
   entity: ProjectScoped;
-  /** The state being staged: `true` archives, `false` returns to service. */
   archived: boolean;
 }): boolean {
   if (
@@ -187,9 +147,7 @@ export function canStageArchiveDraft({
   );
 }
 
-// Archiving is delete-class over the environments the entity serves; unarchiving returns
-// it to service and is an ordinary publish. Staging either as a draft is a separate,
-// weaker question — see `canStageArchiveDraft`.
+// Archiving is delete-class; restoring service is publish-class.
 export function canLandArchiveToggle(
   permissionsUtil: PermissionsUtil,
   model: RevisionModel,
@@ -201,9 +159,7 @@ export function canLandArchiveToggle(
     : permissionsUtil.canRevisionAction(model, "delete", entity, footprint);
 }
 
-// Permanent delete. Only reachable once archived, and an archived entity serves nowhere,
-// so it carries no environment footprint. Callers add structural preconditions of their
-// own (a Config with descendants, say).
+// Archived entities carry no serving-environment footprint.
 export function canDeleteArchivedEntity(
   permissionsUtil: PermissionsUtil,
   model: RevisionModel,
@@ -220,8 +176,6 @@ export function canDeleteArchivedEntity(
   );
 }
 
-// The destination of a relocating Feature Flag revision. Features carry a move as
-// `metadata.project` rather than a patch op, and any landing takes PUBLISH there.
 export function holdsFeatureMoveDestination(
   permissionsUtil: PermissionsUtil,
   feature: { project?: string },
@@ -236,8 +190,7 @@ export function holdsFeatureMoveDestination(
   );
 }
 
-// A flag that starts ENABLED reaches the SDK payload immediately, so switching an
-// environment on at create time takes publish there as well as create.
+// Enabling an environment at creation reaches the SDK payload immediately.
 export function canEnableEnvironmentOnCreate(
   permissionsUtil: PermissionsUtil,
   project: string | undefined,
@@ -250,16 +203,7 @@ export function canEnableEnvironmentOnCreate(
   );
 }
 
-/**
- * Whether this caller may write an archive flip into an EXISTING draft.
- *
- * The delete atom stages a NEW archive draft, which is fair: it could land the
- * same change in one step. It must not reach into a draft someone else authored —
- * writing `archived` into another author's content draft makes that draft
- * delete-class, and its author (a publisher without delete) can then no longer
- * publish their own work. Authorship or draft authority, the same pairing every
- * other narrow-atom reach uses.
- */
+// Existing drafts require draft authority or identifiable authorship.
 export function canWriteArchiveIntoDraft({
   permissions,
   model,
@@ -274,12 +218,7 @@ export function canWriteArchiveIntoDraft({
   userId?: string;
 }): boolean {
   if (permissions.canRevisionAction(model, "draft", entity, [])) return true;
-  // An identityless caller (org-scoped API key) gets NO authorship credit: it cannot
-  // prove which authorless revision is its own, so crediting it with all of them let
-  // any such key write `archived` into any other key's draft — making that draft
-  // delete-class, and without resetting review, so an approved draft kept approvals
-  // that never saw the archive. The cost is that a key must hold the draft atom to
-  // archive-write into a draft it created itself, which is the safe direction.
+  // Authorship credit requires an identifiable user.
   if (!userId) return false;
   return (
     revision.authorId === userId || !!revision.contributors?.includes(userId)

@@ -7,12 +7,7 @@ import { isPureRevertRevision } from "back-end/src/revisions/revertPurity";
 import { canDoRevisionAction } from "back-end/src/revisions/revisionActions";
 import { getAdapter } from "back-end/src/revisions";
 
-// Whether the caller authored this revision.
-//
-// Never true without an identifiable user. An API-key context carries userId "",
-// and a revision authored by an API key stores authorId "" — so comparing them
-// directly made every key the author of every key-authored revision, and
-// authorship alone permits discarding and updating a draft.
+// Identityless API keys cannot claim authorship of authorless revisions.
 export function isRevisionAuthor(
   authorId: string | undefined,
   userId: string | undefined,
@@ -20,38 +15,16 @@ export function isRevisionAuthor(
   return !!userId && !!authorId && authorId === userId;
 }
 
-// Whether the caller COULD be the author — the question author separation has to ask.
-//
-// `isRevisionAuthor` answers the opposite one ("provably the author") and so returns
-// false for an identityless caller, which is right where authorship GRANTS something
-// and wrong where it withholds. An org-scoped API key has userId "" and authors
-// revisions with authorId "": indistinguishable from every other such key, so a key
-// holding draft and review could open a revision and approve it, which is the whole
-// of author separation.
+// Author separation must treat two identityless principals as potentially equal.
 export function mayBeRevisionAuthor(
   authorId: string | undefined,
   userId: string | undefined,
 ): boolean {
   if (isRevisionAuthor(authorId, userId)) return true;
-  // Neither side identifies anyone: we cannot tell this key from the one that wrote
-  // the revision, so we must assume they are the same principal.
   return !userId && !authorId;
 }
 
-// The verdict authority re-check every review path hands to `addReview`, so the
-// decision is judged against the row the write is conditioned on rather than a
-// read a concurrent rebase may have invalidated. A rebase re-snapshots the
-// revision, so a move shows up here as a snapshot in a project the reviewer may
-// hold nothing in.
-/**
- * The DRAFT-authority twin of `reviewAuthorityOnRow`, for verbs whose gate is draft
- * rather than review — recall, and anything else that manages a draft.
- *
- * `author` is the caller's authorship exemption, evaluated per-row because the row a
- * retry re-reads may not be the row the caller was authorized against: a rebase can
- * re-snapshot a revision into a project the caller holds nothing in, and the CAS
- * guard makes that retry NOTICE the change while this decides whether it may proceed.
- */
+// Recheck authority against every row read by a CAS retry.
 export function draftAuthorityOnRow(
   context: Context,
 ): (existing: Revision) => void {
@@ -87,19 +60,7 @@ export function reviewAuthorityOnRow(
   };
 }
 
-/**
- * Whether the caller may DISCARD a draft.
- *
- * Narrower than advancing it, deliberately. `canAdvanceRevision` lets a narrow atom
- * act on a draft that only does what that atom covers — a deleter over a pure
- * archive — which is right for moving your own work along, and wrong for destroying
- * someone else's. A qa-style delete-only role could discard another author's archive
- * draft, including one already in review.
- *
- * So: draft authority (the role that manages drafts generally), or authorship. A
- * narrow-atom holder can still publish or decline to publish the draft; they just
- * cannot throw away work that isn't theirs.
- */
+// Discarding another user's work requires draft authority, not a narrow landing atom.
 export async function canDiscardRevision(
   context: Context,
   revision: Revision,
@@ -112,16 +73,7 @@ export async function canDiscardRevision(
   );
 }
 
-// Who may move a generic entity's draft along — request review on it, recall
-// that request, discard it.
-//
-// Draft authority covers every draft. Beyond that, a narrower atom gets a say so a
-// single-purpose role can finish what it was allowed to start: revert over a draft
-// that only restores a published revision, delete over one that only archives. The
-// author can always advance their own draft.
-//
-// The purity checks read a second revision, so they run only after the cheap atom
-// checks fail.
+// Narrow atoms may advance only drafts that contain their corresponding pure action.
 export async function canAdvanceRevision(
   context: Context,
   revision: Revision,
@@ -132,13 +84,9 @@ export async function canAdvanceRevision(
   if (canDoRevisionAction(type, "draft", context, snapshot)) return true;
 
   const hasRevert = canDoRevisionAction(type, "revert", context, snapshot);
-  // The ENTITY delete atom — the adapter's plain `canDelete` governs discarding
-  // revision documents and is bypass-tier, which is the wrong authority here.
   const hasDelete =
     getAdapter(type).canDeleteEntity?.(context, snapshot) ?? false;
 
-  // !!userId: API-key contexts have userId "" (bootstrap revisions can too),
-  // so a bare equality calls unrelated API keys "the author".
   if (
     !!context.userId &&
     isRevisionAuthor(revision.authorId, context.userId) &&
@@ -161,17 +109,7 @@ export async function canAdvanceRevision(
   return isPureRevertRevision(context, revision);
 }
 
-// Whether the live state still matches the snapshot the draft was built on, so a
-// rebase would pull nothing in and only re-anchor the base version.
-//
-// Deliberately NOT named like `featureDraftAuthority`'s `rebasePullsInNothing`,
-// which answers the same question from a MergeResult. The two are not
-// interchangeable — see below for why this one cannot use that basis.
-//
-// Asked of base-vs-live directly, not of the merge result: `checkMergeConflicts`
-// only examines fields the DRAFT proposes, so a field the live state changed and
-// the draft never touches produces no conflict and no `fieldsChanged` entry — yet
-// a rebase adopts it. That field is exactly what a narrow atom must not sweep in.
+// Compare base to live directly; merge conflicts omit untouched fields a rebase adopts.
 export function liveMatchesRevisionBase({
   baseSnapshot,
   liveSnapshot,
@@ -181,7 +119,6 @@ export function liveMatchesRevisionBase({
   liveSnapshot: Record<string, unknown>;
   updatableFields: ReadonlySet<string>;
 }): boolean {
-  // Snapshots drop nullish keys, so absent and null have to read as the same.
   const same = (a: unknown, b: unknown) =>
     (a ?? null) === null ? (b ?? null) === null : isEqual(a, b);
   return [...updatableFields].every((field) =>
@@ -189,11 +126,7 @@ export function liveMatchesRevisionBase({
   );
 }
 
-// Who may rebase a draft. Draft authority covers any rebase; a narrow atom
-// covers one that pulls in nothing, over a draft the atom could already advance.
-// That lets a single-purpose role satisfy "rebase before publishing" without
-// gaining a way to sweep someone else's changes in. The generic twin of
-// `canRebaseFeatureDraft`.
+// Narrow atoms may rebase only when doing so adopts no live changes.
 export async function canRebaseRevision({
   context,
   revision,

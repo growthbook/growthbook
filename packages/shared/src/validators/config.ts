@@ -219,13 +219,7 @@ export const putConfigBodyValidator = z.object({
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   project: z.string().optional(),
   archived: z.boolean().optional(),
-  // `.nullish()`, not `.optional()`: an explicit null is how a revert CLEARS a
-  // schema. Optional made the clear inexpressible — the middleware 400d it — and
-  // the revert modal, having no way to say it, sent `undefined`, which
-  // JSON.stringify drops. Three layers each losing the same intent independently,
-  // while the Review Changes diff showed the removal. `postConfigRevisionRevert`
-  // has always computed null-as-clear server-side; this is the internal PUT
-  // catching up.
+  // Reverts use null to clear a schema; undefined is omitted during serialization.
   schema: simpleSchemaValidator.nullish(),
   extensible: z.boolean().optional(),
   renderProjections: z.record(z.string(), schemaProjectionValidator).optional(),

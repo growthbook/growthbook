@@ -15,23 +15,6 @@ import {
   reviewAuthorityOnRow,
 } from "back-end/src/revisions/revisionAuthority";
 
-/**
- * The revision LIFECYCLE verbs — recall a review request, reopen a discarded
- * revision, arm or cancel a deferred publish, retract your own verdict — written
- * once for every entity that has revisions.
- *
- * These four used to exist only on Configs (and, in their own dialect, on Feature
- * Flags), so an API consumer could withdraw a review request on a Config and not on
- * a Constant, for no reason either surface could state. They are per-entity only in
- * how the entity is looked up and rendered, which is what the callers still do; the
- * rules themselves have no business varying by entity, and copying them a third and
- * fourth time is how the last several divergences happened.
- *
- * Each takes an already-loaded entity and revision (the caller resolved the key or
- * id and checked readability), applies the rule, dispatches the lifecycle event via
- * the webhook registry, and returns the updated revision for the caller to render.
- */
-
 const REVIEW_STATUSES = ["pending-review", "changes-requested", "approved"];
 
 /** Return a revision that is in review to `draft`, clearing its reviews. */
@@ -52,11 +35,7 @@ export async function recallRevisionReview({
     );
   }
 
-  // Author can always recall their own request; otherwise draft authority, judged
-  // on the REVISION's snapshot — the basis the internal controller and the
-  // comment/review helpers already use. A revision belongs to the project it was
-  // opened in, which a later move on the live entity does not change; asking about
-  // live made the two surfaces answer differently for the same revision.
+  // Lifecycle authority follows the revision snapshot, not later live-entity moves.
   if (!isRevisionAuthor(revision.authorId, context.userId)) {
     if (
       !canDoRevisionAction(
@@ -73,9 +52,6 @@ export async function recallRevisionReview({
   const recalled = await context.models.revisions.recallReview(
     revision.id,
     context.userId,
-    // Re-asked on the row each CAS attempt actually reads. The check above is the
-    // early, clear refusal; a retry after a concurrent rebase would otherwise
-    // recall a revision now snapshotted into a project the caller holds nothing in.
     draftAuthorityOnRow(context),
   );
   await getRevisionWebhookAdapter(type)?.dispatch(context, recalled, {
@@ -100,8 +76,6 @@ export async function reopenRevision({
     throw new BadRequestError("Only discarded revisions can be reopened");
   }
 
-  // Authors can always reopen their own drafts; otherwise draft authority, on the
-  // revision's snapshot for the same reason as recall above.
   if (!isRevisionAuthor(revision.authorId, context.userId)) {
     if (
       !canDoRevisionAction(
@@ -137,15 +111,7 @@ export async function undoRevisionReview({
   entity: Record<string, unknown>;
   revision: Revision;
 }): Promise<Revision> {
-  // Review authority to touch verdicts at all; the model enforces that only the
-  // caller's OWN active verdict is retracted.
-  //
-  // Judged on the revision's SNAPSHOT, the same basis `reviewAuthorityOnRow` uses
-  // inside the CAS below. Against the LIVE entity these two disagreed after a
-  // project move: a reviewer authorized where the revision lives could pass the
-  // inner check and still be turned away here, unable to retract their own verdict
-  // on a revision they legitimately reviewed. A verdict belongs to the revision, so
-  // both asks are about the revision.
+  // Verdict authority follows the revision snapshot and is rechecked inside the CAS.
   if (
     !canDoRevisionAction(
       type,
@@ -166,9 +132,6 @@ export async function undoRevisionReview({
     type: "updated",
   });
 
-  // Retracting a request-changes can flip the revision back to approved; if it is
-  // armed, auto-publish exactly as the review path does — otherwise the draft sits
-  // approved and armed with nothing left to trigger it.
   if (updated.status === "approved" && updated.autoPublishOnApproval) {
     return maybeAutoPublishRevision(context, updated, entity);
   }
@@ -200,8 +163,6 @@ export async function scheduleRevisionPublish({
   const { scheduledPublishAt, lockEdits, lockOthers, bypassApproval } = body;
   const isCancel = scheduledPublishAt === null;
 
-  // Only an active draft can be armed; a merged/discarded revision would fail the
-  // status-guarded write with a raw Error (500) — reject up front (400).
   if (
     !isCancel &&
     !(ACTIVE_DRAFT_STATUSES as readonly string[]).includes(revision.status)
@@ -211,7 +172,6 @@ export async function scheduleRevisionPublish({
     );
   }
 
-  // Arming a future publish is blocked while locked; cancelling a schedule is not.
   if (!isCancel) {
     assertArmable?.();
   }
@@ -240,11 +200,7 @@ export async function scheduleRevisionPublish({
   if (isCancel ? !canPublish : !canSchedule) {
     context.permissions.throwPermissionError();
   }
-  // Arming takes the same authority the fire-time publish will. The adapter check
-  // above is coarse — it cannot see the change set — so without this a caller
-  // limited to dev could arm a production-touching schedule and only learn it was
-  // refused when the poller fired. Cancelling stays coarse: it withdraws a pending
-  // publish rather than landing one.
+  // Arming uses change-aware publish authority; cancellation remains coarse.
   if (!isCancel) {
     await assertCanPublishRevision(context, revision, entity);
   }
@@ -261,8 +217,6 @@ export async function scheduleRevisionPublish({
     throw new BadRequestError("A scheduled publish needs a user to run as");
   }
 
-  // Arming a draft that still requires approval (without bypass) isn't allowed —
-  // request review first.
   if (!isCancel && revision.status === "draft" && !wantsBypass) {
     const approvalRequired = adapter.isApprovalRequiredForRevision
       ? adapter.isApprovalRequiredForRevision(context, revision)
@@ -274,9 +228,7 @@ export async function scheduleRevisionPublish({
     }
   }
 
-  // Deferred-publish guards: snapshot the acknowledged conflict keys per guard
-  // (throws if arming over live conflicts without ignoreWarnings/bypass). Routed
-  // through the adapter so every guard is captured uniformly.
+  // Capture guard acknowledgments so fire-time checks can detect drift.
   const armAcknowledgments = isCancel
     ? undefined
     : await adapter.captureArmAcknowledgment?.(

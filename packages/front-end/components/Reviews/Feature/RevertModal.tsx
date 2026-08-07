@@ -137,11 +137,7 @@ export default function RevertModal({
       ),
   );
   // Whether this restore touches anything beyond per-environment rules. The
-  // endpoint checks PER CHANGE: a rules-only revert answers for the changed
-  // environments alone, while a global field (default value, prerequisites,
-  // archived, a re-enable, a move) answers for everywhere it serves. Feeding the
-  // wide union in every case cost a dev-limited reverter the publish-now route on
-  // a revert that only differs in dev rules.
+  // Global changes use the full serving footprint; rules-only changes stay scoped.
   const revertTouchesGlobalState =
     targetRevisionForAction.defaultValue !== feature.defaultValue ||
     (targetRevisionForAction.prerequisites !== undefined &&
@@ -150,14 +146,7 @@ export default function RevertModal({
         feature.prerequisites ?? [],
       )) ||
     !!targetRevisionForAction.archived !== !!feature.archived ||
-    // Metadata — the case the comment above always listed and the check never
-    // included. A metadata-only revert produced NO changed rule environments, so
-    // the footprint was empty, which SKIPS the environment check rather than
-    // narrowing it: "Publish now" was offered to a dev-limited reverter for a
-    // production flag. Payload-affecting keys only, matching the endpoint.
-    metadataTouchesPayload(
-      targetRevisionForAction.metadata as Record<string, unknown> | undefined,
-    ) ||
+    metadataTouchesPayload(targetRevisionForAction.metadata) ||
     Object.entries(targetRevisionForAction.environmentsEnabled ?? {}).some(
       ([env, enabled]) =>
         enabled !== !!feature.environmentSettings?.[env]?.enabled,

@@ -214,14 +214,7 @@ export function revisionPublishFootprint({
   return scoped;
 }
 
-/**
- * Metadata fields that never reach an SDK payload — the pre-split `manageFeatures`
- * semantic, and the same set the publish GATE uses to decide a change needs no
- * publish authority at all.
- *
- * Named keys rather than a complement, so a new payload-affecting field fails safe
- * into "touches payload".
- */
+// Named explicitly so unknown metadata fails safe as payload-affecting.
 const PAYLOAD_INERT_METADATA = new Set([
   "description",
   "owner",
@@ -230,27 +223,12 @@ const PAYLOAD_INERT_METADATA = new Set([
   "customFields",
 ]);
 
-/**
- * Whether a metadata change reaches the SDK payload.
- *
- * Shared with the gate for one reason: treating ANY metadata as global widened the
- * footprint to every serving environment, so editing a dev rule AND the
- * description refused a dev-limited publisher — while dropping the description
- * from the same request succeeded. The gate meanwhile skipped the publish check
- * entirely for that field. The two answers have to come from one place.
- */
-export function metadataTouchesPayload(
-  metadata: Record<string, unknown> | undefined,
-): boolean {
+export function metadataTouchesPayload(metadata: object | undefined): boolean {
   if (!metadata) return false;
   return Object.keys(metadata).some((key) => !PAYLOAD_INERT_METADATA.has(key));
 }
 
-// What an archive/unarchive answers for. NAMED so call sites stop spelling it: the raw
-// org-environment list reads correct and is wrong, and survived a sweep that fixed seven
-// siblings precisely because it looked right. Twin of the server's
-// `archiveServeFootprint`. `scoped` is the entity's own binding (a Config's overrides);
-// empty means unbound, and unbound means everywhere it serves.
+// Empty scope means unbound, so archive authority spans every serving environment.
 export function archiveFootprintForControl({
   environments,
   entity,
