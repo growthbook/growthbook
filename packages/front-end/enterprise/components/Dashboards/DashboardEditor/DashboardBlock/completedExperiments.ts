@@ -5,15 +5,12 @@ import {
   CompletedExperimentsBlockFilters,
   calculateProductAnalyticsDateRange,
   resolveBlockComparison,
+  resolveComparisonPreviousTimeFrame,
   resolveCompletedExperimentsFilters,
 } from "shared/enterprise";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useExperimentSearch } from "@/services/experiments";
-import {
-  filterCompletedExperiments,
-  getPreviousWindow,
-  Window,
-} from "./completedExperimentsData";
+import { filterCompletedExperiments, Window } from "./completedExperimentsData";
 
 // localStorage key for the search hook's sort state. Sort output is unused here
 // (we consume the pre-sort filtered list), so a single shared key is fine.
@@ -84,20 +81,15 @@ export function useCompletedExperimentsComparison(
   );
   const comparison = resolveBlockComparison(block);
   const comparisonEnabled = comparison !== null;
-  // Use an explicit prior window when the user set one (Custom Date Range +
-  // compare); otherwise derive it by span-shifting the current window.
-  const previousWindow = useMemo(() => {
-    const ptf = comparison?.previousTimeFrame;
-    if (
-      ptf &&
-      ptf.predefined === "customDateRange" &&
-      ptf.startDate &&
-      ptf.endDate
-    ) {
-      return calculateProductAnalyticsDateRange(ptf);
-    }
-    return getPreviousWindow(window);
-  }, [comparison, window]);
+  // Resolved through the shared seam so these blocks get every comparison mode
+  // and can't drift from what the picker shows.
+  const previousWindow = useMemo(
+    () =>
+      calculateProductAnalyticsDateRange(
+        resolveComparisonPreviousTimeFrame(block.dateRange, comparison ?? {}),
+      ),
+    [block.dateRange, comparison],
+  );
 
   const { experiments, loading } = useExperiments("", true, "standard");
 

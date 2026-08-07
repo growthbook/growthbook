@@ -284,7 +284,7 @@ export default function FactTablePage() {
       )}
       <Flex align="start" justify="between" gap="2" mb="2">
         <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
-          <Heading size="xl" as="h1" mb="0">
+          <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
             {factTable.name}
             <OfficialBadge
               ml="2"

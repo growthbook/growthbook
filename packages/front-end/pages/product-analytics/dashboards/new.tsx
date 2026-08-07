@@ -96,7 +96,10 @@ export default function NewDashboardPage() {
                     args.data.updateSchedule ?? dashboard.updateSchedule,
                   userId: args.data.userId,
                   globalControls: args.data.globalControls,
-                  comparison: args.data.comparison ?? undefined,
+                  // See the note in [did].tsx: "off" must serialize explicitly.
+                  ...("comparison" in args.data
+                    ? { comparison: args.data.comparison ?? { enabled: false } }
+                    : {}),
                 },
           ),
         });
@@ -154,6 +157,7 @@ export default function NewDashboardPage() {
         updateTemporaryDashboard={(update: {
           blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
           globalControls?: DashboardInterface["globalControls"];
+          comparison?: DashboardInterface["comparison"];
         }) => {
           setDashboard((prev) => {
             if (!prev) return prev;
@@ -162,6 +166,9 @@ export default function NewDashboardPage() {
               ...(update.blocks !== undefined ? { blocks: update.blocks } : {}),
               ...(update.globalControls !== undefined
                 ? { globalControls: update.globalControls }
+                : {}),
+              ...("comparison" in update
+                ? { comparison: update.comparison }
                 : {}),
             } as DashboardInterface;
           });
