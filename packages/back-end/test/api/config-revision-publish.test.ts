@@ -522,3 +522,119 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish (requireRebaseBef
     });
   });
 });
+
+/**
+ * The lock is the ONE entity-specific precondition on arming a deferred publish.
+ *
+ * All four revision lifecycle verbs now share one implementation
+ * (`revisions/revisionLifecycle.ts`) across Configs, Constants and Saved Groups, and
+ * the Config handler passes its lock check in as an `assertArmable` callback. Nothing
+ * else would fail if that callback were dropped — the shared helper has no idea locks
+ * exist — so these two cases are what hold the wiring in place.
+ *
+ * Directional on purpose: a lock must not strand a schedule that is already armed.
+ */
+describe("POST /api/v1/configs-revisions/:key/:version/schedule-publish", () => {
+  // Arming needs the `scheduled-revisions` commercial feature on top of publish
+  // authority. Without it every case here 403s before reaching the lock, which
+  // would make the pair pass for a reason that has nothing to do with locking.
+  //
+  // A USER, not the bare api-key context the rest of this file uses: a scheduled
+  // publish records who it will run as, and an org-scoped key has no identity to
+  // record, so arming from one is refused before the lock is ever consulted.
+  const withScheduling = () => {
+    const context = new ReqContextClass({
+      // Same ORG_ID so the seeded configs resolve; only the member list differs
+      // (the file's shared org has none, and a user context needs one).
+      org: {
+        ...org,
+        members: [
+          {
+            id: "u_scheduler",
+            role: "admin",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ],
+      } as unknown as OrganizationInterface,
+      auditUser: { type: "api_key", apiKey: "key_test" },
+      user: {
+        id: "u_scheduler",
+        email: "scheduler@test.com",
+        name: "Scheduler",
+        superAdmin: false,
+      },
+      role: "admin",
+      req: { query: {}, headers: {}, body: {} } as unknown as Request,
+    });
+    context.hasPremiumFeature = () => true;
+    return context;
+  };
+
+  const lockConfig = async (key: string) =>
+    mongoose.connection.collection("configs").updateOne(
+      { key, organization: ORG_ID },
+      {
+        $set: {
+          lock: {
+            revisionId: "rev_locked_schedule",
+            version: 1,
+            lockedBy: "u_admin",
+            dateLocked: new Date(),
+          },
+        },
+      },
+    );
+
+  const tomorrow = () => new Date(Date.now() + 86400000).toISOString();
+
+  it("refuses to ARM a schedule on a locked config", async () => {
+    setReqContext(withScheduling());
+    const key = "cfg_lock_arm";
+    const version = await setupConfigDraft(key);
+    await lockConfig(key);
+
+    const res = await request(app)
+      .post(`/api/v1/configs-revisions/${key}/${version}/schedule-publish`)
+      .send({ scheduledPublishAt: tomorrow() })
+      .set("Authorization", "Bearer foo");
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/is locked at revision/i);
+  });
+
+  it("still allows CANCELLING a schedule armed before the lock", async () => {
+    setReqContext(withScheduling());
+    const key = "cfg_lock_cancel";
+    const version = await setupConfigDraft(key);
+
+    // Arm while unlocked, so there is a real pending schedule to withdraw.
+    const armed = await request(app)
+      .post(`/api/v1/configs-revisions/${key}/${version}/schedule-publish`)
+      .send({ scheduledPublishAt: tomorrow() })
+      .set("Authorization", "Bearer foo");
+    expect(`${armed.status} ${JSON.stringify(armed.body)}`).toMatch(/^200 /);
+    // Asserted on the stored revision: the API revision shape doesn't carry
+    // `scheduledPublishAt`, so a 200 alone wouldn't prove anything was armed —
+    // and this test is worthless if the cancel below has nothing to cancel.
+    const armedDoc = await mongoose.connection
+      .collection("revisions")
+      .findOne({ id: armed.body.revision.id });
+    expect(armedDoc?.scheduledPublishAt).toBeTruthy();
+
+    await lockConfig(key);
+
+    const cancelled = await request(app)
+      .post(`/api/v1/configs-revisions/${key}/${version}/schedule-publish`)
+      .send({ scheduledPublishAt: null })
+      .set("Authorization", "Bearer foo");
+
+    expect(`${cancelled.status} ${JSON.stringify(cancelled.body)}`).toMatch(
+      /^200 /,
+    );
+    const cancelledDoc = await mongoose.connection
+      .collection("revisions")
+      .findOne({ id: armed.body.revision.id });
+    expect(cancelledDoc?.scheduledPublishAt ?? null).toBeNull();
+  });
+});
