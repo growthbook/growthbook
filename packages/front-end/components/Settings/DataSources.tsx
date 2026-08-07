@@ -10,6 +10,14 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+  TableRowHeaderCell,
+} from "@/ui/Table";
 
 const DataSources: FC = () => {
   const router = useRouter();
@@ -29,20 +37,30 @@ const DataSources: FC = () => {
   }
 
   return (
-    <table className="table appbox gbtable table-hover">
-      <thead>
-        <tr>
-          <th className="col-2">Display Name</th>
-          <th className="col-auto">Description</th>
-          <th className="col-2">Type</th>
-          <th className="col-2">Projects</th>
-          {!hasFileConfig() && <th className="col-2">Last Updated</th>}
-        </tr>
-      </thead>
-      <tbody>
+    <Table variant="list">
+      <TableHeader>
+        <TableRow>
+          <TableColumnHeader style={{ width: "16.67%" }}>
+            Display Name
+          </TableColumnHeader>
+          <TableColumnHeader>Description</TableColumnHeader>
+          <TableColumnHeader style={{ width: "16.67%" }}>
+            Type
+          </TableColumnHeader>
+          <TableColumnHeader style={{ width: "16.67%" }}>
+            Projects
+          </TableColumnHeader>
+          {!hasFileConfig() && (
+            <TableColumnHeader style={{ width: "16.67%" }}>
+              Last Updated
+            </TableColumnHeader>
+          )}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {filteredDatasources.map((d, i) => (
-          <tr
-            className="nav-item cursor-pointer"
+          <TableRow
+            className="cursor-pointer"
             key={i}
             onClick={(e) => {
               // If clicking on a link or button, default to browser behavior
@@ -64,7 +82,7 @@ const DataSources: FC = () => {
               router.push(`/datasources/${d.id}`);
             }}
           >
-            <td>
+            <TableRowHeaderCell>
               <Link href={`/datasources/${d.id}`}>{d.name}</Link>{" "}
               {d.decryptionError && (
                 <Tooltip
@@ -78,12 +96,18 @@ const DataSources: FC = () => {
                   <FaExclamationTriangle className="text-danger" />
                 </Tooltip>
               )}
-            </td>
-            <td className="pr-5 text-gray" style={{ fontSize: 12 }}>
+            </TableRowHeaderCell>
+            <TableCell
+              style={{
+                paddingRight: "var(--space-5)",
+                color: "var(--color-text-low)",
+                fontSize: 12,
+              }}
+            >
               {d.description}
-            </td>
-            <td>{d.type}</td>
-            <td>
+            </TableCell>
+            <TableCell>{d.type}</TableCell>
+            <TableCell>
               {(d?.projects?.length || 0) > 0 ? (
                 <ProjectBadges
                   resourceType="data source"
@@ -92,12 +116,14 @@ const DataSources: FC = () => {
               ) : (
                 <ProjectBadges resourceType="data source" />
               )}
-            </td>
-            {!hasFileConfig() && <td>{ago(d.dateUpdated || "")}</td>}
-          </tr>
+            </TableCell>
+            {!hasFileConfig() && (
+              <TableCell>{ago(d.dateUpdated || "")}</TableCell>
+            )}
+          </TableRow>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 };
 

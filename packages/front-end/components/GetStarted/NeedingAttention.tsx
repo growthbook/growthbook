@@ -39,6 +39,13 @@ import {
 } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Owner from "@/components/Avatar/Owner";
 import LinkButton from "@/ui/LinkButton";
+import Table, {
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+  TableRowHeaderCell,
+} from "@/ui/Table";
 import styles from "./NeedingAttention.module.scss";
 
 type FeaturesAndRevisions = FeatureRevisionInterface & {
@@ -90,7 +97,7 @@ const NeedingAttention = (): React.ReactElement | null => {
     useUser();
   const {
     items: experimentsNeedingAttention,
-    SortableTH: SortableTHExperiments,
+    SortableTableColumnHeader: SortableTableColumnHeaderExperiments,
   } = useExperimentSearch({
     allExperiments: experiments,
     defaultSortField: "id",
@@ -268,7 +275,7 @@ const NeedingAttention = (): React.ReactElement | null => {
   );
   const {
     items: featureFlagsNeedingAttention,
-    SortableTH: SortableTHFeatureFlags,
+    SortableTableColumnHeader: SortableTableColumnHeaderFeatureFlags,
   } = useSearch<ComputedFeaturesAndRevisions>({
     items: revisions,
     localStorageKey: "featureFlagsNeedingAttention",
@@ -388,23 +395,27 @@ const NeedingAttention = (): React.ReactElement | null => {
           />
         </Flex>
         {experimentsNeedingAttention.length > 0 ? (
-          <table className="table gbtable needs-attentions-table mt-3 rounded-table">
-            <thead>
-              <tr>
-                <SortableTHExperiments field="name">Name</SortableTHExperiments>
-                <SortableTHExperiments field="project">
+          <Table variant="list" stickyHeader={false} mt="3">
+            <TableHeader>
+              <TableRow>
+                <SortableTableColumnHeaderExperiments field="name">
+                  Name
+                </SortableTableColumnHeaderExperiments>
+                <SortableTableColumnHeaderExperiments field="project">
                   Project
-                </SortableTHExperiments>
-                <SortableTHExperiments field="id">Owner</SortableTHExperiments>
-                <SortableTHExperiments field="status">
+                </SortableTableColumnHeaderExperiments>
+                <SortableTableColumnHeaderExperiments field="id">
+                  Owner
+                </SortableTableColumnHeaderExperiments>
+                <SortableTableColumnHeaderExperiments field="status">
                   Status
-                </SortableTHExperiments>
-              </tr>
-            </thead>
-            <tbody>
+                </SortableTableColumnHeaderExperiments>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {paginatedExperiments.map((item: ComputedExperimentInterface) => (
-                <tr key={item.id} className="hover-highlight">
-                  <td className={styles.nameTd}>
+                <TableRow key={item.id}>
+                  <TableRowHeaderCell className={styles.nameTd}>
                     <Link
                       href={`/experiment/${item.id}`}
                       style={{
@@ -416,22 +427,28 @@ const NeedingAttention = (): React.ReactElement | null => {
                     >
                       {item.name}
                     </Link>
-                  </td>
-                  <td className="text-truncate">
-                    {getProjectById(item?.project || "")?.name}
-                  </td>
-                  <td className={styles.ownerTd}>
-                    <Owner ownerId={item.owner} />
-                  </td>
-                  <td className="text-truncate">
-                    <ExperimentStatusDetailsWithDot
-                      statusIndicatorData={item.statusIndicator}
-                    />
-                  </td>
-                </tr>
+                  </TableRowHeaderCell>
+                  <TableCell>
+                    <span className={styles.truncate}>
+                      {getProjectById(item?.project || "")?.name}
+                    </span>
+                  </TableCell>
+                  <TableCell className={styles.ownerTd}>
+                    <span className={styles.truncate}>
+                      <Owner ownerId={item.owner} />
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className={styles.truncate}>
+                      <ExperimentStatusDetailsWithDot
+                        statusIndicatorData={item.statusIndicator}
+                      />
+                    </span>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         ) : (
           <Container mt="3" width="100%">
             <Flex direction="column">
@@ -511,29 +528,27 @@ const NeedingAttention = (): React.ReactElement | null => {
           />
         </Flex>
         {featureFlagsNeedingAttention.length > 0 ? (
-          <table
-            className={`table gbtable mt-3 needs-attentions-table rounded-table`}
-          >
-            <thead>
-              <tr>
-                <SortableTHFeatureFlags field="featureId">
+          <Table variant="list" stickyHeader={false} mt="3">
+            <TableHeader>
+              <TableRow>
+                <SortableTableColumnHeaderFeatureFlags field="featureId">
                   Feature Key
-                </SortableTHFeatureFlags>
-                <SortableTHFeatureFlags field="project">
+                </SortableTableColumnHeaderFeatureFlags>
+                <SortableTableColumnHeaderFeatureFlags field="project">
                   Project
-                </SortableTHFeatureFlags>
-                <SortableTHFeatureFlags field="ownerNameDisplay">
+                </SortableTableColumnHeaderFeatureFlags>
+                <SortableTableColumnHeaderFeatureFlags field="ownerNameDisplay">
                   Owner
-                </SortableTHFeatureFlags>
-                <SortableTHFeatureFlags field="status">
+                </SortableTableColumnHeaderFeatureFlags>
+                <SortableTableColumnHeaderFeatureFlags field="status">
                   Status
-                </SortableTHFeatureFlags>
-              </tr>
-            </thead>
-            <tbody>
+                </SortableTableColumnHeaderFeatureFlags>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {paginatedFeatureFlags.map((item) => (
-                <tr key={item.featureId} className="hover-highlight">
-                  <td className={styles.nameTd}>
+                <TableRow key={item.featureId}>
+                  <TableRowHeaderCell className={styles.nameTd}>
                     <Link
                       href={`/features/${item.featureId}`}
                       style={{
@@ -545,18 +560,26 @@ const NeedingAttention = (): React.ReactElement | null => {
                     >
                       {item.featureId}
                     </Link>
-                  </td>
-                  <td className="text-truncate">
-                    {getProjectById(item.featureMeta?.project || "")?.name}
-                  </td>
-                  <td className={styles.ownerTd}>
-                    <Owner ownerId={item.owner} />
-                  </td>
-                  <td className="text-truncate">{renderStatusCopy(item)}</td>
-                </tr>
+                  </TableRowHeaderCell>
+                  <TableCell>
+                    <span className={styles.truncate}>
+                      {getProjectById(item.featureMeta?.project || "")?.name}
+                    </span>
+                  </TableCell>
+                  <TableCell className={styles.ownerTd}>
+                    <span className={styles.truncate}>
+                      <Owner ownerId={item.owner} />
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className={styles.truncate}>
+                      {renderStatusCopy(item)}
+                    </span>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         ) : (
           <Container mt="3" width="100%">
             <Flex direction="column">

@@ -29,6 +29,13 @@ import { useRevisions } from "@/hooks/useRevisions";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Table, {
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+  TableRowHeaderCell,
+} from "@/ui/Table";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -295,23 +302,28 @@ const ApprovalRequests: FC = () => {
     _sortKey: STATUS_PRIORITY[item.status] * 1e15 - item.dateCreated,
   }));
 
-  const { items, searchInputProps, SortableTH, syntaxFilters, setSearchValue } =
-    useSearch({
-      items: approvalItems,
-      localStorageKey: "approvalRequestsList",
-      // Design requirement: filters and sort should reset each time the user
-      // navigates to this page so the primary view (blocked, actionable
-      // items) is always front-and-center.
-      persistSort: false,
-      defaultSortField: "_sortKey",
-      defaultSortDir: 1,
-      searchFields: ["entityName", "authorId", "title", "authorDisplay"],
-      searchTermFilters: {
-        status: (item) => item.status,
-        type: (item) => item.entityType,
-        author: (item) => [item.authorId, item.authorDisplay],
-      },
-    });
+  const {
+    items,
+    searchInputProps,
+    SortableTableColumnHeader,
+    syntaxFilters,
+    setSearchValue,
+  } = useSearch({
+    items: approvalItems,
+    localStorageKey: "approvalRequestsList",
+    // Design requirement: filters and sort should reset each time the user
+    // navigates to this page so the primary view (blocked, actionable
+    // items) is always front-and-center.
+    persistSort: false,
+    defaultSortField: "_sortKey",
+    defaultSortDir: 1,
+    searchFields: ["entityName", "authorId", "title", "authorDisplay"],
+    searchTermFilters: {
+      status: (item) => item.status,
+      type: (item) => item.entityType,
+      author: (item) => [item.authorId, item.authorDisplay],
+    },
+  });
 
   const { dropdownFilterOpen, setDropdownFilterOpen, updateQuery } =
     useSearchFiltersBase({
@@ -633,26 +645,37 @@ const ApprovalRequests: FC = () => {
         </Callout>
       ) : (
         <>
-          <table className="table gbtable table-valign-top">
-            <thead>
-              <tr>
-                <SortableTH field="entityName">Name</SortableTH>
-                <SortableTH field="version">Revision</SortableTH>
-                <SortableTH field="entityType">Type</SortableTH>
-                <SortableTH field="authorDisplay">Requested by</SortableTH>
-                <SortableTH field="dateCreated">Date Requested</SortableTH>
-                <SortableTH field="_sortKey">Status</SortableTH>
-              </tr>
-            </thead>
-            <tbody>
+          <Table variant="list">
+            <TableHeader>
+              <TableRow>
+                <SortableTableColumnHeader field="entityName">
+                  Name
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="version">
+                  Revision
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="entityType">
+                  Type
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="authorDisplay">
+                  Requested by
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="dateCreated">
+                  Date Requested
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="_sortKey">
+                  Status
+                </SortableTableColumnHeader>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {paginatedItems.map((row) => (
-                <tr
+                <TableRow
                   key={row.id}
-                  className="hover-highlight"
                   onClick={() => router.push(row.url)}
                   style={{ cursor: "pointer" }}
                 >
-                  <td>
+                  <TableRowHeaderCell>
                     <Link
                       href={row.url}
                       onClick={(e) => e.stopPropagation()}
@@ -660,8 +683,8 @@ const ApprovalRequests: FC = () => {
                     >
                       {row.entityName}
                     </Link>
-                  </td>
-                  <td>
+                  </TableRowHeaderCell>
+                  <TableCell>
                     <Link
                       href={row.url}
                       onClick={(e) => e.stopPropagation()}
@@ -669,28 +692,28 @@ const ApprovalRequests: FC = () => {
                     >
                       {row.title || `Revision ${row.version}`}
                     </Link>
-                  </td>
-                  <td>{getEntityTypeLabel(row.entityType)}</td>
-                  <td>
+                  </TableCell>
+                  <TableCell>{getEntityTypeLabel(row.entityType)}</TableCell>
+                  <TableCell>
                     {row.authorId ? (
                       <Owner ownerId={row.authorId} />
                     ) : (
                       row.authorDisplay || "--"
                     )}
-                  </td>
-                  <td>{datetime(new Date(row.dateCreated))}</td>
-                  <td>{renderApprovalStatus(row.status)}</td>
-                </tr>
+                  </TableCell>
+                  <TableCell>{datetime(new Date(row.dateCreated))}</TableCell>
+                  <TableCell>{renderApprovalStatus(row.status)}</TableCell>
+                </TableRow>
               ))}
               {paginatedItems.length === 0 && (
-                <tr>
-                  <td colSpan={6} align="center">
+                <TableRow>
+                  <TableCell colSpan={6} align="center">
                     No matching approval requests
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
 
           {effectiveItems.length > ITEMS_PER_PAGE && (
             <Pagination
