@@ -302,7 +302,9 @@ describe("productAnalytics", () => {
 
     const now = new Date();
     const startTimestamp = new Date(now);
-    startTimestamp.setUTCDate(startTimestamp.getUTCDate() - 7);
+    // `last7Days` covers 7 inclusive UTC days, so it opens at midnight 6 days back.
+    startTimestamp.setUTCDate(startTimestamp.getUTCDate() - 6);
+    startTimestamp.setUTCHours(0, 0, 0, 0);
 
     const expected = format(
       `
@@ -432,7 +434,9 @@ describe("productAnalytics", () => {
 
     const now = new Date();
     const startTimestamp = new Date(now);
-    startTimestamp.setUTCDate(startTimestamp.getUTCDate() - 7);
+    // `last7Days` covers 7 inclusive UTC days, so it opens at midnight 6 days back.
+    startTimestamp.setUTCDate(startTimestamp.getUTCDate() - 6);
+    startTimestamp.setUTCHours(0, 0, 0, 0);
 
     const expected = format(
       `
@@ -569,7 +573,9 @@ describe("productAnalytics", () => {
 
     const now = new Date();
     const startTimestamp = new Date(now);
-    startTimestamp.setUTCDate(startTimestamp.getUTCDate() - 7);
+    // `last7Days` covers 7 inclusive UTC days, so it opens at midnight 6 days back.
+    startTimestamp.setUTCDate(startTimestamp.getUTCDate() - 6);
+    startTimestamp.setUTCHours(0, 0, 0, 0);
 
     const expected = format(
       `
@@ -707,7 +713,9 @@ describe("productAnalytics", () => {
 
     const now = new Date();
     const startTimestamp = new Date(now);
-    startTimestamp.setUTCDate(startTimestamp.getUTCDate() - 7);
+    // `last7Days` covers 7 inclusive UTC days, so it opens at midnight 6 days back.
+    startTimestamp.setUTCDate(startTimestamp.getUTCDate() - 6);
+    startTimestamp.setUTCHours(0, 0, 0, 0);
 
     const expected = format(
       `
