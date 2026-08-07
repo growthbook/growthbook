@@ -170,7 +170,7 @@ export const postConfigRevisionRevert = createApiRequestHandler(
 
   const title = req.body.title ?? `Revert to v${req.params.version}`;
 
-  const { revision: result } = await revertRevision({
+  const { revision: result, bypassedGates } = await revertRevision({
     context: req.context,
     entityType: "config",
     entity: config as unknown as Record<string, unknown> & { id: string },
@@ -193,19 +193,22 @@ export const postConfigRevisionRevert = createApiRequestHandler(
     title,
     // Approval for this landing, resolved by the pipeline after authority.
     resolveApproval: async () => {
+      // Computed even when the setting suppresses it, so the response can say the
+      // approval was SKIPPED rather than silently reporting nothing.
+      const baseApprovalRequired = adapter.isApprovalRequiredForRevision
+        ? adapter.isApprovalRequiredForRevision(req.context, {
+            target: { snapshot: config, proposedChanges: patchOps },
+          } as unknown as Revision)
+        : adapter.isApprovalRequired(req.context);
       const approvalRequired = revertsBypassApproval
         ? false
-        : adapter.isApprovalRequiredForRevision
-          ? adapter.isApprovalRequiredForRevision(req.context, {
-              target: { snapshot: config, proposedChanges: patchOps },
-            } as unknown as Revision)
-          : adapter.isApprovalRequired(req.context);
-      const canBypass =
-        canUseRestApiBypassSetting(req) ||
-        adapter.canBypassApproval(
-          req.context,
-          config as Record<string, unknown>,
-        );
+        : baseApprovalRequired;
+      const restApiBypass = canUseRestApiBypassSetting(req);
+      const permissionBypass = adapter.canBypassApproval(
+        req.context,
+        config as Record<string, unknown>,
+      );
+      const canBypass = restApiBypass || permissionBypass;
       if (approvalRequired && !canBypass) {
         throw new BadRequestError(
           "This revert requires approval before changes can be published. " +
@@ -213,7 +216,17 @@ export const postConfigRevisionRevert = createApiRequestHandler(
             "or use a role/token that grants FlagsBypassApprovals.",
         );
       }
-      return { approvalRequired, canBypass };
+      return {
+        approvalRequired,
+        canBypass,
+        // Same precedence the gate layer uses for `approval-required`, so the
+        // two publish paths report the same source for the same caller.
+        bypassVia: restApiBypass
+          ? ("restApiBypassesReviews" as const)
+          : ("bypassApprovalPermission" as const),
+        settingSuppressedApproval:
+          revertsBypassApproval && baseApprovalRequired,
+      };
     },
     // Cross-field and schema validation: stricter once it lands.
     validate: async () => {
@@ -251,5 +264,8 @@ export const postConfigRevisionRevert = createApiRequestHandler(
     },
   });
 
-  return { revision: await toApiConfigRevision(result, req.context) };
+  return {
+    revision: await toApiConfigRevision(result, req.context),
+    ...(bypassedGates.length ? { bypassedGates } : {}),
+  };
 });

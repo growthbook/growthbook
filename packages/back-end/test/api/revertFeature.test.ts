@@ -198,18 +198,28 @@ describe("revertFeatureCore revision events", () => {
       revision: { version: 6, status: "draft" } as never,
       updatedFeature,
     });
-    return { targetRevision, updatedFeature };
+    // The live revision the approval check reads; identical in shape to the
+    // target so `checkIfRevisionNeedsReview` sees a real base either way.
+    const liveRevision = {
+      version: 5,
+      status: "published",
+      defaultValue: "current-default",
+      rules: [],
+    } as never;
+    return { targetRevision, updatedFeature, liveRevision };
   }
 
   it("dispatches revision.reverted and revision.published with the re-read published revision", async () => {
-    const { targetRevision } = setupSuccessfulRevert();
+    const { targetRevision, liveRevision } = setupSuccessfulRevert();
     const publishedRevision = { version: 6, status: "published" } as never;
-    // First getRevision call resolves the target revision; the second is the
-    // post-publish re-read. (The approval-check read in between is skipped
-    // because ctx mocks canBypassFlagApprovalChecks to true — if that changes,
-    // queue a third value here.)
+    // Three reads, in order: the target revision, the LIVE revision the approval
+    // check reads, then the post-publish re-read. The approval read happens even
+    // for a caller who can bypass — the answer is what the response reports as a
+    // bypassed gate — so a two-value queue would hand the re-read's value to the
+    // approval check and leave the dispatch reading `undefined`.
     mockGetRevision
       .mockResolvedValueOnce(targetRevision)
+      .mockResolvedValueOnce(liveRevision)
       .mockResolvedValueOnce(publishedRevision);
 
     await revertFeatureCore(
@@ -232,9 +242,10 @@ describe("revertFeatureCore revision events", () => {
   });
 
   it("falls back to the in-memory revision with a corrected published status when the post-publish read returns nothing", async () => {
-    const { targetRevision } = setupSuccessfulRevert();
+    const { targetRevision, liveRevision } = setupSuccessfulRevert();
     mockGetRevision
       .mockResolvedValueOnce(targetRevision)
+      .mockResolvedValueOnce(liveRevision)
       .mockResolvedValueOnce(null);
 
     await revertFeatureCore(
@@ -261,9 +272,10 @@ describe("revertFeatureCore revision events", () => {
   });
 
   it("falls back and still succeeds when the post-publish read fails", async () => {
-    const { targetRevision } = setupSuccessfulRevert();
+    const { targetRevision, liveRevision } = setupSuccessfulRevert();
     mockGetRevision
       .mockResolvedValueOnce(targetRevision)
+      .mockResolvedValueOnce(liveRevision)
       .mockRejectedValueOnce(new Error("mongo unavailable"));
 
     // Must not throw — the revert already committed by the time the re-read runs.

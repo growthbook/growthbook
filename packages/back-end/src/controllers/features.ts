@@ -1750,6 +1750,25 @@ export async function postFeatureRecallReview(
     context.permissions.throwPermissionError();
   }
   await recallReview(context, revision, res.locals.eventAudit);
+
+  // Re-read so the payload carries the post-recall state (draft, verdicts cleared)
+  // rather than the pending-review copy the check above ran on.
+  const recalled =
+    (await getRevision({
+      context,
+      organization: context.org.id,
+      featureId: feature.id,
+      feature,
+      version: parseInt(version),
+    })) ?? revision;
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    recalled,
+    "revision.recalled",
+    {},
+  );
+
   res.status(200).json({ status: 200 });
 }
 

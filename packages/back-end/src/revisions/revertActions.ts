@@ -19,6 +19,10 @@ import {
   buildPatchOps,
 } from "back-end/src/revisions/util";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
+import type {
+  BypassedGate,
+  BypassVia,
+} from "back-end/src/revisions/publishGates";
 
 export type RevertStrategy = "draft" | "publish";
 
@@ -452,10 +456,24 @@ export async function revertRevision({
   resolveApproval?: () => Promise<{
     approvalRequired: boolean;
     canBypass: boolean;
+    // Which authority cleared the approval gate, for the response's
+    // `bypassedGates`. A landing revert that skipped approval reported nothing,
+    // so the one publish path where a bypass is most consequential — it rewrites
+    // live state from history — was the one that left no trace in its response.
+    bypassVia?: BypassVia;
+    // The org's "reverts bypass approval" setting made approval NOT REQUIRED for
+    // this landing, on an entity that otherwise requires it. It never reaches
+    // `canBypass` (there is no gate left to bypass), so it needs its own signal or
+    // the most common approval skip of all goes unreported.
+    settingSuppressedApproval?: boolean;
   }>;
   /** Guards that only bite when the change lands live. */
   assertLandable?: () => Promise<void>;
-}): Promise<{ revision: Revision; published: boolean }> {
+}): Promise<{
+  revision: Revision;
+  published: boolean;
+  bypassedGates: BypassedGate[];
+}> {
   const landing = strategy === "publish";
 
   assertCanRevertRevision({
@@ -489,12 +507,23 @@ export async function revertRevision({
       { forceCreate: true, title, revertedFrom: targetRevision.id },
     );
     await dispatch?.dispatch(context, draft, { type: "created" });
-    return { revision: draft, published: false };
+    // A draft lands nothing, so it clears no publish gate.
+    return { revision: draft, published: false, bypassedGates: [] };
   }
 
   const approval = await resolveApproval?.();
 
   await assertLandable?.();
+
+  // Which authority (if any) let this landing skip an approval it would otherwise
+  // have needed. Reported on the response so a revert that lands without review is
+  // as traceable as a publish that does.
+  const approvalBypassedVia: BypassVia | null =
+    approval?.approvalRequired && approval.canBypass
+      ? (approval.bypassVia ?? "bypassApprovalPermission")
+      : approval?.settingSuppressedApproval
+        ? "revertsBypassApproval"
+        : null;
 
   const merged = await applyRevertDirectly({
     context,
@@ -512,5 +541,17 @@ export async function revertRevision({
   // anyone following the documented published lifecycle.
   await dispatch?.dispatch(context, merged, { type: "published" });
   await dispatch?.dispatch(context, merged, { type: "reverted" });
-  return { revision: merged, published: true };
+  return {
+    revision: merged,
+    published: true,
+    bypassedGates: approvalBypassedVia
+      ? [
+          {
+            type: "approval-required",
+            outcome: "bypassed",
+            via: approvalBypassedVia,
+          },
+        ]
+      : [],
+  };
 }

@@ -243,7 +243,9 @@ export const postFeatureRevisionRevertValidator = {
     })
     .strict(),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
 };
 
 export const getFeatureRevisionMergeStatusValidator = {

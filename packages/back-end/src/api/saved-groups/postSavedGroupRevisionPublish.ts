@@ -73,6 +73,18 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
       savedGroup as Record<string, unknown>,
     );
 
+  // The APPROVAL bypass and the STALE-BASE force-merge are different capabilities
+  // and must not share a variable. `restApiBypassesReviews` is an org setting that
+  // says "REST callers need not wait for approval" — it says nothing about merging a
+  // revision built on a base that has since moved, which can overwrite another
+  // author's landed work. Passing the combined value as `canForceMergeStaleBase` let
+  // an API key with NO bypass permission force-publish a stale revision on the
+  // strength of that setting alone.
+  const canForceMerge = adapter.canBypassApproval(
+    req.context,
+    savedGroup as Record<string, unknown>,
+  );
+
   // Aggregate every publish gate up front so a blocked publish returns ONE
   // structured 422 naming each gate, the flag that clears it, and a callable
   // resolution route. Gates are assembled for every ACTIVE condition (whether
@@ -114,7 +126,7 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
       req.context,
       savedGroup as unknown as Record<string, unknown>,
     ),
-    canForceMergeStaleBase: canBypass,
+    canForceMergeStaleBase: canForceMerge,
   });
 
   if (approvalRequired && revision.status !== "approved" && !canBypass) {
@@ -170,7 +182,7 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
   // the permission fails loudly rather than silently re-blocking.
   if (req.organization.settings?.requireRebaseBeforePublish) {
     const forceMergeRequested = req.context.ignoreWarnings;
-    const forceMerge = forceMergeRequested && canBypass;
+    const forceMerge = forceMergeRequested && canForceMerge;
     if (!forceMerge) {
       const diverged = isRevisionDiverged(
         adapter,

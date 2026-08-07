@@ -43,6 +43,33 @@ export function mayBeRevisionAuthor(
 // read a concurrent rebase may have invalidated. A rebase re-snapshots the
 // revision, so a move shows up here as a snapshot in a project the reviewer may
 // hold nothing in.
+/**
+ * The DRAFT-authority twin of `reviewAuthorityOnRow`, for verbs whose gate is draft
+ * rather than review — recall, and anything else that manages a draft.
+ *
+ * `author` is the caller's authorship exemption, evaluated per-row because the row a
+ * retry re-reads may not be the row the caller was authorized against: a rebase can
+ * re-snapshot a revision into a project the caller holds nothing in, and the CAS
+ * guard makes that retry NOTICE the change while this decides whether it may proceed.
+ */
+export function draftAuthorityOnRow(
+  context: Context,
+): (existing: Revision) => void {
+  return (existing) => {
+    if (isRevisionAuthor(existing.authorId, context.userId)) return;
+    if (
+      !canDoRevisionAction(
+        existing.target.type,
+        "draft",
+        context,
+        existing.target.snapshot as Record<string, unknown>,
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
+  };
+}
+
 export function reviewAuthorityOnRow(
   context: Context,
 ): (existing: Revision) => void {

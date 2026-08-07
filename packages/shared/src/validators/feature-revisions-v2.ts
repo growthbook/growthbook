@@ -494,7 +494,9 @@ export const postFeatureRevisionRevertV2Validator = {
     })
     .strict(),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
   version: "v2" as const,
 };
 

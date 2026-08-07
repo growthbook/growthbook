@@ -10,6 +10,7 @@ import {
   maybeAutoPublishRevision,
 } from "back-end/src/revisions/revisionActions";
 import {
+  draftAuthorityOnRow,
   isRevisionAuthor,
   reviewAuthorityOnRow,
 } from "back-end/src/revisions/revisionAuthority";
@@ -72,9 +73,13 @@ export async function recallRevisionReview({
   const recalled = await context.models.revisions.recallReview(
     revision.id,
     context.userId,
+    // Re-asked on the row each CAS attempt actually reads. The check above is the
+    // early, clear refusal; a retry after a concurrent rebase would otherwise
+    // recall a revision now snapshotted into a project the caller holds nothing in.
+    draftAuthorityOnRow(context),
   );
   await getRevisionWebhookAdapter(type)?.dispatch(context, recalled, {
-    type: "reopened",
+    type: "recalled",
   });
   return recalled;
 }
@@ -135,12 +140,20 @@ export async function undoRevisionReview({
   // Review authority to touch verdicts at all; the model enforces that only the
   // caller's OWN active verdict is retracted.
   //
-  // Asked twice on purpose. This is the early, clear refusal against the live entity
-  // the caller loaded; `reviewAuthorityOnRow` re-asks it inside the CAS against the
-  // revision's own snapshot, so a rebase that moves the revision between the two
-  // loses the race rather than carrying the retraction into a project the caller
-  // holds nothing in.
-  if (!canDoRevisionAction(type, "review", context, entity)) {
+  // Judged on the revision's SNAPSHOT, the same basis `reviewAuthorityOnRow` uses
+  // inside the CAS below. Against the LIVE entity these two disagreed after a
+  // project move: a reviewer authorized where the revision lives could pass the
+  // inner check and still be turned away here, unable to retract their own verdict
+  // on a revision they legitimately reviewed. A verdict belongs to the revision, so
+  // both asks are about the revision.
+  if (
+    !canDoRevisionAction(
+      type,
+      "review",
+      context,
+      revision.target.snapshot as Record<string, unknown>,
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
 

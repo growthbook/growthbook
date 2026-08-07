@@ -17,6 +17,7 @@ import {
 import { isEqual } from "lodash";
 import { revertFeatureValidator } from "shared/validators";
 import { revertFootprint } from "back-end/src/revisions/featureDraftAuthority";
+import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import type { ApiReqContext } from "back-end/types/api";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
@@ -297,38 +298,56 @@ export async function revertFeatureCore(
   // calls should behave like dashboard actions), FlagsBypassApprovals, or the
   // org-wide "reverts bypass approval" setting (publish perms already enforced
   // per-change above, so any publisher may revert without approval).
-  const canBypass =
-    canUseRestApiBypass ||
-    context.permissions.canBypassFlagApprovalChecks(feature, "feature") ||
-    !!organization.settings?.revertsBypassApproval;
+  const permissionBypass = context.permissions.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
+  const settingBypass = !!organization.settings?.revertsBypassApproval;
+  const canBypass = canUseRestApiBypass || permissionBypass || settingBypass;
 
-  if (!canBypass) {
-    const liveRevision = await getRevision({
-      context,
-      organization: feature.organization,
-      featureId: feature.id,
-      feature,
-      version: feature.version,
-    });
-    if (!liveRevision) {
-      throw new Error("Could not load live revision for feature");
-    }
-    const reviewRequired = checkIfRevisionNeedsReview({
-      feature,
-      baseRevision: liveRevision,
-      revision: { ...liveRevision, ...changes } as typeof liveRevision,
-      allEnvironments: allEnvironmentIds,
-      settings: organization.settings,
-      requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
-    });
-    if (reviewRequired) {
-      throw new PermissionError(
-        "This revert requires approval before changes can be published. " +
-          "Enable 'REST API always bypasses approval requirements' in organization settings, " +
-          "or use a role/token that grants FlagsBypassApprovals on this project.",
-      );
-    }
+  // Asked whether or not the caller can bypass, so a successful revert can report
+  // the approval it skipped. Guarded behind `!canBypass`, the answer was never
+  // computed on the path where it matters most.
+  const liveRevision = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    feature,
+    version: feature.version,
+  });
+  if (!liveRevision) {
+    throw new Error("Could not load live revision for feature");
   }
+  const reviewRequired = checkIfRevisionNeedsReview({
+    feature,
+    baseRevision: liveRevision,
+    revision: { ...liveRevision, ...changes } as typeof liveRevision,
+    allEnvironments: allEnvironmentIds,
+    settings: organization.settings,
+    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
+  });
+  if (reviewRequired && !canBypass) {
+    throw new PermissionError(
+      "This revert requires approval before changes can be published. " +
+        "Enable 'REST API always bypasses approval requirements' in organization settings, " +
+        "or use a role/token that grants FlagsBypassApprovals on this project.",
+    );
+  }
+
+  const bypassedGates: BypassedGate[] =
+    reviewRequired && canBypass
+      ? [
+          {
+            type: "approval-required",
+            outcome: "bypassed",
+            via: canUseRestApiBypass
+              ? "restApiBypassesReviews"
+              : permissionBypass
+                ? "bypassApprovalPermission"
+                : "revertsBypassApproval",
+          },
+        ]
+      : [];
 
   const { revision: newRevision, updatedFeature } =
     await createAndPublishRevision({
@@ -389,6 +408,7 @@ export async function revertFeatureCore(
     experimentMap,
     revision: latestRevision,
     safeRolloutMap,
+    bypassedGates,
   };
 }
 
@@ -405,6 +425,9 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
     );
     return {
       feature: await resolveOwnerEmail(getApiFeatureObj(data), req.context),
+      ...(data.bypassedGates.length
+        ? { bypassedGates: data.bypassedGates }
+        : {}),
     };
   },
 );

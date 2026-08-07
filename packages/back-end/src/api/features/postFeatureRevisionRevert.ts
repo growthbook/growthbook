@@ -16,6 +16,7 @@ import { isEqual } from "lodash";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { postFeatureRevisionRevertValidator } from "shared/validators";
 import { revertFootprint } from "back-end/src/revisions/featureDraftAuthority";
+import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import {
@@ -370,7 +371,8 @@ export async function revertFeatureRevision(
       revertedFrom: targetRevision.version,
     });
 
-    return { feature, revision: newDraft };
+    // A draft lands nothing, so it clears no publish gate.
+    return { feature, revision: newDraft, bypassedGates: [] };
   }
 
   // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
@@ -378,40 +380,61 @@ export async function revertFeatureRevision(
   // org-wide "reverts bypass approval" setting. That last one was missing here
   // while v1 honoured it, so the same org rejected a revert over v2 that v2's
   // own documented contract allows.
-  const canBypass =
-    canUseRestApiBypass ||
-    context.permissions.canBypassFlagApprovalChecks(feature, "feature") ||
-    !!organization.settings?.revertsBypassApproval;
+  const permissionBypass = context.permissions.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
+  const settingBypass = !!organization.settings?.revertsBypassApproval;
+  const canBypass = canUseRestApiBypass || permissionBypass || settingBypass;
 
-  if (!canBypass) {
-    const liveRevision = await getRevision({
-      context,
-      organization: feature.organization,
-      featureId: feature.id,
-      feature,
-      version: feature.version,
-    });
-    if (!liveRevision)
-      throw new InternalServerError("Could not load live revision");
+  // Asked whether or not the caller can bypass — a bypass that reports nothing is
+  // indistinguishable from a revert that needed no approval, and this is the one
+  // publish path that rewrites live state from history. Mirrors the gate layer,
+  // which assembles every ACTIVE gate before deciding who may clear it.
+  const liveRevision = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    feature,
+    version: feature.version,
+  });
+  if (!liveRevision)
+    throw new InternalServerError("Could not load live revision");
 
-    const allEnvironmentIds = getEnvironmentIdsFromOrg(context.org);
-    const requiresReview = checkIfRevisionNeedsReview({
-      feature,
-      baseRevision: liveRevision,
-      revision: { ...liveRevision, ...revisionChanges } as typeof liveRevision,
-      allEnvironments: allEnvironmentIds,
-      settings: organization.settings,
-      requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
-    });
+  const allEnvironmentIds = getEnvironmentIdsFromOrg(context.org);
+  const requiresReview = checkIfRevisionNeedsReview({
+    feature,
+    baseRevision: liveRevision,
+    revision: { ...liveRevision, ...revisionChanges } as typeof liveRevision,
+    allEnvironments: allEnvironmentIds,
+    settings: organization.settings,
+    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
+  });
 
-    if (requiresReview) {
-      throw new BadRequestError(
-        "This revert requires approval before changes can be published. " +
-          "Enable 'REST API always bypasses approval requirements' in organization settings, " +
-          "or use a role/token that grants FlagsBypassApprovals on this project.",
-      );
-    }
+  if (requiresReview && !canBypass) {
+    throw new BadRequestError(
+      "This revert requires approval before changes can be published. " +
+        "Enable 'REST API always bypasses approval requirements' in organization settings, " +
+        "or use a role/token that grants FlagsBypassApprovals on this project.",
+    );
   }
+
+  // Same precedence the generic reverts and the gate layer use, so the whole
+  // family names the same source for the same caller.
+  const bypassedGates: BypassedGate[] =
+    requiresReview && canBypass
+      ? [
+          {
+            type: "approval-required",
+            outcome: "bypassed",
+            via: canUseRestApiBypass
+              ? "restApiBypassesReviews"
+              : permissionBypass
+                ? "bypassApprovalPermission"
+                : "revertsBypassApproval",
+          },
+        ]
+      : [];
 
   const { revision: publishedRevision, updatedFeature } =
     await createAndPublishRevision({
@@ -474,13 +497,13 @@ export async function revertFeatureRevision(
     {},
   );
 
-  return { feature, revision: finalRevision };
+  return { feature, revision: finalRevision, bypassedGates };
 }
 
 export const postFeatureRevisionRevert = createApiRequestHandler(
   postFeatureRevisionRevertValidator,
 )(async (req) => {
-  const { feature, revision } = await revertFeatureRevision(
+  const { feature, revision, bypassedGates } = await revertFeatureRevision(
     req.context,
     req.organization,
     req.eventAudit,
@@ -489,5 +512,8 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
     req.audit,
     canUseRestApiBypassSetting(req),
   );
-  return { revision: toApiRevision(revision, req.context, feature) };
+  return {
+    revision: toApiRevision(revision, req.context, feature),
+    ...(bypassedGates.length ? { bypassedGates } : {}),
+  };
 });

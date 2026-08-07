@@ -537,7 +537,7 @@ Publish responses include a \`gates\` array that explains every blocker:
 
 For example, an approval gate is cleared by approving the revision or by using a caller with **Bypass draft approvals** access. A Config lock is cleared through the unlock route in \`resolution\`.
 
-When a successful publish bypasses a gate, the response includes \`bypassedGates\`. Each entry reports the gate \`type\` and how it was bypassed in \`via\`, which is one of \`ignoreWarnings\`, \`skipSchemaValidation\`, \`skipHooks\`, \`bypassApprovalPermission\`, or \`restApiBypassesReviews\`. This field is omitted when no gates were bypassed.
+When a successful publish bypasses a gate, the response includes \`bypassedGates\`. Each entry reports the gate \`type\` and how it was bypassed in \`via\`, which is one of \`ignoreWarnings\`, \`skipSchemaValidation\`, \`skipHooks\`, \`bypassApprovalPermission\`, \`restApiBypassesReviews\`, or \`revertsBypassApproval\` (reverts only). This field is omitted when no gates were bypassed.
 `,
     },
     servers: [

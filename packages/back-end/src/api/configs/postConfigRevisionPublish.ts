@@ -73,6 +73,18 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     canUseRestApiBypassSetting(req) ||
     adapter.canBypassApproval(req.context, config as Record<string, unknown>);
 
+  // The APPROVAL bypass and the STALE-BASE force-merge are different capabilities
+  // and must not share a variable. `restApiBypassesReviews` is an org setting that
+  // says "REST callers need not wait for approval" — it says nothing about merging a
+  // revision built on a base that has since moved, which can overwrite another
+  // author's landed work. Passing the combined value as `canForceMergeStaleBase` let
+  // an API key with NO bypass permission force-publish a stale revision on the
+  // strength of that setting alone.
+  const canForceMerge = adapter.canBypassApproval(
+    req.context,
+    config as Record<string, unknown>,
+  );
+
   // Layer proposed changes on LIVE (not the snapshot) so out-of-band writes to
   // untouched fields are preserved.
   const desiredState = buildMergeDesiredState(
@@ -129,7 +141,7 @@ export const postConfigRevisionPublish = createApiRequestHandler(
       req.context,
       config as unknown as Record<string, unknown>,
     ),
-    canForceMergeStaleBase: canBypass,
+    canForceMergeStaleBase: canForceMerge,
   });
 
   // Locked-config backstop behind the config-locked gate above — still well
@@ -192,7 +204,7 @@ export const postConfigRevisionPublish = createApiRequestHandler(
   // bypass-approval callers, and asking without the permission fails loudly
   // rather than silently re-blocking.
   if (req.organization.settings?.requireRebaseBeforePublish) {
-    const forceMerge = req.context.ignoreWarnings && canBypass;
+    const forceMerge = req.context.ignoreWarnings && canForceMerge;
     if (!forceMerge) {
       const diverged = isRevisionDiverged(
         adapter,

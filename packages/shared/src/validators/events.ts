@@ -33,6 +33,7 @@ import {
   featureRevisionCommentedPayload,
   featureRevisionDiscardedPayload,
   featureRevisionReopenedPayload,
+  featureRevisionRecalledPayload,
   featureRevisionRebasedPayload,
   featureRevisionPublishedPayload,
   featureRevisionRevertedPayload,
@@ -59,6 +60,7 @@ import {
   savedGroupRevisionPublishedPayload,
   savedGroupRevisionRevertedPayload,
   savedGroupRevisionReopenedPayload,
+  savedGroupRevisionRecalledPayload,
   savedGroupRevisionPublishFailedPayload,
 } from "./saved-group-revision-notifications";
 import { apiConstantValidator } from "./constant";
@@ -74,6 +76,7 @@ import {
   constantRevisionPublishedPayload,
   constantRevisionRevertedPayload,
   constantRevisionReopenedPayload,
+  constantRevisionRecalledPayload,
   constantRevisionPublishFailedPayload,
 } from "./constant-revision-notifications";
 import { apiConfigValidator } from "./config";
@@ -89,6 +92,7 @@ import {
   configRevisionPublishedPayload,
   configRevisionRevertedPayload,
   configRevisionReopenedPayload,
+  configRevisionRecalledPayload,
   configRevisionPublishFailedPayload,
 } from "./config-revision-notifications";
 
@@ -231,6 +235,11 @@ export const notificationEvents = {
       description:
         "Triggered when a discarded draft revision is reopened as a draft",
     },
+    "revision.recalled": {
+      schema: featureRevisionRecalledPayload,
+      description:
+        "Triggered when the author (or an editor) recalls a review request, returning the revision to `draft`. Distinct from `revision.reopened`, which restores a discarded revision.",
+    },
     "revision.rebased": {
       schema: featureRevisionRebasedPayload,
       description:
@@ -356,6 +365,11 @@ export const notificationEvents = {
       schema: savedGroupRevisionReopenedPayload,
       description: "Triggered when a discarded revision is reopened",
     },
+    "revision.recalled": {
+      schema: savedGroupRevisionRecalledPayload,
+      description:
+        "Triggered when the author (or an editor) recalls a review request, returning the revision to `draft`. Distinct from `revision.reopened`, which restores a discarded revision.",
+    },
     "revision.publishFailed": {
       schema: savedGroupRevisionPublishFailedPayload,
       description:
@@ -426,6 +440,11 @@ export const notificationEvents = {
       schema: constantRevisionReopenedPayload,
       description: "Triggered when a discarded revision is reopened",
     },
+    "revision.recalled": {
+      schema: constantRevisionRecalledPayload,
+      description:
+        "Triggered when the author (or an editor) recalls a review request, returning the revision to `draft`. Distinct from `revision.reopened`, which restores a discarded revision.",
+    },
     "revision.publishFailed": {
       schema: constantRevisionPublishFailedPayload,
       description:
@@ -495,6 +514,11 @@ export const notificationEvents = {
     "revision.reopened": {
       schema: configRevisionReopenedPayload,
       description: "Triggered when a discarded revision is reopened",
+    },
+    "revision.recalled": {
+      schema: configRevisionRecalledPayload,
+      description:
+        "Triggered when the author (or an editor) recalls a review request, returning the revision to `draft`. Distinct from `revision.reopened`, which restores a discarded revision.",
     },
     "revision.publishFailed": {
       schema: configRevisionPublishFailedPayload,

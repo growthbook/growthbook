@@ -226,7 +226,7 @@ export const publishBypassedGatesField = z
         via: z
           .string()
           .describe(
-            "How the gate was bypassed. The value identifies a request field (`ignoreWarnings`, `skipSchemaValidation`, or `skipHooks`), the caller's permission (`bypassApprovalPermission`), or the organization setting (`restApiBypassesReviews`).",
+            "How the gate was bypassed. The value identifies a request field (`ignoreWarnings`, `skipSchemaValidation`, or `skipHooks`), the caller's permission (`bypassApprovalPermission`), or an organization setting (`restApiBypassesReviews`, or `revertsBypassApproval` on a revert).",
           ),
       })
       .strict(),

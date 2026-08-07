@@ -379,7 +379,12 @@ export class RevisionModel extends BaseClass {
     // on the normal read path.
     const reviews = doc.reviews ?? [];
     const cycleStarts = (doc.activityLog ?? [])
-      .filter((e) => e.action === "review-requested" || e.action === "reopened")
+      .filter(
+        (e) =>
+          e.action === "review-requested" ||
+          e.action === "reopened" ||
+          e.action === "recalled",
+      )
       .map((e) => e.dateCreated);
     const isLegacyMultiCycle =
       cycleStarts.length > 1 &&
@@ -1381,7 +1386,15 @@ export class RevisionModel extends BaseClass {
   // longer active. Emits a "reopened" entry, which `addReview` uses as the
   // cycle-start marker (so any straggler verdicts are correctly treated as
   // pre-cycle history).
-  async recallReview(id: string, userId: string) {
+  async recallReview(
+    id: string,
+    userId: string,
+    // Re-asserted INSIDE the CAS, like `undoReview` and `addReview`. Guarding
+    // `target` stops a rebase riding the write, but a CAS RETRY re-reads and would
+    // otherwise proceed against a snapshot the caller was never authorized for —
+    // the guard makes the retry notice the change, this decides what to do about it.
+    assertAuthority?: (existing: Revision) => void,
+  ) {
     // CAS-guarded on `status`, which the check below reads. An unguarded write
     // let a publish merge between the read and the write, after which the recall
     // rewrote a MERGED revision back to `draft` and cleared its reviews — the
@@ -1392,6 +1405,7 @@ export class RevisionModel extends BaseClass {
       // gated on draft authority over `target.snapshot`.
       ["status", "reviews", "activityLog", "target"],
       (existing) => {
+        assertAuthority?.(existing);
         if (
           !["pending-review", "changes-requested", "approved"].includes(
             existing.status,
@@ -1408,7 +1422,7 @@ export class RevisionModel extends BaseClass {
             {
               id: uniqid("act_"),
               userId,
-              action: "reopened",
+              action: "recalled",
               description: "Recalled review request — returned to draft",
               dateCreated: new Date(),
             },

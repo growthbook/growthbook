@@ -1877,6 +1877,20 @@ export async function setAutoPublishOnApproval(
 
 // Poller-failure bookkeeping. Cleared on cancel and on every (re)arm so a fresh
 // schedule never inherits a prior schedule's "stuck" state or attempt count.
+/**
+ * The statuses a revision is IN REVIEW in — the only ones a verdict may be written
+ * to, and the only ones its status may be reconciled from.
+ *
+ * Named because both steps of `submitReviewAndComments` must use the SAME set: step
+ * 1 once used "not terminal", which also admits `draft`, so a concurrent recall let
+ * a verdict land on a revision that had just been returned to draft.
+ */
+const REVIEW_CYCLE_STATUSES = [
+  "pending-review",
+  "changes-requested",
+  "approved",
+] as const;
+
 const SCHEDULED_PUBLISH_FAILURE_UNSET = {
   scheduledPublishAttempts: 1,
   scheduledPublishLastError: 1,
@@ -2371,13 +2385,19 @@ export async function submitReviewAndComments(
     // concurrent verdicts converge to one entry per reviewer.
     // Legacy revision (no baked `reviews`): self-heal from the log, CAS-guarded
     // on the field still being absent so concurrent first-verdicts don't clobber.
-    // Step 1 rides the same "still in the review cycle" predicate step 2 bails on.
-    // Without it, a publish landing mid-request had this step bake a verdict into
-    // released history and null its `datePublished` — step 2 then correctly
-    // refused, leaving the damage from step 1 behind with nothing to undo it.
+    // Step 1 rides the same "still in the review cycle" predicate step 2 bails on
+    // — the SAME SET, not merely "not terminal". Without it, a publish landing
+    // mid-request had this step bake a verdict into released history and null its
+    // `datePublished` while step 2 correctly refused, leaving the damage behind.
+    //
+    // `$nin: [published, discarded]` was too loose: it also admits `draft`, so a
+    // RECALL winning the race let the verdict be inserted into a revision that had
+    // just been returned to draft. Step 2 still refused, so the status stayed
+    // correct — but the phantom verdict persisted and the caller was told the
+    // review succeeded, webhook and all.
     const cycleFilter = {
       ...filter,
-      status: { $nin: ["published", "discarded"] },
+      status: { $in: [...REVIEW_CYCLE_STATUSES] },
     };
     let seeded = false;
     if (revision.reviews === undefined) {
@@ -2420,9 +2440,9 @@ export async function submitReviewAndComments(
       ["reviews", "status"],
       (current) => {
         if (
-          !(
-            ["pending-review", "changes-requested", "approved"] as string[]
-          ).includes(current.status ?? "")
+          !(REVIEW_CYCLE_STATUSES as readonly string[]).includes(
+            current.status ?? "",
+          )
         ) {
           return null;
         }

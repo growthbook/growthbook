@@ -13,6 +13,7 @@ import {
 } from "shared/enterprise";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
+import { buildRevisionStatusFilter } from "back-end/src/api/revisionValidations";
 import {
   isArmedWithAuthorizedPublisher,
   planApproveAndPublish,
@@ -45,6 +46,7 @@ import {
   rebaseRevision,
 } from "back-end/src/revisions/revisionActions";
 import {
+  draftAuthorityOnRow,
   canAdvanceRevision,
   canDiscardRevision,
   canRebaseRevision,
@@ -116,12 +118,12 @@ type GetAllRevisionsResponse = {
 const DEFAULT_REVISION_PAGE_SIZE = 100;
 const MAX_REVISION_PAGE_SIZE = 500;
 
-function parseStatusParam(status?: string): string[] | undefined {
-  if (!status) return undefined;
-  return status
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+// Delegates to the REST layer's parser so both surfaces answer the same question.
+// The local copy passed the list through verbatim, so `status=open,merged` reached
+// the model as `$in: ["open", "merged"]` — `open` is an ALIAS, not a stored status,
+// so it matched nothing and the query silently collapsed to merged-only.
+function parseStatusParam(status?: string): string | string[] | undefined {
+  return buildRevisionStatusFilter(status);
 }
 
 function resolvePagination(query: RevisionListQuery) {
@@ -1578,12 +1580,19 @@ export const postRecallReview = async (
     }
   }
 
-  const revision = await revisionModel.recallReview(id, userId);
+  // Re-asked inside the CAS on the row each attempt reads — the check above is the
+  // early refusal, and a retry after a concurrent rebase would otherwise proceed
+  // against a snapshot the caller was never authorized for.
+  const revision = await revisionModel.recallReview(
+    id,
+    userId,
+    draftAuthorityOnRow(context),
+  );
 
   await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
     context,
     revision,
-    { type: "reopened" },
+    { type: "recalled" },
   );
 
   res.status(200).json({ status: 200, revision });

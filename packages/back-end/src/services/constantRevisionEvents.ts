@@ -180,6 +180,9 @@ export async function dispatchConstantRevisionEvent(
       case "reopened":
         await emit("revision.reopened", apiRevision);
         break;
+      case "recalled":
+        await emit("revision.recalled", apiRevision);
+        break;
       case "reverted": {
         const source = revision.revertedFrom
           ? await context.models.revisions

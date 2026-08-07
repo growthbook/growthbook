@@ -71,6 +71,16 @@ export type ConfigRevisionReopenedPayload = z.infer<
   typeof configRevisionReopenedPayload
 >;
 
+// Recall returns a revision from the REVIEW cycle to draft. Distinct from
+// `reopened`, which restores a DISCARDED revision — the two leave the revision in
+// the same status but mean opposite things to a consumer (one retracts a review
+// request, the other revives abandoned work), and recall additionally clears every
+// verdict and disarms any deferred publish.
+export const configRevisionRecalledPayload = configRevisionWebhookPayload;
+export type ConfigRevisionRecalledPayload = z.infer<
+  typeof configRevisionRecalledPayload
+>;
+
 // `change` indicates which kind of config field was mutated, derived from the
 // revision's proposed-changes patch op paths when the event is dispatched.
 // Configs add a "schema" kind on top of the constant set (schema-only edits).

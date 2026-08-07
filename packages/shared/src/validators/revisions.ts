@@ -134,6 +134,12 @@ export const activityLogEntryValidator = z.object({
     "merged",
     "discarded",
     "reopened",
+    // The author (or an editor) retracted a review request, returning the revision
+    // to draft with its verdicts cleared. Shares `reopened`'s destination status
+    // but not its meaning — the timeline renders it as the feature side's "Recall
+    // Review" — and it starts a new review cycle, so cycle-start scans must
+    // recognize it alongside "review-requested".
+    "recalled",
     "scheduled-publish",
     "scheduled-publish-updated",
     "scheduled-publish-canceled",

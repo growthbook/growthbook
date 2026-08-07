@@ -138,8 +138,9 @@ info:
     When a successful publish bypasses a gate, the response includes
     `bypassedGates`. Each entry reports the gate `type` and how it was bypassed
     in `via`, which is one of `ignoreWarnings`, `skipSchemaValidation`,
-    `skipHooks`, `bypassApprovalPermission`, or `restApiBypassesReviews`. This
-    field is omitted when no gates were bypassed.
+    `skipHooks`, `bypassApprovalPermission`, `restApiBypassesReviews`, or
+    `revertsBypassApproval` (reverts only). This field is omitted when no gates
+    were bypassed.
 servers:
   - url: https://api.growthbook.io/api
     description: GrowthBook Cloud
@@ -2991,6 +2992,14 @@ paths:
                 properties:
                   feature:
                     $ref: '#/components/schemas/FeatureV1'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - feature
                 additionalProperties: false
@@ -6692,6 +6701,14 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/FeatureRevisionV1'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - revision
                 additionalProperties: false
@@ -8369,6 +8386,14 @@ paths:
                 properties:
                   feature:
                     $ref: '#/components/schemas/FeatureV2'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - feature
                 additionalProperties: false
@@ -12735,6 +12760,14 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/FeatureRevisionV2'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - revision
                 additionalProperties: false
@@ -20643,6 +20676,14 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/SavedGroupRevision'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - revision
                 additionalProperties: false
@@ -22448,6 +22489,14 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/ConstantRevision'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - revision
                 additionalProperties: false
@@ -25271,6 +25320,14 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/ConfigRevision'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - revision
                 additionalProperties: false
@@ -54459,6 +54516,7 @@ components:
             - merged
             - discarded
             - reopened
+            - recalled
             - scheduled-publish
             - scheduled-publish-updated
             - scheduled-publish-canceled
@@ -54883,6 +54941,7 @@ components:
             - merged
             - discarded
             - reopened
+            - recalled
             - scheduled-publish
             - scheduled-publish-updated
             - scheduled-publish-canceled
@@ -55572,6 +55631,7 @@ components:
             - merged
             - discarded
             - reopened
+            - recalled
             - scheduled-publish
             - scheduled-publish-updated
             - scheduled-publish-canceled
@@ -64407,8 +64467,9 @@ components:
           description: >-
             How the gate was bypassed. The value identifies a request field
             (`ignoreWarnings`, `skipSchemaValidation`, or `skipHooks`), the
-            caller's permission (`bypassApprovalPermission`), or the
-            organization setting (`restApiBypassesReviews`).
+            caller's permission (`bypassApprovalPermission`), or an organization
+            setting (`restApiBypassesReviews`, or `revertsBypassApproval` on a
+            revert).
           type: string
       required:
         - type

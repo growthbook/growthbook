@@ -1,5 +1,6 @@
 import { postFeatureRevisionRecallReviewV2Validator } from "shared/validators";
 import { toApiRevisionV2 } from "back-end/src/services/features";
+import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -50,5 +51,13 @@ export const postFeatureRevisionRecallReviewV2 = createApiRequestHandler(
     feature,
     version: req.params.version,
   });
+  await dispatchFeatureRevisionEvent(
+    req.context,
+    feature,
+    updated ?? revision,
+    "revision.recalled",
+    {},
+  );
+
   return { revision: toApiRevisionV2(updated ?? revision) };
 });

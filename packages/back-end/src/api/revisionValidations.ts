@@ -1,4 +1,5 @@
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import { revisionStatus } from "shared/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
 
@@ -26,9 +27,22 @@ export function assertUserScopedKeyForMine(
   }
 }
 
+// The concrete statuses the `open` alias stands for — every non-terminal one.
+// Kept as a derivation rather than a literal list so a new status joins it
+// automatically; the model's bare-`open` clause is `$nin: [merged, discarded]`,
+// and this must expand to the same set.
+const OPEN_ALIAS_STATUSES: string[] = revisionStatus.filter(
+  (s: string) => s !== "merged" && s !== "discarded",
+);
+
 /**
  * Parse a `status` query parameter into a model filter: a bare `open` sentinel, a
  * single status, or a list.
+ *
+ * `open` mixed with concrete statuses EXPANDS rather than swallowing them.
+ * Returning the bare sentinel for `status=open,merged` dropped `merged` on the
+ * floor and answered a narrower question than the caller asked — a silent wrong
+ * answer, not an error, so a paging client just saw fewer revisions than exist.
  */
 export function buildRevisionStatusFilter(
   input?: string,
@@ -38,6 +52,17 @@ export function buildRevisionStatusFilter(
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  if (parts.includes("open")) return "open";
-  return parts.length === 1 ? parts[0] : parts;
+  if (!parts.length) return undefined;
+  if (parts.includes("open")) {
+    // Alone, keep the sentinel: the model turns it into a `$nin`, which also
+    // covers any status this list doesn't know about.
+    if (parts.length === 1) return "open";
+    return [
+      ...new Set([
+        ...OPEN_ALIAS_STATUSES,
+        ...parts.filter((p) => p !== "open"),
+      ]),
+    ];
+  }
+  return parts.length === 1 ? parts[0] : [...new Set(parts)];
 }

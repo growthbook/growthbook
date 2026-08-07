@@ -96,6 +96,10 @@ export type RevisionLifecycleAction =
     }
   | { type: "discarded" }
   | { type: "reopened" }
+  // A review request retracted by its author (or an editor) — the revision returns
+  // to draft with its verdicts cleared. Not `reopened`, which revives a DISCARDED
+  // revision; a consumer watching for "work is live again" must not see a recall.
+  | { type: "recalled" }
   // Fires whenever a revert lands on the live entity — both the direct-publish
   // path and an approval-gated draft that's later merged (the dispatcher
   // detects the latter via the revision's `revertedFrom`).

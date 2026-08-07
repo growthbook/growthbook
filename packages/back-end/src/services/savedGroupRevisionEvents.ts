@@ -159,6 +159,9 @@ export async function dispatchSavedGroupRevisionEvent(
       case "reopened":
         await emit("revision.reopened", apiRevision);
         break;
+      case "recalled":
+        await emit("revision.recalled", apiRevision);
+        break;
       case "reverted": {
         // `revertedFrom` is the id of the revision being reverted to; surface
         // its version so subscribers know the target. Best-effort: a failed

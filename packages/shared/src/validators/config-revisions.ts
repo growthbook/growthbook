@@ -349,7 +349,9 @@ export const postConfigRevisionRevertValidator = {
     })
     .strict(),
   querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
 };
 
 export const postConfigRevisionRebaseValidator = {

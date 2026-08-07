@@ -155,6 +155,7 @@ export const getSlackMessageForNotificationEvent = async (
     case "feature.revision.commented":
     case "feature.revision.discarded":
     case "feature.revision.reopened":
+    case "feature.revision.recalled":
     case "feature.revision.rebased":
     case "feature.revision.published":
     case "feature.revision.reverted":
@@ -194,6 +195,7 @@ export const getSlackMessageForNotificationEvent = async (
     case "savedGroup.revision.published":
     case "savedGroup.revision.reverted":
     case "savedGroup.revision.reopened":
+    case "savedGroup.revision.recalled":
     case "savedGroup.revision.publishFailed":
       return buildSlackMessageForSavedGroupRevisionEvent(
         event.event,
@@ -230,6 +232,7 @@ export const getSlackMessageForNotificationEvent = async (
     case "constant.revision.published":
     case "constant.revision.reverted":
     case "constant.revision.reopened":
+    case "constant.revision.recalled":
     case "constant.revision.publishFailed":
       return buildSlackMessageForConstantRevisionEvent(
         event.event,
@@ -257,6 +260,7 @@ export const getSlackMessageForNotificationEvent = async (
     case "config.revision.published":
     case "config.revision.reverted":
     case "config.revision.reopened":
+    case "config.revision.recalled":
     case "config.revision.publishFailed":
       return buildSlackMessageForConfigRevisionEvent(
         event.event,
@@ -725,6 +729,9 @@ const buildSlackMessageForRevisionEvent = (
     case "feature.revision.reopened":
       text = `Discarded revision ${version} of feature ${feature} was reopened as a draft`;
       break;
+    case "feature.revision.recalled":
+      text = `The review request on revision ${version} of feature ${feature} was recalled`;
+      break;
     case "feature.revision.rebased":
       text = `Draft revision ${version} of feature ${feature} was rebased`;
       break;
@@ -923,6 +930,9 @@ const buildSlackMessageForSavedGroupRevisionEvent = (
     case "savedGroup.revision.reopened":
       text = `Draft revision ${version} of saved group ${group} was reopened`;
       break;
+    case "savedGroup.revision.recalled":
+      text = `The review request on revision ${version} of saved group ${group} was recalled`;
+      break;
     case "savedGroup.revision.publishFailed":
       text = `Scheduled publish of revision ${version} for saved group ${group} failed${formatPublishFailedSuffix(data)}`;
       break;
@@ -1112,6 +1122,9 @@ const buildSlackMessageForConstantRevisionEvent = (
     case "constant.revision.reopened":
       text = `Draft revision ${version} of Constant ${name} was reopened`;
       break;
+    case "constant.revision.recalled":
+      text = `The review request on revision ${version} of Constant ${name} was recalled`;
+      break;
     case "constant.revision.publishFailed":
       text = `Scheduled publish of revision ${version} for Constant ${name} failed${formatPublishFailedSuffix(data)}`;
       break;
@@ -1300,6 +1313,9 @@ const buildSlackMessageForConfigRevisionEvent = (
       break;
     case "config.revision.reopened":
       text = `Draft revision ${version} of Config ${name} was reopened`;
+      break;
+    case "config.revision.recalled":
+      text = `The review request on revision ${version} of Config ${name} was recalled`;
       break;
     case "config.revision.publishFailed":
       text = `Scheduled publish of revision ${version} for Config ${name} failed${formatPublishFailedSuffix(data)}`;

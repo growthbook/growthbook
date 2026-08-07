@@ -133,13 +133,26 @@ export function gateOr5xx<G extends PublishGate>(
 }
 
 /** A gate that would have blocked the publish but was bypassed by the caller. */
+// The closed set of bypass sources a response may report. Kept as a union (rather
+// than the bare `string` the field is typed as) so a handler cannot invent a value
+// the API docs don't describe.
+export type BypassVia =
+  | "ignoreWarnings"
+  | "skipSchemaValidation"
+  | "skipHooks"
+  | "bypassApprovalPermission"
+  | "restApiBypassesReviews"
+  // The org's "reverts bypass approval" setting. Reverts are the one landing path
+  // an org setting alone can clear, so it needs its own source.
+  | "revertsBypassApproval";
+
 export type BypassedGate = {
   type: string;
   outcome: "bypassed";
   // The bypass source: an override flag ("ignoreWarnings" or the privileged
   // "skipSchemaValidation"), the caller's bypass-approval permission for the
-  // entity ("bypassApprovalPermission"), or the org setting
-  // ("restApiBypassesReviews").
+  // entity ("bypassApprovalPermission"), or an org setting
+  // ("restApiBypassesReviews", "revertsBypassApproval").
   via: string;
 };
 

@@ -122,7 +122,7 @@ export const postConstantRevisionRevert = createApiRequestHandler(
 
   const title = req.body.title ?? `Revert to v${req.params.version}`;
 
-  const { revision: result } = await revertRevision({
+  const { revision: result, bypassedGates } = await revertRevision({
     context: req.context,
     entityType: "constant",
     entity: constant as unknown as Record<string, unknown> & { id: string },
@@ -144,19 +144,22 @@ export const postConstantRevisionRevert = createApiRequestHandler(
     title,
     // Approval for this landing, resolved by the pipeline after authority.
     resolveApproval: async () => {
+      // Computed even when the setting suppresses it, so the response can say the
+      // approval was SKIPPED rather than silently reporting nothing.
+      const baseApprovalRequired = adapter.isApprovalRequiredForRevision
+        ? adapter.isApprovalRequiredForRevision(req.context, {
+            target: { snapshot: constant, proposedChanges: patchOps },
+          } as unknown as Revision)
+        : adapter.isApprovalRequired(req.context);
       const approvalRequired = revertsBypassApproval
         ? false
-        : adapter.isApprovalRequiredForRevision
-          ? adapter.isApprovalRequiredForRevision(req.context, {
-              target: { snapshot: constant, proposedChanges: patchOps },
-            } as unknown as Revision)
-          : adapter.isApprovalRequired(req.context);
-      const canBypass =
-        canUseRestApiBypassSetting(req) ||
-        adapter.canBypassApproval(
-          req.context,
-          constant as Record<string, unknown>,
-        );
+        : baseApprovalRequired;
+      const restApiBypass = canUseRestApiBypassSetting(req);
+      const permissionBypass = adapter.canBypassApproval(
+        req.context,
+        constant as Record<string, unknown>,
+      );
+      const canBypass = restApiBypass || permissionBypass;
       if (approvalRequired && !canBypass) {
         throw new BadRequestError(
           "This revert requires approval before changes can be published. " +
@@ -164,7 +167,17 @@ export const postConstantRevisionRevert = createApiRequestHandler(
             "or use a role/token that grants FlagsBypassApprovals.",
         );
       }
-      return { approvalRequired, canBypass };
+      return {
+        approvalRequired,
+        canBypass,
+        // Same precedence the gate layer uses for `approval-required`, so the
+        // two publish paths report the same source for the same caller.
+        bypassVia: restApiBypass
+          ? ("restApiBypassesReviews" as const)
+          : ("bypassApprovalPermission" as const),
+        settingSuppressedApproval:
+          revertsBypassApproval && baseApprovalRequired,
+      };
     },
     // Guards that only bite on landing: taking the Constant out of service, and
     // the value guards a live rewrite must clear. A metadata-only revert cannot
@@ -195,5 +208,8 @@ export const postConstantRevisionRevert = createApiRequestHandler(
     },
   });
 
-  return { revision: await toApiConstantRevision(result, req.context) };
+  return {
+    revision: await toApiConstantRevision(result, req.context),
+    ...(bypassedGates.length ? { bypassedGates } : {}),
+  };
 });

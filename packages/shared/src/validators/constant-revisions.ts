@@ -350,7 +350,9 @@ export const postConstantRevisionRevertValidator = {
     })
     .strict(),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
 };
 
 export const postConstantRevisionRebaseValidator = {

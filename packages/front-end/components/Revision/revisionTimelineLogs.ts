@@ -16,6 +16,7 @@ const ACTIVITY_ACTION_MAP: Record<string, string> = {
   merged: "publish",
   discarded: "discard",
   reopened: "reopen",
+  recalled: "Recall Review",
   "review-requested": "Review Requested",
   "scheduled-publish": "schedule publish",
   "scheduled-publish-updated": "update scheduled publish",

@@ -156,6 +156,13 @@ const MERGE_RECOVERY_LEASE_MS = 10 * 60 * 1000;
 async function releaseRecoveryClaim(
   context: Context,
   revisionId: string,
+  // Only THIS claim. Dropping every `merge-recovered` entry released whoever held
+  // the lease, not necessarily the caller: an attempt that outran the lease has
+  // already been superseded by a reclaimer, and its failure path would then free
+  // the reclaimer's live lease — letting a third worker apply and dispatch
+  // alongside a recovery still in flight, which is exactly what the claim exists
+  // to prevent.
+  claimId: string,
 ): Promise<void> {
   await context.models.revisions
     .updateWithCas(
@@ -163,7 +170,8 @@ async function releaseRecoveryClaim(
       ["dateUpdated"],
       (existing) => ({
         activityLog: (existing.activityLog ?? []).filter(
-          (entry) => entry.action !== "merge-recovered",
+          (entry) =>
+            !(entry.action === "merge-recovered" && entry.id === claimId),
         ),
       }),
       { dangerouslyBypassCanUpdate: true },
@@ -232,6 +240,9 @@ async function recoverStrandedMerge({
   // and `hasChanges` keeps this path unentered — so one older than the lease belongs to a
   // process that died mid-flight and is reclaimable, or a termination locks recovery out.
   const leaseCutoff = new Date(Date.now() - MERGE_RECOVERY_LEASE_MS);
+  // Minted OUTSIDE the compute so it survives a CAS retry and so the release path
+  // can name the entry this attempt actually wrote.
+  const claimId = uniqid("rvl_");
   const claimed = await context.models.revisions.updateWithCas(
     revision.id,
     ["dateUpdated"],
@@ -248,7 +259,7 @@ async function recoverStrandedMerge({
                 (e) => e.action !== "merge-recovered",
               ),
               {
-                id: uniqid("rvl_"),
+                id: claimId,
                 userId: context.userId || "",
                 action: "merge-recovered" as const,
                 description: "Re-published a merge that never landed",
@@ -297,7 +308,7 @@ async function recoverStrandedMerge({
       requireLatestMergedId: revision.id,
     });
   } catch (e) {
-    await releaseRecoveryClaim(context, revision.id);
+    await releaseRecoveryClaim(context, revision.id, claimId);
     throw e;
   }
 
@@ -316,7 +327,7 @@ async function recoverStrandedMerge({
     // failed apply would make every later retry see it and return without
     // applying anything — stranding the revision permanently, which is worse
     // than the double-dispatch the claim exists to prevent.
-    await releaseRecoveryClaim(context, revision.id);
+    await releaseRecoveryClaim(context, revision.id, claimId);
     throw e;
   }
   // The failed attempt never dispatched; this apply is when the change lands.
