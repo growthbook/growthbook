@@ -224,7 +224,7 @@ export default function DataVizFilter({
             }
             value={filter.column}
             setValue={changeColumn}
-            size="small"
+            size="sm"
             placeholder="Select a column to filter by"
           >
             {columnFilterOptions.map((option, i) => (
@@ -248,7 +248,7 @@ export default function DataVizFilter({
                 );
                 onFilterChange(newFilter);
               }}
-              size="small"
+              size="md"
               placeholder="Select type"
             >
               <SelectItem value="string">String</SelectItem>
@@ -263,7 +263,7 @@ export default function DataVizFilter({
             </Text>
             <Select
               style={{ flex: 1 }}
-              size="small"
+              size="md"
               placeholder="Select Option"
               value={filter.filterMethod || ""}
               setValue={(v) => {
@@ -382,7 +382,7 @@ export default function DataVizFilter({
             filter.filterMethod === "includes" &&
             rows && (
               <MultiSelectField
-                size="legacy"
+                legacyHeight
                 label={
                   <Text as="label" weight="regular">
                     Select Values

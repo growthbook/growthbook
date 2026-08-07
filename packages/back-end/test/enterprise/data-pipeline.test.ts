@@ -10,6 +10,7 @@ import {
   assertIncrementalRefreshPrerequisites,
   getFactTablesNeedingRebuild,
   exploratoryOverallRequiresFullRefresh,
+  legacyDocDescribesPhase,
 } from "back-end/src/enterprise/services/data-pipeline";
 import { planMetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { factMetricFactory } from "../factories/FactMetric.factory";
@@ -426,6 +427,73 @@ describe("getExperimentSettingsHashForIncrementalRefresh — output hash", () =>
     expect(getExperimentSettingsHashForIncrementalRefresh(GOLDEN_INPUT)).toBe(
       "1c14c7b3c695413e66101563d2b606ab",
     );
+  });
+});
+
+describe("legacyDocDescribesPhase", () => {
+  it("returns true when the stored hash matches the requested phase's settings", () => {
+    const snapshotSettings = makeSnapshotSettings();
+    expect(
+      legacyDocDescribesPhase({
+        legacyDoc: makeIncrementalRefreshModel({
+          experimentSettingsHash:
+            getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
+        }),
+        snapshotSettings,
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false when experimentSettingsHash is null", () => {
+    expect(
+      legacyDocDescribesPhase({
+        legacyDoc: makeIncrementalRefreshModel({
+          experimentSettingsHash: null,
+        }),
+        snapshotSettings: makeSnapshotSettings(),
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when experimentSettingsHash is undefined", () => {
+    expect(
+      legacyDocDescribesPhase({
+        legacyDoc: makeIncrementalRefreshModel({
+          experimentSettingsHash: undefined,
+        }),
+        snapshotSettings: makeSnapshotSettings(),
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when the phase start date differs", () => {
+    expect(
+      legacyDocDescribesPhase({
+        legacyDoc: makeIncrementalRefreshModel({
+          experimentSettingsHash:
+            getExperimentSettingsHashForIncrementalRefresh(
+              makeSnapshotSettings({ startDate: new Date("2024-01-01") }),
+            ),
+        }),
+        snapshotSettings: makeSnapshotSettings({
+          startDate: new Date("2024-06-01"),
+        }),
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when another setting differs", () => {
+    expect(
+      legacyDocDescribesPhase({
+        legacyDoc: makeIncrementalRefreshModel({
+          experimentSettingsHash:
+            getExperimentSettingsHashForIncrementalRefresh(
+              makeSnapshotSettings({ regressionAdjustmentEnabled: true }),
+            ),
+        }),
+        snapshotSettings: makeSnapshotSettings(),
+      }),
+    ).toBe(false);
   });
 });
 

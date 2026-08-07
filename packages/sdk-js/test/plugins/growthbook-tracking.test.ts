@@ -2,6 +2,7 @@ import { growthbookTrackingPlugin } from "../../src/plugins/growthbook-tracking"
 import {
   EVENT_EXPERIMENT_VIEWED,
   EVENT_FEATURE_EVALUATED,
+  Experiment,
   GrowthBook,
   GrowthBookClient,
 } from "../../src";
@@ -552,6 +553,145 @@ describe("growthbookTrackingPlugin", () => {
     gb2.logEvent(EVENT_FEATURE_EVALUATED);
     await sleep(150);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    gb.destroy();
+  });
+
+  it("logs automatic events from GrowthBookClient evaluations", async () => {
+    const gb = new GrowthBookClient({
+      clientKey: "test",
+      plugins: [growthbookTrackingPlugin()],
+    });
+    gb.initSync({
+      payload: {
+        features: {
+          feature: { defaultValue: true },
+        },
+      },
+    });
+
+    const experiment: Experiment<boolean> = {
+      key: "my-experiment",
+      variations: [false, true],
+      hashAttribute: "user_id",
+      hashVersion: 2,
+    };
+
+    const user1 = gb.createScopedInstance({ attributes: { user_id: "1" } });
+    user1.evalFeature("feature");
+    user1.runInlineExperiment(experiment);
+
+    await sleep(150);
+    let body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.map((e: { event_name: string }) => e.event_name)).toEqual([
+      EVENT_FEATURE_EVALUATED,
+      EVENT_EXPERIMENT_VIEWED,
+    ]);
+    expect(body[0].user_id).toBe("1");
+
+    // Identical evaluations by a different user are not duplicates
+    const user2 = gb.createScopedInstance({ attributes: { user_id: "2" } });
+    user2.evalFeature("feature");
+    user2.runInlineExperiment(experiment);
+
+    await sleep(150);
+    body = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(body.map((e: { event_name: string }) => e.event_name)).toEqual([
+      EVENT_FEATURE_EVALUATED,
+      EVENT_EXPERIMENT_VIEWED,
+    ]);
+    expect(body[0].user_id).toBe("2");
+
+    // Repeat evaluations by the same user are still de-duped
+    user1.evalFeature("feature");
+    user1.runInlineExperiment(experiment);
+    await sleep(150);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    gb.destroy();
+  });
+
+  it("de-dupes feature usage per user for any bucketing unit", async () => {
+    const gb = new GrowthBookClient({
+      clientKey: "test",
+      plugins: [growthbookTrackingPlugin()],
+    });
+    gb.initSync({
+      payload: {
+        features: {
+          feature: { defaultValue: true },
+        },
+      },
+    });
+
+    // Bucketing unit is none of the payload's known identity fields
+    for (const spaceId of ["a", "b"]) {
+      gb.createScopedInstance({ attributes: { spaceId } }).evalFeature(
+        "feature",
+      );
+    }
+
+    await sleep(150);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(
+      body.map((e: { context_json: { spaceId: string } }) => e.context_json),
+    ).toEqual([{ spaceId: "a" }, { spaceId: "b" }]);
+
+    // A later request for a unit already seen is still a duplicate
+    gb.createScopedInstance({ attributes: { spaceId: "a" } }).evalFeature(
+      "feature",
+    );
+    await sleep(150);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    gb.destroy();
+  });
+
+  it("counts one exposure per bucketing unit, not per user", async () => {
+    const gb = new GrowthBookClient({
+      clientKey: "test",
+      plugins: [growthbookTrackingPlugin()],
+    });
+    gb.initSync({
+      payload: {
+        features: {
+          feature: { defaultValue: true },
+        },
+      },
+    });
+
+    const experiment: Experiment<boolean> = {
+      key: "my-experiment",
+      variations: [false, true],
+      hashAttribute: "company_id",
+      hashVersion: 2,
+    };
+
+    // Two users in the same account bucket into the experiment together
+    const attributes = (user_id: string) => ({ user_id, company_id: "acme" });
+    for (const user of ["1", "2"]) {
+      const scoped = gb.createScopedInstance({ attributes: attributes(user) });
+      scoped.evalFeature("feature");
+      scoped.runInlineExperiment(experiment);
+    }
+
+    await sleep(150);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+
+    // One exposure for the account, but feature usage for each user
+    expect(
+      body.filter(
+        (e: { event_name: string }) => e.event_name === EVENT_EXPERIMENT_VIEWED,
+      ),
+    ).toHaveLength(1);
+    expect(
+      body
+        .filter(
+          (e: { event_name: string }) =>
+            e.event_name === EVENT_FEATURE_EVALUATED,
+        )
+        .map((e: { user_id: string }) => e.user_id),
+    ).toEqual(["1", "2"]);
 
     gb.destroy();
   });

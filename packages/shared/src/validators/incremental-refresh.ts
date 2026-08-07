@@ -28,6 +28,8 @@ const incrementalRefresh = z
   .object({
     // Refs
     experimentId: z.string(),
+    // Legacy documents gain a phase when they next refresh.
+    phase: z.number().optional(),
 
     // Unit Source Settings
     unitsTableFullName: z.string().nullable(),

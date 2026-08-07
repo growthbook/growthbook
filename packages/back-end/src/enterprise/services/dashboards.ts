@@ -4,6 +4,7 @@ import { ExperimentMetricInterface } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import {
   blockHasFieldOfType,
+  buildComparisonExplorationConfig,
   BlockSnapshotSettings,
   getBlockAnalysisSettings,
   getBlockSnapshotAnalysis,
@@ -411,13 +412,13 @@ export async function updateDashboardExplorations(
         comparison
           ? runProductAnalyticsExploration(
               context,
-              {
-                ...primaryConfig,
-                dateRange: resolveComparisonPreviousTimeFrame(
+              buildComparisonExplorationConfig(
+                primaryConfig,
+                resolveComparisonPreviousTimeFrame(
                   primaryConfig.dateRange,
                   comparison,
                 ),
-              },
+              ),
               { cache: "never" },
             )
           : Promise.resolve(null),

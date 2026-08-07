@@ -64,7 +64,7 @@ export default function RuleProjectScopeBadges({
   }
 
   return (
-    <Text as="div" weight="regular" size="medium" my={my} {...marginProps}>
+    <Text as="div" weight="regular" size="md" my={my} {...marginProps}>
       <Text as="span" weight="medium">
         Projects:
       </Text>{" "}

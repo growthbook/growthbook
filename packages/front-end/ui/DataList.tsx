@@ -53,7 +53,7 @@ export default function DataList({
               {label}
               {tooltip ? (
                 <Tooltip body={tooltip}>
-                  <Text ml="1" size="large">
+                  <Text ml="1" size="lg">
                     <PiInfo style={{ color: "var(--violet-11)" }} />
                   </Text>
                 </Tooltip>

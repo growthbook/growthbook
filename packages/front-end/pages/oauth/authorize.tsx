@@ -81,7 +81,7 @@ function AccessItem({
       >
         {icon}
       </Flex>
-      <Text size="medium" color="text-mid">
+      <Text size="md" color="text-mid">
         {children}
       </Text>
     </Flex>
@@ -231,13 +231,13 @@ export default function OAuthAuthorizePage() {
   if (completedRedirectTo) {
     return (
       <ConsentPageWrapper>
-        <Heading as="h1" size="x-large" mb="2">
+        <Heading as="h1" size="xl" mb="2">
           Authorization Complete
         </Heading>
         <Callout status="success" mb="4">
           You can return to the application. This tab can stay open.
         </Callout>
-        <Text as="p" size="medium" color="text-mid" mb="4">
+        <Text as="p" size="md" color="text-mid" mb="4">
           If you were not redirected automatically, use the link below.
         </Text>
         <Button
@@ -261,13 +261,13 @@ export default function OAuthAuthorizePage() {
         // `as="div"` rather than `as="p"`: global Bootstrap styling puts a
         // margin on <p> that fights the explicit spacing here.
         <Flex direction="column" align="center" mb="5">
-          <Heading as="h1" size="x-large" align="center" mb="1">
+          <Heading as="h1" size="xl" align="center" mb="1">
             {claimedName}
           </Heading>
-          <Text as="div" size="large" color="text-mid" align="center" mb="2">
+          <Text as="div" size="lg" color="text-mid" align="center" mb="2">
             is requesting access to your GrowthBook account.
           </Text>
-          <Text as="div" size="small" color="text-low" align="center">
+          <Text as="div" size="sm" color="text-low" align="center">
             Name provided by the application. GrowthBook does not verify
             application identity.
           </Text>
@@ -278,7 +278,7 @@ export default function OAuthAuthorizePage() {
           ) : null}
         </Flex>
       ) : (
-        <Heading as="h1" size="x-large" mb="4">
+        <Heading as="h1" size="xl" mb="4">
           Authorize Application
         </Heading>
       )}
@@ -302,12 +302,12 @@ export default function OAuthAuthorizePage() {
                   email={info.user.email}
                 />
                 <Box style={{ minWidth: 0 }}>
-                  <Text as="div" size="small" color="text-mid">
+                  <Text as="div" size="sm" color="text-mid">
                     Signed in as
                   </Text>
                   <Text
                     as="div"
-                    size="medium"
+                    size="md"
                     weight="medium"
                     overflowWrap="anywhere"
                   >
@@ -341,7 +341,7 @@ export default function OAuthAuthorizePage() {
       ) : null}
 
       <Frame>
-        <Text as="div" size="medium" weight="semibold" mb="3">
+        <Text as="div" size="md" weight="semibold" mb="3">
           What this allows
         </Text>
         <Flex direction="column" gap="3">
@@ -367,7 +367,7 @@ export default function OAuthAuthorizePage() {
         <Button
           variant="soft"
           color="gray"
-          size="md"
+          size="lg"
           onClick={deny}
           disabled={submitting}
           style={{ flex: 1 }}
@@ -375,7 +375,7 @@ export default function OAuthAuthorizePage() {
           Deny
         </Button>
         <Button
-          size="md"
+          size="lg"
           onClick={approve}
           disabled={submitting || !orgId || !!error}
           loading={submitting}

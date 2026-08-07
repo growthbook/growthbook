@@ -560,7 +560,7 @@ export default function PivotTable({
   return (
     <div className="px-2 py-4">
       <h4 className="text-center mb-4">{dataVizConfig.title}</h4>
-      <Table variant="surface" size="1">
+      <Table variant="surface" size="sm">
         <TableHeader>
           {data.columns.map((headerRow, rowIndex) => (
             <TableRow key={rowIndex}>

@@ -25,21 +25,18 @@ Use GrowthBook's import tool to migrate your Statsig configuration and experimen
 ![GrowthBook Statsig importer](/images/guides/import-from-statsig-with-data.png)
 </MaxWidthImage>
 
-:::warning
-The Statsig import tool is currently in a private beta. Please contact support@growthbook.io if you're interested in using it.
-:::
+### Step 1: Generate a Statsig Console API Key
 
-### Step 1: Generate Statsig API Key
-
-- In Statsig, go to **Settings** → ** Key & Environments**
+- In Statsig, go to **Settings** → **Keys & Environments**
 - Create a new "Console" key with read-only permissions
-- Copy the key (it starts with `secret-`)
+- Copy the key (it starts with `console-`; server `secret-` and client `client-` keys will not work)
 
 ### Step 2: Run the Import
 
 - In GrowthBook, go to **Settings** → **Import your data**
 - Select Statsig
-- Enter your Statsig API key
+- Enter your Statsig Console API key
+- Choose the GrowthBook project to import into, and select a Data Source if you want to import Metrics
 - Click **Fetch from Statsig**
 
 The import tool will retrieve:
@@ -50,21 +47,33 @@ The import tool will retrieve:
 - Feature Gates
 - Dynamic Configs
 - Experiments
+- Metric Sources (beta)
+- Metrics (beta)
+
+:::note
+A few things do not come over automatically yet:
+
+- Metrics and Metric Sources require a connected Data Source at import time, and only warehouse-native Statsig metrics are supported
+- Imported experiments do not include their metrics or exposure query — assign those in GrowthBook after importing
+
+:::
 
 ### Step 3: Review and Confirm
 
 Items will show as:
 
-- **Pending**: Will be imported
-- **Skipped**: Already exists in GrowthBook
+- **create**: New item that will be added to GrowthBook
+- **update**: Item already exists in GrowthBook and will be updated
+- **skip**: Item is unchecked and will be left untouched
 
 You can:
 
 - Uncheck items to remove them from the import
-- Click the arrow (>) to view item details
+- Filter items by tag, or show only new or updated items
+- Click the arrow (>) to view an item's Statsig definition and, for existing items, a diff against what's in GrowthBook
 - Click **Import to GrowthBook** when ready
 
-When **Status** is marked as complete, your data is available in GrowthBook 🎉
+When the import status is marked as completed, your data is available in GrowthBook 🎉
 
 ## Migrate Your SDKs
 
@@ -113,16 +122,21 @@ The subagent will:
 
 ## Terminology Mapping
 
-| Statsig         | GrowthBook   |
-| --------------- | ------------ |
-| Segments        | Saved Groups |
-| Feature Gates   | Features     |
-| Dynamic Configs | Features     |
+| Statsig         | GrowthBook                                     |
+| --------------- | ---------------------------------------------- |
+| Segments        | Saved Groups                                   |
+| Feature Gates   | Features (boolean)                             |
+| Dynamic Configs | Features (JSON) + [Configs](/features/configs) |
+| Experiments     | Experiments                                    |
+| Metric Sources  | Fact Tables                                    |
+| Metrics         | Fact Metrics                                   |
+
+A Statsig Dynamic Config maps to a GrowthBook feature flag with a JSON value. To get the typed, schema-validated side of a Dynamic Config, back the flag with a [Config](/features/configs) (Enterprise) — a reusable object that carries a value and a schema, which is enforced on any flag it backs. The import tool creates plain JSON features; attaching a config is a manual step afterward. For simple reusable values shared across flags, see [Constants](/features/constants).
 
 ## Next Steps
 
 1. Test your imported features in a development environment
-2. Set up your data source connections for metrics
+2. Assign metrics and an exposure query to your imported experiments
 3. Configure webhooks and integrations
 4. Review team permissions and access controls
 

@@ -65,7 +65,7 @@ export default function MarketingBanner({
             size="sm"
           />
           <Box style={{ minWidth: 0, lineHeight: 1.4 }}>
-            <Heading as="h6" size="x-small" mb="1" color="text-high">
+            <Heading as="h6" size="xs" mb="1" color="text-high">
               {icon ? (
                 <Flex as="span" align="center" gap="2">
                   {icon}
@@ -76,7 +76,7 @@ export default function MarketingBanner({
               )}
             </Heading>
             {subheader ? (
-              <Text as="div" size="small" color="text-mid">
+              <Text as="div" size="sm" color="text-mid">
                 {subheader}
               </Text>
             ) : null}
@@ -87,7 +87,7 @@ export default function MarketingBanner({
             href={cta.link}
             external={external}
             color="inherit"
-            size="sm"
+            size="md"
           >
             {cta.copy}
           </LinkButton>

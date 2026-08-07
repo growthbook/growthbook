@@ -225,7 +225,7 @@ export default function FunnelStepCard({
           style={{ minWidth: 0, flex: 1 }}
         >
           <Box style={{ flexShrink: 0 }}>
-            <Text size="small" color="text-low">
+            <Text size="sm" color="text-low">
               {index + 1}.
             </Text>
           </Box>
@@ -264,7 +264,7 @@ export default function FunnelStepCard({
               <Button
                 className={styles.editBtn}
                 variant="ghost"
-                size="xs"
+                size="sm"
                 onClick={handleStartNameEdit}
                 title="Edit name"
               >
@@ -276,7 +276,7 @@ export default function FunnelStepCard({
         <Flex align="center" style={{ flexShrink: 0 }}>
           <Button
             variant="ghost"
-            size="xs"
+            size="sm"
             onClick={onToggleCollapsed}
             title={isCollapsed ? "Expand" : "Collapse"}
           >
@@ -284,7 +284,7 @@ export default function FunnelStepCard({
           </Button>
           <Button
             variant="ghost"
-            size="xs"
+            size="sm"
             disabled={steps.length === 1}
             onClick={() => onDelete(index)}
             title="Delete step"
@@ -301,7 +301,7 @@ export default function FunnelStepCard({
           title="Expand step"
         >
           <Text
-            size="small"
+            size="sm"
             color="text-low"
             truncate
             whiteSpace="nowrap"
@@ -337,7 +337,7 @@ export default function FunnelStepCard({
               {index > 0 && (
                 <Button
                   variant="ghost"
-                  size="xs"
+                  size="sm"
                   onClick={() => {
                     if (previousFactTable) {
                       handleFactTableChange(previousFactTable);
@@ -354,15 +354,15 @@ export default function FunnelStepCard({
           ) : (
             <Tooltip body="Inherits from the previous step. Click to override.">
               <Flex align="center" gap="2" py="2" style={{ minWidth: 0 }}>
-                <Text size="small" color="text-low">
+                <Text size="sm" color="text-low">
                   Fact table:
                 </Text>
-                <Text size="small" weight="medium" truncate>
+                <Text size="sm" weight="medium" truncate>
                   {factTable?.name ?? step.factTable ?? "(inherited)"}
                 </Text>
                 <Button
                   variant="ghost"
-                  size="xs"
+                  size="sm"
                   onClick={() => setOverrideOpen(true)}
                   title="Override fact table"
                 >
@@ -386,7 +386,7 @@ export default function FunnelStepCard({
                 mt="2"
               >
                 <Button
-                  size="xs"
+                  size="sm"
                   variant="ghost"
                   onClick={() => {
                     handleFiltersChange([
@@ -405,7 +405,7 @@ export default function FunnelStepCard({
                     open={unitDropdownOpen}
                     onOpenChange={setUnitDropdownOpen}
                     trigger={
-                      <Button size="xs" variant="ghost">
+                      <Button size="sm" variant="ghost">
                         <Flex align="center" gap="2">
                           <PiUserFill size={14} />
                           {funnelUnit ?? funnelUnitOptions[0]}
@@ -443,7 +443,7 @@ export default function FunnelStepCard({
             <Flex direction="column" gap="2" mt="3">
               <Flex direction="row">
                 <Button
-                  size="xs"
+                  size="sm"
                   variant="ghost"
                   onClick={() => setAdvancedOpen((p) => !p)}
                 >
@@ -453,7 +453,7 @@ export default function FunnelStepCard({
                     ) : (
                       <PiCaretRight size={14} />
                     )}
-                    <Text size="small" weight="medium">
+                    <Text size="sm" weight="medium">
                       Advanced Options
                     </Text>
                   </Flex>
@@ -512,7 +512,7 @@ export default function FunnelStepCard({
                       />
                       <Button
                         variant="ghost"
-                        size="xs"
+                        size="sm"
                         onClick={() => handleConversionWindowChange(null)}
                         title="Remove conversion window"
                       >
@@ -522,7 +522,7 @@ export default function FunnelStepCard({
                   ) : (
                     <Button
                       variant="ghost"
-                      size="xs"
+                      size="sm"
                       onClick={() =>
                         handleConversionWindowChange({
                           value: 1,

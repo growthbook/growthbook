@@ -362,7 +362,7 @@ const SidebarExperimentFilters: FC<Props> = ({
               onClick={() => openCategory(c.key)}
               onKeyDown={(e) => activateOnKey(e, () => openCategory(c.key))}
             >
-              <Text size="small">{c.heading}</Text>
+              <Text size="sm">{c.heading}</Text>
               <PiCaretRight size={12} color="var(--slate-9)" />
             </Flex>
           ))}
@@ -383,7 +383,7 @@ const SidebarExperimentFilters: FC<Props> = ({
               onClick={() => openCategory(f.key)}
               onKeyDown={(e) => activateOnKey(e, () => openCategory(f.key))}
             >
-              <Text size="small">{f.heading}</Text>
+              <Text size="sm">{f.heading}</Text>
               <PiCaretRight size={12} color="var(--slate-9)" />
             </Flex>
           ))}
@@ -410,7 +410,7 @@ const SidebarExperimentFilters: FC<Props> = ({
           onClick={backToCategories}
           onKeyDown={(e) => activateOnKey(e, backToCategories)}
         >
-          <Text size="small" weight="medium">
+          <Text size="sm" weight="medium">
             {extra.heading}
           </Text>
         </Flex>
@@ -448,7 +448,7 @@ const SidebarExperimentFilters: FC<Props> = ({
             onClick={backToCategories}
             onKeyDown={(e) => activateOnKey(e, backToCategories)}
           >
-            <Text size="small" weight="medium">
+            <Text size="sm" weight="medium">
               Filter by {category.heading}
             </Text>
           </Flex>
@@ -467,7 +467,7 @@ const SidebarExperimentFilters: FC<Props> = ({
           <Box px="1" pb="1">
             {items.length === 0 && (
               <Box px="2" py="1">
-                <Text size="small" color="text-low">
+                <Text size="sm" color="text-low">
                   No options
                 </Text>
               </Box>
@@ -601,7 +601,7 @@ const SidebarExperimentFilters: FC<Props> = ({
                   label={
                     <Flex align="center" gap="1">
                       <Text
-                        size="small"
+                        size="sm"
                         whiteSpace="normal"
                         weight="medium"
                         overflowWrap="anywhere"
@@ -654,7 +654,7 @@ const SidebarExperimentFilters: FC<Props> = ({
               label={
                 <Flex align="center" gap="1">
                   <Text
-                    size="small"
+                    size="sm"
                     whiteSpace="normal"
                     weight="medium"
                     overflowWrap="anywhere"
@@ -710,11 +710,11 @@ const SidebarExperimentFilters: FC<Props> = ({
                   label={
                     <Flex align="center" gap="1">
                       <Text
-                        size="small"
+                        size="sm"
                         whiteSpace="normal"
                         overflowWrap="anywhere"
                       >
-                        <Text as="span" size="small" color="text-low">
+                        <Text as="span" size="sm" color="text-low">
                           {extra.heading}
                         </Text>
                         {extra.label ? <>: {extra.label}</> : ""}
@@ -751,7 +751,7 @@ const SidebarExperimentFilters: FC<Props> = ({
           align="start"
           contentStyle={{ padding: 0 }}
           trigger={
-            <Button variant="outline" size="xs">
+            <Button variant="outline" size="sm">
               <Flex align="center" gap="1">
                 <PiPlus size={12} />
                 Add filter
@@ -765,7 +765,7 @@ const SidebarExperimentFilters: FC<Props> = ({
           advancedFilters.length > 0 ||
           extraFilters.some((f) => f.isActive)) && (
           <Link
-            size="1"
+            size="sm"
             onClick={clearFilters}
             style={{ whiteSpace: "nowrap" }}
           >
