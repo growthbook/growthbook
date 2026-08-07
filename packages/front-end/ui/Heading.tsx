@@ -12,6 +12,7 @@ type HeadingWhiteSpace =
   | "pre-wrap"
   | "pre-line"
   | "break-spaces";
+type HeadingOverflowWrap = "normal" | "anywhere" | "break-word";
 // NB: We might need to expand this to support RadixHeadingProps["color"], but being conservative for now.
 type HeadingColors = "text-high" | "text-mid" | "text-low";
 
@@ -40,6 +41,10 @@ export interface HeadingProps {
   align?: HeadingAlign;
   title?: string;
   whiteSpace?: HeadingWhiteSpace;
+  // Defaults to "anywhere" so a long unbroken word (a feature key, a
+  // machine-generated metric name) breaks instead of setting a min-content
+  // width that pushes sibling badges and actions off screen.
+  overflowWrap?: HeadingOverflowWrap;
   textTransform?: "uppercase" | "lowercase" | "capitalize";
 
   // Margin props
@@ -61,6 +66,7 @@ export default function Heading({
   align = "left",
   title,
   whiteSpace,
+  overflowWrap = "anywhere",
   textTransform,
   m,
   mx,
@@ -70,7 +76,7 @@ export default function Heading({
   mb,
   ml,
 }: HeadingProps) {
-  const style: React.CSSProperties = {};
+  const style: React.CSSProperties = { overflowWrap, minWidth: 0 };
   if (whiteSpace) style.whiteSpace = whiteSpace;
   if (textTransform) style.textTransform = textTransform;
 
