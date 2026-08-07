@@ -1,7 +1,6 @@
 import { FC, useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
-import { captureException as sentryCaptureException } from "@sentry/nextjs";
 import {
   AddressElement,
   PaymentElement,
@@ -16,6 +15,7 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import { useStripeContext } from "@/hooks/useStripeContext";
+import { useForceLicenseRefresh } from "@/hooks/useForceLicenseRefresh";
 import { taxIdTypeOptions } from "@/enterprise/components/Billing/CloudProUpgradeModal";
 import RadioCards from "@/ui/RadioCards";
 import Field from "@/components/Forms/Field";
@@ -63,7 +63,13 @@ const SelectInitialPlan: FC = () => {
     orgId,
     setOrgId,
   } = useAuth();
-  const { email, refreshOrganization } = useUser();
+  const { email } = useUser();
+  const {
+    status: organizationRefreshStatus,
+    refresh: refreshOrganizationAfterUpgrade,
+    retry: retryOrganizationRefresh,
+  } = useForceLicenseRefresh();
+  const organizationRefreshFailed = organizationRefreshStatus !== "idle";
   const plan: InitialPlanOptions =
     initialPlanSelection === "pro" || initialPlanSelection === "starter"
       ? initialPlanSelection
@@ -72,8 +78,6 @@ const SelectInitialPlan: FC = () => {
   const [step, setStep] = useState<number>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [organizationRefreshFailed, setOrganizationRefreshFailed] =
-    useState(false);
   const billingForm = useForm<ProBillingData>({
     defaultValues: {
       email: email ?? "",
@@ -81,22 +85,6 @@ const SelectInitialPlan: FC = () => {
       taxIdValue: undefined,
     },
   });
-
-  const refreshOrganizationAfterUpgrade = async () => {
-    try {
-      await refreshOrganization({ forceLicenseRefresh: true });
-      setOrganizationRefreshFailed(false);
-    } catch (error) {
-      sentryCaptureException(error);
-      setOrganizationRefreshFailed(true);
-    }
-  };
-
-  const retryOrganizationRefresh = async () => {
-    setLoading(true);
-    await refreshOrganizationAfterUpgrade();
-    setLoading(false);
-  };
 
   const completeFlow = useCallback(() => {
     track("Initial signup: flow completed", { plan });
@@ -297,7 +285,7 @@ const SelectInitialPlan: FC = () => {
                 <UIButton
                   size="sm"
                   color="inherit"
-                  loading={loading}
+                  loading={organizationRefreshStatus === "loading"}
                   onClick={retryOrganizationRefresh}
                 >
                   Try again
@@ -308,7 +296,11 @@ const SelectInitialPlan: FC = () => {
               see your updated plan.
             </Callout>
           )}
-          <Button color="primary" onClick={completeFlow} disabled={loading}>
+          <Button
+            color="primary"
+            onClick={completeFlow}
+            disabled={loading || organizationRefreshStatus === "loading"}
+          >
             Get started
           </Button>
         </div>

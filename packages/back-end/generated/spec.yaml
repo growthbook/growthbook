@@ -32954,9 +32954,12 @@ paths:
                           type: string
                           enum:
                             - today
+                            - yesterday
                             - last7Days
                             - last30Days
                             - last90Days
+                            - last12Months
+                            - lastCalendarYear
                             - customLookback
                             - customDateRange
                         lookbackValue:
@@ -33263,9 +33266,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -33299,9 +33305,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -33394,9 +33403,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -33434,6 +33446,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -33441,9 +33461,12 @@ paths:
                                         type: string
                                         enum:
                                           - today
+                                          - yesterday
                                           - last7Days
                                           - last30Days
                                           - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
                                           - customLookback
                                           - customDateRange
                                       lookbackValue:
@@ -33526,9 +33549,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -33566,6 +33592,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -33573,9 +33607,12 @@ paths:
                                         type: string
                                         enum:
                                           - today
+                                          - yesterday
                                           - last7Days
                                           - last30Days
                                           - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
                                           - customLookback
                                           - customDateRange
                                       lookbackValue:
@@ -33658,9 +33695,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -33698,6 +33738,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -33705,9 +33753,12 @@ paths:
                                         type: string
                                         enum:
                                           - today
+                                          - yesterday
                                           - last7Days
                                           - last30Days
                                           - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
                                           - customLookback
                                           - customDateRange
                                       lookbackValue:
@@ -34110,6 +34161,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -34117,9 +34176,12 @@ paths:
                                         type: string
                                         enum:
                                           - today
+                                          - yesterday
                                           - last7Days
                                           - last30Days
                                           - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
                                           - customLookback
                                           - customDateRange
                                       lookbackValue:
@@ -34243,6 +34305,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -34250,9 +34320,12 @@ paths:
                                         type: string
                                         enum:
                                           - today
+                                          - yesterday
                                           - last7Days
                                           - last30Days
                                           - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
                                           - customLookback
                                           - customDateRange
                                       lookbackValue:
@@ -34431,9 +34504,12 @@ paths:
                                         type: string
                                         enum:
                                           - today
+                                          - yesterday
                                           - last7Days
                                           - last30Days
                                           - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
                                           - customLookback
                                           - customDateRange
                                       lookbackValue:
@@ -34601,6 +34677,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -34608,9 +34692,12 @@ paths:
                                         type: string
                                         enum:
                                           - today
+                                          - yesterday
                                           - last7Days
                                           - last30Days
                                           - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
                                           - customLookback
                                           - customDateRange
                                       lookbackValue:
@@ -34789,9 +34876,12 @@ paths:
                                         type: string
                                         enum:
                                           - today
+                                          - yesterday
                                           - last7Days
                                           - last30Days
                                           - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
                                           - customLookback
                                           - customDateRange
                                       lookbackValue:
@@ -34968,6 +35058,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -34975,9 +35073,12 @@ paths:
                                         type: string
                                         enum:
                                           - today
+                                          - yesterday
                                           - last7Days
                                           - last30Days
                                           - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
                                           - customLookback
                                           - customDateRange
                                       lookbackValue:
@@ -35156,9 +35257,12 @@ paths:
                                         type: string
                                         enum:
                                           - today
+                                          - yesterday
                                           - last7Days
                                           - last30Days
                                           - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
                                           - customLookback
                                           - customDateRange
                                       lookbackValue:
@@ -35372,6 +35476,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -35379,9 +35491,12 @@ paths:
                                         type: string
                                         enum:
                                           - today
+                                          - yesterday
                                           - last7Days
                                           - last30Days
                                           - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
                                           - customLookback
                                           - customDateRange
                                       lookbackValue:
@@ -35763,9 +35878,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -35799,9 +35917,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -35903,9 +36024,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -35943,6 +36067,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -35950,9 +36082,12 @@ paths:
                                         type: string
                                         enum:
                                           - today
+                                          - yesterday
                                           - last7Days
                                           - last30Days
                                           - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
                                           - customLookback
                                           - customDateRange
                                       lookbackValue:
@@ -36044,9 +36179,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -36084,6 +36222,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -36091,9 +36237,12 @@ paths:
                                         type: string
                                         enum:
                                           - today
+                                          - yesterday
                                           - last7Days
                                           - last30Days
                                           - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
                                           - customLookback
                                           - customDateRange
                                       lookbackValue:
@@ -36185,9 +36334,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -36225,6 +36377,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -36232,9 +36392,12 @@ paths:
                                         type: string
                                         enum:
                                           - today
+                                          - yesterday
                                           - last7Days
                                           - last30Days
                                           - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
                                           - customLookback
                                           - customDateRange
                                       lookbackValue:
@@ -36669,6 +36832,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -36676,9 +36847,12 @@ paths:
                                         type: string
                                         enum:
                                           - today
+                                          - yesterday
                                           - last7Days
                                           - last30Days
                                           - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
                                           - customLookback
                                           - customDateRange
                                       lookbackValue:
@@ -36857,9 +37031,12 @@ paths:
                                         type: string
                                         enum:
                                           - today
+                                          - yesterday
                                           - last7Days
                                           - last30Days
                                           - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
                                           - customLookback
                                           - customDateRange
                                       lookbackValue:
@@ -37036,6 +37213,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -37043,9 +37228,12 @@ paths:
                                         type: string
                                         enum:
                                           - today
+                                          - yesterday
                                           - last7Days
                                           - last30Days
                                           - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
                                           - customLookback
                                           - customDateRange
                                       lookbackValue:
@@ -37224,9 +37412,12 @@ paths:
                                         type: string
                                         enum:
                                           - today
+                                          - yesterday
                                           - last7Days
                                           - last30Days
                                           - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
                                           - customLookback
                                           - customDateRange
                                       lookbackValue:
@@ -37412,6 +37603,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -37419,9 +37618,12 @@ paths:
                                         type: string
                                         enum:
                                           - today
+                                          - yesterday
                                           - last7Days
                                           - last30Days
                                           - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
                                           - customLookback
                                           - customDateRange
                                       lookbackValue:
@@ -37600,9 +37802,12 @@ paths:
                                         type: string
                                         enum:
                                           - today
+                                          - yesterday
                                           - last7Days
                                           - last30Days
                                           - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
                                           - customLookback
                                           - customDateRange
                                       lookbackValue:
@@ -37805,6 +38010,14 @@ paths:
                                 properties:
                                   enabled:
                                     type: boolean
+                                  mode:
+                                    type: string
+                                    enum:
+                                      - previousPeriod
+                                      - previousPeriodMatchDayOfWeek
+                                      - previousYear
+                                      - previousYearMatchDayOfWeek
+                                      - custom
                                   previousTimeFrame:
                                     type: object
                                     properties:
@@ -37812,9 +38025,12 @@ paths:
                                         type: string
                                         enum:
                                           - today
+                                          - yesterday
                                           - last7Days
                                           - last30Days
                                           - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
                                           - customLookback
                                           - customDateRange
                                       lookbackValue:
@@ -37993,9 +38209,12 @@ paths:
                                         type: string
                                         enum:
                                           - today
+                                          - yesterday
                                           - last7Days
                                           - last30Days
                                           - last90Days
+                                          - last12Months
+                                          - lastCalendarYear
                                           - customLookback
                                           - customDateRange
                                       lookbackValue:
@@ -38250,9 +38469,12 @@ paths:
                           type: string
                           enum:
                             - today
+                            - yesterday
                             - last7Days
                             - last30Days
                             - last90Days
+                            - last12Months
+                            - lastCalendarYear
                             - customLookback
                             - customDateRange
                         lookbackValue:
@@ -38558,9 +38780,12 @@ paths:
                                 type: string
                                 enum:
                                   - today
+                                  - yesterday
                                   - last7Days
                                   - last30Days
                                   - last90Days
+                                  - last12Months
+                                  - lastCalendarYear
                                   - customLookback
                                   - customDateRange
                               lookbackValue:
@@ -38594,9 +38819,12 @@ paths:
                                 type: string
                                 enum:
                                   - today
+                                  - yesterday
                                   - last7Days
                                   - last30Days
                                   - last90Days
+                                  - last12Months
+                                  - lastCalendarYear
                                   - customLookback
                                   - customDateRange
                               lookbackValue:
@@ -38689,9 +38917,12 @@ paths:
                                 type: string
                                 enum:
                                   - today
+                                  - yesterday
                                   - last7Days
                                   - last30Days
                                   - last90Days
+                                  - last12Months
+                                  - lastCalendarYear
                                   - customLookback
                                   - customDateRange
                               lookbackValue:
@@ -38729,6 +38960,14 @@ paths:
                             properties:
                               enabled:
                                 type: boolean
+                              mode:
+                                type: string
+                                enum:
+                                  - previousPeriod
+                                  - previousPeriodMatchDayOfWeek
+                                  - previousYear
+                                  - previousYearMatchDayOfWeek
+                                  - custom
                               previousTimeFrame:
                                 type: object
                                 properties:
@@ -38736,9 +38975,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -38821,9 +39063,12 @@ paths:
                                 type: string
                                 enum:
                                   - today
+                                  - yesterday
                                   - last7Days
                                   - last30Days
                                   - last90Days
+                                  - last12Months
+                                  - lastCalendarYear
                                   - customLookback
                                   - customDateRange
                               lookbackValue:
@@ -38861,6 +39106,14 @@ paths:
                             properties:
                               enabled:
                                 type: boolean
+                              mode:
+                                type: string
+                                enum:
+                                  - previousPeriod
+                                  - previousPeriodMatchDayOfWeek
+                                  - previousYear
+                                  - previousYearMatchDayOfWeek
+                                  - custom
                               previousTimeFrame:
                                 type: object
                                 properties:
@@ -38868,9 +39121,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -38953,9 +39209,12 @@ paths:
                                 type: string
                                 enum:
                                   - today
+                                  - yesterday
                                   - last7Days
                                   - last30Days
                                   - last90Days
+                                  - last12Months
+                                  - lastCalendarYear
                                   - customLookback
                                   - customDateRange
                               lookbackValue:
@@ -38993,6 +39252,14 @@ paths:
                             properties:
                               enabled:
                                 type: boolean
+                              mode:
+                                type: string
+                                enum:
+                                  - previousPeriod
+                                  - previousPeriodMatchDayOfWeek
+                                  - previousYear
+                                  - previousYearMatchDayOfWeek
+                                  - custom
                               previousTimeFrame:
                                 type: object
                                 properties:
@@ -39000,9 +39267,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -39405,6 +39675,14 @@ paths:
                             properties:
                               enabled:
                                 type: boolean
+                              mode:
+                                type: string
+                                enum:
+                                  - previousPeriod
+                                  - previousPeriodMatchDayOfWeek
+                                  - previousYear
+                                  - previousYearMatchDayOfWeek
+                                  - custom
                               previousTimeFrame:
                                 type: object
                                 properties:
@@ -39412,9 +39690,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -39538,6 +39819,14 @@ paths:
                             properties:
                               enabled:
                                 type: boolean
+                              mode:
+                                type: string
+                                enum:
+                                  - previousPeriod
+                                  - previousPeriodMatchDayOfWeek
+                                  - previousYear
+                                  - previousYearMatchDayOfWeek
+                                  - custom
                               previousTimeFrame:
                                 type: object
                                 properties:
@@ -39545,9 +39834,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -39726,9 +40018,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -39896,6 +40191,14 @@ paths:
                             properties:
                               enabled:
                                 type: boolean
+                              mode:
+                                type: string
+                                enum:
+                                  - previousPeriod
+                                  - previousPeriodMatchDayOfWeek
+                                  - previousYear
+                                  - previousYearMatchDayOfWeek
+                                  - custom
                               previousTimeFrame:
                                 type: object
                                 properties:
@@ -39903,9 +40206,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -40084,9 +40390,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -40263,6 +40572,14 @@ paths:
                             properties:
                               enabled:
                                 type: boolean
+                              mode:
+                                type: string
+                                enum:
+                                  - previousPeriod
+                                  - previousPeriodMatchDayOfWeek
+                                  - previousYear
+                                  - previousYearMatchDayOfWeek
+                                  - custom
                               previousTimeFrame:
                                 type: object
                                 properties:
@@ -40270,9 +40587,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -40451,9 +40771,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -43082,9 +43405,12 @@ paths:
                       type: string
                       enum:
                         - today
+                        - yesterday
                         - last7Days
                         - last30Days
                         - last90Days
+                        - last12Months
+                        - lastCalendarYear
                         - customLookback
                         - customDateRange
                     lookbackValue:
@@ -43439,9 +43765,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -43749,9 +44078,12 @@ paths:
                       type: string
                       enum:
                         - today
+                        - yesterday
                         - last7Days
                         - last30Days
                         - last90Days
+                        - last12Months
+                        - lastCalendarYear
                         - customLookback
                         - customDateRange
                     lookbackValue:
@@ -44115,9 +44447,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -44434,9 +44769,12 @@ paths:
                       type: string
                       enum:
                         - today
+                        - yesterday
                         - last7Days
                         - last30Days
                         - last90Days
+                        - last12Months
+                        - lastCalendarYear
                         - customLookback
                         - customDateRange
                     lookbackValue:
@@ -44817,9 +45155,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -45153,9 +45494,12 @@ paths:
                       type: string
                       enum:
                         - today
+                        - yesterday
                         - last7Days
                         - last30Days
                         - last90Days
+                        - last12Months
+                        - lastCalendarYear
                         - customLookback
                         - customDateRange
                     lookbackValue:
@@ -45531,9 +45875,12 @@ paths:
                                     type: string
                                     enum:
                                       - today
+                                      - yesterday
                                       - last7Days
                                       - last30Days
                                       - last90Days
+                                      - last12Months
+                                      - lastCalendarYear
                                       - customLookback
                                       - customDateRange
                                   lookbackValue:
@@ -57988,9 +58335,12 @@ components:
                   type: string
                   enum:
                     - today
+                    - yesterday
                     - last7Days
                     - last30Days
                     - last90Days
+                    - last12Months
+                    - lastCalendarYear
                     - customLookback
                     - customDateRange
                 lookbackValue:
@@ -58032,6 +58382,14 @@ components:
           properties:
             enabled:
               type: boolean
+            mode:
+              type: string
+              enum:
+                - previousPeriod
+                - previousPeriodMatchDayOfWeek
+                - previousYear
+                - previousYearMatchDayOfWeek
+                - custom
             previousTimeFrame:
               type: object
               properties:
@@ -58039,9 +58397,12 @@ components:
                   type: string
                   enum:
                     - today
+                    - yesterday
                     - last7Days
                     - last30Days
                     - last90Days
+                    - last12Months
+                    - lastCalendarYear
                     - customLookback
                     - customDateRange
                 lookbackValue:
@@ -58169,6 +58530,14 @@ components:
                     properties:
                       enabled:
                         type: boolean
+                      mode:
+                        type: string
+                        enum:
+                          - previousPeriod
+                          - previousPeriodMatchDayOfWeek
+                          - previousYear
+                          - previousYearMatchDayOfWeek
+                          - custom
                       previousTimeFrame:
                         type: object
                         properties:
@@ -58176,9 +58545,12 @@ components:
                             type: string
                             enum:
                               - today
+                              - yesterday
                               - last7Days
                               - last30Days
                               - last90Days
+                              - last12Months
+                              - lastCalendarYear
                               - customLookback
                               - customDateRange
                           lookbackValue:
@@ -58560,9 +58932,12 @@ components:
                         type: string
                         enum:
                           - today
+                          - yesterday
                           - last7Days
                           - last30Days
                           - last90Days
+                          - last12Months
+                          - lastCalendarYear
                           - customLookback
                           - customDateRange
                       lookbackValue:
@@ -58596,9 +58971,12 @@ components:
                         type: string
                         enum:
                           - today
+                          - yesterday
                           - last7Days
                           - last30Days
                           - last90Days
+                          - last12Months
+                          - lastCalendarYear
                           - customLookback
                           - customDateRange
                       lookbackValue:
@@ -58700,9 +59078,12 @@ components:
                         type: string
                         enum:
                           - today
+                          - yesterday
                           - last7Days
                           - last30Days
                           - last90Days
+                          - last12Months
+                          - lastCalendarYear
                           - customLookback
                           - customDateRange
                       lookbackValue:
@@ -58740,6 +59121,14 @@ components:
                     properties:
                       enabled:
                         type: boolean
+                      mode:
+                        type: string
+                        enum:
+                          - previousPeriod
+                          - previousPeriodMatchDayOfWeek
+                          - previousYear
+                          - previousYearMatchDayOfWeek
+                          - custom
                       previousTimeFrame:
                         type: object
                         properties:
@@ -58747,9 +59136,12 @@ components:
                             type: string
                             enum:
                               - today
+                              - yesterday
                               - last7Days
                               - last30Days
                               - last90Days
+                              - last12Months
+                              - lastCalendarYear
                               - customLookback
                               - customDateRange
                           lookbackValue:
@@ -58841,9 +59233,12 @@ components:
                         type: string
                         enum:
                           - today
+                          - yesterday
                           - last7Days
                           - last30Days
                           - last90Days
+                          - last12Months
+                          - lastCalendarYear
                           - customLookback
                           - customDateRange
                       lookbackValue:
@@ -58881,6 +59276,14 @@ components:
                     properties:
                       enabled:
                         type: boolean
+                      mode:
+                        type: string
+                        enum:
+                          - previousPeriod
+                          - previousPeriodMatchDayOfWeek
+                          - previousYear
+                          - previousYearMatchDayOfWeek
+                          - custom
                       previousTimeFrame:
                         type: object
                         properties:
@@ -58888,9 +59291,12 @@ components:
                             type: string
                             enum:
                               - today
+                              - yesterday
                               - last7Days
                               - last30Days
                               - last90Days
+                              - last12Months
+                              - lastCalendarYear
                               - customLookback
                               - customDateRange
                           lookbackValue:
@@ -58982,9 +59388,12 @@ components:
                         type: string
                         enum:
                           - today
+                          - yesterday
                           - last7Days
                           - last30Days
                           - last90Days
+                          - last12Months
+                          - lastCalendarYear
                           - customLookback
                           - customDateRange
                       lookbackValue:
@@ -59022,6 +59431,14 @@ components:
                     properties:
                       enabled:
                         type: boolean
+                      mode:
+                        type: string
+                        enum:
+                          - previousPeriod
+                          - previousPeriodMatchDayOfWeek
+                          - previousYear
+                          - previousYearMatchDayOfWeek
+                          - custom
                       previousTimeFrame:
                         type: object
                         properties:
@@ -59029,9 +59446,12 @@ components:
                             type: string
                             enum:
                               - today
+                              - yesterday
                               - last7Days
                               - last30Days
                               - last90Days
+                              - last12Months
+                              - lastCalendarYear
                               - customLookback
                               - customDateRange
                           lookbackValue:
@@ -59466,6 +59886,14 @@ components:
                     properties:
                       enabled:
                         type: boolean
+                      mode:
+                        type: string
+                        enum:
+                          - previousPeriod
+                          - previousPeriodMatchDayOfWeek
+                          - previousYear
+                          - previousYearMatchDayOfWeek
+                          - custom
                       previousTimeFrame:
                         type: object
                         properties:
@@ -59473,9 +59901,12 @@ components:
                             type: string
                             enum:
                               - today
+                              - yesterday
                               - last7Days
                               - last30Days
                               - last90Days
+                              - last12Months
+                              - lastCalendarYear
                               - customLookback
                               - customDateRange
                           lookbackValue:
@@ -59654,9 +60085,12 @@ components:
                             type: string
                             enum:
                               - today
+                              - yesterday
                               - last7Days
                               - last30Days
                               - last90Days
+                              - last12Months
+                              - lastCalendarYear
                               - customLookback
                               - customDateRange
                           lookbackValue:
@@ -59833,6 +60267,14 @@ components:
                     properties:
                       enabled:
                         type: boolean
+                      mode:
+                        type: string
+                        enum:
+                          - previousPeriod
+                          - previousPeriodMatchDayOfWeek
+                          - previousYear
+                          - previousYearMatchDayOfWeek
+                          - custom
                       previousTimeFrame:
                         type: object
                         properties:
@@ -59840,9 +60282,12 @@ components:
                             type: string
                             enum:
                               - today
+                              - yesterday
                               - last7Days
                               - last30Days
                               - last90Days
+                              - last12Months
+                              - lastCalendarYear
                               - customLookback
                               - customDateRange
                           lookbackValue:
@@ -60021,9 +60466,12 @@ components:
                             type: string
                             enum:
                               - today
+                              - yesterday
                               - last7Days
                               - last30Days
                               - last90Days
+                              - last12Months
+                              - lastCalendarYear
                               - customLookback
                               - customDateRange
                           lookbackValue:
@@ -60209,6 +60657,14 @@ components:
                     properties:
                       enabled:
                         type: boolean
+                      mode:
+                        type: string
+                        enum:
+                          - previousPeriod
+                          - previousPeriodMatchDayOfWeek
+                          - previousYear
+                          - previousYearMatchDayOfWeek
+                          - custom
                       previousTimeFrame:
                         type: object
                         properties:
@@ -60216,9 +60672,12 @@ components:
                             type: string
                             enum:
                               - today
+                              - yesterday
                               - last7Days
                               - last30Days
                               - last90Days
+                              - last12Months
+                              - lastCalendarYear
                               - customLookback
                               - customDateRange
                           lookbackValue:
@@ -60397,9 +60856,12 @@ components:
                             type: string
                             enum:
                               - today
+                              - yesterday
                               - last7Days
                               - last30Days
                               - last90Days
+                              - last12Months
+                              - lastCalendarYear
                               - customLookback
                               - customDateRange
                           lookbackValue:
@@ -60602,6 +61064,14 @@ components:
                     properties:
                       enabled:
                         type: boolean
+                      mode:
+                        type: string
+                        enum:
+                          - previousPeriod
+                          - previousPeriodMatchDayOfWeek
+                          - previousYear
+                          - previousYearMatchDayOfWeek
+                          - custom
                       previousTimeFrame:
                         type: object
                         properties:
@@ -60609,9 +61079,12 @@ components:
                             type: string
                             enum:
                               - today
+                              - yesterday
                               - last7Days
                               - last30Days
                               - last90Days
+                              - last12Months
+                              - lastCalendarYear
                               - customLookback
                               - customDateRange
                           lookbackValue:
@@ -60790,9 +61263,12 @@ components:
                             type: string
                             enum:
                               - today
+                              - yesterday
                               - last7Days
                               - last30Days
                               - last90Days
+                              - last12Months
+                              - lastCalendarYear
                               - customLookback
                               - customDateRange
                           lookbackValue:
@@ -62735,9 +63211,12 @@ components:
                       type: string
                       enum:
                         - today
+                        - yesterday
                         - last7Days
                         - last30Days
                         - last90Days
+                        - last12Months
+                        - lastCalendarYear
                         - customLookback
                         - customDateRange
                     lookbackValue:
@@ -62995,9 +63474,12 @@ components:
                       type: string
                       enum:
                         - today
+                        - yesterday
                         - last7Days
                         - last30Days
                         - last90Days
+                        - last12Months
+                        - lastCalendarYear
                         - customLookback
                         - customDateRange
                     lookbackValue:
@@ -63264,9 +63746,12 @@ components:
                       type: string
                       enum:
                         - today
+                        - yesterday
                         - last7Days
                         - last30Days
                         - last90Days
+                        - last12Months
+                        - lastCalendarYear
                         - customLookback
                         - customDateRange
                     lookbackValue:
@@ -63550,9 +64035,12 @@ components:
                       type: string
                       enum:
                         - today
+                        - yesterday
                         - last7Days
                         - last30Days
                         - last90Days
+                        - last12Months
+                        - lastCalendarYear
                         - customLookback
                         - customDateRange
                     lookbackValue:
