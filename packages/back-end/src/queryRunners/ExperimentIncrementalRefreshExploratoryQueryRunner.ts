@@ -40,6 +40,7 @@ import {
   ProcessedRowsType,
   RowsType,
   StartQueryParams,
+  getMetricAwareQueryStatus,
 } from "./QueryRunner";
 import { SnapshotResult } from "./ExperimentResultsQueryRunner";
 import {
@@ -240,6 +241,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
 
     const statisticsQuery = await startQuery({
       name: getIncrementalStatisticsQueryName(group.groupId),
+      metrics: sameFtMetrics.map((metric) => metric.id),
       displayTitle: `Compute Statistics ${sourceName}`,
       query: () =>
         integration.getIncrementalRefreshStatisticsQuery({
@@ -306,6 +308,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
         pipelineA.group.groupId,
         pipelineB.group.groupId,
       ),
+      metrics: subGroup.metrics.map((metric) => metric.metric.id),
       displayTitle: `Compute Cross-Fact Statistics ${sourceName}`,
       query: () =>
         integration.getIncrementalRefreshStatisticsQuery({
@@ -365,6 +368,13 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
       this.integration.datasource,
+    );
+  }
+
+  protected override getOverallQueryStatus(): QueryStatus {
+    return (
+      getMetricAwareQueryStatus(this.model.queries) ??
+      super.getOverallQueryStatus()
     );
   }
 

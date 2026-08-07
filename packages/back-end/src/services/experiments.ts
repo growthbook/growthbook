@@ -178,7 +178,11 @@ import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
-import { QueryMap, getQueryMap } from "back-end/src/queryRunners/QueryRunner";
+import {
+  QueryMap,
+  getMetricAwareQueryStatus,
+  getQueryMap,
+} from "back-end/src/queryRunners/QueryRunner";
 import {
   buildUnitDimensionQueryMap,
   filterParentQueryMap,
@@ -2530,13 +2534,7 @@ async function getSnapshotAnalyses(
       return;
     }
 
-    const totalQueries = snapshot.queries.length;
-    const failedQueries = snapshot.queries.filter((q) => q.status === "failed");
-    const runningQueries = snapshot.queries.filter(
-      (q) => q.status === "running",
-    );
-
-    if (runningQueries.length > 0 || failedQueries.length >= totalQueries / 2) {
+    if (!snapshotQueriesAvailableForAnalysis(snapshot, [analysisSettings])) {
       logger.error(
         `Snapshot queries not available for analysis: ${snapshot.id}`,
       );
@@ -2608,6 +2606,44 @@ async function getSnapshotAnalyses(
   return analysisParamsMap;
 }
 
+function getUnitDimensionIdForAnalysis(
+  snapshot: ExperimentSnapshotInterface,
+  analysisSettingsList: ExperimentSnapshotAnalysisSettings[],
+): string | null {
+  const dimensionId = analysisSettingsList[0]?.dimensions[0];
+  return dimensionId &&
+    snapshot.settings.precomputedUnitDimensionIds?.includes(dimensionId)
+    ? dimensionId
+    : null;
+}
+
+function snapshotQueriesAvailableForAnalysis(
+  snapshot: ExperimentSnapshotInterface,
+  analysisSettingsList: ExperimentSnapshotAnalysisSettings[],
+): boolean {
+  const dimensionId = getUnitDimensionIdForAnalysis(
+    snapshot,
+    analysisSettingsList,
+  );
+  const metricStatus = dimensionId
+    ? getMetricAwareQueryStatus(snapshot.queries, "dimension", dimensionId)
+    : getMetricAwareQueryStatus(snapshot.queries);
+  if (metricStatus !== null) {
+    return metricStatus !== "running" && metricStatus !== "failed";
+  }
+
+  // Legacy snapshots have no ownership metadata. Preserve their original
+  // availability policy.
+  const failedQueries = snapshot.queries.filter((q) => q.status === "failed");
+  const runningQueries = snapshot.queries.filter(
+    (q) => q.status === "running" || q.status === "queued",
+  );
+  return (
+    runningQueries.length === 0 &&
+    failedQueries.length < snapshot.queries.length / 2
+  );
+}
+
 // Loads the query results needed to run gbstats for the given analyses. For
 // unit-dimension analyses (whose queries live under a `unitdim:<dim>:` prefix
 // on the parent snapshot), the map is filtered + renamed so gbstats sees the
@@ -2618,11 +2654,11 @@ async function getQueryMapForAnalysis(
   analysisSettingsList: ExperimentSnapshotAnalysisSettings[],
 ): Promise<QueryMap> {
   const queryMap = await getQueryMap(context, snapshot.queries);
-  const dimensionId = analysisSettingsList[0]?.dimensions[0];
-  if (
-    dimensionId &&
-    snapshot.settings.precomputedUnitDimensionIds?.includes(dimensionId)
-  ) {
+  const dimensionId = getUnitDimensionIdForAnalysis(
+    snapshot,
+    analysisSettingsList,
+  );
+  if (dimensionId) {
     const unitDimQueryMap = buildUnitDimensionQueryMap(queryMap, dimensionId);
     if (unitDimQueryMap.size === 0) {
       // The parent snapshot lists this unit dimension in its settings but
@@ -2664,11 +2700,7 @@ export async function createSnapshotAnalysis(
     throw new Error("Analysis not allowed with this snapshot");
   }
 
-  const totalQueries = snapshot.queries.length;
-  const failedQueries = snapshot.queries.filter((q) => q.status === "failed");
-  const runningQueries = snapshot.queries.filter((q) => q.status === "running");
-
-  if (runningQueries.length > 0 || failedQueries.length >= totalQueries / 2) {
+  if (!snapshotQueriesAvailableForAnalysis(snapshot, [analysisSettings])) {
     throw new Error("Snapshot queries not available for analysis");
   }
   const analysis: ExperimentSnapshotAnalysis = {
@@ -2733,10 +2765,7 @@ export async function createSnapshotAnalysesBatched(
     }
   }
 
-  const totalQueries = snapshot.queries.length;
-  const failedQueries = snapshot.queries.filter((q) => q.status === "failed");
-  const runningQueries = snapshot.queries.filter((q) => q.status === "running");
-  if (runningQueries.length > 0 || failedQueries.length >= totalQueries / 2) {
+  if (!snapshotQueriesAvailableForAnalysis(snapshot, analysisSettingsList)) {
     throw new Error("Snapshot queries not available for analysis");
   }
 
@@ -3184,6 +3213,9 @@ export function toSnapshotApiInterface(
         : null),
     },
     queryIds: snapshot.queries.map((q) => q.query),
+    // See toApiExperimentSnapshot: snapshot `status` collapses a partial run
+    // into "success", so completeness needs a field of its own.
+    queryStatus: getMetricAwareQueryStatus(snapshot.queries) ?? undefined,
     results: (analysis?.results || []).map((s) => {
       return {
         dimension: s.name,
