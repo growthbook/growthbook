@@ -355,6 +355,12 @@ describe("control footprint === endpoint footprint", () => {
  *
  * The first fix dropped only the destination term. These pin the axis that was left:
  * a basis mismatch has more than one, and closing one reads as closing the finding.
+ *
+ * WHAT THESE DO NOT COVER: the page wiring. They hold the shared helpers to the
+ * right answers, but nothing here asserts that `[cfgid]`/`[cid]`/`[sgid]` actually
+ * pass THAT answer into `canPublishEntityCoarse` — those pages have no unit tests, so
+ * a revert to the widened footprint stays green. That seam is guarded by comment
+ * only. Read these rows as "the helper is right", not "the control uses it".
  */
 describe("the cancel footprint is the entity's own scope, unwidened", () => {
   const scopedConfig = { scopedConfig: { environments: ["dev"] } };

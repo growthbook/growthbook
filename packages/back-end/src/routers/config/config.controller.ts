@@ -635,6 +635,7 @@ type PutConfigRequest = AuthRequest<
     revisionId?: string;
     forceCreateRevision?: string;
     title?: string;
+    comment?: string;
     revertedFrom?: string;
   }
 >;
@@ -859,7 +860,16 @@ export const putConfig = async (
     fieldsToUpdate.archived = archived;
   }
   // `schema` (config field definitions) is a content change like `value`.
-  if (hasChanged(schema, comparisonBase.schema)) {
+  //
+  // An explicit `null` CLEARS it, which `hasChanged` cannot express: its first line
+  // treats nullish as "not intentionally changed", which is right for every other
+  // field here and wrong for the one a revert has to be able to remove. Handled
+  // ahead of it, the same null-as-clear rule `postConfigRevisionRevert` applies.
+  if (schema === null) {
+    if ((comparisonBase.schema ?? null) !== null) {
+      fieldsToUpdate.schema = null as unknown as typeof fieldsToUpdate.schema;
+    }
+  } else if (hasChanged(schema, comparisonBase.schema)) {
     fieldsToUpdate.schema = schema;
   }
   if (extensible !== undefined && extensible !== comparisonBase.extensible) {
@@ -955,6 +965,9 @@ export const putConfig = async (
   const bypassApproval = req.query.bypassApproval === "1";
   const autoPublish = req.query.autoPublish === "1";
   const title = req.query.title;
+  // The shared RevertModal renders "Add a Comment (optional)" and sends it for all
+  // three entities; only Saved Groups read it, so it was silently discarded here.
+  const comment = req.query.comment;
 
   const wantsDraft = !!revisionId || forceCreateRevision;
   const wantsMerge = bypassApproval || autoPublish || !wantsDraft;
@@ -1098,6 +1111,7 @@ export const putConfig = async (
     {
       forceCreate,
       title,
+      comment,
       revertedFrom,
       revisionId:
         wantsDraft && !bypassApproval && !autoPublish ? revisionId : undefined,

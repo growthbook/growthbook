@@ -158,6 +158,96 @@ describe("submitForReview arming a dated publish", () => {
     });
   });
 
+  it("refuses lock-others when a sibling already holds the publish lock", async () => {
+    // The pre-check the dedicated arm path has always had and this one lacked until
+    // recently. Only observable with a CONFLICTING SIBLING seeded, which is why both
+    // halves of that fix shipped unpinned: delete the pre-check with no sibling in
+    // the fixture and nothing anywhere notices.
+    await mongoose.connection.collection("revisions").insertOne({
+      id: "rev_sibling_lock",
+      organization: ORG_ID,
+      version: 3,
+      status: "approved",
+      authorId: "u_admin",
+      reviews: [],
+      activityLog: [],
+      contributors: [],
+      autoPublishOnApproval: true,
+      scheduledPublishLockOthers: true,
+      scheduledPublishAt: new Date(Date.now() + 172_800_000),
+      target: {
+        type: "constant",
+        id: "cst_sched",
+        snapshot: { id: "cst_sched", key: "cst_sched", project: "" },
+        proposedChanges: [],
+      },
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    });
+
+    const context = adminContext();
+    await expect(
+      context.models.revisions.submitForReview(REV_ID, "u_admin", {
+        scheduledPublishAt: new Date(Date.now() + 86_400_000),
+        lockOthers: true,
+      }),
+    ).rejects.toThrow(
+      /already has a scheduled publish that locks other drafts/i,
+    );
+
+    // And the transition itself did not happen — a refusal that still moved the
+    // draft to pending-review would be worse than the error it reports.
+    expect((await stored())?.status).toBe("draft");
+  });
+
+  it("allows lock-others when the sibling holds no lock", async () => {
+    // The discriminator: the same shape minus `scheduledPublishLockOthers`. Without
+    // it, a pre-check that refused ANY sibling would look correct.
+    await mongoose.connection.collection("revisions").insertOne({
+      id: "rev_sibling_unlocked",
+      organization: ORG_ID,
+      version: 3,
+      status: "approved",
+      authorId: "u_admin",
+      reviews: [],
+      activityLog: [],
+      contributors: [],
+      autoPublishOnApproval: true,
+      scheduledPublishAt: new Date(Date.now() + 172_800_000),
+      target: {
+        type: "constant",
+        id: "cst_sched",
+        snapshot: { id: "cst_sched", key: "cst_sched", project: "" },
+        proposedChanges: [],
+      },
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    });
+
+    const context = adminContext();
+    await context.models.revisions.submitForReview(REV_ID, "u_admin", {
+      scheduledPublishAt: new Date(Date.now() + 86_400_000),
+      lockOthers: true,
+    });
+    expect((await stored())?.scheduledPublishLockOthers).toBe(true);
+  });
+
+  /**
+   * TWO DEFENCES, EACH INVISIBLE ALONE — do not read either survival as dead code.
+   *
+   * The conflict above is caught twice: by `assertNoConflictingPublishLock` before
+   * the write, and by the `uniqueArmedPublishLockOthers` index during it, whose
+   * E11000 `runTranslatingPublishLockConflict` turns into the same friendly message.
+   * Mutating EITHER alone leaves this suite green, because the other one catches it
+   * — measured, both directions. Removing BOTH turns the case above red.
+   *
+   * They are not redundant in production: the pre-check gives the friendly refusal on
+   * the common path, and the translator is what stands between a LOST RACE and a raw
+   * duplicate-key error reaching the caller. The pre-check cannot cover the race, and
+   * the translator alone would make every ordinary conflict a 500-shaped surprise.
+   * Neither is safe to delete on the evidence of a green suite.
+   */
+
   // Honest only because the case above asserts the LOCKS: this one's `?? null`
   // half is absent-by-default and survives an always-write mutant on its own.
   it("arms the no-date variant without inventing a schedule", async () => {

@@ -278,9 +278,18 @@ export default function RevertModal<T extends RevertableEntity>({
         revertableFields.forEach((key) => {
           const targetValue = targetState[key];
           const currentValue = liveEntity[key];
-          if (JSON.stringify(targetValue) !== JSON.stringify(currentValue)) {
-            revertChanges[key as string] = targetValue;
+          if (JSON.stringify(targetValue) === JSON.stringify(currentValue)) {
+            return;
           }
+          // A field the target does NOT have, that live DOES, is a CLEAR — and
+          // `undefined` cannot say so: JSON.stringify drops the key entirely, so
+          // the request looked like "leave it alone" and the clear was lost in
+          // transit while the diff above it showed the removal. Snapshots strip
+          // nullish keys, so absent-in-target is the normal shape for this.
+          revertChanges[key as string] =
+            targetValue === undefined && currentValue !== undefined
+              ? null
+              : targetValue;
         });
         if (archiveDrifts && includeArchive) {
           revertChanges.archived = targetArchived;

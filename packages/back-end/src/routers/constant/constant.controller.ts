@@ -216,6 +216,7 @@ type PutConstantRequest = AuthRequest<
     revisionId?: string;
     forceCreateRevision?: string;
     title?: string;
+    comment?: string;
     revertedFrom?: string;
   }
 >;
@@ -432,6 +433,9 @@ export const putConstant = async (
   const bypassApproval = req.query.bypassApproval === "1";
   const autoPublish = req.query.autoPublish === "1";
   const title = req.query.title;
+  // The shared RevertModal renders "Add a Comment (optional)" and sends it for all
+  // three entities; only Saved Groups read it, so it was silently discarded here.
+  const comment = req.query.comment;
 
   // If no draft-intent flag was provided we treat the request as an implicit
   // auto-publish so the change is still tracked as a revision and merged
@@ -560,6 +564,7 @@ export const putConstant = async (
     {
       forceCreate,
       title,
+      comment,
       revertedFrom,
       revisionId:
         wantsDraft && !bypassApproval && !autoPublish ? revisionId : undefined,

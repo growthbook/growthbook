@@ -207,16 +207,30 @@ describe("feature revision status guards", () => {
     // The log write is fire-and-forget, so a count taken immediately reads 0 whether
     // the write was suppressed or merely hasn't settled — which would make both
     // "logs NOTHING" cases below pass for the wrong reason. Settle first, always.
-    const logCount = async () => {
-      await new Promise((r) => setTimeout(r, 50));
-      return mongoose.connection
-        .collection("featurerevisionlog")
-        .countDocuments({
-          organization: ORG_ID,
-          featureId: FEATURE_ID,
-          action: "cancel scheduled publish",
-        });
+    const rawLogCount = () =>
+      mongoose.connection.collection("featurerevisionlog").countDocuments({
+        organization: ORG_ID,
+        featureId: FEATURE_ID,
+        action: "cancel scheduled publish",
+      });
+
+    // POLLED rather than slept. A fixed delay is a guess about machine speed, and
+    // the one that fails is the one on a loaded CI box. Waiting for the row to
+    // APPEAR returns as soon as it lands; expecting zero has nothing to wait for, so
+    // it burns a fixed window once and reports whatever arrived.
+    const settledLogCount = async (expected: number) => {
+      if (expected > 0) {
+        const deadline = Date.now() + 2000;
+        while (Date.now() < deadline) {
+          if ((await rawLogCount()) >= expected) break;
+          await new Promise((r) => setTimeout(r, 25));
+        }
+        return rawLogCount();
+      }
+      await new Promise((r) => setTimeout(r, 250));
+      return rawLogCount();
     };
+    const logCount = () => settledLogCount(0);
 
     beforeEach(async () => {
       await mongoose.connection
@@ -235,7 +249,7 @@ describe("feature revision status guards", () => {
         armed: doc?.autoPublishOnApproval,
         at: doc?.scheduledPublishAt ?? null,
       }).toEqual({ armed: false, at: null });
-      expect(await logCount()).toBe(1);
+      expect(await settledLogCount(1)).toBe(1);
     });
 
     it("writes and logs NOTHING when the revision was never armed", async () => {
@@ -251,6 +265,9 @@ describe("feature revision status guards", () => {
       const after = await stored();
       expect({
         logs: await logCount(),
+        // `touched` is corroboration, never the pin: `dateUpdated` has millisecond
+        // resolution, so a seed and a same-millisecond cancel-write compare EQUAL
+        // and it false-negatives. `logs` is what actually kills the mutant here.
         touched:
           after?.dateUpdated?.getTime?.() !== before?.dateUpdated?.getTime?.(),
       }).toEqual({ logs: 0, touched: false });
