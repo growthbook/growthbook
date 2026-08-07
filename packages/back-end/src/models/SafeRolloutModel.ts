@@ -121,8 +121,21 @@ export class SafeRolloutModel extends BaseClass {
     const unset: Record<string, 1> = {};
     if (ownsStartedAt) unset.startedAt = 1;
     if (ownsNextAttempt) unset.nextSnapshotAttempt = 1;
+    // The ownership decision above was read from `live`; fold what it depended on
+    // into the write filter so a worker advancing this rollout between the read and
+    // the write loses the race instead of having its progress reverted. Each clause
+    // mirrors an ownership check: the status we are undoing, and each timing field we
+    // proved was ours.
     await this._dangerousGetCollection().updateOne(
-      { organization: this.context.org.id, id: pre.id },
+      {
+        organization: this.context.org.id,
+        id: pre.id,
+        status: live.status,
+        ...(ownsStartedAt ? { startedAt: live.startedAt ?? null } : {}),
+        ...(ownsNextAttempt
+          ? { nextSnapshotAttempt: live.nextSnapshotAttempt ?? null }
+          : {}),
+      },
       {
         $set: {
           status: pre.status,

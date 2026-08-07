@@ -2180,9 +2180,19 @@ export class RevisionModel extends BaseClass {
   async setScheduledPublishNextAttempt(
     id: string,
     nextAttemptAt: Date,
+    // The ARM this attempt was working on, like `parkScheduledPublish`. Without it a
+    // user who cancels and re-arms while a failing attempt is in flight has their new
+    // schedule delayed by the old attempt's backoff.
+    expectedScheduledPublishAt?: Date | null,
   ): Promise<void> {
     await this._dangerousGetCollection().updateOne(
-      { organization: this.context.org.id, id },
+      {
+        organization: this.context.org.id,
+        id,
+        ...(expectedScheduledPublishAt !== undefined
+          ? { scheduledPublishAt: expectedScheduledPublishAt }
+          : {}),
+      },
       { $set: { scheduledPublishNextAttemptAt: nextAttemptAt } },
     );
   }
@@ -2199,8 +2209,10 @@ export class RevisionModel extends BaseClass {
     // re-arms while a failing attempt is in flight has their new schedule cleared
     // when the old attempt gives up. `null` matches a missing field.
     expectedScheduledPublishAt: Date | null,
-  ): Promise<void> {
-    await this._dangerousGetCollection().updateOne(
+    // Returns whether the park took effect. A no-op means the revision moved on —
+    // published, or re-armed — so the caller must not report a failure for it.
+  ): Promise<boolean> {
+    const res = await this._dangerousGetCollection().updateOne(
       {
         organization: this.context.org.id,
         id,
@@ -2221,6 +2233,7 @@ export class RevisionModel extends BaseClass {
         },
       },
     );
+    return res.matchedCount > 0;
   }
 
   // Cross-org poller query for the Agenda job: every armed revision whose date

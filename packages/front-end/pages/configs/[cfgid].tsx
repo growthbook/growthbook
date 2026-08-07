@@ -2373,15 +2373,31 @@ export default function ConfigDetailPage(): React.ReactElement {
           canLandRevert={canRevertLandingEntity}
           // Recomputed per target: restoring an older snapshot can relocate the
           // entity, and the destination is judged on the state being restored.
-          canLandRevertForTarget={(t) =>
-            canLandRevertToTarget(
+          canLandRevertForTarget={(t) => {
+            // A revert that flips `archived` takes the Config out of service, or
+            // returns it, EVERYWHERE it serves — the footprint the endpoint now
+            // requires. The Config's own scope is empty for a base Config, so
+            // predicting with it offered "Publish now" for an archive restore the
+            // server then refused.
+            const restoredArchived = proposedArchivedValue(
+              t.target.proposedChanges,
+            );
+            const flipsArchive =
+              restoredArchived !== undefined &&
+              restoredArchived !== !!config?.archived;
+            return canLandRevertToTarget(
               permissionsUtil,
               "config",
               config,
               restoredProjectScope(t),
-              configPublishEnvironments(config),
-            )
-          }
+              flipsArchive
+                ? archiveFootprintForControl({
+                    environments,
+                    entity: config ?? {},
+                  })
+                : configPublishEnvironments(config),
+            );
+          }}
           canLandArchive={canLandArchive}
           canDraft={canDraft}
           config={config}

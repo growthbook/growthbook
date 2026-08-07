@@ -36,6 +36,9 @@ import { publishFeatureRevision } from "./postFeatureRevisionPublish";
 export function canEnableFeatureAutoPublishOnApproval(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
+  // The draft being armed. Auto-publish commits a future publish, and a draft that
+  // moves projects lands in the DESTINATION — so arming needs authority there too.
+  revision?: { metadata?: { project?: string } },
 ): boolean {
   if (!context.hasPremiumFeature("require-approvals")) return false;
   if (
@@ -47,12 +50,9 @@ export function canEnableFeatureAutoPublishOnApproval(
     return false;
   }
 
-  const allEnvironments = getEnvironments(context.org);
-  const environmentIds = filterEnvironmentsByFeature(
-    allEnvironments,
-    feature,
-  ).map((e) => e.id);
-  return context.permissions.canPublishFeature(feature, environmentIds);
+  // Delegates to the shared arming check so the source and destination rule is
+  // stated once.
+  return canPublishFeatureRevision(context, feature, revision);
 }
 
 // Validate a client-supplied schedule date. null/undefined means "no schedule";
@@ -340,7 +340,10 @@ async function handleScheduledPublishFailure(
   }
 
   const terminal = outcome.classification === "terminal";
-  await parkScheduledPublish(revision);
+  const parked = await parkScheduledPublish(revision);
+  // A no-op park means the revision moved on — a concurrent publish succeeded, or the
+  // schedule was replaced — so this attempt's failure is not this revision's outcome.
+  if (!parked) return;
   logger.error(
     { featureId: feature.id, version: revision.version, attempts, terminal },
     `scheduled-publish gave up (${terminal ? "terminal failure" : "max attempts reached"}): ${message}`,

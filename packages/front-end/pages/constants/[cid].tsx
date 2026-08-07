@@ -801,12 +801,28 @@ export default function ConstantDetailPage(): React.ReactElement {
           // over current live — the same derivation the revert endpoint uses.
           canLandRevertForTarget={(t) => {
             const restore = getConstantRestoreChange(constant, t.target);
+            // A revert that flips `archived` takes the Constant out of service, or
+            // returns it, EVERYWHERE it serves — the footprint the endpoint now
+            // requires. The changed-environment list is empty for a base-value-only
+            // restore, so predicting with it offered "Publish now" for an archive
+            // restore the server then refused.
+            const restoredArchived = proposedArchivedValue(
+              t.target.proposedChanges,
+            );
+            const flipsArchive =
+              restoredArchived !== undefined &&
+              restoredArchived !== !!constant?.archived;
             return canLandRevertToTarget(
               permissionsUtil,
               "constant",
               constant,
               { project: restore.restoredProject },
-              constantPublishEnvironments(restore.changedEnvironments),
+              flipsArchive
+                ? archiveFootprintForControl({
+                    environments,
+                    entity: constant ?? {},
+                  })
+                : constantPublishEnvironments(restore.changedEnvironments),
             );
           }}
           canLandArchive={canLandArchive}

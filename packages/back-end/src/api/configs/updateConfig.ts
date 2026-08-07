@@ -449,10 +449,15 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       extendsChanged
     ) {
       const postValue = fieldsToUpdate.value ?? config.value;
-      // Direct REST update publishes live, so run the full publish gate
-      // (schema + required fields + cross-field invariants + custom hooks),
-      // matching every other config publish path. No `revision` arg: this is a
-      // bypass/direct write with no review cycle.
+      // Direct REST update publishes live, so run the full publish gate (schema +
+      // required fields + cross-field invariants), matching every other config
+      // publish path. No `revision` arg: this is a bypass/direct write with no
+      // review cycle.
+      //
+      // `skipHooks`: the custom hooks run ONCE, below, after every authorization.
+      // Running them here executed customer sandbox code before the move-destination
+      // and approval-bypass checks — and then again later, so a value-bearing update
+      // invoked them twice.
       await assertConfigValueValidForPublish(
         req.context,
         {
@@ -465,6 +470,8 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
           extensible: fieldsToUpdate.extensible ?? config.extensible,
         },
         { value: postValue },
+        undefined,
+        { skipHooks: true },
       );
     }
 

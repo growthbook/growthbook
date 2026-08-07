@@ -529,7 +529,14 @@ export class ContextualBanditModel extends BaseClass {
     }
 
     if (!Object.keys(changes).length) return;
-    await this.update(cb, changes);
+    // GUARDED on the document the slice decision was read from. Checking the expected
+    // slice and then issuing a plain update is check-then-act: a concurrent linkage
+    // write landing in between is derived away by `changes`, which was computed from
+    // the stale document. A lost race means someone else moved this bandit's linkage,
+    // and theirs is the state to keep.
+    await this.updateIfUnchanged(cb, changes, undefined, {
+      dangerouslyBypassCanUpdate: true,
+    });
   }
 
   /**
@@ -609,7 +616,18 @@ export class ContextualBanditModel extends BaseClass {
     }
 
     if (!Object.keys(changes).length) return;
-    await this.update(cb, changes);
+    // GUARDED, like the forward pass — checking the slice and then issuing a plain
+    // update is check-then-act, and `changes` was derived from the stale document.
+    // SKIPPED rather than thrown on a lost race: this is a rollback, and the same
+    // disposition the slice mismatch above takes — a second writer owns this linkage
+    // now, and converging to our pre-image would undo them.
+    try {
+      await this.updateIfUnchanged(cb, changes, undefined, {
+        dangerouslyBypassCanUpdate: true,
+      });
+    } catch (e) {
+      if (!(e instanceof CasConflictError)) throw e;
+    }
   }
 
   /** All contextual bandits that reference a given contextual bandit query. */

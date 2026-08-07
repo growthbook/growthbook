@@ -92,7 +92,7 @@ export async function requestReview(
 
   const enableAutoPublish =
     req.body.autoPublishOnApproval &&
-    canEnableFeatureAutoPublishOnApproval(req.context, feature);
+    canEnableFeatureAutoPublishOnApproval(req.context, feature, revision);
 
   const scheduledDate = parseScheduledPublishDate(req.body.scheduledPublishAt);
   if (

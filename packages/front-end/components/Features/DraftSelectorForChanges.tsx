@@ -164,11 +164,26 @@ export default function DraftSelectorForChanges({
       )
     : null;
 
+  // The dropdown inside THIS control picks a write target — the draft the archive
+  // flip is written into — so it lists only drafts this caller may write into. The
+  // page-level revision picker uses the same component to VIEW, and there listing
+  // every draft is correct; only the write-target instance narrows. Matches the
+  // generic twin. The current selection is kept regardless, so a selection made
+  // before a permission change still renders its label instead of vanishing.
+  const selectableRevisions = canWriteIntoDraft
+    ? revisionList.filter(
+        (r) =>
+          r.version === selectedDraft ||
+          !(ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status) ||
+          canWriteIntoDraft(r),
+      )
+    : revisionList;
+
   const revisionDropdown = (
     <>
       <RevisionDropdown
         feature={feature}
-        revisions={revisionList}
+        revisions={selectableRevisions}
         version={selectedDraft ?? activeDrafts[0]?.version ?? null}
         setVersion={setSelectedDraft}
         draftsOnly

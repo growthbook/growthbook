@@ -2066,8 +2066,10 @@ export async function parkScheduledPublish(
     FeatureRevisionInterface,
     "organization" | "featureId" | "version" | "scheduledPublishAt"
   >,
-): Promise<void> {
-  await FeatureRevisionModel.updateOne(
+  // Returns whether the park took effect. A no-op means the revision moved on —
+  // published, or re-armed — so the caller must not report a failure for it.
+): Promise<boolean> {
+  const res = await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
       featureId: revision.featureId,
@@ -2092,6 +2094,7 @@ export async function parkScheduledPublish(
       },
     },
   );
+  return res.matchedCount > 0;
 }
 
 // Cross-org poller query for the Agenda job: every armed revision whose date has

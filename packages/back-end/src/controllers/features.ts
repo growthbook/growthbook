@@ -1249,10 +1249,13 @@ export async function postFeatureRequestReview(
   }
   const enableAutoPublish =
     autoPublishOnApproval &&
-    canEnableFeatureAutoPublishOnApproval(context, feature);
+    canEnableFeatureAutoPublishOnApproval(context, feature, revision);
 
   const scheduledDate = parseScheduledPublishDate(scheduledPublishAt);
-  if (scheduledDate !== null && !canScheduleFeaturePublish(context, feature)) {
+  if (
+    scheduledDate !== null &&
+    !canScheduleFeaturePublish(context, feature, revision)
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -1667,7 +1670,10 @@ export async function postFeatureToggleAutoPublish(
   if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
-  if (enabled && !canEnableFeatureAutoPublishOnApproval(context, feature)) {
+  if (
+    enabled &&
+    !canEnableFeatureAutoPublishOnApproval(context, feature, revision)
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -2378,6 +2384,18 @@ export async function postFeatureRevert(
   // Intentionally no assertRegisteredAttributes() call here — reverting
   // restores a previously-published state as-is, which may reference
   // attributes that have since been archived or removed.
+
+  // BEFORE the repair below, which WRITES: it updates the feature, audits, runs
+  // hooks and refreshes the payload, so a caller with no revert authority at all
+  // could drive all of that and only then receive a 403.
+  //
+  // Deliberately the weakest sufficient gate — the atom with no environment binding,
+  // i.e. "may this caller revert this feature anywhere". The per-change checks below
+  // are the real authority and each adds its own environments; anything stricter here
+  // would refuse an environment-limited reverter a narrow revert they can perform.
+  if (!context.permissions.canRevertFeature(feature, NO_ENVIRONMENT_BINDING)) {
+    context.permissions.throwPermissionError();
+  }
 
   // Heal pre-revert drift so the diff against `revision` reflects the true
   // live state. Without this, a feature stuck at an older version's rules

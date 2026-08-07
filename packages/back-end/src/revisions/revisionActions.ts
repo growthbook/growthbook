@@ -978,6 +978,7 @@ async function handleScheduledPublishFailure(
     await context.models.revisions.setScheduledPublishNextAttempt(
       revision.id,
       outcome.nextAttemptAt,
+      revision.scheduledPublishAt ?? null,
     );
     logger.info(
       {
@@ -992,10 +993,14 @@ async function handleScheduledPublishFailure(
 
   // Give up: stop the poller retrying and notify a human.
   const terminal = outcome.classification === "terminal";
-  await context.models.revisions.parkScheduledPublish(
+  // A no-op park means the revision moved on — a concurrent publish succeeded, or the
+  // schedule was replaced — so this attempt's failure is not this revision's outcome
+  // and must not be announced as one.
+  const parked = await context.models.revisions.parkScheduledPublish(
     revision.id,
     revision.scheduledPublishAt ?? null,
   );
+  if (!parked) return;
   logger.error(
     { revisionId: revision.id, attempts, terminal },
     `Scheduled publish gave up (${terminal ? "terminal failure" : "max attempts reached"}): ${message}`,
