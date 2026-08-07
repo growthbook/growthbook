@@ -53,7 +53,7 @@ import {
   queueFactTableColumnsRefresh,
 } from "back-end/src/jobs/refreshFactTableColumns";
 import {
-  deriveUserIdTypesFromColumns,
+  resolveUserIdTypesForColumnRefresh,
   validateAggregatedFactTableSettings,
   getNextUpdateOccurrence,
   validateVirtualColumnProps,
@@ -467,10 +467,14 @@ export const putFactTable = async (
       columnRefreshPending: needsBackgroundRefresh,
     };
 
-    columnRefreshResults.userIdTypes = deriveUserIdTypesFromColumns(
+    const resolvedUserIdTypes = resolveUserIdTypesForColumnRefresh({
       datasource,
+      factTable,
       columns,
-    );
+    });
+    if (resolvedUserIdTypes !== null) {
+      columnRefreshResults.userIdTypes = resolvedUserIdTypes;
+    }
   }
 
   if (data.aggregatedFactTableSettings) {
