@@ -6,7 +6,7 @@ import type {
   FactMetricQuantileData,
   FactMetricSource,
 } from "shared/types/integrations";
-import type { ExperimentMetricInterface } from "shared/experiments";
+import { type ExperimentMetricInterface } from "shared/experiments";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type { SqlDialect } from "shared/types/sql";
 import type { FactTableMap } from "back-end/src/models/FactTableModel";
@@ -101,22 +101,44 @@ export function parseExperimentFactMetricsParams(
   // consumers can partition per source by filtering on that field.
   const percentileData: FactMetricPercentileData[] = [];
   metricData.forEach((m) => {
-    if (!m.isPercentileCapped) return;
-    percentileData.push({
-      valueCol: `${m.alias}_value`,
-      outputCol: `${m.alias}_value_cap`,
-      percentile: m.metric.cappingSettings.value ?? 1,
-      ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
-      sourceIndex: m.numeratorSourceIndex,
-    });
-    if (m.ratioMetric) {
+    // Upper-tail percentile cap uses the metric's own (upper) cappingSettings.
+    if (m.isUpperPercentileCapped) {
       percentileData.push({
-        valueCol: `${m.alias}_denominator`,
-        outputCol: `${m.alias}_denominator_cap`,
+        valueCol: `${m.alias}_value`,
+        outputCol: `${m.alias}_value_cap`,
         percentile: m.metric.cappingSettings.value ?? 1,
         ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
-        sourceIndex: m.denominatorSourceIndex,
+        sourceIndex: m.numeratorSourceIndex,
       });
+      if (m.ratioMetric) {
+        percentileData.push({
+          valueCol: `${m.alias}_denominator`,
+          outputCol: `${m.alias}_denominator_cap`,
+          percentile: m.metric.cappingSettings.value ?? 1,
+          ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
+          sourceIndex: m.denominatorSourceIndex,
+        });
+      }
+    }
+    // Lower-tail percentile cap uses the independent lowerCappingSettings.
+    if (m.isLowerPercentileCapped) {
+      const lower = m.metric.lowerCappingSettings;
+      percentileData.push({
+        valueCol: `${m.alias}_value`,
+        outputCol: `${m.alias}_value_cap_lower`,
+        percentile: lower?.value ?? 0,
+        ignoreZeros: lower?.ignoreZeros ?? false,
+        sourceIndex: m.numeratorSourceIndex,
+      });
+      if (m.ratioMetric) {
+        percentileData.push({
+          valueCol: `${m.alias}_denominator`,
+          outputCol: `${m.alias}_denominator_cap_lower`,
+          percentile: lower?.value ?? 0,
+          ignoreZeros: lower?.ignoreZeros ?? false,
+          sourceIndex: m.denominatorSourceIndex,
+        });
+      }
     }
   });
 
