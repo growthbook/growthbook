@@ -2,7 +2,11 @@ import { FeatureRule } from "shared/validators";
 import { stemRuleId, suffixRuleId } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import {
+  eventUserToApiEventUser,
+  revisionToApiInterface,
+  revisionToApiInterfaceV2,
+} from "back-end/src/services/features";
 
 // ---------------------------------------------------------------------------
 // REST /v1 response `rule.id` contract. Locked in after removing the
@@ -160,5 +164,105 @@ describe("revisionToApiInterface rule.id contract", () => {
     const snapshot = JSON.parse(JSON.stringify(rev.rules));
     revisionToApiInterface(rev, ORG_ENVS, "");
     expect(JSON.parse(JSON.stringify(rev.rules))).toEqual(snapshot);
+  });
+});
+
+describe("revision author serialization", () => {
+  const dashboardUser = {
+    type: "dashboard",
+    id: "u1",
+    name: "U",
+    email: "u@x",
+  } as const;
+  const apiKeyUser = {
+    type: "api_key",
+    apiKey: "key_abc123",
+    id: "u2",
+    name: "CI Bot",
+  } as const;
+  const systemUser = { type: "system" } as const;
+
+  const revWith = (
+    createdBy: FeatureRevisionInterface["createdBy"],
+    publishedBy: FeatureRevisionInterface["publishedBy"],
+  ) =>
+    ({
+      ...BASE_REVISION,
+      createdBy,
+      publishedBy,
+      rules: [],
+    }) as unknown as FeatureRevisionInterface;
+
+  describe("eventUserToApiEventUser", () => {
+    it("maps a dashboard user with id, name, and email", () => {
+      expect(eventUserToApiEventUser(dashboardUser)).toEqual({
+        type: "dashboard",
+        id: "u1",
+        name: "U",
+        email: "u@x",
+      });
+    });
+
+    it("maps an api_key actor without exposing the apiKey field", () => {
+      const mapped = eventUserToApiEventUser(apiKeyUser);
+      expect(mapped).toEqual({ type: "api_key", id: "u2", name: "CI Bot" });
+      expect(mapped).not.toHaveProperty("apiKey");
+    });
+
+    it("maps a system actor", () => {
+      expect(eventUserToApiEventUser(systemUser)).toEqual({ type: "system" });
+    });
+
+    it("returns undefined for null or missing users", () => {
+      expect(eventUserToApiEventUser(null)).toBeUndefined();
+      expect(eventUserToApiEventUser(undefined)).toBeUndefined();
+    });
+
+    it("returns undefined for an unrecognized legacy type (fail closed)", () => {
+      expect(
+        eventUserToApiEventUser({
+          type: "unknown_legacy",
+        } as unknown as FeatureRevisionInterface["createdBy"]),
+      ).toBeUndefined();
+    });
+  });
+
+  it("keeps legacy display-name strings on v1", () => {
+    const api = revisionToApiInterface(
+      revWith(dashboardUser, apiKeyUser),
+      ORG_ENVS,
+      "",
+    );
+    expect(api.createdBy).toBe("U");
+    expect(api.publishedBy).toBe("API");
+    expect(api).not.toHaveProperty("createdByUser");
+  });
+
+  it("emits structured authors on v2", () => {
+    const api = revisionToApiInterfaceV2(revWith(systemUser, dashboardUser));
+    expect(api.createdBy).toEqual({ type: "system" });
+    expect(api.publishedBy).toEqual({
+      type: "dashboard",
+      id: "u1",
+      name: "U",
+      email: "u@x",
+    });
+  });
+
+  it("never exposes the api_key actor's apiKey on v2", () => {
+    const api = revisionToApiInterfaceV2(revWith(apiKeyUser, null));
+    expect(api.createdBy).toEqual({
+      type: "api_key",
+      id: "u2",
+      name: "CI Bot",
+    });
+    expect(api.createdBy).not.toHaveProperty("apiKey");
+    expect(api.publishedBy).toBeUndefined();
+  });
+
+  it("omits authors for null users on v2", () => {
+    const api = revisionToApiInterfaceV2(revWith(null, null));
+    expect(api.createdBy).toBeUndefined();
+    expect(api.publishedBy).toBeUndefined();
   });
 });

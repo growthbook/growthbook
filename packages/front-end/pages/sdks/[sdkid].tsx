@@ -1,9 +1,13 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import {
+  getConnectionSDKCapabilities,
+  getSDKCapabilityVersion,
+} from "shared/sdk-versioning";
 import { useRouter } from "next/router";
 import React, { useState } from "react";
 import { FaInfoCircle } from "react-icons/fa";
 import { BsLightningFill, BsThreeDotsVertical } from "react-icons/bs";
-import { PiPencilSimpleFill } from "react-icons/pi";
+import { PiArrowSquareOut, PiPencilSimpleFill } from "react-icons/pi";
 import { Flex, IconButton } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
@@ -26,6 +30,10 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import { capitalizeFirstLetter } from "@/services/utils";
+import Text from "@/ui/Text";
+import Link from "@/ui/Link";
+import { docUrl } from "@/components/DocLink";
+import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 
 export default function SDKConnectionPage() {
   const router = useRouter();
@@ -65,6 +73,19 @@ export default function SDKConnectionPage() {
     );
   }
 
+  const supportsBucketingV2 =
+    getConnectionSDKCapabilities(connection).includes("bucketingV2");
+
+  const bucketingV2IntroducedVersion = getSDKCapabilityVersion(
+    connection.languages?.[0],
+    "bucketingV2",
+  );
+
+  const sdkLanguage = connection.languages?.[0];
+  const sdkDocSection = sdkLanguage
+    ? languageMapping[sdkLanguage]?.docs
+    : undefined;
+
   const canDuplicate = permissionsUtil.canCreateSDKConnection(connection);
   const canUpdate = permissionsUtil.canUpdateSDKConnection(connection, {});
   const canDelete =
@@ -101,7 +122,7 @@ export default function SDKConnectionPage() {
 
       <Flex align="start" justify="between" gap="2" mb="2">
         <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
-          <Heading size="x-large" as="h1" mb="0">
+          <Heading size="xl" as="h1" mb="0">
             {connection.name}
           </Heading>
         </Flex>
@@ -155,6 +176,8 @@ export default function SDKConnectionPage() {
                       confirmation={{
                         confirmationTitle: "Delete SDK Connection",
                         cta: "Delete",
+                        getConfirmationContent: async () =>
+                          "Are you sure? This will permanently delete the SDK connection and any associated session recordings will no longer be accessible.",
                         submit: async () => {
                           await apiCall(`/sdk-connections/${connection.id}`, {
                             method: "DELETE",
@@ -210,6 +233,22 @@ export default function SDKConnectionPage() {
           </Tooltip>
         </div>
       </div>
+      {!supportsBucketingV2 && (
+        <Callout status="warning" mb="3">
+          <Text weight="semibold">
+            Upgrade to {bucketingV2IntroducedVersion}+ for V2 hashing.
+          </Text>{" "}
+          Until then, new experiments in this connection&apos;s projects fall
+          back to V1.{" "}
+          <Link
+            href={docUrl(sdkDocSection ?? "sdks")}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            View docs <PiArrowSquareOut size={15} />
+          </Link>
+        </Callout>
+      )}
       <SdkWebhooks connection={connection} />
       <div className="mt-4">
         <CodeSnippetModal

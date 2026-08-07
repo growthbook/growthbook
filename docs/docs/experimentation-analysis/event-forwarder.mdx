@@ -14,15 +14,47 @@ GrowthBook offers a fully managed event ingestion pipeline. Use our SDKs to trac
 - **Fully Managed**: No need to worry about infrastructure management, scaling, or maintenance.
 - **Seamless Integration**: Built-in tracking in our SDKs.
 - **Near Real-Time**: Events are available in your warehouse typically within a few seconds.
-- **Broad Support**: Works with BigQuery, Snowflake, Redshift, Databricks, and more.
+- **Broad Support**: Works with BigQuery and Snowflake today, with more warehouses coming soon.
 - **Works with Self-Hosting** - Use with either GrowthBook Cloud or your self-hosted GrowthBook instance.
 
 ## How it Works
 
-1. Provide GrowthBook with your data warehouse connection details
-2. We will create destination tables for `events`, `experiment_views`, and `feature_usage`
+1. Provide GrowthBook with your data warehouse connection details (see [Connection Permissions](#connection-permissions) for required permissions)
+2. We will create destination tables for `events`, `experiment_viewed`, and `feature_usage`
 3. You send analytics events to our scalable Ingestion API
 4. We enrich the events and stream them into your warehouse within seconds
+5. We will build a Fact Table, customize the Data Source's experiment assignment queries, and feature usage queries, so you can quickly start analyzing your experiment data and defining metrics.
+
+## Connection Permissions
+
+When setting up the Event Forwarder, GrowthBook uses your data warehouse connection to pre-create destination tables and validate write access before provisioning the Confluent connector.
+
+### BigQuery
+
+The service account configured in your GrowthBook BigQuery datasource must have the **BigQuery Data Editor** role on the destination dataset. This grants the necessary permissions to:
+
+- Check whether destination tables exist
+- Create the destination tables (`events`, `experiment_viewed`, `feature_usage`)
+- Write data via the BigQuery Storage Write API
+
+You can grant this at the dataset level in the BigQuery console or via the `roles/bigquery.dataEditor` IAM role binding.
+
+### Snowflake
+
+The Snowflake connection **must use key-pair authentication** — password authentication is not supported for the Event Forwarder. The Snowflake role you provide must have the following privileges:
+
+| Privilege       | Object                   |
+| --------------- | ------------------------ |
+| `USAGE`         | Database                 |
+| `USAGE`         | Schema                   |
+| `USAGE`         | Warehouse (if specified) |
+| `CREATE SCHEMA` | Database                 |
+| `CREATE TABLE`  | Schema                   |
+| `INSERT`        | Tables                   |
+
+`CREATE TABLE` and `CREATE SCHEMA` are required because the Confluent Snowflake Sink uses Snowpipe Streaming with schema evolution, which may create or alter tables and schemas as your event schema changes.
+
+Key-pair authentication must be configured on the Snowflake datasource connection itself — it is not set in the Event Forwarder UI. Update your datasource's connection settings to use key-pair auth before enabling the Event Forwarder.
 
 ## Get Started
 
@@ -116,6 +148,23 @@ gb.logEvent("Button Click", {
 });
 ```
 
+#### Event Delivery on Page Navigation
+
+Events are batched and sent with `fetch` using `keepalive`, and when the page
+is hidden or unloading the queue is flushed with `navigator.sendBeacon`. Both
+survive the page being torn down, so exposure events are not lost when a user
+navigates away immediately — which matters especially for **redirect
+experiments**, where the losing request would otherwise skew traffic splits
+and trigger SRM warnings.
+
+You can override this with the `transport` option (`data-event-transport` on
+the script tag): `"auto"` (default, described above), `"beacon"` (always
+prefer `sendBeacon`), or `"fetch"` (never use `sendBeacon`).
+
+```js
+growthbookTrackingPlugin({ transport: "beacon" });
+```
+
 #### Node.js
 
 Use the `growthbookTrackingPlugin` to enable tracking:
@@ -146,6 +195,21 @@ req.growthbook.logEvent("Sign Up", {
 });
 ```
 
+#### Sending events to the right region
+
+The tracking plugin sends events to `https://us1.gb-ingest.com` by default. If you selected **eu-west-1** as your Event Forwarder's Data Region, override the ingestor host so events reach the right Kafka/Confluent resources instead of being dropped:
+
+- **HTML Script Tag**: add `data-event-ingestor-host="https://eu-west-1.gb-ingest.com"` to the script tag.
+- **JavaScript / React / Node.js**: pass `ingestorHost` to `growthbookTrackingPlugin()`:
+
+```js
+growthbookTrackingPlugin({
+  ingestorHost: "https://eu-west-1.gb-ingest.com",
+})
+```
+
+You can find your Event Forwarder's configured region on the data source's Event Forwarder settings.
+
 ### Ingestion API
 
 You can also send events directly to our ingestion API. Pass an array of event objects, each with the following properties:
@@ -153,9 +217,11 @@ You can also send events directly to our ingestion API. Pass an array of event o
 - **event_name**: The name of the event (e.g., "Purchase", "Button Click")
 - **properties**: Optional key-value pairs with properties of the event itself
 - **attributes**: Optional key-value pairs with attributes of the user or context at the time of the event
+- YOUR_WAREHOUSE_REGION: either us1 or eu-west-1 depending on what you selected when creating your datasource
+- YOUR_CLIENT_KEY: The key from your sdk connection. Go to https://app.growthbook.io/sdks/ click on your connection or make a new one. Copy the text from the "Client Key"
 
 ```bash
-curl -X POST "https://us1.gb-ingest.com/track?client_key=YOUR_CLIENT_KEY" \
+curl -X POST "https://YOUR_WAREHOUSE_REGION.gb-ingest.com/track?client_key=YOUR_CLIENT_KEY" \
 -H "Content-Type: application/json" \
 -d '[{
   "event_name": "Purchase",
@@ -168,7 +234,7 @@ curl -X POST "https://us1.gb-ingest.com/track?client_key=YOUR_CLIENT_KEY" \
 }]'
 ```
 
-The example above uses the `us1.gb-ingest.com` endpoint. Contact your account manager to find out which endpoint you should use.
+Using the wrong host means events won't reach the Kafka/Confluent resources your forwarder is actually wired up to.
 
 #### Experiment View Events
 

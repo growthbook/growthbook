@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import isEqual from "lodash/isEqual";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { Box, Flex } from "@radix-ui/themes";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
@@ -235,7 +235,7 @@ export function renderSavedGroupValues(pre: Pre, post: Post): ReactNode | null {
         rows.push(
           <Box key="values-badges" mb="2">
             <Box mb="1">
-              <Text size="medium" weight="medium" color="text-mid">
+              <Text size="md" weight="medium" color="text-mid">
                 Values
               </Text>
             </Box>
@@ -278,7 +278,7 @@ export function renderSavedGroupValues(pre: Pre, post: Post): ReactNode | null {
         rows.push(
           <Box key="values" mb="2">
             <Box mb="1">
-              <Text size="medium" weight="medium" color="text-mid">
+              <Text size="md" weight="medium" color="text-mid">
                 Values
               </Text>
             </Box>
@@ -487,7 +487,7 @@ export function renderSavedGroupProjects(
     rows.push(
       <Box key="projects-badges" mb="2">
         <Box mb="1">
-          <Text size="medium" weight="medium" color="text-mid">
+          <Text size="md" weight="medium" color="text-mid">
             Projects
           </Text>
         </Box>

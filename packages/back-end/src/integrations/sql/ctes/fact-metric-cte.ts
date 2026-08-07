@@ -113,9 +113,12 @@ export function getFactMetricCTE(
         factTable,
         columnRef: m.numerator,
         escapeStringLiteral: dialect.escapeStringLiteral,
+        stringMatch: dialect.stringMatch,
         jsonExtract: dialect.jsonExtract,
         evalBoolean: dialect.evalBoolean,
+        castToTimestamp: dialect.castToTimestamp,
         sliceInfo,
+        identifierQuote: dialect.identifierQuote,
       });
 
       const column =
@@ -170,9 +173,12 @@ export function getFactMetricCTE(
         factTable,
         columnRef: m.denominator,
         escapeStringLiteral: dialect.escapeStringLiteral,
+        stringMatch: dialect.stringMatch,
         jsonExtract: dialect.jsonExtract,
         evalBoolean: dialect.evalBoolean,
+        castToTimestamp: dialect.castToTimestamp,
         sliceInfo,
+        identifierQuote: dialect.identifierQuote,
       });
       const column =
         filters.length > 0

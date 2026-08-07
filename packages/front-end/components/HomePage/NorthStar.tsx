@@ -127,7 +127,7 @@ const NorthStar: FC<{
                     (7 day trailing)
                   </label>
                   <Switch
-                    size="3"
+                    size="lg"
                     value={smoothBy === "week"}
                     onChange={() =>
                       setSmoothBy(smoothBy === "week" ? "day" : "week")
@@ -154,6 +154,7 @@ const NorthStar: FC<{
       )}
       {openNorthStarModal && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           close={() => setOpenNorthStarModal(false)}
           overflowAuto={false}
@@ -196,7 +197,7 @@ const NorthStar: FC<{
               noManual={true}
             />
           </div>
-          <Field label="Title" {...form.register("title")} />
+          <Field size="legacy" label="Title" {...form.register("title")} />
           {/*<Field*/}
           {/*  label="Date window"*/}
           {/*  initialOption="90"*/}

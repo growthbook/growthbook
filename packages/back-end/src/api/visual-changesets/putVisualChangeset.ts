@@ -8,6 +8,7 @@ import {
   VisualChangesetUpdates,
 } from "back-end/src/models/VisualChangesetModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { requireDraftExperiment } from "back-end/src/api/visual-editor-ai/requireDraftExperiment";
 
 export const putVisualChangeset = createApiRequestHandler(
   putVisualChangesetValidator,
@@ -32,6 +33,10 @@ export const putVisualChangeset = createApiRequestHandler(
   if (!req.context.permissions.canUpdateVisualChange(experiment)) {
     req.context.permissions.throwPermissionError();
   }
+  // Reject writes to non-draft experiments (running / stopped / archived).
+  // Re-checked here on every save so a stale editor can't clobber an
+  // experiment that was started after it loaded the (then-draft) changeset.
+  requireDraftExperiment(req.context, experiment);
 
   const updates: VisualChangesetUpdates = {
     ...omit(req.body, ["urlPatterns"]),

@@ -107,6 +107,7 @@ export default function PrerequisiteStatusRow({
 
   const deleteModal = showDeleteModal && (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="delete-prerequisite"
       header="Delete Prerequisite"
       size="lg"
@@ -261,7 +262,7 @@ export function PrerequisiteStatesCols({
               <Tooltip
                 flipTheme={false}
                 body={
-                  <Text size="small" color="text-high">
+                  <Text size="sm" color="text-high">
                     Loading prerequisite state...
                   </Text>
                 }
@@ -276,7 +277,7 @@ export function PrerequisiteStatesCols({
                   popperClassName="text-left"
                   flipTheme={false}
                   body={wrapTooltipBody(
-                    <Text as="div" size="small" color="text-high">
+                    <Text as="div" size="sm" color="text-high">
                       {defaultValues?.[env] === undefined && (
                         <>
                           {featureLabel} is{" "}
@@ -355,7 +356,7 @@ export function PrerequisiteStatesCols({
                   popperClassName="text-left"
                   flipTheme={false}
                   body={wrapTooltipBody(
-                    <Text as="div" size="small" color="text-high">
+                    <Text as="div" size="sm" color="text-high">
                       {featureLabel} is{" "}
                       <strong style={{ color: featureStatusColors.off }}>
                         not live
@@ -389,7 +390,7 @@ export function PrerequisiteStatesCols({
                 flipTheme={false}
                 body={wrapTooltipBody(
                   isSummaryRow ? (
-                    <Text as="div" size="small" color="text-high">
+                    <Text as="div" size="sm" color="text-high">
                       {featureLabel} is in a{" "}
                       <strong style={{ color: featureStatusColors.warning }}>
                         Schrödinger state
@@ -399,7 +400,7 @@ export function PrerequisiteStatesCols({
                       the SDK. It may evaluate to <code>null</code> at runtime.
                     </Text>
                   ) : (
-                    <Text as="div" size="small" color="text-high">
+                    <Text as="div" size="sm" color="text-high">
                       {featureLabel} is in a{" "}
                       <strong style={{ color: featureStatusColors.warning }}>
                         Schrödinger state
@@ -428,7 +429,7 @@ export function PrerequisiteStatesCols({
                 popperClassName="text-left"
                 flipTheme={false}
                 body={wrapTooltipBody(
-                  <Text as="div" size="small" color="text-high">
+                  <Text as="div" size="sm" color="text-high">
                     Circular dependency detected. Please fix.
                   </Text>,
                 )}
@@ -445,7 +446,7 @@ export function PrerequisiteStatesCols({
                 popperClassName="text-left"
                 flipTheme={false}
                 body={wrapTooltipBody(
-                  <Text as="div" size="small" color="text-high">
+                  <Text as="div" size="sm" color="text-high">
                     Unable to determine prerequisite state.
                   </Text>,
                 )}

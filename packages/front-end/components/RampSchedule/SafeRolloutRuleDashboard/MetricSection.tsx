@@ -411,11 +411,12 @@ function SafeRolloutMetricDrilldownModal({
 
   return (
     <Modal
+      useRadixButton={false}
       open={true}
       header={<MetricName metric={metric} officialBadgePosition="right" />}
       subHeader={
         metric.description ? (
-          <Text as="div" size="small" color="text-mid">
+          <Text as="div" size="sm" color="text-mid">
             {metric.description}
           </Text>
         ) : undefined
@@ -451,10 +452,13 @@ function SafeRolloutMetricDrilldownModal({
         goalMetrics={[]}
         secondaryMetrics={resultGroup === "secondary" ? signalMetricIds : []}
         statsEngine="frequentist"
-        localDifferenceType="relative"
+        // Safe rollout snapshots are always analyzed with an absolute
+        // differenceType, so the results must be rendered as absolute too.
+        localDifferenceType="absolute"
         preloadedTimeSeries={timeSeries}
         valueColumnWidth={170}
         labelMaxWidth={120}
+        oneSided
       />
     </Modal>
   );
@@ -534,7 +538,7 @@ export function MetricSection({
         metricDefaults,
         minSampleSize: getMinSampleSizeForMetric(row.metric),
         statsEngine: "frequentist",
-        differenceType: "relative",
+        differenceType: "absolute",
         ciUpper: 0.975,
         ciLower: 0.025,
         pValueThreshold: 0.05,
@@ -564,10 +568,10 @@ export function MetricSection({
 
   return (
     <Box>
-      <Text as="div" weight="medium" size="medium" mb="1">
+      <Text as="div" weight="medium" size="md" mb="1">
         {title}
       </Text>
-      <Text as="div" size="small" color="text-low" mb="2">
+      <Text as="div" size="sm" color="text-low" mb="2">
         {subtitle}
       </Text>
 
@@ -624,7 +628,6 @@ export function MetricSection({
               const stats = row.variations[1] || { value: 0, cr: 0, users: 0 };
               const rr = allRowResults[i];
               const metricTs = timeSeries[row.metric.id];
-              const isInverse = !!row.metric.inverse;
 
               const hasData = rr.enoughData || (stats.users ?? 0) > 0;
 
@@ -636,10 +639,7 @@ export function MetricSection({
                       hasData ? () => setDrilldownRowIndex(i) : undefined
                     }
                   >
-                    <td
-                      className="variation with-variation-label"
-                      style={{ width: 280 }}
-                    >
+                    <td style={{ width: 280 }}>
                       <div
                         className="d-flex align-items-center"
                         style={{ minHeight: ROW_HEIGHT }}
@@ -671,7 +671,6 @@ export function MetricSection({
                         <SafeRolloutTimeSeriesGraph
                           data={metricTs ?? emptyTimeSeries(row.metric.id)}
                           xDateRange={dateExtent}
-                          inverse={isInverse}
                           eventMarkers={eventMarkers}
                         />
                       </div>
@@ -814,12 +813,12 @@ export function HealthChecks({
             <Flex direction="column" gap="4">
               <Box>
                 <AlertDialog.Title>
-                  <Text as="div" size="x-large" weight="medium">
+                  <Text as="div" size="xl" weight="medium">
                     Sample Ratio Mismatch (SRM)
                   </Text>
                 </AlertDialog.Title>
                 <AlertDialog.Description>
-                  <Text as="div" size="medium" color="text-low">
+                  <Text as="div" size="md" color="text-low">
                     When actual traffic splits are significantly different from
                     expected, we raise an SRM issue.
                   </Text>
@@ -857,32 +856,32 @@ export function HealthChecks({
 
               {srmHealth === "unhealthy" && (
                 <Box>
-                  <Text as="div" size="small" mb="2">
+                  <Text as="div" size="sm" mb="2">
                     Most common causes:
                   </Text>
                   <ul style={{ margin: 0, paddingLeft: 20 }}>
                     <li>
-                      <Text size="small">
+                      <Text size="sm">
                         Broken event firing or SDK trackingCallback issues
                       </Text>
                     </li>
                     <li>
-                      <Text size="small">
+                      <Text size="sm">
                         Mismatch between SDK attribute and data ID
                       </Text>
                     </li>
                     <li>
-                      <Text size="small">
+                      <Text size="sm">
                         Coverage or targeting changes mid-rollout
                       </Text>
                     </li>
                     <li>
-                      <Text size="small">
+                      <Text size="sm">
                         Step jumps that re-randomize traffic
                       </Text>
                     </li>
                   </ul>
-                  <Text as="div" size="small" mt="2">
+                  <Text as="div" size="sm" mt="2">
                     <a
                       target="_blank"
                       rel="noreferrer"
@@ -928,7 +927,7 @@ export function HealthChecks({
               transition: "transform 0.15s",
             }}
           />
-          <Text size="medium" weight="medium">
+          <Text size="md" weight="medium">
             Health Checks
           </Text>
         </span>
@@ -949,7 +948,7 @@ export function HealthChecks({
       {expanded && (
         <Box mt="2">
           {!hasData ? (
-            <Text as="div" size="small" color="text-low">
+            <Text as="div" size="sm" color="text-low">
               No traffic data yet. Monitoring recently started, check back soon
               for updated status.
             </Text>

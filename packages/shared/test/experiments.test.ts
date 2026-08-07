@@ -10,6 +10,9 @@ import {
   canInlineFilterColumn,
   getAggregateFilters,
   getColumnExpression,
+  expandVirtualColumnsInSql,
+  sqlReferencesColumn,
+  validateVirtualColumnExpression,
   getSelectedColumnDatatype,
   adjustPValuesBenjaminiHochberg,
   adjustPValuesHolmBonferroni,
@@ -20,6 +23,7 @@ import {
   getEffectiveLookbackOverride,
   getIntersectionBaseMetricIds,
 } from "../src/experiments";
+import { createLikeStringMatchFn } from "../src/sql";
 import { LookbackOverride } from "../src/validators/experiments";
 
 describe("Experiments", () => {
@@ -94,6 +98,16 @@ describe("Experiments", () => {
       name: "Is Bot",
       deleted: false,
     };
+    const dateColumn: ColumnInterface = {
+      column: "signup_date",
+      datatype: "date",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "The signup date",
+      numberFormat: "",
+      name: "Signup Date",
+      deleted: false,
+    };
     const deletedColumn: ColumnInterface = {
       column: "deleted_column",
       datatype: "string",
@@ -144,12 +158,17 @@ describe("Experiments", () => {
         deletedColumn,
         jsonColumn,
         boolColumn,
+        dateColumn,
       ],
       filters: [filter, filter2, filter3],
       userIdTypes: ["user_id"],
     };
 
     const escapeStringLiteral = (str: string) => str.replace(/'/g, "''");
+    const stringMatch = createLikeStringMatchFn({
+      escapeStringLiteral,
+      emitEscapeClause: false,
+    });
     const jsonExtract = (jsonCol: string, path: string, isNumeric: boolean) => {
       if (isNumeric) {
         return `${jsonCol}:'${path}'::float`;
@@ -159,6 +178,7 @@ describe("Experiments", () => {
     const evalBoolean = (col: string, value: boolean) => {
       return `${col} IS ${value ? "TRUE" : "FALSE"}`;
     };
+    const castToTimestamp = (col: string) => `CAST(${col} AS TIMESTAMP)`;
 
     describe("canInlineFilterColumn", () => {
       it("returns true for string columns with alwaysInlineFilter", () => {
@@ -212,6 +232,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([]);
 
@@ -226,6 +247,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([]);
 
@@ -246,6 +268,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([]);
 
@@ -287,6 +310,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([]);
       });
@@ -323,6 +347,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([
           "(unknown_column = 'unknown_value')",
@@ -348,6 +373,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([`(${filter.value})`]);
       });
@@ -372,6 +398,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([`(${filter.value})`, `(${filter2.value})`]);
       });
@@ -393,6 +420,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([`(${column.column} = 'login')`]);
       });
@@ -419,6 +447,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([
           `(${column.column} = 'login')`,
@@ -444,6 +473,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([`(${column.column} IN (\n  'login',\n  'signup'\n))`]);
       });
@@ -466,6 +496,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([`(${column.column} IN (\n  'login',\n  'signup'\n))`]);
       });
@@ -500,6 +531,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([
           `(${column.column} = 'login')`,
@@ -535,6 +567,7 @@ describe("Experiments", () => {
             escapeStringLiteral,
             jsonExtract,
             evalBoolean,
+            stringMatch,
           }),
         ).toStrictEqual([`(${column.column} = 'login')`]);
       });
@@ -552,6 +585,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${column.column} = 'login''s')`);
         });
@@ -568,6 +602,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${jsonColumn.column}:'b'::float = 'hello')`);
         });
@@ -583,6 +618,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${boolColumn.column} IS TRUE)`);
         });
@@ -598,6 +634,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${boolColumn.column} IS FALSE)`);
         });
@@ -613,6 +650,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${jsonColumn.column}:'bool' IS TRUE)`);
         });
@@ -633,6 +671,525 @@ describe("Experiments", () => {
               }),
             ).toStrictEqual(`(${column.column} ${operator} 'foo')`);
           }
+        });
+        it("casts both sides to timestamp for date columns", () => {
+          const operators = [">", "<", ">=", "<=", "!=", "="] as const;
+          for (const operator of operators) {
+            expect(
+              getRowFilterSQL({
+                factTable,
+                rowFilter: {
+                  column: dateColumn.column,
+                  operator,
+                  values: ["2024-01-01T17:00:00.000Z"],
+                },
+                escapeStringLiteral,
+                jsonExtract,
+                evalBoolean,
+                stringMatch,
+                castToTimestamp,
+              }),
+            ).toStrictEqual(
+              `(CAST(${dateColumn.column} AS TIMESTAMP) ${operator} CAST('2024-01-01 17:00:00' AS TIMESTAMP))`,
+            );
+          }
+        });
+        it("pads minute-precision values to whole seconds", () => {
+          // DateFilterInput stores `yyyy-MM-dd'T'HH:mm` for the ordering
+          // operators. ClickHouse rejects a seconds-less DateTime literal.
+          const operators = [">", "<", ">=", "<=", "!="] as const;
+          for (const operator of operators) {
+            expect(
+              getRowFilterSQL({
+                factTable,
+                rowFilter: {
+                  column: dateColumn.column,
+                  operator,
+                  values: ["2024-01-01T17:00"],
+                },
+                escapeStringLiteral,
+                jsonExtract,
+                evalBoolean,
+                stringMatch,
+                castToTimestamp,
+              }),
+            ).toStrictEqual(
+              `(CAST(${dateColumn.column} AS TIMESTAMP) ${operator} CAST('2024-01-01 17:00:00' AS TIMESTAMP))`,
+            );
+          }
+        });
+        it("compares date-only values against the start of the day for < and >=", () => {
+          const call = (operator: "<" | ">=") =>
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator,
+                values: ["2024-01-01"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            });
+          expect(call(">=")).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) >= CAST('2024-01-01' AS TIMESTAMP))`,
+          );
+          expect(call("<")).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) < CAST('2024-01-01' AS TIMESTAMP))`,
+          );
+        });
+        it("compares date-only values against the end of the day for <= and >", () => {
+          const call = (operator: "<=" | ">") =>
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator,
+                values: ["2024-01-01"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            });
+          // "on or before Jan 1" runs through the whole of Jan 1
+          expect(call("<=")).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) < CAST('2024-01-02' AS TIMESTAMP))`,
+          );
+          // "after Jan 1" starts once Jan 1 is over
+          expect(call(">")).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) >= CAST('2024-01-02' AS TIMESTAMP))`,
+          );
+        });
+        it("matches the whole calendar day for date-only equality", () => {
+          const col = `CAST(${dateColumn.column} AS TIMESTAMP)`;
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "=",
+                values: ["2024-01-01"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual(
+            `(${col} >= CAST('2024-01-01' AS TIMESTAMP) AND ${col} < CAST('2024-01-02' AS TIMESTAMP))`,
+          );
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "!=",
+                values: ["2024-01-01"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual(
+            `(NOT (${col} >= CAST('2024-01-01' AS TIMESTAMP) AND ${col} < CAST('2024-01-02' AS TIMESTAMP)))`,
+          );
+        });
+        it("rolls a date-only day end over month and year boundaries", () => {
+          const col = `CAST(${dateColumn.column} AS TIMESTAMP)`;
+          const call = (value: string) =>
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "=",
+                values: [value],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            });
+          // leap day
+          expect(call("2024-02-29")).toStrictEqual(
+            `(${col} >= CAST('2024-02-29' AS TIMESTAMP) AND ${col} < CAST('2024-03-01' AS TIMESTAMP))`,
+          );
+          expect(call("2024-12-31")).toStrictEqual(
+            `(${col} >= CAST('2024-12-31' AS TIMESTAMP) AND ${col} < CAST('2025-01-01' AS TIMESTAMP))`,
+          );
+        });
+        it("expands date-only in/not_in into per-day ranges", () => {
+          const col = `CAST(${dateColumn.column} AS TIMESTAMP)`;
+          const day = (from: string, to: string) =>
+            `(${col} >= CAST('${from}' AS TIMESTAMP) AND ${col} < CAST('${to}' AS TIMESTAMP))`;
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "in",
+                values: ["2024-01-01", "2024-02-01"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual(
+            `(${day("2024-01-01", "2024-01-02")} OR ${day("2024-02-01", "2024-02-02")})`,
+          );
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "not_in",
+                values: ["2024-01-01", "2024-02-01"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual(
+            `(NOT (${day("2024-01-01", "2024-01-02")} OR ${day("2024-02-01", "2024-02-02")}))`,
+          );
+        });
+        it("casts each value for date in/not_in with a time component", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "in",
+                values: ["2024-01-01T09:00:00Z", "2024-02-01T09:00:00Z"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) IN (\n  CAST('2024-01-01 09:00:00' AS TIMESTAMP),\n  CAST('2024-02-01 09:00:00' AS TIMESTAMP)\n))`,
+          );
+        });
+        it("does not cast is_null/not_null for date columns", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "is_null",
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual(`(${dateColumn.column} IS NULL)`);
+        });
+        it("ignores blank values for date columns", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: ">",
+                values: [""],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toBeNull();
+        });
+        it("matches no rows for unparseable date values instead of dropping the filter", () => {
+          for (const values of [
+            ["foo"],
+            ["2024-13-45"],
+            ["2024-01-01 24:00"],
+          ]) {
+            expect(
+              getRowFilterSQL({
+                factTable,
+                rowFilter: {
+                  column: dateColumn.column,
+                  operator: ">",
+                  values,
+                },
+                escapeStringLiteral,
+                jsonExtract,
+                evalBoolean,
+                stringMatch,
+                castToTimestamp,
+              }),
+            ).toStrictEqual("(1 = 0)");
+          }
+        });
+        it("accepts an all-zero fractional part but rejects sub-second precision", () => {
+          const call = (value: string) =>
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: ">",
+                values: [value],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            });
+
+          // `Date.toISOString()` always emits a fraction; dropping an all-zero
+          // one doesn't move the boundary.
+          for (const value of [
+            "2024-01-01T17:00:00.000Z",
+            "2024-01-01T17:00:00.0",
+            "2024-01-01 17:00:00.000",
+          ]) {
+            expect(call(value)).toStrictEqual(
+              `(CAST(${dateColumn.column} AS TIMESTAMP) > CAST('2024-01-01 17:00:00' AS TIMESTAMP))`,
+            );
+          }
+
+          // Anything finer than a second can't be honoured — the column is cast
+          // to the same (sometimes second-precision) type — so match no rows
+          // rather than silently comparing against a truncated boundary.
+          for (const value of [
+            "2024-01-01T17:00:00.500Z",
+            "2024-01-01T17:00:00.001",
+            "2024-01-01 17:00:00.5",
+          ]) {
+            expect(call(value)).toStrictEqual("(1 = 0)");
+          }
+        });
+        it("matches no rows when only some date in/not_in values are unparseable", () => {
+          for (const operator of ["in", "not_in"] as const) {
+            expect(
+              getRowFilterSQL({
+                factTable,
+                rowFilter: {
+                  column: dateColumn.column,
+                  operator,
+                  values: ["2024-01-01", "foo", "2024-02-01"],
+                },
+                escapeStringLiteral,
+                jsonExtract,
+                evalBoolean,
+                stringMatch,
+                castToTimestamp,
+              }),
+            ).toStrictEqual("(1 = 0)");
+          }
+        });
+        it("keeps an inclusive upper bound for a date between with a time", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "between",
+                values: ["2024-01-01", "2024-02-01T17:00:00.000Z"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) BETWEEN CAST('2024-01-01' AS TIMESTAMP) AND CAST('2024-02-01 17:00:00' AS TIMESTAMP))`,
+          );
+        });
+        it("includes the whole final day of a date-only between", () => {
+          const col = `CAST(${dateColumn.column} AS TIMESTAMP)`;
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "between",
+                values: ["2024-01-01", "2024-02-01"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual(
+            `(${col} >= CAST('2024-01-01' AS TIMESTAMP) AND ${col} < CAST('2024-02-02' AS TIMESTAMP))`,
+          );
+        });
+        it("excludes the whole final day of a date-only not_between", () => {
+          const col = `CAST(${dateColumn.column} AS TIMESTAMP)`;
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "not_between",
+                values: ["2024-01-01", "2024-02-01"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual(
+            `(${col} < CAST('2024-01-01' AS TIMESTAMP) OR ${col} >= CAST('2024-02-02' AS TIMESTAMP))`,
+          );
+        });
+        it("returns null for between with no bounds set", () => {
+          for (const values of [undefined, [], ["", ""]]) {
+            expect(
+              getRowFilterSQL({
+                factTable,
+                rowFilter: {
+                  column: dateColumn.column,
+                  operator: "between",
+                  values,
+                },
+                escapeStringLiteral,
+                jsonExtract,
+                evalBoolean,
+                stringMatch,
+                castToTimestamp,
+              }),
+            ).toBeNull();
+          }
+        });
+        it("matches no rows for a between whose bounds are unparseable", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "between",
+                values: ["foo", "bar"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual("(1 = 0)");
+        });
+        it("degrades a single-bound date between to an open-ended comparison", () => {
+          const call = (values: string[]) =>
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "between",
+                values,
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            });
+          // only lower bound -> >=
+          expect(call(["2024-01-01", ""])).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) >= CAST('2024-01-01' AS TIMESTAMP))`,
+          );
+          // only upper bound -> through the end of that day
+          expect(call(["", "2024-02-01"])).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) < CAST('2024-02-02' AS TIMESTAMP))`,
+          );
+          // an unparseable bound is malformed, not absent
+          expect(call(["2024-01-01", "foo"])).toStrictEqual("(1 = 0)");
+        });
+        it("degrades a single-bound not_between to the inverted comparison", () => {
+          const call = (values: string[]) =>
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: "not_between",
+                values,
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            });
+          // not_between [lower, ∞) -> < lower
+          expect(call(["2024-01-01", ""])).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) < CAST('2024-01-01' AS TIMESTAMP))`,
+          );
+          // not_between (-∞, upper] -> after the end of that day
+          expect(call(["", "2024-02-01"])).toStrictEqual(
+            `(CAST(${dateColumn.column} AS TIMESTAMP) >= CAST('2024-02-02' AS TIMESTAMP))`,
+          );
+        });
+        it("handles between for numeric columns without a cast", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: numericColumn.column,
+                operator: "between",
+                values: ["1", "10"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+            }),
+          ).toStrictEqual(`(${numericColumn.column} BETWEEN 1 AND 10)`);
+        });
+        it("falls back to lexicographic comparison without a timestamp cast", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: dateColumn.column,
+                operator: ">",
+                values: ["2024-01-01"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+            }),
+          ).toStrictEqual(`(${dateColumn.column} > '2024-01-01')`);
+        });
+        it("does not cast string columns even when a timestamp cast is available", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: ">",
+                values: ["2024-01-01"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch,
+              castToTimestamp,
+            }),
+          ).toStrictEqual(`(${column.column} > '2024-01-01')`);
         });
         it("handles direct operators for integers", () => {
           const operators = [">", "<", ">=", "<=", "!=", "="] as const;
@@ -682,6 +1239,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${numericColumn.column} = '123a')`);
         });
@@ -697,6 +1255,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${column.column} = '123')`);
         });
@@ -712,6 +1271,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${column.column} NOT IN (\n  'foo',\n  'bar'\n))`);
         });
@@ -727,6 +1287,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(
             `(${numericColumn.column} NOT IN (\n  1,\n  -2,\n  3.5,\n  '5c'\n))`,
@@ -743,6 +1304,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${column.column} IS NULL)`);
         });
@@ -757,6 +1319,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${column.column} IS NOT NULL)`);
         });
@@ -772,6 +1335,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${column.column} LIKE 'foo%')`);
         });
@@ -787,6 +1351,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${column.column} LIKE '%foo')`);
         });
@@ -802,6 +1367,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${column.column} LIKE '%foo%')`);
         });
@@ -817,6 +1383,7 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${column.column} NOT LIKE '%foo%')`);
         });
@@ -832,8 +1399,98 @@ describe("Experiments", () => {
               escapeStringLiteral,
               jsonExtract,
               evalBoolean,
+              stringMatch,
             }),
           ).toStrictEqual(`(${column.column} LIKE '%f\\_o''o\\%%')`);
+        });
+        // Dialects like BigQuery/Snowflake treat backslash as a string-literal
+        // escape character. The wildcard-escaping backslash must be inserted
+        // before escapeStringLiteral runs so it gets doubled into a valid
+        // escape sequence, rather than leaving an illegal bare `\_` / `\%`.
+        const backslashEscapeStringLiteral = (str: string) =>
+          str.replace(/(['\\])/g, "\\$1");
+        it("doubles wildcard-escape backslashes for backslash-escaping dialects", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "starts_with",
+                values: ["foo_bar"],
+              },
+              escapeStringLiteral: backslashEscapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch: createLikeStringMatchFn({
+                escapeStringLiteral: backslashEscapeStringLiteral,
+                emitEscapeClause: false,
+              }),
+            }),
+          ).toStrictEqual(`(${column.column} LIKE 'foo\\\\_bar%')`);
+        });
+        it("escapes percent wildcards for backslash-escaping dialects", () => {
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "contains",
+                values: ["50%off"],
+              },
+              escapeStringLiteral: backslashEscapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch: createLikeStringMatchFn({
+                escapeStringLiteral: backslashEscapeStringLiteral,
+                emitEscapeClause: false,
+              }),
+            }),
+          ).toStrictEqual(`(${column.column} LIKE '%50\\\\%off%')`);
+        });
+        it("escapes a literal backslash in the value as a LIKE metacharacter", () => {
+          // Base-style dialect (only doubles quotes). The value `a\b` must have
+          // its backslash escaped so it matches literally rather than being
+          // consumed as a LIKE escape.
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "starts_with",
+                values: ["a\\b"],
+              },
+              escapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch: createLikeStringMatchFn({
+                escapeStringLiteral,
+                emitEscapeClause: true,
+              }),
+            }),
+          ).toStrictEqual(`(${column.column} LIKE 'a\\\\b%' ESCAPE '\\')`);
+        });
+        it("appends an ESCAPE clause for backslash-doubling dialects when supported", () => {
+          // Snowflake-style dialect: escapeStringLiteral doubles backslashes, so
+          // the ESCAPE clause's escape char must also be doubled in the literal.
+          expect(
+            getRowFilterSQL({
+              factTable,
+              rowFilter: {
+                column: column.column,
+                operator: "starts_with",
+                values: ["foo_bar"],
+              },
+              escapeStringLiteral: backslashEscapeStringLiteral,
+              jsonExtract,
+              evalBoolean,
+              stringMatch: createLikeStringMatchFn({
+                escapeStringLiteral: backslashEscapeStringLiteral,
+                emitEscapeClause: true,
+              }),
+            }),
+          ).toStrictEqual(
+            `(${column.column} LIKE 'foo\\\\_bar%' ESCAPE '\\\\')`,
+          );
         });
       });
 
@@ -864,6 +1521,7 @@ describe("Experiments", () => {
                 },
               ],
             },
+            stringMatch,
           }),
         ).toStrictEqual([
           `(${column.column} = 'l1')`,
@@ -893,6 +1551,7 @@ describe("Experiments", () => {
                 },
               ],
             },
+            stringMatch,
           }),
         ).toStrictEqual([`(${boolColumn.column} IS TRUE)`]);
       });
@@ -918,6 +1577,7 @@ describe("Experiments", () => {
                 },
               ],
             },
+            stringMatch,
           }),
         ).toStrictEqual([
           `(${column.column} NOT IN (\n  's1',\n  's2',\n  's3'\n))`,
@@ -955,6 +1615,7 @@ describe("Experiments", () => {
                 },
               ],
             },
+            stringMatch,
           }),
         ).toStrictEqual([
           `(${column.column} = 'l1')`,
@@ -1638,5 +2299,363 @@ describe("getIntersectionBaseMetricIds", () => {
         ["m_b", "m_a?dim:x=y", "m_a"],
       ),
     ).toEqual(["m_b", "m_a"]);
+  });
+});
+
+describe("Virtual Columns", () => {
+  const jsonExtract = (jsonCol: string, path: string, isNumeric: boolean) =>
+    `${jsonCol}:'${path}'${isNumeric ? "::float" : ""}`;
+
+  function col(
+    partial: Partial<ColumnInterface> & { column: string },
+  ): ColumnInterface {
+    return {
+      name: partial.column,
+      description: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      datatype: "number",
+      numberFormat: "",
+      deleted: false,
+      ...partial,
+    };
+  }
+
+  describe("getColumnExpression (virtual)", () => {
+    const factTable = {
+      columns: [
+        col({ column: "price", datatype: "number" }),
+        col({ column: "quantity", datatype: "number" }),
+        col({
+          column: "vc_total",
+          isVirtual: true,
+          sql: "price * quantity",
+          datatype: "number",
+        }),
+      ],
+    };
+
+    it("inlines the expression wrapped in parens", () => {
+      expect(getColumnExpression("vc_total", factTable, jsonExtract)).toBe(
+        "(price * quantity)",
+      );
+    });
+
+    it("qualifies referenced columns with the alias", () => {
+      expect(getColumnExpression("vc_total", factTable, jsonExtract, "m")).toBe(
+        "(m.price * m.quantity)",
+      );
+    });
+
+    it("leaves an already-qualified reference alone even with spaces around the dot", () => {
+      // A copied qualified expression must not be re-qualified into
+      // `m.m . price`, which is invalid SQL.
+      const spaced = {
+        columns: [
+          col({ column: "price", datatype: "number" }),
+          col({ column: "quantity", datatype: "number" }),
+          col({
+            column: "spaced_vc",
+            isVirtual: true,
+            sql: "m . price * quantity",
+            datatype: "number",
+          }),
+        ],
+      };
+      expect(getColumnExpression("spaced_vc", spaced, jsonExtract, "m")).toBe(
+        "(m . price * m.quantity)",
+      );
+    });
+
+    it("does not rewrite column names inside string literals", () => {
+      const withLiteral = {
+        columns: [
+          col({ column: "status", datatype: "string" }),
+          col({ column: "price", datatype: "number" }),
+          col({
+            column: "flagged_vc",
+            isVirtual: true,
+            sql: "CASE WHEN status = 'price' THEN price ELSE 0 END",
+            datatype: "number",
+          }),
+        ],
+      };
+      expect(
+        getColumnExpression("flagged_vc", withLiteral, jsonExtract, "m"),
+      ).toBe("(CASE WHEN m.status = 'price' THEN m.price ELSE 0 END)");
+    });
+
+    it("recursively inlines a virtual column that references another", () => {
+      const chained = {
+        columns: [
+          col({ column: "price", datatype: "number" }),
+          col({ column: "cost", datatype: "number" }),
+          col({
+            column: "margin_vc",
+            isVirtual: true,
+            sql: "price - cost",
+            datatype: "number",
+          }),
+          col({
+            column: "margin_pct_vc",
+            isVirtual: true,
+            sql: "margin_vc / price",
+            datatype: "number",
+          }),
+        ],
+      };
+      expect(
+        getColumnExpression("margin_pct_vc", chained, jsonExtract, "m"),
+      ).toBe("((m.price - m.cost) / m.price)");
+    });
+
+    it("does not re-qualify already-qualified column names", () => {
+      const alreadyQualified = {
+        columns: [
+          col({ column: "price", datatype: "number" }),
+          col({ column: "quantity", datatype: "number" }),
+          col({
+            column: "vc_total",
+            isVirtual: true,
+            sql: "m.price * m.quantity",
+            datatype: "number",
+          }),
+        ],
+      };
+      expect(
+        getColumnExpression("vc_total", alreadyQualified, jsonExtract, "m"),
+      ).toBe("(m.price * m.quantity)");
+    });
+  });
+
+  describe("expandVirtualColumnsInSql", () => {
+    const factTable = {
+      columns: [
+        col({ column: "amount", datatype: "number" }),
+        col({ column: "qty", datatype: "number" }),
+        col({
+          column: "revenue_vc",
+          isVirtual: true,
+          sql: "amount * qty",
+          datatype: "number",
+        }),
+      ],
+    };
+
+    it("expands a virtual column reference in a raw fragment (no alias)", () => {
+      expect(expandVirtualColumnsInSql("revenue_vc > 100", factTable)).toBe(
+        "(amount * qty) > 100",
+      );
+    });
+
+    it("leaves fragments without virtual columns unchanged", () => {
+      expect(expandVirtualColumnsInSql("amount > 100", factTable)).toBe(
+        "amount > 100",
+      );
+    });
+
+    it("does not expand a virtual column name inside a string literal", () => {
+      expect(expandVirtualColumnsInSql("label = 'revenue_vc'", factTable)).toBe(
+        "label = 'revenue_vc'",
+      );
+    });
+  });
+
+  describe("sqlReferencesColumn", () => {
+    it("detects a bare identifier reference", () => {
+      expect(sqlReferencesColumn("margin_vc / price", "margin_vc")).toBe(true);
+    });
+
+    it("does not match a name inside a string literal", () => {
+      expect(sqlReferencesColumn("status = 'margin_vc'", "margin_vc")).toBe(
+        false,
+      );
+    });
+
+    it("does not match a partial identifier", () => {
+      expect(sqlReferencesColumn("gross_margin_vc + 1", "margin_vc")).toBe(
+        false,
+      );
+    });
+
+    it("does not match an already-qualified identifier", () => {
+      expect(sqlReferencesColumn("m.price", "price")).toBe(false);
+    });
+
+    it("does not match a qualified identifier with whitespace around the dot", () => {
+      expect(sqlReferencesColumn("m . price", "price")).toBe(false);
+      expect(sqlReferencesColumn("m.\n  price", "price")).toBe(false);
+      expect(sqlReferencesColumn('m . "price"', "price")).toBe(false);
+      expect(sqlReferencesColumn("`m` . `price`", "price", "`")).toBe(false);
+    });
+
+    it("matches a double-quoted identifier in the default dialect", () => {
+      expect(sqlReferencesColumn('"margin_vc" / 2', "margin_vc")).toBe(true);
+    });
+
+    it("treats a double-quoted span as a string literal in a backtick dialect", () => {
+      expect(sqlReferencesColumn('label = "margin_vc"', "margin_vc", "`")).toBe(
+        false,
+      );
+    });
+
+    it("matches a backtick-quoted identifier in a backtick dialect", () => {
+      expect(sqlReferencesColumn("`margin_vc` / 2", "margin_vc", "`")).toBe(
+        true,
+      );
+    });
+
+    it("does not match a name inside a line comment", () => {
+      expect(sqlReferencesColumn("price -- margin_vc\n + 1", "margin_vc")).toBe(
+        false,
+      );
+    });
+
+    it("does not match a name inside a block comment", () => {
+      expect(
+        sqlReferencesColumn("price /* margin_vc */ + 1", "margin_vc"),
+      ).toBe(false);
+    });
+
+    it("does not match a name inside a dollar-quoted string", () => {
+      expect(sqlReferencesColumn("$$margin_vc$$", "margin_vc")).toBe(false);
+      expect(sqlReferencesColumn("$tag$margin_vc$tag$", "margin_vc")).toBe(
+        false,
+      );
+    });
+
+    it("still matches around a lone dollar sign with no closing delimiter", () => {
+      expect(sqlReferencesColumn("margin_vc + $1", "margin_vc")).toBe(true);
+    });
+  });
+
+  describe("validateVirtualColumnExpression", () => {
+    const ok = (sql: string, quote?: "`" | '"') =>
+      validateVirtualColumnExpression(sql, quote);
+
+    it("accepts ordinary scalar expressions", () => {
+      expect(ok("price * quantity")).toBeNull();
+      expect(ok("first_name || ' ' || last_name")).toBeNull();
+      expect(ok("DATE_DIFF(shipped_at, ordered_at, DAY)")).toBeNull();
+      expect(
+        ok("CASE WHEN price > 0 THEN (price - cost) ELSE 0 END"),
+      ).toBeNull();
+    });
+
+    it("rejects a statement separator", () => {
+      expect(ok("price; DELETE FROM users")).toMatch(/';'/);
+      expect(ok("price;")).toMatch(/';'/);
+    });
+
+    it("rejects the paren-escape stacking payload", () => {
+      // Rejected on the unbalanced ')' it hits before the ';' — either way the
+      // expression cannot escape the wrapping parentheses.
+      expect(ok("1) AS x FROM t; DROP TABLE orders; SELECT (1")).not.toBeNull();
+    });
+
+    it("rejects escaping the wrapping parentheses", () => {
+      // Would emit `(1) AS x FROM t UNION SELECT (1)` — balanced overall, but
+      // it closes a paren it never opened.
+      expect(ok("1) AS x FROM t UNION SELECT (1")).toMatch(/unbalanced '\)'/);
+      expect(ok("1)")).toMatch(/unbalanced '\)'/);
+    });
+
+    it("rejects unbalanced open parentheses", () => {
+      expect(ok("COALESCE(price, 0")).toMatch(/unbalanced '\('/);
+    });
+
+    it("rejects a trailing line comment that would swallow the closing paren", () => {
+      expect(ok("1 --")).toMatch(/line comment/);
+      expect(ok("1 -- trailing")).toMatch(/line comment/);
+    });
+
+    it("allows a line comment terminated by a newline", () => {
+      expect(ok("price -- note\n * quantity")).toBeNull();
+    });
+
+    it("rejects an unterminated block comment", () => {
+      expect(ok("price /* note")).toMatch(/block comment/);
+    });
+
+    it("allows a closed block comment", () => {
+      expect(ok("price /* note */ * quantity")).toBeNull();
+    });
+
+    it("rejects an unterminated quoted string", () => {
+      expect(ok("first_name || '")).toMatch(/unterminated/);
+    });
+
+    it("ignores separators and parens inside literals and comments", () => {
+      expect(ok("status || ';'")).toBeNull();
+      expect(ok("status || ')'")).toBeNull();
+      expect(ok("price /* ; ) */ * 2")).toBeNull();
+      expect(ok("$$; )$$")).toBeNull();
+    });
+
+    it("honors the dialect identifier quote", () => {
+      expect(ok('"weird;col" * 2')).toBeNull();
+      expect(ok("`weird;col` * 2", "`")).toBeNull();
+    });
+  });
+
+  describe("dialect-aware quoted-identifier expansion", () => {
+    const chained = (ref: string) => ({
+      columns: [
+        col({ column: "price", datatype: "number" }),
+        col({ column: "cost", datatype: "number" }),
+        col({
+          column: "margin_vc",
+          isVirtual: true,
+          sql: "price - cost",
+          datatype: "number",
+        }),
+        col({
+          column: "margin_pct_vc",
+          isVirtual: true,
+          sql: ref,
+          datatype: "number",
+        }),
+      ],
+    });
+
+    it("expands a nested virtual column referenced via a double-quoted identifier", () => {
+      expect(
+        getColumnExpression(
+          "margin_pct_vc",
+          chained('"margin_vc" / price'),
+          jsonExtract,
+          "m",
+        ),
+      ).toBe("((m.price - m.cost) / m.price)");
+    });
+
+    it("expands a nested virtual column referenced via a backtick identifier (backtick dialect)", () => {
+      expect(
+        getColumnExpression(
+          "margin_pct_vc",
+          chained("`margin_vc` / price"),
+          jsonExtract,
+          "m",
+          "`",
+        ),
+      ).toBe("((m.price - m.cost) / m.price)");
+    });
+
+    it("re-quotes a real column referenced via a quoted identifier", () => {
+      const ft = {
+        columns: [
+          col({ column: "price", datatype: "number" }),
+          col({
+            column: "doubled_vc",
+            isVirtual: true,
+            sql: '"price" * 2',
+            datatype: "number",
+          }),
+        ],
+      };
+      expect(getColumnExpression("doubled_vc", ft, jsonExtract, "m")).toBe(
+        '(m."price" * 2)',
+      );
+    });
   });
 });

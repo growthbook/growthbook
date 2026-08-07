@@ -7,6 +7,7 @@ import ApiKeysModal from "@/components/Settings/ApiKeysModal";
 import { useAuth } from "@/services/auth";
 import { groupApiKeysByType } from "@/services/secret-api-keys.utils";
 import useApi from "@/hooks/useApi";
+import Callout from "@/ui/Callout";
 
 type PersonalAccessTokensProps = {
   accessTokens: ApiKeyInterface[];
@@ -67,10 +68,10 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
       </div>
 
       <div className="mb-5">
-        <div className="alert alert-info">
+        <Callout status="info">
           Administrators can also create userless keys for an organization on
           the <Link href="/settings/keys">API Keys</Link> page.
-        </div>
+        </Callout>
       </div>
     </div>
   );

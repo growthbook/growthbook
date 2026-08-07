@@ -83,7 +83,7 @@ export default function MetricTabContent() {
   return (
     <Flex direction="column" gap="4">
       {!values.length && (
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           Add at least one metric to chart
         </Text>
       )}
@@ -95,6 +95,7 @@ export default function MetricTabContent() {
           <ValueCard key={idx} index={idx}>
             <Flex direction="column">
               <SelectField
+                size="legacy"
                 className={styles.metricSelect}
                 value={v.metricId}
                 disabled={
@@ -120,7 +121,10 @@ export default function MetricTabContent() {
                     name: newMetric?.name
                       ? generateUniqueValueName(
                           newMetric.name,
-                          draftExploreState.dataset.values,
+                          // Tab content only renders for "metric" datasets.
+                          draftExploreState.dataset.type === "metric"
+                            ? draftExploreState.dataset.values
+                            : [],
                         )
                       : v.name,
                   } as MetricValue;
@@ -166,15 +170,8 @@ export default function MetricTabContent() {
         );
       })}
       <Button
-        size="sm"
+        size="md"
         variant="outline"
-        // Big-number charts can only display a single metric, so cap the
-        // dataset at 1. The first metric must still be addable - otherwise a
-        // brand-new block with chartType=bigNumber has no way to ever get any
-        // metric configured.
-        disabled={
-          draftExploreState.chartType === "bigNumber" && values.length >= 1
-        }
         onClick={() => addValueToDataset("metric")}
       >
         <Flex align="center" gap="2">

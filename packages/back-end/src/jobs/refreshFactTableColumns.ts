@@ -1,7 +1,12 @@
 import Agenda, { Job } from "agenda";
 import chunk from "lodash/chunk";
 import { canInlineFilterColumn } from "shared/experiments";
-import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/constants";
+import {
+  DEFAULT_MAX_METRIC_SLICE_LEVELS,
+  DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
+  DEFAULT_TOP_VALUES_LOOKBACK_UNIT,
+} from "shared/constants";
+import { OrganizationSettings } from "shared/types/organization";
 import {
   ColumnInterface,
   FactTableColumnType,
@@ -18,7 +23,10 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { determineColumnTypes } from "back-end/src/util/sql";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
-import { deriveUserIdTypesFromColumns } from "back-end/src/util/factTable";
+import {
+  deriveUserIdTypesFromColumns,
+  normalizePersistedColumn,
+} from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 
 const JOB_NAME = "refreshFactTableColumns";
@@ -26,6 +34,24 @@ const JOB_NAME = "refreshFactTableColumns";
 export const MAX_COLUMNS_WITH_TOP_VALUES = 50;
 export const MAX_TOP_VALUE_LENGTH = 100;
 export const TOP_VALUES_CHUNK_SIZE = 25;
+
+type TopValuesLookbackUnit = NonNullable<
+  OrganizationSettings["topValuesLookbackUnit"]
+>;
+
+function getTopValuesLookbackDays(
+  value: number,
+  unit: TopValuesLookbackUnit,
+): number {
+  switch (unit) {
+    case "days":
+      return value;
+    default: {
+      unit satisfies never;
+      throw new Error(`Unsupported top values lookback unit: ${unit}`);
+    }
+  }
+}
 
 // Selects the string columns on a fact table that should have topValues
 // populated. Columns explicitly opted-in via alwaysInlineFilter or
@@ -54,6 +80,9 @@ export function selectColumnsForTopValues({
     (col) =>
       col.datatype === "string" &&
       !col.deleted &&
+      // Virtual columns aren't real columns in the SQL, so a top-values query
+      // keyed on their name would be invalid.
+      !col.isVirtual &&
       canInlineFilterColumn(factTableLike, col.column),
   );
 
@@ -144,6 +173,12 @@ export async function runColumnsTopValuesQuery(
       context.org.settings?.maxMetricSliceLevels ??
         DEFAULT_MAX_METRIC_SLICE_LEVELS,
     ),
+    lookbackDays: getTopValuesLookbackDays(
+      context.org.settings?.topValuesLookbackValue ??
+        DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
+      context.org.settings?.topValuesLookbackUnit ??
+        DEFAULT_TOP_VALUES_LOOKBACK_UNIT,
+    ),
     maxValueLength: MAX_TOP_VALUE_LENGTH,
   });
   const result = await integration.runColumnsTopValuesQuery(sql);
@@ -223,10 +258,12 @@ export async function runRefreshColumnsQuery(
 
   const typeMap = new Map<string, FactTableColumnType>();
   const jsonMap = new Map<string, JSONColumnFields>();
+  const warehouseTypeMap = new Map<string, FactTableColumnType>();
 
   result.columns?.forEach((col) => {
     // If the underlying SQL engine returned the datatype, use it
     if (col.dataType !== undefined) {
+      warehouseTypeMap.set(col.name, col.dataType);
       // For JSON, only return if we have the field information, otherwise skip
       // so we can infer from the returned data
       if (
@@ -264,6 +301,13 @@ export async function runRefreshColumnsQuery(
 
   // Update existing column
   columns.forEach((col) => {
+    // Virtual columns are user-defined expressions that never appear in the
+    // fact table's output schema, so they must be preserved by the refresh
+    // rather than marked deleted. Their validity is recomputed below.
+    if (col.isVirtual) {
+      return;
+    }
+
     const type = typeMap.get(col.column);
     const jsonFields = jsonMap.get(col.column);
 
@@ -276,6 +320,15 @@ export async function runRefreshColumnsQuery(
     else {
       if (col.deleted) {
         col.deleted = false;
+        col.dateUpdated = new Date();
+      }
+
+      const warehouseType = warehouseTypeMap.get(col.column);
+      if (
+        warehouseType !== undefined &&
+        col.dataTypeFromWarehouse !== warehouseType
+      ) {
+        col.dataTypeFromWarehouse = warehouseType;
         col.dateUpdated = new Date();
       }
 
@@ -310,6 +363,7 @@ export async function runRefreshColumnsQuery(
       columns.push({
         column,
         datatype,
+        dataTypeFromWarehouse: warehouseTypeMap.get(column),
         jsonFields: jsonMap.get(column),
         dateCreated: new Date(),
         dateUpdated: new Date(),
@@ -326,9 +380,7 @@ export async function runRefreshColumnsQuery(
       col.numberFormat = "";
     }
 
-    if (col.datatype === "boolean" && col.isAutoSliceColumn) {
-      col.autoSlices = ["true", "false"];
-    }
+    Object.assign(col, normalizePersistedColumn(col));
   }
 
   const columnsNeedingTopValues = selectColumnsForTopValues({
@@ -399,5 +451,22 @@ export async function queueFactTableColumnsRefresh(
     factTableId: factTable.id,
   });
   job.schedule(new Date());
+  await job.save();
+}
+
+/** Same job as queueFactTableColumnsRefresh, but scheduled for a future runAt. */
+export async function queueFactTableColumnsRefreshAt(
+  factTable: Pick<FactTableInterface, "id" | "organization">,
+  runAt: Date,
+) {
+  const job = agenda.create(JOB_NAME, {
+    organization: factTable.organization,
+    factTableId: factTable.id,
+  }) as RefreshFactTableColumnsJob;
+  job.unique({
+    organization: factTable.organization,
+    factTableId: factTable.id,
+  });
+  job.schedule(runAt);
   await job.save();
 }

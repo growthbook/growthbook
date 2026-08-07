@@ -5,17 +5,15 @@ import type { UserExperimentExposuresQueryParams } from "shared/types/integratio
 import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
-import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
-
 export function getUserExperimentExposuresQuery(
   dialect: SqlDialect,
   datasource: DataSourceInterface,
   params: UserExperimentExposuresQueryParams,
 ): string {
   const { userIdType } = params;
-  const allExposureQueries = (datasource.settings.queries?.exposure || [])
-    .map(({ id }) => getExposureQuery(datasource, id))
-    .filter((query) => query.userIdType === userIdType);
+  const allExposureQueries = (
+    datasource.settings.queries?.exposure || []
+  ).filter((query) => query.userIdType === userIdType);
 
   const allDimensionNames = Array.from(
     new Set(allExposureQueries.flatMap((query) => query.dimensions || [])),

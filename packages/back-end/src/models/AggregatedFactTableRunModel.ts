@@ -39,15 +39,17 @@ export class AggregatedFactTableRunModel extends BaseClass {
     );
   }
 
-  public async getRecentByFactTableAndIdType(
+  public async getByFactTableAndIdType(
     factTableId: string,
-    idType: string,
-    limit = 20,
-  ) {
-    return this._find(
-      { factTableId, idType },
-      { sort: { dateCreated: -1 }, limit },
-    );
+    idType: string | undefined,
+    { limit, skip }: { limit: number; skip: number },
+  ): Promise<{ runs: AggregatedFactTableRunInterface[]; total: number }> {
+    const filter = { factTableId, ...(idType ? { idType } : {}) };
+    const [runs, total] = await Promise.all([
+      this._find(filter, { sort: { dateCreated: -1 }, limit, skip }),
+      this._countDocuments(filter),
+    ]);
+    return { runs, total };
   }
 
   protected canRead(_doc: AggregatedFactTableRunInterface) {

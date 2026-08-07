@@ -114,7 +114,7 @@ export default function FallbackAttributeSelector({
 
   return (
     <Flex direction="column" flexGrow="1" mt="4">
-      <Text as="label" weight="semibold" mb="1">
+      <Text as="label" color="text-high" weight="semibold" mb="1">
         Fallback Attribute
       </Text>
       <Text as="div" color="text-mid" mb="2">
@@ -122,6 +122,7 @@ export default function FallbackAttributeSelector({
         attribute may be used instead.
       </Text>
       <SelectField
+        size="legacy"
         withRadixThemedPortal
         options={fallbackAttributeOptions}
         formatOptionLabel={(o, meta) => {
@@ -213,7 +214,7 @@ export default function FallbackAttributeSelector({
         }
       />
       {disableStickyBucketing ? (
-        <Text as="div" color="text-mid" size="small" mt="1">
+        <Text as="div" color="text-mid" size="sm" mt="1">
           Fallback attributes require Sticky Bucketing, which is disabled for
           this experiment.
         </Text>
@@ -232,7 +233,11 @@ export default function FallbackAttributeSelector({
               ) : (
                 <>
                   Ensure that Sticky Bucketing is correctly integrated (
-                  <DocLink docSection="stickyBucketing" className="underline">
+                  <DocLink
+                    useRadix={false}
+                    docSection="stickyBucketing"
+                    className="underline"
+                  >
                     see docs
                   </DocLink>
                   ) with your SDK.

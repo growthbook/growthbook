@@ -163,6 +163,7 @@ export default function RecommendedFactMetricsModal({
 
   return (
     <Modal
+      useRadixButton={false}
       open
       header="Review Recommended Metrics"
       cta={`Create ${checked.size} Selected Metric${
@@ -248,6 +249,7 @@ export default function RecommendedFactMetricsModal({
         <div className="col-auto ml-auto">
           <div className="form-inline">
             <Field
+              size="legacy"
               label="Name Prefix"
               labelClassName="mr-2"
               value={namePrefix}

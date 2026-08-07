@@ -153,7 +153,6 @@ export default function EditPhasesModal({
                       (experiment.status !== "running" || !hasLinkedChanges) &&
                       experiment.phases.length > 1 && (
                         <DeleteButton
-                          useRadix
                           text="Delete"
                           displayName="phase"
                           onClick={async () => {

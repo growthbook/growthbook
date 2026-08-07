@@ -1,9 +1,10 @@
 import { forwardRef } from "react";
 import { Text as RadixText } from "@radix-ui/themes";
 import type { TextProps as RadixTextProps } from "@radix-ui/themes";
+import { radixSize, Size } from "@/ui/sizes";
 
-type TextSizes = "small" | "medium" | "large" | "x-large" | "inherit";
-type TextWeights = "regular" | "medium" | "semibold";
+export type TextSizes = Size<"sm" | "md" | "lg" | "xl"> | "inherit";
+export type TextWeights = "regular" | "medium" | "semibold";
 type TextAlign = "left" | "center" | "right";
 type TextOverflowWrap = "normal" | "anywhere" | "break-word";
 type TextWhiteSpace =
@@ -16,14 +17,6 @@ type TextWhiteSpace =
 type TextFontStyle = "normal" | "italic" | "oblique";
 // NB: We might need to expand this to support RadixTextProps["color"], but being conservative for now.
 type TextColors = "text-high" | "text-mid" | "text-low" | "text-disabled";
-
-const radixSizeMap: Record<TextSizes, RadixTextProps["size"] | undefined> = {
-  small: "1",
-  medium: "2",
-  large: "3",
-  "x-large": "4",
-  inherit: undefined,
-};
 
 const radixWeightMap: Record<TextWeights, RadixTextProps["weight"]> = {
   regular: "regular",
@@ -64,7 +57,7 @@ export default forwardRef<
 >(function Text(
   {
     children,
-    size = "medium",
+    size = "md",
     weight = "regular",
     as,
     htmlFor,
@@ -108,14 +101,14 @@ export default forwardRef<
   return (
     <RadixText
       ref={ref}
-      size={radixSizeMap[size]}
+      size={size === "inherit" ? undefined : radixSize(size)}
       weight={radixWeightMap[weight]}
       align={align}
       as={as}
       title={title}
+      htmlFor={htmlFor}
       style={style}
       truncate={truncate}
-      htmlFor={htmlFor}
       m={m}
       mx={mx}
       my={my}

@@ -1,4 +1,5 @@
 import { RevisionTargetType, Revision } from "shared/enterprise";
+import { useUser } from "@/services/UserContext";
 import useApi from "./useApi";
 
 type RevisionListOptions = {
@@ -41,8 +42,10 @@ export function useRevisions(opts: RevisionListOptions = {}) {
  */
 export function useOpenRevisionCount(entityType?: RevisionTargetType) {
   const qs = entityType ? `?entityType=${entityType}` : "";
+  const { orgSuspended, organization } = useUser();
   const { data, error, mutate } = useApi<{ count: number }>(
     `/revision/count${qs}`,
+    { shouldRun: () => !orgSuspended && !!organization?.id },
   );
   return {
     count: data?.count ?? 0,

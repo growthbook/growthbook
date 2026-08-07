@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { Fragment, ReactElement, useState, useCallback, useMemo } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Queries } from "shared/types/query";
 import {
@@ -25,31 +25,36 @@ import {
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
+import { useIncrementalPipelineUnsupportedReason } from "@/hooks/useIncrementalPipelineUnsupportedReason";
 import { useSnapshot } from "./SnapshotProvider";
 
 export function canShowRefreshMenuItem({
   forceRefresh,
   datasource,
   canRunExperimentQueries,
-  isExperimentIncludedInIncrementalRefresh,
-  dimension,
 }: {
   forceRefresh?: () => Promise<void>;
   datasource?: DataSourceInterfaceWithParams | null;
   canRunExperimentQueries: boolean;
-  isExperimentIncludedInIncrementalRefresh: boolean;
-  dimension?: string;
 }): boolean {
   if (!forceRefresh) return false;
   if (!datasource) return false;
   if (!canRunExperimentQueries) return false;
+  return true;
+}
 
-  // allowFullRefresh mirrors component logic
-  const allowFullRefresh =
-    !isExperimentIncludedInIncrementalRefresh ||
-    (!dimension && isExperimentIncludedInIncrementalRefresh);
-
-  return allowFullRefresh;
+export function shouldOfferMenuRefresh({
+  isIncremental,
+  dimension,
+  overallNeedsFullRefresh,
+}: {
+  isIncremental: boolean;
+  dimension?: string;
+  overallNeedsFullRefresh: boolean;
+}): boolean {
+  if (isIncremental && dimension) return false;
+  if (overallNeedsFullRefresh) return false;
+  return true;
 }
 
 export function isExperimentExcludedFromIncrementalRefresh({
@@ -140,8 +145,18 @@ export default function ResultMoreMenu({
     ? getIsExperimentIncludedInIncrementalRefresh(
         datasource ?? undefined,
         experiment.id,
+        experiment.type,
       )
     : false;
+
+  // An experiment that is unsupported by Incremental Pipeline mode
+  // will always do a full rescan.
+  // So Full Refresh does not apply.
+  const incrementalPipelineUnsupportedReason =
+    useIncrementalPipelineUnsupportedReason(experiment);
+  const runsIncrementalRefresh =
+    isExperimentIncludedInIncrementalRefresh &&
+    !incrementalPipelineUnsupportedReason;
 
   const experimentExcludedFromIncrementalRefresh =
     isExperimentExcludedFromIncrementalRefresh({
@@ -154,7 +169,7 @@ export default function ResultMoreMenu({
 
   const { getExperimentMetricById, getDimensionById, ready } = useDefinitions();
 
-  const rerunAllQueriesText = isExperimentIncludedInIncrementalRefresh
+  const rerunAllQueriesText = runsIncrementalRefresh
     ? "Full refresh"
     : !hasData
       ? "Force update"
@@ -314,7 +329,7 @@ export default function ResultMoreMenu({
 
   // Re-enable Incremental Refresh: drops the experiment from the exclusion
   // list and (if the datasource defaults to ephemeral) adds it to the
-  // opt-in list. Mirror of handleDisableIncrementalRefresh.
+  // opt-in list.
   const handleReenableIncrementalRefresh = useCallback(async () => {
     if (!datasource || !experiment) return;
 
@@ -359,6 +374,133 @@ export default function ResultMoreMenu({
     return { queryStrings, error };
   }, [snapshot, latest, legacyQueries, legacyQueryError]);
 
+  const menuItemGroups = [
+    {
+      key: "queries",
+      items: [
+        queryStrings.length > 0 ? (
+          <DropdownMenuItem key="view-queries" onClick={handleViewQueries}>
+            View queries
+            <Badge
+              variant="soft"
+              radius="full"
+              label={String(queryStrings.length)}
+              ml="2"
+              color={error ? "red" : undefined}
+            />
+          </DropdownMenuItem>
+        ) : null,
+        canShowRefreshMenuItem({
+          forceRefresh,
+          datasource,
+          canRunExperimentQueries:
+            (datasource &&
+              permissionsUtil.canRunExperimentQueries(datasource)) ??
+            false,
+        }) ? (
+          <DropdownMenuItem
+            key="refresh"
+            onClick={handleForceRefresh}
+            confirmation={
+              runsIncrementalRefresh
+                ? {
+                    confirmationTitle: "Full Refresh",
+                    cta: "I understand",
+                    submit: async () => {
+                      if (forceRefresh) {
+                        await forceRefresh();
+                        setDropdownOpen(false);
+                      }
+                    },
+                    getConfirmationContent: async () => (
+                      <>
+                        This experiment has Pipeline Mode enabled.
+                        <br />
+                        <br />
+                        Fully refreshing the experiment will re-scan the data
+                        source from the beginning of the experiment, instead of
+                        scanning only new data.
+                      </>
+                    ),
+                  }
+                : undefined
+            }
+          >
+            {rerunAllQueriesText}
+          </DropdownMenuItem>
+        ) : null,
+        canShowReenableIncrementalRefresh({
+          datasource,
+          experimentId: experiment?.id,
+          canUpdateDataSourceSettings:
+            (datasource &&
+              permissionsUtil.canUpdateDataSourceSettings(datasource)) ??
+            false,
+        }) && experimentExcludedFromIncrementalRefresh ? (
+          <DropdownMenuItem
+            key="reenable-incremental-refresh"
+            onClick={handleReenableIncrementalRefresh}
+          >
+            Re-enable incremental refresh
+          </DropdownMenuItem>
+        ) : null,
+      ],
+    },
+    {
+      key: "metrics",
+      items: [
+        canEdit && editMetrics && !isBandit ? (
+          <DropdownMenuItem
+            key="edit-metrics"
+            onClick={() => {
+              editMetrics();
+              setDropdownOpen(false);
+            }}
+          >
+            Add / remove metrics
+          </DropdownMenuItem>
+        ) : null,
+      ],
+    },
+    {
+      key: "exports",
+      items: [
+        results &&
+        onAddToDashboard &&
+        hasCommercialFeature("dashboards") &&
+        !isHoldout ? (
+          <DropdownMenuItem
+            key="add-to-dashboard"
+            onClick={() => {
+              onAddToDashboard();
+              setDropdownOpen(false);
+            }}
+          >
+            Add to Dashboard...
+          </DropdownMenuItem>
+        ) : null,
+        canDownloadJupyterNotebook ? (
+          <DropdownMenuItem
+            key="download-notebook"
+            onClick={handleDownloadNotebook}
+          >
+            Download notebook
+          </DropdownMenuItem>
+        ) : null,
+        results ? (
+          <DropdownMenuItem key="export-csv" onClick={handleDownloadCSV}>
+            Export CSV
+          </DropdownMenuItem>
+        ) : null,
+      ],
+    },
+  ]
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item): item is ReactElement => item !== null),
+    }))
+    .filter((group) => group.items.length > 0);
+
   return (
     <>
       <DropdownMenu
@@ -381,115 +523,14 @@ export default function ResultMoreMenu({
         variant="soft"
       >
         <DropdownMenuGroup>
-          {queryStrings.length > 0 ? (
-            <DropdownMenuItem onClick={handleViewQueries}>
-              View queries
-              <Badge
-                variant="soft"
-                radius="full"
-                label={String(queryStrings.length)}
-                ml="2"
-                color={error ? "red" : undefined}
-              />
-            </DropdownMenuItem>
-          ) : null}
-          {canShowRefreshMenuItem({
-            forceRefresh,
-            datasource,
-            canRunExperimentQueries:
-              (datasource &&
-                permissionsUtil.canRunExperimentQueries(datasource)) ??
-              false,
-            isExperimentIncludedInIncrementalRefresh,
-            dimension,
-          }) && (
-            <DropdownMenuItem
-              onClick={handleForceRefresh}
-              confirmation={
-                isExperimentIncludedInIncrementalRefresh
-                  ? {
-                      confirmationTitle: "Full Refresh",
-                      cta: "I understand",
-                      submit: async () => {
-                        if (forceRefresh) {
-                          await forceRefresh();
-                          setDropdownOpen(false);
-                        }
-                      },
-                      getConfirmationContent: async () => (
-                        <>
-                          This experiment has Pipeline Mode enabled.
-                          <br />
-                          <br />
-                          Fully refreshing the experiment will re-scan the data
-                          source from the beginning of the experiment, instead
-                          of scanning only new data.
-                        </>
-                      ),
-                    }
-                  : undefined
-              }
-            >
-              {rerunAllQueriesText}
-            </DropdownMenuItem>
-          )}
-          {canShowReenableIncrementalRefresh({
-            datasource,
-            experimentId: experiment?.id,
-            canUpdateDataSourceSettings:
-              (datasource &&
-                permissionsUtil.canUpdateDataSourceSettings(datasource)) ??
-              false,
-          }) &&
-            experimentExcludedFromIncrementalRefresh && (
-              <DropdownMenuItem onClick={handleReenableIncrementalRefresh}>
-                Re-enable incremental refresh
-              </DropdownMenuItem>
-            )}
-          {(canEdit && editMetrics && !isBandit) ||
-          canDownloadJupyterNotebook ||
-          results ||
-          onAddToDashboard ? (
-            <DropdownMenuSeparator />
-          ) : null}
-          {canEdit && editMetrics && !isBandit && (
-            <>
-              <DropdownMenuItem
-                onClick={() => {
-                  editMetrics();
-                  setDropdownOpen(false);
-                }}
-              >
-                Add / remove metrics
-              </DropdownMenuItem>
-              {canDownloadJupyterNotebook || results || onAddToDashboard ? (
+          {menuItemGroups.map((group, index) => (
+            <Fragment key={group.key}>
+              {group.items}
+              {index < menuItemGroups.length - 1 ? (
                 <DropdownMenuSeparator />
               ) : null}
-            </>
-          )}
-          {results &&
-            onAddToDashboard &&
-            hasCommercialFeature("dashboards") &&
-            !isHoldout && (
-              <DropdownMenuItem
-                onClick={() => {
-                  onAddToDashboard();
-                  setDropdownOpen(false);
-                }}
-              >
-                Add to Dashboard...
-              </DropdownMenuItem>
-            )}
-          {canDownloadJupyterNotebook && (
-            <DropdownMenuItem onClick={handleDownloadNotebook}>
-              Download notebook
-            </DropdownMenuItem>
-          )}
-          {results && (
-            <DropdownMenuItem onClick={handleDownloadCSV}>
-              Export CSV
-            </DropdownMenuItem>
-          )}
+            </Fragment>
+          ))}
         </DropdownMenuGroup>
       </DropdownMenu>
       {queriesModalOpen && queryStrings.length > 0 && (

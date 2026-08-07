@@ -72,6 +72,7 @@ describe("experiments API", () => {
         projects: {
           getById: jest.fn().mockResolvedValue(null),
           getByIds: jest.fn().mockResolvedValue([]),
+          getAll: jest.fn().mockResolvedValue([]),
           ensureProjectsExist: jest.fn().mockResolvedValue(undefined),
         },
         dataSources: {
@@ -94,6 +95,7 @@ describe("experiments API", () => {
         canUpdateExperiment: () => true,
         canAddComment: () => true,
       },
+      hasPremiumFeature: () => false,
       getUsersByIds: jest.fn().mockResolvedValue([]),
     });
   });
@@ -227,6 +229,39 @@ describe("experiments API", () => {
       expect(res.body.experiment.phases[0]).toMatchObject({
         name: "Main",
         coverage: 1,
+      });
+    });
+
+    it("serializes an enabled namespace with enabled: true so it round-trips", async () => {
+      const experimentWithNamespace = {
+        ...experiment,
+        phases: [
+          {
+            name: "Main",
+            dateStarted: new Date("2024-01-01"),
+            dateEnded: null,
+            reason: "",
+            seed: "test-seed",
+            coverage: 1,
+            variationWeights: [0.5, 0.5],
+            condition: "",
+            savedGroups: [],
+            prerequisites: [],
+            namespace: { enabled: true, name: "ns_1", range: [0, 0.5] },
+          },
+        ],
+      };
+      (getExperimentById as jest.Mock).mockResolvedValue(
+        experimentWithNamespace,
+      );
+      const res = await request(app)
+        .get("/api/v1/experiments/exp_123")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiment.phases[0].namespace).toMatchObject({
+        namespaceId: "ns_1",
+        enabled: true,
       });
     });
 
@@ -482,6 +517,221 @@ describe("experiments API", () => {
       expect(res.status).toBe(200);
       expect(res.body.experiments).toHaveLength(2);
     });
+
+    it("sorts by dateCreated ascending by default", async () => {
+      const older = {
+        ...experiment,
+        id: "exp_older",
+        dateCreated: new Date("2020-01-01"),
+      };
+      const newer = {
+        ...experiment,
+        id: "exp_newer",
+        dateCreated: new Date("2024-01-01"),
+      };
+      (getAllExperiments as jest.Mock).mockResolvedValue([newer, older]);
+      const res = await request(app)
+        .get("/api/v1/experiments")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiments.map((e: { id: string }) => e.id)).toEqual([
+        "exp_older",
+        "exp_newer",
+      ]);
+    });
+
+    it("sorts by name descending, case-insensitively", async () => {
+      const apple = { ...experiment, id: "exp_apple", name: "apple test" };
+      const zebra = { ...experiment, id: "exp_zebra", name: "Zebra test" };
+      (getAllExperiments as jest.Mock).mockResolvedValue([apple, zebra]);
+      const res = await request(app)
+        .get("/api/v1/experiments?sortBy=name&sortOrder=desc")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      // Case-insensitive: "Zebra" sorts after "apple" despite uppercase Z
+      expect(res.body.experiments.map((e: { id: string }) => e.id)).toEqual([
+        "exp_zebra",
+        "exp_apple",
+      ]);
+    });
+
+    it("rejects an unsupported sortBy field", async () => {
+      const res = await request(app)
+        .get("/api/v1/experiments?sortBy=owner")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+    });
+
+    it("filters by comma-separated tags", async () => {
+      const tagged = { ...experiment, id: "exp_tagged", tags: ["checkout"] };
+      (getAllExperiments as jest.Mock).mockResolvedValue([experiment, tagged]);
+      const res = await request(app)
+        .get("/api/v1/experiments?tag=checkout,promo")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiments).toHaveLength(1);
+      expect(res.body.experiments[0].id).toBe("exp_tagged");
+    });
+
+    it("filters by implementation type", async () => {
+      const withFeature = {
+        ...experiment,
+        id: "exp_feature",
+        linkedFeatures: ["feat_1"],
+      };
+      (getAllExperiments as jest.Mock).mockResolvedValue([
+        experiment,
+        withFeature,
+      ]);
+      const res = await request(app)
+        .get("/api/v1/experiments?implementationType=feature")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiments).toHaveLength(1);
+      expect(res.body.experiments[0].id).toBe("exp_feature");
+    });
+
+    it("rejects an unsupported implementationType value", async () => {
+      const res = await request(app)
+        .get("/api/v1/experiments?implementationType=banana")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+    });
+
+    it("filters by owner id", async () => {
+      const owned = { ...experiment, id: "exp_owned", owner: "u_123" };
+      (getAllExperiments as jest.Mock).mockResolvedValue([experiment, owned]);
+      const res = await request(app)
+        .get("/api/v1/experiments?owner=u_123")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiments).toHaveLength(1);
+      expect(res.body.experiments[0].id).toBe("exp_owned");
+    });
+
+    it("filters by result", async () => {
+      const won = {
+        ...experiment,
+        id: "exp_won",
+        status: "stopped",
+        results: "won",
+      };
+      (getAllExperiments as jest.Mock).mockResolvedValue([experiment, won]);
+      const res = await request(app)
+        .get("/api/v1/experiments?result=won,lost")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiments).toHaveLength(1);
+      expect(res.body.experiments[0].id).toBe("exp_won");
+    });
+
+    it("rejects an unsupported result value", async () => {
+      const res = await request(app)
+        .get("/api/v1/experiments?result=maybe")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+    });
+
+    it("filters by metric id across goal, secondary, and guardrail metrics", async () => {
+      const withMetric = {
+        ...experiment,
+        id: "exp_metric",
+        guardrailMetrics: ["met_1"],
+      };
+      (getAllExperiments as jest.Mock).mockResolvedValue([
+        experiment,
+        withMetric,
+      ]);
+      const res = await request(app)
+        .get("/api/v1/experiments?metricId=met_1")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiments).toHaveLength(1);
+      expect(res.body.experiments[0].id).toBe("exp_metric");
+    });
+
+    it("filters bandits in or out with the bandits param", async () => {
+      const bandit = {
+        ...experiment,
+        id: "exp_bandit",
+        type: "multi-armed-bandit",
+      };
+      (getAllExperiments as jest.Mock).mockResolvedValue([experiment, bandit]);
+
+      const onlyBandits = await request(app)
+        .get("/api/v1/experiments?bandits=true")
+        .set("Authorization", "Bearer foo");
+      expect(onlyBandits.status).toBe(200);
+      expect(onlyBandits.body.experiments).toHaveLength(1);
+      expect(onlyBandits.body.experiments[0].id).toBe("exp_bandit");
+
+      (getAllExperiments as jest.Mock).mockResolvedValue([experiment, bandit]);
+      const noBandits = await request(app)
+        .get("/api/v1/experiments?bandits=false")
+        .set("Authorization", "Bearer foo");
+      expect(noBandits.status).toBe(200);
+      expect(noBandits.body.experiments).toHaveLength(1);
+      expect(noBandits.body.experiments[0].id).toBe("exp_123");
+    });
+
+    it("applies filters from a q search string", async () => {
+      const tagged = { ...experiment, id: "exp_tagged", tags: ["checkout"] };
+      (getAllExperiments as jest.Mock).mockResolvedValue([experiment, tagged]);
+      const res = await request(app)
+        .get("/api/v1/experiments?q=tag:checkout")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiments).toHaveLength(1);
+      expect(res.body.experiments[0].id).toBe("exp_tagged");
+    });
+
+    it("rejects unsupported q search syntax", async () => {
+      const res = await request(app)
+        .get("/api/v1/experiments?q=tag:!checkout")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+    });
+
+    it("leaves the archived filter unset when the param is omitted", async () => {
+      (getAllExperiments as jest.Mock).mockResolvedValue([experiment]);
+      const res = await request(app)
+        .get("/api/v1/experiments")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(getAllExperiments).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ archived: undefined, includeArchived: true }),
+      );
+    });
+
+    it.each([
+      ["true", true],
+      ["false", false],
+    ])("passes archived=%s through as a boolean", async (param, value) => {
+      (getAllExperiments as jest.Mock).mockResolvedValue([experiment]);
+      const res = await request(app)
+        .get(`/api/v1/experiments?archived=${param}`)
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(getAllExperiments).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ archived: value }),
+      );
+    });
   });
 
   describe("POST /api/v1/experiments", () => {
@@ -539,6 +789,89 @@ describe("experiments API", () => {
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("experiment");
       expect(createExperiment).toHaveBeenCalled();
+    });
+
+    it("preserves id and variationId values when creating an experiment", async () => {
+      (getDataSourceById as jest.Mock).mockResolvedValue({
+        id: "ds_123",
+        type: "postgres",
+        settings: {
+          queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+        },
+      });
+      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
+      (createExperiment as jest.Mock).mockResolvedValue(experiment);
+
+      const res = await request(app)
+        .post("/api/v1/experiments")
+        .send({
+          trackingKey: "exp_custom_variation_ids",
+          name: "Custom variation IDs",
+          datasourceId: "ds_123",
+          assignmentQueryId: "user_id",
+          variations: [
+            {
+              id: "control",
+              variationId: "ignored",
+              key: "control",
+              name: "Control",
+            },
+            {
+              variationId: "treatment",
+              key: "treatment",
+              name: "Treatment",
+            },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      const createCall = (createExperiment as jest.Mock).mock.calls[0][0];
+      expect(createCall.data.variations.map((v) => v.id)).toEqual([
+        "control",
+        "treatment",
+      ]);
+      expect(createCall.data.phases[0].variations).toEqual([
+        { id: "control", status: "active" },
+        { id: "treatment", status: "active" },
+      ]);
+    });
+
+    it("rejects duplicate user-specified variation ids", async () => {
+      (getDataSourceById as jest.Mock).mockResolvedValue({
+        id: "ds_123",
+        type: "postgres",
+        settings: {
+          queries: { exposure: [{ id: "user_id", name: "User ID" }] },
+        },
+      });
+      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
+
+      const res = await request(app)
+        .post("/api/v1/experiments")
+        .send({
+          trackingKey: "exp_duplicate_variation_ids",
+          name: "Duplicate variation IDs",
+          datasourceId: "ds_123",
+          assignmentQueryId: "user_id",
+          variations: [
+            {
+              id: "duplicate",
+              key: "control",
+              name: "Control",
+            },
+            {
+              variationId: "duplicate",
+              key: "treatment",
+              name: "Treatment",
+            },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe("Variation IDs must be unique.");
+      expect(createExperiment).not.toHaveBeenCalled();
     });
 
     it("rejects create when required custom fields are missing", async () => {
@@ -1532,6 +1865,141 @@ describe("experiments API", () => {
         { id: "v1", status: "active" },
         { id: "v0", status: "active" },
       ]);
+    });
+
+    it("honors the GET-response phase field names on a round-trip update", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue({
+        ...experiment,
+        variations: [
+          { id: "0", key: "control", name: "Control", screenshots: [] },
+          { id: "1", key: "treatment", name: "Treatment", screenshots: [] },
+        ],
+      });
+      (updateExperiment as jest.Mock).mockImplementation(
+        ({ experiment, changes }) => ({ ...experiment, ...changes }),
+      );
+
+      // Simulate echoing a GET response back: targeting/splits arrive under the
+      // response field names (targetingCondition / trafficSplit /
+      // reasonForStopping), which the update must honor.
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          phases: [
+            {
+              name: "Main",
+              dateStarted: "2026-01-01T00:00:00.000Z",
+              targetingCondition: '{"path":{"$in":["/checkout"]}}',
+              trafficSplit: [
+                { variationId: "0", weight: 0.9 },
+                { variationId: "1", weight: 0.1 },
+              ],
+              reasonForStopping: "ramp down",
+            },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      const updateCall = (updateExperiment as jest.Mock).mock.calls[0][0];
+      const phase = updateCall.changes.phases[0];
+      expect(phase.condition).toBe('{"path":{"$in":["/checkout"]}}');
+      expect(phase.variationWeights).toEqual([0.9, 0.1]);
+      expect(phase.reason).toBe("ramp down");
+    });
+
+    it("maps trafficSplit weights by variationId, not array position", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue({
+        ...experiment,
+        variations: [
+          { id: "0", key: "control", name: "Control", screenshots: [] },
+          { id: "1", key: "treatment", name: "Treatment", screenshots: [] },
+        ],
+      });
+      (updateExperiment as jest.Mock).mockImplementation(
+        ({ experiment, changes }) => ({ ...experiment, ...changes }),
+      );
+
+      // trafficSplit reordered relative to the variations: weights must still
+      // land on the right variation (0 -> 0.9, 1 -> 0.1), not by position.
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          phases: [
+            {
+              name: "Main",
+              dateStarted: "2026-01-01T00:00:00.000Z",
+              trafficSplit: [
+                { variationId: "1", weight: 0.1 },
+                { variationId: "0", weight: 0.9 },
+              ],
+            },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      const phase = (updateExperiment as jest.Mock).mock.calls[0][0].changes
+        .phases[0];
+      expect(phase.variationWeights).toEqual([0.9, 0.1]);
+    });
+
+    it("honors variationId as an alias for id so variations round-trip", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
+      (updateExperiment as jest.Mock).mockImplementation(
+        ({ experiment, changes }) => ({ ...experiment, ...changes }),
+      );
+
+      // Echoing GET variations back: they arrive with variationId, not id.
+      // Without the alias, id would be regenerated and identity would churn.
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          variations: [
+            { variationId: "v0", key: "control", name: "Control" },
+            { variationId: "v1", key: "treatment", name: "Treatment" },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      const changes = (updateExperiment as jest.Mock).mock.calls[0][0].changes;
+      expect(changes.variations.map((v) => v.id)).toEqual(["v0", "v1"]);
+    });
+
+    it("prefers the POST-only phase fields when both they and their aliases are set", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
+      (updateExperiment as jest.Mock).mockImplementation(
+        ({ experiment, changes }) => ({ ...experiment, ...changes }),
+      );
+
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          phases: [
+            {
+              name: "Main",
+              dateStarted: "2026-01-01T00:00:00.000Z",
+              condition: '{"id":"post"}',
+              targetingCondition: '{"id":"response"}',
+              variationWeights: [0.7, 0.3],
+              trafficSplit: [
+                { variationId: "0", weight: 0.9 },
+                { variationId: "1", weight: 0.1 },
+              ],
+              reason: "post reason",
+              reasonForStopping: "response reason",
+            },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      const phase = (updateExperiment as jest.Mock).mock.calls[0][0].changes
+        .phases[0];
+      expect(phase.condition).toBe('{"id":"post"}');
+      expect(phase.variationWeights).toEqual([0.7, 0.3]);
+      expect(phase.reason).toBe("post reason");
     });
 
     it("force-syncs phase variations in mixed phases plus top-level variations updates", async () => {

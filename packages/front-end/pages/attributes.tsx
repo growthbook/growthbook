@@ -342,7 +342,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
         <Box mb="5">
           <Flex direction="column" gap="2" mb="3">
             <Flex justify="between" align="center" mb="1">
-              <Heading as="h1" size="x-large">
+              <Heading as="h1" size="xl">
                 Targeting Attributes
               </Heading>
               {canCreateAttributes && (
@@ -360,6 +360,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
               <Flex justify="between" gap="3" align="center">
                 <Box className="relative" style={{ width: "40%" }}>
                   <Field
+                    size="legacy"
                     placeholder="Search..."
                     type="search"
                     {...searchInputProps}
@@ -447,7 +448,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
             trackingEventModalType="show-attribute-references"
             close={() => setShowReferencesModal(null)}
             open={true}
-            useRadixButton={true}
             closeCta="Close"
           >
             <Text as="p" mb="3">

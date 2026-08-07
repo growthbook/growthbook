@@ -8,15 +8,19 @@ import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import clsx from "clsx";
 import { FaTriangleExclamation } from "react-icons/fa6";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Field from "@/components/Forms/Field";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { DocLink } from "@/components/DocLink";
 import Checkbox from "@/ui/Checkbox";
+import VariationLabel from "@/ui/VariationLabel";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
+import Callout from "@/ui/Callout";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 
 function validateUrl(urlString: string): {
   isValid: boolean;
@@ -117,7 +121,6 @@ const UrlRedirectModal: FC<{
       );
       mutate();
     }
-    close();
   });
 
   const handleRedirectToggle = (i: number, enabled: boolean) => {
@@ -130,24 +133,17 @@ const UrlRedirectModal: FC<{
   };
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="url-redirect-modal"
       trackingEventModalSource={source}
-      autoCloseOnSubmit={false}
       open
-      disabledMessage={
-        !hasSDKWithRedirects
-          ? "None of the SDK connections in this project support URL redirects"
-          : undefined
-      }
       close={close}
       size="lg"
-      header={`
-       ${mode === "add" ? "Add" : "Edit"} URL Redirects`}
+      header={`${mode === "add" ? "Add" : "Edit"} URL Redirects`}
       submit={onSubmit}
       ctaEnabled={hasSDKWithRedirects}
     >
-      <div className="mx-3">
+      <Box>
         <SDKCapabilityWarning
           capability="redirects"
           project={experiment.project ?? ""}
@@ -155,18 +151,22 @@ const UrlRedirectModal: FC<{
           noneMessage="None of your SDK Connections in this project support URL Redirects. Either upgrade your SDKs or add a supported SDK."
         />
 
-        <div className="d-flex align-items-baseline mt-3">
-          <h4>Original URL</h4>
+        <Flex align="center" my="2" gap="1">
+          <Box>
+            <Heading color="text-high" size="sm" as="h4">
+              Original URL
+            </Heading>
+          </Box>
           <Tooltip
             body={
               "Currently, we support simple redirects for full URL paths. For Regex, use Feature Flags."
             }
-            className="ml-1"
             tipPosition="top"
           />
-        </div>
+        </Flex>
 
         <Field
+          size="legacy"
           required
           placeholder="Ex: https://www.example.com/pricing"
           containerClassName="mb-2"
@@ -181,14 +181,16 @@ const UrlRedirectModal: FC<{
           })}
         />
         {errors.originUrl && errors.originUrl.message && (
-          <div className="alert alert-warning mt-3">
-            <FaExclamationCircle /> {errors.originUrl.message}
-          </div>
+          <Callout status="warning" mt="3">
+            {errors.originUrl.message}
+          </Callout>
         )}
 
         <hr className="mt-4 mb-3" />
-        <div className="mt-3">
-          <h4>Destination URLs</h4>
+        <Box mt="3">
+          <Heading color="text-high" size="sm" as="h4" mb="2">
+            Destination URLs
+          </Heading>
           {getLatestPhaseVariations(experiment).map((v, i) => {
             let warning: string | JSX.Element | undefined;
             const destinationMatchesOrigin =
@@ -222,8 +224,10 @@ const UrlRedirectModal: FC<{
                   <>
                     Destination URL has query parameters the original URL does
                     not have. See{" "}
-                    <DocLink docSection="url_redirects">our docs</DocLink> for
-                    more info on how to handle this kind of redirect.
+                    <DocLink useRadix={false} docSection="url_redirects">
+                      our docs
+                    </DocLink>{" "}
+                    for more info on how to handle this kind of redirect.
                   </>
                 );
               }
@@ -232,24 +236,18 @@ const UrlRedirectModal: FC<{
             }
 
             return (
-              <div
-                className={`mb-4 variation with-variation-label variation${v.index}`}
-                key={v.key}
-              >
-                <div className="d-flex align-items-baseline">
-                  <span
-                    className="label"
-                    style={{
-                      width: 18,
-                      height: 18,
-                    }}
-                  >
-                    {i}
-                  </span>{" "}
-                  <h5>{v.name}</h5>
-                  <div className="ml-auto d-flex align-items-center">
+              <Box mb="4" key={v.key}>
+                <Flex align="center" mb="2">
+                  <Box minWidth="0" flexGrow="1">
+                    <VariationLabel number={i} name={v.name} size="lg" />
+                  </Box>
+                  <Flex align="center" ml="auto">
                     <Checkbox
-                      label="Redirect"
+                      label={
+                        <Text color="text-high" weight="semibold">
+                          Redirect
+                        </Text>
+                      }
                       disabled={i === 0}
                       disabledMessage={
                         i === 0 ? "You can not edit the control" : ""
@@ -259,11 +257,12 @@ const UrlRedirectModal: FC<{
                         handleRedirectToggle(i, !redirectToggle[i])
                       }
                     />
-                  </div>
-                </div>
+                  </Flex>
+                </Flex>
 
-                <div>
+                <Box>
                   <Field
+                    size="legacy"
                     required
                     className={clsx({
                       "border-danger":
@@ -308,22 +307,30 @@ const UrlRedirectModal: FC<{
                       <FaTriangleExclamation /> {warning}
                     </div>
                   )}
-                </div>
-              </div>
+                </Box>
+              </Box>
             );
           })}
-        </div>
+        </Box>
         <hr className="mt-4" />
         <Flex align="baseline" my="1">
           <Checkbox
-            label="Persist Query String"
+            label={
+              <Text color="text-high" weight="semibold">
+                Persist Query String
+              </Text>
+            }
             description="Allow user's queries, such as search terms, to carry over
                   when redirecting"
             value={form.watch("persistQueryString")}
             setValue={(v) => form.setValue("persistQueryString", v === true)}
           />
           <Checkbox
-            label="Circular Dependency Check"
+            label={
+              <Text color="text-high" weight="semibold">
+                Circular Dependency Check
+              </Text>
+            }
             description="Make sure redirects don't conflict with any existing
                   redirects"
             value={form.watch("circularDependencyCheck")}
@@ -332,8 +339,8 @@ const UrlRedirectModal: FC<{
             }
           />
         </Flex>
-      </div>
-    </Modal>
+      </Box>
+    </ModalStandard>
   );
 };
 

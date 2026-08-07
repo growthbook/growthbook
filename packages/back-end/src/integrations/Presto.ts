@@ -9,7 +9,7 @@ import {
   MaxTimestampMetricSourceQueryParams,
   ExternalIdCallback,
 } from "shared/types/integrations";
-import { QueryMetadata, QueryStatistics } from "shared/types/query";
+import { QueryStatistics, RunQueryMetadata } from "shared/types/query";
 import { PrestoConnectionParams } from "shared/types/integrations/presto";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getKerberosHeader } from "back-end/src/util/kerberos.util";
@@ -36,9 +36,6 @@ export default class Presto extends SqlIntegration {
   }
   getSqlDialect(): SqlDialect {
     return prestoDialect;
-  }
-  getSensitiveParamKeys(): string[] {
-    return ["password"];
   }
   isWritingTablesSupported(): boolean {
     return true;
@@ -121,8 +118,8 @@ export default class Presto extends SqlIntegration {
 
   runQuery(
     sql: string,
-    setExternalId?: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    setExternalId: ExternalIdCallback | undefined,
+    queryMetadata: RunQueryMetadata,
   ): Promise<QueryResponse> {
     const engineHeaderName =
       this.params.engine === "presto" ? "Presto" : "Trino";
@@ -139,7 +136,7 @@ export default class Presto extends SqlIntegration {
         schema: this.params.schema,
         headers: {
           [`X-${engineHeaderName}-Client-Info`]: getQueryTagString(
-            queryMetadata ?? {},
+            queryMetadata,
             PRESTO_QUERY_TAG_MAX_LENGTH,
           ),
         },

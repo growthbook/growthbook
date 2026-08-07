@@ -3,17 +3,18 @@ import { Box, Flex, Heading } from "@radix-ui/themes";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import {
   FactMetricInterface,
-  FactTableInterface,
+  FactTableDefinition,
   RowFilter,
 } from "shared/types/fact-table";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getAggregateFilters,
   isBinomialMetric,
   isFactMetric,
   isRatioMetric,
   getRowFilterSQL,
 } from "shared/experiments";
+import { createLikeStringMatchFn } from "shared/sql";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -21,7 +22,7 @@ import { getPercentileLabel } from "@/services/metrics";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 
 interface MetricDrilldownMetricCardProps {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   type: "numerator" | "denominator";
 }
 
@@ -43,7 +44,7 @@ function RowFilterDisplay({
   factTable,
 }: {
   rowFilters: RowFilter[];
-  factTable?: FactTableInterface | null;
+  factTable?: FactTableDefinition | null;
 }) {
   if (!rowFilters.length) return null;
 
@@ -55,6 +56,10 @@ function RowFilterDisplay({
               rowFilter: rf,
               factTable,
               escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+              stringMatch: createLikeStringMatchFn({
+                escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+                emitEscapeClause: false,
+              }),
               evalBoolean: (col, value) =>
                 `${col} IS ${value ? "TRUE" : "FALSE"}`,
               jsonExtract: (col, path) => `${col}.${path}`,
@@ -86,7 +91,7 @@ interface DataItem {
 
 function buildNumeratorData(
   factMetric: FactMetricInterface,
-  factTable: FactTableInterface | null,
+  factTable: FactTableDefinition | null,
 ): DataItem[] {
   const userFilters = getAggregateFilters({
     columnRef: factMetric.numerator,
@@ -159,7 +164,7 @@ function buildNumeratorData(
 
 function buildDenominatorData(
   factMetric: FactMetricInterface,
-  denominatorFactTable: FactTableInterface | null,
+  denominatorFactTable: FactTableDefinition | null,
 ): DataItem[] {
   if (
     factMetric.metricType !== "ratio" ||

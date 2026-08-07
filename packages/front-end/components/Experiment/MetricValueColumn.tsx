@@ -6,12 +6,12 @@ import {
   TdHTMLAttributes,
 } from "react";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   isFactMetric,
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
-import { FactTableInterface } from "shared/types/fact-table";
+import { FactTableDefinition } from "shared/types/fact-table";
 import {
   getColumnRefFormatter,
   getExperimentMetricFormatter,
@@ -29,7 +29,7 @@ const numberFormatter = Intl.NumberFormat("en-US", {
  * populated (e.g. safe-rollout snapshots). Derive a per-user rate for display.
  */
 function effectiveCrForDisplay(
-  metric: ExperimentMetricInterface,
+  metric: ExperimentMetricDefinition,
   stats: SnapshotMetric,
 ): number {
   const cr = stats.cr;
@@ -62,7 +62,7 @@ interface Props
     TdHTMLAttributes<HTMLTableCellElement>,
     HTMLTableCellElement
   > {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   stats: SnapshotMetric;
   users: number;
   className?: string;
@@ -71,8 +71,8 @@ interface Props
   showRatio?: boolean;
   noDataMessage?: ReactElement | string;
   displayCurrency: string;
-  getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
-  getFactTableById: (id: string) => null | FactTableInterface;
+  getExperimentMetricById: (id: string) => null | ExperimentMetricDefinition;
+  getFactTableById: (id: string) => null | FactTableDefinition;
   asTd?: boolean;
 }
 

@@ -15,6 +15,7 @@ import {
   Role,
 } from "shared/types/organization";
 import { ApiOrganization } from "shared/validators";
+import { getStampedOrgLimits } from "back-end/src/services/plan-limits";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
@@ -143,8 +144,14 @@ const organizationSchema = new mongoose.Schema({
   customRoles: {},
   deactivatedRoles: [],
   disabled: Boolean,
+  suspended: Boolean,
   setupEventTracker: String,
   trackingDisabled: Boolean,
+  limits: {
+    maxProjects: Number,
+    customEnvironments: Boolean,
+    roleManagement: Boolean,
+  },
 });
 
 organizationSchema.index({ "members.id": 1 });
@@ -231,6 +238,10 @@ export async function createOrganization({
       ],
       disablePrecomputedDimensions: false,
       restApiBypassesReviews: false,
+      requireRebaseBeforePublish: false,
+      revertsBypassApproval: false,
+      configsExtensibleByDefault: true,
+      blockPublishOnSchemaError: true,
       requireReviews: [
         {
           requireReviewOn: false,
@@ -245,6 +256,9 @@ export async function createOrganization({
     getStartedChecklistItems: [],
     isVercelIntegration,
     ...(restrictLoginMethod ? { restrictLoginMethod } : {}),
+    // Cloud stamps from the pricing-phase-1-limits flag; self-hosted uses defaults
+    // so the limits for future orgs can be tuned without a deploy.
+    limits: await getStampedOrgLimits(),
   });
   return toInterface(doc);
 }
@@ -304,6 +318,111 @@ export async function updateOrganization(
       ...(unset ? { $unset: unset } : {}),
     },
   );
+}
+
+function getAvailableSeatFilter(maxSeats: number | null) {
+  if (maxSeats === null) return {};
+
+  const uniqueMemberIds = {
+    $setUnion: [
+      {
+        $map: {
+          input: { $ifNull: ["$members", []] },
+          as: "member",
+          in: "$$member.id",
+        },
+      },
+      [],
+    ],
+  };
+  const uniqueInviteEmails = {
+    $setUnion: [
+      {
+        $map: {
+          input: { $ifNull: ["$invites", []] },
+          as: "invite",
+          in: "$$invite.email",
+        },
+      },
+      [],
+    ],
+  };
+
+  return {
+    $expr: {
+      $lt: [
+        {
+          $add: [{ $size: uniqueMemberIds }, { $size: uniqueInviteEmails }],
+        },
+        maxSeats,
+      ],
+    },
+  };
+}
+
+export async function addOrganizationMemberIfSeatAvailable(
+  organizationId: string,
+  member: Member,
+  maxSeats: number | null,
+) {
+  const doc = await OrganizationModel.findOneAndUpdate(
+    {
+      id: organizationId,
+      "members.id": { $ne: member.id },
+      ...getAvailableSeatFilter(maxSeats),
+    },
+    {
+      $push: { members: member },
+      $pull: { pendingMembers: { id: member.id } },
+    },
+    { new: true },
+  );
+
+  return doc ? toInterface(doc) : null;
+}
+
+export async function addOrganizationInviteIfSeatAvailable(
+  organizationId: string,
+  invite: Invite,
+  maxSeats: number | null,
+) {
+  const doc = await OrganizationModel.findOneAndUpdate(
+    {
+      id: organizationId,
+      "invites.email": { $ne: invite.email },
+      ...getAvailableSeatFilter(maxSeats),
+    },
+    {
+      $push: { invites: invite },
+    },
+    { new: true },
+  );
+
+  return doc ? toInterface(doc) : null;
+}
+
+export async function acceptOrganizationInvite(
+  organizationId: string,
+  inviteKey: string,
+  member: Member,
+) {
+  const doc = await OrganizationModel.findOneAndUpdate(
+    {
+      id: organizationId,
+      "invites.key": inviteKey,
+      "members.id": { $ne: member.id },
+    },
+    {
+      $pull: {
+        invites: { key: inviteKey },
+        pendingMembers: { id: member.id },
+      },
+      $push: { members: member },
+    },
+    { new: true },
+  );
+
+  return doc ? toInterface(doc) : null;
 }
 
 export async function getAllOrgMemberInfoInDb(): Promise<OrgMemberInfo[]> {

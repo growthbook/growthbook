@@ -27,6 +27,7 @@ import {
 } from "back-end/src/services/factMetricRowFilterValidation";
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { validateAggregationSpecification } from "back-end/src/services/factMetricAggregationValidation";
+import { healPriorSettings } from "back-end/src/util/priors";
 import { MakeModelClass } from "./BaseModel";
 import { getDataSourceById } from "./DataSourceModel";
 import { getFactTableMap } from "./FactTableModel";
@@ -34,6 +35,8 @@ import { getFactTableMap } from "./FactTableModel";
 const BaseClass = MakeModelClass({
   schema: factMetricValidator,
   collectionName: "factmetrics",
+  affectsDefinitionsVersion: true,
+  definitionsVersionProjectField: "projects",
   idPrefix: "fact__",
   auditLog: {
     entity: "metric",
@@ -157,6 +160,18 @@ export class FactMetricModel extends BaseClass {
     return this.context.permissions.canDeleteFactMetric(doc);
   }
 
+  // Every fact metric in the org, ignoring the caller's read permissions. Only
+  // for authoritative dependency scans (e.g. blocking deletion of a fact table
+  // column a metric still references), where missing a metric in a project the
+  // caller cannot read would let the delete through and leave that metric
+  // generating SQL for a column that no longer exists. Never return these to
+  // the caller.
+  public async dangerousGetAllForDependencyScan(): Promise<
+    FactMetricInterface[]
+  > {
+    return this._find({}, { bypassReadPermissionChecks: true });
+  }
+
   /**
    * Get all fact metrics with optional filters and DB-level sorting by id
    */
@@ -214,6 +229,7 @@ export class FactMetricModel extends BaseClass {
         stddev: DEFAULT_PROPER_PRIOR_STDDEV,
       };
     }
+    healPriorSettings(newDoc.priorSettings);
 
     if (newDoc.numerator) {
       newDoc.numerator = FactMetricModel.migrateColumnRef(newDoc.numerator);
@@ -247,6 +263,11 @@ export class FactMetricModel extends BaseClass {
 
   public static migrateColumnRef(columnRef: LegacyColumnRef): ColumnRef {
     const { filters, inlineFilters, ...newColumnRef } = columnRef;
+
+    // The Mongo driver stores explicit `undefined` as null, which fails validation on later updates
+    if ((newColumnRef.aggregation ?? null) === null) {
+      delete newColumnRef.aggregation;
+    }
 
     // If row filters are already defined, do nothing
     if (newColumnRef.rowFilters !== undefined) {
@@ -516,6 +537,13 @@ export class FactMetricModel extends BaseClass {
         `maxPercentChange (${data.maxPercentChange}) must be greater than minPercentChange (${data.minPercentChange})`,
       );
     }
+  }
+
+  public async projectHasFactMetrics(projectId: string): Promise<boolean> {
+    const factMetrics = await this._find({
+      projects: [projectId],
+    });
+    return factMetrics.length > 0;
   }
 
   public async deleteAllFactMetricsForAProject(projectId: string) {

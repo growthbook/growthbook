@@ -18,4 +18,18 @@ router.post(
   demoDatasourceProjectController.postDemoDatasourceProject,
 );
 
+router.post(
+  "/reset",
+  validateRequestMiddleware({
+    body: z.object({}).strict(),
+  }),
+  demoDatasourceProjectController.postResetDemoDatasourceProject,
+);
+
+router.delete(
+  "/",
+  validateRequestMiddleware({}),
+  demoDatasourceProjectController.deleteDemoDatasourceProject,
+);
+
 export { router as demoDatasourceProjectRouter };

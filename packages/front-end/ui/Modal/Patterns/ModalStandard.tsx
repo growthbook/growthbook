@@ -42,6 +42,7 @@ export type Props = TrackingEventModalProps & {
   // destructive or out-of-flow actions that shouldn't be the primary CTA.
   secondaryAction?: ReactNode;
   close: () => void;
+  closeCta?: string;
   children: ReactNode;
 };
 
@@ -61,6 +62,7 @@ export default function ModalStandard({
   submit,
   secondaryAction,
   close,
+  closeCta = "Cancel",
   children,
   trackingEventModalType,
   trackingEventModalSource,
@@ -81,7 +83,7 @@ export default function ModalStandard({
         <Flex gap="3" align="center">
           <Modal.Close>
             <Button variant="ghost" onClick={close}>
-              Cancel
+              {closeCta}
             </Button>
           </Modal.Close>
           {submit && (

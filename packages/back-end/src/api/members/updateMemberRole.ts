@@ -12,6 +12,7 @@ import {
   getLowestPlanPerFeature,
 } from "back-end/src/enterprise";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { assertRoleChangeAllowed } from "back-end/src/services/organizations";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
@@ -114,6 +115,9 @@ export const updateMemberRole = createApiRequestHandler(
     limitAccessByEnvironment: !!member.environments?.length,
   };
 
+  // Only gate a role change so existing assignments keep working
+  assertRoleChangeAllowed(req.context.org, orgUser.role, updatedMember.role);
+
   // First, check the global role data
   const { memberIsValid, reason } = validateRoleAndEnvs(
     req.context.org,
@@ -125,7 +129,6 @@ export const updateMemberRole = createApiRequestHandler(
   if (!memberIsValid) {
     throw new Error(reason);
   }
-
   // Then, if member.projectRoles was passed in, we need to validate the each projectRole
   if (member.projectRoles?.length) {
     if (!orgHasPremiumFeature(req.context.org, "advanced-permissions")) {

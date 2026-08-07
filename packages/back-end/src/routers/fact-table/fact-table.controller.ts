@@ -1,8 +1,12 @@
 import type { Response } from "express";
-import { canInlineFilterColumn } from "shared/experiments";
+import {
+  canInlineFilterColumn,
+  expandVirtualColumnsInSql,
+} from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { cloneDeep } from "lodash";
 import {
+  CreateVirtualColumnProps,
   CreateFactFilterProps,
   CreateFactTableProps,
   FactMetricInterface,
@@ -11,6 +15,7 @@ import {
   UpdateColumnProps,
   UpdateFactTableProps,
   TestFactFilterProps,
+  TestVirtualColumnProps,
   FactFilterTestResults,
   ColumnInterface,
   FactTableColumnType,
@@ -25,7 +30,9 @@ import {
   createFactTable,
   getAllFactTablesForOrganization,
   getFactTable,
+  createColumn,
   updateColumn,
+  deleteColumn as deleteColumnInDb,
   updateFactTable,
   updateFactTableColumns,
   deleteFactTable as deleteFactTableInDb,
@@ -34,7 +41,10 @@ import {
   updateFactFilter,
 } from "back-end/src/models/FactTableModel";
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
-import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import {
+  getSourceIntegrationObject,
+  getIntegrationIdentifierQuote,
+} from "back-end/src/services/datasource";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   runRefreshColumnsQuery,
@@ -46,14 +56,18 @@ import {
   deriveUserIdTypesFromColumns,
   validateAggregatedFactTableSettings,
   getNextUpdateOccurrence,
+  validateVirtualColumnProps,
+  validateVirtualColumnSql,
 } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 import {
   AggregatedFactTableStatus,
   buildAggregatedFactTableStatus,
+  deriveAggregatedFactTableRunStatus,
   getAggregatedFactTableMetrics,
   runAggregatedFactTableUpdate,
+  toAggregatedTableRefreshTriggerResult,
 } from "back-end/src/services/aggregatedFactTables";
 import { buildAggregatedFactTableSchemaState } from "back-end/src/enterprise/services/data-pipeline";
 import { AggregatedFactTableQueryRunner } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
@@ -69,6 +83,23 @@ export const getFactTables = async (
   res.status(200).json({
     status: 200,
     factTables,
+  });
+};
+
+export const getFactTableById = async (
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<{ status: 200; factTable: FactTableInterface }>,
+) => {
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  res.status(200).json({
+    status: 200,
+    factTable,
   });
 };
 
@@ -91,10 +122,15 @@ async function testFilterQuery(
   const timestampColumn = "timestamp";
 
   const sql = integration.getTestQuery({
-    // Must have a newline after factTable sql in case it ends with a comment
+    // Must have a newline after factTable sql in case it ends with a comment.
+    // Expand any virtual column references so the filter runs against real columns.
     query: `SELECT * FROM (
       ${factTable.sql}
-    ) f WHERE ${filter}`,
+    ) f WHERE ${expandVirtualColumnsInSql(
+      filter,
+      factTable,
+      getIntegrationIdentifierQuote(integration),
+    )}`,
     templateVariables: {
       eventName: factTable.eventName,
     },
@@ -120,6 +156,83 @@ async function testFilterQuery(
   }
 }
 
+async function testVirtualColumnQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  factTable: FactTableInterface,
+  sql: string,
+  columnId?: string,
+): Promise<FactFilterTestResults> {
+  if (!context.permissions.canRunTestQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  // The preview runs the expression, so apply the same structural check as the
+  // save paths rather than letting an unsafe expression reach the warehouse.
+  validateVirtualColumnSql(sql);
+
+  const integration = getSourceIntegrationObject(context, datasource, true);
+
+  if (!integration.getTestQuery || !integration.runTestQuery) {
+    throw new Error("Testing not supported on this data source");
+  }
+
+  const timestampColumn = "timestamp";
+
+  // Alias the computed expression with the real column id (sanitized to a safe
+  // SQL identifier) so the preview matches what the saved column will be named.
+  const alias =
+    (columnId || "").replace(/[^a-zA-Z0-9_]/g, "") || "__virtual_column";
+
+  // Expand any nested virtual column references into their real SQL (each
+  // wrapped in parentheses) so the preview runs against real columns and matches
+  // how the column resolves in metric queries. Exclude the column being edited
+  // so a self-reference surfaces as an error instead of silently expanding to
+  // its previously-saved definition.
+  const expandedSql = expandVirtualColumnsInSql(
+    sql,
+    {
+      columns: factTable.columns.filter((c) => c.column !== columnId),
+    },
+    getIntegrationIdentifierQuote(integration),
+  );
+
+  // Select the computed expression alongside the raw rows. The expression
+  // references bare column names, which resolve against the aliased subquery.
+  const testSql = integration.getTestQuery({
+    // Must have a newline after factTable sql in case it ends with a comment
+    query: `SELECT (${expandedSql}) AS ${alias}, * FROM (
+      ${factTable.sql}
+    ) f`,
+    templateVariables: {
+      eventName: factTable.eventName,
+    },
+    testDays: context.org.settings?.testQueryDays,
+    timestampColumn,
+    // Only preview rows where the tested expression is non-null, so an empty
+    // result reliably means "no matching data" rather than an arbitrary sample
+    // of null rows.
+    notNullColumn: alias,
+  });
+
+  try {
+    const results = await integration.runTestQuery(
+      testSql,
+      [timestampColumn],
+      "factTableValidation",
+    );
+    return {
+      sql: testSql,
+      ...results,
+    };
+  } catch (e) {
+    return {
+      sql: testSql,
+      error: e.message,
+    };
+  }
+}
+
 // Helper to merge existing columns with new type map from LIMIT 0
 function mergeColumnsWithTypeMap(
   existingColumns: ColumnInterface[],
@@ -129,6 +242,11 @@ function mergeColumnsWithTypeMap(
 
   // Update existing columns
   columns.forEach((col) => {
+    // Virtual columns are user-defined and never appear in the SQL output
+    // schema, so preserve them instead of marking them deleted.
+    if (col.isVirtual) {
+      return;
+    }
     const type = typeMap.get(col.column);
     if (type === undefined) {
       col.deleted = true;
@@ -331,7 +449,7 @@ export const putFactTable = async (
     >
   > | null = null;
 
-  if (forceColumnRefresh || needsColumnRefresh(data)) {
+  if (forceColumnRefresh || needsColumnRefresh(factTable, data)) {
     const { columns, needsBackgroundRefresh } = await refreshColumns(
       context,
       datasource,
@@ -527,26 +645,6 @@ type AggregatedFactTableRunSummary = {
   queryIds: string[];
 };
 
-function deriveRunStatus(
-  queries: { status: QueryStatus }[],
-  error: string | null,
-): QueryStatus {
-  // A recorded error is terminal; surface as failed even if query pointers are
-  // stale (e.g. a run finalized out-of-process by the expireOldQueries reaper).
-  if (error) return "failed";
-
-  const total = queries.length;
-  if (!total) return "queued";
-
-  const failed = queries.filter((q) => q.status === "failed").length;
-  const running = queries.filter((q) => q.status === "running").length;
-  const queued = queries.filter((q) => q.status === "queued").length;
-
-  if (queued + running > 0) return "running";
-  if (failed > 0) return "failed";
-  return "succeeded";
-}
-
 export const getAggregatedFactTableRuns = async (
   req: AuthRequest<null, { id: string; idType: string }>,
   res: Response<{
@@ -570,22 +668,25 @@ export const getAggregatedFactTableRuns = async (
     );
   }
 
-  const runDocs =
-    await context.models.aggregatedFactTableRuns.getRecentByFactTableAndIdType(
+  const aggregatedTableRuns =
+    await context.models.aggregatedFactTableRuns.getByFactTableAndIdType(
       factTable.id,
       idType,
+      { limit: 20, skip: 0 },
     );
 
-  const runs: AggregatedFactTableRunSummary[] = runDocs.map((run) => ({
-    id: run.id,
-    mode: run.mode,
-    status: deriveRunStatus(run.queries, run.error),
-    runStarted: run.runStarted,
-    dateCreated: run.dateCreated,
-    finishedAt: run.finishedAt,
-    error: run.error,
-    queryIds: run.queries.map((q) => q.query),
-  }));
+  const runs: AggregatedFactTableRunSummary[] = aggregatedTableRuns.runs.map(
+    (run) => ({
+      id: run.id,
+      mode: run.mode,
+      status: deriveAggregatedFactTableRunStatus(run.queries, run.error),
+      runStarted: run.runStarted,
+      dateCreated: run.dateCreated,
+      finishedAt: run.finishedAt,
+      error: run.error,
+      queryIds: run.queries.map((q) => q.query),
+    }),
+  );
 
   res.status(200).json({
     status: 200,
@@ -595,7 +696,10 @@ export const getAggregatedFactTableRuns = async (
 
 export const refreshAggregatedFactTables = async (
   req: AuthRequest<{ idType?: string; fullRestate?: boolean }, { id: string }>,
-  res: Response<{ status: 200; queued: string[] }>,
+  res: Response<{
+    status: 200;
+    runs: ReturnType<typeof toAggregatedTableRefreshTriggerResult>[];
+  }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -638,16 +742,23 @@ export const refreshAggregatedFactTables = async (
 
   // Kick off directly (not via the nightly agenda queue); each call returns
   // once the run doc + queries exist and finishes in the background.
+  const runs = [];
   for (const idType of idTypes) {
-    await runAggregatedFactTableUpdate(context, factTable, idType, {
-      forceRestate: !!req.body.fullRestate,
-      awaitResults: false,
-    });
+    const outcome = await runAggregatedFactTableUpdate(
+      context,
+      factTable,
+      idType,
+      {
+        forceRestate: !!req.body.fullRestate,
+        awaitResults: false,
+      },
+    );
+    runs.push(toAggregatedTableRefreshTriggerResult(idType, outcome));
   }
 
   res.status(200).json({
     status: 200,
-    queued: idTypes,
+    runs,
   });
 };
 
@@ -682,14 +793,15 @@ export const cancelAggregatedFactTableRun = async (
     );
   }
 
-  const runDocs =
-    await context.models.aggregatedFactTableRuns.getRecentByFactTableAndIdType(
+  const aggregatedTableRuns =
+    await context.models.aggregatedFactTableRuns.getByFactTableAndIdType(
       factTable.id,
       idType,
+      { limit: 20, skip: 0 },
     );
 
-  const run = runDocs.find(
-    (r) => deriveRunStatus(r.queries, r.error) === "running",
+  const run = aggregatedTableRuns.runs.find(
+    (r) => deriveAggregatedFactTableRunStatus(r.queries, r.error) === "running",
   );
   if (!run) {
     res.status(200).json({ status: 200 });
@@ -859,6 +971,34 @@ export const putColumn = async (
 
   if (!data.name) {
     data.name = col.column;
+  }
+
+  // Editing a virtual column's expression is equivalent in power to editing the
+  // fact table's SQL, so it needs the stricter gate (the `columns`-only check
+  // above intentionally skips the managedBy check).
+  if (
+    col.isVirtual &&
+    !context.permissions.canManageFactTableVirtualColumn(factTable)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Editing a virtual column's expression must not blank it out.
+  if (col.isVirtual && data.sql !== undefined && !data.sql.trim()) {
+    throw new Error("Virtual columns require a SQL expression");
+  }
+
+  if (col.isVirtual && data.sql !== undefined) {
+    validateVirtualColumnSql(data.sql);
+  }
+
+  // A virtual column must be removed via the delete endpoint so the dependency
+  // guard in `deleteColumn` runs. `UpdateColumnProps` accepts an optional
+  // `deleted` flag, so block that path here to avoid bypassing it.
+  if (col.isVirtual && data.deleted !== undefined) {
+    throw new Error(
+      "Virtual columns must be deleted using the delete endpoint",
+    );
   }
 
   // Check enterprise feature access for dimension properties
@@ -1036,6 +1176,117 @@ export const deleteFactFilter = async (
 
   res.status(200).json({
     status: 200,
+  });
+};
+
+export const postVirtualColumn = async (
+  req: AuthRequest<CreateVirtualColumnProps, { id: string }>,
+  res: Response<{ status: 200; column: ColumnInterface }>,
+) => {
+  const data = req.body;
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  if (!context.permissions.canManageFactTableVirtualColumn(factTable)) {
+    context.permissions.throwPermissionError();
+  }
+
+  // This endpoint only creates virtual columns. SQL-detected columns are
+  // created by column auto-detection, not directly. The validator omits
+  // `isVirtual`, so it is forced on here.
+  validateVirtualColumnProps(data);
+
+  const column = await createColumn(factTable, { ...data, isVirtual: true });
+
+  res.status(200).json({
+    status: 200,
+    column,
+  });
+};
+
+export const deleteColumn = async (
+  req: AuthRequest<null, { id: string; column: string }>,
+  res: Response<{ status: 200 }>,
+) => {
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  if (!context.permissions.canUpdateFactTable(factTable, { columns: [] })) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Deleting a virtual column removes a stored SQL expression, so it needs the
+  // same gate as creating or editing one.
+  const columnToDelete = factTable.columns.find(
+    (c) => c.column === req.params.column,
+  );
+  if (
+    columnToDelete?.isVirtual &&
+    !context.permissions.canManageFactTableVirtualColumn(factTable)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const datasource = await getDataSourceById(context, factTable.datasource);
+  await deleteColumnInDb(
+    context,
+    factTable,
+    req.params.column,
+    datasource
+      ? getIntegrationIdentifierQuote(
+          getSourceIntegrationObject(context, datasource),
+        )
+      : '"',
+  );
+
+  res.status(200).json({
+    status: 200,
+  });
+};
+
+export const postVirtualColumnTest = async (
+  req: AuthRequest<TestVirtualColumnProps, { id: string }>,
+  res: Response<{
+    status: 200;
+    result: FactFilterTestResults;
+  }>,
+) => {
+  const data = req.body;
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  if (!context.permissions.canManageFactTableVirtualColumn(factTable)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const datasource = await getDataSourceById(context, factTable.datasource);
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+
+  const result = await testVirtualColumnQuery(
+    context,
+    datasource,
+    factTable,
+    data.sql,
+    data.columnId,
+  );
+
+  res.status(200).json({
+    status: 200,
+    result,
   });
 };
 

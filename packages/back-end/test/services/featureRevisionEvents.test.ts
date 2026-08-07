@@ -1,7 +1,36 @@
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
-import { deriveRevisionEventEnvironments } from "back-end/src/services/featureRevisionEvents";
+import { deriveRevisionEventEnvironments } from "back-end/src/events/eventEnvironments";
+
+jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
+  getRevision: jest.fn(),
+}));
+jest.mock("back-end/src/models/EventModel", () => ({
+  createEvent: jest.fn(),
+}));
+jest.mock("back-end/src/util/logger", () => ({
+  logger: { error: jest.fn() },
+}));
+// The real services/features pulls in a heavy model/integration chain that
+// this unit test must not load. Only referenced inside dispatch functions,
+// which these tests never call.
+jest.mock("back-end/src/services/features", () => ({
+  revisionToApiInterface: jest.fn(),
+  toApiRevision: jest.fn(),
+}));
+jest.mock("back-end/src/services/audit", () => ({
+  auditDetailsUpdate: jest.fn(),
+}));
+jest.mock("back-end/src/util/organization.util", () => ({
+  getEnvironments: jest.fn(() => []),
+}));
+
+import { getPublishedRevisionForEvents } from "back-end/src/services/featureRevisionEvents";
+import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import { logger } from "back-end/src/util/logger";
+
+const mockGetRevision = getRevision as jest.MockedFunction<typeof getRevision>;
 
 // Dispatch of `feature.revision.*` events fans out to webhook/Slack filters
 // keyed by (project, tag, environment). The derivation here feeds that
@@ -214,5 +243,52 @@ describe("deriveRevisionEventEnvironments", () => {
     expect(out.sort()).toEqual(["dev", "production", "staging"]);
     // Each env listed exactly once.
     expect(new Set(out).size).toBe(out.length);
+  });
+});
+
+describe("getPublishedRevisionForEvents", () => {
+  const ctx = { org: { id: "org-1" } } as never;
+  const feature = mkFeature();
+  const fallback = {
+    version: 7,
+    status: "draft",
+  } as unknown as FeatureRevisionInterface;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("returns the re-read revision when the read succeeds", async () => {
+    const published = { version: 7, status: "published" } as never;
+    mockGetRevision.mockResolvedValue(published);
+
+    const result = await getPublishedRevisionForEvents(ctx, feature, fallback);
+
+    expect(result).toBe(published);
+    expect(mockGetRevision).toHaveBeenCalledWith({
+      context: ctx,
+      organization: feature.organization,
+      featureId: feature.id,
+      feature,
+      version: 7,
+    });
+  });
+
+  it("returns the fallback with a corrected published status when the read finds nothing", async () => {
+    mockGetRevision.mockResolvedValue(null);
+
+    const result = await getPublishedRevisionForEvents(ctx, feature, fallback);
+
+    // Publication already succeeded, so the fallback is reported as published.
+    expect(result).toEqual({ ...fallback, status: "published" });
+  });
+
+  it("returns the fallback with a corrected published status and logs instead of throwing when the read fails", async () => {
+    mockGetRevision.mockRejectedValue(new Error("mongo unavailable"));
+
+    const result = await getPublishedRevisionForEvents(ctx, feature, fallback);
+
+    expect(result).toEqual({ ...fallback, status: "published" });
+    expect(logger.error).toHaveBeenCalled();
   });
 });

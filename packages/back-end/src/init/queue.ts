@@ -1,5 +1,7 @@
 import addExperimentResultsJob from "back-end/src/jobs/updateExperimentResults";
+import addContextualBanditResultsJob from "back-end/src/jobs/updateContextualBanditResults";
 import refreshFactTableColumns from "back-end/src/jobs/refreshFactTableColumns";
+import revalidateEventForwarderDataSourceQueries from "back-end/src/jobs/revalidateEventForwarderDataSourceQueries";
 import updateScheduledFeatures from "back-end/src/jobs/updateScheduledFeatures";
 import addWebhooksJob from "back-end/src/jobs/webhooks";
 import addMetricUpdateJob from "back-end/src/jobs/updateMetrics";
@@ -25,6 +27,8 @@ import updateAutoSlicesJob from "back-end/src/jobs/updateAutoSlices";
 import updateAggregatedFactTablesJob from "back-end/src/jobs/updateAggregatedFactTables";
 import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
 import addCoalescedSdkPayloadRefreshJob from "back-end/src/jobs/coalescedSdkPayloadRefresh";
+import addScheduledPublishJob from "back-end/src/jobs/updateScheduledPublishes";
+import addSyncManagedWarehouseJsonErgonomicsJob from "back-end/src/jobs/syncManagedWarehouseJsonErgonomics";
 import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
 import { ensureSdkPayloadRefreshPendingIndex } from "back-end/src/services/sdkPayloadRefreshCoalescer";
 
@@ -32,6 +36,7 @@ export async function queueInit() {
   const agenda = getAgendaInstance();
 
   addExperimentResultsJob(agenda);
+  addContextualBanditResultsJob(agenda);
   updateScheduledFeatures(agenda);
   addMetricUpdateJob(agenda);
   addWebhooksJob(agenda);
@@ -42,6 +47,7 @@ export async function queueInit() {
   updateStaleInformationSchemaTable(agenda);
   expireOldQueries(agenda);
   refreshFactTableColumns(agenda);
+  revalidateEventForwarderDataSourceQueries(agenda);
   addSdkWebhooksJob(agenda);
   updateLicenseJob(agenda);
   addSafeRolloutSnapshotJob(agenda);
@@ -53,6 +59,8 @@ export async function queueInit() {
   addRampScheduleJob(agenda);
   addCoalescedSdkPayloadRefreshJob(agenda);
   await ensureSdkPayloadRefreshPendingIndex();
+  addScheduledPublishJob(agenda);
+  await addSyncManagedWarehouseJsonErgonomicsJob(agenda);
   initRampScheduleHooks();
   // Make sure we have index needed to delete efficiently
   agenda._collection

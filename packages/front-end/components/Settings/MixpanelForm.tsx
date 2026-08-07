@@ -1,6 +1,8 @@
 import { FC, ChangeEventHandler } from "react";
 import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
 import SelectField from "@/components/Forms/SelectField";
+import Callout from "@/ui/Callout";
+import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
 
 const MixpanelForm: FC<{
   params: Partial<MixpanelConnectionParams>;
@@ -10,7 +12,7 @@ const MixpanelForm: FC<{
 }> = ({ params, existing, onParamChange, onManualParamChange }) => {
   return (
     <>
-      <div className="alert alert-info">
+      <Callout status="info">
         To connect to Mixpanel, first create a Service Account from your{" "}
         <a
           href="https://mixpanel.com/settings/project#serviceaccounts"
@@ -20,7 +22,7 @@ const MixpanelForm: FC<{
           Mixpanel Project Settings
         </a>
         .
-      </div>
+      </Callout>
       <div className="row">
         <div className="form-group col-md-12">
           <label>Username</label>
@@ -43,7 +45,7 @@ const MixpanelForm: FC<{
             required={!existing}
             value={params.secret || ""}
             onChange={onParamChange}
-            placeholder={existing ? "(Keep existing)" : ""}
+            placeholder={existing ? KEEP_EXISTING_PLACEHOLDER : ""}
           />
         </div>
         <div className="form-group col-md-12">
@@ -60,6 +62,7 @@ const MixpanelForm: FC<{
         <div className="form-group col-md-12">
           <label>API Server</label>
           <SelectField
+            size="legacy"
             name="server"
             // todo: better inference
             value={params.server || "standard"}

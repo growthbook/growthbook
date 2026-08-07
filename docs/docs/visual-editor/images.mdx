@@ -1,0 +1,146 @@
+---
+title: Test Images in A/B Tests — Upload, AI Generation, and Library
+description: Replace, upload, or AI-generate images for A/B test variations in GrowthBook. Reuse images across experiments with the shared image library.
+sidebar_label: Images
+slug: /app/visual/images
+---
+
+import MaxWidthImage from '@site/src/components/MaxWidthImage';
+import CommercialFeature from '@site/src/components/CommercialFeature';
+
+<CommercialFeature feature="visual-editor" />
+
+Images are some of the highest-impact A/B tests you can run — hero photography, product imagery, illustration style. The [Visual Editor](/app/visual) gives you three ways to swap an image in a variation:
+
+1. **Upload** — drop in a file from your machine.
+2. **AI generation** — describe the image and let a configured AI model produce it, optionally using the existing image as a reference.
+3. **Library** — pick from images your organization has already uploaded or generated, reusable across experiments and projects.
+
+All three paths land in the same `<img>` (or `<picture>`) replacement and are managed identically in the [Changes panel](/app/visual/manual-mode#change-list).
+
+## Replacing an image
+
+Open the [Visual Editor](/app/visual/install-and-connect) and target the page you want to edit. Select the `<img>` element you want to replace.
+
+In Manual mode, the property panel shows an **Image** group with three tabs: **Upload**, **AI**, and **Library**.
+
+### Upload tab
+
+1. Click the upload area (or drag-and-drop a file onto it).
+2. The new image appears as a live preview on the page, replacing the original.
+3. Click **Use this image** to accept, or **Cancel** to discard.
+
+Supported formats are PNG, JPEG, WebP, and GIF. There's no hard size limit, but very large images slow page load — keep production assets under ~500 KB where possible.
+
+#### `<picture>` and `srcset` handling
+
+Modern image markup often wraps an `<img>` in a `<picture>` element with multiple `<source>` candidates and a `srcset` attribute for responsive resolution selection. If you just replace the `src`, the browser will keep picking the original from `srcset` and your variation won't show up.
+
+The Visual Editor handles this automatically:
+
+- The `srcset` attribute on the target `<img>` is removed.
+- Any `<source srcset>` siblings inside a parent `<picture>` are removed.
+- The new image is the only candidate the browser sees.
+
+Reverting the image change (from the Changes panel) restores all of this — `srcset`, `<source>` siblings, original `src` — to the pre-variation state.
+
+### AI tab
+
+Type a description of the image you want and click **Generate**. The configured AI model returns one or more candidates that preview live on the page.
+
+Common useful prompt patterns:
+
+- `Photograph of a person using a laptop in a sunlit coffee shop, candid composition`
+- `Flat illustration of a chart trending upward, blue and orange palette`
+- `Product hero of a stainless steel water bottle on a white background, soft shadows`
+
+A few options:
+
+- **Use current image as reference** — appears when the selected model supports it. The AI uses the existing image as a visual cue for composition/style. Useful for "keep the same scene but with a different background color" type requests.
+- **Model picker** — appears when your org has more than one image model configured. See [available models](#available-image-models) below.
+- **Aspect ratio and size** — pulled from the original image so the replacement fits the existing layout. (You can still override by editing CSS dimensions in the Background & Border group.)
+
+When you're happy with a candidate, click **Use this image** to accept it into the variation. Generated images are stored in the [image library](#the-library-tab) so you can reuse them later.
+
+### Library tab
+
+The Library tab shows every image your organization has uploaded or accepted from AI generation, across all experiments and projects.
+
+- **Grid view** of thumbnails with newest first.
+- **Click a thumbnail** to preview it as the new image; click **Use this image** to accept.
+- **Refresh icon** at the top to re-fetch the library — useful if a teammate just uploaded an image.
+- **Image count** in the header.
+
+Library images thumbnail-load lazily, so the panel stays responsive even with hundreds of images.
+
+#### Quarantine indicator
+
+AI-generated images that haven't been accepted into a variation yet show a small **orange dot** badge. These are temporary — they live in a quarantine bucket and the storage lifecycle removes them after 7 days. A short legend at the bottom of the library explains the dot.
+
+Why quarantine? Image generation produces a lot of throwaway candidates. We don't want every "let me try one more prompt" attempt to clutter your library forever. Once you accept a candidate into a variation, it gets promoted to permanent storage and the orange dot goes away.
+
+## Available image models
+
+The model used for AI generation is set by your org admin in [AI Settings](/integrations/ai). The current options are:
+
+| Provider | Model                                | Reference image |
+| -------- | ------------------------------------ | --------------- |
+| Google   | Gemini 2.5 Flash Image (nano-banana) | Yes             |
+| Google   | Gemini 3 Pro Image (preview)         | Yes             |
+| Google   | Imagen 4 Fast                        | No              |
+| Google   | Imagen 4                             | No              |
+| Google   | Imagen 4 Ultra                       | No              |
+| OpenAI   | DALL-E 3                             | No              |
+| OpenAI   | GPT Image 1                          | No              |
+| OpenAI   | GPT Image 1 Mini                     | No              |
+| xAI      | Grok 2 Image                         | No              |
+
+Picking the right model is a tradeoff between cost, latency, and quality:
+
+- **Fastest / cheapest**: Imagen 4 Fast, GPT Image 1 Mini.
+- **Best general quality**: Imagen 4 Ultra, GPT Image 1, Gemini 3 Pro.
+- **Need reference image**: any Gemini model.
+
+If your org has multiple image models configured, the model picker appears in the AI tab.
+
+## Reverting an image change
+
+To restore the original image:
+
+1. Open the **Changes** panel at the bottom of the side panel.
+2. Find the row corresponding to the image change.
+3. Click **Revert**.
+
+Revert clears the image swap _and_ any `srcset` / `<picture> > source[srcset]` removals the editor added when applying it. The element returns to exactly its pre-variation state.
+
+## Storage and privacy
+
+Uploaded and AI-generated images are stored in GrowthBook's image storage bucket, namespaced by your organization ID. They're served from a CDN-fronted URL so SDKs can fetch them efficiently when delivering variations.
+
+A few specifics:
+
+- **Permanent storage** (accepted into a variation) lives at `<orgId>/visual-editor/`.
+- **Quarantine storage** (AI candidates not yet accepted) lives at `gen/<orgId>/visual-editor/` and is auto-cleared after 7 days.
+- **Cross-org isolation** — the library API only returns objects under your org's prefix. Other organizations' images are never visible.
+- **Image URLs are public** in the sense that anyone with the URL can fetch the image. Don't AI-generate images containing sensitive information.
+
+For AI generation specifically, the prompt text and (if used) the reference image are sent to the configured AI provider — see [AI Integrations](/integrations/ai) for what each provider does with that data.
+
+## Image-based experiment ideas
+
+A few common patterns that move metrics:
+
+- **Hero photography style**: studio vs. lifestyle, person vs. product.
+- **Product framing**: white background vs. in-use, single product vs. context.
+- **Illustration vs. photography** for explainer sections.
+- **Color palette match**: does an image that matches your brand palette outperform a contrasting one?
+- **Faces vs. objects**: images with human faces often drive higher engagement, but the effect is category-specific.
+
+Always pair an image change with the right success metric (CTR, conversion, time-on-page) — image impact varies enormously by industry and audience.
+
+## Next steps
+
+- **[AI mode](/app/visual/ai-mode)** — generate images as part of a larger AI-driven variation.
+- **[Manual mode](/app/visual/manual-mode)** — full reference for the rest of the structured editor.
+- **[Preview and QA](/app/visual/preview-and-qa)** — preview the variation before publishing.
+- **[AI Integrations](/integrations/ai)** — provider setup and the full AI feature list.

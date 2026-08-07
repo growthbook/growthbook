@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ApiAggregatedTableRefreshTrigger } from "shared/validators";
 import { FactTableInterface } from "shared/types/fact-table";
 import { QueryStatus } from "shared/types/query";
 import { dateOnly, timestamp } from "shared/dates";
@@ -30,9 +31,7 @@ export interface Props {
   factTable: FactTableInterface;
 }
 
-type RefreshResponse = {
-  queued: string[];
-};
+type RefreshResponse = { runs: ApiAggregatedTableRefreshTrigger[] };
 
 type AggregatedFactTableMaterializationStatus =
   | "running"
@@ -298,11 +297,11 @@ function ManageRefreshModal({
 
           <hr className="my-4" />
 
-          <Heading size="small" as="h4" mb="2">
+          <Heading size="sm" as="h4" mb="2">
             Run history
           </Heading>
           {runs.length === 0 ? (
-            <Text as="div" color="text-mid" size="small">
+            <Text as="div" color="text-mid" size="sm">
               No runs yet for this identifier type.
             </Text>
           ) : (
@@ -338,7 +337,7 @@ function ManageRefreshModal({
                           View queries
                         </Button>
                       ) : (
-                        <Text color="text-mid" size="small">
+                        <Text color="text-mid" size="sm">
                           No queries
                         </Text>
                       )}
@@ -418,7 +417,7 @@ export default function AggregatedFactTablesCard({ factTable }: Props) {
 
   return (
     <Frame px="5" pt="3" pb="4" mb="4">
-      <Heading size="medium" as="h3" mb="1">
+      <Heading size="md" as="h3" mb="1">
         Shared Daily Aggregated Tables
       </Heading>
       <Text as="div" color="text-mid" mb="3">

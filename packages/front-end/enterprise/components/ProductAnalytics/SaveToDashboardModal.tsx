@@ -5,6 +5,7 @@ import { Flex, Box } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import {
+  DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
   DashboardInterface,
   DashboardEditLevel,
   DashboardShareLevel,
@@ -13,12 +14,14 @@ import {
 } from "shared/enterprise";
 import {
   ExplorationConfig,
+  ComparisonMode,
+  ExplorationDateRange,
   ProductAnalyticsExploration,
 } from "shared/validators";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Checkbox from "@/ui/Checkbox";
 import RadioGroup from "@/ui/RadioGroup";
 import Link from "@/ui/Link";
@@ -36,8 +39,12 @@ import DashboardUpdateScheduleSelector from "@/enterprise/components/Dashboards/
 import track from "@/services/track";
 
 function datasetTypeToBlockType(
-  type: "metric" | "fact_table" | "data_source",
-): "metric-exploration" | "fact-table-exploration" | "data-source-exploration" {
+  type: "metric" | "fact_table" | "data_source" | "funnel",
+):
+  | "metric-exploration"
+  | "fact-table-exploration"
+  | "data-source-exploration"
+  | "funnel-exploration" {
   switch (type) {
     case "metric":
       return "metric-exploration";
@@ -45,6 +52,8 @@ function datasetTypeToBlockType(
       return "fact-table-exploration";
     case "data_source":
       return "data-source-exploration";
+    case "funnel":
+      return "funnel-exploration";
   }
 }
 
@@ -52,6 +61,14 @@ interface Props {
   close: () => void;
   config: ExplorationConfig;
   exploration: ProductAnalyticsExploration | null;
+  /** Whether the explorer is currently comparing periods. */
+  compareEnabled?: boolean;
+  /** The comparison (previous) window the explorer submitted, if any. */
+  previousTimeFrame?: ExplorationDateRange | null;
+  /** How the previous window is derived; only `custom` persists the window. */
+  comparisonMode?: ComparisonMode;
+  /** Current comparison exploration id, to seed the block before first refresh. */
+  comparisonExplorationId?: string | null;
   trackingSource?: string;
 }
 
@@ -59,6 +76,10 @@ export default function SaveToDashboardModal({
   close,
   config,
   exploration,
+  compareEnabled = false,
+  previousTimeFrame = null,
+  comparisonMode = "previousPeriod",
+  comparisonExplorationId = null,
   trackingSource,
 }: Props) {
   const router = useRouter();
@@ -104,12 +125,29 @@ export default function SaveToDashboardModal({
 
   const handleSubmit = async () => {
     const blockType = datasetTypeToBlockType(config.dataset.type);
+    // Persist the comparison so dashboards can show it and roll it on refresh.
+    // Only `custom` needs its window stored; every other mode re-derives it each
+    // refresh so it rolls with the primary range.
+    const comparison = compareEnabled
+      ? {
+          enabled: true,
+          mode: comparisonMode,
+          previousTimeFrame:
+            comparisonMode === "custom"
+              ? (previousTimeFrame ?? undefined)
+              : undefined,
+        }
+      : undefined;
     const newBlock = {
       type: blockType,
       title: form.watch("chartTitle"),
       description: "",
       explorerAnalysisId: exploration?.id ?? "",
       config,
+      ...(comparison ? { comparison } : {}),
+      ...(comparison && comparisonExplorationId
+        ? { comparisonExplorerAnalysisId: comparisonExplorationId }
+        : {}),
     };
 
     let dashboardId: string;
@@ -130,6 +168,7 @@ export default function SaveToDashboardModal({
           projects: formValues.projects,
           experimentId: "",
           blocks: [newBlock],
+          globalControls: DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
         }),
       });
       if (res.status !== 200) throw new Error("Failed to create dashboard");
@@ -190,7 +229,11 @@ export default function SaveToDashboardModal({
           <Text as="label" weight="semibold">
             Chart Title
           </Text>
-          <Field placeholder="Chart title" {...form.register("chartTitle")} />
+          <Field
+            size="legacy"
+            placeholder="Chart title"
+            {...form.register("chartTitle")}
+          />
         </Flex>
         <Flex direction="column" gap="2">
           <Text as="label" weight="semibold">
@@ -219,6 +262,7 @@ export default function SaveToDashboardModal({
         </Flex>
         {createOrAdd === "existing" ? (
           <SelectField
+            size="legacy"
             options={dashboards
               .filter((dashboard) =>
                 permissionsUtil.canUpdateGeneralDashboards(
@@ -237,11 +281,13 @@ export default function SaveToDashboardModal({
         ) : (
           <Flex direction="column">
             <Field
+              size="legacy"
               label="Name"
               placeholder="Dashboard name"
               {...form.register("title")}
             />
             <MultiSelectField
+              legacyHeight
               label="Projects"
               placeholder="All projects"
               options={projectsOptions}
@@ -264,6 +310,7 @@ export default function SaveToDashboardModal({
                 <Box className="bg-highlight rounded p-3" mt="3">
                   <Flex direction="column" gap="4">
                     <SelectField
+                      size="legacy"
                       label="View access"
                       containerClassName="mb-0"
                       disabled={!hasSharing}
@@ -287,6 +334,7 @@ export default function SaveToDashboardModal({
                       }}
                     />
                     <SelectField
+                      size="legacy"
                       label="Edit access"
                       containerClassName="mb-0"
                       disabled={

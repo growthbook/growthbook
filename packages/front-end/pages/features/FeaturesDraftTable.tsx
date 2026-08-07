@@ -21,7 +21,7 @@ import {
 import {
   draftStatusDotColor,
   revisionStatusLabel,
-} from "@/components/Features/RevisionStatusBadge";
+} from "@/components/Reviews/RevisionStatusBadge";
 import Text from "@/ui/Text";
 import Table, {
   TableHeader,
@@ -73,6 +73,10 @@ export default function FeaturesDraftTable() {
         break;
       case "changes-requested":
         dateAndStatus = parseInt(`1${dateAndStatus}`);
+        break;
+      case "discarded":
+      case "published":
+      case "pending-parent":
         break;
     }
     return {
@@ -163,11 +167,13 @@ export default function FeaturesDraftTable() {
   const renderFeaturesTableDrafts = () => {
     return revisions.length > 0 ? (
       <div>
-        <Flex gap="4" align="start" justify="between" mb="4" wrap="wrap">
+        <Flex gap="4" align="center" justify="between" mb="4" wrap="wrap">
           <Box style={{ flexBasis: 300, flexShrink: 0 }}>
             <Field
+              size="legacy"
               placeholder="Search..."
               type="search"
+              containerClassName="mb-0"
               {...searchInputProps}
             />
           </Box>
@@ -269,7 +275,7 @@ export default function FeaturesDraftTable() {
                           ),
                         }}
                       />
-                      <Text size="medium">
+                      <Text size="md">
                         {revisionStatusLabel(featureAndRevision.status)}
                       </Text>
                     </Flex>

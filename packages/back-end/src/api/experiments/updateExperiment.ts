@@ -1,7 +1,6 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   ExperimentInterfaceExcludingHoldouts,
-  Variation,
   updateExperimentValidator,
 } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -14,11 +13,14 @@ import {
   normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
   updateExperimentApiPayloadToInterface,
-  validateStatusUpdateSchedule,
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
-import { startExperiment } from "back-end/src/services/experimentChanges/changeExperimentStatus";
+import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
+import {
+  startExperiment,
+  validateExperimentChange,
+} from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   resolveOwnerEmail,
@@ -206,7 +208,7 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   if (req.body.variations) {
-    validateVariationIds(req.body.variations as Variation[]);
+    validateVariationIds(req.body.variations);
   }
 
   const effectivePrecomputedUnitDimensionType =
@@ -300,11 +302,6 @@ export const updateExperiment = createApiRequestHandler(
     );
   }
 
-  if (req.body.statusUpdateSchedule) {
-    const effectiveType = req.body.type ?? experiment.type ?? "standard";
-    validateStatusUpdateSchedule(effectiveType, req.body.statusUpdateSchedule);
-  }
-
   const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
   const changes = updateExperimentApiPayloadToInterface(
     {
@@ -318,13 +315,44 @@ export const updateExperiment = createApiRequestHandler(
 
   normalizeStatusUpdateScheduleChanges(experiment, changes);
 
+  // Same validation as PUT /schedule, against the stored schedule and the
+  // post-update variations/metrics.
+  if (req.body.statusUpdateSchedule) {
+    validateScheduleUpdate({
+      context: req.context,
+      experimentType: req.body.type ?? experiment.type ?? "standard",
+      status: experiment.status,
+      archived: !!experiment.archived,
+      phaseStart: experiment.phases[experiment.phases.length - 1]?.dateStarted,
+      existingSchedule: experiment.statusUpdateSchedule,
+      variations: changes.variations ?? experiment.variations,
+      goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
+      incoming: req.body.statusUpdateSchedule,
+    });
+  }
+
   const isStartingFromDraft =
     experiment.status === "draft" && changes.status === "running";
+
+  await validateExperimentChange({ context: req.context, experiment, changes });
 
   let experimentForUpdate = experiment;
   let changesForUpdate = changes;
 
   if (isStartingFromDraft) {
+    // Persist the non-status changes (including any new statusUpdateSchedule)
+    // BEFORE starting, so startExperiment -> executeExperimentStart resolves a
+    // relative stopAfter off the real start time using the freshly-saved
+    // schedule (rather than the stale pre-start draft).
+    const remainingChanges = { ...changes };
+    delete remainingChanges.status;
+    if (Object.keys(remainingChanges).length > 0) {
+      await updateExperimentToDb({
+        context: req.context,
+        experiment,
+        changes: remainingChanges,
+      });
+    }
     // Route draft->running transitions through the dedicated lifecycle method
     // so ramp lockdown, checklist, and pending-draft publish behavior stays
     // consistent across all entry points.
@@ -335,8 +363,9 @@ export const updateExperiment = createApiRequestHandler(
       skipChecklist: true,
     });
     experimentForUpdate = updated;
-    const { status: _ignoredStatus, ...remainingChanges } = changes;
-    changesForUpdate = remainingChanges;
+    // All non-status changes were already persisted above; startExperiment
+    // handled the transition (and resolved the schedule), so nothing remains.
+    changesForUpdate = {};
   }
 
   const updatedExperiment =

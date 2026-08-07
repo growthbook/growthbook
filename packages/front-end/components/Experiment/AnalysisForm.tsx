@@ -29,8 +29,11 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import SelectField, {
+  GroupedValue,
+  SingleValue,
+} from "@/components/Forms/SelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
@@ -97,7 +100,9 @@ const AnalysisForm: FC<{
 
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const [editingDataSource, setEditingDataSource] = useState(false);
+  const [editingDataSource, setEditingDataSource] = useState(
+    !experiment.datasource || !experiment.exposureQueryId,
+  );
 
   const pid = experiment?.project;
   const project = pid ? getProjectById(pid) : null;
@@ -275,9 +280,56 @@ const AnalysisForm: FC<{
     name: "variations",
   });
 
-  const exposureQueries = datasource?.settings?.queries?.exposure || [];
+  const exposureQueries = useMemo(
+    () => datasource?.settings?.queries?.exposure ?? [],
+    [datasource?.settings?.queries?.exposure],
+  );
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
+
+  const hashAttributeToIdentifierTypeMap = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const userIdType of datasource?.settings?.userIdTypes ?? []) {
+      for (const attribute of userIdType.attributes ?? []) {
+        map.set(attribute, [
+          ...(map.get(attribute) ?? []),
+          userIdType.userIdType,
+        ]);
+      }
+    }
+    return map;
+  }, [datasource?.settings?.userIdTypes]);
+
+  const groupedExposureQueries = useMemo((): (GroupedValue | SingleValue)[] => {
+    const hashAttribute = experiment.hashAttribute ?? "";
+    const matched = exposureQueries.filter((q) =>
+      hashAttributeToIdentifierTypeMap
+        .get(hashAttribute)
+        ?.includes(q.userIdType),
+    );
+    const unmatched = exposureQueries.filter((q) => !matched.includes(q));
+    if (hashAttributeToIdentifierTypeMap.size > 0) {
+      return [
+        matched.length > 0
+          ? {
+              label: "Matches Hash Attribute",
+              options: matched.map((q) => ({ label: q.name, value: q.id })),
+            }
+          : null,
+        unmatched.length > 0
+          ? {
+              label: "Does Not Match Hash Attribute",
+              options: unmatched.map((q) => ({ label: q.name, value: q.id })),
+            }
+          : null,
+      ].filter((g): g is GroupedValue => g !== null);
+    }
+    return exposureQueries.map((q) => ({ label: q.name, value: q.id }));
+  }, [
+    exposureQueries,
+    hashAttributeToIdentifierTypeMap,
+    experiment.hashAttribute,
+  ]);
 
   const type = form.watch("type");
   const isBandit = type === "multi-armed-bandit";
@@ -287,6 +339,7 @@ const AnalysisForm: FC<{
     getIsExperimentIncludedInIncrementalRefresh(
       datasource ?? undefined,
       experiment.id,
+      experiment.type,
     );
 
   const datasourceField = form.watch("datasource");
@@ -481,10 +534,10 @@ const AnalysisForm: FC<{
             <Flex justify="between" align="start" gap="3">
               <Box style={{ flex: 1, minWidth: 0 }}>
                 <Box mb="1">
-                  <Text size="small" color="text-mid">
+                  <Text size="sm" color="text-mid">
                     Data Source:
                   </Text>{" "}
-                  <Text size="small" weight="medium">
+                  <Text size="sm" weight="medium">
                     {datasource?.name || (
                       <Text color="text-mid" fontStyle="italic">
                         None
@@ -494,10 +547,10 @@ const AnalysisForm: FC<{
                 </Box>
                 {datasource?.properties?.exposureQueries && (
                   <Box mb="1">
-                    <Text size="small" color="text-mid">
+                    <Text size="sm" color="text-mid">
                       Experiment Assignment Table:
                     </Text>{" "}
-                    <Text size="small" weight="medium">
+                    <Text size="sm" weight="medium">
                       {exposureQueries?.find(
                         (q) => q.id === form.watch("exposureQueryId"),
                       )?.name || (
@@ -510,10 +563,10 @@ const AnalysisForm: FC<{
                 )}
                 {datasource && !isHoldout && (
                   <Box>
-                    <Text size="small" color="text-mid">
+                    <Text size="sm" color="text-mid">
                       Tracking Key:
                     </Text>{" "}
-                    <Text size="small" weight="medium">
+                    <Text size="sm" weight="medium">
                       {form.watch("trackingKey") || "—"}
                     </Text>
                   </Box>
@@ -521,7 +574,7 @@ const AnalysisForm: FC<{
               </Box>
               {!isBandit && (
                 <Button
-                  size="xs"
+                  size="sm"
                   variant="ghost"
                   onClick={() => setEditingDataSource(true)}
                 >
@@ -606,10 +659,13 @@ const AnalysisForm: FC<{
                 }))}
               className="portal-overflow-ellipsis"
               helpText={
-                <>
-                  <strong className="text-danger">Warning:</strong> Changing
-                  this will remove all metrics and segments from the experiment.
-                </>
+                experiment.datasource ? (
+                  <>
+                    <strong className="text-danger">Warning:</strong> Changing
+                    this will remove all metrics and segments from the
+                    experiment.
+                  </>
+                ) : undefined
               }
             />
             {datasource?.properties?.exposureQueries && (
@@ -635,14 +691,10 @@ const AnalysisForm: FC<{
                   });
                 }}
                 required
+                sort={false}
                 disabled={isBandit && experiment.status !== "draft"}
-                initialOption="Choose..."
-                options={exposureQueries?.map((q) => {
-                  return {
-                    label: q.name,
-                    value: q.id,
-                  };
-                })}
+                placeholder="Choose..."
+                options={groupedExposureQueries}
                 formatOptionLabel={({ label, value }) => {
                   const userIdType = exposureQueries?.find(
                     (e) => e.id === value,
@@ -951,6 +1003,7 @@ const AnalysisForm: FC<{
               filterConversionWindowMetrics={isHoldout}
               goalDisabled={isBandit && experiment.status !== "draft"}
               experimentId={experiment.id}
+              experimentType={experiment.type}
             />
 
             {!!datasource && !isBandit && !isHoldout && (

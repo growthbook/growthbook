@@ -1,9 +1,21 @@
 import type { DataType } from "shared/types/integrations";
+import { createLikeStringMatchFn } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 
+const baseEscapeStringLiteral = (value: string) => value.replace(/'/g, `''`);
+
 export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
-  escapeStringLiteral: (value: string) => value.replace(/'/g, `''`),
+  // Standard SQL quotes identifiers with double quotes. MySQL and BigQuery
+  // override this with a backtick.
+  identifierQuote: '"',
+
+  escapeStringLiteral: baseEscapeStringLiteral,
+
+  stringMatch: createLikeStringMatchFn({
+    escapeStringLiteral: baseEscapeStringLiteral,
+    emitEscapeClause: true,
+  }),
 
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
     const raw = `json_extract_scalar(${jsonCol}, '$.${path}')`;
@@ -19,6 +31,18 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
   dateDiff: (startCol: string, endCol: string) =>
     `datediff(day, ${startCol}, ${endCol})`,
 
+  dateDiffMs: () => {
+    throw new Error(
+      "Millisecond date differences are not supported by this data source.",
+    );
+  },
+
+  addIntervalSeconds: () => {
+    throw new Error(
+      "Adding timestamp intervals is not supported by this data source.",
+    );
+  },
+
   percentileApprox: (column: string, percentile: number | string) =>
     `APPROX_PERCENTILE(${column}, ${percentile})`,
 
@@ -33,7 +57,25 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
 
   castToDate: (col: string) => `CAST(${col} AS DATE)`,
 
+  castToTimestamp: (col: string) => `CAST(${col} AS TIMESTAMP)`,
+
   castUserDateCol: (column: string) => column,
+
+  arrayAggSorted: () => {
+    throw new Error("Array aggregation is not supported by this data source.");
+  },
+
+  argMinByTimestamp: () => {
+    throw new Error(
+      "Finding a value at the minimum timestamp is not supported by this data source.",
+    );
+  },
+
+  arrayMinInRange: () => {
+    throw new Error(
+      "Finding a minimum array value is not supported by this data source.",
+    );
+  },
 
   getCurrentTimestamp: () => `CURRENT_TIMESTAMP`,
 
@@ -141,4 +183,7 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
   },
 
   stringLength: (column: string) => `LENGTH(${column})`,
+
+  arrayElement: (arrayCol: string, index: number) =>
+    `${arrayCol}[${index + 1}]`,
 };

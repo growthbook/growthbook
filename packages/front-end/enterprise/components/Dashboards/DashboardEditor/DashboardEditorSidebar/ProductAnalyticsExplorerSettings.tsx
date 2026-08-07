@@ -1,14 +1,28 @@
 import {
   DashboardBlockInterfaceOrData,
+  DashboardInterface,
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  FunnelExplorationBlockInterface,
+  dashboardBlockHasIds,
+  getEffectiveExplorationConfig,
+  getExplorationDateControlFingerprint,
+  resolveComparisonMode,
+  resolveComparisonPreviousTimeFrame,
+  restoreBlockLocalDateControls,
 } from "shared/enterprise";
-import { ProductAnalyticsExploration } from "shared/validators";
+import { isEqual } from "lodash";
+import type {
+  ComparisonMode,
+  ExplorationDateRange,
+  ProductAnalyticsExploration,
+} from "shared/validators";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 import { ExplorerProvider } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import type { ExplorerDraftConfig } from "@/enterprise/components/ProductAnalytics/util";
 import ProductAnalyticsExplorerSideBarWrapper from "./ProductAnalyticsExplorerSideBarWrapper";
 
 interface Props {
@@ -16,14 +30,17 @@ interface Props {
     | MetricExplorationBlockInterface
     | FactTableExplorationBlockInterface
     | DataSourceExplorationBlockInterface
+    | FunnelExplorationBlockInterface
   >;
   setBlock: React.Dispatch<
     DashboardBlockInterfaceOrData<
       | MetricExplorationBlockInterface
       | FactTableExplorationBlockInterface
       | DataSourceExplorationBlockInterface
+      | FunnelExplorationBlockInterface
     >
   >;
+  dashboardGlobalControls?: DashboardInterface["globalControls"];
   saveAndCloseTrigger?: number;
   onSaveAndClose?: () => void;
 }
@@ -31,6 +48,7 @@ interface Props {
 export default function ProductAnalyticsExplorerSettings({
   block,
   setBlock,
+  dashboardGlobalControls,
   saveAndCloseTrigger,
   onSaveAndClose,
 }: Props) {
@@ -41,7 +59,42 @@ export default function ProductAnalyticsExplorerSettings({
     shouldRun: () => !!block.explorerAnalysisId,
   });
 
-  if (!block.config) {
+  // Ignore retained SWR data from the previous analysis while the request key
+  // changes so stale submitted settings cannot invalidate the new analysis.
+  const exploration =
+    data?.exploration.id === block.explorerAnalysisId
+      ? data.exploration
+      : undefined;
+  const baseInitialConfig =
+    exploration?.config && block.config
+      ? { ...exploration.config, ...block.config }
+      : (exploration?.config ?? block.config ?? null);
+  const blockForInitialConfig = baseInitialConfig
+    ? ({
+        ...block,
+        config: baseInitialConfig,
+      } as typeof block)
+    : null;
+  const effectiveInitialConfig = blockForInitialConfig
+    ? dashboardGlobalControls
+      ? getEffectiveExplorationConfig(blockForInitialConfig, {
+          globalControls: dashboardGlobalControls,
+        })
+      : baseInitialConfig
+    : null;
+  const usesDashboardDateRange =
+    block.globalControlSettings?.dateRange === true &&
+    Boolean(dashboardGlobalControls?.dateRange);
+  const hasStaleDashboardDateResults =
+    usesDashboardDateRange &&
+    effectiveInitialConfig !== null &&
+    exploration !== undefined
+      ? !isEqual(
+          getExplorationDateControlFingerprint(effectiveInitialConfig),
+          getExplorationDateControlFingerprint(exploration.config),
+        )
+      : false;
+  if (!block.config || !effectiveInitialConfig) {
     return <LoadingSpinner />;
   }
 
@@ -53,33 +106,93 @@ export default function ProductAnalyticsExplorerSettings({
     );
   }
 
-  const initialConfig =
-    data?.exploration?.config && block.config
-      ? { ...data.exploration.config, ...block.config }
-      : data?.exploration?.config || block.config;
+  const blockComparisonMode = block.comparison
+    ? resolveComparisonMode(block.comparison)
+    : null;
+  const initialConfig: ExplorerDraftConfig =
+    block.comparison?.enabled && blockComparisonMode
+      ? {
+          ...effectiveInitialConfig,
+          comparisonMode: blockComparisonMode,
+          previousTimeFrame: resolveComparisonPreviousTimeFrame(
+            effectiveInitialConfig.dateRange,
+            block.comparison,
+          ),
+        }
+      : effectiveInitialConfig;
+  const initialSubmittedConfig: ExplorerDraftConfig | undefined = exploration
+    ? block.comparison?.enabled && blockComparisonMode
+      ? {
+          ...exploration.config,
+          comparisonMode: blockComparisonMode,
+          previousTimeFrame: resolveComparisonPreviousTimeFrame(
+            exploration.config.dateRange,
+            block.comparison,
+          ),
+        }
+      : exploration.config
+    : undefined;
+  // No `block.comparison` here: the provider owns the comparison while open, so
+  // keying on it makes it remount itself on toggle and drop the in-flight run.
+  const explorerProviderKey = [
+    dashboardBlockHasIds(block) ? block.id : "",
+    block.globalControlSettings?.dateRange === true,
+    JSON.stringify(dashboardGlobalControls ?? null),
+    hasStaleDashboardDateResults,
+  ].join(":");
 
   return (
     <ExplorerProvider
+      key={explorerProviderKey}
       initialConfig={initialConfig}
+      initialSubmittedConfig={initialSubmittedConfig}
       hasExistingResults={!!block.explorerAnalysisId}
       trackingSource="dashboard-editor"
-      onRunComplete={(exploration) => {
+      onRunComplete={(
+        exploration,
+        comparisonExploration,
+        previousTimeFrame: ExplorationDateRange | null,
+        comparisonMode: ComparisonMode | null,
+      ) => {
+        const comparison =
+          previousTimeFrame != null && comparisonMode != null
+            ? {
+                enabled: true,
+                mode: comparisonMode,
+                ...(comparisonMode === "custom" && { previousTimeFrame }),
+              }
+            : undefined;
+        const nextConfig = usesDashboardDateRange
+          ? restoreBlockLocalDateControls(exploration.config, block.config)
+          : exploration.config;
         setBlock({
           ...block,
           explorerAnalysisId: exploration.id,
+          ...(comparison
+            ? {
+                comparison,
+                comparisonExplorerAnalysisId: comparisonExploration?.id,
+              }
+            : {
+                comparison: undefined,
+                comparisonExplorerAnalysisId: undefined,
+              }),
           config: {
-            ...exploration.config,
+            ...nextConfig,
             chartType: block.config?.chartType || exploration.config?.chartType,
           },
         } as
           | MetricExplorationBlockInterface
           | FactTableExplorationBlockInterface
-          | DataSourceExplorationBlockInterface);
+          | DataSourceExplorationBlockInterface
+          | FunnelExplorationBlockInterface);
       }}
     >
       <ProductAnalyticsExplorerSideBarWrapper
         block={block}
         setBlock={setBlock}
+        dashboardGlobalControls={dashboardGlobalControls}
+        invalidateStaleResults={!hasStaleDashboardDateResults}
         saveAndCloseTrigger={saveAndCloseTrigger}
         onSaveAndClose={onSaveAndClose}
       />

@@ -24,10 +24,12 @@ import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
+import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/ui/Callout";
 
 const BanditExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -44,10 +46,11 @@ const BanditExperimentPage = (): ReactElement => {
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
-  const [checklistItemsRemaining, setChecklistItemsRemaining] = useState<
-    number | null
+  const [trafficModalOpen, setTrafficModalOpen] = useState(false);
+  const [trafficFocusVariation, setTrafficFocusVariation] = useState<
+    string | null
   >(null);
-  const [checklistHardBlockerCount, setChecklistHardBlockerCount] = useState(0);
+  const [addVariationOnOpen, setAddVariationOnOpen] = useState(false);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -121,6 +124,22 @@ const BanditExperimentPage = (): ReactElement => {
     : null;
   const editTargeting = canRunExperiment
     ? () => setTargetingModalOpen(true)
+    : null;
+  const editTraffic = canRunExperiment
+    ? (variationId?: string) => {
+        // Callers may pass a DOM event, so only string ids focus a variation.
+        setTrafficFocusVariation(
+          typeof variationId === "string" ? variationId : null,
+        );
+        setTrafficModalOpen(true);
+      }
+    : null;
+  const addVariation = canRunExperiment
+    ? () => {
+        setTrafficFocusVariation(null);
+        setAddVariationOnOpen(true);
+        setTrafficModalOpen(true);
+      }
     : null;
 
   const safeToEdit =
@@ -222,10 +241,10 @@ const BanditExperimentPage = (): ReactElement => {
             (experiment.linkedFeatures?.length ||
               experiment.hasVisualChangesets ||
               experiment.hasURLRedirects) ? (
-              <div className="alert alert-danger">
+              <Callout status="error">
                 Changing the project may prevent your linked Feature Flags,
                 Visual Changes, and URL Redirects from being sent to users.
-              </div>
+              </Callout>
             ) : null
           }
           source="bid"
@@ -267,6 +286,20 @@ const BanditExperimentPage = (): ReactElement => {
           // source="bid"
         />
       )}
+      {trafficModalOpen && (
+        <EditTrafficModal
+          close={() => {
+            setTrafficModalOpen(false);
+            setTrafficFocusVariation(null);
+            setAddVariationOnOpen(false);
+          }}
+          mutate={mutate}
+          experiment={experiment}
+          safeToEdit={safeToEdit}
+          focusVariationId={trafficFocusVariation}
+          addVariationOnOpen={addVariationOnOpen}
+        />
+      )}
 
       <PageHead
         breadcrumb={[
@@ -295,10 +328,8 @@ const BanditExperimentPage = (): ReactElement => {
           editPhase={editPhase}
           envs={data.envs}
           editTargeting={editTargeting}
-          checklistItemsRemaining={checklistItemsRemaining}
-          checklistHardBlockerCount={checklistHardBlockerCount}
-          setChecklistItemsRemaining={setChecklistItemsRemaining}
-          setChecklistHardBlockerCount={setChecklistHardBlockerCount}
+          editTraffic={editTraffic}
+          addVariation={addVariation}
           visualChangesetEnvStates={visualChangesetEnvStates}
           urlRedirectEnvStates={urlRedirectEnvStates}
         />

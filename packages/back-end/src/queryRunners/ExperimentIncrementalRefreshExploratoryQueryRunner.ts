@@ -64,15 +64,26 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     params: StartQueryParams<RowsType, ProcessedRowsType>,
   ) => Promise<QueryPointer>,
 ): Promise<Queries> => {
-  const snapshotSettings = params.snapshotSettings;
-  const experimentId = params.experimentId;
-  const metricMap = params.metricMap;
+  const { snapshotSettings, experimentId, metricMap } = params;
 
   const { org } = context;
 
   const activationMetric = snapshotSettings.activationMetric
     ? (metricMap.get(snapshotSettings.activationMetric) ?? null)
     : null;
+
+  const exposureQuery = (
+    integration.datasource.settings?.queries?.exposure || []
+  ).find((q) => q.id === snapshotSettings.exposureQueryId);
+
+  if (!exposureQuery) {
+    throw new Error("Exposure query not found");
+  }
+
+  const resolvedExposureQuery = {
+    query: exposureQuery.query,
+    userIdType: exposureQuery.userIdType,
+  };
 
   // Only include metrics tied to this experiment, which is goverend by the snapshotSettings.metricSettings
   // after the introduction of metric slices
@@ -83,7 +94,10 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   const queries: Queries = [];
 
   const incrementalRefreshModel =
-    await context.models.incrementalRefresh.getByExperimentId(experimentId);
+    await context.models.incrementalRefresh.getLockedBySnapshotId(
+      experimentId,
+      params.queryParentId,
+    );
 
   if (!incrementalRefreshModel) {
     throw new Error(
@@ -121,22 +135,16 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
 
   const executionId = params.queryParentId;
 
-  // Wraps a `run` callback with an execution-fence check. The exploratory
-  // runner only reads the shared per-experiment pipeline tables, but it holds
-  // the same lock the incremental runner uses to DROP/CREATE/RENAME them. If
-  // the lock is taken over by another snapshot mid-run (stale heartbeat,
-  // cancel + restart), continuing to SELECT from those tables would observe a
-  // missing or half-rebuilt table and return empty/malformed results. Checked
-  // at execute time (not enqueue time) because queries run sequentially via
-  // dependencies — the lock can be lost between dependent queries.
+  // Dependencies can delay a query until another snapshot takes over the lock.
   const fenced =
     <A extends unknown[], R>(run: (...args: A) => Promise<R>) =>
     async (...args: A): Promise<R> => {
-      const current =
-        await context.models.incrementalRefresh.getCurrentExecutionSnapshotId(
+      const lockHeld =
+        await context.models.incrementalRefresh.isLockedBySnapshotId(
           experimentId,
+          executionId,
         );
-      if (current !== executionId) {
+      if (!lockHeld) {
         throw new Error(
           "Incremental refresh lock was lost to another snapshot; aborting exploratory analysis to avoid reading half-rebuilt pipeline tables.",
         );
@@ -145,9 +153,9 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     };
 
   // Metric Queries
-  const existingSources = incrementalRefreshModel?.metricSources;
+  const existingSources = incrementalRefreshModel.metricSources;
   const existingCovariateSources =
-    incrementalRefreshModel?.metricCovariateSources;
+    incrementalRefreshModel.metricCovariateSources;
 
   const factMetrics = selectedMetrics.filter((m): m is FactMetricInterface =>
     isFactMetric(m),
@@ -231,6 +239,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       displayTitle: `Compute Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         settings: snapshotSettings,
+        exposureQuery: resolvedExposureQuery,
         activationMetric: activationMetric,
         // TODO(incremental-refresh): add post-stratification to exploratory
         // analysis. Pre-computation is unused here; we lean on
@@ -291,6 +300,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       displayTitle: `Compute Cross-Fact Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         settings: snapshotSettings,
+        exposureQuery: resolvedExposureQuery,
         activationMetric: activationMetric,
         dimensionsForPrecomputation: [],
         dimensionsForAnalysis: dimensionObjs,
@@ -371,8 +381,9 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
     }
 
     const incrementalRefreshModel =
-      await this.context.models.incrementalRefresh.getByExperimentId(
+      await this.context.models.incrementalRefresh.getLockedBySnapshotId(
         params.experimentId,
+        this.model.id,
       );
 
     const experiment = await getExperimentById(

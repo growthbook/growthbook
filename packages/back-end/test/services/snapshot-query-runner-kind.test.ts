@@ -41,7 +41,7 @@ describe("resolveSnapshotRunner", () => {
         snapshotType: "standard",
         hasSnapshotDimensions: false,
         hasMaterializedUnitsTable: true,
-      }).runnerKind,
+      }).runnerFamily,
     ).toBe("incremental");
   });
 
@@ -53,7 +53,7 @@ describe("resolveSnapshotRunner", () => {
         snapshotType: "exploratory",
         hasSnapshotDimensions: true,
         hasMaterializedUnitsTable: true,
-      }).runnerKind,
+      }).runnerFamily,
     ).toBe("incremental-exploratory");
   });
 
@@ -65,7 +65,7 @@ describe("resolveSnapshotRunner", () => {
         snapshotType: "exploratory",
         hasSnapshotDimensions: false,
         hasMaterializedUnitsTable: true,
-      }).runnerKind,
+      }).runnerFamily,
     ).toBe("incremental");
   });
 
@@ -79,9 +79,25 @@ describe("resolveSnapshotRunner", () => {
         hasMaterializedUnitsTable: false,
       }),
     ).toEqual({
-      runnerKind: "results",
+      runnerFamily: "results",
       incrementalFallbackReason:
-        "No materialized units table yet for this dimension-less exploratory snapshot.",
+        "No materialized units table yet for Overall Results.",
+    });
+  });
+
+  it("returns 'results' for exploratory snapshots with dimensions when the units table has not been materialized", () => {
+    expect(
+      resolveSnapshotRunner({
+        datasource: makeDatasource(),
+        experiment: makeExperiment(),
+        snapshotType: "exploratory",
+        hasSnapshotDimensions: true,
+        hasMaterializedUnitsTable: false,
+      }),
+    ).toEqual({
+      runnerFamily: "results",
+      incrementalFallbackReason:
+        "No materialized units table yet for Overall Results.",
     });
   });
 
@@ -93,7 +109,7 @@ describe("resolveSnapshotRunner", () => {
         snapshotType: "standard",
         hasSnapshotDimensions: false,
         hasMaterializedUnitsTable: false,
-      }).runnerKind,
+      }).runnerFamily,
     ).toBe("incremental");
   });
 
@@ -108,7 +124,7 @@ describe("resolveSnapshotRunner", () => {
         hasMaterializedUnitsTable: true,
       }),
     ).toEqual({
-      runnerKind: "results",
+      runnerFamily: "results",
       incrementalFallbackReason: null,
     });
   });
@@ -126,7 +142,7 @@ describe("resolveSnapshotRunner", () => {
         hasMaterializedUnitsTable: true,
       }),
     ).toEqual({
-      runnerKind: "results",
+      runnerFamily: "results",
       incrementalFallbackReason: null,
     });
   });
@@ -144,7 +160,7 @@ describe("resolveSnapshotRunner", () => {
         hasMaterializedUnitsTable: true,
       }),
     ).toEqual({
-      runnerKind: "results",
+      runnerFamily: "results",
       incrementalFallbackReason: null,
     });
   });
@@ -160,11 +176,11 @@ describe("resolveSnapshotRunner", () => {
         snapshotType: "standard",
         hasSnapshotDimensions: false,
         hasMaterializedUnitsTable: true,
-      }).runnerKind,
+      }).runnerFamily,
     ).toBe("incremental");
   });
 
-  it("returns 'results' for multi-armed-bandit experiments", () => {
+  it("returns 'results' with a descriptive fallback reason for multi-armed-bandit experiments", () => {
     expect(
       resolveSnapshotRunner({
         datasource: makeDatasource(),
@@ -174,9 +190,41 @@ describe("resolveSnapshotRunner", () => {
         hasMaterializedUnitsTable: true,
       }),
     ).toEqual({
-      runnerKind: "results",
+      runnerFamily: "results",
       incrementalFallbackReason:
-        'Experiment type "multi-armed-bandit" is not supported for incremental refresh.',
+        'Experiment type "multi-armed-bandit" is not supported for Incremental Pipeline mode.',
+    });
+  });
+
+  it("returns 'results' with a descriptive fallback reason for holdout experiments", () => {
+    expect(
+      resolveSnapshotRunner({
+        datasource: makeDatasource(),
+        experiment: makeExperiment({ type: "holdout" }),
+        snapshotType: "standard",
+        hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
+      }),
+    ).toEqual({
+      runnerFamily: "results",
+      incrementalFallbackReason:
+        'Experiment type "holdout" is not supported for Incremental Pipeline mode.',
+    });
+  });
+
+  it("returns 'results' with no fallback reason for non-standard types not enabled by data source settings", () => {
+    const datasource = makeDatasource({ mode: "ephemeral" });
+    expect(
+      resolveSnapshotRunner({
+        datasource,
+        experiment: makeExperiment({ type: "multi-armed-bandit" }),
+        snapshotType: "standard",
+        hasSnapshotDimensions: false,
+        hasMaterializedUnitsTable: true,
+      }),
+    ).toEqual({
+      runnerFamily: "results",
+      incrementalFallbackReason: null,
     });
   });
 
@@ -188,7 +236,7 @@ describe("resolveSnapshotRunner", () => {
         snapshotType: "standard",
         hasSnapshotDimensions: false,
         hasMaterializedUnitsTable: true,
-      }).runnerKind,
+      }).runnerFamily,
     ).toBe("incremental");
   });
 
@@ -204,7 +252,7 @@ describe("resolveSnapshotRunner", () => {
         snapshotType: "standard",
         hasSnapshotDimensions: false,
         hasMaterializedUnitsTable: true,
-      }).runnerKind,
+      }).runnerFamily,
     ).toBe("incremental");
   });
 
@@ -222,7 +270,7 @@ describe("resolveSnapshotRunner", () => {
         hasMaterializedUnitsTable: true,
       }),
     ).toEqual({
-      runnerKind: "results",
+      runnerFamily: "results",
       incrementalFallbackReason: null,
     });
   });
@@ -240,7 +288,7 @@ describe("resolveSnapshotRunner", () => {
         snapshotType: "standard",
         hasSnapshotDimensions: false,
         hasMaterializedUnitsTable: true,
-      }).runnerKind,
+      }).runnerFamily,
     ).toBe("results");
   });
 
@@ -259,7 +307,7 @@ describe("resolveSnapshotRunner", () => {
         hasMaterializedUnitsTable: true,
       }),
     ).toEqual({
-      runnerKind: "results",
+      runnerFamily: "results",
       incrementalFallbackReason: null,
     });
   });

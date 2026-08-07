@@ -4,6 +4,7 @@ import { forwardRef, Fragment, ReactElement, ReactNode } from "react";
 import clsx from "clsx";
 import HelperText, { getRadixColor } from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
+import { radixSize, Size } from "@/ui/sizes";
 
 export type RadioOptions = {
   value: string;
@@ -30,8 +31,8 @@ export type Props = {
   value: string;
   setValue: (value: string) => void;
   gap?: string;
-  descriptionSize?: "1" | "2" | "3" | "4";
-  labelSize?: "1" | "2" | "3" | "4";
+  descriptionSize?: Size<"sm" | "md" | "lg" | "xl">;
+  labelSize?: Size<"sm" | "md" | "lg" | "xl">;
   width?: string | number;
 } & MarginProps;
 
@@ -42,8 +43,8 @@ export default forwardRef<HTMLDivElement, Props>(function RadioGroup(
     value,
     setValue,
     gap = "1",
-    descriptionSize = "1",
-    labelSize = "2",
+    descriptionSize = "sm",
+    labelSize = "md",
     width,
     ...containerProps
   }: Props,
@@ -101,12 +102,15 @@ export default forwardRef<HTMLDivElement, Props>(function RadioGroup(
                             <Text
                               weight="medium"
                               className="main-text"
-                              size={labelSize}
+                              size={radixSize(labelSize)}
                             >
                               {label || value}
                             </Text>
                             {description ? (
-                              <Text weight="regular" size={descriptionSize}>
+                              <Text
+                                weight="regular"
+                                size={radixSize(descriptionSize)}
+                              >
                                 {description}
                               </Text>
                             ) : null}
