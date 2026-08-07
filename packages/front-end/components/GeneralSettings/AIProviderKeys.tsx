@@ -99,6 +99,7 @@ function ProviderRow({
   canEdit,
   canUseOwnKeys,
   startEditing = false,
+  onCancelAdd,
   onChanged,
 }: {
   provider: AIProvider;
@@ -109,6 +110,9 @@ function ProviderRow({
   canUseOwnKeys: boolean;
   // Open the input immediately, for the provider just picked from the dropdown.
   startEditing?: boolean;
+  // Set only while the row exists because of that pick, so cancelling can take
+  // the tile with it instead of leaving an empty "Add key" row behind.
+  onCancelAdd?: () => void;
   onChanged: () => Promise<unknown>;
 }) {
   const { apiCall } = useAuth();
@@ -281,6 +285,7 @@ function ProviderRow({
                 setEditing(false);
                 setApiKey("");
                 setError(null);
+                onCancelAdd?.();
               }}
             >
               Cancel
@@ -445,6 +450,11 @@ export default function AIProviderKeys({
           canEdit={canEdit}
           canUseOwnKeys={canUseOwnKeys}
           startEditing={provider === addingProvider}
+          onCancelAdd={
+            provider === addingProvider
+              ? () => setAddingProvider("")
+              : undefined
+          }
           onChanged={async () => {
             // Let the row be driven by the saved credential from here on.
             setAddingProvider("");
