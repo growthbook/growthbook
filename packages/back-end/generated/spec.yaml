@@ -62392,6 +62392,12 @@ components:
           type: string
         status:
           type: string
+        error:
+          description: >-
+            Why this snapshot failed. Present only when status is `error`. Names
+            the underlying cause, such as the warehouse error or the reason a
+            metric's query could not be built.
+          type: string
       required:
         - id
         - experiment
@@ -65335,6 +65341,12 @@ components:
         experiment:
           type: string
         status:
+          type: string
+        error:
+          description: >-
+            Why this snapshot failed. Present only when status is `error`. Names
+            the underlying cause, such as the warehouse error or the reason a
+            metric's query could not be built.
           type: string
       required:
         - id

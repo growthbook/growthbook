@@ -46,7 +46,10 @@ import {
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
-import { getFactMetricGroups } from "back-end/src/services/experimentQueries/experimentQueries";
+import {
+  getFactMetricGroupQueryName,
+  getFactMetricGroups,
+} from "back-end/src/services/experimentQueries/experimentQueries";
 import { parseDimension } from "back-end/src/services/experiments";
 import {
   analyzeExperimentResults,
@@ -87,6 +90,12 @@ export type ExperimentResultsQueryParams = {
 export const TRAFFIC_QUERY_NAME = "traffic";
 
 export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
+
+// Canonical name of the query that drops the shared units table. The builder and
+// the metric-query classifier below both derive it from here so they can't drift.
+export function getDropUnitsTableQueryName(queryParentId: string): string {
+  return `drop_${queryParentId}`;
+}
 
 export const startExperimentResultQueries = async (
   context: ApiReqContext,
@@ -230,13 +239,20 @@ export const startExperimentResultQueries = async (
       // The shared units table carries both the parent's experiment-dim
       // columns and one dim_unit_<id> column per configured unit dimension so
       // the isolated per-dim metric queries can read it.
-      query: integration.getExperimentUnitsTableQuery({
-        ...unitQueryParams,
-        dimensions: [
-          ...unitQueryParams.dimensions,
-          ...unitDimensionsToPrecompute,
-        ],
-      }),
+      //
+      // Passing a builder isolates a build-time SQL-generation failure of the
+      // shared units table: it becomes a failed-query record whose dependents
+      // (every metric query) cascade with "Dependencies failed: …", instead of
+      // the throw escaping and producing an opaque snapshot error with no
+      // query pointers at all.
+      query: () =>
+        integration.getExperimentUnitsTableQuery({
+          ...unitQueryParams,
+          dimensions: [
+            ...unitQueryParams.dimensions,
+            ...unitDimensionsToPrecompute,
+          ],
+        }),
       dependencies: [],
       run: (query, setExternalId, queryMetadata) =>
         integration.runExperimentUnitsQuery(
@@ -285,10 +301,13 @@ export const startExperimentResultQueries = async (
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
     };
+    // Passing a builder isolates build-time SQL-generation failures to the
+    // owning metric: a throw becomes a failed-query record instead of escaping
+    // and failing the whole snapshot, so every other metric still builds/runs.
     queries.push(
       await startQuery({
         name: m.id,
-        query: integration.getSnapshotMetricQuery(queryParams),
+        query: () => integration.getSnapshotMetricQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query, setExternalId, queryMetadata) =>
           integration.runSnapshotMetricQuery(
@@ -325,11 +344,17 @@ export const startExperimentResultQueries = async (
     ) {
       throw new Error("Integration does not support multi-metric queries");
     }
+    const getExperimentFactMetricsQuery =
+      integration.getExperimentFactMetricsQuery.bind(integration);
 
+    // Passing a builder isolates build-time SQL-generation failures to the
+    // owning group: a throw becomes a failed-query record for `group_<i>`,
+    // which Phase 1's attribution maps to each constituent metric, while other
+    // groups still build and run.
     queries.push(
       await startQuery({
-        name: `group_${i}`,
-        query: integration.getExperimentFactMetricsQuery(queryParams),
+        name: getFactMetricGroupQueryName(i),
+        query: () => getExperimentFactMetricsQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query, setExternalId, queryMetadata) =>
           (integration as SqlIntegration).runExperimentFactMetricsQuery(
@@ -356,6 +381,8 @@ export const startExperimentResultQueries = async (
         ) {
           throw new Error("Integration does not support multi-metric queries");
         }
+        const getExperimentFactMetricsQuery =
+          integration.getExperimentFactMetricsQuery.bind(integration);
         const queryParams: ExperimentFactMetricsQueryParams = {
           activationMetric,
           dimensions: [unitDim],
@@ -367,10 +394,14 @@ export const startExperimentResultQueries = async (
           unitsTableFullName: unitsTableFullName,
           factTableMap: params.factTableMap,
         };
+        const unitDimGroupName = getUnitDimQueryName(
+          dimensionId,
+          getFactMetricGroupQueryName(i),
+        );
         queries.push(
           await startQuery({
-            name: getUnitDimQueryName(dimensionId, `group_${i}`),
-            query: integration.getExperimentFactMetricsQuery(queryParams),
+            name: unitDimGroupName,
+            query: () => getExperimentFactMetricsQuery(queryParams),
             dependencies: [unitQuery.query],
             run: (query, setExternalId, queryMetadata) =>
               (integration as SqlIntegration).runExperimentFactMetricsQuery(
@@ -413,10 +444,11 @@ export const startExperimentResultQueries = async (
           unitsTableFullName: unitsTableFullName,
           factTableMap: params.factTableMap,
         };
+        const unitDimMetricName = getUnitDimQueryName(dimensionId, m.id);
         queries.push(
           await startQuery({
-            name: getUnitDimQueryName(dimensionId, m.id),
-            query: integration.getSnapshotMetricQuery(queryParams),
+            name: unitDimMetricName,
+            query: () => integration.getSnapshotMetricQuery(queryParams),
             dependencies: [unitQuery.query],
             run: (query, setExternalId, queryMetadata) =>
               integration.runSnapshotMetricQuery(
@@ -449,14 +481,17 @@ export const startExperimentResultQueries = async (
 
     trafficQuery = await startQuery({
       name: TRAFFIC_QUERY_NAME,
-      query: integration.getExperimentAggregateUnitsQuery({
-        ...unitQueryParams,
-        settings: snapshotSettings,
-        dimensions: snapshotDimensionsForTraffic.length
-          ? snapshotDimensionsForTraffic
-          : dimensionsForTraffic,
-        useUnitsTable: !!unitQuery,
-      }),
+      // Owns no metric, but its build throw escapes today all the same; as a
+      // failed query it lands on the traffic health block instead.
+      query: () =>
+        integration.getExperimentAggregateUnitsQuery({
+          ...unitQueryParams,
+          settings: snapshotSettings,
+          dimensions: snapshotDimensionsForTraffic.length
+            ? snapshotDimensionsForTraffic
+            : dimensionsForTraffic,
+          useUnitsTable: !!unitQuery,
+        }),
       dependencies: unitQuery ? [unitQuery.query] : [],
       run: (query, setExternalId, queryMetadata) =>
         integration.runExperimentAggregateUnitsQuery(
@@ -474,10 +509,11 @@ export const startExperimentResultQueries = async (
     settings.pipelineSettings?.unitsTableDeletion;
   if (useUnitsTable && dropUnitsTable) {
     const dropUnitsTableQuery = await startQuery({
-      name: `drop_${queryParentId}`,
-      query: integration.getDropUnitsTableQuery({
-        fullTablePath: unitsTableFullName,
-      }),
+      name: getDropUnitsTableQueryName(queryParentId),
+      query: () =>
+        integration.getDropUnitsTableQuery({
+          fullTablePath: unitsTableFullName,
+        }),
       dependencies: [],
       // all other queries in model must succeed or fail first
       runAtEnd: true,

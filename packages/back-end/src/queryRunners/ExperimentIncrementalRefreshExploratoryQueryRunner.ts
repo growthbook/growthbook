@@ -42,6 +42,10 @@ import {
   StartQueryParams,
 } from "./QueryRunner";
 import { SnapshotResult } from "./ExperimentResultsQueryRunner";
+import {
+  getIncrementalCrossStatisticsQueryName,
+  getIncrementalStatisticsQueryName,
+} from "./incrementalStatisticsQueryNaming";
 
 export type ExperimentIncrementalRefreshExploratoryQueryParams = {
   snapshotType: SnapshotType;
@@ -235,33 +239,35 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     const sourceName = factTable ? `(${factTable.name})` : "";
 
     const statisticsQuery = await startQuery({
-      name: `statistics_${group.groupId}`,
+      name: getIncrementalStatisticsQueryName(group.groupId),
       displayTitle: `Compute Statistics ${sourceName}`,
-      query: integration.getIncrementalRefreshStatisticsQuery({
-        settings: snapshotSettings,
-        exposureQuery: resolvedExposureQuery,
-        activationMetric: activationMetric,
-        // TODO(incremental-refresh): add post-stratification to exploratory
-        // analysis. Pre-computation is unused here; we lean on
-        // dimensionsForAnalysis to drive breakdowns instead.
-        dimensionsForPrecomputation: [],
-        dimensionsForAnalysis: dimensionObjs,
-        factTableMap: params.factTableMap,
-        metricSources: [
-          {
-            factTableId: group.factTableId,
-            tableFullName: existingSource.tableFullName,
-            ...(anyMetricHasCuped && existingCovariateSource
-              ? {
-                  covariateTableFullName: existingCovariateSource.tableFullName,
-                }
-              : {}),
-          },
-        ],
-        unitsSourceTableFullName: unitsTableFullName,
-        metrics: sameFtMetrics,
-        lastMaxTimestamp: existingSource?.maxTimestamp || null,
-      }),
+      query: () =>
+        integration.getIncrementalRefreshStatisticsQuery({
+          settings: snapshotSettings,
+          exposureQuery: resolvedExposureQuery,
+          activationMetric: activationMetric,
+          // TODO(incremental-refresh): add post-stratification to exploratory
+          // analysis. Pre-computation is unused here; we lean on
+          // dimensionsForAnalysis to drive breakdowns instead.
+          dimensionsForPrecomputation: [],
+          dimensionsForAnalysis: dimensionObjs,
+          factTableMap: params.factTableMap,
+          metricSources: [
+            {
+              factTableId: group.factTableId,
+              tableFullName: existingSource.tableFullName,
+              ...(anyMetricHasCuped && existingCovariateSource
+                ? {
+                    covariateTableFullName:
+                      existingCovariateSource.tableFullName,
+                  }
+                : {}),
+            },
+          ],
+          unitsSourceTableFullName: unitsTableFullName,
+          metrics: sameFtMetrics,
+          lastMaxTimestamp: existingSource?.maxTimestamp || null,
+        }),
       dependencies: [],
       run: fenced((query, setExternalId, queryMetadata) =>
         integration.runIncrementalRefreshStatisticsQuery(
@@ -296,38 +302,42 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     const sourceName = ftA && ftB ? `(${ftA.name} x ${ftB.name})` : "";
 
     const crossStatsQuery = await startQuery({
-      name: `statistics_cross_${pipelineA.group.groupId}__${pipelineB.group.groupId}`,
+      name: getIncrementalCrossStatisticsQueryName(
+        pipelineA.group.groupId,
+        pipelineB.group.groupId,
+      ),
       displayTitle: `Compute Cross-Fact Statistics ${sourceName}`,
-      query: integration.getIncrementalRefreshStatisticsQuery({
-        settings: snapshotSettings,
-        exposureQuery: resolvedExposureQuery,
-        activationMetric: activationMetric,
-        dimensionsForPrecomputation: [],
-        dimensionsForAnalysis: dimensionObjs,
-        factTableMap: params.factTableMap,
-        unitsSourceTableFullName: unitsTableFullName,
-        metrics: subGroup.metrics.map((m) => m.metric),
-        lastMaxTimestamp: null,
-        // Cross-FT CUPED reads each side's covariate cache. Either
-        // pipeline may have none (if its metrics aren't RA), and we omit
-        // `covariateTableFullName` in that case.
-        metricSources: [
-          {
-            factTableId: pipelineA.group.factTableId,
-            tableFullName: pipelineA.tableFullName,
-            ...(pipelineA.covariateTableFullName
-              ? { covariateTableFullName: pipelineA.covariateTableFullName }
-              : {}),
-          },
-          {
-            factTableId: pipelineB.group.factTableId,
-            tableFullName: pipelineB.tableFullName,
-            ...(pipelineB.covariateTableFullName
-              ? { covariateTableFullName: pipelineB.covariateTableFullName }
-              : {}),
-          },
-        ],
-      }),
+      query: () =>
+        integration.getIncrementalRefreshStatisticsQuery({
+          settings: snapshotSettings,
+          exposureQuery: resolvedExposureQuery,
+          activationMetric: activationMetric,
+          dimensionsForPrecomputation: [],
+          dimensionsForAnalysis: dimensionObjs,
+          factTableMap: params.factTableMap,
+          unitsSourceTableFullName: unitsTableFullName,
+          metrics: subGroup.metrics.map((m) => m.metric),
+          lastMaxTimestamp: null,
+          // Cross-FT CUPED reads each side's covariate cache. Either
+          // pipeline may have none (if its metrics aren't RA), and we omit
+          // `covariateTableFullName` in that case.
+          metricSources: [
+            {
+              factTableId: pipelineA.group.factTableId,
+              tableFullName: pipelineA.tableFullName,
+              ...(pipelineA.covariateTableFullName
+                ? { covariateTableFullName: pipelineA.covariateTableFullName }
+                : {}),
+            },
+            {
+              factTableId: pipelineB.group.factTableId,
+              tableFullName: pipelineB.tableFullName,
+              ...(pipelineB.covariateTableFullName
+                ? { covariateTableFullName: pipelineB.covariateTableFullName }
+                : {}),
+            },
+          ],
+        }),
       dependencies: [],
       run: fenced((query, setExternalId, queryMetadata) =>
         integration.runIncrementalRefreshStatisticsQuery(

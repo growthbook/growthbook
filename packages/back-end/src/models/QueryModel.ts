@@ -14,6 +14,7 @@ export const queriesSchema = [
     query: String,
     status: String,
     name: String,
+    error: String,
   },
 ];
 
@@ -359,6 +360,54 @@ export async function createNewQuery({
     status: running ? "running" : "queued",
     dependencies: dependencies,
     runAtEnd: runAtEnd,
+    queryType,
+  };
+  const doc = await QueryModel.create(data);
+  return toInterface(doc);
+}
+
+/**
+ * Create a Query document that is already in a terminal "failed" state, without
+ * ever executing it. Used to turn a build-time SQL-generation throw into a
+ * failed-query record so the runner's existing dependency-cascade and status
+ * machinery attributes the failure to the owning metric/group instead of
+ * escaping and failing the whole snapshot.
+ */
+export async function createFailedQuery({
+  organization,
+  datasource,
+  language,
+  query,
+  displayTitle,
+  dependencies = [],
+  queryType = "unknown",
+  error,
+}: {
+  organization: string;
+  datasource: string;
+  language: QueryLanguage;
+  query: string;
+  displayTitle?: string;
+  dependencies?: string[];
+  queryType: QueryType;
+  error: string;
+}): Promise<QueryInterface> {
+  const now = new Date();
+  const data: QueryInterface = {
+    createdAt: now,
+    datasource,
+    heartbeat: now,
+    id: generateId("qry_"),
+    language,
+    organization,
+    query,
+    displayTitle,
+    startedAt: now,
+    finishedAt: now,
+    status: "failed",
+    error,
+    dependencies,
+    runAtEnd: false,
     queryType,
   };
   const doc = await QueryModel.create(data);
