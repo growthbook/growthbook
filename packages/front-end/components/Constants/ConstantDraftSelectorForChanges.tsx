@@ -20,6 +20,8 @@ export default function ConstantDraftSelectorForChanges({
   selectedDraftId: string | null;
   setSelectedDraftId: (v: string | null) => void;
   canAutoPublish: boolean;
+  /** Whether this caller may STAGE a draft at all; the shell defaults it to true. */
+  canDraft?: boolean;
   approvalRequired: boolean;
   metadataOnly?: boolean;
   defaultExpanded?: boolean;

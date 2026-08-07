@@ -321,11 +321,14 @@ async function recoverStrandedMerge({
   // The failed attempt never dispatched; this apply is when the change lands.
   // Dispatch and return the CLAIMED revision — `revision` predates the claim,
   // so the webhook payload and the response would disagree with a refetch.
-  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
-    context,
-    claimed,
-    { type: claimed.revertedFrom ? "reverted" : "published" },
-  );
+  // A recovered revert is still a publish, and owes both events for the same reason
+  // the ordinary landing does — consumers mirroring the published lifecycle were
+  // missing every recovered revert.
+  const recoveredWebhooks = getRevisionWebhookAdapter(revision.target.type);
+  await recoveredWebhooks?.dispatch(context, claimed, { type: "published" });
+  if (claimed.revertedFrom) {
+    await recoveredWebhooks?.dispatch(context, claimed, { type: "reverted" });
+  }
   return claimed;
 }
 

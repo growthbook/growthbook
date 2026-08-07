@@ -126,7 +126,7 @@ export class SafeRolloutModel extends BaseClass {
     // the write loses the race instead of having its progress reverted. Each clause
     // mirrors an ownership check: the status we are undoing, and each timing field we
     // proved was ours.
-    await this._dangerousGetCollection().updateOne(
+    const res = await this._dangerousGetCollection().updateOne(
       {
         organization: this.context.org.id,
         id: pre.id,
@@ -151,6 +151,15 @@ export class SafeRolloutModel extends BaseClass {
         ...(Object.keys(unset).length ? { $unset: unset } : {}),
       },
     );
+    // A no-match means a concurrent write moved this rollout between the ownership
+    // read and here, so the failed publish's status/timing are still live. Silence
+    // let Feature and revision compensation report a clean rollback over it.
+    if (!res.matchedCount) {
+      throw new Error(
+        `safe rollout ${pre.id}: could not be rolled back — it was changed by ` +
+          `another writer and still carries this publish's state`,
+      );
+    }
   }
   public async getAllByFeatureIds(featureIds: string[]) {
     return await this._find({ featureId: { $in: featureIds } });

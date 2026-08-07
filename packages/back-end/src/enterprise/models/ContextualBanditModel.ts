@@ -636,6 +636,14 @@ export class ContextualBanditModel extends BaseClass {
         if (!(e instanceof CasConflictError)) throw e;
       }
     }
+    // Exhausted: this feature's slice never moved, so the rollback was still ours to
+    // make and the failed publish's linkage is still live. Returning quietly recorded
+    // compensation as clean over it.
+    throw new Error(
+      `contextual bandit ${cbId}: linkage rollback for feature ${featureId} ` +
+        `could not be applied after repeated conflicts; its linkage still carries ` +
+        `the failed publish`,
+    );
   }
 
   /** All contextual bandits that reference a given contextual bandit query. */

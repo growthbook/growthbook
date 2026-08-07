@@ -122,11 +122,13 @@ export default function SavedGroupArchiveModal({
         canAutoPublish,
         approvalRequired: gated,
         canWriteIntoDraft,
+        canDraft,
       }) => (
         <SavedGroupDraftSelectorForChanges
           savedGroup={savedGroup}
           openRevisions={openRevisions}
           canWriteIntoDraft={canWriteIntoDraft}
+          canDraft={canDraft}
           allRevisions={allRevisions}
           mode={mode}
           setMode={setMode}

@@ -21,6 +21,8 @@ export default function SavedGroupDraftSelectorForChanges({
   selectedDraftId: string | null;
   setSelectedDraftId: (v: string | null) => void;
   canAutoPublish: boolean;
+  /** Whether this caller may STAGE a draft at all; the shell defaults it to true. */
+  canDraft?: boolean;
   approvalRequired: boolean;
   defaultExpanded?: boolean;
   triggerPrefix?: string;

@@ -123,11 +123,13 @@ export default function ConfigArchiveModal({
         canAutoPublish,
         approvalRequired: gated,
         canWriteIntoDraft,
+        canDraft,
       }) => (
         <RevisionDraftSelectorForChanges
           entityId={config.id}
           openRevisions={openRevisions}
           canWriteIntoDraft={canWriteIntoDraft}
+          canDraft={canDraft}
           allRevisions={allRevisions}
           mode={mode}
           setMode={setMode}

@@ -103,11 +103,13 @@ export default function ConstantArchiveModal({
         canAutoPublish,
         approvalRequired: gated,
         canWriteIntoDraft,
+        canDraft,
       }) => (
         <ConstantDraftSelectorForChanges
           constantId={constant.id}
           openRevisions={openRevisions}
           canWriteIntoDraft={canWriteIntoDraft}
+          canDraft={canDraft}
           allRevisions={allRevisions}
           mode={mode}
           setMode={setMode}

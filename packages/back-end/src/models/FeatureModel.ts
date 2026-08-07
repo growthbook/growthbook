@@ -1887,14 +1887,13 @@ const updateSafeRolloutStatuses = async (
           // advancing this rollout in between would be overwritten by our pre-image.
           // A lost race means they own it now, which is the same answer
           // `ownedRestoreValues` gives for a key it can no longer claim.
-          try {
-            await context.models.safeRollout.updateIfUnchanged(
-              current,
-              restore as UpdateProps<SafeRolloutInterface>,
-            );
-          } catch (casErr) {
-            if (!(casErr instanceof CasConflictError)) throw casErr;
-          }
+          // A lost race means the failed publish's values are STILL LIVE on this
+          // rollout, so it is a reversal failure like any other — swallowing it
+          // reported a clean rollback over state that never came back.
+          await context.models.safeRollout.updateIfUnchanged(
+            current,
+            restore as UpdateProps<SafeRolloutInterface>,
+          );
         }
       } catch (undoErr) {
         logger.error(
@@ -2477,7 +2476,11 @@ async function setExperimentHoldoutIds(
   // Which experiments this call actually wrote. The membership arrays have to follow
   // the same decision — see `reverseHoldoutExperimentLinkage`.
   const applied = new Set<string>();
-  await Promise.all(
+  // Every write SETTLES before a failure is surfaced. `Promise.all` rejects on the
+  // first while its siblings keep running, so compensation could inspect an
+  // experiment before its scalar write had landed, judge it unowned, and have that
+  // write arrive after the rollback. Same requirement as the contextual-bandit batch.
+  const outcomes = await Promise.all(
     Object.entries(targets).map(async ([id, next]) => {
       const exp = await getExperimentById(context, id);
       if (!exp) return;
@@ -2501,11 +2504,14 @@ async function setExperimentHoldoutIds(
         });
         applied.add(id);
       } catch (e) {
-        if (onMismatch === "skip" && e instanceof CasConflictError) return;
-        throw e;
+        if (onMismatch === "skip" && e instanceof CasConflictError) return null;
+        return e;
       }
+      return null;
     }),
   );
+  const failure = outcomes.find((e) => e !== null && e !== undefined);
+  if (failure) throw failure;
   return applied;
 }
 
