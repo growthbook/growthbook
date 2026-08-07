@@ -135,7 +135,6 @@ import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { enqueueCoalescedSdkPayloadRefresh } from "back-end/src/jobs/coalescedSdkPayloadRefresh";
 import { isSdkPayloadRefreshCoalescingEnabled } from "back-end/src/services/sdkPayloadRefreshCoalescer";
-import { CRON_ENABLED } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { Counter, Histogram, metrics } from "back-end/src/util/metrics";
 import { getEnvironments } from "back-end/src/util/organization.util";
@@ -782,7 +781,7 @@ export function queueSDKPayloadRefresh(data: {
     });
   };
 
-  if (!isSdkPayloadRefreshCoalescingEnabled() || !CRON_ENABLED) {
+  if (!isSdkPayloadRefreshCoalescingEnabled()) {
     runRefresh();
     return;
   }

@@ -135,6 +135,11 @@ export async function getPendingSdkPayloadRefreshRequests(
 ): Promise<{
   merged: SdkPayloadRefreshQueueRequest;
   requestCount: number;
+  // mergeSdkPayloadRefreshRequests keeps only the last request's auditContext,
+  // so callers that want the full per-write trail (e.g. for logging) need the
+  // originals — otherwise a coalesced batch silently loses every earlier
+  // write's provenance.
+  auditContexts: NonNullable<SdkPayloadRefreshQueueRequest["auditContext"]>[];
 } | null> {
   const collection = getPendingCollection();
   const doc = await collection.findOne({ organization });
@@ -151,67 +156,51 @@ export async function getPendingSdkPayloadRefreshRequests(
     );
     return null;
   }
-  return { merged, requestCount: doc.requests.length };
+  return {
+    merged,
+    requestCount: doc.requests.length,
+    auditContexts: doc.requests
+      .map((r) => r.auditContext)
+      .filter((a): a is NonNullable<typeof a> => !!a),
+  };
 }
 
+// Compare-and-swap instead of an aggregation-pipeline update: DocumentDB/Cosmos
+// reject those. Guards on the exact `requests` array length so a concurrent
+// append between our read and write is detected and retried rather than lost.
+// Mirrors FeatureRevisionModel.casUpdate / RevisionModel.casUpdate.
 export async function ackPendingSdkPayloadRefreshRequests(
   organization: string,
   processedRequestCount: number,
+  maxAttempts = 5,
 ): Promise<void> {
   const collection = getPendingCollection();
-  const now = new Date();
-  let doc: PendingRefreshDocument | null = null;
-  try {
-    const result = await collection.findOneAndUpdate(
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const current = await collection.findOne(
       { organization },
-      [
-        {
-          $set: {
-            requests: {
-              $cond: {
-                if: {
-                  $lte: [
-                    { $size: { $ifNull: ["$requests", []] } },
-                    processedRequestCount,
-                  ],
-                },
-                then: [],
-                else: {
-                  $slice: [
-                    "$requests",
-                    processedRequestCount,
-                    {
-                      $subtract: [
-                        { $size: { $ifNull: ["$requests", []] } },
-                        processedRequestCount,
-                      ],
-                    },
-                  ],
-                },
-              },
-            },
-            dateUpdated: now,
-          },
-        },
-      ],
-      { returnDocument: "after" },
+      { projection: { requests: 1 } },
     );
-    doc = result.value;
-  } catch (e) {
-    // The aggregation pipeline ($cond/$slice/$subtract) requires MongoDB 4.2+.
-    // On older versions this will throw; log a clear message so operators know
-    // what to fix rather than seeing a silent retry loop.
-    logger.error(
-      e,
-      "ackPendingSdkPayloadRefreshRequests: aggregation pipeline failed. " +
-        "SDK_PAYLOAD_REFRESH_DEBOUNCE_MS requires MongoDB 4.2 or newer. " +
-        "Set SDK_PAYLOAD_REFRESH_DEBOUNCE_MS=0 to disable coalescing on older MongoDB versions.",
+    if (!current?.requests?.length) return;
+
+    const remaining = current.requests.slice(processedRequestCount);
+    const result = await collection.updateOne(
+      { organization, requests: { $size: current.requests.length } },
+      { $set: { requests: remaining, dateUpdated: new Date() } },
     );
-    throw e;
+    if (result.matchedCount === 0) {
+      // A concurrent append landed between our read and write; retry with
+      // fresh data rather than overwriting it.
+      continue;
+    }
+    if (remaining.length === 0) {
+      await collection.deleteOne({ organization, requests: { $size: 0 } });
+    }
+    return;
   }
-  if (!doc?.requests?.length) {
-    await collection.deleteOne({ organization, requests: { $size: 0 } });
-  }
+  logger.warn(
+    { organization },
+    "ackPendingSdkPayloadRefreshRequests: exhausted retries reconciling pending requests",
+  );
 }
 
 export function isSdkPayloadRefreshCoalescingEnabled(): boolean {
@@ -219,14 +208,27 @@ export function isSdkPayloadRefreshCoalescingEnabled(): boolean {
 }
 
 export async function ensureSdkPayloadRefreshPendingIndex(): Promise<void> {
+  const collection = getPendingCollection();
+  // Correctness-critical: appendPendingSdkPayloadRefreshRequest relies on this
+  // index to make its upsert atomic. Without it, concurrent upserts for the
+  // same org can each insert their own document, silently splitting a batch's
+  // requests across duplicates that are never coalesced together.
   try {
-    const collection = getPendingCollection();
     await collection.createIndex({ organization: 1 }, { unique: true });
+  } catch (e) {
+    logger.error(
+      e,
+      "Failed to create unique organization index on sdkpayloadrefreshpending; " +
+        "concurrent SDK payload refresh coalescing may silently split requests across duplicate documents",
+    );
+  }
+  // Cleanup-only: if this fails, orphaned pending docs just never expire.
+  try {
     await collection.createIndex(
       { firstQueuedAt: 1 },
       { expireAfterSeconds: PENDING_TTL_SECONDS },
     );
   } catch (e) {
-    logger.warn(e, "Failed to create sdkpayloadrefreshpending indexes");
+    logger.warn(e, "Failed to create sdkpayloadrefreshpending TTL index");
   }
 }
