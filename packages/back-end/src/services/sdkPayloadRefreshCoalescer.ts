@@ -135,10 +135,7 @@ export async function getPendingSdkPayloadRefreshRequests(
 ): Promise<{
   merged: SdkPayloadRefreshQueueRequest;
   requestCount: number;
-  // mergeSdkPayloadRefreshRequests keeps only the last request's auditContext,
-  // so callers that want the full per-write trail (e.g. for logging) need the
-  // originals — otherwise a coalesced batch silently loses every earlier
-  // write's provenance.
+  // Merge keeps only the last auditContext; this preserves every write's for logging.
   auditContexts: NonNullable<SdkPayloadRefreshQueueRequest["auditContext"]>[];
 } | null> {
   const collection = getPendingCollection();
@@ -148,8 +145,6 @@ export async function getPendingSdkPayloadRefreshRequests(
   }
   const merged = mergeSdkPayloadRefreshRequests(doc.requests);
   if (!hasPendingRefreshWork(merged)) {
-    // Merged result has no payload keys and no connections — nothing to refresh.
-    // The document will be cleaned up by the TTL index.
     logger.warn(
       { organization, requestCount: doc.requests.length },
       "sdkPayloadRefreshCoalescer: merged request has no work; document will expire via TTL",
@@ -165,10 +160,8 @@ export async function getPendingSdkPayloadRefreshRequests(
   };
 }
 
-// Compare-and-swap instead of an aggregation-pipeline update: DocumentDB/Cosmos
-// reject those. Guards on the exact `requests` array length so a concurrent
-// append between our read and write is detected and retried rather than lost.
-// Mirrors FeatureRevisionModel.casUpdate / RevisionModel.casUpdate.
+// CAS on `requests` length so a concurrent append between read and write retries
+// instead of being lost. Avoids aggregation-pipeline updates (DocumentDB/Cosmos).
 export async function ackPendingSdkPayloadRefreshRequests(
   organization: string,
   processedRequestCount: number,
@@ -188,8 +181,6 @@ export async function ackPendingSdkPayloadRefreshRequests(
       { $set: { requests: remaining, dateUpdated: new Date() } },
     );
     if (result.matchedCount === 0) {
-      // A concurrent append landed between our read and write; retry with
-      // fresh data rather than overwriting it.
       continue;
     }
     if (remaining.length === 0) {
@@ -209,10 +200,7 @@ export function isSdkPayloadRefreshCoalescingEnabled(): boolean {
 
 export async function ensureSdkPayloadRefreshPendingIndex(): Promise<void> {
   const collection = getPendingCollection();
-  // Correctness-critical: appendPendingSdkPayloadRefreshRequest relies on this
-  // index to make its upsert atomic. Without it, concurrent upserts for the
-  // same org can each insert their own document, silently splitting a batch's
-  // requests across duplicates that are never coalesced together.
+  // Unique org index makes the pending upsert atomic across concurrent writers.
   try {
     await collection.createIndex({ organization: 1 }, { unique: true });
   } catch (e) {
@@ -222,11 +210,8 @@ export async function ensureSdkPayloadRefreshPendingIndex(): Promise<void> {
         "concurrent SDK payload refresh coalescing may silently split requests across duplicate documents",
     );
   }
-  // Cleanup-only: if this fails, orphaned pending docs just never expire.
-  // Keyed on dateUpdated (bumped by every append and every ack), not
-  // firstQueuedAt — that field is set once and never touched again, so under
-  // continuous writes it would age past the TTL and get deleted while the
-  // document still holds unprocessed requests.
+  // TTL on dateUpdated (bumped by append/ack), not firstQueuedAt — otherwise an
+  // actively-written doc can expire while it still holds unprocessed requests.
   try {
     await collection.createIndex(
       { dateUpdated: 1 },

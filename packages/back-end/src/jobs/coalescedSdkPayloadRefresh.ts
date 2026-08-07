@@ -74,18 +74,11 @@ async function runCoalescedSdkPayloadRefresh(
       "back-end/src/services/features"
     );
 
-    // null covers both "nothing pending" and "pending requests merge to no
-    // work" (e.g. every queued request had empty payloadKeys/sdkConnections).
-    // Neither ack nor delete anything here — there's nothing to prune in the
-    // first case, and in the second the stale doc is left for the TTL index
-    // to drop rather than risk racing a write that's landing concurrently.
+    // Empty / no-work batches are left for the TTL rather than racing a concurrent append.
     const pending = await getPendingSdkPayloadRefreshRequests(organization);
     if (!pending) return;
 
     if (pending.requestCount > 1) {
-      // refreshSDKPayloadCache only takes one auditContext/stackTrace (the
-      // last write's, per mergeSdkPayloadRefreshRequests), so log the full
-      // set here or this batch's other contributing writes leave no trace.
       logger.info(
         {
           organization,

@@ -178,10 +178,6 @@ describe("sdkPayloadRefreshCoalescer (Mongo-backed pending queue)", () => {
   it("TTLs on dateUpdated, not firstQueuedAt, so an actively-appended doc never expires early", async () => {
     const indexes = await rawCollection().indexes();
     const ttlIndex = indexes.find((i) => i.expireAfterSeconds !== undefined);
-    // firstQueuedAt is set once and never touched again — a TTL keyed on it
-    // would expire a document that's still receiving new requests. dateUpdated
-    // is bumped by every append and every ack, so it only reaps documents
-    // Agenda has genuinely never drained.
     expect(ttlIndex?.key).toEqual({ dateUpdated: 1 });
   });
 
@@ -225,7 +221,6 @@ describe("sdkPayloadRefreshCoalescer (Mongo-backed pending queue)", () => {
     });
     await appendPendingSdkPayloadRefreshRequest("org_1", {
       payloadKeys: [{ environment: "staging", project: "p1" }],
-      // No auditContext on this one — should be skipped, not produce a hole.
     });
     await appendPendingSdkPayloadRefreshRequest("org_1", {
       payloadKeys: [{ environment: "dev", project: "p1" }],
@@ -233,9 +228,7 @@ describe("sdkPayloadRefreshCoalescer (Mongo-backed pending queue)", () => {
     });
 
     const pending = await getPendingSdkPayloadRefreshRequests("org_1");
-    // merged keeps only the last write's context...
     expect(pending?.merged.auditContext?.id).toBe("b");
-    // ...but auditContexts preserves every contributing write's provenance.
     expect(pending?.auditContexts).toEqual([
       { event: "feature.update", model: "feature", id: "a" },
       { event: "feature.update", model: "feature", id: "b" },
@@ -263,7 +256,6 @@ describe("sdkPayloadRefreshCoalescer (Mongo-backed pending queue)", () => {
     await appendPendingSdkPayloadRefreshRequest("org_1", {
       payloadKeys: [{ environment: "staging", project: "p1" }],
     });
-    // Appended after the batch we're about to ack was read — must survive.
     await appendPendingSdkPayloadRefreshRequest("org_1", {
       payloadKeys: [{ environment: "dev", project: "p1" }],
     });
@@ -292,8 +284,6 @@ describe("sdkPayloadRefreshCoalescer (Mongo-backed pending queue)", () => {
       payloadKeys: [{ environment: "production", project: "p1" }],
     });
 
-    // More than what's actually pending — e.g. a stale requestCount from a
-    // caller that read the doc before this test's setup.
     await ackPendingSdkPayloadRefreshRequests("org_1", 5);
 
     expect(await rawCollection().findOne({ organization: "org_1" })).toBeNull();
@@ -304,9 +294,7 @@ describe("sdkPayloadRefreshCoalescer (Mongo-backed pending queue)", () => {
       payloadKeys: [{ environment: "production", project: "p1" }],
     });
 
-    // getPendingCollection() creates a fresh Collection wrapper per call, so
-    // spy on the shared prototype method rather than a single instance —
-    // otherwise the mock wouldn't intercept ack's own internal lookup.
+    // Spy on the prototype: getPendingCollection() returns a fresh wrapper each call.
     const originalFindOne = Collection.prototype.findOne;
     let calls = 0;
     jest
@@ -314,9 +302,6 @@ describe("sdkPayloadRefreshCoalescer (Mongo-backed pending queue)", () => {
       .mockImplementation(async function (this: Collection, ...args) {
         calls++;
         const result = await originalFindOne.apply(this, args);
-        // Land a write right after the snapshot is captured but before ack's
-        // guarded update runs, on the very first read only, so the guard
-        // misses once (stale size) and retries against fresh data.
         if (calls === 1) {
           await appendPendingSdkPayloadRefreshRequest("org_1", {
             payloadKeys: [{ environment: "staging", project: "p1" }],
@@ -332,7 +317,6 @@ describe("sdkPayloadRefreshCoalescer (Mongo-backed pending queue)", () => {
     }
 
     const doc = await rawCollection().findOne({ organization: "org_1" });
-    // The concurrently-appended request must survive the retry, not be lost.
     expect(doc?.requests).toHaveLength(1);
     expect(doc?.requests[0].payloadKeys).toEqual([
       { environment: "staging", project: "p1" },

@@ -297,19 +297,16 @@ export const REMOTE_EVAL_EDGE_API_TOKEN =
 
 export const CRON_ENABLED = !stringToBoolean(process.env.CRON_DISABLED);
 
-// Coalesce SDK payload cache refreshes per org. 0 (default) = disabled; refreshes run
-// immediately. Set to a positive integer (e.g. 1000) to debounce rapid writes. When enabled,
-// this delay is end-to-end: SDK clients (including proxy SSE) won't see the change until at
-// least this many ms after the triggering write. Requires MongoDB 4.2+ (uses $cond/$slice/$subtract
-// aggregation pipeline operators in ackPendingSdkPayloadRefreshRequests).
+// Coalesce SDK payload cache refreshes per org. 0 (default) = disabled / immediate.
+// Positive values debounce rapid writes; SDK clients won't see changes until at least
+// this many ms after the triggering write.
 export const SDK_PAYLOAD_REFRESH_DEBOUNCE_MS = parseEnvInt(
   process.env.SDK_PAYLOAD_REFRESH_DEBOUNCE_MS,
   0,
   { min: 0, name: "SDK_PAYLOAD_REFRESH_DEBOUNCE_MS" },
 );
 
-// When SDK_PAYLOAD_REFRESH_DEBOUNCE_MS > 0, force a refresh at least this often during
-// continuous writes (0 = trailing debounce only). No effect when debouncing is disabled.
+// Cap wait during continuous writes when debouncing (0 = trailing debounce only).
 export const SDK_PAYLOAD_REFRESH_MAX_WAIT_MS = parseEnvInt(
   process.env.SDK_PAYLOAD_REFRESH_MAX_WAIT_MS,
   5000,
