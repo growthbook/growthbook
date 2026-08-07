@@ -212,7 +212,6 @@ export const SimulateFeatureValues: FC<{
     });
   }
 
-  const showEnvDropdown = true;
   const numColumns =
     2 +
     (selectedEnvironment !== "all"
@@ -252,22 +251,18 @@ export const SimulateFeatureValues: FC<{
               <TagsFilter filter={tagsFilter} items={items} />
             </div>
             <div className="ml-auto">
-              {showEnvDropdown && (
-                <div className="d-flex flex-nowrap">
-                  <div className="mr-1 align-self-center small">
-                    Environment:
-                  </div>
-                  <SelectField
-                    size="legacy"
-                    value={!selectedEnvironment ? "all" : selectedEnvironment}
-                    options={environmentOptions}
-                    onChange={(e) => {
-                      setSelectedEnvironment(e);
-                      refreshResults();
-                    }}
-                  />
-                </div>
-              )}
+              <div className="d-flex flex-nowrap">
+                <div className="mr-1 align-self-center small">Environment:</div>
+                <SelectField
+                  size="legacy"
+                  value={!selectedEnvironment ? "all" : selectedEnvironment}
+                  options={environmentOptions}
+                  onChange={(e) => {
+                    setSelectedEnvironment(e);
+                    refreshResults();
+                  }}
+                />
+              </div>
             </div>
           </div>
 

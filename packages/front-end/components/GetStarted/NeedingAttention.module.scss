@@ -26,3 +26,13 @@
     max-width: 150px;
   }
 }
+
+// ui/Table forces overflow:visible on body cells so menus can escape them, which
+// outranks any class on the cell itself. Clip on a child instead.
+.truncate {
+  display: block;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}

@@ -428,16 +428,22 @@ const NeedingAttention = (): React.ReactElement | null => {
                       {item.name}
                     </Link>
                   </TableRowHeaderCell>
-                  <TableCell className="text-truncate">
-                    {getProjectById(item?.project || "")?.name}
+                  <TableCell>
+                    <span className={styles.truncate}>
+                      {getProjectById(item?.project || "")?.name}
+                    </span>
                   </TableCell>
                   <TableCell className={styles.ownerTd}>
-                    <Owner ownerId={item.owner} />
+                    <span className={styles.truncate}>
+                      <Owner ownerId={item.owner} />
+                    </span>
                   </TableCell>
-                  <TableCell className="text-truncate">
-                    <ExperimentStatusDetailsWithDot
-                      statusIndicatorData={item.statusIndicator}
-                    />
+                  <TableCell>
+                    <span className={styles.truncate}>
+                      <ExperimentStatusDetailsWithDot
+                        statusIndicatorData={item.statusIndicator}
+                      />
+                    </span>
                   </TableCell>
                 </TableRow>
               ))}
@@ -555,14 +561,20 @@ const NeedingAttention = (): React.ReactElement | null => {
                       {item.featureId}
                     </Link>
                   </TableRowHeaderCell>
-                  <TableCell className="text-truncate">
-                    {getProjectById(item.featureMeta?.project || "")?.name}
+                  <TableCell>
+                    <span className={styles.truncate}>
+                      {getProjectById(item.featureMeta?.project || "")?.name}
+                    </span>
                   </TableCell>
                   <TableCell className={styles.ownerTd}>
-                    <Owner ownerId={item.owner} />
+                    <span className={styles.truncate}>
+                      <Owner ownerId={item.owner} />
+                    </span>
                   </TableCell>
-                  <TableCell className="text-truncate">
-                    {renderStatusCopy(item)}
+                  <TableCell>
+                    <span className={styles.truncate}>
+                      {renderStatusCopy(item)}
+                    </span>
                   </TableCell>
                 </TableRow>
               ))}

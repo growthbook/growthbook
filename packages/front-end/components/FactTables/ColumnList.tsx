@@ -189,7 +189,7 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
       )}
       {columns.length > 0 ? (
         <>
-          <Table variant="list" mt="2">
+          <Table variant="list" size="sm" mt="2">
             <TableHeader>
               <TableRow>
                 <TableColumnHeader style={{ width: 30 }} />

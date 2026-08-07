@@ -782,7 +782,7 @@ const ShareModal = ({
                                   <Box className="w-100 scrolly">
                                     <Table
                                       variant="surface"
-                                      className="experiment-table"
+                                      className="experiment-table table-hover"
                                     >
                                       <TableHeader>
                                         <TableRow>
