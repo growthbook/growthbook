@@ -11,6 +11,7 @@ import {
   isScheduledPublishDue,
   ReviewDecision,
   JsonPatchOperation,
+  REVIEW_CYCLE_STATUSES,
 } from "shared/enterprise";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import uniqid from "uniqid";
@@ -1278,9 +1279,7 @@ export async function submitRevisionReview({
 
   if (
     !isComment &&
-    !["pending-review", "changes-requested", "approved"].includes(
-      revision.status,
-    )
+    !(REVIEW_CYCLE_STATUSES as readonly string[]).includes(revision.status)
   ) {
     throw new BadRequestError(
       `Can only submit a review when review has been requested (status is "${revision.status}")`,

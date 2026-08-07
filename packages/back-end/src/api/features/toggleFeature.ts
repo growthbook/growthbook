@@ -13,6 +13,7 @@ import {
   createRevision,
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
+import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import { logger } from "back-end/src/util/logger";
 import {
   LandingConflictError,
@@ -104,6 +105,8 @@ export async function toggleFeatureCore(
       experimentMap,
       revision,
       safeRolloutMap,
+      // Nothing changed, so nothing was published and no gate was cleared.
+      bypassedGates: [] as BypassedGate[],
     };
   }
 
@@ -111,9 +114,11 @@ export async function toggleFeatureCore(
   // restApiBypassesReviews setting (API keys/PATs only — JWT-backed REST
   // calls should behave like dashboard actions) or a role/token that grants
   // the FlagsBypassApprovals permission on this feature's project.
-  const canBypass =
-    canUseRestApiBypass ||
-    context.permissions.canBypassFlagApprovalChecks(feature, "feature");
+  const permissionBypass = context.permissions.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
+  const canBypass = canUseRestApiBypass || permissionBypass;
   // Build a minimal fake revision to check whether these toggle changes need review
   const liveRevision = await getRevision({
     context,
@@ -152,6 +157,23 @@ export async function toggleFeatureCore(
         "or use a role/token that grants FlagsBypassApprovals on this project.",
     );
   }
+
+  // Toggle is an immediate publish like any other, so a bypass it performed is
+  // owed to the response — same shape, same precedence, same `via` values as the
+  // publish and revert surfaces. It reported nothing, which reads identically to
+  // "this feature needed no review".
+  const bypassedGates: BypassedGate[] =
+    reviewRequired && canBypass
+      ? [
+          {
+            type: "approval-required",
+            outcome: "bypassed",
+            via: canUseRestApiBypass
+              ? "restApiBypassesReviews"
+              : "bypassApprovalPermission",
+          },
+        ]
+      : [];
 
   const revision = await createRevision({
     context,
@@ -238,6 +260,7 @@ export async function toggleFeatureCore(
     experimentMap: updatedExperimentMap,
     revision: latestRevision,
     safeRolloutMap,
+    bypassedGates,
   };
 }
 
@@ -254,6 +277,9 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
     );
     return {
       feature: await resolveOwnerEmail(getApiFeatureObj(data), req.context),
+      ...(data.bypassedGates.length
+        ? { bypassedGates: data.bypassedGates }
+        : {}),
     };
   },
 );

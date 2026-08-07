@@ -1728,6 +1728,8 @@ export default function ReviewAndPublish({
     canManageDraft: canAdvanceDraft,
     isReviewRequester,
     isContributor: !!userId && contributorIds.includes(userId),
+    // `authoredFeatureDraft` — author OR contributor, matching this engine.
+    isDraftOwner: authoredDraft,
     isReviewer: !!userId && reviewers.some((r) => r.id === userId),
     adminPublish,
     hasSelectedExperiments: selectedExperiments.size > 0,

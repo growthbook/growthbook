@@ -10,6 +10,7 @@ import {
   JsonPatchOperation,
   normalizeProposedChanges,
   isUserBlockedFromApproving,
+  REVIEW_CYCLE_STATUSES,
 } from "shared/enterprise";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
@@ -647,6 +648,20 @@ export const postReview = async (
     return res
       .status(400)
       .json({ message: "Cannot review a discarded or merged revision" });
+  }
+
+  // ...nor one that is not in review at all. The model re-checks this inside its
+  // CAS (which is what actually closes the recall race); this is the early, clear
+  // refusal, and the message the REST twin already gives.
+  if (
+    decision !== "comment" &&
+    !(REVIEW_CYCLE_STATUSES as readonly string[]).includes(
+      existingRevision.status,
+    )
+  ) {
+    return res.status(400).json({
+      message: `Can only submit a review when review has been requested (status is "${existingRevision.status}")`,
+    });
   }
 
   // Prevent self-review (author cannot approve or request changes on own revision)

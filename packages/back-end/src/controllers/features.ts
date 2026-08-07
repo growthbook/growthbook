@@ -1402,7 +1402,7 @@ export async function postFeatureReviewOrComment(
   ) {
     throw new Error("Can only review if review is requested");
   }
-  await submitReviewAndComments(
+  const { applied } = await submitReviewAndComments(
     context,
     revision,
     res.locals.eventAudit,
@@ -1412,6 +1412,14 @@ export async function postFeatureReviewOrComment(
     // can detect when the approval has gone stale.
     feature.version,
   );
+  if (!applied) {
+    // The verdict did not persist: a concurrent recall, discard or publish moved
+    // the revision out of the review cycle. Refuse rather than log, notify and
+    // report success for a review the document does not carry.
+    throw new Error(
+      "This revision is no longer in review — it was recalled, published or discarded while the request was in flight.",
+    );
+  }
 
   const updatedRevision = await getRevision({
     context,
@@ -1607,7 +1615,7 @@ export async function postFeatureApproveAndPublish(
     }
   }
 
-  await submitReviewAndComments(
+  const { applied } = await submitReviewAndComments(
     context,
     revision,
     res.locals.eventAudit,
@@ -1615,6 +1623,14 @@ export async function postFeatureApproveAndPublish(
     comment,
     feature.version,
   );
+  if (!applied) {
+    // The verdict did not persist: a concurrent recall, discard or publish moved
+    // the revision out of the review cycle. Refuse rather than log, notify and
+    // report success for a review the document does not carry.
+    throw new Error(
+      "This revision is no longer in review — it was recalled, published or discarded while the request was in flight.",
+    );
+  }
 
   const approvedRevision = await getRevision({
     context,

@@ -2902,6 +2902,14 @@ paths:
                 properties:
                   feature:
                     $ref: '#/components/schemas/FeatureV1'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - feature
                 additionalProperties: false
@@ -8303,6 +8311,14 @@ paths:
                 properties:
                   feature:
                     $ref: '#/components/schemas/FeatureV2'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - feature
                 additionalProperties: false

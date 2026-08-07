@@ -40,6 +40,14 @@ export interface RnPStateInput {
   // touched the revision). Contributors share ownership of the draft, so they
   // can return it to draft even if someone else requested the review.
   isContributor: boolean;
+  /**
+   * The caller is the draft's OWNER by the backend's own definition, which grants
+   * recall regardless of current permissions — the feature engine's
+   * `authoredFeatureDraft` (author or contributor) and the generic engine's
+   * `isRevisionAuthor` (author). Each surface supplies its own engine's answer;
+   * the two differ, and encoding one of them here would misstate the other.
+   */
+  isDraftOwner: boolean;
   // The current user has an active reviewer verdict on this revision —
   // they're the only one who can retract it.
   isReviewer: boolean;
@@ -116,6 +124,7 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     canManageDraft,
     isReviewRequester,
     isContributor,
+    isDraftOwner,
     isReviewer,
     adminPublish,
     hasSelectedExperiments,
@@ -132,19 +141,23 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
   // admin-bypassable), so collapse them into one concept below.
   const publishLocked = featureLockedByRamp || featureLockedBySchedule;
 
-  // recall-review ("Return to draft"): the requester or anyone with skin in
-  // the draft (author/contributor) can pull it back, provided they have
-  // draft-manage permission. Unrelated draft managers shouldn't be able to
-  // retract someone else's review request. (The backend only enforces
-  // canEditFeatureDrafts, so this is deliberately the stricter gate.)
+  // recall-review ("Return to draft"): the draft's owner may always pull back
+  // their own request — withdrawing an ask you made is not authority over the
+  // entity, and both backends short-circuit for them before any permission
+  // check. Everyone else needs draft-manage authority AND skin in the draft, so
+  // an unrelated draft manager can't retract someone else's request.
+  //
+  // Requiring `canManageDraft` of the owner too made the dashboard stricter than
+  // both engines: an author who lost draft authority (role change, project move)
+  // could still recall over REST while the button was simply missing.
   const recallableStatuses = [
     "pending-review",
     "changes-requested",
     "approved",
   ];
   const canRecallReview =
-    canManageDraft &&
-    (isReviewRequester || isContributor) &&
+    (isDraftOwner ||
+      (canManageDraft && (isReviewRequester || isContributor))) &&
     recallableStatuses.includes(status);
 
   // undo-review: only the reviewer who submitted the verdict can retract it.

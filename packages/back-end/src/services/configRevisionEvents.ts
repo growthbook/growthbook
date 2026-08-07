@@ -182,6 +182,12 @@ export async function dispatchConfigRevisionEvent(
       case "recalled":
         await emit("revision.recalled", apiRevision);
         break;
+      case "reviewRetracted":
+        await emit("revision.reviewRetracted", apiRevision);
+        break;
+      case "publishScheduleChanged":
+        await emit("revision.publishScheduleChanged", apiRevision);
+        break;
       case "reverted": {
         const source = revision.revertedFrom
           ? await context.models.revisions

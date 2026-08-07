@@ -100,6 +100,11 @@ export type RevisionLifecycleAction =
   // to draft with its verdicts cleared. Not `reopened`, which revives a DISCARDED
   // revision; a consumer watching for "work is live again" must not see a recall.
   | { type: "recalled" }
+  // Review/scheduling lifecycle. Deliberately NOT `updated`: that action's `change`
+  // is derived from the revision's existing patch ops, so a lifecycle-only write
+  // announced whatever content change the draft happened to already carry.
+  | { type: "reviewRetracted" }
+  | { type: "publishScheduleChanged" }
   // Fires whenever a revert lands on the live entity — both the direct-publish
   // path and an approval-gated draft that's later merged (the dispatcher
   // detects the latter via the revision's `revertedFrom`).

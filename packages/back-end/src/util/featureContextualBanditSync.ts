@@ -138,21 +138,35 @@ export async function reverseFeatureContextualBanditLinkage(
   plan: ContextualBanditLinkagePlan,
 ): Promise<void> {
   const cbModel = context.models.contextualBandits;
-  await promiseAllChunks(
+  // Settle every rewind before surfacing a failure, for the same reason the
+  // forward pass does — and here it matters more. `promiseAllChunks` runs
+  // `Promise.all` per chunk, which rejects on the first failure: siblings in that
+  // chunk kept running and later chunks never started, so a rewind could throw,
+  // have compensation declare failure and KEEP the published feature, and then
+  // land its remaining reversals afterwards — half the bandits rewound to a
+  // pre-image whose feature is still live.
+  const results = await promiseAllChunks(
     plan.deltas.map(
       (delta) => () =>
-        cbModel.setLinkageState(
-          delta.contextualBanditId,
-          plan.featureId,
-          plan.preImage[delta.contextualBanditId],
-          // What the forward pass left this feature's slice holding. A second
-          // writer who has since moved it owns it now, and converging to our
-          // pre-image would undo their change.
-          appliedLinkageState(plan, delta),
-        ),
+        cbModel
+          .setLinkageState(
+            delta.contextualBanditId,
+            plan.featureId,
+            plan.preImage[delta.contextualBanditId],
+            // What the forward pass left this feature's slice holding. A second
+            // writer who has since moved it owns it now, and converging to our
+            // pre-image would undo their change.
+            appliedLinkageState(plan, delta),
+          )
+          .then(
+            () => null,
+            (e: unknown) => e,
+          ),
     ),
     10,
   );
+  const failure = results.find((e) => e !== null);
+  if (failure) throw failure;
 }
 
 /**

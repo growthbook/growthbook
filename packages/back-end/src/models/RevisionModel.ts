@@ -10,10 +10,12 @@ import {
   ScheduledPublishInput,
   getApprovalFlowSettings,
   isRevisionEditLockedBySchedule,
+  REVIEW_CYCLE_STATUSES,
 } from "shared/enterprise";
 import uniqid from "uniqid";
 import { ACTIVE_DRAFT_STATUSES, ActiveDraftStatus } from "shared/validators";
 import type { CreateProps, UpdateProps } from "shared/types/base-model";
+import { buildCasGuard } from "back-end/src/models/casLoop";
 import { isRevisionAuthor } from "back-end/src/revisions/revisionAuthority";
 import {
   MakeModelClass,
@@ -1139,7 +1141,9 @@ export class RevisionModel extends BaseClass {
       (updated.autoPublishOnApproval ||
         (updated.scheduledPublishAt ?? null) !== null)
     ) {
-      const refreshed = await this.disarmScheduledPublish(id);
+      const refreshed = await this.disarmScheduledPublish(id, {
+        observed: updated,
+      });
       if (refreshed) return refreshed;
     }
 
@@ -1215,7 +1219,9 @@ export class RevisionModel extends BaseClass {
       (updated.autoPublishOnApproval ||
         (updated.scheduledPublishAt ?? null) !== null)
     ) {
-      const refreshed = await this.disarmScheduledPublish(id);
+      const refreshed = await this.disarmScheduledPublish(id, {
+        observed: updated,
+      });
       if (refreshed) return refreshed;
     }
 
@@ -1297,6 +1303,23 @@ export class RevisionModel extends BaseClass {
         if (existing.status === "merged" || existing.status === "discarded") {
           throw new Error(`Cannot review a ${existing.status} revision`);
         }
+        // ...nor one that left the review cycle. Refusing only the TERMINAL
+        // statuses still admits `draft`, and a verdict written there sets
+        // `approved`/`changes-requested` from the row's own status — so a recall
+        // landing between the caller's read and this write had the retracted
+        // cycle's verdict re-approve a revision nobody had asked to be reviewed.
+        // Comments stay open: they carry no verdict and leave the status alone,
+        // and commenting on a draft is ordinary.
+        if (
+          !isComment &&
+          !(REVIEW_CYCLE_STATUSES as readonly string[]).includes(
+            existing.status,
+          )
+        ) {
+          throw new Error(
+            `Can only submit a review when review has been requested (status is "${existing.status}")`,
+          );
+        }
 
         // Latest active (non-stale) verdict per reviewer; comments carry none.
         // Prior cycles' verdicts were demoted to stale at the reset (see
@@ -1341,7 +1364,9 @@ export class RevisionModel extends BaseClass {
     ) {
       // Clear the whole schedule (not just the armed flag) so a later
       // "when approved" re-arm can't fire the stale dated schedule.
-      const refreshed = await this.disarmScheduledPublish(id);
+      const refreshed = await this.disarmScheduledPublish(id, {
+        observed: updated,
+      });
       if (refreshed) return refreshed;
     }
 
@@ -1361,7 +1386,18 @@ export class RevisionModel extends BaseClass {
     // open-status condition below would refuse exactly those writes — it exists
     // for the lifecycle callers, where a concurrent publish/discard resolving the
     // revision mid-flight means the scrub would rewrite settled history.
-    { rowResolvedByCaller = false }: { rowResolvedByCaller?: boolean } = {},
+    {
+      rowResolvedByCaller = false,
+      observed,
+    }: {
+      rowResolvedByCaller?: boolean;
+      // The schedule fields as the caller's own CAS just left them. Without this
+      // the scrub is a blind second write: an arm landing between the transition
+      // and the scrub is erased, and its owner is told a schedule is set that no
+      // longer exists. Guarded, a re-arm simply keeps the scrub from running —
+      // which is right, because a schedule armed AFTER the disarm isn't stale.
+      observed?: Revision;
+    } = {},
   ): Promise<Revision | null> {
     await this._dangerousGetCollection().updateOne(
       {
@@ -1370,6 +1406,12 @@ export class RevisionModel extends BaseClass {
         ...(rowResolvedByCaller
           ? {}
           : { status: { $nin: ["merged", "discarded"] } }),
+        ...(observed
+          ? buildCasGuard(
+              ["autoPublishOnApproval", "scheduledPublishAt"],
+              observed as unknown as Record<string, unknown>,
+            )
+          : {}),
       },
       {
         $set: { autoPublishOnApproval: false },
@@ -1440,7 +1482,9 @@ export class RevisionModel extends BaseClass {
       updated.autoPublishOnApproval ||
       (updated.scheduledPublishAt ?? null) !== null
     ) {
-      const refreshed = await this.disarmScheduledPublish(id);
+      const refreshed = await this.disarmScheduledPublish(id, {
+        observed: updated,
+      });
       if (refreshed) return refreshed;
     }
     return updated;

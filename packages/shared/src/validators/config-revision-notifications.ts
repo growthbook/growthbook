@@ -81,6 +81,25 @@ export type ConfigRevisionRecalledPayload = z.infer<
   typeof configRevisionRecalledPayload
 >;
 
+// A review verdict RETRACTED by the reviewer who gave it. The revision's content
+// is untouched; only the standing verdicts change. It used to ride
+// `revision.updated`, whose `change` field the dispatcher derives from the
+// revision's EXISTING patch ops — so a retraction announced a `value` change that
+// never happened.
+export const configRevisionReviewRetractedPayload =
+  configRevisionWebhookPayload;
+export type ConfigRevisionReviewRetractedPayload = z.infer<
+  typeof configRevisionReviewRetractedPayload
+>;
+
+// A deferred publish ARMED, re-armed, or CANCELLED. Content is untouched, for the
+// same reason as `reviewRetracted` above.
+export const configRevisionPublishScheduleChangedPayload =
+  configRevisionWebhookPayload;
+export type ConfigRevisionPublishScheduleChangedPayload = z.infer<
+  typeof configRevisionPublishScheduleChangedPayload
+>;
+
 // `change` indicates which kind of config field was mutated, derived from the
 // revision's proposed-changes patch op paths when the event is dispatched.
 // Configs add a "schema" kind on top of the constant set (schema-only edits).

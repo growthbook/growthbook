@@ -19,6 +19,7 @@ import {
   RevisionChanges,
 } from "shared/types/feature-revision";
 import { EventUser, EventUserLoggedIn } from "shared/types/events/event-types";
+import { REVIEW_CYCLE_STATUSES } from "shared/enterprise";
 import { Environment, OrganizationInterface } from "shared/types/organization";
 import {
   MinimalFeatureRevisionInterface,
@@ -1877,20 +1878,6 @@ export async function setAutoPublishOnApproval(
 
 // Poller-failure bookkeeping. Cleared on cancel and on every (re)arm so a fresh
 // schedule never inherits a prior schedule's "stuck" state or attempt count.
-/**
- * The statuses a revision is IN REVIEW in — the only ones a verdict may be written
- * to, and the only ones its status may be reconciled from.
- *
- * Named because both steps of `submitReviewAndComments` must use the SAME set: step
- * 1 once used "not terminal", which also admits `draft`, so a concurrent recall let
- * a verdict land on a revision that had just been returned to draft.
- */
-const REVIEW_CYCLE_STATUSES = [
-  "pending-review",
-  "changes-requested",
-  "approved",
-] as const;
-
 const SCHEDULED_PUBLISH_FAILURE_UNSET = {
   scheduledPublishAttempts: 1,
   scheduledPublishLastError: 1,
@@ -2353,7 +2340,7 @@ export async function submitReviewAndComments(
   // Current live feature version, captured on approval so we can later detect
   // when an approval has gone stale (live advanced past the approved point).
   liveVersion?: number,
-) {
+): Promise<{ applied: boolean }> {
   const action = reviewSubmittedType;
 
   const filter = {
@@ -2418,16 +2405,18 @@ export async function submitReviewAndComments(
       );
       seeded = outcome === "applied";
     }
+    let baked = seeded;
     if (!seeded) {
       // $pull then $push (Mongo can't do both on one field at once); each op is
       // atomic and scoped to this reviewer's userId.
       await FeatureRevisionModel.updateOne(cycleFilter, {
         $pull: { reviews: { userId: newReview.userId } },
       });
-      await FeatureRevisionModel.updateOne(cycleFilter, {
+      const pushed = await FeatureRevisionModel.updateOne(cycleFilter, {
         $push: { reviews: newReview },
         $set: { datePublished: null, dateUpdated: new Date() },
       });
+      baked = pushed.matchedCount > 0;
     }
 
     // Step 2: reconcile `status` from the stored reviews (CAS-guarded on both
@@ -2466,6 +2455,16 @@ export async function submitReviewAndComments(
       logger.warn(
         `submitReviewAndComments: status reconcile exhausted retries for ${revision.featureId}#${revision.version}`,
       );
+    }
+
+    // Both halves refuse independently when a concurrent recall/discard/publish
+    // moves the revision out of the review cycle, and neither refusal used to
+    // reach the caller: the endpoint logged the review, dispatched its webhooks,
+    // considered auto-publishing and answered 200, for a verdict that is not in
+    // the document. Report it instead, and skip the side effects below that
+    // describe a review that did not happen.
+    if (!baked || outcome !== "applied") {
+      return { applied: false };
     }
   } else if (verdict !== null) {
     // Verdict from a user without a stable reviewer key (e.g. system events)
@@ -2518,6 +2517,8 @@ export async function submitReviewAndComments(
     .catch((e) => {
       logger.error(e, "Error creating revisionlog");
     });
+
+  return { applied: true };
 }
 
 // Retract a review request: pending-review / changes-requested / approved back

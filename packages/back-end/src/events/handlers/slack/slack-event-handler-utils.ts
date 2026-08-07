@@ -196,6 +196,8 @@ export const getSlackMessageForNotificationEvent = async (
     case "savedGroup.revision.reverted":
     case "savedGroup.revision.reopened":
     case "savedGroup.revision.recalled":
+    case "savedGroup.revision.reviewRetracted":
+    case "savedGroup.revision.publishScheduleChanged":
     case "savedGroup.revision.publishFailed":
       return buildSlackMessageForSavedGroupRevisionEvent(
         event.event,
@@ -233,6 +235,8 @@ export const getSlackMessageForNotificationEvent = async (
     case "constant.revision.reverted":
     case "constant.revision.reopened":
     case "constant.revision.recalled":
+    case "constant.revision.reviewRetracted":
+    case "constant.revision.publishScheduleChanged":
     case "constant.revision.publishFailed":
       return buildSlackMessageForConstantRevisionEvent(
         event.event,
@@ -261,6 +265,8 @@ export const getSlackMessageForNotificationEvent = async (
     case "config.revision.reverted":
     case "config.revision.reopened":
     case "config.revision.recalled":
+    case "config.revision.reviewRetracted":
+    case "config.revision.publishScheduleChanged":
     case "config.revision.publishFailed":
       return buildSlackMessageForConfigRevisionEvent(
         event.event,
@@ -933,6 +939,12 @@ const buildSlackMessageForSavedGroupRevisionEvent = (
     case "savedGroup.revision.recalled":
       text = `The review request on revision ${version} of saved group ${group} was recalled`;
       break;
+    case "savedGroup.revision.reviewRetracted":
+      text = `A review verdict on revision ${version} of saved group ${group} was retracted`;
+      break;
+    case "savedGroup.revision.publishScheduleChanged":
+      text = `The scheduled publish for revision ${version} of saved group ${group} changed`;
+      break;
     case "savedGroup.revision.publishFailed":
       text = `Scheduled publish of revision ${version} for saved group ${group} failed${formatPublishFailedSuffix(data)}`;
       break;
@@ -1125,6 +1137,12 @@ const buildSlackMessageForConstantRevisionEvent = (
     case "constant.revision.recalled":
       text = `The review request on revision ${version} of Constant ${name} was recalled`;
       break;
+    case "constant.revision.reviewRetracted":
+      text = `A review verdict on revision ${version} of Constant ${name} was retracted`;
+      break;
+    case "constant.revision.publishScheduleChanged":
+      text = `The scheduled publish for revision ${version} of Constant ${name} changed`;
+      break;
     case "constant.revision.publishFailed":
       text = `Scheduled publish of revision ${version} for Constant ${name} failed${formatPublishFailedSuffix(data)}`;
       break;
@@ -1316,6 +1334,12 @@ const buildSlackMessageForConfigRevisionEvent = (
       break;
     case "config.revision.recalled":
       text = `The review request on revision ${version} of Config ${name} was recalled`;
+      break;
+    case "config.revision.reviewRetracted":
+      text = `A review verdict on revision ${version} of Config ${name} was retracted`;
+      break;
+    case "config.revision.publishScheduleChanged":
+      text = `The scheduled publish for revision ${version} of Config ${name} changed`;
       break;
     case "config.revision.publishFailed":
       text = `Scheduled publish of revision ${version} for Config ${name} failed${formatPublishFailedSuffix(data)}`;

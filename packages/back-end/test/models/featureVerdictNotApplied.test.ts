@@ -1,0 +1,133 @@
+import mongoose from "mongoose";
+import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { submitReviewAndComments } from "back-end/src/models/FeatureRevisionModel";
+import { setupApp } from "../api/api.setup";
+
+/**
+ * When a verdict does not persist, the caller has to be told.
+ *
+ * Both halves of `submitReviewAndComments` already refuse correctly when a
+ * concurrent recall/discard/publish moves the revision out of the review cycle —
+ * step 1's filter won't match, and step 2's CAS returns null rather than
+ * resurrecting `pending-review` over their `draft`. Neither refusal reached the
+ * caller: the endpoint went on to write the review log, dispatch the review
+ * webhooks, consider auto-publishing, and answer 200 for a verdict that is not in
+ * the document.
+ *
+ * That is worse than a plain lost write. A reviewer sees "approved", a webhook
+ * consumer records an approval, and the revision they are looking at has neither.
+ *
+ * `applied` is the signal. These pin it at the model, where the refusal is decided;
+ * the three call sites turn it into an error.
+ */
+
+const ORG_ID = "org_verdict_applied";
+
+describe("submitReviewAndComments reports whether the verdict landed", () => {
+  setupApp();
+
+  const context = {
+    org: { id: ORG_ID, settings: {} },
+    userId: "u_reviewer",
+    models: {
+      featureRevisionLogs: { create: async () => undefined },
+    },
+  } as never;
+
+  const user = {
+    type: "dashboard" as const,
+    id: "u_reviewer",
+    email: "r@t.co",
+    name: "R",
+  };
+
+  const seed = async (status: string): Promise<FeatureRevisionInterface> => {
+    await mongoose.connection
+      .collection("featurerevisions")
+      .deleteMany({ organization: ORG_ID });
+    const doc = {
+      organization: ORG_ID,
+      featureId: "feat_applied",
+      version: 2,
+      status,
+      // Present (not undefined) so the legacy self-heal branch is skipped and the
+      // ordinary $pull/$push path runs — the one whose match count is the signal.
+      reviews: [],
+      createdBy: { type: "dashboard", id: "u_author", email: "", name: "" },
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+    await mongoose.connection.collection("featurerevisions").insertOne(doc);
+    return doc as unknown as FeatureRevisionInterface;
+  };
+
+  const stored = async () =>
+    await mongoose.connection
+      .collection("featurerevisions")
+      .findOne({ organization: ORG_ID, featureId: "feat_applied", version: 2 });
+
+  it("reports not-applied when the revision left the review cycle", async () => {
+    // The caller's copy still says pending-review — it is the stale read a recall
+    // has already superseded, which is exactly the race.
+    const stale = await seed("pending-review");
+    await mongoose.connection
+      .collection("featurerevisions")
+      .updateOne(
+        { organization: ORG_ID, featureId: "feat_applied", version: 2 },
+        { $set: { status: "draft" } },
+      );
+
+    const result = await submitReviewAndComments(
+      context,
+      stale,
+      user,
+      "Approved",
+      undefined,
+      1,
+    );
+
+    expect(result.applied).toBe(false);
+    const row = await stored();
+    // And nothing landed: no verdict to be reconciled from later, no status change.
+    expect(row?.status).toBe("draft");
+    expect(row?.reviews).toEqual([]);
+  });
+
+  it("reports applied on the ordinary path", async () => {
+    // The control. Reporting `false` unconditionally would pass the case above and
+    // break every real review.
+    const revision = await seed("pending-review");
+
+    const result = await submitReviewAndComments(
+      context,
+      revision,
+      user,
+      "Approved",
+      undefined,
+      1,
+    );
+
+    expect(result.applied).toBe(true);
+    const row = await stored();
+    expect(row?.status).toBe("approved");
+    expect((row?.reviews as unknown[]).length).toBe(1);
+  });
+
+  it("reports applied for a plain comment, which writes no verdict", async () => {
+    // Comments take the `verdict === null` path, which never touches the revision
+    // and so has nothing to refuse. It must not be reported as a failure.
+    const revision = await seed("pending-review");
+
+    const result = await submitReviewAndComments(
+      context,
+      revision,
+      user,
+      "Comment",
+      "looks fine",
+      1,
+    );
+
+    expect(result.applied).toBe(true);
+    expect((await stored())?.status).toBe("pending-review");
+  });
+});

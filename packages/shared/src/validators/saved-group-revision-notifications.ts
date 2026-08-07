@@ -96,6 +96,25 @@ export type SavedGroupRevisionRecalledPayload = z.infer<
   typeof savedGroupRevisionRecalledPayload
 >;
 
+// A review verdict RETRACTED by the reviewer who gave it. The revision's content
+// is untouched; only the standing verdicts change. It used to ride
+// `revision.updated`, whose `change` field the dispatcher derives from the
+// revision's EXISTING patch ops — so a retraction announced a `value` change that
+// never happened.
+export const savedGroupRevisionReviewRetractedPayload =
+  savedGroupRevisionWebhookPayload;
+export type SavedGroupRevisionReviewRetractedPayload = z.infer<
+  typeof savedGroupRevisionReviewRetractedPayload
+>;
+
+// A deferred publish ARMED, re-armed, or CANCELLED. Content is untouched, for the
+// same reason as `reviewRetracted` above.
+export const savedGroupRevisionPublishScheduleChangedPayload =
+  savedGroupRevisionWebhookPayload;
+export type SavedGroupRevisionPublishScheduleChangedPayload = z.infer<
+  typeof savedGroupRevisionPublishScheduleChangedPayload
+>;
+
 // `change` indicates which kind of saved-group field was mutated. Derived from
 // the revision's proposed-changes patch op paths when the event is dispatched.
 export const savedGroupRevisionUpdatedPayload = savedGroupRevisionWebhookPayload

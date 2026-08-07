@@ -1,4 +1,8 @@
-import { Revision, RevisionTargetType } from "shared/enterprise";
+import {
+  Revision,
+  RevisionTargetType,
+  REVIEW_CYCLE_STATUSES,
+} from "shared/enterprise";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -15,8 +19,6 @@ import {
   reviewAuthorityOnRow,
 } from "back-end/src/revisions/revisionAuthority";
 
-const REVIEW_STATUSES = ["pending-review", "changes-requested", "approved"];
-
 /** Return a revision that is in review to `draft`, clearing its reviews. */
 export async function recallRevisionReview({
   context,
@@ -29,7 +31,7 @@ export async function recallRevisionReview({
   // so the live entity is not part of the decision.
   revision: Revision;
 }): Promise<Revision> {
-  if (!REVIEW_STATUSES.includes(revision.status)) {
+  if (!(REVIEW_CYCLE_STATUSES as readonly string[]).includes(revision.status)) {
     throw new BadRequestError(
       "Only a revision in review can be returned to draft",
     );
@@ -129,7 +131,7 @@ export async function undoRevisionReview({
     reviewAuthorityOnRow(context),
   );
   await getRevisionWebhookAdapter(type)?.dispatch(context, updated, {
-    type: "updated",
+    type: "reviewRetracted",
   });
 
   if (updated.status === "approved" && updated.autoPublishOnApproval) {
@@ -250,7 +252,7 @@ export async function scheduleRevisionPublish({
   );
 
   await getRevisionWebhookAdapter(type)?.dispatch(context, updated, {
-    type: "updated",
+    type: "publishScheduleChanged",
   });
   return updated;
 }

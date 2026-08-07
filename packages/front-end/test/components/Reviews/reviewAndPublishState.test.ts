@@ -16,6 +16,7 @@ function base(overrides: Partial<RnPStateInput> = {}): RnPStateInput {
     canManageDraft: false,
     isReviewRequester: false,
     isContributor: false,
+    isDraftOwner: false,
     isReviewer: false,
     adminPublish: false,
     hasSelectedExperiments: false,
@@ -272,9 +273,30 @@ describe("getReviewAndPublishState", () => {
       expect(s.canRecallReview).toBe(false);
     });
 
-    it("blocks a contributor without draft-manage permission", () => {
+    it("blocks a contributor who is not the draft's owner", () => {
+      // The generic engine's rule: only the AUTHOR gets the free pass, so a
+      // contributor without draft-manage authority is refused there.
       const s = getReviewAndPublishState(
         base({ ...pending, isContributor: true }),
+      );
+      expect(s.canRecallReview).toBe(false);
+    });
+
+    it("allows the draft's owner with no permissions at all", () => {
+      // Both engines short-circuit for the owner before any permission check —
+      // withdrawing a request you made is not authority over the entity. The
+      // dashboard used to require draft-manage of them too, so an author who lost
+      // that authority could recall over REST but had no button.
+      const s = getReviewAndPublishState(
+        base({ ...pending, isDraftOwner: true }),
+      );
+      expect(s.canRecallReview).toBe(true);
+    });
+
+    it("still refuses the owner once the revision is out of review", () => {
+      // The owner pass widens WHO, never WHEN.
+      const s = getReviewAndPublishState(
+        base({ requireReviews: true, status: "draft", isDraftOwner: true }),
       );
       expect(s.canRecallReview).toBe(false);
     });

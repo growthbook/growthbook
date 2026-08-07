@@ -110,7 +110,7 @@ export async function submitRevisionReview(
     );
   }
 
-  await submitReviewAndComments(
+  const { applied } = await submitReviewAndComments(
     req.context,
     revision,
     req.context.auditUser,
@@ -121,6 +121,14 @@ export async function submitRevisionReview(
     // app's review flow).
     feature.version,
   );
+  if (!applied) {
+    // The verdict did not persist: a concurrent recall, discard or publish moved
+    // the revision out of the review cycle. Refuse rather than log, notify and
+    // report success for a review the document does not carry.
+    throw new BadRequestError(
+      "This revision is no longer in review — it was recalled, published or discarded while the request was in flight.",
+    );
+  }
 
   const updated = await getRevision({
     context: req.context,

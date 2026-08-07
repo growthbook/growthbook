@@ -13,6 +13,21 @@ export const revisionStatus = [
 ] as const;
 export type RevisionStatus = (typeof revisionStatus)[number];
 
+/**
+ * The statuses a review cycle is OPEN in: the only ones a verdict may be written
+ * to, and the only ones a status may be reconciled from.
+ *
+ * Both revision engines need the SAME set, and both got it wrong the same way —
+ * spelling it as "not terminal", which also admits `draft`, so a concurrent recall
+ * let a verdict from the retracted cycle land. Defined once so the next reader
+ * cannot re-derive it a fourth time.
+ */
+export const REVIEW_CYCLE_STATUSES = [
+  "pending-review",
+  "changes-requested",
+  "approved",
+] as const;
+
 export const reviewDecision = [
   "approve",
   "request-changes",

@@ -817,6 +817,9 @@ function ReviewAndPublishRevision<T>({
     canManageDraft: canAdvanceDraft,
     isReviewRequester: isAuthor,
     isContributor,
+    // The generic engine grants recall to the AUTHOR only — contributors go
+    // through the permission arm.
+    isDraftOwner: isAuthor,
     isReviewer,
     adminPublish,
     hasSelectedExperiments: false,
