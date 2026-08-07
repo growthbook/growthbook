@@ -130,17 +130,6 @@ function ArtifactRow({
   );
 }
 
-// Shown elsewhere on the page, so they would only read as duplicates here.
-const HIDDEN_META = new Set(["appName", "intent"]);
-
-// Metadata keys are open by design, so labels are derived rather than mapped — a key
-// nobody has seen before still renders as a readable row instead of not rendering.
-function humanizeKey(key: string): string {
-  return key
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/^./, (c) => c.toUpperCase());
-}
-
 function summarise(artifacts: Artifact[]): string {
   const counts = new Map<ArtifactKind, number>();
   artifacts.forEach((a) => counts.set(a.kind, (counts.get(a.kind) || 0) + 1));
@@ -199,13 +188,6 @@ export default function SetupRunPage() {
   const byGrowthBook = run.artifacts.filter((a) => a.by === "growthbook");
   const failing = run.checks.filter((c) => !c.ok && c.required);
   const appName = setupRunMetaString(run.metadata, "appName") || "your app";
-
-  const environment = Object.entries(run.metadata)
-    .filter(
-      ([key, value]) => !HIDDEN_META.has(key) && value !== null && value !== "",
-    )
-    .map(([key, value]): [string, string] => [humanizeKey(key), String(value)])
-    .sort((a, b) => a[0].localeCompare(b[0]));
 
   const when = formatDistanceToNow(new Date(run.dateCreated), {
     addSuffix: true,
@@ -327,38 +309,6 @@ export default function SetupRunPage() {
           </Frame>
         ))}
       </Grid>
-
-      {environment.length > 0 && (
-        <Box mt="6">
-          <SectionHeading title="Environment" eyebrow="what we detected" />
-          <Frame mb="0" py="3">
-            {environment.map(([key, value], i) => (
-              <Flex
-                key={key}
-                justify="between"
-                gap="4"
-                py="2"
-                className={i === 0 ? undefined : "border-top"}
-              >
-                <Text size="small" color="text-mid">
-                  {key}
-                </Text>
-                <Box
-                  style={{
-                    fontFamily:
-                      'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
-                    textAlign: "right",
-                    minWidth: 0,
-                    wordBreak: "break-word",
-                  }}
-                >
-                  <Text size="small">{value}</Text>
-                </Box>
-              </Flex>
-            ))}
-          </Frame>
-        </Box>
-      )}
     </div>
   );
 }
