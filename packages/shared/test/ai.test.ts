@@ -1,11 +1,51 @@
 import {
   formatAIRateLimitRetryMessage,
+  getProviderForAIModel,
   parseAspectRatio,
   snapAspectRatio,
   aspectRatioToDims,
   humanizeAspectRatio,
   buildImageAspectInstruction,
 } from "../src/ai";
+
+describe("getProviderForAIModel", () => {
+  it("resolves text models", () => {
+    expect(getProviderForAIModel("text", "gpt-4o-mini")).toBe("openai");
+    expect(getProviderForAIModel("text", "claude-sonnet-4-6")).toBe(
+      "anthropic",
+    );
+    expect(getProviderForAIModel("text", "mistral-small")).toBe("mistral");
+  });
+
+  it("resolves embedding models from their own registry", () => {
+    // Text and embedding models share a provider namespace, not a registry.
+    expect(getProviderForAIModel("embedding", "gemini-embedding-001")).toBe(
+      "google",
+    );
+    expect(getProviderForAIModel("text", "gemini-embedding-001")).toBeNull();
+    expect(getProviderForAIModel("embedding", "gemini-2.5-flash")).toBeNull();
+  });
+
+  it("resolves image models, including legacy aliases", () => {
+    expect(getProviderForAIModel("image", "dall-e-3")).toBe("openai");
+    expect(getProviderForAIModel("image", "grok-2-image")).toBe("xai");
+    expect(getProviderForAIModel("image", "imagen-4.0-generate-001")).toBe(
+      "google",
+    );
+    // Stored on orgs from before the id changed.
+    expect(
+      getProviderForAIModel("image", "gemini-2.5-flash-image-preview"),
+    ).toBe("google");
+  });
+
+  it("returns null for an unknown id rather than throwing", () => {
+    // Read off saved org settings, so a stale value must not throw.
+    expect(getProviderForAIModel("text", "not-a-model")).toBeNull();
+    expect(getProviderForAIModel("embedding", "not-a-model")).toBeNull();
+    expect(getProviderForAIModel("image", "not-a-model")).toBeNull();
+    expect(getProviderForAIModel("text", "")).toBeNull();
+  });
+});
 
 describe("formatAIRateLimitRetryMessage", () => {
   it("formats duration with singular units when appropriate", () => {

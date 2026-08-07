@@ -1,18 +1,18 @@
 import type { Response } from "express";
+import type { AIModel } from "shared/ai";
 import type { ReqContext } from "back-end/types/request";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { secondsUntilAICanBeUsedAgain } from "back-end/src/enterprise/services/ai";
+import { secondsUntilAICanBeUsedAgainForModel } from "back-end/src/enterprise/services/ai";
 import type { AgentConfig } from "back-end/src/enterprise/services/agent-handler";
 
 type OrgAIPromptConfig = Awaited<
   ReturnType<ReqContext["models"]["aiPrompts"]["getAIPrompt"]>
 >;
 
-/**
- * Runs premium-feature, AI-enabled, and rate-limit checks.
- * Returns false (and writes an error response) if the request should be rejected.
- */
+// Model-independent checks: premium feature and AI-enabled. Writes the error
+// response and returns false if the request should be rejected. The usage cap is
+// provider-exact, so it lives in enforceAIUsageCap once the model is known.
 export async function runAccessGates(
   context: ReqContext,
   res: Response,
@@ -25,7 +25,7 @@ export async function runAccessGates(
     return false;
   }
 
-  const { aiEnabled } = getAISettingsForOrg(context);
+  const { aiEnabled } = await getAISettingsForOrg(context);
   if (!aiEnabled) {
     res.status(404).json({
       status: 404,
@@ -34,7 +34,21 @@ export async function runAccessGates(
     return false;
   }
 
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  return true;
+}
+
+// Cloud daily cap for a request that will run `model`; writes a 429 and returns
+// false when over. Split out because the exemption is per provider: a BYOK
+// Anthropic key doesn't exempt a managed OpenAI model.
+export async function enforceAIUsageCap(
+  context: ReqContext,
+  res: Response,
+  model: AIModel,
+): Promise<boolean> {
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgainForModel(
+    context,
+    model,
+  );
   if (secondsUntilReset > 0) {
     res.status(429).json({
       status: 429,
@@ -43,7 +57,6 @@ export async function runAccessGates(
     });
     return false;
   }
-
   return true;
 }
 

@@ -1,7 +1,65 @@
 import { parseOptionalInt } from "./util/numbers";
 
-// AI Provider types and configurations
-export type AIProvider = "openai" | "anthropic" | "xai" | "mistral" | "google";
+// A const tuple, not a bare union, so it feeds z.enum() and can be iterated in
+// the UI without a second hand-maintained list.
+export const AI_PROVIDERS = [
+  "openai",
+  "anthropic",
+  "google",
+  "xai",
+  "mistral",
+] as const;
+export type AIProvider = (typeof AI_PROVIDERS)[number];
+
+// Per-provider display and config metadata, shared by the settings UI and the
+// back end's error messages. Replaces duplicated local maps in AISettings.tsx.
+export const AI_PROVIDER_META: Record<
+  AIProvider,
+  {
+    label: string;
+    // Env var read as the fallback when the org has no key stored in the DB.
+    envVar: string;
+    // Any additional env vars accepted for backwards compatibility.
+    legacyEnvVars?: string[];
+    // Placeholder only. Not validated against: a stale regex would lock users
+    // out of a valid key.
+    keyPlaceholder: string;
+    // Where a user goes to create a key for this provider.
+    consoleUrl: string;
+  }
+> = {
+  openai: {
+    label: "OpenAI",
+    envVar: "OPENAI_API_KEY",
+    keyPlaceholder: "sk-...",
+    consoleUrl: "https://platform.openai.com/api-keys",
+  },
+  anthropic: {
+    label: "Anthropic",
+    envVar: "ANTHROPIC_API_KEY",
+    keyPlaceholder: "sk-ant-...",
+    consoleUrl: "https://console.anthropic.com/settings/keys",
+  },
+  google: {
+    label: "Google",
+    envVar: "GOOGLE_AI_API_KEY",
+    legacyEnvVars: ["GEMINI_API_KEY"],
+    keyPlaceholder: "AIza...",
+    consoleUrl: "https://aistudio.google.com/apikey",
+  },
+  xai: {
+    label: "xAI",
+    envVar: "XAI_API_KEY",
+    keyPlaceholder: "xai-...",
+    consoleUrl: "https://console.x.ai",
+  },
+  mistral: {
+    label: "Mistral",
+    envVar: "MISTRAL_API_KEY",
+    keyPlaceholder: "...",
+    consoleUrl: "https://console.mistral.ai/api-keys",
+  },
+};
 
 // Available text generation models for each provider
 export const AI_PROVIDER_MODEL_MAP = {
@@ -441,6 +499,27 @@ export function getProviderFromEmbeddingModel(
     }
   }
   throw new Error(`Embedding model ${model} is not supported.`);
+}
+
+// Text, embedding and image models each have their own registry, so callers
+// holding an org setting must say which one it came from.
+export type AIModelKind = "text" | "embedding" | "image";
+
+// Provider that serves `model`, or null when the id isn't in that registry.
+// Null rather than a throw: a stale org setting should read as "not selectable",
+// not fail the request that looked at it.
+export function getProviderForAIModel(
+  kind: AIModelKind,
+  model: string,
+): AIProvider | null {
+  try {
+    if (kind === "text") return getProviderFromModel(model as AIModel);
+    if (kind === "embedding")
+      return getProviderFromEmbeddingModel(model as EmbeddingModel);
+    return getImageModelMeta(model)?.provider ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export interface AITokenUsageInterface {

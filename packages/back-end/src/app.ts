@@ -14,6 +14,7 @@ import asyncHandler from "express-async-handler";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
 import { parseEnvInt, stringToBoolean } from "shared/util";
+import { AI_PROVIDERS } from "shared/ai";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
 import { revisionRouter } from "back-end/src/routers/revision/revision.router";
@@ -152,7 +153,10 @@ import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router"
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
 import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
 import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
-import { getContextFromReq } from "./services/organizations";
+import {
+  getAISettingsForOrg,
+  getContextFromReq,
+} from "./services/organizations";
 import { templateRouter } from "./routers/experiment-template/template.router";
 import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 import { holdoutRouter } from "./routers/holdout/holdout.router";
@@ -1291,11 +1295,19 @@ app.use("/product-analytics", productAnalyticsRouter);
 app.use("/agent", agentRouter);
 
 // Meta info
-app.get("/meta/ai", (req, res) => {
-  res.json({
-    enabled: !!process.env.OPENAI_API_KEY,
+app.get("/meta/ai", (async (
+  req: express.Request,
+  res: express.Response,
+  _next: express.NextFunction,
+) => {
+  // Any reachable provider, stored key included. This read OPENAI_API_KEY, so
+  // the Visual Editor extension saw "no AI" for a BYOK org.
+  const context = getContextFromReq(req as AuthRequest);
+  const { keySource } = await getAISettingsForOrg(context);
+  return res.json({
+    enabled: AI_PROVIDERS.some((p) => keySource[p] !== "none"),
   });
-});
+}) as unknown as RequestHandler);
 
 app.use("/ai", aiRouter);
 
