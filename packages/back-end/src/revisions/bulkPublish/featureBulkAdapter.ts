@@ -64,7 +64,10 @@ import {
   assertFeatureNotLockedByRamp,
   RampLockdownError,
 } from "back-end/src/services/rampSchedule";
-import { bulkPublishFields } from "back-end/src/events/bulkPublishCorrelation";
+import {
+  bulkPublishFields,
+  entityKey,
+} from "back-end/src/events/bulkPublishCorrelation";
 import { getErrorMessage } from "back-end/src/util/errors";
 import { CasConflictError } from "back-end/src/models/BaseModel";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
@@ -815,7 +818,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     // own path, and without recording here every feature looked durable — so a clean
     // rollback broadcast the value it had just taken back, with no corrective event
     // ever following.
-    context.bulkPublishRestoredEntities?.add(feature.id);
+    context.bulkPublishRestoredEntities?.add(entityKey("feature", feature.id));
   },
 
   async emitPublished(context, entity, revision, desiredState) {

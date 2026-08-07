@@ -47,6 +47,10 @@ import {
 } from "back-end/src/services/organizations";
 import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { logger } from "back-end/src/util/logger";
+import {
+  dispatchFeatureRevisionEvent,
+  getPublishedRevisionForEvents,
+} from "back-end/src/services/featureRevisionEvents";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { validateEnvKeys } from "./postFeature";
@@ -519,6 +523,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     const hasMetadataChanges = Object.keys(metadataChanges).length > 0;
     const hasPrereqChanges = newPrerequisites !== null;
     const hasArchivedChange = newArchived !== null;
+    // Set when this request lands a live revision; dispatched after the commit.
+    let publishedRevisionForEvents: FeatureRevisionInterface | null = null;
 
     const hasRevisionChanges =
       hasEnvEnabledChanges ||
@@ -561,6 +567,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
       Object.assign(feature, updatedFeatureFromRevision);
       updates.version = revision.version;
+
+      // This path creates AND publishes a live revision, so it owes the same
+      // `revision.published` webhook the dedicated publish endpoints emit. Without it
+      // a consumer mirroring revision state sees the version advance with no publish
+      // event — the only feature path that landed a revision silently.
+      publishedRevisionForEvents = revision;
 
       // The enabled flips were excluded from the direct-write `updates` above
       // (frozen to their pre-update values) so they apply exactly once, via
@@ -614,6 +626,29 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     });
     const safeRolloutMap =
       await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+    // AFTER the write commits, like every other publish surface: a consumer must not
+    // hear about a publish that then failed. Best-effort, and never fails the
+    // already-committed update.
+    if (publishedRevisionForEvents) {
+      try {
+        await dispatchFeatureRevisionEvent(
+          req.context,
+          updatedFeature,
+          await getPublishedRevisionForEvents(
+            req.context,
+            updatedFeature,
+            publishedRevisionForEvents,
+          ),
+          "revision.published",
+          {},
+        );
+      } catch (e) {
+        logger.error(
+          e,
+          `Failed to dispatch revision.published for feature ${updatedFeature.id}`,
+        );
+      }
+    }
     return {
       feature: await resolveOwnerEmail(
         getApiFeatureObj({

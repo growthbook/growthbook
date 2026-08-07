@@ -13,6 +13,7 @@ import { savedGroupUpdated } from "back-end/src/services/savedGroups";
 import {
   captureEventBuffer,
   emitOrDeferBulkPublishEvent,
+  entityKey,
 } from "back-end/src/events/bulkPublishCorrelation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
@@ -198,7 +199,7 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     ) {
       await emitOrDeferBulkPublishEvent(
         () => logSavedGroupUpdatedEvent(this.context, previous, current),
-        newDoc.id,
+        entityKey("saved-group", newDoc.id),
         captureEventBuffer(this.context),
       );
     }

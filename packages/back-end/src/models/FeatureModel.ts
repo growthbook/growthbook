@@ -137,6 +137,7 @@ import { deriveLiveFeatureEventEnvironments } from "back-end/src/events/eventEnv
 import {
   captureEventBuffer,
   emitOrDeferBulkPublishEvent,
+  entityKey,
 } from "back-end/src/events/bulkPublishCorrelation";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {
@@ -1225,7 +1226,7 @@ export async function onFeatureUpdate(
     // to the post-commit flush (dropped entirely if the commit compensates).
     await emitOrDeferBulkPublishEvent(
       () => logFeatureUpdatedEvent(context, feature, updatedFeature),
-      feature.id,
+      entityKey("feature", feature.id),
       buffer,
     );
   }
@@ -4039,7 +4040,9 @@ async function publishRevisionInner({
     // they were never told about. The bulk path throws before it can record, so it
     // already answers this way; both surfaces have to answer it the same.
     if (featureDocumentWentBack({ ownershipLost, unreversed })) {
-      context.bulkPublishRestoredEntities?.add(feature.id);
+      context.bulkPublishRestoredEntities?.add(
+        entityKey("feature", feature.id),
+      );
     }
     // Say so in the response: continuing past a satellite keeps the feature and
     // its revision consistent, but whatever could not be reversed is left behind

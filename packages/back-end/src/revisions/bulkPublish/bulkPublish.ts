@@ -3,6 +3,7 @@ import uniqid from "uniqid";
 import { flushPayloadRefreshBuffer } from "back-end/src/revisions/landingSequence";
 import type { Context } from "back-end/src/models/BaseModel";
 import type { DeferredEventBuffer } from "back-end/src/events/bulkPublishCorrelation";
+import { entityKey } from "back-end/src/events/bulkPublishCorrelation";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import {
   BadRequestError,
@@ -591,6 +592,10 @@ export async function commitBulkPublish(
     // `dateUpdated` before the child's own guarded write, whose CAS is anchored on the
     // plan-time pre-image. The release then succeeded or 409'd purely on item order.
     const cascadeStamps = new Map<string, Date | null>();
+    // Keyed by TYPE and id: a cascade writes documents of the item's own type, but the
+    // map is consulted by every item, and bare ids collide across collections.
+    const stampKey = (item: PlannedItemPublish, id: string) =>
+      entityKey(item.ref.entityType, id);
     try {
       for (const item of plan.items) {
         if (!item.hasChanges) continue;
@@ -599,8 +604,9 @@ export async function commitBulkPublish(
         // stamp is a foreign write and must still conflict. `entityPreImage` is
         // untouched, so compensation still restores the pre-release state.
         let writeBasis = item.entityPreImage;
-        if (cascadeStamps.has(item.ref.entityId)) {
-          const ours = cascadeStamps.get(item.ref.entityId) ?? null;
+        if (cascadeStamps.has(stampKey(item, item.ref.entityId))) {
+          const ours =
+            cascadeStamps.get(stampKey(item, item.ref.entityId)) ?? null;
           const live = await adapter.loadEntity(context, item.ref.entityId);
           const liveStamp =
             (live as { dateUpdated?: Date } | null)?.dateUpdated ?? null;
@@ -617,7 +623,10 @@ export async function commitBulkPublish(
           item.desiredState,
         );
         for (const write of item.revision.cascade ?? []) {
-          cascadeStamps.set(write.before.id, write.stamp ?? null);
+          cascadeStamps.set(
+            stampKey(item, write.before.id),
+            write.stamp ?? null,
+          );
         }
       }
     } catch (e) {

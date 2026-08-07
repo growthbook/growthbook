@@ -15,6 +15,7 @@ import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import {
   captureEventBuffer,
   emitOrDeferBulkPublishEvent,
+  entityKey,
 } from "back-end/src/events/bulkPublishCorrelation";
 import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
 import {
@@ -250,7 +251,7 @@ export class ConstantModel extends BaseClass {
     ) {
       await emitOrDeferBulkPublishEvent(
         () => logConstantUpdatedEvent(this.context, previous, current),
-        newDoc.id,
+        entityKey("constant", newDoc.id),
         captureEventBuffer(this.context),
       );
     }

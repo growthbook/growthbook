@@ -4,6 +4,9 @@ import { onFeatureUpdate } from "back-end/src/models/FeatureModel";
 import { withBufferedPayloadRefreshes } from "back-end/src/revisions/landingSequence";
 
 const FEATURE_ID = "feat_straggler";
+// What a restore reports and what an event is tagged with — keyed by type and id,
+// since bare ids collide across collections.
+const FEATURE_KEY = `feature:${FEATURE_ID}`;
 const EMIT_PROBE = "emit-probe: live emit branch was taken";
 
 function gate<T>() {
@@ -88,7 +91,7 @@ describe("onFeatureUpdate as a straggler (resumes mid-next-landing)", () => {
 
     await expect(
       withBufferedPayloadRefreshes(context, "landing-2", async () => {
-        context.bulkPublishRestoredEntities?.add(FEATURE_ID);
+        context.bulkPublishRestoredEntities?.add(FEATURE_KEY);
         projectIds.resolve([]);
         await expect(producer).rejects.toThrow(EMIT_PROBE);
         expect(context.bulkPublishDeferredEvents?.entries).toEqual([]);
@@ -109,7 +112,7 @@ describe("onFeatureUpdate as a straggler (resumes mid-next-landing)", () => {
       withBufferedPayloadRefreshes(context, "landing-1", async () => {
         producer = onFeatureUpdate(context, before, after);
         await Promise.resolve();
-        context.bulkPublishRestoredEntities?.add(FEATURE_ID);
+        context.bulkPublishRestoredEntities?.add(FEATURE_KEY);
         throw new Error("first landing failed");
       }),
     ).rejects.toThrow("first landing failed");

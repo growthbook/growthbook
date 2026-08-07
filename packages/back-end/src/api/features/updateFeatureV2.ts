@@ -44,6 +44,11 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
+import { logger } from "back-end/src/util/logger";
+import {
+  dispatchFeatureRevisionEvent,
+  getPublishedRevisionForEvents,
+} from "back-end/src/services/featureRevisionEvents";
 import { validateEnvKeys } from "./postFeature";
 import { validateCustomFields, validateRuleAttributes } from "./validations";
 import { canBypassReviewChecks } from "./reviewBypass";
@@ -414,6 +419,8 @@ export const updateFeatureV2 = createApiRequestHandler(
   const hasMetadataChanges = Object.keys(metadataChanges).length > 0;
   const hasPrereqChanges = newPrerequisites !== null;
   const hasArchivedChange = newArchived !== null;
+  // Set when this request lands a live revision; dispatched after the commit.
+  let publishedRevisionForEvents: FeatureRevisionInterface | null = null;
 
   const hasRevisionChanges =
     hasEnvEnabledChanges ||
@@ -455,6 +462,10 @@ export const updateFeatureV2 = createApiRequestHandler(
 
     Object.assign(feature, updatedFeatureFromRevision);
     updates.version = revision.version;
+
+    // See updateFeature: this path lands a live revision, so it owes the same
+    // `revision.published` webhook the dedicated publish endpoints emit.
+    publishedRevisionForEvents = revision;
 
     // Ensure linkedFeatures is set on any experiments referenced by the
     // newly-live rules. Fire-and-forget; clearPendingFeatureDraftsForRevision
@@ -505,6 +516,27 @@ export const updateFeatureV2 = createApiRequestHandler(
   });
   const safeRolloutMap =
     await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+  // See updateFeature: after the commit, best-effort, never fails the update.
+  if (publishedRevisionForEvents) {
+    try {
+      await dispatchFeatureRevisionEvent(
+        req.context,
+        updatedFeature,
+        await getPublishedRevisionForEvents(
+          req.context,
+          updatedFeature,
+          publishedRevisionForEvents,
+        ),
+        "revision.published",
+        {},
+      );
+    } catch (e) {
+      logger.error(
+        e,
+        `Failed to dispatch revision.published for feature ${updatedFeature.id}`,
+      );
+    }
+  }
   return {
     feature: await resolveOwnerEmail(
       getApiFeatureObjV2({

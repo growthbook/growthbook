@@ -10,6 +10,7 @@ import {
 import {
   captureEventBuffer,
   emitOrDeferBulkPublishEvent,
+  entityKey,
 } from "back-end/src/events/bulkPublishCorrelation";
 import type { DeferredEventBuffer } from "back-end/src/events/bulkPublishCorrelation";
 import type { Context } from "back-end/src/models/BaseModel";
@@ -243,6 +244,30 @@ describe("deferred event dispositions", () => {
       captured,
     );
     expect(emit).not.toHaveBeenCalled();
+  });
+
+  // Bare ids are not unique across collections and feature ids are user-chosen, so a
+  // feature named `cfg_x` shares an id with the Config of that id. Keyed by id alone,
+  // rolling back one would suppress the other's event.
+  it("does not let one entity type's restore suppress another's event", async () => {
+    const context = ctx();
+    const featureEmit = jest.fn();
+
+    await expect(
+      withBufferedPayloadRefreshes(context, "test", async () => {
+        await emitOrDeferBulkPublishEvent(
+          async () => featureEmit(),
+          entityKey("feature", "cfg_x"),
+          captureEventBuffer(context),
+        );
+        // The CONFIG of that id was rolled back; the feature was not.
+        context.bulkPublishRestoredEntities?.add(entityKey("config", "cfg_x"));
+        context.landingLeftPartialState = true;
+        throw new Error("partial");
+      }),
+    ).rejects.toThrow("partial");
+
+    expect(featureEmit).toHaveBeenCalledTimes(1);
   });
 
   // `captureEventBuffer`'s own contract, asserted directly.

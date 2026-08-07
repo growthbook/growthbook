@@ -216,7 +216,7 @@ describe("restoring a Config descendant after a failed cascade", () => {
 
     // The document itself went back, whatever the repair did.
     expect(await schemaKeysOf("child")).toEqual(["foo"]);
-    expect(restored.has("cfg_child")).toBe(true);
+    expect(restored.has("config:cfg_child")).toBe(true);
   });
 
   // The corrected order. Once the root no longer owns `foo`, the same restore lands.

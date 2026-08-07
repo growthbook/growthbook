@@ -3,6 +3,7 @@ import type { RevisionTargetType } from "shared/enterprise";
 import { getAdapter } from "back-end/src/revisions";
 import { CasConflictError, Context } from "back-end/src/models/BaseModel";
 import type { DeferredEventBuffer } from "back-end/src/events/bulkPublishCorrelation";
+import { entityKey } from "back-end/src/events/bulkPublishCorrelation";
 import { ConflictError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
@@ -172,7 +173,9 @@ export async function restoreEntityPreImage({
       // document's own restore has already committed. Recording after meant a repair
       // failure left the id unrecorded, so the apply's event was emitted as durable
       // over a document holding its pre-image.
-      context.bulkPublishRestoredEntities?.add(preImage.id);
+      context.bulkPublishRestoredEntities?.add(
+        entityKey(entityType, preImage.id),
+      );
       if (restoredKeys.length) {
         // The repair cascade's writes are deliberately NOT rolled back.
         //

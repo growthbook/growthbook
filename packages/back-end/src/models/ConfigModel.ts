@@ -34,6 +34,7 @@ import { configToResolvable } from "back-end/src/services/resolvableValues";
 import {
   captureEventBuffer,
   emitOrDeferBulkPublishEvent,
+  entityKey,
 } from "back-end/src/events/bulkPublishCorrelation";
 import { archiveServeFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
@@ -411,7 +412,7 @@ export class ConfigModel extends BaseClass {
     ) {
       await emitOrDeferBulkPublishEvent(
         () => logConfigUpdatedEvent(this.context, previous, current),
-        newDoc.id,
+        entityKey("config", newDoc.id),
         captureEventBuffer(this.context),
       );
     }

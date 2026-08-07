@@ -87,5 +87,8 @@ it("reports the feature as restored when a failed publish wrote nothing", async 
     }),
   ).rejects.toThrow(/Pro plan/);
 
-  expect(restored && [...restored]).toEqual([FEATURE_ID]);
+  // Keyed by TYPE and id: bare ids collide across collections, and feature ids are
+  // user-chosen, so a feature named `cfg_x` would otherwise share a key with the
+  // Config of that id.
+  expect(restored && [...restored]).toEqual([`feature:${FEATURE_ID}`]);
 });

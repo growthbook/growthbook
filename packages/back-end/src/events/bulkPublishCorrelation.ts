@@ -1,6 +1,18 @@
 import type { Context } from "back-end/src/models/BaseModel";
 
 /**
+ * How a document is named across the release machinery.
+ *
+ * Bare ids are NOT unique across collections — feature ids are user-chosen, so a
+ * feature called `cfg_x` collides with the Config of that id. Keyed by both, a Config
+ * restore cannot suppress a Feature's event, and a Config cascade cannot re-anchor a
+ * Feature's compare-and-swap baseline.
+ */
+export function entityKey(entityType: string, id: string): string {
+  return `${entityType}:${id}`;
+}
+
+/**
  * `*.updated` events held for the duration of one landing.
  *
  * Owned by the landing, not by the context: a producer that suspends carries a
