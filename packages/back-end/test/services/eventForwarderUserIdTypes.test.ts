@@ -106,7 +106,7 @@ describe("initializeDatasourceUserIdTypesFromOrgAttributeSchema without event fo
     setupDataSourceMocks();
   });
 
-  it("adds prefixed managed identifiers alongside existing user identifier types", async () => {
+  it("adds managed identifiers alongside existing user identifier types", async () => {
     const raw = ds("ds_1", {
       userIdTypes: [{ userIdType: "user_id", description: "Existing" }],
     });
@@ -126,18 +126,15 @@ describe("initializeDatasourceUserIdTypesFromOrgAttributeSchema without event fo
       {
         settings: {
           userIdTypes: [
-            // The user's own identifier type is preserved untouched; the managed
-            // ones are prefixed so they coexist instead of overriding it.
+            // The user's own identifier type is preserved untouched, and the
+            // same-named managed one is skipped rather than duplicating the name.
             { userIdType: "user_id", description: "Existing" },
             {
-              userIdType: "ef_USER_ID",
-              description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
-              attributes: ["USER_ID"],
-            },
-            {
-              userIdType: "ef_id",
+              userIdType: "id",
               description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
               attributes: ["id"],
+              managedBy: "api",
+              sourceAttribute: "id",
             },
           ],
         },
@@ -164,9 +161,11 @@ describe("initializeDatasourceUserIdTypesFromOrgAttributeSchema without event fo
         settings: {
           userIdTypes: [
             {
-              userIdType: "ef_id",
+              userIdType: "id",
               description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
               attributes: ["id"],
+              managedBy: "api",
+              sourceAttribute: "id",
             },
           ],
         },
@@ -193,15 +192,22 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
   it("removes stale managed identifiers and exposure queries while preserving custom entries", async () => {
     const raw = ds("ds_1", {
       userIdTypes: [
-        { userIdType: "legacy_id", description: "", attributes: ["legacy_id"] },
+        {
+          userIdType: "legacy_id",
+          description: "",
+          attributes: ["legacy_id"],
+          managedBy: "api",
+          sourceAttribute: "legacy_id",
+        },
         { userIdType: "custom_id", description: "Custom" },
       ],
       queries: {
         exposure: [
           {
-            id: "legacy_id",
+            id: "exq_legacy",
             userIdType: "legacy_id",
             name: "legacy_id",
+            sourceAttribute: "legacy_id",
             dimensions: [],
             managedBy: "api",
             query: "SELECT legacy_id",
@@ -237,9 +243,11 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
     expect(settings?.userIdTypes).toEqual([
       { userIdType: "custom_id", description: "Custom" },
       {
-        userIdType: "ef_device_id",
+        userIdType: "device_id",
         description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
         attributes: ["device_id"],
+        managedBy: "api",
+        sourceAttribute: "device_id",
       },
     ]);
     expect(settings?.queries?.exposure).toEqual([
@@ -251,8 +259,8 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
         query: "SELECT custom_id",
       },
       expect.objectContaining({
-        id: "ef_device_id",
-        userIdType: "ef_device_id",
+        userIdType: "device_id",
+        sourceAttribute: "device_id",
         managedBy: "api",
       }),
     ]);
@@ -285,15 +293,17 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
     const settings = mockedUpdate.mock.calls[0][2].settings;
     expect(settings?.userIdTypes).toEqual([
       {
-        userIdType: "ef_id",
+        userIdType: "id",
         description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
         attributes: ["id"],
+        managedBy: "api",
+        sourceAttribute: "id",
       },
     ]);
     expect(settings?.queries?.exposure).toEqual([
       expect.objectContaining({
-        id: "ef_id",
-        userIdType: "ef_id",
+        userIdType: "id",
+        sourceAttribute: "id",
         managedBy: "api",
       }),
     ]);
@@ -302,18 +312,25 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
   it("regenerates managed exposure SQL when the hash attribute datatype changes", async () => {
     const raw = ds("ds_1", {
       userIdTypes: [
-        { userIdType: "ef_user_id", description: "", attributes: ["user_id"] },
+        {
+          userIdType: "user_id",
+          description: "",
+          attributes: ["user_id"],
+          managedBy: "api",
+          sourceAttribute: "user_id",
+        },
       ],
       queries: {
         exposure: [
           {
-            id: "ef_user_id",
-            userIdType: "ef_user_id",
-            name: "ef_user_id",
+            id: "exq_user",
+            userIdType: "user_id",
+            name: "user_id",
+            sourceAttribute: "user_id",
             dimensions: [],
             managedBy: "api",
             query:
-              "SELECT CAST(JSON_VALUE(`attributes`, '$.\"user_id\"') AS STRING) AS `ef_user_id`",
+              "SELECT CAST(JSON_VALUE(`attributes`, '$.\"user_id\"') AS STRING) AS `user_id`",
           },
         ],
       },
@@ -332,24 +349,32 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
     const exposure = mockedUpdate.mock.calls[0][2].settings?.queries?.exposure;
     expect(exposure?.[0]).toEqual(
       expect.objectContaining({
-        id: "ef_user_id",
-        userIdType: "ef_user_id",
+        // Preserved: experiments and reports reference this id.
+        id: "exq_user",
+        userIdType: "user_id",
         query: expect.stringContaining("AS FLOAT64"),
       }),
     );
   });
 
-  it("derives ownership from existing managed exposure queries", async () => {
+  it("removes managed identifiers and queries when no hash attributes remain", async () => {
     const raw = ds("ds_1", {
       userIdTypes: [
-        { userIdType: "legacy_id", description: "", attributes: ["legacy_id"] },
+        {
+          userIdType: "legacy_id",
+          description: "",
+          attributes: ["legacy_id"],
+          managedBy: "api",
+          sourceAttribute: "legacy_id",
+        },
       ],
       queries: {
         exposure: [
           {
-            id: "legacy_id",
+            id: "exq_legacy",
             userIdType: "legacy_id",
             name: "legacy_id",
+            sourceAttribute: "legacy_id",
             dimensions: [],
             managedBy: "api",
             query: "SELECT legacy_id",
@@ -412,15 +437,17 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
 
     expect(mockedUpdate.mock.calls[0][2].settings?.userIdTypes).toEqual([
       {
-        userIdType: "ef_id",
+        userIdType: "id",
         description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
         attributes: ["id"],
+        managedBy: "api",
+        sourceAttribute: "id",
       },
     ]);
     expect(mockedUpdate.mock.calls[0][2].settings?.queries?.exposure).toEqual([
       expect.objectContaining({
-        id: "ef_id",
-        userIdType: "ef_id",
+        userIdType: "id",
+        sourceAttribute: "id",
         managedBy: "api",
       }),
     ]);

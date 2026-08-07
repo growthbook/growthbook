@@ -181,8 +181,13 @@ export interface ExposureQuery {
   dimensionSlicesId?: string;
   dimensionMetadata?: ExperimentDimensionMetadata[];
   error?: string;
-  /** Set to "api" for queries auto-created by Event Forwarder (not deletable in UI). */
+  /** Set to "api" for queries auto-created by Event Forwarder. */
   managedBy?: "" | "api";
+  /**
+   * SDK hash attribute this Event Forwarder query reads. Stable link —
+   * `userIdType` is a display name users can rename.
+   */
+  sourceAttribute?: string;
 }
 
 export interface FeatureUsageQuery {
@@ -190,7 +195,7 @@ export interface FeatureUsageQuery {
   query: string;
   description?: string;
   error?: string;
-  /** Set to "api" for queries auto-created by Event Forwarder (not deletable in UI). */
+  /** Set to "api" for queries auto-created by Event Forwarder. */
   managedBy?: "" | "api";
 }
 
@@ -198,6 +203,13 @@ export interface UserIdType {
   userIdType: string;
   description?: string;
   attributes?: string[];
+  /** Set to "api" for identifier types auto-created by Event Forwarder. */
+  managedBy?: "" | "api";
+  /**
+   * SDK hash attribute this identifier reads. Set on EF-managed types and on
+   * user-created types EF reuses by name. Match on this, not on `userIdType`.
+   */
+  sourceAttribute?: string;
 }
 
 export type DataSourceEvents = {

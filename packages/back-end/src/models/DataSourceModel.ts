@@ -7,6 +7,7 @@ import {
   isEventForwarderManagedFeatureUsageQuery,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseUnavailable,
+  findDuplicateUserIdTypeName,
 } from "shared/util";
 import {
   DataSourceInterface,
@@ -319,6 +320,20 @@ export async function deleteAllDataSourcesForAProject({
   await touchDefinitionsVersion(organizationId, definitionsScope([projectId]));
 }
 
+function assertUniqueUserIdTypeNames(
+  settings: DataSourceSettings | undefined,
+): void {
+  if (!settings?.userIdTypes?.length) {
+    return;
+  }
+  const duplicate = findDuplicateUserIdTypeName(settings.userIdTypes);
+  if (duplicate) {
+    throw new Error(
+      `The identifier type ${duplicate} already exists (names are case-insensitive)`,
+    );
+  }
+}
+
 export async function createDataSource(
   context: ReqContext,
   name: string,
@@ -372,6 +387,7 @@ export async function createDataSource(
     "all",
   );
 
+  assertUniqueUserIdTypeNames(settings);
   validatePipelineSettingsInvariants(settings.pipelineSettings);
 
   const model = (await DataSourceModel.create(
@@ -585,6 +601,7 @@ export async function updateDataSource(
           : "changed",
       skipEventForwarderManagedValidation,
     );
+    assertUniqueUserIdTypeNames(updates.settings);
     validatePipelineSettingsInvariants(updates.settings.pipelineSettings);
   }
   if (!hasActualChanges(datasource, updates)) {

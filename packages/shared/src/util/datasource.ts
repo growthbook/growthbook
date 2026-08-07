@@ -2,12 +2,15 @@ export {
   EVENT_FORWARDER_SUPPORTED_DATASOURCE_TYPES,
   attributeMatchesDatasourceProjects,
   buildUserIdTypesFromAttributeSchema,
+  findCollidingUserIdTypeName,
+  findDuplicateUserIdTypeName,
   getEventForwarderDatasourceParams,
   getEventForwarderSinkTypeForDatasource,
   getUserIdTypesToAdd,
-  isEventForwarderManagedIdentifierId,
-  isHashAttributeUserIdType,
+  isEventForwarderLinkedUserIdType,
+  isEventForwarderManagedUserIdType,
   mergeUserIdTypes,
+  reconcileEventForwarderManagedUserIdTypes,
   supportsEventForwarder,
 } from "./event-forwarder-datasource";
 export type { EventForwarderDatasourceParams } from "./event-forwarder-datasource";

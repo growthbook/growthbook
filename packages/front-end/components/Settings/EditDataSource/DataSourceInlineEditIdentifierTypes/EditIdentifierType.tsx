@@ -2,6 +2,7 @@ import { FC, useMemo } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { findCollidingUserIdTypeName } from "shared/util";
 import MultiSelectField from "@/ui/MultiSelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -33,8 +34,9 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
   onSave,
   onCancel,
 }) => {
-  const existingIds = (dataSource.settings?.userIdTypes || []).map(
-    (item) => item.userIdType,
+  const existingUserIdTypes = useMemo(
+    () => dataSource.settings?.userIdTypes || [],
+    [dataSource.settings?.userIdTypes],
   );
 
   const { attributeSchema } = useOrgSettings();
@@ -78,9 +80,18 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
 
   const userEnteredUserIdType = form.watch("idType");
 
-  const isDuplicate = useMemo(() => {
-    return mode === "add" && existingIds.includes(userEnteredUserIdType);
-  }, [existingIds, mode, userEnteredUserIdType]);
+  // Names are fixed once created, so this only guards new entries. Case-insensitive
+  // to match the back-end check: two names differing only in case would collide as
+  // one warehouse column.
+  const collidingUserIdType = useMemo(() => {
+    if (mode !== "add" || !userEnteredUserIdType) {
+      return null;
+    }
+    return findCollidingUserIdTypeName(
+      existingUserIdTypes,
+      userEnteredUserIdType,
+    );
+  }, [existingUserIdTypes, mode, userEnteredUserIdType]);
 
   const saveEnabled = useMemo(() => {
     if (!userEnteredUserIdType) {
@@ -89,11 +100,11 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
     }
 
     // Disable if duplicate
-    return !isDuplicate;
-  }, [isDuplicate, userEnteredUserIdType]);
+    return (collidingUserIdType ?? null) === null;
+  }, [collidingUserIdType, userEnteredUserIdType]);
 
-  const fieldError = isDuplicate
-    ? `The user identifier ${userEnteredUserIdType} already exists`
+  const fieldError = collidingUserIdType
+    ? `The identifier type ${collidingUserIdType} already exists`
     : "";
 
   return (

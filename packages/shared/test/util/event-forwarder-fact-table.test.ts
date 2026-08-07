@@ -138,7 +138,7 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
       database: "MY_DB",
       schema: "PUBLIC",
       tablePrefix: "GB",
-      userIdTypes: ["device_id"],
+      userIdTypes: [{ userIdType: "device_id" }],
     });
 
     expect(sql).toContain('ATTRIBUTES:"device_id"::STRING AS device_id');
@@ -170,7 +170,7 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
       projectId: "my-project",
       dataset: "analytics_123",
       tablePrefix: "gb",
-      userIdTypes: ["employee_id"],
+      userIdTypes: [{ userIdType: "employee_id" }],
       attributeSchema: [
         { property: "employee_id", datatype: "number", hashAttribute: true },
       ],
@@ -184,22 +184,28 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
     );
   });
 
-  it("projects a prefixed managed identifier id, extracting its source attribute", () => {
+  it("aliases a renamed managed identifier while extracting its source attribute", () => {
     const sql = buildEventForwarderEventsFactTableSql({
       sinkType: "bigquery",
       projectId: "my-project",
       dataset: "analytics_123",
       tablePrefix: "gb",
-      // Managed identifier id is prefixed; the column alias keeps the id while the
-      // value is read from the underlying "employee_id" attribute.
-      userIdTypes: ["ef_employee_id"],
+      // The column alias is the identifier type name; the value is read from the
+      // linked "employee_id" attribute.
+      userIdTypes: [
+        {
+          userIdType: "staff_member",
+          managedBy: "api",
+          sourceAttribute: "employee_id",
+        },
+      ],
       attributeSchema: [
         { property: "employee_id", datatype: "number", hashAttribute: true },
       ],
     });
 
     expect(sql).toContain(
-      `SAFE_CAST(JSON_VALUE(\`attributes\`, '$."employee_id"') AS FLOAT64) AS ef_employee_id`,
+      `SAFE_CAST(JSON_VALUE(\`attributes\`, '$."employee_id"') AS FLOAT64) AS staff_member`,
     );
   });
 
@@ -313,7 +319,9 @@ FROM MY_DB.PUBLIC.GB_EVENTS`);
 
 describe("buildEventForwarderEventsFactTableColumns", () => {
   it("includes hash user id types as jsonFields on the attributes column", () => {
-    const columns = buildEventForwarderEventsFactTableColumns(["user_id"]);
+    const columns = buildEventForwarderEventsFactTableColumns([
+      { userIdType: "user_id" },
+    ]);
 
     expect(columns).toEqual([
       {
@@ -331,8 +339,8 @@ describe("buildEventForwarderEventsFactTableColumns", () => {
 
   it("deduplicates user id types case-insensitively", () => {
     const columns = buildEventForwarderEventsFactTableColumns([
-      "user_id",
-      "User_ID",
+      { userIdType: "user_id" },
+      { userIdType: "User_ID" },
     ]);
 
     expect(columns).toHaveLength(1);
@@ -342,7 +350,9 @@ describe("buildEventForwarderEventsFactTableColumns", () => {
   });
 
   it("uses sanitized Avro field names in jsonFields", () => {
-    const columns = buildEventForwarderEventsFactTableColumns(["user-id"]);
+    const columns = buildEventForwarderEventsFactTableColumns([
+      { userIdType: "user-id" },
+    ]);
 
     expect(columns[0].jsonFields).toEqual({
       user_id: { datatype: "string" },
@@ -351,7 +361,7 @@ describe("buildEventForwarderEventsFactTableColumns", () => {
 
   it("includes attribute schema fields as nested jsonFields", () => {
     const columns = buildEventForwarderEventsFactTableColumns(
-      ["user_id"],
+      [{ userIdType: "user_id" }],
       [
         { property: "user_id", datatype: "string" },
         { property: "age", datatype: "number" },
