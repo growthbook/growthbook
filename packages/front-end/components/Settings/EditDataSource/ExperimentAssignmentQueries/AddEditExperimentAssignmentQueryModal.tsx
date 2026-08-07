@@ -91,6 +91,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       // user. Leaving managedBy: "api" would make attribute reconciliation
       // treat that identifier as Event Forwarder owned and delete it.
       value.managedBy = "";
+      delete value.sourceAttribute;
     }
     await onSave(value);
 

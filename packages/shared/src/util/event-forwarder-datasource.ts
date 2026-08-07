@@ -104,6 +104,22 @@ export function findCollidingUserIdTypeName(
   return collision?.userIdType ?? null;
 }
 
+/** Returns a name that collides case-insensitively within the list, or null. */
+export function findDuplicateUserIdTypeName(
+  userIdTypes: UserIdType[],
+): string | null {
+  const seen = new Map<string, string>();
+  for (const entry of userIdTypes) {
+    const normalized = normalizeUserIdTypeName(entry.userIdType);
+    const existing = seen.get(normalized);
+    if (existing !== undefined) {
+      return entry.userIdType;
+    }
+    seen.set(normalized, entry.userIdType);
+  }
+  return null;
+}
+
 export function getEventForwarderSinkTypeForDatasource(datasource: {
   type: DataSourceType;
 }): EventForwarderSinkType | null {
@@ -234,6 +250,9 @@ function unlinkUserIdType(userIdType: UserIdType): UserIdType {
  * promoted to managed — only types this function created are ever dropped again.
  * Managed types whose source attribute is no longer a hash attribute (archived,
  * un-flagged, or out of the datasource's Projects) are dropped.
+ *
+ * Does not rewrite `queries.identityJoins[].ids` when an identifier type is
+ * renamed outside this path (e.g. direct MongoDB edit).
  */
 export function reconcileEventForwarderManagedUserIdTypes(
   existing: UserIdType[],

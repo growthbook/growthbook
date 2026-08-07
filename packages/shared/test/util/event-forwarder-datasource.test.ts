@@ -3,6 +3,7 @@ import {
   attributeMatchesDatasourceProjects,
   buildUserIdTypesFromAttributeSchema,
   findCollidingUserIdTypeName,
+  findDuplicateUserIdTypeName,
   getEventForwarderDatasourceParams,
   getEventForwarderSinkTypeForDatasource,
   getEventForwarderUserIdTypeSourceAttribute,
@@ -263,6 +264,26 @@ describe("findCollidingUserIdTypeName", () => {
 
   it("returns null when the name is free", () => {
     expect(findCollidingUserIdTypeName(userIdTypes, "anonymous_id")).toBe(null);
+  });
+});
+
+describe("findDuplicateUserIdTypeName", () => {
+  it("returns null when names are unique ignoring case", () => {
+    expect(
+      findDuplicateUserIdTypeName([
+        { userIdType: "user_id" },
+        { userIdType: "device_id" },
+      ]),
+    ).toBe(null);
+  });
+
+  it("returns the later spelling when two names collide case-insensitively", () => {
+    expect(
+      findDuplicateUserIdTypeName([
+        { userIdType: "user_id" },
+        { userIdType: "USER_ID" },
+      ]),
+    ).toBe("USER_ID");
   });
 });
 

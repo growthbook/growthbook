@@ -181,12 +181,11 @@ export interface ExposureQuery {
   dimensionSlicesId?: string;
   dimensionMetadata?: ExperimentDimensionMetadata[];
   error?: string;
-  /** Set to "api" for queries auto-created by Event Forwarder (not deletable in UI). */
+  /** Set to "api" for queries auto-created by Event Forwarder. */
   managedBy?: "" | "api";
   /**
-   * Event Forwarder managed queries only: the SDK hash attribute this query reads
-   * values from. This is the stable link back to the attribute — `userIdType` is a
-   * display name users can rename, so never derive the source attribute from it.
+   * SDK hash attribute this Event Forwarder query reads. Stable link —
+   * `userIdType` is a display name users can rename.
    */
   sourceAttribute?: string;
 }
@@ -196,7 +195,7 @@ export interface FeatureUsageQuery {
   query: string;
   description?: string;
   error?: string;
-  /** Set to "api" for queries auto-created by Event Forwarder (not deletable in UI). */
+  /** Set to "api" for queries auto-created by Event Forwarder. */
   managedBy?: "" | "api";
 }
 
@@ -207,9 +206,8 @@ export interface UserIdType {
   /** Set to "api" for identifier types auto-created by Event Forwarder. */
   managedBy?: "" | "api";
   /**
-   * Event Forwarder managed identifier types only: the SDK hash attribute that
-   * provides this identifier's value. Users may rename `userIdType`, so this is
-   * the only stable link to the attribute — match on it, not on the name.
+   * SDK hash attribute this identifier reads. Set on EF-managed types and on
+   * user-created types EF reuses by name. Match on this, not on `userIdType`.
    */
   sourceAttribute?: string;
 }

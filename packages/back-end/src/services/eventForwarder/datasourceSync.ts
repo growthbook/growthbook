@@ -9,6 +9,7 @@ import { SDKAttributeSchema } from "shared/types/organization";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { EventForwarderConfigInterface } from "shared/validators";
+import isEqual from "lodash/isEqual";
 import {
   getDataSourceById,
   updateDataSource,
@@ -19,7 +20,7 @@ import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
 function hasChanges<T>(before: T, after: T): boolean {
-  return JSON.stringify(before) !== JSON.stringify(after);
+  return !isEqual(before, after);
 }
 
 export async function initializeDatasourceUserIdTypesFromOrgAttributeSchema(

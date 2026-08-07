@@ -62,8 +62,11 @@ export const DataSourceInlineEditIdentifierTypes: FC<
   const handleActionDeleteClicked = useCallback(
     (idx: number) => async () => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      copy.settings.userIdTypes.splice(idx, 1);
+      const types = copy.settings?.userIdTypes;
+      if (!types) {
+        return;
+      }
+      types.splice(idx, 1);
 
       await onSave(copy);
     },
@@ -85,11 +88,12 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           if (!existing) {
             return;
           }
-          // A managed type keeps its name, link, and GrowthBook-managed
-          // attributes; only the description comes from the form.
+          // Managed: only description is editable. Otherwise spread existing so
+          // reused types keep sourceAttribute / managedBy across edits.
           types[idx] = editingManagedType
             ? { ...existing, description }
             : {
+                ...existing,
                 userIdType,
                 description,
                 attributes,

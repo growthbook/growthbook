@@ -3,6 +3,7 @@ export {
   attributeMatchesDatasourceProjects,
   buildUserIdTypesFromAttributeSchema,
   findCollidingUserIdTypeName,
+  findDuplicateUserIdTypeName,
   getEventForwarderDatasourceParams,
   getEventForwarderSinkTypeForDatasource,
   getUserIdTypesToAdd,
