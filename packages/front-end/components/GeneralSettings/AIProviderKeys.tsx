@@ -24,7 +24,7 @@ import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import PremiumCallout from "@/ui/PremiumCallout";
 
 type AICredentialsResponse = {
   credentials: AICredentialFrontEndInterface[];
@@ -466,15 +466,14 @@ export default function AIProviderKeys({
         />
       ))}
 
+      {/* Plan name, badge and CTA all come from the commercial feature, so this
+          keeps up if ai-byok moves tiers. Only the managed-keys reassurance is
+          ours to write, and only Cloud has managed keys to fall back on. */}
       {canEdit && !canUseOwnKeys && (
-        <Callout status="info">
-          <PremiumTooltip commercialFeature="ai-byok">
-            Using your own AI provider keys
-          </PremiumTooltip>{" "}
-          {isCloud()
-            ? "requires an Enterprise plan. AI features still work on GrowthBook's managed keys."
-            : "requires an Enterprise plan."}
-        </Callout>
+        <PremiumCallout commercialFeature="ai-byok" id="ai-provider-keys">
+          Using your own AI provider keys requires an Enterprise plan.
+          {isCloud() && " AI features still work on GrowthBook's managed keys."}
+        </PremiumCallout>
       )}
 
       {canEdit && canUseOwnKeys && showProviderPicker && (
