@@ -586,13 +586,18 @@ export const postSubmit = async (
     lockOthers: scheduledPublishLockOthers,
   });
 
-  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
-    context,
-    revision,
-    {
-      type: "reviewRequested",
-    },
-  );
+  const webhooks = getRevisionWebhookAdapter(revision.target.type);
+  await webhooks?.dispatch(context, revision, { type: "reviewRequested" });
+  // Submitting can ARM a deferred publish in the same call, and a schedule
+  // subscriber has no reason to be watching `reviewRequested`. The dedicated
+  // scheduling route fires this; the submit route persisted the identical state and
+  // said nothing, so the same arm was visible or invisible depending on which
+  // button produced it.
+  if (enableAutoPublish || parsedSchedule !== null) {
+    await webhooks?.dispatch(context, revision, {
+      type: "publishScheduleChanged",
+    });
+  }
 
   res.status(200).json({
     status: 200,
@@ -1354,16 +1359,13 @@ export const postToggleAutoPublish = async (
   // broken toggle whichever way the UI renders it. It also disagreed with the dated
   // schedule next to it, where cancelling already requires publish ("it withdraws a
   // pending publish rather than landing one"). Same operation, same rule.
-  if (
-    !canDoRevisionAction(
-      existing.target.type,
-      "draft",
-      context,
-      existing.target.snapshot as Record<string, unknown>,
-    )
-  ) {
-    context.permissions.throwPermissionError();
-  }
+  //
+  // That rule is PUBLISH authority, and only that. An additional draft requirement
+  // was there to stop any org member disarming someone else's draft, but the publish
+  // check below already excludes them — so all it really excluded was the
+  // publisher-only role, which can arm and cancel the dated schedule sitting right
+  // beside this control. Two spellings of "commit a future publish" should not
+  // answer differently.
 
   // Publish authority governs both directions; the ELIGIBILITY gates (premium,
   // approval flow on for this project) are a precondition for taking on a future

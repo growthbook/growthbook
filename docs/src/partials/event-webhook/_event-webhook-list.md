@@ -27,6 +27,8 @@
 | **[feature.revision.discarded](#featurerevisiondiscarded)** | Triggered when a draft revision is discarded |
 | **[feature.revision.reopened](#featurerevisionreopened)** | Triggered when a discarded draft revision is reopened as a draft |
 | **[feature.revision.recalled](#featurerevisionrecalled)** | Triggered when the author (or an editor) recalls a review request, returning the revision to `draft`. Distinct from `revision.reopened`, which restores a discarded revision. |
+| **[feature.revision.reviewRetracted](#featurerevisionreviewRetracted)** | Triggered when a reviewer retracts their own verdict. The status is recomputed from the verdicts that remain, so the revision may end up `pending-review`, or stay `approved` or `changes-requested` when another reviewer's verdict still stands. Carries no content change — the revision's proposed changes are untouched. |
+| **[feature.revision.publishScheduleChanged](#featurerevisionpublishScheduleChanged)** | Triggered when a deferred publish is armed, re-armed, or cancelled on a revision. Carries no content change. |
 | **[feature.revision.rebased](#featurerevisionrebased)** | Triggered when a draft revision is rebased onto the latest published version |
 | **[feature.revision.published](#featurerevisionpublished)** | Triggered when a draft revision is published. Overlaps with `feature.updated` but provides revision-specific context (base version, comment, author). |
 | **[feature.revision.reverted](#featurerevisionreverted)** | Triggered when a feature is reverted to a previous published revision |
@@ -1525,6 +1527,142 @@ Triggered when the author (or an editor) recalls a review request, returning the
 ```typescript
 {
     event: "feature.revision.recalled";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id?: string | undefined;
+            /** The feature this revision belongs to */
+            featureId: string;
+            baseVersion: number;
+            version: number;
+            comment: string;
+            date: string;
+            status: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
+            /** The default value at the time this revision was created */
+            defaultValue?: string | undefined;
+            rules: Record<string, any[]>;
+            definitions?: Record<string, string> | undefined;
+            environmentsEnabled?: Record<string, boolean> | undefined;
+            envPrerequisites?: Record<string, {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[]> | undefined;
+            prerequisites?: {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[] | undefined;
+            metadata?: {} | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.revision.reviewRetracted
+
+Triggered when a reviewer retracts their own verdict. The status is recomputed from the verdicts that remain, so the revision may end up `pending-review`, or stay `approved` or `changes-requested` when another reviewer's verdict still stands. Carries no content change — the revision's proposed changes are untouched.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.revision.reviewRetracted";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id?: string | undefined;
+            /** The feature this revision belongs to */
+            featureId: string;
+            baseVersion: number;
+            version: number;
+            comment: string;
+            date: string;
+            status: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
+            /** The default value at the time this revision was created */
+            defaultValue?: string | undefined;
+            rules: Record<string, any[]>;
+            definitions?: Record<string, string> | undefined;
+            environmentsEnabled?: Record<string, boolean> | undefined;
+            envPrerequisites?: Record<string, {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[]> | undefined;
+            prerequisites?: {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[] | undefined;
+            metadata?: {} | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.revision.publishScheduleChanged
+
+Triggered when a deferred publish is armed, re-armed, or cancelled on a revision. Carries no content change.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.revision.publishScheduleChanged";
     object: "feature";
     api_version: string;
     created: number;

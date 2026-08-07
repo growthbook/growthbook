@@ -1188,13 +1188,23 @@ export class RevisionModel extends BaseClass {
     // `status`, so an unguarded write let a publish or discard land in between and
     // stamped auto-publish state onto a terminal revision.
     //
-    // Deliberately NOT guarded on `target`, unlike submit/recall/review: arming
-    // commits a publish into the entity AS IT WILL STAND WHEN IT FIRES, so its
-    // authority is judged on the LIVE entity (`loadLiveEntityForRevision`), not the
-    // revision's snapshot. A rebase that re-scopes the revision therefore cannot
-    // change this verdict, and guarding on `target` would only add spurious
-    // conflicts. If arming ever moves to a snapshot basis, this guard grows.
-    const updated = await this.updateWithCas(id, ["status"], (existing) => {
+    // ARMING also guards `target`; disarming does not.
+    //
+    // Arming's AUTHORITY is judged on the live entity — it commits a publish into
+    // the entity as it will stand when it fires — so a rebase that re-scopes the
+    // revision cannot change that verdict, and that was the whole reason `target`
+    // was left out. But the acknowledgments captured alongside it are derived from
+    // `target.proposedChanges`: they are a fingerprint of the content being armed.
+    // Content changing between the capture and this write armed a schedule whose
+    // fingerprint describes changes nobody acknowledged, and the fire-time drift
+    // check then reads that stale fingerprint as consent.
+    //
+    // Disarming carries nothing content-derived, so it keeps the narrow guard
+    // rather than gaining conflicts it has no reason to lose to.
+    const guardFields: (keyof Revision)[] = enabled
+      ? ["status", "target"]
+      : ["status"];
+    const updated = await this.updateWithCas(id, guardFields, (existing) => {
       if (
         !["draft", "pending-review", "changes-requested", "approved"].includes(
           existing.status,

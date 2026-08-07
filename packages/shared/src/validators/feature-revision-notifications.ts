@@ -111,6 +111,24 @@ export type FeatureRevisionRecalledPayload = z.infer<
   typeof featureRevisionRecalledPayload
 >;
 
+// A review verdict RETRACTED by the reviewer who gave it. The revision's content is
+// untouched; only the standing verdicts change, and the status is recomputed from
+// whatever remains. The other revision families got this event while Feature Flags —
+// which has its own revision engine — kept dispatching nothing at all for the same
+// action.
+export const featureRevisionReviewRetractedPayload =
+  featureRevisionWebhookPayload.strict();
+export type FeatureRevisionReviewRetractedPayload = z.infer<
+  typeof featureRevisionReviewRetractedPayload
+>;
+
+// A deferred publish ARMED, re-armed, or CANCELLED. Content is untouched.
+export const featureRevisionPublishScheduleChangedPayload =
+  featureRevisionWebhookPayload.strict();
+export type FeatureRevisionPublishScheduleChangedPayload = z.infer<
+  typeof featureRevisionPublishScheduleChangedPayload
+>;
+
 export const featureRevisionRebasedPayload =
   featureRevisionWebhookPayload.strict();
 export type FeatureRevisionRebasedPayload = z.infer<

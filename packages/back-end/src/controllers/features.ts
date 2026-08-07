@@ -1202,6 +1202,14 @@ export async function postFeatureScheduledPublish(
     context.userId || null,
   );
 
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    revision,
+    "revision.publishScheduleChanged",
+    {},
+  );
+
   res.status(200).json({ status: 200 });
 }
 
@@ -1729,15 +1737,16 @@ export async function postFeatureToggleAutoPublish(
     );
   }
 
-  // Baseline: only draft managers may change auto-publish arming (else any org
-  // member could disarm another's draft). Arming and DISARMING take the same
-  // authority, deliberately: requiring less to turn it off than to turn it on gave a
-  // draft manager without publish rights a control they could only move one way,
-  // which reads as broken however it is rendered — and it disagreed with the dated
-  // schedule beside it, where cancelling already requires publish.
-  if (!context.permissions.canEditFeatureDrafts(feature)) {
-    context.permissions.throwPermissionError();
-  }
+  // Arming and DISARMING take the same authority, deliberately: requiring less to
+  // turn it off than to turn it on gave a draft manager without publish rights a
+  // control they could only move one way, which reads as broken however it is
+  // rendered — and it disagreed with the dated schedule beside it, where cancelling
+  // already requires publish.
+  //
+  // That authority is PUBLISH, and only that. A draft requirement used to sit here
+  // to stop any org member disarming someone else's draft, but the publish check
+  // below already excludes them — so all it really excluded was the publisher-only
+  // role, which can arm and cancel the dated schedule right beside this control.
   // Publish authority governs both directions; the ELIGIBILITY gates (premium, the
   // org's approval flow) are a precondition for taking on a future publish, not for
   // standing one down. Asking them on the way out left an armed revision
@@ -1751,6 +1760,14 @@ export async function postFeatureToggleAutoPublish(
   }
 
   await setAutoPublishOnApproval(revision, !!enabled, context.userId || null);
+
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    revision,
+    "revision.publishScheduleChanged",
+    {},
+  );
 
   // Arming an already-approved draft must publish now — otherwise it waits for
   // an approval event that never comes.
@@ -1837,6 +1854,17 @@ export async function postFeatureUndoReview(
   });
   if (!revision) throw new Error("Could not find feature revision");
   const newStatus = await undoReview(context, revision, res.locals.eventAudit);
+
+  // Retraction is its own event. This engine dispatched nothing at all for it,
+  // while the other revision families announce it — so the same action was visible
+  // or invisible depending on which kind of entity it happened to.
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    revision,
+    "revision.reviewRetracted",
+    {},
+  );
 
   // Undoing a "changes-requested" verdict can flip the revision to "approved"
   // (another reviewer's approval still stands). Mirror the review path so an

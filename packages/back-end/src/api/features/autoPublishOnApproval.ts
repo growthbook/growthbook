@@ -7,12 +7,19 @@ import {
   getFeatureAutopublishOnApproval,
   getMatchingRules,
   getNewDraftExperimentsToPublish,
-  getDraftAffectedEnvironments,
+  autoMerge,
+  liveRevisionFromFeature,
+  fillRevisionFromFeature,
 } from "shared/util";
+import type { FeatureRule } from "shared/types/feature";
 import {
   isScheduledPublishDue,
   isScheduledPublishPending,
 } from "shared/enterprise";
+import {
+  getLiveAndBaseRevisionsForFeature,
+  getMergeResultPublishEnvs,
+} from "back-end/src/services/features";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getEnvironments } from "back-end/src/util/organization.util";
@@ -23,7 +30,6 @@ import {
   parkScheduledPublish,
   setScheduledPublishNextAttempt,
   setAutoPublishOnApproval,
-  getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
   BadRequestError,
@@ -95,17 +101,22 @@ export function parseScheduledPublishDate(
 }
 
 /**
- * The environments an arming decision is judged over: the ones this revision
- * actually CHANGES, not every one the flag serves in.
+ * The environments an arming decision is judged over: the ones the PUBLISH this
+ * arm commits to will touch.
  *
- * Arming commits a future publish of this draft, so it must ask what that publish
- * will ask. Judging the flag's whole serving scope demanded authority in
- * environments the draft never touches, so a publisher limited to `dev` could
- * publish a dev-only change directly but could not arm the very same change.
+ * Judging the flag's whole serving scope demanded authority in environments the
+ * draft never touches, so a publisher limited to `dev` could publish a dev-only
+ * change directly but could not arm the very same change.
  *
- * Falls back to the full serving scope — the old, broader question — whenever the
- * base can't be resolved or the change is global. Failing closed here means
- * requiring MORE authority, never less.
+ * Computed the way the publish computes it — drift-free autoMerge into
+ * `getMergeResultPublishEnvs` — rather than through the review-side
+ * `getDraftAffectedEnvironments`. The two disagree on metadata, holdout and ramp
+ * reach, and any disagreement here is a permission answered against the wrong
+ * question. Sharing the publish's own function is the only thing that keeps them
+ * from drifting again.
+ *
+ * Falls back to the full serving scope whenever the merge can't be computed.
+ * Failing closed here means requiring MORE authority, never less.
  */
 async function armingEnvironments(
   context: ReqContext | ApiReqContext,
@@ -119,17 +130,35 @@ async function armingEnvironments(
 
   const draft = revision as FeatureRevisionInterface | undefined;
   if (!draft?.version) return servingIds;
-  const base = await getRevision({
-    context,
-    organization: feature.organization,
-    featureId: feature.id,
-    feature,
-    version: feature.version,
-  }).catch(() => null);
-  if (!base) return servingIds;
 
-  const affected = getDraftAffectedEnvironments(draft, base, servingIds);
-  return affected === "all" ? servingIds : affected;
+  try {
+    const { live, base } = await getLiveAndBaseRevisionsForFeature({
+      context,
+      feature,
+      revision: draft,
+    });
+    // No drift repair: arming is a read-only decision and must not write to reach
+    // it. A drifted live simply falls back to the broader scope below.
+    const merged = autoMerge(
+      liveRevisionFromFeature(live, feature),
+      fillRevisionFromFeature(base, feature),
+      draft,
+      servingIds,
+      {},
+    );
+    if (!merged.success) return servingIds;
+    return await getMergeResultPublishEnvs({
+      context,
+      feature,
+      filledLiveRules: { ...live, ...liveRevisionFromFeature(live, feature) }
+        .rules as FeatureRule[],
+      result: merged.result,
+      environmentIds: servingIds,
+      rampActions: draft.rampActions,
+    });
+  } catch {
+    return servingIds;
+  }
 }
 
 // Publish authority over the environments this revision changes. Anyone with it

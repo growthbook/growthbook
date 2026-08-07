@@ -4084,6 +4084,13 @@ async function publishRevisionInner({
     if (safeRolloutPreImages.length) {
       safeRolloutRewind = {
         what: "safe rollout statuses",
+        // CRITICAL, and ordered before the feature-document restore below.
+        // Rollouts are downstream of the rules this publish wrote, so a rollout
+        // that cannot go back must stop the restore rather than follow it: the flag
+        // reverted and the revision reopened, next to a rollout still advanced, is
+        // the mixed shape this whole path exists to avoid. Leave-whole — the
+        // publish stands and the residue is reported.
+        critical: true,
         undo: async () => {
           for (const { pre, writtenStatus } of safeRolloutPreImages) {
             await context.models.safeRollout.restoreAfterFailedBulkPublish(
@@ -4179,8 +4186,12 @@ async function publishRevisionInner({
     // satellite that stayed published is a worse shape than a publish that
     // stands. Reopening the revision goes last, so it is never a draft while
     // the feature doc it advanced stays published.
+    // Satellites first, then the feature document, then the revision status. The
+    // rollout rewind goes in FRONT of the reversed list rather than after it: run
+    // behind the document restore, a rollout it could not take back was already
+    // beside a reverted flag by the time anyone noticed.
     const unwind = [...rewinds].reverse();
-    if (safeRolloutRewind) unwind.push(safeRolloutRewind);
+    if (safeRolloutRewind) unwind.unshift(safeRolloutRewind);
     if (revisionStatusRewind) unwind.push(revisionStatusRewind);
     // OWNERSHIP FIRST, before any satellite is reversed. Only the doc restore is
     // guarded; the holdout, experiment-linkage and bandit rewinds are not — run

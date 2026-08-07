@@ -1,5 +1,6 @@
 import type { ApiRequestLocals } from "back-end/types/api";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
@@ -120,6 +121,16 @@ export async function schedulePublish(
     feature,
     version: req.params.version,
   });
+
+  // Arming, re-arming and cancelling all land here, and all three left schedule
+  // subscribers with nothing to listen to on this engine.
+  await dispatchFeatureRevisionEvent(
+    req.context,
+    feature,
+    updated ?? revision,
+    "revision.publishScheduleChanged",
+    {},
+  );
 
   return { feature, revision: updated ?? revision };
 }

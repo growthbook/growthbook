@@ -34,6 +34,8 @@ import {
   featureRevisionDiscardedPayload,
   featureRevisionReopenedPayload,
   featureRevisionRecalledPayload,
+  featureRevisionReviewRetractedPayload,
+  featureRevisionPublishScheduleChangedPayload,
   featureRevisionRebasedPayload,
   featureRevisionPublishedPayload,
   featureRevisionRevertedPayload,
@@ -245,6 +247,16 @@ export const notificationEvents = {
       schema: featureRevisionRecalledPayload,
       description:
         "Triggered when the author (or an editor) recalls a review request, returning the revision to `draft`. Distinct from `revision.reopened`, which restores a discarded revision.",
+    },
+    "revision.reviewRetracted": {
+      schema: featureRevisionReviewRetractedPayload,
+      description:
+        "Triggered when a reviewer retracts their own verdict. The status is recomputed from the verdicts that remain, so the revision may end up `pending-review`, or stay `approved` or `changes-requested` when another reviewer's verdict still stands. Carries no content change — the revision's proposed changes are untouched.",
+    },
+    "revision.publishScheduleChanged": {
+      schema: featureRevisionPublishScheduleChangedPayload,
+      description:
+        "Triggered when a deferred publish is armed, re-armed, or cancelled on a revision. Carries no content change.",
     },
     "revision.rebased": {
       schema: featureRevisionRebasedPayload,
@@ -602,9 +614,21 @@ export const notificationEventNames = (
   [] as NotificationEventName[],
 );
 
-// Only use this for zod validations!
-export const zodNotificationEventNamesEnum =
-  notificationEventNames as UnionToTuple<NotificationEventName>;
+/**
+ * Only use this for zod validations!
+ *
+ * A non-empty tuple, which is all `z.enum` needs, rather than
+ * `UnionToTuple<NotificationEventName>`. That helper recurses once per union
+ * member, so every event added deepened it by one until the whole file failed to
+ * compile with "type instantiation is excessively deep" — a wall the next event
+ * would hit again. The runtime values are identical (same array), and `z.enum`
+ * infers `NotificationEventName` either way, so nothing downstream can tell the
+ * difference except the compiler.
+ */
+export const zodNotificationEventNamesEnum = notificationEventNames as [
+  NotificationEventName,
+  ...NotificationEventName[],
+];
 
 export const notificationEventPayloadData = <
   Resource extends NotificationEventResource,

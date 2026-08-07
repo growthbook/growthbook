@@ -86,7 +86,17 @@ export class SafeRolloutModel extends BaseClass {
     const live = await this.getById(pre.id);
     if (!live) return;
     if (live.status === pre.status) return;
-    if (live.status !== (written?.status ?? writtenStatus)) return;
+    // Live holds neither our pre-image nor what we wrote, so a third writer owns
+    // this rollout now. Same shape as the lost CAS below, and it has to be reported
+    // the same way: returning quietly let Feature and revision compensation restore
+    // the flag and reopen the draft on top of a rollout still carrying advanced
+    // state. Refusing loudly is what makes the publish stand whole instead.
+    if (live.status !== (written?.status ?? writtenStatus)) {
+      throw new Error(
+        `safe rollout ${pre.id}: could not be rolled back — another writer has ` +
+          `moved it to "${live.status}"`,
+      );
+    }
     const sameDate = (a?: Date | null, b?: Date | null) =>
       (a?.getTime() ?? null) === (b?.getTime() ?? null);
     // The sync stamps start metadata only when transitioning a never-started

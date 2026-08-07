@@ -251,8 +251,31 @@ export async function scheduleRevisionPublish({
     },
   );
 
-  await getRevisionWebhookAdapter(type)?.dispatch(context, updated, {
-    type: "publishScheduleChanged",
-  });
+  // Only when the schedule actually moved. `setScheduledPublish` has two paths that
+  // deliberately write nothing and hand back the row as it stands: cancelling an
+  // already-disarmed revision, and cancelling one a publish or discard has claimed
+  // since the read. Dispatching regardless announced a change to every subscriber on
+  // a request that changed nothing — and, on the terminal path, described a schedule
+  // that the landing consumed rather than anything this caller did.
+  const settled = updated.status === "merged" || updated.status === "discarded";
+  if (!settled && !isSameSchedule(revision, updated)) {
+    await getRevisionWebhookAdapter(type)?.dispatch(context, updated, {
+      type: "publishScheduleChanged",
+    });
+  }
   return updated;
+}
+
+/** The deferred-publish state, for deciding whether a request moved it. */
+function isSameSchedule(before: Revision, after: Revision): boolean {
+  return (
+    !!before.autoPublishOnApproval === !!after.autoPublishOnApproval &&
+    (before.scheduledPublishAt?.getTime() ?? null) ===
+      (after.scheduledPublishAt?.getTime() ?? null) &&
+    !!before.scheduledPublishLockEdits === !!after.scheduledPublishLockEdits &&
+    !!before.scheduledPublishLockOthers ===
+      !!after.scheduledPublishLockOthers &&
+    !!before.scheduledPublishBypassApproval ===
+      !!after.scheduledPublishBypassApproval
+  );
 }
