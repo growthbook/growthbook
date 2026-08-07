@@ -116,7 +116,6 @@ import {
 import { usingOpenId } from "back-end/src/services/auth";
 import { getSSOConnectionSummary } from "back-end/src/models/SSOConnectionModel";
 import { getUserPermissions } from "back-end/src/util/organization.util";
-import { withLegacyPermissionAliases } from "back-end/src/util/legacyPermissionAliases";
 import { buildNamespace } from "back-end/src/util/namespaces";
 import {
   deleteUser,
@@ -964,11 +963,10 @@ export async function getOrganization(
     };
   });
 
-  // Aliased for older front-ends still in flight during a rolling deployment: they
-  // read the pre-merge keys, and a missing key reads as `false`, so every write
-  // control vanished — admins included — until the client caught up.
-  const currentUserPermissions = withLegacyPermissionAliases(
-    getUserPermissions(req.currentUser, org, teams || []),
+  const currentUserPermissions = getUserPermissions(
+    req.currentUser,
+    org,
+    teams || [],
   );
   const agreementsAgreed = Array.from(
     new Set(agreements.map((a) => a.agreement as AgreementType)),
