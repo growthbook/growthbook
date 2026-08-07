@@ -196,7 +196,38 @@ describe("applyFeatureContextualBanditLinkage", () => {
       preImage: { cb_1: { linkedFeatures: [], pendingFeatureDrafts: [] } },
     });
 
-    expect(cbModel.applyLinkageDelta).toHaveBeenCalledWith("feat_1", delta);
+    // Unguarded by default: the single-publish path applies its delta without an
+    // ownership expectation, and only the bulk path opts in.
+    expect(cbModel.applyLinkageDelta).toHaveBeenCalledWith(
+      "feat_1",
+      delta,
+      undefined,
+    );
+  });
+
+  // The bulk path asks for the guard, so a landing that lost the feature document to
+  // a newer publish refuses rather than stamping its stale delta over the winner.
+  it("passes the planned slice as the expectation when guarded", async () => {
+    const delta = {
+      contextualBanditId: "cb_1",
+      link: true,
+      unlink: false,
+      draftsToQueue: [],
+      draftsToDrop: [],
+    };
+    const preImage = { cb_1: { linkedFeatures: [], pendingFeatureDrafts: [] } };
+
+    await applyFeatureContextualBanditLinkage(
+      makeContext(),
+      { featureId: "feat_1", deltas: [delta], preImage },
+      { guarded: true },
+    );
+
+    expect(cbModel.applyLinkageDelta).toHaveBeenCalledWith(
+      "feat_1",
+      delta,
+      preImage.cb_1,
+    );
   });
 });
 

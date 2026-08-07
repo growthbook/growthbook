@@ -1341,8 +1341,13 @@ function ReviewAndPublishRevision<T>({
                 Hidden when publishing is blocked (e.g. a locked config) — a
                 schedule would just fail to fire. */}
             {isActiveDraft &&
+              // Anything ARMED keeps the control reachable so it can be called off,
+              // not just a dated schedule: "publish when approved" carries no date, so
+              // `isScheduledPublishPending` is false for it and blocking publish would
+              // otherwise strand it with no way to disarm.
               (!publishBlockedReason ||
-                isScheduledPublishPending(revision)) && (
+                isScheduledPublishPending(revision) ||
+                !!revision.autoPublishOnApproval) && (
                 <ScheduledPublishControl
                   revision={revision}
                   pending={isScheduledPublishPending(revision)}

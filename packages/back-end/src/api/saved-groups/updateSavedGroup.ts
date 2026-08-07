@@ -159,6 +159,8 @@ export const updateSavedGroup = createApiRequestHandler(
       } as unknown as Revision)
     : adapter.isApprovalRequired(req.context);
 
+  const bypassedGates: { type: string; outcome: "bypassed"; via: string }[] =
+    [];
   if (approvalRequired) {
     if (!bypassApproval) {
       throw new BadRequestError(
@@ -178,6 +180,16 @@ export const updateSavedGroup = createApiRequestHandler(
     if (!canBypass) {
       req.context.permissions.throwPermissionError();
     }
+    // Named in the response like every other publish surface — without it a caller
+    // cannot tell a publish that needed no approval from one that stepped over a
+    // live requirement.
+    bypassedGates.push({
+      type: "approval-required",
+      outcome: "bypassed",
+      via: canUseRestApiBypassSetting(req)
+        ? "restApiBypassesReviews"
+        : "bypassApprovalPermission",
+    });
   }
 
   // One landing path whether or not approval was bypassed: every direct
@@ -239,5 +251,6 @@ export const updateSavedGroup = createApiRequestHandler(
       }),
       req.context,
     ),
+    ...(bypassedGates.length ? { bypassedGates } : {}),
   };
 });

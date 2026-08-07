@@ -649,22 +649,18 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       }
     };
 
-    // OWNERSHIP FIRST, before any satellite is touched. The feature-doc restore
-    // at the end is guarded and refuses to overwrite a newer landing, but the
-    // rollout, holdout-linkage and bandit reversals below are not — run after a
-    // concurrent publish took the feature, they would undo ITS satellites while
-    // the doc restore then correctly declines. Our apply's own stamp is the
-    // ownership token: if live has moved past it, this item is left whole
-    // (reported published) with nothing reversed.
+    // OWNERSHIP, decided up front and acted on at the END. A rival owns the DOCUMENT,
+    // not our satellite writes: the doc restore must stand down, but leaving our
+    // holdout, experiment-linkage and bandit writes in place strands stale state on
+    // top of theirs. Each of those reversals is ownership-aware now — they skip
+    // whatever a different owner holds — so running them takes back exactly what is
+    // still ours. That was NOT true when this check was written, which is why it used
+    // to reverse nothing.
     const ourStamp = desired.ourWriteStamp;
-    if (
+    const docLostToRival = !!(
       ourStamp &&
       current.dateUpdated?.getTime() !== new Date(ourStamp).getTime()
-    ) {
-      throw new Error(
-        `bulk publish compensation: feature "${feature.id}" was changed by a later write; left at the published state rather than reversing another landing's satellites`,
-      );
-    }
+    );
 
     // Two passes over the safe-rollout reversals: a dry preflight (all checks,
     // no writes) so a deterministic refusal — a missing ownership baseline —
@@ -803,6 +799,15 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       written,
       current: current as unknown as Record<string, unknown>,
     }) as Partial<FeatureInterface>;
+    if (docLostToRival) {
+      // Satellites are back; the document is theirs. Reported published (needs
+      // attention) and deliberately NOT recorded as restored, so the apply's deferred
+      // `feature.updated` still fires — our write did land, and the rival's own event
+      // reports the transition from it.
+      throw new Error(
+        `bulk publish compensation: feature "${feature.id}" was changed by a later write; its satellite writes were taken back but the document is left at the newer landing's state`,
+      );
+    }
     if (Object.keys(restore).length) {
       // Guarded on the doc the ownership decision was read from — an unguarded
       // restore could replace a newer landing arriving after that read. A loss

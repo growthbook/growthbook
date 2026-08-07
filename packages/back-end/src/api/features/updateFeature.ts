@@ -55,7 +55,10 @@ import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fie
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { validateEnvKeys } from "./postFeature";
 import { validateCustomFields } from "./validations";
-import { canBypassReviewChecks } from "./reviewBypass";
+import {
+  canBypassReviewChecks,
+  canUseRestApiBypassSetting,
+} from "./reviewBypass";
 import {
   assertValidHoldout,
   assertValidProjectId,
@@ -585,7 +588,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         bypassedGates.push({
           type: "approval-required",
           outcome: "bypassed",
-          via: canBypass
+          // `canBypass` ORs the two sources, so it cannot name which one applied.
+          // Ask the org setting directly; the permission is what remains.
+          via: canUseRestApiBypassSetting(req)
             ? "restApiBypassesReviews"
             : "bypassApprovalPermission",
         });

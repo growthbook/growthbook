@@ -255,6 +255,9 @@ export const updateSavedGroupValidator = {
   responseSchema: z
     .object({
       savedGroup: apiSavedGroupValidator,
+      // An update lands a live revision, so it can also step over an approval
+      // requirement — reported like every other publish surface.
+      bypassedGates: publishBypassedGatesField,
     })
     .strict(),
   summary: "Partially update a single saved group",

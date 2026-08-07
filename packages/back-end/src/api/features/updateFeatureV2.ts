@@ -51,7 +51,10 @@ import {
 } from "back-end/src/services/featureRevisionEvents";
 import { validateEnvKeys } from "./postFeature";
 import { validateCustomFields, validateRuleAttributes } from "./validations";
-import { canBypassReviewChecks } from "./reviewBypass";
+import {
+  canBypassReviewChecks,
+  canUseRestApiBypassSetting,
+} from "./reviewBypass";
 import {
   assertConfigSchemaCompat,
   assertValidHoldout,
@@ -478,7 +481,11 @@ export const updateFeatureV2 = createApiRequestHandler(
       bypassedGates.push({
         type: "approval-required",
         outcome: "bypassed",
-        via: canBypass ? "restApiBypassesReviews" : "bypassApprovalPermission",
+        // `canBypass` ORs the two sources, so it cannot name which one applied.
+        // Ask the org setting directly; the permission is what remains.
+        via: canUseRestApiBypassSetting(req)
+          ? "restApiBypassesReviews"
+          : "bypassApprovalPermission",
       });
     }
 

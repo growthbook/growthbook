@@ -17,6 +17,7 @@ import {
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { landDirectChange } from "back-end/src/revisions/revertActions";
 import { logger } from "back-end/src/util/logger";
+import { CasConflictError } from "back-end/src/models/BaseModel";
 import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
@@ -400,9 +401,27 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       };
     }
 
+    // This endpoint always lands the change live (there's no draft mode), so it
+    // needs publish authority on top of edit — same rule as the internal PUT.
+    // Open a draft via POST /configs-revisions/:key without it.
+    if (
+      !req.context.permissions.canRevisionAction(
+        "config",
+        "publish",
+        config,
+        configPublishEnvironments(req.context, config),
+      )
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
+
     // Customer validateConfig hooks gate updates too (matching the feature
     // analog and the create path); `original` carries the stored state so
     // incremental hooks can diff.
+    //
+    // AFTER the publish check above: hooks execute customer sandbox code, and running
+    // them for a caller who cannot publish let an unauthorized request drive that
+    // execution and observe its outcome.
     await runValidateConfigHooks({
       context: req.context,
       config: {
@@ -501,19 +520,6 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       );
     }
 
-    // This endpoint always lands the change live (there's no draft mode), so it
-    // needs publish authority on top of edit — same rule as the internal PUT.
-    // Open a draft via POST /configs-revisions/:key without it.
-    if (
-      !req.context.permissions.canRevisionAction(
-        "config",
-        "publish",
-        config,
-        configPublishEnvironments(req.context, config),
-      )
-    ) {
-      req.context.permissions.throwPermissionError();
-    }
     // Landing a move takes publish in the destination too.
     if (
       !holdsMoveDestination({
@@ -602,10 +608,26 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         if (!live) return;
         // Only while they still hold what we wrote: a third request that has since
         // changed them owns them now, and converging to our pre-image would undo it.
+        //
+        // Read-then-compare is not enough — that is the same check-then-act the
+        // forward commit guards against, and a request landing between the read and
+        // the write would be erased by the rollback. The comparison is the early exit;
+        // the GUARD on `live` is what makes it safe, refusing the write if anything at
+        // all has moved since this read.
         if (!isEqual(live.scopedOverrides ?? [], nextOverrides)) return;
-        await req.context.models.configs.dangerousUpdateBypassPermission(live, {
-          scopedOverrides: previousOverrides,
-        });
+        try {
+          await req.context.models.configs.updateIfUnchanged(
+            live,
+            { scopedOverrides: previousOverrides },
+            undefined,
+            { dangerouslyBypassCanUpdate: true },
+          );
+        } catch (e) {
+          // A lost race means someone else owns the overrides now; leaving theirs in
+          // place is the correct outcome, and the marker sync below would fight it.
+          if (e instanceof CasConflictError) return;
+          throw e;
+        }
         await syncScopedConfigMarkers(
           req.context,
           config.key,

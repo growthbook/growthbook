@@ -3954,7 +3954,20 @@ async function publishRevisionInner({
       await applyFeatureContextualBanditLinkage(
         context,
         contextualBanditLinkagePlan,
+        { guarded: true },
       );
+    }
+
+    // RE-FENCE, like the bulk path. The guarded document write proves nothing about
+    // the moment of each satellite write, and holdout membership cannot carry a guard
+    // of its own — its condition lives in another collection. If a rival took the
+    // document while we were writing, our satellite state is stale: fail here so the
+    // rewinds below run, rather than committing a publish on top of it.
+    if (ourWriteStamp) {
+      const afterSatellites = await getFeature(context, feature.id);
+      if (afterSatellites?.dateUpdated?.getTime() !== ourWriteStamp.getTime()) {
+        throw new CasConflictError();
+      }
     }
 
     const publishStamp = await markRevisionAsPublished(
@@ -3999,18 +4012,28 @@ async function publishRevisionInner({
       ownershipLost =
         !live || live.dateUpdated?.getTime() !== ourStamp.getTime();
     }
-    let criticalFailed = ownershipLost;
-    const unreversed: string[] = ownershipLost
-      ? unwind.map(({ what }) => what)
-      : [];
+    let criticalFailed = false;
+    const unreversed: string[] = [];
     if (ownershipLost) {
       logger.error(
-        `Skipping every rewind for feature ${feature.id} revision ${revision.version}: a later write owns the feature, so reversing would undo ITS work`,
+        `A later write owns feature ${feature.id}; leaving its document and revision status alone and taking back only this publish's satellite writes`,
       );
     }
-    for (const { what, undo, critical } of unwind) {
-      // Reopening the revision now would contradict a still-published feature.
-      if (ownershipLost) continue;
+    for (const rewind of unwind) {
+      const { what, undo, critical } = rewind;
+      // A rival owns the DOCUMENT, not our satellite writes. Restoring the document
+      // would overwrite their publish, and reopening the revision would contradict a
+      // still-published feature — but leaving our holdout, experiment-linkage and
+      // bandit writes in place strands stale state on top of theirs. Each of those
+      // reversals is ownership-aware and declines whatever a different owner now
+      // holds, so running them takes back exactly what is still ours.
+      if (
+        ownershipLost &&
+        (what === FEATURE_DOC_REWIND || rewind === revisionStatusRewind)
+      ) {
+        unreversed.push(what);
+        continue;
+      }
       if (criticalFailed) {
         logger.error(
           `Skipping rewind of ${what} for feature ${feature.id} revision ${revision.version}: an earlier critical step could not be reversed`,

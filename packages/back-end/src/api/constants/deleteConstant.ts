@@ -1,5 +1,6 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { deleteConstantValidator } from "shared/validators";
+import { archiveServeFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
@@ -16,10 +17,18 @@ export const deleteConstant = createApiRequestHandler(deleteConstantValidator)(
       );
     }
 
+    // Deleting a LIVE Constant takes its value out of every environment it serves, so
+    // the delete atom must hold in all of them — the same footprint archiving uses,
+    // and deleting is strictly stronger than archiving. The unbound sentinel skipped
+    // the environment check rather than narrowing it, so with the REST bypass enabled
+    // a dev-limited deleter could delete a Constant serving production. An archived
+    // Constant is already out of service, so there the atom alone covers it.
     if (
       !req.context.permissions.canDeleteConstant(
         constant,
-        NO_ENVIRONMENT_BINDING,
+        constant.archived
+          ? NO_ENVIRONMENT_BINDING
+          : archiveServeFootprint(req.context, constant),
       )
     ) {
       req.context.permissions.throwPermissionError();
