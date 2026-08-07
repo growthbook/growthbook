@@ -9,6 +9,7 @@ import { updateFeatureValidator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import {
   resolveOwnerToUserId,
   resolveOwnerEmail,
@@ -531,8 +532,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     // Gates this request stepped over, named in the response like every other publish
     // surface — without it a caller cannot tell a publish that needed no approval from
     // one that bypassed a live requirement.
-    const bypassedGates: { type: string; outcome: "bypassed"; via: string }[] =
-      [];
+    const bypassedGates: BypassedGate[] = [];
 
     const hasRevisionChanges =
       hasEnvEnabledChanges ||

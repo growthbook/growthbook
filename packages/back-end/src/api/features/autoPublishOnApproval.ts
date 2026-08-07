@@ -7,6 +7,7 @@ import {
   getFeatureAutopublishOnApproval,
   getMatchingRules,
   getNewDraftExperimentsToPublish,
+  getDraftAffectedEnvironments,
 } from "shared/util";
 import {
   isScheduledPublishDue,
@@ -22,6 +23,7 @@ import {
   parkScheduledPublish,
   setScheduledPublishNextAttempt,
   setAutoPublishOnApproval,
+  getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
   BadRequestError,
@@ -33,13 +35,13 @@ import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevis
 import { logger } from "back-end/src/util/logger";
 import { publishFeatureRevision } from "./postFeatureRevisionPublish";
 
-export function canEnableFeatureAutoPublishOnApproval(
+export async function canEnableFeatureAutoPublishOnApproval(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   // The draft being armed. Auto-publish commits a future publish, and a draft that
   // moves projects lands in the DESTINATION — so arming needs authority there too.
-  revision?: { metadata?: { project?: string } },
-): boolean {
+  revision?: FeatureRevisionInterface | { metadata?: { project?: string } },
+): Promise<boolean> {
   if (!context.hasPremiumFeature("require-approvals")) return false;
   if (
     !getFeatureAutopublishOnApproval(
@@ -68,12 +70,12 @@ export function canEnableFeatureAutoPublishOnApproval(
  * Same split `canScheduleFeaturePublish` / `canPublishFeatureRevision` already makes
  * for the dated schedule beside it.
  */
-export function canDisarmFeatureAutoPublishOnApproval(
+export async function canDisarmFeatureAutoPublishOnApproval(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
-  revision?: { metadata?: { project?: string } },
-): boolean {
-  return canPublishFeatureRevision(context, feature, revision);
+  revision?: FeatureRevisionInterface | { metadata?: { project?: string } },
+): Promise<boolean> {
+  return await canPublishFeatureRevision(context, feature, revision);
 }
 
 // Validate a client-supplied schedule date. null/undefined means "no schedule";
@@ -92,22 +94,56 @@ export function parseScheduledPublishDate(
   return date;
 }
 
-// Publish authority over every environment the feature applies to. Anyone with
-// it can cancel (or take over) a pending schedule.
-export function canPublishFeatureRevision(
+/**
+ * The environments an arming decision is judged over: the ones this revision
+ * actually CHANGES, not every one the flag serves in.
+ *
+ * Arming commits a future publish of this draft, so it must ask what that publish
+ * will ask. Judging the flag's whole serving scope demanded authority in
+ * environments the draft never touches, so a publisher limited to `dev` could
+ * publish a dev-only change directly but could not arm the very same change.
+ *
+ * Falls back to the full serving scope — the old, broader question — whenever the
+ * base can't be resolved or the change is global. Failing closed here means
+ * requiring MORE authority, never less.
+ */
+async function armingEnvironments(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision?: FeatureRevisionInterface | { metadata?: { project?: string } },
+): Promise<string[]> {
+  const servingIds = filterEnvironmentsByFeature(
+    getEnvironments(context.org),
+    feature,
+  ).map((e) => e.id);
+
+  const draft = revision as FeatureRevisionInterface | undefined;
+  if (!draft?.version) return servingIds;
+  const base = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    feature,
+    version: feature.version,
+  }).catch(() => null);
+  if (!base) return servingIds;
+
+  const affected = getDraftAffectedEnvironments(draft, base, servingIds);
+  return affected === "all" ? servingIds : affected;
+}
+
+// Publish authority over the environments this revision changes. Anyone with it
+// can cancel (or take over) a pending schedule.
+export async function canPublishFeatureRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   // The revision being armed, when there is one. A draft that moves projects lands
   // in the DESTINATION, so arming a schedule for it commits a future publish there —
   // judging the live feature's scope alone let someone arm a publish they cannot
   // perform, which then failed on every poller tick until it gave up.
-  revision?: { metadata?: { project?: string } },
-): boolean {
-  const allEnvironments = getEnvironments(context.org);
-  const environmentIds = filterEnvironmentsByFeature(
-    allEnvironments,
-    feature,
-  ).map((e) => e.id);
+  revision?: FeatureRevisionInterface | { metadata?: { project?: string } },
+): Promise<boolean> {
+  const environmentIds = await armingEnvironments(context, feature, revision);
   if (!context.permissions.canPublishFeature(feature, environmentIds)) {
     return false;
   }
@@ -123,13 +159,13 @@ export function canPublishFeatureRevision(
 
 // Whether the caller may arm a date-based publish. Needs publish authority plus
 // the premium feature (canceling needs neither, so a lapsed license can disarm).
-export function canScheduleFeaturePublish(
+export async function canScheduleFeaturePublish(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
-  revision?: { metadata?: { project?: string } },
-): boolean {
+  revision?: FeatureRevisionInterface | { metadata?: { project?: string } },
+): Promise<boolean> {
   if (!context.hasPremiumFeature("scheduled-revisions")) return false;
-  return canPublishFeatureRevision(context, feature, revision);
+  return await canPublishFeatureRevision(context, feature, revision);
 }
 
 async function revisionRequiresPreLaunchChecklist(

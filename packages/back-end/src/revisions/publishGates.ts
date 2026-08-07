@@ -1,5 +1,6 @@
 import { isBypassApprovalPermission } from "shared/permissions";
 import type { Permission } from "shared/types/organization";
+import { bypassViaValues } from "shared/validators";
 import {
   canUseRestApiBypassSetting,
   type ReviewBypassRequest,
@@ -133,18 +134,10 @@ export function gateOr5xx<G extends PublishGate>(
 }
 
 /** A gate that would have blocked the publish but was bypassed by the caller. */
-// The closed set of bypass sources a response may report. Kept as a union (rather
-// than the bare `string` the field is typed as) so a handler cannot invent a value
-// the API docs don't describe.
-export type BypassVia =
-  | "ignoreWarnings"
-  | "skipSchemaValidation"
-  | "skipHooks"
-  | "bypassApprovalPermission"
-  | "restApiBypassesReviews"
-  // The org's "reverts bypass approval" setting. Reverts are the one landing path
-  // an org setting alone can clear, so it needs its own source.
-  | "revertsBypassApproval";
+// Derived from the Zod enum rather than restated, so the type and the runtime
+// schema cannot drift — the field used to be a bare `string` on both sides, which
+// let a handler report a provenance the API docs never described.
+export type BypassVia = (typeof bypassViaValues)[number];
 
 export type BypassedGate = {
   type: string;
@@ -153,7 +146,7 @@ export type BypassedGate = {
   // "skipSchemaValidation"), the caller's bypass-approval permission for the
   // entity ("bypassApprovalPermission"), or an org setting
   // ("restApiBypassesReviews", "revertsBypassApproval").
-  via: string;
+  via: BypassVia;
 };
 
 /** Soft-guard (acknowledge-class) gate types: cleared by ignoreWarnings, or by
@@ -276,7 +269,7 @@ export function unclearedGates(
 
 export type PublishGateDisposition =
   | { outcome: "blocking" }
-  | { outcome: "bypassed"; via: string };
+  | { outcome: "bypassed"; via: BypassVia };
 
 // Decide whether a single active gate blocks the publish or is bypassed (and by
 // what). Pure — exported for unit tests. The flag path reuses `unclearedGates`

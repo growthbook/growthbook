@@ -64495,6 +64495,13 @@ components:
             setting (`restApiBypassesReviews`, or `revertsBypassApproval` on a
             revert).
           type: string
+          enum:
+            - ignoreWarnings
+            - skipSchemaValidation
+            - skipHooks
+            - bypassApprovalPermission
+            - restApiBypassesReviews
+            - revertsBypassApproval
       required:
         - type
         - outcome

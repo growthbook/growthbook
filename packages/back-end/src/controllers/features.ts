@@ -1161,8 +1161,8 @@ export async function postFeatureScheduledPublish(
   // Arming needs the premium feature + publish authority; canceling needs only
   // publish authority.
   const allowed = date
-    ? canScheduleFeaturePublish(context, feature, revision)
-    : canPublishFeatureRevision(context, feature, revision);
+    ? await canScheduleFeaturePublish(context, feature, revision)
+    : await canPublishFeatureRevision(context, feature, revision);
   if (!allowed) {
     context.permissions.throwPermissionError();
   }
@@ -1252,13 +1252,13 @@ export async function postFeatureRequestReview(
     throw new Error("Can only request review if is a draft");
   }
   const enableAutoPublish =
-    autoPublishOnApproval &&
-    canEnableFeatureAutoPublishOnApproval(context, feature, revision);
+    !!autoPublishOnApproval &&
+    (await canEnableFeatureAutoPublishOnApproval(context, feature, revision));
 
   const scheduledDate = parseScheduledPublishDate(scheduledPublishAt);
   if (
     scheduledDate !== null &&
-    !canScheduleFeaturePublish(context, feature, revision)
+    !(await canScheduleFeaturePublish(context, feature, revision))
   ) {
     context.permissions.throwPermissionError();
   }
@@ -1744,8 +1744,8 @@ export async function postFeatureToggleAutoPublish(
   // un-disarmable the moment either changed — while the arm still fired. Same split
   // the generic toggle makes.
   const mayToggle = enabled
-    ? canEnableFeatureAutoPublishOnApproval(context, feature, revision)
-    : canDisarmFeatureAutoPublishOnApproval(context, feature, revision);
+    ? await canEnableFeatureAutoPublishOnApproval(context, feature, revision)
+    : await canDisarmFeatureAutoPublishOnApproval(context, feature, revision);
   if (!mayToggle) {
     context.permissions.throwPermissionError();
   }

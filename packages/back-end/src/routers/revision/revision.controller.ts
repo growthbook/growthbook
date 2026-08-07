@@ -1232,9 +1232,15 @@ export const postApproveAndPublish = async (
           entity as Record<string, unknown>,
         ),
     ),
+    // On the revision's SNAPSHOT, like every other review check — `addReview`'s CAS,
+    // `reviewAuthorityOnRow`, and the REST submit-review all judge review authority
+    // there. A review belongs to the revision, whose project a later move on the live
+    // entity does not change; asking about live here rejected a reviewer who is
+    // scoped to the project the revision was opened in. Publish authority below
+    // stays on LIVE, because that is where the publish lands.
     canReview: (adapter.canReview ?? adapter.canUpdate)(
       context,
-      entity as Record<string, unknown>,
+      revision.target.snapshot as Record<string, unknown>,
     ),
     // Footprint-aware, not the adapter check alone: that cannot see the change
     // set, so it would clear a dev-limited approver to approve a production

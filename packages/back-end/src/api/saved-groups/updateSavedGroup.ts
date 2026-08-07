@@ -4,6 +4,7 @@ import { validateCondition } from "shared/util";
 import { updateSavedGroupValidator } from "shared/validators";
 import { UpdateSavedGroupProps } from "shared/types/saved-group";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import { landDirectChange } from "back-end/src/revisions/revertActions";
 import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
@@ -159,8 +160,7 @@ export const updateSavedGroup = createApiRequestHandler(
       } as unknown as Revision)
     : adapter.isApprovalRequired(req.context);
 
-  const bypassedGates: { type: string; outcome: "bypassed"; via: string }[] =
-    [];
+  const bypassedGates: BypassedGate[] = [];
   if (approvalRequired) {
     if (!bypassApproval) {
       throw new BadRequestError(

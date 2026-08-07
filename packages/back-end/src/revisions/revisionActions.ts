@@ -758,6 +758,29 @@ async function publishRevisionInner(
 
   let applied: ApplyChangesResult | undefined;
   try {
+    // Re-checked now that this landing has a place in the order — the same pair the
+    // revert and recovery paths assert after THEIR claims, and the only one of the
+    // three that was missing it.
+    //
+    // The entity CAS below cannot cover the second half. A revision that claims the
+    // merge and then dies before writing leaves the entity untouched, so an OLDER
+    // revision's baseline still matches, its guarded write passes, and it lands
+    // older state under a newer merged revision that recorded something else. That
+    // split is permanent: recovery of the newer revision refuses, correctly, because
+    // the baseline it would apply onto has since changed. Requiring this revision to
+    // still be the newest merged one is what makes the order it claimed real.
+    //
+    // Thrown before any entity write, so the compensation below sees `applied`
+    // undefined, restores nothing, and cleanly reopens the draft for a retry.
+    await assertLandingBaseline({
+      context,
+      entityType: revision.target.type,
+      entityId: revision.target.id,
+      baselineDateUpdated:
+        (entity as { dateUpdated?: Date }).dateUpdated ?? null,
+      requireLatestMergedId: merged.id,
+    });
+
     // The claim guards the REVISION; this guards the ENTITY. Without it, two
     // drafts of the same entity could both pass their own claim and then apply in
     // either order, leaving live state contradicting the newest merged revision.

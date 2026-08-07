@@ -6,6 +6,7 @@ import {
 } from "shared/validators";
 import { ConstantInterface } from "shared/types/constant";
 import { landDirectChange } from "back-end/src/revisions/revertActions";
+import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
@@ -182,8 +183,7 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
 
     // See updateConfig: this route enforces approval itself, so it reports its own
     // bypass rather than inheriting one from the gate pipeline.
-    const bypassedGates: { type: string; outcome: "bypassed"; via: string }[] =
-      [];
+    const bypassedGates: BypassedGate[] = [];
     if (approvalRequired) {
       if (!bypassApproval) {
         throw new BadRequestError(

@@ -2379,6 +2379,17 @@ export type HoldoutExperimentLinkagePlan = {
   toUnlink: string[];
   // "" is the clear sentinel `updateExperiment` expects.
   prevExperimentHoldoutIds: Record<string, string>;
+  /**
+   * The experiments whose scalar THIS landing actually wrote, filled in by the
+   * forward pass and read by the rewind.
+   *
+   * Recorded rather than inferred, because state cannot tell the two "already at
+   * target" cases apart: our own earlier attempt, and a CONCURRENT publish that got
+   * there first. The rewind's ownership test — live still holds what this plan
+   * wrote — matches both, so inferring ownership let this landing's compensation
+   * unlink an experiment a different, successful publish had just linked.
+   */
+  writtenExperimentIds?: Set<string>;
 };
 
 // Derived from published rules, so an edited or discarded draft leaves nothing
@@ -2508,9 +2519,12 @@ async function setExperimentHoldoutIds(
   // the rollback leaves them alone — the same disposition `setLinkageState` and
   // `safeRollout.restoreAfterFailedBulkPublish` take.
   onMismatch: "conflict" | "skip" = "conflict",
+  // Filled in as each scalar write LANDS, not returned, so a pass that throws partway
+  // still tells its compensation what it managed to write.
+  recordWritten?: Set<string>,
 ): Promise<Set<string>> {
-  // Which experiments this call actually wrote. The membership arrays have to follow
-  // the same decision — see `reverseHoldoutExperimentLinkage`.
+  // Which experiments are now at the target. The membership arrays follow this — see
+  // `reverseHoldoutExperimentLinkage`. NOT the same question as who wrote them.
   const applied = new Set<string>();
   // Every write SETTLES before a failure is surfaced. `Promise.all` rejects on the
   // first while its siblings keep running, so compensation could inspect an
@@ -2529,6 +2543,12 @@ async function setExperimentHoldoutIds(
         // between the membership write and the scalar leaves exactly this state, and
         // treating it as "not ours" would strand the membership half.
         if ((exp.holdoutId ?? "") === next) {
+          // At target without this call writing it. It counts for MEMBERSHIP — a
+          // forward pass that failed between the scalar and the membership write
+          // leaves exactly this state, and calling it "not ours" would strand the
+          // membership half. It does NOT count as ours to undo: a concurrent publish
+          // that linked it first leaves the identical state, and compensating over
+          // that removes their successful linkage.
           applied.add(id);
           return null;
         }
@@ -2542,6 +2562,7 @@ async function setExperimentHoldoutIds(
             : {}),
         });
         applied.add(id);
+        recordWritten?.add(id);
         return null;
       } catch (e) {
         if (onMismatch === "skip" && e instanceof CasConflictError) return null;
@@ -2572,10 +2593,13 @@ export async function applyHoldoutExperimentLinkage(
   // membership this publish had added: compensation correctly skips that experiment
   // as theirs, so nothing was ever left to remove it.
   const { targets, expectedPrior } = holdoutLinkageWrites(plan, chain);
+  plan.writtenExperimentIds = plan.writtenExperimentIds ?? new Set<string>();
   const applied = await setExperimentHoldoutIds(
     context,
     targets,
     expectedPrior,
+    "conflict",
+    plan.writtenExperimentIds,
   );
   await context.models.holdout.addExperimentsToHoldout(
     plan.holdoutId,
@@ -2635,11 +2659,21 @@ export async function reverseHoldoutExperimentLinkage(
   // treats this as a satellite and carries on to the feature document, while bulk
   // compensation records it and reports the item stuck rather than cleanly rolled
   // back. A skipped experiment is not a failure — it is a different owner.
+  // Restricted to what the forward pass actually WROTE. Undoing an experiment it
+  // merely found at the target reverses whoever really put it there.
+  const written = plan.writtenExperimentIds;
   const { targets } = holdoutLinkageWrites(plan);
+  const ourTargets = Object.fromEntries(
+    Object.entries(targets).filter(([id]) => written?.has(id)),
+  );
   const reverted = await setExperimentHoldoutIds(
     context,
-    plan.prevExperimentHoldoutIds,
-    targets,
+    Object.fromEntries(
+      Object.entries(plan.prevExperimentHoldoutIds).filter(([id]) =>
+        written?.has(id),
+      ),
+    ),
+    ourTargets,
     "skip",
   );
   // Membership follows the scalar. Rewinding it unconditionally undid the teammate's

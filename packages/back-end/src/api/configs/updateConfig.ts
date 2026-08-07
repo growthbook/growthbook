@@ -16,6 +16,7 @@ import {
 } from "shared/util";
 import { ApiReqContext } from "back-end/types/api";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import { landDirectChange } from "back-end/src/revisions/revertActions";
 import { logger } from "back-end/src/util/logger";
 import { CasConflictError } from "back-end/src/models/BaseModel";
@@ -638,8 +639,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     // the contract says a successful publish names the ones it skipped. This route
     // enforces approval on its own rather than through the gate pipeline, so it has
     // to report the outcome itself.
-    const bypassedGates: { type: string; outcome: "bypassed"; via: string }[] =
-      [];
+    const bypassedGates: BypassedGate[] = [];
     if (approvalRequired) {
       if (!bypassApproval) {
         throw new BadRequestError(

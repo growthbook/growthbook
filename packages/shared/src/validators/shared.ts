@@ -210,6 +210,25 @@ export const bypassApprovalPublishBodyField = z
     "Deprecated and ignored. Approval is bypassed automatically when the caller has Bypass draft approvals access for this resource or when the organization enables the REST API approval bypass. Otherwise, the revision must be approved before it can be published.",
   );
 
+/**
+ * The closed set of bypass sources a response may report: a request field
+ * (`ignoreWarnings`, the privileged `skipSchemaValidation`, `skipHooks`), the
+ * caller's permission on the entity (`bypassApprovalPermission`), or an
+ * organization setting (`restApiBypassesReviews`, or `revertsBypassApproval` on a
+ * revert).
+ *
+ * The source of truth for both the runtime schema and `BypassVia`, so a handler
+ * cannot report a provenance the API docs do not describe.
+ */
+export const bypassViaValues = [
+  "ignoreWarnings",
+  "skipSchemaValidation",
+  "skipHooks",
+  "bypassApprovalPermission",
+  "restApiBypassesReviews",
+  "revertsBypassApproval",
+] as const;
+
 // Reported on a SUCCESSFUL publish when a gate that would otherwise have blocked
 // the publish was bypassed by the caller's authority. Omitted entirely when no
 // gate was bypassed, so a clean publish response stays lean.
@@ -224,7 +243,7 @@ export const publishBypassedGatesField = z
           ),
         outcome: z.literal("bypassed"),
         via: z
-          .string()
+          .enum(bypassViaValues)
           .describe(
             "How the gate was bypassed. The value identifies a request field (`ignoreWarnings`, `skipSchemaValidation`, or `skipHooks`), the caller's permission (`bypassApprovalPermission`), or an organization setting (`restApiBypassesReviews`, or `revertsBypassApproval` on a revert).",
           ),

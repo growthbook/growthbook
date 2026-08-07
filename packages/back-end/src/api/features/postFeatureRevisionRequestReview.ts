@@ -91,13 +91,17 @@ export async function requestReview(
   }
 
   const enableAutoPublish =
-    req.body.autoPublishOnApproval &&
-    canEnableFeatureAutoPublishOnApproval(req.context, feature, revision);
+    !!req.body.autoPublishOnApproval &&
+    (await canEnableFeatureAutoPublishOnApproval(
+      req.context,
+      feature,
+      revision,
+    ));
 
   const scheduledDate = parseScheduledPublishDate(req.body.scheduledPublishAt);
   if (
     scheduledDate !== null &&
-    !canScheduleFeaturePublish(req.context, feature, revision)
+    !(await canScheduleFeaturePublish(req.context, feature, revision))
   ) {
     req.context.permissions.throwPermissionError();
   }
