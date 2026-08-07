@@ -19,7 +19,10 @@ import type {
 } from "shared/validators";
 import { isEqual } from "lodash";
 import { createParser } from "nuqs";
-import { canInlineFilterColumn } from "shared/experiments";
+import {
+  canInlineFilterColumn,
+  getFactMetricFactTableId,
+} from "shared/experiments";
 import {
   encodeExplorationConfig,
   calculateProductAnalyticsDateRange,
@@ -256,7 +259,7 @@ export function getFunnelStepPreview({
   allSteps?: FunnelStep[];
 }): string {
   const factTableLabel = showFactTable
-    ? (factTable?.name ?? step.factTable ?? "")
+    ? (factTable?.name ?? step.factTableId ?? "")
     : "";
   const complete = step.rowFilters.filter(isPreviewableFilter);
   const commonKeys = allSteps
@@ -360,18 +363,18 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
   }
 }
 
-/** Builds an empty funnel step. `factTable` is optional so the "Add step"
+/** Builds an empty funnel step. `factTableId` is optional so the "Add step"
  *  button can prefill from the previous step (the inherited default). */
 export function createEmptyFunnelStep({
   name,
-  factTable = "",
+  factTableId = "",
 }: {
   name: string;
-  factTable?: string;
+  factTableId?: string;
 }): FunnelStep {
   return {
     name,
-    factTable,
+    factTableId,
     rowFilters: [],
     optional: false,
   };
@@ -385,8 +388,8 @@ export function getFunnelUnitOptions(
 ): string[] {
   const factTablesForSteps = dataset.steps
     .map((s) =>
-      s.factTable
-        ? (factTables.find((ft) => ft.id === s.factTable) ?? null)
+      s.factTableId
+        ? (factTables.find((ft) => ft.id === s.factTableId) ?? null)
         : null,
     )
     .filter((ft): ft is FactTableDefinition => !!ft);
@@ -485,7 +488,7 @@ export function getCommonColumns(
 
       const factMetric = getFactMetricById(metricId);
       if (factMetric) {
-        const ft = getFactTableById(factMetric.numerator.factTableId);
+        const ft = getFactTableById(getFactMetricFactTableId(factMetric));
         valueColumns = ft?.columns || [];
         ft?.userIdTypes?.forEach((u) => userIdTypes.add(u));
       }
@@ -507,8 +510,8 @@ export function getCommonColumns(
     }));
   } else if (dataset.type === "funnel") {
     const initialStep = dataset.steps[0];
-    const ft = initialStep?.factTable
-      ? getFactTableById(initialStep.factTable)
+    const ft = initialStep?.factTableId
+      ? getFactTableById(initialStep.factTableId)
       : null;
     columns = ft?.columns || [];
   }
@@ -652,7 +655,7 @@ export function fillMissingUnits(
     const steps = config.dataset.steps;
     if (!steps.length) return config;
     const factTables = steps
-      .map((s) => (s.factTable ? getFactTableById(s.factTable) : null))
+      .map((s) => (s.factTableId ? getFactTableById(s.factTableId) : null))
       .filter((ft): ft is FactTableDefinition => !!ft);
     if (factTables.length !== steps.length) return config;
     const intersection = factTables.reduce<string[] | null>((acc, ft) => {
@@ -675,7 +678,7 @@ export function fillMissingUnits(
     if (v.unit || !v.metricId) return v;
     const metric = getFactMetricById(v.metricId);
     if (!metric) return v;
-    const factTable = getFactTableById(metric.numerator.factTableId);
+    const factTable = getFactTableById(getFactMetricFactTableId(metric));
     const defaultUnit = factTable?.userIdTypes?.[0];
     if (!defaultUnit) return v;
     changed = true;
@@ -750,7 +753,7 @@ export function removeIncompleteInputs(
   } else if (dataset.type === "funnel") {
     return {
       ...dataset,
-      steps: dataset.steps.filter((s) => !!s.factTable).map(cleanRowFilters),
+      steps: dataset.steps.filter((s) => !!s.factTableId).map(cleanRowFilters),
     };
   }
   return dataset;
@@ -871,7 +874,7 @@ export function hasUnsatisfiedInlineFilters(
   }
   if (dataset.type === "funnel") {
     return dataset.steps.some((s) =>
-      stepHasUnsatisfied(s.factTable || null, s.rowFilters),
+      stepHasUnsatisfied(s.factTableId || null, s.rowFilters),
     );
   }
   return false;
@@ -894,13 +897,13 @@ export function isSubmittableConfig(
     const { unit, steps } = cleanedConfig.dataset;
     if (!unit) return false;
     if (!Array.isArray(steps) || steps.length < 2) return false;
-    if (!steps.every((s) => !!s.factTable)) return false;
+    if (!steps.every((s) => !!s.factTableId)) return false;
     if (getFactTableById) {
       // Every step's fact table must expose the funnel-level unit as a
       // userIdType — otherwise per-user joins across steps are impossible.
       // We block submission rather than silently returning empty results.
       for (const step of steps) {
-        const ft = getFactTableById(step.factTable);
+        const ft = getFactTableById(step.factTableId);
         if (!ft) return false;
         if (!ft.userIdTypes?.includes(unit)) return false;
       }

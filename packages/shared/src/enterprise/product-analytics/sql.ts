@@ -1,6 +1,10 @@
 import { getValidDate } from "shared/dates";
 import { buildMinimalOrCondition, format } from "shared/sql";
 import {
+  buildPrevResolvedExpr,
+  conversionWindowToSeconds,
+} from "shared/funnels";
+import {
   buildManagedWarehouseAttributeAliasClause,
   MANAGED_WAREHOUSE_EVENTS_TABLE,
   MANAGED_WAREHOUSE_EXPERIMENT_VIEWS_TABLE,
@@ -16,6 +20,7 @@ import {
   MetricCappingSettings,
   NumberFormat,
   ColumnRef,
+  StandardFactMetricInterface,
 } from "shared/types/fact-table";
 import { DataSourceSettings, DataSourceType } from "shared/types/datasource";
 import {
@@ -27,13 +32,14 @@ import {
   ProductAnalyticsResult,
   ProductAnalyticsResultRow,
   FunnelDataset,
-  FunnelStep,
-  ConversionWindow,
 } from "../../validators/product-analytics";
+// FunnelStep moved to validators/fact-table (see note there).
+import { FunnelStep } from "../../validators/fact-table";
 import {
   getRowFilterSQL,
   getColumnExpression,
   getAggregateFilters,
+  isFactFunnelMetric,
 } from "../../experiments/experiments";
 
 // Internal Type definitions
@@ -41,8 +47,11 @@ type MinimalFactTable = Pick<
   FactTableInterface,
   "sql" | "columns" | "filters" | "userIdTypes" | "timestampColumn"
 >;
+// Funnel fact metrics are excluded: product-analytics explorations describe
+// their own funnels through the funnel dataset, and a funnel fact metric has no
+// numerator column to roll up.
 type MinimalMetric = Pick<
-  FactMetricInterface,
+  StandardFactMetricInterface,
   | "id"
   | "name"
   | "metricType"
@@ -212,6 +221,11 @@ function getFactTableGroups({
           const originalMetric = metricMap.get(value.metricId);
           if (!originalMetric) {
             throw new Error(`Metric ${value.metricId} not found`);
+          }
+          if (isFactFunnelMetric(originalMetric)) {
+            throw new Error(
+              `Metric ${value.metricId} is a funnel metric, which is not supported here. Use a funnel exploration instead.`,
+            );
           }
 
           const metric: MinimalMetric = {
@@ -1216,47 +1230,8 @@ function generateFinalSelect(
 /* Funnel SQL                                                                 */
 /* -------------------------------------------------------------------------- */
 
-const CONVERSION_WINDOW_UNIT_TO_SECONDS: Record<
-  ConversionWindow["unit"],
-  number
-> = {
-  minutes: 60,
-  hours: 3600,
-  days: 86400,
-  weeks: 86400 * 7,
-};
-
-function conversionWindowToSeconds(window: ConversionWindow): number {
-  return (
-    Math.max(1, Math.round(window.value)) *
-    CONVERSION_WINDOW_UNIT_TO_SECONDS[window.unit]
-  );
-}
-
-/**
- * Build the chained `COALESCE(stepN_resolved_ts, stepN-1_resolved_ts, ...)`
- * expression we use as the "previous resolved timestamp" for step `index`.
- * Walks backward from `index - 1` and prefers required steps (an optional
- * step that the user skipped falls through to its predecessor).
- */
-function buildPrevResolvedExpr(
-  steps: FunnelStep[],
-  index: number,
-  alias: string = "",
-): string {
-  // Walk back from the immediate predecessor. Optional steps that the user
-  // skipped will be NULL, so chaining COALESCE through them lets the next
-  // step's window/concurrency be measured against the most recent step the
-  // user actually completed.
-  const prefix = alias ? `${alias}.` : "";
-  const parts: string[] = [];
-  for (let i = index - 1; i >= 0; i--) {
-    parts.push(`${prefix}step${i + 1}_resolved_ts`);
-    if (!steps[i].optional) break;
-  }
-  if (parts.length === 1) return parts[0];
-  return `COALESCE(${parts.join(", ")})`;
-}
+const resolvedTsColumn = (stepIndex: number) =>
+  `step${stepIndex + 1}_resolved_ts`;
 
 interface FunnelFactTableGroup {
   index: number;
@@ -1275,21 +1250,21 @@ function groupFunnelStepsByFactTable(
 ): FunnelFactTableGroup[] {
   const groups: Map<string, FunnelFactTableGroup> = new Map();
   steps.forEach((step, idx) => {
-    if (!step.factTable) {
+    if (!step.factTableId) {
       throw new Error(
         `Funnel step ${idx + 1} ("${step.name}") is missing a fact table`,
       );
     }
-    const existing = groups.get(step.factTable);
+    const existing = groups.get(step.factTableId);
     if (existing) {
       existing.stepIndexes.push(idx + 1);
       return;
     }
-    const factTable = factTableMap.get(step.factTable);
+    const factTable = factTableMap.get(step.factTableId);
     if (!factTable) {
-      throw new Error(`Fact table ${step.factTable} not found`);
+      throw new Error(`Fact table ${step.factTableId} not found`);
     }
-    groups.set(step.factTable, {
+    groups.set(step.factTableId, {
       index: groups.size,
       factTable,
       stepIndexes: [idx + 1],
@@ -1379,9 +1354,9 @@ export function buildFunnelSql(
   // Funnels are capped at 1 dimension (Phase 1) and the dimension must
   // resolve against the initial step's fact table.
   const dimension = config.dimensions[0] ?? null;
-  const initialFactTable = factTableMap.get(steps[0].factTable);
+  const initialFactTable = factTableMap.get(steps[0].factTableId);
   if (!initialFactTable) {
-    throw new Error(`Fact table ${steps[0].factTable} not found`);
+    throw new Error(`Fact table ${steps[0].factTableId} not found`);
   }
   const initialFactTableGroup: FactTableGroup = {
     index: 0,
@@ -1547,7 +1522,12 @@ export function buildFunnelSql(
   for (let i = 1; i < steps.length; i++) {
     const step = steps[i];
     const stepN = i + 1;
-    const prevExpr = buildPrevResolvedExpr(steps, i, "r");
+    const prevExpr = buildPrevResolvedExpr({
+      steps,
+      index: i,
+      resolvedTsColumn,
+      alias: "r",
+    });
     const windowSeconds = step.conversionWindow
       ? conversionWindowToSeconds(step.conversionWindow)
       : null;
@@ -1594,7 +1574,11 @@ export function buildFunnelSql(
       `${dialect.castToFloat(`COUNT(step${stepN}_resolved_ts)`)} AS step${stepN}_count`,
     );
     if (i > 0) {
-      const prevExpr = buildPrevResolvedExpr(steps, i);
+      const prevExpr = buildPrevResolvedExpr({
+        steps,
+        index: i,
+        resolvedTsColumn,
+      });
       // Express the diff in hours so the sum-of-squares stays well below
       // MAX_SAFE_INTEGER at scale. Millisecond-precision squares overflow
       // JS numbers with only a few thousand users.

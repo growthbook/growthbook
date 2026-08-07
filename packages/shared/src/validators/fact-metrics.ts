@@ -145,6 +145,70 @@ const apiQuantileSettings = z
     'Controls the settings for quantile metrics (mandatory if metricType is "quantile")',
   );
 
+const apiFunnelStep = z.object({
+  name: z.string().describe("Display name for the funnel step"),
+  factTableId: z
+    .string()
+    .describe("The fact table this step draws events from"),
+  rowFilters: z
+    .array(apiRowFilterValidator)
+    .describe("Filters that decide whether an event row counts as this step"),
+  optional: z
+    .boolean()
+    .describe(
+      "When true, this step can be skipped without breaking the funnel. Ignored for the initial step.",
+    ),
+  conversionWindow: z
+    .object({
+      unit: z.enum(["weeks", "days", "hours", "minutes"]),
+      value: z.number().positive(),
+    })
+    .describe(
+      "Bounds how long after the previous step this step's event can occur. Ignored for the initial step.",
+    )
+    .nullish(),
+});
+
+const apiFunnelSettings = z
+  .object({
+    steps: z
+      .array(apiFunnelStep)
+      .describe("Ordered list of funnel steps. Minimum 2 steps required."),
+    ordering: z
+      .enum(["sequential", "strict", "unordered"])
+      .describe("Step ordering mode. Only 'sequential' is supported in v1.")
+      .optional(),
+    concurrencyWindowSeconds: z
+      .number()
+      .int()
+      .min(0)
+      .describe(
+        "Out-of-order tolerance between adjacent steps in seconds. Defaults to 0.",
+      )
+      .optional(),
+  })
+  .describe('Funnel metric settings (required when metricType is "funnel")');
+
+const postFunnelSettings = z
+  .object({
+    steps: z
+      .array(apiFunnelStep)
+      .describe("Ordered list of funnel steps. Minimum 2 steps required."),
+    ordering: z
+      .enum(["sequential"])
+      .describe("Step ordering mode. Only 'sequential' is supported in v1.")
+      .optional(),
+    concurrencyWindowSeconds: z
+      .number()
+      .int()
+      .min(0)
+      .describe(
+        "Out-of-order tolerance between adjacent steps in seconds. Defaults to 0.",
+      )
+      .optional(),
+  })
+  .describe('Funnel metric settings (required when metricType is "funnel")');
+
 const apiCappingSettings = z
   .object({
     type: z.enum(["none", "absolute", "percentile"]),
@@ -232,6 +296,15 @@ const apiMetricTypeEnum = z.enum([
   "quantile",
   "ratio",
   "dailyParticipation",
+  "funnel",
+]);
+
+// Funnel metrics cannot be created or updated through the REST API yet, so the
+// response enum is wider than the request enum: existing funnel metrics still
+// need to serialize.
+const apiResponseMetricTypeEnum = z.enum([
+  ...apiMetricTypeEnum.options,
+  "funnel",
 ]);
 
 // Corresponds to schemas/FactMetric.yaml
@@ -247,8 +320,8 @@ export const apiFactMetricValidator = namedSchema(
       projects: z.array(z.string()),
       tags: z.array(z.string()),
       datasource: z.string(),
-      metricType: apiMetricTypeEnum,
-      numerator: apiNumeratorRef,
+      metricType: apiResponseMetricTypeEnum,
+      numerator: apiNumeratorRef.optional(),
       denominator: apiDenominatorRef.optional(),
       inverse: z
         .boolean()
@@ -256,6 +329,7 @@ export const apiFactMetricValidator = namedSchema(
           "Set to true for things like Bounce Rate, where you want the metric to decrease",
         ),
       quantileSettings: apiQuantileSettings.optional(),
+      funnelSettings: apiFunnelSettings.optional(),
       cappingSettings: apiCappingSettings,
       windowSettings: apiWindowSettings,
       priorSettings: apiPriorSettings,
@@ -538,6 +612,7 @@ const postFactMetricBody = z
       )
       .optional(),
     quantileSettings: postQuantileSettings.optional(),
+    funnelSettings: postFunnelSettings.optional(),
     cappingSettings: postCappingSettings.optional(),
     windowSettings: postWindowSettings.optional(),
     priorSettings: postPriorSettings.optional(),
@@ -617,6 +692,7 @@ const updateFactMetricBody = z
       )
       .optional(),
     quantileSettings: postQuantileSettings.optional(),
+    funnelSettings: postFunnelSettings.optional(),
     cappingSettings: postCappingSettings.optional(),
     windowSettings: postWindowSettings.optional(),
     priorSettings: postPriorSettings.optional(),

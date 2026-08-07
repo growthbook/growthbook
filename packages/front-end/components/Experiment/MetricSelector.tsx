@@ -1,6 +1,10 @@
 import { FC } from "react";
 import { isProjectListValidForProject } from "shared/util";
-import { isBinomialMetric, isMetricJoinable } from "shared/experiments";
+import {
+  getFactMetricFactTableId,
+  isBinomialMetric,
+  isMetricJoinable,
+} from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { SelectFieldProps } from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
@@ -69,14 +73,14 @@ const MetricSelector: FC<
           tags: m.tags || [],
           projects: m.projects || [],
           factTables: [
-            m.numerator.factTableId,
+            getFactMetricFactTableId(m),
             (m.metricType === "ratio" && m.denominator
               ? m.denominator.factTableId
               : "") || "",
           ],
           // only focus on numerator user id types
           userIdTypes:
-            factTables.find((f) => f.id === m.numerator.factTableId)
+            factTables.find((f) => f.id === getFactMetricFactTableId(m))
               ?.userIdTypes || [],
           isBinomial: isBinomialMetric(m),
           isConversionWindowMetric: m?.windowSettings?.type === "conversion",

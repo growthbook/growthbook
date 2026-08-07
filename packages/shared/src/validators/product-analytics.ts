@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { apiBaseSchema } from "./base-model";
 import { queryPointerValidator } from "./queries";
-import { rowFilterValidator } from "./fact-table";
+import { rowFilterValidator, funnelStepValidator } from "./fact-table";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -71,27 +71,6 @@ const dataSourceDatasetValidator = z
   .strict();
 
 // Funnels
-export const conversionWindowValidator = z.object({
-  unit: z.enum(["weeks", "days", "hours", "minutes"]),
-  value: z.number().positive(),
-});
-export type ConversionWindow = z.infer<typeof conversionWindowValidator>;
-
-export const funnelStepValidator = z.object({
-  // Display name shown in the sidebar / chart / table.
-  name: z.string(),
-  // Id of the fact table the step's events come from.
-  factTable: z.string(),
-  // Filters that decide whether an event row counts as this step.
-  rowFilters: z.array(rowFilterValidator),
-  // Ignored for the initial step. When true, the step is allowed to be
-  // skipped without breaking the funnel.
-  optional: z.boolean(),
-  // Ignored for the initial step. Bounds how long after the previous
-  // matched step's timestamp this step's event can occur.
-  conversionWindow: conversionWindowValidator.nullish(),
-});
-export type FunnelStep = z.infer<typeof funnelStepValidator>;
 
 /** Y-axis scaling for the funnel bar chart.
  *  - `count`: raw user counts per step.

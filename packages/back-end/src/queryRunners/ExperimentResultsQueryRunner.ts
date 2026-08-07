@@ -4,6 +4,7 @@ import { addDays } from "date-fns";
 import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
+  parseFunnelStepMetricId,
   quantileMetricType,
 } from "shared/experiments";
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
@@ -110,6 +111,9 @@ export const startExperimentResultQueries = async (
 
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
   const selectedMetrics = snapshotSettings.metricSettings
+    // A funnel's per-step ids are analysis-time artifacts of the parent metric,
+    // which is itself in this list. Querying them would double-count.
+    .filter((m) => !parseFunnelStepMetricId(m.id).isFunnelStepMetric)
     .map((m) => metricMap.get(m.id))
     .filter((m) => m) as ExperimentMetricInterface[];
   if (!selectedMetrics.length) {

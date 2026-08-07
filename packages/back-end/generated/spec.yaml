@@ -26604,6 +26604,7 @@ paths:
                     - quantile
                     - ratio
                     - dailyParticipation
+                    - funnel
                 numerator:
                   type: object
                   properties:
@@ -26868,6 +26869,124 @@ paths:
                     - type
                     - ignoreZeros
                     - quantile
+                  additionalProperties: false
+                funnelSettings:
+                  description: >-
+                    Funnel metric settings (required when metricType is
+                    "funnel")
+                  type: object
+                  properties:
+                    steps:
+                      description: Ordered list of funnel steps. Minimum 2 steps required.
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            description: Display name for the funnel step
+                            type: string
+                          factTableId:
+                            description: The fact table this step draws events from
+                            type: string
+                          rowFilters:
+                            description: >-
+                              Filters that decide whether an event row counts as
+                              this step
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                operator:
+                                  type: string
+                                  enum:
+                                    - '='
+                                    - '!='
+                                    - '>'
+                                    - <
+                                    - '>='
+                                    - <=
+                                    - between
+                                    - not_between
+                                    - in
+                                    - not_in
+                                    - is_null
+                                    - not_null
+                                    - is_true
+                                    - is_false
+                                    - contains
+                                    - not_contains
+                                    - starts_with
+                                    - ends_with
+                                    - sql_expr
+                                    - saved_filter
+                                values:
+                                  description: >-
+                                    Not required for is_null, not_null, is_true,
+                                    is_false operators. The between and
+                                    not_between operators take at most two
+                                    values, a lower and an upper bound in that
+                                    order; leave a bound as an empty string for
+                                    an open-ended range.
+                                  type: array
+                                  items:
+                                    type: string
+                                column:
+                                  description: >-
+                                    Required for all operators except sql_expr
+                                    and saved_filter.
+                                  type: string
+                              required:
+                                - operator
+                              additionalProperties: false
+                          optional:
+                            description: >-
+                              When true, this step can be skipped without
+                              breaking the funnel. Ignored for the initial step.
+                            type: boolean
+                          conversionWindow:
+                            anyOf:
+                              - description: >-
+                                  Bounds how long after the previous step this
+                                  step's event can occur. Ignored for the
+                                  initial step.
+                                type: object
+                                properties:
+                                  unit:
+                                    type: string
+                                    enum:
+                                      - weeks
+                                      - days
+                                      - hours
+                                      - minutes
+                                  value:
+                                    type: number
+                                    exclusiveMinimum: 0
+                                required:
+                                  - unit
+                                  - value
+                                additionalProperties: false
+                              - type: 'null'
+                        required:
+                          - name
+                          - factTableId
+                          - rowFilters
+                          - optional
+                        additionalProperties: false
+                    ordering:
+                      description: >-
+                        Step ordering mode. Only 'sequential' is supported in
+                        v1.
+                      type: string
+                      enum:
+                        - sequential
+                    concurrencyWindowSeconds:
+                      description: >-
+                        Out-of-order tolerance between adjacent steps in
+                        seconds. Defaults to 0.
+                      type: integer
+                      minimum: 0
+                  required:
+                    - steps
                   additionalProperties: false
                 cappingSettings:
                   description: Controls how outliers are handled
@@ -27145,6 +27264,7 @@ paths:
                     - quantile
                     - ratio
                     - dailyParticipation
+                    - funnel
                 numerator:
                   type: object
                   properties:
@@ -27409,6 +27529,124 @@ paths:
                     - type
                     - ignoreZeros
                     - quantile
+                  additionalProperties: false
+                funnelSettings:
+                  description: >-
+                    Funnel metric settings (required when metricType is
+                    "funnel")
+                  type: object
+                  properties:
+                    steps:
+                      description: Ordered list of funnel steps. Minimum 2 steps required.
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            description: Display name for the funnel step
+                            type: string
+                          factTableId:
+                            description: The fact table this step draws events from
+                            type: string
+                          rowFilters:
+                            description: >-
+                              Filters that decide whether an event row counts as
+                              this step
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                operator:
+                                  type: string
+                                  enum:
+                                    - '='
+                                    - '!='
+                                    - '>'
+                                    - <
+                                    - '>='
+                                    - <=
+                                    - between
+                                    - not_between
+                                    - in
+                                    - not_in
+                                    - is_null
+                                    - not_null
+                                    - is_true
+                                    - is_false
+                                    - contains
+                                    - not_contains
+                                    - starts_with
+                                    - ends_with
+                                    - sql_expr
+                                    - saved_filter
+                                values:
+                                  description: >-
+                                    Not required for is_null, not_null, is_true,
+                                    is_false operators. The between and
+                                    not_between operators take at most two
+                                    values, a lower and an upper bound in that
+                                    order; leave a bound as an empty string for
+                                    an open-ended range.
+                                  type: array
+                                  items:
+                                    type: string
+                                column:
+                                  description: >-
+                                    Required for all operators except sql_expr
+                                    and saved_filter.
+                                  type: string
+                              required:
+                                - operator
+                              additionalProperties: false
+                          optional:
+                            description: >-
+                              When true, this step can be skipped without
+                              breaking the funnel. Ignored for the initial step.
+                            type: boolean
+                          conversionWindow:
+                            anyOf:
+                              - description: >-
+                                  Bounds how long after the previous step this
+                                  step's event can occur. Ignored for the
+                                  initial step.
+                                type: object
+                                properties:
+                                  unit:
+                                    type: string
+                                    enum:
+                                      - weeks
+                                      - days
+                                      - hours
+                                      - minutes
+                                  value:
+                                    type: number
+                                    exclusiveMinimum: 0
+                                required:
+                                  - unit
+                                  - value
+                                additionalProperties: false
+                              - type: 'null'
+                        required:
+                          - name
+                          - factTableId
+                          - rowFilters
+                          - optional
+                        additionalProperties: false
+                    ordering:
+                      description: >-
+                        Step ordering mode. Only 'sequential' is supported in
+                        v1.
+                      type: string
+                      enum:
+                        - sequential
+                    concurrencyWindowSeconds:
+                      description: >-
+                        Out-of-order tolerance between adjacent steps in
+                        seconds. Defaults to 0.
+                      type: integer
+                      minimum: 0
+                  required:
+                    - steps
                   additionalProperties: false
                 cappingSettings:
                   description: Controls how outliers are handled
@@ -38266,7 +38504,7 @@ paths:
                                           properties:
                                             name:
                                               type: string
-                                            factTable:
+                                            factTableId:
                                               type: string
                                             rowFilters:
                                               type: array
@@ -38328,7 +38566,7 @@ paths:
                                                 - type: 'null'
                                           required:
                                             - name
-                                            - factTable
+                                            - factTableId
                                             - rowFilters
                                             - optional
                                           additionalProperties: false
@@ -45551,7 +45789,7 @@ paths:
                         properties:
                           name:
                             type: string
-                          factTable:
+                          factTableId:
                             type: string
                           rowFilters:
                             type: array
@@ -45613,7 +45851,7 @@ paths:
                               - type: 'null'
                         required:
                           - name
-                          - factTable
+                          - factTableId
                           - rowFilters
                           - optional
                         additionalProperties: false
@@ -45932,7 +46170,7 @@ paths:
                                       properties:
                                         name:
                                           type: string
-                                        factTable:
+                                        factTableId:
                                           type: string
                                         rowFilters:
                                           type: array
@@ -45994,7 +46232,7 @@ paths:
                                             - type: 'null'
                                       required:
                                         - name
-                                        - factTable
+                                        - factTableId
                                         - rowFilters
                                         - optional
                                       additionalProperties: false
@@ -56330,6 +56568,7 @@ components:
             - quantile
             - ratio
             - dailyParticipation
+            - funnel
         numerator:
           type: object
           properties:
@@ -56552,6 +56791,120 @@ components:
             - ignoreZeros
             - quantile
           additionalProperties: false
+        funnelSettings:
+          description: Funnel metric settings (required when metricType is "funnel")
+          type: object
+          properties:
+            steps:
+              description: Ordered list of funnel steps. Minimum 2 steps required.
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    description: Display name for the funnel step
+                    type: string
+                  factTableId:
+                    description: The fact table this step draws events from
+                    type: string
+                  rowFilters:
+                    description: >-
+                      Filters that decide whether an event row counts as this
+                      step
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        operator:
+                          type: string
+                          enum:
+                            - '='
+                            - '!='
+                            - '>'
+                            - <
+                            - '>='
+                            - <=
+                            - between
+                            - not_between
+                            - in
+                            - not_in
+                            - is_null
+                            - not_null
+                            - is_true
+                            - is_false
+                            - contains
+                            - not_contains
+                            - starts_with
+                            - ends_with
+                            - sql_expr
+                            - saved_filter
+                        values:
+                          description: >-
+                            Not required for is_null, not_null, is_true,
+                            is_false operators. The between and not_between
+                            operators take at most two values, a lower and an
+                            upper bound in that order; leave a bound as an empty
+                            string for an open-ended range.
+                          type: array
+                          items:
+                            type: string
+                        column:
+                          description: >-
+                            Required for all operators except sql_expr and
+                            saved_filter.
+                          type: string
+                      required:
+                        - operator
+                      additionalProperties: false
+                  optional:
+                    description: >-
+                      When true, this step can be skipped without breaking the
+                      funnel. Ignored for the initial step.
+                    type: boolean
+                  conversionWindow:
+                    anyOf:
+                      - description: >-
+                          Bounds how long after the previous step this step's
+                          event can occur. Ignored for the initial step.
+                        type: object
+                        properties:
+                          unit:
+                            type: string
+                            enum:
+                              - weeks
+                              - days
+                              - hours
+                              - minutes
+                          value:
+                            type: number
+                            exclusiveMinimum: 0
+                        required:
+                          - unit
+                          - value
+                        additionalProperties: false
+                      - type: 'null'
+                required:
+                  - name
+                  - factTableId
+                  - rowFilters
+                  - optional
+                additionalProperties: false
+            ordering:
+              description: Step ordering mode. Only 'sequential' is supported in v1.
+              type: string
+              enum:
+                - sequential
+                - strict
+                - unordered
+            concurrencyWindowSeconds:
+              description: >-
+                Out-of-order tolerance between adjacent steps in seconds.
+                Defaults to 0.
+              type: integer
+              minimum: 0
+          required:
+            - steps
+          additionalProperties: false
         cappingSettings:
           description: Controls how outliers are handled
           type: object
@@ -56707,7 +57060,6 @@ components:
         - tags
         - datasource
         - metricType
-        - numerator
         - inverse
         - cappingSettings
         - windowSettings
@@ -61318,7 +61670,7 @@ components:
                               properties:
                                 name:
                                   type: string
-                                factTable:
+                                factTableId:
                                   type: string
                                 rowFilters:
                                   type: array
@@ -61380,7 +61732,7 @@ components:
                                     - type: 'null'
                               required:
                                 - name
-                                - factTable
+                                - factTableId
                                 - rowFilters
                                 - optional
                               additionalProperties: false
@@ -64090,7 +64442,7 @@ components:
                         properties:
                           name:
                             type: string
-                          factTable:
+                          factTableId:
                             type: string
                           rowFilters:
                             type: array
@@ -64152,7 +64504,7 @@ components:
                               - type: 'null'
                         required:
                           - name
-                          - factTable
+                          - factTableId
                           - rowFilters
                           - optional
                         additionalProperties: false

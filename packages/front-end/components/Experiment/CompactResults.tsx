@@ -26,6 +26,7 @@ import {
   PiArrowSquareOut,
   PiCaretCircleRight,
   PiCaretCircleDown,
+  PiFunnelSimple,
 } from "react-icons/pi";
 import {
   expandMetricGroups,
@@ -33,13 +34,14 @@ import {
   getMetricLink,
   ExperimentSortBy,
   SetExperimentSortBy,
+  isFactFunnelMetric,
 } from "shared/experiments";
 import Link from "@/ui/Link";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ExperimentTableRow } from "@/services/experiments";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import RadixTooltip from "@/ui/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
@@ -326,8 +328,8 @@ const CompactResults: FC<{
     }
     // When no filter, filter out slice rows that aren't expanded
     return rows.filter((row) => {
-      if (!row.isSliceRow) return true; // Always include parent rows
-      // For slice rows, check if parent metric is expanded
+      if (!row.isChildRow) return true; // Always include parent rows
+      // Check if parent metric is expanded
       if (row.parentRowId) {
         const expandedKey = `${row.parentRowId}:${row.resultGroup}`;
         return !!expandedMetrics?.[expandedKey];
@@ -577,6 +579,34 @@ export function getRenderLabelColumn({
     const isExpanded = !!expandedMetrics?.[expandedKey];
 
     const isSliceRow = !!row?.isSliceRow;
+    const isFunnelStepRow = row?.childRowType === "funnelStep";
+
+    // Funnel step row
+    if (isFunnelStepRow) {
+      return (
+        <div className="pl-4" style={{ position: "relative" }}>
+          <div
+            className="ml-2 font-weight-bold"
+            style={{
+              display: "-webkit-box",
+              WebkitLineClamp: 1,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+              color: "var(--color-text-high)",
+            }}
+          >
+            {row?.label ?? label}
+          </div>
+          <div
+            className="ml-2"
+            style={{ fontSize: "0.75rem", color: "var(--color-text-low)" }}
+          >
+            Step {(row?.funnelStepIndex ?? 0) + 1}
+            {row?.funnelStepOptional ? " (optional)" : ""}
+          </div>
+        </div>
+      );
+    }
 
     // Slice row
     if (isSliceRow) {
@@ -664,6 +694,17 @@ export function getRenderLabelColumn({
       !row?.labelOnly &&
       !sliceTagsFilter?.length;
 
+    const funnelIcon = isFactFunnelMetric(metric) ? (
+      <PiFunnelSimple
+        size={14}
+        style={{
+          marginLeft: 4,
+          verticalAlign: "middle",
+          color: "var(--color-text-mid)",
+        }}
+      />
+    ) : null;
+
     // Render non-slice metric
     return (
       <>
@@ -683,13 +724,17 @@ export function getRenderLabelColumn({
           >
             {shouldShowExpandButton ? (
               <div style={{ position: "absolute", left: 7, marginTop: 3 }}>
-                <Tooltip
-                  body={
-                    isExpanded
-                      ? "Collapse metric slices"
-                      : "Expand metric slices"
+                <RadixTooltip
+                  content={
+                    isFactFunnelMetric(metric)
+                      ? isExpanded
+                        ? "Collapse funnel steps"
+                        : "Expand funnel steps"
+                      : isExpanded
+                        ? "Collapse metric slices"
+                        : "Expand metric slices"
                   }
-                  tipPosition="top"
+                  side="top"
                 >
                   <IconButton
                     size="1"
@@ -711,7 +756,7 @@ export function getRenderLabelColumn({
                       <PiCaretCircleRight size={16} />
                     )}
                   </IconButton>
-                </Tooltip>
+                </RadixTooltip>
               </div>
             ) : null}
             <span
@@ -738,6 +783,7 @@ export function getRenderLabelColumn({
                       {label.includes(" ")
                         ? label.slice(label.lastIndexOf(" ") + 1)
                         : label}
+                      {funnelIcon}
                       <OfficialBadge
                         type="metric"
                         managedBy={metric.managedBy || ""}
@@ -759,6 +805,7 @@ export function getRenderLabelColumn({
                     target="_blank"
                   >
                     {label}
+                    {funnelIcon}
                     <OfficialBadge
                       type="metric"
                       managedBy={metric.managedBy || ""}

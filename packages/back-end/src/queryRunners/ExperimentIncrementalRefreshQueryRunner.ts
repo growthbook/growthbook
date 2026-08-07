@@ -637,7 +637,7 @@ const startExperimentIncrementalRefreshQueries = async (
     // half-populated columns.
     const sameFtMetrics = group.metrics.filter(
       (m) =>
-        m.numerator.factTableId === group.factTableId &&
+        m.numerator?.factTableId === group.factTableId &&
         (!isRatioMetric(m) || m.denominator?.factTableId === group.factTableId),
     );
 

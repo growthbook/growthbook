@@ -45,7 +45,7 @@ export function isCrossFtRatioMetric(
   return (
     isRatioMetric(metric) &&
     !!metric.denominator?.factTableId &&
-    metric.denominator.factTableId !== metric.numerator.factTableId
+    metric.denominator.factTableId !== metric.numerator?.factTableId
   );
 }
 

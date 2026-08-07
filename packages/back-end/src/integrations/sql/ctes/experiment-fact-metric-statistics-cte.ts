@@ -5,9 +5,14 @@ import type {
 } from "shared/types/integrations";
 import type { FactTableInterface } from "shared/types/fact-table";
 import type { SqlDialect } from "shared/types/sql";
+import { isFactFunnelMetric } from "shared/experiments";
 import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
 
 import { getQuantileGridColumns } from "back-end/src/integrations/sql/columns/quantile-grid-columns";
+import {
+  funnelStepSumColumn,
+  funnelStepValueColumn,
+} from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
 
 export function getExperimentFactMetricStatisticsCTE(
   dialect: SqlDialect,
@@ -40,6 +45,22 @@ export function getExperimentFactMetricStatisticsCTE(
         , COUNT(*) AS users
         ${metricData
           .map((data) => {
+            // A funnel emits one count per step instead of the usual
+            // main_sum/main_sum_squares pair. No sum of squares: the stats
+            // engine builds each step's ProportionStatistic from the sum and
+            // the unit count alone, so squares would be dead weight.
+            if (isFactFunnelMetric(data.metric)) {
+              return `
+           , ${dialect.castToString(`'${data.id}'`)} as ${data.alias}_id
+            ${data.metric.funnelSettings.steps
+              .map(
+                (step, stepIndex) => `-- ${step.name}
+            , SUM(COALESCE(m.${funnelStepValueColumn(data.alias, stepIndex)}, 0)) AS ${funnelStepSumColumn(data.alias, stepIndex)}`,
+              )
+              .join("\n            ")}
+          `;
+            }
+
             //TODO test numerator suffix capping
             const numeratorSuffix = `${data.numeratorSourceIndex === 0 ? "" : data.numeratorSourceIndex}`;
             return `

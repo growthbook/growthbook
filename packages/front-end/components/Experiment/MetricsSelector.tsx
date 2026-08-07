@@ -2,6 +2,7 @@ import { FC, ReactNode, useCallback, useMemo, useState } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import {
   ExperimentMetricDefinition,
+  getFactMetricFactTableId,
   isFactMetric,
   isMetricGroupId,
   isMetricJoinable,
@@ -216,14 +217,14 @@ const MetricsSelector: FC<{
                 projects: m.projects || [],
                 managedBy: m.managedBy,
                 factTables: [
-                  m.numerator.factTableId,
+                  getFactMetricFactTableId(m),
                   (m.metricType === "ratio" && m.denominator
                     ? m.denominator.factTableId
                     : "") || "",
                 ],
                 // only focus on numerator user id types
                 userIdTypes:
-                  factTables.find((f) => f.id === m.numerator.factTableId)
+                  factTables.find((f) => f.id === getFactMetricFactTableId(m))
                     ?.userIdTypes || [],
                 isGroup: false,
                 disabled: disabledInfo.disabled,
@@ -342,7 +343,7 @@ const MetricsSelector: FC<{
           const metric = getExperimentMetricById(m);
           if (!metric) return { metric, joinable: false };
           const userIdTypes = isFactMetric(metric)
-            ? factTables.find((f) => f.id === metric.numerator.factTableId)
+            ? factTables.find((f) => f.id === getFactMetricFactTableId(metric))
                 ?.userIdTypes || []
             : metric.userIdTypes || [];
           return {

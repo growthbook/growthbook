@@ -1,8 +1,9 @@
 import {
   eligibleForUncappedMetric,
   ExperimentMetricInterface,
+  getFactMetricFactTableId,
+  isFactFunnelMetric,
   isFactMetric,
-  isFunnelMetric,
   isPercentileCappedMetric,
   isRatioMetric,
   isRegressionAdjusted,
@@ -58,19 +59,20 @@ export function getMetricData(
 ): FactMetricData {
   const { metric, index: metricIndex } = metricWithIndex;
   const ratioMetric = isRatioMetric(metric);
-  const funnelMetric = isFunnelMetric(metric);
-  const quantileMetric = quantileMetricType(metric);
+  const funnelMetric = isFactFunnelMetric(metric);
+  const quantileMetric = funnelMetric ? "" : quantileMetricType(metric);
   const metricQuantileSettings: MetricQuantileSettings = (isFactMetric(
     metric,
   ) && !!quantileMetric
     ? metric.quantileSettings
     : undefined) ?? { type: "unit", quantile: 0, ignoreZeros: false };
 
-  const { regressionAdjusted, regressionAdjustmentHours } =
-    getMetricRegressionAdjustmentData(
-      metric,
-      settings.regressionAdjustmentEnabled,
-    );
+  const { regressionAdjusted, regressionAdjustmentHours } = funnelMetric
+    ? { regressionAdjusted: false, regressionAdjustmentHours: 0 }
+    : getMetricRegressionAdjustmentData(
+        metric,
+        settings.regressionAdjustmentEnabled,
+      );
 
   const overrideConversionWindows =
     settings.attributionModel === "experimentDuration" ||
@@ -81,7 +83,7 @@ export function getMetricData(
 
   const numeratorSourceIndex =
     factTablesWithIndices.find(
-      (f) => f.factTable.id === metric.numerator?.factTableId,
+      (f) => f.factTable.id === getFactMetricFactTableId(metric),
     )?.index ?? 0;
   const denominatorSourceIndex =
     factTablesWithIndices.find(

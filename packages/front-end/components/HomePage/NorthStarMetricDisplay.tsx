@@ -2,6 +2,7 @@ import React from "react";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  getFactMetricFactTableId,
   getMetricLink,
   isBinomialMetric,
   isFactMetric,
@@ -81,7 +82,7 @@ const NorthStarMetricDisplay = ({
   const datasource = getDatasourceById(metric.datasource);
   const formatter = getExperimentMetricFormatter(metric, getFactTableById);
   const factTable = isFactMetric(metric)
-    ? getFactTableById(metric.numerator.factTableId)
+    ? getFactTableById(getFactMetricFactTableId(metric))
     : undefined;
 
   return (

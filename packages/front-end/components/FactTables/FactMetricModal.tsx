@@ -9,19 +9,21 @@ import {
 } from "shared/constants";
 import { isProjectListValidForProject } from "shared/util";
 import {
-  CreateFactMetricProps,
   FactMetricInterface,
   ColumnRef,
+  CreateFactMetricProps,
   UpdateFactMetricProps,
   MetricQuantileSettings,
-  FactMetricType,
   FactTableDefinition,
   FactTableInterface,
+  FunnelSettings,
+  FunnelStep,
   MetricWindowSettings,
   ColumnInterface,
   ColumnAggregation,
   FactTableColumnType,
   RowFilter,
+  StandardFactMetricInterface,
 } from "shared/types/fact-table";
 import {
   canInlineFilterColumn,
@@ -35,6 +37,7 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useFullFactTable from "@/hooks/useFullFactTable";
 import {
+  CreateFactMetricFormProps,
   formatNumber,
   getDefaultFactMetricProps,
   getInitialInlineFilters,
@@ -70,6 +73,7 @@ import HelperText from "@/ui/HelperText";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
+import FunnelStepsInput from "@/components/FactTables/FunnelStepsInput";
 import { getAttributeFieldsExposedAsColumns } from "@/components/FactTables/rowFilterUtils";
 import { MANAGED_BY_ADMIN } from "@/components/Metrics/MetricForm";
 import { DocLink } from "@/components/DocLink";
@@ -351,7 +355,7 @@ function getAggregationOptions(
 function RetentionWindowSelector({
   form,
 }: {
-  form: UseFormReturn<CreateFactMetricProps>;
+  form: UseFormReturn<CreateFactMetricFormProps>;
 }) {
   return (
     <div>
@@ -703,7 +707,7 @@ function getWHERE({
   columnRef: ColumnRef | null;
   windowSettings: MetricWindowSettings;
   quantileSettings: MetricQuantileSettings;
-  type: FactMetricType;
+  type: StandardFactMetricInterface["metricType"];
 }) {
   const whereParts =
     factTable && columnRef
@@ -783,7 +787,7 @@ function getPreviewSQL({
   numeratorFactTable,
   denominatorFactTable,
 }: {
-  type: FactMetricType;
+  type: StandardFactMetricInterface["metricType"];
   quantileSettings: MetricQuantileSettings;
   windowSettings: MetricWindowSettings;
   numerator: ColumnRef;
@@ -1000,15 +1004,174 @@ FROM
   }
 }
 
+function getFunnelPreviewSQL({
+  steps,
+  factTable,
+  windowSettings,
+}: {
+  steps: FunnelStep[];
+  factTable: FactTableDefinition | null;
+  windowSettings: MetricWindowSettings;
+}): { sql: string; denominatorSQL?: string; experimentSQL: string } {
+  if (!factTable || steps.length === 0) {
+    return { sql: "", experimentSQL: "" };
+  }
+
+  const identifier = "`" + (factTable?.userIdTypes?.[0] || "user_id") + "`";
+  const factTableName = "`" + (factTable?.name || "Fact Table") + "`";
+
+  const getStepFilterWHERE = (step: FunnelStep) => {
+    const whereParts = getColumnRefWhereClause({
+      factTable,
+      columnRef: {
+        factTableId: step.factTableId,
+        column: "",
+        rowFilters: step.rowFilters,
+      },
+      escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+      stringMatch: createLikeStringMatchFn({
+        escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+        emitEscapeClause: false,
+      }),
+      jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
+      evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
+      showSourceComment: true,
+    });
+    return whereParts.length > 0
+      ? `\nWHERE\n${indentLines(whereParts.join(" AND\n"))}`
+      : "";
+  };
+
+  const cteBlocks = steps.map((step, i) => {
+    if (i === 0) {
+      const WHERE = getWHERE({
+        factTable,
+        columnRef: {
+          factTableId: step.factTableId,
+          column: "",
+          rowFilters: step.rowFilters,
+        },
+        windowSettings,
+        quantileSettings: {
+          type: "unit",
+          quantile: 0.5,
+          ignoreZeros: false,
+        } as MetricQuantileSettings,
+        type: "proportion",
+      });
+
+      const body = `
+-- Step 1
+SELECT
+  ${identifier} AS user,
+  MIN(timestamp) AS reached_at
+FROM
+  ${factTableName}${WHERE}
+GROUP BY user`.trim();
+
+      return `  step_1 AS (\n${indentLines(body, 4)}\n  )`;
+    }
+
+    const stepNumber = i + 1;
+    const headerLines = [`-- Step ${stepNumber} (must occur after Step ${i})`];
+    if (step.optional) {
+      headerLines.push(
+        `-- Optional step: users who skip it still continue the funnel`,
+      );
+    }
+
+    const onConditions = [
+      `e.${identifier} = prev.user`,
+      `e.timestamp > prev.reached_at`,
+    ];
+    if (step.conversionWindow) {
+      onConditions.push(
+        `-- Within the step conversion window\ne.timestamp <= prev.reached_at + '${step.conversionWindow.value} ${step.conversionWindow.unit}'`,
+      );
+    }
+
+    const WHERE = getStepFilterWHERE(step);
+
+    const body = `
+${headerLines.join("\n")}
+SELECT
+  prev.user AS user,
+  MIN(e.timestamp) AS reached_at
+FROM
+  step_${i} prev
+  JOIN ${factTableName} e ON (
+${indentLines(onConditions.join(" AND\n"), 4)}
+  )${WHERE}
+GROUP BY prev.user`.trim();
+
+    return `  step_${stepNumber} AS (\n${indentLines(body, 4)}\n  )`;
+  });
+
+  const caseLines = steps
+    .map((_, i) => {
+      const n = i + 1;
+      const comment =
+        i === 0 ? `  -- 1 if the user reached the step in order, else 0\n` : "";
+      return `${comment}  CASE WHEN step_${n}.user IS NOT NULL THEN 1 ELSE 0 END AS step_${n}_value`;
+    })
+    .join(",\n");
+
+  const joinLines = steps
+    .map((_, i) => {
+      const n = i + 1;
+      return `  LEFT JOIN step_${n} ON (step_${n}.user = u.user)`;
+    })
+    .join("\n");
+
+  const sql = `
+-- Funnel metric: share of exposed users who reach each step in order.
+-- Each step is measured against all exposed users, not just those who entered the funnel.
+WITH
+${cteBlocks.join(",\n")}
+SELECT
+  u.user,
+${caseLines}
+FROM
+  exposed_users u
+${joinLines}`.trim();
+
+  const sumLines = steps
+    .map((_, i) => {
+      const n = i + 1;
+      const comment =
+        i === 0
+          ? `  -- Users reaching each step, out of all exposed users\n`
+          : "";
+      return `${comment}  SUM(step_${n}_value) AS step_${n}_conversions`;
+    })
+    .join(",\n");
+
+  const finalStep = steps.length;
+
+  const experimentSQL = `
+SELECT
+  variation,
+${sumLines},
+  COUNT(*) AS exposed_users,
+  -- Overall funnel conversion = reached the final step
+  SUM(step_${finalStep}_value) / COUNT(*) AS overall_conversion
+FROM
+  experiment_users u
+  LEFT JOIN funnel f ON (f.user = u.user)
+GROUP BY variation`.trim();
+
+  return { sql, experimentSQL };
+}
+
 function FieldMappingModal({
   factMetric,
   datasource,
   onSave,
   close,
 }: {
-  factMetric: Partial<FactMetricInterface>;
+  factMetric: Partial<StandardFactMetricInterface>;
   datasource: DataSourceInterfaceWithParams | null;
-  onSave: (metric: Partial<FactMetricInterface>) => void;
+  onSave: (metric: Partial<StandardFactMetricInterface>) => void;
   close?: () => void;
 }) {
   const { factTables, getFactTableById } = useDefinitions();
@@ -1292,7 +1455,11 @@ function FieldMappingModal({
   );
 }
 
-export default function FactMetricModal({
+export default function FactMetricModal(props: Props) {
+  return <StandardFactMetricModal {...props} />;
+}
+
+function StandardFactMetricModal({
   close,
   initialFactTable,
   existing,
@@ -1364,7 +1531,7 @@ export default function FactMetricModal({
   defaultValues.maxPercentChange = defaultValues.maxPercentChange * 100;
   defaultValues.targetMDE = defaultValues.targetMDE * 100;
 
-  const form = useForm<CreateFactMetricProps>({
+  const form = useForm<CreateFactMetricFormProps>({
     defaultValues,
   });
 
@@ -1434,6 +1601,11 @@ export default function FactMetricModal({
   const numeratorFactTable = getFactTableById(numerator?.factTableId || "");
   const denominator = form.watch("denominator");
   const windowSettings = form.watch("windowSettings");
+  // Funnel steps live outside react-hook-form: their nested step/filter shape
+  // breaks its typed field-path resolution.
+  const [funnelSettings, setFunnelSettings] = useState<FunnelSettings | null>(
+    existing?.funnelSettings || null,
+  );
 
   // Must have at least one numeric column to use event-level quantile metrics
   // For user-level quantiles, there is the option to count rows so it's always available
@@ -1441,15 +1613,26 @@ export default function FactMetricModal({
 
   const quantileMetricType = type !== "quantile" ? "" : quantileSettings.type;
 
-  const { sql, experimentSQL, denominatorSQL } = getPreviewSQL({
-    type,
-    quantileSettings,
-    windowSettings,
-    numerator,
-    denominator,
-    numeratorFactTable,
-    denominatorFactTable: getFactTableById(denominator?.factTableId || ""),
-  });
+  const previewSQL =
+    type === "funnel"
+      ? funnelSettings && funnelSettings.steps.length > 0
+        ? getFunnelPreviewSQL({
+            steps: funnelSettings.steps,
+            factTable: getFactTableById(funnelSettings.steps[0].factTableId),
+            windowSettings,
+          })
+        : null
+      : getPreviewSQL({
+          type,
+          quantileSettings,
+          windowSettings,
+          numerator,
+          denominator,
+          numeratorFactTable,
+          denominatorFactTable: getFactTableById(
+            denominator?.factTableId || "",
+          ),
+        });
 
   const setDatasource = (datasource: string) => {
     form.setValue("datasource", datasource);
@@ -1458,7 +1641,8 @@ export default function FactMetricModal({
   if (fromTemplate && !form.watch("numerator").factTableId) {
     return (
       <FieldMappingModal
-        factMetric={defaultValues}
+        // Templates only produce standard (ColumnRef-based) metrics
+        factMetric={defaultValues as Partial<StandardFactMetricInterface>}
         datasource={selectedDataSource}
         onSave={(metric) => {
           form.reset(metric);
@@ -1477,6 +1661,86 @@ export default function FactMetricModal({
       bodyClassName="p-0"
       close={close}
       submit={form.handleSubmit(async (values) => {
+        if (values.metricType === "funnel") {
+          const fs = funnelSettings;
+          if (!fs || fs.steps.length < 2) {
+            throw new Error("Funnel metrics require at least 2 steps");
+          }
+          for (const step of fs.steps) {
+            if (!step.name.trim()) {
+              throw new Error("Every funnel step needs a name");
+            }
+            if (!step.factTableId) {
+              throw new Error("Every funnel step needs a Fact Table");
+            }
+          }
+          if (!selectedDataSource) throw new Error("Must select a Data Source");
+
+          if (values.priorSettings === undefined) {
+            values.priorSettings = {
+              override: false,
+              proper: false,
+              mean: 0,
+              stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+            };
+          }
+
+          // Correct percent values shown as whole numbers in the UI
+          values.winRisk = values.winRisk / 100;
+          values.loseRisk = values.loseRisk / 100;
+          values.minPercentChange = values.minPercentChange / 100;
+          values.maxPercentChange = values.maxPercentChange / 100;
+          if (values.targetMDE) {
+            values.targetMDE = values.targetMDE / 100;
+          }
+
+          // Funnel events are described by funnelSettings.steps, so numerator /
+          // denominator are null and the capping/quantile/slice settings the
+          // backend forbids for funnels are reset.
+          const funnelBody = {
+            ...values,
+            numerator: null,
+            denominator: null,
+            funnelSettings: fs,
+            quantileSettings: null,
+            cappingSettings: { type: "" as const, value: 0 },
+            metricAutoSlices: [],
+          };
+
+          const trackProps = { type: "funnel", source };
+
+          if (!isNew) {
+            const updatePayload = omit(funnelBody, [
+              "datasource",
+            ]) as UpdateFactMetricProps;
+            await apiCall(`/fact-metrics/${existing.id}`, {
+              method: "PUT",
+              body: JSON.stringify(updatePayload),
+            });
+            track("Edit Fact Metric", trackProps);
+            await mutateDefinitions();
+          } else {
+            const createPayload: CreateFactMetricProps = {
+              ...funnelBody,
+              projects:
+                getFactTableById(fs.steps[0].factTableId)?.projects ||
+                selectedDataSource.projects ||
+                [],
+            };
+            await apiCall<{ factMetric: FactMetricInterface }>(
+              `/fact-metrics`,
+              {
+                method: "POST",
+                body: JSON.stringify(createPayload),
+              },
+            );
+            track("Create Fact Metric", trackProps);
+            await mutateDefinitions();
+            onSave && onSave();
+          }
+          return;
+        }
+
         if (values.denominator && !values.denominator.factTableId) {
           values.denominator = null;
         }
@@ -1663,6 +1927,7 @@ export default function FactMetricModal({
 
           const createPayload: CreateFactMetricProps = {
             ...values,
+            funnelSettings: null,
             projects:
               numeratorFactTable?.projects || selectedDataSource.projects || [],
           };
@@ -1808,7 +2073,32 @@ export default function FactMetricModal({
                     form.setValue("windowSettings.delayUnit", "hours");
                   }
 
-                  form.setValue("metricType", type as FactMetricType);
+                  if (type === "funnel") {
+                    if (!funnelSettings) {
+                      const factTableId =
+                        form.getValues("numerator")?.factTableId || "";
+                      setFunnelSettings({
+                        steps: [
+                          {
+                            name: "Step 1",
+                            factTableId,
+                            rowFilters: [],
+                            optional: false,
+                          },
+                          {
+                            name: "Step 2",
+                            factTableId,
+                            rowFilters: [],
+                            optional: false,
+                          },
+                        ],
+                      });
+                    }
+                    form.setValue("metricType", "funnel");
+                    return;
+                  }
+
+                  form.setValue("metricType", type);
 
                   // Set better defaults for retention metrics
                   if (type === "retention") {
@@ -1900,9 +2190,21 @@ export default function FactMetricModal({
                       </>
                     ),
                   },
+                  {
+                    value: "funnel",
+                    label: "Funnel",
+                  },
                 ]}
               />
-              {type === "proportion" ? (
+              {type === "funnel" ? (
+                <FunnelStepsInput
+                  value={funnelSettings ?? { steps: [] }}
+                  setValue={setFunnelSettings}
+                  datasource={form.watch("datasource")}
+                  project={project}
+                  initialFactTable={initialFactTable}
+                />
+              ) : type === "proportion" ? (
                 <div>
                   <label>Metric Event</label>
                   <ColumnRefSelector
@@ -2154,26 +2456,29 @@ export default function FactMetricModal({
 
               <MetricWindowSettingsForm form={form} type={type} />
 
-              <SelectField
-                size="legacy"
-                label="Metric Goal"
-                value={form.watch("inverse") ? "1" : "0"}
-                onChange={(v) => {
-                  form.setValue("inverse", v === "1");
-                }}
-                options={[
-                  {
-                    value: "0",
-                    label: `Increase the metric value`,
-                  },
-                  {
-                    value: "1",
-                    label: `Decrease the metric value`,
-                  },
-                ]}
-              />
+              {type !== "funnel" && (
+                <SelectField
+                  size="legacy"
+                  label="Metric Goal"
+                  value={form.watch("inverse") ? "1" : "0"}
+                  onChange={(v) => {
+                    form.setValue("inverse", v === "1");
+                  }}
+                  options={[
+                    {
+                      value: "0",
+                      label: `Increase the metric value`,
+                    },
+                    {
+                      value: "1",
+                      label: `Decrease the metric value`,
+                    },
+                  ]}
+                />
+              )}
 
-              {hasMetricSlicesFeature &&
+              {type !== "funnel" &&
+                hasMetricSlicesFeature &&
                 (() => {
                   const factTableId = form.watch("numerator.factTableId");
                   const factTable = getFactTableById(factTableId);
@@ -2286,7 +2591,8 @@ export default function FactMetricModal({
                         {type !== "quantile" &&
                         type !== "proportion" &&
                         type !== "retention" &&
-                        type !== "dailyParticipation" ? (
+                        type !== "dailyParticipation" &&
+                        type !== "funnel" ? (
                           <MetricCappingSettingsForm
                             form={form}
                             datasourceType={selectedDataSource.type}
@@ -2547,7 +2853,7 @@ export default function FactMetricModal({
             </>
           )}
         </div>
-        {showSQLPreview && (
+        {showSQLPreview && previewSQL && (
           <div
             className="bg-light px-3 py-4 flex-1 border-left d-none d-md-block"
             style={{
@@ -2571,14 +2877,14 @@ export default function FactMetricModal({
               </strong>
               <Code
                 language="sql"
-                code={sql}
+                code={previewSQL.sql}
                 className="bg-light"
-                filename={denominatorSQL ? "Numerator" : undefined}
+                filename={previewSQL.denominatorSQL ? "Numerator" : undefined}
               />
-              {denominatorSQL ? (
+              {previewSQL.denominatorSQL ? (
                 <Code
                   language="sql"
-                  code={denominatorSQL}
+                  code={previewSQL.denominatorSQL}
                   className="bg-light"
                   filename={"Denominator"}
                 />
@@ -2608,7 +2914,7 @@ export default function FactMetricModal({
               >
                 <Code
                   language="sql"
-                  code={experimentSQL}
+                  code={previewSQL.experimentSQL}
                   className="bg-light"
                 />
               </div>
