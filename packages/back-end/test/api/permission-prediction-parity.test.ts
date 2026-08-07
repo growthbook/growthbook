@@ -1,8 +1,10 @@
 import {
+  canCommentOnRevisionEntity,
   canLandArchiveToggle,
   canLandRevertToTarget,
   canPublishRevisionEntity,
   canReviewRevisionEntity,
+  canStageArchiveDraft,
   holdsRevisionDestination,
   Permissions,
   RevisionModel,
@@ -25,8 +27,12 @@ const org = buildOrg("org_prediction_parity");
 type PredictedOperation =
   | "publish a draft"
   | "archive"
+  | "unarchive"
   | "revert straight to published"
-  | "submit a review verdict";
+  | "submit a review verdict"
+  | "comment on a draft"
+  | "stage an archive in a new draft"
+  | "stage an unarchive in a new draft";
 
 const MODELS: RevisionModel[] = ["constant", "config", "saved-group"];
 
@@ -104,6 +110,48 @@ describe("control predictions match the endpoint oracle", () => {
           canLandRevertToTarget(permissions, model, entity, {}, ["production"]),
         ).toBe(expected("revert straight to published"));
       });
+
+      // The way back out. Held next to `archive` because they are one round trip:
+      // a persona passing both owns the toggle, and the delete atom must not.
+      it("predicts unarchiving the same way the endpoint decides it", () => {
+        const permissions = permissionsFor(persona, false);
+        expect(
+          canLandArchiveToggle(
+            permissions,
+            model,
+            { ...entity, archived: true },
+            ["production"],
+          ),
+        ).toBe(expected("unarchive"));
+      });
+
+      it("predicts commenting the same way the endpoint decides it", () => {
+        const permissions = permissionsFor(persona, false);
+        expect(
+          canCommentOnRevisionEntity(
+            permissions,
+            model,
+            { target: { snapshot: entity } },
+            entity,
+          ),
+        ).toBe(expected("comment on a draft"));
+      });
+
+      // Staging is project-scoped, so a footprint reaching production must not
+      // change either answer — the assertions above already pin the landing side.
+      it("predicts staging an archive the same way the endpoint decides it", () => {
+        const permissions = permissionsFor(persona, false);
+        expect(
+          canStageArchiveDraft({ permissions, model, entity, archived: true }),
+        ).toBe(expected("stage an archive in a new draft"));
+      });
+
+      it("predicts staging an unarchive the same way the endpoint decides it", () => {
+        const permissions = permissionsFor(persona, false);
+        expect(
+          canStageArchiveDraft({ permissions, model, entity, archived: false }),
+        ).toBe(expected("stage an unarchive in a new draft"));
+      });
     });
   });
 });
@@ -162,6 +210,20 @@ describe("control predictions respect the environment footprint", () => {
         archive: persona === "deleter",
         revert: persona === "reverter",
       });
+    });
+
+    // Staging publishes nothing, so the restriction is inapplicable rather than
+    // inert: a dev-limited deleter may still PROPOSE an archive that would reach
+    // production, and only the landing above stops it.
+    it("stages an archive regardless of the restriction", () => {
+      expect(
+        canStageArchiveDraft({
+          permissions,
+          model: "constant",
+          entity,
+          archived: true,
+        }),
+      ).toBe(persona === "deleter");
     });
   });
 });

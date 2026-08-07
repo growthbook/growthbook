@@ -1,6 +1,6 @@
 import {
+  canStageArchiveDraft,
   canWriteArchiveIntoDraft,
-  NO_ENVIRONMENT_BINDING,
 } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
 import { useCallback, useState } from "react";
@@ -185,15 +185,17 @@ export default function FeatureArchiveModal({
         canAutoPublish={canAutoPublish}
         gatedEnvSet={archiveGated ? "all" : "none"}
         allowNewDraftAtCap
-        // Staging follows the server's directional rule: archiving is delete-class so
-        // the delete atom stages one, unarchiving needs draft authority. Left to the
-        // shell's `true` default, a publish-only caller was offered "Create a new
-        // draft" on an unarchive the endpoint refuses.
-        canDraft={
-          permissionsUtil.canEditFeatureDrafts(feature) ||
-          (!isArchived &&
-            permissionsUtil.canDeleteFeature(feature, NO_ENVIRONMENT_BINDING))
-        }
+        // Left to the shell's `true` default, a publish-only caller was offered
+        // "Create a new draft" on an unarchive the endpoint then refuses.
+        canDraft={canStageArchiveDraft({
+          permissions: permissionsUtil,
+          model: "feature",
+          // Reviewer/draft eligibility follows the PRIMARY project, so pass it
+          // narrowed the way the feature-specific helpers do rather than handing
+          // over a feature that also carries targeting projects.
+          entity: { project: feature.project },
+          archived: !isArchived,
+        })}
         // Only drafts this caller may write `archived` into — the endpoint refuses
         // a write into another author's draft.
         canWriteIntoDraft={canWriteArchiveInto}

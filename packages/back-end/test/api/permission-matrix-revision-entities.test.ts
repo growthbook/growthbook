@@ -126,12 +126,25 @@ type Case = {
   needsDraft?: boolean;
   needsPriorPublished?: boolean;
   needsStaleBase?: boolean;
+  /** Take the live entity out of service first, so the case acts on an archived one. */
+  needsArchived?: boolean;
+  /** Stage an archive into the draft, so its only proposed change is the flip. */
+  needsArchiveDraft?: boolean;
   run: (
     e: Entity,
     id: string,
     version: number,
   ) => Promise<{ status: number; body?: unknown }>;
 };
+
+/**
+ * Archiving and unarchiving both reach every environment the entity serves, so an
+ * env-limited persona is refused — unless the entity has no environment partition
+ * at all, which is only Saved Groups. An empty footprint would SKIP the check
+ * rather than narrow it, so these rows are where that mistake shows up.
+ */
+const servesEveryEnvironment = (op: string) => (e: Entity) =>
+  e.label === "Saved Groups" ? OPERATION_ORACLE[op] : [];
 
 const CASES: Case[] = [
   {
@@ -177,11 +190,8 @@ const CASES: Case[] = [
     // Archiving takes the entity out of EVERY environment it serves, so the
     // delete atom must hold in all of them and a dev-limited deleter is refused.
     // True of a Constant via its base value and of the BASE Config seeded here,
-    // which names no scoped environments and so feeds them all — an empty
-    // footprint would skip the check rather than narrow it. Only Saved Groups,
-    // with no environment partition at all, are unrestricted.
-    allowedDevOnly: (e) =>
-      e.label === "Saved Groups" ? OPERATION_ORACLE["archive"] : [],
+    // which names no scoped environments and so feeds them all.
+    allowedDevOnly: servesEveryEnvironment("archive"),
     run: (e, id) => api.post(`/api/v1/${e.base}/${id}/archive`, {}),
   },
   {
@@ -248,6 +258,88 @@ const CASES: Case[] = [
       api.post(`/api/v1/${e.base}-revisions/${id}/${v}/revert`, {
         strategy: "publish",
       }),
+  },
+  {
+    // The way back is an ordinary publish, so the delete atom that archived the
+    // entity does not reach it. Held next to `archive`, which is the same round
+    // trip in the other direction: a deleter passing both would own the toggle.
+    name: "unarchive",
+    envScopedAtom: true,
+    allowed: OPERATION_ORACLE["unarchive"],
+    allowedDevOnly: servesEveryEnvironment("unarchive"),
+    needsArchived: true,
+    run: (e, id) => api.post(`/api/v1/${e.base}/${id}/unarchive`, {}),
+  },
+  {
+    // A comment is participation, so it is the one thing the comment atom alone
+    // reaches — and the only case a persona holding no family policy may pass.
+    // Submitted on a plain draft, not a review request: commenting carries no
+    // status requirement, and seeding one would have let the review path's own
+    // gate stand in for this check.
+    name: "comment on a draft",
+    allowed: OPERATION_ORACLE["comment on a draft"],
+    needsDraft: true,
+    run: (e, id, v) =>
+      api.post(`/api/v1/${e.base}-revisions/${id}/${v}/submit-review`, {
+        decision: "comment",
+        comment: "Matrix comment",
+      }),
+  },
+  {
+    // `version: "new"` on purpose: the delete atom opens its OWN draft, and this
+    // asks for it project-scoped rather than over the environment footprint
+    // `archive` demands. Seeding a draft here would have measured the sideways
+    // rule below instead, and the deleter would look refused for the wrong reason.
+    name: "stage an archive in a new draft",
+    allowed: OPERATION_ORACLE["stage an archive in a new draft"],
+    run: (e, id) =>
+      api.put(`/api/v1/${e.base}-revisions/${id}/new/archive`, {
+        archived: true,
+      }),
+  },
+  {
+    // Same endpoint, same fresh draft, opposite direction — so the only thing
+    // that can refuse the deleter here is the direction itself.
+    name: "stage an unarchive in a new draft",
+    allowed: OPERATION_ORACLE["stage an unarchive in a new draft"],
+    needsArchived: true,
+    run: (e, id) =>
+      api.put(`/api/v1/${e.base}-revisions/${id}/new/archive`, {
+        archived: false,
+      }),
+  },
+  {
+    // The sideways reach: an admin's draft, and the archiving direction the
+    // deleter is otherwise allowed to stage. It must still be refused, because
+    // the objection is whose draft it is rather than which way it flips.
+    name: "stage an archive into another author's draft",
+    allowed: OPERATION_ORACLE["stage an archive into another author's draft"],
+    needsDraft: true,
+    run: (e, id, v) =>
+      api.put(`/api/v1/${e.base}-revisions/${id}/${v}/archive`, {
+        archived: true,
+      }),
+  },
+  {
+    // The positive half of the discard rule below: a narrow atom may still move
+    // an archive-only draft along, so the deleter here is ALLOWED. Without this
+    // row, deleting the pure-archive branch outright would look like a fix.
+    name: "request review on an archive-only draft",
+    allowed: OPERATION_ORACLE["request review on an archive-only draft"],
+    needsArchiveDraft: true,
+    run: (e, id, v) =>
+      api.post(`/api/v1/${e.base}-revisions/${id}/${v}/request-review`, {}),
+  },
+  {
+    // ...and the negative half. Same draft, same personas, one verb apart: the
+    // deleter that may advance this draft may not throw it away, because it is
+    // the admin's work. `discard a draft` stages a value edit, which refuses a
+    // deleter for the ordinary reason and so cannot distinguish the two rules.
+    name: "discard an archive-only draft",
+    allowed: OPERATION_ORACLE["discard an archive-only draft"],
+    needsArchiveDraft: true,
+    run: (e, id, v) =>
+      api.post(`/api/v1/${e.base}-revisions/${id}/${v}/discard`, {}),
   },
 ];
 
@@ -390,6 +482,39 @@ async function seedReviewRequest(
   }
 }
 
+/** Take the entity out of service, so the case acts on an archived one. */
+async function seedArchived(e: Entity, id: string): Promise<void> {
+  as("admin");
+  const res = await api.post(`/api/v1/${e.base}/${id}/archive`, {});
+  if (res.status >= 400) {
+    throw new Error(
+      `archive seed failed: ${res.status} ${JSON.stringify(res.body)}`,
+    );
+  }
+}
+
+/**
+ * A draft whose ONLY proposed change is the archive flip — the shape a narrow
+ * atom is allowed to advance. Seeded as admin, so the persona under test is never
+ * its author and authorship cannot stand in for the atom.
+ */
+async function seedArchiveDraft(
+  e: Entity,
+  id: string,
+  version: number,
+): Promise<void> {
+  as("admin");
+  const res = await api.put(
+    `/api/v1/${e.base}-revisions/${id}/${version}/archive`,
+    { archived: true },
+  );
+  if (res.status >= 400) {
+    throw new Error(
+      `archive-draft seed failed: ${res.status} ${JSON.stringify(res.body)}`,
+    );
+  }
+}
+
 async function seedDraft(e: Entity, id: string): Promise<number> {
   as("admin");
   const res = await api.post(`/api/v1/${e.base}-revisions/${id}`, {});
@@ -432,6 +557,8 @@ describe.each(ENTITIES)("permission matrix — $label", (entity: Entity) => {
       needsReviewRequest,
       needsPriorPublished,
       needsStaleBase,
+      needsArchived,
+      needsArchiveDraft,
       envScopedAtom,
       allowedDevOnly,
     }: Case) => {
@@ -439,6 +566,9 @@ describe.each(ENTITIES)("permission matrix — $label", (entity: Entity) => {
         const expected =
           envLimited && allowedDevOnly ? allowedDevOnly(entity) : allowed;
         const id = await seed(entity);
+        if (needsArchived) {
+          await seedArchived(entity, id);
+        }
         if (needsPriorPublished) {
           const target = await seedPriorPublishedRevision(entity, id);
           as(persona, envLimited);
@@ -447,8 +577,15 @@ describe.each(ENTITIES)("permission matrix — $label", (entity: Entity) => {
           return;
         }
         const wantsDraft =
-          needsDraft || needsEdit || needsReviewRequest || needsStaleBase;
+          needsDraft ||
+          needsEdit ||
+          needsReviewRequest ||
+          needsStaleBase ||
+          needsArchiveDraft;
         const version = wantsDraft ? await seedDraft(entity, id) : 0;
+        if (needsArchiveDraft) {
+          await seedArchiveDraft(entity, id, version);
+        }
         if (needsEdit || needsReviewRequest) {
           await seedEdit(entity, id, version);
         }

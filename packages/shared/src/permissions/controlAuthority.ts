@@ -141,9 +141,55 @@ export function canLandRevertToTarget(
   );
 }
 
+/**
+ * Whether this caller may OPEN a draft that stages an archive flip.
+ *
+ * Weaker than landing it: staging publishes nothing, so this is project-scoped and
+ * the delete atom stages an archive on its own — proposing a change must never take
+ * more authority than making it. The delete arm is DIRECTIONAL, matching
+ * `canLandArchiveToggle`: taking the entity out of service is delete-class, putting
+ * it back is publish-class, so a delete-only role cannot stage a return it could not
+ * land.
+ *
+ * Writing the flip into a draft that already exists is a third question — see
+ * `canWriteArchiveIntoDraft`.
+ */
+export function canStageArchiveDraft({
+  permissions,
+  model,
+  entity,
+  archived,
+}: {
+  permissions: PermissionsUtil;
+  model: RevisionModel;
+  entity: ProjectScoped;
+  /** The state being staged: `true` archives, `false` returns to service. */
+  archived: boolean;
+}): boolean {
+  if (
+    permissions.canRevisionAction(
+      model,
+      "draft",
+      entity,
+      NO_ENVIRONMENT_BINDING,
+    )
+  ) {
+    return true;
+  }
+  return (
+    archived &&
+    permissions.canRevisionAction(
+      model,
+      "delete",
+      entity,
+      NO_ENVIRONMENT_BINDING,
+    )
+  );
+}
+
 // Archiving is delete-class over the environments the entity serves; unarchiving returns
 // it to service and is an ordinary publish. Staging either as a draft is a separate,
-// weaker question the caller answers itself.
+// weaker question — see `canStageArchiveDraft`.
 export function canLandArchiveToggle(
   permissionsUtil: PermissionsUtil,
   model: RevisionModel,

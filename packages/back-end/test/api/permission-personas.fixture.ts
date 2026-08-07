@@ -27,6 +27,10 @@ export const PERSONAS = {
   publisher: ["FlagsPublish", "SavedGroupsPublish"],
   reverter: ["FlagsRevert", "SavedGroupsRevert"],
   deleter: ["FlagsDelete", "SavedGroupsDelete"],
+  // Participation without authority. The comment atom is org-wide rather than
+  // part of either family, so this persona holds no Flags/SavedGroups policy at
+  // all — which is the point: every operation but commenting must refuse it.
+  commenter: ["Comments"],
   creator: ["FlagsCreate", "SavedGroupsCreate"],
   // Creating a flag that enables an environment lands it in the payload, so
   // that case takes publish as well as create.
@@ -92,6 +96,44 @@ export const OPERATION_ORACLE: Record<string, Persona[]> = {
   "rebase a draft whose base has moved": ["drafter", "editor", "full"],
   "stage a revert as a draft": ["drafter", "reverter", "editor", "full"],
   "revert straight to published": ["reverter", "full"],
+
+  // Unarchiving returns the entity to service, so it is an ordinary publish and
+  // NOT the delete atom that took it out. A deleter holding the way back would
+  // own a round trip it was never granted.
+  unarchive: ["publisher", "creatorPublisher", "editor", "full"],
+
+  // Commenting is participation, not a verdict. The comment atom reaches it, and
+  // so does anyone who could rule on the draft or manage drafts generally. A
+  // publisher, reverter or deleter holds none of those: authority to land a
+  // change is not authority to speak in someone else's review.
+  "comment on a draft": ["commenter", "drafter", "reviewer", "editor", "full"],
+
+  // Staging publishes nothing, so the delete atom opens its own archive draft —
+  // it must not take MORE authority to propose an archive than to land one.
+  "stage an archive in a new draft": ["drafter", "deleter", "editor", "full"],
+  // That exception is directional, mirroring `unarchive`. Staging the way back
+  // is not delete-class, so the delete atom stops here.
+  "stage an unarchive in a new draft": ["drafter", "editor", "full"],
+  // ...and it does not reach SIDEWAYS either. Writing `archived` into a draft
+  // someone else authored makes their draft delete-class, which locks its author
+  // out of publishing their own work — so this one asks for draft authority or
+  // authorship, whichever direction is being staged.
+  "stage an archive into another author's draft": ["drafter", "editor", "full"],
+
+  // A narrow atom may ADVANCE a draft that does only what the atom covers, so a
+  // deleter can move an archive-only draft toward review — including one it did
+  // not write, since it could publish that draft either way.
+  "request review on an archive-only draft": [
+    "drafter",
+    "deleter",
+    "editor",
+    "full",
+  ],
+  // It may NOT destroy one. Discarding is draft authority or authorship, whatever
+  // the draft happens to contain. `discard a draft` cannot see this rule: its
+  // draft is a value edit, which refuses a deleter for the ordinary reason and
+  // would go on passing if discard were content-aware again.
+  "discard an archive-only draft": ["drafter", "editor", "full"],
 };
 
 export function buildOrg(orgId: string): OrganizationInterface {

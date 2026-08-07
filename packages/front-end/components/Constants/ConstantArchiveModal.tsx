@@ -1,4 +1,5 @@
 import {
+  canStageArchiveDraft,
   canWriteArchiveIntoDraft,
   archiveFootprintForControl,
   canLandArchiveToggle,
@@ -77,15 +78,14 @@ export default function ConstantArchiveModal({
       }
       // Drafts the archive flip may be written into, for both the picker and
       // this modal's initial selection.
-      // Staging follows the server's directional rule: archiving is delete-class so
-      // the delete atom stages one, unarchiving needs draft authority. Left to the
-      // shell's `true` default, a publish-only caller was offered "Create a new
-      // draft" on an unarchive the endpoint refuses.
-      canStageDraft={
-        permissionsUtil.canRevisionAction("constant", "draft", constant) ||
-        (!constant.archived &&
-          permissionsUtil.canRevisionAction("constant", "delete", constant))
-      }
+      // Left to the shell's `true` default, a publish-only caller was offered
+      // "Create a new draft" on an unarchive the endpoint then refuses.
+      canStageDraft={canStageArchiveDraft({
+        permissions: permissionsUtil,
+        model: "constant",
+        entity: constant,
+        archived: !constant.archived,
+      })}
       canWriteIntoDraft={(r) =>
         canWriteArchiveIntoDraft({
           permissions: permissionsUtil,

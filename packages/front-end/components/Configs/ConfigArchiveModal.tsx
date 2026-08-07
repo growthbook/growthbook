@@ -2,6 +2,7 @@ import { ConfigWithoutValue } from "shared/types/config";
 import { Revision } from "shared/enterprise";
 import { configPublishEnvironments } from "shared/util";
 import {
+  canStageArchiveDraft,
   canWriteArchiveIntoDraft,
   archiveFootprintForControl,
   canLandArchiveToggle,
@@ -97,15 +98,14 @@ export default function ConfigArchiveModal({
       }
       // Drafts the archive flip may be written into, for both the picker and
       // this modal's initial selection.
-      // Staging follows the server's directional rule: archiving is delete-class so
-      // the delete atom stages one, unarchiving needs draft authority. Left to the
-      // shell's `true` default, a publish-only caller was offered "Create a new
-      // draft" on an unarchive the endpoint refuses.
-      canStageDraft={
-        permissionsUtil.canRevisionAction("config", "draft", config) ||
-        (!config.archived &&
-          permissionsUtil.canRevisionAction("config", "delete", config))
-      }
+      // Left to the shell's `true` default, a publish-only caller was offered
+      // "Create a new draft" on an unarchive the endpoint then refuses.
+      canStageDraft={canStageArchiveDraft({
+        permissions: permissionsUtil,
+        model: "config",
+        entity: config,
+        archived: !config.archived,
+      })}
       canWriteIntoDraft={(r) =>
         canWriteArchiveIntoDraft({
           permissions: permissionsUtil,
