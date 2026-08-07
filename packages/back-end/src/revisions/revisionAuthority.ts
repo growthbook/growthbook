@@ -60,6 +60,31 @@ export function reviewAuthorityOnRow(
   };
 }
 
+/**
+ * Whether the caller may DISCARD a draft.
+ *
+ * Narrower than advancing it, deliberately. `canAdvanceRevision` lets a narrow atom
+ * act on a draft that only does what that atom covers — a deleter over a pure
+ * archive — which is right for moving your own work along, and wrong for destroying
+ * someone else's. A qa-style delete-only role could discard another author's archive
+ * draft, including one already in review.
+ *
+ * So: draft authority (the role that manages drafts generally), or authorship. A
+ * narrow-atom holder can still publish or decline to publish the draft; they just
+ * cannot throw away work that isn't theirs.
+ */
+export async function canDiscardRevision(
+  context: Context,
+  revision: Revision,
+): Promise<boolean> {
+  const type = revision.target.type;
+  const snapshot = revision.target.snapshot as Record<string, unknown>;
+  if (canDoRevisionAction(type, "draft", context, snapshot)) return true;
+  return (
+    !!context.userId && isRevisionAuthor(revision.authorId, context.userId)
+  );
+}
+
 // Who may move a generic entity's draft along — request review on it, recall
 // that request, discard it.
 //

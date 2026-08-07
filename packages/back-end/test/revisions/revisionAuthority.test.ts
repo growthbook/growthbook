@@ -3,6 +3,7 @@ import type { RevisionAction } from "shared/permissions";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
   canAdvanceRevision,
+  canDiscardRevision,
   canRebaseRevision,
   isRevisionAuthor,
   mayBeRevisionAuthor,
@@ -443,5 +444,49 @@ describe("mayBeRevisionAuthor", () => {
   it("does not grant authorship to an identityless caller", () => {
     expect(isRevisionAuthor("", "")).toBe(false);
     expect(isRevisionAuthor(undefined, undefined)).toBe(false);
+  });
+});
+
+/**
+ * Discarding is narrower than advancing.
+ *
+ * `canAdvanceRevision` lets a narrow atom act on a draft that only does what the atom
+ * covers, so a delete-only role could discard ANY pure-archive draft — another
+ * author's, and one already in review. Moving your own work along and destroying
+ * someone else's are different questions.
+ */
+describe("canDiscardRevision", () => {
+  const archiveDraft = (authorId: string) =>
+    ({
+      authorId,
+      target: {
+        type: "saved-group",
+        snapshot: { projects: [] },
+        proposedChanges: [{ op: "replace", path: "/archived", value: true }],
+      },
+    }) as unknown as Revision;
+
+  it("admits draft authority over anyone's draft", async () => {
+    const context = makeContext({ granted: ["draft"], userId: "u_1" });
+    expect(await canDiscardRevision(context, archiveDraft("u_2"))).toBe(true);
+  });
+
+  it("admits the author of the draft", async () => {
+    const context = makeContext({ granted: [], userId: "u_1" });
+    expect(await canDiscardRevision(context, archiveDraft("u_1"))).toBe(true);
+  });
+
+  // The case this exists for: a qa-style delete-only role could throw away another
+  // author's archive draft, which `canAdvanceRevision` still allows.
+  it("refuses a delete-only role on someone else's archive draft", async () => {
+    const context = makeContext({ granted: ["delete"], userId: "u_1" });
+    const draft = archiveDraft("u_2");
+    expect(await canDiscardRevision(context, draft)).toBe(false);
+    expect(await canAdvanceRevision(context, draft)).toBe(true);
+  });
+
+  it("refuses an identityless caller on an authorless draft", async () => {
+    const context = makeContext({ granted: ["delete"], userId: "" });
+    expect(await canDiscardRevision(context, archiveDraft(""))).toBe(false);
   });
 });

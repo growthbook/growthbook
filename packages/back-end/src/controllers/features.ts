@@ -3864,7 +3864,15 @@ export async function putRevisionComment(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canEditFeatureDrafts(feature)) {
+  // Editing a comment is commenting: the comment atom, or review which implies it.
+  // Draft authority was the wrong question and disagreed with both the sibling POST
+  // route and every other entity.
+  if (
+    !context.permissions.canAddComment(
+      feature.project ? [feature.project] : [],
+    ) &&
+    !context.permissions.canReviewFeatureDrafts(feature)
+  ) {
     context.permissions.throwPermissionError();
   }
 

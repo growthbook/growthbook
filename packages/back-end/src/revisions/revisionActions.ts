@@ -23,6 +23,7 @@ import {
 } from "back-end/src/revisions/util";
 import {
   canAdvanceRevision,
+  canDiscardRevision,
   canRebaseRevision,
   mayBeRevisionAuthor,
   liveMatchesRevisionBase,
@@ -1099,11 +1100,11 @@ export async function discardEntityRevision({
     );
   }
 
-  // Draft authority, a narrow atom over a draft that only does what the atom
-  // covers (revert over a pure revert, delete over a pure archive), or
-  // authorship — the same rule as the internal close. A narrower gate cuts a
-  // reverter off from discarding the very draft they can publish.
-  if (!(await canAdvanceRevision(context, revision))) {
+  // Discarding is NARROWER than advancing: draft authority or authorship only.
+  // Letting a narrow atom discard — a deleter over any pure-archive draft — meant a
+  // delete-only role could throw away another author's work, including a draft
+  // already in review. They can still publish it or leave it alone.
+  if (!(await canDiscardRevision(context, revision))) {
     context.permissions.throwPermissionError();
   }
 

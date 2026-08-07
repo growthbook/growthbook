@@ -253,7 +253,14 @@ export default function FeatureArchiveModal({
                   weight="regular"
                   value={confirmEnvBypass}
                   setValue={setConfirmEnvBypass}
-                  label="I understand this feature will be immediately disabled in all environments after archiving."
+                  label={
+                    // Only a publish-now archive takes effect immediately. Staging it
+                    // as a draft changes nothing until that draft publishes, and the
+                    // unconditional wording implied otherwise.
+                    mode === "publish"
+                      ? "I understand this Feature Flag will be immediately disabled in all environments."
+                      : "I understand this Feature Flag will be disabled in all environments when this draft is published."
+                  }
                 />
               )}
             </Flex>

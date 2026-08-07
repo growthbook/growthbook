@@ -45,6 +45,7 @@ import {
 } from "back-end/src/revisions/revisionActions";
 import {
   canAdvanceRevision,
+  canDiscardRevision,
   canRebaseRevision,
   isRevisionAuthor,
   mayBeRevisionAuthor,
@@ -1374,9 +1375,10 @@ export const postClose = async (
     });
   }
 
-  // Covers the author, draft authority, and the narrow atoms over a draft that
-  // only does what they cover — same shape as the feature discard gate.
-  if (!(await canAdvanceRevision(context, existingRevision))) {
+  // Draft authority or authorship — NOT the narrow atoms. Discarding destroys work,
+  // possibly someone else's and possibly mid-review, which is a different question
+  // from whether you may move a draft along. See `canDiscardRevision`.
+  if (!(await canDiscardRevision(context, existingRevision))) {
     context.permissions.throwPermissionError();
   }
 

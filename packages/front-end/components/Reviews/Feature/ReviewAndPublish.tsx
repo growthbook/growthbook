@@ -64,6 +64,7 @@ import { getFutureScheduledStartDate } from "@/services/experiments";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import LinkButton from "@/components/Button";
+import Link from "@/ui/Link";
 import Revisionlog, {
   MutateLog,
   REVIEW_ACTIVITY_ACTIONS,
@@ -184,8 +185,12 @@ export default function ReviewAndPublish({
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envIds = environments.map((e) => e.id);
   const permissionsUtil = usePermissionsUtil();
-  // POST /feature/:id/:version/comment requires canReviewFeatureDrafts.
-  const canCommentOnDraft = permissionsUtil.canReviewFeatureDrafts(feature);
+  // Commenting is participation: the comment atom, or review which implies it —
+  // matching the endpoint and the other entities. Gating on review alone meant a role
+  // granted "comments" still couldn't comment on a Feature Flag revision.
+  const canCommentOnDraft =
+    permissionsUtil.canAddComment(feature.project ? [feature.project] : []) ||
+    permissionsUtil.canReviewFeatureDrafts(feature);
   const { apiCall } = useAuth();
   const user = getCurrentUser();
   const {
@@ -2564,14 +2569,18 @@ export default function ReviewAndPublish({
               as a contradiction. */}
           {state.waitingForReview && !canReview && !showPublishSection && (
             <Callout status="info" size="sm">
-              Waiting for a reviewer.{" "}
               {createdBy?.id === user?.id
-                ? "Authors can't approve their own drafts. "
-                : ""}
-              Anyone with review permission on this feature can approve it.
-              {state.canRecallReview
-                ? " You can also return the draft to editing, which withdraws the review request."
-                : ""}
+                ? "Waiting for a reviewer — you can't approve your own draft."
+                : "Waiting for a reviewer."}
+              {state.canRecallReview && (
+                <>
+                  {" "}
+                  <Link onClick={() => doRecallReview()}>
+                    Return to draft state
+                  </Link>{" "}
+                  to withdraw the request.
+                </>
+              )}
             </Callout>
           )}
 

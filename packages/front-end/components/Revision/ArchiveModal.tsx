@@ -235,8 +235,10 @@ export default function ArchiveModal({
       })}
       {isArchived ? (
         <p>
-          Are you sure you want to continue? This will make the {lowerNoun}{" "}
-          active again.
+          Are you sure you want to continue?{" "}
+          {mode === "publish"
+            ? `This will make the ${lowerNoun} active again.`
+            : `The ${lowerNoun} becomes active again when this draft is published.`}
         </p>
       ) : referencesLoading && !soft ? (
         <Text color="text-disabled">
@@ -286,16 +288,23 @@ export default function ArchiveModal({
             value={acknowledged}
             setValue={setAcknowledged}
             label={
+              // Breaking live Feature Flags happens when the archive PUBLISHES, not
+              // when it is staged — the unconditional wording implied a draft took
+              // effect on its own.
               elevatedWarning
-                ? "I understand this will break live Feature Flags and want to archive anyway."
+                ? mode === "publish"
+                  ? "I understand this will break live Feature Flags and want to archive anyway."
+                  : "I understand this will break live Feature Flags when the draft is published, and want to continue."
                 : `I acknowledge these references and want to archive this ${lowerNoun} anyway.`
             }
           />
         </>
       ) : (
         <p>
-          Are you sure you want to continue? This will make the {lowerNoun}{" "}
-          inactive.
+          Are you sure you want to continue?{" "}
+          {mode === "publish"
+            ? `This will make the ${lowerNoun} inactive.`
+            : `The ${lowerNoun} becomes inactive when this draft is published.`}
         </p>
       )}
     </ModalStandard>
