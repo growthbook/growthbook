@@ -168,7 +168,7 @@ const CustomFieldDisplay: FC<{
         {cValue ?? ""}
       </a>
     ) : v.type === "boolean" ? (
-      <>{cValue ? "yes" : "no"}</>
+      <>{cValue === "true" ? "yes" : "no"}</>
     ) : v.type === "date" && cValue ? (
       new Date(cValue).toLocaleDateString()
     ) : v.type === "datetime" && cValue ? (
