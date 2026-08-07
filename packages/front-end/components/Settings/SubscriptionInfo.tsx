@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Box, Text } from "@radix-ui/themes";
-import { captureException as sentryCaptureException } from "@sentry/nextjs";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import { planNameFromAccountPlan } from "@/services/utils";
+import { useForceLicenseRefresh } from "@/hooks/useForceLicenseRefresh";
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import Callout from "@/ui/Callout";
 import UIButton from "@/ui/Button";
@@ -23,17 +23,18 @@ export default function SubscriptionInfo() {
     canSubscribe,
     accountPlan,
     users,
-    refreshOrganization,
     organization,
   } = useUser();
+  const {
+    status: organizationRefreshStatus,
+    refresh: refreshOrganizationAfterCancellation,
+    retry: retryOrganizationRefresh,
+  } = useForceLicenseRefresh();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [cancelSubscriptionModal, setCancelSubscriptionModal] = useState(false);
   const [showCancellationSurveyModal, setShowCancellationSurveyModal] =
     useState(false);
-  const [organizationRefreshStatus, setOrganizationRefreshStatus] = useState<
-    "idle" | "loading" | "failed"
-  >("idle");
   const [updateOrbSubscriptionModal, setUpdateOrbSubscriptionModal] =
     useState(false);
 
@@ -46,21 +47,6 @@ export default function SubscriptionInfo() {
     subscription?.status === "active" &&
     subscription?.nextBillDate &&
     !subscription?.pendingCancelation;
-
-  const refreshOrganizationAfterCancellation = async () => {
-    try {
-      await refreshOrganization({ forceLicenseRefresh: true });
-      setOrganizationRefreshStatus("idle");
-    } catch (error) {
-      sentryCaptureException(error);
-      setOrganizationRefreshStatus("failed");
-    }
-  };
-
-  const retryOrganizationRefresh = async () => {
-    setOrganizationRefreshStatus("loading");
-    await refreshOrganizationAfterCancellation();
-  };
 
   return (
     <div className="p-3">
