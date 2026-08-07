@@ -10,6 +10,7 @@ import {
   DEFAULT_STATS_ENGINE,
   DEFAULT_TEST_QUERY_DAYS,
   DEFAULT_SRM_THRESHOLD,
+  DEFAULT_NO_DATA_ALERT_GRACE_PERIOD_HOURS,
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
@@ -151,6 +152,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
       },
       runHealthTrafficQuery: false,
       srmThreshold: DEFAULT_SRM_THRESHOLD,
+      noDataAlertGracePeriodHours:
+        settings.noDataAlertGracePeriodHours ??
+        DEFAULT_NO_DATA_ALERT_GRACE_PERIOD_HOURS,
       multipleExposureMinPercent: 0.01,
       confidenceLevel: 0.95,
       pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
@@ -277,6 +281,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     updateSchedule: form.watch("updateSchedule"),
     runHealthTrafficQuery: form.watch("runHealthTrafficQuery"),
     srmThreshold: form.watch("srmThreshold"),
+    noDataAlertGracePeriodHours: form.watch("noDataAlertGracePeriodHours"),
     multipleExposureMinPercent: form.watch("multipleExposureMinPercent"),
     statsEngine: form.watch("statsEngine"),
     confidenceLevel: form.watch("confidenceLevel"),
@@ -453,10 +458,24 @@ const GeneralSettingsPage = (): React.ReactElement => {
       },
       confidenceLevel: (value.confidenceLevel ?? 0.95) / 100,
       multipleExposureMinPercent:
-        (value.multipleExposureMinPercent ?? 0.01) / 100,
+        typeof value.multipleExposureMinPercent === "number" &&
+        Number.isFinite(value.multipleExposureMinPercent)
+          ? value.multipleExposureMinPercent / 100
+          : 0.01,
+      srmThreshold:
+        typeof value.srmThreshold === "number" &&
+        Number.isFinite(value.srmThreshold)
+          ? value.srmThreshold
+          : DEFAULT_SRM_THRESHOLD,
       preferredEnvironment: value.preferredEnvironment || null,
       // A cleared number input yields NaN — normalize to 0 (cap disabled)
       maxConcurrentDrafts: value.maxConcurrentDrafts || 0,
+      // Cleared grace period yields NaN — fall back to the immediate default
+      noDataAlertGracePeriodHours:
+        typeof value.noDataAlertGracePeriodHours === "number" &&
+        Number.isFinite(value.noDataAlertGracePeriodHours)
+          ? value.noDataAlertGracePeriodHours
+          : DEFAULT_NO_DATA_ALERT_GRACE_PERIOD_HOURS,
       approvalFlows: applyApprovalFlowEntitlements(
         value.approvalFlows,
         hasRequireApprovals,

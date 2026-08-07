@@ -1,6 +1,11 @@
 import React, { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import {
+  DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
+  DEFAULT_NO_DATA_ALERT_GRACE_PERIOD_HOURS,
+  DEFAULT_SRM_THRESHOLD,
+} from "shared/constants";
 import Checkbox from "@/ui/Checkbox";
 import { hasFileConfig } from "@/services/env";
 import { useUser } from "@/services/UserContext";
@@ -13,6 +18,7 @@ import RadioGroup from "@/ui/RadioGroup";
 import { GBInfo } from "@/components/Icons";
 import Frame from "@/ui/Frame";
 import HelperText from "@/ui/HelperText";
+import TextField from "@/ui/TextField";
 import StatsEngineSettings from "./StatsEngineSettings";
 import StickyBucketingSettings from "./StickyBucketingSettings";
 import DecisionFrameworkSettings from "./DecisionFrameworkSettings";
@@ -33,16 +39,27 @@ export default function ExperimentSettings({
     () => queryParams.get("editCheckListModal") || false,
   );
 
+  // These rules block save on out-of-range values; render the message via `error`.
+  // A cleared field is NaN, which passes min/max and falls back to the
+  // default on save.
+  const registerBoundedNumber = (name: string, min: number, max: number) =>
+    form.register(name, {
+      valueAsNumber: true,
+      min: { value: min, message: `Must be between ${min} and ${max}` },
+      max: { value: max, message: `Must be between ${min} and ${max}` },
+    });
+
+  const fieldErrorMessage = (name: string): string | undefined => {
+    const message = form.formState.errors[name]?.message;
+    return typeof message === "string" && message ? message : undefined;
+  };
+
   const srmThreshold = form.watch("srmThreshold");
-  const srmHighlightColor =
-    srmThreshold && (srmThreshold > 0.01 || srmThreshold < 0.001)
-      ? "#B39F01"
-      : "";
   const srmWarningMsg =
     srmThreshold && srmThreshold > 0.01
-      ? "Thresholds above 0.01 may lead to many false positives, especially if you refresh results regularly."
+      ? "Thresholds above 0.01 may lead to many false positives, especially if you refresh results regularly. Our default is 0.001."
       : srmThreshold && srmThreshold < 0.001
-        ? "Thresholds below 0.001 may make it hard to detect imbalances without lots of traffic."
+        ? "Thresholds below 0.001 may make it hard to detect imbalances without lots of traffic. Our default is 0.001."
         : "";
 
   return (
@@ -363,96 +380,76 @@ export default function ExperimentSettings({
                   Experiment Health Settings
                 </Heading>
 
-                <Flex align="start" gap="3" mb="4">
+                <Flex align="start" gap="3" mb="4" direction="column">
                   <Checkbox
-                    value={form.watch("runHealthTrafficQuery")}
+                    id="toggle-runHealthTrafficQuery"
+                    label="Run traffic query by default"
+                    value={!!form.watch("runHealthTrafficQuery")}
                     setValue={(v) => form.setValue("runHealthTrafficQuery", v)}
-                    id="toggle-factoptimization"
                   />
-                  <Box>
-                    <label
-                      htmlFor="toggle-runHealthTrafficQuery"
-                      className="font-weight-semibold mb-3"
-                    >
-                      Run traffic query by default
-                    </label>
-                  </Box>
-                </Flex>
 
-                <Box mb="4">
-                  <Text className="font-weight-semibold">
-                    SRM p-value threshold
-                  </Text>
-                  <Box
-                    mt="1"
-                    className="form-inline flex-column align-items-start"
-                  >
-                    <Field
-                      size="legacy"
-                      type="number"
-                      step="0.001"
-                      style={{
-                        borderColor: srmHighlightColor,
-                        backgroundColor: srmHighlightColor
-                          ? srmHighlightColor + "15"
-                          : "",
-                      }}
-                      max="0.1"
-                      min="0.00001"
-                      containerClassName="mb-3"
-                      append=""
-                      disabled={hasFileConfig()}
-                      helpText={
-                        <>
-                          <span className="ml-2">Default is 0.001.</span>
-                          <div
-                            className="ml-2"
-                            style={{
-                              color: srmHighlightColor,
-                              flexBasis: "100%",
-                            }}
-                          >
-                            {srmWarningMsg}
-                          </div>
-                        </>
-                      }
-                      {...form.register("srmThreshold", {
-                        valueAsNumber: true,
-                        min: 0,
-                        max: 1,
-                      })}
-                    />
-                  </Box>
-                </Box>
-                <Box>
-                  <Text className="font-weight-semibold" size="2">
-                    <label>Multiple exposures warning threshold</label>
-                  </Text>
-                  <Flex>
-                    <Field
-                      size="legacy"
-                      type="number"
-                      step="1"
-                      min="0"
-                      max="100"
-                      containerClassName="mt-1 mb-1"
-                      append="%"
-                      style={{
-                        width: "62px",
-                      }}
-                      disabled={hasFileConfig()}
-                      {...form.register("multipleExposureMinPercent", {
-                        valueAsNumber: true,
-                        min: 0,
-                        max: 100,
-                      })}
-                    />
-                  </Flex>
-                  <HelperText status="info" size="sm">
-                    Warn when at least this percent of experiment users are in
-                    multiple variations.
-                  </HelperText>
-                </Box>
+                  <TextField
+                    label="SRM p-value threshold"
+                    type="number"
+                    step={0.001}
+                    min={0.00001}
+                    max={0.1}
+                    disabled={hasFileConfig()}
+                    style={{ width: 150 }}
+                    placeholder={String(DEFAULT_SRM_THRESHOLD)}
+                    helpText={`Default is ${DEFAULT_SRM_THRESHOLD}.`}
+                    error={
+                      fieldErrorMessage("srmThreshold") ??
+                      (srmWarningMsg || undefined)
+                    }
+                    errorLevel={
+                      fieldErrorMessage("srmThreshold") ? "error" : "warning"
+                    }
+                    {...registerBoundedNumber("srmThreshold", 0.00001, 0.1)}
+                  />
+
+                  <TextField
+                    label="Multiple exposures warning threshold"
+                    type="number"
+                    step={1}
+                    min={0}
+                    max={100}
+                    append="%"
+                    disabled={hasFileConfig()}
+                    style={{ width: 90 }}
+                    placeholder={String(
+                      DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD * 100,
+                    )}
+                    helpText={`Warn when at least this percent of experiment users are in multiple variations. Default is ${DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD * 100}%.`}
+                    error={fieldErrorMessage("multipleExposureMinPercent")}
+                    {...registerBoundedNumber(
+                      "multipleExposureMinPercent",
+                      0,
+                      100,
+                    )}
+                  />
+
+                  <TextField
+                    label="No data grace period"
+                    type="number"
+                    step={1}
+                    min={0}
+                    max={168}
+                    append="hours"
+                    disabled={hasFileConfig()}
+                    style={{ width: 150 }}
+                    placeholder={String(
+                      DEFAULT_NO_DATA_ALERT_GRACE_PERIOD_HOURS,
+                    )}
+                    helpText={`Wait this long after an experiment starts before showing the "no data" status badge or sending alerts when an experiment updates. Default is ${DEFAULT_NO_DATA_ALERT_GRACE_PERIOD_HOURS} hours.`}
+                    error={fieldErrorMessage("noDataAlertGracePeriodHours")}
+                    {...registerBoundedNumber(
+                      "noDataAlertGracePeriodHours",
+                      0,
+                      168,
+                    )}
+                  />
+                </Flex>
               </Box>
             </Box>
 

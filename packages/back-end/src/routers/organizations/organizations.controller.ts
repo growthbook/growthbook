@@ -1752,6 +1752,17 @@ export async function putOrganization(
       );
     }
 
+    const noDataAlertGracePeriodHours = settings?.noDataAlertGracePeriodHours;
+    if (
+      noDataAlertGracePeriodHours !== undefined &&
+      (typeof noDataAlertGracePeriodHours !== "number" ||
+        !Number.isFinite(noDataAlertGracePeriodHours) ||
+        noDataAlertGracePeriodHours < 0 ||
+        noDataAlertGracePeriodHours > 168)
+    ) {
+      throw new Error("No data grace period must be between 0 and 168 hours");
+    }
+
     await updateOrganization(org.id, updates);
 
     await req.audit({

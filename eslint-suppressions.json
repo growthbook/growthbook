@@ -922,7 +922,7 @@
       "count": 2
     },
     "no-restricted-syntax": {
-      "count": 5
+      "count": 3
     }
   },
   "packages/front-end/components/GeneralSettings/FeatureSettings.tsx": {
