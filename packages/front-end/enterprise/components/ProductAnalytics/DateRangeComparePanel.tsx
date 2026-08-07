@@ -43,11 +43,8 @@ export type DateRangeCompareValue = {
   comparison: BlockComparison | null;
   /** Only meaningful when the surface opts in with `showGranularity`. */
   granularity?: (typeof dateGranularity)[number];
-  /**
-   * "No date range at all", staged. Only surfaces passing `clearOption` can reach
-   * it (the dashboard's "Chart Default"). `dateRange` stays populated so every
-   * derived value keeps working — read this, not a null range, to decide.
-   */
+  /** Staged "no date range at all" (see `clearOption`). `dateRange` stays
+   * populated for derived values, so read this rather than a null range. */
   cleared?: boolean;
 };
 
@@ -112,9 +109,8 @@ export default function DateRangeComparePanel({
    * broken, so surfaces that disable it should say what would re-enable it. */
   granularityDisabledReason?: string;
   disabled?: boolean;
-  /** Adds a first rail item that stages "no date range" — the dashboard's
-   * "Chart Default". Selecting it deselects every preset and empties the
-   * calendar; touching either clears it again. Read back as `cleared` on apply. */
+  /** Adds a first rail item staging "no date range" (the dashboard's "Chart
+   * Default"), mutually exclusive with the presets. Read back as `cleared`. */
   clearOption?: { label: string; tooltip?: string };
   /** Rendered between the granularity section and the footer. */
   extraSections?: ReactNode;
@@ -125,11 +121,9 @@ export default function DateRangeComparePanel({
   const [draft, setDraft] = useState<DateRangeCompareValue>(value);
 
   const { dateRange, comparison } = draft;
-  // Only reachable when the surface passes `clearOption`; guarded so a stale
-  // `cleared` on a surface without one can't blank the rail.
+  // Guarded so a stale `cleared` on a surface without `clearOption` can't blank
+  // the rail. No range staged means no series left for granularity to bucket.
   const cleared = !!clearOption && !!draft.cleared;
-  // Cleared means no dashboard-wide series left to bucket, so granularity goes
-  // inert as soon as it's staged rather than only after Apply.
   const granularityInert = granularityDisabled || cleared;
   const compareEnabled = !!comparison?.enabled;
   const mode = comparison
@@ -498,29 +492,44 @@ export default function DateRangeComparePanel({
 
                   <LabeledRow label="">
                     {mode === "custom" ? (
+                      // Two single-date fields: `DatePicker` in range mode puts
+                      // both ends in one text input, awkward to edit.
                       <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
-                        <DatePicker
-                          containerClassName="mb-0"
-                          compact
-                          disabled={disabled}
-                          precision="date"
-                          date={
-                            resolvedPrevious.startDate
-                              ? getValidDateOffsetByUTC(
-                                  resolvedPrevious.startDate,
-                                )
-                              : undefined
-                          }
-                          date2={
-                            resolvedPrevious.endDate
-                              ? getValidDateOffsetByUTC(
-                                  resolvedPrevious.endDate,
-                                )
-                              : undefined
-                          }
-                          setDate={(d) => setCustomPrevious({ startDate: d })}
-                          setDate2={(d) => setCustomPrevious({ endDate: d })}
-                        />
+                        <Flex align="center" gap="2" style={{ minWidth: 0 }}>
+                          <DatePicker
+                            containerClassName="mb-0"
+                            compact
+                            disabled={disabled}
+                            precision="date"
+                            inputWidth={150}
+                            date={
+                              resolvedPrevious.startDate
+                                ? getValidDateOffsetByUTC(
+                                    resolvedPrevious.startDate,
+                                  )
+                                : undefined
+                            }
+                            setDate={(d) => setCustomPrevious({ startDate: d })}
+                          />
+                          <Text size="sm" color="text-low">
+                            to
+                          </Text>
+                          <DatePicker
+                            containerClassName="mb-0"
+                            compact
+                            disabled={disabled}
+                            precision="date"
+                            inputWidth={150}
+                            date={
+                              resolvedPrevious.endDate
+                                ? getValidDateOffsetByUTC(
+                                    resolvedPrevious.endDate,
+                                  )
+                                : undefined
+                            }
+                            setDate={(d) => setCustomPrevious({ endDate: d })}
+                          />
+                        </Flex>
                         {isPartialCustomComparison && (
                           <HelperText status="error">
                             Pick both ends of the comparison range

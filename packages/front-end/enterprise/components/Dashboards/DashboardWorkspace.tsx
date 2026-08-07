@@ -122,10 +122,9 @@ export default function DashboardWorkspace({
       setSaving(true);
       setSaveError(undefined);
       try {
-        const result = await submitDashboard({
-          ...args,
-          data: { ...dashboard, ...args.data },
-        });
+        // Only what the caller changed. Spreading `dashboard` re-sent a stale
+        // snapshot of every field, so each save rolled back the previous one.
+        const result = await submitDashboard(args);
         return result;
       } catch (e) {
         setSaveError(e.message);
@@ -134,7 +133,7 @@ export default function DashboardWorkspace({
         setSaving(false);
       }
     },
-    [submitDashboard, dashboard],
+    [submitDashboard],
   );
 
   const [blocks, setBlocks] = useState<
@@ -158,7 +157,10 @@ export default function DashboardWorkspace({
         const config = getEffectiveExplorationConfig(block, {
           globalControls: controls,
         });
-        const comparison = resolveBlockComparison(block, dashboard);
+        // Staged state: a toggle in this session hasn't round-tripped yet.
+        const comparison = resolveBlockComparison(block, {
+          comparison: dashboardComparison,
+        });
         const result = await fetchExplorationData(config, {
           cache: "never",
           previousTimeFrame: comparison
@@ -257,15 +259,18 @@ export default function DashboardWorkspace({
 
   const setDashboardComparisonAndSubmit = useMemo(() => {
     return async (comparison: DashboardInterface["comparison"]) => {
+      // `{ enabled: false }`, not `undefined`: undefined keys drop out of the
+      // PUT body, which the model reads as "leave this field alone".
+      const next = comparison ?? { enabled: false };
       setHasMadeChanges(true);
-      setDashboardComparison(comparison);
+      setDashboardComparison(next);
       if (dashboardFirstSave) {
-        updateTemporaryDashboard?.({ comparison });
+        updateTemporaryDashboard?.({ comparison: next });
       } else {
         await submit({
           method: "PUT",
           dashboardId: dashboard.id,
-          data: { comparison },
+          data: { comparison: next },
         });
       }
     };

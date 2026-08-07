@@ -219,7 +219,10 @@ function DashboardsTab({
                 shareLevel: data.shareLevel,
                 userId: data.userId,
                 globalControls: data.globalControls,
-                comparison: data.comparison ?? undefined,
+                // Undefined drops out of the body and reads as "leave alone".
+                ...("comparison" in data
+                  ? { comparison: data.comparison ?? { enabled: false } }
+                  : {}),
               }
             : {
                 blocks: data.blocks ?? [],

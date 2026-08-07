@@ -132,12 +132,13 @@ export default function ProductAnalyticsExplorerSettings({
         }
       : exploration.config
     : undefined;
+  // No `block.comparison` here: the provider owns the comparison while open, so
+  // keying on it makes it remount itself on toggle and drop the in-flight run.
   const explorerProviderKey = [
     dashboardBlockHasIds(block) ? block.id : "",
     block.globalControlSettings?.dateRange === true,
     JSON.stringify(dashboardGlobalControls ?? null),
     hasStaleDashboardDateResults,
-    blockComparisonMode ?? "",
   ].join(":");
 
   return (

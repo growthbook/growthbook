@@ -879,6 +879,22 @@ describe("resolveBlockComparison", () => {
     expect(resolveBlockComparison({})).toBeNull();
   });
 
+  it("lets a disabled dashboard-wide comparison switch the block off", () => {
+    // Falling through from `{ enabled: false }` left tiles comparing.
+    expect(
+      resolveBlockComparison({ comparison: enabled }, { comparison: disabled }),
+    ).toBeNull();
+  });
+
+  it("defers to the block when the dashboard has no setting at all", () => {
+    expect(resolveBlockComparison({ comparison: enabled }, {})).toEqual(
+      enabled,
+    );
+    expect(resolveBlockComparison({ comparison: enabled }, null)).toEqual(
+      enabled,
+    );
+  });
+
   it("lets a dashboard-wide comparison override the block (forward-compat)", () => {
     const dashboardCmp = {
       enabled: true,

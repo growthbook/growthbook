@@ -153,9 +153,8 @@ export default function DashboardGlobalControlsBar({
           disabled={!canModifyControls || saving}
           comparison={dashboardComparison ?? null}
           showCompare={!!onDashboardComparisonChange}
-          // One write for the date range and its granularity: persisting them
-          // separately spread the same `globalControls` twice, so the second
-          // call dropped the first's date range.
+          // One write for range + granularity: separate persists each spread the
+          // same `globalControls`, so the second dropped the first's range.
           onApply={async ({ dateRange, granularity, comparison }) => {
             const nextGlobalControls = { ...(globalControls ?? {}) };
             if (dateRange) {
@@ -167,15 +166,18 @@ export default function DashboardGlobalControlsBar({
               delete nextGlobalControls.dateRange;
               delete nextGlobalControls.dateGranularity;
             }
+            // Its own PUT, and it must land before persistGlobalControls —
+            // that ends by refreshing every block.
+            const comparisonChanged =
+              !!onDashboardComparisonChange &&
+              !isEqual(comparison ?? null, dashboardComparison ?? null);
+            if (comparisonChanged) {
+              await onDashboardComparisonChange?.(comparison);
+            }
             await persistGlobalControls(nextGlobalControls);
-            // A separate field on the dashboard, so its own PUT. Only sent when
-            // it changed, or every Apply would force a manual refresh.
-            if (
-              onDashboardComparisonChange &&
-              !isEqual(comparison ?? null, dashboardComparison ?? null)
-            ) {
+            // Nothing was refreshed without a dashboard-wide range.
+            if (comparisonChanged && !nextGlobalControls.dateRange) {
               setNeedsUpdate(true);
-              await onDashboardComparisonChange(comparison);
             }
           }}
         />

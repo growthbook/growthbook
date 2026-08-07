@@ -96,7 +96,10 @@ export default function NewDashboardPage() {
                     args.data.updateSchedule ?? dashboard.updateSchedule,
                   userId: args.data.userId,
                   globalControls: args.data.globalControls,
-                  comparison: args.data.comparison ?? undefined,
+                  // See the note in [did].tsx: "off" must serialize explicitly.
+                  ...("comparison" in args.data
+                    ? { comparison: args.data.comparison ?? { enabled: false } }
+                    : {}),
                 },
           ),
         });

@@ -536,7 +536,11 @@ export function resolveBlockComparison(
   block: { comparison?: BlockComparison },
   dashboard?: { comparison?: BlockComparison } | null,
 ): BlockComparison | null {
-  if (dashboard?.comparison?.enabled) return dashboard.comparison;
+  // An existing dashboard-wide setting wins both ways — falling through from
+  // `{ enabled: false }` left tiles comparing after the user turned it off.
+  if (dashboard?.comparison) {
+    return dashboard.comparison.enabled ? dashboard.comparison : null;
+  }
   if (block.comparison?.enabled) return block.comparison;
   return null;
 }

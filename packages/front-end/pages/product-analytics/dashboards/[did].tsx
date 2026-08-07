@@ -102,7 +102,11 @@ function SingleDashboardPage() {
                   enableAutoUpdates: data.enableAutoUpdates,
                   userId: data.userId,
                   globalControls: data.globalControls,
-                  comparison: data.comparison ?? undefined,
+                  // Undefined drops out of the body and reads as "leave alone",
+                  // so "off" must be explicit. Keyed on presence, not value.
+                  ...("comparison" in data
+                    ? { comparison: data.comparison ?? { enabled: false } }
+                    : {}),
                 }
               : data,
           ),
