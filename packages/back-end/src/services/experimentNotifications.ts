@@ -356,17 +356,20 @@ export const notifyNoData = async ({
     snapshot.status === "success" &&
     (analysis?.results?.[0]?.variations?.length ?? 0) === 0;
 
-  // Check grace period: only trigger notification if the experiment has been
-  // running for longer than the grace period.
   const gracePeriodHours =
     context.org.settings?.noDataAlertGracePeriodHours ??
     DEFAULT_NO_DATA_ALERT_GRACE_PERIOD_HOURS;
   const gracePeriodMs = gracePeriodHours * 60 * 60 * 1000;
 
-  // Get the start date of the current phase
-  const currentPhase = experiment.phases[experiment.phases.length - 1];
-  const phaseStartDate = currentPhase?.dateStarted
-    ? new Date(currentPhase.dateStarted)
+  // Measure grace from the phase this snapshot analyzed — a late-finishing
+  // snapshot from an earlier phase shouldn't be graced against a newer phase.
+  // Note: notifyNoData should only be called on the latest snapshot, but
+  // this still ensures any future callers will use the correct phase.
+  const snapshotPhase =
+    experiment.phases[snapshot.phase] ??
+    experiment.phases[experiment.phases.length - 1];
+  const phaseStartDate = snapshotPhase?.dateStarted
+    ? new Date(snapshotPhase.dateStarted)
     : null;
 
   const isWithinGracePeriod =
