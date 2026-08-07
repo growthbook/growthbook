@@ -61,6 +61,39 @@ async function seedFeature() {
   }
 }
 
+/** A draft opened by the ADMIN, so no persona under test is ever its author. */
+async function seedDraft(): Promise<number> {
+  as("admin");
+  const res = await api.post(`/api/v2/features/${FEATURE_ID}/revisions`, {});
+  if (res.status >= 400) {
+    throw new Error(
+      `draft seed failed: ${res.status} ${JSON.stringify(res.body)}`,
+    );
+  }
+  const body = res.body as { revision?: { version?: number } };
+  const version = body.revision?.version;
+  if (!version) {
+    throw new Error(`draft seed returned no version: ${JSON.stringify(body)}`);
+  }
+  return version;
+}
+
+/** The admin's draft whose ONLY proposed change is the archive flip. */
+async function seedArchiveDraft(): Promise<number> {
+  const version = await seedDraft();
+  as("admin");
+  const res = await api.put(
+    `/api/v2/features/${FEATURE_ID}/revisions/${version}/archive`,
+    { archived: true, ignoreWarnings: true },
+  );
+  if (res.status >= 400) {
+    throw new Error(
+      `archive-draft seed failed: ${res.status} ${JSON.stringify(res.body)}`,
+    );
+  }
+  return version;
+}
+
 type Case = {
   name: string;
   allowed: Persona[];
@@ -72,7 +105,13 @@ type Case = {
    * environment-scoped atom must refuse a change that lands outside its scope.
    */
   allowedDevOnly?: Persona[];
-  run: () => Promise<{ status: number }>;
+  /**
+   * Runs as admin before the persona attempts the case, and hands `run` the draft
+   * version it produced. Every draft it opens therefore belongs to SOMEONE ELSE,
+   * which is the condition the discard and advance rules turn on.
+   */
+  setup?: () => Promise<number>;
+  run: (version: number) => Promise<{ status: number }>;
 };
 
 const CASES: Case[] = [
@@ -165,6 +204,50 @@ const CASES: Case[] = [
         environments: { dev: false },
       }),
   },
+  {
+    // The comment atom is org-wide and belongs to no family, so `commenter` holds
+    // nothing else — and this is the only case it may pass. Feature Flags run their
+    // own revision system, and this row is what keeps its answer equal to the one
+    // permission-matrix-revision-entities asserts for the other three.
+    name: "comment on a draft",
+    allowed: ["commenter", "drafter", "reviewer", "editor", "full"],
+    setup: seedDraft,
+    run: (v) =>
+      api.post(`/api/v2/features/${FEATURE_ID}/revisions/${v}/submit-review`, {
+        action: "comment",
+        comment: "Matrix comment",
+      }),
+  },
+  {
+    // Staging the archive alone is delete-class, so the delete atom opens its own
+    // draft for it — the same directional rule `canStageArchiveDraft` states.
+    name: "stage an archive in a new draft",
+    allowed: ["drafter", "deleter", "editor", "full"],
+    run: () =>
+      api.put(`/api/v2/features/${FEATURE_ID}/revisions/new/archive`, {
+        archived: true,
+      }),
+  },
+  {
+    // A narrow atom may ADVANCE an archive-only draft it did not write, because it
+    // could publish that draft either way. Paired with the discard row below, which
+    // is the same draft and the same personas one verb apart.
+    name: "request review on an archive-only draft",
+    allowed: ["drafter", "deleter", "editor", "full"],
+    setup: seedArchiveDraft,
+    run: (v) =>
+      api.post(`/api/v2/features/${FEATURE_ID}/revisions/${v}/request-review`),
+  },
+  {
+    // ...and may NOT destroy it: discarding is draft authority or authorship,
+    // whatever the draft contains. This is the row that was missing when the
+    // narrowing landed on the generic revision system and not on this one.
+    name: "discard an archive-only draft",
+    allowed: ["drafter", "editor", "full"],
+    setup: seedArchiveDraft,
+    run: (v) =>
+      api.post(`/api/v2/features/${FEATURE_ID}/revisions/${v}/discard`),
+  },
 ];
 
 /**
@@ -189,10 +272,11 @@ describe("permission matrix — Feature Flags", () => {
     await seedFeature();
   });
 
-  describe.each(CASES)("$name", ({ allowed, allowedDevOnly, run }) => {
+  describe.each(CASES)("$name", ({ allowed, allowedDevOnly, setup, run }) => {
     it.each(PERSONA_IDS)("%s", async (persona) => {
+      const version = setup ? await setup() : 0;
       as(persona);
-      const res = (await run()) as { status: number; body?: unknown };
+      const res = (await run(version)) as { status: number; body?: unknown };
       expectVerdict(res, allowed.includes(persona));
     });
 
@@ -200,8 +284,9 @@ describe("permission matrix — Feature Flags", () => {
     // environment-scoped atom is only ever asked the project question, which is
     // how three footprint bugs reached CI unnoticed.
     it.each(PERSONA_IDS)("%s, limited to dev", async (persona) => {
+      const version = setup ? await setup() : 0;
       as(persona, true);
-      const res = (await run()) as { status: number; body?: unknown };
+      const res = (await run(version)) as { status: number; body?: unknown };
       expectVerdict(res, (allowedDevOnly ?? allowed).includes(persona));
     });
   });

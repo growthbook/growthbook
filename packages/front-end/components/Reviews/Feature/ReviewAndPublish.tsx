@@ -1,5 +1,6 @@
 import {
   NO_ENVIRONMENT_BINDING,
+  canCommentOnRevisionEntity,
   holdsFeatureMoveDestination,
 } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
@@ -185,12 +186,16 @@ export default function ReviewAndPublish({
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envIds = environments.map((e) => e.id);
   const permissionsUtil = usePermissionsUtil();
-  // Commenting is participation: the comment atom, or review which implies it —
-  // matching the endpoint and the other entities. Gating on review alone meant a role
-  // granted "comments" still couldn't comment on a Feature Flag revision.
-  const canCommentOnDraft =
-    permissionsUtil.canAddComment(feature.project ? [feature.project] : []) ||
-    permissionsUtil.canReviewFeatureDrafts(feature);
+  // Commenting is participation. Through the SAME shared predicate the generic tab
+  // and both endpoints use, so Feature Flags cannot drift from the other entities
+  // again — the restated version had already lost the draft arm, which is what lets
+  // an author reply to feedback on their own draft.
+  const canCommentOnDraft = canCommentOnRevisionEntity(
+    permissionsUtil,
+    "feature",
+    null,
+    { project: feature.project },
+  );
   const { apiCall } = useAuth();
   const user = getCurrentUser();
   const {
@@ -2157,7 +2162,12 @@ export default function ReviewAndPublish({
 
   // Shared by the no-changes empty state and the actions column kebab — the
   // only two places an active draft can be discarded from.
-  const canDiscardDraft = canAdvanceDraft;
+  //
+  // Narrower than advancing, matching `canDiscardFeatureDraft`: draft authority or
+  // authorship. A narrow atom may land this draft or leave it, but not throw away
+  // work that isn't its own — the same rule the generic tab applies.
+  const canDiscardDraft =
+    permissionsUtil.canEditFeatureDrafts(feature) || authoredDraft;
   const discardConfirmModal = confirmDiscard ? (
     <ModalStandard
       trackingEventModalType="discard-feature-revision"

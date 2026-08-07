@@ -1,5 +1,6 @@
 import { postFeatureRevisionSubmitReviewValidator } from "shared/validators";
 import { getReviewSetting } from "shared/util";
+import { canCommentOnRevisionEntity } from "shared/permissions";
 import type { ApiRequestLocals } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { dispatchRevisionReviewEvent } from "back-end/src/services/featureRevisionEvents";
@@ -33,7 +34,21 @@ export async function submitRevisionReview(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (!req.context.permissions.canReviewFeatureDrafts(feature)) {
+  const { action = "comment", comment } = req.body;
+  const review = actionToReviewType[action];
+
+  // A VERDICT is the review atom; a plain comment is participation and takes the
+  // shared comment predicate instead — the same split the internal controller and
+  // the other three entities make. Demanding review for both meant this endpoint
+  // refused the very role an org grants to let people comment, while its dashboard
+  // twin allowed it.
+  if (
+    action === "comment"
+      ? !canCommentOnRevisionEntity(req.context.permissions, "feature", null, {
+          project: feature.project,
+        })
+      : !req.context.permissions.canReviewFeatureDrafts(feature)
+  ) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -45,9 +60,6 @@ export async function submitRevisionReview(
     version: req.params.version,
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
-
-  const { action = "comment", comment } = req.body;
-  const review = actionToReviewType[action];
 
   // Block the creator from any non-comment review action.
   //

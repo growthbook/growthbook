@@ -1,4 +1,6 @@
 import {
+  canCommentOnRevisionEntity,
+  canStageArchiveDraft,
   metadataTouchesPayload,
   holdsMoveDestination,
   projectScopeChanged,
@@ -1330,10 +1332,17 @@ export async function postFeatureReviewOrComment(
   // participation, so the comment atom carries it — review implies it, but must not
   // gate it. Requiring review for both meant granting a role "comments" did nothing
   // on Feature Flags, while the other entities already accepted it.
-  const canCommentHere =
-    context.permissions.canAddComment(
-      feature.project ? [feature.project] : [],
-    ) || context.permissions.canReviewFeatureDrafts(feature);
+  //
+  // Through the SHARED predicate, so Feature Flags answer this the same way Configs,
+  // Constants and Saved Groups do — the feature copy had also dropped the draft arm,
+  // which is what lets an author reply to feedback on their own draft. Narrowed to
+  // the primary project, matching `canReviewFeatureDrafts`.
+  const canCommentHere = canCommentOnRevisionEntity(
+    context.permissions,
+    "feature",
+    null,
+    { project: feature.project },
+  );
   if (
     review === "Comment"
       ? !canCommentHere
@@ -3876,14 +3885,12 @@ export async function putRevisionComment(
     throw new Error("Could not find feature");
   }
 
-  // Editing a comment is commenting: the comment atom, or review which implies it.
-  // Draft authority was the wrong question and disagreed with both the sibling POST
-  // route and every other entity.
+  // Editing a comment is commenting, judged by the same shared predicate as posting
+  // one — see the POST route above for why it is shared rather than restated.
   if (
-    !context.permissions.canAddComment(
-      feature.project ? [feature.project] : [],
-    ) &&
-    !context.permissions.canReviewFeatureDrafts(feature)
+    !canCommentOnRevisionEntity(context.permissions, "feature", null, {
+      project: feature.project,
+    })
   ) {
     context.permissions.throwPermissionError();
   }
@@ -5589,7 +5596,19 @@ export async function postFeatureArchive(
     archived: newArchivedState,
     environments: archiveEnvs,
   });
-  if (!canLand && !context.permissions.canEditFeatureDrafts(feature)) {
+  // Staging publishes nothing, so it asks the project-scoped question — the same
+  // `canStageArchiveDraft` the REST twin and the archive modal use. Requiring the
+  // LANDING authority to stage meant a dev-limited deleter was refused here by the
+  // dashboard while the API let them open the very same draft.
+  const canStage =
+    canLand ||
+    canStageArchiveDraft({
+      permissions: context.permissions,
+      model: "feature",
+      entity: { project: feature.project },
+      archived: newArchivedState,
+    });
+  if (!canStage) {
     context.permissions.throwPermissionError();
   }
 

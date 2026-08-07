@@ -170,9 +170,15 @@ export async function canAdvanceFeatureDraft({
 }
 
 /**
- * Discarding. A caller may always discard a draft they authored, whatever it
- * contains — and revert/delete authority additionally covers a pure revert or
- * pure archive opened by someone else, matching what they could land.
+ * Discarding. Narrower than advancing, deliberately — the feature twin of
+ * `canDiscardRevision`.
+ *
+ * `canAdvanceFeatureDraft` lets a narrow atom act on a draft that only does what
+ * that atom covers (a deleter over a pure archive), which is right for moving your
+ * own work along and wrong for destroying someone else's: a qa-style delete-only
+ * role could discard another author's archive draft, including one already in
+ * review. So: draft authority, or authorship. A narrow-atom holder can still
+ * publish the draft or leave it alone.
  */
 export async function canDiscardFeatureDraft({
   context,
@@ -183,12 +189,17 @@ export async function canDiscardFeatureDraft({
   feature: FeatureInterface;
   draft: FeatureRevisionInterface;
 }): Promise<boolean> {
-  return canAdvanceFeatureDraft({ context, feature, draft });
+  if (context.permissions.canEditFeatureDrafts(feature)) return true;
+  return authoredFeatureDraft(context, draft);
 }
 
 /**
- * Recalling a review request the caller made. Draft authority keeps its
- * existing reach; the narrow atoms only reach their own drafts.
+ * Recalling a review request: returning your own pending draft to draft state.
+ *
+ * Draft authority or authorship, matching the generic `postRecallReview`. The
+ * authorship arm used to ALSO require revert or delete, which refused an author
+ * holding neither the withdrawal of their own review request — a stricter rule than
+ * the same action on a Config, for no reason either system could state.
  */
 export async function canRecallFeatureReview({
   context,
@@ -200,11 +211,7 @@ export async function canRecallFeatureReview({
   draft: FeatureRevisionInterface;
 }): Promise<boolean> {
   if (context.permissions.canEditFeatureDrafts(feature)) return true;
-  return (
-    authoredFeatureDraft(context, draft) &&
-    (hasRevertAuthority(context, feature) ||
-      hasDeleteAuthority(context, feature))
-  );
+  return authoredFeatureDraft(context, draft);
 }
 
 /**
