@@ -1,4 +1,4 @@
-import { CSSProperties, ReactNode, useState } from "react";
+import { CSSProperties, ReactNode, useId, useState } from "react";
 import { Box, Flex, Grid, Separator } from "@radix-ui/themes";
 import { format, startOfMonth, subMonths } from "date-fns";
 import { DateRange, DayPicker } from "react-day-picker";
@@ -119,6 +119,9 @@ export default function DateRangeComparePanel({
   // syncing to it in an effect would revert staged edits as fast as they're made
   // — callers remount this panel (e.g. on popover open) to pick up new values.
   const [draft, setDraft] = useState<DateRangeCompareValue>(value);
+  // Unique per instance so the two comparison inputs keep their label
+  // association even if a second panel is mounted.
+  const customComparisonId = useId();
 
   const { dateRange, comparison } = draft;
   // Guarded so a stale `cleared` on a surface without `clearOption` can't blank
@@ -495,13 +498,15 @@ export default function DateRangeComparePanel({
                       // Two single-date fields: `DatePicker` in range mode puts
                       // both ends in one text input, awkward to edit.
                       <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
-                        <Flex align="center" gap="2" style={{ minWidth: 0 }}>
+                        <Flex align="end" gap="2" style={{ minWidth: 0 }}>
                           <DatePicker
+                            id={`${customComparisonId}-start`}
+                            label="From"
                             containerClassName="mb-0"
                             compact
                             disabled={disabled}
                             precision="date"
-                            inputWidth={150}
+                            inputWidth={140}
                             date={
                               resolvedPrevious.startDate
                                 ? getValidDateOffsetByUTC(
@@ -511,15 +516,14 @@ export default function DateRangeComparePanel({
                             }
                             setDate={(d) => setCustomPrevious({ startDate: d })}
                           />
-                          <Text size="sm" color="text-low">
-                            to
-                          </Text>
                           <DatePicker
+                            id={`${customComparisonId}-end`}
+                            label="To"
                             containerClassName="mb-0"
                             compact
                             disabled={disabled}
                             precision="date"
-                            inputWidth={150}
+                            inputWidth={140}
                             date={
                               resolvedPrevious.endDate
                                 ? getValidDateOffsetByUTC(
