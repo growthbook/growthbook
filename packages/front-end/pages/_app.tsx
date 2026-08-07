@@ -126,11 +126,48 @@ function App({
   }, [ready]);
 
   useEffect(() => {
+    if (!ready) return;
+
+    let mounted = true;
+    let cleanupSessionReplay: (() => void) | undefined;
+
     // Load feature definitions JSON from GrowthBook API
-    growthbook.init({ streaming: true }).catch(() => {
-      console.log("Failed to fetch GrowthBook feature definitions");
-    });
-  }, []);
+    growthbook
+      .init({ streaming: true })
+      .then(() => {
+        // Dogfood: record session replays on our own app when the
+        // "session-replays" feature flag is on. Browser-only; the plugin
+        // honors DNT/GPC and masks every input by default (deny-by-default).
+        if (
+          mounted &&
+          typeof window !== "undefined" &&
+          growthbook.isOn("session-replays")
+        ) {
+          import("@growthbook/growthbook/plugins/session-replay")
+            .then(({ sessionReplayPlugin }) => {
+              if (!mounted) return;
+              const installSessionReplay = sessionReplayPlugin({
+                trackingHost: getIngestorHost(),
+              }) as unknown as (gb: typeof growthbook) => unknown;
+              const maybeCleanup = installSessionReplay(growthbook);
+              if (typeof maybeCleanup === "function") {
+                cleanupSessionReplay = maybeCleanup as () => void;
+              }
+            })
+            .catch(() => {
+              console.log("Failed to load GrowthBook session replay plugin");
+            });
+        }
+      })
+      .catch(() => {
+        console.log("Failed to fetch GrowthBook feature definitions");
+      });
+
+    return () => {
+      mounted = false;
+      cleanupSessionReplay?.();
+    };
+  }, [ready]);
 
   const renderPreAuth = () => {
     if (!ready || !progressiveAuth) {

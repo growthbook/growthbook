@@ -1019,6 +1019,9 @@ importers:
       dom-mutator:
         specifier: ^0.6.0
         version: 0.6.0
+      rrweb:
+        specifier: 2.0.1
+        version: 2.0.1
     devDependencies:
       '@babel/cli':
         specifier: ^7.28.3
@@ -1041,6 +1044,9 @@ importers:
       '@rollup/plugin-replace':
         specifier: ^6.0.3
         version: 6.0.3(rollup@4.59.0)
+      '@rrweb/types':
+        specifier: 2.0.1
+        version: 2.0.1
       '@types/jest':
         specifier: ^29.5.14
         version: 29.5.14
