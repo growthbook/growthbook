@@ -236,6 +236,10 @@ export const postFeatureRevisionRevertValidator = {
       strategy: z.enum(["draft", "publish"]).optional(),
       comment: z.string().optional(),
       title: z.string().optional(),
+      // Matches the v2 twin: publishing a revert that restores `archived` runs
+      // the bypassable dependent guard, and a strict body without these rejects
+      // the acknowledgment it asks for.
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),

@@ -9,7 +9,10 @@ import {
   canDoRevisionAction,
   maybeAutoPublishRevision,
 } from "back-end/src/revisions/revisionActions";
-import { isRevisionAuthor } from "back-end/src/revisions/revisionAuthority";
+import {
+  isRevisionAuthor,
+  reviewAuthorityOnRow,
+} from "back-end/src/revisions/revisionAuthority";
 
 /**
  * The revision LIFECYCLE verbs — recall a review request, reopen a discarded
@@ -112,6 +115,12 @@ export async function undoRevisionReview({
 }): Promise<Revision> {
   // Review authority to touch verdicts at all; the model enforces that only the
   // caller's OWN active verdict is retracted.
+  //
+  // Asked twice on purpose. This is the early, clear refusal against the live entity
+  // the caller loaded; `reviewAuthorityOnRow` re-asks it inside the CAS against the
+  // revision's own snapshot, so a rebase that moves the revision between the two
+  // loses the race rather than carrying the retraction into a project the caller
+  // holds nothing in.
   if (!canDoRevisionAction(type, "review", context, entity)) {
     context.permissions.throwPermissionError();
   }
@@ -119,6 +128,7 @@ export async function undoRevisionReview({
   const updated = await context.models.revisions.undoReview(
     revision.id,
     context.userId,
+    reviewAuthorityOnRow(context),
   );
   await getRevisionWebhookAdapter(type)?.dispatch(context, updated, {
     type: "updated",

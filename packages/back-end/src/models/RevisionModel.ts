@@ -1012,66 +1012,73 @@ export class RevisionModel extends BaseClass {
       armAcknowledgments?: ArmAcknowledgments;
     } = {},
   ) {
-    const existing = await this.getById(id);
-    if (!existing) throw new Error("Revision not found");
-
-    // `changes-requested` is also re-submittable: after a reviewer requests
-    // changes and the author edits the revision, this is the transition back
-    // into `pending-review`. (Saved-group edits don't auto-reset the status the
-    // way feature edits do, so this is the only path out of changes-requested.)
-    if (
-      existing.status !== "draft" &&
-      existing.status !== "changes-requested"
-    ) {
-      throw new Error(
-        "Only draft or changes-requested revisions can be submitted for review",
-      );
-    }
-
-    const updated = await this.update(existing, {
-      status: "pending-review",
-      // Submitting (or re-submitting from changes-requested) starts a fresh
-      // review cycle — demote any prior verdicts.
-      reviews: this.staleVerdicts(existing.reviews),
-      autoPublishOnApproval: !!autoPublishOnApproval,
-      // The auto-publish runs with the arming user's authority. A stale
-      // value from a previous cycle is harmless — `autoPublishOnApproval`
-      // gates everything. `userId` is empty for API-key actors; skip so the
-      // publish falls back to `authorId`.
-      ...(autoPublishOnApproval && userId
-        ? { autoPublishEnabledBy: userId }
-        : {}),
-      // Arm-time guard fingerprints: set the new acknowledgments, or clear a
-      // stale set from a prior arm (to {}) so a re-arm with no current conflicts
-      // can't be covered by an outdated fingerprint.
-      ...(autoPublishOnApproval &&
-      (hasArmAcknowledgments(armAcknowledgments) ||
-        hasArmAcknowledgments(existing.armAcknowledgments))
-        ? { armAcknowledgments: armAcknowledgments ?? {} }
-        : {}),
-      activityLog: [
-        ...this.cleanActivityLog(existing.activityLog),
-        {
-          id: uniqid("act_"),
-          userId,
-          // Dedicated action so the timeline renders a "Review Requested" event
-          // (mirrors FeatureRevisionModel.markRevisionAsReviewRequested) rather
-          // than a confusing "reopened"/"created" row. Recognized as a review
-          // cycle-start marker by addReview/undoReview.
-          action: "review-requested",
-          description: "Submitted for review",
-          dateCreated: new Date(),
-        },
-      ],
-    } as UpdateProps<Revision>);
+    // CAS-guarded on the fields the transition reads, like `recallReview` and
+    // `undoReview`: an unguarded read-modify-write let a publish merge in between
+    // and this write then demoted the merged revision to `pending-review`.
+    const updated = await this.updateWithCas(
+      id,
+      ["status", "reviews", "activityLog"],
+      (existing) => {
+        // `changes-requested` is also re-submittable: after a reviewer requests
+        // changes and the author edits the revision, this is the transition back
+        // into `pending-review`. (Saved-group edits don't auto-reset the status the
+        // way feature edits do, so this is the only path out of changes-requested.)
+        if (
+          existing.status !== "draft" &&
+          existing.status !== "changes-requested"
+        ) {
+          throw new Error(
+            "Only draft or changes-requested revisions can be submitted for review",
+          );
+        }
+        return {
+          status: "pending-review",
+          // Submitting (or re-submitting from changes-requested) starts a fresh
+          // review cycle — demote any prior verdicts.
+          reviews: this.staleVerdicts(existing.reviews),
+          autoPublishOnApproval: !!autoPublishOnApproval,
+          // The auto-publish runs with the arming user's authority. A stale
+          // value from a previous cycle is harmless — `autoPublishOnApproval`
+          // gates everything. `userId` is empty for API-key actors; skip so the
+          // publish falls back to `authorId`.
+          ...(autoPublishOnApproval && userId
+            ? { autoPublishEnabledBy: userId }
+            : {}),
+          // Arm-time guard fingerprints: set the new acknowledgments, or clear a
+          // stale set from a prior arm (to {}) so a re-arm with no current conflicts
+          // can't be covered by an outdated fingerprint.
+          ...(autoPublishOnApproval &&
+          (hasArmAcknowledgments(armAcknowledgments) ||
+            hasArmAcknowledgments(existing.armAcknowledgments))
+            ? { armAcknowledgments: armAcknowledgments ?? {} }
+            : {}),
+          activityLog: [
+            ...this.cleanActivityLog(existing.activityLog),
+            {
+              id: uniqid("act_"),
+              userId,
+              // Dedicated action so the timeline renders a "Review Requested" event
+              // (mirrors FeatureRevisionModel.markRevisionAsReviewRequested) rather
+              // than a confusing "reopened"/"created" row. Recognized as a review
+              // cycle-start marker by addReview/undoReview.
+              action: "review-requested",
+              description: "Submitted for review",
+              dateCreated: new Date(),
+            },
+          ],
+        } as UpdateProps<Revision>;
+      },
+    );
+    if (!updated) throw new Error("Revision not found");
 
     // Submitting with the flag off must scrub any prior dated schedule + locks
     // (this.update can only flip the flag) — otherwise a later re-arm could
     // resurrect a stale schedule. Mirrors setAutoPublishOnApproval's disarm.
+    // Read off the POST-CAS doc: the pre-image is what a concurrent arm made stale.
     if (
       !autoPublishOnApproval &&
-      (existing.autoPublishOnApproval ||
-        (existing.scheduledPublishAt ?? null) !== null)
+      (updated.autoPublishOnApproval ||
+        (updated.scheduledPublishAt ?? null) !== null)
     ) {
       const refreshed = await this.disarmScheduledPublish(id);
       if (refreshed) return refreshed;
@@ -1088,39 +1095,42 @@ export class RevisionModel extends BaseClass {
     enabled: boolean,
     { armAcknowledgments }: { armAcknowledgments?: ArmAcknowledgments } = {},
   ) {
-    const existing = await this.getById(id);
-    if (!existing) throw new Error("Revision not found");
+    // Status-guarded, like every other transition here: the check below reads
+    // `status`, so an unguarded write let a publish or discard land in between and
+    // stamped auto-publish state onto a terminal revision.
+    const updated = await this.updateWithCas(id, ["status"], (existing) => {
+      if (
+        !["draft", "pending-review", "changes-requested", "approved"].includes(
+          existing.status,
+        )
+      ) {
+        throw new Error(
+          "Cannot change auto-publish on a published or discarded revision",
+        );
+      }
 
-    if (
-      !["draft", "pending-review", "changes-requested", "approved"].includes(
-        existing.status,
-      )
-    ) {
-      throw new Error(
-        "Cannot change auto-publish on a published or discarded revision",
-      );
-    }
-
-    // Auto-publish runs with the arming user's authority. A stale
-    // autoPublishEnabledBy left behind when disabling is harmless —
-    // autoPublishOnApproval gates everything.
-    const updated = await this.update(existing, {
-      autoPublishOnApproval: enabled,
-      ...(enabled && userId ? { autoPublishEnabledBy: userId } : {}),
-      // Arm-time guard fingerprints: set the new acknowledgments, or clear a
-      // stale set from a prior arm (to {}) so a re-arm with no current conflicts
-      // can't be covered by an outdated fingerprint.
-      ...(enabled &&
-      (hasArmAcknowledgments(armAcknowledgments) ||
-        hasArmAcknowledgments(existing.armAcknowledgments))
-        ? { armAcknowledgments: armAcknowledgments ?? {} }
-        : {}),
-    } as UpdateProps<Revision>);
+      // Auto-publish runs with the arming user's authority. A stale
+      // autoPublishEnabledBy left behind when disabling is harmless —
+      // autoPublishOnApproval gates everything.
+      return {
+        autoPublishOnApproval: enabled,
+        ...(enabled && userId ? { autoPublishEnabledBy: userId } : {}),
+        // Arm-time guard fingerprints: set the new acknowledgments, or clear a
+        // stale set from a prior arm (to {}) so a re-arm with no current
+        // conflicts can't be covered by an outdated fingerprint.
+        ...(enabled &&
+        (hasArmAcknowledgments(armAcknowledgments) ||
+          hasArmAcknowledgments(existing.armAcknowledgments))
+          ? { armAcknowledgments: armAcknowledgments ?? {} }
+          : {}),
+      } as UpdateProps<Revision>;
+    });
+    if (!updated) throw new Error("Revision not found");
 
     // A fresh arm supersedes a prior schedule's parked failure — clear it so
     // the "Could not publish" notice doesn't persist next to a healthy arm
     // (the dated-schedule arm and disarm paths already do this).
-    if (enabled && (existing.scheduledPublishGaveUpAt ?? null) !== null) {
+    if (enabled && (updated.scheduledPublishGaveUpAt ?? null) !== null) {
       await this._dangerousGetCollection().updateOne(
         { organization: this.context.org.id, id },
         { $unset: { ...SCHEDULED_PUBLISH_FAILURE_UNSET } },
@@ -1136,8 +1146,8 @@ export class RevisionModel extends BaseClass {
     // recallReview / addReview's changes-requested disarm.
     if (
       !enabled &&
-      (existing.autoPublishOnApproval ||
-        (existing.scheduledPublishAt ?? null) !== null)
+      (updated.autoPublishOnApproval ||
+        (updated.scheduledPublishAt ?? null) !== null)
     ) {
       const refreshed = await this.disarmScheduledPublish(id);
       if (refreshed) return refreshed;
@@ -1311,39 +1321,47 @@ export class RevisionModel extends BaseClass {
   // cycle-start marker (so any straggler verdicts are correctly treated as
   // pre-cycle history).
   async recallReview(id: string, userId: string) {
-    const existing = await this.getById(id);
-    if (!existing) throw new Error("Revision not found");
-
-    if (
-      !["pending-review", "changes-requested", "approved"].includes(
-        existing.status,
-      )
-    ) {
-      throw new Error("Only a revision in review can be returned to draft");
-    }
-
-    const updated = await this.update(existing, {
-      status: "draft",
-      reviews: [],
-      autoPublishOnApproval: false,
-      activityLog: [
-        ...this.cleanActivityLog(existing.activityLog),
-        {
-          id: uniqid("act_"),
-          userId,
-          action: "reopened",
-          description: "Recalled review request — returned to draft",
-          dateCreated: new Date(),
-        },
-      ],
-    } as UpdateProps<Revision>);
+    // CAS-guarded on `status`, which the check below reads. An unguarded write
+    // let a publish merge between the read and the write, after which the recall
+    // rewrote a MERGED revision back to `draft` and cleared its reviews — the
+    // released change stayed live with its record demoted to an open draft.
+    const updated = await this.updateWithCas(
+      id,
+      ["status", "reviews", "activityLog"],
+      (existing) => {
+        if (
+          !["pending-review", "changes-requested", "approved"].includes(
+            existing.status,
+          )
+        ) {
+          throw new Error("Only a revision in review can be returned to draft");
+        }
+        return {
+          status: "draft",
+          reviews: [],
+          autoPublishOnApproval: false,
+          activityLog: [
+            ...this.cleanActivityLog(existing.activityLog),
+            {
+              id: uniqid("act_"),
+              userId,
+              action: "reopened",
+              description: "Recalled review request — returned to draft",
+              dateCreated: new Date(),
+            },
+          ],
+        } as UpdateProps<Revision>;
+      },
+    );
+    if (!updated) throw new Error("Revision not found");
 
     // this.update can't $unset, so clear any pending dated schedule + locks in a
     // follow-up raw write — otherwise a stale scheduledPublishAt could fire on a
-    // later re-arm before a new review cycle completes.
+    // later re-arm before a new review cycle completes. Read off the POST-CAS doc:
+    // the pre-image is what a concurrent re-arm would have made stale.
     if (
-      existing.autoPublishOnApproval ||
-      (existing.scheduledPublishAt ?? null) !== null
+      updated.autoPublishOnApproval ||
+      (updated.scheduledPublishAt ?? null) !== null
     ) {
       const refreshed = await this.disarmScheduledPublish(id);
       if (refreshed) return refreshed;
@@ -1354,13 +1372,23 @@ export class RevisionModel extends BaseClass {
   // Retract the calling user's own active verdict in the current review cycle.
   // Unlike recall, this must NOT reset the cycle — other reviewers' verdicts
   // survive — so it logs a "review-retracted" entry (not a cycle-start action)
-  // and recomputes status from the remaining active verdicts. CAS-guarded like
-  // addReview.
-  async undoReview(id: string, userId: string) {
+  // and recomputes status from the remaining active verdicts.
+  //
+  // Guarded and re-authorized exactly like `addReview`: `target` is in the guard so
+  // a rebase that re-scopes the revision loses the race instead of riding it, and
+  // `assertAuthority` re-asks the caller's question against the row this write is
+  // conditioned on. Without both, a rebase could move the revision into a project
+  // the caller holds nothing in and the retraction would still land.
+  async undoReview(
+    id: string,
+    userId: string,
+    assertAuthority?: (existing: Revision) => void,
+  ) {
     const updated = await this.updateWithCas(
       id,
-      ["reviews", "status", "activityLog"],
+      ["reviews", "status", "activityLog", "target"],
       (existing) => {
+        assertAuthority?.(existing);
         if (
           existing.status !== "approved" &&
           existing.status !== "changes-requested"
@@ -2012,19 +2040,31 @@ export class RevisionModel extends BaseClass {
       ) {
         return existing;
       }
-      await coll.updateOne(filter, {
-        $set: { autoPublishOnApproval: false, dateUpdated: now },
-        $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
-        $push: {
-          activityLog: {
-            id: uniqid("act_"),
-            userId: enabledBy ?? existing.authorId,
-            action: "scheduled-publish-canceled",
-            description: "Cancelled scheduled publish",
-            dateCreated: now,
+      // Status-guarded like the arm below, and for the same reason: a revision
+      // published or discarded between the read above and this write is no longer
+      // ours to touch. Cancelling one anyway rewrote terminal history and bumped
+      // `dateUpdated`, which is the stamp a failed landing's recovery compares —
+      // so a stray cancel could make that recovery disown its own merge.
+      await coll.updateOne(
+        { ...filter, status: { $in: [...ACTIVE_DRAFT_STATUSES] } },
+        {
+          $set: { autoPublishOnApproval: false, dateUpdated: now },
+          $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
+          $push: {
+            activityLog: {
+              id: uniqid("act_"),
+              userId: enabledBy ?? existing.authorId,
+              action: "scheduled-publish-canceled",
+              description: "Cancelled scheduled publish",
+              dateCreated: now,
+            },
           },
         },
-      });
+      );
+      // No throw when the guard misses, unlike the arm below: the schedule the
+      // caller wanted withdrawn has already run or been thrown away, which is the
+      // outcome they asked for. Same disposition as the already-disarmed no-op
+      // above — the returned doc tells them where it actually landed.
       const updated = await this.getById(id);
       if (!updated) throw new Error("Revision not found");
       return updated;

@@ -8,6 +8,7 @@ import {
   publishOverrideBodyFields,
   bypassApprovalPublishBodyField,
   publishBypassedGatesField,
+  revisionScheduleResponseFields,
 } from "./shared";
 import {
   apiConfigValidator,
@@ -104,6 +105,8 @@ export const apiConfigRevisionValidator = namedSchema(
       revertedFrom: z.string().optional(),
       reviews: z.array(apiReviewValidator),
       activityLog: z.array(apiActivityLogEntryValidator),
+      // Deferred-publish state, shared across every revisioned entity.
+      ...revisionScheduleResponseFields,
       resolution: z
         .object({
           action: z.enum(["merged", "discarded"]),
@@ -429,7 +432,10 @@ export const postConfigRevisionSchedulePublishValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      scheduledPublishAt: z.string().nullable(),
+      // RFC3339, like the Feature Flag twin. A bare `z.string()` documented no
+      // `format: date-time` and let `new Date()`'s lenient parsing accept things
+      // no client should be sending.
+      scheduledPublishAt: z.union([z.iso.datetime(), z.null()]),
       lockEdits: z.boolean().optional(),
       lockOthers: z.boolean().optional(),
       bypassApproval: z.boolean().optional(),

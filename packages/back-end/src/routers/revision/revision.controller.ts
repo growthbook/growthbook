@@ -1580,7 +1580,14 @@ export const postUndoReview = async (
     context.permissions.throwPermissionError();
   }
 
-  const revision = await revisionModel.undoReview(id, userId);
+  // Re-asked inside the CAS against the row the write is conditioned on — the check
+  // above is the early, clear refusal, and a rebase between the two would otherwise
+  // carry this retraction into a project the caller holds nothing in.
+  const revision = await revisionModel.undoReview(
+    id,
+    userId,
+    reviewAuthorityOnRow(context),
+  );
 
   await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
     context,

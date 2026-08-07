@@ -7,6 +7,7 @@ import {
   publishOverrideBodyFields,
   bypassApprovalPublishBodyField,
   publishBypassedGatesField,
+  revisionScheduleResponseFields,
 } from "./shared";
 import { apiConstantValidator } from "./constant";
 import {
@@ -110,6 +111,8 @@ export const apiConstantRevisionValidator = namedSchema(
       revertedFrom: z.string().optional(),
       reviews: z.array(apiReviewValidator),
       activityLog: z.array(apiActivityLogEntryValidator),
+      // Deferred-publish state, shared across every revisioned entity.
+      ...revisionScheduleResponseFields,
       resolution: z
         .object({
           action: z.enum(["merged", "discarded"]),
@@ -478,7 +481,15 @@ export const putConstantRevisionArchiveValidator = {
   tags: ["constant-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z
-    .object({ ...newDraftMetadataFields, archived: z.boolean() })
+    .object({
+      ...newDraftMetadataFields,
+      archived: z.boolean(),
+      // The archive-dependents guard soft-warns on a still-referenced entity and
+      // asks for an acknowledgment; a strict body without these rejected it, so a
+      // referenced one could never be archived through this endpoint. Config and
+      // Feature Flags already carried it.
+      ...publishOverrideBodyFields,
+    })
     .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
@@ -501,7 +512,10 @@ export const postConstantRevisionSchedulePublishValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      scheduledPublishAt: z.string().nullable(),
+      // RFC3339, like the Feature Flag twin. A bare `z.string()` documented no
+      // `format: date-time` and let `new Date()`'s lenient parsing accept things
+      // no client should be sending.
+      scheduledPublishAt: z.union([z.iso.datetime(), z.null()]),
       lockEdits: z.boolean().optional(),
       lockOthers: z.boolean().optional(),
       bypassApproval: z.boolean().optional(),

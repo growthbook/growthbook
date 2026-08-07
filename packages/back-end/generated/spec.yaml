@@ -6651,6 +6651,36 @@ paths:
                   type: string
                 title:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Set to true to publish despite schema validation errors,
+                    failed invariants, or schema changes that invalidate
+                    dependent resources. This does not bypass a rejected Custom
+                    Hook; use `skipHooks` for that. The caller must have Bypass
+                    draft approvals access for Feature Flags, Configs, and
+                    Constants in every Project. Otherwise, this field is
+                    ignored.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to publish despite a Custom Hook rejection. This
+                    does not bypass schema validation; use
+                    `skipSchemaValidation` for that. The caller must have Bypass
+                    draft approvals access for Feature Flags, Configs, and
+                    Constants in every Project. Otherwise, this field is
+                    ignored.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -11695,6 +11725,36 @@ paths:
                     - format: date-time
                       type: string
                     - type: 'null'
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Set to true to publish despite schema validation errors,
+                    failed invariants, or schema changes that invalidate
+                    dependent resources. This does not bypass a rejected Custom
+                    Hook; use `skipHooks` for that. The caller must have Bypass
+                    draft approvals access for Feature Flags, Configs, and
+                    Constants in every Project. Otherwise, this field is
+                    ignored.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to publish despite a Custom Hook rejection. This
+                    does not bypass schema validation; use
+                    `skipSchemaValidation` for that. The caller must have Bypass
+                    draft approvals access for Feature Flags, Configs, and
+                    Constants in every Project. Otherwise, this field is
+                    ignored.
+                  type: boolean
                 lockEdits:
                   type: boolean
                 lockOthers:
@@ -12630,6 +12690,36 @@ paths:
                   type: string
                 title:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Set to true to publish despite schema validation errors,
+                    failed invariants, or schema changes that invalidate
+                    dependent resources. This does not bypass a rejected Custom
+                    Hook; use `skipHooks` for that. The caller must have Bypass
+                    draft approvals access for Feature Flags, Configs, and
+                    Constants in every Project. Otherwise, this field is
+                    ignored.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to publish despite a Custom Hook rejection. This
+                    does not bypass schema validation; use
+                    `skipSchemaValidation` for that. The caller must have Bypass
+                    draft approvals access for Feature Flags, Configs, and
+                    Constants in every Project. Otherwise, this field is
+                    ignored.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -19722,6 +19812,36 @@ paths:
                   type: string
                 archived:
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Set to true to publish despite schema validation errors,
+                    failed invariants, or schema changes that invalidate
+                    dependent resources. This does not bypass a rejected Custom
+                    Hook; use `skipHooks` for that. The caller must have Bypass
+                    draft approvals access for Feature Flags, Configs, and
+                    Constants in every Project. Otherwise, this field is
+                    ignored.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to publish despite a Custom Hook rejection. This
+                    does not bypass schema validation; use
+                    `skipSchemaValidation` for that. The caller must have Bypass
+                    draft approvals access for Feature Flags, Configs, and
+                    Constants in every Project. Otherwise, this field is
+                    ignored.
+                  type: boolean
               required:
                 - archived
               additionalProperties: false
@@ -20119,6 +20239,7 @@ paths:
                 scheduledPublishAt:
                   anyOf:
                     - type: string
+                      format: date-time
                     - type: 'null'
                 lockEdits:
                   type: boolean
@@ -20519,6 +20640,36 @@ paths:
                   type: string
                 comment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Set to true to publish despite schema validation errors,
+                    failed invariants, or schema changes that invalidate
+                    dependent resources. This does not bypass a rejected Custom
+                    Hook; use `skipHooks` for that. The caller must have Bypass
+                    draft approvals access for Feature Flags, Configs, and
+                    Constants in every Project. Otherwise, this field is
+                    ignored.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to publish despite a Custom Hook rejection. This
+                    does not bypass schema validation; use
+                    `skipSchemaValidation` for that. The caller must have Bypass
+                    draft approvals access for Feature Flags, Configs, and
+                    Constants in every Project. Otherwise, this field is
+                    ignored.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -21555,6 +21706,36 @@ paths:
                   type: string
                 archived:
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Set to true to acknowledge the warnings listed in a blocked
+                    response and continue. This covers experiment guards, locked
+                    dependents, and references affected by an archive. When the
+                    organization treats schema failures as warnings, it also
+                    covers schema and invariant warnings. It never bypasses a
+                    rejected Custom Hook. On revision publish endpoints, it can
+                    also force-publish an out-of-date draft when the caller has
+                    Bypass draft approvals access.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Set to true to publish despite schema validation errors,
+                    failed invariants, or schema changes that invalidate
+                    dependent resources. This does not bypass a rejected Custom
+                    Hook; use `skipHooks` for that. The caller must have Bypass
+                    draft approvals access for Feature Flags, Configs, and
+                    Constants in every Project. Otherwise, this field is
+                    ignored.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Set to true to publish despite a Custom Hook rejection. This
+                    does not bypass schema validation; use
+                    `skipSchemaValidation` for that. The caller must have Bypass
+                    draft approvals access for Feature Flags, Configs, and
+                    Constants in every Project. Otherwise, this field is
+                    ignored.
+                  type: boolean
               required:
                 - archived
               additionalProperties: false
@@ -21834,6 +22015,7 @@ paths:
                 scheduledPublishAt:
                   anyOf:
                     - type: string
+                      format: date-time
                     - type: 'null'
                 lockEdits:
                   type: boolean
@@ -24680,6 +24862,7 @@ paths:
                 scheduledPublishAt:
                   anyOf:
                     - type: string
+                      format: date-time
                     - type: 'null'
                 lockEdits:
                   type: boolean
@@ -54049,6 +54232,45 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SavedGroupRevisionActivityLogEntry'
+        autoPublishOnApproval:
+          description: Publish automatically the moment this revision is approved.
+          type: boolean
+        autoPublishEnabledBy:
+          description: >-
+            User the deferred publish will run as. Its authority is re-checked
+            when the publish fires.
+          type: string
+        scheduledPublishAt:
+          description: >-
+            When the deferred publish fires. Absent when the revision publishes
+            on approval instead, or is not armed at all.
+          format: date-time
+          type: string
+        scheduledPublishLockEdits:
+          description: Content edits to this revision are frozen until it fires.
+          type: boolean
+        scheduledPublishLockOthers:
+          description: >-
+            Other revisions of the same resource cannot publish until this one
+            fires or is cancelled.
+          type: boolean
+        scheduledPublishBypassApproval:
+          description: >-
+            Armed by a caller who bypassed the approval requirement. Such a
+            schedule must be cancelled and re-armed rather than edited.
+          type: boolean
+        scheduledPublishAttempts:
+          description: How many times the poller has tried to publish this revision.
+          type: integer
+        scheduledPublishLastError:
+          description: Why the most recent deferred-publish attempt failed.
+          type: string
+        scheduledPublishGaveUpAt:
+          description: >-
+            When the poller stopped retrying. The revision stays armed but will
+            not fire again without a re-arm.
+          format: date-time
+          type: string
         resolution:
           type: object
           properties:
@@ -54418,6 +54640,45 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ConstantRevisionActivityLogEntry'
+        autoPublishOnApproval:
+          description: Publish automatically the moment this revision is approved.
+          type: boolean
+        autoPublishEnabledBy:
+          description: >-
+            User the deferred publish will run as. Its authority is re-checked
+            when the publish fires.
+          type: string
+        scheduledPublishAt:
+          description: >-
+            When the deferred publish fires. Absent when the revision publishes
+            on approval instead, or is not armed at all.
+          format: date-time
+          type: string
+        scheduledPublishLockEdits:
+          description: Content edits to this revision are frozen until it fires.
+          type: boolean
+        scheduledPublishLockOthers:
+          description: >-
+            Other revisions of the same resource cannot publish until this one
+            fires or is cancelled.
+          type: boolean
+        scheduledPublishBypassApproval:
+          description: >-
+            Armed by a caller who bypassed the approval requirement. Such a
+            schedule must be cancelled and re-armed rather than edited.
+          type: boolean
+        scheduledPublishAttempts:
+          description: How many times the poller has tried to publish this revision.
+          type: integer
+        scheduledPublishLastError:
+          description: Why the most recent deferred-publish attempt failed.
+          type: string
+        scheduledPublishGaveUpAt:
+          description: >-
+            When the poller stopped retrying. The revision stays armed but will
+            not fire again without a re-arm.
+          format: date-time
+          type: string
         resolution:
           type: object
           properties:
@@ -55052,6 +55313,45 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ConfigRevisionActivityLogEntry'
+        autoPublishOnApproval:
+          description: Publish automatically the moment this revision is approved.
+          type: boolean
+        autoPublishEnabledBy:
+          description: >-
+            User the deferred publish will run as. Its authority is re-checked
+            when the publish fires.
+          type: string
+        scheduledPublishAt:
+          description: >-
+            When the deferred publish fires. Absent when the revision publishes
+            on approval instead, or is not armed at all.
+          format: date-time
+          type: string
+        scheduledPublishLockEdits:
+          description: Content edits to this revision are frozen until it fires.
+          type: boolean
+        scheduledPublishLockOthers:
+          description: >-
+            Other revisions of the same resource cannot publish until this one
+            fires or is cancelled.
+          type: boolean
+        scheduledPublishBypassApproval:
+          description: >-
+            Armed by a caller who bypassed the approval requirement. Such a
+            schedule must be cancelled and re-armed rather than edited.
+          type: boolean
+        scheduledPublishAttempts:
+          description: How many times the poller has tried to publish this revision.
+          type: integer
+        scheduledPublishLastError:
+          description: Why the most recent deferred-publish attempt failed.
+          type: string
+        scheduledPublishGaveUpAt:
+          description: >-
+            When the poller stopped retrying. The revision stays armed but will
+            not fire again without a re-arm.
+          format: date-time
+          type: string
         resolution:
           type: object
           properties:

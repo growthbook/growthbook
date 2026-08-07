@@ -7,6 +7,7 @@ import {
 } from "shared/enterprise";
 import { ApiConfigRevision } from "shared/validators";
 import { ConfigInterface } from "shared/types/config";
+import { revisionScheduleApiFields } from "back-end/src/revisions/revisionScheduleApiFields";
 import { ApiReqContext } from "back-end/types/api";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
@@ -93,6 +94,7 @@ export async function toApiConfigRevisions(
       ...(revision.revertedFrom ? { revertedFrom: revision.revertedFrom } : {}),
       reviews: reviewsToApi(revision.reviews),
       activityLog: activityLogToApi(revision.activityLog),
+      ...revisionScheduleApiFields(revision),
       ...(revision.resolution
         ? {
             resolution: {

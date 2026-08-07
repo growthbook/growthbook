@@ -7,6 +7,7 @@ import {
 } from "shared/enterprise";
 import { ApiSavedGroupRevision } from "shared/validators";
 import { SavedGroupInterface } from "shared/types/saved-group";
+import { revisionScheduleApiFields } from "back-end/src/revisions/revisionScheduleApiFields";
 import { ApiReqContext } from "back-end/types/api";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
@@ -121,6 +122,7 @@ export async function toApiSavedGroupRevisions(
       ...(revision.revertedFrom ? { revertedFrom: revision.revertedFrom } : {}),
       reviews: reviewsToApi(revision.reviews),
       activityLog: activityLogToApi(revision.activityLog),
+      ...revisionScheduleApiFields(revision),
       ...(revision.resolution
         ? {
             resolution: {

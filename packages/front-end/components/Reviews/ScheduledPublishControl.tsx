@@ -150,12 +150,14 @@ export default function ScheduledPublishControl({
   // an armed one to be cancelled. Suppressing the whole control there stranded the
   // pending schedule with no way to call it off.
   const canArmOnDate = canEdit && canArm;
-  // Standing an ALREADY-ARMED schedule down survives the org switching
-  // auto-publish-on-approval off: the endpoint gates only the arming direction on
-  // that setting, so mirroring it here left the control read-only with the revision
-  // still armed and no way to call it off. Authority is otherwise unchanged.
+  // Standing an ALREADY-ARMED no-date schedule down survives everything that gates
+  // ARMING — the org switching auto-publish-on-approval off, and `canArm` going
+  // false because a locked Config refuses NEW schedules. Both of those describe
+  // taking a future publish ON; the endpoint asks neither on the way out. Mirroring
+  // them here left a locked Config's armed revision showing a read-only checkbox
+  // with no way to call it off. Authority itself is unchanged.
   const canDisarmWhenApproved =
-    persistedArmed && isArmingOwner && canArm && (canDraft ?? true);
+    persistedArmed && isArmingOwner && (canDraft ?? true);
   const canManageAutoPublish =
     canArmWhenApproved || canArmOnDate || canDisarmWhenApproved;
   // The schedule's admin bypass is only relevant when the revision would

@@ -487,6 +487,10 @@ export const postFeatureRevisionRevertV2Validator = {
       strategy: z.enum(["draft", "publish"]).optional(),
       comment: z.string().optional(),
       title: z.string().optional(),
+      // Same reason as the Saved Group and Config reverts: publishing a revert
+      // that restores `archived` runs the bypassable dependent guard, and a
+      // strict body without these rejects the acknowledgment it asks for.
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),
@@ -725,6 +729,10 @@ export const postFeatureRevisionSchedulePublishV2Validator = {
         z.string().meta({ format: "date-time" }),
         z.null(),
       ]),
+      // Arming captures the guard acknowledgments and throws asking for
+      // `ignoreWarnings` when the draft conflicts with live — which a strict body
+      // without these rejects. The other three entities already carried them.
+      ...publishOverrideBodyFields,
       lockEdits: z.boolean().optional(),
       lockOthers: z.boolean().optional(),
       bypassApproval: z.boolean().optional(),

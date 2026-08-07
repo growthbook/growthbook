@@ -235,3 +235,65 @@ export const publishBypassedGatesField = z
   .describe(
     "Gates that would have blocked this publish but were bypassed by the caller's authority. Present only when at least one gate was bypassed.",
   );
+
+/**
+ * A revision's DEFERRED-PUBLISH state, as read back on any revision response.
+ *
+ * Every revisioned entity can be armed to publish on approval or on a date, and no
+ * revision response carried any of it — so a caller could POST a schedule and have
+ * no way to confirm from the response that anything was armed, let alone when it
+ * fires or why it last failed. Shared so the four entities cannot answer differently.
+ *
+ * All optional: an unarmed revision simply omits them.
+ */
+export const revisionScheduleResponseFields = {
+  autoPublishOnApproval: z
+    .boolean()
+    .optional()
+    .describe("Publish automatically the moment this revision is approved."),
+  autoPublishEnabledBy: z
+    .string()
+    .optional()
+    .describe(
+      "User the deferred publish will run as. Its authority is re-checked when the publish fires.",
+    ),
+  scheduledPublishAt: z
+    .string()
+    .meta({ format: "date-time" })
+    .optional()
+    .describe(
+      "When the deferred publish fires. Absent when the revision publishes on approval instead, or is not armed at all.",
+    ),
+  scheduledPublishLockEdits: z
+    .boolean()
+    .optional()
+    .describe("Content edits to this revision are frozen until it fires."),
+  scheduledPublishLockOthers: z
+    .boolean()
+    .optional()
+    .describe(
+      "Other revisions of the same resource cannot publish until this one fires or is cancelled.",
+    ),
+  scheduledPublishBypassApproval: z
+    .boolean()
+    .optional()
+    .describe(
+      "Armed by a caller who bypassed the approval requirement. Such a schedule must be cancelled and re-armed rather than edited.",
+    ),
+  scheduledPublishAttempts: z
+    .number()
+    .int()
+    .optional()
+    .describe("How many times the poller has tried to publish this revision."),
+  scheduledPublishLastError: z
+    .string()
+    .optional()
+    .describe("Why the most recent deferred-publish attempt failed."),
+  scheduledPublishGaveUpAt: z
+    .string()
+    .meta({ format: "date-time" })
+    .optional()
+    .describe(
+      "When the poller stopped retrying. The revision stays armed but will not fire again without a re-arm.",
+    ),
+};

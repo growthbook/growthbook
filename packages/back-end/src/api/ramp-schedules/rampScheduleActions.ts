@@ -9,6 +9,7 @@ import {
   stepHoldConditions,
   isAwaitingStartApproval,
 } from "shared/validators";
+import type { RampScheduleInterface } from "shared/validators";
 import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
@@ -512,50 +513,73 @@ export const addTargetRampSchedule = createApiRequestHandler({
   const { featureId, ruleId, environment } = req.body;
   const envSuffix = environment ? ` in environment '${environment}'` : "";
 
-  const feature = await getFeature(req.context, featureId);
-  if (!feature) throw new Error(`Feature '${featureId}' not found`);
-  // The gate above covered the schedule's existing targets; the flag being
-  // attached needs the same authority, or a schedule anchored in one project
-  // becomes a lever over flags in another.
+  // Resolve the FLAG side of the attachment: the rule must exist, and the caller
+  // must hold publish over every environment the attachment reaches.
   //
-  // Measured over the ATTACHED RULE's environments as well as the schedule's patch
-  // footprint. The patch footprint alone let a production-serving rule be attached
-  // to a dev-only schedule — and `completeRollout({disableActiveTargets:true})` and
-  // `buildEnabledActions` act on EVERY active target whether or not a patch names
-  // it, so the attachment itself is the production-reaching act.
-  const attachedRuleEnvs = resolveRampTargets(
-    { ruleId, environment: environment ?? null },
-    feature.rules ?? [],
-  );
-  const attachEnvs = new Set(
-    req.context.models.rampSchedules.publishEnvironments(schedule),
-  );
-  if (
-    !attachedRuleEnvs.length ||
-    attachedRuleEnvs.some((r) => r.allEnvironments)
-  ) {
-    // Unresolvable or all-environments: the strictest answer.
-    for (const env of getEnvironmentIdsFromOrg(req.context.org)) {
-      attachEnvs.add(env);
-    }
-  } else {
-    for (const r of attachedRuleEnvs) {
-      for (const env of r.environments ?? []) attachEnvs.add(env);
-    }
-  }
-  if (!req.context.permissions.canPublishFeature(feature, [...attachEnvs])) {
-    req.context.permissions.throwPermissionError();
-  }
-  const rule = resolveRampTarget(
-    { ruleId, environment: environment ?? null },
-    feature.rules ?? [],
-  );
-  if (!rule) {
-    throw new Error(
-      `Rule '${ruleId}' not found${envSuffix}. ` +
-        `The rule must be published before attaching a ramp schedule.`,
+  // A function rather than a straight line because it has to run TWICE — once now
+  // for a clean early refusal, and again inside the lock. The lock covers only the
+  // schedule, so between the two the feature can move projects, widen the rule's
+  // environments, or drop the rule entirely, and a target resolved from the earlier
+  // read would then be attached on authority nobody re-checked.
+  const resolveAttachment = async (
+    scheduleForFootprint: RampScheduleInterface,
+  ) => {
+    const feature = await getFeature(req.context, featureId);
+    if (!feature) throw new Error(`Feature '${featureId}' not found`);
+    // The schedule gate covered its existing targets; the flag being attached
+    // needs the same authority, or a schedule anchored in one project becomes a
+    // lever over flags in another.
+    //
+    // Measured over the ATTACHED RULE's environments as well as the schedule's patch
+    // footprint. The patch footprint alone let a production-serving rule be attached
+    // to a dev-only schedule — and `completeRollout({disableActiveTargets:true})` and
+    // `buildEnabledActions` act on EVERY active target whether or not a patch names
+    // it, so the attachment itself is the production-reaching act.
+    const attachedRuleEnvs = resolveRampTargets(
+      { ruleId, environment: environment ?? null },
+      feature.rules ?? [],
     );
-  }
+    const attachEnvs = new Set(
+      req.context.models.rampSchedules.publishEnvironments(
+        scheduleForFootprint,
+      ),
+    );
+    if (
+      !attachedRuleEnvs.length ||
+      attachedRuleEnvs.some((r) => r.allEnvironments)
+    ) {
+      // Unresolvable or all-environments: the strictest answer.
+      for (const env of getEnvironmentIdsFromOrg(req.context.org)) {
+        attachEnvs.add(env);
+      }
+    } else {
+      for (const r of attachedRuleEnvs) {
+        for (const env of r.environments ?? []) attachEnvs.add(env);
+      }
+    }
+    if (!req.context.permissions.canPublishFeature(feature, [...attachEnvs])) {
+      req.context.permissions.throwPermissionError();
+    }
+    const rule = resolveRampTarget(
+      { ruleId, environment: environment ?? null },
+      feature.rules ?? [],
+    );
+    if (!rule) {
+      throw new Error(
+        `Rule '${ruleId}' not found${envSuffix}. ` +
+          `The rule must be published before attaching a ramp schedule.`,
+      );
+    }
+    return {
+      id: uuidv4(),
+      entityType: "feature" as const,
+      entityId: featureId,
+      ruleId,
+      status: "active" as const,
+    };
+  };
+
+  await resolveAttachment(schedule);
 
   const conflicting = await req.context.models.rampSchedules.findByTargetRule(
     ruleId,
@@ -567,14 +591,6 @@ export const addTargetRampSchedule = createApiRequestHandler({
       `Schedule '${conflict.id}' already controls rule '${ruleId}'${envSuffix}.`,
     );
   }
-
-  const newTarget = {
-    id: uuidv4(),
-    entityType: "feature" as const,
-    entityId: featureId,
-    ruleId,
-    status: "active" as const,
-  };
 
   // Locked: concurrent add/eject calls would drop a target, and a stale
   // pending→ready flip could rewind a scheduler-activated schedule.
@@ -606,6 +622,11 @@ export const addTargetRampSchedule = createApiRequestHandler({
           `Rule '${ruleId}'${envSuffix} is already a target of this schedule.`,
         );
       }
+      // Re-resolved against the feature as it stands NOW, and re-authorized over
+      // the FRESH schedule's footprint. The pre-lock pass gave the clean refusal;
+      // this one is what the attachment is actually built from.
+      const newTarget = await resolveAttachment(fresh);
+
       const isFirstTarget = fresh.targets.length === 0;
       const entityUpdate = fresh.entityId === "" ? { entityId: featureId } : {};
       const statusUpdate =

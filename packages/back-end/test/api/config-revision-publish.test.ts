@@ -632,6 +632,13 @@ describe("POST /api/v1/configs-revisions/:key/:version/schedule-publish", () => 
     expect(`${cancelled.status} ${JSON.stringify(cancelled.body)}`).toMatch(
       /^200 /,
     );
+    // The response reports the schedule state, in both directions. It carried
+    // NONE of it until recently, so a caller could arm one and have no way to
+    // confirm it from the response they got back.
+    expect(armed.body.revision.scheduledPublishAt).toBeTruthy();
+    expect(armed.body.revision.autoPublishOnApproval).toBe(true);
+    expect(cancelled.body.revision.scheduledPublishAt ?? null).toBeNull();
+    expect(cancelled.body.revision.autoPublishOnApproval ?? false).toBe(false);
     const cancelledDoc = await mongoose.connection
       .collection("revisions")
       .findOne({ id: armed.body.revision.id });
