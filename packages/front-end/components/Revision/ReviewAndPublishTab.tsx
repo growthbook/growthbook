@@ -1340,28 +1340,34 @@ function ReviewAndPublishRevision<T>({
                 divergence notice, above the admin-bypass + Publish button.
                 Hidden when publishing is blocked (e.g. a locked config) — a
                 schedule would just fail to fire. */}
-            {isActiveDraft && !publishBlockedReason && (
-              <ScheduledPublishControl
-                revision={revision}
-                pending={isScheduledPublishPending(revision)}
-                lockActive={isScheduledPublishLockActive(revision)}
-                schedulePublishPath={`/revision/${revision.id}/schedule-publish`}
-                toggleAutoPublishPath={`/revision/${revision.id}/toggle-auto-publish`}
-                entityNoun={entityNoun}
-                // Arming a schedule commits a future PUBLISH, and the endpoint's
-                // coarse gate requires the publish atom itself — the narrow-atom
-                // landing fallbacks folded into canPublishOrEdit (a reverter's
-                // pure revert, a deleter's pure archive) do not arm schedules,
-                // so offering them here invited a 403.
-                canEdit={canPublishEntity ?? canEditEntity}
-                canDraft={canDraftOrEdit}
-                canBypassApproval={canBypassApproval}
-                requiresApproval={requiresApproval}
-                autopublishOnApproval={autopublishOnApproval}
-                isReviewRequester={isAuthor}
-                mutate={mutate}
-              />
-            )}
+            {isActiveDraft &&
+              (!publishBlockedReason ||
+                isScheduledPublishPending(revision)) && (
+                <ScheduledPublishControl
+                  revision={revision}
+                  pending={isScheduledPublishPending(revision)}
+                  lockActive={isScheduledPublishLockActive(revision)}
+                  schedulePublishPath={`/revision/${revision.id}/schedule-publish`}
+                  toggleAutoPublishPath={`/revision/${revision.id}/toggle-auto-publish`}
+                  entityNoun={entityNoun}
+                  // Arming a schedule commits a future PUBLISH, and the endpoint's
+                  // coarse gate requires the publish atom itself — the narrow-atom
+                  // landing fallbacks folded into canPublishOrEdit (a reverter's
+                  // pure revert, a deleter's pure archive) do not arm schedules,
+                  // so offering them here invited a 403.
+                  canEdit={canPublishEntity ?? canEditEntity}
+                  // A blocked publish (a locked Config) refuses NEW schedules but still
+                  // allows cancelling one already armed — which the endpoint permits and
+                  // hiding the control made unreachable.
+                  canArm={!publishBlockedReason}
+                  canDraft={canDraftOrEdit}
+                  canBypassApproval={canBypassApproval}
+                  requiresApproval={requiresApproval}
+                  autopublishOnApproval={autopublishOnApproval}
+                  isReviewRequester={isAuthor}
+                  mutate={mutate}
+                />
+              )}
 
             {adminBypassAvailable && !publishBlockedReason && (
               <Box mb="3">

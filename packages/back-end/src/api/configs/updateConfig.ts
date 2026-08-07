@@ -585,10 +585,33 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     // someone else's overrides while both callers report success. Chaining the
     // landing to our own write's token makes any interleaver a clean 409.
     let landingConfig = config;
+    // Set when the overrides were committed, so a landing failure can put them back.
+    // They must be written FIRST — the landing's pre-image is the doc this commit
+    // RETURNS, since the commit advances the Config's token — so the only way to keep
+    // a combined request all-or-nothing is to undo them on the way out.
+    let revertScopedOverrides: (() => Promise<void>) | null = null;
     if (commitScopedOverrides) {
+      const previousOverrides = config.scopedOverrides ?? [];
+      const nextOverrides = req.body.scopedOverrides ?? [];
       landingConfig = {
         ...config,
         ...(await commitScopedOverrides()),
+      };
+      revertScopedOverrides = async () => {
+        const live = await req.context.models.configs.getById(config.id);
+        if (!live) return;
+        // Only while they still hold what we wrote: a third request that has since
+        // changed them owns them now, and converging to our pre-image would undo it.
+        if (!isEqual(live.scopedOverrides ?? [], nextOverrides)) return;
+        await req.context.models.configs.dangerousUpdateBypassPermission(live, {
+          scopedOverrides: previousOverrides,
+        });
+        await syncScopedConfigMarkers(
+          req.context,
+          config.key,
+          nextOverrides,
+          previousOverrides,
+        );
       };
     }
 
@@ -664,6 +687,27 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         }
         return written;
       },
+    }).catch(async (e) => {
+      // The overrides were committed before this landing (its pre-image is what that
+      // commit returned), so a failure here would otherwise leave a combined request
+      // half-applied: overrides live, value not. Put them back, and if that itself
+      // fails say so on the error rather than reporting a clean failure over durable
+      // state.
+      if (revertScopedOverrides) {
+        try {
+          await revertScopedOverrides();
+        } catch (revertErr) {
+          logger.error(
+            revertErr,
+            `Config ${config.id}: value publish failed and its scoped overrides could not be rolled back`,
+          );
+          if (e instanceof Error) {
+            e.message +=
+              " (the scoped overrides from this request were applied and could NOT be rolled back — reconcile them by hand)";
+          }
+        }
+      }
+      throw e;
     });
     await dispatchConfigRevisionEvent(req.context, merged, {
       type: "published",

@@ -7,6 +7,7 @@ import {
   publishOverrideBodyFields,
   schemaValidationQueryFields,
   skipPaginationQueryField,
+  publishBypassedGatesField,
 } from "./shared";
 import {
   ownerInputField,
@@ -418,6 +419,11 @@ export type ApiFeatureWithRevisionsV2 = z.infer<
 const featureV2ResponseSchema = z
   .object({ feature: apiFeatureV2Validator })
   .strict();
+
+// See features.ts: an update can land a live revision and bypass approval.
+const featureV2UpdateResponseSchema = featureV2ResponseSchema.extend({
+  bypassedGates: publishBypassedGatesField,
+});
 
 // ---- Shared param schemas ----
 
@@ -832,7 +838,7 @@ export const updateFeatureV2Validator = {
   bodySchema: updateFeatureBodyV2,
   querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   paramsSchema: idParams,
-  responseSchema: featureV2ResponseSchema,
+  responseSchema: featureV2UpdateResponseSchema,
   summary: "Partially update a feature",
   description:
     "Updates the Feature Flag and immediately publishes a new revision. The caller needs Edit access in the Feature Flag's Project and Publish access for every affected environment. When approval is required, use the revision endpoints instead, unless the caller can bypass draft approvals.\n\nOther top-level fields are patch-merged: omit a field to leave it unchanged. The `rules` field, when supplied, replaces the entire `rules` array in one operation. To preserve existing rules, fetch the Feature Flag, update the returned `rules` array, and send the complete array back. Safe-rollout rules round-trip through `safeRolloutId`; use `POST /v2/features/:id/revisions/:version/rules` to create new ones.",

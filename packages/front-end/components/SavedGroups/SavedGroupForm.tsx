@@ -113,14 +113,6 @@ const SavedGroupForm: FC<{
           )
         : permissionsUtil.canBypassSavedGroupApprovalChecks({ project: "" })));
 
-  // Publishing is its own authority: an author without it edits through drafts
-  // and is never offered "publish now" — the server refuses that write. Only
-  // applies to edits; creating a group isn't a publish.
-  const canAutoPublish =
-    (!current.id ||
-      permissionsUtil.canRevisionAction("saved-group", "publish", current)) &&
-    (!isApprovalFlowRequired || canAdminPublish);
-
   // Metadata-only edit when the org's saved-group approval flow is on but
   // metadata review is off: skip the publish-now affordance in this form
   // (the user can publish from the page-level "Review & Publish" button)
@@ -269,6 +261,23 @@ const SavedGroupForm: FC<{
   }, [currentRevision, liveVersion, type, project, orgId, form, current]);
 
   const selectedProjects = form.watch("projects") || [];
+
+  // Publishing is its own authority: an author without it edits through drafts and is
+  // never offered "publish now" — the server refuses that write. Only applies to
+  // edits; creating a group isn't a publish.
+  //
+  // BOTH sides of a move, like the endpoint's `holdsMoveDestination`: publishing a
+  // group whose projects changed lands it in the destination, so authority there is
+  // required too. Judging `current` alone offered publish-now for a move into a
+  // project the caller cannot publish in.
+  const canAutoPublish =
+    (!current.id ||
+      (permissionsUtil.canRevisionAction("saved-group", "publish", current) &&
+        permissionsUtil.canRevisionAction("saved-group", "publish", {
+          ...current,
+          projects: selectedProjects,
+        }))) &&
+    (!isApprovalFlowRequired || canAdminPublish);
   const projectsOptions = useProjectOptions(
     (p) =>
       current.id

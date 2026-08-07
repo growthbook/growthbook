@@ -9,6 +9,7 @@ import {
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
   publishOverrideBodyFields,
+  publishBypassedGatesField,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
 import {
@@ -1555,6 +1556,12 @@ const featureResponseSchema = z
   .object({ feature: apiFeatureValidator })
   .strict();
 
+// An update can land a live revision, so it can also step over an approval
+// requirement — reported the same way every other publish surface reports one.
+const featureUpdateResponseSchema = featureResponseSchema.extend({
+  bypassedGates: publishBypassedGatesField,
+});
+
 // ---- PostFeaturePayload ----
 const postFeatureBody = z
   .object({
@@ -1780,7 +1787,7 @@ export const updateFeatureValidator = {
   bodySchema: updateFeatureBody,
   querySchema: z.never(),
   paramsSchema: idParams,
-  responseSchema: featureResponseSchema,
+  responseSchema: featureUpdateResponseSchema,
   summary: "Partially update a feature",
   description:
     "**Deprecated.** Use [POST /v2/features/:id](#operation/updateFeatureV2) instead.\n\nUpdates the Feature Flag and immediately publishes a new revision. The caller needs Edit access in the Feature Flag's Project and Publish access for every affected environment. When approval is required, use the revision endpoints instead, unless the caller can bypass draft approvals.",

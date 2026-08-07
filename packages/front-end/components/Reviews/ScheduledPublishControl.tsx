@@ -65,6 +65,7 @@ export default function ScheduledPublishControl({
   toggleAutoPublishPath,
   entityNoun,
   canEdit,
+  canArm = true,
   canDraft,
   canBypassApproval,
   requiresApproval,
@@ -92,6 +93,8 @@ export default function ScheduledPublishControl({
   entityNoun: string;
   // The viewer has publish authority over this entity.
   canEdit: boolean;
+  /** False when new schedules are refused but an existing one may still be cancelled. */
+  canArm?: boolean;
   // Draft authority, for the "when approved" arm; defaults to permitted for
   // callers whose canEdit already folds it in.
   canDraft?: boolean;
@@ -129,11 +132,17 @@ export default function ScheduledPublishControl({
   const canArmWhenApproved =
     autopublishOnApproval &&
     isArmingOwner &&
+    canArm &&
     (canDraft ?? true) &&
     status !== "approved";
   // Arming a dated schedule needs only publish authority (premium gates the
   // picker render below, not the option itself).
-  const canArmOnDate = canEdit;
+  //
+  // `canArm` is separate from authority: a locked Config refuses NEW schedules
+  // (`assertConfigNotLocked` runs only when this isn't a cancel) while still allowing
+  // an armed one to be cancelled. Suppressing the whole control there stranded the
+  // pending schedule with no way to call it off.
+  const canArmOnDate = canEdit && canArm;
   const canManageAutoPublish = canArmWhenApproved || canArmOnDate;
   // The schedule's admin bypass is only relevant when the revision would
   // otherwise need approval (review required, not yet approved).

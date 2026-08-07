@@ -421,6 +421,11 @@ export const updateFeatureV2 = createApiRequestHandler(
   const hasArchivedChange = newArchived !== null;
   // Set when this request lands a live revision; dispatched after the commit.
   let publishedRevisionForEvents: FeatureRevisionInterface | null = null;
+  // Gates this request stepped over, named in the response like every other publish
+  // surface — without it a caller cannot tell a publish that needed no approval from
+  // one that bypassed a live requirement.
+  const bypassedGates: { type: string; outcome: "bypassed"; via: string }[] =
+    [];
 
   const hasRevisionChanges =
     hasEnvEnabledChanges ||
@@ -449,16 +454,19 @@ export const updateFeatureV2 = createApiRequestHandler(
       ...(hasHoldoutChange ? { holdout: newHoldout ?? null } : {}),
     };
 
-    const { revision, updatedFeature: updatedFeatureFromRevision } =
-      await createAndPublishRevision({
-        context: req.context,
-        feature,
-        user: req.eventAudit,
-        org: req.organization,
-        changes: revisionChanges,
-        comment: "Created via REST API",
-        canBypassApprovalChecks: canBypass,
-      });
+    const {
+      revision,
+      updatedFeature: updatedFeatureFromRevision,
+      bypassedApproval,
+    } = await createAndPublishRevision({
+      context: req.context,
+      feature,
+      user: req.eventAudit,
+      org: req.organization,
+      changes: revisionChanges,
+      comment: "Created via REST API",
+      canBypassApprovalChecks: canBypass,
+    });
 
     Object.assign(feature, updatedFeatureFromRevision);
     updates.version = revision.version;
@@ -466,6 +474,13 @@ export const updateFeatureV2 = createApiRequestHandler(
     // See updateFeature: this path lands a live revision, so it owes the same
     // `revision.published` webhook the dedicated publish endpoints emit.
     publishedRevisionForEvents = revision;
+    if (bypassedApproval) {
+      bypassedGates.push({
+        type: "approval-required",
+        outcome: "bypassed",
+        via: canBypass ? "restApiBypassesReviews" : "bypassApprovalPermission",
+      });
+    }
 
     // Ensure linkedFeatures is set on any experiments referenced by the
     // newly-live rules. Fire-and-forget; clearPendingFeatureDraftsForRevision
@@ -549,5 +564,6 @@ export const updateFeatureV2 = createApiRequestHandler(
       }),
       req.context,
     ),
+    ...(bypassedGates.length ? { bypassedGates } : {}),
   };
 });

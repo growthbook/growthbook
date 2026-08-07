@@ -2783,6 +2783,14 @@ paths:
                 properties:
                   feature:
                     $ref: '#/components/schemas/FeatureV1'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - feature
                 additionalProperties: false
@@ -8140,6 +8148,14 @@ paths:
                 properties:
                   feature:
                     $ref: '#/components/schemas/FeatureV2'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - feature
                 additionalProperties: false
@@ -63509,6 +63525,29 @@ components:
         - currentStatus
         - expectedStatuses
       additionalProperties: false
+    bypassedGates:
+      type: object
+      properties:
+        type:
+          description: >-
+            The gate that was bypassed (e.g. "approval-required", "stale-base",
+            "schema-break").
+          type: string
+        outcome:
+          type: string
+          const: bypassed
+        via:
+          description: >-
+            How the gate was bypassed. The value identifies a request field
+            (`ignoreWarnings`, `skipSchemaValidation`, or `skipHooks`), the
+            caller's permission (`bypassApprovalPermission`), or the
+            organization setting (`restApiBypassesReviews`).
+          type: string
+      required:
+        - type
+        - outcome
+        - via
+      additionalProperties: false
     features:
       description: >-
         Map of feature ID to stale status. Only requested features that were
@@ -64430,29 +64469,6 @@ components:
                 - value
               additionalProperties: false
             - type: 'null'
-      additionalProperties: false
-    bypassedGates:
-      type: object
-      properties:
-        type:
-          description: >-
-            The gate that was bypassed (e.g. "approval-required", "stale-base",
-            "schema-break").
-          type: string
-        outcome:
-          type: string
-          const: bypassed
-        via:
-          description: >-
-            How the gate was bypassed. The value identifies a request field
-            (`ignoreWarnings`, `skipSchemaValidation`, or `skipHooks`), the
-            caller's permission (`bypassApprovalPermission`), or the
-            organization setting (`restApiBypassesReviews`).
-          type: string
-      required:
-        - type
-        - outcome
-        - via
       additionalProperties: false
     log:
       type: object

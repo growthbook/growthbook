@@ -908,7 +908,12 @@ export default function ConfigDetailPage(): React.ReactElement {
     "config",
     "revert",
     config,
-    configPublishEnvironments(config),
+    // The SELECTED revision's footprint, not the Config's bare scope: restoring a
+    // revision that flips `archived` takes the Config out of service, or returns it,
+    // everywhere it serves — which is exactly the widening `revisionPublishEnvironments`
+    // above already computes for the publish control. The scoped list under-scopes it,
+    // and for a base Config it is empty, which skips the environment check entirely.
+    revisionPublishEnvironments,
   );
   // Lock and the experiment guard are written straight to the live Config, never
   // staged in a revision, so they take the publish atom — matching lockConfig and

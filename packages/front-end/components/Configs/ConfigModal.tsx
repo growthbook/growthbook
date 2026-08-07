@@ -1,4 +1,3 @@
-import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useForm } from "react-hook-form";
@@ -6,6 +5,7 @@ import { ConfigWithoutValue } from "shared/types/config";
 import { Revision } from "shared/enterprise";
 import { generateTrackingKey } from "shared/experiments";
 import {
+  configPublishEnvironments,
   getConfigParentKey,
   isScopedConfig,
   orderConfigsByLineage,
@@ -123,7 +123,11 @@ export default function ConfigModal({
       {
         project: form.watch("project") || "",
       },
-      NO_ENVIRONMENT_BINDING,
+      // The Config's OWN footprint, matching the endpoint's `publishFootprint`. An
+      // empty binding skips the environment check rather than narrowing it, so a
+      // scoped Config offered the move to a publisher limited to other environments
+      // and the endpoint then refused it.
+      configPublishEnvironments(existing),
     );
 
   const draft = useConstantDraftTarget(

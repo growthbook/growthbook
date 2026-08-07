@@ -4136,6 +4136,8 @@ export async function createAndPublishRevision({
 }): Promise<{
   revision: FeatureRevisionInterface;
   updatedFeature: FeatureInterface;
+  /** True when a live approval requirement was stepped over, for the caller to report. */
+  bypassedApproval: boolean;
 }> {
   // Filter to envs applicable to this feature's project — avoids over-
   // triggering approval and creating dangling per-env settings.
@@ -4220,7 +4222,11 @@ export async function createAndPublishRevision({
     skipPrevalidateValidation: true,
   });
 
-  return { revision, updatedFeature };
+  // `bypassedApproval` lets callers report the gate they skipped. Every other publish
+  // surface names its bypasses in the response; the paths that land through here were
+  // silent about it, so a caller could not tell a publish that needed no approval from
+  // one that stepped over a live requirement.
+  return { revision, updatedFeature, bypassedApproval: requiresReview };
 }
 
 function getLinkedExperiments(feature: FeatureInterface) {

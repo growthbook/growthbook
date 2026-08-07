@@ -525,6 +525,11 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     const hasArchivedChange = newArchived !== null;
     // Set when this request lands a live revision; dispatched after the commit.
     let publishedRevisionForEvents: FeatureRevisionInterface | null = null;
+    // Gates this request stepped over, named in the response like every other publish
+    // surface — without it a caller cannot tell a publish that needed no approval from
+    // one that bypassed a live requirement.
+    const bypassedGates: { type: string; outcome: "bypassed"; via: string }[] =
+      [];
 
     const hasRevisionChanges =
       hasEnvEnabledChanges ||
@@ -554,16 +559,19 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       };
 
       // Throws if the revision requires approval and the caller cannot bypass.
-      const { revision, updatedFeature: updatedFeatureFromRevision } =
-        await createAndPublishRevision({
-          context: req.context,
-          feature,
-          user: req.eventAudit,
-          org: req.organization,
-          changes: revisionChanges,
-          comment: "Created via REST API",
-          canBypassApprovalChecks: canBypass,
-        });
+      const {
+        revision,
+        updatedFeature: updatedFeatureFromRevision,
+        bypassedApproval,
+      } = await createAndPublishRevision({
+        context: req.context,
+        feature,
+        user: req.eventAudit,
+        org: req.organization,
+        changes: revisionChanges,
+        comment: "Created via REST API",
+        canBypassApprovalChecks: canBypass,
+      });
 
       Object.assign(feature, updatedFeatureFromRevision);
       updates.version = revision.version;
@@ -573,6 +581,15 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       // a consumer mirroring revision state sees the version advance with no publish
       // event — the only feature path that landed a revision silently.
       publishedRevisionForEvents = revision;
+      if (bypassedApproval) {
+        bypassedGates.push({
+          type: "approval-required",
+          outcome: "bypassed",
+          via: canBypass
+            ? "restApiBypassesReviews"
+            : "bypassApprovalPermission",
+        });
+      }
 
       // The enabled flips were excluded from the direct-write `updates` above
       // (frozen to their pre-update values) so they apply exactly once, via
@@ -661,6 +678,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         }),
         req.context,
       ),
+      ...(bypassedGates.length ? { bypassedGates } : {}),
     };
   },
 );
