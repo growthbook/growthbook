@@ -466,13 +466,13 @@ export default function AIProviderKeys({
         />
       ))}
 
-      {/* Plan name, badge and CTA all come from the commercial feature, so this
-          keeps up if ai-byok moves tiers. Only the managed-keys reassurance is
-          ours to write, and only Cloud has managed keys to fall back on. */}
+      {/* The badge names the plan, so the body only says what a key buys —
+          Cloud replaces GrowthBook's managed keys, self-hosted an env var. */}
       {canEdit && !canUseOwnKeys && (
         <PremiumCallout commercialFeature="ai-byok" id="ai-provider-keys">
-          Using your own AI provider keys requires an Enterprise plan.
-          {isCloud() && " AI features still work on GrowthBook's managed keys."}
+          {isCloud()
+            ? "Bill your provider directly, pick your own models, and skip the daily usage limit."
+            : "Add keys from this page instead of environment variables."}
         </PremiumCallout>
       )}
 
