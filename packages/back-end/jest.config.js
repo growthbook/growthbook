@@ -12,12 +12,10 @@ module.exports = {
       "<rootDir>/../../node_modules/.pnpm/@typespec+ts-http-runtime@0.3.1/node_modules/@typespec/ts-http-runtime/dist/commonjs/$1/internal.js",
   },
   setupFilesAfterEnv: ["<rootDir>/test/jest.setup.ts"],
-  // Cap parallelism only where a `pnpm dev` stack competes for the same box
-  // (local laptop or cloud dev agent). CI has a dedicated runner and runs the
-  // workspaces sequentially, so it keeps Jest's default worker count. Jest
-  // retains each file's module graph for the worker's lifetime (~140MB/file),
-  // so the idle-memory recycle keeps a long-lived worker from creeping toward
-  // the heap ceiling and OOMing.
+  // Off CI, tests share the box with a running `pnpm dev` stack, so cap
+  // workers.
   ...(process.env.CI ? {} : { maxWorkers: 2 }),
-  workerIdleMemoryLimit: "768MB",
+  // Each file's module graph stays resident (~140MB/file); recycle workers
+  // before the heap fills. Tighter off CI, where memory is shared.
+  workerIdleMemoryLimit: process.env.CI ? "2GB" : "768MB",
 };

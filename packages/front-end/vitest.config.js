@@ -6,9 +6,8 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["./test/setup.ts"],
-    // Cap parallelism only where a `pnpm dev` stack competes for the same box
-    // (local laptop or cloud dev agent). CI has a dedicated runner, so it keeps
-    // Vitest's default worker count.
+    // Off CI, tests share the box with a running `pnpm dev` stack, so cap
+    // workers.
     ...(process.env.CI ? {} : { maxWorkers: 2 }),
     coverage: {
       provider: "v8",
