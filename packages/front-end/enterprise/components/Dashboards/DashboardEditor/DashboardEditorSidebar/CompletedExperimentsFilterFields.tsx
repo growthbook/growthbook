@@ -1,12 +1,13 @@
 import { ReactNode } from "react";
-import { Box, Flex } from "@radix-ui/themes";
-import { ExplorationDateRange } from "shared/validators";
+import { Box } from "@radix-ui/themes";
+import { dateGranularity, ExplorationDateRange } from "shared/validators";
+import { BlockComparison } from "shared/enterprise";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";
 import SidebarExperimentFilters from "@/components/Search/SidebarExperimentFilters";
-import BlockDateRangePicker from "./BlockDateRangePicker";
+import DateRangeCompareDropdown from "@/enterprise/components/ProductAnalytics/DateRangeCompareDropdown";
 
 export interface CompletedExperimentsFilterValue {
   dateRange: ExplorationDateRange;
@@ -14,6 +15,9 @@ export interface CompletedExperimentsFilterValue {
   // Raw ExperimentSearchFilters query string; applied client-side on top of the
   // date/project scope.
   experimentSearchString?: string;
+  // Both patched through the same `onChange` as `dateRange` — see below.
+  comparison?: BlockComparison;
+  dateGranularity?: (typeof dateGranularity)[number];
 }
 
 interface Props {
@@ -22,17 +26,12 @@ interface Props {
   // Restrict the project options (e.g. to the dashboard's projects). Empty
   // means all org projects are selectable.
   availableProjects?: string[];
-  // Optional control rendered on the right of the "Date Range" label row (e.g.
-  // a Compare toggle), mirroring the Metric Explorer editor header.
-  dateRangeAccessory?: ReactNode;
-  // Optional content rendered between the Date Range and Projects fields
-  // (e.g. Team Velocity's Date Granularity control).
+  // Optional content rendered between the Date Range and Projects fields.
   afterDateRange?: ReactNode;
-  // Comparison support: when enabled and the range is a Custom Date Range, the
-  // picker shows the Prior / Current fields backed by previousTimeFrame.
-  comparisonEnabled?: boolean;
-  previousTimeFrame?: ExplorationDateRange;
-  onPreviousTimeFrameChange?: (dr: ExplorationDateRange) => void;
+  /** Blocks that bucket a time series (Team Velocity) opt in. */
+  showGranularity?: boolean;
+  /** Blocks that can't render a previous period leave this off. */
+  showCompare?: boolean;
 }
 
 // Shared date-range + project scoping controls for the "Completed Experiments"
@@ -41,11 +40,9 @@ export default function CompletedExperimentsFilterFields({
   value,
   onChange,
   availableProjects,
-  dateRangeAccessory,
   afterDateRange,
-  comparisonEnabled,
-  previousTimeFrame,
-  onPreviousTimeFrameChange,
+  showGranularity = false,
+  showCompare = false,
 }: Props) {
   const { projects } = useDefinitions();
   const { experiments } = useExperiments();
@@ -59,16 +56,31 @@ export default function CompletedExperimentsFilterFields({
   return (
     <>
       <Box>
-        <Flex justify="between" align="center" mb="2">
+        <Box mb="2">
           <Text weight="semibold">Date Range</Text>
-          {dateRangeAccessory}
-        </Flex>
-        <BlockDateRangePicker
-          value={value.dateRange}
-          onChange={(dateRange) => onChange({ dateRange })}
-          comparisonEnabled={comparisonEnabled}
-          previousTimeFrame={previousTimeFrame}
-          onPreviousTimeFrameChange={onPreviousTimeFrameChange}
+        </Box>
+        <DateRangeCompareDropdown
+          fullWidth
+          showCompare={showCompare}
+          showGranularity={showGranularity}
+          value={{
+            dateRange: value.dateRange,
+            comparison: (showCompare ? value.comparison : null) ?? null,
+            granularity: value.dateGranularity,
+          }}
+          // One Apply, one patch. Fanning out to separate setters, each
+          // spreading the same `block`, let the last one undo the others.
+          onChange={(next) =>
+            onChange({
+              dateRange: next.dateRange,
+              ...(showCompare
+                ? { comparison: next.comparison ?? undefined }
+                : {}),
+              ...(showGranularity && next.granularity
+                ? { dateGranularity: next.granularity }
+                : {}),
+            })
+          }
         />
       </Box>
 

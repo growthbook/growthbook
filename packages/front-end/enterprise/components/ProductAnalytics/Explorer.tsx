@@ -4,6 +4,7 @@ import { Flex, Box, AlertDialog } from "@radix-ui/themes";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { PiDotsSix } from "react-icons/pi";
 import {
+  ComparisonMode,
   DatasetType,
   ExplorationConfig,
   ExplorationDateRange,
@@ -31,6 +32,7 @@ import {
   explorationConfigParser,
   ExplorerDraftConfig,
   previousTimeFrameQueryParser,
+  comparisonModeQueryParser,
   stripExplorerDraftFields,
 } from "./util";
 
@@ -48,6 +50,11 @@ const explorationQueryParser = explorationConfigParser.withOptions({
 });
 
 const previousTimeFrameParser = previousTimeFrameQueryParser.withOptions({
+  shallow: true,
+  throttleMs: 0,
+});
+
+const comparisonModeParser = comparisonModeQueryParser.withOptions({
   shallow: true,
   throttleMs: 0,
 });
@@ -172,10 +179,13 @@ function ExplorerUrlSync({
 
 function ExplorerPreviousTimeFrameUrlSync({
   setUrlPreviousTimeFrame,
+  setUrlComparisonMode,
 }: {
   setUrlPreviousTimeFrame: (value: ExplorationDateRange | null) => void;
+  setUrlComparisonMode: (value: ComparisonMode | null) => void;
 }) {
-  const { draftExploreState } = useExplorerContext();
+  const { draftExploreState, compareEnabled, comparisonMode } =
+    useExplorerContext();
   const hasUserModified = useRef(false);
 
   useEffect(() => {
@@ -184,7 +194,14 @@ function ExplorerPreviousTimeFrameUrlSync({
       return;
     }
     void setUrlPreviousTimeFrame(draftExploreState.previousTimeFrame ?? null);
-  }, [draftExploreState.previousTimeFrame, setUrlPreviousTimeFrame]);
+    void setUrlComparisonMode(compareEnabled ? comparisonMode : null);
+  }, [
+    draftExploreState.previousTimeFrame,
+    compareEnabled,
+    comparisonMode,
+    setUrlPreviousTimeFrame,
+    setUrlComparisonMode,
+  ]);
 
   return null;
 }
@@ -216,6 +233,11 @@ function ExplorerInner({ type }: { type: DatasetType }) {
   const [urlPreviousTimeFrame, setUrlPreviousTimeFrame] = useQueryState(
     "previousTimeFrame",
     previousTimeFrameParser,
+  );
+
+  const [urlComparisonMode, setUrlComparisonMode] = useQueryState(
+    "comparisonMode",
+    comparisonModeParser,
   );
 
   const getQueryParam = (value: string | string[] | undefined) =>
@@ -324,7 +346,12 @@ function ExplorerInner({ type }: { type: DatasetType }) {
   const initialConfig: ExplorerDraftConfig = {
     ...baseConfig,
     ...(urlPreviousTimeFrame
-      ? { previousTimeFrame: urlPreviousTimeFrame }
+      ? {
+          previousTimeFrame: urlPreviousTimeFrame,
+          // Links shared before named modes existed carry no mode; the context
+          // falls back to the legacy reading of the primary range.
+          ...(urlComparisonMode ? { comparisonMode: urlComparisonMode } : {}),
+        }
       : {}),
   };
 
@@ -362,6 +389,7 @@ function ExplorerInner({ type }: { type: DatasetType }) {
             <ExplorerUrlSync setUrlConfig={setUrlConfig} />
             <ExplorerPreviousTimeFrameUrlSync
               setUrlPreviousTimeFrame={setUrlPreviousTimeFrame}
+              setUrlComparisonMode={setUrlComparisonMode}
             />
             <ExplorerContent />
           </>

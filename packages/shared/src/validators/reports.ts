@@ -7,6 +7,11 @@ import {
   lookbackOverride,
   metricOverride,
 } from "./experiments";
+import {
+  ownerEmailField,
+  ownerField,
+  optionalOwnerInputField,
+} from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 const idParams = z
@@ -111,6 +116,12 @@ export const apiReportValidator = namedSchema(
       )
       .optional(),
     experimentId: z.string().optional(),
+    owner: ownerField
+      .describe(
+        "The userId of the report owner. Absent for reports created before owner attribution existed.",
+      )
+      .optional(),
+    ownerEmail: ownerEmailField,
     snapshotId: z
       .string()
       .describe("Snapshot ID (experiment-snapshot type only)")
@@ -216,6 +227,7 @@ const postReportBody = z
       .describe("Report title (defaults to experiment name)")
       .optional(),
     description: z.string().describe("Report description").optional(),
+    owner: optionalOwnerInputField,
     statsEngine: z
       .enum(["bayesian", "frequentist"])
       .describe("Stats engine override")

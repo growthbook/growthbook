@@ -1,30 +1,85 @@
 import { Flex } from "@radix-ui/themes";
+import {
+  resolveComparisonMode,
+  resolveComparisonPreviousTimeFrame,
+} from "shared/enterprise";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { isTimelessSqlExploration } from "@/enterprise/components/ProductAnalytics/util";
+import DateRangeCompareDropdown from "@/enterprise/components/ProductAnalytics/DateRangeCompareDropdown";
+import type { DateRangeCompareValue } from "@/enterprise/components/ProductAnalytics/DateRangeComparePanel";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Switch from "@/ui/Switch";
 import GraphTypeSelector from "./GraphTypeSelector";
 import FunnelGraphTypeSelector from "./FunnelGraphTypeSelector";
 import FunnelYAxisSelector from "./FunnelYAxisSelector";
-import DateRangePicker, { ComparisonDateControls } from "./DateRangePicker";
-import GranularitySelector from "./GranularitySelector";
 
 export default function Toolbar() {
   const {
     draftExploreState,
-    submittedExploreState,
+    setDraftExploreState,
     compareEnabled,
-    setCompareEnabled,
+    comparisonMode,
     managedWarehouseUnavailable,
   } = useExplorerContext();
   const isFunnel = draftExploreState.dataset?.type === "funnel";
   const dateControlsDisabled = isTimelessSqlExploration(draftExploreState);
+  // Bucketing only applies to a date dimension, so a chart without one has no
+  // granularity to show.
+  const showGranularity =
+    !isFunnel &&
+    ["line", "area", "timeseries-table"].includes(draftExploreState.chartType);
 
-  const showComparisonDateControls =
-    compareEnabled &&
-    draftExploreState.dateRange.predefined === "customDateRange" &&
-    Boolean(draftExploreState.dateRange.startDate) &&
-    Boolean(draftExploreState.dateRange.endDate);
+  const dateRangeValue: DateRangeCompareValue = {
+    dateRange: draftExploreState.dateRange,
+    comparison: compareEnabled
+      ? {
+          enabled: true,
+          mode: comparisonMode,
+          previousTimeFrame: draftExploreState.previousTimeFrame,
+        }
+      : null,
+    granularity:
+      draftExploreState.dimensions.find((d) => d.dimensionType === "date")
+        ?.dateGranularity ?? "auto",
+  };
+
+  const applyDateRange = ({
+    dateRange,
+    comparison,
+    granularity,
+  }: DateRangeCompareValue) => {
+    setDraftExploreState((prev) => {
+      const next = {
+        ...prev,
+        dateRange,
+        ...(granularity
+          ? {
+              dimensions: prev.dimensions.map((d) =>
+                d.dimensionType === "date"
+                  ? { ...d, dateGranularity: granularity }
+                  : d,
+              ),
+            }
+          : {}),
+      };
+      if (!comparison?.enabled) {
+        const {
+          previousTimeFrame: _,
+          comparisonMode: __,
+          ...withoutCompare
+        } = next;
+        return withoutCompare;
+      }
+      const mode = resolveComparisonMode(comparison);
+      return {
+        ...next,
+        comparisonMode: mode,
+        previousTimeFrame: resolveComparisonPreviousTimeFrame(
+          dateRange,
+          comparison,
+        ),
+      };
+    });
+  };
 
   return (
     <Flex align="start" gap="3" width="100%" style={{ minHeight: "32px" }}>
@@ -50,43 +105,14 @@ export default function Toolbar() {
           usePortal
           style={{ display: "inline-flex" }}
         >
-          <Switch
-            label="Compare"
-            value={compareEnabled}
-            onChange={setCompareEnabled}
-            disabled={
-              dateControlsDisabled ||
-              !submittedExploreState ||
-              managedWarehouseUnavailable
-            }
+          <DateRangeCompareDropdown
+            showCompare
+            showGranularity={showGranularity}
+            value={dateRangeValue}
+            onChange={applyDateRange}
+            disabled={dateControlsDisabled || managedWarehouseUnavailable}
           />
         </Tooltip>
-        {showComparisonDateControls ? (
-          <ComparisonDateControls
-            groupBySlot={
-              ["line", "area", "timeseries-table"].includes(
-                draftExploreState.chartType,
-              ) ? (
-                <GranularitySelector />
-              ) : null
-            }
-          />
-        ) : (
-          <>
-            <Tooltip
-              body="Update your SQL query to return a date or timestamp column to filter by date."
-              shouldDisplay={dateControlsDisabled}
-              usePortal
-              style={{ display: "inline-flex" }}
-            >
-              <DateRangePicker disabled={dateControlsDisabled} />
-            </Tooltip>
-            {!isFunnel &&
-              ["line", "area", "timeseries-table"].includes(
-                draftExploreState.chartType,
-              ) && <GranularitySelector />}
-          </>
-        )}
       </Flex>
     </Flex>
   );

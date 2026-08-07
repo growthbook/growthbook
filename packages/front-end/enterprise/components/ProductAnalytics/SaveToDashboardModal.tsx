@@ -14,6 +14,7 @@ import {
 } from "shared/enterprise";
 import {
   ExplorationConfig,
+  ComparisonMode,
   ExplorationDateRange,
   ProductAnalyticsExploration,
 } from "shared/validators";
@@ -67,6 +68,8 @@ interface Props {
   compareEnabled?: boolean;
   /** The comparison (previous) window the explorer submitted, if any. */
   previousTimeFrame?: ExplorationDateRange | null;
+  /** How the previous window is derived; only `custom` persists the window. */
+  comparisonMode?: ComparisonMode;
   /** Current comparison exploration id, to seed the block before first refresh. */
   comparisonExplorationId?: string | null;
   trackingSource?: string;
@@ -78,6 +81,7 @@ export default function SaveToDashboardModal({
   exploration,
   compareEnabled = false,
   previousTimeFrame = null,
+  comparisonMode = "previousPeriod",
   comparisonExplorationId = null,
   trackingSource,
 }: Props) {
@@ -125,13 +129,14 @@ export default function SaveToDashboardModal({
   const handleSubmit = async () => {
     const blockType = datasetTypeToBlockType(config.dataset.type);
     // Persist the comparison so dashboards can show it and roll it on refresh.
-    // Only store `previousTimeFrame` for a fixed (custom date range) primary;
-    // relative primaries re-derive the previous window each refresh so it rolls.
+    // Only `custom` needs its window stored; every other mode re-derives it each
+    // refresh so it rolls with the primary range.
     const comparison = compareEnabled
       ? {
           enabled: true,
+          mode: comparisonMode,
           previousTimeFrame:
-            config.dateRange.predefined === "customDateRange"
+            comparisonMode === "custom"
               ? (previousTimeFrame ?? undefined)
               : undefined,
         }

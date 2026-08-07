@@ -15,6 +15,7 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import { useStripeContext } from "@/hooks/useStripeContext";
+import { useForceLicenseRefresh } from "@/hooks/useForceLicenseRefresh";
 import { taxIdTypeOptions } from "@/enterprise/components/Billing/CloudProUpgradeModal";
 import RadioCards from "@/ui/RadioCards";
 import Field from "@/components/Forms/Field";
@@ -22,6 +23,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
 import Checkbox from "@/ui/Checkbox";
+import UIButton from "@/ui/Button";
 import Button from "@/components/Button";
 import track from "@/services/track";
 import Callout from "@/ui/Callout";
@@ -62,6 +64,12 @@ const SelectInitialPlan: FC = () => {
     setOrgId,
   } = useAuth();
   const { email } = useUser();
+  const {
+    status: organizationRefreshStatus,
+    refresh: refreshOrganizationAfterUpgrade,
+    retry: retryOrganizationRefresh,
+  } = useForceLicenseRefresh();
+  const organizationRefreshFailed = organizationRefreshStatus !== "idle";
   const plan: InitialPlanOptions =
     initialPlanSelection === "pro" || initialPlanSelection === "starter"
       ? initialPlanSelection
@@ -253,16 +261,46 @@ const SelectInitialPlan: FC = () => {
           onBack={handleBack}
           setLoading={setLoading}
           setError={setError}
+          refreshOrganizationAfterUpgrade={refreshOrganizationAfterUpgrade}
         />
       )}
       {step >= 4 && (
         <div style={{ maxWidth: "500px" }}>
-          <h2 className="h3 mb-1">Welcome to GrowthBook Pro!</h2>
-          <p className="text-muted mb-3">
-            You&apos;re all set! Go to your GrowthBook dashboard to start your
-            setup.
-          </p>
-          <Button color="primary" onClick={completeFlow} disabled={loading}>
+          <h2 className="h3 mb-1">
+            {organizationRefreshFailed
+              ? "GrowthBook Pro Subscription Created"
+              : "Welcome to GrowthBook Pro!"}
+          </h2>
+          {!organizationRefreshFailed && (
+            <p className="text-muted mb-3">
+              You&apos;re all set! Go to your GrowthBook dashboard to start your
+              setup.
+            </p>
+          )}
+          {organizationRefreshFailed && (
+            <Callout
+              status="warning"
+              mt="3"
+              action={
+                <UIButton
+                  size="sm"
+                  color="inherit"
+                  loading={organizationRefreshStatus === "loading"}
+                  onClick={retryOrganizationRefresh}
+                >
+                  Try again
+                </UIButton>
+              }
+            >
+              We couldn&apos;t refresh your organization details. Try again to
+              see your updated plan.
+            </Callout>
+          )}
+          <Button
+            color="primary"
+            onClick={completeFlow}
+            disabled={loading || organizationRefreshStatus === "loading"}
+          >
             Get started
           </Button>
         </div>
@@ -377,6 +415,7 @@ type ProPaymentStepProps = {
   onBack: () => void;
   setLoading: (v: boolean) => void;
   setError: (v: string | null) => void;
+  refreshOrganizationAfterUpgrade: () => Promise<void>;
 };
 
 const ProPaymentStep: FC<ProPaymentStepProps> = ({
@@ -386,6 +425,7 @@ const ProPaymentStep: FC<ProPaymentStepProps> = ({
   onBack,
   setLoading,
   setError,
+  refreshOrganizationAfterUpgrade,
 }) => {
   // StripeProvider now owns the load-Stripe-then-create-Radar-session-then-
   // fetch-SetupIntent flow, so this component just renders it directly.
@@ -398,6 +438,7 @@ const ProPaymentStep: FC<ProPaymentStepProps> = ({
         setLoading={setLoading}
         setError={setError}
         error={error}
+        refreshOrganizationAfterUpgrade={refreshOrganizationAfterUpgrade}
       />
     </StripeProvider>
   );
@@ -410,6 +451,7 @@ type ProPaymentFormProps = {
   setLoading: (v: boolean) => void;
   setError: (v: string | null) => void;
   error: string | null;
+  refreshOrganizationAfterUpgrade: () => Promise<void>;
 };
 
 const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
@@ -419,9 +461,10 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
   setLoading,
   setError,
   error,
+  refreshOrganizationAfterUpgrade,
 }) => {
   const { apiCall } = useAuth();
-  const { organization, refreshOrganization } = useUser();
+  const { organization } = useUser();
   const stripe = useStripe();
   const elements = useElements();
   const { clientSecret } = useStripeContext();
@@ -484,14 +527,16 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
               : undefined,
         }),
       });
-      await refreshOrganization();
-      setLoading(false);
-      onSuccess();
     } catch (e) {
       setLoading(false);
       const message = e instanceof Error ? e.message : "Something went wrong";
       setError(message);
+      return;
     }
+
+    await refreshOrganizationAfterUpgrade();
+    setLoading(false);
+    onSuccess();
   };
 
   return (

@@ -12,17 +12,26 @@ export function isContextualBanditAttrColumn(key: string): boolean {
   return key.startsWith(ATTR_CB_PREFIX);
 }
 
-/** Build a targeting condition from flat metric-query row columns (`attr_cb_*` or bare names). */
-export function attributeConditionFromMetricRow(
-  row: Record<string, string | number | undefined>,
-  attributeColumns: string[],
-): Record<string, unknown> {
-  const condition: Record<string, unknown> = {};
-  for (const attr of attributeColumns) {
-    const val = row[contextualBanditAttrCol(attr)] ?? row[attr];
-    if (val !== null && val !== undefined) {
-      condition[attr] = val;
-    }
+/**
+ * Reader for an attribute's value in a flat metric-query row (`attr_cb_*` or
+ * bare column name).
+ *
+ * The alias embeds the attribute's column name, which may be mixed case. We emit
+ * it unquoted, so warehouses that fold identifiers (Postgres, Redshift) return
+ * it lowercased while others (BigQuery, ClickHouse) preserve it as written.
+ */
+export function metricRowAttributeReader(
+  row: Record<string, unknown>,
+): (attribute: string) => unknown {
+  const lowerCaseRow: Record<string, unknown> = {};
+  for (const key of Object.keys(row)) {
+    lowerCaseRow[key.toLowerCase()] = row[key];
   }
-  return condition;
+  return (attribute: string) => {
+    const lowerCaseAttribute = attribute.toLowerCase();
+    return (
+      lowerCaseRow[contextualBanditAttrCol(lowerCaseAttribute)] ??
+      lowerCaseRow[lowerCaseAttribute]
+    );
+  };
 }

@@ -10,6 +10,8 @@ import {
   getEffectiveExplorationConfig,
   getExplorationDateControlFingerprint,
   resolveBlockComparison,
+  resolveComparisonMode,
+  getComparisonAlignmentStrategy,
   computeExplorationComparisonPayload,
   DashboardBlockInterfaceOrData,
 } from "shared/enterprise";
@@ -40,6 +42,7 @@ function pollDelayForExploration(
 export default function ProductAnalyticsExplorerBlock({
   block,
   dashboardGlobalControls,
+  dashboardComparison,
 }: BlockProps<
   | MetricExplorationBlockInterface
   | FactTableExplorationBlockInterface
@@ -51,6 +54,7 @@ export default function ProductAnalyticsExplorerBlock({
     <ProductAnalyticsExplorerVisualization
       block={block}
       dashboardGlobalControls={dashboardGlobalControls}
+      dashboardComparison={dashboardComparison}
     />
   );
 }
@@ -58,6 +62,7 @@ export default function ProductAnalyticsExplorerBlock({
 export function ProductAnalyticsExplorerVisualization({
   block,
   dashboardGlobalControls,
+  dashboardComparison,
 }: {
   block: DashboardBlockInterfaceOrData<
     | MetricExplorationBlockInterface
@@ -67,6 +72,7 @@ export function ProductAnalyticsExplorerVisualization({
     | FunnelExplorationBlockInterface
   >;
   dashboardGlobalControls?: BlockProps<SqlExplorationBlockInterface>["dashboardGlobalControls"];
+  dashboardComparison?: BlockProps<SqlExplorationBlockInterface>["dashboardComparison"];
 }) {
   const { getFactMetricById } = useDefinitions();
   const { data, error, isLoading } = useApi<{
@@ -81,11 +87,15 @@ export function ProductAnalyticsExplorerVisualization({
     refreshInterval: (latest) => pollDelayForExploration(latest?.exploration),
   });
 
-  // Comparison is resolved through the shared seam so a future dashboard-wide
-  // compare toggle drives this the same way. The previous-period exploration is
-  // a separate entity produced on refresh; fetch it when present.
-  const comparison = resolveBlockComparison(block);
+  // Pass the dashboard, or a dashboard-wide comparison renders as primary-only.
+  // The previous-period exploration is a separate entity produced on refresh.
+  const comparison = resolveBlockComparison(block, {
+    comparison: dashboardComparison,
+  });
   const compareEnabled = !!comparison?.enabled;
+  const comparisonMode = comparison
+    ? resolveComparisonMode(comparison)
+    : "previousPeriod";
   const { data: comparisonData } = useApi<{
     status: number;
     exploration: ProductAnalyticsExploration;
@@ -154,6 +164,7 @@ export function ProductAnalyticsExplorerVisualization({
       submittedConfig,
       submittedPreviousTimeFrame,
       (id) => getFactMetricById(id) ?? null,
+      getComparisonAlignmentStrategy(comparisonMode),
     );
   }, [
     compareEnabled,
@@ -161,6 +172,7 @@ export function ProductAnalyticsExplorerVisualization({
     rawComparisonExploration,
     submittedConfig,
     submittedPreviousTimeFrame,
+    comparisonMode,
     getFactMetricById,
   ]);
 
@@ -209,6 +221,7 @@ export function ProductAnalyticsExplorerVisualization({
           exploration={data.exploration}
           comparisonExploration={comparisonExploration}
           compareEnabled={compareEnabled}
+          comparisonMode={compareEnabled ? comparisonMode : null}
           serverTableTrendsByRow={comparisonPayload?.tableTrendsByRow ?? null}
           error={data.exploration.error ?? error?.message ?? null}
           submittedExploreState={submittedConfig ?? data.exploration.config}
@@ -222,6 +235,7 @@ export function ProductAnalyticsExplorerVisualization({
           comparisonExploration={comparisonExploration}
           compareEnabled={compareEnabled}
           submittedPreviousTimeFrame={submittedPreviousTimeFrame}
+          submittedComparisonMode={compareEnabled ? comparisonMode : null}
           serverBigNumberTrends={comparisonPayload?.bigNumberTrends ?? null}
           error={data?.exploration.error || error?.message || null}
           loading={isLoading}

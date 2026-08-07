@@ -40,7 +40,9 @@ export default function ExplorerMainSection({
     compareEnabled,
     comparisonExploration,
     comparisonComputed,
+    comparisonError,
     submittedPreviousTimeFrame,
+    submittedComparisonMode,
   } = useExplorerContext();
 
   const showChartSection = shouldChartSectionShow({
@@ -234,6 +236,11 @@ export default function ExplorerMainSection({
               }}
             >
               <Toolbar />
+              {compareEnabled && comparisonError && !loading && (
+                <Callout status="warning" size="sm">
+                  {`The comparison period could not be loaded, so only the current period is shown: ${comparisonError}`}
+                </Callout>
+              )}
               <Flex
                 direction="column"
                 style={{ flex: 1, minHeight: 0, position: "relative" }}
@@ -263,6 +270,7 @@ export default function ExplorerMainSection({
                             submittedPreviousTimeFrame={
                               submittedPreviousTimeFrame
                             }
+                            submittedComparisonMode={submittedComparisonMode}
                             serverBigNumberTrends={
                               comparisonComputed?.bigNumberTrends ?? null
                             }
@@ -312,6 +320,7 @@ export default function ExplorerMainSection({
                         query={query}
                         compareEnabled={compareEnabled}
                         comparisonExploration={comparisonExploration}
+                        comparisonMode={submittedComparisonMode}
                         serverTableTrendsByRow={
                           comparisonComputed?.tableTrendsByRow ?? null
                         }

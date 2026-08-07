@@ -32,9 +32,9 @@ const LoggedInPageGuard = ({
               className="appbox p-4"
               style={{ maxWidth: 500, margin: "auto" }}
             >
-              <h3 className="mb-3">Error Signing In</h3>
+              <h3 className="mb-3">Something Went Wrong</h3>
               <Callout status="error">{error}</Callout>
-              <div className="d-flex">
+              <div className="d-flex align-items-center mt-3">
                 <Button
                   className="ml-auto"
                   onClick={async () => {

@@ -12,8 +12,10 @@ import {
   isDashboardGlobalControlSupportedBlock,
   autoEnrollDashboardBlocksInDateControl,
   blockUsesDashboardDateControl,
+  isEnablingDashboardDateControl,
   getEffectiveExplorationConfig,
   resolveBlockComparison,
+  resolveComparisonMode,
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
 import { LayoutItem } from "react-grid-layout";
@@ -70,6 +72,7 @@ interface Props {
   updateTemporaryDashboard?: (update: {
     blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
     globalControls?: DashboardInterface["globalControls"];
+    comparison?: DashboardInterface["comparison"];
   }) => void;
 }
 export default function DashboardWorkspace({
@@ -101,9 +104,11 @@ export default function DashboardWorkspace({
     if (dashboard) {
       setBlocks(dashboard.blocks);
       setGlobalControls(dashboard.globalControls);
+      setDashboardComparison(dashboard.comparison);
     } else {
       setBlocks([]);
       setGlobalControls(undefined);
+      setDashboardComparison(undefined);
     }
   }, [dashboard]);
   const { metricGroups, datasources } = useDefinitions();
@@ -118,10 +123,9 @@ export default function DashboardWorkspace({
       setSaving(true);
       setSaveError(undefined);
       try {
-        const result = await submitDashboard({
-          ...args,
-          data: { ...dashboard, ...args.data },
-        });
+        // Only what the caller changed. Spreading `dashboard` re-sent a stale
+        // snapshot of every field, so each save rolled back the previous one.
+        const result = await submitDashboard(args);
         return result;
       } catch (e) {
         setSaveError(e.message);
@@ -130,7 +134,7 @@ export default function DashboardWorkspace({
         setSaving(false);
       }
     },
-    [submitDashboard, dashboard],
+    [submitDashboard],
   );
 
   const [blocks, setBlocks] = useState<
@@ -139,6 +143,9 @@ export default function DashboardWorkspace({
   const [globalControls, setGlobalControls] = useState<
     DashboardInterface["globalControls"]
   >(dashboard.globalControls);
+  const [dashboardComparison, setDashboardComparison] = useState<
+    DashboardInterface["comparison"]
+  >(dashboard.comparison);
   const { fetchData: fetchExplorationData } = useExploreData();
   const updateTemporaryDashboardResults = async (
     controls: DashboardInterface["globalControls"] = globalControls,
@@ -151,12 +158,16 @@ export default function DashboardWorkspace({
         const config = getEffectiveExplorationConfig(block, {
           globalControls: controls,
         });
-        const comparison = resolveBlockComparison(block, dashboard);
+        // Staged state: a toggle in this session hasn't round-tripped yet.
+        const comparison = resolveBlockComparison(block, {
+          comparison: dashboardComparison,
+        });
         const result = await fetchExplorationData(config, {
           cache: "never",
           previousTimeFrame: comparison
             ? resolveComparisonPreviousTimeFrame(config.dateRange, comparison)
             : null,
+          comparisonMode: comparison ? resolveComparisonMode(comparison) : null,
         });
         if (!result.data) {
           throw new Error(result.error ?? "Failed to update dashboard block");
@@ -208,16 +219,18 @@ export default function DashboardWorkspace({
 
   const setGlobalControlsAndSubmit = useMemo(() => {
     return async (
-      globalControls: DashboardInterface["globalControls"],
+      nextGlobalControls: DashboardInterface["globalControls"],
       controlBlocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
     ) => {
+      // Only on first enable. Re-enrolling on every date change would flip
+      // blocks the user had opted out of back onto the dashboard filter.
       const nextControlBlocks =
         controlBlocks ??
-        (globalControls?.dateRange
+        (isEnablingDashboardDateControl(globalControls, nextGlobalControls)
           ? autoEnrollDashboardBlocksInDateControl(blocks)
           : undefined);
       setHasMadeChanges(true);
-      setGlobalControls(globalControls);
+      setGlobalControls(nextGlobalControls);
       if (nextControlBlocks) {
         setBlocks(nextControlBlocks);
       }
@@ -225,7 +238,7 @@ export default function DashboardWorkspace({
       if (dashboardFirstSave) {
         updateTemporaryDashboard?.({
           ...(nextControlBlocks ? { blocks: nextControlBlocks } : {}),
-          globalControls,
+          globalControls: nextGlobalControls,
         });
       } else {
         await submit({
@@ -233,7 +246,7 @@ export default function DashboardWorkspace({
           dashboardId: dashboard.id,
           data: {
             ...(nextControlBlocks ? { blocks: nextControlBlocks } : {}),
-            globalControls,
+            globalControls: nextGlobalControls,
           },
         });
       }
@@ -242,10 +255,30 @@ export default function DashboardWorkspace({
     dashboard.id,
     dashboardFirstSave,
     blocks,
+    globalControls,
     setBlocks,
     submit,
     updateTemporaryDashboard,
   ]);
+
+  const setDashboardComparisonAndSubmit = useMemo(() => {
+    return async (comparison: DashboardInterface["comparison"]) => {
+      // `{ enabled: false }`, not `undefined`: undefined keys drop out of the
+      // PUT body, which the model reads as "leave this field alone".
+      const next = comparison ?? { enabled: false };
+      setHasMadeChanges(true);
+      setDashboardComparison(next);
+      if (dashboardFirstSave) {
+        updateTemporaryDashboard?.({ comparison: next });
+      } else {
+        await submit({
+          method: "PUT",
+          dashboardId: dashboard.id,
+          data: { comparison: next },
+        });
+      }
+    };
+  }, [dashboard.id, dashboardFirstSave, submit, updateTemporaryDashboard]);
 
   const [editSidebarExpanded, setEditSidebarExpanded] = useState(true);
   const [editSidebarDirty, setEditSidebarDirty] = useState(false);
@@ -477,12 +510,18 @@ export default function DashboardWorkspace({
                     await submit({
                       method: "PUT",
                       dashboardId: dashboard.id,
-                      data: pick(dashboardCopy, [
-                        "blocks",
-                        "title",
-                        "editLevel",
-                        "enableAutoUpdates",
-                      ]),
+                      data: {
+                        ...pick(dashboardCopy, [
+                          "blocks",
+                          "title",
+                          "editLevel",
+                          "enableAutoUpdates",
+                          "globalControls",
+                        ]),
+                        comparison: dashboardCopy.comparison ?? {
+                          enabled: false,
+                        },
+                      },
                     });
                     close();
                   }}
@@ -629,6 +668,8 @@ export default function DashboardWorkspace({
               }}
               mutate={mutate}
               onGlobalControlsChange={setGlobalControlsAndSubmit}
+              dashboardComparison={dashboardComparison}
+              onDashboardComparisonChange={setDashboardComparisonAndSubmit}
               updateTemporaryDashboardResults={
                 dashboardFirstSave ? updateTemporaryDashboardResults : undefined
               }

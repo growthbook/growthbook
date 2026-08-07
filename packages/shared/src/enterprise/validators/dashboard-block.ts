@@ -11,6 +11,7 @@ import {
   sqlExplorationConfigValidator,
   funnelExplorationConfigValidator,
   explorationDateRangeValidator,
+  comparisonModeValidator,
   dateGranularity,
   ExplorationDateRange,
 } from "../../validators/product-analytics";
@@ -255,12 +256,16 @@ export type MetricExperimentsBlockInterface = z.infer<
 // resolveCompletedExperimentsFilters so a future dashboard-wide filter bar can
 // override them (see resolveBlockComparison for the same pattern).
 // Period comparison for a dashboard block. `enabled` turns the comparison on;
-// `previousTimeFrame` is only persisted for fixed windows (custom date ranges) —
-// predefined/rolling primaries re-derive (and roll) the previous period on each
-// refresh. Kept as a structured object so a future dashboard-wide compare toggle
-// can resolve to the same shape (see resolveBlockComparison).
+// `mode` names how the previous period is derived and `previousTimeFrame` holds
+// the frozen window that only `mode: "custom"` uses — every other mode
+// re-derives (and rolls) on each refresh. `mode` is optional so comparisons
+// saved before named modes existed still resolve: a persisted window meant
+// "custom", its absence meant "previousPeriod" (see resolveComparisonMode).
+// Kept as a structured object so a dashboard-wide compare toggle resolves to
+// the same shape (see resolveBlockComparison).
 export const blockComparisonValidator = z.object({
   enabled: z.boolean(),
+  mode: comparisonModeValidator.optional(),
   previousTimeFrame: explorationDateRangeValidator.optional(),
 });
 export type BlockComparison = z.infer<typeof blockComparisonValidator>;
@@ -530,11 +535,10 @@ const funnelExplorationBlockInterface = baseBlockInterface.extend({
 });
 
 /**
- * The effective comparison for an exploration block. Today this is just the
- * block's own setting (saved from the explorer). The `dashboard` arg is the
- * forward-compat seam: a future dashboard-wide compare toggle
- * (`dashboard.comparison`) takes precedence here, so refresh/render code that
- * calls this never has to change. Returns null when comparison is off.
+ * The effective comparison for an exploration block: the dashboard-wide setting
+ * wins over the block's own (saved from the explorer). Null when comparison is
+ * off. Every read path must pass `dashboard` — omitting it silently downgrades to
+ * block-only comparison.
  */
 export function resolveBlockComparison(
   block: {
@@ -554,7 +558,11 @@ export function resolveBlockComparison(
   ) {
     return null;
   }
-  if (dashboard?.comparison?.enabled) return dashboard.comparison;
+  // An existing dashboard-wide setting wins both ways — falling through from
+  // `{ enabled: false }` left tiles comparing after the user turned it off.
+  if (dashboard?.comparison) {
+    return dashboard.comparison.enabled ? dashboard.comparison : null;
+  }
   if (block.comparison?.enabled) return block.comparison;
   return null;
 }

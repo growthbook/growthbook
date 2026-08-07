@@ -10,6 +10,13 @@ const cspHeader = `
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // The app doesn't use next/image anywhere, so the /_next/image optimizer is
+  // unused product surface — only a public, unauthenticated endpoint for SSRF/
+  // path-traversal probing and (via its uncapped disk cache) disk-fill risk.
+  // Disabling it closes the route entirely (404) instead of serving it.
+  images: {
+    unoptimized: true,
+  },
   turbopack: {
     root: path.join(__dirname, "../.."),
     // Ace workers: load as raw text so we can create Blob URLs. Turbopack doesn't support
