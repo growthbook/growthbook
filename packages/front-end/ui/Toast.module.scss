@@ -1,0 +1,14 @@
+.toast {
+  position: fixed;
+  right: 20px;
+  // Clear the in-app help FAB (50px at bottom: 20px).
+  bottom: 84px;
+  // Above the help button (z-index 10), below dropdowns (1200) and modals.
+  z-index: 1000;
+  max-width: min(360px, calc(100vw - 40px));
+  border-radius: var(--radius-4);
+  box-shadow: var(--shadow-5);
+  // Opaque so page content doesn't bleed through the translucent Callout.
+  overflow: hidden;
+  background-color: var(--color-panel-solid);
+}

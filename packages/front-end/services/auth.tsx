@@ -17,6 +17,7 @@ import {
   UnauthenticatedResponse,
 } from "shared/types/sso-connection";
 import { setUser as sentrySetUser } from "@sentry/nextjs";
+import { useSWRConfig } from "swr";
 import { roleSupportsEnvLimit } from "shared/permissions";
 import Modal from "@/components/Modal";
 import ApiWarningModal from "@/components/ApiWarningModal";
@@ -25,6 +26,7 @@ import Welcome from "@/components/Auth/Welcome";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
 import type { InitialPlanOptions } from "@/components/Auth/SelectInitialPlan";
 import Callout from "@/ui/Callout";
+import Toast from "@/ui/Toast";
 import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
 import { getGrowthBookTrackingHeaders } from "./utils";
 import { useProject, LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
@@ -47,6 +49,9 @@ export function appendIgnoreWarnings(url: string): string {
 export function isExternalApiPath(url: string): boolean {
   return /^\/api\/v\d/.test(url);
 }
+
+// Sentinel for an unrecoverable session; drives the "signed out" toast.
+export const SESSION_EXPIRED_ERROR = "Your session has expired.";
 
 export interface AuthContextValue {
   isAuthenticated: boolean;
@@ -254,6 +259,8 @@ export const AuthProvider: React.FC<{
   const router = useRouter();
   const initialOrgId = router.query.org ? router.query.org + "" : null;
 
+  const { mutate: globalMutate } = useSWRConfig();
+
   const [, setProject] = useProject();
 
   async function init() {
@@ -446,26 +453,13 @@ export const AuthProvider: React.FC<{
               }
               init.headers["Authorization"] = `Bearer ${resp.token}`;
               return fetch(getApiHost() + url, init);
-            } else if ("redirectURI" in resp) {
-              try {
-                const redirectAddress =
-                  window.location.pathname + (window.location.search || "");
-                window.sessionStorage.setItem(
-                  "postAuthRedirectPath",
-                  redirectAddress,
-                );
-              } catch (e) {
-                // ignore
-              }
-              await redirectWithTimeout(resp.redirectURI);
             }
+            // Couldn't recover — flag it (don't navigate) so the toast can offer sign-in.
             setSessionError(true);
-            throw new Error(
-              "Your session has expired. Refresh the page to continue.",
-            );
+            throw new Error(SESSION_EXPIRED_ERROR);
           }
         } catch (e) {
-          if (e instanceof Error && e.message.includes("session has expired")) {
+          if (e instanceof Error && e.message === SESSION_EXPIRED_ERROR) {
             throw e;
           }
           console.error("Token refresh failed for 401 response:", e);
@@ -495,6 +489,58 @@ export const AuthProvider: React.FC<{
     pending.forEach((w) => w.resolve(proceed));
   }, []);
 
+  // Re-run refresh to recover the session; allowRedirect lets only explicit clicks navigate.
+  const recoverSession = useCallback(
+    async (allowRedirect: boolean) => {
+      try {
+        const resp = await refreshToken();
+        if ("token" in resp) {
+          setToken(resp.token);
+          if (resp.ssoConnectionId) {
+            setSsoConnectionId(resp.ssoConnectionId);
+          }
+          setSessionError(false);
+          // Revalidate everything so the stale page catches up.
+          await globalMutate(() => true);
+          return;
+        }
+        if (!allowRedirect) return;
+        if ("redirectURI" in resp) {
+          try {
+            window.sessionStorage.setItem(
+              "postAuthRedirectPath",
+              window.location.pathname + (window.location.search || ""),
+            );
+          } catch (e) {
+            // ignore
+          }
+          await redirectWithTimeout(resp.redirectURI);
+          return;
+        }
+        // Local auth: reload so the login screen shows and we return here.
+        await redirectWithTimeout(window.location.href);
+      } catch (e) {
+        // Transient failure — leave the toast up; never redirect on error.
+      }
+    },
+    [globalMutate],
+  );
+
+  // While signed out, silently retry on focus so a sign-in elsewhere heals this tab.
+  useEffect(() => {
+    if (!sessionError) return;
+    const onFocus = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      recoverSession(false);
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [sessionError, recoverSession]);
+
   const apiCall = useCallback(
     async (
       url: string | null,
@@ -520,24 +566,10 @@ export const AuthProvider: React.FC<{
               throw new Error(responseData.message || "There was an error");
             }
             return responseData;
-          } else if ("redirectURI" in resp) {
-            try {
-              const redirectAddress =
-                window.location.pathname + (window.location.search || "");
-              window.sessionStorage.setItem(
-                "postAuthRedirectPath",
-                redirectAddress,
-              );
-            } catch (e) {
-              // ignore
-            }
-            // Don't need to confirm, just redirect immediately
-            await redirectWithTimeout(resp.redirectURI);
           }
+          // Couldn't recover — flag it (don't navigate) so the toast can offer sign-in.
           setSessionError(true);
-          throw new Error(
-            "Your session has expired. Refresh the page to continue.",
-          );
+          throw new Error(SESSION_EXPIRED_ERROR);
         }
 
         // Soft warning: let the user acknowledge, then re-submit ignoring warnings.
@@ -638,24 +670,6 @@ export const AuthProvider: React.FC<{
     );
   }
 
-  if (sessionError) {
-    return (
-      <Modal
-        useRadixButton={false}
-        trackingEventModalType=""
-        open={true}
-        cta="OK"
-        submit={async () => {
-          await redirectWithTimeout(window.location.href);
-        }}
-        autoCloseOnSubmit={false}
-      >
-        <h3>You&apos;ve been logged out</h3>
-        <p>Sign back in to keep using GrowthBook</p>
-      </Modal>
-    );
-  }
-
   return (
     <AuthContext.Provider
       value={{
@@ -712,6 +726,14 @@ export const AuthProvider: React.FC<{
             onConfirm={() => resolveWarnings(true)}
             onCancel={() => resolveWarnings(false)}
           />
+        )}
+        {sessionError && (
+          <Toast
+            status="error"
+            action={{ label: "Sign in", onClick: () => recoverSession(true) }}
+          >
+            You&rsquo;ve been logged out. Sign back in to keep using GrowthBook.
+          </Toast>
         )}
       </>
     </AuthContext.Provider>
