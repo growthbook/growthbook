@@ -1,132 +1,87 @@
-/* Design-system pagination (ReactPaginate + Radix tokens), scoped under .root */
 .root {
   display: flex;
   align-items: center;
-  gap: var(--space-2, 8px);
-  justify-content: flex-start;
-  padding: var(--space-3, 12px) 0;
-  min-height: var(--space-8, 48px);
+  padding-top: var(--space-4);
 
   .container {
     display: flex;
     align-items: center;
-    gap: var(--space-2, 8px);
-    justify-content: flex-start;
-    list-style: none !important;
-    list-style-type: none !important;
+    gap: var(--space-1);
     padding: 0;
     margin: 0;
-    flex-direction: row;
+    font-size: var(--font-size-1);
 
     li {
-      list-style: none !important;
-      list-style-type: none !important;
+      box-sizing: border-box;
+      list-style: none;
       margin: 0;
       padding: 0;
     }
   }
 
-  .page {
-    margin: 0;
-  }
-
-  .page .link {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2, 8px);
-  }
-
-  .link {
+  .button {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 32px;
-    height: 32px;
-    padding: 0 8px;
-    border-radius: var(--border-radius-3, 6px);
-    border: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
-    background: var(--color-surface, rgba(255, 255, 255, 0.85));
-    color: var(--gray-11);
-    font-size: 14px;
-    font-weight: 400;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    text-decoration: none;
-  }
-
-  .link:hover {
-    background: var(--table-row-highlight-background-color);
-    color: var(--gray-12);
-  }
-
-  .pageActive .link {
-    border-radius: var(--border-radius-3, 6px);
-    border: 1px solid var(--violet-a5, rgba(54, 0, 255, 0.15));
-    background: var(--violet-a3, rgba(68, 0, 238, 0.06));
-    color: var(--violet-11, #6550b9);
+    box-sizing: border-box;
+    height: var(--space-6);
+    border: 1px solid var(--gray-a5);
+    border-radius: var(--radius-2);
+    background: var(--color-surface);
+    color: var(--color-text-high);
+    font-family: inherit;
+    font-size: var(--font-size-1);
+    font-weight: var(--font-weight-medium);
+    line-height: var(--line-height-1);
+    font-variant-numeric: tabular-nums;
     text-align: center;
-    font-family: Inter, sans-serif;
-    font-size: 12px;
-    font-style: normal;
-    font-weight: 500;
-    line-height: 16px;
-  }
-
-  .pageActive .link:hover {
-    background: var(--violet-a4, rgba(68, 0, 238, 0.1));
-    border-color: var(--violet-a6, rgba(54, 0, 255, 0.2));
-  }
-
-  .arrowContainer {
-    margin: 0;
-  }
-
-  .linkArrow {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 32px;
-    height: var(--space-6, 32px);
-    padding: var(--space-1, 4px) var(--space-3, 12px);
-    gap: var(--space-2, 8px);
-    border-radius: var(--border-radius-3, 6px);
-    border: 1px solid var(--slate-a5, rgba(0, 9, 50, 0.12));
-    background: var(--color-surface, rgba(255, 255, 255, 0.85));
-    color: var(--gray-11);
     cursor: pointer;
-    transition: all 0.2s ease;
-    text-decoration: none;
+    transition:
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      color 0.2s ease;
+
+    &:enabled:hover:not(.current) {
+      border-color: var(--gray-a3);
+      background: var(--gray-a2);
+    }
+
+    &:enabled:active:not(.current) {
+      border-color: var(--gray-a3);
+      background: var(--gray-a3);
+    }
+
+    &:disabled {
+      border-color: var(--gray-a3);
+      color: var(--color-text-disabled);
+      cursor: not-allowed;
+    }
   }
 
-  .linkArrow:hover {
-    background: var(--table-row-highlight-background-color);
-    color: var(--gray-12);
+  .page {
+    width: 100%;
+    padding: 0;
   }
 
-  .disabled .linkArrow {
-    color: var(--slate-a5, rgba(0, 9, 50, 0.12));
-    cursor: not-allowed;
+  .arrow {
+    padding: 0 var(--space-3);
   }
 
-  .disabled .linkArrow:hover {
-    background: var(--color-surface, rgba(255, 255, 255, 0.85));
-    color: var(--slate-a5, rgba(0, 9, 50, 0.12));
+  .current {
+    border-color: var(--violet-a5);
+    background: var(--violet-a3);
+    color: var(--violet-11);
+    cursor: default;
   }
 
   .break {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 32px;
-    height: 32px;
-    padding: 0 8px;
+    height: var(--space-6);
     color: var(--gray-9);
-    font-size: 14px;
-  }
-
-  .arrow {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    font-size: var(--font-size-1);
+    line-height: var(--line-height-1);
+    font-variant-numeric: tabular-nums;
   }
 }
