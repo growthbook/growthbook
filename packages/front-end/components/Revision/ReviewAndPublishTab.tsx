@@ -1,4 +1,11 @@
-import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   Revision,
@@ -661,16 +668,35 @@ function ReviewAndPublishRevision<T>({
     [diffCommentAnchors, isActiveDraft, canComment, submitComment],
   );
 
+  // A dated schedule the user configured that the schedule endpoint would refuse
+  // until review is requested, so it rides THIS request instead. A ref rather than
+  // state: it is read at submit and never rendered, so re-rendering on every
+  // keystroke of the date picker would be pure cost.
+  const stagedSchedule = useRef<{
+    scheduledPublishAt: string;
+    lockEdits: boolean;
+    lockOthers: boolean;
+  } | null>(null);
+
   // ── Lifecycle actions ──
   const doRequestReview = async () => {
     setSubmitError(null);
     setSubmitting(true);
     try {
+      const staged = stagedSchedule.current;
       await apiCall(`/revision/${revision.id}/submit`, {
         method: "POST",
-        // Preserve whatever arming the user set via ScheduledPublishControl.
+        // Preserve whatever arming the user set via ScheduledPublishControl —
+        // including a staged DATE, which has nowhere else to be persisted from.
         body: JSON.stringify({
           autoPublishOnApproval: !!revision.autoPublishOnApproval,
+          ...(staged
+            ? {
+                scheduledPublishAt: staged.scheduledPublishAt,
+                scheduledPublishLockEdits: staged.lockEdits,
+                scheduledPublishLockOthers: staged.lockOthers,
+              }
+            : {}),
         }),
       });
       await mutate();
@@ -1452,6 +1478,9 @@ function ReviewAndPublishRevision<T>({
                       canEditEntity
                     }
                     canDraft={canDraftOrEdit}
+                    onStagedScheduleChange={(staged) => {
+                      stagedSchedule.current = staged;
+                    }}
                     canBypassApproval={canBypassApproval}
                     requiresApproval={requiresApproval}
                     autopublishOnApproval={autopublishOnApproval}

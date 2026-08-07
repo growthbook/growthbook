@@ -732,9 +732,10 @@ export const postFeatureRevisionSchedulePublishV2Validator = {
         .describe(
           "When to publish, as an RFC3339 UTC timestamp (e.g. `2026-01-31T09:00:00Z`), or `null` to cancel a pending schedule. Numeric UTC offsets are not accepted.",
         ),
-      // Arming captures the guard acknowledgments and throws asking for
-      // `ignoreWarnings` when the draft conflicts with live — which a strict body
-      // without these rejects. The other three entities already carried them.
+      // Accepted so a caller retrying a bypassable 422 raised anywhere in this
+      // request isn't turned away by the body schema itself. Feature Flags have no
+      // arm-time fingerprint capture of their own — that is the generic engine's
+      // mechanism, and the earlier wording here described it as if it were shared.
       ...publishOverrideBodyFields,
       lockEdits: z.boolean().optional(),
       lockOthers: z.boolean().optional(),

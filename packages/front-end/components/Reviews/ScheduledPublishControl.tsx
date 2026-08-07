@@ -73,6 +73,7 @@ export default function ScheduledPublishControl({
   autopublishOnApproval,
   isReviewRequester,
   dateNote,
+  onStagedScheduleChange,
   mutate,
 }: {
   revision: ScheduleControlRevision;
@@ -117,6 +118,25 @@ export default function ScheduledPublishControl({
   // Optional extra note rendered under the date controls (e.g. the feature
   // flow's "linked experiments won't start" warning).
   dateNote?: ReactNode;
+  /**
+   * Reports a dated schedule the user has configured but that could NOT be
+   * persisted yet — a review-required draft, whose schedule endpoint refuses to arm
+   * until review is requested. The caller sends it with its request-review call so
+   * the intent isn't silently dropped.
+   *
+   * Needed because this control owns its schedule state internally while the
+   * feature surface keeps the equivalent state in its parent, which is the whole
+   * reason that surface could persist at submit and this one could not. Reporting
+   * upward is the cheap half of that convergence; making this a controlled
+   * component is the real one.
+   */
+  onStagedScheduleChange?: (
+    staged: {
+      scheduledPublishAt: string;
+      lockEdits: boolean;
+      lockOthers: boolean;
+    } | null,
+  ) => void;
   mutate: () => void | Promise<void>;
 }) {
   const { apiCall } = useAuth();
@@ -319,6 +339,35 @@ export default function ScheduledPublishControl({
   // Auto-save the current dated config, but only when the backend will accept it
   // (see schedulePersistsImmediately). `persists` lets a handler recompute the
   // gate with its own about-to-be-set value (e.g. the admin bypass toggle).
+  // Push the staged schedule up whenever it changes and cannot be persisted here.
+  // Cleared (null) the moment it CAN be — the endpoint then owns it and a stale
+  // staged copy riding a later submit would re-arm something already handled.
+  useEffect(() => {
+    if (!onStagedScheduleChange) return;
+    const stageable =
+      armed &&
+      !!date &&
+      !schedulePersistsImmediately &&
+      effectiveMode === "date";
+    onStagedScheduleChange(
+      stageable
+        ? {
+            scheduledPublishAt: date,
+            lockEdits,
+            lockOthers,
+          }
+        : null,
+    );
+  }, [
+    armed,
+    date,
+    lockEdits,
+    lockOthers,
+    schedulePersistsImmediately,
+    effectiveMode,
+    onStagedScheduleChange,
+  ]);
+
   const persistIfReady = (
     d: string,
     le: boolean,

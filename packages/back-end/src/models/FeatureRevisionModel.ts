@@ -1439,10 +1439,15 @@ export async function updateRevision(
       logger.error(e, "Error creating revisionlog");
     });
 
-  const updatedRevision = doc ? toInterface(doc, context, feature) : null;
+  // Non-null: the throw above already covered the missing/lost-race case. Kept as a
+  // ternary, the unreachable `: null` arm made the RETURN TYPE nullable, so callers'
+  // `?? revision` fallbacks stayed compiler-plausible while being dead at runtime —
+  // and a fallback that silently continues on a stale copy is the bug, not the
+  // remedy.
+  const updatedRevision = toInterface(doc, context, feature);
 
   // Linkage sync whenever draft rules change.
-  if (updatedRevision && "rules" in changes) {
+  if ("rules" in changes) {
     await syncLinkagesAfterDraftWrite(
       context,
       revision,
@@ -1966,18 +1971,26 @@ export async function setRevisionScheduledPublish(
     // that published or was discarded since then must not be rewritten — its
     // schedule fields are already spent, and bumping dateUpdated rewrites settled
     // history.
+    // "Something is armed" rides the FILTER alongside the status. `dateUpdated` is
+    // unconditionally in the `$set`, so a cancel on an active-but-UNARMED revision
+    // always modifies — which meant `modifiedCount` could not tell a real
+    // cancellation from a no-op, and the no-op both logged a phantom cancellation
+    // and bumped `dateUpdated` on a revision nothing had changed. With this the
+    // count is honest, and the generic twin's early return has its equivalent here.
     const res = await FeatureRevisionModel.updateOne(
-      { ...filter, status: { $nin: ["published", "discarded"] } },
+      {
+        ...filter,
+        status: { $nin: ["published", "discarded"] },
+        $or: [
+          { autoPublishOnApproval: true },
+          { scheduledPublishAt: { $exists: true } },
+        ],
+      },
       {
         $set: { autoPublishOnApproval: false, dateUpdated: new Date() },
         $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
       },
     );
-    // Only when something actually changed. The write is guarded but the log was
-    // not, so a cancel that matched nothing — a revision published since the
-    // caller's read, or one already disarmed — still wrote "cancelled a scheduled
-    // publish" into the timeline. The changes-requested disarm below already
-    // conditions on this.
     if (res.modifiedCount > 0) {
       logScheduledPublishChange(context, revision, {
         action: "cancel scheduled publish",

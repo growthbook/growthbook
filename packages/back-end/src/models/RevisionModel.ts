@@ -1007,11 +1007,29 @@ export class RevisionModel extends BaseClass {
     {
       autoPublishOnApproval,
       armAcknowledgments,
+      scheduledPublishAt,
+      lockEdits,
+      lockOthers,
     }: {
       autoPublishOnApproval?: boolean;
       armAcknowledgments?: ArmAcknowledgments;
+      /**
+       * Arm a DATED publish as part of the same transition.
+       *
+       * Rides this write rather than following it, exactly as the feature twin
+       * `markRevisionAsReviewRequested` does. A review-required draft cannot have a
+       * dated schedule armed on its own (the schedule endpoint refuses one until
+       * review is requested), so the client had to stage it locally and hope —
+       * which meant the generic tab silently dropped it, because nothing sent it.
+       */
+      scheduledPublishAt?: Date | null;
+      lockEdits?: boolean;
+      lockOthers?: boolean;
     } = {},
   ) {
+    // A date implies the armed flag, the same unification the feature twin makes.
+    const dated = (scheduledPublishAt ?? null) !== null;
+    const armed = !!autoPublishOnApproval || dated;
     // CAS-guarded on the fields the transition reads, like `recallReview` and
     // `undoReview`: an unguarded read-modify-write let a publish merge in between
     // and this write then demoted the merged revision to `pending-review`.
@@ -1043,18 +1061,23 @@ export class RevisionModel extends BaseClass {
           // Submitting (or re-submitting from changes-requested) starts a fresh
           // review cycle — demote any prior verdicts.
           reviews: this.staleVerdicts(existing.reviews),
-          autoPublishOnApproval: !!autoPublishOnApproval,
+          autoPublishOnApproval: armed,
+          ...(dated
+            ? {
+                scheduledPublishAt,
+                scheduledPublishLockEdits: !!lockEdits,
+                scheduledPublishLockOthers: !!lockOthers,
+              }
+            : {}),
           // The auto-publish runs with the arming user's authority. A stale
           // value from a previous cycle is harmless — `autoPublishOnApproval`
           // gates everything. `userId` is empty for API-key actors; skip so the
           // publish falls back to `authorId`.
-          ...(autoPublishOnApproval && userId
-            ? { autoPublishEnabledBy: userId }
-            : {}),
+          ...(armed && userId ? { autoPublishEnabledBy: userId } : {}),
           // Arm-time guard fingerprints: set the new acknowledgments, or clear a
           // stale set from a prior arm (to {}) so a re-arm with no current conflicts
           // can't be covered by an outdated fingerprint.
-          ...(autoPublishOnApproval &&
+          ...(armed &&
           (hasArmAcknowledgments(armAcknowledgments) ||
             hasArmAcknowledgments(existing.armAcknowledgments))
             ? { armAcknowledgments: armAcknowledgments ?? {} }
@@ -1083,7 +1106,7 @@ export class RevisionModel extends BaseClass {
     // resurrect a stale schedule. Mirrors setAutoPublishOnApproval's disarm.
     // Read off the POST-CAS doc: the pre-image is what a concurrent arm made stale.
     if (
-      !autoPublishOnApproval &&
+      !armed &&
       (updated.autoPublishOnApproval ||
         (updated.scheduledPublishAt ?? null) !== null)
     ) {

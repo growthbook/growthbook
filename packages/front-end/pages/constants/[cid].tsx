@@ -716,12 +716,18 @@ export default function ConstantDetailPage(): React.ReactElement {
               constant,
               publishEnvironments,
             )}
-            // Coarse: no destination term, matching what the cancel endpoint asks.
+            // The basis the CANCEL arm actually uses: the adapter's
+            // `canPublishRevision(snapshot)` = the entity's OWN scoped
+            // environments, with no destination term and no archive-flip
+            // widening. Passing the revision-derived footprint dropped the
+            // destination term but kept the widening, so an env-limited
+            // publisher on an archive-flipping revision still lost the Cancel
+            // button for a schedule the endpoint would let them withdraw.
             canPublishEntityCoarse={permissionsUtil.canRevisionAction(
               "constant",
               "publish",
               constant,
-              publishEnvironments,
+              constantPublishEnvironments(),
             )}
             canBypassApproval={canBypassApproval}
             selectRevision={selectRevision}

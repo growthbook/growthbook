@@ -385,20 +385,19 @@ export async function linkFeatureToContextualBandit({
     const auditSubject = scopedRule.allEnvironments
       ? "to all environments"
       : `to ${ruleEnvFootprint.join(", ") || "no environments"}`;
-    const updatedRevision =
-      (await updateRevision(
-        context,
-        feature,
-        revision,
-        combinedChanges,
-        {
-          user: eventAudit,
-          action: "add contextual bandit rule",
-          subject: auditSubject,
-          value: JSON.stringify(scopedRule),
-        },
-        resetReview,
-      )) ?? revision;
+    const updatedRevision = await updateRevision(
+      context,
+      feature,
+      revision,
+      combinedChanges,
+      {
+        user: eventAudit,
+        action: "add contextual bandit rule",
+        subject: auditSubject,
+        value: JSON.stringify(scopedRule),
+      },
+      resetReview,
+    );
     await recordRevisionUpdate(context, feature, updatedRevision, "rule.add", {
       environments: ruleEnvFootprint,
     });
@@ -562,20 +561,19 @@ export async function updateContextualBanditFeatureRule({
       defaultValueChanged: false,
       settings: org?.settings,
     });
-    const updatedRevision =
-      (await updateRevision(
-        context,
-        feature,
-        revision,
-        { rules: nextRules },
-        {
-          user: eventAudit,
-          action: "update contextual bandit rule",
-          subject: `rule ${ruleIds.join(", ")}`,
-          value: JSON.stringify(scopedRule),
-        },
-        resetReview,
-      )) ?? revision;
+    const updatedRevision = await updateRevision(
+      context,
+      feature,
+      revision,
+      { rules: nextRules },
+      {
+        user: eventAudit,
+        action: "update contextual bandit rule",
+        subject: `rule ${ruleIds.join(", ")}`,
+        value: JSON.stringify(scopedRule),
+      },
+      resetReview,
+    );
     await recordRevisionUpdate(
       context,
       feature,
@@ -716,20 +714,19 @@ export async function unlinkFeatureFromContextualBandit({
       defaultValueChanged: false,
       settings: org?.settings,
     });
-    const updatedRevision =
-      (await updateRevision(
-        context,
-        feature,
-        revision,
-        changes,
-        {
-          user: eventAudit,
-          action: "delete contextual bandit rule",
-          subject: `rule ${removedRuleIds.join(", ")}`,
-          value: JSON.stringify(removedRules),
-        },
-        resetReview,
-      )) ?? revision;
+    const updatedRevision = await updateRevision(
+      context,
+      feature,
+      revision,
+      changes,
+      {
+        user: eventAudit,
+        action: "delete contextual bandit rule",
+        subject: `rule ${removedRuleIds.join(", ")}`,
+        value: JSON.stringify(removedRules),
+      },
+      resetReview,
+    );
     await recordRevisionUpdate(
       context,
       feature,

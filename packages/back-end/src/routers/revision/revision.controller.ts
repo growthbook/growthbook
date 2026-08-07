@@ -465,7 +465,16 @@ export const getRevision = async (
 // region POST /revision/:id/submit
 
 type PostSubmitRequest = AuthRequest<
-  { autoPublishOnApproval?: boolean },
+  {
+    autoPublishOnApproval?: boolean;
+    // A dated schedule armed as part of the same request. A review-required draft
+    // cannot arm one on its own — the schedule endpoint refuses until review is
+    // requested — so the control stages it and sends it here, which is what the
+    // feature twin's request-review has always accepted.
+    scheduledPublishAt?: string | null;
+    scheduledPublishLockEdits?: boolean;
+    scheduledPublishLockOthers?: boolean;
+  },
   { id: string }
 >;
 
@@ -487,7 +496,12 @@ export const postSubmit = async (
   const context = getContextFromReq(req);
   const { userId } = context;
   const { id } = req.params;
-  const { autoPublishOnApproval } = req.body;
+  const {
+    autoPublishOnApproval,
+    scheduledPublishAt,
+    scheduledPublishLockEdits,
+    scheduledPublishLockOthers,
+  } = req.body;
 
   const revisionModel = context.models.revisions;
 
@@ -522,13 +536,51 @@ export const postSubmit = async (
       liveEntity,
     ));
 
-  const armAcknowledgments = enableAutoPublish
-    ? await captureArmAcknowledgment(context, existingRevision, liveEntity)
-    : undefined;
+  // A DATE additionally needs the scheduled-publish capability, which is what the
+  // dedicated schedule endpoint asks; the no-date arm is governed by
+  // `canEnableAutoPublishOnApproval` above.
+  let parsedSchedule: Date | null = null;
+  if ((scheduledPublishAt ?? null) !== null) {
+    const adapter = getAdapter(existingRevision.target.type);
+    const snapshot = (liveEntity ?? {}) as Record<string, unknown>;
+    const canSchedule = adapter.canSchedulePublish
+      ? adapter.canSchedulePublish(context, snapshot)
+      : context.hasPremiumFeature("scheduled-revisions") &&
+        (adapter.canPublishRevision
+          ? adapter.canPublishRevision(context, snapshot)
+          : adapter.canUpdate(context, snapshot));
+    if (!liveEntity || !canSchedule) {
+      context.permissions.throwPermissionError();
+    }
+    parsedSchedule = new Date(scheduledPublishAt as string);
+    if (isNaN(parsedSchedule.getTime())) {
+      return res
+        .status(400)
+        .json({ message: "Invalid scheduledPublishAt date" });
+    }
+    if (parsedSchedule.getTime() <= Date.now()) {
+      return res
+        .status(400)
+        .json({ message: "scheduledPublishAt must be in the future" });
+    }
+    // Same authority the fire-time publish will take. The adapter check above is
+    // coarse and cannot see the change set.
+    await assertCanPublishRevision(context, existingRevision, snapshot);
+  }
+
+  // Captured whenever anything is armed — a dated schedule needs the guard
+  // fingerprints just as much as the no-date one.
+  const armAcknowledgments =
+    enableAutoPublish || parsedSchedule !== null
+      ? await captureArmAcknowledgment(context, existingRevision, liveEntity)
+      : undefined;
 
   const revision = await revisionModel.submitForReview(id, userId, {
     autoPublishOnApproval: enableAutoPublish,
     armAcknowledgments,
+    scheduledPublishAt: parsedSchedule,
+    lockEdits: scheduledPublishLockEdits,
+    lockOthers: scheduledPublishLockOthers,
   });
 
   await getRevisionWebhookAdapter(revision.target.type)?.dispatch(

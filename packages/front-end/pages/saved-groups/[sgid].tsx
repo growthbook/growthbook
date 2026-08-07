@@ -1151,7 +1151,13 @@ export default function EditSavedGroupPage() {
               // deliberately unbound rather than scoped to an empty list.
               NO_ENVIRONMENT_BINDING,
             )}
-            // Coarse: no destination term, matching what the cancel endpoint asks.
+            // The basis the CANCEL arm actually uses: the adapter's
+            // canPublishRevision(snapshot) = the entity's OWN scoped
+            // environments, with no destination term and no archive-flip
+            // widening. Dropping only the destination term left the widening,
+            // so an env-limited publisher on an archive-flipping revision
+            // still lost the Cancel button for a schedule the endpoint would
+            // let them withdraw.
             canPublishEntityCoarse={permissionsUtil.canRevisionAction(
               "saved-group",
               "publish",
