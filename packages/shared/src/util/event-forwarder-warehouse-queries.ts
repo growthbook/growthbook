@@ -17,6 +17,7 @@ import {
 import {
   buildBigQueryEventForwarderTableReference,
   buildEventForwarderNestedAttributeValueSql,
+  buildEventForwarderPropertyValueSql,
   buildSnowflakeEventForwarderTableReference,
   EVENT_FORWARDER_AVRO_PARTITION_FIELD,
   quoteBigQueryIdentifier,
@@ -356,14 +357,24 @@ export function buildEventForwarderFeatureUsageQuerySql({
   if (sinkType === "bigquery") {
     return `SELECT
   timestamp AS timestamp,
-  feature_key AS feature_key
+  feature_key AS feature_key,
+  environment AS environment,
+  ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "value" })} AS value,
+  ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "source" })} AS source,
+  ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "ruleId" })} AS rule_id,
+  ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "variationId" })} AS variation_id
 FROM ${tableRef}
 WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{endDate}}'`;
   }
 
   return `SELECT
   TIMESTAMP AS timestamp,
-  FEATURE_KEY AS feature_key
+  FEATURE_KEY AS feature_key,
+  ENVIRONMENT AS environment,
+  ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "value" })} AS value,
+  ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "source" })} AS source,
+  ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "ruleId" })} AS rule_id,
+  ${buildEventForwarderPropertyValueSql({ sinkType, propertyKey: "variationId" })} AS variation_id
 FROM ${tableRef}`;
 }
 

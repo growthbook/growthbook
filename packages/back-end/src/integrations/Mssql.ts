@@ -20,9 +20,6 @@ export default class Mssql extends SqlIntegration {
   getSqlDialect(): SqlDialect {
     return mssqlDialect;
   }
-  getSensitiveParamKeys(): string[] {
-    return ["password"];
-  }
   async runQuery(sqlStr: string): Promise<QueryResponse> {
     const conn = await findOrCreateConnection(this.datasource.id, {
       server: this.params.server,

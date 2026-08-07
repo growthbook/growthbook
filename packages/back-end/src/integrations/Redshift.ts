@@ -18,9 +18,6 @@ export default class Redshift extends SqlIntegration {
       defaultSchema: this.params.defaultSchema || "",
     };
   }
-  getSensitiveParamKeys(): string[] {
-    return ["password", "caCert", "clientCert", "clientKey"];
-  }
   hasEfficientPercentile(): boolean {
     return false;
   }

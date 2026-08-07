@@ -570,7 +570,7 @@ export default function CustomHookModal({
             showCopyButton
             showFullscreenButton
           />
-          <Text as="div" size="small" color="text-low" mt="1" mb="5">
+          <Text as="div" size="sm" color="text-low" mt="1" mb="5">
             Need a starting point? See an{" "}
             <DocLink docSection={exampleDocSection}>
               example {hookEntityType[hookType]} hook

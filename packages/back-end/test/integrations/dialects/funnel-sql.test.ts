@@ -161,6 +161,12 @@ describe("SqlDialect funnel array helpers", () => {
     expect(redshiftDialect.arrayAggSorted("value")).toContain(
       "SPLIT_TO_ARRAY(LISTAGG(",
     );
+    // A shared order expression must replace the per-column default so that
+    // multiple aggregates in one SELECT can use identical WITHIN GROUP
+    // clauses (a hard Redshift requirement).
+    expect(redshiftDialect.arrayAggSorted("value", "ts")).toContain(
+      "WITHIN GROUP (ORDER BY ts)",
+    );
     expect(redshiftDialect.argMinByTimestamp("value", "timestamp")).toContain(
       "SPLIT_PART(MIN(",
     );
@@ -382,6 +388,25 @@ describe("buildFunnelSql — launch subset (real dialects)", () => {
     expect(sql).not.toMatch(/EXTRACT\(\s*EPOCH/i);
     expect(sql).not.toMatch(/unnest\(/i);
     expect(sql).not.toMatch(/ARRAY_AGG\(/i);
+  });
+
+  it("Redshift uses one identical WITHIN GROUP ordering for all step arrays", () => {
+    // Redshift rejects a SELECT whose WITHIN GROUP (ORDER BY) clauses differ
+    // across aggregates. A 3-step funnel aggregates two step arrays in the
+    // same SELECT, so they must share a single order expression.
+    const { sql, stepCount } = buildFunnelSql(
+      config,
+      factTableMap,
+      redshiftDialect,
+    );
+    expect(stepCount).toBe(3);
+    const orderings = [
+      ...sql.matchAll(/WITHIN GROUP\s*\(\s*ORDER BY\s+([^)]+?)\s*\)/gi),
+    ]
+      .map((m) => m[1].replace(/\s+/g, " "))
+      .sort();
+    expect(orderings.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(orderings).size).toBe(1);
   });
 
   it("multi-fact-table funnel with a breakdown types the dimension NULL for the UNION", () => {

@@ -861,7 +861,7 @@ export async function putInviteRole(
 }
 
 export async function getOrganization(
-  req: AuthRequest,
+  req: AuthRequest<unknown, unknown, { forceLicenseRefresh?: string }>,
   res: Response<GetOrganizationResponse | { status: 200; organization: null }>,
 ) {
   if (!req.organization) {
@@ -873,6 +873,8 @@ export async function getOrganization(
 
   const context = getContextFromReq(req);
   const { org, userId } = context;
+  const forceLicenseRefresh = req.query.forceLicenseRefresh !== undefined;
+
   const {
     invites,
     members,
@@ -898,15 +900,23 @@ export async function getOrganization(
       let license: Partial<LicenseInterface> | null =
         getLicense(licenseKey || process.env.LICENSE_KEY) || null;
       if (
+        forceLicenseRefresh ||
         !license ||
         (license.organizationId && license.organizationId !== id)
       ) {
         try {
           license =
-            (await licenseInit(org, getUserCodesForOrg, getLicenseMetaData)) ||
-            null;
+            (await licenseInit(
+              org,
+              getUserCodesForOrg,
+              getLicenseMetaData,
+              forceLicenseRefresh,
+            )) || null;
         } catch (e) {
           logger.error(e, "setting license failed");
+          if (forceLicenseRefresh) {
+            throw e;
+          }
         }
       }
       return license;
@@ -1395,17 +1405,6 @@ export async function postInvite(
       status: 400,
       message: "Invalid role",
     });
-  }
-
-  const license = getLicense();
-  if (
-    license &&
-    license.hardCap &&
-    getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
-  ) {
-    throw new Error(
-      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit.",
-    );
   }
 
   const { emailSent, inviteUrl } = await inviteUser({
@@ -2319,17 +2318,6 @@ export async function addOrphanedUser(
       status: e.status || 400,
       message: e.message,
     });
-  }
-
-  const license = getLicense();
-  if (
-    license &&
-    license.hardCap &&
-    getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
-  ) {
-    throw new Error(
-      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit.",
-    );
   }
 
   await addMemberToOrg({

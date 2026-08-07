@@ -8,6 +8,7 @@ import {
   getMetricMapForExperiment,
   toSnapshotApiInterface,
 } from "back-end/src/services/experiments";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { toReportApiInterface } from "./toReportApiInterface";
 
@@ -160,7 +161,10 @@ export const putReportSettings = createApiRequestHandler(
   const snapshot = updatedReport.snapshot
     ? await findSnapshotById(req.context, updatedReport.snapshot)
     : null;
-  const apiReport = toReportApiInterface(updatedReport, snapshot);
+  const apiReport = await resolveOwnerEmail(
+    toReportApiInterface(updatedReport, snapshot),
+    req.context,
+  );
 
   if (snapshot?.status === "success" && experiment) {
     const metricsById = await getMetricMapForExperiment(

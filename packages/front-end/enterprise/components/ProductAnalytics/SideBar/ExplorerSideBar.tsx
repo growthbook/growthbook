@@ -6,6 +6,10 @@ import {
   ExplorationConfig,
 } from "shared/validators";
 import { PiArrowsClockwise, PiLink } from "react-icons/pi";
+import {
+  resolveComparisonMode,
+  resolveComparisonPreviousTimeFrame,
+} from "shared/enterprise";
 import ShareUrlPopover from "@/ui/ShareUrlPopover";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Text from "@/ui/Text";
@@ -16,10 +20,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import GraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GraphTypeSelector";
 import FunnelGraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/FunnelGraphTypeSelector";
-import DateRangePicker, {
-  ComparisonDateControls,
-} from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DateRangePicker";
-import GranularitySelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GranularitySelector";
+import DateRangeCompareDropdown from "@/enterprise/components/ProductAnalytics/DateRangeCompareDropdown";
+import type { DateRangeCompareValue } from "@/enterprise/components/ProductAnalytics/DateRangeComparePanel";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
@@ -65,7 +67,7 @@ export default function ExplorerSideBar({
     setDraftExploreState,
     exploration,
     compareEnabled,
-    setCompareEnabled,
+    comparisonMode,
     comparisonExploration,
     loading,
     handleSubmit,
@@ -74,8 +76,6 @@ export default function ExplorerSideBar({
     needsFetch,
     error,
     trackingSource,
-    submittedExploreState,
-    managedWarehouseUnavailable,
   } = useExplorerContext();
   const { factTables, getFactMetricById, getFactTableById, project } =
     useDefinitions();
@@ -111,16 +111,60 @@ export default function ExplorerSideBar({
     dataset?.type === "funnel"
       ? hasFunnelInputs
       : (dataset?.values?.length ?? 0) > 0;
-  const showComparisonDateControls =
-    compareEnabled &&
-    draftExploreState.dateRange.predefined === "customDateRange" &&
-    Boolean(draftExploreState.dateRange.startDate) &&
-    Boolean(draftExploreState.dateRange.endDate);
+  const dateRangeValue: DateRangeCompareValue = {
+    dateRange: draftExploreState.dateRange,
+    comparison: compareEnabled
+      ? {
+          enabled: true,
+          mode: comparisonMode,
+          previousTimeFrame: draftExploreState.previousTimeFrame,
+        }
+      : null,
+    granularity:
+      draftExploreState.dimensions.find((d) => d.dimensionType === "date")
+        ?.dateGranularity ?? "auto",
+  };
+
+  const applyDateRange = ({
+    dateRange,
+    comparison,
+    granularity,
+  }: DateRangeCompareValue) => {
+    setDraftExploreState((prev) => {
+      const next = {
+        ...prev,
+        dateRange,
+        ...(granularity
+          ? {
+              dimensions: prev.dimensions.map((d) =>
+                d.dimensionType === "date"
+                  ? { ...d, dateGranularity: granularity }
+                  : d,
+              ),
+            }
+          : {}),
+      };
+      if (!comparison?.enabled) {
+        const {
+          previousTimeFrame: _,
+          comparisonMode: __,
+          ...withoutCompare
+        } = next;
+        return withoutCompare;
+      }
+      return {
+        ...next,
+        comparisonMode: resolveComparisonMode(comparison),
+        previousTimeFrame: resolveComparisonPreviousTimeFrame(
+          dateRange,
+          comparison,
+        ),
+      };
+    });
+  };
+
   const isTimeSeriesChart = ["line", "area", "timeseries-table"].includes(
     draftExploreState.chartType,
-  );
-  const usesInheritedDashboardDateRange = Boolean(
-    dashboardDateRange && useDashboardDateControl,
   );
 
   return (
@@ -136,6 +180,7 @@ export default function ExplorerSideBar({
           exploration={exploration}
           compareEnabled={compareEnabled}
           previousTimeFrame={draftExploreState.previousTimeFrame ?? null}
+          comparisonMode={comparisonMode}
           comparisonExplorationId={comparisonExploration?.id ?? null}
           trackingSource={trackingSource}
         />
@@ -158,7 +203,7 @@ export default function ExplorerSideBar({
               shouldDisplay={!!saveToDashboardDisabledReason}
             >
               <Button
-                size="sm"
+                size="md"
                 disabled={!!saveToDashboardDisabledReason}
                 onClick={() => {
                   if (!hasDashboardsFeature) {
@@ -215,7 +260,7 @@ export default function ExplorerSideBar({
               shouldDisplay={isStale}
             >
               <Button
-                size="sm"
+                size="md"
                 variant="solid"
                 disabled={loading || !hasInputs || !isSubmittable}
                 onClick={() =>
@@ -256,15 +301,7 @@ export default function ExplorerSideBar({
           }}
         >
           <Flex direction="column" gap="2">
-            <Flex direction="row" align="center" justify="between" width="100%">
-              <Text weight="medium">Chart Type</Text>
-              <Switch
-                label="Compare"
-                value={compareEnabled}
-                onChange={setCompareEnabled}
-                disabled={!submittedExploreState || managedWarehouseUnavailable}
-              />
-            </Flex>
+            <Text weight="medium">Chart Type</Text>
             {activeType === "funnel" ? (
               <FunnelGraphTypeSelector />
             ) : (
@@ -276,14 +313,14 @@ export default function ExplorerSideBar({
               <Text weight="medium">Date Range</Text>
               {dashboardDateRange ? (
                 <Switch
-                  size="1"
+                  size="sm"
                   value={useDashboardDateControl}
                   onChange={(checked) =>
                     onGlobalControlSettingsChange?.({ dateRange: checked })
                   }
                   label={
                     <Flex direction="row" align="center" gap="1">
-                      <Text size="small" weight="medium">
+                      <Text size="sm" weight="medium">
                         Use dashboard date filter
                       </Text>
                       <Tooltip
@@ -307,22 +344,20 @@ export default function ExplorerSideBar({
                   backgroundColor: "var(--gray-a2)",
                 }}
               >
-                <Text size="medium" color="text-low">
+                <Text size="md" color="text-low">
                   {formatExplorationDateRange(dashboardDateRange)}
                 </Text>
               </Flex>
-            ) : showComparisonDateControls ? (
-              <ComparisonDateControls fullWidth />
             ) : (
-              <DateRangePicker fullWidth />
+              <DateRangeCompareDropdown
+                fullWidth
+                showCompare
+                showGranularity={isTimeSeriesChart}
+                value={dateRangeValue}
+                onChange={applyDateRange}
+              />
             )}
           </Flex>
-          {isTimeSeriesChart && !usesInheritedDashboardDateRange && (
-            <Flex direction="column" gap="2" width="100%">
-              <Text weight="medium">Date Granularity</Text>
-              <GranularitySelector />
-            </Flex>
-          )}
         </Flex>
       )}
 

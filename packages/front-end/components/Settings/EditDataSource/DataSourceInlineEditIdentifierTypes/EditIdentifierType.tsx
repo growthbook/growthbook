@@ -141,7 +141,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
         />
         {hashAttributes && !isEventForwarderManagedType && (
           <MultiSelectField
-            size="legacy"
+            legacyHeight
             label="Hash Attributes"
             value={form.watch("attributes")}
             helpText="Select the hash attributes that map to this identifier type."

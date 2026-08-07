@@ -66,7 +66,7 @@ const AttributeReferencesList: FC<AttributeReferencesListProps> = ({
             trigger={
               <Flex align="center" gap="1">
                 <PiCaretRightFill className="chevron" />
-                <Heading as="h3" size="small" mb="0">
+                <Heading as="h3" size="sm" mb="0">
                   Features
                 </Heading>
                 <Badge radius="full" label={features.length.toString()} />
@@ -136,7 +136,7 @@ const AttributeReferencesList: FC<AttributeReferencesListProps> = ({
             trigger={
               <Flex align="center" gap="1">
                 <PiCaretRightFill className="chevron" />
-                <Heading as="h3" size="small" mb="0">
+                <Heading as="h3" size="sm" mb="0">
                   Experiments
                 </Heading>
                 <Badge radius="full" label={experiments.length.toString()} />
@@ -213,7 +213,7 @@ const AttributeReferencesList: FC<AttributeReferencesListProps> = ({
             trigger={
               <Flex align="center" gap="1">
                 <PiCaretRightFill className="chevron" />
-                <Heading as="h3" size="small" mb="0">
+                <Heading as="h3" size="sm" mb="0">
                   Condition Groups
                 </Heading>
                 <Badge

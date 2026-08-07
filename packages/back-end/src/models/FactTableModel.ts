@@ -389,6 +389,15 @@ export async function updateFactTable(
     context.permissions.throwPermissionError();
   }
 
+  // Bail on a no-op save before writing anything — the front-end resubmits the
+  // whole form on every save, and some API clients re-PUT the same definition
+  // on a schedule. Not writing means there is nothing to invalidate, so the
+  // write and the definitions-version bump stay in lockstep.
+  const changed = Object.entries(changes).some(
+    ([k, v]) => !isEqual(factTable[k as keyof FactTableInterface], v),
+  );
+  if (!changed) return;
+
   // Clean up auto slices from metrics if columns were deleted or modified
   if (changes.columns) {
     const removedColumns = detectRemovedColumns(
@@ -419,6 +428,7 @@ export async function updateFactTable(
   );
 
   await audit.logUpdate(context, factTable, { ...factTable, ...changes });
+
   await touchDefinitionsVersion(
     factTable.organization,
     definitionsScope(
@@ -1115,16 +1125,26 @@ export async function updateFactFilter(
   const filterIndex = filters.findIndex((f) => f.id === filterId);
   if (filterIndex < 0) throw new Error("Could not find filter with that id");
 
+  const existingFilter = filters[filterIndex];
+
   if (
     factTable.managedBy === "api" &&
-    filters[filterIndex]?.managedBy === "api" &&
+    existingFilter?.managedBy === "api" &&
     context.auditUser?.type !== "api_key"
   ) {
     throw new Error("This fact filter is managed by the API");
   }
 
+  // Bail on a no-op save before writing — see updateFactTable. Returning here
+  // also avoids rewriting the whole filters array from a snapshot a concurrent
+  // write may already have superseded.
+  const changed = Object.entries(changes).some(
+    ([k, v]) => !isEqual(existingFilter[k as keyof FactFilterInterface], v),
+  );
+  if (!changed) return;
+
   filters[filterIndex] = {
-    ...filters[filterIndex],
+    ...existingFilter,
     ...changes,
     dateUpdated: new Date(),
   };
@@ -1141,6 +1161,7 @@ export async function updateFactFilter(
       },
     },
   );
+
   await touchDefinitionsVersion(
     factTable.organization,
     definitionsScope(factTable.projects),

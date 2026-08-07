@@ -1,16 +1,31 @@
 import { dateRangePredefined, lookbackUnit } from "shared/validators";
-import type { ExplorationDateRange } from "shared/validators";
+import type { ComparisonMode, ExplorationDateRange } from "shared/validators";
 
+// Sentence case per .agents/guides/ui-copy-style.md — these are select/radio
+// labels, not headings.
+export const COMPARISON_MODE_LABELS: Record<ComparisonMode, string> = {
+  previousPeriod: "Previous period",
+  previousPeriodMatchDayOfWeek: "Previous period (match day of week)",
+  previousYear: "Previous year",
+  previousYearMatchDayOfWeek: "Previous year (match day of week)",
+  custom: "Custom",
+};
+
+// Sentence case for the same reason as the map above — and these now sit in the
+// same panel as it, the preset rail beside the "Compared to" Select.
 export const DATE_RANGE_PREDEFINED_LABELS: Record<
   (typeof dateRangePredefined)[number],
   string
 > = {
   today: "Today",
-  last7Days: "Past 7 Days",
-  last30Days: "Past 30 Days",
-  last90Days: "Past 90 Days",
-  customLookback: "Custom Lookback",
-  customDateRange: "Custom Date Range",
+  yesterday: "Yesterday",
+  last7Days: "Past 7 days",
+  last30Days: "Past 30 days",
+  last90Days: "Past 90 days",
+  last12Months: "Past 12 months",
+  lastCalendarYear: "Last calendar year",
+  customLookback: "Custom lookback",
+  customDateRange: "Custom date range",
 };
 
 export const LOOKBACK_UNIT_LABELS: Record<
@@ -44,9 +59,12 @@ export function formatExplorationDateRange(
 ): string {
   switch (dateRange.predefined) {
     case "today":
+    case "yesterday":
     case "last7Days":
     case "last30Days":
     case "last90Days":
+    case "last12Months":
+    case "lastCalendarYear":
       return DATE_RANGE_PREDEFINED_LABELS[dateRange.predefined];
     case "customLookback": {
       const lookbackValue = dateRange.lookbackValue ?? 30;
