@@ -10,7 +10,7 @@ export function isMergeAggregationMetric(metric: {
   numerator: { aggregation?: string };
   denominator?: { aggregation?: string } | null;
 }): boolean {
-  return [metric.numerator.aggregation, metric.denominator?.aggregation].some(
+  return [metric.numerator?.aggregation, metric.denominator?.aggregation].some(
     (aggregation) => aggregation === "kll merge" || aggregation === "hll merge",
   );
 }

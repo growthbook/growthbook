@@ -457,11 +457,23 @@ const GeneralSettingsPage = (): React.ReactElement => {
         targetMDE: value.metricDefaults.targetMDE / 100,
       },
       confidenceLevel: (value.confidenceLevel ?? 0.95) / 100,
-      multipleExposureMinPercent:
-        (value.multipleExposureMinPercent ?? 0.01) / 100,
+      multipleExposureMinPercent: Number.isFinite(
+        value.multipleExposureMinPercent,
+      )
+        ? value.multipleExposureMinPercent / 100
+        : 0.01,
+      srmThreshold: Number.isFinite(value.srmThreshold)
+        ? value.srmThreshold
+        : DEFAULT_SRM_THRESHOLD,
       preferredEnvironment: value.preferredEnvironment || null,
       // A cleared number input yields NaN — normalize to 0 (cap disabled)
       maxConcurrentDrafts: value.maxConcurrentDrafts || 0,
+      // Cleared grace period yields NaN — fall back to the immediate default
+      noDataAlertGracePeriodHours: Number.isFinite(
+        value.noDataAlertGracePeriodHours,
+      )
+        ? value.noDataAlertGracePeriodHours
+        : DEFAULT_NO_DATA_ALERT_GRACE_PERIOD_HOURS,
       approvalFlows: applyApprovalFlowEntitlements(
         value.approvalFlows,
         hasRequireApprovals,
