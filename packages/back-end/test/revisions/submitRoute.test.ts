@@ -299,18 +299,49 @@ describe("POST /revision/:id/submit — the controller's arming gates", () => {
   });
 
   /**
-   * STILL NOT covered: the change-aware `assertCanPublishRevision` re-assert.
+   * The change-aware `assertCanPublishRevision` re-assert, finally pinned.
    *
-   * The CAS exhaustion that used to block this fixture is gone — `buildCasGuard`
-   * clones now, and the dev-scoped case below proves the fixture writes. What
-   * remains is that the footprint comes out EMPTY for this shape: an
-   * `/environmentValues/production` patch against a live Constant that carries
-   * per-environment values should narrow the check to production and refuse a
-   * dev-limited publisher, and does not. Either `getConstantRevisionChange` is not
-   * seeing the change in this fixture, or the fixture's constant is not the shape it
-   * needs. Unisolated, so recorded rather than guessed at — the gate is verified at
-   * source, and a mutation removing it stays green.
+   * These use a TOP-LEVEL `/environmentValues` replace rather than a nested
+   * `/environmentValues/production`, and that distinction is why this sat unpinned
+   * for two rounds. The authority side reads ops through `applyTopLevelPatchOps`,
+   * which skips nested paths, so a nested op produced an EMPTY footprint and
+   * nothing narrowed — which turned out to be a live authorization bypass rather
+   * than a fixture problem. See `nestedPatchAuthority.test.ts`; nested paths are
+   * rejected at the validator now, so these fixtures could not be written the other
+   * way even if someone tried.
    */
+  it("refuses a DATE whose changes reach an environment the caller lacks", async () => {
+    // The coarse adapter gate cannot see the change set — its own comment says so —
+    // so only a caller who passes that and fails this one tells them apart.
+    await mongoose.connection.collection("revisions").updateOne(
+      { organization: ORG_ID, id: REV_ID },
+      {
+        $set: {
+          "target.proposedChanges": [
+            {
+              op: "replace",
+              path: "/environmentValues",
+              value: { dev: "old", production: "prod-only" },
+            },
+          ],
+        },
+      },
+    );
+
+    const { res } = resSpy();
+    await expect(
+      postSubmit(
+        reqFor(
+          {
+            scheduledPublishAt: new Date(Date.now() + 86_400_000).toISOString(),
+          },
+          "u_dev_publisher",
+        ),
+        res,
+      ),
+    ).rejects.toThrow(/permission/i);
+    expect((await stored())?.status).toBe("draft");
+  });
 
   it("allows that caller a DATE when the changes stay in dev", async () => {
     // The other half: the re-assert must NARROW, not refuse outright.
@@ -321,8 +352,8 @@ describe("POST /revision/:id/submit — the controller's arming gates", () => {
           "target.proposedChanges": [
             {
               op: "replace",
-              path: "/environmentValues/dev",
-              value: "dev-only",
+              path: "/environmentValues",
+              value: { dev: "dev-only", production: "old" },
             },
           ],
         },

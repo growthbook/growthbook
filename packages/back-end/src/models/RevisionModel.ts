@@ -475,6 +475,15 @@ export class RevisionModel extends BaseClass {
     updates: UpdateProps<Revision>,
     newDoc: Revision,
   ) {
+    // NOTE: this MUTATES a shared reference. When `target` isn't in `updates`,
+    // `newDoc.target` IS `existing.target`, so the line below rewrites the
+    // pre-image too. Harmless where it stands — the rebuild is a key-order
+    // normalization applied to both diff sides, and it never persists because
+    // `target` isn't in the `$set` — but nothing downstream may assume the
+    // pre-image survives this hook intact. A CAS guard once did, and Mongo's
+    // field-order-sensitive embedded equality turned that into a permanently
+    // unsatisfiable filter (see `buildCasGuard`, which clones for this reason).
+    //
     // Clean null values from snapshot before validation via the adapter
     newDoc.target.snapshot = getAdapter(newDoc.target.type).buildSnapshot(
       newDoc.target.snapshot as Record<string, unknown>,

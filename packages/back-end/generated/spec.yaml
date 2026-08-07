@@ -54316,6 +54316,7 @@ components:
                     const: add
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                   value: {}
                 required:
                   - op
@@ -54329,6 +54330,7 @@ components:
                     const: remove
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                 required:
                   - op
                   - path
@@ -54340,6 +54342,7 @@ components:
                     const: replace
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                   value: {}
                 required:
                   - op
@@ -54353,8 +54356,10 @@ components:
                     const: move
                   from:
                     type: string
+                    pattern: ^\/[^/]+$
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                 required:
                   - op
                   - from
@@ -54367,8 +54372,10 @@ components:
                     const: copy
                   from:
                     type: string
+                    pattern: ^\/[^/]+$
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                 required:
                   - op
                   - from
@@ -54381,6 +54388,7 @@ components:
                     const: test
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                   value: {}
                 required:
                   - op
@@ -54470,6 +54478,7 @@ components:
                     const: add
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                   value: {}
                 required:
                   - op
@@ -54483,6 +54492,7 @@ components:
                     const: remove
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                 required:
                   - op
                   - path
@@ -54494,6 +54504,7 @@ components:
                     const: replace
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                   value: {}
                 required:
                   - op
@@ -54507,8 +54518,10 @@ components:
                     const: move
                   from:
                     type: string
+                    pattern: ^\/[^/]+$
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                 required:
                   - op
                   - from
@@ -54521,8 +54534,10 @@ components:
                     const: copy
                   from:
                     type: string
+                    pattern: ^\/[^/]+$
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                 required:
                   - op
                   - from
@@ -54535,6 +54550,7 @@ components:
                     const: test
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                   value: {}
                 required:
                   - op
@@ -54724,6 +54740,7 @@ components:
                     const: add
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                   value: {}
                 required:
                   - op
@@ -54737,6 +54754,7 @@ components:
                     const: remove
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                 required:
                   - op
                   - path
@@ -54748,6 +54766,7 @@ components:
                     const: replace
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                   value: {}
                 required:
                   - op
@@ -54761,8 +54780,10 @@ components:
                     const: move
                   from:
                     type: string
+                    pattern: ^\/[^/]+$
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                 required:
                   - op
                   - from
@@ -54775,8 +54796,10 @@ components:
                     const: copy
                   from:
                     type: string
+                    pattern: ^\/[^/]+$
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                 required:
                   - op
                   - from
@@ -54789,6 +54812,7 @@ components:
                     const: test
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                   value: {}
                 required:
                   - op
@@ -54878,6 +54902,7 @@ components:
                     const: add
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                   value: {}
                 required:
                   - op
@@ -54891,6 +54916,7 @@ components:
                     const: remove
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                 required:
                   - op
                   - path
@@ -54902,6 +54928,7 @@ components:
                     const: replace
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                   value: {}
                 required:
                   - op
@@ -54915,8 +54942,10 @@ components:
                     const: move
                   from:
                     type: string
+                    pattern: ^\/[^/]+$
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                 required:
                   - op
                   - from
@@ -54929,8 +54958,10 @@ components:
                     const: copy
                   from:
                     type: string
+                    pattern: ^\/[^/]+$
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                 required:
                   - op
                   - from
@@ -54943,6 +54974,7 @@ components:
                     const: test
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                   value: {}
                 required:
                   - op
@@ -55397,6 +55429,7 @@ components:
                     const: add
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                   value: {}
                 required:
                   - op
@@ -55410,6 +55443,7 @@ components:
                     const: remove
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                 required:
                   - op
                   - path
@@ -55421,6 +55455,7 @@ components:
                     const: replace
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                   value: {}
                 required:
                   - op
@@ -55434,8 +55469,10 @@ components:
                     const: move
                   from:
                     type: string
+                    pattern: ^\/[^/]+$
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                 required:
                   - op
                   - from
@@ -55448,8 +55485,10 @@ components:
                     const: copy
                   from:
                     type: string
+                    pattern: ^\/[^/]+$
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                 required:
                   - op
                   - from
@@ -55462,6 +55501,7 @@ components:
                     const: test
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                   value: {}
                 required:
                   - op
@@ -55551,6 +55591,7 @@ components:
                     const: add
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                   value: {}
                 required:
                   - op
@@ -55564,6 +55605,7 @@ components:
                     const: remove
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                 required:
                   - op
                   - path
@@ -55575,6 +55617,7 @@ components:
                     const: replace
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                   value: {}
                 required:
                   - op
@@ -55588,8 +55631,10 @@ components:
                     const: move
                   from:
                     type: string
+                    pattern: ^\/[^/]+$
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                 required:
                   - op
                   - from
@@ -55602,8 +55647,10 @@ components:
                     const: copy
                   from:
                     type: string
+                    pattern: ^\/[^/]+$
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                 required:
                   - op
                   - from
@@ -55616,6 +55663,7 @@ components:
                     const: test
                   path:
                     type: string
+                    pattern: ^\/[^/]+$
                   value: {}
                 required:
                   - op
