@@ -1419,13 +1419,11 @@ export async function updateRevision(
         // older content, while the UI can still attribute them. That is a new
         // review cycle, so it takes a new cycle number: a verdict in flight
         // against the old one must not land on the reset draft.
-        ...(clearReviews
-          ? {
-              reviews: staleReviews,
-              reviewCycle: (revision.reviewCycle ?? 0) + 1,
-            }
-          : {}),
+        ...(clearReviews ? { reviews: staleReviews } : {}),
       },
+      // The reset starts a new review cycle, so it takes a new cycle number — and
+      // takes it atomically, like every other cycle start.
+      ...(clearReviews ? { $inc: { reviewCycle: 1 } } : {}),
       ...(clearRevertedFrom ? { $unset: { revertedFrom: 1 } } : {}),
       ...contributorUpdate,
     },
@@ -1802,12 +1800,18 @@ export async function markRevisionAsReviewRequested(
           // Requesting review starts a new review cycle — prior verdicts no
           // longer stand (mirrors the revision-log replay semantics).
           reviews: [],
-          // Starts a new review cycle. `status` cannot identify one — recall
-          // then resubmit returns the row to `pending-review`, the same value it
-          // held before — so a verdict in flight against the RETRACTED cycle
-          // would otherwise satisfy every filter and approve this one.
-          reviewCycle: (revision.reviewCycle ?? 0) + 1,
         },
+        // Starts a new review cycle. `status` cannot identify one — recall then
+        // resubmit returns the row to `pending-review`, the same value it held
+        // before — so a verdict in flight against the RETRACTED cycle would
+        // otherwise satisfy every filter and approve this one.
+        //
+        // ATOMIC, not computed from `revision`: the caller's copy was read several
+        // awaits ago, and these filters key on `status`, which a recall/resubmit
+        // pair restores. A stale copy therefore wrote a cycle number LOWER than the
+        // stored one — moving the identity backwards and REUSING a number an old
+        // verdict was formed against, which is the very thing it exists to prevent.
+        $inc: { reviewCycle: 1 },
         ...(Object.keys(unset).length > 0 ? { $unset: unset } : {}),
       },
     );
@@ -2588,8 +2592,11 @@ export async function recallReview(
         dateUpdated: new Date(),
         reviews: [],
         autoPublishOnApproval: false,
-        reviewCycle: (revision.reviewCycle ?? 0) + 1,
       },
+      // Atomic, for the reason given in markRevisionAsReviewRequested: computing
+      // it from the caller's copy can move the cycle backwards onto a number an
+      // in-flight verdict already names.
+      $inc: { reviewCycle: 1 },
       $unset: {
         approvedBaseVersion: 1,
         autoPublishEnabledBy: 1,
@@ -2827,8 +2834,11 @@ export async function reopenRevision(
         dateUpdated: new Date(),
         reviews: [],
         autoPublishOnApproval: false,
-        reviewCycle: (revision.reviewCycle ?? 0) + 1,
       },
+      // Atomic, for the reason given in markRevisionAsReviewRequested: computing
+      // it from the caller's copy can move the cycle backwards onto a number an
+      // in-flight verdict already names.
+      $inc: { reviewCycle: 1 },
       $unset: {
         approvedBaseVersion: 1,
         autoPublishEnabledBy: 1,

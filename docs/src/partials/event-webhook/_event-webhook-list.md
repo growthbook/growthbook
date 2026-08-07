@@ -55,7 +55,7 @@
 | **[savedGroup.revision.reverted](#savedGrouprevisionreverted)** | Triggered when a saved group is reverted to a previous published revision |
 | **[savedGroup.revision.reopened](#savedGrouprevisionreopened)** | Triggered when a discarded revision is reopened |
 | **[savedGroup.revision.recalled](#savedGrouprevisionrecalled)** | Triggered when the author (or an editor) recalls a review request, returning the revision to `draft`. Distinct from `revision.reopened`, which restores a discarded revision. |
-| **[savedGroup.revision.reviewRetracted](#savedGrouprevisionreviewRetracted)** | Triggered when a reviewer retracts their own verdict, returning the revision to `pending-review`. Carries no content change — the revision's proposed changes are untouched. |
+| **[savedGroup.revision.reviewRetracted](#savedGrouprevisionreviewRetracted)** | Triggered when a reviewer retracts their own verdict. The status is recomputed from the verdicts that remain, so the revision may end up `pending-review`, or stay `approved` or `changes-requested` when another reviewer's verdict still stands. Carries no content change — the revision's proposed changes are untouched. |
 | **[savedGroup.revision.publishScheduleChanged](#savedGrouprevisionpublishScheduleChanged)** | Triggered when a deferred publish is armed, re-armed, or cancelled on a revision. Carries no content change. |
 | **[savedGroup.revision.publishFailed](#savedGrouprevisionpublishFailed)** | Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve. |
 | **[constant.created](#constantcreated)** | Triggered when a constant is created |
@@ -73,7 +73,7 @@
 | **[constant.revision.reverted](#constantrevisionreverted)** | Triggered when a constant is reverted to a previous published revision |
 | **[constant.revision.reopened](#constantrevisionreopened)** | Triggered when a discarded revision is reopened |
 | **[constant.revision.recalled](#constantrevisionrecalled)** | Triggered when the author (or an editor) recalls a review request, returning the revision to `draft`. Distinct from `revision.reopened`, which restores a discarded revision. |
-| **[constant.revision.reviewRetracted](#constantrevisionreviewRetracted)** | Triggered when a reviewer retracts their own verdict, returning the revision to `pending-review`. Carries no content change — the revision's proposed changes are untouched. |
+| **[constant.revision.reviewRetracted](#constantrevisionreviewRetracted)** | Triggered when a reviewer retracts their own verdict. The status is recomputed from the verdicts that remain, so the revision may end up `pending-review`, or stay `approved` or `changes-requested` when another reviewer's verdict still stands. Carries no content change — the revision's proposed changes are untouched. |
 | **[constant.revision.publishScheduleChanged](#constantrevisionpublishScheduleChanged)** | Triggered when a deferred publish is armed, re-armed, or cancelled on a revision. Carries no content change. |
 | **[constant.revision.publishFailed](#constantrevisionpublishFailed)** | Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve. |
 | **[config.created](#configcreated)** | Triggered when a config is created |
@@ -91,7 +91,7 @@
 | **[config.revision.reverted](#configrevisionreverted)** | Triggered when a config is reverted to a previous published revision |
 | **[config.revision.reopened](#configrevisionreopened)** | Triggered when a discarded revision is reopened |
 | **[config.revision.recalled](#configrevisionrecalled)** | Triggered when the author (or an editor) recalls a review request, returning the revision to `draft`. Distinct from `revision.reopened`, which restores a discarded revision. |
-| **[config.revision.reviewRetracted](#configrevisionreviewRetracted)** | Triggered when a reviewer retracts their own verdict, returning the revision to `pending-review`. Carries no content change — the revision's proposed changes are untouched. |
+| **[config.revision.reviewRetracted](#configrevisionreviewRetracted)** | Triggered when a reviewer retracts their own verdict. The status is recomputed from the verdicts that remain, so the revision may end up `pending-review`, or stay `approved` or `changes-requested` when another reviewer's verdict still stands. Carries no content change — the revision's proposed changes are untouched. |
 | **[config.revision.publishScheduleChanged](#configrevisionpublishScheduleChanged)** | Triggered when a deferred publish is armed, re-armed, or cancelled on a revision. Carries no content change. |
 | **[config.revision.publishFailed](#configrevisionpublishFailed)** | Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve. |
 | **[user.login](#userlogin)** | Triggered when a user logs in |
@@ -4938,7 +4938,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
 
 ### savedGroup.revision.reviewRetracted
 
-Triggered when a reviewer retracts their own verdict, returning the revision to `pending-review`. Carries no content change — the revision's proposed changes are untouched.
+Triggered when a reviewer retracts their own verdict. The status is recomputed from the verdicts that remain, so the revision may end up `pending-review`, or stay `approved` or `changes-requested` when another reviewer's verdict still stands. Carries no content change — the revision's proposed changes are untouched.
 
 <details>
   <summary>Payload</summary>
@@ -7029,7 +7029,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
 
 ### constant.revision.reviewRetracted
 
-Triggered when a reviewer retracts their own verdict, returning the revision to `pending-review`. Carries no content change — the revision's proposed changes are untouched.
+Triggered when a reviewer retracts their own verdict. The status is recomputed from the verdicts that remain, so the revision may end up `pending-review`, or stay `approved` or `changes-requested` when another reviewer's verdict still stands. Carries no content change — the revision's proposed changes are untouched.
 
 <details>
   <summary>Payload</summary>
@@ -10492,7 +10492,7 @@ Triggered when the author (or an editor) recalls a review request, returning the
 
 ### config.revision.reviewRetracted
 
-Triggered when a reviewer retracts their own verdict, returning the revision to `pending-review`. Carries no content change — the revision's proposed changes are untouched.
+Triggered when a reviewer retracts their own verdict. The status is recomputed from the verdicts that remain, so the revision may end up `pending-review`, or stay `approved` or `changes-requested` when another reviewer's verdict still stands. Carries no content change — the revision's proposed changes are untouched.
 
 <details>
   <summary>Payload</summary>

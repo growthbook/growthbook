@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
+  markRevisionAsReviewRequested,
   recallReview,
   submitReviewAndComments,
 } from "back-end/src/models/FeatureRevisionModel";
@@ -162,6 +163,32 @@ describe("submitReviewAndComments reports whether the verdict landed", () => {
     await recallReview(context, { ...revision, reviewCycle: 1 } as never, user);
 
     expect((await stored())?.reviewCycle).toBe(2);
+  });
+
+  it("never moves the cycle backwards from a stale caller copy", async () => {
+    // The number has to be MONOTONIC, not merely different. These writes filter on
+    // `status`, which a recall/resubmit pair restores — so a caller holding a copy
+    // read several awaits ago still matches, and computing `copy.reviewCycle + 1`
+    // stamped a number LOWER than the stored one. That doesn't just lose the
+    // identity, it REUSES a number an in-flight verdict was formed against, which
+    // is precisely the ABA the cycle exists to stop. `$inc` is what makes it
+    // monotonic regardless of what the caller read.
+    const stale = await seed("draft");
+    await mongoose.connection
+      .collection("featurerevisions")
+      .updateOne(
+        { organization: ORG_ID, featureId: "feat_applied", version: 2 },
+        { $set: { reviewCycle: 7 } },
+      );
+
+    // The caller still believes it is cycle 1.
+    await markRevisionAsReviewRequested(
+      context,
+      { ...stale, reviewCycle: 1 } as never,
+      user,
+    );
+
+    expect((await stored())?.reviewCycle).toBe(8);
   });
 
   it("reports applied for a plain comment, which writes no verdict", async () => {

@@ -1083,7 +1083,21 @@ export class RevisionModel extends BaseClass {
         // callback reads it to decide whether to clear a stale fingerprint — a
         // concurrent arm's fresh set would otherwise survive a re-arm that should
         // have cleared it.
-        ["status", "reviews", "activityLog", "target", "armAcknowledgments"],
+        // `reviewCycle` is guarded because this write COMPUTES the next one from the
+        // row it read. Unguarded, a concurrent cycle start could land in between and
+        // this write would stamp a number LOWER than the stored one — moving the
+        // identity backwards onto a number an in-flight verdict already names, which
+        // is exactly what the cycle exists to prevent. (Every cycle start also moves
+        // `status` or `reviews`, so the guard is belt-and-braces — but the field this
+        // write derives from is the one that has to be in the predicate.)
+        [
+          "status",
+          "reviews",
+          "activityLog",
+          "target",
+          "armAcknowledgments",
+          "reviewCycle",
+        ],
         (existing) => {
           // `changes-requested` is also re-submittable: after a reviewer requests
           // changes and the author edits the revision, this is the transition back
@@ -1478,7 +1492,14 @@ export class RevisionModel extends BaseClass {
       id,
       // `target` for the same reason as `submitForReview`: the non-author path is
       // gated on draft authority over `target.snapshot`.
-      ["status", "reviews", "activityLog", "target"],
+      // `reviewCycle` is guarded because this write COMPUTES the next one from the
+      // row it read. Unguarded, a concurrent cycle start could land in between and
+      // this write would stamp a number LOWER than the stored one — moving the
+      // identity backwards onto a number an in-flight verdict already names, which
+      // is exactly what the cycle exists to prevent. (Every cycle start also moves
+      // `status` or `reviews`, so the guard is belt-and-braces — but the field this
+      // write derives from is the one that has to be in the predicate.)
+      ["status", "reviews", "activityLog", "target", "reviewCycle"],
       (existing) => {
         assertAuthority?.(existing);
         if (
@@ -1789,7 +1810,21 @@ export class RevisionModel extends BaseClass {
       // matched and rewrote merged history, including the status and reviews the
       // publish had just set. `assertDraftAcceptsContentEdit` is re-checked inside the
       // loop, so a retry sees the new status and refuses properly.
-      ["contributors", "status", "target", "reviews", "activityLog"],
+      // `reviewCycle` is guarded because this write COMPUTES the next one from the
+      // row it read. Unguarded, a concurrent cycle start could land in between and
+      // this write would stamp a number LOWER than the stored one — moving the
+      // identity backwards onto a number an in-flight verdict already names, which
+      // is exactly what the cycle exists to prevent. (Every cycle start also moves
+      // `status` or `reviews`, so the guard is belt-and-braces — but the field this
+      // write derives from is the one that has to be in the predicate.)
+      [
+        "contributors",
+        "status",
+        "target",
+        "reviews",
+        "activityLog",
+        "reviewCycle",
+      ],
       (existing) => {
         this.assertDraftAcceptsContentEdit(existing);
         const { target, entry } = build(existing);
@@ -2126,30 +2161,41 @@ export class RevisionModel extends BaseClass {
     // review cycle for a revision that was never submitted. Reopening to
     // `draft` lets the author explicitly re-submit via `submitForReview`
     // when ready — a safer default than inferring the pre-discard status.
-    const reopened = await this.updateWithCas(id, ["status"], (existing) => {
-      // Re-checked under the CAS, against the row this write is conditioned on:
-      // the guard alone only proves `status` hasn't changed since the CAS re-read,
-      // and a retry re-reads. Without this a reopen racing a publish could demote
-      // MERGED history back to `draft`. Only a discarded revision reopens.
-      if (existing.status !== "discarded") return null;
-      return {
-        status: "draft",
-        resolution: undefined,
-        // Reopening restarts the lifecycle — demote any pre-discard verdicts.
-        reviews: this.staleVerdicts(existing.reviews),
-        reviewCycle: this.nextReviewCycle(existing),
-        activityLog: [
-          ...this.cleanActivityLog(existing.activityLog),
-          {
-            id: uniqid("act_"),
-            userId,
-            action: "reopened",
-            description: "Reopened revision",
-            dateCreated: new Date(),
-          },
-        ],
-      } as UpdateProps<Revision>;
-    });
+    // `reviewCycle` is guarded because this write COMPUTES the next one from the
+    // row it read. Unguarded, a concurrent cycle start could land in between and
+    // this write would stamp a number LOWER than the stored one — moving the
+    // identity backwards onto a number an in-flight verdict already names, which
+    // is exactly what the cycle exists to prevent. (Every cycle start also moves
+    // `status` or `reviews`, so the guard is belt-and-braces — but the field this
+    // write derives from is the one that has to be in the predicate.)
+    const reopened = await this.updateWithCas(
+      id,
+      ["status", "reviewCycle"],
+      (existing) => {
+        // Re-checked under the CAS, against the row this write is conditioned on:
+        // the guard alone only proves `status` hasn't changed since the CAS re-read,
+        // and a retry re-reads. Without this a reopen racing a publish could demote
+        // MERGED history back to `draft`. Only a discarded revision reopens.
+        if (existing.status !== "discarded") return null;
+        return {
+          status: "draft",
+          resolution: undefined,
+          // Reopening restarts the lifecycle — demote any pre-discard verdicts.
+          reviews: this.staleVerdicts(existing.reviews),
+          reviewCycle: this.nextReviewCycle(existing),
+          activityLog: [
+            ...this.cleanActivityLog(existing.activityLog),
+            {
+              id: uniqid("act_"),
+              userId,
+              action: "reopened",
+              description: "Reopened revision",
+              dateCreated: new Date(),
+            },
+          ],
+        } as UpdateProps<Revision>;
+      },
+    );
     // `updateWithCas` returns null for a missing row AND for a compute that refused,
     // so reporting "not found" told the loser of a two-operator race that the revision
     // does not exist. Re-read on the failure path only, to say which it was.

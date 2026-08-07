@@ -2322,7 +2322,17 @@ export async function applyHoldoutSideEffects(
   // `isRevert` skips the guard — see assertHoldoutChangeAllowed. `skipGuard` is
   // set by callers that already ran assertHoldoutChangeAllowed BEFORE mutating
   // the feature, so the guard isn't re-run against the stale live rules here.
-  { isRevert, skipGuard }: { isRevert?: boolean; skipGuard?: boolean } = {},
+  {
+    isRevert,
+    skipGuard,
+    // Stamped with the entry this call wrote, so compensation removes the entry it
+    // added rather than whatever it later finds in that slot.
+    onFeatureLinked,
+  }: {
+    isRevert?: boolean;
+    skipGuard?: boolean;
+    onFeatureLinked?: (entry: { id: string; dateAdded: Date } | null) => void;
+  } = {},
 ) {
   const prevHoldoutId = feature.holdout?.id;
   const newHoldoutId = newHoldout?.id;
@@ -2354,7 +2364,12 @@ export async function applyHoldoutSideEffects(
 
   // Feature side only; planHoldoutExperimentLinkage owns the experiment half.
   if (newHoldoutId) {
-    await context.models.holdout.addFeatureToHoldout(newHoldoutId, feature.id);
+    onFeatureLinked?.(
+      await context.models.holdout.addFeatureToHoldout(
+        newHoldoutId,
+        feature.id,
+      ),
+    );
   }
 }
 
@@ -2657,6 +2672,14 @@ export type HoldoutLinkagePreImage = {
   prevFeatureEntry: { id: string; dateAdded: Date } | null;
   newHoldoutId: string | null;
   addsFeature: boolean;
+  /**
+   * The entry the forward pass actually wrote, stamped onto this object by
+   * `applyHoldoutSideEffects`. Presence of SOME entry is not ownership: a writer
+   * who unlinked the feature and re-linked it left a different entry behind, and
+   * removing that undoes their work. `dateAdded` is the discriminator; absent
+   * means the forward pass never got that far, and there is nothing to remove.
+   */
+  addedFeatureEntry?: { id: string; dateAdded: Date } | null;
 };
 
 export async function captureHoldoutLinkagePreImage(
@@ -2693,19 +2716,19 @@ export async function rewindHoldoutLinkage(
   context: ReqContext | ApiReqContext,
   pre: HoldoutLinkagePreImage,
 ) {
-  if (pre.newHoldoutId && pre.addsFeature) {
+  if (pre.newHoldoutId && pre.addsFeature && pre.addedFeatureEntry) {
     // Only remove the entry THIS publish added, and only while it is still the one
-    // it added: a concurrent writer who re-linked the feature to the same holdout
-    // owns that entry now, and dropping it would undo their change. The restore
-    // half below already declines on the same reasoning.
-    const newHoldout = await context.models.holdout.getByIdForLinkage(
-      pre.newHoldoutId,
-    );
-    if (newHoldout?.linkedFeatures[pre.featureId]) {
-      await context.models.holdout.removeLinkageFromHoldout(pre.newHoldoutId, {
-        featureId: pre.featureId,
-      });
-    }
+    // it added: a concurrent writer who unlinked the feature and re-linked it owns
+    // the entry sitting there now, and dropping it would undo their change. The
+    // check used to be presence-only, which cannot see that — an entry was there
+    // before and an entry is there now, but not the same one. `dateAdded` is what
+    // tells them apart, and the comparison happens inside the model's own
+    // read-modify-write so it isn't check-then-act. The restore half below already
+    // declines on the same reasoning.
+    await context.models.holdout.removeLinkageFromHoldout(pre.newHoldoutId, {
+      featureId: pre.featureId,
+      expectFeatureEntry: pre.addedFeatureEntry,
+    });
   }
 
   if (pre.prevHoldoutId && pre.prevFeatureEntry) {
@@ -2731,6 +2754,13 @@ export async function applyRampCreateActionsForRevision(
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   result: MergeResultChanges,
+  // Called with the ids the failure path created but could NOT delete. On the
+  // throw path this function never returns, so its return value cannot carry
+  // them and the caller's assignment never runs — the ids died with the throw,
+  // leaving armed `pending` schedules that nothing reports and nothing retries
+  // (they activate if that revision is ever published again). This is the only
+  // way out for them.
+  onLeaked?: (scheduleIds: string[]) => void,
 ): Promise<string[]> {
   const createActions = (revision.rampActions ?? []).filter(
     (a) => a.mode === "create",
@@ -2750,7 +2780,11 @@ export async function applyRampCreateActionsForRevision(
     // A mid-loop throw would otherwise orphan the schedules already created —
     // invisible to compensation (their ids die with the throw). Best-effort
     // delete them here; the original error still gates the publish.
-    await rollbackCreatedRampSchedules(context, createdIds);
+    const leaked = await rollbackCreatedRampSchedules(context, createdIds);
+    // Whatever the cleanup could not delete is a real leak. Hand it up before
+    // rethrowing so compensation can retry it and, failing that, name it —
+    // discarding it reported a clean rollback over an armed schedule.
+    if (leaked.length) onLeaked?.(leaked);
     throw e;
   }
 }
@@ -4039,6 +4073,11 @@ async function publishRevisionInner({
       // Guard already ran above, before any mutation.
       await applyHoldoutSideEffects(context, feature, result.holdout, {
         skipGuard: true,
+        // Stamped onto the pre-image the rewind above already closed over, so
+        // the removal names the entry this pass wrote.
+        onFeatureLinked: (entry) => {
+          if (holdoutPreImage) holdoutPreImage.addedFeatureEntry = entry;
+        },
       });
     }
 

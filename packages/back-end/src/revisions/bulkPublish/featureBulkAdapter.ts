@@ -463,6 +463,15 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       feature,
       raw,
       mergeResult,
+      // Recorded on the desired state BEFORE the rethrow unwinds past the
+      // assignment above, so compensation sees schedules a failed create left
+      // behind instead of them vanishing with the error.
+      (leaked) => {
+        desired.createdRampScheduleIds = [
+          ...(desired.createdRampScheduleIds ?? []),
+          ...leaked,
+        ];
+      },
     );
 
     // Snapshot the safe-rollout docs whose statuses the apply's sync will
@@ -553,6 +562,13 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         // Guard already ran above, before any mutation.
         await applyHoldoutSideEffects(context, feature, mergeResult.holdout, {
           skipGuard: true,
+          // Same reason as the direct path: compensation must remove the entry
+          // this pass wrote, not whatever occupies the slot when it runs.
+          onFeatureLinked: (entry) => {
+            if (desired.holdoutLinkage) {
+              desired.holdoutLinkage.addedFeatureEntry = entry;
+            }
+          },
         });
       }
 

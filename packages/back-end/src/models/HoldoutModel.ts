@@ -242,15 +242,23 @@ export class HoldoutModel extends BaseClass {
     await this.writeLinkage(holdout, { linkedFeatures });
   }
 
+  /**
+   * Returns the feature entry this call WROTE, or null when an entry was already
+   * there and won the spread below. Compensation needs it: `dateAdded` is what
+   * distinguishes the entry this publish added from an identical-looking one a
+   * later writer put back, and without it a rewind removes whichever entry it
+   * finds.
+   */
   public async addFeatureToHoldout(
     holdoutId: string,
     featureId: string,
     experimentIds: string[] = [],
-  ) {
+  ): Promise<{ id: string; dateAdded: Date } | null> {
     const holdout = await this.getLinkageTarget(holdoutId);
+    const entry = { id: featureId, dateAdded: new Date() };
     await this.writeLinkage(holdout, {
       linkedFeatures: {
-        [featureId]: { id: featureId, dateAdded: new Date() },
+        [featureId]: entry,
         ...holdout.linkedFeatures,
       },
       ...(experimentIds.length
@@ -267,6 +275,9 @@ export class HoldoutModel extends BaseClass {
           }
         : {}),
     });
+    // The spread puts existing entries last, so an entry that was already there
+    // wins and this call added nothing.
+    return holdout.linkedFeatures[featureId] ? null : entry;
   }
 
   public async addExperimentToHoldout(holdoutId: string, experimentId: string) {
@@ -313,7 +324,18 @@ export class HoldoutModel extends BaseClass {
     {
       featureId,
       experimentIds,
-    }: { featureId?: string | null; experimentIds?: string[] },
+      // The feature entry the caller is undoing. Presence alone is not ownership:
+      // a writer who unlinked the feature and re-linked it wrote a NEW entry, and
+      // removing that one undoes their work, not ours. `dateAdded` is what tells
+      // the two apart, so a caller that knows what it wrote passes it and this
+      // declines when live no longer matches. Omitted by callers that mean "drop
+      // whatever is there" (unlinking a feature outright, not compensating).
+      expectFeatureEntry,
+    }: {
+      featureId?: string | null;
+      experimentIds?: string[];
+      expectFeatureEntry?: { dateAdded: Date } | null;
+    },
   ) {
     const holdout = await this.getByIdForLinkage(holdoutId);
     if (!holdout) return;
@@ -323,7 +345,14 @@ export class HoldoutModel extends BaseClass {
       Object.entries(holdout.linkedExperiments).filter(([id]) => !drop.has(id)),
     );
     const linkedFeatures = { ...holdout.linkedFeatures };
-    if (featureId) delete linkedFeatures[featureId];
+    const liveEntry = featureId ? holdout.linkedFeatures[featureId] : undefined;
+    const ownsFeatureEntry =
+      expectFeatureEntry === undefined ||
+      (!!liveEntry &&
+        !!expectFeatureEntry &&
+        new Date(liveEntry.dateAdded).getTime() ===
+          expectFeatureEntry.dateAdded.getTime());
+    if (featureId && ownsFeatureEntry) delete linkedFeatures[featureId];
 
     if (
       Object.keys(linkedExperiments).length ===
