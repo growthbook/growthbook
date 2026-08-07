@@ -8,6 +8,7 @@ const usersController = wrapController(usersControllerRaw);
 
 router.get("/", usersController.getUser);
 router.put("/name", usersController.putUserName);
+router.post("/nps-response", usersController.postNpsResponse);
 router.post("/watch/:type/:id", usersController.postWatchItem);
 router.post("/unwatch/:type/:id", usersController.postUnwatchItem);
 router.get("/getRecommendedOrgs", usersController.getRecommendedOrgs);
