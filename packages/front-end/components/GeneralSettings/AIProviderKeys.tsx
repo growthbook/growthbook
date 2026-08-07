@@ -472,7 +472,7 @@ export default function AIProviderKeys({
             Using your own AI provider keys
           </PremiumTooltip>{" "}
           {isCloud()
-            ? "requires a Pro or Enterprise plan. AI features still work on GrowthBook's managed keys."
+            ? "requires an Enterprise plan. AI features still work on GrowthBook's managed keys."
             : "requires an Enterprise plan."}
         </Callout>
       )}

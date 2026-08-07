@@ -244,8 +244,6 @@ const commercialFeaturesProSso: CommercialFeature[] = [
 
 const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "ai-suggestions",
-  // Not in commercialFeaturesPro, which would grant self-hosted Pro too. The
-  // IS_CLOUD block below adds Cloud pro/pro_sso.
   "ai-byok",
   "scim",
   "audit-logging",
@@ -303,10 +301,6 @@ if (stringToBoolean(process.env.IS_CLOUD)) {
   Object.values(accountFeatures).forEach((features) => {
     features.add("ai-suggestions"); // All plans on cloud have ai-suggestions, though the usage limits vary
   });
-  // Narrower than ai-suggestions above: every Cloud plan gets AI on the managed
-  // keys, but replacing them with the org's own is Pro and above.
-  accountFeatures.pro.add("ai-byok");
-  accountFeatures.pro_sso.add("ai-byok");
 }
 
 export interface LicenseUserCodes {

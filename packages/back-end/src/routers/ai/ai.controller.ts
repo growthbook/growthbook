@@ -47,10 +47,9 @@ export async function getTokenUsage(
   });
 }
 
-// Cloud grants ai-byok to Pro and above; self-hosted it is Enterprise only.
-const BYOK_PLAN_ERROR = IS_CLOUD
-  ? "Using your own AI provider API key requires a Pro or Enterprise plan."
-  : "Using your own AI provider API key requires an Enterprise plan.";
+// ai-byok is Enterprise only, on Cloud and self-hosted alike.
+const BYOK_PLAN_ERROR =
+  "Using your own AI provider API key requires an Enterprise plan.";
 
 type GetAICredentialsResponse = {
   status: 200;
