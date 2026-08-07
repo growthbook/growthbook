@@ -1569,12 +1569,28 @@ export class RevisionModel extends BaseClass {
     id: string,
     userId: string,
     assertAuthority?: (existing: Revision) => void,
+    // The review cycle the retraction was aimed at, for the same reason
+    // `addReview` takes one — and the reasoning is symmetric. A verdict must not
+    // cross a recall/resubmit; neither must its withdrawal. This reviewer's verdict
+    // on the NEW cycle looks exactly like their verdict on the retracted one, so an
+    // undo in flight across the boundary removes a verdict its sender never saw,
+    // and dropping a `changes-requested` can resolve the revision to `approved` and
+    // fire auto-publish on changes nobody cleared.
+    expectedReviewCycle?: number,
   ) {
     const updated = await this.updateWithCas(
       id,
       ["reviews", "status", "activityLog", "target"],
       (existing) => {
         assertAuthority?.(existing);
+        if (
+          expectedReviewCycle !== undefined &&
+          (existing.reviewCycle ?? 0) !== expectedReviewCycle
+        ) {
+          throw new Error(
+            "This review request was superseded — the draft was recalled and resubmitted while your retraction was in flight. Reload and review the current request.",
+          );
+        }
         if (
           existing.status !== "approved" &&
           existing.status !== "changes-requested"
@@ -2301,9 +2317,25 @@ export class RevisionModel extends BaseClass {
     };
 
     try {
-      // Guard against a TOCTOU race: only arm a revision that's still active.
+      // Guard against a TOCTOU race: only arm a revision that's still active AND
+      // still holding the content this arm was computed against.
+      //
+      // `armAcknowledgments` is a fingerprint of `target.proposedChanges`, and the
+      // fire-time drift check reads it as consent — so content changing between the
+      // read above and this write armed a schedule whose fingerprint describes
+      // changes nobody acknowledged. Same defect the auto-publish arm had; this is
+      // its dated twin.
+      //
+      // Guarded on `dateUpdated` rather than on `target` itself: any write that
+      // touches the target bumps it, and it is a scalar. An embedded-document
+      // equality on `target` is field-order sensitive, which is what made an earlier
+      // guard here permanently unsatisfiable (see `buildCasGuard`).
       const { matchedCount } = await coll.updateOne(
-        { ...filter, status: { $in: [...ACTIVE_DRAFT_STATUSES] } },
+        {
+          ...filter,
+          status: { $in: [...ACTIVE_DRAFT_STATUSES] },
+          dateUpdated: existing.dateUpdated,
+        },
         {
           $set: {
             autoPublishOnApproval: true,
@@ -2332,8 +2364,10 @@ export class RevisionModel extends BaseClass {
         },
       );
       if (!matchedCount) {
+        // Covers both guards: a revision that left the active statuses, and one
+        // whose content moved since this arm was computed.
         throw new Error(
-          "This revision can no longer be scheduled — it was published or discarded.",
+          "This revision can no longer be scheduled — it was published, discarded, or edited while you were scheduling it.",
         );
       }
     } catch (e) {

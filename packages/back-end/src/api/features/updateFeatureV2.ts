@@ -424,7 +424,6 @@ export const updateFeatureV2 = createApiRequestHandler(
   const hasPrereqChanges = newPrerequisites !== null;
   const hasArchivedChange = newArchived !== null;
   // Set when this request lands a live revision; dispatched after the commit.
-  let publishedRevisionForEvents: FeatureRevisionInterface | null = null;
   // Gates this request stepped over, named in the response like every other publish
   // surface — without it a caller cannot tell a publish that needed no approval from
   // one that bypassed a live requirement.
@@ -476,7 +475,29 @@ export const updateFeatureV2 = createApiRequestHandler(
 
     // See updateFeature: this path lands a live revision, so it owes the same
     // `revision.published` webhook the dedicated publish endpoints emit.
-    publishedRevisionForEvents = revision;
+
+    // Dispatched HERE, immediately after the revision commits — not at the end of
+    // the handler. The publish is already live at this point; everything between
+    // (the metadata write, the tags diff, the audit entry, and four reads for the
+    // response payload) can throw, and every one of them turned a live publish into
+    // a 500 with no lifecycle event at all. Those later steps are not part of the
+    // publish, so their failure does not make this event untrue.
+    //
+    // Best-effort, as before: a failed notification must not fail a committed write.
+    try {
+      await dispatchFeatureRevisionEvent(
+        req.context,
+        feature,
+        await getPublishedRevisionForEvents(req.context, feature, revision),
+        "revision.published",
+        {},
+      );
+    } catch (e) {
+      logger.error(
+        e,
+        `Failed to dispatch revision.published for feature ${feature.id}`,
+      );
+    }
     if (bypassedApproval) {
       bypassedGates.push({
         type: "approval-required",
@@ -538,27 +559,6 @@ export const updateFeatureV2 = createApiRequestHandler(
   });
   const safeRolloutMap =
     await req.context.models.safeRollout.getAllPayloadSafeRollouts();
-  // See updateFeature: after the commit, best-effort, never fails the update.
-  if (publishedRevisionForEvents) {
-    try {
-      await dispatchFeatureRevisionEvent(
-        req.context,
-        updatedFeature,
-        await getPublishedRevisionForEvents(
-          req.context,
-          updatedFeature,
-          publishedRevisionForEvents,
-        ),
-        "revision.published",
-        {},
-      );
-    } catch (e) {
-      logger.error(
-        e,
-        `Failed to dispatch revision.published for feature ${updatedFeature.id}`,
-      );
-    }
-  }
   return {
     feature: await resolveOwnerEmail(
       getApiFeatureObjV2({

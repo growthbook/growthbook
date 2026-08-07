@@ -1195,20 +1195,31 @@ export async function postFeatureScheduledPublish(
     !!req.body.bypassApproval &&
     context.permissions.canBypassFlagApprovalChecks(feature, "feature");
 
-  await setRevisionScheduledPublish(
+  const scheduleChanged = await setRevisionScheduledPublish(
     context,
     revision,
     { scheduledPublishAt: date, lockEdits, lockOthers, bypassApproval },
     context.userId || null,
   );
 
-  await dispatchFeatureRevisionEvent(
-    context,
-    feature,
-    revision,
-    "revision.publishScheduleChanged",
-    {},
-  );
+  // Only when something actually moved — see the REST twin.
+  if (scheduleChanged) {
+    const afterSchedule =
+      (await getRevision({
+        context,
+        organization: context.org.id,
+        featureId: feature.id,
+        feature,
+        version: parseInt(version),
+      })) ?? revision;
+    await dispatchFeatureRevisionEvent(
+      context,
+      feature,
+      afterSchedule,
+      "revision.publishScheduleChanged",
+      {},
+    );
+  }
 
   res.status(200).json({ status: 200 });
 }
@@ -1315,6 +1326,21 @@ export async function postFeatureRequestReview(
     { reviewComment: comment ?? null },
   );
 
+  // Requesting review can ARM a deferred publish in the same call, and a schedule
+  // subscriber has no reason to be watching `reviewRequested`. The dedicated
+  // scheduling route fires this; request-review persisted the identical state and
+  // said nothing, so the same arm was visible or invisible depending on which
+  // button produced it. Same gap the generic engine's submit route had.
+  if (enableAutoPublish || scheduledDate !== null) {
+    await dispatchFeatureRevisionEvent(
+      context,
+      feature,
+      finalRevision,
+      "revision.publishScheduleChanged",
+      {},
+    );
+  }
+
   res.status(200).json({
     status: 200,
   });
@@ -1347,6 +1373,14 @@ export async function postFeatureReviewOrComment(
   // Constants and Saved Groups do — the feature copy had also dropped the draft arm,
   // which is what lets an author reply to feedback on their own draft. Narrowed to
   // the primary project, matching `canReviewFeatureDrafts`.
+  // KNOWN DIVERGENCE from the other three entities, and structural rather than an
+  // oversight: they authorize commenting on `revision.target.snapshot`, so a review
+  // stays with the project the revision was opened in. Feature revisions carry no
+  // origin snapshot — `metadata.project` is the DESTINATION a draft stages, not
+  // where it started — so this engine can only ask about live. Both feature
+  // surfaces (this and the REST twin) ask it identically; closing the gap for real
+  // needs an origin project recorded on the revision, which is a schema change and
+  // a backfill, not a check.
   const canCommentHere = canCommentOnRevisionEntity(
     context.permissions,
     "feature",
@@ -1855,13 +1889,24 @@ export async function postFeatureUndoReview(
   if (!revision) throw new Error("Could not find feature revision");
   const newStatus = await undoReview(context, revision, res.locals.eventAudit);
 
+  const afterUndo =
+    (await getRevision({
+      context,
+      organization: context.org.id,
+      featureId: feature.id,
+      feature,
+      version: parseInt(version),
+    })) ?? revision;
+
   // Retraction is its own event. This engine dispatched nothing at all for it,
   // while the other revision families announce it — so the same action was visible
-  // or invisible depending on which kind of entity it happened to.
+  // or invisible depending on which kind of entity it happened to. Carries the
+  // REFRESHED revision: the pre-image still holds the verdict just removed and the
+  // status it implied, which is precisely what the event exists to report.
   await dispatchFeatureRevisionEvent(
     context,
     feature,
-    revision,
+    afterUndo,
     "revision.reviewRetracted",
     {},
   );
@@ -1870,15 +1915,7 @@ export async function postFeatureUndoReview(
   // (another reviewer's approval still stands). Mirror the review path so an
   // armed draft auto-publishes instead of getting stuck in approved limbo.
   if (newStatus === "approved") {
-    const finalRevision =
-      (await getRevision({
-        context,
-        organization: context.org.id,
-        featureId: feature.id,
-        feature,
-        version: parseInt(version),
-      })) ?? revision;
-    await maybeAutoPublishFeatureRevision(context, feature, finalRevision);
+    await maybeAutoPublishFeatureRevision(context, feature, afterUndo);
   }
 
   res.status(200).json({ status: 200 });

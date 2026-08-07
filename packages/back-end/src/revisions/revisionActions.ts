@@ -1115,9 +1115,15 @@ async function handleScheduledPublishFailure(
     { revisionId: revision.id, attempts, terminal },
     `Scheduled publish gave up (${terminal ? "terminal failure" : "max attempts reached"}): ${message}`,
   );
+  // The PARKED revision, re-read. Parking clears the schedule and disarms
+  // auto-publish, so the pre-image describes a revision still armed and still
+  // scheduled — the opposite of what this event reports, and a subscriber
+  // mirroring state from the payload would put the schedule back.
+  const afterPark =
+    (await context.models.revisions.getById(revision.id)) ?? revision;
   await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
     context,
-    revision,
+    afterPark,
     { type: "publishFailed", reason: message, terminal, attempts },
   );
 }

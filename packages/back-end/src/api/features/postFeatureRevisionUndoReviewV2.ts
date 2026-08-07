@@ -42,14 +42,6 @@ export const postFeatureRevisionUndoReviewV2 = createApiRequestHandler(
     req.context.auditUser,
   );
 
-  await dispatchFeatureRevisionEvent(
-    req.context,
-    feature,
-    revision,
-    "revision.reviewRetracted",
-    {},
-  );
-
   const updated =
     (await getRevision({
       context: req.context,
@@ -58,6 +50,17 @@ export const postFeatureRevisionUndoReviewV2 = createApiRequestHandler(
       feature,
       version: req.params.version,
     })) ?? revision;
+
+  // The REFRESHED revision. Retraction is the whole point of the event, and the
+  // pre-image still carries the verdict that was just removed and the status it
+  // implied — so a subscriber reading the payload would see no retraction at all.
+  await dispatchFeatureRevisionEvent(
+    req.context,
+    feature,
+    updated,
+    "revision.reviewRetracted",
+    {},
+  );
 
   // Undoing a "changes-requested" verdict can resolve the draft to "approved"
   // (another reviewer's approval still stands); trigger auto-publish so an

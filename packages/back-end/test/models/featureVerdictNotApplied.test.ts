@@ -4,6 +4,7 @@ import {
   markRevisionAsReviewRequested,
   recallReview,
   submitReviewAndComments,
+  undoReview,
 } from "back-end/src/models/FeatureRevisionModel";
 import { setupApp } from "../api/api.setup";
 
@@ -189,6 +190,68 @@ describe("submitReviewAndComments reports whether the verdict landed", () => {
     );
 
     expect((await stored())?.reviewCycle).toBe(8);
+  });
+
+  it("refuses a RETRACTION formed against a superseded review cycle", async () => {
+    // The verdict guard's mirror image, and it has to exist for the same reason:
+    // this reviewer's verdict on the new cycle is indistinguishable from their
+    // verdict on the retracted one, so an undo in flight across a recall/resubmit
+    // removes a verdict its sender never saw. Worse than the verdict case in one
+    // way — dropping a `changes-requested` can resolve the revision to `approved`
+    // and fire auto-publish on changes nobody cleared.
+    const stale = await seed("changes-requested");
+    await mongoose.connection.collection("featurerevisions").updateOne(
+      { organization: ORG_ID, featureId: "feat_applied", version: 2 },
+      {
+        $set: {
+          reviewCycle: 2,
+          reviews: [
+            {
+              userId: "u_reviewer",
+              user,
+              status: "changes-requested",
+              timestamp: new Date(),
+            },
+          ],
+        },
+      },
+    );
+
+    await expect(
+      undoReview(context, { ...stale, reviewCycle: 1 } as never, user),
+    ).rejects.toThrow(/superseded/i);
+
+    const row = await stored();
+    expect(row?.status).toBe("changes-requested");
+    expect((row?.reviews as unknown[]).length).toBe(1);
+  });
+
+  it("still retracts within the caller's own cycle", async () => {
+    // The control. A guard that refused everything would pass the case above and
+    // break every real retraction.
+    const revision = await seed("changes-requested");
+    await mongoose.connection.collection("featurerevisions").updateOne(
+      { organization: ORG_ID, featureId: "feat_applied", version: 2 },
+      {
+        $set: {
+          reviewCycle: 1,
+          reviews: [
+            {
+              userId: "u_reviewer",
+              user,
+              status: "changes-requested",
+              timestamp: new Date(),
+            },
+          ],
+        },
+      },
+    );
+
+    await undoReview(context, { ...revision, reviewCycle: 1 } as never, user);
+
+    const row = await stored();
+    expect(row?.status).toBe("pending-review");
+    expect(row?.reviews).toEqual([]);
   });
 
   it("reports applied for a plain comment, which writes no verdict", async () => {

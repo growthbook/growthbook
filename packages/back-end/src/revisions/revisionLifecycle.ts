@@ -129,6 +129,8 @@ export async function undoRevisionReview({
     revision.id,
     context.userId,
     reviewAuthorityOnRow(context),
+    // The cycle this caller was looking at when they asked to retract.
+    revision.reviewCycle ?? 0,
   );
   await getRevisionWebhookAdapter(type)?.dispatch(context, updated, {
     type: "reviewRetracted",

@@ -102,7 +102,7 @@ export async function schedulePublish(
     }
   }
 
-  await setRevisionScheduledPublish(
+  const scheduleChanged = await setRevisionScheduledPublish(
     req.context,
     revision,
     {
@@ -123,14 +123,18 @@ export async function schedulePublish(
   });
 
   // Arming, re-arming and cancelling all land here, and all three left schedule
-  // subscribers with nothing to listen to on this engine.
-  await dispatchFeatureRevisionEvent(
-    req.context,
-    feature,
-    updated ?? revision,
-    "revision.publishScheduleChanged",
-    {},
-  );
+  // subscribers with nothing to listen to on this engine. Only when something
+  // actually moved: cancelling an already-unarmed revision writes nothing, and
+  // announcing that told subscribers of a change that never happened.
+  if (scheduleChanged) {
+    await dispatchFeatureRevisionEvent(
+      req.context,
+      feature,
+      updated ?? revision,
+      "revision.publishScheduleChanged",
+      {},
+    );
+  }
 
   return { feature, revision: updated ?? revision };
 }

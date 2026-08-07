@@ -1695,6 +1695,8 @@ export const postUndoReview = async (
     id,
     userId,
     reviewAuthorityOnRow(context),
+    // The cycle this caller was looking at when they asked to retract.
+    existingRevision.reviewCycle ?? 0,
   );
 
   await getRevisionWebhookAdapter(revision.target.type)?.dispatch(

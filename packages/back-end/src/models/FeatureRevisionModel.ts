@@ -1980,7 +1980,10 @@ export async function setRevisionScheduledPublish(
     bypassApproval,
   }: ScheduledPublishInput,
   enabledBy: string | null,
-) {
+  // Whether the schedule actually moved. Callers dispatch a lifecycle event off
+  // this: both no-op branches below deliberately write nothing, and announcing a
+  // change on those told every subscriber a schedule changed when none had.
+): Promise<boolean> {
   const filter = {
     organization: revision.organization,
     featureId: revision.featureId,
@@ -2017,7 +2020,7 @@ export async function setRevisionScheduledPublish(
         action: "cancel scheduled publish",
       });
     }
-    return;
+    return res.modifiedCount > 0;
   }
 
   if (lockOthers) {
@@ -2035,7 +2038,14 @@ export async function setRevisionScheduledPublish(
     // onto it — and a stale lock-others doc would keep occupying the partial
     // unique index, blocking future schedules for the feature.
     const { matchedCount } = await FeatureRevisionModel.updateOne(
-      { ...filter, status: { $in: [...ACTIVE_DRAFT_STATUSES] } },
+      {
+        ...filter,
+        status: { $in: [...ACTIVE_DRAFT_STATUSES] },
+        // ...and only one still holding the content this arm was computed against,
+        // the same guard the generic dated arm takes. A scalar, because an embedded
+        // equality on the revision's content is field-order sensitive.
+        dateUpdated: revision.dateUpdated,
+      },
       {
         $set: {
           autoPublishOnApproval: true,
@@ -2056,8 +2066,10 @@ export async function setRevisionScheduledPublish(
       },
     );
     if (!matchedCount) {
+      // Covers both guards: a revision that left the active statuses, and one whose
+      // content moved since this arm was computed.
       throw new Error(
-        "This revision can no longer be scheduled — it was published or discarded.",
+        "This revision can no longer be scheduled — it was published, discarded, or edited while you were scheduling it.",
       );
     }
   } catch (e) {
@@ -2076,6 +2088,7 @@ export async function setRevisionScheduledPublish(
     lockEdits: !!lockEdits,
     lockOthers: !!lockOthers,
   });
+  return true;
 }
 
 // Record a failed poller attempt so a stuck schedule is visible (UI + REST)
@@ -2438,16 +2451,31 @@ export async function submitReviewAndComments(
     }
     let baked = seeded;
     if (!seeded) {
-      // $pull then $push (Mongo can't do both on one field at once); each op is
-      // atomic and scoped to this reviewer's userId.
-      await FeatureRevisionModel.updateOne(cycleFilter, {
-        $pull: { reviews: { userId: newReview.userId } },
-      });
-      const pushed = await FeatureRevisionModel.updateOne(cycleFilter, {
-        $push: { reviews: newReview },
-        $set: { datePublished: null, dateUpdated: new Date() },
-      });
-      baked = pushed.matchedCount > 0;
+      // ONE guarded write of the whole array, not `$pull` then `$push`.
+      //
+      // Each of those two is atomic on its own, which is what made the pair look
+      // safe, but nothing holds across them: two verdicts from the SAME reviewer
+      // can interleave pull, pull, push, push and leave both entries standing.
+      // Step 2 then reads one reviewer as two active verdicts, and a stale
+      // `changes-requested` sitting beside a fresh `approve` decides the status.
+      //
+      // Mongo cannot `$pull` and `$push` the same field in one update, but it can
+      // `$set` the array — CAS-guarded on `reviews`, so a concurrent write loses
+      // and retries against what actually landed. Same shape as the legacy seed
+      // branch above.
+      const outcome = await casUpdate(cycleFilter, ["reviews"], (current) => ({
+        $set: {
+          reviews: [
+            ...(current.reviews ?? []).filter(
+              (r) => r.userId !== newReview.userId,
+            ),
+            newReview,
+          ],
+          datePublished: null,
+          dateUpdated: new Date(),
+        },
+      }));
+      baked = outcome === "applied";
     }
 
     // Step 2: reconcile `status` from the stored reviews (CAS-guarded on both
@@ -2744,8 +2772,18 @@ export async function undoReview(
     null;
   const outcome = await casUpdate(
     filter,
-    ["reviews", "status"],
+    ["reviews", "status", "reviewCycle"],
     async (current) => {
+      // Pinned to the cycle the caller read, symmetric with the verdict guard in
+      // `submitReviewAndComments`. A retraction crossing a recall/resubmit removes
+      // this reviewer's verdict from a cycle they never saw — and dropping a
+      // `changes-requested` can resolve the revision to `approved` below and fire
+      // auto-publish on changes nobody cleared.
+      if ((current.reviewCycle ?? 0) !== (revision.reviewCycle ?? 0)) {
+        throw new Error(
+          "This review request was superseded — the draft was recalled and resubmitted while your retraction was in flight. Reload and review the current request.",
+        );
+      }
       if (!(allowed as readonly string[]).includes(current.status ?? "")) {
         throw new Error(
           `Can only undo a review on an approved or changes-requested draft (status is "${current.status}")`,

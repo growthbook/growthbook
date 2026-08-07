@@ -42,6 +42,14 @@ export async function submitRevisionReview(
   // the other three entities make. Demanding review for both meant this endpoint
   // refused the very role an org grants to let people comment, while its dashboard
   // twin allowed it.
+  // KNOWN DIVERGENCE from the other three entities, and structural rather than an
+  // oversight: they authorize commenting on `revision.target.snapshot`, so a review
+  // stays with the project the revision was opened in. Feature revisions carry no
+  // origin snapshot — `metadata.project` is the DESTINATION a draft stages, not
+  // where it started — so this engine can only ask about live. Both feature
+  // surfaces (this and the REST twin) ask it identically; closing the gap for real
+  // needs an origin project recorded on the revision, which is a schema change and
+  // a backfill, not a check.
   if (
     action === "comment"
       ? !canCommentOnRevisionEntity(req.context.permissions, "feature", null, {

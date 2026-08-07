@@ -30,6 +30,7 @@ import {
   parkScheduledPublish,
   setScheduledPublishNextAttempt,
   setAutoPublishOnApproval,
+  getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
   BadRequestError,
@@ -441,10 +442,22 @@ async function handleScheduledPublishFailure(
     { featureId: feature.id, version: revision.version, attempts, terminal },
     `scheduled-publish gave up (${terminal ? "terminal failure" : "max attempts reached"}): ${message}`,
   );
+  // The PARKED revision, re-read. Parking clears the schedule and disarms
+  // auto-publish, so the pre-image describes a revision that is still armed and
+  // still scheduled — the opposite of what this event reports. A subscriber
+  // mirroring state from the payload would put the schedule back.
+  const afterPark =
+    (await getRevision({
+      context,
+      organization: revision.organization,
+      featureId: feature.id,
+      feature,
+      version: revision.version,
+    })) ?? revision;
   await dispatchFeatureRevisionEvent(
     context,
     feature,
-    revision,
+    afterPark,
     "revision.publishFailed",
     { failureReason: message, terminal, attempts },
   );
