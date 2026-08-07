@@ -1,5 +1,8 @@
+import {
+  NO_ENVIRONMENT_BINDING,
+  bypassApprovalPermission,
+} from "shared/permissions";
 import { ConfigInterface } from "shared/types/config";
-import { bypassApprovalPermission } from "shared/permissions";
 import {
   Revision,
   getConstantRevisionChange,
@@ -209,6 +212,23 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     projectsOf: configProjects,
     envsOf: (context, snapshot) => configPublishEnvironments(context, snapshot),
   }),
+
+  // Overrides the factory's env scoping, exactly as the Constant twin does.
+  // `canDeleteEntity` is consumed by `canAdvanceRevision` alone — whether a narrow
+  // atom may SUBMIT a pure-archive draft for review — and staging changes nothing
+  // live, so it is a project-scoped question. Scoped to serving environments, an
+  // archive-capable role limited to one environment could not even propose the
+  // archive, while the LANDING is still env-scoped through `publishFootprint`'s
+  // `archiveServeFootprint`. That split is the point: propose in the project,
+  // publish across the environments it actually takes out of service.
+  canDeleteEntity(context: Context, snapshot: ConfigInterface): boolean {
+    return context.permissions.canRevisionAction(
+      "config",
+      "delete",
+      { projects: configProjects(snapshot) },
+      NO_ENVIRONMENT_BINDING,
+    );
+  },
 
   isApprovalRequired(context: Context): boolean {
     return configApprovalConfigured(context);

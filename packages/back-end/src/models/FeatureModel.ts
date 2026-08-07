@@ -1826,14 +1826,25 @@ export function computeSafeRolloutStatusMap(
   return map;
 }
 
+/**
+ * Returns the post-apply image of each rollout this sync wrote — `before` with the
+ * values it actually set folded in.
+ *
+ * Compensation needs to know what THIS publish wrote in order to tell its own
+ * changes from a worker's. Re-reading the document afterwards cannot answer that:
+ * anything the worker did between the write and the read is indistinguishable from
+ * ours, so the reversal claims ownership of the worker's progress and undoes it.
+ * The sync already holds the exact values it set; handing them back removes both
+ * the race and the read that could fail.
+ */
 const updateSafeRolloutStatuses = async (
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
-) => {
+): Promise<SafeRolloutInterface[]> => {
   const statusMap = computeSafeRolloutStatusMap(feature, revision);
   const ids = Object.keys(statusMap);
-  if (!ids.length) return;
+  if (!ids.length) return [];
 
   const safeRollouts = await context.models.safeRollout.getByIds(ids);
 
@@ -1867,6 +1878,10 @@ const updateSafeRolloutStatuses = async (
       await context.models.safeRollout.update(safeRollout, safeRolloutUpdates);
       applied.push({ before: safeRollout, written: safeRolloutUpdates });
     }
+    return applied.map(
+      ({ before, written }) =>
+        ({ ...before, ...written }) as SafeRolloutInterface,
+    );
   } catch (e) {
     // Value-checked, the same rule every other compensation here follows: put a
     // key back only while live still holds what THIS sync wrote, so a concurrent
@@ -2017,6 +2032,10 @@ export async function applyRevisionChanges(
   // caller's compensation owns the write rather than whatever a set-then-fetch
   // happened to read back.
   onStamped?: (stamp: Date) => void,
+  // Reports the safe-rollout images this apply WROTE, for the same reason: read
+  // back afterwards they are whatever the document holds by then, so a worker's
+  // concurrent advance would be mistaken for ours and reversed.
+  onSafeRolloutsWritten?: (postImages: SafeRolloutInterface[]) => void,
 ) {
   const { changes, hasChanges, removeHoldout } = computeRevisionMergeChanges(
     context,
@@ -2088,7 +2107,9 @@ export async function applyRevisionChanges(
   // unpublished. Value-checked restore, so a concurrent writer's newer value
   // survives; the original failure is what surfaces either way.
   try {
-    await updateSafeRolloutStatuses(context, feature, revision);
+    onSafeRolloutsWritten?.(
+      await updateSafeRolloutStatuses(context, feature, revision),
+    );
   } catch (e) {
     try {
       await restorePublishedFeatureDoc(
@@ -3841,6 +3862,14 @@ async function publishRevisionInner({
 
   const rewinds: Rewind[] = [];
   let revisionStatusRewind: Rewind | null = null;
+  // Held aside rather than pushed, for the same reason as `revisionStatusRewind`:
+  // registration order and unwind order are different questions here. The feature
+  // doc's rewind must be registered the instant its write commits (nothing after it
+  // may throw before there is a way back), but the unwind is LIFO, so pushing it
+  // first would make the CRITICAL restore run last — behind a satellite whose
+  // failure stops the whole leave-whole unwind. Appending this at unwind time keeps
+  // the doc restore exactly where it was: after the satellites, before the rollouts.
+  let safeRolloutRewind: Rewind | null = null;
 
   let updatedFeature: FeatureInterface;
   // Our own write's stamp, captured the moment it lands: the ownership token the
@@ -3923,50 +3952,35 @@ async function publishRevisionInner({
         }))
       : [];
 
+    // Reported by the apply itself, not read back afterwards: a re-read cannot tell
+    // this publish's writes from a worker's, and it is one more thing that can
+    // throw between the feature write and its rewind being registered.
+    let safeRolloutPostById = new Map<string, SafeRolloutInterface>();
+
     updatedFeature = await runGuardedWrite("feature", feature.id, () =>
-      applyRevisionChanges(context, feature, revision, result, (stamp) => {
-        // The stamp OUR write put on the doc. `updatedFeature.dateUpdated` comes
-        // from a set-then-fetch, so a rival landing in that gap would hand us
-        // THEIR stamp and compensation would read "still ours" at the one moment
-        // it isn't — then reverse their linkage.
-        ourWriteStamp = stamp;
-      }),
-    );
-
-    // Safe-rollout statuses are rewritten inside the guarded apply above, and until
-    // now nothing put them back if a LATER step failed — `updateSafeRolloutStatuses`
-    // compensates its own failure, but a later `markRevisionAsPublished` failure left
-    // rollouts started while the revision stayed unpublished. Same pre-images and the
-    // same ownership-checked restore the bulk path uses.
-    //
-    // The POST-APPLY snapshot is taken here, right after the apply — not inside the
-    // rewind. Read at unwind time it is whatever the document holds by then, so a
-    // worker that advanced the rollout in between would be mistaken for the state
-    // this publish wrote, and its progress reversed as ours. Bulk snapshots at the
-    // same point for the same reason.
-    const safeRolloutPostImages = safeRolloutPreImages.length
-      ? await context.models.safeRollout.getByIds(
-          safeRolloutPreImages.map(({ pre }) => pre.id),
-        )
-      : [];
-    const safeRolloutPostById = new Map(
-      safeRolloutPostImages.map((doc) => [doc.id, doc]),
-    );
-    if (safeRolloutPreImages.length) {
-      rewinds.push({
-        what: "safe rollout statuses",
-        undo: async () => {
-          for (const { pre, writtenStatus } of safeRolloutPreImages) {
-            await context.models.safeRollout.restoreAfterFailedBulkPublish(
-              pre,
-              writtenStatus,
-              safeRolloutPostById.get(pre.id),
-            );
-          }
+      applyRevisionChanges(
+        context,
+        feature,
+        revision,
+        result,
+        (stamp) => {
+          // The stamp OUR write put on the doc. `updatedFeature.dateUpdated` comes
+          // from a set-then-fetch, so a rival landing in that gap would hand us
+          // THEIR stamp and compensation would read "still ours" at the one moment
+          // it isn't — then reverse their linkage.
+          ourWriteStamp = stamp;
         },
-      });
-    }
+        (postImages) => {
+          safeRolloutPostById = new Map(postImages.map((doc) => [doc.id, doc]));
+        },
+      ),
+    );
 
+    // FIRST, before anything else that can throw. The feature document is written
+    // and committed by the line above; until its rewind is on the list there is no
+    // way back from it. Registering it after the safe-rollout snapshot meant a
+    // failed snapshot read left the feature advanced with its revision unpublished
+    // and no compensation able to touch it.
     rewinds.push({
       what: FEATURE_DOC_REWIND,
       critical: true,
@@ -3992,6 +4006,27 @@ async function publishRevisionInner({
         );
       },
     });
+
+    // Safe-rollout statuses are rewritten inside the guarded apply above, and
+    // nothing put them back if a LATER step failed — `updateSafeRolloutStatuses`
+    // compensates its own failure, but a later `markRevisionAsPublished` failure
+    // left rollouts started while the revision stayed unpublished. Same
+    // ownership-checked restore the bulk path uses; a rollout whose post-image the
+    // apply never reported is refused rather than half-restored.
+    if (safeRolloutPreImages.length) {
+      safeRolloutRewind = {
+        what: "safe rollout statuses",
+        undo: async () => {
+          for (const { pre, writtenStatus } of safeRolloutPreImages) {
+            await context.models.safeRollout.restoreAfterFailedBulkPublish(
+              pre,
+              writtenStatus,
+              safeRolloutPostById.get(pre.id),
+            );
+          }
+        },
+      };
+    }
 
     if (result.holdout !== undefined) {
       if (holdoutPreImage) {
@@ -4072,6 +4107,7 @@ async function publishRevisionInner({
     // stands. Reopening the revision goes last, so it is never a draft while
     // the feature doc it advanced stays published.
     const unwind = [...rewinds].reverse();
+    if (safeRolloutRewind) unwind.push(safeRolloutRewind);
     if (revisionStatusRewind) unwind.push(revisionStatusRewind);
     // OWNERSHIP FIRST, before any satellite is reversed. Only the doc restore is
     // guarded; the holdout, experiment-linkage and bandit rewinds are not — run

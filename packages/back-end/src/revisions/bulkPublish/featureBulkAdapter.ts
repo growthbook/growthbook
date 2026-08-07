@@ -484,9 +484,25 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         "feature",
         feature.id,
         () =>
-          applyRevisionChanges(context, feature, raw, mergeResult, (stamp) => {
-            desired.ourWriteStamp = stamp;
-          }),
+          applyRevisionChanges(
+            context,
+            feature,
+            raw,
+            mergeResult,
+            (stamp) => {
+              desired.ourWriteStamp = stamp;
+            },
+            // Reported by the sync itself. Re-reading the documents afterwards
+            // cannot tell this publish's writes from a worker's — anything the
+            // worker changed in the gap reads back as ours, and compensation then
+            // reverses their progress. These are the values the sync set.
+            (postImages) => {
+              const postById = new Map(postImages.map((doc) => [doc.id, doc]));
+              for (const entry of desired.safeRollouts ?? []) {
+                entry.post = postById.get(entry.pre.id);
+              }
+            },
+          ),
       );
     } catch (e) {
       // Decided by the REPORT, not the error class — the last place that had not
@@ -497,30 +513,14 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       // satellites as this apply's output.
       if (desired.ourWriteStamp === undefined) revision.casLost = true;
       throw e;
-    } finally {
-      // Re-snapshot the safe rollouts after applyRevisionChanges' sync wrote
-      // them — the per-field ownership baseline compensation needs. In `finally`
-      // because a later apply step (the feature write) can throw AFTER the sync
-      // ran; without this baseline the restore can't tell the sync's stamp from
-      // a concurrent worker advance. Best-effort — must not mask the apply
-      // error; a missing baseline is caught in restoreAfterFailedBulkPublish
-      // (it refuses to half-restore), so the item is reported published.
-      if (desired.safeRollouts?.length) {
-        try {
-          const postImages =
-            await context.models.safeRollout.getByIds(safeRolloutIds);
-          const postById = new Map(postImages.map((doc) => [doc.id, doc]));
-          for (const entry of desired.safeRollouts) {
-            entry.post = postById.get(entry.pre.id);
-          }
-        } catch (e) {
-          logger.error(
-            e,
-            `bulk publish: post-apply safe-rollout snapshot failed for feature ${feature.id}`,
-          );
-        }
-      }
     }
+    // The baseline is now reported by the sync (see the callback above) rather than
+    // re-read in a `finally`. The callback fires the moment the sync finishes, so it
+    // still covers the case that `finally` existed for — a later apply step throwing
+    // after the sync ran — without the read that could not distinguish our writes
+    // from a worker's, and without a read that could itself fail. A rollout with no
+    // reported baseline is still refused by restoreAfterFailedBulkPublish rather
+    // than half-restored.
 
     // FENCE before the satellites. The doc write is CAS-guarded, but these three run
     // after it and were unguarded — so a newer publish landing in between kept its

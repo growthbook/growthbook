@@ -149,6 +149,10 @@ const featureRevisionSchema = new mongoose.Schema({
   ],
   status: String,
   requiresReview: Boolean,
+  // Must be declared here as well as in the validator: this schema is explicit, so
+  // Mongoose strips any undeclared path from both `$set` and the FILTER — an
+  // omitted field doesn't fail, it silently stops guarding.
+  reviewCycle: Number,
   autoPublishOnApproval: Boolean,
   autoPublishEnabledBy: String,
   scheduledPublishAt: Date,
@@ -1412,8 +1416,15 @@ export async function updateRevision(
           : {}),
         // The edit invalidated standing verdicts — demote them to "-stale" so
         // policy hooks and the REST API don't count approvals made against
-        // older content, while the UI can still attribute them.
-        ...(clearReviews ? { reviews: staleReviews } : {}),
+        // older content, while the UI can still attribute them. That is a new
+        // review cycle, so it takes a new cycle number: a verdict in flight
+        // against the old one must not land on the reset draft.
+        ...(clearReviews
+          ? {
+              reviews: staleReviews,
+              reviewCycle: (revision.reviewCycle ?? 0) + 1,
+            }
+          : {}),
       },
       ...(clearRevertedFrom ? { $unset: { revertedFrom: 1 } } : {}),
       ...contributorUpdate,
@@ -1791,6 +1802,11 @@ export async function markRevisionAsReviewRequested(
           // Requesting review starts a new review cycle — prior verdicts no
           // longer stand (mirrors the revision-log replay semantics).
           reviews: [],
+          // Starts a new review cycle. `status` cannot identify one — recall
+          // then resubmit returns the row to `pending-review`, the same value it
+          // held before — so a verdict in flight against the RETRACTED cycle
+          // would otherwise satisfy every filter and approve this one.
+          reviewCycle: (revision.reviewCycle ?? 0) + 1,
         },
         ...(Object.keys(unset).length > 0 ? { $unset: unset } : {}),
       },
@@ -2348,6 +2364,16 @@ export async function submitReviewAndComments(
     featureId: revision.featureId,
     version: revision.version,
   };
+  // Both filters below carry the review cycle the CALLER read, not just the
+  // status: recall-then-resubmit puts the row back at `pending-review`, so a
+  // status-only filter cannot tell this cycle from the retracted one, and a verdict
+  // aimed at the old cycle lands on the new one — approving content nobody reviewed
+  // and firing auto-publish on it. Revisions predating the field read as cycle 0,
+  // which matches a caller that also read 0.
+  const cycleGuard =
+    (revision.reviewCycle ?? 0) === 0
+      ? { $in: [0, null] }
+      : revision.reviewCycle;
 
   // Bake this reviewer's verdict into the revision's `reviews` array so
   // consumers (custom hooks, API) don't have to replay the log. Plain
@@ -2385,6 +2411,7 @@ export async function submitReviewAndComments(
     const cycleFilter = {
       ...filter,
       status: { $in: [...REVIEW_CYCLE_STATUSES] },
+      reviewCycle: cycleGuard,
     };
     let seeded = false;
     if (revision.reviews === undefined) {
@@ -2425,14 +2452,19 @@ export async function submitReviewAndComments(
     // otherwise we'd resurrect "pending-review" over their "draft". Record
     // approvedBaseVersion for later staleness detection when approved.
     const outcome = await casUpdate(
-      filter,
-      ["reviews", "status"],
+      cycleFilter,
+      ["reviews", "status", "reviewCycle"],
       (current) => {
         if (
           !(REVIEW_CYCLE_STATUSES as readonly string[]).includes(
             current.status ?? "",
           )
         ) {
+          return null;
+        }
+        // Re-asked on every CAS retry, which is where the ABA actually bites: the
+        // retry re-reads a row a recall AND a resubmit may both have crossed.
+        if ((current.reviewCycle ?? 0) !== (revision.reviewCycle ?? 0)) {
           return null;
         }
         const reviews = current.reviews ?? [];
@@ -2556,6 +2588,7 @@ export async function recallReview(
         dateUpdated: new Date(),
         reviews: [],
         autoPublishOnApproval: false,
+        reviewCycle: (revision.reviewCycle ?? 0) + 1,
       },
       $unset: {
         approvedBaseVersion: 1,
@@ -2794,6 +2827,7 @@ export async function reopenRevision(
         dateUpdated: new Date(),
         reviews: [],
         autoPublishOnApproval: false,
+        reviewCycle: (revision.reviewCycle ?? 0) + 1,
       },
       $unset: {
         approvedBaseVersion: 1,

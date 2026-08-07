@@ -2206,11 +2206,17 @@ export default function ConfigDetailPage(): React.ReactElement {
                 canEditEntity={canDraft}
                 canRevertEntity={canRevertEntity}
                 canLandRevertEntity={canRevertLandingEntity}
+                // Project-scoped, matching the adapter's `canDeleteEntity` and the
+                // Constant page: this gates whether a narrow atom may SUBMIT a
+                // pure-archive draft, which changes nothing live. Scoped to serving
+                // environments it hid the control from a role that could propose the
+                // archive perfectly well. Landing it is the env-scoped question, and
+                // `canLandArchiveEntity` below is what asks it.
                 canDeleteEntity={permissionsUtil.canRevisionAction(
                   "config",
                   "delete",
                   config,
-                  configPublishEnvironments(config),
+                  NO_ENVIRONMENT_BINDING,
                 )}
                 // A base Config names no environments, so its scoped footprint is
                 // empty and SKIPS the environment check — but archiving one takes

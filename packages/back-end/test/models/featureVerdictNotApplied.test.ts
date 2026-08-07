@@ -1,6 +1,9 @@
 import mongoose from "mongoose";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { submitReviewAndComments } from "back-end/src/models/FeatureRevisionModel";
+import {
+  recallReview,
+  submitReviewAndComments,
+} from "back-end/src/models/FeatureRevisionModel";
 import { setupApp } from "../api/api.setup";
 
 /**
@@ -111,6 +114,54 @@ describe("submitReviewAndComments reports whether the verdict landed", () => {
     const row = await stored();
     expect(row?.status).toBe("approved");
     expect((row?.reviews as unknown[]).length).toBe(1);
+  });
+
+  it("refuses a verdict formed against a superseded review cycle", async () => {
+    // The feature engine's half of the same ABA. Recall-and-resubmit puts the row
+    // back at `pending-review` — the value it held when the reviewer opened it — so
+    // status alone cannot tell the retracted request from the new one. Only the
+    // cycle number can, and both of this function's writes carry it.
+    const stale = await seed("pending-review");
+    await mongoose.connection
+      .collection("featurerevisions")
+      .updateOne(
+        { organization: ORG_ID, featureId: "feat_applied", version: 2 },
+        { $set: { reviewCycle: 2 } },
+      );
+
+    const result = await submitReviewAndComments(
+      context,
+      // Read at cycle 1 (absent → 0 would match the seeded row, so name it).
+      { ...stale, reviewCycle: 1 } as never,
+      user,
+      "Approved",
+      undefined,
+      1,
+    );
+
+    expect(result.applied).toBe(false);
+    const row = await stored();
+    expect(row?.status).toBe("pending-review");
+    expect(row?.reviews).toEqual([]);
+  });
+
+  it("bumps the stored cycle on recall, so the guard can ever fire", async () => {
+    // The guard above is only as good as the bump that feeds it, and on this engine
+    // the bump is the half that can vanish silently: the Mongoose schema is
+    // explicit, so a `reviewCycle` it doesn't declare is dropped from `$set` AND
+    // from the filter — no error, just a guard that never sees two different
+    // numbers. Reading the number back off the document is what proves otherwise.
+    const revision = await seed("pending-review");
+    await mongoose.connection
+      .collection("featurerevisions")
+      .updateOne(
+        { organization: ORG_ID, featureId: "feat_applied", version: 2 },
+        { $set: { reviewCycle: 1 } },
+      );
+
+    await recallReview(context, { ...revision, reviewCycle: 1 } as never, user);
+
+    expect((await stored())?.reviewCycle).toBe(2);
   });
 
   it("reports applied for a plain comment, which writes no verdict", async () => {

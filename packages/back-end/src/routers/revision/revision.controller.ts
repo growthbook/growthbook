@@ -712,6 +712,8 @@ export const postReview = async (
     decision,
     comment,
     reviewAuthorityOnRow(context),
+    // The cycle THIS caller read — see addReview.
+    existingRevision.reviewCycle ?? 0,
   );
 
   await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
@@ -1385,18 +1387,40 @@ export const postToggleAutoPublish = async (
   // Arming an already-approved revision must publish now — otherwise it waits
   // for an approval event that never comes.
   if (enabled && revision.status === "approved") {
-    const entityModel = getEntityModel(context, revision.target.type);
-    const entity = entityModel
-      ? await entityModel.getById(revision.target.id)
-      : null;
-    if (entity) {
-      const afterAutoPublish = await maybeAutoPublishRevision(
-        context,
-        revision,
-        entity as Record<string, unknown>,
-      );
-      return res.status(200).json({ status: 200, revision: afterAutoPublish });
+    // Re-read rather than publishing the doc the arming CAS returned. That doc is
+    // the CAS's READ merged with its own update, and the arm deliberately guards
+    // only `status` — arming is judged on the live entity, so a rebase must not
+    // conflict with it. The consequence is that `revision.target` can already be
+    // superseded: publishing it would apply the OLD proposed changes while the
+    // merge claim marks the CURRENT revision merged, splitting live state from the
+    // history that claims to describe it. Arming tolerates a stale target;
+    // publishing never can.
+    const fresh = await revisionModel.getById(id);
+    if (
+      fresh &&
+      fresh.status === "approved" &&
+      fresh.autoPublishOnApproval &&
+      fresh.version === revision.version
+    ) {
+      const entityModel = getEntityModel(context, fresh.target.type);
+      const entity = entityModel
+        ? await entityModel.getById(fresh.target.id)
+        : null;
+      if (entity) {
+        const afterAutoPublish = await maybeAutoPublishRevision(
+          context,
+          fresh,
+          entity as Record<string, unknown>,
+        );
+        return res
+          .status(200)
+          .json({ status: 200, revision: afterAutoPublish });
+      }
     }
+    // Something moved it out from under the arm (recalled, discarded, published,
+    // or disarmed by a concurrent writer). The arm itself stands; report the row
+    // as it now is rather than publishing against a state nobody asked for.
+    if (fresh) return res.status(200).json({ status: 200, revision: fresh });
   }
 
   res.status(200).json({ status: 200, revision });
@@ -1668,7 +1692,7 @@ export const postUndoReview = async (
   await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
     context,
     revision,
-    { type: "updated" },
+    { type: "reviewRetracted" },
   );
 
   // Retracting a request-changes can flip the revision back to approved; if it's
@@ -1953,7 +1977,7 @@ export const postSchedulePublish = async (
   await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
     context,
     revision,
-    { type: "updated" },
+    { type: "publishScheduleChanged" },
   );
 
   res.status(200).json({ status: 200, revision });

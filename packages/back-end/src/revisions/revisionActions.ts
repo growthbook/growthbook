@@ -479,6 +479,8 @@ export async function approveRevision(
     "approve",
     comment ?? "",
     reviewAuthorityOnRow(context),
+    // The cycle THIS caller read — see addReview.
+    revision.reviewCycle ?? 0,
   );
 
   await getRevisionWebhookAdapter(updated.target.type)?.dispatch(
@@ -1292,6 +1294,8 @@ export async function submitRevisionReview({
     decision,
     comment ?? "",
     reviewAuthorityOnRow(context),
+    // The cycle THIS caller read — see addReview.
+    revision.reviewCycle ?? 0,
   );
 
   await getRevisionWebhookAdapter(entityType)?.dispatch(context, updated, {

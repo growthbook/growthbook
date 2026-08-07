@@ -379,7 +379,7 @@ export const notificationEvents = {
     "revision.reviewRetracted": {
       schema: savedGroupRevisionReviewRetractedPayload,
       description:
-        "Triggered when a reviewer retracts their own verdict, returning the revision to `pending-review`. Carries no content change — the revision's proposed changes are untouched.",
+        "Triggered when a reviewer retracts their own verdict. The status is recomputed from the verdicts that remain, so the revision may end up `pending-review`, or stay `approved` or `changes-requested` when another reviewer's verdict still stands. Carries no content change — the revision's proposed changes are untouched.",
     },
     "revision.publishScheduleChanged": {
       schema: savedGroupRevisionPublishScheduleChangedPayload,
@@ -464,7 +464,7 @@ export const notificationEvents = {
     "revision.reviewRetracted": {
       schema: constantRevisionReviewRetractedPayload,
       description:
-        "Triggered when a reviewer retracts their own verdict, returning the revision to `pending-review`. Carries no content change — the revision's proposed changes are untouched.",
+        "Triggered when a reviewer retracts their own verdict. The status is recomputed from the verdicts that remain, so the revision may end up `pending-review`, or stay `approved` or `changes-requested` when another reviewer's verdict still stands. Carries no content change — the revision's proposed changes are untouched.",
     },
     "revision.publishScheduleChanged": {
       schema: constantRevisionPublishScheduleChangedPayload,
@@ -549,7 +549,7 @@ export const notificationEvents = {
     "revision.reviewRetracted": {
       schema: configRevisionReviewRetractedPayload,
       description:
-        "Triggered when a reviewer retracts their own verdict, returning the revision to `pending-review`. Carries no content change — the revision's proposed changes are untouched.",
+        "Triggered when a reviewer retracts their own verdict. The status is recomputed from the verdicts that remain, so the revision may end up `pending-review`, or stay `approved` or `changes-requested` when another reviewer's verdict still stands. Carries no content change — the revision's proposed changes are untouched.",
     },
     "revision.publishScheduleChanged": {
       schema: configRevisionPublishScheduleChangedPayload,

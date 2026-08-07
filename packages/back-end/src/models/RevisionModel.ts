@@ -300,6 +300,17 @@ export class RevisionModel extends BaseClass {
     };
   }
 
+  /**
+   * The next review-cycle number. Every write that STARTS a cycle stamps this, so a
+   * verdict can name the cycle it was formed against and a later one can refuse it.
+   *
+   * Reopening a revision whose publish FAILED deliberately does not bump: that
+   * restores the prior state rather than starting a cycle, and its verdicts stand.
+   */
+  private nextReviewCycle(existing: Revision): number {
+    return (existing.reviewCycle ?? 0) + 1;
+  }
+
   // Demote the current cycle's active verdicts to stale (mirrors the feature
   // flow's "-stale" variants). Called at every cycle reset so verdict activeness
   // is persisted on the record rather than recomputed from the activity log.
@@ -1088,6 +1099,7 @@ export class RevisionModel extends BaseClass {
           }
           return {
             status: "pending-review",
+            reviewCycle: this.nextReviewCycle(existing),
             // Submitting (or re-submitting from changes-requested) starts a fresh
             // review cycle — demote any prior verdicts.
             reviews: this.staleVerdicts(existing.reviews),
@@ -1238,6 +1250,12 @@ export class RevisionModel extends BaseClass {
     // time it writes: a concurrent rebase can move the revision to a project the
     // reviewer holds nothing in, and the verdict must not ride that move.
     assertAuthority?: (existing: Revision) => void,
+    // The review cycle this verdict was formed against, as the caller read it.
+    // Status can't stand in for it: recall-then-resubmit returns the row to
+    // `pending-review`, the value it already had, so a verdict aimed at the
+    // retracted cycle satisfies every status check and lands on the new one —
+    // approving changes nobody reviewed, and firing auto-publish on them.
+    expectedReviewCycle?: number,
   ) {
     const actionMap: Record<
       ReviewDecision,
@@ -1279,6 +1297,21 @@ export class RevisionModel extends BaseClass {
       (existing) => {
         if (isComment) this.assertCanWriteCommentOn(existing);
         else assertAuthority?.(existing);
+        // Pinned to the caller's read, and re-asked on every CAS retry — the retry
+        // is the dangerous one, because it re-reads a row that a recall AND a
+        // resubmit may both have crossed since the first attempt. Comments are
+        // exempt: they belong to the conversation, not to a cycle. Revisions
+        // predating the field read as cycle 0, so a caller that also read 0 still
+        // matches and nothing legacy is locked out.
+        if (
+          !isComment &&
+          expectedReviewCycle !== undefined &&
+          (existing.reviewCycle ?? 0) !== expectedReviewCycle
+        ) {
+          throw new Error(
+            "This review request was superseded — the draft was recalled and resubmitted while your review was in flight. Reload and review the current request.",
+          );
+        }
         // Authoritative self-approval check, against the row this write is
         // conditioned on. Callers screen it first for a clean error, but a
         // caller's read is stale by the time it writes: a contributor entry can
@@ -1458,6 +1491,7 @@ export class RevisionModel extends BaseClass {
         return {
           status: "draft",
           reviews: [],
+          reviewCycle: this.nextReviewCycle(existing),
           autoPublishOnApproval: false,
           activityLog: [
             ...this.cleanActivityLog(existing.activityLog),
@@ -1767,7 +1801,11 @@ export class RevisionModel extends BaseClass {
           target,
           // An approval reset starts a new cycle — demote the prior verdicts.
           ...(status
-            ? { status, reviews: this.staleVerdicts(existing.reviews) }
+            ? {
+                status,
+                reviews: this.staleVerdicts(existing.reviews),
+                reviewCycle: this.nextReviewCycle(existing),
+              }
             : {}),
           activityLog: [
             ...this.cleanActivityLog(existing.activityLog),
@@ -2099,6 +2137,7 @@ export class RevisionModel extends BaseClass {
         resolution: undefined,
         // Reopening restarts the lifecycle — demote any pre-discard verdicts.
         reviews: this.staleVerdicts(existing.reviews),
+        reviewCycle: this.nextReviewCycle(existing),
         activityLog: [
           ...this.cleanActivityLog(existing.activityLog),
           {

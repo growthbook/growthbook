@@ -227,6 +227,17 @@ export const revisionValidator = z.object({
   // Everyone who edited this revision (always includes the author); drives
   // `blockSelfApproval`. Optional for backward compatibility.
   contributors: z.array(z.string()).optional(),
+  /**
+   * Which review cycle the current verdicts belong to. Bumped by every action that
+   * STARTS a cycle — request review, recall, reopen, approval reset.
+   *
+   * Status alone cannot identify a cycle: recall then resubmit returns the row to
+   * `pending-review`, the same value it held before, so a verdict formed against the
+   * retracted cycle passes every status check and approves the new one — an ABA that
+   * a CAS retry crossing the two writes hits without any user doing anything odd.
+   * Absent on revisions that predate this field; readers treat that as cycle 0.
+   */
+  reviewCycle: z.number().optional(),
   autoPublishOnApproval: z.boolean().optional(),
   // Who armed `autoPublishOnApproval`; auto-publish runs with their authority.
   autoPublishEnabledBy: z.string().optional(),

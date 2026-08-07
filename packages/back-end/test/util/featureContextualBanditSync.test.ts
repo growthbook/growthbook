@@ -11,11 +11,13 @@ import {
 // shared. These cover the layer around it: what gets read, and what gets written.
 const cbModel = {
   getLinkageCandidates: jest.fn(),
-  // Resolves, like the real method: the sync awaits each write's settlement before
-  // surfacing a failure, so a mock returning `undefined` models something that
-  // cannot happen and broke on the await rather than on the behaviour.
+  // Both resolve, like the real methods: each pass awaits every write's settlement
+  // before surfacing a failure, so a mock returning `undefined` models something
+  // that cannot happen and breaks on the await rather than on the behaviour.
+  // `setLinkageState` was left bare when the forward pass got its note, and the
+  // reverse pass broke on it the moment it started awaiting too.
   applyLinkageDelta: jest.fn().mockResolvedValue(undefined),
-  setLinkageState: jest.fn(),
+  setLinkageState: jest.fn().mockResolvedValue(undefined),
 };
 
 function makeContext(): ReqContext {
