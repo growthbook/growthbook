@@ -1326,7 +1326,19 @@ export async function postFeatureReviewOrComment(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canReviewFeatureDrafts(feature)) {
+  // A VERDICT (approve / request changes) is the review atom. A plain comment is
+  // participation, so the comment atom carries it — review implies it, but must not
+  // gate it. Requiring review for both meant granting a role "comments" did nothing
+  // on Feature Flags, while the other entities already accepted it.
+  const canCommentHere =
+    context.permissions.canAddComment(
+      feature.project ? [feature.project] : [],
+    ) || context.permissions.canReviewFeatureDrafts(feature);
+  if (
+    review === "Comment"
+      ? !canCommentHere
+      : !context.permissions.canReviewFeatureDrafts(feature)
+  ) {
     context.permissions.throwPermissionError();
   }
 
