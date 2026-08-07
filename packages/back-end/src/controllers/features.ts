@@ -1157,8 +1157,8 @@ export async function postFeatureScheduledPublish(
   // Arming needs the premium feature + publish authority; canceling needs only
   // publish authority.
   const allowed = date
-    ? canScheduleFeaturePublish(context, feature)
-    : canPublishFeatureRevision(context, feature);
+    ? canScheduleFeaturePublish(context, feature, revision)
+    : canPublishFeatureRevision(context, feature, revision);
   if (!allowed) {
     context.permissions.throwPermissionError();
   }

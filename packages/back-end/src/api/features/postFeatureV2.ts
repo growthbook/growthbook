@@ -94,9 +94,6 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     );
 
     const tags = req.body.tags || [];
-    if (tags.length > 0) {
-      await addTags(req.context.org.id, tags);
-    }
 
     const feature: FeatureInterface = {
       defaultValue: req.body.defaultValue ?? "",
@@ -230,6 +227,13 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       !req.context.permissions.canPublishFeature(feature, enabledOnCreate)
     ) {
       req.context.permissions.throwPermissionError();
+    }
+
+    // AFTER every authorization: tags are a persistent org-level side effect, and
+    // writing them first meant a request that then 403'd had already mutated tag
+    // state — a rejected call must leave nothing behind.
+    if (tags.length > 0) {
+      await addTags(req.context.org.id, tags);
     }
 
     addIdsToFlatRules(feature.rules, feature.id);

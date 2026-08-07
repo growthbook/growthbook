@@ -3881,6 +3881,17 @@ async function publishRevisionInner({
       result.rules ?? feature.rules ?? [],
     );
 
+    // Captured BEFORE the apply, whose sync rewrites them — the same disposition the
+    // sync itself computes, so the rewind restores exactly what this publish moved.
+    const rolloutStatusMap = computeSafeRolloutStatusMap(feature, revision);
+    const rolloutIds = Object.keys(rolloutStatusMap);
+    const safeRolloutPreImages = rolloutIds.length
+      ? (await context.models.safeRollout.getByIds(rolloutIds)).map((pre) => ({
+          pre,
+          writtenStatus: rolloutStatusMap[pre.id],
+        }))
+      : [];
+
     updatedFeature = await runGuardedWrite("feature", feature.id, () =>
       applyRevisionChanges(context, feature, revision, result, (stamp) => {
         // The stamp OUR write put on the doc. `updatedFeature.dateUpdated` comes
@@ -3890,6 +3901,26 @@ async function publishRevisionInner({
         ourWriteStamp = stamp;
       }),
     );
+
+    // Safe-rollout statuses are rewritten inside the guarded apply above, and until
+    // now nothing put them back if a LATER step failed — `updateSafeRolloutStatuses`
+    // compensates its own failure, but a later `markRevisionAsPublished` failure left
+    // rollouts started while the revision stayed unpublished. Same pre-images and the
+    // same ownership-checked restore the bulk path uses.
+    if (safeRolloutPreImages.length) {
+      rewinds.push({
+        what: "safe rollout statuses",
+        undo: async () => {
+          for (const { pre, writtenStatus } of safeRolloutPreImages) {
+            await context.models.safeRollout.restoreAfterFailedBulkPublish(
+              pre,
+              writtenStatus,
+              (await context.models.safeRollout.getById(pre.id)) ?? undefined,
+            );
+          }
+        },
+      });
+    }
 
     rewinds.push({
       what: FEATURE_DOC_REWIND,

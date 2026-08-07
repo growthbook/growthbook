@@ -6,6 +6,7 @@ import {
   postConfigRevisionRevertValidator,
   configUpdatableFieldsSchema,
 } from "shared/validators";
+import { flipsArchivedState } from "shared/util";
 import {
   revertRevision,
   resolveRevertStrategy,
@@ -13,7 +14,10 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
-import { configPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
+import {
+  archiveServeFootprint,
+  configPublishEnvironments,
+} from "back-end/src/revisions/revisionPublishEnvironments";
 import { configChangeAffectsServedValue } from "back-end/src/services/experimentGuard";
 import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
@@ -174,7 +178,18 @@ export const postConfigRevisionRevert = createApiRequestHandler(
     strategy,
     fields: fieldsToUpdate,
     patchOps,
-    footprint: configPublishEnvironments(req.context, config),
+    // A revert that flips `archived` takes the Config out of service, or returns it,
+    // EVERYWHERE it serves — so it answers for the same footprint archiving does. The
+    // Config's own scope is empty for a base Config, which skips the environment check
+    // rather than narrowing it, letting an environment-limited deleter restore an
+    // archive across every served environment.
+    footprint: flipsArchivedState({
+      proposed:
+        "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
+      current: config.archived,
+    })
+      ? archiveServeFootprint(req.context, config)
+      : configPublishEnvironments(req.context, config),
     title,
     // Approval for this landing, resolved by the pipeline after authority.
     resolveApproval: async () => {

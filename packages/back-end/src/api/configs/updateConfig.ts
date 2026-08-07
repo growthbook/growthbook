@@ -415,37 +415,6 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       req.context.permissions.throwPermissionError();
     }
 
-    // Customer validateConfig hooks gate updates too (matching the feature
-    // analog and the create path); `original` carries the stored state so
-    // incremental hooks can diff.
-    //
-    // AFTER the publish check above: hooks execute customer sandbox code, and running
-    // them for a caller who cannot publish let an unauthorized request drive that
-    // execution and observe its outcome.
-    await runValidateConfigHooks({
-      context: req.context,
-      config: {
-        key: config.key,
-        name: fieldsToUpdate.name ?? config.name,
-        project: fieldsToUpdate.project ?? config.project ?? "",
-        value: fieldsToUpdate.value ?? config.value,
-        schema: fieldsToUpdate.schema ?? config.schema,
-        parent: effectiveParent || undefined,
-        extends: effectiveExtends,
-        extensible: fieldsToUpdate.extensible ?? config.extensible,
-      },
-      original: {
-        key: config.key,
-        name: config.name,
-        project: config.project ?? "",
-        value: config.value,
-        schema: config.schema,
-        parent: config.parent || undefined,
-        extends: config.extends,
-        extensible: config.extensible,
-      },
-    });
-
     // A direct update publishes immediately, so block it while locked (a no-op
     // update short-circuits above and is unaffected). Unlock to publish changes.
     assertConfigNotLocked(config);
@@ -577,6 +546,38 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       });
     }
 
+    // Customer validateConfig hooks gate updates too (matching the feature
+    // analog and the create path); `original` carries the stored state so
+    // incremental hooks can diff.
+    //
+    // AFTER EVERY authorization — the source publish check, the move-destination
+    // check, and the approval bypass. Hooks execute customer sandbox code, so running
+    // them before any of those let an unauthorized request drive that execution and
+    // observe its outcome.
+    await runValidateConfigHooks({
+      context: req.context,
+      config: {
+        key: config.key,
+        name: fieldsToUpdate.name ?? config.name,
+        project: fieldsToUpdate.project ?? config.project ?? "",
+        value: fieldsToUpdate.value ?? config.value,
+        schema: fieldsToUpdate.schema ?? config.schema,
+        parent: effectiveParent || undefined,
+        extends: effectiveExtends,
+        extensible: fieldsToUpdate.extensible ?? config.extensible,
+      },
+      original: {
+        key: config.key,
+        name: config.name,
+        project: config.project ?? "",
+        value: config.value,
+        schema: config.schema,
+        parent: config.parent || undefined,
+        extends: config.extends,
+        extensible: config.extensible,
+      },
+    });
+
     // Scoped overrides commit BEFORE the landing. They were validated and
     // authorized up front, stand alone as user intent (their own endpoint writes
     // them independently), and committing them after the publish meant a failure
@@ -623,10 +624,30 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
             { dangerouslyBypassCanUpdate: true },
           );
         } catch (e) {
-          // A lost race means someone else owns the overrides now; leaving theirs in
-          // place is the correct outcome, and the marker sync below would fight it.
-          if (e instanceof CasConflictError) return;
-          throw e;
+          if (!(e instanceof CasConflictError)) throw e;
+          // A lost race is not automatically "someone else owns the overrides". The
+          // concurrent write may have touched an unrelated field and left OUR
+          // overrides exactly as this request wrote them — in which case swallowing
+          // the conflict leaves a rejected request's overrides live. Re-read and
+          // retry against the new state; only give up once the overrides themselves
+          // have moved, which is the case that really belongs to someone else.
+          for (let attempt = 0; attempt < 3; attempt++) {
+            const fresh = await req.context.models.configs.getById(config.id);
+            if (!fresh) return;
+            if (!isEqual(fresh.scopedOverrides ?? [], nextOverrides)) return;
+            try {
+              await req.context.models.configs.updateIfUnchanged(
+                fresh,
+                { scopedOverrides: previousOverrides },
+                undefined,
+                { dangerouslyBypassCanUpdate: true },
+              );
+              break;
+            } catch (retryErr) {
+              if (!(retryErr instanceof CasConflictError)) throw retryErr;
+              if (attempt === 2) throw retryErr;
+            }
+          }
         }
         await syncScopedConfigMarkers(
           req.context,

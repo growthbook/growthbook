@@ -10,6 +10,7 @@ import {
   postConstantRevisionRevertValidator,
   constantUpdatableFieldsSchema,
 } from "shared/validators";
+import { flipsArchivedState } from "shared/util";
 import {
   revertRevision,
   resolveRevertStrategy,
@@ -17,7 +18,10 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
-import { constantPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
+import {
+  archiveServeFootprint,
+  constantPublishEnvironments,
+} from "back-end/src/revisions/revisionPublishEnvironments";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
@@ -126,7 +130,17 @@ export const postConstantRevisionRevert = createApiRequestHandler(
     strategy,
     fields: fieldsToUpdate,
     patchOps,
-    footprint: constantPublishEnvironments(req.context, revertEnvs),
+    // A revert that flips `archived` takes the Constant out of service, or returns
+    // it, EVERYWHERE it serves — the same footprint archiving uses. The changed-env
+    // list is empty for a base-value-only revert, and an empty footprint skips the
+    // environment check rather than narrowing it.
+    footprint: flipsArchivedState({
+      proposed:
+        "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
+      current: constant.archived,
+    })
+      ? archiveServeFootprint(req.context, constant)
+      : constantPublishEnvironments(req.context, revertEnvs),
     title,
     // Approval for this landing, resolved by the pipeline after authority.
     resolveApproval: async () => {

@@ -2006,15 +2006,22 @@ export async function setRevisionScheduledPublish(
 export async function recordScheduledPublishFailure(
   revision: Pick<
     FeatureRevisionInterface,
-    "organization" | "featureId" | "version"
+    "organization" | "featureId" | "version" | "scheduledPublishAt"
   >,
   message: string,
 ): Promise<number> {
+  // Conditioned on the revision still being OPEN and still carrying the schedule this
+  // attempt was acting on. Without it a stale worker could stamp an error and bump
+  // attempts on a revision a concurrent publish had already closed — and the caller,
+  // reading a non-zero count, would emit a `revision.publishFailed` for a publish that
+  // in fact succeeded. Returning 0 tells the caller its attempt is void.
   const doc = await FeatureRevisionModel.findOneAndUpdate(
     {
       organization: revision.organization,
       featureId: revision.featureId,
       version: revision.version,
+      status: { $nin: ["published", "discarded"] },
+      scheduledPublishAt: revision.scheduledPublishAt ?? null,
     },
     {
       $set: { scheduledPublishLastError: message },

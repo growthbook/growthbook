@@ -31,6 +31,10 @@ import {
 } from "back-end/src/services/features";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import {
+  dispatchFeatureRevisionEvent,
+  getPublishedRevisionForEvents,
+} from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
@@ -197,6 +201,24 @@ export async function toggleFeatureCore(
     details: auditDetailsUpdate(feature, updatedFeature),
     reason: body.reason,
   });
+
+  // A toggle lands a PUBLISHED revision, so it owes the same `revision.published`
+  // webhook the dedicated publish endpoints emit — it was the last feature path
+  // landing a revision silently. After the commit and best-effort, like the others.
+  try {
+    await dispatchFeatureRevisionEvent(
+      context,
+      updatedFeature,
+      await getPublishedRevisionForEvents(context, updatedFeature, revision),
+      "revision.published",
+      {},
+    );
+  } catch (e) {
+    logger.error(
+      e,
+      `Failed to dispatch revision.published for feature ${updatedFeature.id}`,
+    );
+  }
 
   const updatedExperimentMap = await getExperimentMapForFeature(
     context,

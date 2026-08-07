@@ -97,7 +97,7 @@ export async function requestReview(
   const scheduledDate = parseScheduledPublishDate(req.body.scheduledPublishAt);
   if (
     scheduledDate !== null &&
-    !canScheduleFeaturePublish(req.context, feature)
+    !canScheduleFeaturePublish(req.context, feature, revision)
   ) {
     req.context.permissions.throwPermissionError();
   }

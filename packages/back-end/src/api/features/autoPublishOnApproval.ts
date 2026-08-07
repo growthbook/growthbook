@@ -76,13 +76,28 @@ export function parseScheduledPublishDate(
 export function canPublishFeatureRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
+  // The revision being armed, when there is one. A draft that moves projects lands
+  // in the DESTINATION, so arming a schedule for it commits a future publish there —
+  // judging the live feature's scope alone let someone arm a publish they cannot
+  // perform, which then failed on every poller tick until it gave up.
+  revision?: { metadata?: { project?: string } },
 ): boolean {
   const allEnvironments = getEnvironments(context.org);
   const environmentIds = filterEnvironmentsByFeature(
     allEnvironments,
     feature,
   ).map((e) => e.id);
-  return context.permissions.canPublishFeature(feature, environmentIds);
+  if (!context.permissions.canPublishFeature(feature, environmentIds)) {
+    return false;
+  }
+  const destination = revision?.metadata?.project;
+  if (destination === undefined || destination === (feature.project ?? "")) {
+    return true;
+  }
+  return context.permissions.canPublishFeature(
+    { ...feature, project: destination },
+    environmentIds,
+  );
 }
 
 // Whether the caller may arm a date-based publish. Needs publish authority plus
@@ -90,9 +105,10 @@ export function canPublishFeatureRevision(
 export function canScheduleFeaturePublish(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
+  revision?: { metadata?: { project?: string } },
 ): boolean {
   if (!context.hasPremiumFeature("scheduled-revisions")) return false;
-  return canPublishFeatureRevision(context, feature);
+  return canPublishFeatureRevision(context, feature, revision);
 }
 
 async function revisionRequiresPreLaunchChecklist(
@@ -300,6 +316,9 @@ async function handleScheduledPublishFailure(
 ): Promise<void> {
   const message = getErrorMessage(error);
   const attempts = await recordScheduledPublishFailure(revision, message);
+  // Zero means the revision moved on — closed, or re-armed with a different schedule
+  // — so this attempt is stale and must not report a failure for it.
+  if (!attempts) return;
   const outcome = decideScheduledPublishOutcome({
     error,
     attempts,

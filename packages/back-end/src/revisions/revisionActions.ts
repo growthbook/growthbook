@@ -963,7 +963,11 @@ async function handleScheduledPublishFailure(
   const attempts = await context.models.revisions.recordScheduledPublishFailure(
     revision.id,
     message,
+    revision.scheduledPublishAt ?? null,
   );
+  // Zero means the revision moved on — closed, or re-armed with a different
+  // schedule — so this attempt is stale and must not report a failure for it.
+  if (!attempts) return;
   const outcome = decideScheduledPublishOutcome({
     error,
     attempts,

@@ -114,10 +114,6 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
 
   const tags = req.body.tags || [];
 
-  if (tags.length > 0) {
-    await addTags(req.context.org.id, tags);
-  }
-
   const feature: FeatureInterface = {
     defaultValue: req.body.defaultValue ?? "",
     valueType: req.body.valueType,
@@ -192,6 +188,12 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     feature,
     environmentIds: orgEnvs.map((e) => e.id),
   });
+
+  // AFTER every authorization: tags are a persistent org-level side effect, and
+  // writing them first meant a request that then 403'd had already mutated tag state.
+  if (tags.length > 0) {
+    await addTags(req.context.org.id, tags);
+  }
 
   addIdsToRules(feature.environmentSettings, feature.id);
   addIdsToFlatRules(feature.rules, feature.id);

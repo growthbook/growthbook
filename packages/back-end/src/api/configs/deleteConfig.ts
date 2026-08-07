@@ -1,6 +1,6 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { deleteConfigValidator } from "shared/validators";
-import { configPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
+import { archiveServeFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
@@ -22,11 +22,14 @@ export const deleteConfig = createApiRequestHandler(deleteConfigValidator)(
     if (
       !req.context.permissions.canDeleteConfig(
         config,
-        // An archived config serves nothing anywhere; a live one (reachable
-        // here only under the REST bypass setting) still answers for its scope.
+        // An archived config serves nothing anywhere; a live one (reachable here
+        // only under the REST bypass setting) answers for everywhere it SERVES.
+        // Its own scope is empty for a base Config, and an empty footprint skips
+        // the environment check rather than narrowing it — the same widening
+        // archiving already uses, and deleting is strictly stronger than archiving.
         config.archived
           ? NO_ENVIRONMENT_BINDING
-          : configPublishEnvironments(req.context, config),
+          : archiveServeFootprint(req.context, config),
       )
     ) {
       req.context.permissions.throwPermissionError();

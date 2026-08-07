@@ -2146,9 +2146,20 @@ export class RevisionModel extends BaseClass {
   async recordScheduledPublishFailure(
     id: string,
     message: string,
+    // The schedule this attempt was acting on. See the feature twin: without the
+    // condition a stale worker can stamp an error on a revision a concurrent publish
+    // already closed, and the caller emits a false `revision.publishFailed`.
+    expectedScheduledPublishAt?: Date | null,
   ): Promise<number> {
     const doc = await this._dangerousGetCollection().findOneAndUpdate(
-      { organization: this.context.org.id, id },
+      {
+        organization: this.context.org.id,
+        id,
+        status: { $nin: ["merged", "discarded"] },
+        ...(expectedScheduledPublishAt !== undefined
+          ? { scheduledPublishAt: expectedScheduledPublishAt }
+          : {}),
+      },
       {
         $set: { scheduledPublishLastError: message },
         $inc: { scheduledPublishAttempts: 1 },
