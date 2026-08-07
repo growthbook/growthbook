@@ -1290,9 +1290,18 @@ export const putConfig = async (
         throw e;
       }
 
+      // A revert that lands is ALSO a publish, so it owes both — `reverted` names
+      // what happened, `published` is the lifecycle event subscribers mirror state
+      // from. Emitting one OR the other made these landings invisible to anyone
+      // following the documented published lifecycle.
       await dispatchConfigRevisionEvent(context, revision, {
-        type: revision.revertedFrom ? "reverted" : "published",
+        type: "published",
       });
+      if (revision.revertedFrom) {
+        await dispatchConfigRevisionEvent(context, revision, {
+          type: "reverted",
+        });
+      }
 
       return res.status(200).json({ status: 200, revision });
     }

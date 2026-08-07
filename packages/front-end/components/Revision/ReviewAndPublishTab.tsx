@@ -40,6 +40,7 @@ import EventUser from "@/components/Avatar/EventUser";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import CommentComposer from "@/components/Comments/CommentComposer";
 import ReviewCommentPopover from "@/components/Reviews/ReviewCommentPopover";
+import WaitingForReviewCallout from "@/components/Reviews/WaitingForReviewCallout";
 import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
 import {
   PersonRow,
@@ -1348,6 +1349,22 @@ function ReviewAndPublishRevision<T>({
               )}
             </Box>
           )}
+
+          {/* Same notice the Feature tab shows. Without it this tab said nothing at
+              all while a draft sat with a reviewer, so it read as stuck — and gave no
+              hint that withdrawing the request was an option. Suppressed when the
+              publish section renders below, where "waiting for a reviewer" next to a
+              working Publish button reads as a contradiction. */}
+          {state.waitingForReview &&
+            !canReview &&
+            !publishSectionHasContent && (
+              <WaitingForReviewCallout
+                isOwnDraft={isAuthor}
+                canRecallReview={state.canRecallReview}
+                disabled={submitting}
+                onRecallReview={doRecallReview}
+              />
+            )}
 
           {/* Publish section. The divider and its padding belong to the section, so
               rendering them unconditionally drew a separator around nothing — what a

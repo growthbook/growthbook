@@ -427,9 +427,13 @@ export function makeGenericBulkAdapter(
     async emitPublished(context, entity, revision) {
       const merged = await context.models.revisions.getById(revision.id);
       if (!merged) return;
-      await getRevisionWebhookAdapter(targetType)?.dispatch(context, merged, {
-        type: merged.revertedFrom ? "reverted" : "published",
-      });
+      // Both, like every other landing path: `published` is the lifecycle event,
+      // `reverted` names what this particular landing was.
+      const webhooks = getRevisionWebhookAdapter(targetType);
+      await webhooks?.dispatch(context, merged, { type: "published" });
+      if (merged.revertedFrom) {
+        await webhooks?.dispatch(context, merged, { type: "reverted" });
+      }
     },
 
     async emitPublishFailed(context, entity, revision, reason) {

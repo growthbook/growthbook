@@ -707,9 +707,15 @@ export const putConstant = async (
         throw e;
       }
 
+      // See the revert paths in revisionActions: a landing revert owes both events.
       await dispatchConstantRevisionEvent(context, revision, {
-        type: revision.revertedFrom ? "reverted" : "published",
+        type: "published",
       });
+      if (revision.revertedFrom) {
+        await dispatchConstantRevisionEvent(context, revision, {
+          type: "reverted",
+        });
+      }
 
       return res.status(200).json({ status: 200, revision });
     }

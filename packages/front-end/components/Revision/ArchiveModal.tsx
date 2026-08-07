@@ -288,14 +288,17 @@ export default function ArchiveModal({
             value={acknowledged}
             setValue={setAcknowledged}
             label={
-              // Breaking live Feature Flags happens when the archive PUBLISHES, not
-              // when it is staged — the unconditional wording implied a draft took
-              // effect on its own.
+              // The consequence lands when the archive PUBLISHES, not when it is
+              // staged — unconditional wording implied a draft took effect on its
+              // own. True of the ordinary reference warning as much as the elevated
+              // one, so both arms branch on the mode.
               elevatedWarning
                 ? mode === "publish"
                   ? "I understand this will break live Feature Flags and want to archive anyway."
                   : "I understand this will break live Feature Flags when the draft is published, and want to continue."
-                : `I acknowledge these references and want to archive this ${lowerNoun} anyway.`
+                : mode === "publish"
+                  ? `I acknowledge these references and want to archive this ${lowerNoun} anyway.`
+                  : `I acknowledge these references and want to archive this ${lowerNoun} when the draft is published.`
             }
           />
         </>

@@ -157,11 +157,10 @@ export async function withRampScheduleAdvanceLockRetry<T>(
 // `fn` must re-validate any status preconditions screened on the caller's
 // pre-lock read — the schedule may have changed while waiting for the lock.
 //
-// Authorization is screened pre-lock too, and is NOT re-checked here: a target
-// added to the schedule inside that window is acted on without a control check
-// against its project. Re-asserting from this helper would reach the background
-// and model callers, which hold no user authority and must not acquire one, so
-// closing it belongs at the dispatch sites.
+// Authorization is NOT re-checked here, because the callers do not agree on what
+// to check: the update and delete paths take their own atoms, and the scheduler
+// holds no user authority at all. Control-verb dispatch sites use
+// `runControlledRampScheduleAction` below, which does re-check.
 export async function runLockedRampScheduleAction<T>(
   ctx: ReqContext | ApiReqContext,
   scheduleId: string,
@@ -181,6 +180,35 @@ export async function runLockedRampScheduleAction<T>(
       return fn(fresh, heartbeat);
     },
   );
+}
+
+/**
+ * The locked runner for the CONTROL verbs — start, pause, resume, advance,
+ * rollback and friends — which all gate on `assertCanControlRampSchedule`.
+ *
+ * Control authority is derived from the schedule's TARGETS, so it is only as
+ * current as the document it was read from. Screening the pre-lock read leaves a
+ * window in which a concurrent add-target attaches a flag in a project the waiting
+ * caller holds nothing in, and the action then runs against it. So the verdict is
+ * taken again on the in-lock document, which is the one the action actually acts
+ * on — the same shape as the status preconditions each caller re-validates.
+ *
+ * Dispatch sites keep their pre-lock assertion: it refuses the common case before
+ * the lock is taken, and gives a plain 403 instead of one that arrives after a
+ * lock wait.
+ */
+export async function runControlledRampScheduleAction<T>(
+  ctx: ReqContext | ApiReqContext,
+  scheduleId: string,
+  fn: (
+    fresh: RampScheduleInterface,
+    heartbeat: () => Promise<void>,
+  ) => Promise<T>,
+): Promise<T> {
+  return runLockedRampScheduleAction(ctx, scheduleId, async (fresh, hb) => {
+    await assertCanControlRampSchedule(ctx, fresh);
+    return fn(fresh, hb);
+  });
 }
 
 const MAX_EVENT_HISTORY = 500;

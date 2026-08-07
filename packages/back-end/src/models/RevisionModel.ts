@@ -1435,7 +1435,9 @@ export class RevisionModel extends BaseClass {
   /**
    * Edit the body of a comment the calling user authored. Only "comment"
    * reviews are editable (verdicts are immutable history — change them via
-   * undoReview). Does not touch status. CAS-guarded on `reviews`.
+   * undoReview). Does not touch status, but IS guarded on it: the callback below
+   * refuses a merged or discarded revision, and a guard that omitted status let a
+   * publish or discard land between that read and this write.
    */
   // Standing to write a comment on a revision. Comment writes get their own
   // check because the general update backstop recognizes only authors and
@@ -1464,7 +1466,7 @@ export class RevisionModel extends BaseClass {
   ) {
     const updated = await this.updateWithCas(
       id,
-      ["reviews", "target"],
+      ["reviews", "status", "target"],
       (existing) => {
         this.assertCanWriteCommentOn(existing);
         if (existing.status === "merged" || existing.status === "discarded") {
@@ -1497,7 +1499,7 @@ export class RevisionModel extends BaseClass {
   async deleteComment(id: string, reviewId: string, userId: string) {
     const updated = await this.updateWithCas(
       id,
-      ["reviews", "target"],
+      ["reviews", "status", "target"],
       (existing) => {
         this.assertCanWriteCommentOn(existing);
         if (existing.status === "merged" || existing.status === "discarded") {

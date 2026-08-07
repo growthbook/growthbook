@@ -22,6 +22,7 @@ import {
   rollbackSchedule,
   restartSchedule,
   resumeSchedule,
+  runControlledRampScheduleAction,
   runLockedRampScheduleAction,
   setRampMonitoringMode,
   startSchedule,
@@ -394,7 +395,7 @@ export const postRampScheduleAction = async (
             "This schedule requires start approval — use the approve action to start it.",
         });
       }
-      updated = await runLockedRampScheduleAction(
+      updated = await runControlledRampScheduleAction(
         context,
         schedule.id,
         (fresh, heartbeat) => {
@@ -421,7 +422,7 @@ export const postRampScheduleAction = async (
           message: `Cannot pause a schedule in status "${schedule.status}"`,
         });
       }
-      updated = await runLockedRampScheduleAction(
+      updated = await runControlledRampScheduleAction(
         context,
         schedule.id,
         (fresh) => {
@@ -442,7 +443,7 @@ export const postRampScheduleAction = async (
           message: `Cannot resume a schedule in status "${schedule.status}"`,
         });
       }
-      updated = await runLockedRampScheduleAction(
+      updated = await runControlledRampScheduleAction(
         context,
         schedule.id,
         (fresh, heartbeat) => {
@@ -492,7 +493,7 @@ export const postRampScheduleAction = async (
           });
         }
       }
-      updated = await runLockedRampScheduleAction(
+      updated = await runControlledRampScheduleAction(
         context,
         schedule.id,
         async (fresh) => {
@@ -555,7 +556,7 @@ export const postRampScheduleAction = async (
             "This schedule requires start approval — approve it before completing.",
         });
       }
-      updated = await runLockedRampScheduleAction(
+      updated = await runControlledRampScheduleAction(
         context,
         schedule.id,
         (fresh) => {
@@ -593,7 +594,7 @@ export const postRampScheduleAction = async (
       }
       const cause = req.body?.reason?.trim();
       const reason = cause ? `Manual: ${cause}` : "Manual";
-      updated = await runLockedRampScheduleAction(
+      updated = await runControlledRampScheduleAction(
         context,
         schedule.id,
         (fresh) => {
@@ -615,7 +616,7 @@ export const postRampScheduleAction = async (
           message: `Cannot restart a schedule in status "${schedule.status}". Only terminal (rolled-back / completed) schedules can be restarted.`,
         });
       }
-      updated = await runLockedRampScheduleAction(
+      updated = await runControlledRampScheduleAction(
         context,
         schedule.id,
         (fresh, heartbeat) => {
@@ -649,7 +650,7 @@ export const postRampScheduleAction = async (
         });
       }
 
-      updated = await runLockedRampScheduleAction(
+      updated = await runControlledRampScheduleAction(
         context,
         schedule.id,
         (fresh) => {
@@ -681,7 +682,7 @@ export const postRampScheduleAction = async (
           message: `Cannot approve: schedule is not awaiting approval (currently "${schedule.status}")`,
         });
       }
-      const approveErr = await runLockedRampScheduleAction(
+      const approveErr = await runControlledRampScheduleAction(
         context,
         schedule.id,
         (fresh) => {
@@ -763,7 +764,7 @@ export const postRampScheduleAction = async (
           message: 'monitoringMode must be "auto" or "manual"',
         });
       }
-      updated = await runLockedRampScheduleAction(
+      updated = await runControlledRampScheduleAction(
         context,
         schedule.id,
         (fresh) => setRampMonitoringMode(context, fresh, requestedMode),
@@ -817,7 +818,7 @@ export const postRampScheduleAction = async (
       if (!safeRollout && currentStep?.monitored) {
         // Serialize against the tick, which runs the same ensure — otherwise
         // both create a SafeRollout and one becomes an orphan.
-        const updatedSchedule = await runLockedRampScheduleAction(
+        const updatedSchedule = await runControlledRampScheduleAction(
           context,
           schedule.id,
           (fresh) => ensureSafeRolloutForMonitoredRamp(context, fresh),

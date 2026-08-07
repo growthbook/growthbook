@@ -871,6 +871,27 @@ export async function canEnableAutoPublishOnApproval(
   return canPublishRevisionChange(context, revision, entity);
 }
 
+/**
+ * Authority to DISARM auto-publish-on-approval.
+ *
+ * The publish half of `canEnableAutoPublishOnApproval`, and only that half. Arming
+ * additionally requires the premium feature and the org's approval flow switched on
+ * for this project — conditions that make sense as a precondition for taking on a
+ * future publish, and strand an already-armed revision if they are asked again on
+ * the way out: a lapsed licence or a flow turned off would leave the revision armed
+ * with no way to stand it down.
+ *
+ * Same split the dated schedule already makes, where `canScheduleFeaturePublish`
+ * gates arming and `canPublishFeatureRevision` gates cancelling.
+ */
+export async function canDisarmAutoPublishOnApproval(
+  context: Context,
+  revision: Revision,
+  entity: Record<string, unknown>,
+): Promise<boolean> {
+  return canPublishRevisionChange(context, revision, entity);
+}
+
 export async function maybeAutoPublishRevision(
   context: Context,
   revision: Revision,

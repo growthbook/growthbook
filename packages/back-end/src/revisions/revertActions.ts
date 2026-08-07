@@ -119,13 +119,33 @@ export function assertCanRevertRevision({
 
   // Restoring an archived state takes the entity out of service, so it carries
   // the delete atom wherever it lands. Only relevant once it actually lands.
+  //
+  // "Wherever it lands" is literal: a revert target can restore an older PROJECT
+  // alongside `archived`, and the delete atom then has to hold in the project the
+  // entity ends up in — asking only about the source let a caller holding delete in
+  // A archive an entity it had just moved to B. Both sides, matching how publish is
+  // handled above: the source because that is where the entity is being taken out
+  // of, the destination because that is where it lands archived.
   if (
     landing &&
     isArchiveTransition({
       proposed: "archived" in fields ? !!fields.archived : undefined,
       current: entity.archived as boolean | undefined,
     }) &&
-    !context.permissions.canRevisionAction(entityType, "delete", scoped, scope)
+    (!context.permissions.canRevisionAction(
+      entityType,
+      "delete",
+      scoped,
+      scope,
+    ) ||
+      !holdsMoveDestination({
+        permissions: context.permissions,
+        model: entityType,
+        action: "delete",
+        existing: scoped,
+        proposed: { ...scoped, ...fields },
+        environments: scope,
+      }))
   ) {
     context.permissions.throwPermissionError();
   }

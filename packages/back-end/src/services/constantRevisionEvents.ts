@@ -79,9 +79,20 @@ export async function dispatchConstantRevisionEvent(
       getConstantRevisionChange(snapshot, revision.target.proposedChanges)
         .changedEnvironments,
     );
+    // The unbound fallback reads the entity's PROJECT, and environments can be
+    // project-restricted — so a revision that also moves the Constant has to fall
+    // back over source ∪ destination, the same union `projects` takes. Snapshot
+    // alone routed a move by the project it was leaving.
     const environments = scopedEnvironments.length
       ? scopedEnvironments
-      : serveFootprint(getEnvironments(context.org), snapshot);
+      : [
+          ...new Set([
+            ...serveFootprint(getEnvironments(context.org), snapshot),
+            ...(liveForRouting
+              ? serveFootprint(getEnvironments(context.org), liveForRouting)
+              : []),
+          ]),
+        ];
 
     const emit = async <T extends ConstantRevisionEvent>(
       event: T,

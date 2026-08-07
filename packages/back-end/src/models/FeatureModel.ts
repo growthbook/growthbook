@@ -2481,19 +2481,22 @@ async function setExperimentHoldoutIds(
   // experiment before its scalar write had landed, judge it unowned, and have that
   // write arrive after the rollback. Same requirement as the contextual-bandit batch.
   const outcomes = await Promise.all(
+    // The try covers the READ as well as the write. With only the write inside it, a
+    // failed `getExperimentById` still rejected its entry, which rejects `Promise.all`
+    // at once and settles nothing — exactly the escape this comment says is closed.
     Object.entries(targets).map(async ([id, next]) => {
-      const exp = await getExperimentById(context, id);
-      if (!exp) return;
-      // Already where we want it: nothing to write, but it IS at the target, so it
-      // counts as ours for the membership decision. A forward pass that failed
-      // between the membership write and the scalar leaves exactly this state, and
-      // treating it as "not ours" would strand the membership half.
-      if ((exp.holdoutId ?? "") === next) {
-        applied.add(id);
-        return;
-      }
-      const want = expected?.[id];
       try {
+        const exp = await getExperimentById(context, id);
+        if (!exp) return null;
+        // Already where we want it: nothing to write, but it IS at the target, so it
+        // counts as ours for the membership decision. A forward pass that failed
+        // between the membership write and the scalar leaves exactly this state, and
+        // treating it as "not ours" would strand the membership half.
+        if ((exp.holdoutId ?? "") === next) {
+          applied.add(id);
+          return null;
+        }
+        const want = expected?.[id];
         await updateExperiment({
           context,
           experiment: exp,
@@ -2503,11 +2506,11 @@ async function setExperimentHoldoutIds(
             : {}),
         });
         applied.add(id);
+        return null;
       } catch (e) {
         if (onMismatch === "skip" && e instanceof CasConflictError) return null;
         return e;
       }
-      return null;
     }),
   );
   const failure = outcomes.find((e) => e !== null && e !== undefined);

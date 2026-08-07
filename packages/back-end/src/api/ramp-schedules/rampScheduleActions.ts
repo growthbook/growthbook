@@ -31,6 +31,7 @@ import {
   rollbackSchedule,
   restartSchedule,
   resumeSchedule,
+  runControlledRampScheduleAction,
   runLockedRampScheduleAction,
   setRampMonitoringMode,
   startSchedule,
@@ -93,7 +94,7 @@ export const startRampSchedule = createApiRequestHandler({
     );
   }
 
-  const current = await runLockedRampScheduleAction(
+  const current = await runControlledRampScheduleAction(
     req.context,
     schedule.id,
     (fresh, heartbeat) => {
@@ -136,7 +137,7 @@ export const pauseRampSchedule = createApiRequestHandler({
     );
   }
 
-  const updated = await runLockedRampScheduleAction(
+  const updated = await runControlledRampScheduleAction(
     req.context,
     schedule.id,
     (fresh) => {
@@ -175,7 +176,7 @@ export const resumeRampSchedule = createApiRequestHandler({
     );
   }
 
-  const updated = await runLockedRampScheduleAction(
+  const updated = await runControlledRampScheduleAction(
     req.context,
     schedule.id,
     (fresh, heartbeat) => {
@@ -225,7 +226,7 @@ export const jumpRampSchedule = createApiRequestHandler({
     throw new Error(`Invalid targetStepIndex ${targetStepIndex}`);
   }
 
-  const updated = await runLockedRampScheduleAction(
+  const updated = await runControlledRampScheduleAction(
     req.context,
     schedule.id,
     (fresh) => {
@@ -271,7 +272,7 @@ export const completeRampSchedule = createApiRequestHandler({
     );
   }
 
-  const completed = await runLockedRampScheduleAction(
+  const completed = await runControlledRampScheduleAction(
     req.context,
     schedule.id,
     (fresh) => {
@@ -332,7 +333,7 @@ export const approveStepRampSchedule = createApiRequestHandler({
     );
   }
 
-  const err = await runLockedRampScheduleAction(
+  const err = await runControlledRampScheduleAction(
     req.context,
     schedule.id,
     (fresh) => {
@@ -426,7 +427,7 @@ export const rollbackRampSchedule = createApiRequestHandler({
 
   const cause = req.body.reason?.trim();
   const reason = cause ? `Manual: ${cause}` : "Manual";
-  const updated = await runLockedRampScheduleAction(
+  const updated = await runControlledRampScheduleAction(
     req.context,
     schedule.id,
     (fresh) => {
@@ -465,7 +466,7 @@ export const restartRampSchedule = createApiRequestHandler({
     );
   }
 
-  const updated = await runLockedRampScheduleAction(
+  const updated = await runControlledRampScheduleAction(
     req.context,
     schedule.id,
     (fresh, heartbeat) => {
@@ -577,7 +578,7 @@ export const addTargetRampSchedule = createApiRequestHandler({
 
   // Locked: concurrent add/eject calls would drop a target, and a stale
   // pending→ready flip could rewind a scheduler-activated schedule.
-  const updated = await runLockedRampScheduleAction(
+  const updated = await runControlledRampScheduleAction(
     req.context,
     schedule.id,
     async (fresh) => {
@@ -667,7 +668,7 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
 
   // Locked: the targets filter is a read-modify-write, and the last-target
   // deleteById must not remove the doc out from under an in-flight advance.
-  return runLockedRampScheduleAction(
+  return runControlledRampScheduleAction(
     req.context,
     schedule.id,
     async (fresh) => {
@@ -773,7 +774,7 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
   }
 
   let bypassedApproval = false;
-  let current = await runLockedRampScheduleAction(
+  let current = await runControlledRampScheduleAction(
     req.context,
     schedule.id,
     async (fresh) => {
@@ -1287,7 +1288,7 @@ export const setMonitoringModeRampSchedule = createApiRequestHandler({
   );
   if (!schedule) throw new Error("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
-  const updated = await runLockedRampScheduleAction(
+  const updated = await runControlledRampScheduleAction(
     req.context,
     schedule.id,
     (fresh) =>
@@ -1319,7 +1320,7 @@ export const setAutoUpdateRampSchedule = createApiRequestHandler({
   );
   if (!schedule) throw new Error("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
-  const updated = await runLockedRampScheduleAction(
+  const updated = await runControlledRampScheduleAction(
     req.context,
     schedule.id,
     (fresh) =>
@@ -1351,7 +1352,7 @@ export const updateMonitoringConfigRampSchedule = createApiRequestHandler({
   );
   if (!schedule) throw new Error("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
-  const updated = await runLockedRampScheduleAction(
+  const updated = await runControlledRampScheduleAction(
     req.context,
     schedule.id,
     (fresh) => updateRampMonitoringConfig(req.context, fresh, req.body),
@@ -1376,7 +1377,7 @@ export const updateLockdownConfigRampSchedule = createApiRequestHandler({
   );
   if (!schedule) throw new Error("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
-  const updated = await runLockedRampScheduleAction(
+  const updated = await runControlledRampScheduleAction(
     req.context,
     schedule.id,
     (fresh) => updateRampLockdownConfig(req.context, fresh, req.body),
@@ -1437,7 +1438,7 @@ export const updateStepsRampSchedule = createApiRequestHandler({
   if (!schedule) throw new Error("Ramp schedule not found");
   await assertCanControlRampSchedule(req.context, schedule);
 
-  const { schedule: updated } = await runLockedRampScheduleAction(
+  const { schedule: updated } = await runControlledRampScheduleAction(
     req.context,
     schedule.id,
     (fresh) => {

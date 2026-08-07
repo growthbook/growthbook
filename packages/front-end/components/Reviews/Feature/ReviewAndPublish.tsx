@@ -64,7 +64,6 @@ import { getFutureScheduledStartDate } from "@/services/experiments";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import LinkButton from "@/components/Button";
-import Link from "@/ui/Link";
 import Revisionlog, {
   MutateLog,
   REVIEW_ACTIVITY_ACTIONS,
@@ -122,6 +121,7 @@ import HelperText from "@/ui/HelperText";
 import PermissionBlocker from "@/ui/PermissionBlocker";
 import Metadata from "@/ui/Metadata";
 import ReviewCommentPopover from "@/components/Reviews/ReviewCommentPopover";
+import WaitingForReviewCallout from "@/components/Reviews/WaitingForReviewCallout";
 import CommentComposer from "@/components/Comments/CommentComposer";
 import {
   DropdownMenu,
@@ -776,11 +776,23 @@ export default function ReviewAndPublish({
   const isReviewRequester =
     !!userId && !!reviewRequesterId && userId === reviewRequesterId;
 
+  // Schedule authority, the way `canPublishFeatureRevision` computes it: publish over
+  // the feature's environments AND over the project the draft would land in. Judging
+  // the live feature alone offered every schedule action on a relocating draft and
+  // got a 403 from each.
+  const holdsSchedulePublish =
+    permissionsUtil.canPublishFeature(feature, envIds) &&
+    holdsFeatureMoveDestination(
+      permissionsUtil,
+      feature,
+      revision?.metadata?.project,
+      envIds,
+    );
+
   // Only the draft / review-request owner can edit the arming; others see a
   // read-only summary when armed (matching main's auto-publish-on-approval rule).
   const isArmingOwner =
-    permissionsUtil.canPublishFeature(feature, envIds) &&
-    (revision?.status === "draft" || isReviewRequester);
+    holdsSchedulePublish && (revision?.status === "draft" || isReviewRequester);
   const hasScheduledRevisions = hasCommercialFeature("scheduled-revisions");
   // "when approved" only makes sense before approval — once approved it would
   // just publish now (which Publish already does), so approved revisions only
@@ -791,7 +803,7 @@ export default function ReviewAndPublish({
   // review-request ownership — matching the backend `canScheduleFeaturePublish`
   // gate, so a reviewer with publish permission can manage the schedule from the
   // UI. The premium (`scheduled-revisions`) gate is applied at render.
-  const canArmOnDate = permissionsUtil.canPublishFeature(feature, envIds);
+  const canArmOnDate = holdsSchedulePublish;
   const effectivePublishMode: "approve" | "date" = canArmWhenApproved
     ? publishMode
     : "date";
@@ -802,8 +814,7 @@ export default function ReviewAndPublish({
   // clears the bypass flag (reverts the admin override).
   const scheduleArmedByAdmin =
     scheduledPending && !!revision?.scheduledPublishBypassApproval;
-  const canCancelAdminSchedule =
-    scheduleArmedByAdmin && permissionsUtil.canPublishFeature(feature, envIds);
+  const canCancelAdminSchedule = scheduleArmedByAdmin && holdsSchedulePublish;
 
   const canManageAutoPublish = canArmWhenApproved || canArmOnDate;
   // Admin-armed schedules render read-only for everyone, so route them through
@@ -2568,20 +2579,12 @@ export default function ReviewAndPublish({
               "waiting for a reviewer" next to a working Publish button reads
               as a contradiction. */}
           {state.waitingForReview && !canReview && !showPublishSection && (
-            <Callout status="info" size="sm">
-              {createdBy?.id === user?.id
-                ? "Waiting for a reviewer — you can't approve your own draft."
-                : "Waiting for a reviewer."}
-              {state.canRecallReview && (
-                <>
-                  {" "}
-                  <Link onClick={() => doRecallReview()}>
-                    Return to draft state
-                  </Link>{" "}
-                  to withdraw the request.
-                </>
-              )}
-            </Callout>
+            <WaitingForReviewCallout
+              isOwnDraft={createdBy?.id === user?.id}
+              canRecallReview={state.canRecallReview}
+              disabled={secondaryLoading !== null}
+              onRecallReview={doRecallReview}
+            />
           )}
 
           {(() => {

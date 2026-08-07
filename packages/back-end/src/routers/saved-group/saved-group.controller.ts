@@ -1195,9 +1195,15 @@ export const putSavedGroup = async (
         throw e;
       }
 
+      // See the revert paths in revisionActions: a landing revert owes both events.
       await dispatchSavedGroupRevisionEvent(context, revision, {
-        type: revision.revertedFrom ? "reverted" : "published",
+        type: "published",
       });
+      if (revision.revertedFrom) {
+        await dispatchSavedGroupRevisionEvent(context, revision, {
+          type: "reverted",
+        });
+      }
 
       return res.status(200).json({
         status: 200,

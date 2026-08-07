@@ -72,10 +72,24 @@ export async function dispatchConfigRevisionEvent(
     // A BASE Config scopes to no environment but is felt in every one it applies
     // to, and `[]` means "affects nothing" to the delivery filter. Resolved here,
     // where the two are distinguishable — see constantRevisionEvents.
-    const scopedEnvironments = configPublishEnvironments(snapshot);
-    const environments = scopedEnvironments.length
-      ? scopedEnvironments
-      : serveFootprint(getEnvironments(context.org), snapshot);
+    const footprintOf = (entity: ConfigInterface | null): string[] => {
+      if (!entity) return [];
+      const scoped = configPublishEnvironments(entity);
+      return scoped.length
+        ? scoped
+        : serveFootprint(getEnvironments(context.org), entity);
+    };
+    // Snapshot ∪ live, the same union `projects` takes above. `scopedConfig` is
+    // read-only in the snapshot (never in `getUpdatableFields`), so the flavor's
+    // scope can only move on the LIVE entity — and a draft opened before that move
+    // names the old scope, which is where routing on the snapshot alone lost the
+    // subscribers filtered to where the Config is scoped today.
+    const environments = [
+      ...new Set([
+        ...footprintOf(snapshot),
+        ...footprintOf(liveForRouting as ConfigInterface | null),
+      ]),
+    ];
 
     const emit = async <T extends ConfigRevisionEvent>(
       event: T,

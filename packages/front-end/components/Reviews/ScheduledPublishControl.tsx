@@ -150,12 +150,14 @@ export default function ScheduledPublishControl({
   // an armed one to be cancelled. Suppressing the whole control there stranded the
   // pending schedule with no way to call it off.
   const canArmOnDate = canEdit && canArm;
-  const canManageAutoPublish = canArmWhenApproved || canArmOnDate;
-  // DISARMING a no-date "publish when approved" posts to the toggle endpoint, which
-  // requires DRAFT authority — not publish. The two were conflated, so a draft
-  // manager without publish rights saw only a read-only checkbox for something the
-  // endpoint would let them turn off, while a publisher without draft rights got an
-  // interactive one the endpoint then refused.
+  // Standing an ALREADY-ARMED schedule down survives the org switching
+  // auto-publish-on-approval off: the endpoint gates only the arming direction on
+  // that setting, so mirroring it here left the control read-only with the revision
+  // still armed and no way to call it off. Authority is otherwise unchanged.
+  const canDisarmWhenApproved =
+    persistedArmed && isArmingOwner && canArm && (canDraft ?? true);
+  const canManageAutoPublish =
+    canArmWhenApproved || canArmOnDate || canDisarmWhenApproved;
   // The schedule's admin bypass is only relevant when the revision would
   // otherwise need approval (review required, not yet approved).
   const canBypassScheduleApproval =

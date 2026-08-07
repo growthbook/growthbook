@@ -37,6 +37,7 @@ import {
   assertCanPublishRevision,
   canCommentOnRevision,
   canDoRevisionAction,
+  canDisarmAutoPublishOnApproval,
   canEnableAutoPublishOnApproval,
   canPublishRevisionChange,
   maybeAutoPublishRevision,
@@ -1287,13 +1288,17 @@ export const postToggleAutoPublish = async (
     context.permissions.throwPermissionError();
   }
 
+  // Publish authority governs both directions; the ELIGIBILITY gates (premium,
+  // approval flow on for this project) are a precondition for taking on a future
+  // publish, not for standing one down. Asking them on the way out left a revision
+  // armed forever once a licence lapsed or the flow was switched off.
   const liveEntity = await loadLiveEntityForRevision(context, existing);
-  if (
-    !(
-      liveEntity &&
-      (await canEnableAutoPublishOnApproval(context, existing, liveEntity))
-    )
-  ) {
+  const mayToggle =
+    !!liveEntity &&
+    (enabled
+      ? await canEnableAutoPublishOnApproval(context, existing, liveEntity)
+      : await canDisarmAutoPublishOnApproval(context, existing, liveEntity));
+  if (!mayToggle) {
     context.permissions.throwPermissionError();
   }
 
