@@ -45,7 +45,7 @@ import {
   clearAutoRefresh,
   configureCache,
   refreshFeatures,
-  startStreaming,
+  startBackgroundSync,
   unsubscribe,
 } from "./feature-repository";
 import {
@@ -276,7 +276,7 @@ export class GrowthBook<
 
     this.ready = true;
 
-    startStreaming(this, options);
+    startBackgroundSync(this, options);
 
     return this;
   }
@@ -291,7 +291,7 @@ export class GrowthBook<
 
     if (options.payload) {
       await this.setPayload(options.payload);
-      startStreaming(this, options);
+      startBackgroundSync(this, options);
       return {
         success: true,
         source: "init",
@@ -301,7 +301,7 @@ export class GrowthBook<
         ...options,
         allowStale: true,
       });
-      startStreaming(this, options);
+      startBackgroundSync(this, options);
       await this.setPayload(data || {});
       return res;
     }
