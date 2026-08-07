@@ -192,6 +192,11 @@ export function buildPatchOps(
       // here so the invariant is ENFORCED rather than conventional: the first
       // caller to spread a client-supplied object into `changes` would otherwise
       // reopen the bypass from the inside, past the validator that guards the door.
+      // `/` ONLY, deliberately. `~` is the other JSON-Pointer metacharacter, but it
+      // is not on this security axis: `~1` unescapes to a literal `/` WITHIN a
+      // single token rather than acting as a separator, so both appliers still read
+      // such a path as top-level and no footprint/write divergence arises. Widening
+      // the guard would buy nothing here — recorded so the question isn't reopened.
       if (key.includes("/")) {
         throw new Error(
           `Cannot build a patch op for field "${key}": field names may not contain "/".`,
