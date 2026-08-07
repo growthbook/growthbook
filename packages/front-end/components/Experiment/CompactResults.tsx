@@ -694,6 +694,17 @@ export function getRenderLabelColumn({
       !row?.labelOnly &&
       !sliceTagsFilter?.length;
 
+    const funnelIcon = isFactFunnelMetric(metric) ? (
+      <PiFunnelSimple
+        size={14}
+        style={{
+          marginLeft: 4,
+          verticalAlign: "middle",
+          color: "var(--color-text-mid)",
+        }}
+      />
+    ) : null;
+
     // Render non-slice metric
     return (
       <>
@@ -772,6 +783,7 @@ export function getRenderLabelColumn({
                       {label.includes(" ")
                         ? label.slice(label.lastIndexOf(" ") + 1)
                         : label}
+                      {funnelIcon}
                       <OfficialBadge
                         type="metric"
                         managedBy={metric.managedBy || ""}
@@ -793,6 +805,7 @@ export function getRenderLabelColumn({
                     target="_blank"
                   >
                     {label}
+                    {funnelIcon}
                     <OfficialBadge
                       type="metric"
                       managedBy={metric.managedBy || ""}
@@ -807,16 +820,6 @@ export function getRenderLabelColumn({
                   </Link>
                 )}
               </Text>
-              {isFactFunnelMetric(metric) && (
-                <PiFunnelSimple
-                  size={16}
-                  style={{
-                    marginLeft: 6,
-                    verticalAlign: "middle",
-                    color: "var(--color-text-mid)",
-                  }}
-                />
-              )}
             </span>
           </span>
         </div>
