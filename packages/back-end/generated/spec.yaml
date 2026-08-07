@@ -38266,7 +38266,7 @@ paths:
                                           properties:
                                             name:
                                               type: string
-                                            factTable:
+                                            factTableId:
                                               type: string
                                             rowFilters:
                                               type: array
@@ -38328,7 +38328,7 @@ paths:
                                                 - type: 'null'
                                           required:
                                             - name
-                                            - factTable
+                                            - factTableId
                                             - rowFilters
                                             - optional
                                           additionalProperties: false
@@ -45551,7 +45551,7 @@ paths:
                         properties:
                           name:
                             type: string
-                          factTable:
+                          factTableId:
                             type: string
                           rowFilters:
                             type: array
@@ -45613,7 +45613,7 @@ paths:
                               - type: 'null'
                         required:
                           - name
-                          - factTable
+                          - factTableId
                           - rowFilters
                           - optional
                         additionalProperties: false
@@ -45932,7 +45932,7 @@ paths:
                                       properties:
                                         name:
                                           type: string
-                                        factTable:
+                                        factTableId:
                                           type: string
                                         rowFilters:
                                           type: array
@@ -45994,7 +45994,7 @@ paths:
                                             - type: 'null'
                                       required:
                                         - name
-                                        - factTable
+                                        - factTableId
                                         - rowFilters
                                         - optional
                                       additionalProperties: false
@@ -61318,7 +61318,7 @@ components:
                               properties:
                                 name:
                                   type: string
-                                factTable:
+                                factTableId:
                                   type: string
                                 rowFilters:
                                   type: array
@@ -61380,7 +61380,7 @@ components:
                                     - type: 'null'
                               required:
                                 - name
-                                - factTable
+                                - factTableId
                                 - rowFilters
                                 - optional
                               additionalProperties: false
@@ -64090,7 +64090,7 @@ components:
                         properties:
                           name:
                             type: string
-                          factTable:
+                          factTableId:
                             type: string
                           rowFilters:
                             type: array
@@ -64152,7 +64152,7 @@ components:
                               - type: 'null'
                         required:
                           - name
-                          - factTable
+                          - factTableId
                           - rowFilters
                           - optional
                         additionalProperties: false
