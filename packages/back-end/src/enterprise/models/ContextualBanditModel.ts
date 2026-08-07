@@ -572,79 +572,68 @@ export class ContextualBanditModel extends BaseClass {
     // linkage before our rollback runs, which the pre-image would otherwise undo.
     expectedFeatureSlice?: ContextualBanditLinkageState,
   ): Promise<void> {
-    let cb = await this.getById(cbId);
-    if (!cb) return;
-
-    if (
-      expectedFeatureSlice &&
-      !isEqual(
-        this.featureLinkageSlice(cb, featureId),
-        this.featureLinkageSlice(expectedFeatureSlice, featureId),
-      )
-    ) {
-      return;
-    }
-
-    const shouldBeLinked = state.linkedFeatures.includes(featureId);
-    const linked = cb.linkedFeatures ?? [];
-    const isLinked = linked.includes(featureId);
-
-    const changes: LinkageChanges = {};
-    if (shouldBeLinked && !isLinked) {
-      changes.linkedFeatures = [...linked, featureId];
-    } else if (!shouldBeLinked && isLinked) {
-      changes.linkedFeatures = linked.filter((f) => f !== featureId);
-    }
-
-    const otherDrafts = (cb.pendingFeatureDrafts ?? []).filter(
-      (d) => d.featureId !== featureId,
-    );
-    const restored = [
-      ...otherDrafts,
-      ...state.pendingFeatureDrafts.filter((d) => d.featureId === featureId),
-    ];
-    const current = cb.pendingFeatureDrafts ?? [];
-    const changed =
-      restored.length !== current.length ||
-      restored.some(
-        (d, i) =>
-          d.featureId !== current[i]?.featureId ||
-          d.revisionVersion !== current[i]?.revisionVersion,
-      );
-    if (changed) {
-      changes.pendingFeatureDrafts = restored;
-    }
-
-    if (!Object.keys(changes).length) return;
-    // GUARDED, like the forward pass — checking the slice and then issuing a plain
-    // update is check-then-act, and `changes` was derived from the stale document.
-    //
-    // But the guard is whole-document, so ANY concurrent write — a weight update, a
-    // snapshot — advances `dateUpdated` and loses the race. Treating that as "someone
-    // owns this linkage now" abandoned the rollback and left the failed publish's
-    // linkage live. Retry against fresh state instead, and give up only once THIS
-    // feature's slice has actually moved, which is the case that really belongs to
-    // someone else.
+    // Recomputed from the document each attempt: the arrays this write sets are
+    // DERIVED from the document it read, so retrying with the fresh CAS token but the
+    // old arrays would write back a snapshot that predates another feature's
+    // concurrent linkage change and erase it.
     for (let attempt = 0; attempt < 3; attempt++) {
+      const cb = await this.getById(cbId);
+      if (!cb) return;
+
+      if (
+        expectedFeatureSlice &&
+        !isEqual(
+          this.featureLinkageSlice(cb, featureId),
+          this.featureLinkageSlice(expectedFeatureSlice, featureId),
+        )
+      ) {
+        // Their slice now, not ours to take back.
+        return;
+      }
+
+      const shouldBeLinked = state.linkedFeatures.includes(featureId);
+      const linked = cb.linkedFeatures ?? [];
+      const isLinked = linked.includes(featureId);
+
+      const changes: LinkageChanges = {};
+      if (shouldBeLinked && !isLinked) {
+        changes.linkedFeatures = [...linked, featureId];
+      } else if (!shouldBeLinked && isLinked) {
+        changes.linkedFeatures = linked.filter((f) => f !== featureId);
+      }
+
+      const otherDrafts = (cb.pendingFeatureDrafts ?? []).filter(
+        (d) => d.featureId !== featureId,
+      );
+      const restored = [
+        ...otherDrafts,
+        ...state.pendingFeatureDrafts.filter((d) => d.featureId === featureId),
+      ];
+      const current = cb.pendingFeatureDrafts ?? [];
+      const changed =
+        restored.length !== current.length ||
+        restored.some(
+          (d, i) =>
+            d.featureId !== current[i]?.featureId ||
+            d.revisionVersion !== current[i]?.revisionVersion,
+        );
+      if (changed) {
+        changes.pendingFeatureDrafts = restored;
+      }
+
+      if (!Object.keys(changes).length) return;
       try {
+        // GUARDED on the document these changes were derived from — checking the
+        // slice and then issuing a plain update is check-then-act. A lost race means
+        // SOMETHING moved; the loop re-derives and the slice check above decides
+        // whether it was this feature's linkage (theirs now) or an unrelated field
+        // (ours still to take back).
         await this.updateIfUnchanged(cb, changes, undefined, {
           dangerouslyBypassCanUpdate: true,
         });
         return;
       } catch (e) {
         if (!(e instanceof CasConflictError)) throw e;
-        const fresh = await this.getById(cbId);
-        if (!fresh) return;
-        // Their slice now, not ours to take back.
-        if (
-          !isEqual(
-            this.featureLinkageSlice(fresh, featureId),
-            this.featureLinkageSlice(cb, featureId),
-          )
-        ) {
-          return;
-        }
-        cb = fresh;
       }
     }
   }

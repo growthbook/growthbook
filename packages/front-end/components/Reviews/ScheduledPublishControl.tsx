@@ -151,6 +151,12 @@ export default function ScheduledPublishControl({
   // pending schedule with no way to call it off.
   const canArmOnDate = canEdit && canArm;
   const canManageAutoPublish = canArmWhenApproved || canArmOnDate;
+  // DISARMING a no-date "publish when approved" posts to the toggle endpoint, which
+  // requires DRAFT authority — not publish. The two were conflated, so a draft
+  // manager without publish rights saw only a read-only checkbox for something the
+  // endpoint would let them turn off, while a publisher without draft rights got an
+  // interactive one the endpoint then refused.
+  const canDisarmNoDate = !isScheduled && persistedArmed && (canDraft ?? true);
   // The schedule's admin bypass is only relevant when the revision would
   // otherwise need approval (review required, not yet approved).
   const canBypassScheduleApproval =
@@ -509,9 +515,13 @@ export default function ScheduledPublishControl({
           <Checkbox
             label="Automatically publish when approved"
             weight="regular"
-            disabled
+            // Interactive for someone who may turn it OFF even though they may not
+            // turn it on — unchecking is the only transition offered.
+            disabled={!canDisarmNoDate}
             value={true}
-            setValue={() => {}}
+            setValue={(v) => {
+              if (!v && canDisarmNoDate) doDisarm();
+            }}
           />
         </Box>
       );

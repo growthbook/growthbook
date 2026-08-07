@@ -1,4 +1,7 @@
-import { canWriteArchiveIntoDraft } from "shared/permissions";
+import {
+  canWriteArchiveIntoDraft,
+  NO_ENVIRONMENT_BINDING,
+} from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
 import { useCallback, useState } from "react";
 import { Flex } from "@radix-ui/themes";
@@ -182,6 +185,15 @@ export default function FeatureArchiveModal({
         canAutoPublish={canAutoPublish}
         gatedEnvSet={archiveGated ? "all" : "none"}
         allowNewDraftAtCap
+        // Staging follows the server's directional rule: archiving is delete-class so
+        // the delete atom stages one, unarchiving needs draft authority. Left to the
+        // shell's `true` default, a publish-only caller was offered "Create a new
+        // draft" on an unarchive the endpoint refuses.
+        canDraft={
+          permissionsUtil.canEditFeatureDrafts(feature) ||
+          (!isArchived &&
+            permissionsUtil.canDeleteFeature(feature, NO_ENVIRONMENT_BINDING))
+        }
         // Only drafts this caller may write `archived` into — the endpoint refuses
         // a write into another author's draft.
         canWriteIntoDraft={canWriteArchiveInto}

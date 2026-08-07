@@ -26,6 +26,7 @@ export default function RevisionDraftSelectorForChanges({
   selectedDraftId,
   setSelectedDraftId,
   canAutoPublish,
+  canDraft,
   approvalRequired,
   defaultExpanded = false,
   triggerPrefix = "Changes will be",
@@ -41,6 +42,8 @@ export default function RevisionDraftSelectorForChanges({
   selectedDraftId: string | null;
   setSelectedDraftId: (v: string | null) => void;
   canAutoPublish: boolean;
+  /** Whether this caller may STAGE a draft at all; the shell defaults it to true. */
+  canDraft?: boolean;
   approvalRequired: boolean;
   defaultExpanded?: boolean;
   triggerPrefix?: string;
@@ -131,6 +134,7 @@ export default function RevisionDraftSelectorForChanges({
       mode={mode}
       setMode={setMode}
       canAutoPublish={canAutoPublish}
+      canDraft={canDraft}
       approvalRequired={approvalRequired}
       existingDraftLabel={existingDraftLabel}
       revisionDropdown={revisionDropdown}

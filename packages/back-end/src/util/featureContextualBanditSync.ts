@@ -103,17 +103,30 @@ export async function applyFeatureContextualBanditLinkage(
   const cbModel = context.models.contextualBandits;
   // Each bandit is independent, so bounded concurrency is safe — a feature can
   // reference thousands of distinct contextual bandits.
-  await promiseAllChunks(
+  //
+  // Every write SETTLES before a failure is surfaced. `Promise.all` rejects on the
+  // first failure while its siblings keep running, so compensation could inspect a
+  // bandit before its forward write had landed, no-op, and then have that write
+  // arrive after the rollback — leaving linkage from a failed publish live with
+  // nothing left to undo it.
+  const results = await promiseAllChunks(
     plan.deltas.map(
       (delta) => () =>
-        cbModel.applyLinkageDelta(
-          plan.featureId,
-          delta,
-          guarded ? plan.preImage[delta.contextualBanditId] : undefined,
-        ),
+        cbModel
+          .applyLinkageDelta(
+            plan.featureId,
+            delta,
+            guarded ? plan.preImage[delta.contextualBanditId] : undefined,
+          )
+          .then(
+            () => null,
+            (e: unknown) => e,
+          ),
     ),
     10,
   );
+  const failure = results.find((e) => e !== null);
+  if (failure) throw failure;
 }
 
 /**

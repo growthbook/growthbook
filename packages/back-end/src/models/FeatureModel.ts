@@ -1882,10 +1882,19 @@ const updateSafeRolloutStatuses = async (
           current: current as unknown as Record<string, unknown>,
         });
         if (Object.keys(restore).length) {
-          await context.models.safeRollout.update(
-            current,
-            restore as UpdateProps<SafeRolloutInterface>,
-          );
+          // GUARDED on the document ownership was read from — deriving the restore
+          // and then issuing a plain update is check-then-act, and a worker
+          // advancing this rollout in between would be overwritten by our pre-image.
+          // A lost race means they own it now, which is the same answer
+          // `ownedRestoreValues` gives for a key it can no longer claim.
+          try {
+            await context.models.safeRollout.updateIfUnchanged(
+              current,
+              restore as UpdateProps<SafeRolloutInterface>,
+            );
+          } catch (casErr) {
+            if (!(casErr instanceof CasConflictError)) throw casErr;
+          }
         }
       } catch (undoErr) {
         logger.error(
@@ -2512,17 +2521,30 @@ export async function applyHoldoutExperimentLinkage(
   // identically on every retry. Chaining makes each plan expect what the last left.
   chain?: Record<string, string>,
 ) {
+  // The SCALAR first, then membership for the experiments it actually claimed —
+  // the same order the rewind uses, and for the same reason. Writing membership
+  // first meant an experiment whose scalar then went to a different owner kept the
+  // membership this publish had added: compensation correctly skips that experiment
+  // as theirs, so nothing was ever left to remove it.
+  const { targets, expectedPrior } = holdoutLinkageWrites(plan, chain);
+  const applied = await setExperimentHoldoutIds(
+    context,
+    targets,
+    expectedPrior,
+  );
   await context.models.holdout.addExperimentsToHoldout(
     plan.holdoutId,
-    plan.toLink,
+    plan.toLink.filter((id) => applied.has(id)),
   );
   await context.models.holdout.removeExperimentsFromHoldout(
     plan.holdoutId,
-    plan.toUnlink,
+    plan.toUnlink.filter((id) => applied.has(id)),
   );
-  const { targets, expectedPrior } = holdoutLinkageWrites(plan, chain);
-  await setExperimentHoldoutIds(context, targets, expectedPrior);
-  if (chain) Object.assign(chain, targets);
+  if (chain) {
+    for (const [id, next] of Object.entries(targets)) {
+      if (applied.has(id)) chain[id] = next;
+    }
+  }
 }
 
 /**

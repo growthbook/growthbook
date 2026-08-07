@@ -69,11 +69,18 @@ export interface Props {
     // modal used to choose the initial selection — passing it in two places let the
     // default land on a draft the picker itself would have excluded.
     canWriteIntoDraft?: (revision: Revision) => boolean;
+    // Whether this caller may STAGE a draft for THIS direction. Archiving is
+    // delete-class so the delete atom stages one; unarchiving is not, so it needs
+    // draft authority. Defaulted to `true` by the shell, a publish-only caller was
+    // offered "Create a new draft" on an unarchive the endpoint then refused.
+    canDraft?: boolean;
   }) => ReactNode;
   // Drafts this caller may write the archive flip into. Used for the INITIAL
   // selection: filtering only the picker still opened the modal on another author's
   // draft, which the endpoint then refuses with no user action at all.
   canWriteIntoDraft?: (revision: Revision) => boolean;
+  /** May this caller stage a draft for the direction being taken? See above. */
+  canStageDraft?: boolean;
   trackingEventModalType: string;
   close: () => void;
   onRevisionCreated?: (revision: Revision) => void;
@@ -105,6 +112,7 @@ export default function ArchiveModal({
   preserveNounCase = false,
   renderDraftSelector,
   canWriteIntoDraft,
+  canStageDraft,
   trackingEventModalType,
   close,
   onRevisionCreated,
@@ -223,6 +231,7 @@ export default function ArchiveModal({
         canAutoPublish,
         approvalRequired: archiveGated,
         canWriteIntoDraft,
+        canDraft: canStageDraft,
       })}
       {isArchived ? (
         <p>

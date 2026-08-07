@@ -92,6 +92,19 @@ export default function SavedGroupArchiveModal({
       // Only drafts this caller may write `archived` into — the endpoint refuses a
       // write into another author's draft, so listing them turned a picker choice
       // into a 403.
+      // Staging follows the server's directional rule: archiving is delete-class so
+      // the delete atom stages one, unarchiving needs draft authority. Left to the
+      // shell's `true` default, a publish-only caller was offered "Create a new
+      // draft" on an unarchive the endpoint refuses.
+      canStageDraft={
+        permissionsUtil.canRevisionAction("saved-group", "draft", savedGroup) ||
+        (!savedGroup.archived &&
+          permissionsUtil.canRevisionAction(
+            "saved-group",
+            "delete",
+            savedGroup,
+          ))
+      }
       canWriteIntoDraft={(r) =>
         canWriteArchiveIntoDraft({
           permissions: permissionsUtil,

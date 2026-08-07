@@ -1598,7 +1598,13 @@ export class RevisionModel extends BaseClass {
   ): Promise<Revision> {
     const updated = await this.updateWithCas(
       id,
-      ["contributors"],
+      // Every field this write READS or OVERWRITES, not just `contributors`. Guarding
+      // the contributor list alone let a concurrent publish — which changes `status`
+      // without necessarily touching contributors — slip past: the stale edit still
+      // matched and rewrote merged history, including the status and reviews the
+      // publish had just set. `assertDraftAcceptsContentEdit` is re-checked inside the
+      // loop, so a retry sees the new status and refuses properly.
+      ["contributors", "status", "target", "reviews", "activityLog"],
       (existing) => {
         this.assertDraftAcceptsContentEdit(existing);
         const { target, entry } = build(existing);

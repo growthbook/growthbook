@@ -486,6 +486,11 @@ export async function revertRevision({
     title,
     bypass: !!approval?.approvalRequired && !!approval?.canBypass,
   });
+  // A revert that lands is ALSO a publish, so it owes both events: `reverted` names
+  // what happened, `published` is the lifecycle event subscribers mirror revision
+  // state from. Emitting only the first meant these landings were invisible to
+  // anyone following the documented published lifecycle.
+  await dispatch?.dispatch(context, merged, { type: "published" });
   await dispatch?.dispatch(context, merged, { type: "reverted" });
   return { revision: merged, published: true };
 }

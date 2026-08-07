@@ -707,11 +707,13 @@ async function publishRevisionInner(
       }
       throw e;
     }
-    await getRevisionWebhookAdapter(merged.target.type)?.dispatch(
-      context,
-      merged,
-      { type: merged.revertedFrom ? "reverted" : "published" },
-    );
+    // A revert that lands is ALSO a publish, so it owes both — `reverted` names what
+    // happened, `published` is the lifecycle event subscribers mirror state from.
+    const revisionWebhooks = getRevisionWebhookAdapter(merged.target.type);
+    await revisionWebhooks?.dispatch(context, merged, { type: "published" });
+    if (merged.revertedFrom) {
+      await revisionWebhooks?.dispatch(context, merged, { type: "reverted" });
+    }
     return merged;
   }
 
@@ -829,11 +831,12 @@ async function publishRevisionInner(
     throw e;
   }
 
-  await getRevisionWebhookAdapter(merged.target.type)?.dispatch(
-    context,
-    merged,
-    { type: merged.revertedFrom ? "reverted" : "published" },
-  );
+  // See above: a revert landing is also a publish and owes both events.
+  const webhookAdapter = getRevisionWebhookAdapter(merged.target.type);
+  await webhookAdapter?.dispatch(context, merged, { type: "published" });
+  if (merged.revertedFrom) {
+    await webhookAdapter?.dispatch(context, merged, { type: "reverted" });
+  }
 
   return merged;
 }
