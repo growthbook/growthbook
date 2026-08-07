@@ -175,6 +175,16 @@ describe("sdkPayloadRefreshCoalescer (Mongo-backed pending queue)", () => {
     expect(orgIndex?.unique).toBe(true);
   });
 
+  it("TTLs on dateUpdated, not firstQueuedAt, so an actively-appended doc never expires early", async () => {
+    const indexes = await rawCollection().indexes();
+    const ttlIndex = indexes.find((i) => i.expireAfterSeconds !== undefined);
+    // firstQueuedAt is set once and never touched again — a TTL keyed on it
+    // would expire a document that's still receiving new requests. dateUpdated
+    // is bumped by every append and every ack, so it only reaps documents
+    // Agenda has genuinely never drained.
+    expect(ttlIndex?.key).toEqual({ dateUpdated: 1 });
+  });
+
   it("getPendingSdkPayloadRefreshAgeMs returns null when nothing is pending", async () => {
     expect(await getPendingSdkPayloadRefreshAgeMs("org_missing")).toBeNull();
   });

@@ -223,9 +223,13 @@ export async function ensureSdkPayloadRefreshPendingIndex(): Promise<void> {
     );
   }
   // Cleanup-only: if this fails, orphaned pending docs just never expire.
+  // Keyed on dateUpdated (bumped by every append and every ack), not
+  // firstQueuedAt — that field is set once and never touched again, so under
+  // continuous writes it would age past the TTL and get deleted while the
+  // document still holds unprocessed requests.
   try {
     await collection.createIndex(
-      { firstQueuedAt: 1 },
+      { dateUpdated: 1 },
       { expireAfterSeconds: PENDING_TTL_SECONDS },
     );
   } catch (e) {
