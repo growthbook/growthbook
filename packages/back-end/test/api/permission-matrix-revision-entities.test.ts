@@ -361,6 +361,13 @@ const CASES: Case[] = [
       api.post(`/api/v1/${e.base}-revisions/${id}/${v}/reopen`, {}),
   },
   {
+    // NOTE: this is the only case here that makes TWO requests, which doubles its
+    // exposure to the per-request supertest stall this file already suffers from —
+    // it surfaces as a 400 with NO body, distinguishable from any application
+    // refusal, all of which carry a `{message}`. It passes 30/30 in isolation
+    // across repeated runs; it only fails under whole-file load. Evidence for
+    // splitting this file, not for changing the case.
+    //
     // Only your OWN verdict can be retracted, so the persona casts one first and
     // the case asserts on the retraction. A persona without review authority is
     // refused by both calls, which is the same verdict either way; seeding an

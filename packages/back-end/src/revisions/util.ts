@@ -181,11 +181,28 @@ export function buildPatchOps(
   // config revert) builds its patch ops directly rather than routing through here.
   return Object.entries(changes)
     .filter(([, value]) => value !== undefined && value !== null)
-    .map(([key, value]) => ({
-      op: "replace" as const,
-      path: `/${key}`,
-      value,
-    }));
+    .map(([key, value]) => {
+      // A key containing `/` would manufacture a NESTED path — and this output is
+      // server-constructed, so it is written to the revision without passing back
+      // through `jsonPatchOperationValidator`. That matters because the authority
+      // footprint drops nested paths while the publish applies them, which was a
+      // live environment-scoped-publish bypass through the raw-ops endpoint.
+      //
+      // Every caller today destructures named fields, so this cannot fire. It is
+      // here so the invariant is ENFORCED rather than conventional: the first
+      // caller to spread a client-supplied object into `changes` would otherwise
+      // reopen the bypass from the inside, past the validator that guards the door.
+      if (key.includes("/")) {
+        throw new Error(
+          `Cannot build a patch op for field "${key}": field names may not contain "/".`,
+        );
+      }
+      return {
+        op: "replace" as const,
+        path: `/${key}`,
+        value,
+      };
+    });
 }
 
 /**

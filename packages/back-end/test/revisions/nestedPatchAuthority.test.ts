@@ -2,7 +2,10 @@ import {
   getConstantRevisionChange,
   jsonPatchOperationValidator,
 } from "shared/enterprise";
-import { buildMergeDesiredState } from "back-end/src/revisions/util";
+import {
+  buildMergeDesiredState,
+  buildPatchOps,
+} from "back-end/src/revisions/util";
 
 /**
  * A nested JSON-patch path could bypass the environment-scoped publish gate.
@@ -59,10 +62,22 @@ describe("revision patch paths are constrained to top level", () => {
     ).toBe(true);
   });
 
-  it("documents WHY: the two appliers disagree on a nested path", () => {
-    // Not a hypothetical. If the constraint above is ever relaxed, this is the
-    // hazard that returns — the authority side sees nothing, the write side lands
-    // production.
+  /**
+   * A characterization test: it asserts CURRENT behaviour, including the buggy half,
+   * and its job is to say what its own failure means.
+   *
+   * It calls the two appliers DIRECTLY, so it does not go through the validator —
+   * relaxing the path constraint above would not make it fail. What makes it fail is
+   * the two appliers being made to AGREE.
+   *
+   * So if this goes red:
+   *  - Did the fail-closed footprint land (the systemic cure — unify the appliers, or
+   *    have the authority side refuse paths it cannot resolve)? Then this test has
+   *    done its job. DELETE IT.
+   *  - Otherwise something changed one applier and not the other, and the divergence
+   *    this documents is back. Fix that.
+   */
+  it("documents the divergence the path constraint exists to contain", () => {
     const snapshot = {
       id: "c",
       key: "c",
@@ -92,6 +107,21 @@ describe("revision patch paths are constrained to top level", () => {
       footprintGatingAuthority: [],
       whatPublishWouldWrite: { dev: "old", production: "MALICIOUS" },
     });
+  });
+
+  it("buildPatchOps refuses to manufacture a nested path", () => {
+    // The door is the validator; this is the one place the server MANUFACTURES ops,
+    // and its output never passes back through validation. Closed by convention
+    // today (every caller destructures named fields) — enforced here, so the first
+    // caller that spreads a client object into `changes` fails loudly instead of
+    // reopening the bypass from the inside.
+    expect(() =>
+      buildPatchOps({ "environmentValues/production": "x" }),
+    ).toThrow(/may not contain/i);
+    // ...and still builds the ordinary shape.
+    expect(buildPatchOps({ value: "v" })).toEqual([
+      { op: "replace", path: "/value", value: "v" },
+    ]);
   });
 
   it("and the top-level equivalent DOES narrow the footprint", () => {
