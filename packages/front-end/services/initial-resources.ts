@@ -830,13 +830,12 @@ export async function createInitialResources({
             metric.denominator.factTableId = factTableId;
           }
 
-          const metricBody: CreateStandardFactMetricProps =
-            getDefaultFactMetricProps({
-              metricDefaults,
-              settings,
-              datasources: [datasource],
-              existing: metric,
-            });
+          const metricBody = getDefaultFactMetricProps({
+            metricDefaults,
+            settings,
+            datasources: [datasource],
+            existing: metric,
+          });
           await apiCall(`/fact-metrics`, {
             method: "POST",
             body: JSON.stringify(metricBody),

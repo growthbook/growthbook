@@ -62,6 +62,17 @@ export function getInitialInlineFilters(
 export type CreateStandardFactMetricProps =
   CreateProps<StandardFactMetricInterface>;
 
+// Form-state shape backing the shared metric modal. Widens metricType to include
+// "funnel" so one form can author every metric type. funnelSettings stays null
+// here: its deeply nested step/filter shape breaks react-hook-form's typed
+// field-path resolution, so the modal tracks it in dedicated state instead.
+export type CreateFactMetricFormProps = Omit<
+  CreateStandardFactMetricProps,
+  "metricType"
+> & {
+  metricType: FactMetricInterface["metricType"];
+};
+
 export function getDefaultFactMetricProps({
   metricDefaults,
   existing,
@@ -78,17 +89,14 @@ export function getDefaultFactMetricProps({
   existing?: Partial<FactMetricInterface>;
   initialFactTable?: FactTableDefinition;
   managedBy?: "" | "api" | "admin";
-}): CreateStandardFactMetricProps & { targetMDE: number } {
+}): CreateFactMetricFormProps & { targetMDE: number } {
   const existingMetricType = existing?.metricType;
   return {
     name: existing?.name || "",
     owner: existing?.owner || "",
     description: existing?.description || "",
     tags: existing?.tags || [],
-    metricType:
-      !existingMetricType || existingMetricType === "funnel"
-        ? "proportion"
-        : existingMetricType,
+    metricType: existingMetricType || "proportion",
     numerator: existing?.numerator || {
       factTableId: initialFactTable?.id || "",
       column: "$$count",
@@ -115,7 +123,7 @@ export function getDefaultFactMetricProps({
     },
     managedBy: managedBy || "",
     quantileSettings: existing?.quantileSettings || null,
-    // Standard metrics carry an explicit null; funnels are created elsewhere.
+    // Funnel steps are tracked in modal state, not react-hook-form.
     funnelSettings: null,
     windowSettings: existing?.windowSettings || {
       type: DEFAULT_FACT_METRIC_WINDOW,

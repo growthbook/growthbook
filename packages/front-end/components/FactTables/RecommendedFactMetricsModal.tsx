@@ -181,20 +181,18 @@ export default function RecommendedFactMetricsModal({
         setProgress(0);
         let numProcessed = 0;
         for (const i of checked) {
-          const body: CreateStandardFactMetricProps = getDefaultFactMetricProps(
-            {
-              datasources,
-              metricDefaults,
-              project,
-              settings,
-              existing: {
-                ...metrics[i],
-                datasource: factTable.datasource,
-                projects: factTable.projects,
-                name: getName(metrics[i]),
-              },
+          const body = getDefaultFactMetricProps({
+            datasources,
+            metricDefaults,
+            project,
+            settings,
+            existing: {
+              ...metrics[i],
+              datasource: factTable.datasource,
+              projects: factTable.projects,
+              name: getName(metrics[i]),
             },
-          );
+          });
 
           try {
             await apiCall("/fact-metrics", {
