@@ -63,6 +63,16 @@ const org = {
       limitAccessByEnvironment: false,
       environments: [],
     },
+    // Publish authority, but only in `dev`. Passes the COARSE adapter check (a
+    // Constant declares no environment binding, so that check is unbound) and fails
+    // the CHANGE-AWARE re-assert on a revision touching production — the only
+    // caller that can tell those two gates apart.
+    {
+      id: "u_dev_publisher",
+      role: "flag_publisher",
+      limitAccessByEnvironment: true,
+      environments: ["dev"],
+    },
   ],
   customRoles: [
     {
@@ -70,8 +80,13 @@ const org = {
       description: "Draft authority only",
       policies: ["ReadData", "FlagsEditDrafts"],
     },
+    {
+      id: "flag_publisher",
+      description: "Draft + publish",
+      policies: ["ReadData", "FlagsEditDrafts", "FlagsPublish"],
+    },
   ],
-  settings: {},
+  settings: { environments: [{ id: "dev" }, { id: "production" }] },
 } as unknown as OrganizationInterface;
 
 describe("POST /revision/:id/submit — the body schema", () => {
@@ -144,6 +159,7 @@ describe("POST /revision/:id/submit — the controller's arming gates", () => {
       value: "v",
       owner: "",
       project: "",
+      environmentValues: { dev: "old", production: "old" },
       dateCreated: new Date(),
       dateUpdated: new Date(),
     });
@@ -159,7 +175,15 @@ describe("POST /revision/:id/submit — the controller's arming gates", () => {
       target: {
         type: "constant",
         id: "cst_route",
-        snapshot: { id: "cst_route", key: "cst_route", project: "" },
+        snapshot: {
+          id: "cst_route",
+          key: "cst_route",
+          project: "",
+          // Safe to carry now: the CAS guard is cloned at capture, so the
+          // beforeUpdate rebuild can no longer corrupt it. Before that fix this
+          // exhausted the retry loop and made these two cases unwritable.
+          environmentValues: { dev: "old", production: "old" },
+        },
         proposedChanges: [],
       },
       dateCreated: new Date(),
@@ -275,15 +299,47 @@ describe("POST /revision/:id/submit — the controller's arming gates", () => {
   });
 
   /**
-   * NOT covered here, knowingly: the change-aware `assertCanPublishRevision`
-   * re-assert. Killing it needs a caller who passes the COARSE adapter check and
-   * fails the change-aware one — an env-limited publisher on a revision touching an
-   * environment they lack. Seeding that means putting `environmentValues` into the
-   * revision's `target.snapshot`, and `target` is one of this write's CAS guard
-   * fields: the stored and re-read forms disagree there, so the guard never matches
-   * and the write exhausts its retries. Recorded rather than papered over — the gate
-   * itself is verified at source, but nothing here would notice its removal.
+   * STILL NOT covered: the change-aware `assertCanPublishRevision` re-assert.
+   *
+   * The CAS exhaustion that used to block this fixture is gone — `buildCasGuard`
+   * clones now, and the dev-scoped case below proves the fixture writes. What
+   * remains is that the footprint comes out EMPTY for this shape: an
+   * `/environmentValues/production` patch against a live Constant that carries
+   * per-environment values should narrow the check to production and refuse a
+   * dev-limited publisher, and does not. Either `getConstantRevisionChange` is not
+   * seeing the change in this fixture, or the fixture's constant is not the shape it
+   * needs. Unisolated, so recorded rather than guessed at — the gate is verified at
+   * source, and a mutation removing it stays green.
    */
+
+  it("allows that caller a DATE when the changes stay in dev", async () => {
+    // The other half: the re-assert must NARROW, not refuse outright.
+    await mongoose.connection.collection("revisions").updateOne(
+      { organization: ORG_ID, id: REV_ID },
+      {
+        $set: {
+          "target.proposedChanges": [
+            {
+              op: "replace",
+              path: "/environmentValues/dev",
+              value: "dev-only",
+            },
+          ],
+        },
+      },
+    );
+
+    const { res, captured } = resSpy();
+    await postSubmit(
+      reqFor(
+        { scheduledPublishAt: new Date(Date.now() + 86_400_000).toISOString() },
+        "u_dev_publisher",
+      ),
+      res,
+    );
+    expect(captured.status).toBe(200);
+    expect((await stored())?.autoPublishOnApproval).toBe(true);
+  });
 
   it("submits normally when no date is sent", async () => {
     // The positive control for all three gates above: they must not refuse the

@@ -45,7 +45,26 @@ export function buildCasGuard(
   return Object.fromEntries(
     guardFields.map((f) => {
       const value = observed[f];
-      return [f, value === undefined ? { $exists: false } : value];
+      return [
+        f,
+        // CLONED, not referenced. The guard has to describe the document AS READ,
+        // and a by-reference capture doesn't: a model's `beforeUpdate` hook runs
+        // inside the write, on a `newDoc` that shares this very object (the read
+        // path copies only the top level), so it can rewrite the guard between the
+        // moment it is built and the moment it reaches the filter.
+        //
+        // That happened: `RevisionModel.beforeUpdate` rebuilds
+        // `target.snapshot` through the adapter's `buildSnapshot`, which emits keys
+        // in its own allowed-keys order. Mongo compares embedded documents by
+        // FIELD ORDER, so a snapshot whose stored order differed produced a filter
+        // that could never match — every retry re-read, re-mutated identically, and
+        // the loop exhausted with a 500 on an otherwise ordinary revision.
+        //
+        // `structuredClone` preserves Dates (activityLog, reviews). It would throw
+        // on a BSON exotic like ObjectId; nothing guards such a field today, and a
+        // model that wants to must clone it some other way.
+        value === undefined ? { $exists: false } : structuredClone(value),
+      ];
     }),
   );
 }
