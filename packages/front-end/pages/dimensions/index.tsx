@@ -269,19 +269,13 @@ const DimensionsPage: FC = () => {
                 <SortableTableColumnHeaderUnit field="owner">
                   Owner
                 </SortableTableColumnHeaderUnit>
-                <TableColumnHeader
-                  display={{ initial: "none", sm: "table-cell" }}
-                >
+                <TableColumnHeader className="d-none d-sm-table-cell">
                   Data Source
                 </TableColumnHeader>
-                <TableColumnHeader
-                  display={{ initial: "none", md: "table-cell" }}
-                >
+                <TableColumnHeader className="d-none d-md-table-cell">
                   Identifier Type
                 </TableColumnHeader>
-                <TableColumnHeader
-                  display={{ initial: "none", lg: "table-cell" }}
-                >
+                <TableColumnHeader className="d-none d-lg-table-cell">
                   Definition
                 </TableColumnHeader>
                 <SortableTableColumnHeaderUnit field="dateUpdated">
@@ -310,7 +304,7 @@ const DimensionsPage: FC = () => {
                       </>
                     </TableCell>
                     <TableCell>{getOwnerDisplay(s.owner)}</TableCell>
-                    <TableCell display={{ initial: "none", sm: "table-cell" }}>
+                    <TableCell className="d-none d-sm-table-cell">
                       {datasource && (
                         <>
                           <Link href={`/datasources/${datasource.id}`}>
@@ -322,13 +316,13 @@ const DimensionsPage: FC = () => {
                         </>
                       )}
                     </TableCell>
-                    <TableCell display={{ initial: "none", md: "table-cell" }}>
+                    <TableCell className="d-none d-md-table-cell">
                       {datasource?.properties?.userIds
                         ? s.userIdType || "user_id"
                         : ""}
                     </TableCell>
                     <TableCell
-                      display={{ initial: "none", lg: "table-cell" }}
+                      className="d-none d-lg-table-cell"
                       style={{ maxWidth: "30em" }}
                     >
                       <Code
