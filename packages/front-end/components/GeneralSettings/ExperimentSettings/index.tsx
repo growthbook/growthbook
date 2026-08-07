@@ -39,6 +39,22 @@ export default function ExperimentSettings({
     () => queryParams.get("editCheckListModal") || false,
   );
 
+  // HTML min/max only constrain the stepper arrows, not typed values. These
+  // rules block save on out-of-range values; render the message via `error`.
+  // A cleared field is NaN, which passes min/max and falls back to the
+  // default on save.
+  const registerBoundedNumber = (name: string, min: number, max: number) =>
+    form.register(name, {
+      valueAsNumber: true,
+      min: { value: min, message: `Must be between ${min} and ${max}` },
+      max: { value: max, message: `Must be between ${min} and ${max}` },
+    });
+
+  const fieldErrorMessage = (name: string): string | undefined => {
+    const message = form.formState.errors[name]?.message;
+    return typeof message === "string" && message ? message : undefined;
+  };
+
   const srmThreshold = form.watch("srmThreshold");
   const srmWarningMsg =
     srmThreshold && srmThreshold > 0.01
@@ -383,11 +399,14 @@ export default function ExperimentSettings({
                     style={{ width: 150 }}
                     placeholder={String(DEFAULT_SRM_THRESHOLD)}
                     helpText={`Default is ${DEFAULT_SRM_THRESHOLD}.`}
-                    error={srmWarningMsg || undefined}
-                    errorLevel="warning"
-                    {...form.register("srmThreshold", {
-                      valueAsNumber: true,
-                    })}
+                    error={
+                      fieldErrorMessage("srmThreshold") ??
+                      (srmWarningMsg || undefined)
+                    }
+                    errorLevel={
+                      fieldErrorMessage("srmThreshold") ? "error" : "warning"
+                    }
+                    {...registerBoundedNumber("srmThreshold", 0.00001, 0.1)}
                   />
 
                   <TextField
@@ -403,9 +422,12 @@ export default function ExperimentSettings({
                       DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD * 100,
                     )}
                     helpText={`Warn when at least this percent of experiment users are in multiple variations. Default is ${DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD * 100}%.`}
-                    {...form.register("multipleExposureMinPercent", {
-                      valueAsNumber: true,
-                    })}
+                    error={fieldErrorMessage("multipleExposureMinPercent")}
+                    {...registerBoundedNumber(
+                      "multipleExposureMinPercent",
+                      0,
+                      100,
+                    )}
                   />
 
                   <TextField
@@ -421,9 +443,12 @@ export default function ExperimentSettings({
                       DEFAULT_NO_DATA_ALERT_GRACE_PERIOD_HOURS,
                     )}
                     helpText={`Wait this long after an experiment starts before showing the "no data" status badge or sending alerts when an experiment updates. Default is ${DEFAULT_NO_DATA_ALERT_GRACE_PERIOD_HOURS} hours.`}
-                    {...form.register("noDataAlertGracePeriodHours", {
-                      valueAsNumber: true,
-                    })}
+                    error={fieldErrorMessage("noDataAlertGracePeriodHours")}
+                    {...registerBoundedNumber(
+                      "noDataAlertGracePeriodHours",
+                      0,
+                      168,
+                    )}
                   />
                 </Flex>
               </Box>
