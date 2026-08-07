@@ -894,7 +894,17 @@ export const putConfig = async (
   // doing it here keeps drafts honest too.
   const lineageChanged =
     fieldsToUpdate.parent !== undefined || "extends" in fieldsToUpdate;
-  const schemaToNormalize = fieldsToUpdate.schema ?? existing.schema;
+  // `in`, not `??`: an explicit null is a CLEAR and must not fall through to the
+  // stored schema. With `??`, a revert that cleared the schema AND changed lineage
+  // in one request resurrected `existing.schema` here, normalized it against the
+  // new ancestors, and wrote the remnant back — so the clear became a partial
+  // schema. The pure clear was safe only by accident (`null || false` is falsy, so
+  // the block was skipped); adding a lineage change to the same request opened it.
+  //
+  // Same basis `postConfigRevisionRevert` uses. See `configSchemaNormalize.test.ts`
+  // for the strip that produces the remnant.
+  const schemaToNormalize =
+    "schema" in fieldsToUpdate ? fieldsToUpdate.schema : existing.schema;
   if ((fieldsToUpdate.schema || lineageChanged) && schemaToNormalize) {
     const { schema: normalized, conflicting } =
       await context.models.configs.normalizeSchemaAgainstAncestors(

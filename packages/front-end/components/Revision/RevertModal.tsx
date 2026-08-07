@@ -45,6 +45,21 @@ export interface Props<T extends RevertableEntity> {
   // Fields a revert can restore (mirrors the live + ops merge semantics).
   // `archived` is handled separately via an explicit opt-in.
   revertableFields: readonly (keyof T)[];
+  /**
+   * Fields where "absent in the target, present in live" means CLEAR, and the
+   * request should therefore carry an explicit `null`.
+   *
+   * Opt-in per field rather than blanket, because `undefined` and `null` are only
+   * interchangeable where the endpoint accepts both. Snapshots strip nullish keys,
+   * so absent-in-target is the ORDINARY shape for any optional field — sending null
+   * for all of them would 400 in middleware on every entity whose PUT validator
+   * still says `.optional()`, which is Constants and Saved Groups today.
+   *
+   * Config's `schema` is the case that needs it: without a null the clear is
+   * inexpressible, and the publish silently dropped it while the diff showed the
+   * removal.
+   */
+  clearableFields?: readonly (keyof T)[];
   // PUT endpoint base for the entity (e.g. "/saved-groups", "/constants").
   apiPathBase: string;
   // The revision the revert was triggered from — the default "Reverting to".
@@ -97,6 +112,7 @@ export interface Props<T extends RevertableEntity> {
 export default function RevertModal<T extends RevertableEntity>({
   liveEntity,
   revertableFields,
+  clearableFields,
   apiPathBase,
   revision,
   allRevisions,
@@ -284,12 +300,14 @@ export default function RevertModal<T extends RevertableEntity>({
           // A field the target does NOT have, that live DOES, is a CLEAR — and
           // `undefined` cannot say so: JSON.stringify drops the key entirely, so
           // the request looked like "leave it alone" and the clear was lost in
-          // transit while the diff above it showed the removal. Snapshots strip
-          // nullish keys, so absent-in-target is the normal shape for this.
-          revertChanges[key as string] =
-            targetValue === undefined && currentValue !== undefined
-              ? null
-              : targetValue;
+          // transit while the diff above it showed the removal.
+          //
+          // Only for fields the caller declared clearable: see `clearableFields`.
+          const isClear =
+            targetValue === undefined &&
+            currentValue !== undefined &&
+            clearableFields?.includes(key);
+          revertChanges[key as string] = isClear ? null : targetValue;
         });
         if (archiveDrifts && includeArchive) {
           revertChanges.archived = targetArchived;
