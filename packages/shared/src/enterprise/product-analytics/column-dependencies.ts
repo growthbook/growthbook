@@ -7,6 +7,7 @@ import {
   funnelExplorationConfigValidator,
   metricExplorationConfigValidator,
   dataSourceExplorationConfigValidator,
+  sqlExplorationConfigValidator,
 } from "../../validators/product-analytics";
 import { sqlReferencesColumn } from "../../experiments/experiments";
 
@@ -19,6 +20,7 @@ type ExplorationConfig =
   | z.infer<typeof metricExplorationConfigValidator>
   | z.infer<typeof factTableExplorationConfigValidator>
   | z.infer<typeof dataSourceExplorationConfigValidator>
+  | z.infer<typeof sqlExplorationConfigValidator>
   | z.infer<typeof funnelExplorationConfigValidator>;
 
 type Dimension = z.infer<typeof dimensionValidator>;
@@ -133,6 +135,6 @@ export function explorationConfigReferencesColumn(
     );
   }
 
-  // metric / data_source configs never reference fact-table columns directly.
+  // metric / data_source / sql configs never reference fact-table columns directly.
   return false;
 }

@@ -278,12 +278,7 @@ export default function EmptyState() {
                       Visualize metrics and explore your data.
                       {!chatDisabled && " Or, use Ask AI to get started."}
                     </Text>
-                    <Flex
-                      gap="3"
-                      justify="start"
-                      wrap="wrap"
-                      style={{ maxWidth: 720 }}
-                    >
+                    <Flex gap="3" justify="start" wrap="wrap">
                       <LinkButton
                         href="/product-analytics/explore/metrics"
                         variant="outline"

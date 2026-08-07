@@ -899,6 +899,7 @@ export function migrateBlock(
     case "metric-exploration":
     case "fact-table-exploration":
     case "data-source-exploration":
+    case "sql-exploration":
     case "funnel-exploration":
     default:
       return doc;
@@ -934,6 +935,7 @@ function toBlockApiInterface(
     case "metric-exploration":
     case "fact-table-exploration":
     case "data-source-exploration":
+    case "sql-exploration":
     case "funnel-exploration":
     default:
       return block;
@@ -971,6 +973,7 @@ export function fromBlockApiInterface(
     case "metric-exploration":
     case "fact-table-exploration":
     case "data-source-exploration":
+    case "sql-exploration":
     case "funnel-exploration":
     default:
       return apiBlock;

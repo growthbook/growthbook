@@ -70,6 +70,7 @@ export type ProductAnalyticsExplorationBlockType =
   | "metric-exploration"
   | "fact-table-exploration"
   | "data-source-exploration"
+  | "sql-exploration"
   | "funnel-exploration";
 
 export function getInitialConfigByBlockType(
@@ -103,6 +104,21 @@ export function getInitialConfigByBlockType(
           table: "",
           path: "",
           timestampColumn: "",
+          columnTypes: {},
+        },
+        datasource: datasourceId,
+      };
+    case "sql-exploration":
+      return {
+        ...DEFAULT_EXPLORE_STATE,
+        type: "sql",
+        dimensions: [],
+        chartType: "bar",
+        dataset: {
+          type: "sql",
+          values: [],
+          sql: "",
+          timestampColumn: null,
           columnTypes: {},
         },
         datasource: datasourceId,

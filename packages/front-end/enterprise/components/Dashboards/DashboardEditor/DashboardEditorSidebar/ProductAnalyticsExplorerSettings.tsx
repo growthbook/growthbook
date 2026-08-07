@@ -11,7 +11,10 @@ import {
   resolveComparisonMode,
   resolveComparisonPreviousTimeFrame,
   restoreBlockLocalDateControls,
+  blockUsesDashboardDateControl,
+  SqlExplorationBlockInterface,
 } from "shared/enterprise";
+import { ReactNode } from "react";
 import { isEqual } from "lodash";
 import type {
   ComparisonMode,
@@ -30,6 +33,7 @@ interface Props {
     | MetricExplorationBlockInterface
     | FactTableExplorationBlockInterface
     | DataSourceExplorationBlockInterface
+    | SqlExplorationBlockInterface
     | FunnelExplorationBlockInterface
   >;
   setBlock: React.Dispatch<
@@ -37,12 +41,16 @@ interface Props {
       | MetricExplorationBlockInterface
       | FactTableExplorationBlockInterface
       | DataSourceExplorationBlockInterface
+      | SqlExplorationBlockInterface
       | FunnelExplorationBlockInterface
     >
   >;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
   saveAndCloseTrigger?: number;
   onSaveAndClose?: () => void;
+  hideDataSourceSelector?: boolean;
+  sqlChartConfigOnly?: boolean;
+  dashboardHeaderLeadingContent?: ReactNode;
 }
 
 export default function ProductAnalyticsExplorerSettings({
@@ -51,6 +59,9 @@ export default function ProductAnalyticsExplorerSettings({
   dashboardGlobalControls,
   saveAndCloseTrigger,
   onSaveAndClose,
+  hideDataSourceSelector,
+  sqlChartConfigOnly,
+  dashboardHeaderLeadingContent,
 }: Props) {
   const { data, error } = useApi<{
     status: number;
@@ -75,15 +86,19 @@ export default function ProductAnalyticsExplorerSettings({
         config: baseInitialConfig,
       } as typeof block)
     : null;
+  const dateControlledBlock = blockUsesDashboardDateControl(block)
+    ? block
+    : null;
   const effectiveInitialConfig = blockForInitialConfig
-    ? dashboardGlobalControls
+    ? dashboardGlobalControls &&
+      blockUsesDashboardDateControl(blockForInitialConfig)
       ? getEffectiveExplorationConfig(blockForInitialConfig, {
           globalControls: dashboardGlobalControls,
         })
       : baseInitialConfig
     : null;
   const usesDashboardDateRange =
-    block.globalControlSettings?.dateRange === true &&
+    dateControlledBlock?.globalControlSettings?.dateRange === true &&
     Boolean(dashboardGlobalControls?.dateRange);
   const hasStaleDashboardDateResults =
     usesDashboardDateRange &&
@@ -162,9 +177,13 @@ export default function ProductAnalyticsExplorerSettings({
                 ...(comparisonMode === "custom" && { previousTimeFrame }),
               }
             : undefined;
-        const nextConfig = usesDashboardDateRange
-          ? restoreBlockLocalDateControls(exploration.config, block.config)
-          : exploration.config;
+        const nextConfig =
+          usesDashboardDateRange && dateControlledBlock
+            ? restoreBlockLocalDateControls(
+                exploration.config as typeof dateControlledBlock.config,
+                dateControlledBlock.config,
+              )
+            : exploration.config;
         setBlock({
           ...block,
           explorerAnalysisId: exploration.id,
@@ -185,6 +204,7 @@ export default function ProductAnalyticsExplorerSettings({
           | MetricExplorationBlockInterface
           | FactTableExplorationBlockInterface
           | DataSourceExplorationBlockInterface
+          | SqlExplorationBlockInterface
           | FunnelExplorationBlockInterface);
       }}
     >
@@ -195,6 +215,9 @@ export default function ProductAnalyticsExplorerSettings({
         invalidateStaleResults={!hasStaleDashboardDateResults}
         saveAndCloseTrigger={saveAndCloseTrigger}
         onSaveAndClose={onSaveAndClose}
+        hideDataSourceSelector={hideDataSourceSelector}
+        sqlChartConfigOnly={sqlChartConfigOnly}
+        dashboardHeaderLeadingContent={dashboardHeaderLeadingContent}
       />
     </ExplorerProvider>
   );

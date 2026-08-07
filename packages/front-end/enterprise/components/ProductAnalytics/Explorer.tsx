@@ -17,6 +17,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import EmptyState from "./EmptyState";
 import ExplorerSideBar from "./SideBar/ExplorerSideBar";
 import {
   ExplorerProvider,
@@ -39,6 +40,7 @@ const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
   metric: "Metric",
   fact_table: "Fact Table",
   data_source: "Data Source",
+  sql: "SQL",
   funnel: "Funnel",
 };
 
@@ -80,11 +82,21 @@ function deriveConfigError(
   return null;
 }
 
-function ExplorerContent() {
+export function ExplorerContent({
+  height = "calc(100vh - 72px)",
+  hideDataSourceSelector = false,
+  hideSidebarHeaderActions = false,
+  sidebarHeaderActions,
+}: {
+  height?: string;
+  hideDataSourceSelector?: boolean;
+  hideSidebarHeaderActions?: boolean;
+  sidebarHeaderActions?: React.ReactNode;
+}) {
   const { managedWarehouseUnavailable } = useExplorerContext();
 
   return (
-    <Flex direction="column" gap="3" height="calc(100vh - 72px)">
+    <Flex direction="column" gap="3" height={height}>
       {managedWarehouseUnavailable ? (
         <Box px="2">
           <ManagedWarehouseNoEventsCallout />
@@ -99,7 +111,9 @@ function ExplorerContent() {
           minSize={65}
           style={{ display: "flex", flexDirection: "column" }}
         >
-          <ExplorerMainSection />
+          <ExplorerMainSection
+            showDataSourceSelector={!hideDataSourceSelector}
+          />
         </Panel>
 
         {/* Resize Handle */}
@@ -133,7 +147,10 @@ function ExplorerContent() {
               `calc(100vh - 160px)` — the latter left ~88px dead space at
               the bottom and caused unnecessary scrolling. */}
           <ShadowedScrollArea height="100%">
-            <ExplorerSideBar />
+            <ExplorerSideBar
+              hideHeaderActions={hideSidebarHeaderActions}
+              headerActions={sidebarHeaderActions}
+            />
           </ShadowedScrollArea>
         </Panel>
       </PanelGroup>
@@ -200,8 +217,13 @@ export default function Explorer({ type }: { type: DatasetType }) {
 function ExplorerInner({ type }: { type: DatasetType }) {
   const router = useRouter();
   const defaultDataSourceId = useDefaultDataSourceId();
-  const { ready, getFactMetricById, getFactTableById, getDatasourceById } =
-    useDefinitions();
+  const {
+    ready,
+    datasources,
+    getFactMetricById,
+    getFactTableById,
+    getDatasourceById,
+  } = useDefinitions();
 
   const [urlConfig, setUrlConfig] = useQueryState(
     "config",
@@ -358,12 +380,20 @@ function ExplorerInner({ type }: { type: DatasetType }) {
         initialConfig={initialConfig}
         trackingSource="manual-explorer"
       >
-        <ExplorerUrlSync setUrlConfig={setUrlConfig} />
-        <ExplorerPreviousTimeFrameUrlSync
-          setUrlPreviousTimeFrame={setUrlPreviousTimeFrame}
-          setUrlComparisonMode={setUrlComparisonMode}
-        />
-        <ExplorerContent />
+        {datasources.length === 0 ? (
+          <Flex direction="column" height="calc(100vh - 72px)">
+            <EmptyState />
+          </Flex>
+        ) : (
+          <>
+            <ExplorerUrlSync setUrlConfig={setUrlConfig} />
+            <ExplorerPreviousTimeFrameUrlSync
+              setUrlPreviousTimeFrame={setUrlPreviousTimeFrame}
+              setUrlComparisonMode={setUrlComparisonMode}
+            />
+            <ExplorerContent />
+          </>
+        )}
       </ExplorerProvider>
     </>
   );
