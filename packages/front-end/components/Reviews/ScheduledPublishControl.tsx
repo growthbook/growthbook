@@ -66,6 +66,7 @@ export default function ScheduledPublishControl({
   entityNoun,
   canEdit,
   canArm = true,
+  canCancel,
   canDraft,
   canBypassApproval,
   requiresApproval,
@@ -95,6 +96,12 @@ export default function ScheduledPublishControl({
   canEdit: boolean;
   /** False when new schedules are refused but an existing one may still be cancelled. */
   canArm?: boolean;
+  /**
+   * Cancelling. The endpoint judges it on COARSE live-entity publish authority, so a
+   * change-aware `canEdit` that fails for this particular revision must not hide the
+   * one action still permitted. Defaults to `canEdit`.
+   */
+  canCancel?: boolean;
   // Draft authority, for the "when approved" arm; defaults to permitted for
   // callers whose canEdit already folds it in.
   canDraft?: boolean;
@@ -441,16 +448,22 @@ export default function ScheduledPublishControl({
             </>
           }
           action={
-            canEdit ? (
+            (canCancel ?? canEdit) ? (
               <Flex gap="2" align="center">
-                <Button
-                  variant="ghost"
-                  color="red"
-                  size="sm"
-                  onClick={doDisarm}
-                >
-                  Cancel schedule
-                </Button>
+                {/* Disarming a NO-DATE auto-publish posts to the toggle endpoint,
+                    which requires DRAFT authority; the dated cancel needs publish.
+                    Offering the first to a publisher without draft rights invited a
+                    403. */}
+                {(isScheduled || (canDraft ?? true)) && (
+                  <Button
+                    variant="ghost"
+                    color="red"
+                    size="sm"
+                    onClick={doDisarm}
+                  >
+                    Cancel schedule
+                  </Button>
+                )}
                 {canManageAutoPublish && !scheduleArmedByAdmin && (
                   <Button
                     variant="outline"

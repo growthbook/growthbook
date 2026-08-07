@@ -2379,12 +2379,17 @@ export default function ConfigDetailPage(): React.ReactElement {
             // requires. The Config's own scope is empty for a base Config, so
             // predicting with it offered "Publish now" for an archive restore the
             // server then refused.
-            const restoredArchived = proposedArchivedValue(
+            // The COMPLETE state being restored — snapshot plus its patches — not
+            // just this revision's `/archived` patch. A snapshot already archived
+            // without the revision touching `/archived` restores an archived Config
+            // with no patch to read, and the footprint was missed. Same derivation
+            // RevertModal uses.
+            const restoredState = applyTopLevelPatchOps(
+              t.target.snapshot as Record<string, unknown>,
               t.target.proposedChanges,
-            );
+            ) as { archived?: boolean };
             const flipsArchive =
-              restoredArchived !== undefined &&
-              restoredArchived !== !!config?.archived;
+              !!restoredState.archived !== !!config?.archived;
             return canLandRevertToTarget(
               permissionsUtil,
               "config",
@@ -2394,6 +2399,9 @@ export default function ConfigDetailPage(): React.ReactElement {
                 ? archiveFootprintForControl({
                     environments,
                     entity: config ?? {},
+                    // A scoped Config binds to its own environments; widening it to
+                    // everything it could serve over-demands.
+                    scoped: configPublishEnvironments(config),
                   })
                 : configPublishEnvironments(config),
             );

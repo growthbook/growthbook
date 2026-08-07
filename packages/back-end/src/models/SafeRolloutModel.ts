@@ -135,6 +135,12 @@ export class SafeRolloutModel extends BaseClass {
         ...(ownsNextAttempt
           ? { nextSnapshotAttempt: live.nextSnapshotAttempt ?? null }
           : {}),
+        // The schedule is RESTORED below when we own it, so it belongs in the
+        // predicate too — otherwise a worker advancing the ramp between the read and
+        // this write has its progress overwritten by our pre-image.
+        ...(ownsSchedule
+          ? { rampUpSchedule: live.rampUpSchedule ?? null }
+          : {}),
       },
       {
         $set: {

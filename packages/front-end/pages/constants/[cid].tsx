@@ -806,12 +806,16 @@ export default function ConstantDetailPage(): React.ReactElement {
             // requires. The changed-environment list is empty for a base-value-only
             // restore, so predicting with it offered "Publish now" for an archive
             // restore the server then refused.
-            const restoredArchived = proposedArchivedValue(
+            // The COMPLETE state being restored — snapshot plus its patches — not
+            // just this revision's `/archived` patch. A snapshot already archived
+            // without the revision touching `/archived` restores an archived Constant
+            // with no patch to read. Same derivation RevertModal uses.
+            const restoredState = applyTopLevelPatchOps(
+              t.target.snapshot as Record<string, unknown>,
               t.target.proposedChanges,
-            );
+            ) as { archived?: boolean };
             const flipsArchive =
-              restoredArchived !== undefined &&
-              restoredArchived !== !!constant?.archived;
+              !!restoredState.archived !== !!constant?.archived;
             return canLandRevertToTarget(
               permissionsUtil,
               "constant",

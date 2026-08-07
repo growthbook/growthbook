@@ -3907,6 +3907,20 @@ async function publishRevisionInner({
     // compensates its own failure, but a later `markRevisionAsPublished` failure left
     // rollouts started while the revision stayed unpublished. Same pre-images and the
     // same ownership-checked restore the bulk path uses.
+    //
+    // The POST-APPLY snapshot is taken here, right after the apply — not inside the
+    // rewind. Read at unwind time it is whatever the document holds by then, so a
+    // worker that advanced the rollout in between would be mistaken for the state
+    // this publish wrote, and its progress reversed as ours. Bulk snapshots at the
+    // same point for the same reason.
+    const safeRolloutPostImages = safeRolloutPreImages.length
+      ? await context.models.safeRollout.getByIds(
+          safeRolloutPreImages.map(({ pre }) => pre.id),
+        )
+      : [];
+    const safeRolloutPostById = new Map(
+      safeRolloutPostImages.map((doc) => [doc.id, doc]),
+    );
     if (safeRolloutPreImages.length) {
       rewinds.push({
         what: "safe rollout statuses",
@@ -3915,7 +3929,7 @@ async function publishRevisionInner({
             await context.models.safeRollout.restoreAfterFailedBulkPublish(
               pre,
               writtenStatus,
-              (await context.models.safeRollout.getById(pre.id)) ?? undefined,
+              safeRolloutPostById.get(pre.id),
             );
           }
         },

@@ -1365,6 +1365,10 @@ function ReviewAndPublishRevision<T>({
                   // allows cancelling one already armed — which the endpoint permits and
                   // hiding the control made unreachable.
                   canArm={!publishBlockedReason}
+                  // Cancelling is judged by the endpoint on COARSE live-entity publish
+                  // authority, so a change-aware `canEdit` failing for THIS revision
+                  // must not hide the one action still permitted.
+                  canCancel={canPublishEntity ?? canEditEntity}
                   canDraft={canDraftOrEdit}
                   canBypassApproval={canBypassApproval}
                   requiresApproval={requiresApproval}

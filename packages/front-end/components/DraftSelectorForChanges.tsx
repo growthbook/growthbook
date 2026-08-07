@@ -98,8 +98,29 @@ export default function DraftSelectorForChanges<K>({
       // "new" is disabled at the cap — fall back to the most recent active draft.
       setMode("existing");
       setSelectedDraft(selectedDraft ?? activeDraftKeys[0] ?? null);
+    } else if (mode === "publish" && !canAutoPublish) {
+      // Publish authority can disappear while the form is open — a project move to a
+      // destination the caller may only draft in. The control stops OFFERING publish,
+      // but a mode already selected stayed selected and the submit still asked for it,
+      // returning 403.
+      setMode("new");
+      setSelectedDraft(null);
+    } else if (
+      mode === "existing" &&
+      selectedDraft !== null &&
+      writableDraftKeys &&
+      !writableDraftKeys.includes(selectedDraft)
+    ) {
+      // The picker deliberately keeps a selected draft visible after a permission
+      // change so its label doesn't vanish — but leaving it SELECTED means submitting
+      // a write the endpoint refuses. Fall back to a writable draft, or to a new one.
+      const fallback = writableDraftKeys[0] ?? null;
+      setSelectedDraft(fallback);
+      if (fallback === null) setMode("new");
     }
   }, [
+    canAutoPublish,
+    writableDraftKeys,
     canDraft,
     mode,
     singleOption,

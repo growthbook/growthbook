@@ -572,7 +572,7 @@ export class ContextualBanditModel extends BaseClass {
     // linkage before our rollback runs, which the pre-image would otherwise undo.
     expectedFeatureSlice?: ContextualBanditLinkageState,
   ): Promise<void> {
-    const cb = await this.getById(cbId);
+    let cb = await this.getById(cbId);
     if (!cb) return;
 
     if (
@@ -618,15 +618,34 @@ export class ContextualBanditModel extends BaseClass {
     if (!Object.keys(changes).length) return;
     // GUARDED, like the forward pass — checking the slice and then issuing a plain
     // update is check-then-act, and `changes` was derived from the stale document.
-    // SKIPPED rather than thrown on a lost race: this is a rollback, and the same
-    // disposition the slice mismatch above takes — a second writer owns this linkage
-    // now, and converging to our pre-image would undo them.
-    try {
-      await this.updateIfUnchanged(cb, changes, undefined, {
-        dangerouslyBypassCanUpdate: true,
-      });
-    } catch (e) {
-      if (!(e instanceof CasConflictError)) throw e;
+    //
+    // But the guard is whole-document, so ANY concurrent write — a weight update, a
+    // snapshot — advances `dateUpdated` and loses the race. Treating that as "someone
+    // owns this linkage now" abandoned the rollback and left the failed publish's
+    // linkage live. Retry against fresh state instead, and give up only once THIS
+    // feature's slice has actually moved, which is the case that really belongs to
+    // someone else.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await this.updateIfUnchanged(cb, changes, undefined, {
+          dangerouslyBypassCanUpdate: true,
+        });
+        return;
+      } catch (e) {
+        if (!(e instanceof CasConflictError)) throw e;
+        const fresh = await this.getById(cbId);
+        if (!fresh) return;
+        // Their slice now, not ours to take back.
+        if (
+          !isEqual(
+            this.featureLinkageSlice(fresh, featureId),
+            this.featureLinkageSlice(cb, featureId),
+          )
+        ) {
+          return;
+        }
+        cb = fresh;
+      }
     }
   }
 
