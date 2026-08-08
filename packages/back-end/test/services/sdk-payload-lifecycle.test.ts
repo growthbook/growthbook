@@ -507,9 +507,9 @@ describe("SDK payload lifecycle (comprehensive)", () => {
     });
 
     it("runs immediately for an API-triggered request when SDK_PAYLOAD_REFRESH_STALE_TRACKING_ENABLED is unset (default)", async () => {
-      // isSdkPayloadStaleTrackingEnabled() is false with the real (unmocked)
-      // default config in this file, so isApiRequest alone shouldn't change
-      // anything — existing deployments that don't opt in are unaffected.
+      // Stale tracking is off with the real (unmocked) default in this file, so
+      // isApiRequest alone shouldn't change anything — existing deployments that
+      // don't opt in are unaffected.
       getSDKPayloadCacheLocationMock.mockReturnValue("mongo");
       const upsert = jest.fn().mockResolvedValue(undefined);
       const conn = {

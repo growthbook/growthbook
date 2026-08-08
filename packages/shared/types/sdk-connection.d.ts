@@ -109,10 +109,8 @@ export interface SDKConnectionInterface {
   savedGroupReferencesEnabled?: boolean;
   managedBy?: ManagedBy;
 
-  // Set when a write (via the REST API) affects this connection's payload but
-  // hasn't been rebuilt yet. Cleared once the rebuild completes. Never set for
-  // UI-triggered writes, which always refresh immediately. See
-  // queueSDKPayloadRefresh / refreshStaleSdkConnectionsForOrg in services/features.ts.
+  // Set when a REST API write affected this connection's payload and a rebuild
+  // is still pending. Cleared after rebuild. See queueSDKPayloadRefresh.
   staleSince?: Date | null;
 }
 

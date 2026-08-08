@@ -482,11 +482,8 @@ export async function markSDKConnectionUsed(key: string) {
   );
 }
 
-// Marks the given connections stale (out of date), skipping any that are
-// already marked — so a connection's staleSince always reflects the first
-// unrebuilt write, not the most recent one. Returns the keys that were newly
-// marked (a no-op call, e.g. hitting only already-stale connections, returns
-// an empty array).
+// Sets staleSince only when unset, so it keeps the first unrebuilt write.
+// Returns `keys` if any were newly marked, otherwise [].
 export async function markSdkConnectionsStale(
   organization: string,
   keys: string[],
@@ -496,7 +493,7 @@ export async function markSdkConnectionsStale(
     {
       organization,
       key: { $in: keys },
-      staleSince: { $in: [null, undefined] },
+      staleSince: null,
     },
     { $set: { staleSince: new Date() } },
   );
@@ -524,10 +521,8 @@ export async function findStaleSdkConnectionsByOrganization(
   return docs.map(toInterface);
 }
 
-// Clears staleness only for marks that predate `clearBefore` (the moment the
-// caller started reading stale connections to rebuild them) — a write that
-// re-marks a connection stale after that point must survive the clear, or its
-// effect would be silently dropped until something else marks it stale again.
+// Clears only marks that predate `clearBefore`, so a write that re-marks
+// during the rebuild is not dropped.
 export async function clearStaleSdkConnections(
   organization: string,
   keys: string[],

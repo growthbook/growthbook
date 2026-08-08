@@ -297,16 +297,8 @@ export const REMOTE_EVAL_EDGE_API_TOKEN =
 
 export const CRON_ENABLED = !stringToBoolean(process.env.CRON_DISABLED);
 
-// Track SDK payload staleness for REST-API-triggered writes instead of
-// refreshing immediately: mark the affected SDK connections stale and
-// enqueue a per-org Agenda job (unique, runs as soon as the job server has
-// availability) to rebuild them, rather than rebuilding inline on whatever
-// server happened to receive the request. Concurrent writes for the same org
-// collapse onto the same job via its uniqueness; the job re-checks for more
-// staleness when it finishes and re-enqueues itself if needed, so at most one
-// refresh per org runs at a time. Default off — refreshes run immediately,
-// inline. UI-triggered refreshes always run immediately, regardless of this
-// setting.
+// When true, REST API writes mark affected SDK connections stale and enqueue
+// a per-org Agenda job to rebuild (UI refreshes still run immediately).
 export const SDK_PAYLOAD_REFRESH_STALE_TRACKING_ENABLED = stringToBoolean(
   process.env.SDK_PAYLOAD_REFRESH_STALE_TRACKING_ENABLED,
 );

@@ -757,13 +757,6 @@ export function isSdkPayloadStaleTrackingEnabled(): boolean {
   return SDK_PAYLOAD_REFRESH_STALE_TRACKING_ENABLED;
 }
 
-// Marks exactly the SDK connections a write affects as stale (out of date),
-// reusing isSDKConnectionAffectedByPayloadKey against a cheap, org-scoped
-// connection list (orgs typically have a handful of connections, so this
-// fetch is negligible next to the payload-rebuild work it lets us defer).
-// Returns the keys newly marked stale — empty if nothing was affected, or if
-// everything affected was already stale from an earlier, not-yet-processed
-// write.
 async function markAffectedSdkConnectionsStale(
   context: ReqContext | ApiReqContext,
   data: {
@@ -801,10 +794,8 @@ async function markAffectedSdkConnectionsStale(
   );
 }
 
-// The counterpart to markAffectedSdkConnectionsStale: rebuild every currently
-// stale connection for the org in one pass, then clear only the staleness
-// that predates the read — anything marked stale by a write that raced in
-// during the rebuild survives to be picked up by the next trigger.
+// Rebuild currently-stale connections, then clear only marks that predate the
+// read so a concurrent write's staleness survives.
 export async function refreshStaleSdkConnectionsForOrg(
   baseContext: ReqContext | ApiReqContext,
 ): Promise<void> {
@@ -828,18 +819,10 @@ export async function refreshStaleSdkConnectionsForOrg(
   );
 }
 
-// This is a synchronous wrapper around refreshSDKPayloadCache.
-// We shouldn't need to await the refresh in most cases. UI-triggered
-// refreshes always run immediately, inline. REST-API-triggered refreshes are
-// tracked via a staleSince flag on the affected SDK connections (see
-// SdkConnectionModel.ts) when SDK_PAYLOAD_REFRESH_STALE_TRACKING_ENABLED is
-// set: instead of rebuilding inline here, this marks the connections stale
-// and enqueues a unique per-org Agenda job to do the rebuild on the job
-// server. Concurrent writes for the same org collapse onto that same job via
-// its uniqueness, and the job re-checks for more staleness when it finishes
-// and re-enqueues itself if needed (see refreshStaleSdkConnections.ts) — so
-// at most one refresh per org runs at a time, and it runs as soon as the job
-// server has availability rather than being delayed by a fixed window.
+// Synchronous wrapper around refreshSDKPayloadCache — callers usually don't
+// need to await. When stale tracking is enabled, API-triggered refreshes mark
+// connections stale and enqueue a per-org Agenda job instead of rebuilding
+// inline (UI refreshes still run immediately).
 export function queueSDKPayloadRefresh(data: {
   context: ReqContext | ApiReqContext;
   payloadKeys: SDKPayloadKey[];

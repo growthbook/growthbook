@@ -14,20 +14,18 @@ export default function addRefreshStaleSdkConnectionsJob(agenda: Agenda) {
     runRefreshStaleSdkConnections,
   );
 
-  // Agenda's own job.run() freezes nextRunAt (to null — this job has no
-  // repeatInterval) before calling the handler, then unconditionally
-  // re-persists that frozen in-memory snapshot once the handler finishes,
-  // success or failure. Rescheduling from inside the handler would get
-  // silently clobbered by that save every time (verified against a real
-  // Agenda instance). This listener fires only after that save has already
-  // landed, so a reschedule here actually sticks.
+  // Agenda freezes nextRunAt before the handler and re-persists that snapshot
+  // afterward, so rescheduling inside the handler is clobbered. Reschedule
+  // from `complete` after that save has landed.
   agenda.on(
     `complete:${REFRESH_STALE_SDK_CONNECTIONS_JOB}`,
     (job: RefreshStaleSdkConnectionsJob) => {
       const organization = job.attrs.data?.organization;
       if (!organization) return;
       hasAnyStaleSdkConnection(organization)
-        .then((stale) => (stale ? scheduleOrgRefreshJob(organization) : null))
+        .then((stale) => {
+          if (stale) return scheduleOrgRefreshJob(organization);
+        })
         .catch((e) => {
           logger.error(
             e,
@@ -37,12 +35,9 @@ export default function addRefreshStaleSdkConnectionsJob(agenda: Agenda) {
     },
   );
 
-  // job.unique() alone isn't atomic: findOneAndUpdate(..., {upsert:true}) can
-  // still insert duplicate documents under truly concurrent first-time
-  // enqueues for the same org, unless backed by a real index on the matched
-  // fields (verified: 20 concurrent upserts against this exact query shape
-  // with no index produced up to 5 duplicates in testing). Partial + scoped
-  // to this job's name so it doesn't constrain Agenda's other job types.
+  // job.unique() upserts are not atomic without a real unique index; concurrent
+  // first-time enqueues for the same org can otherwise insert duplicates.
+  // Partial + scoped to this job name so other Agenda jobs are unaffected.
   agenda._collection
     .createIndex(
       { name: 1, "data.organization": 1 },
@@ -60,10 +55,7 @@ export default function addRefreshStaleSdkConnectionsJob(agenda: Agenda) {
     });
 }
 
-// Enqueues (or, if one is already pending/running, just bumps the schedule
-// of) a single unique job for this org, to run as soon as the job server has
-// availability. Safe to call unconditionally on every write — Agenda's
-// unique() upsert collapses concurrent calls onto the same job document.
+// Unique per-org job; concurrent calls collapse onto one document.
 export async function scheduleOrgRefreshJob(
   organization: string,
 ): Promise<void> {
