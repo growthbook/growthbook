@@ -33,39 +33,6 @@ export function planApproveAndPublish({
   return { allowed: false };
 }
 
-/**
- * Whether a revision is armed such that approving it will publish on its own.
- *
- * Provenance only — deliberately WEAKER than the gate: it does not ask whether
- * the armed identity still resolves or still holds publish authority. Use
- * `isArmedWithAuthorizedPublisher` for any decision that waives a check.
- */
-export function isArmedForAutoPublish(revision: {
-  autoPublishOnApproval?: boolean;
-  autoPublishEnabledBy?: string | null;
-  authorId?: string;
-  // Feature revisions record their author as `createdBy` rather than
-  // `authorId`. Reading only `authorId` made a legacy armed feature revision
-  // look unarmed, so an approver was asked for publish authority the armed fire
-  // does not need.
-  createdBy?: { id?: string } | null;
-}): boolean {
-  if (!revision.autoPublishOnApproval) return false;
-  // The fire path falls back to the author when `autoPublishEnabledBy` predates
-  // the field, so either identity is enough to run the publish as someone who
-  // held the authority.
-  //
-  // Whether that identity still RESOLVES is checked by the caller before it
-  // commits the approval — an id belonging to a departed member reads as armed
-  // here, and treating it as publishable meant approving, then failing on the
-  // publish with the approval already written.
-  return !!(
-    revision.autoPublishEnabledBy ||
-    revision.authorId ||
-    revision.createdBy?.id
-  );
-}
-
 // The identity a deferred publish would run as, or null when the revision names
 // none. Callers resolve it BEFORE committing an approval, so a revision armed by
 // someone who has since left is refused up front rather than half-applied.

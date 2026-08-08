@@ -2435,135 +2435,88 @@ export async function submitReviewAndComments(
   // not override another reviewer's active changes-requested. Stale verdicts
   // don't count, and comments never change the status.
   if (newReview !== null) {
-    // Step 1: bake this reviewer's verdict, scoped to their own entry so
-    // concurrent verdicts converge to one entry per reviewer.
-    // Legacy revision (no baked `reviews`): self-heal from the log, CAS-guarded
-    // on the field still being absent so concurrent first-verdicts don't clobber.
-    // Step 1 rides the same "still in the review cycle" predicate step 2 bails on
-    // — the SAME SET, not merely "not terminal". Without it, a publish landing
-    // mid-request had this step bake a verdict into released history and null its
-    // `datePublished` while step 2 correctly refused, leaving the damage behind.
+    // ONE write: the verdict and the status it implies, together.
     //
-    // `$nin: [published, discarded]` was too loose: it also admits `draft`, so a
-    // RECALL winning the race let the verdict be inserted into a revision that had
-    // just been returned to draft. Step 2 still refused, so the status stayed
-    // correct — but the phantom verdict persisted and the caller was told the
-    // review succeeded, webhook and all.
+    // These were two CAS writes, and the gap between them was reachable — the first
+    // could persist while the second exhausted its retries, leaving a stored verdict
+    // under a status that did not reflect it. Deriving the status from the array this
+    // same write produces removes the intermediate state rather than guarding it.
+    //
+    // The whole array is `$set` rather than `$pull`+`$push`: Mongo cannot do both to
+    // one field in a single update, and the pair was not atomic across two — two
+    // verdicts from the same reviewer could interleave and leave both standing.
+    //
+    // `cycleFilter` pins the review cycle and the open statuses, so a recall or a
+    // publish landing mid-request takes the write out of the running entirely.
     const cycleFilter = {
       ...filter,
       status: { $in: [...REVIEW_CYCLE_STATUSES] },
       reviewCycle: cycleGuard,
     };
-    let seeded = false;
-    if (revision.reviews === undefined) {
-      const priorReviews = await getActiveReviewsFromLog(context, revision);
-      const outcome = await casUpdate(cycleFilter, ["reviews"], (current) =>
-        current.reviews === undefined
-          ? {
-              $set: {
-                reviews: [
-                  ...priorReviews.filter((r) => r.userId !== newReview.userId),
-                  newReview,
-                ],
-                datePublished: null,
-                dateUpdated: new Date(),
-              },
-            }
-          : null,
-      );
-      seeded = outcome === "applied";
-    }
-    let baked = seeded;
-    if (!seeded) {
-      // ONE guarded write of the whole array, not `$pull` then `$push`.
-      //
-      // Each of those two is atomic on its own, which is what made the pair look
-      // safe, but nothing holds across them: two verdicts from the SAME reviewer
-      // can interleave pull, pull, push, push and leave both entries standing.
-      // Step 2 then reads one reviewer as two active verdicts, and a stale
-      // `changes-requested` sitting beside a fresh `approve` decides the status.
-      //
-      // Mongo cannot `$pull` and `$push` the same field in one update, but it can
-      // `$set` the array — CAS-guarded on `reviews`, so a concurrent write loses
-      // and retries against what actually landed. Same shape as the legacy seed
-      // branch above.
-      const outcome = await casUpdate(
-        cycleFilter,
-        ["reviews", "contributors"],
-        (current) => {
-          if (
-            verdict === "approved" &&
-            blockSelfApproval &&
-            (current.contributors ?? []).includes(newReview.userId)
-          ) {
-            throw new Error("You cannot approve a draft you contributed to.");
-          }
-          return {
-            $set: {
-              reviews: [
-                ...(current.reviews ?? []).filter(
-                  (r) => r.userId !== newReview.userId,
-                ),
-                newReview,
-              ],
-              datePublished: null,
-              dateUpdated: new Date(),
-            },
-          };
-        },
-      );
-      baked = outcome === "applied";
-    }
-
-    // Step 2: reconcile `status` from the stored reviews (CAS-guarded on both
-    // `reviews` and `status`) so it can't drift from a concurrent verdict.
-    // Bail if a concurrent recall/discard moved us out of the review cycle —
-    // otherwise we'd resurrect "pending-review" over their "draft". Record
-    // approvedBaseVersion for later staleness detection when approved.
     const outcome = await casUpdate(
       cycleFilter,
-      ["reviews", "status", "reviewCycle"],
-      (current) => {
+      ["reviews", "status", "reviewCycle", "contributors"],
+      async (current) => {
+        // Re-asked on every retry, which is where the ABA bites: a retry re-reads a
+        // row that a recall AND a resubmit may both have crossed since the first
+        // attempt.
         if (
           !(REVIEW_CYCLE_STATUSES as readonly string[]).includes(
             current.status ?? "",
-          )
+          ) ||
+          !isSameReviewCycle(current, revision)
         ) {
           return null;
         }
-        // Re-asked on every CAS retry, which is where the ABA actually bites: the
-        // retry re-reads a row a recall AND a resubmit may both have crossed.
-        if (!isSameReviewCycle(current, revision)) {
-          return null;
+
+        // Against the row this write is conditioned on, not the caller's copy: an
+        // edit records content and contributor separately, so the contributor list
+        // can be outrun between the handler's check and here.
+        if (
+          verdict === "approved" &&
+          blockSelfApproval &&
+          (current.contributors ?? []).includes(newReview.userId)
+        ) {
+          throw new Error("You cannot approve a draft you contributed to.");
         }
-        const reviews = current.reviews ?? [];
+
+        // Legacy revisions kept verdicts only in the log. Self-heal from it — the
+        // CAS guard on `reviews` is what stops a concurrent first-verdict being
+        // clobbered, so no separate "still absent" condition is needed.
+        const base =
+          current.reviews ?? (await getActiveReviewsFromLog(context, revision));
+        const reviews = [
+          ...base.filter((r) => r.userId !== newReview.userId),
+          newReview,
+        ];
         const status = statusFromStandingVerdicts(
           standingVerdicts(reviews),
           "pending-review",
         );
+
         return {
           $set: {
+            reviews,
             status,
             ...(status === "approved" && liveVersion !== undefined
               ? { approvedBaseVersion: liveVersion }
               : {}),
+            datePublished: null,
+            dateUpdated: new Date(),
           },
         };
       },
     );
-    if (outcome === "exhausted") {
-      logger.warn(
-        `submitReviewAndComments: status reconcile exhausted retries for ${revision.featureId}#${revision.version}`,
-      );
-    }
 
-    // Both halves refuse independently when a concurrent recall/discard/publish
-    // moves the revision out of the review cycle, and neither refusal used to
-    // reach the caller: the endpoint logged the review, dispatched its webhooks,
-    // considered auto-publishing and answered 200, for a verdict that is not in
-    // the document. Report it instead, and skip the side effects below that
-    // describe a review that did not happen.
-    if (!baked || outcome !== "applied") {
+    // A refusal must reach the caller. It used to log the review, dispatch webhooks,
+    // consider auto-publishing and answer 200 for a verdict that is not in the
+    // document.
+    if (outcome !== "applied") {
+      if (outcome === "exhausted") {
+        logger.warn(
+          `submitReviewAndComments: verdict write exhausted retries for ${revision.featureId}#${revision.version}`,
+        );
+      }
       return { applied: false };
     }
   } else if (verdict !== null) {

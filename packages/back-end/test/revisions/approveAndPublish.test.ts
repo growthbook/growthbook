@@ -5,42 +5,12 @@ jest.mock("back-end/src/services/organizations", () => ({
 }));
 
 import {
-  isArmedForAutoPublish,
   isArmedWithAuthorizedPublisher,
   planApproveAndPublish,
 } from "back-end/src/revisions/approveAndPublish";
 import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
 
 const resolveArmerContext = getContextForUserIdInOrg as jest.Mock;
-
-describe("isArmedForAutoPublish", () => {
-  it("is armed when auto-publish is on and an armer is recorded", () => {
-    expect(
-      isArmedForAutoPublish({
-        autoPublishOnApproval: true,
-        autoPublishEnabledBy: "u_1",
-      }),
-    ).toBe(true);
-  });
-
-  // The fire path falls back to the author for revisions armed before
-  // `autoPublishEnabledBy` existed, so the author is a valid armer identity.
-  it("falls back to the author when no explicit armer was recorded", () => {
-    expect(
-      isArmedForAutoPublish({ autoPublishOnApproval: true, authorId: "u_2" }),
-    ).toBe(true);
-  });
-
-  it("is not armed without the flag", () => {
-    expect(isArmedForAutoPublish({ autoPublishEnabledBy: "u_1" })).toBe(false);
-    expect(isArmedForAutoPublish({})).toBe(false);
-  });
-
-  // Nobody's authority to run the publish under.
-  it("is not armed when the flag is set but no identity resolves", () => {
-    expect(isArmedForAutoPublish({ autoPublishOnApproval: true })).toBe(false);
-  });
-});
 
 describe("planApproveAndPublish", () => {
   it("denies anyone without review authority", () => {
