@@ -3,48 +3,67 @@ import type { ReqContext } from "back-end/types/request";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { secondsUntilAICanBeUsedAgain } from "back-end/src/enterprise/services/ai";
+import { NotFoundError, PlanDoesNotAllowError } from "back-end/src/util/errors";
 import type { AgentConfig } from "back-end/src/enterprise/services/agent-handler";
 
 type OrgAIPromptConfig = Awaited<
   ReturnType<ReqContext["models"]["aiPrompts"]["getAIPrompt"]>
 >;
 
+// Thrown when the org is over its AI usage limit. `status` is read by the
+// external API handler to set a 429; `retryAfter` is surfaced to callers.
+export class AIUsageLimitError extends Error {
+  status = 429;
+  constructor(public retryAfter: number) {
+    super("Over AI usage limits");
+  }
+}
+
 /**
- * Runs premium-feature, AI-enabled, and rate-limit checks.
- * Returns false (and writes an error response) if the request should be rejected.
+ * Premium-feature, AI-enabled, and rate-limit checks. Throws on the first
+ * failed gate. Shared by every AI entry point so they enforce the same
+ * limits — call this (not just a plan-flag check) before any AI/embedding
+ * work, including from external API handlers.
+ */
+export async function assertAIAccess(context: ReqContext): Promise<void> {
+  if (!orgHasPremiumFeature(context.org, "ai-suggestions")) {
+    throw new PlanDoesNotAllowError("Your plan does not support AI features.");
+  }
+
+  const { aiEnabled } = getAISettingsForOrg(context);
+  if (!aiEnabled) {
+    throw new NotFoundError("AI configuration not set or enabled");
+  }
+
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  if (secondsUntilReset > 0) {
+    throw new AIUsageLimitError(secondsUntilReset);
+  }
+}
+
+/**
+ * Express-controller wrapper around assertAIAccess. Returns false (and writes
+ * the matching error response) if the request should be rejected.
  */
 export async function runAccessGates(
   context: ReqContext,
   res: Response,
 ): Promise<boolean> {
-  if (!orgHasPremiumFeature(context.org, "ai-suggestions")) {
-    res.status(403).json({
-      status: 403,
-      message: "Your plan does not support AI features.",
+  try {
+    await assertAIAccess(context);
+    return true;
+  } catch (e) {
+    const status =
+      e instanceof Error && "status" in e && typeof e.status === "number"
+        ? e.status
+        : 400;
+    res.status(status).json({
+      status,
+      message: e instanceof Error ? e.message : "AI access denied",
+      ...(e instanceof AIUsageLimitError ? { retryAfter: e.retryAfter } : {}),
     });
     return false;
   }
-
-  const { aiEnabled } = getAISettingsForOrg(context);
-  if (!aiEnabled) {
-    res.status(404).json({
-      status: 404,
-      message: "AI configuration not set or enabled",
-    });
-    return false;
-  }
-
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
-  if (secondsUntilReset > 0) {
-    res.status(429).json({
-      status: 429,
-      message: "Over AI usage limits",
-      retryAfter: secondsUntilReset,
-    });
-    return false;
-  }
-
-  return true;
 }
 
 /**
