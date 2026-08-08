@@ -10,6 +10,7 @@ import {
   assertCanPublishRevision,
 } from "back-end/src/revisions/revisionActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { resolvePublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import {
   BadRequestError,
   ConflictError,
@@ -173,12 +174,15 @@ export const postConfigRevisionPublish = createApiRequestHandler(
       action: "publish",
       existing: config as ProjectScoped,
       proposed: destination as ProjectScoped,
-      environments:
+      environments: resolvePublishFootprint(
+        req.context,
         adapter.publishFootprint?.(
           req.context,
           config as unknown as Record<string, unknown>,
           revision.target.proposedChanges,
-        ) ?? [],
+        ),
+        config as ProjectScoped,
+      ),
     })
   ) {
     req.context.permissions.throwPermissionError();

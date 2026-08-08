@@ -19,6 +19,7 @@ import {
   constantValidator,
   constantUpdatableFieldsSchema,
 } from "shared/validators";
+import type { PublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
   ApplyChangesResult,
@@ -57,10 +58,7 @@ import {
   schemaFailureGateOverride,
 } from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
-import {
-  archiveServeFootprint,
-  constantPublishEnvironments,
-} from "back-end/src/revisions/revisionPublishEnvironments";
+import { constantPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import { logger } from "back-end/src/util/logger";
 
 // Whitelist of fields the snapshot is allowed to carry, derived from the schema
@@ -200,25 +198,28 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     context: Context,
     snapshot: ConstantInterface,
     proposedChanges: unknown,
-  ): string[] {
-    // Flipping `archived` either way reaches EVERYWHERE the constant serves —
-    // the base value feeds every environment it applies to. Such a change names
-    // no environments of its own, and an empty footprint SKIPS the environment
-    // check rather than narrowing it, so a dev-limited caller could archive away
-    // production values, or return them to service, without touching production
-    // directly. Features apply the same serve-footprint rule.
+  ): PublishFootprint {
+    // An archive flip takes the constant out of service, or returns it, wherever
+    // it serves — it names no environments of its own, and saying so is what stops
+    // a dev-limited caller archiving production values.
     if (
       flipsArchivedState({
         proposed: proposedArchivedValue(proposedChanges),
         current: snapshot.archived,
       })
     ) {
-      return archiveServeFootprint(context, snapshot);
+      return { scope: "everywhere" };
     }
-    return constantPublishEnvironments(
+    const environments = constantPublishEnvironments(
       context,
       getConstantRevisionChange(snapshot, proposedChanges).changedEnvironments,
     );
+    // A base-value or metadata change carries no intrinsic environment (declared
+    // design), so the restriction does not apply to it. Distinct from the archive
+    // flip above, which reaches everywhere — the two used to be the same `[]`.
+    return environments.length
+      ? { scope: "environments", environments }
+      : { scope: "unscoped" };
   },
 
   isApprovalRequiredForRevision(context: Context, revision: Revision): boolean {

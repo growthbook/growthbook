@@ -18,6 +18,7 @@ import uniqid from "uniqid";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions";
 import type { ApplyChangesResult } from "back-end/src/revisions/EntityRevisionAdapter";
+import { resolvePublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import {
   buildMergeDesiredState,
   isRevisionDiverged,
@@ -373,15 +374,19 @@ export async function assertCanPublishRevision(
   const adapter = getAdapter(revision.target.type);
   const snapshot = entity as Record<string, unknown>;
 
-  // Change-aware environment footprint, when the adapter can compute one. Every
-  // arm shares it — the archive check included, since an archive lands in the
-  // environments the entity serves just as a publish does.
-  const footprint =
+  // Change-aware environment footprint, when the adapter can narrow to one, and
+  // everywhere the entity serves when it cannot. Resolved centrally so an empty
+  // narrowing can never reach the permission layer, where it reads as "allowed
+  // everywhere" instead of "check everywhere".
+  const footprint = resolvePublishFootprint(
+    context,
     adapter.publishFootprint?.(
       context,
       snapshot,
       revision.target.proposedChanges,
-    ) ?? [];
+    ),
+    snapshot,
+  );
 
   await assertCanLandRevision({
     context,
@@ -634,12 +639,15 @@ async function publishRevisionInner(
         action: "publish",
         existing: entity,
         proposed: destination,
-        environments:
+        environments: resolvePublishFootprint(
+          context,
           adapter.publishFootprint?.(
             context,
             entity,
             revision.target.proposedChanges,
-          ) ?? [],
+          ),
+          entity,
+        ),
       }))
   ) {
     context.permissions.throwPermissionError();

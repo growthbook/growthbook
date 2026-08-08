@@ -5,6 +5,7 @@ import {
   RevisionAction,
   RevisionModel,
 } from "shared/permissions";
+import type { PublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import type { Context } from "back-end/src/models/BaseModel";
 import type { ArmAcknowledgments } from "back-end/src/services/armGuards";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
@@ -164,15 +165,20 @@ export interface EntityRevisionAdapter<
    */
   canDeleteEntity?(context: Context, snapshot: TSnapshot): boolean;
 
-  // The environment footprint a specific change set lands in, when the entity
-  // can scope narrower than its whole self — e.g. a Constant's per-environment
-  // overrides. The publish engine layers this ON TOP of `canPublishRevision`,
-  // which cannot see the change. Omit when a change's reach never varies.
+  // The environment reach of a specific change set, layered ON TOP of
+  // `canPublishRevision`, which cannot see the change. Omit when this entity type
+  // has no environment dimension at all.
+  //
+  // Returns a tagged reach, never a bare list: `{scope:"environments"}` narrows,
+  // `{scope:"unscoped"}` says the change has no environment dimension, and
+  // `{scope:"everywhere"}` says it reaches all served environments without naming
+  // them. Spelling the last two the same way — as an empty list — is what let an
+  // archive flip pass every environment check vacuously.
   publishFootprint?(
     context: Context,
     snapshot: TSnapshot,
     proposedChanges: unknown,
-  ): string[];
+  ): PublishFootprint;
 
   // ---------- Approval flow ----------
 

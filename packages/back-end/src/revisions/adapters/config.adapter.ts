@@ -12,14 +12,15 @@ import {
   configRequiresReview,
   configResetReviewOnChange,
   constantAutopublishOnApproval,
-  formatAncestorFieldConflictMessage,
   flipsArchivedState,
+  formatAncestorFieldConflictMessage,
   proposedArchivedValue,
 } from "shared/util";
 import {
   configValidator,
   configUpdatableFieldsSchema,
 } from "shared/validators";
+import type { PublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
   ApplyChangesResult,
@@ -71,10 +72,7 @@ import {
   schemaFailureGateOverride,
 } from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
-import {
-  archiveServeFootprint,
-  configPublishEnvironments,
-} from "back-end/src/revisions/revisionPublishEnvironments";
+import { configPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { normalizeConfigChangesAgainstAncestors } from "./configSchemaNormalize";
@@ -173,22 +171,18 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     context: Context,
     snapshot: ConfigInterface,
     proposedChanges: unknown,
-  ): string[] {
-    const scoped = configPublishEnvironments(context, snapshot);
-    // Flipping `archived` either way takes the Config out of service, or returns
-    // it, everywhere it serves. A scoped Config names its environments, but a
-    // BASE Config binds to none — and an empty footprint SKIPS the environment
-    // check, so the flip asked for nothing. Constants apply the same rule.
-    if (
-      !scoped.length &&
-      flipsArchivedState({
-        proposed: proposedArchivedValue(proposedChanges),
-        current: snapshot.archived,
-      })
-    ) {
-      return archiveServeFootprint(context, snapshot, scoped);
-    }
-    return scoped;
+  ): PublishFootprint {
+    const environments = configPublishEnvironments(context, snapshot);
+    if (environments.length) return { scope: "environments", environments };
+    // A BASE Config binds to no environment. An archive flip on one still takes it
+    // out of service everywhere it serves; any other change to it has no
+    // environment dimension. Same split the Constant adapter makes.
+    return flipsArchivedState({
+      proposed: proposedArchivedValue(proposedChanges),
+      current: snapshot.archived,
+    })
+      ? { scope: "everywhere" }
+      : { scope: "unscoped" };
   },
 
   canRead(context: Context, snapshot: ConfigInterface): boolean {

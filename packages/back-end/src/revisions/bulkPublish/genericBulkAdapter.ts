@@ -10,6 +10,7 @@ import {
   type ProjectScoped,
 } from "back-end/src/revisions/moveAuthority";
 import { canPublishRevisionChange } from "back-end/src/revisions/revisionActions";
+import { resolvePublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import { buildMergeDesiredState } from "back-end/src/revisions/util";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
@@ -183,12 +184,15 @@ export function makeGenericBulkAdapter(
           action: "publish",
           existing: entity as ProjectScoped,
           proposed: { ...entity, ...desiredState } as ProjectScoped,
-          environments:
+          environments: resolvePublishFootprint(
+            callerContext,
             adapter.publishFootprint?.(
               callerContext,
               entity as Record<string, unknown>,
               raw.target.proposedChanges,
-            ) ?? [],
+            ),
+            entity as ProjectScoped,
+          ),
         })
       ) {
         gates.push(
@@ -216,11 +220,15 @@ export function makeGenericBulkAdapter(
           entity as { project?: string; projects?: string[] },
           // Same change-aware footprint the single-revision engine applies, so a
           // bulk archive can't clear a check the individual publish would fail.
-          adapter.publishFootprint?.(
+          resolvePublishFootprint(
             callerContext,
-            entity as Record<string, unknown>,
-            raw.target.proposedChanges,
-          ) ?? [],
+            adapter.publishFootprint?.(
+              callerContext,
+              entity as Record<string, unknown>,
+              raw.target.proposedChanges,
+            ),
+            entity as ProjectScoped,
+          ),
         )
       ) {
         gates.push(
