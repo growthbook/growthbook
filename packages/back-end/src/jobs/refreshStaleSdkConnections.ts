@@ -29,10 +29,19 @@ export default function addRefreshStaleSdkConnectionsJob(agenda: Agenda) {
           if (stale) return scheduleOrgRefreshJob(organization);
         })
         .catch((e) => {
+          // The check itself failed (e.g. a transient DB error) — we can't tell
+          // if the org is actually stale, so reschedule anyway. A no-op pass is
+          // cheap; skipping it could leave a real stale mark with no job to clear it.
           logger.error(
             e,
-            `Error re-checking stale SDK connections for org ${organization}`,
+            `Error re-checking stale SDK connections for org ${organization}; scheduling a follow-up pass to be safe`,
           );
+          return scheduleOrgRefreshJob(organization).catch((e2) => {
+            logger.error(
+              e2,
+              `Failed to schedule follow-up refresh for org ${organization}`,
+            );
+          });
         });
     },
   );

@@ -95,6 +95,28 @@ describe("refreshStaleSdkConnections (real Agenda lifecycle)", () => {
     expect(refreshStaleSdkConnectionsForOrgMock).toHaveBeenCalledTimes(2);
   }, 20000);
 
+  it("reschedules anyway when the completion-time recheck itself errors, so a real stale mark isn't stranded", async () => {
+    // The recheck fails transiently after the first run; we can't tell if the
+    // org is actually stale, so it should reschedule as a safe fallback. The
+    // second run's recheck succeeds and reports no more staleness, so it stops.
+    hasAnyStaleSdkConnectionMock
+      .mockRejectedValueOnce(new Error("mongo blip"))
+      .mockResolvedValueOnce(false);
+
+    await scheduleOrgRefreshJob("org_1");
+
+    await new Promise((resolve) => {
+      const check = setInterval(() => {
+        if (refreshStaleSdkConnectionsForOrgMock.mock.calls.length >= 2) {
+          clearInterval(check);
+          resolve(undefined);
+        }
+      }, 100);
+    });
+
+    expect(refreshStaleSdkConnectionsForOrgMock).toHaveBeenCalledTimes(2);
+  }, 20000);
+
   it("collapses concurrent enqueues for the same org onto a single job", async () => {
     hasAnyStaleSdkConnectionMock.mockResolvedValue(false);
 
