@@ -181,6 +181,22 @@ export async function collectConfigSchemaChangeImpactGates(
   ];
 }
 
+/**
+ * One descendant write the cascade performed: the doc it wrote against, and the
+ * fields it wrote. Compensation needs the PRE-IMAGE because
+ * `stripAncestorOwnedFields` can only REMOVE keys — re-running the cascade against
+ * a restored root can never un-strip one, so a root-only rollback silently deletes
+ * a field from a config the user never touched.
+ */
+export type ConfigCascadeWrite = {
+  before: ConfigInterface;
+  written: Record<string, unknown>;
+  // `dateUpdated` this cascade write left on the descendant. A release publishing an
+  // ancestor and a descendant together needs it to tell its OWN cascade from a
+  // foreign write when re-anchoring the descendant's CAS baseline.
+  stamp: Date | null;
+};
+
 // Re-run "base wins" normalization across every descendant of `rootKey` after
 // that config's schema changes.
 //
@@ -201,22 +217,6 @@ export async function collectConfigSchemaChangeImpactGates(
 // strip there, since neither base is the other's ancestor. That's a structural
 // composition error, so we detect it up front and throw before mutating any
 // descendant.
-/**
- * One descendant write the cascade performed: the doc it wrote against, and the
- * fields it wrote. Compensation needs the PRE-IMAGE because
- * `stripAncestorOwnedFields` can only REMOVE keys — re-running the cascade against
- * a restored root can never un-strip one, so a root-only rollback silently deletes
- * a field from a config the user never touched.
- */
-export type ConfigCascadeWrite = {
-  before: ConfigInterface;
-  written: Record<string, unknown>;
-  // `dateUpdated` this cascade write left on the descendant. A release publishing an
-  // ancestor and a descendant together needs it to tell its OWN cascade from a
-  // foreign write when re-anchoring the descendant's CAS baseline.
-  stamp: Date | null;
-};
-
 export async function reconcileConfigDescendants(
   context: Context,
   rootKey: string,

@@ -238,23 +238,14 @@ export async function restoreEntityPreImage({
         entityKey(entityType, preImage.id),
       );
       if (restoredKeys.length) {
-        // The repair cascade's writes are deliberately NOT rolled back.
+        // The repair cascade's writes are deliberately NOT rolled back, and rolling
+        // them back is not possible: the repair strips a descendant's field precisely
+        // BECAUSE the restored root declares it, so writing the pre-image back runs
+        // the same ancestor normalization and strips it again.
         //
-        // I tried: reported them through the adapter contract, recursed, bounded the
-        // recursion. It cannot work, for the same reason the descendants-first
-        // ordering couldn't. The repair strips a field from a descendant precisely
-        // BECAUSE the just-restored root declares it — so writing the descendant's
-        // pre-image back sends it through the same unconditional ancestor
-        // normalization, which strips it again, and reports success because the key
-        // is still in `persistedKeys` and nothing looks dropped. The machinery was a
-        // guaranteed no-op whose only real effects were a discarded failure signal, a
-        // fail-open exhaustion branch, and one full config-collection load per repair
-        // write inside an already-failing request.
-        //
-        // What the repair leaves is base-wins-correct given the restored root: the
-        // root owns the field, so the descendant must not declare it. That is the
-        // right resting state, not a loss — the field's value is still on the
-        // descendant's document and re-inherits from the root.
+        // What it leaves is base-wins-correct — the root owns the field, so the
+        // descendant must not declare it. The value is still on the descendant's
+        // document and re-inherits from the root.
         await adapter.afterRestorePreImage?.(context, current, restoredKeys);
       }
       return;
