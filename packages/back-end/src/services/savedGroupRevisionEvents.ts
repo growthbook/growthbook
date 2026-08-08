@@ -3,7 +3,7 @@ import {
   ResourceEvents,
   NotificationEventPayloadSchemaType,
 } from "shared/types/events/base-types";
-import { revisionEventProjects } from "back-end/src/events/revisionWebhookAdapters";
+import { revisionEventRouting } from "back-end/src/services/revisionEventRouting";
 import { Context } from "back-end/src/models/BaseModel";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
@@ -54,15 +54,16 @@ export async function dispatchSavedGroupRevisionEvent(
       revision,
       context as ApiReqContext,
     );
-    // Source ∪ destination for a projects[] move; saved groups have no
-    // environment partition, so their events stay env-unbound.
-    // The live entity too: a draft opened before the entity moved names neither
-    // the current project in its snapshot nor in its ops, so a webhook filtered to
-    // where the entity lives today would hear nothing.
     const liveForRouting = await context.models.savedGroups.getById(
       revision.target.id,
     );
-    const projects = revisionEventProjects(revision, liveForRouting);
+    // No `scopedFor`: saved groups have no environment partition, so their events
+    // stay env-unbound and every environment-filtered subscription hears them.
+    const { projects, environments } = await revisionEventRouting({
+      context,
+      revision,
+      liveForRouting,
+    });
 
     const emit = async <T extends SavedGroupRevisionEvent>(
       event: T,
@@ -76,7 +77,7 @@ export async function dispatchSavedGroupRevisionEvent(
         data: { object } as CreateEventData<"savedGroup", T>,
         projects,
         tags: [],
-        environments: [],
+        environments,
         containsSecrets: false,
       });
     };

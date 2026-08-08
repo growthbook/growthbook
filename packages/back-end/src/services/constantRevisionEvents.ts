@@ -1,4 +1,3 @@
-import { serveFootprint } from "shared/permissions";
 import {
   Revision,
   JsonPatchOperation,
@@ -10,9 +9,8 @@ import {
   NotificationEventPayloadSchemaType,
 } from "shared/types/events/base-types";
 import { constantPublishEnvironments } from "shared/util";
-import { getEnvironments } from "back-end/src/services/organizations";
+import { revisionEventRouting } from "back-end/src/services/revisionEventRouting";
 import { Context } from "back-end/src/models/BaseModel";
-import { revisionEventProjects } from "back-end/src/events/revisionWebhookAdapters";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { toApiConstantRevision } from "back-end/src/api/constants/toApiConstantRevision";
@@ -59,40 +57,22 @@ export async function dispatchConstantRevisionEvent(
       context as ApiReqContext,
     );
     const snapshot = revision.target.snapshot as ConstantInterface;
-    // Source ∪ destination, so a project-filtered webhook on either side of a
-    // move hears about it; environments are the change's own footprint (a
-    // per-environment override change is env-scoped, a base-value change is
-    // unbound), matching how the permission layer scopes the same change.
-    // The live entity too: a draft opened before the entity moved names neither
-    // the current project in its snapshot nor in its ops, so a webhook filtered to
-    // where the entity lives today would hear nothing.
     const liveForRouting = await context.models.constants.getById(
       revision.target.id,
     );
-    const projects = revisionEventProjects(revision, liveForRouting);
-    // A base-value change names NO environment but is felt in every one the
-    // constant applies to, and `[]` means "affects nothing" to the delivery filter
-    // — so an environment-filtered subscription heard nothing about exactly the
-    // changes with the widest reach. Resolved HERE, where the difference between
-    // "affects nothing" and "affects everything" is knowable.
-    const scopedEnvironments = constantPublishEnvironments(
+    // Constants scope by the CHANGE — a per-environment override names its
+    // environments, a base-value change names none — so the same list answers for
+    // both snapshot and live.
+    const changedEnvironments = constantPublishEnvironments(
       getConstantRevisionChange(snapshot, revision.target.proposedChanges)
         .changedEnvironments,
     );
-    // The unbound fallback reads the entity's PROJECT, and environments can be
-    // project-restricted — so a revision that also moves the Constant has to fall
-    // back over source ∪ destination, the same union `projects` takes. Snapshot
-    // alone routed a move by the project it was leaving.
-    const environments = scopedEnvironments.length
-      ? scopedEnvironments
-      : [
-          ...new Set([
-            ...serveFootprint(getEnvironments(context.org), snapshot),
-            ...(liveForRouting
-              ? serveFootprint(getEnvironments(context.org), liveForRouting)
-              : []),
-          ]),
-        ];
+    const { projects, environments } = await revisionEventRouting({
+      context,
+      revision,
+      liveForRouting,
+      scopedFor: () => changedEnvironments,
+    });
 
     const emit = async <T extends ConstantRevisionEvent>(
       event: T,

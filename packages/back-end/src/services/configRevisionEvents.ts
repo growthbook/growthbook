@@ -1,13 +1,11 @@
 import { configPublishEnvironments } from "shared/util";
-import { serveFootprint } from "shared/permissions";
 import { Revision, JsonPatchOperation } from "shared/enterprise";
 import { ConfigInterface } from "shared/types/config";
 import {
   ResourceEvents,
   NotificationEventPayloadSchemaType,
 } from "shared/types/events/base-types";
-import { getEnvironments } from "back-end/src/services/organizations";
-import { revisionEventProjects } from "back-end/src/events/revisionWebhookAdapters";
+import { revisionEventRouting } from "back-end/src/services/revisionEventRouting";
 import { Context } from "back-end/src/models/BaseModel";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
@@ -59,37 +57,19 @@ export async function dispatchConfigRevisionEvent(
       revision,
       context as ApiReqContext,
     );
-    const snapshot = revision.target.snapshot as ConfigInterface;
-    // Source ∪ destination for a move; environments are the config's scoped
-    // set — the same footprint the permission layer answers for.
-    // The live entity too: a draft opened before the entity moved names neither
-    // the current project in its snapshot nor in its ops, so a webhook filtered to
-    // where the entity lives today would hear nothing.
     const liveForRouting = await context.models.configs.getById(
       revision.target.id,
     );
-    const projects = revisionEventProjects(revision, liveForRouting);
-    // A BASE Config scopes to no environment but is felt in every one it applies
-    // to, and `[]` means "affects nothing" to the delivery filter. Resolved here,
-    // where the two are distinguishable — see constantRevisionEvents.
-    const footprintOf = (entity: ConfigInterface | null): string[] => {
-      if (!entity) return [];
-      const scoped = configPublishEnvironments(entity);
-      return scoped.length
-        ? scoped
-        : serveFootprint(getEnvironments(context.org), entity);
-    };
-    // Snapshot ∪ live, the same union `projects` takes above. `scopedConfig` is
-    // read-only in the snapshot (never in `getUpdatableFields`), so the flavor's
-    // scope can only move on the LIVE entity — and a draft opened before that move
-    // names the old scope, which is where routing on the snapshot alone lost the
-    // subscribers filtered to where the Config is scoped today.
-    const environments = [
-      ...new Set([
-        ...footprintOf(snapshot),
-        ...footprintOf(liveForRouting as ConfigInterface | null),
-      ]),
-    ];
+    // Configs scope by the ENTITY, and `scopedConfig` is read-only in the snapshot
+    // (never in `getUpdatableFields`) — so the flavor's scope can only move on the
+    // LIVE entity, and each side has to be resolved on its own.
+    const { projects, environments } = await revisionEventRouting({
+      context,
+      revision,
+      liveForRouting,
+      scopedFor: (entity) =>
+        configPublishEnvironments(entity as ConfigInterface),
+    });
 
     const emit = async <T extends ConfigRevisionEvent>(
       event: T,
