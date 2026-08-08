@@ -7,6 +7,7 @@ import {
 } from "back-end/src/models/ForgotPasswordModel";
 import {
   createOrganization,
+  findOrganizationById,
   hasOrganization,
 } from "back-end/src/models/OrganizationModel";
 import { IS_CLOUD, IS_LOCALHOST } from "back-end/src/util/secrets";
@@ -29,7 +30,8 @@ import {
 } from "back-end/src/services/organizations";
 import { updatePassword, verifyPassword } from "back-end/src/services/users";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { _dangerousGetSSOConnectionByEmailDomain } from "back-end/src/models/SSOConnectionModel";
+import { _dangerousGetSSOConnectionsByEmailDomain } from "back-end/src/models/SSOConnectionModel";
+import { logger } from "back-end/src/util/logger";
 import {
   resetMinTokenDate,
   getEmailFromUserId,
@@ -377,7 +379,32 @@ export async function getResetPassword(
 export async function getSSOConnectionFromDomain(req: Request, res: Response) {
   const { domain } = req.body;
 
-  const sso = await _dangerousGetSSOConnectionByEmailDomain(domain as string);
+  const connections = await _dangerousGetSSOConnectionsByEmailDomain(
+    domain as string,
+  );
+
+  // Connections whose organization has been disabled cannot be used to log in
+  const active: typeof connections = [];
+  for (const connection of connections) {
+    if (connection.organization) {
+      const org = await findOrganizationById(connection.organization);
+      if (org?.disabled) continue;
+    }
+    active.push(connection);
+  }
+
+  if (active.length > 1) {
+    // Ambiguous - we can't know which org the user intends to log in to
+    logger.error(
+      { domain, connectionIds: active.map((c) => c.id) },
+      "Multiple active SSO connections match email domain",
+    );
+    throw new Error(
+      `Multiple SSO Connections exist for *@${domain}. Please contact support.`,
+    );
+  }
+
+  const sso = active[0];
 
   if (!sso?.id) {
     throw new Error(`Unknown SSO Connection for *@${domain}`);
