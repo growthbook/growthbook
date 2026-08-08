@@ -58,25 +58,14 @@ export async function runGuardedWrite<T>(
 /**
  * The post-write half of the landing order, for every path that lands a revision.
  *
- * `assertLandingBaseline` before the write establishes the order; this re-asks it
- * AFTER. The two are needed because the merge claim lives in the revisions
- * collection and the entity write lives in another, and there are no transactions
- * here (DocumentDB and CosmosDB have to keep working). Nothing makes the pair
- * atomic: a newer revision can claim the merge in the window between them, and its
- * claim alone does not disturb the entity — so the entity CAS still passes and an
- * older revision lands under newer history.
+ * The merge claim and the entity write live in different collections and there are
+ * no transactions here, so a newer revision can claim the merge between the
+ * pre-write check and this one. Its claim never touches the entity, so the entity
+ * CAS still passes — which is exactly why a guard on the entity does not cover this,
+ * and why the direct and bulk paths looked safe without it.
  *
- * A guard on the entity does NOT close this, which is what made the direct and bulk
- * paths look safe: the guard only excludes a concurrent ENTITY write, and a claim is
- * not one.
- *
- * Detection rather than exclusion. The loser here has already written, so it throws
- * into its caller's compensation — which restores while live still holds what this
- * apply wrote, and the winner has not written yet, so the restore succeeds and both
- * revisions stay retryable. What remains is the winner writing before our restore:
- * the value check declines, the merged revision is kept, and the "could not be
- * restored" path logs it. Eliminating that needs the ordering token on the ENTITY so
- * one CAS decides both.
+ * Detection, not exclusion: the loser has already written, so it throws into its
+ * caller's compensation and both revisions stay retryable.
  */
 export async function assertLandingStillOwned({
   context,
@@ -397,12 +386,8 @@ export async function withBufferedPayloadRefreshes<T>(
  * back first, then un-merge the revision — and un-merge only when the restore came
  * back clean.
  *
- * The internal controllers hand-rolled this and stopped at the un-merge, so a
- * cascade failure after the root write left the change live with the revision
- * reopened: no merged revision, no webhook, SDKs already serving it. The ordering
- * is the whole point and it belongs in one place — a live change with no record is
- * the one outcome nothing can repair, so the record is kept whenever live cannot be
- * put back.
+ * The ordering is the whole point: a live change with no record is the one outcome
+ * nothing can repair, so the record is kept whenever live cannot be put back.
  *
  * `persisted` is what the write REPORTED writing. Nothing reported means the write
  * never landed (models report from inside the document write, before audit and the

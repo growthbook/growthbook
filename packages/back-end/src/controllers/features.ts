@@ -1364,23 +1364,16 @@ export async function postFeatureReviewOrComment(
     throw new Error("Could not find feature");
   }
 
-  // A VERDICT (approve / request changes) is the review atom. A plain comment is
-  // participation, so the comment atom carries it — review implies it, but must not
-  // gate it. Requiring review for both meant granting a role "comments" did nothing
-  // on Feature Flags, while the other entities already accepted it.
+  // A VERDICT is the review atom; a plain comment is participation, so the comment
+  // atom carries it — review implies it but must not gate it. Through the SHARED
+  // predicate, so all four entities answer identically, and narrowed to the primary
+  // project to match `canReviewFeatureDrafts`.
   //
-  // Through the SHARED predicate, so Feature Flags answer this the same way Configs,
-  // Constants and Saved Groups do — the feature copy had also dropped the draft arm,
-  // which is what lets an author reply to feedback on their own draft. Narrowed to
-  // the primary project, matching `canReviewFeatureDrafts`.
-  // KNOWN DIVERGENCE from the other three entities, and structural rather than an
-  // oversight: they authorize commenting on `revision.target.snapshot`, so a review
-  // stays with the project the revision was opened in. Feature revisions carry no
-  // origin snapshot — `metadata.project` is the DESTINATION a draft stages, not
-  // where it started — so this engine can only ask about live. Both feature
-  // surfaces (this and the REST twin) ask it identically; closing the gap for real
-  // needs an origin project recorded on the revision, which is a schema change and
-  // a backfill, not a check.
+  // KNOWN DIVERGENCE, structural: the other three judge this on
+  // `revision.target.snapshot`, so a review stays with the project the revision was
+  // opened in. Feature revisions carry no origin snapshot (`metadata.project` is the
+  // DESTINATION a draft stages), so this engine can only ask about live. Closing it
+  // needs an origin project on the revision — a schema change, not a check.
   const canCommentHere = canCommentOnRevisionEntity(
     context.permissions,
     "feature",
@@ -1771,21 +1764,14 @@ export async function postFeatureToggleAutoPublish(
     );
   }
 
-  // Arming and DISARMING take the same authority, deliberately: requiring less to
-  // turn it off than to turn it on gave a draft manager without publish rights a
-  // control they could only move one way, which reads as broken however it is
-  // rendered — and it disagreed with the dated schedule beside it, where cancelling
-  // already requires publish.
+  // Arming and DISARMING take the same authority — PUBLISH, and only that.
+  // Requiring less to turn it off than on gave a draft manager without publish
+  // rights a one-way control, and disagreed with the dated schedule beside it.
   //
-  // That authority is PUBLISH, and only that. A draft requirement used to sit here
-  // to stop any org member disarming someone else's draft, but the publish check
-  // below already excludes them — so all it really excluded was the publisher-only
-  // role, which can arm and cancel the dated schedule right beside this control.
-  // Publish authority governs both directions; the ELIGIBILITY gates (premium, the
-  // org's approval flow) are a precondition for taking on a future publish, not for
-  // standing one down. Asking them on the way out left an armed revision
-  // un-disarmable the moment either changed — while the arm still fired. Same split
-  // the generic toggle makes.
+  // The ELIGIBILITY gates (premium, the org's approval flow) are a precondition for
+  // taking ON a future publish, not for standing one down: asking them on the way
+  // out left an armed revision un-disarmable the moment either changed, while the
+  // arm still fired.
   const mayToggle = enabled
     ? await canEnableFeatureAutoPublishOnApproval(context, feature, revision)
     : await canDisarmFeatureAutoPublishOnApproval(context, feature, revision);
