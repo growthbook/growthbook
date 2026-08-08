@@ -24,10 +24,7 @@ import {
   type CasAuthority,
 } from "back-end/src/models/casLoop";
 import { isRevisionAuthor } from "back-end/src/revisions/revisionAuthority";
-import {
-  MakeModelClass,
-  advancedGuardStamp,
-} from "back-end/src/models/BaseModel";
+import { MakeModelClass } from "back-end/src/models/BaseModel";
 import {
   ArmAcknowledgments,
   hasArmAcknowledgments,
@@ -553,41 +550,6 @@ export class RevisionModel extends BaseClass {
       return { $nin: ["merged", "discarded"] };
     }
     return { $in: list };
-  }
-
-  /**
-   * The `resolution.dateCreated` a merge should stamp: now, but strictly AFTER
-   * the newest merge already recorded for this target.
-   *
-   * That stamp is what orders landings ("latest merged"), and `new Date()` is
-   * millisecond-precision — two merges inside one millisecond tied, leaving the
-   * version tiebreak to decide, which orders CREATION and can name v3 as latest
-   * when v2 merged after it. Advancing past the previous stamp makes the order
-   * unambiguous without depending on wall-clock resolution.
-   */
-  private async nextMergeStamp(
-    entityType: RevisionTargetType,
-    entityId: string,
-  ): Promise<Date> {
-    const [latest] = await this._dangerousGetCollection()
-      .find(
-        {
-          organization: this.context.org.id,
-          "target.type": entityType,
-          "target.id": entityId,
-          status: "merged",
-        },
-        {
-          projection: { "resolution.dateCreated": 1 },
-          sort: { "resolution.dateCreated": -1 },
-          limit: 1,
-        },
-      )
-      .toArray();
-    const previous = (
-      latest as { resolution?: { dateCreated?: Date } } | undefined
-    )?.resolution?.dateCreated;
-    return advancedGuardStamp(previous instanceof Date ? previous : undefined);
   }
 
   /**
@@ -1992,14 +1954,6 @@ export class RevisionModel extends BaseClass {
     // Whether a schedule was armed on the winning CAS read — used after the
     // status transition lands to scrub the schedule fields.
     let hadSchedule = false;
-    // `target` because the caller computed `desiredState` from this revision's
-    // proposed changes BEFORE calling merge. A CAS must guard every field the
-    // computation it protects actually read — otherwise a concurrent edit that keeps
-    // the status rewrites the content and live receives the stale version.
-    const target = await this._dangerousGetCollection().findOne(
-      { organization: this.context.org.id, id },
-      { projection: { "target.type": 1, "target.id": 1 } },
-    );
     // `activityLog` and the schedule fields because the merge appends an entry to
     // the log it read and decides the scrub from the schedule it read — the same
     // rule the guard-completeness check enforces everywhere else.
@@ -2023,16 +1977,7 @@ export class RevisionModel extends BaseClass {
       id,
       guardFields,
       async (existing) => {
-        // Re-derived per attempt, not once before the loop: a rival that merged
-        // during our retry window would otherwise leave us stamping a value equal to
-        // or behind theirs, and merge ORDER is what every landing baseline reads. A
-        // read is side-effect free, so it is safe to repeat.
-        const mergeStamp = target
-          ? await this.nextMergeStamp(
-              target.target.type as RevisionTargetType,
-              target.target.id as string,
-            )
-          : new Date();
+        const mergeStamp = new Date();
         if (existing.status === "merged" || existing.status === "discarded") {
           throw new ConflictError(
             "Cannot merge a discarded or already-merged revision",
@@ -2836,10 +2781,7 @@ export class RevisionModel extends BaseClass {
       params.snapshot,
     );
     const userId = this.context.userId;
-    // Strictly after this target's previous merge — see nextMergeStamp. A direct
-    // landing records its merge here, and "latest merged" has to order it after
-    // whatever landed before it even inside the same millisecond.
-    const now = await this.nextMergeStamp(params.type, params.id);
+    const now = new Date();
 
     return this.createWithVersionRetry(() =>
       this.create({
