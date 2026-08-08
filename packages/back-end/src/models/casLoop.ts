@@ -61,6 +61,36 @@ export function buildCasGuard(
   );
 }
 
+/**
+ * Who is allowed to perform a CAS-guarded write, re-asked on the row EVERY attempt.
+ *
+ * Required, never optional, and that is the whole point. A caller's own permission
+ * check runs once, against the row it read; the loop then re-reads on each retry and
+ * can land on a row a concurrent rebase moved into a project the caller holds nothing
+ * in. Guarding the moved field does NOT close this — the guard makes the first attempt
+ * lose, and the retry proceeds against the new row.
+ *
+ * An optional callback made "no check at all" the default, which is how five verbs
+ * ended up without one. Making it required means a write with no authority decision
+ * cannot be spelled: the author must either supply a check or state, greppably, which
+ * flow already established it.
+ */
+export type CasAuthority<TSnapshot> =
+  | { check: (existing: TSnapshot) => void }
+  /**
+   * The calling flow established authority in a way the row cannot re-derive — a
+   * merge claim it already holds, a poller running as a resolved user. The string is
+   * the reason, and it is there to be read in review.
+   */
+  | { authorizedByFlow: string };
+
+export function assertCasAuthority<TSnapshot>(
+  authority: CasAuthority<TSnapshot>,
+  existing: TSnapshot,
+): void {
+  if ("check" in authority) authority.check(existing);
+}
+
 /** What one attempt's read yields: the value `compute` sees, and what to guard on. */
 export type CasRead<TSnapshot> = {
   snapshot: TSnapshot;

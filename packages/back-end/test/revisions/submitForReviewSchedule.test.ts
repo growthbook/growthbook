@@ -91,11 +91,19 @@ describe("submitForReview arming a dated publish", () => {
     const context = adminContext();
     const when = new Date(Date.now() + 86_400_000);
 
-    await context.models.revisions.submitForReview(REV_ID, "u_admin", {
-      scheduledPublishAt: when,
-      lockEdits: true,
-      lockOthers: true,
-    });
+    await context.models.revisions.submitForReview(
+      REV_ID,
+      "u_admin",
+      {
+        authorizedByFlow:
+          "test fixture: authority covered by the case under test",
+      },
+      {
+        scheduledPublishAt: when,
+        lockEdits: true,
+        lockOthers: true,
+      },
+    );
 
     const doc = await stored();
     expect({
@@ -117,7 +125,15 @@ describe("submitForReview arming a dated publish", () => {
 
   it("leaves the schedule alone when no date is sent", async () => {
     const context = adminContext();
-    await context.models.revisions.submitForReview(REV_ID, "u_admin", {});
+    await context.models.revisions.submitForReview(
+      REV_ID,
+      "u_admin",
+      {
+        authorizedByFlow:
+          "test fixture: authority covered by the case under test",
+      },
+      {},
+    );
 
     const doc = await stored();
     expect({
@@ -160,10 +176,18 @@ describe("submitForReview arming a dated publish", () => {
 
     const context = adminContext();
     await expect(
-      context.models.revisions.submitForReview(REV_ID, "u_admin", {
-        scheduledPublishAt: new Date(Date.now() + 86_400_000),
-        lockOthers: true,
-      }),
+      context.models.revisions.submitForReview(
+        REV_ID,
+        "u_admin",
+        {
+          authorizedByFlow:
+            "test fixture: authority covered by the case under test",
+        },
+        {
+          scheduledPublishAt: new Date(Date.now() + 86_400_000),
+          lockOthers: true,
+        },
+      ),
     ).rejects.toThrow(
       /already has a scheduled publish that locks other drafts/i,
     );
@@ -194,18 +218,34 @@ describe("submitForReview arming a dated publish", () => {
     });
 
     const context = adminContext();
-    await context.models.revisions.submitForReview(REV_ID, "u_admin", {
-      scheduledPublishAt: new Date(Date.now() + 86_400_000),
-      lockOthers: true,
-    });
+    await context.models.revisions.submitForReview(
+      REV_ID,
+      "u_admin",
+      {
+        authorizedByFlow:
+          "test fixture: authority covered by the case under test",
+      },
+      {
+        scheduledPublishAt: new Date(Date.now() + 86_400_000),
+        lockOthers: true,
+      },
+    );
     expect((await stored())?.scheduledPublishLockOthers).toBe(true);
   });
 
   it("arms the no-date variant without inventing a schedule", async () => {
     const context = adminContext();
-    await context.models.revisions.submitForReview(REV_ID, "u_admin", {
-      autoPublishOnApproval: true,
-    });
+    await context.models.revisions.submitForReview(
+      REV_ID,
+      "u_admin",
+      {
+        authorizedByFlow:
+          "test fixture: authority covered by the case under test",
+      },
+      {
+        autoPublishOnApproval: true,
+      },
+    );
 
     const doc = await stored();
     expect({

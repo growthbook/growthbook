@@ -18,7 +18,11 @@ import {
 import uniqid from "uniqid";
 import { ACTIVE_DRAFT_STATUSES, ActiveDraftStatus } from "shared/validators";
 import type { CreateProps, UpdateProps } from "shared/types/base-model";
-import { buildCasGuard } from "back-end/src/models/casLoop";
+import {
+  assertCasAuthority,
+  buildCasGuard,
+  type CasAuthority,
+} from "back-end/src/models/casLoop";
 import { isRevisionAuthor } from "back-end/src/revisions/revisionAuthority";
 import {
   MakeModelClass,
@@ -1049,6 +1053,7 @@ export class RevisionModel extends BaseClass {
   async submitForReview(
     id: string,
     userId: string,
+    authority: CasAuthority<Revision>,
     {
       autoPublishOnApproval,
       armAcknowledgments,
@@ -1113,6 +1118,7 @@ export class RevisionModel extends BaseClass {
           "reviewCycle",
         ],
         (existing) => {
+          assertCasAuthority(authority, existing);
           // `changes-requested` is also re-submittable: after a reviewer requests
           // changes and the author edits the revision, this is the transition back
           // into `pending-review`. (Saved-group edits don't auto-reset the status the
@@ -1274,11 +1280,8 @@ export class RevisionModel extends BaseClass {
     userId: string,
     decision: ReviewDecision,
     comment: string,
-    // Re-asserts the caller's authority to rule on the revision, against the row
-    // the write is conditioned on. The caller's own check is a stale read by the
-    // time it writes: a concurrent rebase can move the revision to a project the
-    // reviewer holds nothing in, and the verdict must not ride that move.
-    assertAuthority?: (existing: Revision) => void,
+    // Re-asked on the row every attempt — see `CasAuthority`.
+    authority: CasAuthority<Revision>,
     // The review cycle this verdict was formed against, as the caller read it.
     // Status can't stand in for it: recall-then-resubmit returns the row to
     // `pending-review`, the value it already had, so a verdict aimed at the
@@ -1325,7 +1328,7 @@ export class RevisionModel extends BaseClass {
       ["reviews", "status", "activityLog", "target", "contributors"],
       (existing) => {
         if (isComment) this.assertCanWriteCommentOn(existing);
-        else assertAuthority?.(existing);
+        else assertCasAuthority(authority, existing);
         // Pinned to the caller's read, and re-asked on every CAS retry — the retry
         // is the dangerous one, because it re-reads a row that a recall AND a
         // resubmit may both have crossed since the first attempt. Comments are
@@ -1464,7 +1467,19 @@ export class RevisionModel extends BaseClass {
           : { status: { $nin: ["merged", "discarded"] } }),
         ...(observed
           ? buildCasGuard(
-              ["autoPublishOnApproval", "scheduledPublishAt"],
+              // `status` and `reviews` as well as the schedule fields. The scrub is
+              // authorized by a DECISION the caller's CAS just made ("this verdict is
+              // changes-requested, so disarm"), and that decision read the status and
+              // the verdicts — so both belong in the predicate. Guarding the schedule
+              // alone let a newer approval land in the window, leaving its status and
+              // verdicts untouched, and the older cleanup then cleared the schedule of
+              // an approved revision.
+              [
+                "autoPublishOnApproval",
+                "scheduledPublishAt",
+                "status",
+                "reviews",
+              ],
               observed as unknown as Record<string, unknown>,
             )
           : {}),
@@ -1487,11 +1502,8 @@ export class RevisionModel extends BaseClass {
   async recallReview(
     id: string,
     userId: string,
-    // Re-asserted INSIDE the CAS, like `undoReview` and `addReview`. Guarding
-    // `target` stops a rebase riding the write, but a CAS RETRY re-reads and would
-    // otherwise proceed against a snapshot the caller was never authorized for —
-    // the guard makes the retry notice the change, this decides what to do about it.
-    assertAuthority?: (existing: Revision) => void,
+    // Re-asked on the row every attempt — see `CasAuthority`.
+    authority: CasAuthority<Revision>,
   ) {
     // CAS-guarded on `status`, which the check below reads. An unguarded write
     // let a publish merge between the read and the write, after which the recall
@@ -1506,7 +1518,7 @@ export class RevisionModel extends BaseClass {
       // one an in-flight verdict already names. See `reviewCycle.ts`.
       ["status", "reviews", "activityLog", "target", "reviewCycle"],
       (existing) => {
-        assertAuthority?.(existing);
+        assertCasAuthority(authority, existing);
         if (
           !["pending-review", "changes-requested", "approved"].includes(
             existing.status,
@@ -1557,13 +1569,13 @@ export class RevisionModel extends BaseClass {
   //
   // Guarded and re-authorized exactly like `addReview`: `target` is in the guard so
   // a rebase that re-scopes the revision loses the race instead of riding it, and
-  // `assertAuthority` re-asks the caller's question against the row this write is
+  // `authority` re-asks the caller's question against the row this write is
   // conditioned on. Without both, a rebase could move the revision into a project
   // the caller holds nothing in and the retraction would still land.
   async undoReview(
     id: string,
     userId: string,
-    assertAuthority?: (existing: Revision) => void,
+    authority: CasAuthority<Revision>,
     // The review cycle the retraction was aimed at, for the same reason
     // `addReview` takes one — and the reasoning is symmetric. A verdict must not
     // cross a recall/resubmit; neither must its withdrawal. This reviewer's verdict
@@ -1577,7 +1589,7 @@ export class RevisionModel extends BaseClass {
       id,
       ["reviews", "status", "activityLog", "target"],
       (existing) => {
-        assertAuthority?.(existing);
+        assertCasAuthority(authority, existing);
         if (
           expectedReviewCycle !== undefined &&
           reviewCycleOf(existing) !== expectedReviewCycle
@@ -1684,11 +1696,13 @@ export class RevisionModel extends BaseClass {
     reviewId: string,
     userId: string,
     comment: string,
+    authority: CasAuthority<Revision>,
   ) {
     const updated = await this.updateWithCas(
       id,
       ["reviews", "status", "target"],
       (existing) => {
+        assertCasAuthority(authority, existing);
         this.assertCanWriteCommentOn(existing);
         if (existing.status === "merged" || existing.status === "discarded") {
           throw new Error(
@@ -1717,11 +1731,17 @@ export class RevisionModel extends BaseClass {
   }
 
   /** Delete a comment the calling user authored. Only "comment" reviews. */
-  async deleteComment(id: string, reviewId: string, userId: string) {
+  async deleteComment(
+    id: string,
+    reviewId: string,
+    userId: string,
+    authority: CasAuthority<Revision>,
+  ) {
     const updated = await this.updateWithCas(
       id,
       ["reviews", "status", "target"],
       (existing) => {
+        assertCasAuthority(authority, existing);
         this.assertCanWriteCommentOn(existing);
         if (existing.status === "merged" || existing.status === "discarded") {
           throw new Error(
@@ -1752,6 +1772,7 @@ export class RevisionModel extends BaseClass {
     id: string,
     proposedChanges: JsonPatchOperation[],
     userId: string,
+    authority: CasAuthority<Revision>,
   ) {
     this.assertSupportedPatchOps(proposedChanges);
 
@@ -1776,7 +1797,7 @@ export class RevisionModel extends BaseClass {
       );
     }
 
-    return this.writeContentEdit(id, userId, (row) => ({
+    return this.writeContentEdit(id, userId, authority, (row) => ({
       target: {
         ...row.target,
         snapshot: getAdapter(row.target.type).buildSnapshot(
@@ -1814,6 +1835,7 @@ export class RevisionModel extends BaseClass {
   private async writeContentEdit(
     id: string,
     userId: string,
+    authority: CasAuthority<Revision>,
     build: (existing: Revision) => {
       target: Revision["target"];
       entry: Revision["activityLog"][number];
@@ -1839,6 +1861,7 @@ export class RevisionModel extends BaseClass {
         "reviewCycle",
       ],
       (existing) => {
+        assertCasAuthority(authority, existing);
         this.assertDraftAcceptsContentEdit(existing);
         const { target, entry } = build(existing);
         const { status, resetEntry } = this.resetApprovalIfNeeded(
@@ -1889,6 +1912,7 @@ export class RevisionModel extends BaseClass {
     newSnapshot: Record<string, unknown>,
     newProposedChanges: JsonPatchOperation[],
     userId: string,
+    authority: CasAuthority<Revision>,
   ) {
     const existing = await this.getById(id);
     if (!existing) throw new Error("Revision not found");
@@ -1897,7 +1921,7 @@ export class RevisionModel extends BaseClass {
       newSnapshot as Record<string, unknown>,
     );
 
-    return this.writeContentEdit(id, userId, (row) => ({
+    return this.writeContentEdit(id, userId, authority, (row) => ({
       target: {
         ...row.target,
         snapshot: cleanedSnapshot as typeof row.target.snapshot,
@@ -2165,7 +2189,7 @@ export class RevisionModel extends BaseClass {
     return this.getById(id);
   }
 
-  async reopen(id: string, userId: string) {
+  async reopen(id: string, userId: string, authority: CasAuthority<Revision>) {
     // Always reopen into `draft`. A discarded revision may have been in any
     // pre-resolution status (draft, pending-review, changes-requested,
     // approved); landing in `pending-review` can force the author through a
@@ -2179,6 +2203,7 @@ export class RevisionModel extends BaseClass {
       id,
       ["status", "reviewCycle"],
       (existing) => {
+        assertCasAuthority(authority, existing);
         // Re-checked under the CAS, against the row this write is conditioned on:
         // the guard alone only proves `status` hasn't changed since the CAS re-read,
         // and a retry re-reads. Without this a reopen racing a publish could demote

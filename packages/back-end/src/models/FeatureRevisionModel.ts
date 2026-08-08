@@ -2570,9 +2570,22 @@ export async function submitReviewAndComments(
   // a stale approval. Gate the clear on the schedule still being set so concurrent
   // changes-requested verdicts don't each log a duplicate cancellation — only the
   // writer that actually clears it (modifiedCount > 0) logs.
+  //
+  // `status` and `reviewCycle` ride the filter too. This cleanup is authorized by the
+  // decision the reconcile above just made, and that decision read both — so a newer
+  // approval landing in the window (which moves `status` while leaving the schedule
+  // fields alone) must make this cleanup miss rather than clear the schedule of an
+  // approved revision. The generic twin guards the same way.
   if (verdict === "changes-requested") {
     const res = await FeatureRevisionModel.updateOne(
-      { ...filter, scheduledPublishAt: { $exists: true, $ne: null } },
+      {
+        ...filter,
+        scheduledPublishAt: { $exists: true, $ne: null },
+        status: "changes-requested",
+        ...(reviewCycleOf(revision) === 0
+          ? { reviewCycle: { $in: [0, null] } }
+          : { reviewCycle: revision.reviewCycle }),
+      },
       {
         $set: { autoPublishOnApproval: false, dateUpdated: new Date() },
         $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },

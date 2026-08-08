@@ -80,6 +80,7 @@ export async function reopenRevision({
   const reopened = await context.models.revisions.reopen(
     revision.id,
     context.userId,
+    draftAuthorityOnRow(context),
   );
   await getRevisionWebhookAdapter(type)?.dispatch(context, reopened, {
     type: "reopened",

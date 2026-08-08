@@ -1,5 +1,6 @@
 import isEqual from "lodash/isEqual";
 import { Revision } from "shared/enterprise";
+import type { CasAuthority } from "back-end/src/models/casLoop";
 import {
   canAdvanceDraftWithNarrowAtom,
   canDiscardOrRecallDraft,
@@ -32,24 +33,65 @@ export function mayBeRevisionAuthor(
 }
 
 // Recheck authority against every row read by a CAS retry.
-export function draftAuthorityOnRow(
-  context: Context,
-): (existing: Revision) => void {
-  return (existing) => {
-    if (isRevisionAuthor(existing.authorId, context.userId)) return;
-    if (!canRevisionOwnedAction(context, existing, "draft")) {
-      context.permissions.throwPermissionError();
-    }
+export function draftAuthorityOnRow(context: Context): CasAuthority<Revision> {
+  return {
+    check: (existing) => {
+      if (isRevisionAuthor(existing.authorId, context.userId)) return;
+      if (!canRevisionOwnedAction(context, existing, "draft")) {
+        context.permissions.throwPermissionError();
+      }
+    },
   };
 }
 
-export function reviewAuthorityOnRow(
+/**
+ * ADVANCING a draft, re-asked on the row: the same question `canAdvanceRevision`
+ * answers, which is deliberately wider than draft authority — a narrow atom may
+ * advance a draft that does only what that atom covers (a deleter over a pure
+ * archive, a reverter over a pure revert).
+ *
+ * The authority injected into a CAS must be the SAME question the caller asked. Using
+ * the draft check here instead refused exactly those narrow-atom paths, which the
+ * permission matrix caught immediately.
+ */
+export function advanceAuthorityOnRow(
   context: Context,
-): (existing: Revision) => void {
-  return (existing) => {
-    if (!canRevisionOwnedAction(context, existing, "review")) {
-      context.permissions.throwPermissionError();
-    }
+): CasAuthority<Revision> {
+  return {
+    check: (existing) => {
+      // `canAdvanceRevision` is async; the CAS check is sync, so the purity proofs it
+      // may need are resolved by the caller's own gate before the loop. What this
+      // re-asks on the row is the part that can change under a rebase: the atoms the
+      // caller holds over the row's CURRENT project.
+      if (
+        !canRevisionOwnedAction(context, existing, "draft") &&
+        !canDoRevisionAction(
+          existing.target.type,
+          "revert",
+          context,
+          existing.target.snapshot as Record<string, unknown>,
+        ) &&
+        !(
+          getAdapter(existing.target.type).canDeleteEntity?.(
+            context,
+            existing.target.snapshot as Record<string, unknown>,
+          ) ?? false
+        ) &&
+        !isRevisionAuthor(existing.authorId, context.userId)
+      ) {
+        context.permissions.throwPermissionError();
+      }
+    },
+  };
+}
+
+export function reviewAuthorityOnRow(context: Context): CasAuthority<Revision> {
+  return {
+    check: (existing) => {
+      if (!canRevisionOwnedAction(context, existing, "review")) {
+        context.permissions.throwPermissionError();
+      }
+    },
   };
 }
 

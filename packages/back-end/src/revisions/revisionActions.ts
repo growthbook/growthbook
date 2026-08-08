@@ -16,14 +16,8 @@ import {
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import uniqid from "uniqid";
 import type { Context } from "back-end/src/models/BaseModel";
-import { getAdapter } from "back-end/src/revisions";
-import type { ApplyChangesResult } from "back-end/src/revisions/EntityRevisionAdapter";
-import { resolvePublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import {
-  buildMergeDesiredState,
-  isRevisionDiverged,
-} from "back-end/src/revisions/util";
-import {
+  advanceAuthorityOnRow,
   canAdvanceRevision,
   canDiscardRevision,
   canRebaseRevision,
@@ -31,6 +25,13 @@ import {
   liveMatchesRevisionBase,
   reviewAuthorityOnRow,
 } from "back-end/src/revisions/revisionAuthority";
+import { getAdapter } from "back-end/src/revisions";
+import type { ApplyChangesResult } from "back-end/src/revisions/EntityRevisionAdapter";
+import { resolvePublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
+import {
+  buildMergeDesiredState,
+  isRevisionDiverged,
+} from "back-end/src/revisions/util";
 import {
   holdsMoveDestination,
   isMove,
@@ -1318,6 +1319,7 @@ export async function requestRevisionReview({
   const updated = await context.models.revisions.submitForReview(
     revision.id,
     context.userId,
+    advanceAuthorityOnRow(context),
     { autoPublishOnApproval: enableAutoPublish, armAcknowledgments },
   );
   await getRevisionWebhookAdapter(entityType)?.dispatch(context, updated, {
@@ -1581,6 +1583,7 @@ export async function rebaseRevision({
     entity,
     newOps,
     context.userId,
+    advanceAuthorityOnRow(context),
   );
   await getRevisionWebhookAdapter(entityType)?.dispatch(context, updated, {
     type: "rebased",

@@ -11,6 +11,7 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getAdapter } from "back-end/src/revisions/index";
+import { advanceAuthorityOnRow } from "back-end/src/revisions/revisionAuthority";
 import type { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";
 
 // Apply a set of JSON Patch ops to a snapshot, returning a new object.
@@ -305,6 +306,7 @@ export async function createOrUpdateRevision(
         targetRevision.id,
         finalChanges,
         context.userId,
+        advanceAuthorityOnRow(context),
       );
     }
   }
@@ -328,6 +330,7 @@ export async function createOrUpdateRevision(
         existingRevision.id,
         finalChanges,
         context.userId,
+        advanceAuthorityOnRow(context),
       );
     }
   }

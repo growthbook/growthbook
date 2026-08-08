@@ -117,7 +117,10 @@ describe("a verdict cannot cross a recall/resubmit cycle", () => {
         "u_reviewer",
         "approve",
         "",
-        undefined,
+        {
+          authorizedByFlow:
+            "test fixture: authority covered by the case under test",
+        },
         1,
       ),
     ).rejects.toThrow(/superseded/i);
@@ -137,7 +140,10 @@ describe("a verdict cannot cross a recall/resubmit cycle", () => {
       "u_reviewer",
       "approve",
       "",
-      undefined,
+      {
+        authorizedByFlow:
+          "test fixture: authority covered by the case under test",
+      },
       2,
     );
 
@@ -154,7 +160,10 @@ describe("a verdict cannot cross a recall/resubmit cycle", () => {
       "u_reviewer",
       "approve",
       "",
-      undefined,
+      {
+        authorizedByFlow:
+          "test fixture: authority covered by the case under test",
+      },
       0,
     );
 
@@ -171,7 +180,10 @@ describe("a verdict cannot cross a recall/resubmit cycle", () => {
       "u_reviewer",
       "comment",
       "still thinking",
-      undefined,
+      {
+        authorizedByFlow:
+          "test fixture: authority covered by the case under test",
+      },
       1,
     );
 
@@ -185,7 +197,10 @@ describe("a verdict cannot cross a recall/resubmit cycle", () => {
     // recall stopped stamping a new cycle, the first case above would pass
     // vacuously — its two cycle numbers would simply never diverge in real use.
     await seed(1);
-    await context().models.revisions.recallReview(REV_ID, "u_author");
+    await context().models.revisions.recallReview(REV_ID, "u_author", {
+      authorizedByFlow:
+        "test fixture: authority covered by the case under test",
+    });
 
     expect((await stored())?.reviewCycle).toBe(2);
   });

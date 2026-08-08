@@ -48,6 +48,7 @@ import {
   rebaseRevision,
 } from "back-end/src/revisions/revisionActions";
 import {
+  advanceAuthorityOnRow,
   draftAuthorityOnRow,
   canAdvanceRevision,
   canDiscardRevision,
@@ -581,13 +582,18 @@ export const postSubmit = async (
       ? await captureArmAcknowledgment(context, existingRevision, liveEntity)
       : undefined;
 
-  const revision = await revisionModel.submitForReview(id, userId, {
-    autoPublishOnApproval: enableAutoPublish,
-    armAcknowledgments,
-    scheduledPublishAt: parsedSchedule,
-    lockEdits: scheduledPublishLockEdits,
-    lockOthers: scheduledPublishLockOthers,
-  });
+  const revision = await revisionModel.submitForReview(
+    id,
+    userId,
+    advanceAuthorityOnRow(context),
+    {
+      autoPublishOnApproval: enableAutoPublish,
+      armAcknowledgments,
+      scheduledPublishAt: parsedSchedule,
+      lockEdits: scheduledPublishLockEdits,
+      lockOthers: scheduledPublishLockOthers,
+    },
+  );
 
   const webhooks = getRevisionWebhookAdapter(revision.target.type);
   await webhooks?.dispatch(context, revision, { type: "reviewRequested" });
@@ -847,6 +853,7 @@ export const putProposedChanges = async (
     id,
     proposedChanges,
     userId,
+    advanceAuthorityOnRow(context),
   );
 
   await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
@@ -1532,7 +1539,11 @@ export const postReopen = async (
     }
   }
 
-  const revision = await revisionModel.reopen(id, userId);
+  const revision = await revisionModel.reopen(
+    id,
+    userId,
+    draftAuthorityOnRow(context),
+  );
 
   await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
     context,
@@ -1730,11 +1741,17 @@ export const putComment = async (
     context.permissions.throwPermissionError();
   }
 
+  // The model re-checks comment ownership on the row itself; participation is not
+  // entity authority, so there is no project-scoped question to re-ask.
   const revision = await revisionModel.editComment(
     id,
     reviewId,
     userId,
     comment,
+    {
+      authorizedByFlow:
+        "assertCanWriteCommentOn re-checks the row inside the CAS",
+    },
   );
 
   res.status(200).json({ status: 200, revision });
@@ -1783,7 +1800,10 @@ export const deleteComment = async (
     context.permissions.throwPermissionError();
   }
 
-  const revision = await revisionModel.deleteComment(id, reviewId, userId);
+  const revision = await revisionModel.deleteComment(id, reviewId, userId, {
+    authorizedByFlow:
+      "assertCanWriteCommentOn re-checks the row inside the CAS",
+  });
 
   res.status(200).json({ status: 200, revision });
 };

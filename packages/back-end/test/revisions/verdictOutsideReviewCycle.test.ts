@@ -190,7 +190,10 @@ describe("a verdict is refused outside the review cycle", () => {
       req: { query: {}, headers: {} } as unknown as Request,
     });
     await expect(
-      context.models.revisions.addReview(REV_ID, "u_reviewer", "approve", ""),
+      context.models.revisions.addReview(REV_ID, "u_reviewer", "approve", "", {
+        authorizedByFlow:
+          "test fixture: authority covered by the case under test",
+      }),
     ).rejects.toThrow(/review has been requested/i);
 
     const row = await stored();
