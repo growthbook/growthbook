@@ -65,6 +65,11 @@ jest.mock("back-end/src/services/organizations", () => ({
 jest.mock("back-end/src/jobs/updateAllJobs", () => ({
   triggerWebhookJobs: jest.fn().mockResolvedValue(undefined),
 }));
+jest.mock("back-end/src/util/secrets", () => ({
+  ...jest.requireActual("back-end/src/util/secrets"),
+  CRON_ENABLED: false,
+  SDK_PAYLOAD_REFRESH_DEBOUNCE_MS: 0,
+}));
 
 const getSDKPayloadCacheLocationMock = jest.requireMock(
   "back-end/src/models/SdkConnectionCacheModel",

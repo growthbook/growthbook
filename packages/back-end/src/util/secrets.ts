@@ -297,6 +297,22 @@ export const REMOTE_EVAL_EDGE_API_TOKEN =
 
 export const CRON_ENABLED = !stringToBoolean(process.env.CRON_DISABLED);
 
+// Coalesce SDK payload cache refreshes per org. 0 (default) = disabled / immediate.
+// Positive values debounce rapid writes; SDK clients won't see changes until at least
+// this many ms after the triggering write.
+export const SDK_PAYLOAD_REFRESH_DEBOUNCE_MS = parseEnvInt(
+  process.env.SDK_PAYLOAD_REFRESH_DEBOUNCE_MS,
+  0,
+  { min: 0, name: "SDK_PAYLOAD_REFRESH_DEBOUNCE_MS" },
+);
+
+// Cap wait during continuous writes when debouncing (0 = trailing debounce only).
+export const SDK_PAYLOAD_REFRESH_MAX_WAIT_MS = parseEnvInt(
+  process.env.SDK_PAYLOAD_REFRESH_MAX_WAIT_MS,
+  5000,
+  { min: 0, name: "SDK_PAYLOAD_REFRESH_MAX_WAIT_MS" },
+);
+
 export const SENTRY_DSN = process.env.SENTRY_DSN || "";
 
 export const STORE_SEGMENTS_IN_MONGO = stringToBoolean(
