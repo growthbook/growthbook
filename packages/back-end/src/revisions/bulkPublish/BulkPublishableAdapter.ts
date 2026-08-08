@@ -22,7 +22,9 @@ export type BulkRevisionRef = {
   claimStamp?: Date | null;
   /**
    * Set by applyPrecomputed(): the entity doc as actually persisted (writes
-   * may normalize), the ownership baseline for restorePreImage.
+   * may normalize), the ownership baseline for restorePreImage. `null` means the
+   * post-apply read failed — there is then no trustworthy baseline, so
+   * restorePreImage reports the item published rather than best-guessing.
    */
   writtenEntity?: Record<string, unknown> | null;
   /**
@@ -47,11 +49,6 @@ export type BulkRevisionRef = {
    * ONLY these, so a field the write dropped never clobbers a concurrent value.
    */
   persistedKeys?: string[];
-  /**
-   * Set by applyPrecomputed() when the post-apply read that captures
-   * `writtenEntity` failed: compensation has no trustworthy ownership baseline,
-   * so restorePreImage reports the item published rather than best-guessing.
-   */
   /**
    * Set by applyPrecomputed() when its guarded entity write lost the CAS race:
    * NOTHING was written, so restorePreImage must be a no-op. Restoring would

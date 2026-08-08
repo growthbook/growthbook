@@ -263,11 +263,10 @@ export function rebasePullsInNothing(
   });
 }
 
-/**
- * Landing authority: publish authority over the environments the merge touches,
- * or a narrow atom over a draft that only does what that atom covers. Approval
- * is a separate gate, enforced by the caller.
- */
+// Landing authority: publish over the environments the merge touches, or a narrow
+// atom over a draft that only does what that atom covers. Approval is a separate
+// gate, enforced by the caller.
+//
 // Boolean form of `assertCanPublishFeatureRevision`, for callers that must decide
 // feasibility rather than refuse outright — bulk publish collects gates instead
 // of throwing. Delegates rather than reimplements so a bulk publish and a single

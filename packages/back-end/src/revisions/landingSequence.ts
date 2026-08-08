@@ -56,10 +56,6 @@ export async function runGuardedWrite<T>(
 }
 
 /**
- * The baseline a landing computed its change from, and the identity of the merged
- * revision recording it. Re-checked immediately before the entity write.
- */
-/**
  * The post-write half of the landing order, for every path that lands a revision.
  *
  * `assertLandingBaseline` before the write establishes the order; this re-asks it
@@ -120,6 +116,10 @@ export async function assertLandingStillOwned({
   }
 }
 
+/**
+ * The baseline a landing computed its change from, and the identity of the merged
+ * revision recording it. Re-checked immediately before the entity write.
+ */
 export async function assertLandingBaseline({
   context,
   entityType,

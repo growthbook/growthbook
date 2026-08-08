@@ -74,26 +74,15 @@ export type RevisionActionKind =
   | "delete";
 
 /**
- * Authority for one revision action on one entity. The per-action hooks are
- * optional; an adapter that doesn't split them falls back to `canUpdate`.
- */
-/**
- * Authority for a verb that belongs to the REVISION rather than to the live
- * entity: drafting, reviewing, commenting.
+ * Authority for a verb that belongs to the REVISION rather than the live entity:
+ * drafting, reviewing, commenting.
  *
- * Takes no scope argument, and that is the whole point. A review belongs to the
- * revision, whose project a later move on the live entity does not change — so
- * these verbs are judged on `target.snapshot`, always. Passing the live entity
- * instead is the single most repeated defect in this area: it has been fixed
- * separately in the REST submit-review, the approve preflight, `approveRevision`,
- * recall and undo, each time by a different round of review. Every one of those was
- * possible only because the basis was a parameter and both bases have the same
- * type.
+ * Takes no scope argument, deliberately. A review belongs to the revision, whose
+ * project a later move on the live entity does not change, so these are judged on
+ * `target.snapshot` — always. The two bases have the same type, so a parameter here
+ * is a standing invitation to pass the wrong one.
  *
- * Verbs that LAND on live (publish, revert, entity delete) still take an explicit
- * scope through `canDoRevisionAction`, because for them the live entity is the
- * right answer. Anything still calling that with a snapshot for a revision-owned
- * verb is now visibly doing something unusual.
+ * Verbs that LAND on live keep the explicit scope via `canDoRevisionAction`.
  */
 export function canRevisionOwnedAction(
   context: Context,
@@ -108,6 +97,10 @@ export function canRevisionOwnedAction(
   );
 }
 
+/**
+ * Authority for one revision action on one entity. Per-action adapter hooks are
+ * optional; an adapter that doesn't split them falls back to `canUpdate`.
+ */
 export function canDoRevisionAction(
   type: RevisionTargetType,
   action: RevisionActionKind,

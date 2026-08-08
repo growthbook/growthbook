@@ -47,12 +47,6 @@ export function bulkPublishFields(context: Context): {
 }
 
 /**
- * Emit an entity `*.updated`-style event now — or, during a bulk-publish
- * commit, defer it into `context.bulkPublishDeferredEvents` so it fires only
- * after the whole release commits (and never for a rolled-back one). The one
- * implementation of the defer decision, shared by every model's update hook.
- */
-/**
  * The buffer a write belongs to, read at the moment of the write.
  *
  * A producer that awaits before emitting has no identity of its own, so reading the
@@ -80,6 +74,12 @@ export function captureEventBuffer(
   return buffer && !buffer.closed ? buffer : null;
 }
 
+/**
+ * Emit an entity `*.updated`-style event now — or, during a bulk-publish
+ * commit, defer it into `context.bulkPublishDeferredEvents` so it fires only
+ * after the whole release commits (and never for a rolled-back one). The one
+ * implementation of the defer decision, shared by every model's update hook.
+ */
 export async function emitOrDeferBulkPublishEvent(
   emit: () => Promise<unknown>,
   // The entity this event DESCRIBES. Compensation emits an event only when its

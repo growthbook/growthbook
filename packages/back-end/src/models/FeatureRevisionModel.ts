@@ -1629,11 +1629,10 @@ export async function claimFeatureRevisionAsPublished(
   );
 }
 
-/**
- * Compensation for a failed bulk publish: put a claimed revision back to its
- * pre-claim state (status, publish stamps, schedule, arming). Guarded on the
- * claimed "published" status so it can't clobber an unrelated later change.
- */
+// Compensation for a failed bulk publish: put a claimed revision back to its
+// pre-claim state (status, publish stamps, schedule, arming). Guarded on the claimed
+// "published" status so it can't clobber an unrelated later change.
+//
 // Returns whether the revision was actually reopened. It is NOT when the
 // claimStamp fingerprint no longer matches (a concurrent legitimate publish
 // re-stamped it) — the revision stays published under that other publish, and

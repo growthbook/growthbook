@@ -165,10 +165,9 @@ export function ownershipChanged(
   );
 }
 
-/**
- * Convert a plain partial-update object into an array of JSON Patch `replace` operations.
- * Undefined/null values are skipped since they represent "no change".
- */
+// Convert a partial-update object into JSON Patch `replace` operations; nullish
+// values are skipped, since they mean "no change".
+//
 // Always emits `replace` (not `add`) regardless of whether the path exists on
 // the base: buildPatchOps has no base snapshot to distinguish present from
 // absent, and our applier (`applyTopLevelPatchOps`) treats `add`/`replace`

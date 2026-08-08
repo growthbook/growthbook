@@ -539,11 +539,6 @@ export class ContextualBanditModel extends BaseClass {
     });
   }
 
-  /**
-   * Converges one feature's slice of the linkage back to `state`, leaving every
-   * other feature's entries as they stand now. Used to rewind a linkage write
-   * whose publish then failed.
-   */
   /** Just this feature's part of a bandit's linkage — what a rollback owns. */
   private featureLinkageSlice(
     cb: {
@@ -561,6 +556,11 @@ export class ContextualBanditModel extends BaseClass {
     };
   }
 
+  /**
+   * Converges one feature's slice of the linkage back to `state`, leaving every
+   * other feature's entries as they stand now. Used to rewind a linkage write
+   * whose publish then failed.
+   */
   public async setLinkageState(
     cbId: string,
     featureId: string,
