@@ -31,6 +31,8 @@ import {
 } from "@/services/utils";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
+import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   ICON_PROPERTIES,
   LINKED_CHANGE_CONTAINER_PROPERTIES,
@@ -72,6 +74,11 @@ const PENDING_DRAFT_FAILURE_LABELS: Record<
   "needs-approval": "Awaiting approval",
   "publish-error": "Publish failed unexpectedly",
 };
+
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 2,
+});
 
 function SubmitButton({ cta, disabled }: { cta: string; disabled: boolean }) {
   const { loading } = useModalForm();
@@ -184,6 +191,11 @@ export default function StartExperimentModal({
   const hasAttributeTargeting = hasAttributeCondition(latestPhase?.condition);
   const hasSavedGroupTargeting = !!latestPhase?.savedGroups?.length;
   const hasPrerequisites = !!latestPhase?.prerequisites?.length && !isHoldout;
+  const { namespaces } = useOrgSettings();
+  const hasNamespace =
+    !!latestPhase?.namespace && latestPhase.namespace.enabled;
+  const { coverage: namespaceCoverage, name: namespaceName } =
+    getNamespaceDisplayData(latestPhase?.namespace, namespaces);
   const hasLinkedChanges =
     linkedFeatures.length > 0 ||
     visualChangesets.length > 0 ||
@@ -504,6 +516,14 @@ export default function StartExperimentModal({
                       </Text>
                     )}
                   </SummaryRow>
+                  {hasNamespace && (
+                    <SummaryRow label="Namespace">
+                      <Text>
+                        {namespaceName} (
+                        {percentFormatter.format(namespaceCoverage)})
+                      </Text>
+                    </SummaryRow>
+                  )}
                   {hasAttributeTargeting && (
                     <SummaryRow label="Attribute Targeting">
                       <ConditionDisplay condition={latestPhase.condition} />
