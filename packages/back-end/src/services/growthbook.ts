@@ -1,10 +1,19 @@
-import { GrowthBookClient, setPolyfills } from "@growthbook/growthbook";
+import { createHash } from "crypto";
+import {
+  EventProperties,
+  GrowthBookClient,
+  setPolyfills,
+} from "@growthbook/growthbook";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { EventSource } from "eventsource";
 import { NextFunction, Request, Response } from "express";
+import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { AppFeatures } from "shared/types/app-features";
+import { OrganizationInterface } from "shared/types/organization";
+import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { ReqContext } from "back-end/types/request";
 import {
   GB_SDK_ID,
   IS_CLOUD,
@@ -264,6 +273,69 @@ export function getBackendFeatureValue<K extends string & keyof AppFeatures>(
   return client.getFeatureValue(key, fallback, {
     attributes,
   }) as AppFeatures[K];
+}
+
+// Org id is a secure attribute: targeting works off the hash, never the raw id.
+export function hashOrganizationId(orgId: string): string {
+  if (!orgId) return "";
+  return createHash("sha256")
+    .update(GROWTHBOOK_SECURE_ATTRIBUTE_SALT + orgId)
+    .digest("hex");
+}
+
+// Server-derived attributes only — never request context, whose url would
+// enable query-string variation overrides. Names mirror the front-end.
+export function getTrustedOrgAttributes(
+  org: OrganizationInterface,
+): Record<string, unknown> {
+  return {
+    organizationId: hashOrganizationId(org.id),
+    cloudOrgId: IS_CLOUD ? org.id : "",
+    orgDateCreated: org.dateCreated
+      ? new Date(org.dateCreated).toISOString()
+      : "",
+    accountPlan: getEffectiveAccountPlan(org),
+    hasLicenseKey: !!org.licenseKey,
+  };
+}
+
+/**
+ * Log a telemetry event from a background job, where there is no `req.gb`.
+ * Sets org attributes so the accountPlan filter doesn't drop the event, and
+ * never throws — callers fire these inside business-logic try/catch blocks.
+ */
+export function trackEventForOrganization(
+  org: OrganizationInterface,
+  eventName: string,
+  properties: EventProperties = {},
+): void {
+  try {
+    const client = getGrowthBookClient();
+    if (!client) return;
+
+    client.logEvent(eventName, properties, {
+      attributes: getTrustedOrgAttributes(org),
+    });
+  } catch (e) {
+    logger.warn({ err: e, eventName }, "Failed to log GrowthBook event");
+  }
+}
+
+export function trackEventForContext(
+  context: ReqContext,
+  eventName: string,
+  properties: EventProperties = {},
+): void {
+  const gb = (context.req as AuthRequest | undefined)?.gb;
+  if (gb) {
+    try {
+      gb.logEvent(eventName, properties);
+    } catch (e) {
+      logger.warn({ err: e, eventName }, "Failed to log GrowthBook event");
+    }
+    return;
+  }
+  trackEventForOrganization(context.org, eventName, properties);
 }
 
 /**
