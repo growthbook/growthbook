@@ -88,7 +88,10 @@ import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
 import { useHoldouts } from "@/hooks/useHoldouts";
-import { PreLaunchChecklistForDraftFeature } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
+import {
+  ChecklistReadyStatus,
+  PreLaunchChecklistForDraftFeature,
+} from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import {
   ExpandableDiff,
@@ -450,6 +453,7 @@ export default function ReviewAndPublish({
   // persists directly to the API and mutates the revision.
   const comment = revision?.comment || "";
   const [adminPublish, setAdminPublish] = useState(false);
+  const [checklistAcknowledged, setChecklistAcknowledged] = useState(false);
   // ── Unified auto-publish arming ──
   // A revision is "armed" (autoPublishOnApproval) in one of two mutually
   // exclusive modes: publish "when approved" (no date) or "on a specific date"
@@ -920,28 +924,32 @@ export default function ReviewAndPublish({
 
   const openChecklistStep = useCallback(() => {
     checklistStateRef.current.clear();
+    setChecklistIncomplete(false);
     setChecklistBlocked(false);
+    setChecklistAcknowledged(false);
     setExperimentsStep(true);
   }, []);
 
-  const checklistStateRef = useRef<
-    Map<string, { failedRequired: boolean; loading: boolean }>
-  >(new Map());
+  const checklistStateRef = useRef<Map<string, ChecklistReadyStatus>>(
+    new Map(),
+  );
+  const [checklistIncomplete, setChecklistIncomplete] = useState(false);
   const [checklistBlocked, setChecklistBlocked] = useState(false);
-  // Checklist results are per-revision; clear them when the user switches
-  // revisions so stale failures can't block publishing a clean draft.
   useEffect(() => {
     checklistStateRef.current.clear();
+    setChecklistIncomplete(false);
     setChecklistBlocked(false);
+    setChecklistAcknowledged(false);
   }, [version]);
   const handleChecklistReady = useCallback(
-    (expId: string, failedRequired: boolean, loading: boolean) => {
-      checklistStateRef.current.set(expId, { failedRequired, loading });
-      setChecklistBlocked(
-        [...checklistStateRef.current.values()].some(
-          (v) => v.failedRequired || v.loading,
-        ),
+    (expId: string, status: ChecklistReadyStatus) => {
+      setChecklistAcknowledged(false);
+      checklistStateRef.current.set(expId, status);
+      const all = [...checklistStateRef.current.values()];
+      setChecklistIncomplete(
+        all.some((v) => v.hasHardBlockers || v.hasSoftBlockers || v.loading),
       );
+      setChecklistBlocked(all.some((v) => v.hasHardBlockers || v.loading));
     },
     [],
   );
@@ -1565,7 +1573,9 @@ export default function ReviewAndPublish({
     experimentsStep,
     featureLockedByRamp,
     featureLockedBySchedule,
+    checklistIncomplete,
     checklistBlocked,
+    checklistAcknowledged,
     governanceCanPublish: governance ? governance.canPublish : true,
   });
 
@@ -2165,9 +2175,7 @@ export default function ReviewAndPublish({
               experiment={experiment}
               feature={feature}
               mutateExperiment={mutate}
-              onReady={(failed, loading) =>
-                handleChecklistReady(experiment.id, failed, loading)
-              }
+              onReady={(status) => handleChecklistReady(experiment.id, status)}
             />
           </Box>
         );
@@ -2713,13 +2721,29 @@ export default function ReviewAndPublish({
                               setAdminPublish(!!val);
                               if (!val) {
                                 checklistStateRef.current.clear();
+                                setChecklistIncomplete(false);
                                 setChecklistBlocked(false);
+                                setChecklistAcknowledged(false);
                                 setExperimentsStep(false);
                               }
                             }}
                           />
                         </Box>
                       )}
+
+                    {state.showChecklistAcknowledgment && (
+                      <Box mb="3">
+                        <Checkbox
+                          label="Acknowledge incomplete recommended items and continue"
+                          weight="regular"
+                          disabled={!canDoPrimary || scheduleBlocksPublish}
+                          value={checklistAcknowledged}
+                          setValue={(value) =>
+                            setChecklistAcknowledged(!!value)
+                          }
+                        />
+                      </Box>
+                    )}
 
                     {/* A live schedule blocks "publish now"; the scheduled
                     status card above already explains this and offers
@@ -2798,7 +2822,9 @@ export default function ReviewAndPublish({
                           color="link"
                           onClick={() => {
                             checklistStateRef.current.clear();
+                            setChecklistIncomplete(false);
                             setChecklistBlocked(false);
+                            setChecklistAcknowledged(false);
                             setExperimentsStep(false);
                           }}
                         >

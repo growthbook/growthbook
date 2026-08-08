@@ -56,8 +56,9 @@ export interface RnPStateInput {
   // Publishing is frozen by a sibling draft's scheduled publish that locks other
   // drafts. Treated identically to the ramp lock.
   featureLockedBySchedule: boolean;
-  // A selected experiment's required checklist is incomplete/loading.
+  checklistIncomplete: boolean;
   checklistBlocked: boolean;
+  checklistAcknowledged: boolean;
   // Governance allows publishing (false when a stale draft must be rebased).
   governanceCanPublish: boolean;
 }
@@ -71,6 +72,7 @@ export interface RnPState {
   submitAction: RnPSubmitAction;
   // Whether the main modal wires up a submit handler at all.
   hasSubmit: boolean;
+  showChecklistAcknowledgment: boolean;
   // Secondary actions shown as links/ghost buttons alongside the primary CTA.
   // Requester/author/contributor returns the revision to draft (retracting the
   // review request).
@@ -110,13 +112,26 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     experimentsStep,
     featureLockedByRamp,
     featureLockedBySchedule,
+    checklistIncomplete,
     checklistBlocked,
+    checklistAcknowledged,
     governanceCanPublish,
   } = input;
 
   // Ramp and scheduled-publish locks freeze publishing identically (lock glyph,
   // admin-bypassable), so collapse them into one concept below.
   const publishLocked = featureLockedByRamp || featureLockedBySchedule;
+
+  const checklistGateOpen = !(
+    experimentsStep &&
+    checklistIncomplete &&
+    (checklistBlocked || (!adminPublish && !checklistAcknowledged))
+  );
+  const softChecklistOnly =
+    experimentsStep &&
+    checklistIncomplete &&
+    !checklistBlocked &&
+    !adminPublish;
 
   // recall-review ("Return to draft"): the requester or anyone with skin in
   // the draft (author/contributor) can pull it back, provided they have
@@ -156,23 +171,26 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
       mergeSuccess && hasChanges && hasSelectedExperiments && !experimentsStep;
     // Admins can bypass a forced rebase (governance), but never unresolved
     // merge conflicts — those are handled by the fix-conflicts mode above.
-    const ctaEnabled =
+    const baseEnabled =
       mergeSuccess &&
       hasChanges &&
       (!publishLocked || adminPublish) &&
       (governanceCanPublish || adminPublish);
+    const showChecklistAcknowledgment =
+      !hasNextStep && softChecklistOnly && baseEnabled;
     return {
       mode,
       ctaLabel: hasNextStep
         ? "Next"
         : publishLabel(publishLocked, onlyScheduledSelected),
-      ctaEnabled,
+      ctaEnabled: baseEnabled && checklistGateOpen,
       ctaLocked: !hasNextStep && publishLocked,
       submitAction: hasNextStep ? "next-experiments" : "publish",
       hasSubmit: true,
       canRecallReview,
       canUndoReview,
       waitingForReview: false,
+      showChecklistAcknowledgment,
     };
   }
 
@@ -209,13 +227,16 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
   // (hasNextStep requires approved, so !approved already excludes it.)
   const waitingForReview = status === "pending-review" && !approved;
 
-  const ctaEnabled =
-    !(experimentsStep && checklistBlocked && !adminPublish) &&
+  const baseEnabled =
     (!publishLocked || adminPublish) &&
     !(approved && !governanceCanPublish && !adminPublish) &&
     // Publishing is the only action a conflict blocks — request-review
     // remains enabled so the review cycle can start regardless.
     (mergeSuccess || submitAction === "request-review");
+
+  const ctaEnabled = checklistGateOpen && baseEnabled;
+  const showChecklistAcknowledgment =
+    submitAction === "publish" && softChecklistOnly && baseEnabled;
 
   return {
     mode,
@@ -227,5 +248,6 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     canRecallReview,
     canUndoReview,
     waitingForReview,
+    showChecklistAcknowledgment,
   };
 }
