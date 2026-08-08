@@ -20,7 +20,6 @@ import { ACTIVE_DRAFT_STATUSES, ActiveDraftStatus } from "shared/validators";
 import type { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
   assertCasAuthority,
-  buildCasGuard,
   type CasAuthority,
 } from "back-end/src/models/casLoop";
 import { isRevisionAuthor } from "back-end/src/revisions/revisionAuthority";
@@ -1158,26 +1157,15 @@ export class RevisionModel extends BaseClass {
                 dateCreated: new Date(),
               },
             ],
+            // Submitting UNARMED stands any prior schedule down, in this write.
+            // Otherwise a later "publish when approved" re-arm resurrects a dated
+            // schedule nobody re-confirmed.
+            ...(armed ? {} : CLEARED_SCHEDULE),
           } as UpdateProps<Revision>;
         },
       ),
     );
     if (!updated) throw new Error("Revision not found");
-
-    // Submitting with the flag off must scrub any prior dated schedule + locks
-    // (this.update can only flip the flag) — otherwise a later re-arm could
-    // resurrect a stale schedule. Mirrors setAutoPublishOnApproval's disarm.
-    // Read off the POST-CAS doc: the pre-image is what a concurrent arm made stale.
-    if (
-      !armed &&
-      (updated.autoPublishOnApproval ||
-        (updated.scheduledPublishAt ?? null) !== null)
-    ) {
-      const refreshed = await this.disarmScheduledPublish(id, {
-        observed: updated,
-      });
-      if (refreshed) return refreshed;
-    }
 
     return updated;
   }
@@ -1230,6 +1218,9 @@ export class RevisionModel extends BaseClass {
           hasArmAcknowledgments(existing.armAcknowledgments))
           ? { armAcknowledgments: armAcknowledgments ?? {} }
           : {}),
+        // Disabling clears the whole schedule, not just the flag: a dated schedule
+        // left behind is what a later re-arm would fire without fresh confirmation.
+        ...(enabled ? {} : CLEARED_SCHEDULE),
       } as UpdateProps<Revision>;
     });
     if (!updated) throw new Error("Revision not found");
@@ -1251,17 +1242,6 @@ export class RevisionModel extends BaseClass {
     // re-arm can't resurrect a stale dated schedule and fire it (or re-block
     // siblings via the lock-others index) without fresh confirmation. Mirrors
     // recallReview / addReview's changes-requested disarm.
-    if (
-      !enabled &&
-      (updated.autoPublishOnApproval ||
-        (updated.scheduledPublishAt ?? null) !== null)
-    ) {
-      const refreshed = await this.disarmScheduledPublish(id, {
-        observed: updated,
-      });
-      if (refreshed) return refreshed;
-    }
-
     return updated;
   }
 
@@ -1406,6 +1386,9 @@ export class RevisionModel extends BaseClass {
         return {
           reviews: [...existing.reviews, review],
           status: newStatus,
+          // A changes-requested verdict stands any pending schedule down, so a
+          // stale approval cannot fire it later. Re-arm after re-approval.
+          ...(newStatus === "changes-requested" ? CLEARED_SCHEDULE : {}),
           activityLog: [
             ...this.cleanActivityLog(existing.activityLog),
             activityEntry,
@@ -1416,81 +1399,7 @@ export class RevisionModel extends BaseClass {
     );
     if (!updated) throw new Error("Revision not found");
 
-    // A changes-requested verdict disarms any pending scheduled publish so a
-    // stale approval can't fire later (re-arm after re-approval).
-    if (
-      updated.status === "changes-requested" &&
-      updated.autoPublishOnApproval
-    ) {
-      // Clear the whole schedule (not just the armed flag) so a later
-      // "when approved" re-arm can't fire the stale dated schedule.
-      const refreshed = await this.disarmScheduledPublish(id, {
-        observed: updated,
-      });
-      if (refreshed) return refreshed;
-    }
-
     return updated;
-  }
-
-  // Disarm auto-publish AND clear the dated schedule + locks in one raw write
-  // (this.update can't $unset). Used by the disarm paths (changes-requested,
-  // recall) so a later "when approved" re-arm can't resurrect a stale dated
-  // schedule and fire it without a fresh approval.
-  // Returns the refreshed revision so callers don't hand back a doc that still
-  // carries the now-cleared scheduledPublishAt / lock fields.
-  private async disarmScheduledPublish(
-    id: string,
-    // Set by `merge`/`close`, which have JUST resolved this row under their own
-    // CAS and are scrubbing the spent schedule as part of that resolution. The
-    // open-status condition below would refuse exactly those writes — it exists
-    // for the lifecycle callers, where a concurrent publish/discard resolving the
-    // revision mid-flight means the scrub would rewrite settled history.
-    {
-      rowResolvedByCaller = false,
-      observed,
-    }: {
-      rowResolvedByCaller?: boolean;
-      // The schedule fields as the caller's own CAS just left them. Without this
-      // the scrub is a blind second write: an arm landing between the transition
-      // and the scrub is erased, and its owner is told a schedule is set that no
-      // longer exists. Guarded, a re-arm simply keeps the scrub from running —
-      // which is right, because a schedule armed AFTER the disarm isn't stale.
-      observed?: Revision;
-    } = {},
-  ): Promise<Revision | null> {
-    await this._dangerousGetCollection().updateOne(
-      {
-        organization: this.context.org.id,
-        id,
-        ...(rowResolvedByCaller
-          ? {}
-          : { status: { $nin: ["merged", "discarded"] } }),
-        ...(observed
-          ? buildCasGuard(
-              // `status` and `reviews` as well as the schedule fields. The scrub is
-              // authorized by a DECISION the caller's CAS just made ("this verdict is
-              // changes-requested, so disarm"), and that decision read the status and
-              // the verdicts — so both belong in the predicate. Guarding the schedule
-              // alone let a newer approval land in the window, leaving its status and
-              // verdicts untouched, and the older cleanup then cleared the schedule of
-              // an approved revision.
-              [
-                "autoPublishOnApproval",
-                "scheduledPublishAt",
-                "status",
-                "reviews",
-              ],
-              observed as unknown as Record<string, unknown>,
-            )
-          : {}),
-      },
-      {
-        $set: { autoPublishOnApproval: false },
-        $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
-      },
-    );
-    return this.getById(id);
   }
 
   // Recall / undo / comment-edit (review lifecycle)
@@ -2031,19 +1940,14 @@ export class RevisionModel extends BaseClass {
               dateCreated: new Date(),
             },
           ],
+          // The schedule is spent once this lands: cleared in the same write that
+          // resolves the revision, so nothing can re-arm off its remnants.
+          ...(hadSchedule ? CLEARED_SCHEDULE : {}),
         } as UpdateProps<Revision>;
       },
     );
     if (!merged) throw new Error("Revision not found");
 
-    // Fully scrub the schedule fields on publish (this.update can't $unset),
-    // matching the feature flow's markRevisionAsPublished.
-    if (hadSchedule) {
-      const refreshed = await this.disarmScheduledPublish(id, {
-        rowResolvedByCaller: true,
-      });
-      if (refreshed) return refreshed;
-    }
     return merged;
   }
 
@@ -2096,19 +2000,13 @@ export class RevisionModel extends BaseClass {
               dateCreated: new Date(),
             },
           ],
+          // Spent on discard, same as on merge.
+          ...(hadSchedule ? CLEARED_SCHEDULE : {}),
         } as UpdateProps<Revision>;
       },
     );
     if (!closed) throw new Error("Revision not found");
 
-    // Fully scrub the schedule fields on discard (this.update can't $unset),
-    // matching the feature flow.
-    if (hadSchedule) {
-      const refreshed = await this.disarmScheduledPublish(id, {
-        rowResolvedByCaller: true,
-      });
-      if (refreshed) return refreshed;
-    }
     return closed;
   }
 

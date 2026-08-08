@@ -5,19 +5,21 @@ import { ReqContextClass } from "back-end/src/services/context";
 import { setupApp } from "../api/api.setup";
 
 /**
- * A stale `changes-requested` cleanup must not clear a newer approval's schedule.
+ * A changes-requested verdict stands the schedule down IN THE WRITE THAT RECORDS IT.
  *
- * Verdict reconciliation and schedule removal are two writes. The cleanup is
- * authorized by the DECISION the first write made ("this verdict is
- * changes-requested, so disarm") — and that decision read the status and the
- * verdicts. Guarding only the schedule fields let a newer approval land in the
- * window: it moves `status` while leaving `scheduledPublishAt` and
- * `autoPublishOnApproval` untouched, so the older cleanup still matched and cleared
- * the schedule of a revision that is now approved and due to publish.
+ * This used to be two writes — reconcile the verdict, then scrub the schedule — and
+ * the second one could be stale: a newer approval landing in between moves `status`
+ * while leaving the schedule fields untouched, so the older cleanup still matched and
+ * cleared the schedule of a revision that was now approved and due to publish. The
+ * fix at the time was to guard the second write on the decision that authorized it.
  *
- * The row below is exactly that interleaving frozen in place: the schedule fields
- * are as the disarming writer left them, and the status is what the newer approval
- * set. Nothing else distinguishes the two situations.
+ * There is no second write now. `_updateOne` translates an explicitly-undefined field
+ * to `$unset`, so the transition clears the schedule itself and the interleaving has
+ * nowhere to happen. This pins the property that replaced the guard: after a
+ * changes-requested verdict the schedule is gone, and after an approval it is not.
+ *
+ * If this goes red, the disarm has either stopped happening or started happening to
+ * the wrong verdict — both of which the old two-write guard also existed to prevent.
  */
 
 const ORG_ID = "org_stale_disarm";
@@ -27,7 +29,14 @@ const org = {
   ownerEmail: "t@t.co",
   url: "",
   dateCreated: new Date(),
-  members: [],
+  members: [
+    {
+      id: "u_reviewer",
+      role: "admin",
+      limitAccessByEnvironment: false,
+      environments: [],
+    },
+  ],
   settings: {},
 } as unknown as OrganizationInterface;
 
@@ -42,7 +51,7 @@ const context = () =>
 const REV_ID = "rev_stale_disarm";
 const FIRE_AT = new Date("2030-01-01T00:00:00Z");
 
-const seed = async (status: string) => {
+const seed = async () => {
   for (const c of ["revisions", "constants"]) {
     await mongoose.connection
       .collection(c)
@@ -64,28 +73,19 @@ const seed = async (status: string) => {
     id: REV_ID,
     organization: ORG_ID,
     version: 2,
-    status,
+    status: "pending-review",
     authorId: "u_author",
     reviews: [],
     activityLog: [],
     contributors: [],
     autoPublishOnApproval: true,
+    autoPublishEnabledBy: "u_author",
     scheduledPublishAt: FIRE_AT,
+    scheduledPublishLockEdits: true,
     target: {
       type: "constant",
       id: "cst_sd",
-      snapshot: {
-        id: "cst_sd",
-        organization: ORG_ID,
-        key: "cst_sd",
-        name: "cst_sd",
-        type: "string",
-        value: "v",
-        owner: "",
-        project: "",
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
-      },
+      snapshot: { id: "cst_sd", key: "cst_sd", project: "" },
       proposedChanges: [],
     },
     dateCreated: new Date(),
@@ -98,46 +98,41 @@ const stored = async () =>
     .collection("revisions")
     .findOne({ organization: ORG_ID, id: REV_ID });
 
-/** The scrub as the changes-requested path invokes it: observed = the row it decided on. */
-const scrubAsDisarmer = async (observedStatus: string) => {
-  const model = context().models.revisions as unknown as {
-    disarmScheduledPublish: (
-      id: string,
-      opts: { observed: Record<string, unknown> },
-    ) => Promise<unknown>;
-  };
-  const row = (await stored()) as Record<string, unknown>;
-  await model.disarmScheduledPublish(REV_ID, {
-    // What the disarming writer's own CAS left: schedule still armed, and the
-    // status IT saw.
-    observed: { ...row, status: observedStatus },
+const review = (decision: "approve" | "request-changes") =>
+  context().models.revisions.addReview(REV_ID, "u_reviewer", decision, "", {
+    authorizedByFlow: "test fixture: authority is not what this pins",
   });
-};
 
-describe("the schedule scrub is guarded on the decision that authorized it", () => {
+describe("a changes-requested verdict stands the schedule down", () => {
   setupApp();
 
-  it("leaves the schedule alone when a newer approval has moved the status", async () => {
-    // Live is `approved` — reviewer B landed after reviewer A's changes-requested.
-    await seed("approved");
+  it("clears the schedule in the same write that records the verdict", async () => {
+    await seed();
+    await review("request-changes");
 
-    await scrubAsDisarmer("changes-requested");
+    const row = await stored();
+    expect(row?.status).toBe("changes-requested");
+    expect(row?.autoPublishOnApproval).toBe(false);
+    // Absent, not falsy — a date left on the document is what a later re-arm fires.
+    for (const field of [
+      "scheduledPublishAt",
+      "scheduledPublishLockEdits",
+      "autoPublishEnabledBy",
+    ]) {
+      expect(Object.prototype.hasOwnProperty.call(row, field)).toBe(false);
+    }
+  });
+
+  it("leaves an approved revision's schedule armed", async () => {
+    // The control, and the case the old two-write race got wrong: approval must not
+    // disarm. Clearing unconditionally would pass the case above and break every
+    // publish-when-approved.
+    await seed();
+    await review("approve");
 
     const row = await stored();
     expect(row?.status).toBe("approved");
     expect(row?.autoPublishOnApproval).toBe(true);
-    expect(row?.scheduledPublishAt).toEqual(FIRE_AT);
-  });
-
-  it("still clears the schedule when the row is the one it decided on", async () => {
-    // The control. A guard that refused every scrub would pass the case above and
-    // leave a stale schedule armed after every changes-requested verdict.
-    await seed("changes-requested");
-
-    await scrubAsDisarmer("changes-requested");
-
-    const row = await stored();
-    expect(row?.autoPublishOnApproval).toBe(false);
-    expect(row?.scheduledPublishAt ?? null).toBeNull();
+    expect((row?.scheduledPublishAt as Date).getTime()).toBe(FIRE_AT.getTime());
   });
 });
