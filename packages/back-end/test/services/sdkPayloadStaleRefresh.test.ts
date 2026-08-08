@@ -1,6 +1,6 @@
 /**
  * queueSDKPayloadRefresh / refreshStaleSdkConnectionsForOrg with
- * SDK_PAYLOAD_REFRESH_STALE_SWEEP_SECONDS enabled. Split from
+ * SDK_PAYLOAD_REFRESH_STALE_TRACKING_ENABLED enabled. Split from
  * sdk-payload-lifecycle.test.ts because jest.mock("back-end/src/util/secrets")
  * is hoisted per-file, so the "enabled" and "disabled" (default) behavior
  * can't share one file.
@@ -18,7 +18,7 @@ import * as ExperimentModel from "back-end/src/models/ExperimentModel";
 
 jest.mock("back-end/src/util/secrets", () => ({
   ...jest.requireActual("back-end/src/util/secrets"),
-  SDK_PAYLOAD_REFRESH_STALE_SWEEP_SECONDS: 30,
+  SDK_PAYLOAD_REFRESH_STALE_TRACKING_ENABLED: true,
 }));
 
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
@@ -26,9 +26,11 @@ jest.mock("back-end/src/models/SdkConnectionModel", () => ({
   findSDKConnectionsByOrganization: jest.fn(),
   markSDKConnectionUsed: jest.fn().mockResolvedValue(undefined),
   markSdkConnectionsStale: jest.fn(),
-  hasAnyStaleSdkConnection: jest.fn(),
   findStaleSdkConnectionsByOrganization: jest.fn(),
   clearStaleSdkConnections: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock("back-end/src/jobs/refreshStaleSdkConnections", () => ({
+  scheduleOrgRefreshJob: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock("back-end/src/models/OrganizationModel", () => ({}));
 jest.mock("back-end/src/models/ApiKeyModel", () => ({}));
@@ -73,12 +75,13 @@ const findSDKConnectionsByOrganization =
   sdkConnectionModelMock.findSDKConnectionsByOrganization as jest.Mock;
 const markSdkConnectionsStale =
   sdkConnectionModelMock.markSdkConnectionsStale as jest.Mock;
-const hasAnyStaleSdkConnection =
-  sdkConnectionModelMock.hasAnyStaleSdkConnection as jest.Mock;
 const findStaleSdkConnectionsByOrganization =
   sdkConnectionModelMock.findStaleSdkConnectionsByOrganization as jest.Mock;
 const clearStaleSdkConnections =
   sdkConnectionModelMock.clearStaleSdkConnections as jest.Mock;
+const scheduleOrgRefreshJob = jest.requireMock(
+  "back-end/src/jobs/refreshStaleSdkConnections",
+).scheduleOrgRefreshJob as jest.Mock;
 
 function minimalContext(overrides?: Partial<ApiReqContext>): ApiReqContext {
   return {
@@ -149,15 +152,13 @@ describe("queueSDKPayloadRefresh (stale tracking enabled)", () => {
     ).__mockContextModels = undefined;
   });
 
-  it("marks the affected connection stale and refreshes immediately when the org was quiet", async () => {
+  it("marks the affected connection stale and enqueues the org's refresh job", async () => {
     const upsert = jest.fn().mockResolvedValue(undefined);
     const mockModels = mockRefreshDependencies(upsert);
     const connA = conn("sdk-A");
 
     findSDKConnectionsByOrganization.mockResolvedValue([connA]);
-    hasAnyStaleSdkConnection.mockResolvedValue(false);
     markSdkConnectionsStale.mockResolvedValue(["sdk-A"]);
-    findStaleSdkConnectionsByOrganization.mockResolvedValue([connA]);
 
     queueSDKPayloadRefresh({
       context: minimalContext({
@@ -169,23 +170,17 @@ describe("queueSDKPayloadRefresh (stale tracking enabled)", () => {
     await new Promise((r) => setTimeout(r, 50));
 
     expect(markSdkConnectionsStale).toHaveBeenCalledWith("org-1", ["sdk-A"]);
-    expect(findStaleSdkConnectionsByOrganization).toHaveBeenCalledWith("org-1");
-    expect(upsert).toHaveBeenCalledTimes(1);
-    expect(upsert).toHaveBeenCalledWith("sdk-A", expect.any(String), undefined);
-    expect(clearStaleSdkConnections).toHaveBeenCalledWith(
-      "org-1",
-      ["sdk-A"],
-      expect.any(Date),
-    );
+    expect(scheduleOrgRefreshJob).toHaveBeenCalledWith("org-1");
+    // The actual rebuild happens inside the job, not inline here.
+    expect(upsert).not.toHaveBeenCalled();
   });
 
-  it("does not refresh immediately when the org already has pending staleness", async () => {
+  it("still enqueues even when the org already has other pending staleness — Agenda's uniqueness collapses concurrent enqueues onto one job", async () => {
     const upsert = jest.fn().mockResolvedValue(undefined);
     const mockModels = mockRefreshDependencies(upsert);
     const connB = conn("sdk-B");
 
     findSDKConnectionsByOrganization.mockResolvedValue([connB]);
-    hasAnyStaleSdkConnection.mockResolvedValue(true);
     markSdkConnectionsStale.mockResolvedValue(["sdk-B"]);
 
     queueSDKPayloadRefresh({
@@ -197,9 +192,7 @@ describe("queueSDKPayloadRefresh (stale tracking enabled)", () => {
 
     await new Promise((r) => setTimeout(r, 50));
 
-    expect(markSdkConnectionsStale).toHaveBeenCalledWith("org-1", ["sdk-B"]);
-    expect(findStaleSdkConnectionsByOrganization).not.toHaveBeenCalled();
-    expect(upsert).not.toHaveBeenCalled();
+    expect(scheduleOrgRefreshJob).toHaveBeenCalledWith("org-1");
   });
 
   it("does nothing when no connection is affected by the write", async () => {
@@ -210,7 +203,6 @@ describe("queueSDKPayloadRefresh (stale tracking enabled)", () => {
     findSDKConnectionsByOrganization.mockResolvedValue([
       { ...conn("sdk-C"), environment: "staging" },
     ]);
-    hasAnyStaleSdkConnection.mockResolvedValue(false);
 
     queueSDKPayloadRefresh({
       context: minimalContext({
@@ -222,6 +214,7 @@ describe("queueSDKPayloadRefresh (stale tracking enabled)", () => {
     await new Promise((r) => setTimeout(r, 50));
 
     expect(markSdkConnectionsStale).not.toHaveBeenCalled();
+    expect(scheduleOrgRefreshJob).not.toHaveBeenCalled();
     expect(upsert).not.toHaveBeenCalled();
   });
 
@@ -230,7 +223,6 @@ describe("queueSDKPayloadRefresh (stale tracking enabled)", () => {
     const mockModels = mockRefreshDependencies(upsert);
     const connD = conn("sdk-D");
 
-    hasAnyStaleSdkConnection.mockResolvedValue(false);
     // First call (inside stale-tracking) fails; the fallback's own bulk-path
     // call to the same function should succeed normally.
     findSDKConnectionsByOrganization
@@ -247,6 +239,7 @@ describe("queueSDKPayloadRefresh (stale tracking enabled)", () => {
     await new Promise((r) => setTimeout(r, 50));
 
     expect(markSdkConnectionsStale).not.toHaveBeenCalled();
+    expect(scheduleOrgRefreshJob).not.toHaveBeenCalled();
     expect(upsert).toHaveBeenCalledTimes(1);
     expect(upsert).toHaveBeenCalledWith("sdk-D", expect.any(String), undefined);
   });
@@ -268,7 +261,7 @@ describe("queueSDKPayloadRefresh (stale tracking enabled)", () => {
     await new Promise((r) => setTimeout(r, 50));
 
     expect(markSdkConnectionsStale).not.toHaveBeenCalled();
-    expect(hasAnyStaleSdkConnection).not.toHaveBeenCalled();
+    expect(scheduleOrgRefreshJob).not.toHaveBeenCalled();
     expect(upsert).toHaveBeenCalledTimes(1);
   });
 });

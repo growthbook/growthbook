@@ -95,10 +95,6 @@ const sdkConnectionSchema = new mongoose.Schema({
     consecutiveFailures: Number,
   },
 });
-// Sparse: only connections with pending, unrebuilt writes carry staleSince,
-// so the cross-org sweep (findOrgsWithStaleSdkConnections) scans a tiny set
-// instead of the whole collection.
-sdkConnectionSchema.index({ staleSince: 1 }, { sparse: true });
 
 type SDKConnectionDocument = mongoose.Document & SDKConnectionInterface;
 
@@ -526,14 +522,6 @@ export async function findStaleSdkConnectionsByOrganization(
     staleSince: { $ne: null },
   });
   return docs.map(toInterface);
-}
-
-// Cross-org: used by the periodic sweep to find which orgs have any pending
-// work at all, without loading every org's full connection list.
-export async function findOrgsWithStaleSdkConnections(): Promise<string[]> {
-  return SDKConnectionModel.distinct("organization", {
-    staleSince: { $ne: null },
-  });
 }
 
 // Clears staleness only for marks that predate `clearBefore` (the moment the

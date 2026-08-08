@@ -58,7 +58,7 @@ export async function queueInit() {
   addRampScheduleJob(agenda);
   addScheduledPublishJob(agenda);
   await addSyncManagedWarehouseJsonErgonomicsJob(agenda);
-  await addRefreshStaleSdkConnectionsJob(agenda);
+  addRefreshStaleSdkConnectionsJob(agenda);
   initRampScheduleHooks();
   // Make sure we have index needed to delete efficiently
   agenda._collection

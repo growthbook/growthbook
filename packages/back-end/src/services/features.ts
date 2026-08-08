@@ -153,11 +153,11 @@ import {
   clearStaleSdkConnections,
   findSDKConnectionsByOrganization,
   findStaleSdkConnectionsByOrganization,
-  hasAnyStaleSdkConnection,
   markSdkConnectionsStale,
 } from "back-end/src/models/SdkConnectionModel";
+import { scheduleOrgRefreshJob } from "back-end/src/jobs/refreshStaleSdkConnections";
 import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
-import { SDK_PAYLOAD_REFRESH_STALE_SWEEP_SECONDS } from "back-end/src/util/secrets";
+import { SDK_PAYLOAD_REFRESH_STALE_TRACKING_ENABLED } from "back-end/src/util/secrets";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
@@ -754,7 +754,7 @@ function recordSdkPayloadRefreshMetrics(durationMs: number) {
 }
 
 export function isSdkPayloadStaleTrackingEnabled(): boolean {
-  return SDK_PAYLOAD_REFRESH_STALE_SWEEP_SECONDS > 0;
+  return SDK_PAYLOAD_REFRESH_STALE_TRACKING_ENABLED;
 }
 
 // Marks exactly the SDK connections a write affects as stale (out of date),
@@ -830,14 +830,16 @@ export async function refreshStaleSdkConnectionsForOrg(
 
 // This is a synchronous wrapper around refreshSDKPayloadCache.
 // We shouldn't need to await the refresh in most cases. UI-triggered
-// refreshes always run immediately. REST-API-triggered refreshes are tracked
-// via a staleSince flag on the affected SDK connections (see
-// SdkConnectionModel.ts) when SDK_PAYLOAD_REFRESH_STALE_SWEEP_SECONDS is set:
-// if the org was otherwise quiet, the refresh still runs right away; if a
-// refresh is already pending for the org, this write just adds to it and the
-// periodic sweep job (or the in-flight refresh, if it hasn't read yet) picks
-// it up — so a lone write is never delayed, only genuinely concurrent ones
-// get batched together.
+// refreshes always run immediately, inline. REST-API-triggered refreshes are
+// tracked via a staleSince flag on the affected SDK connections (see
+// SdkConnectionModel.ts) when SDK_PAYLOAD_REFRESH_STALE_TRACKING_ENABLED is
+// set: instead of rebuilding inline here, this marks the connections stale
+// and enqueues a unique per-org Agenda job to do the rebuild on the job
+// server. Concurrent writes for the same org collapse onto that same job via
+// its uniqueness, and the job re-checks for more staleness when it finishes
+// and re-enqueues itself if needed (see refreshStaleSdkConnections.ts) — so
+// at most one refresh per org runs at a time, and it runs as soon as the job
+// server has availability rather than being delayed by a fixed window.
 export function queueSDKPayloadRefresh(data: {
   context: ReqContext | ApiReqContext;
   payloadKeys: SDKPayloadKey[];
@@ -874,7 +876,6 @@ export function queueSDKPayloadRefresh(data: {
   }
 
   (async () => {
-    const wasQuiet = !(await hasAnyStaleSdkConnection(data.context.org.id));
     const newlyStaleKeys = await markAffectedSdkConnectionsStale(
       data.context,
       data,
@@ -890,9 +891,7 @@ export function queueSDKPayloadRefresh(data: {
       "[sdk-payload] marked SDK connections stale",
     );
 
-    if (wasQuiet) {
-      await refreshStaleSdkConnectionsForOrg(data.context);
-    }
+    await scheduleOrgRefreshJob(data.context.org.id);
   })().catch((e) => {
     logger.error(e, "Error tracking stale SDK connections");
     runRefresh();

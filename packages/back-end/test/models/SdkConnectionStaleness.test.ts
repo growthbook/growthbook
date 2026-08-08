@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import {
   clearStaleSdkConnections,
-  findOrgsWithStaleSdkConnections,
   findStaleSdkConnectionsByOrganization,
   hasAnyStaleSdkConnection,
   markSdkConnectionsStale,
@@ -156,33 +155,6 @@ describe("SdkConnectionModel staleness tracking", () => {
 
       const stale = await findStaleSdkConnectionsByOrganization("org_1");
       expect(stale.map((c) => c.key)).toEqual(["k1"]);
-    });
-  });
-
-  describe("findOrgsWithStaleSdkConnections", () => {
-    it("returns distinct org ids that have any stale connection", async () => {
-      await insertConnection({
-        id: "c1",
-        key: "k1",
-        organization: "org_1",
-        staleSince: new Date(),
-      });
-      await insertConnection({
-        id: "c2",
-        key: "k2",
-        organization: "org_1",
-        staleSince: new Date(),
-      });
-      await insertConnection({
-        id: "c3",
-        key: "k3",
-        organization: "org_2",
-        staleSince: new Date(),
-      });
-      await insertConnection({ id: "c4", key: "k4", organization: "org_3" });
-
-      const orgs = await findOrgsWithStaleSdkConnections();
-      expect(orgs.sort()).toEqual(["org_1", "org_2"]);
     });
   });
 
