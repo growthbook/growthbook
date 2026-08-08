@@ -859,22 +859,40 @@ export function queueSDKPayloadRefresh(data: {
   }
 
   (async () => {
-    const newlyStaleKeys = await markAffectedSdkConnectionsStale(
+    const affectedKeys = await markAffectedSdkConnectionsStale(
       data.context,
       data,
     );
-    if (!newlyStaleKeys.length) return;
+    if (!affectedKeys.length) return;
 
     logger.info(
       {
         orgId: data.context.org.id,
-        connectionKeys: newlyStaleKeys,
+        connectionKeys: affectedKeys,
         auditContext: data.auditContext,
       },
       "[sdk-payload] marked SDK connections stale",
     );
 
-    await scheduleOrgRefreshJob(data.context.org.id);
+    try {
+      await scheduleOrgRefreshJob(data.context.org.id);
+    } catch (e) {
+      // The staleness mark already landed. If we can't hand off to the job
+      // server, refresh directly now and clear the mark ourselves — leaving
+      // it set would strand it: a later write only re-marks and reschedules,
+      // it never rebuilds inline, so nothing would otherwise ever clear it.
+      logger.error(
+        e,
+        `Error enqueueing stale SDK connection refresh job for org ${data.context.org.id}`,
+      );
+      const refreshedAt = new Date();
+      await refreshSDKPayloadCache({ ...data, stackTrace });
+      await clearStaleSdkConnections(
+        data.context.org.id,
+        affectedKeys,
+        refreshedAt,
+      );
+    }
   })().catch((e) => {
     logger.error(e, "Error tracking stale SDK connections");
     runRefresh();

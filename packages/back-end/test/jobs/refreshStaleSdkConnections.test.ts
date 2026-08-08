@@ -38,8 +38,7 @@ jest.mock("back-end/src/services/queueing", () => ({
 
 // Assigned in beforeAll once the real Agenda instance exists — the module
 // mock above needs a reference it can close over.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let testAgenda: any;
+let testAgenda: Agenda;
 
 const hasAnyStaleSdkConnectionMock = hasAnyStaleSdkConnection as jest.Mock;
 

@@ -482,22 +482,23 @@ export async function markSDKConnectionUsed(key: string) {
   );
 }
 
-// Sets staleSince only when unset, so it keeps the first unrebuilt write.
-// Returns `keys` if any were newly marked, otherwise [].
+// Always bumps staleSince to now, even if the connection is already stale —
+// a write landing while a rebuild is in flight must advance the timestamp,
+// or clearStaleSdkConnections' guard (staleSince <= clearBefore) can't tell
+// this write apart from the earlier one it's about to clear, and the write's
+// effect would be silently dropped. Returns `keys` whenever any were given;
+// callers that want an "org was quiet" signal should check that separately
+// (e.g. hasAnyStaleSdkConnection before calling this).
 export async function markSdkConnectionsStale(
   organization: string,
   keys: string[],
 ): Promise<string[]> {
   if (!keys.length) return [];
-  const result = await SDKConnectionModel.updateMany(
-    {
-      organization,
-      key: { $in: keys },
-      staleSince: null,
-    },
+  await SDKConnectionModel.updateMany(
+    { organization, key: { $in: keys } },
     { $set: { staleSince: new Date() } },
   );
-  return result.modifiedCount > 0 ? keys : [];
+  return keys;
 }
 
 export async function hasAnyStaleSdkConnection(
