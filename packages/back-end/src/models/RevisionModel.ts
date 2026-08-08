@@ -479,11 +479,25 @@ export class RevisionModel extends BaseClass {
     // to "Revision N" (matching the feature flow).
 
     if (!doc.activityLog || doc.activityLog.length === 0) {
+      // A revert says so on its creation entry rather than adding a second one:
+      // both carried `action: "created"`, so the timeline drew the same row twice.
+      let description: string | undefined;
+      if (doc.revertedFrom) {
+        const revertedFrom = await this._dangerousGetCollection().findOne(
+          { organization: this.context.org.id, id: doc.revertedFrom },
+          { projection: { version: 1 } },
+        );
+        description = revertedFrom
+          ? `This revision reverts changes from Revision ${revertedFrom.version}`
+          : "This revision reverts changes from a prior revision";
+      }
+
       const activityLog: ActivityLogEntry[] = [
         {
           id: uniqid("act_"),
           userId: doc.authorId,
           action: "created",
+          description,
           dateCreated: doc.dateCreated,
           // Capture the proposed changes that existed at the moment this
           // revision was created so the UI can show a per-entry diff for
@@ -497,25 +511,6 @@ export class RevisionModel extends BaseClass {
           targetSnapshot: doc.target.snapshot,
         },
       ];
-
-      // If this is a revert, add a note in the activity log with revision number
-      if (doc.revertedFrom) {
-        const revertedFrom = await this._dangerousGetCollection().findOne(
-          { organization: this.context.org.id, id: doc.revertedFrom },
-          { projection: { version: 1 } },
-        );
-        const description = revertedFrom
-          ? `This revision reverts changes from Revision ${revertedFrom.version}`
-          : "This revision reverts changes from a prior revision";
-
-        activityLog.push({
-          id: uniqid("act_"),
-          userId: doc.authorId,
-          action: "created",
-          description,
-          dateCreated: doc.dateCreated,
-        });
-      }
 
       doc.activityLog = activityLog;
     }
