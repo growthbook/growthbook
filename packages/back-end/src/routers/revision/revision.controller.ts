@@ -58,6 +58,7 @@ import {
   mayBeRevisionAuthor,
   reviewAuthorityOnRow,
 } from "back-end/src/revisions/revisionAuthority";
+import { scheduleRevisionPublish } from "back-end/src/revisions/revisionLifecycle";
 
 // Arming publishes into the entity as it stands when the fire happens, so
 // authorization uses the LIVE entity rather than the revision's snapshot: after
@@ -1842,18 +1843,15 @@ export const postSchedulePublish = async (
   res: Response<PostSchedulePublishResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
-  const { userId } = context;
   const { id } = req.params;
-  const { scheduledPublishAt, lockEdits, lockOthers, bypassApproval } =
-    req.body;
 
-  const revisionModel = context.models.revisions;
-
-  const existingRevision = await revisionModel.getByIdReadable(id);
+  const existingRevision = await context.models.revisions.getByIdReadable(id);
   if (!existingRevision) {
     return res.status(404).json({ message: "Revision not found" });
   }
 
+  // Kept here rather than delegated: the shared verb only refuses an ARM on a
+  // resolved revision, while this endpoint has always refused a cancel too.
   if (
     !(ACTIVE_DRAFT_STATUSES as readonly string[]).includes(
       existingRevision.status,
@@ -1867,115 +1865,38 @@ export const postSchedulePublish = async (
   const adapter = getAdapter(existingRevision.target.type);
   // Authorize against the LIVE entity, not the revision's snapshot. A schedule
   // publishes into the entity as it stands when the poller fires, so after a
-  // project move the snapshot names a project the change will never land in —
-  // an old-project user could otherwise arm, retime, or cancel a schedule whose
-  // publish then fails and retries against the current project. Cancellation is
-  // included: it is a write to the same pending publish.
+  // project move the snapshot names a project the change will never land in.
+  // Cancellation is included: it is a write to the same pending publish.
   const liveEntity =
     (await adapter.getModel(context)?.getById(existingRevision.target.id)) ??
     null;
   if (!liveEntity) {
     return res.status(404).json({ message: "Entity not found" });
   }
-  const snapshot = liveEntity as Record<string, unknown>;
-  const isCancel = scheduledPublishAt === null;
 
-  // Parse + validate the target date (arming only).
-  let parsedDate: Date | null = null;
-  if (!isCancel) {
-    parsedDate = new Date(scheduledPublishAt);
-    if (isNaN(parsedDate.getTime())) {
-      return res
-        .status(400)
-        .json({ message: "Invalid scheduledPublishAt date" });
-    }
-    if (parsedDate.getTime() <= Date.now()) {
-      return res
-        .status(400)
-        .json({ message: "scheduledPublishAt must be in the future" });
-    }
-  }
-
-  // Canceling needs publish authority; arming additionally needs the
-  // scheduled-publish capability. Both come from generic defaults so every
-  // revisioned entity — current and future — works without per-adapter wiring:
-  // publish authority defaults to canUpdate, and the schedule capability
-  // defaults to the scheduled-revisions premium feature plus that publish
-  // authority (you can only schedule a publish you'd be allowed to perform). An
-  // adapter may override either to narrow it (e.g. an environment-scoped gate).
-  const canPublish = adapter.canPublishRevision
-    ? adapter.canPublishRevision(context, snapshot)
-    : adapter.canUpdate(context, snapshot);
-  const canSchedule = adapter.canSchedulePublish
-    ? adapter.canSchedulePublish(context, snapshot)
-    : context.hasPremiumFeature("scheduled-revisions") && canPublish;
-  if (isCancel ? !canPublish : !canSchedule) {
-    context.permissions.throwPermissionError();
-  }
-  // Arming takes the same authority the fire-time publish will. The adapter
-  // check above is coarse — it cannot see the change set — so without this a
-  // caller limited to dev could arm a production-touching schedule and only
-  // learn it was refused when the poller fired. Canceling stays coarse: it
-  // withdraws a pending publish rather than landing one.
-  if (!isCancel) {
-    await assertCanPublishRevision(context, existingRevision, snapshot);
-  }
-
-  // Bypass-approval intent is only honored for callers who can bypass.
-  const wantsBypass =
-    !!bypassApproval && adapter.canBypassApproval(context, snapshot);
-
-  // The schedule fires with this user's authority; require a resolvable actor.
-  const enabledBy =
-    userId ||
-    existingRevision.autoPublishEnabledBy ||
-    existingRevision.authorId ||
-    null;
-  if (!isCancel && !enabledBy) {
-    return res.status(400).json({
-      message: "A scheduled publish needs a user to run as",
-    });
-  }
-
-  // No-approval-path guard: arming a draft that still requires approval (without
-  // bypass) isn't allowed — request review first.
-  if (!isCancel && existingRevision.status === "draft" && !wantsBypass) {
-    const approvalRequired = adapter.isApprovalRequiredForRevision
-      ? adapter.isApprovalRequiredForRevision(context, existingRevision)
-      : adapter.isApprovalRequired(context);
-    if (approvalRequired) {
-      return res.status(400).json({
-        message: "Request review before scheduling this draft's publish.",
-      });
-    }
-  }
-
-  // Arming against an entity that can't accept a future publish (e.g. a locked
-  // config) would just fail at every poller tick — reject up front. Canceling
-  // is never gated. Reuses the live entity loaded for the permission checks.
-  const scheduleEntity = isCancel ? null : liveEntity;
-  if (adapter.assertSchedulable && scheduleEntity) {
-    await adapter.assertSchedulable(context, scheduleEntity);
-  }
-
-  // Reuses the already-fetched entity.
-  const armAcknowledgments = isCancel
-    ? undefined
-    : await captureArmAcknowledgment(context, existingRevision, scheduleEntity);
-
-  const revision = await revisionModel.setScheduledPublish(id, enabledBy, {
-    scheduledPublishAt: parsedDate,
-    lockEdits,
-    lockOthers,
-    bypassApproval: wantsBypass,
-    armAcknowledgments,
-  });
-
-  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+  // Everything past this point — date validation, the publish/schedule authority
+  // pair, the fire-time footprint check, bypass intent, the actor the schedule runs
+  // as, approval preconditions, acknowledgment capture and the lifecycle event — is
+  // `scheduleRevisionPublish`, which the Config, Constant and Saved Group REST
+  // handlers already delegate to. This endpoint reimplemented all of it.
+  const revision = await scheduleRevisionPublish({
     context,
-    revision,
-    { type: "publishScheduleChanged" },
-  );
+    type: existingRevision.target.type,
+    entity: liveEntity as Record<string, unknown>,
+    revision: existingRevision,
+    body: req.body,
+    // The one entity-specific arming precondition, applied generically here: a
+    // locked Config refuses NEW schedules while still allowing a pending one to be
+    // cancelled.
+    assertArmable: adapter.assertSchedulable
+      ? () => {
+          void adapter.assertSchedulable?.(
+            context,
+            liveEntity as Record<string, unknown>,
+          );
+        }
+      : undefined,
+  });
 
   res.status(200).json({ status: 200, revision });
 };
