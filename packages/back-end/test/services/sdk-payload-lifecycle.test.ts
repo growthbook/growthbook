@@ -28,6 +28,10 @@ jest.mock("back-end/src/models/SdkConnectionModel", () => ({
   findSDKConnectionByKey: jest.fn(),
   findSDKConnectionsByOrganization: jest.fn(),
   markSDKConnectionUsed: jest.fn().mockResolvedValue(undefined),
+  markSdkConnectionsStale: jest.fn(),
+  hasAnyStaleSdkConnection: jest.fn(),
+  findStaleSdkConnectionsByOrganization: jest.fn(),
+  clearStaleSdkConnections: jest.fn(),
 }));
 jest.mock("back-end/src/models/OrganizationModel", () => ({}));
 jest.mock("back-end/src/models/ApiKeyModel", () => ({}));
@@ -500,6 +504,67 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         expect.any(String),
         undefined,
       );
+    });
+
+    it("runs immediately for an API-triggered request when SDK_PAYLOAD_REFRESH_STALE_TRACKING_ENABLED is unset (default)", async () => {
+      // Default (unmocked) config keeps stale tracking off.
+      getSDKPayloadCacheLocationMock.mockReturnValue("mongo");
+      const upsert = jest.fn().mockResolvedValue(undefined);
+      const conn = {
+        key: "sdk-q3",
+        organization: "org-1",
+        environment: "production",
+        projects: [],
+      } as SDKConnectionInterface;
+      findSDKConnectionsByOrganization.mockResolvedValue([conn]);
+      (FeatureModel.getAllFeatures as jest.Mock).mockResolvedValue([]);
+      (ExperimentModel.getAllPayloadExperiments as jest.Mock).mockResolvedValue(
+        new Map(),
+      );
+      (ExperimentModel.getAllVisualExperiments as jest.Mock).mockResolvedValue(
+        [],
+      );
+      (
+        ExperimentModel.getAllURLRedirectExperiments as jest.Mock
+      ).mockResolvedValue([]);
+      const mockModels = {
+        sdkConnectionCache: {
+          deleteAllLegacyCacheEntries: jest.fn().mockResolvedValue(undefined),
+          upsert,
+        },
+        safeRollout: {
+          getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+        },
+        savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
+        constants: { getAll: jest.fn().mockResolvedValue([]) },
+        configs: { getAll: jest.fn().mockResolvedValue([]) },
+        holdout: {
+          getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
+        },
+        rampSchedules: {
+          getPayloadRampMonitoredRuleMap: jest
+            .fn()
+            .mockResolvedValue(new Map()),
+        },
+      };
+      (
+        global as unknown as { __mockContextModels: unknown }
+      ).__mockContextModels = mockModels;
+
+      queueSDKPayloadRefresh({
+        context: minimalContext({
+          models: mockModels as ReqContext["models"],
+          isApiRequest: true,
+        }) as ReqContext,
+        payloadKeys: [{ environment: "production", project: "p1" }],
+      });
+
+      await new Promise((r) => setTimeout(r, 50));
+      expect(upsert).toHaveBeenCalledTimes(1);
+      const markSdkConnectionsStale = jest.requireMock(
+        "back-end/src/models/SdkConnectionModel",
+      ).markSdkConnectionsStale as jest.Mock;
+      expect(markSdkConnectionsStale).not.toHaveBeenCalled();
     });
   });
 });

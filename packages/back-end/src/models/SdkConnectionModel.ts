@@ -82,6 +82,7 @@ const sdkConnectionSchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
+  staleSince: Date,
   proxy: {
     enabled: Boolean,
     host: String,
@@ -478,6 +479,58 @@ export async function markSDKConnectionUsed(key: string) {
         connected: true,
       },
     },
+  );
+}
+
+// Always bumps staleSince — a write during an in-flight rebuild must advance
+// the timestamp so clearStaleSdkConnections' `< clearBefore` guard keeps it.
+export async function markSdkConnectionsStale(
+  organization: string,
+  keys: string[],
+): Promise<void> {
+  if (!keys.length) return;
+  await SDKConnectionModel.updateMany(
+    { organization, key: { $in: keys } },
+    { $set: { staleSince: new Date() } },
+  );
+}
+
+export async function hasAnyStaleSdkConnection(
+  organization: string,
+): Promise<boolean> {
+  return (
+    (await SDKConnectionModel.exists({
+      organization,
+      staleSince: { $ne: null },
+    })) !== null
+  );
+}
+
+export async function findStaleSdkConnectionsByOrganization(
+  organization: string,
+): Promise<SDKConnectionInterface[]> {
+  const docs = await SDKConnectionModel.find({
+    organization,
+    staleSince: { $ne: null },
+  });
+  return docs.map(toInterface);
+}
+
+// Clears only marks that strictly predate `clearBefore`, so a write that re-marks
+// during the rebuild is not dropped.
+export async function clearStaleSdkConnections(
+  organization: string,
+  keys: string[],
+  clearBefore: Date,
+): Promise<void> {
+  if (!keys.length) return;
+  await SDKConnectionModel.updateMany(
+    {
+      organization,
+      key: { $in: keys },
+      staleSince: { $lt: clearBefore },
+    },
+    { $set: { staleSince: null } },
   );
 }
 

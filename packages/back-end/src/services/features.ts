@@ -149,8 +149,15 @@ import {
   getRevision,
   normalizeRulesInputToV2,
 } from "back-end/src/models/FeatureRevisionModel";
-import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import {
+  clearStaleSdkConnections,
+  findSDKConnectionsByOrganization,
+  findStaleSdkConnectionsByOrganization,
+  markSdkConnectionsStale,
+} from "back-end/src/models/SdkConnectionModel";
+import { scheduleOrgRefreshJob } from "back-end/src/jobs/refreshStaleSdkConnections";
 import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
+import { SDK_PAYLOAD_REFRESH_STALE_TRACKING_ENABLED } from "back-end/src/util/secrets";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
@@ -746,8 +753,71 @@ function recordSdkPayloadRefreshMetrics(durationMs: number) {
   }
 }
 
-// This is a synchronous wrapper around refreshSDKPayloadCache
-// We shouldn't need to await the refresh in most cases
+async function markAffectedSdkConnectionsStale(
+  context: ReqContext | ApiReqContext,
+  data: {
+    payloadKeys: SDKPayloadKey[];
+    sdkConnections?: SDKConnectionInterface[];
+    skipRefreshForProject?: string;
+    treatEmptyProjectAsGlobal?: boolean;
+  },
+): Promise<string[]> {
+  let affected: SDKConnectionInterface[];
+  if (data.sdkConnections?.length) {
+    affected = data.sdkConnections;
+  } else {
+    const payloadKeys = data.skipRefreshForProject
+      ? data.payloadKeys.filter((k) => k.project !== data.skipRefreshForProject)
+      : data.payloadKeys;
+    if (!payloadKeys.length) return [];
+
+    const allConnections = await findSDKConnectionsByOrganization(context);
+    affected = allConnections.filter((c) =>
+      payloadKeys.some((k) =>
+        isSDKConnectionAffectedByPayloadKey(
+          c,
+          k,
+          data.treatEmptyProjectAsGlobal,
+        ),
+      ),
+    );
+  }
+
+  if (!affected.length) return [];
+  const keys = affected.map((c) => c.key);
+  await markSdkConnectionsStale(context.org.id, keys);
+  return keys;
+}
+
+// Rebuild currently-stale connections, then clear only marks that predate the
+// read so a concurrent write's staleness survives.
+export async function refreshStaleSdkConnectionsForOrg(
+  baseContext: ReqContext | ApiReqContext,
+): Promise<void> {
+  const context = getContextForAgendaJobByOrgObject(baseContext.org);
+  const readStartedAt = new Date();
+  const staleConnections = await findStaleSdkConnectionsByOrganization(
+    context.org.id,
+  );
+  if (!staleConnections.length) return;
+
+  await refreshSDKPayloadCache({
+    context,
+    payloadKeys: [],
+    sdkConnections: staleConnections,
+  });
+
+  await clearStaleSdkConnections(
+    context.org.id,
+    staleConnections.map((c) => c.key),
+    readStartedAt,
+  );
+}
+
+// Synchronous wrapper around refreshSDKPayloadCache — callers usually don't
+// need to await. When stale tracking is enabled, API-triggered refreshes mark
+// connections stale and enqueue a per-org Agenda job instead of rebuilding
+// inline (UI refreshes still run immediately).
 export function queueSDKPayloadRefresh(data: {
   context: ReqContext | ApiReqContext;
   payloadKeys: SDKPayloadKey[];
@@ -771,8 +841,43 @@ export function queueSDKPayloadRefresh(data: {
   // Capture stack trace at the entry point to include the original caller
   const rawStack = new Error().stack || "";
   const stackTrace = rawStack.replace(/^Error.*?\n/, "");
-  refreshSDKPayloadCache({ ...data, stackTrace }).catch((e) => {
-    logger.error(e, "Error refreshing SDK Payload Cache");
+
+  const runRefresh = () => {
+    refreshSDKPayloadCache({ ...data, stackTrace }).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload Cache");
+    });
+  };
+
+  if (
+    !data.context.isApiRequest ||
+    !SDK_PAYLOAD_REFRESH_STALE_TRACKING_ENABLED
+  ) {
+    runRefresh();
+    return;
+  }
+
+  (async () => {
+    const affectedKeys = await markAffectedSdkConnectionsStale(
+      data.context,
+      data,
+    );
+    if (!affectedKeys.length) return;
+
+    logger.info(
+      {
+        orgId: data.context.org.id,
+        connectionKeys: affectedKeys,
+        auditContext: data.auditContext,
+      },
+      "[sdk-payload] marked SDK connections stale",
+    );
+
+    await scheduleOrgRefreshJob(data.context.org.id);
+  })().catch((e) => {
+    // Fall back to an immediate refresh. A leftover stale mark (if scheduling
+    // failed after marking) is cleared by the next write's bump + reschedule.
+    logger.error(e, "Error tracking stale SDK connections");
+    runRefresh();
   });
 }
 
