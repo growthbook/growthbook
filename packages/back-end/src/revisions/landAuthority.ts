@@ -59,6 +59,53 @@ export async function canRebaseWithNarrowAtom({
   return canAdvance();
 }
 
+/**
+ * Discarding someone's draft, and recalling a review request on one.
+ *
+ * Deliberately narrower than advancing: `canAdvanceDraft` lets a narrow atom act on
+ * a draft that only does what that atom covers, which is right for moving your own
+ * work along and wrong for destroying someone else's — a delete-only role could
+ * otherwise discard another author's archive draft, including one already in
+ * review. So: draft authority, or authorship.
+ *
+ * The same rule on both engines, stated once. It was written twice, and drifted
+ * twice: the feature copy additionally demanded revert or delete of an author
+ * recalling their own review request, a stricter rule than the same action on a
+ * Config for no reason either system could state.
+ */
+export function canDiscardOrRecallDraft({
+  holdsDraftAuthority,
+  isAuthor,
+}: {
+  holdsDraftAuthority: boolean;
+  isAuthor: boolean;
+}): boolean {
+  return holdsDraftAuthority || isAuthor;
+}
+
+/**
+ * Advancing a draft: submitting it for review, editing it, moving it along.
+ *
+ * Draft authority covers any draft. Without it, an author may advance their own
+ * work when they hold ANY landing atom for it, and a non-author may advance a draft
+ * that does only what their atom covers. Both engines, one rule.
+ */
+export async function canAdvanceDraftWithNarrowAtom({
+  holdsDraftAuthority,
+  isAuthor,
+  holdsAnyLandingAtom,
+  matchesNarrowAtom,
+}: {
+  holdsDraftAuthority: boolean;
+  isAuthor: boolean;
+  holdsAnyLandingAtom: boolean;
+  matchesNarrowAtom: () => Promise<boolean>;
+}): Promise<boolean> {
+  if (holdsDraftAuthority) return true;
+  if (isAuthor && holdsAnyLandingAtom) return true;
+  return matchesNarrowAtom();
+}
+
 // Callers must stage the archive flip ALONE — the delete atom is weaker than the
 // draft atom, so any other change riding along would be staged on authority that
 // doesn't cover it. The three archive endpoints take only `archived` from the

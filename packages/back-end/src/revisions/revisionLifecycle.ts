@@ -10,7 +10,7 @@ import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAd
 import { getAdapter } from "back-end/src/revisions";
 import {
   assertCanPublishRevision,
-  canDoRevisionAction,
+  canRevisionOwnedAction,
   maybeAutoPublishRevision,
 } from "back-end/src/revisions/revisionActions";
 import {
@@ -39,14 +39,7 @@ export async function recallRevisionReview({
 
   // Lifecycle authority follows the revision snapshot, not later live-entity moves.
   if (!isRevisionAuthor(revision.authorId, context.userId)) {
-    if (
-      !canDoRevisionAction(
-        type,
-        "draft",
-        context,
-        revision.target.snapshot as Record<string, unknown>,
-      )
-    ) {
+    if (!canRevisionOwnedAction(context, revision, "draft")) {
       context.permissions.throwPermissionError();
     }
   }
@@ -79,14 +72,7 @@ export async function reopenRevision({
   }
 
   if (!isRevisionAuthor(revision.authorId, context.userId)) {
-    if (
-      !canDoRevisionAction(
-        type,
-        "draft",
-        context,
-        revision.target.snapshot as Record<string, unknown>,
-      )
-    ) {
+    if (!canRevisionOwnedAction(context, revision, "draft")) {
       context.permissions.throwPermissionError();
     }
   }
@@ -114,14 +100,7 @@ export async function undoRevisionReview({
   revision: Revision;
 }): Promise<Revision> {
   // Verdict authority follows the revision snapshot and is rechecked inside the CAS.
-  if (
-    !canDoRevisionAction(
-      type,
-      "review",
-      context,
-      revision.target.snapshot as Record<string, unknown>,
-    )
-  ) {
+  if (!canRevisionOwnedAction(context, revision, "review")) {
     context.permissions.throwPermissionError();
   }
 

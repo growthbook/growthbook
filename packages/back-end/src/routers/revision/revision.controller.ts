@@ -39,6 +39,7 @@ import {
   assertCanPublishRevision,
   canCommentOnRevision,
   canDoRevisionAction,
+  canRevisionOwnedAction,
   canDisarmAutoPublishOnApproval,
   canEnableAutoPublishOnApproval,
   canPublishRevisionChange,
@@ -252,6 +253,8 @@ export const postRevision = async (
   }
 
   // Creating a draft requires draft-authoring permission (not entity-create).
+  // On the LIVE entity by necessity — there is no revision yet to have a snapshot,
+  // which is why this one keeps the explicit scope.
   if (
     !canDoRevisionAction(
       entityType,
@@ -706,7 +709,7 @@ export const postReview = async (
   const allowed =
     decision === "comment"
       ? canCommentOnRevision(type, context, snapshot)
-      : canDoRevisionAction(type, "review", context, snapshot);
+      : canRevisionOwnedAction(context, existingRevision, "review");
   if (!allowed) {
     context.permissions.throwPermissionError();
   }
@@ -807,14 +810,7 @@ export const putProposedChanges = async (
   // Authorship narrows this to your OWN draft; it does not stand in for the
   // permission. Without this an author who has since lost draft-edit rights
   // could still rewrite the draft's contents.
-  if (
-    !canDoRevisionAction(
-      existingRevision.target.type,
-      "draft",
-      context,
-      existingRevision.target.snapshot as Record<string, unknown>,
-    )
-  ) {
+  if (!canRevisionOwnedAction(context, existingRevision, "draft")) {
     context.permissions.throwPermissionError();
   }
   // Rewriting the draft can ADD a relocation the original draft didn't carry, so
@@ -902,14 +898,7 @@ export const patchTitle = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  if (
-    !canDoRevisionAction(
-      existingRevision.target.type,
-      "draft",
-      context,
-      existingRevision.target.snapshot as Record<string, unknown>,
-    )
-  ) {
+  if (!canRevisionOwnedAction(context, existingRevision, "draft")) {
     context.permissions.throwPermissionError();
   }
 
@@ -970,14 +959,7 @@ export const patchDescription = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  if (
-    !canDoRevisionAction(
-      existingRevision.target.type,
-      "draft",
-      context,
-      existingRevision.target.snapshot as Record<string, unknown>,
-    )
-  ) {
+  if (!canRevisionOwnedAction(context, existingRevision, "draft")) {
     context.permissions.throwPermissionError();
   }
 
@@ -1545,14 +1527,7 @@ export const postReopen = async (
 
   if (!isRevisionAuthor(existingRevision.authorId, userId)) {
     // Also allow draft authors to reopen
-    if (
-      !canDoRevisionAction(
-        existingRevision.target.type,
-        "draft",
-        context,
-        existingRevision.target.snapshot as Record<string, unknown>,
-      )
-    ) {
+    if (!canRevisionOwnedAction(context, existingRevision, "draft")) {
       context.permissions.throwPermissionError();
     }
   }
@@ -1615,14 +1590,7 @@ export const postRecallReview = async (
 
   // Author can always recall; otherwise require draft-authoring permission.
   if (!isRevisionAuthor(existingRevision.authorId, userId)) {
-    if (
-      !canDoRevisionAction(
-        existingRevision.target.type,
-        "draft",
-        context,
-        existingRevision.target.snapshot as Record<string, unknown>,
-      )
-    ) {
+    if (!canRevisionOwnedAction(context, existingRevision, "draft")) {
       context.permissions.throwPermissionError();
     }
   }
@@ -1677,14 +1645,7 @@ export const postUndoReview = async (
 
   // Must have review permission to touch verdicts; the model enforces that
   // only the caller's own active verdict is retracted.
-  if (
-    !canDoRevisionAction(
-      existingRevision.target.type,
-      "review",
-      context,
-      existingRevision.target.snapshot as Record<string, unknown>,
-    )
-  ) {
+  if (!canRevisionOwnedAction(context, existingRevision, "review")) {
     context.permissions.throwPermissionError();
   }
 

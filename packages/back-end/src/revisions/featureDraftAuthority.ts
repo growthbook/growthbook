@@ -14,6 +14,8 @@ import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/validators";
 import {
   assertCanLandRevision,
+  canAdvanceDraftWithNarrowAtom,
+  canDiscardOrRecallDraft,
   canRebaseWithNarrowAtom,
 } from "back-end/src/revisions/landAuthority";
 import type { ReqContext } from "back-end/types/request";
@@ -158,15 +160,14 @@ export async function canAdvanceFeatureDraft({
   feature: FeatureInterface;
   draft: FeatureRevisionInterface;
 }): Promise<boolean> {
-  if (context.permissions.canEditFeatureDrafts(feature)) return true;
-  if (
-    authoredFeatureDraft(context, draft) &&
-    (hasRevertAuthority(context, feature) ||
-      hasDeleteAuthority(context, feature))
-  ) {
-    return true;
-  }
-  return matchesNarrowAtom({ context, feature, draft });
+  return canAdvanceDraftWithNarrowAtom({
+    holdsDraftAuthority: context.permissions.canEditFeatureDrafts(feature),
+    isAuthor: authoredFeatureDraft(context, draft),
+    holdsAnyLandingAtom:
+      hasRevertAuthority(context, feature) ||
+      hasDeleteAuthority(context, feature),
+    matchesNarrowAtom: () => matchesNarrowAtom({ context, feature, draft }),
+  });
 }
 
 /**
@@ -189,8 +190,10 @@ export async function canDiscardFeatureDraft({
   feature: FeatureInterface;
   draft: FeatureRevisionInterface;
 }): Promise<boolean> {
-  if (context.permissions.canEditFeatureDrafts(feature)) return true;
-  return authoredFeatureDraft(context, draft);
+  return canDiscardOrRecallDraft({
+    holdsDraftAuthority: context.permissions.canEditFeatureDrafts(feature),
+    isAuthor: authoredFeatureDraft(context, draft),
+  });
 }
 
 /**
@@ -210,8 +213,10 @@ export async function canRecallFeatureReview({
   feature: FeatureInterface;
   draft: FeatureRevisionInterface;
 }): Promise<boolean> {
-  if (context.permissions.canEditFeatureDrafts(feature)) return true;
-  return authoredFeatureDraft(context, draft);
+  return canDiscardOrRecallDraft({
+    holdsDraftAuthority: context.permissions.canEditFeatureDrafts(feature),
+    isAuthor: authoredFeatureDraft(context, draft),
+  });
 }
 
 /**

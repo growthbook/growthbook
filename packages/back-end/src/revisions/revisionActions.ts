@@ -74,10 +74,44 @@ export type RevisionActionKind =
  * Authority for one revision action on one entity. The per-action hooks are
  * optional; an adapter that doesn't split them falls back to `canUpdate`.
  */
+/**
+ * Authority for a verb that belongs to the REVISION rather than to the live
+ * entity: drafting, reviewing, commenting.
+ *
+ * Takes no scope argument, and that is the whole point. A review belongs to the
+ * revision, whose project a later move on the live entity does not change — so
+ * these verbs are judged on `target.snapshot`, always. Passing the live entity
+ * instead is the single most repeated defect in this area: it has been fixed
+ * separately in the REST submit-review, the approve preflight, `approveRevision`,
+ * recall and undo, each time by a different round of review. Every one of those was
+ * possible only because the basis was a parameter and both bases have the same
+ * type.
+ *
+ * Verbs that LAND on live (publish, revert, entity delete) still take an explicit
+ * scope through `canDoRevisionAction`, because for them the live entity is the
+ * right answer. Anything still calling that with a snapshot for a revision-owned
+ * verb is now visibly doing something unusual.
+ */
+export function canRevisionOwnedAction(
+  context: Context,
+  revision: Pick<Revision, "target">,
+  action: Extract<RevisionActionKind, "draft" | "review">,
+): boolean {
+  return canDoRevisionAction(
+    revision.target.type,
+    action,
+    context,
+    revision.target.snapshot as Record<string, unknown>,
+  );
+}
+
 export function canDoRevisionAction(
   type: RevisionTargetType,
   action: RevisionActionKind,
   context: Context,
+  // The entity this question is asked ABOUT. For publish/revert/delete that is the
+  // LIVE entity, because that is where the change lands. For draft/review prefer
+  // `canRevisionOwnedAction`, which cannot be given the wrong one.
   snapshot: Record<string, unknown>,
 ): boolean {
   const adapter = getAdapter(type);

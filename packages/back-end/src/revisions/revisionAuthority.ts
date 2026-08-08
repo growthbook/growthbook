@@ -1,10 +1,17 @@
 import isEqual from "lodash/isEqual";
 import { Revision } from "shared/enterprise";
-import { canRebaseWithNarrowAtom } from "back-end/src/revisions/landAuthority";
+import {
+  canAdvanceDraftWithNarrowAtom,
+  canDiscardOrRecallDraft,
+  canRebaseWithNarrowAtom,
+} from "back-end/src/revisions/landAuthority";
 import { Context } from "back-end/src/models/BaseModel";
 import { isPureArchiveRevision } from "back-end/src/revisions/archiveTransition";
 import { isPureRevertRevision } from "back-end/src/revisions/revertPurity";
-import { canDoRevisionAction } from "back-end/src/revisions/revisionActions";
+import {
+  canDoRevisionAction,
+  canRevisionOwnedAction,
+} from "back-end/src/revisions/revisionActions";
 import { getAdapter } from "back-end/src/revisions";
 
 // Identityless API keys cannot claim authorship of authorless revisions.
@@ -30,14 +37,7 @@ export function draftAuthorityOnRow(
 ): (existing: Revision) => void {
   return (existing) => {
     if (isRevisionAuthor(existing.authorId, context.userId)) return;
-    if (
-      !canDoRevisionAction(
-        existing.target.type,
-        "draft",
-        context,
-        existing.target.snapshot as Record<string, unknown>,
-      )
-    ) {
+    if (!canRevisionOwnedAction(context, existing, "draft")) {
       context.permissions.throwPermissionError();
     }
   };
@@ -47,14 +47,7 @@ export function reviewAuthorityOnRow(
   context: Context,
 ): (existing: Revision) => void {
   return (existing) => {
-    if (
-      !canDoRevisionAction(
-        existing.target.type,
-        "review",
-        context,
-        existing.target.snapshot as Record<string, unknown>,
-      )
-    ) {
+    if (!canRevisionOwnedAction(context, existing, "review")) {
       context.permissions.throwPermissionError();
     }
   };
@@ -65,12 +58,11 @@ export async function canDiscardRevision(
   context: Context,
   revision: Revision,
 ): Promise<boolean> {
-  const type = revision.target.type;
-  const snapshot = revision.target.snapshot as Record<string, unknown>;
-  if (canDoRevisionAction(type, "draft", context, snapshot)) return true;
-  return (
-    !!context.userId && isRevisionAuthor(revision.authorId, context.userId)
-  );
+  return canDiscardOrRecallDraft({
+    holdsDraftAuthority: canRevisionOwnedAction(context, revision, "draft"),
+    isAuthor:
+      !!context.userId && isRevisionAuthor(revision.authorId, context.userId),
+  });
 }
 
 // Narrow atoms may advance only drafts that contain their corresponding pure action.
@@ -81,32 +73,30 @@ export async function canAdvanceRevision(
   const type = revision.target.type;
   const snapshot = revision.target.snapshot as Record<string, unknown>;
 
-  if (canDoRevisionAction(type, "draft", context, snapshot)) return true;
-
+  // Revert and entity-delete LAND on the entity, so they keep an explicit scope.
   const hasRevert = canDoRevisionAction(type, "revert", context, snapshot);
   const hasDelete =
     getAdapter(type).canDeleteEntity?.(context, snapshot) ?? false;
 
-  if (
-    !!context.userId &&
-    isRevisionAuthor(revision.authorId, context.userId) &&
-    (hasRevert || hasDelete)
-  ) {
-    return true;
-  }
-
-  if (
-    hasDelete &&
-    isPureArchiveRevision({
-      proposedChanges: revision.target.proposedChanges,
-      current: !!(snapshot as { archived?: boolean }).archived,
-    })
-  ) {
-    return true;
-  }
-
-  if (!hasRevert) return false;
-  return isPureRevertRevision(context, revision);
+  return canAdvanceDraftWithNarrowAtom({
+    holdsDraftAuthority: canRevisionOwnedAction(context, revision, "draft"),
+    isAuthor:
+      !!context.userId && isRevisionAuthor(revision.authorId, context.userId),
+    holdsAnyLandingAtom: hasRevert || hasDelete,
+    matchesNarrowAtom: async () => {
+      if (
+        hasDelete &&
+        isPureArchiveRevision({
+          proposedChanges: revision.target.proposedChanges,
+          current: !!(snapshot as { archived?: boolean }).archived,
+        })
+      ) {
+        return true;
+      }
+      if (!hasRevert) return false;
+      return isPureRevertRevision(context, revision);
+    },
+  });
 }
 
 // Compare base to live directly; merge conflicts omit untouched fields a rebase adopts.
@@ -141,6 +131,9 @@ export async function canRebaseRevision({
   updatableFields: ReadonlySet<string>;
 }): Promise<boolean> {
   return canRebaseWithNarrowAtom({
+    // Deliberately on LIVE, not the snapshot: rebasing adopts live's changes, so
+    // the question is whether the caller may manage a draft over what they are
+    // about to pull in. The one revision-owned verb with a live basis.
     holdsDraftAuthority: canDoRevisionAction(
       revision.target.type,
       "draft",
