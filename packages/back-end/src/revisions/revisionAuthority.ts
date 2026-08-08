@@ -33,6 +33,11 @@ export function mayBeRevisionAuthor(
 }
 
 // Recheck authority against every row read by a CAS retry.
+//
+// Both of these judge on `target.snapshot`, so ANY CAS using them must include
+// `target` in its guard fields — otherwise the authority answer is computed from a
+// snapshot the write does not pin, and a concurrent rebase changes it underneath.
+// The guard-completeness check in `casLoop` enforces this.
 export function draftAuthorityOnRow(context: Context): CasAuthority<Revision> {
   return {
     check: (existing) => {

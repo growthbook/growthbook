@@ -1325,7 +1325,18 @@ export class RevisionModel extends BaseClass {
     // blockSelfApproval (contributors are recorded by their own atomic write).
     const updated = await this.updateWithCas(
       id,
-      ["reviews", "status", "activityLog", "target", "contributors"],
+      // `reviewCycle` too: this write REFUSES on it (a verdict formed against a
+      // superseded round), so it is a decision input like any other. Every cycle start
+      // also moves `status` or `reviews`, so it is belt-and-braces — but the rule is
+      // that the guard covers what the decision read, not what usually co-varies.
+      [
+        "reviews",
+        "status",
+        "activityLog",
+        "target",
+        "contributors",
+        "reviewCycle",
+      ],
       (existing) => {
         if (isComment) this.assertCanWriteCommentOn(existing);
         else assertCasAuthority(authority, existing);
@@ -1587,7 +1598,9 @@ export class RevisionModel extends BaseClass {
   ) {
     const updated = await this.updateWithCas(
       id,
-      ["reviews", "status", "activityLog", "target"],
+      // `reviewCycle` for the same reason as `addReview`: this write REFUSES on it,
+      // so it is a decision input and belongs in the predicate.
+      ["reviews", "status", "activityLog", "target", "reviewCycle"],
       (existing) => {
         assertCasAuthority(authority, existing);
         if (
@@ -1859,6 +1872,9 @@ export class RevisionModel extends BaseClass {
         "reviews",
         "activityLog",
         "reviewCycle",
+        // Read by the edit-lock refusal: a lock armed between the read and the write
+        // must make this attempt lose rather than let the edit land on a locked draft.
+        "scheduledPublishLockEdits",
       ],
       (existing) => {
         assertCasAuthority(authority, existing);
@@ -1974,9 +1990,25 @@ export class RevisionModel extends BaseClass {
       { organization: this.context.org.id, id },
       { projection: { "target.type": 1, "target.id": 1 } },
     );
+    // `activityLog` and the schedule fields because the merge appends an entry to
+    // the log it read and decides the scrub from the schedule it read — the same
+    // rule the guard-completeness check enforces everywhere else.
     const guardFields: (keyof Revision)[] = options?.expected
-      ? ["status", "dateUpdated", "target"]
-      : ["status", "target"];
+      ? [
+          "status",
+          "dateUpdated",
+          "target",
+          "activityLog",
+          "autoPublishOnApproval",
+          "scheduledPublishAt",
+        ]
+      : [
+          "status",
+          "target",
+          "activityLog",
+          "autoPublishOnApproval",
+          "scheduledPublishAt",
+        ];
     const merged = await this.updateWithCas(
       id,
       guardFields,
@@ -2053,36 +2085,43 @@ export class RevisionModel extends BaseClass {
 
   async close(id: string, userId: string, reason?: string) {
     let hadSchedule = false;
-    const closed = await this.updateWithCas(id, ["status"], (existing) => {
-      if (existing.status === "merged" || existing.status === "discarded") {
-        throw new Error(
-          "Cannot discard an already discarded or merged revision",
-        );
-      }
-      hadSchedule =
-        !!existing.autoPublishOnApproval ||
-        (existing.scheduledPublishAt ?? null) !== null;
-      return {
-        status: "discarded",
-        // Discarding disarms any pending schedule (releases lock-others index).
-        autoPublishOnApproval: false,
-        resolution: {
-          action: "discarded",
-          userId,
-          dateCreated: new Date(),
-        },
-        activityLog: [
-          ...this.cleanActivityLog(existing.activityLog),
-          {
-            id: uniqid("act_"),
-            userId,
+    const closed = await this.updateWithCas(
+      id,
+      // The schedule fields because `hadSchedule` — which decides the scrub below —
+      // is computed from them, and `activityLog` because the entry is appended to the
+      // log this read returned. Guarding `status` alone left both to a stale read.
+      ["status", "autoPublishOnApproval", "scheduledPublishAt", "activityLog"],
+      (existing) => {
+        if (existing.status === "merged" || existing.status === "discarded") {
+          throw new Error(
+            "Cannot discard an already discarded or merged revision",
+          );
+        }
+        hadSchedule =
+          !!existing.autoPublishOnApproval ||
+          (existing.scheduledPublishAt ?? null) !== null;
+        return {
+          status: "discarded",
+          // Discarding disarms any pending schedule (releases lock-others index).
+          autoPublishOnApproval: false,
+          resolution: {
             action: "discarded",
-            description: reason || "Discarded revision",
+            userId,
             dateCreated: new Date(),
           },
-        ],
-      } as UpdateProps<Revision>;
-    });
+          activityLog: [
+            ...this.cleanActivityLog(existing.activityLog),
+            {
+              id: uniqid("act_"),
+              userId,
+              action: "discarded",
+              description: reason || "Discarded revision",
+              dateCreated: new Date(),
+            },
+          ],
+        } as UpdateProps<Revision>;
+      },
+    );
     if (!closed) throw new Error("Revision not found");
 
     // Fully scrub the schedule fields on discard (this.update can't $unset),
@@ -2201,7 +2240,13 @@ export class RevisionModel extends BaseClass {
     // one an in-flight verdict already names. See `reviewCycle.ts`.
     const reopened = await this.updateWithCas(
       id,
-      ["status", "reviewCycle"],
+      // `reviews` and `activityLog` because this write REWRITES both wholesale from
+      // what it read (stale verdicts, cleaned log + a new entry). Unguarded, a review
+      // or an entry landing in between is silently dropped.
+      // `target` because the authority check judges on `target.snapshot`: a rebase
+      // that re-scopes the revision changes that answer, so it must be part of the
+      // predicate. Every verb taking a row-scoped authority owes this.
+      ["status", "reviewCycle", "reviews", "activityLog", "target"],
       (existing) => {
         assertCasAuthority(authority, existing);
         // Re-checked under the CAS, against the row this write is conditioned on:
