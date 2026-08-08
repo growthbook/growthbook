@@ -213,13 +213,13 @@ export const getSavedGroup = async (
   const { id } = req.params;
 
   if (!id) {
-    throw new Error("Must specify saved group id");
+    throw new Error("Must specify Saved Group id");
   }
 
   const savedGroup = await context.models.savedGroups.getById(id);
 
   if (!savedGroup) {
-    throw new Error("Could not find saved group");
+    throw new Error("Could not find Saved Group");
   }
 
   return res.status(200).json({
@@ -267,13 +267,13 @@ const mutateSavedGroupItems =
     const { items } = req.body;
 
     if (!id) {
-      throw new Error("Must specify saved group id");
+      throw new Error("Must specify Saved Group id");
     }
 
     const savedGroup = await context.models.savedGroups.getById(id);
 
     if (!savedGroup) {
-      throw new Error("Could not find saved group");
+      throw new Error("Could not find Saved Group");
     }
 
     if (
@@ -536,13 +536,13 @@ export const putSavedGroup = async (
   const { id } = req.params;
 
   if (!id) {
-    throw new Error("Must specify saved group id");
+    throw new Error("Must specify Saved Group id");
   }
 
   const savedGroup = await context.models.savedGroups.getById(id);
 
   if (!savedGroup) {
-    throw new Error("Could not find saved group");
+    throw new Error("Could not find Saved Group");
   }
 
   // A request that touches nothing but `archived` is a pure archive/unarchive

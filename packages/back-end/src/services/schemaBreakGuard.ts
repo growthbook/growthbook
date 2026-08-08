@@ -600,7 +600,7 @@ export async function assertConstantSchemaBreakGuard(
     assertArmedSchemaBreakAcknowledged(
       violations,
       revision,
-      "Publishing this Constant would newly break dependent Config or feature value(s)",
+      "Publishing this Constant would newly break dependent Config or Feature Flag value(s)",
     );
     return;
   }
@@ -880,7 +880,7 @@ export async function assertConfigArchiveSchemaBreakGuard(
     assertArmedSchemaBreakAcknowledged(
       violations,
       revision,
-      `${action} this Config would newly break dependent Config or feature value(s)`,
+      `${action} this Config would newly break dependent Config or Feature Flag value(s)`,
     );
     return;
   }
@@ -890,7 +890,7 @@ export async function assertConfigArchiveSchemaBreakGuard(
     "config",
     violations,
     { configKey: config.key },
-    `${action} this Config breaks a dependent Config or feature value:`,
+    `${action} this Config breaks a dependent Config or Feature Flag value:`,
   );
 }
 

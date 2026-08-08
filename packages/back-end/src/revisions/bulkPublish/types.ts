@@ -1,16 +1,14 @@
-import type { RevisionTargetType } from "shared/enterprise";
+import type { RevisionedEntityType } from "back-end/src/revisions/entityNames";
 import type {
   BypassedGate,
   PublishGate,
 } from "back-end/src/revisions/publishGates";
 import type { BulkRevisionRef } from "back-end/src/revisions/bulkPublish/BulkPublishableAdapter";
 
-// Entity types that can participate in a bulk (multi-entity) publish. The
-// generic revision system covers RevisionTargetType; features keep their own
-// revision model, so the bulk layer widens the union rather than the shared
-// one. New version-controlled entity types join by registering a generic
-// adapter — see registry.ts.
-export type BulkPublishTargetType = RevisionTargetType | "feature";
+// Entity types that can participate in a bulk (multi-entity) publish: every
+// revisioned entity. New types join by registering a generic adapter — see
+// registry.ts.
+export type BulkPublishTargetType = RevisionedEntityType;
 
 /** One requested publish: exactly one revision per (entityType, entityId). */
 export type BulkPublishItemRef = {

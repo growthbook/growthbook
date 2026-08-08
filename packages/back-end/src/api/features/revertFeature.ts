@@ -316,7 +316,7 @@ export async function revertFeatureCore(
     version: feature.version,
   });
   if (!liveRevision) {
-    throw new Error("Could not load live revision for feature");
+    throw new Error("Could not load live revision for Feature Flag");
   }
   const reviewRequired = checkIfRevisionNeedsReview({
     feature,

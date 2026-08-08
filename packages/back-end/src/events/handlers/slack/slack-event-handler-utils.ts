@@ -738,13 +738,13 @@ const buildSlackMessageForRevisionEvent = (
       text = `Discarded revision ${version} of feature ${feature} was reopened as a draft`;
       break;
     case "feature.revision.recalled":
-      text = `The review request on revision ${version} of feature ${feature} was recalled`;
+      text = `The review request on revision ${version} of Feature Flag ${feature} was recalled`;
       break;
     case "feature.revision.reviewRetracted":
-      text = `A review verdict on revision ${version} of feature ${feature} was retracted`;
+      text = `A review verdict on revision ${version} of Feature Flag ${feature} was retracted`;
       break;
     case "feature.revision.publishScheduleChanged":
-      text = `The scheduled publish for revision ${version} of feature ${feature} changed`;
+      text = `The scheduled publish for revision ${version} of Feature Flag ${feature} changed`;
       break;
     case "feature.revision.rebased":
       text = `Draft revision ${version} of feature ${feature} was rebased`;
@@ -945,13 +945,13 @@ const buildSlackMessageForSavedGroupRevisionEvent = (
       text = `Draft revision ${version} of saved group ${group} was reopened`;
       break;
     case "savedGroup.revision.recalled":
-      text = `The review request on revision ${version} of saved group ${group} was recalled`;
+      text = `The review request on revision ${version} of Saved Group ${group} was recalled`;
       break;
     case "savedGroup.revision.reviewRetracted":
-      text = `A review verdict on revision ${version} of saved group ${group} was retracted`;
+      text = `A review verdict on revision ${version} of Saved Group ${group} was retracted`;
       break;
     case "savedGroup.revision.publishScheduleChanged":
-      text = `The scheduled publish for revision ${version} of saved group ${group} changed`;
+      text = `The scheduled publish for revision ${version} of Saved Group ${group} changed`;
       break;
     case "savedGroup.revision.publishFailed":
       text = `Scheduled publish of revision ${version} for saved group ${group} failed${formatPublishFailedSuffix(data)}`;

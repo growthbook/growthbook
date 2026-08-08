@@ -64,7 +64,7 @@ async function requireLiveConfig(
   // configs (no project) are usable everywhere. Matches the UI's config picker.
   if (config.project && config.project !== (featureProject || "")) {
     throw new BadRequestError(
-      `Config "${key}" is scoped to a different project than this feature and cannot back its values. Use a global Config or one in the feature's project.`,
+      `Config "${key}" is scoped to a different project than this Feature Flag and cannot back its values. Use a global Config or one in the Feature Flag's project.`,
     );
   }
   // Flavors are selected implicitly per environment via the base's
@@ -190,7 +190,7 @@ export async function assertValidRuleConfigKeys(
   for (const key of keys) {
     if (!family.has(key)) {
       throw new BadRequestError(
-        `Config "${key}" is not the feature's default Config "${defaultConfigKey}" or one of its descendants.`,
+        `Config "${key}" is not the Feature Flag's default Config "${defaultConfigKey}" or one of its descendants.`,
       );
     }
   }
