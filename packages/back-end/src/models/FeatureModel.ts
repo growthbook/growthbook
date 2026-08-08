@@ -2538,17 +2538,13 @@ async function setExperimentHoldoutIds(
       try {
         const exp = await getExperimentById(context, id);
         if (!exp) return null;
-        // Already where we want it: nothing to write, but it IS at the target, so it
-        // counts as ours for the membership decision. A forward pass that failed
-        // between the membership write and the scalar leaves exactly this state, and
-        // treating it as "not ours" would strand the membership half.
+        // At target without this call writing it. It counts for MEMBERSHIP — a
+        // forward pass that failed between the scalar and the membership write leaves
+        // exactly this state, and calling it "not ours" would strand the membership
+        // half. It does NOT count as ours to undo: a concurrent publish that linked it
+        // first leaves the identical state, and compensating over that would remove
+        // their successful linkage.
         if ((exp.holdoutId ?? "") === next) {
-          // At target without this call writing it. It counts for MEMBERSHIP — a
-          // forward pass that failed between the scalar and the membership write
-          // leaves exactly this state, and calling it "not ours" would strand the
-          // membership half. It does NOT count as ours to undo: a concurrent publish
-          // that linked it first leaves the identical state, and compensating over
-          // that removes their successful linkage.
           applied.add(id);
           return null;
         }
