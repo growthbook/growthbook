@@ -52011,6 +52011,11 @@ components:
             The email address of the owner, when the owner can be resolved to a
             known user.
           type: string
+        ownerName:
+          description: >-
+            The display name of the owner, when the owner can be resolved to a
+            known user.
+          type: string
         archived:
           type: boolean
         status:
@@ -52781,6 +52786,11 @@ components:
               description: >-
                 The email address of the owner, when the owner can be resolved
                 to a known user.
+              type: string
+            ownerName:
+              description: >-
+                The display name of the owner, when the owner can be resolved to
+                a known user.
               type: string
             archived:
               type: boolean
