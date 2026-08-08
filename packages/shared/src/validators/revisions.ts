@@ -225,7 +225,11 @@ export const revisionValidator = z.object({
   reviewCycle: z.number().optional(),
   autoPublishOnApproval: z.boolean().optional(),
   // Who armed `autoPublishOnApproval`; auto-publish runs with their authority.
-  autoPublishEnabledBy: z.string().optional(),
+  // Nullable, not just optional: the arming paths REPLACE this on every transition
+  // rather than conditionally setting it, so disarming (or an identityless re-arm)
+  // has to be able to say "nobody" — `this.update` cannot `$unset`, and leaving the
+  // previous publisher behind let a later deferred publish run as them.
+  autoPublishEnabledBy: z.string().nullable().optional(),
   // ── Scheduled / deferred publish (shape mirrors FeatureRevisionInterface) ──
   // Defers an armed revision's auto-publish until on/after this date (and, if
   // required, approved). null/absent = publish as soon as approved.

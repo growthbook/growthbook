@@ -17,6 +17,7 @@ import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import uniqid from "uniqid";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
+  discardAuthorityOnRow,
   advanceAuthorityOnRow,
   canAdvanceRevision,
   canDiscardRevision,
@@ -204,7 +205,10 @@ async function releaseRecoveryClaim(
   await context.models.revisions
     .updateWithCas(
       revisionId,
-      ["dateUpdated"],
+      // `activityLog` too: both recovery writes REWRITE the log they read, so a
+      // concurrent entry would be dropped. `dateUpdated` alone does not cover it —
+      // several revision writes deliberately leave `dateUpdated` untouched.
+      ["dateUpdated", "activityLog"],
       (existing) => ({
         activityLog: (existing.activityLog ?? []).filter(
           (entry) =>
@@ -282,7 +286,7 @@ async function recoverStrandedMerge({
   const claimId = uniqid("rvl_");
   const claimed = await context.models.revisions.updateWithCas(
     revision.id,
-    ["dateUpdated"],
+    ["dateUpdated", "activityLog"],
     (existing) =>
       (existing.activityLog ?? []).some(
         (e) =>
@@ -1263,6 +1267,9 @@ export async function discardEntityRevision({
   const closed = await context.models.revisions.close(
     revision.id,
     context.userId,
+    // Re-asked on the row each attempt: the check above ran against the project the
+    // draft was in when it was read, and a rebase can move it.
+    discardAuthorityOnRow(context),
     reason,
   );
   await getRevisionWebhookAdapter(entityType)?.dispatch(context, closed, {

@@ -82,7 +82,14 @@ export function buildCasGuard(
  * flow already established it.
  */
 export type CasAuthority<TSnapshot> =
-  | { check: (existing: TSnapshot) => void }
+  /**
+   * May be async: the real authority questions here involve proofs that hit the
+   * database (is this change a PURE revert, a PURE archive), and a sync-only check
+   * could only approximate them by asking which atoms the caller holds. That
+   * approximation is weaker than the caller's own gate — it admits a retry against
+   * content a concurrent rebase broadened.
+   */
+  | { check: (existing: TSnapshot) => void | Promise<void> }
   /**
    * The calling flow established authority in a way the row cannot re-derive — a
    * merge claim it already holds, a poller running as a resolved user. The string is
@@ -90,11 +97,11 @@ export type CasAuthority<TSnapshot> =
    */
   | { authorizedByFlow: string };
 
-export function assertCasAuthority<TSnapshot>(
+export async function assertCasAuthority<TSnapshot>(
   authority: CasAuthority<TSnapshot>,
   existing: TSnapshot,
-): void {
-  if ("check" in authority) authority.check(existing);
+): Promise<void> {
+  if ("check" in authority) await authority.check(existing);
 }
 
 /** What one attempt's read yields: the value `compute` sees, and what to guard on. */
@@ -221,10 +228,12 @@ function assertDecisionIsGuarded(
   allowUnguardedReads: readonly string[] = [],
 ): void {
   if (!ENFORCE_GUARD_COMPLETENESS) return;
-  // A `dateUpdated` guard is optimistic concurrency over the WHOLE document, and
-  // every write through this layer stamps it — so it already subsumes any field list.
-  // Demanding per-field guards on top would be strictly weaker advice.
-  if (guardFields.includes("dateUpdated")) return;
+  // NOTE: `dateUpdated` is NOT a blanket exemption. Treating it as a generation
+  // token assumes every writer advances it, and that is not true here — six raw
+  // `updateOne` calls in RevisionModel alone (schedule scrubs, park, failure
+  // tracking) deliberately leave it alone so they don't read as content edits. A
+  // `dateUpdated` guard therefore pins one field like any other, and a decision that
+  // reads more must say so.
   const allowed = new Set([...guardFields, ...allowUnguardedReads]);
   const unguarded = [...readFields].filter(
     (f) => !allowed.has(f) && !ALWAYS_READABLE.has(f),

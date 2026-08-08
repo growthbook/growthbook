@@ -49,6 +49,7 @@ import {
 } from "back-end/src/revisions/revisionActions";
 import {
   advanceAuthorityOnRow,
+  discardAuthorityOnRow,
   draftAuthorityOnRow,
   canAdvanceRevision,
   canDiscardRevision,
@@ -1477,7 +1478,12 @@ export const postClose = async (
     context.permissions.throwPermissionError();
   }
 
-  const revision = await revisionModel.close(id, userId, reason);
+  const revision = await revisionModel.close(
+    id,
+    userId,
+    discardAuthorityOnRow(context),
+    reason,
+  );
 
   await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
     context,

@@ -63,27 +63,34 @@ export function advanceAuthorityOnRow(
   context: Context,
 ): CasAuthority<Revision> {
   return {
-    check: (existing) => {
-      // `canAdvanceRevision` is async; the CAS check is sync, so the purity proofs it
-      // may need are resolved by the caller's own gate before the loop. What this
-      // re-asks on the row is the part that can change under a rebase: the atoms the
-      // caller holds over the row's CURRENT project.
-      if (
-        !canRevisionOwnedAction(context, existing, "draft") &&
-        !canDoRevisionAction(
-          existing.target.type,
-          "revert",
-          context,
-          existing.target.snapshot as Record<string, unknown>,
-        ) &&
-        !(
-          getAdapter(existing.target.type).canDeleteEntity?.(
-            context,
-            existing.target.snapshot as Record<string, unknown>,
-          ) ?? false
-        ) &&
-        !isRevisionAuthor(existing.authorId, context.userId)
-      ) {
+    // The COMPLETE proof, re-run on the row each attempt reads — not an
+    // approximation of it. Asking only which atoms the caller holds admitted two
+    // things the caller's own gate refuses: a retry against content a concurrent
+    // rebase BROADENED (the narrow-atom arms require the change to still be a pure
+    // revert or a pure archive, which is a database question), and an author who
+    // holds no landing atom at all. Both are exactly what a retry can walk into.
+    check: async (existing) => {
+      if (!(await canAdvanceRevision(context, existing))) {
+        context.permissions.throwPermissionError();
+      }
+    },
+  };
+}
+
+/**
+ * Discard authority, re-asked on the row each attempt reads.
+ *
+ * Narrower than advancing, deliberately: a narrow atom may move its own work along
+ * but must not destroy someone else's. Judged on the row, so a rebase that moves the
+ * draft into a project the caller holds nothing in loses the race instead of riding
+ * it — the controller's check ran against the project the draft was in when it read.
+ */
+export function discardAuthorityOnRow(
+  context: Context,
+): CasAuthority<Revision> {
+  return {
+    check: async (existing) => {
+      if (!(await canDiscardRevision(context, existing))) {
         context.permissions.throwPermissionError();
       }
     },

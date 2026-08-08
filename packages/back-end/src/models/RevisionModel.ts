@@ -1116,9 +1116,11 @@ export class RevisionModel extends BaseClass {
           "target",
           "armAcknowledgments",
           "reviewCycle",
+          // Read by the full advance proof's pure-revert arm.
+          "revertedFrom",
         ],
-        (existing) => {
-          assertCasAuthority(authority, existing);
+        async (existing) => {
+          await assertCasAuthority(authority, existing);
           // `changes-requested` is also re-submittable: after a reviewer requests
           // changes and the author edits the revision, this is the transition back
           // into `pending-review`. (Saved-group edits don't auto-reset the status the
@@ -1149,7 +1151,8 @@ export class RevisionModel extends BaseClass {
             // value from a previous cycle is harmless — `autoPublishOnApproval`
             // gates everything. `userId` is empty for API-key actors; skip so the
             // publish falls back to `authorId`.
-            ...(armed && userId ? { autoPublishEnabledBy: userId } : {}),
+            // Replaced, not conditionally set — see setAutoPublishOnApproval.
+            autoPublishEnabledBy: armed && userId ? userId : null,
             // Arm-time guard fingerprints: set the new acknowledgments, or clear a
             // stale set from a prior arm (to {}) so a re-arm with no current conflicts
             // can't be covered by an outdated fingerprint.
@@ -1212,9 +1215,12 @@ export class RevisionModel extends BaseClass {
     // as consent — so it must describe the content actually armed. Arming's AUTHORITY
     // is judged on the live entity, which is why `target` is otherwise irrelevant
     // here; disarming carries nothing content-derived and keeps the narrow guard.
+    // `armAcknowledgments` on both paths: the compute READS it to decide whether a
+    // stale fingerprint needs clearing, so a concurrent arm could otherwise pair one
+    // actor's identity with another actor's acknowledgment.
     const guardFields: (keyof Revision)[] = enabled
-      ? ["status", "target"]
-      : ["status"];
+      ? ["status", "target", "armAcknowledgments"]
+      : ["status", "armAcknowledgments"];
     const updated = await this.updateWithCas(id, guardFields, (existing) => {
       if (
         !["draft", "pending-review", "changes-requested", "approved"].includes(
@@ -1226,12 +1232,13 @@ export class RevisionModel extends BaseClass {
         );
       }
 
-      // Auto-publish runs with the arming user's authority. A stale
-      // autoPublishEnabledBy left behind when disabling is harmless —
-      // autoPublishOnApproval gates everything.
+      // Auto-publish runs with the arming user's authority, so the identity is
+      // REPLACED on every transition — never left behind. A conditional set meant an
+      // identityless arm (API key, system actor) inherited whoever armed it last, and
+      // the deferred publish then ran as that user. `null` clears it.
       return {
         autoPublishOnApproval: enabled,
-        ...(enabled && userId ? { autoPublishEnabledBy: userId } : {}),
+        autoPublishEnabledBy: enabled && userId ? userId : null,
         // Arm-time guard fingerprints: set the new acknowledgments, or clear a
         // stale set from a prior arm (to {}) so a re-arm with no current
         // conflicts can't be covered by an outdated fingerprint.
@@ -1337,9 +1344,9 @@ export class RevisionModel extends BaseClass {
         "contributors",
         "reviewCycle",
       ],
-      (existing) => {
+      async (existing) => {
         if (isComment) this.assertCanWriteCommentOn(existing);
-        else assertCasAuthority(authority, existing);
+        else await assertCasAuthority(authority, existing);
         // Pinned to the caller's read, and re-asked on every CAS retry — the retry
         // is the dangerous one, because it re-reads a row that a recall AND a
         // resubmit may both have crossed since the first attempt. Comments are
@@ -1528,8 +1535,8 @@ export class RevisionModel extends BaseClass {
       // read: a number stamped from a stale read moves the identity BACKWARDS onto
       // one an in-flight verdict already names. See `reviewCycle.ts`.
       ["status", "reviews", "activityLog", "target", "reviewCycle"],
-      (existing) => {
-        assertCasAuthority(authority, existing);
+      async (existing) => {
+        await assertCasAuthority(authority, existing);
         if (
           !["pending-review", "changes-requested", "approved"].includes(
             existing.status,
@@ -1601,8 +1608,8 @@ export class RevisionModel extends BaseClass {
       // `reviewCycle` for the same reason as `addReview`: this write REFUSES on it,
       // so it is a decision input and belongs in the predicate.
       ["reviews", "status", "activityLog", "target", "reviewCycle"],
-      (existing) => {
-        assertCasAuthority(authority, existing);
+      async (existing) => {
+        await assertCasAuthority(authority, existing);
         if (
           expectedReviewCycle !== undefined &&
           reviewCycleOf(existing) !== expectedReviewCycle
@@ -1714,8 +1721,8 @@ export class RevisionModel extends BaseClass {
     const updated = await this.updateWithCas(
       id,
       ["reviews", "status", "target"],
-      (existing) => {
-        assertCasAuthority(authority, existing);
+      async (existing) => {
+        await assertCasAuthority(authority, existing);
         this.assertCanWriteCommentOn(existing);
         if (existing.status === "merged" || existing.status === "discarded") {
           throw new Error(
@@ -1753,8 +1760,8 @@ export class RevisionModel extends BaseClass {
     const updated = await this.updateWithCas(
       id,
       ["reviews", "status", "target"],
-      (existing) => {
-        assertCasAuthority(authority, existing);
+      async (existing) => {
+        await assertCasAuthority(authority, existing);
         this.assertCanWriteCommentOn(existing);
         if (existing.status === "merged" || existing.status === "discarded") {
           throw new Error(
@@ -1875,9 +1882,12 @@ export class RevisionModel extends BaseClass {
         // Read by the edit-lock refusal: a lock armed between the read and the write
         // must make this attempt lose rather than let the edit land on a locked draft.
         "scheduledPublishLockEdits",
+        // Read by the full advance proof: the pure-revert arm asks what this draft
+        // reverts, so a concurrent change to it changes the authority answer.
+        "revertedFrom",
       ],
-      (existing) => {
-        assertCasAuthority(authority, existing);
+      async (existing) => {
+        await assertCasAuthority(authority, existing);
         this.assertDraftAcceptsContentEdit(existing);
         const { target, entry } = build(existing);
         const { status, resetEntry } = this.resetApprovalIfNeeded(
@@ -2083,15 +2093,28 @@ export class RevisionModel extends BaseClass {
     return merged;
   }
 
-  async close(id: string, userId: string, reason?: string) {
+  async close(
+    id: string,
+    userId: string,
+    authority: CasAuthority<Revision>,
+    reason?: string,
+  ) {
     let hadSchedule = false;
     const closed = await this.updateWithCas(
       id,
       // The schedule fields because `hadSchedule` — which decides the scrub below —
       // is computed from them, and `activityLog` because the entry is appended to the
       // log this read returned. Guarding `status` alone left both to a stale read.
-      ["status", "autoPublishOnApproval", "scheduledPublishAt", "activityLog"],
-      (existing) => {
+      // `target` because the discard authority judges on `target.snapshot`.
+      [
+        "status",
+        "autoPublishOnApproval",
+        "scheduledPublishAt",
+        "activityLog",
+        "target",
+      ],
+      async (existing) => {
+        await assertCasAuthority(authority, existing);
         if (existing.status === "merged" || existing.status === "discarded") {
           throw new Error(
             "Cannot discard an already discarded or merged revision",
@@ -2247,8 +2270,8 @@ export class RevisionModel extends BaseClass {
       // that re-scopes the revision changes that answer, so it must be part of the
       // predicate. Every verb taking a row-scoped authority owes this.
       ["status", "reviewCycle", "reviews", "activityLog", "target"],
-      (existing) => {
-        assertCasAuthority(authority, existing);
+      async (existing) => {
+        await assertCasAuthority(authority, existing);
         // Re-checked under the CAS, against the row this write is conditioned on:
         // the guard alone only proves `status` hasn't changed since the CAS re-read,
         // and a retry re-reads. Without this a reopen racing a publish could demote

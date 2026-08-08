@@ -130,6 +130,10 @@ export async function discardIfJustCreated(
     await context.models.revisions.close(
       revision.id,
       context.userId,
+      {
+        authorizedByFlow:
+          "this flow created the draft moments ago and is unwinding its own failure",
+      },
       "Discarded after error during draft initialization",
     );
   } catch (err) {

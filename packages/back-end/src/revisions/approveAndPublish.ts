@@ -42,7 +42,7 @@ export function planApproveAndPublish({
  */
 export function isArmedForAutoPublish(revision: {
   autoPublishOnApproval?: boolean;
-  autoPublishEnabledBy?: string;
+  autoPublishEnabledBy?: string | null;
   authorId?: string;
   // Feature revisions record their author as `createdBy` rather than
   // `authorId`. Reading only `authorId` made a legacy armed feature revision
@@ -71,7 +71,7 @@ export function isArmedForAutoPublish(revision: {
 // someone who has since left is refused up front rather than half-applied.
 function armedPublisherId(revision: {
   autoPublishOnApproval?: boolean;
-  autoPublishEnabledBy?: string;
+  autoPublishEnabledBy?: string | null;
   authorId?: string;
   createdBy?: { id?: string } | null;
 }): string | null {
