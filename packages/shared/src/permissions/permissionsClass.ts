@@ -1061,15 +1061,16 @@ export class Permissions {
   /**
    * Bypass the review requirement on a flag-family entity. `model` names which
    * one: atoms are per entity, so a Config unlock must consult the Config atom,
-   * not the Feature one. Defaults to "feature" for the many feature-only callers.
+   * not the Feature one.
    */
   public canBypassFlagApprovalChecks = (
     obj: {
       project?: string;
       projects?: string[];
     },
-    // Required, no default: defaulting to "feature" let config/constant call
-    // sites silently consult the wrong entity's bypass atom.
+    // Required, no default. A default of "feature" let Config and Constant call
+    // sites silently consult the wrong entity's bypass atom — a Feature-only role
+    // bypassing safeguards elsewhere, and a valid Config-only role refused.
     model: Extract<RevisionModel, "feature" | "config" | "constant">,
   ): boolean => {
     return this.canRevisionAction(model, "bypass", obj);
