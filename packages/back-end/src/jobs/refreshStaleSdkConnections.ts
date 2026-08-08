@@ -24,6 +24,8 @@ export default function addRefreshStaleSdkConnectionsJob(agenda: Agenda) {
       if (!organization) return;
       hasAnyStaleSdkConnection(organization)
         .then((stale) => {
+          // A write came in and marked the org as stale while the job was running,
+          // so we need to kick off a new job to procress the new stale connections.
           if (stale) return scheduleOrgRefreshJob(organization);
         })
         .catch((e) => {

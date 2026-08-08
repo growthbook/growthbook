@@ -483,7 +483,7 @@ export async function markSDKConnectionUsed(key: string) {
 }
 
 // Always bumps staleSince — a write during an in-flight rebuild must advance
-// the timestamp so clearStaleSdkConnections' `<= clearBefore` guard keeps it.
+// the timestamp so clearStaleSdkConnections' `< clearBefore` guard keeps it.
 export async function markSdkConnectionsStale(
   organization: string,
   keys: string[],
@@ -516,7 +516,7 @@ export async function findStaleSdkConnectionsByOrganization(
   return docs.map(toInterface);
 }
 
-// Clears only marks that predate `clearBefore`, so a write that re-marks
+// Clears only marks that strictly predate `clearBefore`, so a write that re-marks
 // during the rebuild is not dropped.
 export async function clearStaleSdkConnections(
   organization: string,
@@ -528,7 +528,7 @@ export async function clearStaleSdkConnections(
     {
       organization,
       key: { $in: keys },
-      staleSince: { $lte: clearBefore },
+      staleSince: { $lt: clearBefore },
     },
     { $set: { staleSince: null } },
   );
