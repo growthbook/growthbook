@@ -1,87 +1,137 @@
 import normal from "@stdlib/stats/base/dists/normal";
+import { z } from "zod";
 import { OrganizationSettings } from "shared/types/organization";
 import { MetricPriorSettings } from "shared/types/fact-table";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "../constants";
 
-export interface MetricParamsBase {
-  name: string;
-  effectSize: number;
-  overrideMetricLevelSettings: boolean;
-  overridePriorLiftMean: number;
-  overridePriorLiftStandardDeviation: number;
-  overrideProper: boolean;
-  metricPriorLiftMean: number;
-  metricPriorLiftStandardDeviation: number;
-  metricProper: boolean;
-}
+export const metricParamsBaseSchema = z.object({
+  name: z.string(),
+  effectSize: z.number(),
+  overrideMetricLevelSettings: z.boolean(),
+  overridePriorLiftMean: z.number(),
+  overridePriorLiftStandardDeviation: z.number(),
+  overrideProper: z.boolean(),
+  metricPriorLiftMean: z.number(),
+  metricPriorLiftStandardDeviation: z.number(),
+  metricProper: z.boolean(),
+});
 
-export interface MetricParamsMean extends MetricParamsBase {
-  type: "mean";
-  mean: number;
-  standardDeviation: number;
-}
+export type MetricParamsBase = z.infer<typeof metricParamsBaseSchema>;
 
-export interface MetricParamsBinomial extends MetricParamsBase {
-  type: "binomial";
-  conversionRate: number;
-}
+export const metricParamsMeanSchema = metricParamsBaseSchema.extend({
+  type: z.literal("mean"),
+  mean: z.number(),
+  standardDeviation: z.number(),
+});
 
-export type MetricParams = MetricParamsMean | MetricParamsBinomial;
+export type MetricParamsMean = z.infer<typeof metricParamsMeanSchema>;
 
-export interface StatsEngineSettings {
-  type: "frequentist" | "bayesian";
-  sequentialTesting: false | number;
-}
+export const metricParamsBinomialSchema = metricParamsBaseSchema.extend({
+  type: z.literal("binomial"),
+  conversionRate: z.number(),
+});
 
-export interface PowerCalculationParams {
-  metrics: { [id: string]: MetricParams };
-  nVariations: number;
-  nWeeks: number;
-  alpha: number;
-  usersPerWeek: number; // TODO extend to have different data per week
-  targetPower: number;
-  statsEngineSettings: StatsEngineSettings;
-  metricValuesData: {
-    source: "manual" | "segment" | "experiment" | "factTable";
-    sourceName?: string;
-    sourceId?: string;
-    identifierType?: string;
-    populationId?: string;
-    datasource?: string;
-    error?: string;
-  };
-  customizedMetrics?: boolean;
-}
+export type MetricParamsBinomial = z.infer<typeof metricParamsBinomialSchema>;
 
-export type FullModalPowerCalculationParams = Omit<
-  PowerCalculationParams,
-  "nVariations" | "statsEngine"
+export const metricParamsSchema = z.discriminatedUnion("type", [
+  metricParamsMeanSchema,
+  metricParamsBinomialSchema,
+]);
+
+export type MetricParams = z.infer<typeof metricParamsSchema>;
+
+export const statsEngineSettingsSchema = z.object({
+  type: z.union([z.literal("frequentist"), z.literal("bayesian")]),
+  sequentialTesting: z.union([z.literal(false), z.number()]),
+});
+
+export type StatsEngineSettings = z.infer<typeof statsEngineSettingsSchema>;
+
+export const metricValuesDataSchema = z.object({
+  source: z.union([
+    z.literal("manual"),
+    z.literal("segment"),
+    z.literal("experiment"),
+    z.literal("factTable"),
+  ]),
+  sourceName: z.string().optional(),
+  sourceId: z.string().optional(),
+  identifierType: z.string().optional(),
+  populationId: z.string().optional(),
+  datasource: z.string().optional(),
+  error: z.string().optional(),
+});
+
+export type MetricValuesData = z.infer<typeof metricValuesDataSchema>;
+
+export const powerCalculationParamsSchema = z.object({
+  metrics: z.record(z.string(), metricParamsSchema),
+  nVariations: z.number(),
+  nWeeks: z.number(),
+  alpha: z.number(),
+  // TODO extend to have different data per week
+  usersPerWeek: z.number(),
+  targetPower: z.number(),
+  statsEngineSettings: statsEngineSettingsSchema,
+  metricValuesData: metricValuesDataSchema,
+  customizedMetrics: z.boolean().optional(),
+});
+
+export type PowerCalculationParams = z.infer<
+  typeof powerCalculationParamsSchema
 >;
 
-// Partial on all key except name and type.
-export type PartialMetricParams =
-  | (Partial<Omit<MetricParamsMean, "name" | "type">> & {
-      name: string;
-      type: "mean";
-    })
-  | (Partial<Omit<MetricParamsBinomial, "name" | "type">> & {
-      name: string;
-      type: "binomial";
+// Equivalent to `Omit<PowerCalculationParams, "nVariations" | "statsEngine">`.
+// Note: "statsEngine" was never a key on PowerCalculationParams, so the original
+// `Omit` only removed `nVariations`. We preserve that exact semantic here.
+export const fullModalPowerCalculationParamsSchema =
+  powerCalculationParamsSchema.omit({ nVariations: true });
+
+export type FullModalPowerCalculationParams = z.infer<
+  typeof fullModalPowerCalculationParamsSchema
+>;
+
+// Partial on all keys except name and type.
+const partialMetricParamsMeanSchema = metricParamsMeanSchema
+  .omit({ name: true, type: true })
+  .partial()
+  .extend({
+    name: z.string(),
+    type: z.literal("mean"),
+  });
+
+const partialMetricParamsBinomialSchema = metricParamsBinomialSchema
+  .omit({ name: true, type: true })
+  .partial()
+  .extend({
+    name: z.string(),
+    type: z.literal("binomial"),
+  });
+
+export const partialMetricParamsSchema = z.discriminatedUnion("type", [
+  partialMetricParamsMeanSchema,
+  partialMetricParamsBinomialSchema,
+]);
+
+export type PartialMetricParams = z.infer<typeof partialMetricParamsSchema>;
+
+export const partialPowerCalculationParamsSchema =
+  fullModalPowerCalculationParamsSchema
+    .omit({ metrics: true })
+    .partial()
+    .extend({
+      metrics: z.record(z.string(), partialMetricParamsSchema),
+      savedData: z
+        .object({
+          usersPerWeek: z.number(),
+          metrics: z.record(z.string(), partialMetricParamsSchema),
+        })
+        .optional(),
     });
 
-export type PartialPowerCalculationParams = Partial<
-  Omit<FullModalPowerCalculationParams, "metrics">
-> & {
-  metrics: {
-    [id: string]: PartialMetricParams;
-  };
-  savedData?: {
-    usersPerWeek: number;
-    metrics: {
-      [id: string]: PartialMetricParams;
-    };
-  };
-};
+export type PartialPowerCalculationParams = z.infer<
+  typeof partialPowerCalculationParamsSchema
+>;
 
 type Config = {
   // Config with no title are not displayed by default!
@@ -280,47 +330,65 @@ export const ensureAndReturnPowerCalculationParams = (
   return v;
 };
 
-export interface SampleSizeAndRuntime {
-  weeks: number;
-  users: number;
-}
+export const sampleSizeAndRuntimeSchema = z.object({
+  weeks: z.number(),
+  users: z.number(),
+});
 
-export interface Week {
-  users: number;
-  metrics: {
-    [id: string]: {
-      isThreshold: boolean;
-      effectSize: number;
-      power: number;
-    };
-  };
-}
+export type SampleSizeAndRuntime = z.infer<typeof sampleSizeAndRuntimeSchema>;
 
-export type MDEResults =
-  | {
-      type: "success";
-      mde: number;
-    }
-  | {
-      type: "error";
-      description: string;
-    };
+export const weekSchema = z.object({
+  users: z.number(),
+  metrics: z.record(
+    z.string(),
+    z.object({
+      isThreshold: z.boolean(),
+      effectSize: z.number(),
+      power: z.number(),
+    }),
+  ),
+});
 
-export type PowerCalculationSuccessResults = {
-  type: "success";
-  sampleSizeAndRuntime: {
-    [id: string]: SampleSizeAndRuntime | undefined;
-  };
-  weeks: Week[];
-  weekThreshold?: number;
-};
+export type Week = z.infer<typeof weekSchema>;
 
-export type PowerCalculationResults =
-  | PowerCalculationSuccessResults
-  | {
-      type: "error";
-      description: string;
-    };
+export const mdeResultsSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("success"),
+    mde: z.number(),
+  }),
+  z.object({
+    type: z.literal("error"),
+    description: z.string(),
+  }),
+]);
+
+export type MDEResults = z.infer<typeof mdeResultsSchema>;
+
+export const powerCalculationSuccessResultsSchema = z.object({
+  type: z.literal("success"),
+  sampleSizeAndRuntime: z.record(
+    z.string(),
+    sampleSizeAndRuntimeSchema.optional(),
+  ),
+  weeks: z.array(weekSchema),
+  weekThreshold: z.number().optional(),
+});
+
+export type PowerCalculationSuccessResults = z.infer<
+  typeof powerCalculationSuccessResultsSchema
+>;
+
+export const powerCalculationResultsSchema = z.discriminatedUnion("type", [
+  powerCalculationSuccessResultsSchema,
+  z.object({
+    type: z.literal("error"),
+    description: z.string(),
+  }),
+]);
+
+export type PowerCalculationResults = z.infer<
+  typeof powerCalculationResultsSchema
+>;
 
 /**
  * delta method for relative difference
