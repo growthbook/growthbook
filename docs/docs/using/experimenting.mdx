@@ -233,16 +233,20 @@ change.
 
 ### Segmentation
 
-Segments are applied to experiment results to only show users that match a particular attribute. For
-example, you might have “country” as a dimension, and create a segment for just “US visitors”. In the
-experiment you can configure the experiment to just look at one particular segment of users. Segments
-can be created with SQL from the "Data and Metrics → Segments" page.
+:::caution Segments are deprecated
 
-![Segments](/images/using/segments-page.png)
+Segments have been deprecated and are being phased out. If you don't already have one configured, you
+shouldn't create one. Use a [Dimension](/app/dimensions) instead, or apply a custom SQL filter in the
+experiment's analysis settings to only show users that match a particular attribute.
 
-There are two ways you can use segments in your experiment results. The first is to use the
-experiment's 'analytics settings' and add one of the segments. The other way is to create a custom
-report, and then click on 'customize' and select a segment to apply to the results.
+:::
+
+Previously, Segments could be applied to experiment results to only show users that match a particular
+attribute. For example, you might have “country” as a dimension, and create a segment for just “US
+visitors”. In the experiment you could configure the experiment to just look at one particular segment
+of users. If you need this kind of filtering today, a custom SQL filter in the experiment's analysis
+settings is the recommended approach, as long as the attribute you want to filter on already exists on
+your experiment assignment query.
 
 ### Dimensions
 
