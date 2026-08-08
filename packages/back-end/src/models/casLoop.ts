@@ -9,12 +9,6 @@
  */
 
 /**
- * Guard completeness is checked in tests only: it costs a Proxy per attempt, and the
- * suite is where an under-guarded write should fail rather than in production.
- */
-const ENFORCE_GUARD_COMPLETENESS = process.env.NODE_ENV === "test";
-
-/**
  * The three ways a loop can end without applying. No caller currently tells
  * `aborted` from `not-found`, but the loop keeps them separate so one that wants
  * "no such document" need not re-read to find out.
@@ -112,21 +106,33 @@ export type CasRead<TSnapshot> = {
 };
 
 export async function runCasLoop<TSnapshot, TUpdate, TResult>({
-  guardFields,
+  alsoGuard,
   maxAttempts = 5,
-  allowUnguardedReads,
+  neverGuard,
   read,
   compute,
   write,
 }: {
-  guardFields: readonly string[];
+  /**
+   * Fields the caller declares, UNIONED with what `compute` actually read.
+   *
+   * Both halves are needed. Derivation alone can come out narrower than intended:
+   * a conditional read (`armAcknowledgments`, only touched when arming) would drop
+   * out of the guard on the attempts that skip that branch, and a caller that
+   * computed its desired state from a field BEFORE the loop never touches it inside.
+   * Declaration alone was the original defect — the list is written by hand and
+   * nothing compared it to what the code touches.
+   *
+   * The union is never narrower than either, so it cannot regress a guard, and it
+   * closes the six under-guarded writes the derivation found.
+   */
+  alsoGuard?: readonly string[];
   maxAttempts?: number;
   /**
-   * Fields `compute` may read WITHOUT guarding on them — identity and metadata it
-   * only copies through, never decides on. Everything else it touches must be in
-   * `guardFields`; see `assertDecisionIsGuarded`.
+   * Fields `compute` reads but only copies through, never decides on. Naming one
+   * here is a claim that a concurrent change to it cannot invalidate this write.
    */
-  allowUnguardedReads?: readonly string[];
+  neverGuard?: readonly string[];
   /**
    * Re-read on EVERY attempt. Hoisting this out of the loop makes a retry re-guard on
    * the snapshot that already lost, so it can never converge — and nothing observable
@@ -153,11 +159,13 @@ export async function runCasLoop<TSnapshot, TUpdate, TResult>({
     const watched = watchFieldReads(current.snapshot);
     const update = await compute(watched.snapshot);
     if (!update) return { status: "aborted" };
-    assertDecisionIsGuarded(guardFields, watched.read(), allowUnguardedReads);
 
     const written = await write(
       update,
-      buildCasGuard(guardFields, current.observed),
+      buildCasGuard(
+        derivedGuardFields(watched.read(), alsoGuard, neverGuard),
+        current.observed,
+      ),
       current.snapshot,
     );
     if (written.applied) return { status: "applied", result: written.result };
@@ -185,11 +193,7 @@ function watchFieldReads<TSnapshot>(snapshot: TSnapshot): {
   snapshot: TSnapshot;
   read: () => Set<string>;
 } {
-  if (
-    !ENFORCE_GUARD_COMPLETENESS ||
-    !snapshot ||
-    typeof snapshot !== "object"
-  ) {
+  if (!snapshot || typeof snapshot !== "object") {
     return { snapshot, read: () => new Set() };
   }
   const seen = new Set<string>();
@@ -210,38 +214,25 @@ function watchFieldReads<TSnapshot>(snapshot: TSnapshot): {
 }
 
 /**
- * A CAS guard must cover every field the decision it protects actually read.
+ * The guard for one attempt: exactly the fields the decision read.
  *
- * This is the single most repeated defect class in the revision engines: a guard
- * that answers a narrower question than the write performs. `merge` guarded `status`
- * while the caller's desired state came from `target`; the comment verbs guarded
- * `reviews` while deciding on `status`; the schedule scrub guarded the schedule while
- * deciding on the status. Every one was expressible because the field list is written
- * by hand and nothing compares it to what the code touches.
+ * Hand-written guard lists were the most repeated defect in these engines — a guard
+ * answering a narrower question than the write performs. The list was written by
+ * hand and nothing compared it to what the code touched, so `merge` guarded `status`
+ * while deciding on `target`, the comment verbs guarded `reviews` while deciding on
+ * `status`, and the schedule scrub guarded the schedule while deciding on the status.
  *
- * Enforced in tests only — zero production cost, and the suite is where a new
- * under-guarded write shows up before review does.
+ * Deriving it removes the class: what `compute` reads IS what it is conditioned on.
+ * A spread reads everything and therefore guards everything, which is correct — an
+ * update built by spreading the row carries every field forward.
  */
-function assertDecisionIsGuarded(
-  guardFields: readonly string[],
+function derivedGuardFields(
   readFields: Set<string>,
-  allowUnguardedReads: readonly string[] = [],
-): void {
-  if (!ENFORCE_GUARD_COMPLETENESS) return;
-  // NOTE: `dateUpdated` is NOT a blanket exemption. Treating it as a generation
-  // token assumes every writer advances it, and that is not true here — six raw
-  // `updateOne` calls in RevisionModel alone (schedule scrubs, park, failure
-  // tracking) deliberately leave it alone so they don't read as content edits. A
-  // `dateUpdated` guard therefore pins one field like any other, and a decision that
-  // reads more must say so.
-  const allowed = new Set([...guardFields, ...allowUnguardedReads]);
-  const unguarded = [...readFields].filter(
-    (f) => !allowed.has(f) && !ALWAYS_READABLE.has(f),
-  );
-  if (!unguarded.length) return;
-  throw new Error(
-    `CAS decision read unguarded field(s) [${unguarded.join(", ")}] — add them to ` +
-      `guardFields, or to allowUnguardedReads if the write only copies them through. ` +
-      `Guarded: [${[...guardFields].join(", ")}].`,
-  );
+  alsoGuard: readonly string[] = [],
+  neverGuard: readonly string[] = [],
+): string[] {
+  const skip = new Set([...ALWAYS_READABLE, ...neverGuard]);
+  return [
+    ...new Set([...[...readFields].filter((f) => !skip.has(f)), ...alsoGuard]),
+  ];
 }

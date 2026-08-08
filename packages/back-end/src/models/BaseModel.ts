@@ -849,7 +849,7 @@ export abstract class BaseModel<
       PKeyUpdateProps<T, PKey, PK>,
       z.infer<T>
     >({
-      guardFields: guardFields.map(String),
+      alsoGuard: guardFields.map(String),
       maxAttempts,
       read: async () => {
         // Read raw so the guard describes the STORED doc while `compute` gets a

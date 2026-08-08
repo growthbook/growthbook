@@ -2338,7 +2338,7 @@ export async function casUpdate(
     mongoose.UpdateQuery<FeatureRevisionInterface>,
     void
   >({
-    guardFields: guardFields.map(String),
+    alsoGuard: guardFields.map(String),
     maxAttempts,
     read: async () => {
       // Guard fields ONLY — `applyRevisionPublishClaim` lists an immutable field

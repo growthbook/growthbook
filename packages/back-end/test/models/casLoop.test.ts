@@ -40,7 +40,7 @@ describe("runCasLoop", () => {
     const compute = jest.fn();
     await expect(
       runCasLoop({
-        guardFields: ["status"],
+        alsoGuard: ["status"],
         read: async () => null,
         compute,
         write: async () => ({ applied: true as const, result: 1 }),
@@ -53,7 +53,7 @@ describe("runCasLoop", () => {
     const write = jest.fn();
     await expect(
       runCasLoop({
-        guardFields: ["status"],
+        alsoGuard: ["status"],
         read: async () => ({ snapshot: { status: "draft" }, observed: {} }),
         compute: () => null,
         write,
@@ -66,7 +66,7 @@ describe("runCasLoop", () => {
     const write = jest.fn().mockResolvedValue({ applied: false });
     await expect(
       runCasLoop({
-        guardFields: ["status"],
+        alsoGuard: ["status"],
         maxAttempts: 3,
         read: async () => ({ snapshot: { status: "draft" }, observed: {} }),
         compute: () => ({ $set: {} }),
@@ -79,7 +79,7 @@ describe("runCasLoop", () => {
   it("returns the write's result on success", async () => {
     await expect(
       runCasLoop({
-        guardFields: ["status"],
+        alsoGuard: ["status"],
         read: async () => ({ snapshot: { status: "draft" }, observed: {} }),
         compute: () => ({ $set: {} }),
         write: async () => ({ applied: true as const, result: "written" }),
@@ -95,7 +95,7 @@ describe("runCasLoop", () => {
     let reads = 0;
     const guards: Record<string, unknown>[] = [];
     const outcome = await runCasLoop({
-      guardFields: ["v"],
+      alsoGuard: ["v"],
       read: async () => {
         const observed = versions[Math.min(reads, versions.length - 1)];
         reads++;
@@ -121,7 +121,7 @@ describe("runCasLoop", () => {
   it("guards on `observed`, not on the computed snapshot", async () => {
     const guards: Record<string, unknown>[] = [];
     await runCasLoop({
-      guardFields: ["status"],
+      alsoGuard: ["status"],
       read: async () => ({
         snapshot: { status: "migrated" },
         observed: { status: "stored" },
