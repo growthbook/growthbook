@@ -863,8 +863,13 @@ export const postRefreshLearnings = async (
             newContradictingExperimentIds: newContradicting,
             summary: ai.summary || "",
           });
+        } else {
+          // Only stamp when there's nothing pending for the user to act on.
+          // A Learning with a suggestion is stamped when that suggestion is
+          // applied, so cancelling the review doesn't silently burn it —
+          // the next refresh will surface it again.
+          refreshedIds.push(learning.id);
         }
-        refreshedIds.push(learning.id);
       } catch (e) {
         // One failed Learning shouldn't abort the whole refresh
         logger.error(e, `refresh-learnings: error refreshing ${learning.id}`);
@@ -873,7 +878,8 @@ export const postRefreshLearnings = async (
     REFRESH_CONCURRENCY,
   );
 
-  // Stamp what we actually checked so the next run starts from here
+  // Stamp only the Learnings with nothing pending. Ones with a suggestion are
+  // stamped by postApplyLearningRefresh when the user applies them.
   await Promise.all(
     refreshedIds.map(async (id) => {
       const doc = learnings.find((l) => l.id === id);

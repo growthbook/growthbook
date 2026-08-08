@@ -111,6 +111,9 @@ export async function getProjectsByParentId(
 
       return learning.projects || [];
     }
+
+    default:
+      throw new Error(`Unsupported discussion parent type: ${parentType}`);
   }
 }
 

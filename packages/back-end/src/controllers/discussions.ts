@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { DiscussionParentType } from "shared/types/discussion";
+import { DISCUSSION_PARENT_TYPES } from "shared/constants";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   addComment,
@@ -197,6 +198,10 @@ export async function getDiscussion(
   }
 }
 
+// One page of cards is the realistic ask; anything beyond this is abuse or a
+// bug, and each id costs its own permission lookup.
+const MAX_DISCUSSION_COUNT_IDS = 100;
+
 export async function getDiscussionCounts(
   req: AuthRequest<
     null,
@@ -208,7 +213,25 @@ export async function getDiscussionCounts(
   const context = getContextFromReq(req);
   const { org } = context;
   const { parentType } = req.params;
-  const ids = ((req.query?.ids as string) || "").split(",").filter(Boolean);
+
+  // The route has no schema validation, so parentType is an unvalidated cast.
+  // Reject unknown values rather than letting them reach the lookup switch.
+  if (!DISCUSSION_PARENT_TYPES.includes(parentType)) {
+    return res.status(400).json({
+      status: 400,
+      message: `Unsupported discussion parent type: ${parentType}`,
+    });
+  }
+
+  // `?ids=a&ids=b` arrives as an array, so normalize before splitting rather
+  // than assuming a string. Cap the batch: each id costs a permission lookup,
+  // and they run concurrently.
+  const rawIds = req.query?.ids;
+  const ids = (Array.isArray(rawIds) ? rawIds.join(",") : rawIds || "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean)
+    .slice(0, MAX_DISCUSSION_COUNT_IDS);
 
   try {
     // Only return counts for parents the caller can actually read. Without

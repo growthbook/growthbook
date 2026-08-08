@@ -207,6 +207,16 @@ export const attributeDataTypes = [
   "secureString[]",
 ] as const;
 
+// Runtime allow-list for discussion parents. Kept here (rather than only as a
+// type) so request handlers can validate an incoming parentType.
+export const DISCUSSION_PARENT_TYPES = [
+  "experiment",
+  "idea",
+  "metric",
+  "feature",
+  "learning",
+] as const;
+
 // for audits
 export const entityEvents = {
   agreement: ["create", "update", "delete"],

@@ -24,6 +24,7 @@ import { useExperimentSearch, experimentDate } from "@/services/experiments";
 import useApi from "@/hooks/useApi";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import FindLearningsModal from "@/components/Learnings/FindLearningsModal";
 import SavedLearningsList from "@/components/Learnings/SavedLearningsList";
@@ -35,6 +36,12 @@ const LearningsPage = (): React.ReactElement => {
   const { ready, project } = useDefinitions();
   const { aiEnabled } = useAISettings();
   const { hasCommercialFeature } = useUser();
+  const permissionsUtil = usePermissionsUtil();
+  // manageLearnings is project-scoped; the page is scoped to the selected
+  // project (or all projects), so ask about that same scope.
+  const canManageLearnings = permissionsUtil.canCreateLearning({
+    projects: project ? [project] : [],
+  });
   const hasLearningsFeature = hasCommercialFeature("learnings");
 
   const today = new Date();
@@ -145,7 +152,7 @@ const LearningsPage = (): React.ReactElement => {
             </Heading>
             {allStoppedExperiments.length > 0 && (
               <Flex gap="2" align="center">
-                {learnings.length > 0 && (
+                {canManageLearnings && learnings.length > 0 && (
                   <Tooltip
                     body={
                       aiEnabled
@@ -162,9 +169,11 @@ const LearningsPage = (): React.ReactElement => {
                     </Button>
                   </Tooltip>
                 )}
-                <Button onClick={() => setShowNewLearning(true)}>
-                  New Learning
-                </Button>
+                {canManageLearnings && (
+                  <Button onClick={() => setShowNewLearning(true)}>
+                    New Learning
+                  </Button>
+                )}
               </Flex>
             )}
           </Flex>
