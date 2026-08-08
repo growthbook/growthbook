@@ -103,3 +103,11 @@ export function holdoutSizeToCoverage(holdoutSize: number): number {
 export function coverageToHoldoutSize(coverage: number): number {
   return coverage / 2;
 }
+
+export const holdoutStage = [
+  "draft",
+  "running",
+  "analysis-period",
+  "stopped",
+] as const;
+export type HoldoutStage = (typeof holdoutStage)[number];

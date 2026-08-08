@@ -46,6 +46,7 @@ The glossary:
 | Metric Slices                 | —                    | The metric-slicing feature (overall).                                                                                       |
 | Auto Slice                    | Auto Slices          | Automatically populates and manages Metric Slices. The word "levels" in "Auto Slice levels" stays a lowercase common noun.  |
 | Project                       | Projects             | A first-class resource with its own sidebar entry and page. "All Projects" is the fixed scope label meaning every Project.  |
+| Holdout                       | Holdouts             | A first-class resource with its own page. "Holdout size" and stage names (draft, running, analysis period) stay lowercase.  |
 
 So a sentence-case label still reads "Require approval to modify Saved Groups", and body copy still reads "users will only be able to create Fact Metrics".
 

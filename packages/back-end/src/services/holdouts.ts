@@ -1,9 +1,24 @@
-import { HoldoutInterface } from "shared/validators";
-import { ExperimentInterface } from "shared/types/experiment";
+import { v4 as uuidv4 } from "uuid";
+import { getValidDate } from "shared/dates";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import { generateVariationId, getHoldoutStage } from "shared/util";
+import {
+  HoldoutInterface,
+  HoldoutNextScheduledStatusUpdate,
+  HoldoutStage,
+} from "shared/validators";
+import {
+  Changeset,
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+  ExperimentPhase,
+} from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
+import { DataSourceInterface } from "shared/types/datasource";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  createExperiment,
   deleteExperimentByIdForOrganization,
   getExperimentsByIds,
   updateExperiment,
@@ -16,7 +31,13 @@ import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { isHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { BadRequestError } from "back-end/src/util/errors";
+import { BadRequestError, InternalServerError } from "back-end/src/util/errors";
+import {
+  getChangesToStartExperiment,
+  validateExperimentData,
+  validateVariationIds,
+} from "back-end/src/services/experiments";
+import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 
 export async function canLinkExperimentToHoldoutFromFeatures(
   context: ReqContext | ApiReqContext,
@@ -119,6 +140,361 @@ export async function resolveHoldoutExperimentToLink({
     throw makeError(
       `Cannot add experiment rule: this experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}", but this feature flag is not in a holdout. Add the feature flag to that holdout first, then add the experiment.`,
     );
+  }
+}
+
+export async function createHoldoutWithExperiment(
+  context: ReqContext | ApiReqContext,
+  data: Partial<ExperimentInterfaceStringDates> & Partial<HoldoutInterface>,
+): Promise<{
+  holdout: HoldoutInterface;
+  experiment: ExperimentInterface;
+  datasource: DataSourceInterface | null;
+  metricIds: string[];
+}> {
+  const { org, userId } = context;
+
+  if (
+    !context.permissions.canCreateHoldout({ projects: data.projects || [] })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { metricIds, datasource } = await validateExperimentData(context, data);
+
+  const variations = [
+    {
+      name: "Holdout",
+      description: "",
+      key: "0",
+      screenshots: [],
+      id: generateVariationId(),
+    },
+    {
+      name: "Treatment",
+      description: "",
+      key: "1",
+      screenshots: [],
+      id: generateVariationId(),
+    },
+  ];
+
+  const obj: Omit<ExperimentInterface, "id" | "uid"> = {
+    organization: org.id,
+    archived: false,
+    hashAttribute: data.hashAttribute || "",
+    fallbackAttribute: data.fallbackAttribute || "",
+    hashVersion: 2,
+    disableStickyBucketing: true,
+    autoSnapshots: true,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    project: "",
+    owner: data.owner || userId,
+    trackingKey: `holdout-${uuidv4()}`,
+    datasource: data.datasource || "",
+    exposureQueryId: data.exposureQueryId || "",
+    userIdType: data.userIdType || "anonymous",
+    name: data.name || "",
+    phases: data.phases
+      ? data.phases.map(({ dateStarted, dateEnded, ...phase }) => {
+          return {
+            ...phase,
+            dateStarted: dateStarted ? getValidDate(dateStarted) : new Date(),
+            dateEnded: dateEnded ? getValidDate(dateEnded) : undefined,
+          };
+        })
+      : [],
+    tags: data.tags || [],
+    description: data.description || "",
+    hypothesis: "",
+    goalMetrics: data.goalMetrics || [],
+    secondaryMetrics: data.secondaryMetrics || [],
+    guardrailMetrics: data.guardrailMetrics || [],
+    activationMetric: data.activationMetric || "",
+    metricOverrides: [],
+    segment: "",
+    queryFilter: "",
+    skipPartialData: false,
+    attributionModel: "firstExposure",
+    variations,
+    implementation: "code",
+    status: "draft",
+    results: undefined,
+    analysis: "",
+    releasedVariationId: "",
+    excludeFromPayload: true,
+    autoAssign: false,
+    previewURL: "",
+    targetURLRegex: "",
+    // todo: revisit this logic for project level settings, as well as "override stats settings" toggle:
+    sequentialTestingEnabled: false,
+    sequentialTestingTuningParameter:
+      data.sequentialTestingTuningParameter ??
+      org?.settings?.sequentialTestingTuningParameter ??
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    regressionAdjustmentEnabled: false,
+    statsEngine: data.statsEngine,
+    type: "holdout",
+    customFields: data.customFields || undefined,
+    shareLevel: data.shareLevel || "organization",
+    decisionFrameworkSettings: {},
+  };
+
+  validateVariationIds(obj.variations);
+
+  const experiment = await createExperiment({ data: obj, context });
+
+  const holdout = await context.models.holdout.create({
+    experimentId: experiment.id,
+    projects: data.projects || [],
+    name: experiment.name,
+    skipAsDefaultHoldout: data.skipAsDefaultHoldout,
+    environmentSettings: data.environmentSettings || {},
+    linkedFeatures: {},
+    linkedExperiments: {},
+  });
+
+  if (!holdout) {
+    throw new InternalServerError("Failed to create holdout");
+  }
+
+  return { holdout, experiment, datasource, metricIds };
+}
+
+export function normalizeHoldoutScheduleUpdates({
+  holdout,
+  experiment,
+  scheduleInput,
+  now = new Date(),
+}: {
+  holdout: Pick<
+    HoldoutInterface,
+    "statusUpdateSchedule" | "nextScheduledStatusUpdate" | "analysisStartDate"
+  >;
+  experiment: Pick<ExperimentInterface, "status">;
+  scheduleInput:
+    | {
+        startAt?: string | Date | null;
+        startAnalysisPeriodAt?: string | Date | null;
+        stopAt?: string | Date | null;
+      }
+    | null
+    | undefined;
+  now?: Date;
+}): {
+  statusUpdateSchedule: HoldoutInterface["statusUpdateSchedule"];
+  nextScheduledStatusUpdate: HoldoutInterface["nextScheduledStatusUpdate"];
+} {
+  if (scheduleInput === null) {
+    return { statusUpdateSchedule: null, nextScheduledStatusUpdate: null };
+  }
+  if (scheduleInput === undefined) {
+    return {
+      statusUpdateSchedule: holdout.statusUpdateSchedule,
+      nextScheduledStatusUpdate: holdout.nextScheduledStatusUpdate ?? null,
+    };
+  }
+
+  const existing = holdout.statusUpdateSchedule ?? {};
+  const statusUpdateSchedule = {
+    ...existing,
+    ...(scheduleInput.startAt !== undefined && {
+      startAt: scheduleInput.startAt
+        ? getValidDate(scheduleInput.startAt)
+        : undefined,
+    }),
+    ...(scheduleInput.startAnalysisPeriodAt !== undefined && {
+      startAnalysisPeriodAt: scheduleInput.startAnalysisPeriodAt
+        ? getValidDate(scheduleInput.startAnalysisPeriodAt)
+        : undefined,
+    }),
+    ...(scheduleInput.stopAt !== undefined && {
+      stopAt: scheduleInput.stopAt
+        ? getValidDate(scheduleInput.stopAt)
+        : undefined,
+    }),
+  };
+
+  const potentialUpdates: Array<{
+    date: Date;
+    type: HoldoutNextScheduledStatusUpdate["type"];
+  }> = [];
+
+  if (statusUpdateSchedule.startAt && experiment.status === "draft") {
+    potentialUpdates.push({
+      date: statusUpdateSchedule.startAt,
+      type: "start",
+    });
+  }
+  if (
+    statusUpdateSchedule.startAnalysisPeriodAt &&
+    experiment.status === "running" &&
+    !holdout.analysisStartDate
+  ) {
+    potentialUpdates.push({
+      date: statusUpdateSchedule.startAnalysisPeriodAt,
+      type: "startAnalysisPeriod",
+    });
+  }
+  if (statusUpdateSchedule.stopAt && experiment.status !== "stopped") {
+    potentialUpdates.push({
+      date: statusUpdateSchedule.stopAt,
+      type: "stop",
+    });
+  }
+
+  const futureUpdates = potentialUpdates.filter((update) => update.date > now);
+  if (!futureUpdates.length) {
+    return { statusUpdateSchedule, nextScheduledStatusUpdate: null };
+  }
+
+  const nextUpdate = futureUpdates.reduce((earliest, current) =>
+    current.date < earliest.date ? current : earliest,
+  );
+  return {
+    statusUpdateSchedule,
+    nextScheduledStatusUpdate: {
+      type: nextUpdate.type,
+      date: nextUpdate.date,
+    },
+  };
+}
+
+export async function advanceHoldoutStage(
+  context: ReqContext | ApiReqContext,
+  {
+    holdout,
+    experiment,
+    stage,
+  }: {
+    holdout: HoldoutInterface;
+    experiment: ExperimentInterface;
+    stage: HoldoutStage;
+  },
+): Promise<void> {
+  const currentStage = getHoldoutStage(holdout, experiment);
+  if (currentStage === stage) return;
+
+  let phases = [...experiment.phases] as ExperimentPhase[];
+  const changes: Changeset = {};
+
+  const refreshPayload = (event: string) =>
+    queueSDKPayloadRefresh({
+      context,
+      payloadKeys: getAffectedSDKPayloadKeys(
+        holdout,
+        getEnvironmentIdsFromOrg(context.org),
+      ),
+      auditContext: {
+        event,
+        model: "holdout",
+        id: holdout.id,
+      },
+    });
+
+  switch (stage) {
+    case "stopped": {
+      if (phases[0]) {
+        phases[0].dateEnded = new Date();
+      }
+      if (phases[1]) {
+        phases[1].dateEnded = new Date();
+      }
+      Object.assign(changes, { phases, status: "stopped" });
+      await validateExperimentChange({ context, experiment, changes });
+      await updateExperiment({ context, experiment, changes });
+      await context.models.holdout.update(holdout, {
+        nextScheduledStatusUpdate: null,
+      });
+      refreshPayload("status changed to stopped");
+      return;
+    }
+
+    case "draft": {
+      if (!phases[0]) {
+        throw new BadRequestError("Holdout does not have a phase");
+      }
+      phases[0].dateEnded = undefined;
+      Object.assign(changes, { phases: [phases[0]], status: "draft" });
+      await validateExperimentChange({ context, experiment, changes });
+      await updateExperiment({ context, experiment, changes });
+      await context.models.holdout.update(holdout, {
+        analysisStartDate: undefined,
+      });
+      refreshPayload("status changed to draft");
+      return;
+    }
+
+    case "running": {
+      if (experiment.status === "draft") {
+        Object.assign(
+          changes,
+          await getChangesToStartExperiment(context, experiment),
+        );
+        await validateExperimentChange({ context, experiment, changes });
+        await updateExperiment({ context, experiment, changes });
+        await context.models.holdout.update(holdout, {
+          analysisStartDate: undefined,
+          nextScheduledStatusUpdate: holdout.statusUpdateSchedule
+            ?.startAnalysisPeriodAt
+            ? {
+                type: "startAnalysisPeriod",
+                date: holdout.statusUpdateSchedule.startAnalysisPeriodAt,
+              }
+            : null,
+        });
+        refreshPayload("status changed to running");
+        return;
+      }
+
+      if (!phases[0]) {
+        throw new BadRequestError("Holdout does not have a phase");
+      }
+      phases[0] = { ...phases[0], dateEnded: undefined };
+      if (phases[1]) {
+        phases = [phases[0]];
+      }
+      Object.assign(changes, { phases, status: "running" });
+      await validateExperimentChange({ context, experiment, changes });
+      await updateExperiment({ context, experiment, changes });
+      await context.models.holdout.update(holdout, {
+        analysisStartDate: undefined,
+      });
+      refreshPayload("status changed to running");
+      return;
+    }
+
+    case "analysis-period": {
+      if (experiment.status === "draft") {
+        throw new BadRequestError(
+          "A Holdout must be running before it can enter its analysis period",
+        );
+      }
+      if (!phases[0]) {
+        throw new BadRequestError("Holdout does not have a phase");
+      }
+      phases[1] = {
+        ...phases[0],
+        lookbackStartDate: new Date(),
+        dateEnded: undefined,
+        name: "Analysis",
+      };
+      Object.assign(changes, { phases, status: "running" });
+      await validateExperimentChange({ context, experiment, changes });
+      await updateExperiment({ context, experiment, changes });
+      await context.models.holdout.update(holdout, {
+        analysisStartDate: new Date(),
+        nextScheduledStatusUpdate: holdout.statusUpdateSchedule?.stopAt
+          ? { type: "stop", date: holdout.statusUpdateSchedule.stopAt }
+          : null,
+      });
+      refreshPayload("status changed to analysis period");
+      return;
+    }
+    default: {
+      stage satisfies never;
+    }
   }
 }
 

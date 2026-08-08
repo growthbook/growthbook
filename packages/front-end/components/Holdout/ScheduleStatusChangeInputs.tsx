@@ -4,6 +4,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { UseFormReturn } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { datetime } from "shared/dates";
+import { getHoldoutStage } from "shared/util";
 import { format } from "date-fns";
 import { format as formatTimeZone } from "date-fns-tz";
 import DatePicker from "@/components/DatePicker";
@@ -30,14 +31,7 @@ export default function ScheduleStatusChangeInputs({
   const isStopped = experiment.status === "stopped";
   const isArchived = experiment.archived;
 
-  const holdoutStatus =
-    experiment.status === "draft"
-      ? "draft"
-      : isRunning && !holdout.analysisStartDate
-        ? "running"
-        : isRunning && holdout.analysisStartDate
-          ? "analysis-period"
-          : "stopped";
+  const holdoutStatus = getHoldoutStage(holdout, experiment);
 
   const startDate = form.watch("statusUpdateSchedule.startAt");
   const startAnalysisPeriodDate = form.watch(
