@@ -704,8 +704,10 @@ export const postFeatureRevisionRequestReviewV2Validator = {
     .object({
       comment: z.string().optional(),
       autoPublishOnApproval: z.boolean().optional(),
+      // Same field, same rule as the schedule-publish endpoint below — it was
+      // documented as a date-time here and validated as one only there.
       scheduledPublishAt: z
-        .union([z.string().meta({ format: "date-time" }), z.null()])
+        .union([z.iso.datetime({ offset: true }), z.null()])
         .optional(),
       scheduledPublishLockEdits: z.boolean().optional(),
       scheduledPublishLockOthers: z.boolean().optional(),
@@ -730,9 +732,9 @@ export const postFeatureRevisionSchedulePublishV2Validator = {
       // Documented as date-time but never VALIDATED as one — the generic three
       // cite this endpoint as their model, so make the claim true.
       scheduledPublishAt: z
-        .union([z.iso.datetime(), z.null()])
+        .union([z.iso.datetime({ offset: true }), z.null()])
         .describe(
-          "When to publish, as an RFC3339 UTC timestamp (e.g. `2026-01-31T09:00:00Z`), or `null` to cancel a pending schedule. Numeric UTC offsets are not accepted.",
+          "When to publish, as an RFC3339 timestamp (e.g. `2026-01-31T09:00:00Z` or `2026-01-31T02:00:00-07:00`), or `null` to cancel a pending schedule.",
         ),
       // Accepted so a caller retrying a bypassable 422 raised anywhere in this
       // request isn't turned away by the body schema itself. Feature Flags have no

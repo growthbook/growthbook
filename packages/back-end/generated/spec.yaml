@@ -11698,8 +11698,8 @@ paths:
                   type: boolean
                 scheduledPublishAt:
                   anyOf:
-                    - format: date-time
-                      type: string
+                    - type: string
+                      format: date-time
                     - type: 'null'
                 scheduledPublishLockEdits:
                   type: boolean
@@ -11763,9 +11763,9 @@ paths:
               properties:
                 scheduledPublishAt:
                   description: >-
-                    When to publish, as an RFC3339 UTC timestamp (e.g.
-                    `2026-01-31T09:00:00Z`), or `null` to cancel a pending
-                    schedule. Numeric UTC offsets are not accepted.
+                    When to publish, as an RFC3339 timestamp (e.g.
+                    `2026-01-31T09:00:00Z` or `2026-01-31T02:00:00-07:00`), or
+                    `null` to cancel a pending schedule.
                   anyOf:
                     - type: string
                       format: date-time
@@ -20283,9 +20283,9 @@ paths:
               properties:
                 scheduledPublishAt:
                   description: >-
-                    When to publish, as an RFC3339 UTC timestamp (e.g.
-                    `2026-01-31T09:00:00Z`), or `null` to cancel a pending
-                    schedule. Numeric UTC offsets are not accepted.
+                    When to publish, as an RFC3339 timestamp (e.g.
+                    `2026-01-31T09:00:00Z` or `2026-01-31T02:00:00-07:00`), or
+                    `null` to cancel a pending schedule.
                   anyOf:
                     - type: string
                       format: date-time
@@ -22052,9 +22052,9 @@ paths:
               properties:
                 scheduledPublishAt:
                   description: >-
-                    When to publish, as an RFC3339 UTC timestamp (e.g.
-                    `2026-01-31T09:00:00Z`), or `null` to cancel a pending
-                    schedule. Numeric UTC offsets are not accepted.
+                    When to publish, as an RFC3339 timestamp (e.g.
+                    `2026-01-31T09:00:00Z` or `2026-01-31T02:00:00-07:00`), or
+                    `null` to cancel a pending schedule.
                   anyOf:
                     - type: string
                       format: date-time
@@ -24911,9 +24911,9 @@ paths:
               properties:
                 scheduledPublishAt:
                   description: >-
-                    When to publish, as an RFC3339 UTC timestamp (e.g.
-                    `2026-01-31T09:00:00Z`), or `null` to cancel a pending
-                    schedule. Numeric UTC offsets are not accepted.
+                    When to publish, as an RFC3339 timestamp (e.g.
+                    `2026-01-31T09:00:00Z` or `2026-01-31T02:00:00-07:00`), or
+                    `null` to cancel a pending schedule.
                   anyOf:
                     - type: string
                       format: date-time

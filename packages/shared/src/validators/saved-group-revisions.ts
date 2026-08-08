@@ -614,14 +614,15 @@ export const postSavedGroupRevisionSchedulePublishValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      // RFC3339 with a `Z` offset, matching every other date-time field in this
-      // API (18 of them, none accepting a numeric offset) — a bare `z.string()`
-      // documented no `format: date-time` and let `new Date()`'s lenient parsing
-      // accept things no client should be sending. Send UTC.
+      // Validated RFC3339 rather than a bare `z.string()`, which documented no
+      // `format: date-time` and let `new Date()`'s lenient parsing accept things
+      // no client should be sending. Numeric offsets ARE accepted: this endpoint
+      // shipped taking any string, so rejecting `…-07:00` — valid RFC3339, and
+      // what an offset-preserving serializer emits — would 400 existing callers.
       scheduledPublishAt: z
-        .union([z.iso.datetime(), z.null()])
+        .union([z.iso.datetime({ offset: true }), z.null()])
         .describe(
-          "When to publish, as an RFC3339 UTC timestamp (e.g. `2026-01-31T09:00:00Z`), or `null` to cancel a pending schedule. Numeric UTC offsets are not accepted.",
+          "When to publish, as an RFC3339 timestamp (e.g. `2026-01-31T09:00:00Z` or `2026-01-31T02:00:00-07:00`), or `null` to cancel a pending schedule.",
         ),
       lockEdits: z.boolean().optional(),
       lockOthers: z.boolean().optional(),

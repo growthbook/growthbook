@@ -1488,7 +1488,14 @@ export class Permissions {
     return this.canRevisionAction("saved-group", "delete", savedGroup);
   };
 
-  /** A brand-new Constant has no consumers yet, so it binds to no environment. */
+  /**
+   * Unbound because a Constant is PARTITIONED by environment only through
+   * `environmentValues`, and a new one declares none — not because it has no
+   * consumers. It can have them immediately: a feature may already embed a
+   * `@const:` ref to a key that doesn't exist yet, and nothing rejects one.
+   * Same rule `canUpdateConstant`/`canDeleteConstant` apply. See
+   * `constantPublishEnvironments` for why reach isn't a footprint.
+   */
   public canCreateConstant = (
     constant: Pick<ConstantInterface, "project">,
   ): boolean => {
@@ -1512,7 +1519,16 @@ export class Permissions {
     );
   };
 
-  /** A brand-new Config has no consumers yet, so it binds to no environment. */
+  /**
+   * Unbound because a Config is PARTITIONED by environment only through its
+   * `scopedConfig` marker, which a new base Config has none of — not because it
+   * has no consumers. It can have them the moment it exists: `ConfigModel`'s
+   * `afterCreate` refreshes SDK payloads precisely because a feature may already
+   * embed a `@config:` ref to a key that doesn't exist yet, and
+   * `configValidation` skips rather than rejects such a ref. Same rule
+   * `canUpdateConfig`/`canDeleteConfig` apply to a base Config. See
+   * `configPublishEnvironments` for why reach isn't a footprint.
+   */
   public canCreateConfig = (
     config: Pick<ConfigInterface, "project">,
   ): boolean => {
