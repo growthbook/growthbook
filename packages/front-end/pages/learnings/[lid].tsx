@@ -257,7 +257,7 @@ const LearningPage = (): React.ReactElement => {
       {refreshOpen && (
         <RefreshLearningsModal
           experiments={experiments}
-          learningIds={[learning.id]}
+          learnings={[learning]}
           close={() => setRefreshOpen(false)}
           onApplied={() => mutate()}
         />

@@ -25,11 +25,14 @@ type SuggestionState = {
  */
 const RefreshLearningsModal: FC<{
   experiments: ExperimentInterfaceStringDates[];
-  /** Limit the refresh to specific Learnings. Omit to check them all. */
-  learningIds?: string[];
+  /**
+   * The Learnings to check. The endpoint handles one per call, so the loop
+   * lives here — that keeps each request bounded and lets us show progress.
+   */
+  learnings: { id: string; lastRefreshedAt?: string }[];
   close: () => void;
   onApplied?: () => void;
-}> = ({ experiments, learningIds, close, onApplied }) => {
+}> = ({ experiments, learnings, close, onApplied }) => {
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,11 +42,13 @@ const RefreshLearningsModal: FC<{
     learnings: number;
     experiments: number;
   } | null>(null);
-  // Set when the run hit the per-run cap and more Learnings are still queued.
-  const [remaining, setRemaining] = useState(0);
+  // How far through the queue we are, so a long run shows movement.
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+  // Set when the user closes mid-run; the loop checks it between calls.
+  const cancelledRef = useRef(false);
 
   const experimentMap = new Map(experiments.map((e) => [e.id, e]));
-  const isSingle = learningIds?.length === 1;
+  const isSingle = learnings.length === 1;
 
   // Refresh is an expensive AI call — only ever fire it once per modal.
   const hasRun = useRef(false);
@@ -52,50 +57,75 @@ const RefreshLearningsModal: FC<{
     if (hasRun.current) return;
     hasRun.current = true;
 
-    let cancelled = false;
+    // Least-recently-refreshed first (never-refreshed sorts first) so a run
+    // that's cut short still makes progress through the whole set.
+    const queue = [...learnings].sort(
+      (a, b) =>
+        new Date(a.lastRefreshedAt || 0).getTime() -
+        new Date(b.lastRefreshedAt || 0).getTime(),
+    );
+
     const run = async () => {
       setLoading(true);
       setError(null);
-      try {
-        const res = await apiCall<{
-          status: number;
-          suggestions?: LearningRefreshSuggestion[];
-          numLearningsChecked?: number;
-          numExperimentsConsidered?: number;
-          capped?: boolean;
-          numLearningsRemaining?: number;
-          message?: string;
-        }>("/learnings/refresh", {
-          method: "POST",
-          body: JSON.stringify(learningIds?.length ? { learningIds } : {}),
-        });
-        if (cancelled) return;
-        if (res.status !== 200 || !res.suggestions) {
-          setError(res.message || "Could not refresh Learnings");
-        } else {
-          setSuggestions(
-            res.suggestions.map((s) => ({ suggestion: s, selected: true })),
-          );
-          setChecked({
-            learnings: res.numLearningsChecked ?? 0,
-            experiments: res.numExperimentsConsidered ?? 0,
+      setProgress({ done: 0, total: queue.length });
+      let experimentsConsidered = 0;
+      let learningsChecked = 0;
+
+      for (const learning of queue) {
+        if (cancelledRef.current) return;
+        try {
+          const res = await apiCall<{
+            status: number;
+            suggestions?: LearningRefreshSuggestion[];
+            numExperimentsConsidered?: number;
+            message?: string;
+          }>("/learnings/refresh", {
+            method: "POST",
+            body: JSON.stringify({ learningId: learning.id }),
           });
-          setRemaining(res.capped ? (res.numLearningsRemaining ?? 0) : 0);
+          if (cancelledRef.current) return;
+          if (res.status === 200 && res.suggestions) {
+            experimentsConsidered += res.numExperimentsConsidered ?? 0;
+            learningsChecked += 1;
+            // Append as they land so the user sees results while the rest run.
+            if (res.suggestions.length) {
+              setSuggestions((prev) => [
+                ...prev,
+                ...res.suggestions!.map((s) => ({
+                  suggestion: s,
+                  selected: true,
+                })),
+              ]);
+            }
+          } else if (queue.length === 1) {
+            // A lone failure is the whole run; surface it.
+            setError(res.message || "Could not refresh Learnings");
+          }
+        } catch (e) {
+          if (cancelledRef.current) return;
+          // One Learning failing shouldn't abandon the rest of the queue.
+          if (queue.length === 1) {
+            setError(
+              e instanceof Error ? e.message : "Could not refresh Learnings",
+            );
+          }
         }
-      } catch (e) {
-        if (cancelled) return;
-        setError(
-          e instanceof Error ? e.message : "Could not refresh Learnings",
-        );
-      } finally {
-        if (!cancelled) setLoading(false);
+        setProgress((p) => ({ ...p, done: p.done + 1 }));
       }
+
+      if (cancelledRef.current) return;
+      setChecked({
+        learnings: learningsChecked,
+        experiments: experimentsConsidered,
+      });
+      setLoading(false);
     };
     run();
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
     };
-  }, [apiCall, learningIds]);
+  }, [apiCall, learnings]);
 
   function toggle(index: number) {
     setSuggestions((prev) =>
@@ -156,20 +186,11 @@ const RefreshLearningsModal: FC<{
             <Text size="medium" color="text-mid">
               {isSingle
                 ? "Checking this Learning against recently stopped experiments..."
-                : "Checking Learnings against recently stopped experiments..."}
+                : `Checking Learnings against recently stopped experiments... (${progress.done} of ${progress.total})`}
             </Text>
           </Flex>
         )}
         {!loading && error && <Callout status="error">{error}</Callout>}
-        {!loading && !error && remaining > 0 && (
-          <Box mb="3">
-            <Callout status="info">
-              Checked the {checked?.learnings} least recently reviewed
-              Learnings. {remaining} more {remaining === 1 ? "is" : "are"} still
-              queued — run Refresh again to continue.
-            </Callout>
-          </Box>
-        )}
         {!loading && !error && suggestions.length === 0 && (
           <Callout status="success">
             {isSingle

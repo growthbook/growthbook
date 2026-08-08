@@ -45,10 +45,11 @@ export type LearningInterface = z.infer<typeof learningValidator>;
 // front-end instead of re-declaring the interface by hand.
 export type LearningInterfaceStringDates = Omit<
   LearningInterface,
-  "dateCreated" | "dateUpdated"
+  "dateCreated" | "dateUpdated" | "lastRefreshedAt"
 > & {
   dateCreated: string;
   dateUpdated: string;
+  lastRefreshedAt?: string;
 };
 
 // List/detail API responses decorate each learning with whether the

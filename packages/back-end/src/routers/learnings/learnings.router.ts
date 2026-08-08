@@ -85,7 +85,7 @@ router.post(
   validateRequestMiddleware({
     body: z
       .object({
-        learningIds: z.array(z.string()).optional(),
+        learningId: z.string(),
       })
       .strict(),
   }),

@@ -256,6 +256,7 @@ const LearningsPage = (): React.ReactElement => {
                     <Box p="2">
                       <ExperimentSearchFilters
                         experiments={allExperiments}
+                        learnings={learnings}
                         syntaxFilters={syntaxFilters}
                         searchInputProps={searchInputProps}
                         setSearchValue={setSearchValue}

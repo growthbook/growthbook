@@ -27,7 +27,6 @@ import { getLatestSnapshotMultipleExperiments } from "back-end/src/models/Experi
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getAllTags } from "back-end/src/models/TagModel";
 import { logger } from "back-end/src/util/logger";
-import { promiseAllChunks } from "back-end/src/util/promise";
 
 type LearningWithCanManage = LearningInterface & { canManage: boolean };
 
@@ -238,11 +237,6 @@ const SIMILARITY_DEDUP_THRESHOLD = 0.85;
 // Saved learnings normally get embeddings via LearningModel hooks; backfill at
 // most this many missing ones inline per request
 const MAX_SAVED_VECTOR_BACKFILL = 50;
-// Refresh runs one AI call per Learning, so an uncapped "refresh all" on a
-// large org would blow the HTTP timeout. Cap the run and tell the caller
-// there's more to do; concurrency keeps the capped run well inside the limit.
-const MAX_LEARNINGS_PER_REFRESH = 20;
-const REFRESH_CONCURRENCY = 4;
 
 function truncateForAI(s: string | undefined, maxChars: number): string {
   if (!s) return "";
@@ -671,20 +665,19 @@ export const postFindLearnings = async (
 
 // --- AI: Refresh saved Learnings against newly-stopped experiments ---
 
+// One Learning per request. Bounding by construction beats capping a fan-out:
+// the client drives the loop and can show progress, and this endpoint stays a
+// single predictable AI call. Matches how applying suggestions already works.
 type RefreshLearningsRequest = AuthRequest<{
-  learningIds?: string[];
+  learningId: string;
 }>;
 
 type RefreshLearningsResponse =
   | {
       status: 200;
+      // At most one, absent when the Learning needs no update.
       suggestions: LearningRefreshSuggestion[];
-      numLearningsChecked: number;
       numExperimentsConsidered: number;
-      // True when more Learnings were eligible than this run processed, so the
-      // UI can invite the user to run it again.
-      capped: boolean;
-      numLearningsRemaining: number;
     }
   | { status: number; message: string; retryAfter?: number };
 
@@ -721,51 +714,27 @@ export const postRefreshLearnings = async (
     return;
   }
 
-  const { learningIds } = req.body;
-  const allLearnings = await context.models.learnings.getAll();
-  const requested = learningIds?.length
-    ? allLearnings.filter((l) => learningIds.includes(l.id))
-    : allLearnings;
+  const { learningId } = req.body;
+  const learning = await context.models.learnings.getById(learningId);
+  if (!learning) {
+    return res.status(404).json({ status: 404, message: "Learning not found" });
+  }
 
-  // Refresh writes back to each Learning (the lastRefreshedAt stamp, and the
-  // suggestions exist only to be applied), so only consider Learnings the
-  // caller can actually update. Checking up front means a read-only user
-  // can't burn the org's AI budget on work whose writes would be dropped.
-  // Filtering per-Learning rather than once globally keeps this correct for
-  // project-scoped permissions.
-  const eligible = requested.filter((l) =>
-    context.permissions.canUpdateLearning(l, { projects: l.projects }),
-  );
-
-  if (requested.length && !eligible.length) {
+  // Refresh writes back (the lastRefreshedAt stamp, and the suggestion exists
+  // only to be applied), so require update permission before spending tokens.
+  if (
+    !context.permissions.canUpdateLearning(learning, {
+      projects: learning.projects,
+    })
+  ) {
     return res.status(403).json({
       status: 403,
       message:
-        "You do not have permission to update these Learnings, so they cannot be refreshed.",
+        "You do not have permission to update this Learning, so it cannot be refreshed.",
     });
   }
 
-  // Least-recently-refreshed first (never-refreshed sorts first), so running
-  // repeatedly works through the whole set instead of redoing the same slice.
-  const learnings = [...eligible]
-    .sort(
-      (a, b) =>
-        (a.lastRefreshedAt?.getTime() || 0) -
-        (b.lastRefreshedAt?.getTime() || 0),
-    )
-    .slice(0, MAX_LEARNINGS_PER_REFRESH);
-  const numLearningsRemaining = eligible.length - learnings.length;
-
-  if (!learnings.length) {
-    return res.status(200).json({
-      status: 200,
-      suggestions: [],
-      numLearningsChecked: 0,
-      numExperimentsConsidered: 0,
-      capped: false,
-      numLearningsRemaining: 0,
-    });
-  }
+  const learnings = [learning];
 
   // Stopped experiments the user can read, most recent first
   const stopped = (await getAllExperiments(context, { includeArchived: false }))
@@ -782,10 +751,8 @@ export const postRefreshLearnings = async (
   const refreshedIds: string[] = [];
   let numExperimentsConsidered = 0;
 
-  // Run with bounded concurrency: each Learning is an independent AI call, so
-  // this cuts wall-clock without letting a big run stampede the provider.
-  await promiseAllChunks(
-    learnings.map((learning) => async () => {
+  await Promise.all(
+    learnings.map(async (learning) => {
       const cutoff = refreshCutoffFor(learning, experimentsById);
       const cited = new Set([
         ...learning.supportingExperimentIds,
@@ -875,7 +842,6 @@ export const postRefreshLearnings = async (
         logger.error(e, `refresh-learnings: error refreshing ${learning.id}`);
       }
     }),
-    REFRESH_CONCURRENCY,
   );
 
   // Stamp only the Learnings with nothing pending. Ones with a suggestion are
@@ -898,10 +864,7 @@ export const postRefreshLearnings = async (
   return res.status(200).json({
     status: 200,
     suggestions,
-    numLearningsChecked: learnings.length,
     numExperimentsConsidered,
-    capped: numLearningsRemaining > 0,
-    numLearningsRemaining,
   });
 };
 

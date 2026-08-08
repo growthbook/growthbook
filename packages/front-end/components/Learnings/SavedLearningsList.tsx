@@ -581,7 +581,7 @@ const SavedLearningsList: FC<{
       {pendingRefresh && (
         <RefreshLearningsModal
           experiments={experiments}
-          learningIds={[pendingRefresh.id]}
+          learnings={[pendingRefresh]}
           close={() => setPendingRefresh(null)}
           onApplied={() => {
             setPendingRefresh(null);
