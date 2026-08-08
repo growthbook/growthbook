@@ -25,40 +25,18 @@ export function constantPublishEnvironments(
 }
 
 /**
- * The footprint for a change that takes an entity OUT of service or returns it —
- * everywhere it serves.
+ * A change's environment reach, stated by the adapter rather than inferred.
  *
- * Both an adapter and its internal controller answer this question, and the first
- * cut fixed only the adapter: the REST archive endpoint refused a dev-limited
- * deleter while the dashboard's PUT still passed the scoped list, which is empty
- * for a base Config and so SKIPPED the environment check entirely. One function,
- * called by both, is the only way that stays fixed.
+ * The permission layer ends in `envs.every(...)`, so `[]` ALLOWS every environment
+ * instead of checking them. Two different things were both spelled `[]`:
  *
- * `scoped` is the entity's own environment binding when it has one — a Config's
- * scoped overrides. Empty means unbound, and unbound means everywhere, never
- * "nowhere".
- */
-/**
- * What a change's environment reach IS — stated by the adapter, not inferred from
- * an empty list.
+ *  - `unscoped`   — no environment dimension at all. A Constant's base value is
+ *                   declared design: a dev-limited editor may change it.
+ *  - `everywhere` — reaches every environment the entity serves while naming none.
+ *                   An archive flip; read as `[]` it let a dev-limited caller
+ *                   archive production.
  *
- * The permission layer ends in `envs.every(...)`, so `[]` is vacuously true: an
- * empty footprint ALLOWS every environment rather than checking them. Two entirely
- * different situations were both spelled `[]`:
- *
- *  - `unscoped`  — the change has no environment dimension at all. A Constant's
- *                  base value is declared design: it carries no intrinsic
- *                  environment, so the restriction does not apply and a
- *                  dev-limited editor may change it.
- *  - `everywhere` — the change reaches every environment the entity serves, and
- *                  simply names none of its own. An archive flip is the case: it
- *                  takes the entity out of service everywhere, and read as `[]` it
- *                  let a dev-limited caller archive production.
- *
- * Collapsing those two into "empty" is what made the second one invisible, and
- * each adapter had to remember to special-case it. Naming them makes the vacuous
- * reading unreachable by omission: an adapter must say which it means, and a new
- * entity type cannot inherit the hazard by writing nothing.
+ * Naming them makes the vacuous reading unreachable by omission.
  */
 export type PublishFootprint =
   | { scope: "environments"; environments: string[] }
@@ -89,6 +67,13 @@ export function resolvePublishFootprint(
     : serveFootprint(getEnvironments(context.org), entity);
 }
 
+/**
+ * The footprint for a change that takes an entity OUT of service or returns it:
+ * its own environment binding when it has one, otherwise everywhere it serves.
+ *
+ * Adapters and internal controllers both ask this, so it lives in one place —
+ * `scoped` empty means unbound, and unbound means everywhere, never "nowhere".
+ */
 export function archiveServeFootprint(
   context: Context,
   entity: {

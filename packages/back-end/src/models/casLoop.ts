@@ -1,25 +1,17 @@
 /**
  * The compare-and-swap skeleton, once.
  *
- * Two implementations grew independently — `BaseModel.updateWithCas` and the feature
- * revision loop, which is forked because feature revisions are addressed by
- * `{organization, featureId, version}` rather than a single id. The loop bodies were
- * spelled identically down to the absence guard, and had already begun to drift: the
- * copy's docstring pointed at a `RevisionModel.casUpdate` that no longer exists.
- *
- * What differs between the two callers is pushed out to injected `read` and `write`,
- * so the parts that must not diverge — read every attempt, guard on what that read
- * observed, retry on a lost race — have one home.
+ * `BaseModel.updateWithCas` and the feature revision loop are separate callers —
+ * feature revisions are addressed by `{organization, featureId, version}` rather
+ * than a single id — so what differs is injected as `read` and `write`. The parts
+ * that must not diverge (read every attempt, guard on what that read observed,
+ * retry on a lost race) have one home.
  */
 
 /**
- * Distinguishes the three ways a loop can end without applying.
- *
- * NO caller currently tells `aborted` and `not-found` apart — `BaseModel` returns
- * `null` for both and the feature revision caller reports both as `"aborted"`. The
- * loop keeps them separate anyway so a caller that wants "no such document" doesn't
- * have to re-read to find out, and so the two are testable here rather than only
- * through a boundary that has already merged them.
+ * The three ways a loop can end without applying. No caller currently tells
+ * `aborted` from `not-found`, but the loop keeps them separate so one that wants
+ * "no such document" need not re-read to find out.
  */
 export type CasOutcome<TResult> =
   | { status: "applied"; result: TResult }
