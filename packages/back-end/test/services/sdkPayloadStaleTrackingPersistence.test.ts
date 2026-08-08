@@ -1,11 +1,7 @@
 /**
- * Exercises queueSDKPayloadRefresh / refreshStaleSdkConnectionsForOrg (both
- * services/features.ts exports) against a REAL, unmocked SDKConnectionModel
- * backed by mongodb-memory-server — per repo testing policy (utility/service
- * functions, not models), the subject under test here is the service layer,
- * but leaving the model unmocked lets the actual staleSince persistence
- * semantics (always bump, guarded clear) get verified against a real
- * database rather than a mock that could silently drift from reality.
+ * Service-layer stale-tracking against a real SDKConnectionModel
+ * (mongodb-memory-server), so always-bump / guarded-clear semantics aren't
+ * only asserted against mocks.
  */
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
@@ -196,10 +192,6 @@ describe("SDK payload stale tracking persistence (real SDKConnectionModel)", () 
     await new Promise((r) => setTimeout(r, 50));
 
     const doc = await rawCollection().findOne({ key: "sdk-1" });
-    // Must advance, not stay pinned to the earlier mark — otherwise a
-    // concurrent rebuild's guarded clear (staleSince <= readStartedAt) can't
-    // distinguish this write from the one it's about to clear, and the
-    // write's effect is silently dropped.
     expect(doc?.staleSince.getTime()).toBeGreaterThan(original.getTime());
     expect(scheduleOrgRefreshJobMock).toHaveBeenCalledWith("org-1");
   });
@@ -256,7 +248,7 @@ describe("SDK payload stale tracking persistence (real SDKConnectionModel)", () 
     expect(doc?.staleSince).toBeInstanceOf(Date);
   });
 
-  it("clears the marker itself when job scheduling fails and it falls back to a direct refresh", async () => {
+  it("still refreshes directly when job scheduling fails, leaving the mark set for the next write to clean up", async () => {
     await insertConnection({ id: "c1", key: "sdk-fallback" });
     const upsert = jest.fn().mockResolvedValue(undefined);
     const mockModels = mockRefreshDependencies(upsert);
@@ -270,12 +262,18 @@ describe("SDK payload stale tracking persistence (real SDKConnectionModel)", () 
     });
     await new Promise((r) => setTimeout(r, 50));
 
+    // The write's data still gets refreshed immediately despite the
+    // scheduling failure...
     expect(upsert).toHaveBeenCalledWith(
       "sdk-fallback",
       expect.any(String),
       undefined,
     );
+    // ...but the mark is deliberately left set rather than cleared here: it's
+    // cosmetic (the payload is already fresh), and the next write to this
+    // connection bumps it and reschedules again regardless of prior state,
+    // so it's not worth the extra bookkeeping to clear it in this rare path.
     const doc = await rawCollection().findOne({ key: "sdk-fallback" });
-    expect(doc?.staleSince).toBeNull();
+    expect(doc?.staleSince).toBeInstanceOf(Date);
   });
 });

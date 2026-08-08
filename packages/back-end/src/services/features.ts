@@ -753,10 +753,6 @@ function recordSdkPayloadRefreshMetrics(durationMs: number) {
   }
 }
 
-export function isSdkPayloadStaleTrackingEnabled(): boolean {
-  return SDK_PAYLOAD_REFRESH_STALE_TRACKING_ENABLED;
-}
-
 async function markAffectedSdkConnectionsStale(
   context: ReqContext | ApiReqContext,
   data: {
@@ -788,10 +784,9 @@ async function markAffectedSdkConnectionsStale(
   }
 
   if (!affected.length) return [];
-  return markSdkConnectionsStale(
-    context.org.id,
-    affected.map((c) => c.key),
-  );
+  const keys = affected.map((c) => c.key);
+  await markSdkConnectionsStale(context.org.id, keys);
+  return keys;
 }
 
 // Rebuild currently-stale connections, then clear only marks that predate the
@@ -853,7 +848,10 @@ export function queueSDKPayloadRefresh(data: {
     });
   };
 
-  if (!data.context.isApiRequest || !isSdkPayloadStaleTrackingEnabled()) {
+  if (
+    !data.context.isApiRequest ||
+    !SDK_PAYLOAD_REFRESH_STALE_TRACKING_ENABLED
+  ) {
     runRefresh();
     return;
   }
@@ -874,26 +872,10 @@ export function queueSDKPayloadRefresh(data: {
       "[sdk-payload] marked SDK connections stale",
     );
 
-    try {
-      await scheduleOrgRefreshJob(data.context.org.id);
-    } catch (e) {
-      // The staleness mark already landed. If we can't hand off to the job
-      // server, refresh directly now and clear the mark ourselves — leaving
-      // it set would strand it: a later write only re-marks and reschedules,
-      // it never rebuilds inline, so nothing would otherwise ever clear it.
-      logger.error(
-        e,
-        `Error enqueueing stale SDK connection refresh job for org ${data.context.org.id}`,
-      );
-      const refreshedAt = new Date();
-      await refreshSDKPayloadCache({ ...data, stackTrace });
-      await clearStaleSdkConnections(
-        data.context.org.id,
-        affectedKeys,
-        refreshedAt,
-      );
-    }
+    await scheduleOrgRefreshJob(data.context.org.id);
   })().catch((e) => {
+    // Fall back to an immediate refresh. A leftover stale mark (if scheduling
+    // failed after marking) is cleared by the next write's bump + reschedule.
     logger.error(e, "Error tracking stale SDK connections");
     runRefresh();
   });
