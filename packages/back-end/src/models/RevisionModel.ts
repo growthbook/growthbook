@@ -11,6 +11,8 @@ import {
   getApprovalFlowSettings,
   isRevisionEditLockedBySchedule,
   REVIEW_CYCLE_STATUSES,
+  reviewCycleOf,
+  reviewCycleSupersededMessage,
 } from "shared/enterprise";
 import uniqid from "uniqid";
 import { ACTIVE_DRAFT_STATUSES, ActiveDraftStatus } from "shared/validators";
@@ -308,7 +310,7 @@ export class RevisionModel extends BaseClass {
    * restores the prior state rather than starting a cycle, and its verdicts stand.
    */
   private nextReviewCycle(existing: Revision): number {
-    return (existing.reviewCycle ?? 0) + 1;
+    return reviewCycleOf(existing) + 1;
   }
 
   // Demote the current cycle's active verdicts to stale (mirrors the feature
@@ -1330,11 +1332,9 @@ export class RevisionModel extends BaseClass {
         if (
           !isComment &&
           expectedReviewCycle !== undefined &&
-          (existing.reviewCycle ?? 0) !== expectedReviewCycle
+          reviewCycleOf(existing) !== expectedReviewCycle
         ) {
-          throw new Error(
-            "This review request was superseded — the draft was recalled and resubmitted while your review was in flight. Reload and review the current request.",
-          );
+          throw new Error(reviewCycleSupersededMessage("review"));
         }
         // Authoritative self-approval check, against the row this write is
         // conditioned on. Callers screen it first for a clean error, but a
@@ -1585,11 +1585,9 @@ export class RevisionModel extends BaseClass {
         assertAuthority?.(existing);
         if (
           expectedReviewCycle !== undefined &&
-          (existing.reviewCycle ?? 0) !== expectedReviewCycle
+          reviewCycleOf(existing) !== expectedReviewCycle
         ) {
-          throw new Error(
-            "This review request was superseded — the draft was recalled and resubmitted while your retraction was in flight. Reload and review the current request.",
-          );
+          throw new Error(reviewCycleSupersededMessage("retraction"));
         }
         if (
           existing.status !== "approved" &&

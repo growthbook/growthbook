@@ -19,7 +19,12 @@ import {
   RevisionChanges,
 } from "shared/types/feature-revision";
 import { EventUser, EventUserLoggedIn } from "shared/types/events/event-types";
-import { REVIEW_CYCLE_STATUSES } from "shared/enterprise";
+import {
+  REVIEW_CYCLE_STATUSES,
+  isSameReviewCycle,
+  reviewCycleOf,
+  reviewCycleSupersededMessage,
+} from "shared/enterprise";
 import { Environment, OrganizationInterface } from "shared/types/organization";
 import {
   MinimalFeatureRevisionInterface,
@@ -2388,9 +2393,7 @@ export async function submitReviewAndComments(
   // and firing auto-publish on it. Revisions predating the field read as cycle 0,
   // which matches a caller that also read 0.
   const cycleGuard =
-    (revision.reviewCycle ?? 0) === 0
-      ? { $in: [0, null] }
-      : revision.reviewCycle;
+    reviewCycleOf(revision) === 0 ? { $in: [0, null] } : revision.reviewCycle;
 
   // Bake this reviewer's verdict into the revision's `reviews` array so
   // consumers (custom hooks, API) don't have to replay the log. Plain
@@ -2496,7 +2499,7 @@ export async function submitReviewAndComments(
         }
         // Re-asked on every CAS retry, which is where the ABA actually bites: the
         // retry re-reads a row a recall AND a resubmit may both have crossed.
-        if ((current.reviewCycle ?? 0) !== (revision.reviewCycle ?? 0)) {
+        if (!isSameReviewCycle(current, revision)) {
           return null;
         }
         const reviews = current.reviews ?? [];
@@ -2779,10 +2782,8 @@ export async function undoReview(
       // this reviewer's verdict from a cycle they never saw — and dropping a
       // `changes-requested` can resolve the revision to `approved` below and fire
       // auto-publish on changes nobody cleared.
-      if ((current.reviewCycle ?? 0) !== (revision.reviewCycle ?? 0)) {
-        throw new Error(
-          "This review request was superseded — the draft was recalled and resubmitted while your retraction was in flight. Reload and review the current request.",
-        );
+      if (!isSameReviewCycle(current, revision)) {
+        throw new Error(reviewCycleSupersededMessage("retraction"));
       }
       if (!(allowed as readonly string[]).includes(current.status ?? "")) {
         throw new Error(
