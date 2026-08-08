@@ -37,18 +37,10 @@ export default function addRefreshStaleSdkConnectionsJob(agenda: Agenda) {
             `Error re-checking stale SDK connections for org ${organization}; scheduling a follow-up pass to be safe`,
           );
           return scheduleOrgRefreshJob(organization).catch((e2) => {
-            // Scheduling itself failed too — refresh directly rather than
-            // stranding a real stale mark with no runnable job.
             logger.error(
               e2,
-              `Failed to schedule follow-up refresh for org ${organization}; refreshing directly instead`,
+              `Failed to schedule follow-up refresh for org ${organization}`,
             );
-            return refreshOrgDirectly(organization).catch((e3) => {
-              logger.error(
-                e3,
-                `Direct fallback refresh also failed for org ${organization}`,
-              );
-            });
           });
         });
     },
@@ -93,10 +85,7 @@ async function runRefreshStaleSdkConnections(
 ) {
   const organization = job.attrs.data?.organization;
   if (!organization) return;
-  await refreshOrgDirectly(organization);
-}
 
-async function refreshOrgDirectly(organization: string): Promise<void> {
   // Lazy import avoids a circular dependency with services/features.ts
   const { refreshStaleSdkConnectionsForOrg } = await import(
     "back-end/src/services/features"

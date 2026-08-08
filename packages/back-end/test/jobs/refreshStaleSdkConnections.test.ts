@@ -117,36 +117,6 @@ describe("refreshStaleSdkConnections (real Agenda lifecycle)", () => {
     expect(refreshStaleSdkConnectionsForOrgMock).toHaveBeenCalledTimes(2);
   }, 20000);
 
-  it("refreshes directly when both the recheck and the follow-up schedule fail, so a real stale mark isn't stranded", async () => {
-    hasAnyStaleSdkConnectionMock.mockRejectedValueOnce(new Error("mongo blip"));
-
-    await scheduleOrgRefreshJob("org_1");
-
-    // Only the *next* create() call (the follow-up schedule attempt made
-    // from inside the complete handler) should fail — the initial schedule
-    // above must succeed normally.
-    const createSpy = jest
-      .spyOn(testAgenda, "create")
-      .mockImplementationOnce(() => {
-        throw new Error("agenda down");
-      });
-
-    try {
-      await new Promise((resolve) => {
-        const check = setInterval(() => {
-          if (refreshStaleSdkConnectionsForOrgMock.mock.calls.length >= 2) {
-            clearInterval(check);
-            resolve(undefined);
-          }
-        }, 100);
-      });
-
-      expect(refreshStaleSdkConnectionsForOrgMock).toHaveBeenCalledTimes(2);
-    } finally {
-      createSpy.mockRestore();
-    }
-  }, 20000);
-
   it("collapses concurrent enqueues for the same org onto a single job", async () => {
     hasAnyStaleSdkConnectionMock.mockResolvedValue(false);
 
