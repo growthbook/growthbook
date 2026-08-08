@@ -327,6 +327,7 @@ export interface OrganizationSettings {
   // Only affects new rules on eligible JSON features; off by default.
   sparseJSONRulesByDefault?: boolean;
   requireProjectForFeatures?: boolean;
+  requireDescriptionForFeatures?: boolean;
   requireProjectForSdkConnections?: boolean;
   // When true, saving a feature rule or experiment rejects hashAttribute,
   // fallbackAttribute, or condition keys that don't appear (unarchived) in

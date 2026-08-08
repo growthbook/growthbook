@@ -184,7 +184,8 @@ export default function FeatureModal({
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
   const { hasCommercialFeature } = useUser();
-  const { requireProjectForFeatures } = useOrgSettings();
+  const { requireProjectForFeatures, requireDescriptionForFeatures } =
+    useOrgSettings();
 
   const allCustomFields = useCustomFields();
   const initialCustomFields = filterCustomFieldsForSectionAndProject(
@@ -204,7 +205,7 @@ export default function FeatureModal({
   });
 
   const [showDescription, setShowDescription] = useState(
-    !!defaultValues.description?.length,
+    !!requireDescriptionForFeatures || !!defaultValues.description?.length,
   );
   const [showTags, setShowTags] = useState(!!defaultValues.tags?.length);
   // The default value is rarely changed at creation time (it falls back to the
@@ -314,6 +315,9 @@ export default function FeatureModal({
 
         if (!valueType) {
           throw new Error("Please select a value type");
+        }
+        if (requireDescriptionForFeatures && !feature.description?.trim()) {
+          throw new Error("Please add a description");
         }
 
         // A "config" flag must actually pick a base config.
@@ -625,7 +629,7 @@ export default function FeatureModal({
           )}
           {showDescription && (
             <div className="form-group" style={{ width: "100%" }}>
-              <label>Description</label>
+              <label>Description{requireDescriptionForFeatures && " *"}</label>
               <Box mt="1">
                 <MarkdownInput
                   value={form.watch("description") || ""}
