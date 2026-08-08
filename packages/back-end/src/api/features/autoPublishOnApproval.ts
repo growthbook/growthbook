@@ -105,16 +105,11 @@ export function parseScheduledPublishDate(
  * The environments an arming decision is judged over: the ones the PUBLISH this
  * arm commits to will touch.
  *
- * Judging the flag's whole serving scope demanded authority in environments the
- * draft never touches, so a publisher limited to `dev` could publish a dev-only
- * change directly but could not arm the very same change.
- *
- * Computed the way the publish computes it — drift-free autoMerge into
- * `getMergeResultPublishEnvs` — rather than through the review-side
- * `getDraftAffectedEnvironments`. The two disagree on metadata, holdout and ramp
- * reach, and any disagreement here is a permission answered against the wrong
- * question. Sharing the publish's own function is the only thing that keeps them
- * from drifting again.
+ * Computed the way the PUBLISH computes it (`getMergeResultPublishEnvs`), not the
+ * review-side `getDraftAffectedEnvironments`. The two disagree on metadata, holdout
+ * and ramp reach, and a disagreement here answers the permission question against
+ * the wrong footprint — a publisher limited to `dev` could publish a dev-only change
+ * directly but not arm the same one.
  *
  * Falls back to the full serving scope whenever the merge can't be computed.
  * Failing closed here means requiring MORE authority, never less.

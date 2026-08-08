@@ -712,23 +712,15 @@ export async function commitBulkPublish(
             ? ("rolled-back" as const)
             : ("not-applied" as const),
       }));
-      // A restore-failed item stays durably published, so its apply-phase
-      // refresh keys must still flush or SDK payloads serve the pre-publish
-      // state indefinitely. Restored items' extra keys are harmless (the
-      // refresh rebuilds from live state and dedupes per connection).
-      // An item whose restore failed is durably published, so the `*.updated` events
-      // its apply produced describe live state and must still fire. Everything else
-      // rolled back, and an event for a change that no longer exists is worse than
-      // none. Ownership comes from the apply loop's stamp, so a cascade write made on
-      // an item's behalf travels with that item.
-      // Emit an event exactly when its DOCUMENT was not put back. That covers the
-      // three durable cases with one rule — an item whose restore failed, a document
-      // the feature adapter left whole, and a self-heal replay's write that no item
-      // owns — and excludes the case an item-level flag could not: a Config root that
-      // WAS restored while a descendant of the same item was not, whose event would
-      // otherwise assert the published value over live pre-publish state.
+      // Emit an event exactly when its DOCUMENT was not put back. One rule covering
+      // every durable case — a restore that failed, a document the feature adapter
+      // left whole, a self-heal replay's write no item owns — and excluding the case
+      // an item-level flag could not: a Config root that WAS restored while a
+      // descendant of the same item was not, whose event would assert the published
+      // value over live pre-publish state.
+      //
       // Read AFTER the restores, so entries a straggler added mid-rollback are judged
-      // by the same rule rather than silently discarded with a separate buffer.
+      // by the same rule rather than discarded with a separate buffer.
       const survivingEvents = eventBuffer.entries.filter(
         (e) => !eventBuffer.restored.has(e.owner),
       );

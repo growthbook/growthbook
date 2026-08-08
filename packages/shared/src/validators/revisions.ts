@@ -55,24 +55,14 @@ export type RevisionTargetType = (typeof revisionTargetType)[number];
  * TOP-LEVEL paths only — `/field`, never `/field/subfield`.
  *
  * Two appliers read these ops and they do NOT agree on nested paths. The AUTHORITY
- * side (`getConstantRevisionChange` → `publishFootprint` → the environment footprint
- * `assertCanPublishRevision` narrows on) goes through `applyTopLevelPatchOps`, which
- * skips any path with more than one segment. The WRITE side
- * (`buildMergeDesiredState` → fast-json-patch) applies them fully.
- *
- * So `{op:"replace", path:"/environmentValues/production", value:"…"}` produced an
- * EMPTY footprint — and an empty footprint skips the environment check rather than
- * narrowing it — while the publish wrote production. A caller with draft rights and
- * publish limited to `dev` could send that through
- * `PUT /revision/:id/proposed-changes` and land a production change: precisely the
- * boundary this permission model exists to enforce.
+ * side (`applyTopLevelPatchOps`, feeding the footprint `assertCanPublishRevision`
+ * narrows on) skips any path with more than one segment; the WRITE side
+ * (fast-json-patch) applies them fully. A nested path therefore produced an EMPTY
+ * footprint — which skips the environment check rather than narrowing it — while
+ * the publish wrote that environment.
  *
  * Constrained here because it is the narrowest place that closes it: every internal
- * writer already emits only top-level paths (`buildPatchOps` builds `/${key}`), so
- * nothing legitimate is affected, and the raw-ops endpoint is the only way a nested
- * path ever entered. Making the footprint fail CLOSED on paths it cannot resolve is
- * the systemic cure for the "empty footprint skips the check" class and is filed
- * separately — this stops the bleeding without depending on getting that exhaustive.
+ * writer already emits top-level paths, so nothing legitimate is affected.
  */
 const topLevelPatchPath = z
   .string()

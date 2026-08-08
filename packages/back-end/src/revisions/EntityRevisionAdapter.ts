@@ -213,16 +213,6 @@ export interface EntityRevisionAdapter<
 
   // ---------- Merge ----------
 
-  // Persist the computed changes back to the live entity.
-  //
-  // `isRevert` lets adapters skip validations that would block restoring a
-  // previously-published state.
-  //
-  // Returns the keys ACTUALLY persisted — what survived the updatable filter and any
-  // adapter normalization (a config field stripped as ancestor-owned, say). Bulk
-  // compensation restores
-  // ONLY these keys, so a field the write dropped is never rolled back over a
-  // concurrent writer's value. Single-entity callers ignore the return.
   /**
    * Re-run whatever `applyChanges` cascades to, after a compensation restored
    * the fields named in `restoredKeys`. Restoring the entity's own document does
@@ -237,6 +227,12 @@ export interface EntityRevisionAdapter<
     restoredKeys: string[],
   ): Promise<void>;
 
+  // Persist the computed changes back to the live entity. `isRevert` lets adapters
+  // skip validations that would block restoring a previously-published state.
+  //
+  // Returns the keys ACTUALLY persisted — what survived the updatable filter and any
+  // adapter normalization. Bulk compensation restores ONLY these, so a field the
+  // write dropped is never rolled back over a concurrent writer's value.
   applyChanges(
     context: Context,
     entity: TSnapshot,

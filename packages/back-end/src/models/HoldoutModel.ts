@@ -433,14 +433,10 @@ export class HoldoutModel extends BaseClass {
    * guards both maps and re-runs `compute` against the row it will write, which is
    * also the only way an ownership test on `dateAdded` means anything.
    *
-   * All three bypasses are deliberate, and all three say the same thing: this
-   * write's authority comes from the Feature Flag write that caused it. Authority
-   * — gating on `createAnalyses` fails mid-publish for flag publishers.
-   * Readability — the Holdout reference is already committed on the flag, so
-   * linkage must not depend on the publisher seeing the Holdout's Projects.
-   * Licence — a lapsed holdouts licence must not strand linkage the flag write has
-   * already committed to changing. None of the three were enforced on the raw
-   * writer this replaces; the CAS is here for atomicity, not to add gates.
+   * All three bypasses — authority, readability, licence — say the same thing: this
+   * write's authority comes from the Feature Flag write that caused it, which is
+   * already committed. None were enforced on the raw writer this replaces; the CAS
+   * is here for atomicity, not to add gates.
    *
    * `compute` returning null means "nothing to do" and writes nothing.
    */
