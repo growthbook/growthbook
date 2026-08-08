@@ -6,9 +6,11 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import {
   hasSubmittablePayload,
+  isQueryTimeoutError,
   shouldChartSectionShow,
 } from "@/enterprise/components/ProductAnalytics/util";
 import Callout from "@/ui/Callout";
+import { RadixStatusIcon } from "@/ui/HelperText";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ExplorerChart from "./ExplorerChart";
 import ExplorerDataTable from "./ExplorerDataTable";
@@ -46,6 +48,9 @@ export default function ExplorerMainSection() {
     !hasSubmittablePayload(submittedExploreState);
 
   const suppressStaleFloatingCallout = funnelMainEmpty && isStale && !loading;
+  const isTimeoutError = !loading && isQueryTimeoutError(error);
+  const retryDisabled =
+    !hasSubmittablePayload(draftExploreState) || !isSubmittable;
 
   return (
     <Flex
@@ -192,57 +197,66 @@ export default function ExplorerMainSection() {
             )}
           </Flex>
         )}
-
-        {(isStale || loading) && !suppressStaleFloatingCallout && (
-          <Box
-            style={{
-              position: "absolute",
-              zIndex: 1000,
-              top: 15,
-              right: 15,
-              width: "auto",
-              backgroundColor: "var(--color-panel-solid)",
-              borderRadius: "var(--radius-3)",
-            }}
-          >
-            <Callout
-              status="info"
-              size="sm"
-              icon={
-                loading ? (
-                  <LoadingSpinner style={{ width: "12px", height: "12px" }} />
-                ) : undefined
-              }
-              action={
-                loading ? undefined : (
-                  <Button
-                    color="inherit"
-                    size="sm"
-                    variant="solid"
-                    disabled={
-                      !hasSubmittablePayload(draftExploreState) ||
-                      !isSubmittable
-                    }
-                    onClick={() => handleSubmit({ force: true })}
-                  >
-                    <Flex align="center" gap="2">
-                      <PiArrowsClockwise />
-                      Refresh
-                    </Flex>
-                  </Button>
-                )
-              }
+        {(isStale || loading || isTimeoutError) &&
+          !suppressStaleFloatingCallout && (
+            <Box
+              style={{
+                position: "absolute",
+                zIndex: 1000,
+                top: isTimeoutError ? 63 : 12,
+                right: 15,
+                width: "auto",
+                backgroundColor: "var(--color-panel-solid)",
+                borderRadius: "var(--radius-3)",
+              }}
             >
-              {loading ? (
-                "Loading..."
-              ) : (
-                <Text title="Some configuration changes require running a new SQL query against your data source">
-                  Latest changes not applied
-                </Text>
-              )}
-            </Callout>
-          </Box>
-        )}
+              <Callout
+                status={isTimeoutError ? "error" : "info"}
+                size="sm"
+                icon={null}
+              >
+                <Flex align="center" gap="3" wrap="nowrap">
+                  {loading ? (
+                    <LoadingSpinner style={{ width: "12px", height: "12px" }} />
+                  ) : (
+                    <RadixStatusIcon
+                      status={isTimeoutError ? "error" : "info"}
+                      size="sm"
+                    />
+                  )}
+                  <Text
+                    whiteSpace="nowrap"
+                    title={
+                      !loading && !isTimeoutError
+                        ? "Some configuration changes require running a new SQL query against your data source"
+                        : undefined
+                    }
+                  >
+                    {loading
+                      ? "Loading..."
+                      : isTimeoutError
+                        ? "Query timed out"
+                        : "Latest changes not applied"}
+                  </Text>
+                  {!loading && (
+                    <Button
+                      color="inherit"
+                      size="sm"
+                      variant="solid"
+                      disabled={retryDisabled}
+                      onClick={() => handleSubmit({ force: true })}
+                      style={{ whiteSpace: "nowrap" }}
+                    >
+                      <Flex align="center" gap="2">
+                        <PiArrowsClockwise />
+                        {isTimeoutError ? "Retry" : "Refresh"}
+                      </Flex>
+                    </Button>
+                  )}
+                </Flex>
+              </Callout>
+            </Box>
+          )}
       </Flex>
     </Flex>
   );

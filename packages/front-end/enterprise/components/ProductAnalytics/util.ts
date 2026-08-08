@@ -80,6 +80,21 @@ export function explorationPollDelayMs(elapsedSec: number): number {
   return 0;
 }
 
+// Shared between ExplorerContext (where it's raised) and ExplorerMainSection
+// (where it's matched to offer a retry), so the two stay in sync.
+const QUERY_TIMEOUT_ERROR_PREFIX =
+  "This query is taking longer than expected. Try a shorter date range";
+
+export function getQueryTimeoutErrorMessage(isFunnel: boolean): string {
+  return isFunnel
+    ? `${QUERY_TIMEOUT_ERROR_PREFIX} or fewer steps, then run again.`
+    : `${QUERY_TIMEOUT_ERROR_PREFIX}, then run again.`;
+}
+
+export function isQueryTimeoutError(error: string | null): boolean {
+  return error != null && error.startsWith(QUERY_TIMEOUT_ERROR_PREFIX);
+}
+
 export const VALUE_TYPE_OPTIONS: {
   value: "unit_count" | "count" | "sum";
   label: string;
