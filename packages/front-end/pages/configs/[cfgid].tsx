@@ -211,7 +211,7 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
       variant="soft"
       color="violet"
       trigger={
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="md">
           <Flex align="center" gap="1">
             {copySuccess ? <PiCheckBold /> : <PiCopy />}
             {/* Fixed width so the "Copied!" swap doesn't shift layout. */}
@@ -1118,7 +1118,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       schemaEdit === null && (
         <Box mt="2" py="1">
           <Link
-            size="2"
+            size="md"
             weight="medium"
             onClick={() => {
               setEditKey(null);
@@ -1166,7 +1166,7 @@ export default function ConfigDetailPage(): React.ReactElement {
         <Box style={{ minWidth: 0 }}>
           <Flex align="center" style={{ minHeight: 32 }}>
             <Text
-              size="small"
+              size="sm"
               weight="medium"
               color="text-low"
               textTransform="uppercase"
@@ -1177,7 +1177,7 @@ export default function ConfigDetailPage(): React.ReactElement {
         </Box>
         <Box style={{ minWidth: 0, gridColumn: "span 4" }}>
           <Flex align="center" gap="3" wrap="wrap" style={{ minHeight: 32 }}>
-            <Link href={`/configs/${parentKey}`} size="2">
+            <Link href={`/configs/${parentKey}`} size="md">
               {name}
             </Link>
           </Flex>
@@ -1201,7 +1201,7 @@ export default function ConfigDetailPage(): React.ReactElement {
         <Box style={{ minWidth: 0 }}>
           <Flex align="center" style={{ minHeight: 32 }}>
             <Text
-              size="small"
+              size="sm"
               weight="medium"
               color="text-low"
               textTransform="uppercase"
@@ -1217,7 +1217,7 @@ export default function ConfigDetailPage(): React.ReactElement {
               const name =
                 allConfigsForGraph.find((c) => c.key === k)?.name ?? k;
               return (
-                <Link key={k} href={`/configs/${k}`} size="2">
+                <Link key={k} href={`/configs/${k}`} size="md">
                   {name}
                 </Link>
               );
@@ -1291,7 +1291,7 @@ export default function ConfigDetailPage(): React.ReactElement {
               }}
             />
           </Box>
-          <Link size="2" onClick={() => setComposeAdding(false)}>
+          <Link size="md" onClick={() => setComposeAdding(false)}>
             Cancel
           </Link>
         </Flex>
@@ -1303,7 +1303,7 @@ export default function ConfigDetailPage(): React.ReactElement {
       </Box>
     ) : (
       <Box mt="2" py="1">
-        <Link size="2" weight="medium" onClick={() => setComposeAdding(true)}>
+        <Link size="md" weight="medium" onClick={() => setComposeAdding(true)}>
           <PiPlusBold style={{ marginRight: 3, verticalAlign: "middle" }} />
           Add config mixin
         </Link>
@@ -1350,7 +1350,7 @@ export default function ConfigDetailPage(): React.ReactElement {
             }}
           >
             <Tabs defaultValue="configs">
-              <TabsList size="1">
+              <TabsList size="sm">
                 <TabsTrigger value="configs">
                   <Flex as="span" align="center" gap="2">
                     Configs
@@ -1393,7 +1393,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   <Box mt="3" pl="1">
                     {hasConfigsFeature ? (
                       <Link
-                        size="2"
+                        size="md"
                         weight="medium"
                         onClick={() => setShowCreateChild(true)}
                       >
@@ -1404,7 +1404,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                       </Link>
                     ) : (
                       <PremiumTooltip commercialFeature="feature-configs">
-                        <Link size="2" weight="medium" color="gray">
+                        <Link size="md" weight="medium" color="gray">
                           <PiPlusBold
                             style={{ marginRight: 3, verticalAlign: "middle" }}
                           />
@@ -1418,7 +1418,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   <Box mt="4">
                     <Text
                       as="div"
-                      size="small"
+                      size="sm"
                       weight="medium"
                       color="text-low"
                       ml="1"
@@ -1462,7 +1462,7 @@ export default function ConfigDetailPage(): React.ReactElement {
             <Flex align="start" justify="between" gap="2" mb="2">
               <Box style={{ marginTop: "-4px" }}>
                 <Flex align="center" gap="3">
-                  <Heading size="x-large" as="h1" mb="0">
+                  <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
                     {displayedConfig.name}
                   </Heading>
                   {displayedConfig.archived && (
@@ -1665,7 +1665,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   setTabAndScroll(v as "overview" | "validation" | "review")
                 }
               >
-                <TabsList size="3">
+                <TabsList size="lg">
                   <TabsTrigger value="overview">Overview</TabsTrigger>
                   <TabsTrigger value="review">
                     Review &amp; Publish
@@ -1754,7 +1754,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                               key={t}
                               color="violet"
                               variant={activeTab === t ? "solid" : "outline"}
-                              size="sm"
+                              size="md"
                               onClick={() => {
                                 cancelEdits();
                                 setActiveTab(t);
@@ -1878,7 +1878,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                                     style={{ minHeight: 24 }}
                                   >
                                     <Text
-                                      size="small"
+                                      size="sm"
                                       weight="medium"
                                       color="text-low"
                                       textTransform="uppercase"
@@ -2005,7 +2005,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                             schemaEdit !== "add" && (
                               <Text
                                 as="p"
-                                size="small"
+                                size="sm"
                                 color="text-low"
                                 mt="3"
                                 mb="1"

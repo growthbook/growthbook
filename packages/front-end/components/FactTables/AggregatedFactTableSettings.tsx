@@ -81,7 +81,7 @@ export default function AggregatedFactTableSettings({
 
   return (
     <>
-      <Heading as="h4" size="small" mb="1">
+      <Heading as="h4" size="sm" mb="1">
         [Experimental] Daily Aggregated Tables
       </Heading>
       <Text as="div" color="text-mid" mb="3">

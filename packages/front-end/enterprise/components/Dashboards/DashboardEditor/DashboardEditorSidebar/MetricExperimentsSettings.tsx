@@ -20,10 +20,9 @@ import MetricSelector from "@/components/Experiment/MetricSelector";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import { resolveMetricExperimentColumns } from "@/components/MetricExperiments/MetricExperiments";
+import { DATE_RANGE_PREDEFINED_LABELS } from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
 import MetricExperimentsColumnSettings from "./MetricExperimentsColumnSettings";
-import BlockDateRangePicker, {
-  PREDEFINED_LABELS,
-} from "./BlockDateRangePicker";
+import BlockDateRangePicker from "./BlockDateRangePicker";
 
 // Short human-readable label for a date range, shown on the filter pill.
 function formatDateRange(dr: ExplorationDateRange): string {
@@ -38,7 +37,7 @@ function formatDateRange(dr: ExplorationDateRange): string {
   if (dr.predefined === "customDateRange") {
     return `${dr.startDate ?? "…"} – ${dr.endDate ?? "…"}`;
   }
-  return PREDEFINED_LABELS[dr.predefined];
+  return DATE_RANGE_PREDEFINED_LABELS[dr.predefined];
 }
 
 const DEFAULT_DATE_RANGE: ExplorationDateRange = { predefined: "last30Days" };
@@ -190,7 +189,7 @@ export default function MetricExperimentsSettings({
           <Box style={{ flex: 1, minWidth: 0 }}>
             <Text
               as="div"
-              size="small"
+              size="sm"
               color="text-mid"
               truncate
               title={
@@ -214,7 +213,7 @@ export default function MetricExperimentsSettings({
               onOpenChange={setColumnsOpen}
               align="end"
               trigger={
-                <Link size="1" style={{ whiteSpace: "nowrap" }}>
+                <Link size="sm" style={{ whiteSpace: "nowrap" }}>
                   <Flex align="center" gap="1">
                     <PiSlidersHorizontal />
                     Edit
@@ -224,7 +223,7 @@ export default function MetricExperimentsSettings({
               content={
                 <Box style={{ width: 260 }}>
                   <Box mb="2">
-                    <Text size="small" color="text-low">
+                    <Text size="sm" color="text-low">
                       Drag to reorder or toggle visibility. The Experiment
                       column is always shown.
                     </Text>

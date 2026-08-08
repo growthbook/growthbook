@@ -300,6 +300,42 @@ function getFactTableGroups({
       })();
   }
 }
+/**
+ * A `customLookback` value only describes a window when it is a positive
+ * number. Zero, negatives and non-finite values are treated as absent.
+ */
+export function isPositiveLookbackValue(
+  value: number | null | undefined,
+): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+/**
+ * Start of the UTC calendar day `daysBack` days before today. Rolling presets are
+ * inclusive of both end days, so "past N days" passes `N - 1`. Subtracting a raw
+ * N without truncating leaves the start at the current time-of-day, which touches
+ * N + 1 calendar days and renders as N + 1 day buckets.
+ */
+function startOfUtcDaysAgo(daysBack: number): Date {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - daysBack);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+}
+
+/**
+ * Start of the inclusive window covering the last `months` calendar months. Steps
+ * back `months` then forward a day, since anchoring on the same day-of-month
+ * would span `months` *and* a day.
+ */
+function startOfUtcMonthsAgo(months: number): Date {
+  const d = new Date();
+  d.setUTCMonth(d.getUTCMonth() - months);
+  d.setUTCDate(d.getUTCDate() + 1);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+}
+
 export function calculateProductAnalyticsDateRange(
   dateRange: ExplorationConfig["dateRange"],
 ): DateRange {
@@ -310,32 +346,56 @@ export function calculateProductAnalyticsDateRange(
     case "today":
       startDate.setUTCHours(0, 0, 0, 0);
       return { startDate, endDate };
+    case "yesterday": {
+      // A complete day, unlike `today` which runs up to "now".
+      startDate.setUTCDate(startDate.getUTCDate() - 1);
+      startDate.setUTCHours(0, 0, 0, 0);
+      const yesterdayEnd = new Date(startDate);
+      yesterdayEnd.setUTCHours(23, 59, 59, 999);
+      return { startDate, endDate: yesterdayEnd };
+    }
     case "last7Days":
-      startDate.setUTCDate(startDate.getUTCDate() - 7);
-      return { startDate, endDate };
+      return { startDate: startOfUtcDaysAgo(6), endDate };
     case "last30Days":
-      startDate.setUTCDate(startDate.getUTCDate() - 30);
-      return { startDate, endDate };
+      return { startDate: startOfUtcDaysAgo(29), endDate };
     case "last90Days":
-      startDate.setUTCDate(startDate.getUTCDate() - 90);
-      return { startDate, endDate };
-    case "customLookback":
-      if (dateRange.lookbackValue && dateRange.lookbackUnit) {
-        const unit = dateRange.lookbackUnit;
-        const value = dateRange.lookbackValue;
-        if (unit === "hour") {
-          startDate.setUTCHours(startDate.getUTCHours() - value);
-        } else if (unit === "day") {
-          startDate.setUTCDate(startDate.getUTCDate() - value);
-        } else if (unit === "week") {
-          startDate.setUTCDate(startDate.getUTCDate() - value * 7);
-        } else if (unit === "month") {
-          startDate.setUTCMonth(startDate.getUTCMonth() - value);
-        }
-      } else {
-        startDate.setUTCDate(startDate.getUTCDate() - 30);
+      return { startDate: startOfUtcDaysAgo(89), endDate };
+    case "last12Months":
+      return { startDate: startOfUtcMonthsAgo(12), endDate };
+    case "lastCalendarYear": {
+      // The whole prior calendar year — fixed until the year rolls over.
+      const year = startDate.getUTCFullYear() - 1;
+      return {
+        startDate: new Date(Date.UTC(year, 0, 1, 0, 0, 0, 0)),
+        endDate: new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999)),
+      };
+    }
+    case "customLookback": {
+      // A negative or non-finite lookback would move the start date past the
+      // end and produce an inverted window, so anything that isn't a positive
+      // number falls back to the 30-day default alongside a missing value.
+      if (
+        !isPositiveLookbackValue(dateRange.lookbackValue) ||
+        !dateRange.lookbackUnit
+      ) {
+        return { startDate: startOfUtcDaysAgo(29), endDate };
       }
-      return { startDate, endDate };
+      const unit = dateRange.lookbackUnit;
+      const value = dateRange.lookbackValue;
+      if (unit === "hour") {
+        // Sub-day windows stay on instants; truncating would widen "past 6
+        // hours" to everything since midnight.
+        startDate.setUTCHours(startDate.getUTCHours() - value);
+        return { startDate, endDate };
+      }
+      if (unit === "day") {
+        return { startDate: startOfUtcDaysAgo(value - 1), endDate };
+      }
+      if (unit === "week") {
+        return { startDate: startOfUtcDaysAgo(value * 7 - 1), endDate };
+      }
+      return { startDate: startOfUtcMonthsAgo(value), endDate };
+    }
     case "customDateRange": {
       // The user picked calendar days, not instants, so expand the start to
       // `00:00:00.000` UTC and the end to `23:59:59.999` UTC. Without the
@@ -392,6 +452,7 @@ function generateRowFilterSQL(
         stringMatch: helpers.stringMatch,
         jsonExtract: helpers.jsonExtract,
         evalBoolean: helpers.evalBoolean,
+        castToTimestamp: helpers.castToTimestamp,
         identifierQuote: helpers.identifierQuote,
       });
       return sql;
@@ -1454,8 +1515,12 @@ export function buildFunnelSql(
   userAggregateCols.push(`MIN(step1_ts) AS step1_resolved_ts`);
   for (let i = 1; i < steps.length; i++) {
     const stepN = i + 1;
+    // Order every array by the shared raw event timestamp instead of the
+    // step's own column: each stepN_ts is a CASE-gated copy of `ts`, so the
+    // resulting order is identical, and using one shared expression keeps
+    // Redshift happy (all WITHIN GROUP ORDER BYs in a SELECT must match).
     userAggregateCols.push(
-      `${dialect.arrayAggSorted(`step${stepN}_ts`)} AS step${stepN}_arr`,
+      `${dialect.arrayAggSorted(`step${stepN}_ts`, "ts")} AS step${stepN}_arr`,
     );
   }
   const userAggregatesCte: CTE = {

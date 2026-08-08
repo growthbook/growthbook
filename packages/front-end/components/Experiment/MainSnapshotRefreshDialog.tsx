@@ -18,7 +18,7 @@ export default function MainSnapshotRefreshDialog({
       submit={onConfirm}
       close={onCancel}
     >
-      <Text size="medium" color="text-high" as="p">
+      <Text size="md" color="text-high" as="p">
         Settings have changed, so Overall Results must be rebuilt with a full
         refresh before this dimension breakdown can update. A full refresh can
         take longer to run. Confirming starts it and switches you to Overall

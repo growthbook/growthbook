@@ -5,6 +5,7 @@ import {
   type AIChatToolResultPart,
 } from "shared/ai-chat";
 import {
+  dateRangePredefined,
   ExplorationConfig,
   explorationConfigValidator,
   ProductAnalyticsResultRow,
@@ -115,13 +116,14 @@ For fact_table values:
 <row_filter_rules>
 rowFilters shape: { operator, column, values }
 Common operators: "=", "!=", "in", "not_in", "contains", "not_contains", "starts_with", "ends_with", "is_null", "not_null".
+For date columns only, "between" and "not_between" take exactly two values (a lower and an upper bound); "!=" and "is_null" are not offered for date columns.
 CRITICAL — never guess column values for filters. Always call getColumnValues first. Pass a searchTerm for partial matches (e.g. 'US' to find 'United States').
 getColumnValues only works on string-typed columns.
 </row_filter_rules>
 
 <date_range_rules>
 "last14Days" is NOT a valid predefined value. For 14 days use: { predefined: "customLookback", lookbackValue: 14, lookbackUnit: "day" }.
-Valid predefined values: "today", "last7Days", "last30Days", "last90Days", "customLookback", "customDateRange".
+Valid predefined values: ${dateRangePredefined.map((v) => `"${v}"`).join(", ")}.
 </date_range_rules>
 
 <search_rules>

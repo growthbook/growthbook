@@ -794,7 +794,7 @@ export default function EditSavedGroupPage() {
                   borderRadius: "var(--radius-2)",
                 }}
               >
-                <Text as="span" size="large" weight="semibold">
+                <Text as="span" size="lg" weight="semibold">
                   {selectedRevision ? (
                     <OverflowText
                       maxWidth={200}
@@ -824,7 +824,7 @@ export default function EditSavedGroupPage() {
                       flexShrink: 0,
                     }}
                   >
-                    <Text as="span" color="text-low" size="small">
+                    <Text as="span" color="text-low" size="sm">
                       {(displayRevision?.version ?? allRevisions.length) + 1}.
                     </Text>
                   </span>
@@ -892,7 +892,7 @@ export default function EditSavedGroupPage() {
       <div className="container-fluid pagecontents">
         <Flex align="start" justify="between" gap="2">
           <Flex align="center" mb="2" gap="3" style={{ marginTop: "-4px" }}>
-            <Heading size="2x-large" as="h1" mb="0">
+            <Heading size="2xl" as="h1" overflowWrap="anywhere" mb="0">
               {displayedSavedGroup?.groupName || savedGroup.groupName}
             </Heading>
             {displayedSavedGroup?.archived && (
@@ -1006,7 +1006,7 @@ export default function EditSavedGroupPage() {
             value={tab}
             onValueChange={(v) => setTabAndScroll(v as SavedGroupTab)}
           >
-            <TabsList size="3">
+            <TabsList size="lg">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="review">
                 Review &amp; Publish
@@ -1159,7 +1159,7 @@ export default function EditSavedGroupPage() {
             )}
             {savedGroup.type === "condition" ? (
               <>
-                <Heading size="medium" as="h2" mb="3">
+                <Heading size="md" as="h2" mb="3">
                   Condition
                 </Heading>
 
@@ -1343,7 +1343,7 @@ export default function EditSavedGroupPage() {
                           <span>{savedGroup.attributeKey}</span>
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="md"
                             icon={<PiArrowsDownUp />}
                             onClick={() => {
                               setSortNewestFirst(!sortNewestFirst);

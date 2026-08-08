@@ -101,6 +101,12 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import {
+  applyFeatureContextualBanditLinkage,
+  planFeatureContextualBanditLinkage,
+  referencesAnyContextualBandit,
+  reverseFeatureContextualBanditLinkage,
+} from "back-end/src/util/featureContextualBanditSync";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
 import {
   makeBlockingGate,
@@ -144,6 +150,7 @@ import {
   createInitialRevision,
   createRevisionFromLegacyDraft,
   deleteAllRevisionsForFeature,
+  getLinkageSyncRevisionSummaries,
   getRevision,
   hasPublishLockingScheduledSibling,
   markRevisionAsPublished,
@@ -818,7 +825,18 @@ export async function deleteFeature(
       }),
     );
   }
-
+  const contextualBanditLinkagePlan = await planFeatureContextualBanditLinkage(
+    context,
+    feature.id,
+    [],
+    [],
+  );
+  if (contextualBanditLinkagePlan) {
+    await applyFeatureContextualBanditLinkage(
+      context,
+      contextualBanditLinkagePlan,
+    );
+  }
   onFeatureDelete(context, feature).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on feature delete");
   });
@@ -3272,6 +3290,30 @@ export async function collectPublishRevisionBlockers({
   return blockers;
 }
 
+/**
+ * The bandit linkage a publish is about to imply, computed before anything is
+ * written. Reads the merge result as the rules about to go live, and drops the
+ * revision being published from the open drafts — it stops being a queued draft
+ * the moment it publishes.
+ */
+async function planContextualBanditLinkageForPublish(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  result: MergeResultChanges,
+) {
+  const { openDrafts } = await getLinkageSyncRevisionSummaries(
+    revision.organization,
+    revision.featureId,
+  );
+  return planFeatureContextualBanditLinkage(
+    context,
+    revision.featureId,
+    openDrafts.filter((d) => d.version !== revision.version),
+    result.rules ?? feature.rules ?? [],
+  );
+}
+
 export async function publishRevision({
   context,
   feature,
@@ -3367,6 +3409,21 @@ export async function publishRevision({
         ? null
         : await captureHoldoutLinkagePreImage(context, feature, result.holdout);
 
+    // Publishing is the moment a bandit rule goes live, which is what
+    // `linkedFeatures` tracks, and it retires the draft this revision was queued
+    // as. Rules on either side matter: one adding a bandit rule links the
+    // feature, one removing the last of them unlinks it.
+    const contextualBanditLinkagePlan =
+      referencesAnyContextualBandit(feature.rules) ||
+      referencesAnyContextualBandit(result.rules)
+        ? await planContextualBanditLinkageForPublish(
+            context,
+            feature,
+            revision,
+            result,
+          )
+        : null;
+
     // Not gated on the merge carrying a change: a publish with no delta is
     // exactly when state can be out of sync (reconciling a stranded revision).
     // Short-circuits when the feature has no holdout.
@@ -3432,6 +3489,21 @@ export async function publishRevision({
         undo: () => reverseHoldoutExperimentLinkage(context, plan),
       });
       await applyHoldoutExperimentLinkage(context, plan);
+    }
+
+    if (contextualBanditLinkagePlan) {
+      rewinds.push({
+        what: "contextual bandit linkage",
+        undo: () =>
+          reverseFeatureContextualBanditLinkage(
+            context,
+            contextualBanditLinkagePlan,
+          ),
+      });
+      await applyFeatureContextualBanditLinkage(
+        context,
+        contextualBanditLinkagePlan,
+      );
     }
 
     const publishStamp = await markRevisionAsPublished(

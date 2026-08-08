@@ -79,6 +79,13 @@ export const INCREMENTAL_UNITS_TABLE_PREFIX = "gb_units";
 export const INCREMENTAL_METRICS_TABLE_PREFIX = "gb_metrics";
 export const INCREMENTAL_CUPED_TABLE_PREFIX = "gb_cuped";
 
+const getRandomTableSuffix = () => Math.random().toString(36).substring(2, 10);
+
+function tableNameFromFullName(fullName: string) {
+  const segments = fullName.replace(/`/g, "").split(".");
+  return segments[segments.length - 1];
+}
+
 export type ExperimentIncrementalRefreshQueryParams = {
   snapshotType: SnapshotType;
   snapshotSettings: ExperimentSnapshotSettings;
@@ -117,10 +124,7 @@ export function getIncrementalRefreshMetricSources({
   integration: SourceIntegrationInterface;
   snapshotSettings: ExperimentSnapshotSettings;
 }): MetricSourceGroups[] {
-  // Authoritative fan-out (planMetricFanOut is the single source of truth
-  // for which fact tables host which metrics). The grouping below only
-  // decides how those metrics get chunked into one or more cache tables per
-  // fact table.
+  // Fan-out determines each metric's fact tables; this only chunks their caches.
   const fanOut = planMetricFanOut(metrics);
 
   // Each metric's group key — quantiles get their own cache, mirroring the
@@ -221,10 +225,7 @@ const startExperimentIncrementalRefreshQueries = async (
   ) => Promise<QueryPointer>,
   experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null,
 ): Promise<Queries> => {
-  const snapshotSettings = params.snapshotSettings;
-  const queryParentId = params.queryParentId;
-  const experimentId = params.experimentId;
-  const metricMap = params.metricMap;
+  const { snapshotSettings, queryParentId, experimentId, metricMap } = params;
 
   const { org } = context;
 
@@ -254,26 +255,34 @@ const startExperimentIncrementalRefreshQueries = async (
 
   const queries: Queries = [];
 
-  const unitsTableName = `${INCREMENTAL_UNITS_TABLE_PREFIX}_${experimentId}`;
-  const unitsTableFullName =
-    integration.generateTablePath &&
-    integration.generateTablePath(
-      unitsTableName,
-      settings.pipelineSettings?.writeDataset,
-      settings.pipelineSettings?.writeDatabase,
-      true,
+  const existingModel =
+    await context.models.incrementalRefresh.getLockedBySnapshotId(
+      experimentId,
+      queryParentId,
     );
+  const persistedUnitsTableFullName = existingModel?.unitsTableFullName ?? null;
+  const unitsTableName = persistedUnitsTableFullName
+    ? tableNameFromFullName(persistedUnitsTableFullName)
+    : `${INCREMENTAL_UNITS_TABLE_PREFIX}_${experimentId}_${getRandomTableSuffix()}`;
+  const unitsTableFullName =
+    persistedUnitsTableFullName ??
+    (integration.generateTablePath &&
+      integration.generateTablePath(
+        unitsTableName,
+        settings.pipelineSettings?.writeDataset,
+        settings.pipelineSettings?.writeDatabase,
+        true,
+      ));
   if (!unitsTableFullName) {
     throw new Error(
       "Unable to generate table; table path generator not specified.",
     );
   }
 
-  const randomId = Math.random().toString(36).substring(2, 10);
   const unitsTempTableFullName =
     integration.generateTablePath &&
     integration.generateTablePath(
-      `${INCREMENTAL_UNITS_TABLE_PREFIX}_${experimentId}_temp_${randomId}`,
+      `${INCREMENTAL_UNITS_TABLE_PREFIX}_${experimentId}_temp_${getRandomTableSuffix()}`,
       settings.pipelineSettings?.writeDataset,
       settings.pipelineSettings?.writeDatabase,
       true,
@@ -284,22 +293,11 @@ const startExperimentIncrementalRefreshQueries = async (
     );
   }
 
-  const incrementalRefreshModel = params.fullRefresh
-    ? null
-    : await context.models.incrementalRefresh.getByExperimentId(experimentId);
+  const incrementalRefreshModel = params.fullRefresh ? null : existingModel;
 
   const executionId = params.queryParentId;
 
-  // Wraps a `run` callback with an execution-fence check so that DDL on the
-  // shared per-experiment pipeline tables (units / metric-source / covariate)
-  // is skipped if another snapshot has taken over the lock since this run
-  // started. Data ops (INSERT/SELECT) are intentionally left unfenced — they
-  // either fail loudly against a missing table or no-op their model write via
-  // `updateByExperimentIdIfCurrentExecution`. Checked at
-  // execute time (not enqueue time) because all queries are enqueued up-front
-  // but executed sequentially via dependencies — the lock can be lost between
-  // dependent queries. releaseLock() is fenced on snapshotId, so the eventual
-  // release on this run's terminal status is a safe no-op once the lock is lost.
+  // Dependencies can delay DDL until another snapshot takes over the lock.
   const fenced =
     <R>(
       run: (
@@ -313,11 +311,12 @@ const startExperimentIncrementalRefreshQueries = async (
       setExternalId: ExternalIdCallback,
       queryMetadata: RunQueryMetadata,
     ): Promise<R> => {
-      const current =
-        await context.models.incrementalRefresh.getCurrentExecutionSnapshotId(
+      const lockHeld =
+        await context.models.incrementalRefresh.isLockedBySnapshotId(
           experimentId,
+          executionId,
         );
-      if (current !== executionId) {
+      if (!lockHeld) {
         throw new Error(
           "Incremental refresh lock was lost to another snapshot; aborting to avoid corrupting shared pipeline tables.",
         );
@@ -711,7 +710,7 @@ const startExperimentIncrementalRefreshQueries = async (
       existingCovariateSource?.tableFullName ??
       (integration.generateTablePath &&
         integration.generateTablePath(
-          `${INCREMENTAL_METRICS_TABLE_PREFIX}_${group.groupId}_covariate`,
+          `${INCREMENTAL_METRICS_TABLE_PREFIX}_${experimentId}_${group.groupId}_covariate`,
           settings.pipelineSettings?.writeDataset,
           settings.pipelineSettings?.writeDatabase,
           true,
@@ -814,8 +813,9 @@ const startExperimentIncrementalRefreshQueries = async (
           ),
         onSuccess: async () => {
           const incrementalRefresh =
-            await context.models.incrementalRefresh.getByExperimentId(
+            await context.models.incrementalRefresh.getLockedBySnapshotId(
               experimentId,
+              queryParentId,
             );
           const lastSuccessfulMaxTimestamp =
             incrementalRefresh?.unitsMaxTimestamp ?? null;
@@ -1202,8 +1202,9 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 
     const incrementalRefreshModel = params.fullRefresh
       ? null
-      : await this.context.models.incrementalRefresh.getByExperimentId(
+      : await this.context.models.incrementalRefresh.getLockedBySnapshotId(
           params.experimentId,
+          this.model.id,
         );
 
     const experiment = await getExperimentById(

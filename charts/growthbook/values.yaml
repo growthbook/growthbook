@@ -35,18 +35,14 @@ frontend:
   # runs just this pod's app.
   command: [/usr/local/bin/node, node_modules/pm2/bin/pm2-runtime, start, ecosystem.config.js, --only, front-end]
   args: []
-  # readOnlyRootFilesystem requires writable mounts for the paths the front-end
-  # writes at runtime: /tmp and Next.js's on-disk cache.
+  # readOnlyRootFilesystem requires a writable mount for the one path the
+  # front-end writes at runtime: /tmp.
   volumes:
     - name: tmp
-      emptyDir: {}
-    - name: next-cache
       emptyDir: {}
   volumeMounts:
     - name: tmp
       mountPath: /tmp
-    - name: next-cache
-      mountPath: /usr/local/src/app/packages/front-end/.next/cache
   env:
     - name: API_HOST
       # full URL of your backend, e.g. https://gb-api.example.com

@@ -85,6 +85,30 @@ import { Tooltip } from "@/ui/Tooltip";
 
 Available design system components: Avatar, Badge, Button, Callout, Checkbox, ConfirmDialog, DataList, DropdownMenu, ErrorDisplay, Frame, HelperText, Link, LinkButton, Metadata, Pagination, Popover, PremiumCallout, RadioCards, RadioGroup, Select, SplitButton, Switch, Table, Tabs, Tooltip
 
+#### Size props
+
+Every `@/ui/` size prop uses one t-shirt ladder, defined in `ui/sizes.ts`. Never Radix numbers (`size="2"`) and never words (`size="medium"`).
+
+```typescript
+import { radixSize, Size } from "@/ui/sizes";
+
+// declare the subset this component supports
+size?: Size<"sm" | "md">;
+
+// map it once, at the Radix passthrough
+<RadixCallout.Root size={radixSize(size)} />
+```
+
+`sm`/`md`/`lg`/`xl` are Radix `1`/`2`/`3`/`4`. `xs` and `2xl` are names with no shared meaning; a component that offers one maps it itself.
+
+Three rules:
+
+- Support a **subset**, never a renaming. Adding a step to a component is a one-word change. Changing what a step _means_ is an edit to `RADIX_SIZE` and moves every component at once.
+- Don't add a step to `TshirtSize` to serve one component.
+- When a Radix primitive lacks the step you mapped to, `radixSize`'s return type makes the passthrough fail to compile. That is the guard working. Narrow the subset or handle that one step locally with a comment saying why. Never cast.
+
+`Heading` and `Modal` keep their own maps, both documented in the files. The design-system page has a Size cohesion section showing every step and every gap.
+
 ### 2. Radix Themes - SECONDARY
 
 If a component doesn't exist in `@/ui/`, check Radix Themes. Use for layout primitives and components not yet wrapped in our design system:

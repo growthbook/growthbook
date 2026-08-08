@@ -110,7 +110,7 @@ export default function DataSourceMetrics({
             <AutoGenerateMetricsButton
               setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
               datasource={dataSource}
-              size="sm"
+              size="md"
             />
             <Button onClick={() => setModalData({ mode: "new" })}>
               <FaPlus className="mr-1" /> Add
