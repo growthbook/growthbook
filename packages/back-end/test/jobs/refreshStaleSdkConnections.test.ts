@@ -1,10 +1,6 @@
 /**
- * Runs a REAL Agenda instance (not mocked) against mongodb-memory-server,
- * for the same reason as coalescedSdkPayloadRefresh.test.ts: Agenda's own
- * job.run() freezes nextRunAt before calling the handler and unconditionally
- * re-persists that frozen value afterward, which would silently clobber a
- * reschedule attempted from inside the handler. Only a real Agenda instance
- * proves the complete-event-based reschedule actually works.
+ * Real Agenda against mongodb-memory-server — mocks can't catch Agenda
+ * clobbering in-handler reschedules of nextRunAt on job completion.
  */
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";

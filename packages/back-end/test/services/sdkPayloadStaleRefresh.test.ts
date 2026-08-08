@@ -158,7 +158,7 @@ describe("queueSDKPayloadRefresh (stale tracking enabled)", () => {
     const connA = conn("sdk-A");
 
     findSDKConnectionsByOrganization.mockResolvedValue([connA]);
-    markSdkConnectionsStale.mockResolvedValue(["sdk-A"]);
+    markSdkConnectionsStale.mockResolvedValue(undefined);
 
     queueSDKPayloadRefresh({
       context: minimalContext({
@@ -181,7 +181,7 @@ describe("queueSDKPayloadRefresh (stale tracking enabled)", () => {
     const connB = conn("sdk-B");
 
     findSDKConnectionsByOrganization.mockResolvedValue([connB]);
-    markSdkConnectionsStale.mockResolvedValue(["sdk-B"]);
+    markSdkConnectionsStale.mockResolvedValue(undefined);
 
     queueSDKPayloadRefresh({
       context: minimalContext({

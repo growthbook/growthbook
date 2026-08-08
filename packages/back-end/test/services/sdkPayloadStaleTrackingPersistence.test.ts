@@ -227,9 +227,7 @@ describe("SDK payload stale tracking persistence (real SDKConnectionModel)", () 
     const original = new Date(Date.now() - 60_000);
     await insertConnection({ id: "c1", key: "sdk-race", staleSince: original });
 
-    // The upsert call happens between refreshStaleSdkConnectionsForOrg's read
-    // of stale connections and its guarded clear — simulate a concurrent
-    // write landing in that window.
+    // Re-mark during upsert to simulate a concurrent write mid-refresh.
     const upsert = jest.fn().mockImplementation(async () => {
       await rawCollection().updateOne(
         { key: "sdk-race" },
@@ -262,17 +260,12 @@ describe("SDK payload stale tracking persistence (real SDKConnectionModel)", () 
     });
     await new Promise((r) => setTimeout(r, 50));
 
-    // The write's data still gets refreshed immediately despite the
-    // scheduling failure...
     expect(upsert).toHaveBeenCalledWith(
       "sdk-fallback",
       expect.any(String),
       undefined,
     );
-    // ...but the mark is deliberately left set rather than cleared here: it's
-    // cosmetic (the payload is already fresh), and the next write to this
-    // connection bumps it and reschedules again regardless of prior state,
-    // so it's not worth the extra bookkeeping to clear it in this rare path.
+    // Mark left set on purpose; next write bumps + reschedules anyway.
     const doc = await rawCollection().findOne({ key: "sdk-fallback" });
     expect(doc?.staleSince).toBeInstanceOf(Date);
   });
