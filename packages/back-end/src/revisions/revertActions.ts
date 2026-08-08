@@ -359,7 +359,7 @@ export async function landDirectChange<T>({
 }
 
 /** Land a revert: `landDirectChange` with the adapter's apply and revert provenance. */
-export async function applyRevertDirectly({
+async function applyRevertDirectly({
   context,
   entityType,
   entity,

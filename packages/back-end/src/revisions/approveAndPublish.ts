@@ -69,7 +69,7 @@ export function isArmedForAutoPublish(revision: {
 // The identity a deferred publish would run as, or null when the revision names
 // none. Callers resolve it BEFORE committing an approval, so a revision armed by
 // someone who has since left is refused up front rather than half-applied.
-export function armedPublisherId(revision: {
+function armedPublisherId(revision: {
   autoPublishOnApproval?: boolean;
   autoPublishEnabledBy?: string;
   authorId?: string;
