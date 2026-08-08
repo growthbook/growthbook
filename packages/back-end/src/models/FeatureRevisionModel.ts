@@ -24,6 +24,7 @@ import {
   isSameReviewCycle,
   reviewCycleOf,
   reviewCycleSupersededMessage,
+  statusFromStandingVerdicts,
 } from "shared/enterprise";
 import { Environment, OrganizationInterface } from "shared/types/organization";
 import {
@@ -2369,6 +2370,20 @@ export async function casUpdate(
       : "aborted";
 }
 
+// This engine stores a verdict's STATUS directly, and carries stale ones alongside
+// active ones; the shared precedence rule takes only what still stands.
+function standingVerdicts(
+  reviews: readonly { status?: string }[],
+): ("approved" | "changes-requested")[] {
+  return reviews.flatMap((r) =>
+    r.status === "approved"
+      ? (["approved"] as const)
+      : r.status === "changes-requested"
+        ? (["changes-requested"] as const)
+        : [],
+  );
+}
+
 export async function submitReviewAndComments(
   context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
@@ -2503,11 +2518,10 @@ export async function submitReviewAndComments(
           return null;
         }
         const reviews = current.reviews ?? [];
-        const status = reviews.some((r) => r.status === "changes-requested")
-          ? "changes-requested"
-          : reviews.some((r) => r.status === "approved")
-            ? "approved"
-            : "pending-review";
+        const status = statusFromStandingVerdicts(
+          standingVerdicts(reviews),
+          "pending-review",
+        );
         return {
           $set: {
             status,
@@ -2798,11 +2812,10 @@ export async function undoReview(
         throw new Error("You have no active review verdict to undo");
       }
       const remaining = activeReviews.filter((r) => r.userId !== retractingKey);
-      resolved = remaining.some((r) => r.status === "changes-requested")
-        ? "changes-requested"
-        : remaining.some((r) => r.status === "approved")
-          ? "approved"
-          : "pending-review";
+      resolved = statusFromStandingVerdicts(
+        standingVerdicts(remaining),
+        "pending-review",
+      );
       return {
         // Writing `remaining` wholesale (rather than $pull) also self-heals
         // legacy revisions whose verdicts only existed in the log.

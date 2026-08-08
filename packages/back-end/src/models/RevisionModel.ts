@@ -13,6 +13,7 @@ import {
   REVIEW_CYCLE_STATUSES,
   reviewCycleOf,
   reviewCycleSupersededMessage,
+  statusFromStandingVerdicts,
 } from "shared/enterprise";
 import uniqid from "uniqid";
 import { ACTIVE_DRAFT_STATUSES, ActiveDraftStatus } from "shared/validators";
@@ -214,6 +215,21 @@ const BaseClass = MakeModelClass({
     },
   ],
 });
+
+// This engine spells its decisions `approve`/`request-changes`; the shared rule
+// speaks in the resulting statuses. One place to translate, so the precedence
+// itself is not restated.
+function standingVerdicts(
+  byReviewer: Map<string, ReviewDecision>,
+): ("approved" | "changes-requested")[] {
+  return Array.from(byReviewer.values()).flatMap((d) =>
+    d === "approve"
+      ? (["approved"] as const)
+      : d === "request-changes"
+        ? (["changes-requested"] as const)
+        : [],
+  );
+}
 
 export class RevisionModel extends BaseClass {
   // Retry on duplicate key: the unique (org, target, version) index collides when two
@@ -1386,19 +1402,15 @@ export class RevisionModel extends BaseClass {
           if (r.decision === "comment" || r.stale) continue;
           verdictByReviewer.set(r.userId, r.decision);
         }
-        const verdicts = Array.from(verdictByReviewer.values());
-
-        // Aggregate across reviewers — one reviewer's approval must not
-        // override another reviewer's standing request-changes. Comments leave
-        // the status unchanged.
+        // Comments leave the status alone; otherwise the shared precedence rule
+        // decides, with the row's current status as the fallback.
         const newStatus =
           decision === "comment"
             ? existing.status
-            : verdicts.includes("request-changes")
-              ? "changes-requested"
-              : verdicts.includes("approve")
-                ? "approved"
-                : existing.status;
+            : statusFromStandingVerdicts(
+                standingVerdicts(verdictByReviewer),
+                existing.status,
+              );
 
         return {
           reviews: [...existing.reviews, review],
@@ -1639,12 +1651,10 @@ export class RevisionModel extends BaseClass {
           if (r.decision === "comment" || r.stale) continue;
           verdictByReviewer.set(r.userId, r.decision);
         }
-        const verdicts = Array.from(verdictByReviewer.values());
-        const newStatus = verdicts.includes("request-changes")
-          ? "changes-requested"
-          : verdicts.includes("approve")
-            ? "approved"
-            : "pending-review";
+        const newStatus = statusFromStandingVerdicts(
+          standingVerdicts(verdictByReviewer),
+          "pending-review",
+        );
 
         return {
           reviews: newReviews,

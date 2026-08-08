@@ -47,3 +47,25 @@ export function isSameReviewCycle(
 export function reviewCycleSupersededMessage(what: string): string {
   return `This review request was superseded — the draft was recalled and resubmitted while your ${what} was in flight. Reload and review the current request.`;
 }
+
+/**
+ * The status implied by the verdicts standing in the current cycle.
+ *
+ * One invariant, and it is the one that must never diverge: a request for changes
+ * OUTRANKS an approval, so one reviewer's approval cannot override another
+ * reviewer's standing objection. Encoded in four places across the two engines,
+ * each with its own shape — the generic engine dedupes to the latest verdict per
+ * reviewer and falls back to the row's current status when a comment leaves it
+ * untouched; the feature engine's array is already one entry per reviewer and falls
+ * back to `pending-review`. Those differences are real, so callers still normalize
+ * their own input and choose their own fallback. The PRECEDENCE is not a difference,
+ * and is no longer written four times.
+ */
+export function statusFromStandingVerdicts<TFallback extends string>(
+  verdicts: readonly ("approved" | "changes-requested")[],
+  fallback: TFallback,
+): "changes-requested" | "approved" | TFallback {
+  if (verdicts.includes("changes-requested")) return "changes-requested";
+  if (verdicts.includes("approved")) return "approved";
+  return fallback;
+}
