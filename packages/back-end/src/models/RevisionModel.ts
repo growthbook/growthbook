@@ -65,6 +65,27 @@ const SCHEDULED_PUBLISH_FAILURE_UNSET = {
 } as const;
 
 // Schedule fields cleared together on cancel.
+// The whole schedule, cleared, as an UPDATE fragment.
+//
+// `undefined` means `$unset` on this write path (`_updateOne` translates it before
+// the driver sees it), so a transition that disarms can do it in its OWN write
+// instead of a follow-up raw one. That matters beyond tidiness: a second write is a
+// second race, and it needed its own guard to avoid erasing a schedule armed in
+// between.
+const CLEARED_SCHEDULE = {
+  autoPublishOnApproval: false,
+  autoPublishEnabledBy: undefined,
+  scheduledPublishAt: undefined,
+  scheduledPublishLockEdits: undefined,
+  scheduledPublishLockOthers: undefined,
+  scheduledPublishBypassApproval: undefined,
+  armAcknowledgments: undefined,
+  scheduledPublishAttempts: undefined,
+  scheduledPublishLastError: undefined,
+  scheduledPublishNextAttemptAt: undefined,
+  scheduledPublishGaveUpAt: undefined,
+} as const;
+
 const SCHEDULED_PUBLISH_UNSET = {
   scheduledPublishAt: 1,
   scheduledPublishLockEdits: 1,
@@ -1510,7 +1531,9 @@ export class RevisionModel extends BaseClass {
           status: "draft",
           reviews: [],
           reviewCycle: this.nextReviewCycle(existing),
-          autoPublishOnApproval: false,
+          // Recall restarts the lifecycle, so the whole schedule goes with it — in
+          // THIS write, not a follow-up that could erase a concurrent re-arm.
+          ...CLEARED_SCHEDULE,
           activityLog: [
             ...this.cleanActivityLog(existing.activityLog),
             {
@@ -1526,19 +1549,6 @@ export class RevisionModel extends BaseClass {
     );
     if (!updated) throw new Error("Revision not found");
 
-    // this.update can't $unset, so clear any pending dated schedule + locks in a
-    // follow-up raw write — otherwise a stale scheduledPublishAt could fire on a
-    // later re-arm before a new review cycle completes. Read off the POST-CAS doc:
-    // the pre-image is what a concurrent re-arm would have made stale.
-    if (
-      updated.autoPublishOnApproval ||
-      (updated.scheduledPublishAt ?? null) !== null
-    ) {
-      const refreshed = await this.disarmScheduledPublish(id, {
-        observed: updated,
-      });
-      if (refreshed) return refreshed;
-    }
     return updated;
   }
 
