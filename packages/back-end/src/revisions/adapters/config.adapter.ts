@@ -212,8 +212,8 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
   // atom may SUBMIT a pure-archive draft for review — and staging changes nothing
   // live, so it is a project-scoped question. Scoped to serving environments, an
   // archive-capable role limited to one environment could not even propose the
-  // archive, while the LANDING is still env-scoped through `publishFootprint`'s
-  // `archiveServeFootprint`. That split is the point: propose in the project,
+  // archive, while the LANDING is still env-scoped — `publishFootprint` reports
+  // `everywhere` for an archive flip. That split is the point: propose in the project,
   // publish across the environments it actually takes out of service.
   canDeleteEntity(context: Context, snapshot: ConfigInterface): boolean {
     return context.permissions.canRevisionAction(

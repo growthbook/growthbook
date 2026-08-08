@@ -373,12 +373,11 @@ export const postSavedGroupRevisionRevertValidator = {
         ),
       title: z.string().optional(),
       comment: z.string().optional(),
-      // The dependents guard soft-warns on a still-referenced Saved Group and asks
-      // for this acknowledgment; a strict body without it rejected the very retry
-      // the 422 instructs the caller to send. `ignoreWarnings` ALONE, matching this
-      // entity's publish body: Saved Groups have no schema and no validation hooks,
-      // so advertising `skipSchemaValidation`/`skipHooks` here would document
-      // overrides that can never do anything.
+      // `ignoreWarnings` ALONE on every Saved Group body: the dependents guard
+      // soft-warns and asks for this acknowledgment, and a strict body without it
+      // would reject the retry its own 422 asks for. No schema and no validation
+      // hooks here, so `skipSchemaValidation`/`skipHooks` would document overrides
+      // that can never do anything.
       ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
@@ -428,12 +427,6 @@ export const postSavedGroupRevisionRequestReviewValidator = {
   bodySchema: z
     .object({
       autoPublishOnApproval: z.boolean().optional(),
-      // The dependents guard soft-warns on a still-referenced Saved Group and asks
-      // for this acknowledgment; a strict body without it rejected the very retry
-      // the 422 instructs the caller to send. `ignoreWarnings` ALONE, matching this
-      // entity's publish body: Saved Groups have no schema and no validation hooks,
-      // so advertising `skipSchemaValidation`/`skipHooks` here would document
-      // overrides that can never do anything.
       ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
@@ -540,12 +533,6 @@ export const putSavedGroupRevisionArchiveValidator = {
     .object({
       ...newDraftMetadataFields,
       archived: z.boolean(),
-      // The dependents guard soft-warns on a still-referenced Saved Group and asks
-      // for this acknowledgment; a strict body without it rejected the very retry
-      // the 422 instructs the caller to send. `ignoreWarnings` ALONE, matching this
-      // entity's publish body: Saved Groups have no schema and no validation hooks,
-      // so advertising `skipSchemaValidation`/`skipHooks` here would document
-      // overrides that can never do anything.
       ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
@@ -639,12 +626,6 @@ export const postSavedGroupRevisionSchedulePublishValidator = {
       lockEdits: z.boolean().optional(),
       lockOthers: z.boolean().optional(),
       bypassApproval: z.boolean().optional(),
-      // The dependents guard soft-warns on a still-referenced Saved Group and asks
-      // for this acknowledgment; a strict body without it rejected the very retry
-      // the 422 instructs the caller to send. `ignoreWarnings` ALONE, matching this
-      // entity's publish body: Saved Groups have no schema and no validation hooks,
-      // so advertising `skipSchemaValidation`/`skipHooks` here would document
-      // overrides that can never do anything.
       ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),

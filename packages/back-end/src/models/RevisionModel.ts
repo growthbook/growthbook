@@ -1101,13 +1101,9 @@ export class RevisionModel extends BaseClass {
         // callback reads it to decide whether to clear a stale fingerprint — a
         // concurrent arm's fresh set would otherwise survive a re-arm that should
         // have cleared it.
-        // `reviewCycle` is guarded because this write COMPUTES the next one from the
-        // row it read. Unguarded, a concurrent cycle start could land in between and
-        // this write would stamp a number LOWER than the stored one — moving the
-        // identity backwards onto a number an in-flight verdict already names, which
-        // is exactly what the cycle exists to prevent. (Every cycle start also moves
-        // `status` or `reviews`, so the guard is belt-and-braces — but the field this
-        // write derives from is the one that has to be in the predicate.)
+        // `reviewCycle` because this write computes the next one from the row it
+        // read: a number stamped from a stale read moves the identity BACKWARDS onto
+        // one an in-flight verdict already names. See `reviewCycle.ts`.
         [
           "status",
           "reviews",
@@ -1202,23 +1198,14 @@ export class RevisionModel extends BaseClass {
     enabled: boolean,
     { armAcknowledgments }: { armAcknowledgments?: ArmAcknowledgments } = {},
   ) {
-    // Status-guarded, like every other transition here: the check below reads
-    // `status`, so an unguarded write let a publish or discard land in between and
-    // stamped auto-publish state onto a terminal revision.
+    // `status` on both paths: the check below reads it, and a terminal revision must
+    // not be stamped with auto-publish state.
     //
-    // ARMING also guards `target`; disarming does not.
-    //
-    // Arming's AUTHORITY is judged on the live entity — it commits a publish into
-    // the entity as it will stand when it fires — so a rebase that re-scopes the
-    // revision cannot change that verdict, and that was the whole reason `target`
-    // was left out. But the acknowledgments captured alongside it are derived from
-    // `target.proposedChanges`: they are a fingerprint of the content being armed.
-    // Content changing between the capture and this write armed a schedule whose
-    // fingerprint describes changes nobody acknowledged, and the fire-time drift
-    // check then reads that stale fingerprint as consent.
-    //
-    // Disarming carries nothing content-derived, so it keeps the narrow guard
-    // rather than gaining conflicts it has no reason to lose to.
+    // ARMING additionally guards `target`, because `armAcknowledgments` fingerprints
+    // `target.proposedChanges` and the fire-time drift check reads that fingerprint
+    // as consent — so it must describe the content actually armed. Arming's AUTHORITY
+    // is judged on the live entity, which is why `target` is otherwise irrelevant
+    // here; disarming carries nothing content-derived and keeps the narrow guard.
     const guardFields: (keyof Revision)[] = enabled
       ? ["status", "target"]
       : ["status"];
@@ -1514,13 +1501,9 @@ export class RevisionModel extends BaseClass {
       id,
       // `target` for the same reason as `submitForReview`: the non-author path is
       // gated on draft authority over `target.snapshot`.
-      // `reviewCycle` is guarded because this write COMPUTES the next one from the
-      // row it read. Unguarded, a concurrent cycle start could land in between and
-      // this write would stamp a number LOWER than the stored one — moving the
-      // identity backwards onto a number an in-flight verdict already names, which
-      // is exactly what the cycle exists to prevent. (Every cycle start also moves
-      // `status` or `reviews`, so the guard is belt-and-braces — but the field this
-      // write derives from is the one that has to be in the predicate.)
+      // `reviewCycle` because this write computes the next one from the row it
+      // read: a number stamped from a stale read moves the identity BACKWARDS onto
+      // one an in-flight verdict already names. See `reviewCycle.ts`.
       ["status", "reviews", "activityLog", "target", "reviewCycle"],
       (existing) => {
         assertAuthority?.(existing);
@@ -1844,13 +1827,9 @@ export class RevisionModel extends BaseClass {
       // matched and rewrote merged history, including the status and reviews the
       // publish had just set. `assertDraftAcceptsContentEdit` is re-checked inside the
       // loop, so a retry sees the new status and refuses properly.
-      // `reviewCycle` is guarded because this write COMPUTES the next one from the
-      // row it read. Unguarded, a concurrent cycle start could land in between and
-      // this write would stamp a number LOWER than the stored one — moving the
-      // identity backwards onto a number an in-flight verdict already names, which
-      // is exactly what the cycle exists to prevent. (Every cycle start also moves
-      // `status` or `reviews`, so the guard is belt-and-braces — but the field this
-      // write derives from is the one that has to be in the predicate.)
+      // `reviewCycle` because this write computes the next one from the row it
+      // read: a number stamped from a stale read moves the identity BACKWARDS onto
+      // one an in-flight verdict already names. See `reviewCycle.ts`.
       [
         "contributors",
         "status",
@@ -1963,12 +1942,10 @@ export class RevisionModel extends BaseClass {
     // Whether a schedule was armed on the winning CAS read — used after the
     // status transition lands to scrub the schedule fields.
     let hadSchedule = false;
-    // `target` is guarded because the caller computed `desiredState` from this
-    // revision's proposed changes BEFORE calling merge. Guarding status alone let
-    // a concurrent edit that kept the status (another contributor saving the same
-    // draft) rewrite the content after that computation: live received the stale
-    // content while history recorded the newer. A CAS has to guard every field the
-    // computation it protects actually read.
+    // `target` because the caller computed `desiredState` from this revision's
+    // proposed changes BEFORE calling merge. A CAS must guard every field the
+    // computation it protects actually read — otherwise a concurrent edit that keeps
+    // the status rewrites the content and live receives the stale version.
     const target = await this._dangerousGetCollection().findOne(
       { organization: this.context.org.id, id },
       { projection: { "target.type": 1, "target.id": 1 } },
@@ -2195,13 +2172,9 @@ export class RevisionModel extends BaseClass {
     // review cycle for a revision that was never submitted. Reopening to
     // `draft` lets the author explicitly re-submit via `submitForReview`
     // when ready — a safer default than inferring the pre-discard status.
-    // `reviewCycle` is guarded because this write COMPUTES the next one from the
-    // row it read. Unguarded, a concurrent cycle start could land in between and
-    // this write would stamp a number LOWER than the stored one — moving the
-    // identity backwards onto a number an in-flight verdict already names, which
-    // is exactly what the cycle exists to prevent. (Every cycle start also moves
-    // `status` or `reviews`, so the guard is belt-and-braces — but the field this
-    // write derives from is the one that has to be in the predicate.)
+    // `reviewCycle` because this write computes the next one from the row it
+    // read: a number stamped from a stale read moves the identity BACKWARDS onto
+    // one an in-flight verdict already names. See `reviewCycle.ts`.
     const reopened = await this.updateWithCas(
       id,
       ["status", "reviewCycle"],

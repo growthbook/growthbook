@@ -73,13 +73,9 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
       savedGroup as Record<string, unknown>,
     );
 
-  // The APPROVAL bypass and the STALE-BASE force-merge are different capabilities
-  // and must not share a variable. `restApiBypassesReviews` is an org setting that
-  // says "REST callers need not wait for approval" — it says nothing about merging a
-  // revision built on a base that has since moved, which can overwrite another
-  // author's landed work. Passing the combined value as `canForceMergeStaleBase` let
-  // an API key with NO bypass permission force-publish a stale revision on the
-  // strength of that setting alone.
+  // Approval bypass and stale-base force-merge are different capabilities: the
+  // org's `restApiBypassesReviews` setting waives APPROVAL only, never the right
+  // to merge onto a base that has moved under another author's landed work.
   const canForceMerge = adapter.canBypassApproval(
     req.context,
     savedGroup as Record<string, unknown>,

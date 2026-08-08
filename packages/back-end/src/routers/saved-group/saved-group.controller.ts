@@ -379,9 +379,7 @@ export const postSavedGroupAddItems = async (
   // (CAS-guarded) merge before the live write so a concurrent discard can't
   // orphan a half-applied change; reopen if the write then fails.
   if (!approvalRequired) {
-    // The pre-merge revision, for compensation below: the claim overwrites
-    // `revision` with the merged row, and un-merging has to restore the status
-    // it actually had.
+    // Kept for compensation: the claim overwrites `revision` with the merged row.
     const priorRevision = revision;
     revision = await context.models.revisions.merge(
       revision.id,
@@ -408,11 +406,8 @@ export const postSavedGroupAddItems = async (
       );
     } catch (e) {
       try {
-        // Un-merge. `reopen` is the LIFECYCLE action and now accepts only a
-        // DISCARDED revision, so it silently refused here and left the revision
-        // merged though nothing landed. This is compensation: restore the
-        // pre-merge status, guarded on the merge this flow just wrote so a
-        // concurrent recovery is never clobbered.
+        // Live back first, then un-merge — ordering and guards live in
+        // `compensateFailedLanding`.
         await compensateFailedLanding({
           context,
           entityType: "saved-group",
@@ -531,10 +526,7 @@ export const postSavedGroupRemoveItems = async (
   }
 
   const approvalRequired = isRevisionRequired(context, "saved-group", id);
-  // Without approvals this call lands the change live immediately, so it takes
-  // publish on top of draft. Revert authority is no substitute: a membership
-  // edit is never a pure restore. With approvals on, the change only stages a
-  // draft and the publish gate runs when someone lands it.
+  // Publish on top of draft when there are no approvals — see above.
   if (
     !approvalRequired &&
     !context.permissions.canRevisionAction(
@@ -557,13 +549,8 @@ export const postSavedGroupRemoveItems = async (
     },
   );
 
-  // When approval is required, stack the change on top of any existing open
-  // draft so the user's pending changes accumulate. When approval isn't
-  // required we'll merge immediately, so base the new values on the live
-  // entity and force a fresh revision below — otherwise we'd merge a draft
-  // that may contain unrelated pending changes (e.g. a groupName edit) and
-  // mark them as merged even though `savedGroups.update` only applies the
-  // values change.
+  // Stack onto an open draft when approval is required; base on live otherwise —
+  // see above.
   let baseValues: string[] = savedGroup.values ?? [];
   // Whether an open draft already existed (so we emit revision.updated rather
   // than revision.created when stacking onto it).
@@ -603,14 +590,9 @@ export const postSavedGroupRemoveItems = async (
     },
   );
 
-  // When approval isn't required, merge the revision immediately so the
-  // caller's change takes effect instead of leaving a stranded draft. Claim the
-  // (CAS-guarded) merge before the live write so a concurrent discard can't
-  // orphan a half-applied change; reopen if the write then fails.
+  // Merge immediately when approval isn't required — see above.
   if (!approvalRequired) {
-    // The pre-merge revision, for compensation below: the claim overwrites
-    // `revision` with the merged row, and un-merging has to restore the status
-    // it actually had.
+    // Kept for compensation: the claim overwrites `revision` with the merged row.
     const priorRevision = revision;
     revision = await context.models.revisions.merge(
       revision.id,
@@ -619,10 +601,7 @@ export const postSavedGroupRemoveItems = async (
     );
     let landedDoc: Record<string, unknown> | null = null;
     try {
-      // Guarded on the pre-image; the merge claim above guards the revision only.
-      // Reported from inside the write so a post-write failure can put live state
-      // back; without it the catch could only un-merge, leaving the change live
-      // with no revision recording it.
+      // Guarded on the pre-image; reported from inside the write — see above.
       await runGuardedWrite("saved-group", savedGroup.id, () =>
         context.models.savedGroups.updateIfUnchanged(
           savedGroup,
@@ -637,11 +616,8 @@ export const postSavedGroupRemoveItems = async (
       );
     } catch (e) {
       try {
-        // Un-merge. `reopen` is the LIFECYCLE action and now accepts only a
-        // DISCARDED revision, so it silently refused here and left the revision
-        // merged though nothing landed. This is compensation: restore the
-        // pre-merge status, guarded on the merge this flow just wrote so a
-        // concurrent recovery is never clobbered.
+        // Live back first, then un-merge — ordering and guards live in
+        // `compensateFailedLanding`.
         await compensateFailedLanding({
           context,
           entityType: "saved-group",
@@ -1136,9 +1112,7 @@ export const putSavedGroup = async (
 
       // Claim the (CAS-guarded) merge before the live write so a concurrent
       // discard can't orphan a half-applied change; reopen if the write fails.
-      // The pre-merge revision, for compensation below: the claim overwrites
-      // `revision` with the merged row, and un-merging has to restore the status
-      // it actually had.
+      // Kept for compensation: the claim overwrites `revision` with the merged row.
       const priorRevision = revision;
       revision = await context.models.revisions.merge(
         revision.id,
@@ -1150,10 +1124,7 @@ export const putSavedGroup = async (
 
       let landedDoc: Record<string, unknown> | null = null;
       try {
-        // Guarded on the pre-image; the merge claim above guards the revision only.
-        // Reported from inside the write so a post-write failure can put live state
-        // back; without it the catch could only un-merge, leaving the change live
-        // with no revision recording it.
+        // Guarded on the pre-image; reported from inside the write — see above.
         await runGuardedWrite("saved-group", savedGroup.id, () =>
           context.models.savedGroups.updateIfUnchanged(
             savedGroup,
@@ -1168,11 +1139,8 @@ export const putSavedGroup = async (
         );
       } catch (e) {
         try {
-          // Un-merge. `reopen` is the LIFECYCLE action and now accepts only a
-          // DISCARDED revision, so it silently refused here and left the revision
-          // merged though nothing landed. This is compensation: restore the
-          // pre-merge status, guarded on the merge this flow just wrote so a
-          // concurrent recovery is never clobbered.
+          // Live back first, then un-merge — ordering and guards live in
+          // `compensateFailedLanding`.
           await compensateFailedLanding({
             context,
             entityType: "saved-group",

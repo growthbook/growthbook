@@ -476,14 +476,8 @@ export const updateFeatureV2 = createApiRequestHandler(
     // See updateFeature: this path lands a live revision, so it owes the same
     // `revision.published` webhook the dedicated publish endpoints emit.
 
-    // Dispatched HERE, immediately after the revision commits — not at the end of
-    // the handler. The publish is already live at this point; everything between
-    // (the metadata write, the tags diff, the audit entry, and four reads for the
-    // response payload) can throw, and every one of them turned a live publish into
-    // a 500 with no lifecycle event at all. Those later steps are not part of the
-    // publish, so their failure does not make this event untrue.
-    //
-    // Best-effort, as before: a failed notification must not fail a committed write.
+    // Immediately after the revision commits, not at the end of the handler — see
+    // updateFeature. Best-effort: a failed notification must not fail a committed write.
     try {
       await dispatchFeatureRevisionEvent(
         req.context,
