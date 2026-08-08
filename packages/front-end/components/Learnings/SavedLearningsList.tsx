@@ -403,7 +403,7 @@ const SavedLearningsList: FC<{
             >
               <Flex justify="between" align="start" gap="3" mb="2">
                 <Flex gap="2" align="center" wrap="wrap">
-                  <Heading as="h4" size="medium">
+                  <Heading as="h4" size="md">
                     <Link
                       href={`/learnings/${learning.id}`}
                       style={{ color: "inherit" }}
@@ -481,7 +481,7 @@ const SavedLearningsList: FC<{
                 )}
               </Flex>
               <Box mb="3">
-                <Text size="small" color="text-mid" as="div">
+                <Text size="sm" color="text-mid" as="div">
                   Created {date(learning.dateCreated)} by {ownerName}
                   {edited ? ` · edited ${date(learning.dateUpdated)}` : ""}
                   {editorNames.length > 0
@@ -491,7 +491,7 @@ const SavedLearningsList: FC<{
                 {learning.projects && learning.projects.length > 0 && (
                   <Box mt="1">
                     <Flex gap="2" wrap="wrap" align="center">
-                      <Text size="small" color="text-mid">
+                      <Text size="sm" color="text-mid">
                         Projects:
                       </Text>
                       {learning.projects.map((p) => (

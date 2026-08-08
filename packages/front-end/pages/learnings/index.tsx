@@ -119,7 +119,7 @@ const LearningsPage = (): React.ReactElement => {
   if (!hasLearningsFeature) {
     return (
       <div className="contents container-fluid pagecontents">
-        <Heading as="h1" size="2x-large" weight="medium" mb="4">
+        <Heading as="h1" size="2xl" weight="medium" mb="4">
           Experiment Learnings
         </Heading>
         <PremiumEmptyState
@@ -147,7 +147,7 @@ const LearningsPage = (): React.ReactElement => {
       <div className="contents experiments container-fluid pagecontents">
         <div className="mb-3">
           <Flex align="center" justify="between" gap="3" mb="4" wrap="wrap">
-            <Heading as="h1" size="2x-large" weight="medium" mb="0">
+            <Heading as="h1" size="2xl" weight="medium" mb="0">
               Experiment Learnings
             </Heading>
             {allStoppedExperiments.length > 0 && (
@@ -256,7 +256,6 @@ const LearningsPage = (): React.ReactElement => {
                     <Box p="2">
                       <ExperimentSearchFilters
                         experiments={allExperiments}
-                        learnings={learnings}
                         syntaxFilters={syntaxFilters}
                         searchInputProps={searchInputProps}
                         setSearchValue={setSearchValue}
@@ -273,10 +272,10 @@ const LearningsPage = (): React.ReactElement => {
                         wrap="wrap"
                       >
                         <Box>
-                          <Text size="medium" weight="semibold" as="div">
+                          <Text size="md" weight="semibold" as="div">
                             Find learnings across these experiments
                           </Text>
-                          <Text size="medium" color="text-mid" as="div">
+                          <Text size="md" color="text-mid" as="div">
                             {stoppedExperiments.length === 0 ? (
                               <>
                                 AI can scan completed experiments for common
@@ -305,7 +304,7 @@ const LearningsPage = (): React.ReactElement => {
                       </Flex>
                       {!aiEnabled && (
                         <Box mt="2">
-                          <Text size="small" color="text-mid" as="div">
+                          <Text size="sm" color="text-mid" as="div">
                             AI features are not enabled for this organization.
                             An admin can enable them in General Settings.
                           </Text>
@@ -313,7 +312,7 @@ const LearningsPage = (): React.ReactElement => {
                       )}
                       {aiEnabled && stoppedExperiments.length === 1 && (
                         <Box mt="2">
-                          <Text size="small" color="text-mid" as="div">
+                          <Text size="sm" color="text-mid" as="div">
                             Adjust filters so at least 2 stopped experiments
                             match to find cross-experiment learnings.
                           </Text>
@@ -340,6 +339,7 @@ const LearningsPage = (): React.ReactElement => {
       {refreshOpen && (
         <RefreshLearningsModal
           experiments={allExperiments}
+          learnings={learnings}
           close={() => setRefreshOpen(false)}
           onApplied={() => mutateLearnings()}
         />

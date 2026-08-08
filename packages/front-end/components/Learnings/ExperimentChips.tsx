@@ -21,7 +21,7 @@ const ExperimentChips: FC<{
   return (
     <Box>
       <Box mb="1">
-        <Text size="small" weight="semibold" color="text-mid" as="div">
+        <Text size="sm" weight="semibold" color="text-mid" as="div">
           {label} ({experimentIds.length})
         </Text>
       </Box>

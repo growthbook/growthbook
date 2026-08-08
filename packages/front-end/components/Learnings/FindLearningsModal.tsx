@@ -216,7 +216,7 @@ const FindLearningsModal: FC<{
         {loading && (
           <Flex direction="column" align="center" gap="3" py="6">
             <LoadingSpinner />
-            <Text size="medium" color="text-mid">
+            <Text size="md" color="text-mid">
               Analyzing {experiments.length} experiments to find common
               themes...
             </Text>
@@ -241,7 +241,7 @@ const FindLearningsModal: FC<{
         {!loading && !error && suggestions.length > 0 && (
           <Box>
             <Flex align="center" justify="between" gap="3" mb="3" wrap="wrap">
-              <Text size="medium" color="text-mid" as="div">
+              <Text size="md" color="text-mid" as="div">
                 Found {suggestions.length} potential learning
                 {suggestions.length === 1 ? "" : "s"}. Check the ones you want
                 to keep, then save.
@@ -284,11 +284,11 @@ const FindLearningsModal: FC<{
                     />
                     <Box flexGrow="1" style={{ minWidth: 0 }}>
                       <Flex align="center" gap="2" mb="2" wrap="wrap">
-                        <Heading as="h4" size="medium" mb="0">
+                        <Heading as="h4" size="md" mb="0">
                           {s.suggestion.title}
                         </Heading>
                         {s.saved && (
-                          <Text size="small" color="text-mid">
+                          <Text size="sm" color="text-mid">
                             Saved
                           </Text>
                         )}

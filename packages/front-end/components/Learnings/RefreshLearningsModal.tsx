@@ -183,7 +183,7 @@ const RefreshLearningsModal: FC<{
         {loading && (
           <Flex direction="column" align="center" gap="3" py="6">
             <LoadingSpinner />
-            <Text size="medium" color="text-mid">
+            <Text size="md" color="text-mid">
               {isSingle
                 ? "Checking this Learning against recently stopped experiments..."
                 : `Checking Learnings against recently stopped experiments... (${progress.done} of ${progress.total})`}
@@ -208,7 +208,7 @@ const RefreshLearningsModal: FC<{
         {!loading && !error && suggestions.length > 0 && (
           <Box>
             <Box mb="3">
-              <Text size="medium" color="text-mid" as="div">
+              <Text size="md" color="text-mid" as="div">
                 {suggestions.length} Learning
                 {suggestions.length === 1 ? " has" : "s have"} proposed updates
                 from newer experiments. Uncheck anything you don&apos;t want to
@@ -236,7 +236,7 @@ const RefreshLearningsModal: FC<{
                       aria-label={`Select ${s.suggestion.title}`}
                     />
                     <Box flexGrow="1" style={{ minWidth: 0 }}>
-                      <Heading as="h4" size="medium" mb="2">
+                      <Heading as="h4" size="md" mb="2">
                         {s.suggestion.title}
                       </Heading>
                       {!s.suggestion.stillAccurate && (
@@ -248,7 +248,7 @@ const RefreshLearningsModal: FC<{
                       )}
                       {s.suggestion.summary && (
                         <Box mb="3">
-                          <Text size="medium" color="text-mid" as="div">
+                          <Text size="md" color="text-mid" as="div">
                             {s.suggestion.summary}
                           </Text>
                         </Box>
@@ -256,7 +256,7 @@ const RefreshLearningsModal: FC<{
                       {s.suggestion.updatedText !==
                         s.suggestion.currentText && (
                         <Box mb="3">
-                          <Text size="small" weight="semibold" color="text-mid">
+                          <Text size="sm" weight="semibold" color="text-mid">
                             Updated description
                           </Text>
                           <Markdown>{s.suggestion.updatedText}</Markdown>
