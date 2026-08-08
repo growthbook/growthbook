@@ -258,12 +258,10 @@ export class ReqContextClass {
     closed?: boolean;
   } | null;
 
-  // When set, apply-path `*.updated` webhook-event emissions enqueue here
-  // instead of firing — the bulk publisher flushes them per entity after the
-  // whole commit lands, and drops them on compensation so a rolled-back
-  // release emits no update events. Audit-log entries are NOT deferred: they
-  // record writes that genuinely happened, compensation included.
-  // `*.updated` events held for the duration of a release.
+  // `*.updated` events held for the duration of a release: the bulk publisher
+  // flushes them after the commit lands and drops them on compensation, so a
+  // rolled-back release emits none. Audit entries are NOT deferred — they record
+  // writes that genuinely happened, compensation included.
   //
   // Entries are tagged with the release item whose apply produced them: compensation
   // drops the events of items it rolled back, and must still emit those of an item

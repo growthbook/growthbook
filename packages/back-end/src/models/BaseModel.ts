@@ -729,11 +729,8 @@ export abstract class BaseModel<
    * handed, so it cannot drift from the state the change was computed against.
    *
    * Guarded writes stamp via `advancedGuardStamp`, strictly after the token they
-   * were conditioned on — so two guarded writers holding the same token cannot
-   * both pass, even inside one millisecond. The residual precision hazard is a
-   * rival UNGUARDED write (plain `update` stamps wall-clock time) landing in the
-   * same millisecond as the pre-image's stamp; that requires the pre-image to be
-   * read in that same millisecond, not a window request-scoped landings occupy.
+   * were conditioned on, so two guarded writers holding the same token cannot both
+   * pass — even inside one millisecond.
    */
   public updateIfUnchanged(
     existing: z.infer<T>,
