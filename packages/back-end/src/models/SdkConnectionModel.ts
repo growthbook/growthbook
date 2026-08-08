@@ -82,6 +82,7 @@ const sdkConnectionSchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
+  staleSince: Date,
   proxy: {
     enabled: Boolean,
     host: String,
@@ -94,6 +95,10 @@ const sdkConnectionSchema = new mongoose.Schema({
     consecutiveFailures: Number,
   },
 });
+// Sparse: only connections with pending, unrebuilt writes carry staleSince,
+// so the cross-org sweep (findOrgsWithStaleSdkConnections) scans a tiny set
+// instead of the whole collection.
+sdkConnectionSchema.index({ staleSince: 1 }, { sparse: true });
 
 type SDKConnectionDocument = mongoose.Document & SDKConnectionInterface;
 
@@ -478,6 +483,76 @@ export async function markSDKConnectionUsed(key: string) {
         connected: true,
       },
     },
+  );
+}
+
+// Marks the given connections stale (out of date), skipping any that are
+// already marked — so a connection's staleSince always reflects the first
+// unrebuilt write, not the most recent one. Returns the keys that were newly
+// marked (a no-op call, e.g. hitting only already-stale connections, returns
+// an empty array).
+export async function markSdkConnectionsStale(
+  organization: string,
+  keys: string[],
+): Promise<string[]> {
+  if (!keys.length) return [];
+  const result = await SDKConnectionModel.updateMany(
+    {
+      organization,
+      key: { $in: keys },
+      staleSince: { $in: [null, undefined] },
+    },
+    { $set: { staleSince: new Date() } },
+  );
+  return result.modifiedCount > 0 ? keys : [];
+}
+
+export async function hasAnyStaleSdkConnection(
+  organization: string,
+): Promise<boolean> {
+  return (
+    (await SDKConnectionModel.exists({
+      organization,
+      staleSince: { $ne: null },
+    })) !== null
+  );
+}
+
+export async function findStaleSdkConnectionsByOrganization(
+  organization: string,
+): Promise<SDKConnectionInterface[]> {
+  const docs = await SDKConnectionModel.find({
+    organization,
+    staleSince: { $ne: null },
+  });
+  return docs.map(toInterface);
+}
+
+// Cross-org: used by the periodic sweep to find which orgs have any pending
+// work at all, without loading every org's full connection list.
+export async function findOrgsWithStaleSdkConnections(): Promise<string[]> {
+  return SDKConnectionModel.distinct("organization", {
+    staleSince: { $ne: null },
+  });
+}
+
+// Clears staleness only for marks that predate `clearBefore` (the moment the
+// caller started reading stale connections to rebuild them) — a write that
+// re-marks a connection stale after that point must survive the clear, or its
+// effect would be silently dropped until something else marks it stale again.
+export async function clearStaleSdkConnections(
+  organization: string,
+  keys: string[],
+  clearBefore: Date,
+): Promise<void> {
+  if (!keys.length) return;
+  await SDKConnectionModel.updateMany(
+    {
+      organization,
+      key: { $in: keys },
+      staleSince: { $lte: clearBefore },
+    },
+    { $set: { staleSince: null } },
   );
 }
 

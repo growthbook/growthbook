@@ -297,6 +297,18 @@ export const REMOTE_EVAL_EDGE_API_TOKEN =
 
 export const CRON_ENABLED = !stringToBoolean(process.env.CRON_DISABLED);
 
+// Track SDK payload staleness for REST-API-triggered writes instead of
+// refreshing immediately: mark the affected SDK connections stale, refresh
+// right away if the org was otherwise quiet, and otherwise leave it for the
+// periodic sweep (this many seconds apart) to batch together with whatever
+// else comes in. 0 (default) = disabled, refreshes run immediately.
+// UI-triggered refreshes always run immediately, regardless of this setting.
+export const SDK_PAYLOAD_REFRESH_STALE_SWEEP_SECONDS = parseEnvInt(
+  process.env.SDK_PAYLOAD_REFRESH_STALE_SWEEP_SECONDS,
+  0,
+  { min: 0, name: "SDK_PAYLOAD_REFRESH_STALE_SWEEP_SECONDS" },
+);
+
 export const SENTRY_DSN = process.env.SENTRY_DSN || "";
 
 export const STORE_SEGMENTS_IN_MONGO = stringToBoolean(

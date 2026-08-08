@@ -149,8 +149,15 @@ import {
   getRevision,
   normalizeRulesInputToV2,
 } from "back-end/src/models/FeatureRevisionModel";
-import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import {
+  clearStaleSdkConnections,
+  findSDKConnectionsByOrganization,
+  findStaleSdkConnectionsByOrganization,
+  hasAnyStaleSdkConnection,
+  markSdkConnectionsStale,
+} from "back-end/src/models/SdkConnectionModel";
 import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
+import { SDK_PAYLOAD_REFRESH_STALE_SWEEP_SECONDS } from "back-end/src/util/secrets";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
@@ -746,8 +753,91 @@ function recordSdkPayloadRefreshMetrics(durationMs: number) {
   }
 }
 
-// This is a synchronous wrapper around refreshSDKPayloadCache
-// We shouldn't need to await the refresh in most cases
+export function isSdkPayloadStaleTrackingEnabled(): boolean {
+  return SDK_PAYLOAD_REFRESH_STALE_SWEEP_SECONDS > 0;
+}
+
+// Marks exactly the SDK connections a write affects as stale (out of date),
+// reusing isSDKConnectionAffectedByPayloadKey against a cheap, org-scoped
+// connection list (orgs typically have a handful of connections, so this
+// fetch is negligible next to the payload-rebuild work it lets us defer).
+// Returns the keys newly marked stale — empty if nothing was affected, or if
+// everything affected was already stale from an earlier, not-yet-processed
+// write.
+async function markAffectedSdkConnectionsStale(
+  context: ReqContext | ApiReqContext,
+  data: {
+    payloadKeys: SDKPayloadKey[];
+    sdkConnections?: SDKConnectionInterface[];
+    skipRefreshForProject?: string;
+    treatEmptyProjectAsGlobal?: boolean;
+  },
+): Promise<string[]> {
+  let affected: SDKConnectionInterface[];
+  if (data.sdkConnections?.length) {
+    affected = data.sdkConnections;
+  } else {
+    const payloadKeys = data.skipRefreshForProject
+      ? data.payloadKeys.filter((k) => k.project !== data.skipRefreshForProject)
+      : data.payloadKeys;
+    if (!payloadKeys.length) return [];
+
+    const allConnections = await findSDKConnectionsByOrganization(context);
+    affected = allConnections.filter((c) =>
+      payloadKeys.some((k) =>
+        isSDKConnectionAffectedByPayloadKey(
+          c,
+          k,
+          data.treatEmptyProjectAsGlobal,
+        ),
+      ),
+    );
+  }
+
+  if (!affected.length) return [];
+  return markSdkConnectionsStale(
+    context.org.id,
+    affected.map((c) => c.key),
+  );
+}
+
+// The counterpart to markAffectedSdkConnectionsStale: rebuild every currently
+// stale connection for the org in one pass, then clear only the staleness
+// that predates the read — anything marked stale by a write that raced in
+// during the rebuild survives to be picked up by the next trigger.
+export async function refreshStaleSdkConnectionsForOrg(
+  baseContext: ReqContext | ApiReqContext,
+): Promise<void> {
+  const context = getContextForAgendaJobByOrgObject(baseContext.org);
+  const readStartedAt = new Date();
+  const staleConnections = await findStaleSdkConnectionsByOrganization(
+    context.org.id,
+  );
+  if (!staleConnections.length) return;
+
+  await refreshSDKPayloadCache({
+    context,
+    payloadKeys: [],
+    sdkConnections: staleConnections,
+  });
+
+  await clearStaleSdkConnections(
+    context.org.id,
+    staleConnections.map((c) => c.key),
+    readStartedAt,
+  );
+}
+
+// This is a synchronous wrapper around refreshSDKPayloadCache.
+// We shouldn't need to await the refresh in most cases. UI-triggered
+// refreshes always run immediately. REST-API-triggered refreshes are tracked
+// via a staleSince flag on the affected SDK connections (see
+// SdkConnectionModel.ts) when SDK_PAYLOAD_REFRESH_STALE_SWEEP_SECONDS is set:
+// if the org was otherwise quiet, the refresh still runs right away; if a
+// refresh is already pending for the org, this write just adds to it and the
+// periodic sweep job (or the in-flight refresh, if it hasn't read yet) picks
+// it up — so a lone write is never delayed, only genuinely concurrent ones
+// get batched together.
 export function queueSDKPayloadRefresh(data: {
   context: ReqContext | ApiReqContext;
   payloadKeys: SDKPayloadKey[];
@@ -771,8 +861,41 @@ export function queueSDKPayloadRefresh(data: {
   // Capture stack trace at the entry point to include the original caller
   const rawStack = new Error().stack || "";
   const stackTrace = rawStack.replace(/^Error.*?\n/, "");
-  refreshSDKPayloadCache({ ...data, stackTrace }).catch((e) => {
-    logger.error(e, "Error refreshing SDK Payload Cache");
+
+  const runRefresh = () => {
+    refreshSDKPayloadCache({ ...data, stackTrace }).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload Cache");
+    });
+  };
+
+  if (!data.context.isApiRequest || !isSdkPayloadStaleTrackingEnabled()) {
+    runRefresh();
+    return;
+  }
+
+  (async () => {
+    const wasQuiet = !(await hasAnyStaleSdkConnection(data.context.org.id));
+    const newlyStaleKeys = await markAffectedSdkConnectionsStale(
+      data.context,
+      data,
+    );
+    if (!newlyStaleKeys.length) return;
+
+    logger.info(
+      {
+        orgId: data.context.org.id,
+        connectionKeys: newlyStaleKeys,
+        auditContext: data.auditContext,
+      },
+      "[sdk-payload] marked SDK connections stale",
+    );
+
+    if (wasQuiet) {
+      await refreshStaleSdkConnectionsForOrg(data.context);
+    }
+  })().catch((e) => {
+    logger.error(e, "Error tracking stale SDK connections");
+    runRefresh();
   });
 }
 
