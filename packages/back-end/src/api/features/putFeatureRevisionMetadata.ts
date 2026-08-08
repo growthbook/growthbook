@@ -147,6 +147,10 @@ export async function setRevisionMetadata(
     const finalRevision = updated ?? revision;
 
     await recordRevisionUpdate(context, feature, finalRevision, "metadata", {
+      // No environment-scoped impact — see recordRevisionUpdate. Omitting this lets
+      // routing derive environments from the revision's RULES, sending a metadata
+      // edit to every environment-filtered subscriber those rules touch.
+      environments: [],
       auditDetails: { fields: Object.keys(changes) },
     });
 

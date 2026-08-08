@@ -90,20 +90,20 @@ export async function submitRevisionReview(
 
   // Block contributors from self-approving when `blockSelfApproval` is set.
   // request-changes / comment are intentionally allowed.
-  if (action === "approve") {
-    const requireReviews = req.context.org.settings?.requireReviews;
-    const reviewSetting = Array.isArray(requireReviews)
-      ? getReviewSetting(requireReviews, feature)
-      : undefined;
-    if (reviewSetting?.blockSelfApproval) {
-      const isSelfApproval = (revision.contributors ?? []).some(
-        (id) => id === req.context.userId,
+  const requireReviews = req.context.org.settings?.requireReviews;
+  const blockSelfApproval = Array.isArray(requireReviews)
+    ? !!getReviewSetting(requireReviews, feature)?.blockSelfApproval
+    : false;
+  // The early, clear refusal. Re-applied inside the verdict's CAS against the row it
+  // writes, because this reads a copy the contributor list can outrun.
+  if (action === "approve" && blockSelfApproval) {
+    const isSelfApproval = (revision.contributors ?? []).some(
+      (id) => id === req.context.userId,
+    );
+    if (isSelfApproval) {
+      throw new BadRequestError(
+        "You cannot approve a draft you contributed to.",
       );
-      if (isSelfApproval) {
-        throw new BadRequestError(
-          "You cannot approve a draft you contributed to.",
-        );
-      }
     }
   }
 
@@ -128,6 +128,7 @@ export async function submitRevisionReview(
     // can detect when the approval has gone stale (parity with the internal
     // app's review flow).
     feature.version,
+    blockSelfApproval,
   );
   if (!applied) {
     // The verdict did not persist: a concurrent recall, discard or publish moved

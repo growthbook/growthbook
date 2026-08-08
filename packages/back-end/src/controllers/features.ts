@@ -1413,18 +1413,18 @@ export async function postFeatureReviewOrComment(
   // Note: contributors[] is only populated on drafts created after contributor tracking was
   // deployed. Legacy drafts with no contributors[] bypass this check — there is no way to
   // retroactively determine co-authors without reading revision logs.
-  if (review === "Approved") {
-    const requireReviews = context.org.settings?.requireReviews;
-    const reviewSetting = Array.isArray(requireReviews)
-      ? getReviewSetting(requireReviews, feature)
-      : undefined;
-    if (reviewSetting?.blockSelfApproval) {
-      const isSelfApproval = (revision.contributors ?? []).some(
-        (id) => id === context.userId,
-      );
-      if (isSelfApproval) {
-        throw new Error("You cannot approve a draft you contributed to.");
-      }
+  const requireReviews = context.org.settings?.requireReviews;
+  const blockSelfApproval = Array.isArray(requireReviews)
+    ? !!getReviewSetting(requireReviews, feature)?.blockSelfApproval
+    : false;
+  // The early, clear refusal. Re-applied inside the verdict's CAS against the row it
+  // writes, because this reads a copy the contributor list can outrun.
+  if (review === "Approved" && blockSelfApproval) {
+    const isSelfApproval = (revision.contributors ?? []).some(
+      (id) => id === context.userId,
+    );
+    if (isSelfApproval) {
+      throw new Error("You cannot approve a draft you contributed to.");
     }
   }
   // dont allow review unless you are adding a comment
@@ -1447,6 +1447,7 @@ export async function postFeatureReviewOrComment(
     // Capture the live version the approval is made against so a later publish
     // can detect when the approval has gone stale.
     feature.version,
+    blockSelfApproval,
   );
   if (!applied) {
     // The verdict did not persist: a concurrent recall, discard or publish moved
@@ -4046,6 +4047,8 @@ export async function putRevisionComment(
     feature,
     updatedRevisionAfterComment ?? revision,
     "metadata",
+    // No environment-scoped impact — see putFeatureRevisionMetadata.
+    { environments: [] },
   );
 
   res.status(200).json({
@@ -4100,6 +4103,8 @@ export async function putRevisionTitle(
     feature,
     updatedRevisionAfterTitle ?? revision,
     "metadata",
+    // No environment-scoped impact — see putFeatureRevisionMetadata.
+    { environments: [] },
   );
 
   res.status(200).json({

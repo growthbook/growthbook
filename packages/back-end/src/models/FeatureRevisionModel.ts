@@ -2392,6 +2392,13 @@ export async function submitReviewAndComments(
   // Current live feature version, captured on approval so we can later detect
   // when an approval has gone stale (live advanced past the approved point).
   liveVersion?: number,
+  // Whether this feature's review setting forbids contributors from approving.
+  // Resolved by the caller (it needs the feature); re-APPLIED here against the row
+  // this write is conditioned on, because the caller's contributor list is a stale
+  // read — an edit records content and contributor separately, so one can land
+  // between the caller's check and this write. The generic engine does the same
+  // inside `addReview`.
+  blockSelfApproval?: boolean,
 ): Promise<{ applied: boolean }> {
   const action = reviewSubmittedType;
 
@@ -2480,18 +2487,31 @@ export async function submitReviewAndComments(
       // `$set` the array — CAS-guarded on `reviews`, so a concurrent write loses
       // and retries against what actually landed. Same shape as the legacy seed
       // branch above.
-      const outcome = await casUpdate(cycleFilter, ["reviews"], (current) => ({
-        $set: {
-          reviews: [
-            ...(current.reviews ?? []).filter(
-              (r) => r.userId !== newReview.userId,
-            ),
-            newReview,
-          ],
-          datePublished: null,
-          dateUpdated: new Date(),
+      const outcome = await casUpdate(
+        cycleFilter,
+        ["reviews", "contributors"],
+        (current) => {
+          if (
+            verdict === "approved" &&
+            blockSelfApproval &&
+            (current.contributors ?? []).includes(newReview.userId)
+          ) {
+            throw new Error("You cannot approve a draft you contributed to.");
+          }
+          return {
+            $set: {
+              reviews: [
+                ...(current.reviews ?? []).filter(
+                  (r) => r.userId !== newReview.userId,
+                ),
+                newReview,
+              ],
+              datePublished: null,
+              dateUpdated: new Date(),
+            },
+          };
         },
-      }));
+      );
       baked = outcome === "applied";
     }
 
