@@ -19,12 +19,14 @@ const ACTIVE_DRAFT_STATUSES = new Set([
 export default function RevisionDraftSelectorForChanges({
   entityId,
   openRevisions,
+  canWriteIntoDraft,
   allRevisions,
   mode,
   setMode,
   selectedDraftId,
   setSelectedDraftId,
   canAutoPublish,
+  canDraft,
   approvalRequired,
   defaultExpanded = false,
   triggerPrefix = "Changes will be",
@@ -40,6 +42,8 @@ export default function RevisionDraftSelectorForChanges({
   selectedDraftId: string | null;
   setSelectedDraftId: (v: string | null) => void;
   canAutoPublish: boolean;
+  /** Whether this caller may STAGE a draft at all; the shell defaults it to true. */
+  canDraft?: boolean;
   approvalRequired: boolean;
   defaultExpanded?: boolean;
   triggerPrefix?: string;
@@ -60,10 +64,22 @@ export default function RevisionDraftSelectorForChanges({
    * groups use the org approval flow (true); constants opt out (false).
    */
   dropdownRequiresApproval?: boolean;
+  /**
+   * Drafts this flow may WRITE into. Filtering by status alone offered another
+   * author's draft to a caller the endpoint refuses — the archive flows submit
+   * `?revisionId=<picked draft>`, which `canWriteArchiveIntoDraft` now rejects, so
+   * picking one produced a 403 from a list that should never have contained it.
+   */
+  canWriteIntoDraft?: (revision: Revision) => boolean;
 }) {
   const activeDrafts = useMemo(
-    () => openRevisions.filter((r) => ACTIVE_DRAFT_STATUSES.has(r.status)),
-    [openRevisions],
+    () =>
+      openRevisions.filter(
+        (r) =>
+          ACTIVE_DRAFT_STATUSES.has(r.status) &&
+          (canWriteIntoDraft?.(r) ?? true),
+      ),
+    [openRevisions, canWriteIntoDraft],
   );
 
   const selectedDraftRevision = useMemo(
@@ -82,10 +98,27 @@ export default function RevisionDraftSelectorForChanges({
       }`
     : null;
 
+  // The DROPDOWN has to be filtered too, not just the radio. `activeDrafts` gated
+  // the radio and the cap logic while the dropdown was built from every revision, so
+  // a caller could still pick another author's draft — and the archive flows submit
+  // `?revisionId=<picked>`, which `canWriteArchiveIntoDraft` refuses. The currently
+  // selected one is kept regardless, so a selection made before a permission change
+  // still renders its label instead of vanishing.
+  const selectableRevisions = useMemo(
+    () =>
+      allRevisions.filter(
+        (r) =>
+          r.id === selectedDraftId ||
+          !ACTIVE_DRAFT_STATUSES.has(r.status) ||
+          (canWriteIntoDraft?.(r) ?? true),
+      ),
+    [allRevisions, selectedDraftId, canWriteIntoDraft],
+  );
+
   const revisionDropdown = (
     <RevisionDropdown
       entityId={entityId}
-      allRevisions={allRevisions}
+      allRevisions={selectableRevisions}
       selectedRevisionId={selectedDraftId}
       onSelectRevision={(rev) => setSelectedDraftId(rev?.id ?? null)}
       draftsOnly
@@ -101,6 +134,7 @@ export default function RevisionDraftSelectorForChanges({
       mode={mode}
       setMode={setMode}
       canAutoPublish={canAutoPublish}
+      canDraft={canDraft}
       approvalRequired={approvalRequired}
       existingDraftLabel={existingDraftLabel}
       revisionDropdown={revisionDropdown}

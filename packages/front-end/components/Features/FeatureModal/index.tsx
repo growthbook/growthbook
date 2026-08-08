@@ -1,3 +1,7 @@
+import {
+  canEnableEnvironmentOnCreate,
+  NO_ENVIRONMENT_BINDING,
+} from "shared/permissions";
 import { useForm, FormProvider } from "react-hook-form";
 import omit from "lodash/omit";
 import {
@@ -5,7 +9,7 @@ import {
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
-import React, { ReactElement, useMemo, useState } from "react";
+import React, { ReactElement, useEffect, useMemo, useState } from "react";
 import {
   validateFeatureValue,
   getConfigBackingKey,
@@ -77,9 +81,13 @@ const genEnvironmentSettings = ({
   const envSettings: Record<string, FeatureEnvironment> = {};
 
   environments.forEach((e) => {
-    const canPublish = permissions.canPublishFeature({ project }, [e.id]);
-    const defaultEnabled = canPublish ? (e.defaultState ?? true) : false;
-    const enabled = canPublish
+    // The same rule the checkbox and the create endpoints apply: a flag that
+    // starts ENABLED in an environment is a publish there, so create authority
+    // alone must not default it on — the checkbox renders disabled, leaving the
+    // user unable to untick a default they never chose, and submit answers 403.
+    const mayEnable = canEnableEnvironmentOnCreate(permissions, project, e.id);
+    const defaultEnabled = mayEnable ? (e.defaultState ?? true) : false;
+    const enabled = mayEnable
       ? (featureToDuplicate?.environmentSettings?.[e.id]?.enabled ??
         defaultEnabled)
       : false;
@@ -215,8 +223,7 @@ export default function FeatureModal({
 
   const projectOptions = useProjectOptions(
     (project) =>
-      permissionsUtil.canCreateFeature({ project }) &&
-      permissionsUtil.canManageFeatureDrafts({ project }),
+      permissionsUtil.canCreateFeature({ project }, NO_ENVIRONMENT_BINDING),
     project ? [project] : [],
   );
   const canCreateWithoutProject =
@@ -238,6 +245,27 @@ export default function FeatureModal({
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const environmentSettings = form.watch("environmentSettings");
+
+  // Changing the project changes which environments this user may enable —
+  // toggles switched on under the old project would otherwise sit enabled but
+  // uneditable (the checkbox disables) and 403 on submit. Force any environment
+  // the new project's rule refuses back off.
+  useEffect(() => {
+    const current = form.getValues("environmentSettings");
+    let changed = false;
+    const next = { ...current };
+    for (const envId of Object.keys(next)) {
+      if (
+        next[envId]?.enabled &&
+        !canEnableEnvironmentOnCreate(permissionsUtil, selectedProject, envId)
+      ) {
+        next[envId] = { ...next[envId], enabled: false };
+        changed = true;
+      }
+    }
+    if (changed) form.setValue("environmentSettings", next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProject]);
 
   // "config" is a UI authoring type: stored as valueType "json" but the default
   // value must be backed by a config. Tracked separately from the stored type.
@@ -282,16 +310,23 @@ export default function FeatureModal({
   let ctaEnabled = true;
   let disabledMessage: string | undefined;
 
+  // Create authority, not draft authority: this modal creates and publishes in
+  // one step, and a flag that enables no environment reaches no SDK. Enabling
+  // one is gated per environment by EnvironmentSelect.
   if (
-    !permissionsUtil.canManageFeatureDrafts({
-      project: featureToDuplicate?.project ?? selectedProject,
-    })
+    // The project the form will actually create in — duplicating into a different
+    // project is a create THERE, so the source feature's project is the wrong
+    // question.
+    !permissionsUtil.canCreateFeature(
+      { project: form.watch("project") ?? selectedProject },
+      NO_ENVIRONMENT_BINDING,
+    )
   ) {
     ctaEnabled = false;
     disabledMessage =
       !selectedProject && projectOptions.length > 0
         ? "Select a project to continue."
-        : "You don't have permission to create feature flag drafts.";
+        : "You don't have permission to create Feature Flags.";
   }
 
   return (
@@ -318,7 +353,7 @@ export default function FeatureModal({
 
         // A "config" flag must actually pick a base config.
         if (configType && !baseConfigKey) {
-          throw new Error("Select a base config for this config flag");
+          throw new Error("Select a base Config for this Feature Flag");
         }
 
         // When duplicating, skip JSON schema validation since the value is
@@ -464,11 +499,11 @@ export default function FeatureModal({
           configType &&
           eligibleBaseConfigs.length === 0 && (
             <Callout status="info" mb="3">
-              No configs available in this project yet.{" "}
+              No Configs available in this project yet.{" "}
               <Link href="/configs" target="_blank">
-                Create a config
+                Create a Config
               </Link>{" "}
-              to back this flag.
+              to back this Feature Flag.
             </Callout>
           )}
 
@@ -478,7 +513,7 @@ export default function FeatureModal({
             <SelectField
               label="Config"
               value={baseConfigKey ?? ""}
-              placeholder="Choose a config..."
+              placeholder="Choose a Config..."
               options={baseConfigOptions}
               formatOptionLabel={(option, meta) => {
                 const depth = (option as { depth?: number }).depth ?? 0;
@@ -520,8 +555,8 @@ export default function FeatureModal({
               required
               helpText={
                 <>
-                  The config that backs this flag. The default value and any
-                  rules override it with a patch.{" "}
+                  The Config that backs this Feature Flag. The default value and
+                  any rules override it with a patch.{" "}
                   <strong>Cannot be changed later!</strong>
                 </>
               }
@@ -536,7 +571,7 @@ export default function FeatureModal({
         {!featureToDuplicate && valueType && !showDefaultValue && (
           <Box mb="5">
             <Link onClick={() => setShowDefaultValue(true)}>
-              {configType ? "+ Choose default config" : "+ Set default value"}
+              {configType ? "+ Choose default Config" : "+ Set default value"}
             </Link>
           </Box>
         )}
@@ -589,6 +624,16 @@ export default function FeatureModal({
 
         <Box className="appbox bg-light" px="4" pt="4" pb="1" mb="3">
           <EnvironmentSelect
+            canEnableEnvironment={(environmentId) =>
+              canEnableEnvironmentOnCreate(
+                permissionsUtil,
+                // The FORM's project — the one the created flag will carry and
+                // the one the endpoint judges — not the workspace filter, which
+                // can differ once the user picks a project in the modal.
+                selectedProject,
+                environmentId,
+              )
+            }
             environmentSettings={environmentSettings}
             environments={environments}
             project={selectedProject}

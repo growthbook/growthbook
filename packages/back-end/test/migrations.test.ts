@@ -42,6 +42,7 @@ import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
 import {
   migrateExperimentReport,
   migrateSnapshot,
+  normalizeJsonSchemaDef,
   pinLegacyRolloutSeeds,
   upgradeDatasourceObject,
   upgradeExperimentDoc,
@@ -2986,6 +2987,57 @@ describe("saved group migrations", () => {
       type: "condition",
       condition: JSON.stringify({ id: { $eq: "123" } }),
     });
+  });
+});
+
+// Documents written before `schemaType`/`simple` existed hold a three-key
+// jsonSchema that means exactly what the five-key one means. Both the feature
+// read and the revision read normalize through this, so an untouched schema
+// never surfaces as an edit.
+describe("normalizeJsonSchemaDef", () => {
+  const legacy = {
+    schema: "",
+    date: new Date("2024-02-26T04:27:49.018Z"),
+    enabled: false,
+  };
+
+  it("backfills the keys that postdate the oldest documents", () => {
+    expect(normalizeJsonSchemaDef(legacy)).toEqual({
+      ...legacy,
+      schemaType: "schema",
+      simple: { type: "object", fields: [] },
+    });
+  });
+
+  it("gives a legacy and an already-backfilled document the same spelling", () => {
+    const backfilled = {
+      ...legacy,
+      schemaType: "schema" as const,
+      simple: { type: "object" as const, fields: [] },
+    };
+    expect(normalizeJsonSchemaDef(legacy)).toEqual(
+      normalizeJsonSchemaDef(backfilled),
+    );
+  });
+
+  it("leaves a configured schema alone", () => {
+    const configured = {
+      schemaType: "simple" as const,
+      schema: '{"type":"object"}',
+      simple: {
+        type: "object" as const,
+        fields: [{ key: "a", type: "string" }],
+      },
+      date: legacy.date,
+      enabled: true,
+    };
+    expect(normalizeJsonSchemaDef(configured)).toEqual(configured);
+  });
+
+  it("does not mutate its input", () => {
+    const input = { ...legacy };
+    normalizeJsonSchemaDef(input);
+    expect(input).toEqual(legacy);
   });
 });
 

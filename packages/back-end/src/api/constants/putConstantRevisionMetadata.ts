@@ -1,4 +1,5 @@
 import { putConstantRevisionMetadataValidator } from "shared/validators";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
@@ -20,16 +21,26 @@ export const putConstantRevisionMetadata = createApiRequestHandler(
 )(async (req) => {
   const constant = await req.context.models.constants.getByKey(req.params.key);
   if (!constant) {
-    throw new NotFoundError("Could not find constant");
+    throw new NotFoundError("Could not find Constant");
   }
 
   const { name, owner, description, project } = req.body;
 
-  // Re-check edit permission so a `project` move needs edit on old AND new.
-  // Done BEFORE probing project existence so it can't be an existence oracle.
+  // Both checks run BEFORE probing project existence, so this can't be used as
+  // an existence oracle for projects the caller has no access to.
   if (
-    !req.context.permissions.canUpdateConstant(constant, {
-      project: typeof project !== "undefined" ? project : constant.project,
+    !req.context.permissions.canRevisionAction("constant", "draft", constant)
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
+  // Staging a move takes draft authority in the destination too.
+  if (
+    !holdsMoveDestination({
+      permissions: req.context.permissions,
+      model: "constant",
+      action: "draft",
+      existing: constant,
+      proposed: { ...constant, ...(project === undefined ? {} : { project }) },
     })
   ) {
     req.context.permissions.throwPermissionError();

@@ -133,6 +133,37 @@ export const isConstantRevisionMetadataOnly = (
 };
 
 /**
+ * What RESTORING a historical revision would change, measured against the entity as
+ * it stands now: which per-environment overrides differ, and where the restored
+ * state would live.
+ *
+ * This is the question every revert authority check asks, and it is not the one
+ * `getConstantRevisionChange` answers — that reports what the revision changed when
+ * it was published, which a later change can have superseded. Shared so the revert
+ * endpoint and the controls that predict it derive the same footprint.
+ */
+export const getConstantRestoreChange = (
+  live: Pick<ConstantInterface, "environmentValues"> & { project?: string },
+  target: {
+    snapshot: unknown;
+    proposedChanges: JsonPatchOperation[] | unknown;
+  },
+): { changedEnvironments: string[]; restoredProject?: string } => {
+  const restored = applyTopLevelPatchOps(
+    (target.snapshot ?? {}) as Record<string, unknown>,
+    normalizeProposedChanges(target.proposedChanges),
+  ) as Pick<ConstantInterface, "environmentValues"> & { project?: string };
+
+  const liveEnvs = live.environmentValues ?? {};
+  const restoredEnvs = restored.environmentValues ?? {};
+  const changedEnvironments = [
+    ...new Set([...Object.keys(liveEnvs), ...Object.keys(restoredEnvs)]),
+  ].filter((env) => (liveEnvs[env] ?? "") !== (restoredEnvs[env] ?? ""));
+
+  return { changedEnvironments, restoredProject: restored.project };
+};
+
+/**
  * Derive what a constant revision changes, for approval scoping: whether the
  * generic `value` changed (affects all environments), which per-environment
  * overrides changed, and whether the change is metadata-only. Feeds
@@ -462,10 +493,18 @@ export function checkMergeConflicts(
   const fieldsChanged: string[] = [];
   const mergedChanges: Record<string, unknown> = { ...liveState };
 
-  // Helper to check if values are different
+  // Whether one side differs from the other.
+  //
+  // `undefined` means no value was carried at all (what a `remove` op normalizes
+  // to) and is not a change. `null` is an explicit CLEAR and is a real change
+  // whenever the other side holds something: conflating the two made a draft's
+  // clear invisible here, so it neither merged nor conflicted and publishing it
+  // silently kept the old value. The symmetric case is a lost update — live
+  // clearing a field the draft also touched now conflicts instead of being
+  // overwritten.
   const hasChanged = (val1: unknown, val2: unknown): boolean => {
-    if ((val1 ?? null) === null) return false;
-    if ((val2 ?? null) === null) return true;
+    if (val1 === undefined) return false;
+    if ((val2 ?? null) === null) return (val1 ?? null) !== null;
     return !isEqual(val1, val2);
   };
 

@@ -179,8 +179,11 @@ export default function SingleRoleSelector({
         </PremiumCallout>
       )}
 
+      {/* A single-environment org has nothing to restrict, so the control is
+          hidden — but a limit already stored (e.g. carried over from a role that
+          supported one) must stay switchable, or there is no way to turn it off. */}
       {roleSupportsEnvLimit(value.role, organization) &&
-        envOptions.length > 1 && (
+        (envOptions.length > 1 || value.limitAccessByEnvironment) && (
           <div>
             <div className="form-group">
               <Flex align="center" gap="2">

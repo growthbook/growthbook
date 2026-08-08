@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual } from "lodash";
 import { JsonPatchOperation, Revision } from "shared/enterprise";
 import { ConfigInterface } from "shared/types/config";
@@ -5,23 +6,27 @@ import {
   postConfigRevisionRevertValidator,
   configUpdatableFieldsSchema,
 } from "shared/validators";
+import { flipsArchivedState } from "shared/util";
+import {
+  revertRevision,
+  resolveRevertStrategy,
+} from "back-end/src/revisions/revertActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import {
+  archiveServeFootprint,
+  configPublishEnvironments,
+} from "back-end/src/revisions/revisionPublishEnvironments";
 import { configChangeAffectsServedValue } from "back-end/src/services/experimentGuard";
 import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
-import {
-  applyPatchToSnapshot,
-  createOrUpdateRevision,
-  ensureLiveRevisionExists,
-} from "back-end/src/revisions/util";
+import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import {
   assertConfigValueValid,
   assertConfigValueValidForPublish,
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
-import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
@@ -30,11 +35,34 @@ export const postConfigRevisionRevert = createApiRequestHandler(
 )(async (req) => {
   const config = await req.context.models.configs.getByKey(req.params.key);
   if (!config) {
-    throw new NotFoundError("Could not find config");
+    throw new NotFoundError("Could not find Config");
   }
 
   const adapter = getAdapter("config");
-  if (!adapter.canUpdate(req.context, config as Record<string, unknown>)) {
+  const revertsBypassApproval =
+    !!req.organization.settings?.revertsBypassApproval;
+  const strategy = resolveRevertStrategy(
+    req.body.strategy,
+    revertsBypassApproval,
+  );
+  const isPublish = strategy === "publish";
+
+  // Coarse standing, before the reconstruction below. The authoritative check is
+  // assertCanRevertRevision once the change set is known — it needs the fields to
+  // judge the footprint, the destination and whether an archive is being
+  // restored. Subset-refusing: no footprint or purity path rescues a caller who
+  // holds none of these in this project.
+  if (
+    (["revert", "publish", "draft"] as const).every(
+      (action) =>
+        !req.context.permissions.canRevisionAction(
+          "config",
+          action,
+          config,
+          NO_ENVIRONMENT_BINDING,
+        ),
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -97,24 +125,16 @@ export const postConfigRevisionRevert = createApiRequestHandler(
 
   if (Object.keys(fieldsToUpdate).length === 0) {
     throw new BadRequestError(
-      `Revision #${req.params.version} matches the current config — nothing to revert.`,
+      `Revision #${req.params.version} matches the current Config — nothing to revert.`,
     );
   }
 
   // Resolve the strategy up front so validation matches: publish uses the
   // bypassable publish-time check; a draft uses the write-time check (it can be
   // staged for later review even if it won't pass publish).
-  const revertsBypassApproval =
-    !!req.organization.settings?.revertsBypassApproval;
-  const strategy =
-    req.body.strategy ?? (revertsBypassApproval ? "publish" : "draft");
-  const isPublish = strategy === "publish";
 
   // A publish-strategy revert advances live state, so block it while locked
   // (before any merge). A draft-strategy revert only stages a draft, so it's fine.
-  if (isPublish) {
-    assertConfigNotLocked(config);
-  }
   // The archive-dependents guard for a re-archiving revert runs below via the
   // authoritative assertConfigPublishGuards call, which fingerprints the reverted
   // (proposed) value/lineage — a duplicate check here against the current live
@@ -140,126 +160,112 @@ export const postConfigRevisionRevert = createApiRequestHandler(
       (fieldsToUpdate.extensible as boolean | undefined) ?? config.extensible,
   };
   const revertValues = { value: revertedValue };
-  if (isPublish) {
-    await assertConfigValueValidForPublish(
-      req.context,
-      revertLeaf,
-      revertValues,
-    );
-  } else {
-    await assertConfigValueValid(req.context, revertLeaf, revertValues);
-  }
-
   const patchOps: JsonPatchOperation[] = Object.entries(fieldsToUpdate).map(
     ([key, value]) => ({ op: "replace" as const, path: `/${key}`, value }),
   );
 
-  let approvalRequired = false;
-  let canBypass = false;
-  if (isPublish) {
-    approvalRequired = revertsBypassApproval
-      ? false
-      : adapter.isApprovalRequiredForRevision
+  // A locked Config is frozen at its published revision, so a landing revert is
+  // refused before anything is written.
+  if (isPublish) assertConfigNotLocked(config);
+
+  const title = req.body.title ?? `Revert to v${req.params.version}`;
+
+  const { revision: result, bypassedGates } = await revertRevision({
+    context: req.context,
+    entityType: "config",
+    entity: config as unknown as Record<string, unknown> & { id: string },
+    targetRevision,
+    strategy,
+    fields: fieldsToUpdate,
+    patchOps,
+    // A revert that flips `archived` takes the Config out of service, or returns it,
+    // EVERYWHERE it serves — so it answers for the same footprint archiving does. The
+    // Config's own scope is empty for a base Config, which skips the environment check
+    // rather than narrowing it, letting an environment-limited deleter restore an
+    // archive across every served environment.
+    footprint: flipsArchivedState({
+      proposed:
+        "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
+      current: config.archived,
+    })
+      ? archiveServeFootprint(req.context, config)
+      : configPublishEnvironments(req.context, config),
+    title,
+    // Approval for this landing, resolved by the pipeline after authority.
+    resolveApproval: async () => {
+      // Computed even when the setting suppresses it, so the response can say the
+      // approval was SKIPPED rather than silently reporting nothing.
+      const baseApprovalRequired = adapter.isApprovalRequiredForRevision
         ? adapter.isApprovalRequiredForRevision(req.context, {
             target: { snapshot: config, proposedChanges: patchOps },
           } as unknown as Revision)
         : adapter.isApprovalRequired(req.context);
-    canBypass =
-      canUseRestApiBypassSetting(req) ||
-      adapter.canBypassApproval(req.context, config as Record<string, unknown>);
-    if (approvalRequired && !canBypass) {
-      throw new BadRequestError(
-        "This revert requires approval before changes can be published. " +
-          'Use `strategy: "draft"` to create a draft for review, ' +
-          "or use a role/token that grants bypassApprovalChecks.",
+      const approvalRequired = revertsBypassApproval
+        ? false
+        : baseApprovalRequired;
+      const restApiBypass = canUseRestApiBypassSetting(req);
+      const permissionBypass = adapter.canBypassApproval(
+        req.context,
+        config as Record<string, unknown>,
       );
-    }
-  }
-
-  await ensureLiveRevisionExists(
-    req.context,
-    "config",
-    config as unknown as Record<string, unknown> & {
-      id: string;
-      owner?: string;
-      dateCreated?: Date;
+      const canBypass = restApiBypass || permissionBypass;
+      if (approvalRequired && !canBypass) {
+        throw new BadRequestError(
+          "This revert requires approval before changes can be published. " +
+            'Use `strategy: "draft"` to create a draft for review, ' +
+            "or use a role/token that grants FlagsBypassApprovals.",
+        );
+      }
+      return {
+        approvalRequired,
+        canBypass,
+        // Same precedence the gate layer uses for `approval-required`, so the
+        // two publish paths report the same source for the same caller.
+        bypassVia: restApiBypass
+          ? ("restApiBypassesReviews" as const)
+          : ("bypassApprovalPermission" as const),
+        settingSuppressedApproval:
+          revertsBypassApproval && baseApprovalRequired,
+      };
     },
-  );
-
-  const title = req.body.title ?? `Revert to v${req.params.version}`;
-
-  if (!isPublish) {
-    const draft = await createOrUpdateRevision(
-      req.context,
-      "config",
-      config as unknown as Record<string, unknown> & { id: string },
-      patchOps,
-      { forceCreate: true, title, revertedFrom: targetRevision.id },
-    );
-    await dispatchConfigRevisionEvent(req.context, draft, {
-      type: "created",
-    });
-    return { revision: await toApiConfigRevision(draft, req.context) };
-  }
-
-  // Experiment guard (direct publish → armed:false): a revert-to-publish
-  // rewrites the config's live value like any other publish, so it must clear
-  // the guard too. Other publish paths enforce it via assertPublishable, but
-  // this path calls applyChanges directly (which doesn't), so enforce it here.
-  // Skipped for a metadata-only revert (can't rewrite a served value), matching
-  // the other publish paths.
-  if (configChangeAffectsServedValue(Object.keys(fieldsToUpdate))) {
-    await assertConfigPublishGuards(
-      req.context,
-      config,
-      targetRevision,
-      { armed: false },
-      {
-        value: revertLeaf.value,
-        schema: revertLeaf.schema,
-        parent: revertLeaf.parent,
-        extends: revertLeaf.extends,
-        extensible: revertLeaf.extensible,
-      },
-      // A revert that flips archived scrubs (or restores) refs — model the
-      // transition so dependents' schema breaks are checked, like every other
-      // publish path.
-      "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
-    );
-  }
-
-  // Record the merged revision FIRST, then apply; roll it back if the apply
-  // fails, so a "reverted" record never lacks a live change.
-  const merged = await req.context.models.revisions.createMerged({
-    type: "config",
-    id: config.id,
-    snapshot: config as unknown as Record<string, unknown>,
-    proposedChanges: patchOps,
-    bypass: approvalRequired && canBypass,
-    title,
-    revertedFrom: targetRevision.id,
+    // Cross-field and schema validation: stricter once it lands.
+    validate: async () => {
+      if (isPublish) {
+        await assertConfigValueValidForPublish(
+          req.context,
+          revertLeaf,
+          revertValues,
+        );
+      } else {
+        await assertConfigValueValid(req.context, revertLeaf, revertValues);
+      }
+    },
+    // Experiment guard and schema-break checks, which only bite on landing. A
+    // metadata-only revert cannot rewrite a served value, matching the other
+    // publish paths.
+    assertLandable: async () => {
+      if (!configChangeAffectsServedValue(Object.keys(fieldsToUpdate))) return;
+      await assertConfigPublishGuards(
+        req.context,
+        config,
+        targetRevision,
+        { armed: false },
+        {
+          value: revertLeaf.value,
+          schema: revertLeaf.schema,
+          parent: revertLeaf.parent,
+          extends: revertLeaf.extends,
+          extensible: revertLeaf.extensible,
+        },
+        // A revert that flips archived scrubs (or restores) refs — model the
+        // transition so dependents' schema breaks are checked.
+        "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
+      );
+    },
   });
 
-  try {
-    // applyChanges re-runs "base wins" normalization + cascades the reconcile.
-    await adapter.applyChanges(
-      req.context,
-      config as unknown as Record<string, unknown>,
-      fieldsToUpdate,
-      { isRevert: true },
-    );
-  } catch (e) {
-    try {
-      await req.context.models.revisions.deleteById(merged.id);
-    } catch {
-      // ignore — surface the original applyChanges error
-    }
-    throw e;
-  }
-
-  await dispatchConfigRevisionEvent(req.context, merged, {
-    type: "reverted",
-  });
-
-  return { revision: await toApiConfigRevision(merged, req.context) };
+  return {
+    revision: await toApiConfigRevision(result, req.context),
+    ...(bypassedGates.length ? { bypassedGates } : {}),
+  };
 });

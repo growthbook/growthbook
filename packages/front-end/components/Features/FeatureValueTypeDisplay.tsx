@@ -50,7 +50,7 @@ export default function FeatureValueTypeDisplay({
         <Link
           href={`/configs/${config.key}`}
           className="hover-underline"
-          title={`View config: ${name}`}
+          title={`View Config: ${name}`}
           onClick={(e) => e.stopPropagation()}
         >
           <OverflowText maxWidth={maxWidth} title={name}>

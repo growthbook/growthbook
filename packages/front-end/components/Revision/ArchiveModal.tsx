@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useState } from "react";
 import { Revision } from "shared/enterprise";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useAuth } from "@/services/auth";
@@ -32,6 +32,9 @@ export interface Props {
   approvalRequired: boolean;
   // Viewer can bypass approval (admin) — records a bypass instead of merging.
   canBypassApproval: boolean;
+  // Viewer holds the authority to land this flip (delete to archive, publish to
+  // unarchive). Without it they can only stage the change as a draft.
+  canLand: boolean;
   // References blocking: reference count + loading state. Archiving a
   // still-referenced entity is blocked (it would silently drop config from the
   // referencing items); unarchiving is always allowed.
@@ -62,7 +65,22 @@ export interface Props {
     setSelectedDraftId: (v: string | null) => void;
     canAutoPublish: boolean;
     approvalRequired: boolean;
+    // Handed BACK to the caller so the picker filters by the same predicate this
+    // modal used to choose the initial selection — passing it in two places let the
+    // default land on a draft the picker itself would have excluded.
+    canWriteIntoDraft?: (revision: Revision) => boolean;
+    // Whether this caller may STAGE a draft for THIS direction. Archiving is
+    // delete-class so the delete atom stages one; unarchiving is not, so it needs
+    // draft authority. Defaulted to `true` by the shell, a publish-only caller was
+    // offered "Create a new draft" on an unarchive the endpoint then refused.
+    canDraft?: boolean;
   }) => ReactNode;
+  // Drafts this caller may write the archive flip into. Used for the INITIAL
+  // selection: filtering only the picker still opened the modal on another author's
+  // draft, which the endpoint then refuses with no user action at all.
+  canWriteIntoDraft?: (revision: Revision) => boolean;
+  /** May this caller stage a draft for the direction being taken? See above. */
+  canStageDraft?: boolean;
   trackingEventModalType: string;
   close: () => void;
   onRevisionCreated?: (revision: Revision) => void;
@@ -84,6 +102,7 @@ export default function ArchiveModal({
   openRevisions,
   approvalRequired,
   canBypassApproval,
+  canLand,
   referenceCount,
   referencesLoading,
   referencesError = false,
@@ -92,6 +111,8 @@ export default function ArchiveModal({
   elevatedWarning = false,
   preserveNounCase = false,
   renderDraftSelector,
+  canWriteIntoDraft,
+  canStageDraft,
   trackingEventModalType,
   close,
   onRevisionCreated,
@@ -102,16 +123,18 @@ export default function ArchiveModal({
 
   // Archive/unarchive always requires review when approval flows are enabled.
   const archiveGated = approvalRequired;
-  const canAutoPublish = canBypassApproval || !archiveGated;
+  // Landing needs the flip's own authority on top of the approval question;
+  // without it the modal can still stage the change as a draft.
+  const canAutoPublish = canLand && (canBypassApproval || !archiveGated);
 
-  const activeDrafts = useMemo(
-    () => openRevisions.filter(isDraftRevision),
-    [openRevisions],
+  const [mode, setMode] = useState<DraftMode>(
+    archiveGated || !canLand ? "new" : "publish",
   );
-
-  const [mode, setMode] = useState<DraftMode>(archiveGated ? "new" : "publish");
   const [selectedDraftId, setSelectedDraftId] = useState<string | null>(
-    activeDrafts[0]?.id ?? null,
+    () =>
+      openRevisions.find(
+        (r) => isDraftRevision(r) && (canWriteIntoDraft?.(r) ?? true),
+      )?.id ?? null,
   );
 
   // Reference-blocking policy is archive-only: archiving a still-referenced
@@ -207,11 +230,15 @@ export default function ArchiveModal({
         setSelectedDraftId,
         canAutoPublish,
         approvalRequired: archiveGated,
+        canWriteIntoDraft,
+        canDraft: canStageDraft,
       })}
       {isArchived ? (
         <p>
-          Are you sure you want to continue? This will make the {lowerNoun}{" "}
-          active again.
+          Are you sure you want to continue?{" "}
+          {mode === "publish"
+            ? `This will make the ${lowerNoun} active again.`
+            : `The ${lowerNoun} becomes active again when this draft is published.`}
         </p>
       ) : referencesLoading && !soft ? (
         <Text color="text-disabled">
@@ -261,16 +288,26 @@ export default function ArchiveModal({
             value={acknowledged}
             setValue={setAcknowledged}
             label={
+              // The consequence lands when the archive PUBLISHES, not when it is
+              // staged — unconditional wording implied a draft took effect on its
+              // own. True of the ordinary reference warning as much as the elevated
+              // one, so both arms branch on the mode.
               elevatedWarning
-                ? "I understand this will break live Feature Flags and want to archive anyway."
-                : `I acknowledge these references and want to archive this ${lowerNoun} anyway.`
+                ? mode === "publish"
+                  ? "I understand this will break live Feature Flags and want to archive anyway."
+                  : "I understand this will break live Feature Flags when the draft is published, and want to continue."
+                : mode === "publish"
+                  ? `I acknowledge these references and want to archive this ${lowerNoun} anyway.`
+                  : `I acknowledge these references and want to archive this ${lowerNoun} when the draft is published.`
             }
           />
         </>
       ) : (
         <p>
-          Are you sure you want to continue? This will make the {lowerNoun}{" "}
-          inactive.
+          Are you sure you want to continue?{" "}
+          {mode === "publish"
+            ? `This will make the ${lowerNoun} inactive.`
+            : `The ${lowerNoun} becomes inactive when this draft is published.`}
         </p>
       )}
     </ModalStandard>

@@ -1,18 +1,14 @@
-import type { RevisionTargetType } from "shared/enterprise";
+import type { RevisionedEntityType } from "back-end/src/revisions/entityNames";
 import type {
   BypassedGate,
   PublishGate,
 } from "back-end/src/revisions/publishGates";
 import type { BulkRevisionRef } from "back-end/src/revisions/bulkPublish/BulkPublishableAdapter";
 
-/**
- * Entity types that can participate in a bulk (multi-entity) publish. The
- * generic revision system covers RevisionTargetType; features keep their own
- * revision model, so the bulk layer widens the union rather than the shared
- * one. New version-controlled entity types join by registering a generic
- * adapter — see registry.ts.
- */
-export type BulkPublishTargetType = RevisionTargetType | "feature";
+// Entity types that can participate in a bulk (multi-entity) publish: every
+// revisioned entity. New types join by registering a generic adapter — see
+// registry.ts.
+export type BulkPublishTargetType = RevisionedEntityType;
 
 /** One requested publish: exactly one revision per (entityType, entityId). */
 export type BulkPublishItemRef = {
@@ -29,19 +25,17 @@ export type BulkPublishItemRef = {
   displayId?: string;
 };
 
-/**
- * Request override flags — exactly the platform's three-class model
- * (publishOverrideBodyFields). There is deliberately no bypassApproval flag:
- * approval-required gates clear by caller authority (bypassApprovalChecks
- * permission or the org restApiBypassesReviews setting), reported via
- * bypassedGates.
- */
+// Request override flags — exactly the platform's three-class model
+// (publishOverrideBodyFields). There is deliberately no bypassApproval flag:
+// approval-required gates clear by caller authority (the entity's
+// bypass-approval permission or the org restApiBypassesReviews setting),
+// reported via bypassedGates.
 export type BulkPublishFlags = {
   /** Acknowledge-class gates: guards, stale-base, warn-mode schema failures. */
   ignoreWarnings: boolean;
-  /** Validation-class gates; honored only with bypassApprovalChecks. */
+  /** Validation-class gates; honored only with FlagsBypassApprovals. */
   skipSchemaValidation: boolean;
-  /** Custom-hook rejections; honored only with bypassApprovalChecks. */
+  /** Custom-hook rejections; honored only with FlagsBypassApprovals. */
   skipHooks: boolean;
   /** The org REST-bypass setting applies to this caller (key/PAT, not JWT). */
   restApiBypassesReviews: boolean;
@@ -55,12 +49,10 @@ export type BulkPublishGate = PublishGate & {
   version: number;
 };
 
-/**
- * CAS baselines captured at plan time. The commit-phase claim guards on these,
- * so ANY outside change to the revision (content edit, review, discard,
- * competing publish) or entity between planning and claiming fails the claim
- * atomically — optimistic lock-equivalence with nothing to release on a crash.
- */
+// CAS baselines captured at plan time. The commit-phase claim guards on these,
+// so ANY outside change to the revision (content edit, review, discard,
+// competing publish) or entity between planning and claiming fails the claim
+// atomically — optimistic lock-equivalence with nothing to release on a crash.
 export type ClaimBaseline = {
   revisionStatus: string;
   revisionDateUpdated: Date;

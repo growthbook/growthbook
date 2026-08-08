@@ -29,6 +29,7 @@ import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import PermissionBlocker from "@/ui/PermissionBlocker";
 
 function EnvStateIcon({ enabled }: { enabled: boolean }) {
   return enabled ? (
@@ -249,7 +250,10 @@ export default function KillSwitchModal({
   const ctx = useFeatureRevisionsContext();
 
   const liveDoc = baseFeature ?? ctx?.baseFeature ?? feature;
-  const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
+  const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
 
   const rawRequireReviews = settings?.requireReviews;
   const reviewSetting = Array.isArray(rawRequireReviews)
@@ -288,8 +292,9 @@ export default function KillSwitchModal({
     return activeDrafts[0]?.version ?? null;
   }, [activeDrafts, currentVersion, userId]);
 
+  const canDraft = permissionsUtil.canEditFeatureDrafts(feature);
   const [mode, setMode] = useState<DraftMode>(
-    viewingActiveDraft ? "existing" : "new",
+    !canDraft ? "publish" : viewingActiveDraft ? "existing" : "new",
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
@@ -383,14 +388,40 @@ export default function KillSwitchModal({
       return getEffectiveState(env.id) !== !!liveEnvSettings[env.id]?.enabled;
     });
 
-  const canAutoPublish = isAdmin || !envIsGated;
+  // Landing the toggle needs publish authority in every environment it actually
+  // flips. Approval gating alone is not enough: a draft-only editor may stage a
+  // toggle but never land one, however inconsequential it is.
+  const canPublishFlippedEnvs = visibleEnvs.every(
+    (env) =>
+      getEffectiveState(env.id) === !!liveEnvSettings[env.id]?.enabled ||
+      permissionsUtil.canPublishFeature(feature, [env.id]),
+  );
+
+  // Whether the publish route is open at all — judged over the environments on
+  // offer rather than only the ones flipped so far, because before the first
+  // toggle that set is empty and `every` on it is vacuously true, which would
+  // offer "Publish now" to a draft-only user. `some`, not `every`: an
+  // env-limited publisher may publish the envs they hold, and the flipped-set
+  // check above plus the CTA gate enforce the actual selection.
+  const canPublishAnyVisibleEnv = visibleEnvs.some((env) =>
+    permissionsUtil.canPublishFeature(feature, [env.id]),
+  );
+  const canAutoPublish =
+    (isAdmin || !envIsGated) &&
+    canPublishFlippedEnvs &&
+    canPublishAnyVisibleEnv;
+  // Without draft rights, publishing is the only route — and an approval-gated
+  // change closes it, leaving nothing this user can submit.
+  const noRouteAvailable = !canDraft && !canAutoPublish;
 
   // Reset mode if "publish now" becomes unavailable due to a newly gated change.
+  // Without draft rights there's nowhere to fall back to — leave the mode alone
+  // so the selector keeps reporting the one route the user has.
   useEffect(() => {
-    if (!canAutoPublish && mode === "publish") {
+    if (!canAutoPublish && canDraft && mode === "publish") {
       setMode("new");
     }
-  }, [canAutoPublish, mode]);
+  }, [canAutoPublish, canDraft, mode]);
 
   // Delay the switch animation for pre-toggled envs so users see it animate in.
   const [uiReady, setUiReady] = useState(false);
@@ -405,8 +436,9 @@ export default function KillSwitchModal({
     return getEffectiveState(envId);
   };
 
+  // Flipping a switch commits to nothing — the CTA enforces the chosen route.
   const canToggleEnv = (envId: string) =>
-    permissionsUtil.canPublishFeature(feature, [envId]);
+    canDraft || permissionsUtil.canPublishFeature(feature, [envId]);
 
   const submit = async () => {
     const environments: Record<string, boolean> = {};
@@ -463,6 +495,10 @@ export default function KillSwitchModal({
   const changedEnvs = visibleEnvs.filter(
     (env) => getEffectiveState(env.id) !== !!liveEnvSettings[env.id]?.enabled,
   );
+  // Selected "Publish now" but the flip set includes an environment this user
+  // can't publish. The switch was legitimately theirs to flip; the route isn't.
+  const cannotLandSelectedRoute =
+    mode === "publish" && !noRouteAvailable && !canAutoPublish;
   const modalHeader =
     changedEnvs.length === 1
       ? `${getEffectiveState(changedEnvs[0].id) ? "Enable" : "Disable"} ${changedEnvs[0].id}`
@@ -476,9 +512,27 @@ export default function KillSwitchModal({
       open={true}
       cta={mode === "publish" ? "Publish now" : "Save to draft"}
       size="lg"
-      submit={submit}
+      // Without draft rights, publishing is the only route — and an
+      // approval-gated change closes it, leaving nothing to submit.
+      submit={noRouteAvailable ? undefined : submit}
+      // The switches are open to anyone with either route, so the CTA is where
+      // the chosen route is enforced: publishing environments this user can't
+      // publish is refused here rather than by the server.
+      ctaEnabled={!cannotLandSelectedRoute}
     >
       <div style={{ minHeight: 300 }}>
+        {cannotLandSelectedRoute ? (
+          <PermissionBlocker mb="4">
+            You don&apos;t have permission to publish every environment you
+            changed. Save it to a draft instead.
+          </PermissionBlocker>
+        ) : null}
+        {noRouteAvailable ? (
+          <PermissionBlocker mb="4">
+            This change needs review before it can be published, and you
+            don&apos;t have permission to put it in a draft.
+          </PermissionBlocker>
+        ) : null}
         <DraftSelectorForChanges
           feature={feature}
           baseFeature={baseFeature}
@@ -488,6 +542,7 @@ export default function KillSwitchModal({
           selectedDraft={selectedDraft}
           setSelectedDraft={handleSetSelectedDraft}
           canAutoPublish={canAutoPublish}
+          canDraft={canDraft}
           gatedEnvSet={envIsGated ? gatedEnvSet : "none"}
           defaultExpanded
         />

@@ -5,6 +5,7 @@ import {
   ancestorCollisionWarnings,
   SchemaWarning,
 } from "shared/util";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
@@ -28,17 +29,25 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
 )(async (req) => {
   const config = await req.context.models.configs.getByKey(req.params.key);
   if (!config) {
-    throw new NotFoundError("Could not find config");
+    throw new NotFoundError("Could not find Config");
   }
 
   const { name, owner, description, project, parent, extensible } = req.body;
   const extendsKeys = req.body.extends;
 
-  // Re-check edit permission so a `project` move needs edit on old AND new.
-  // Done BEFORE probing project existence so it can't be an existence oracle.
+  // Both checks run BEFORE probing project existence, so this can't be used as
+  // an existence oracle for projects the caller has no access to.
+  if (!req.context.permissions.canRevisionAction("config", "draft", config)) {
+    req.context.permissions.throwPermissionError();
+  }
+  // Staging a move takes draft authority in the destination too.
   if (
-    !req.context.permissions.canUpdateConfig(config, {
-      project: typeof project !== "undefined" ? project : config.project,
+    !holdsMoveDestination({
+      permissions: req.context.permissions,
+      model: "config",
+      action: "draft",
+      existing: config,
+      proposed: { ...config, ...(project === undefined ? {} : { project }) },
     })
   ) {
     req.context.permissions.throwPermissionError();

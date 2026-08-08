@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual, omit } from "lodash";
 import {
   SavedGroupInterface,
@@ -9,9 +10,14 @@ import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { UpdateFilter } from "mongodb";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
-import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
+import {
+  captureEventBuffer,
+  emitOrDeferBulkPublishEvent,
+  entityKey,
+} from "back-end/src/events/bulkPublishCorrelation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
+import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
 import {
   logSavedGroupCreatedEvent,
   logSavedGroupUpdatedEvent,
@@ -79,7 +85,13 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     _updates: UpdateProps<SavedGroupInterface>,
     newDoc: SavedGroupInterface,
   ): boolean {
-    return this.context.permissions.canUpdateSavedGroup(existing, newDoc);
+    return canLandEntityUpdate({
+      permissions: this.context.permissions,
+      model: "saved-group",
+      existing,
+      newDoc,
+      environments: NO_ENVIRONMENT_BINDING,
+    });
   }
 
   protected canDelete(doc: SavedGroupInterface): boolean {
@@ -185,8 +197,10 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     if (
       !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
     ) {
-      await emitOrDeferBulkPublishEvent(this.context, () =>
-        logSavedGroupUpdatedEvent(this.context, previous, current),
+      await emitOrDeferBulkPublishEvent(
+        () => logSavedGroupUpdatedEvent(this.context, previous, current),
+        entityKey("saved-group", newDoc.id),
+        captureEventBuffer(this.context),
       );
     }
   }
@@ -239,5 +253,20 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       archived: !!savedGroup.archived,
       useEmptyListGroup: savedGroup.useEmptyListGroup,
     };
+  }
+  /**
+   * Project scope only, for the ids given — what a read check consults.
+   *
+   * Revision listings ask this for every target in a filtered scan, so the
+   * heavy value fields are projected OUT (a Saved Group's `values` can be
+   * enormous; the read check only consults project scope).
+   * Read-filtered like any other find, so what comes back is what may be read.
+   */
+  public async getReadScopesByIds(ids: string[]) {
+    if (!ids.length) return [];
+    return this._find(
+      { id: { $in: ids } } as Parameters<typeof this._find>[0],
+      { projection: { values: 0, condition: 0 } },
+    );
   }
 }

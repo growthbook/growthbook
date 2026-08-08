@@ -9,9 +9,13 @@ import React, { forwardRef, ReactElement, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  rampTargetRuleIds,
+  rampControlFootprint,
+  stemRuleId,
   filterEnvironmentsByFeature,
   getReviewSetting,
   getTargetingProjectIds,
+  isRampScheduleServing,
 } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { RxCircleBackslash } from "react-icons/rx";
@@ -234,6 +238,17 @@ interface SortableProps {
   holdout: HoldoutInterface | undefined;
   revisionList: MinimalFeatureRevisionInterface[];
   rampSchedule?: RampScheduleInterface;
+  /**
+   * The LIVE rule and the PERSISTED schedule, for the runtime-control authority check
+   * only. `feature` on this page is the draft projection whenever a non-live revision
+   * is selected — and the user's own draft is the DEFAULT — while `rampSchedule` has
+   * draft steps merged in. Runtime controls act on live state (see `canControlRamp`),
+   * so measuring their footprint against draft content made a dev-scoped publisher's
+   * own unpublished env-scope edit hide Pause and Advance on a live rollout the server
+   * would have let them stop.
+   */
+  liveRule?: FeatureRule;
+  liveRampSchedule?: RampScheduleInterface;
   draftRevision?: FeatureRevisionInterface | null;
   // True when rendered under the all-environments view. The `environment`
   // prop is then a cosmetic placeholder and must NOT promote a "current env"
@@ -315,6 +330,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       holdout,
       revisionList,
       rampSchedule,
+      liveRule,
+      liveRampSchedule,
       draftRevision,
       isAllEnvsView,
       onMoveUp,
@@ -424,9 +441,66 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const router = useRouter();
     const useDummyData = router.query["dummy"] === "true";
 
-    const canEdit =
-      permissionsUtil.canViewFeatureModal(feature.project) &&
-      permissionsUtil.canManageFeatureDrafts(feature);
+    // Editing a rule on an existing flag is draft-class; the create gate has
+    // no bearing on it.
+    const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
+
+    // Landing a safe-rollout decision writes live state across the feature's
+    // environments, so it takes publish the same way a ramp action does.
+    const canPublishFeatureEnvs = useMemo(
+      () =>
+        permissionsUtil.canPublishFeature(
+          feature,
+          environments.map((e) => e.id),
+        ),
+      [feature, permissionsUtil, environments],
+    );
+
+    // Live ramp control changes what users are served right now, so it takes
+    // publish over the schedule's environments — not the draft authority that
+    // gates editing its steps in a revision.
+    const canControlRamp = useMemo(() => {
+      if (!rampSchedule) return false;
+      return permissionsUtil.canPublishFeature(
+        feature,
+        // The gate's own rule, per target, measured against what each target's rule
+        // serves. `rampSchedulePublishEnvironments` widens an unscoped patch to every
+        // environment — right for callers with no rule in hand, wrong here — and that
+        // is the shape the UI emits, so it disabled these controls for exactly the
+        // dev-scoped publisher the server-side narrowing unblocked.
+        rampControlFootprint({
+          // The PERSISTED schedule, not the draft-merged one: the gate reads it from
+          // `getById`, so measuring draft patches here diverged from what the endpoint
+          // demands.
+          schedule: liveRampSchedule ?? rampSchedule,
+          allEnvironments: allEnvironments.map((e) => e.id),
+          ruleEnvsForTarget: (target) => {
+            // The LIVE rule, and deliberately conservative about what this component
+            // cannot see: a target on another feature, or on a rule not held here,
+            // returns undefined and widens — the gate checks every target and resolves
+            // stem siblings, both of which reach past one rule on one page.
+            const basis = liveRule ?? rule;
+            if (target.entityId && target.entityId !== feature.id) {
+              return undefined;
+            }
+            const reachesThisRule = rampTargetRuleIds(
+              liveRampSchedule ?? rampSchedule,
+              target,
+            ).some((id) => stemRuleId(id) === stemRuleId(basis.id ?? ""));
+            if (!reachesThisRule) return undefined;
+            return basis.allEnvironments ? "all" : (basis.environments ?? []);
+          },
+        }),
+      );
+    }, [
+      rampSchedule,
+      liveRampSchedule,
+      feature,
+      permissionsUtil,
+      allEnvironments,
+      rule,
+      liveRule,
+    ]);
 
     const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
       const raw = settings?.requireReviews;
@@ -485,6 +559,18 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     // ramp action CTAs (Start/Resume/Approve) must be suppressed.
     const isSyntheticRamp =
       !!rampSchedule && rampSchedule.id.startsWith("pending-");
+
+    // Runtime ramp controls are the only kebab items a publish-only role can
+    // reach, so the menu opens for one only when the schedule actually offers
+    // one — mirrors the two Schedule groups' own conditions.
+    const hasRampRuntimeItems =
+      canControlRamp &&
+      !!rampSchedule &&
+      (isSimpleSchedule
+        ? !!rampSchedule.cutoffDate && isRampScheduleServing(rampSchedule)
+        : // A pending detach replaces the runtime actions with a draft-class
+          // "cancel removal", so there is nothing here for a publisher.
+          !isSyntheticRamp && !hasPendingDetach);
 
     const ruleTags: React.ReactNode[] = [];
     const ruleCtas: React.ReactNode[] = [];
@@ -569,6 +655,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     if (
       rampSchedule &&
+      canControlRamp &&
       !rampControlsLocked &&
       !rampIsTerminal &&
       !hasPendingDetach &&
@@ -663,6 +750,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     // dropdown menu. The "Start" CTA above will pick up once it's `ready`.
     if (
       rampSchedule &&
+      canControlRamp &&
       !rampControlsLocked &&
       !hasPendingDetach &&
       !isSimpleSchedule &&
@@ -703,6 +791,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     if (
       rule.type === "safe-rollout" &&
+      canPublishFeatureEnvs &&
       !rampControlsLocked &&
       rule.enabled !== false
     ) {
@@ -837,6 +926,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             <Flex align="center" gap="3" flexShrink="0">
               {rampSchedule &&
                 safeRollout &&
+                canControlRamp &&
                 !rampControlsLocked &&
                 isOnMonitoredStep(rampSchedule) && (
                   <RampMonitoringCTAs
@@ -874,7 +964,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               {/* Shown when rule-edit OR ramp runtime actions are available.
                 Under a scheduled-publish lock the rule-edit group is hidden but
                 ramp/schedule actions remain. */}
-              {canEdit &&
+              {(canEdit || hasRampRuntimeItems) &&
                 !rampControlsLocked &&
                 (!locked || !!rampSchedule) && (
                   <DropdownMenu
@@ -895,7 +985,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     menuPlacement="end"
                     variant="soft"
                   >
-                    {!locked && (
+                    {canEdit && !locked && (
                       <DropdownMenuGroup>
                         <DropdownMenuItem
                           onClick={() => {
@@ -950,7 +1040,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         </DropdownMenuItem>
                       </DropdownMenuGroup>
                     )}
-                    {!locked &&
+                    {canEdit &&
+                      !locked &&
                       (onMoveUp ||
                         onMoveDown ||
                         onMoveToTop ||
@@ -1003,10 +1094,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           </DropdownMenuGroup>
                         </>
                       )}
-                    {rampSchedule &&
+                    {canControlRamp &&
                       isSimpleSchedule &&
                       !!rampSchedule.cutoffDate &&
-                      ["running", "paused"].includes(rampSchedule.status) && (
+                      isRampScheduleServing(rampSchedule) && (
                         <>
                           {!locked && <DropdownMenuSeparator />}
                           <DropdownMenuGroup label="Schedule">
@@ -1027,7 +1118,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           </DropdownMenuGroup>
                         </>
                       )}
-                    {!locked &&
+                    {canEdit &&
+                      !locked &&
                       rampSchedule &&
                       isSimpleSchedule &&
                       !!rampSchedule.cutoffDate &&
@@ -1072,6 +1164,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           {hasPendingDetach ? (
                             // Canceling a pending removal edits the draft, so it's
                             // gated by the edit-lock; runtime actions below are not.
+                            canEdit &&
                             !locked && (
                               <DropdownMenuItem
                                 onClick={async () => {
@@ -1093,7 +1186,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                 Cancel removal of schedule
                               </DropdownMenuItem>
                             )
-                          ) : (
+                          ) : !canControlRamp ? null : (
                             <>
                               {/* pending: blocked Start */}
                               {rampSchedule.status === "pending" && (
@@ -1196,9 +1289,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                   </DropdownMenuItem>
                                 ))}
                               {/* Roll back / Jump ahead / Complete — active ramps */}
-                              {["running", "paused"].includes(
-                                rampSchedule.status,
-                              ) && (
+                              {isRampScheduleServing(rampSchedule) && (
                                 <>
                                   {rampSchedule.currentStepIndex >= 0 &&
                                     (() => {
@@ -1411,7 +1502,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         </DropdownMenuGroup>
                       </>
                     )}
-                    {!locked && (
+                    {canEdit && !locked && (
                       <DropdownMenuGroup>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -1699,37 +1790,49 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 <RampTimeline
                   rs={rampSchedule}
                   pendingDetach={!!hasPendingDetach}
-                  onJump={async (targetStepIndex) => {
-                    if (targetStepIndex === -1) {
-                      await rollbackToStart();
-                      return;
-                    }
-                    await apiCall(
-                      `/ramp-schedule/${rampSchedule.id}/actions/jump`,
-                      {
-                        method: "POST",
-                        body: JSON.stringify({ targetStepIndex }),
-                      },
-                    );
-                    await mutate();
-                  }}
-                  onComplete={async () => {
-                    await apiCall(
-                      `/ramp-schedule/${rampSchedule.id}/actions/complete`,
-                      { method: "POST" },
-                    );
-                    await mutate();
-                  }}
-                  onCompleteAndDisable={async () => {
-                    await apiCall(
-                      `/ramp-schedule/${rampSchedule.id}/actions/complete`,
-                      {
-                        method: "POST",
-                        body: JSON.stringify({ disableRule: true }),
-                      },
-                    );
-                    await mutate();
-                  }}
+                  onJump={
+                    canControlRamp
+                      ? async (targetStepIndex) => {
+                          if (targetStepIndex === -1) {
+                            await rollbackToStart();
+                            return;
+                          }
+                          await apiCall(
+                            `/ramp-schedule/${rampSchedule.id}/actions/jump`,
+                            {
+                              method: "POST",
+                              body: JSON.stringify({ targetStepIndex }),
+                            },
+                          );
+                          await mutate();
+                        }
+                      : undefined
+                  }
+                  onComplete={
+                    canControlRamp
+                      ? async () => {
+                          await apiCall(
+                            `/ramp-schedule/${rampSchedule.id}/actions/complete`,
+                            { method: "POST" },
+                          );
+                          await mutate();
+                        }
+                      : undefined
+                  }
+                  onCompleteAndDisable={
+                    canControlRamp
+                      ? async () => {
+                          await apiCall(
+                            `/ramp-schedule/${rampSchedule.id}/actions/complete`,
+                            {
+                              method: "POST",
+                              body: JSON.stringify({ disableRule: true }),
+                            },
+                          );
+                          await mutate();
+                        }
+                      : undefined
+                  }
                 />
                 {rampSchedule.steps.some((s) => s.monitored) && (
                   <SafeRolloutRuleDashboard

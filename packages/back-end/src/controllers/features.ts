@@ -1,3 +1,11 @@
+import {
+  canCommentOnRevisionEntity,
+  canStageArchiveDraft,
+  metadataTouchesPayload,
+  holdsMoveDestination,
+  projectScopeChanged,
+  NO_ENVIRONMENT_BINDING,
+} from "shared/permissions";
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { cloneDeep, isEqual, omit } from "lodash";
@@ -15,6 +23,7 @@ import {
   MergeStrategy,
   checkIfRevisionNeedsReview,
   evaluatePublishGovernance,
+  featureMetadataEnvelope,
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
   getDependentExperiments,
@@ -82,6 +91,20 @@ import {
   PutFeatureRuleBody,
 } from "shared/types/feature-rule";
 import { getValidDate } from "shared/dates";
+import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
+import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
+import { isArmedWithAuthorizedPublisher } from "back-end/src/revisions/approveAndPublish";
+import {
+  holdsFeaturePublishAuthority,
+  assertCanCreateFeatureInState,
+  assertCanPublishFeatureRevision,
+  canAdvanceFeatureDraft,
+  canDiscardFeatureDraft,
+  canRebaseFeatureDraft,
+  canRecallFeatureReview,
+  revertFootprint,
+} from "back-end/src/revisions/featureDraftAuthority";
+import { assertCanRevertRevision } from "back-end/src/revisions/revertActions";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getContextForAgendaJobByOrgId,
@@ -136,6 +159,10 @@ import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
+  canLandArchivedState,
+  isArchiveTransition,
+} from "back-end/src/revisions/archiveTransition";
+import {
   moveFlatRule,
   stampRuleForEnvs,
   updateRuleById,
@@ -184,6 +211,7 @@ import {
 import {
   buildFeatureLookups,
   getEnabledEnvironments,
+  getArchiveFootprint,
 } from "back-end/src/util/features";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -236,6 +264,7 @@ import {
   UnrecoverableApiError,
 } from "back-end/src/util/errors";
 import {
+  canDisarmFeatureAutoPublishOnApproval,
   canEnableFeatureAutoPublishOnApproval,
   canPublishFeatureRevision,
   canScheduleFeaturePublish,
@@ -261,12 +290,10 @@ function normalizeRampStepAction(a: {
   };
 }
 
-/**
- * Routes an envelope change through the revision system.
- * Bundles into the specified draft (by version) if provided; otherwise falls
- * back to the most-recent active draft; otherwise creates a new draft.
- * Returns the draft revision so callers can return its version to the client.
- */
+// Routes an envelope change through the revision system.
+// Bundles into the specified draft (by version) if provided; otherwise falls
+// back to the most-recent active draft; otherwise creates a new draft.
+// Returns the draft revision so callers can return its version to the client.
 async function createOrUpdateDraftWithChanges(
   context: ReqContext,
   feature: FeatureInterface,
@@ -721,8 +748,15 @@ export async function postFeatures(
   } = req.body;
 
   if (
-    !context.permissions.canCreateFeature(req.body) ||
-    !context.permissions.canManageFeatureDrafts({ project: otherProps.project })
+    !context.permissions.canCreateFeature(
+      req.body,
+      Array.from(
+        getEnabledEnvironments(
+          req.body as FeatureInterface,
+          getEnvironmentIdsFromOrg(context.org),
+        ),
+      ),
+    )
   ) {
     context.permissions.throwPermissionError();
   }
@@ -819,14 +853,7 @@ export async function postFeatures(
     ),
   );
 
-  if (
-    !context.permissions.canPublishFeature(
-      feature,
-      Array.from(getEnabledEnvironments(feature, environmentIds)),
-    )
-  ) {
-    context.permissions.throwPermissionError();
-  }
+  assertCanCreateFeatureInState({ context, feature, environmentIds });
 
   addIdsToRules(feature.environmentSettings, feature.id);
 
@@ -921,13 +948,6 @@ export async function postFeatureRebase(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
   const revision = await getRevision({
     context,
     organization: org.id,
@@ -970,6 +990,17 @@ export async function postFeatureRebase(
     throw new Error("Please resolve conflicts before saving");
   }
 
+  if (
+    !(await canRebaseFeatureDraft({
+      context,
+      feature,
+      draft: revision,
+      mergeChanges: mergeResult.result,
+    }))
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
   const newRules: FeatureRule[] =
     mergeResult.result.rules ?? feature.rules ?? [];
   const newEnvironmentsEnabled: Record<string, boolean> = {};
@@ -982,16 +1013,8 @@ export async function postFeatureRebase(
 
   // Build complete metadata snapshot: start from live feature, overlay any
   // metadata fields the merge result explicitly changed.
-  const featureMetadataSnapshot: RevisionMetadata = {
-    description: feature.description,
-    owner: feature.owner,
-    project: feature.project,
-    tags: feature.tags,
-    neverStale: feature.neverStale,
-    customFields: feature.customFields,
-    jsonSchema: feature.jsonSchema,
-    valueType: feature.valueType,
-  };
+  const featureMetadataSnapshot: RevisionMetadata =
+    featureMetadataEnvelope(feature);
   const newMetadata: RevisionMetadata = mergeResult.result.metadata
     ? { ...featureMetadataSnapshot, ...mergeResult.result.metadata }
     : featureMetadataSnapshot;
@@ -1138,8 +1161,8 @@ export async function postFeatureScheduledPublish(
   // Arming needs the premium feature + publish authority; canceling needs only
   // publish authority.
   const allowed = date
-    ? canScheduleFeaturePublish(context, feature)
-    : canPublishFeatureRevision(context, feature);
+    ? await canScheduleFeaturePublish(context, feature, revision)
+    : await canPublishFeatureRevision(context, feature, revision);
   if (!allowed) {
     context.permissions.throwPermissionError();
   }
@@ -1158,7 +1181,7 @@ export async function postFeatureScheduledPublish(
     );
     if (
       requiresReview &&
-      !context.permissions.canBypassApprovalChecks(feature)
+      !context.permissions.canBypassFlagApprovalChecks(feature, "feature")
     ) {
       throw new Error(
         "This change requires approval — request review to schedule its publish.",
@@ -1170,14 +1193,33 @@ export async function postFeatureScheduledPublish(
   // that permission — a requested bypass from a non-admin is silently ignored.
   const bypassApproval =
     !!req.body.bypassApproval &&
-    context.permissions.canBypassApprovalChecks(feature);
+    context.permissions.canBypassFlagApprovalChecks(feature, "feature");
 
-  await setRevisionScheduledPublish(
+  const scheduleChanged = await setRevisionScheduledPublish(
     context,
     revision,
     { scheduledPublishAt: date, lockEdits, lockOthers, bypassApproval },
     context.userId || null,
   );
+
+  // Only when something actually moved — see the REST twin.
+  if (scheduleChanged) {
+    const afterSchedule =
+      (await getRevision({
+        context,
+        organization: context.org.id,
+        featureId: feature.id,
+        feature,
+        version: parseInt(version),
+      })) ?? revision;
+    await dispatchFeatureRevisionEvent(
+      context,
+      feature,
+      afterSchedule,
+      "revision.publishScheduleChanged",
+      {},
+    );
+  }
 
   res.status(200).json({ status: 200 });
 }
@@ -1209,10 +1251,6 @@ export async function postFeatureRequestReview(
   if (!feature) {
     throw new Error("Could not find feature");
   }
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
-    context.permissions.throwPermissionError();
-  }
-
   const revision = await getRevision({
     context,
     organization: context.org.id,
@@ -1223,15 +1261,24 @@ export async function postFeatureRequestReview(
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
+  // Draft authority, or revert authority over a draft that only restores a
+  // published revision — otherwise a revert-only role can open a rollback it
+  // has no way to move forward.
+  if (!(await canAdvanceFeatureDraft({ context, feature, draft: revision }))) {
+    context.permissions.throwPermissionError();
+  }
   if (revision.status !== "draft") {
     throw new Error("Can only request review if is a draft");
   }
   const enableAutoPublish =
-    autoPublishOnApproval &&
-    canEnableFeatureAutoPublishOnApproval(context, feature);
+    !!autoPublishOnApproval &&
+    (await canEnableFeatureAutoPublishOnApproval(context, feature, revision));
 
   const scheduledDate = parseScheduledPublishDate(scheduledPublishAt);
-  if (scheduledDate !== null && !canScheduleFeaturePublish(context, feature)) {
+  if (
+    scheduledDate !== null &&
+    !(await canScheduleFeaturePublish(context, feature, revision))
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -1279,6 +1326,21 @@ export async function postFeatureRequestReview(
     { reviewComment: comment ?? null },
   );
 
+  // Requesting review can ARM a deferred publish in the same call, and a schedule
+  // subscriber has no reason to be watching `reviewRequested`. The dedicated
+  // scheduling route fires this; request-review persisted the identical state and
+  // said nothing, so the same arm was visible or invisible depending on which
+  // button produced it. Same gap the generic engine's submit route had.
+  if (enableAutoPublish || scheduledDate !== null) {
+    await dispatchFeatureRevisionEvent(
+      context,
+      feature,
+      finalRevision,
+      "revision.publishScheduleChanged",
+      {},
+    );
+  }
+
   res.status(200).json({
     status: 200,
   });
@@ -1302,7 +1364,27 @@ export async function postFeatureReviewOrComment(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canReviewFeatureDrafts(feature)) {
+  // A VERDICT is the review atom; a plain comment is participation, so the comment
+  // atom carries it — review implies it but must not gate it. Through the SHARED
+  // predicate, so all four entities answer identically, and narrowed to the primary
+  // project to match `canReviewFeatureDrafts`.
+  //
+  // KNOWN DIVERGENCE, structural: the other three judge this on
+  // `revision.target.snapshot`, so a review stays with the project the revision was
+  // opened in. Feature revisions carry no origin snapshot (`metadata.project` is the
+  // DESTINATION a draft stages), so this engine can only ask about live. Closing it
+  // needs an origin project on the revision — a schema change, not a check.
+  const canCommentHere = canCommentOnRevisionEntity(
+    context.permissions,
+    "feature",
+    null,
+    { project: feature.project },
+  );
+  if (
+    review === "Comment"
+      ? !canCommentHere
+      : !context.permissions.canReviewFeatureDrafts(feature)
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -1331,18 +1413,18 @@ export async function postFeatureReviewOrComment(
   // Note: contributors[] is only populated on drafts created after contributor tracking was
   // deployed. Legacy drafts with no contributors[] bypass this check — there is no way to
   // retroactively determine co-authors without reading revision logs.
-  if (review === "Approved") {
-    const requireReviews = context.org.settings?.requireReviews;
-    const reviewSetting = Array.isArray(requireReviews)
-      ? getReviewSetting(requireReviews, feature)
-      : undefined;
-    if (reviewSetting?.blockSelfApproval) {
-      const isSelfApproval = (revision.contributors ?? []).some(
-        (id) => id === context.userId,
-      );
-      if (isSelfApproval) {
-        throw new Error("You cannot approve a draft you contributed to.");
-      }
+  const requireReviews = context.org.settings?.requireReviews;
+  const blockSelfApproval = Array.isArray(requireReviews)
+    ? !!getReviewSetting(requireReviews, feature)?.blockSelfApproval
+    : false;
+  // The early, clear refusal. Re-applied inside the verdict's CAS against the row it
+  // writes, because this reads a copy the contributor list can outrun.
+  if (review === "Approved" && blockSelfApproval) {
+    const isSelfApproval = (revision.contributors ?? []).some(
+      (id) => id === context.userId,
+    );
+    if (isSelfApproval) {
+      throw new Error("You cannot approve a draft you contributed to.");
     }
   }
   // dont allow review unless you are adding a comment
@@ -1356,7 +1438,7 @@ export async function postFeatureReviewOrComment(
   ) {
     throw new Error("Can only review if review is requested");
   }
-  await submitReviewAndComments(
+  const { applied } = await submitReviewAndComments(
     context,
     revision,
     res.locals.eventAudit,
@@ -1365,7 +1447,16 @@ export async function postFeatureReviewOrComment(
     // Capture the live version the approval is made against so a later publish
     // can detect when the approval has gone stale.
     feature.version,
+    blockSelfApproval,
   );
+  if (!applied) {
+    // The verdict did not persist: a concurrent recall, discard or publish moved
+    // the revision out of the review cycle. Refuse rather than log, notify and
+    // report success for a review the document does not carry.
+    throw new Error(
+      "This revision is no longer in review — it was recalled, published or discarded while the request was in flight.",
+    );
+  }
 
   const updatedRevision = await getRevision({
     context,
@@ -1507,9 +1598,45 @@ export async function postFeatureApproveAndPublish(
     filledLiveRules: filledLive.rules ?? [],
     result: mergeResult.result,
     environmentIds: featureEnvironmentIds,
+    rampActions: revision.rampActions,
   });
-  if (!context.permissions.canPublishFeature(feature, envsToCheck)) {
-    context.permissions.throwPermissionError();
+  // Approving needs review authority (enforced by the review path). The publish
+  // needs publish authority unless the revision is already armed — then it was
+  // authorized by whoever armed it and this approver is only the trigger, so the
+  // armed fire publishes under the armer instead of inline as them. Same rule the
+  // generic handler and REST submit-review already follow.
+  //
+  // Asked over the FULL footprint, destination included. Asking only about the
+  // source cleared an armer who had since lost authority in the project this
+  // draft moves the flag into: the approval committed, the armed publish then
+  // failed its own destination check, and that failure is swallowed — so the
+  // endpoint answered 200 with an approved draft that never published.
+  const armedApproval =
+    (await isArmedWithAuthorizedPublisher(
+      context,
+      revision,
+      (publisherContext) =>
+        holdsFeaturePublishAuthority({
+          context: publisherContext,
+          feature,
+          environments: envsToCheck,
+          mergeChanges: mergeResult.result,
+        }),
+    )) &&
+    !holdsFeaturePublishAuthority({
+      context,
+      feature,
+      environments: envsToCheck,
+      mergeChanges: mergeResult.result,
+    });
+  if (!armedApproval) {
+    await assertCanPublishFeatureRevision({
+      context,
+      feature,
+      revision,
+      environments: envsToCheck,
+      mergeChanges: mergeResult.result,
+    });
   }
 
   // Mirror postFeaturePublish's adminOverride + rebase-governance gates BEFORE
@@ -1520,7 +1647,10 @@ export async function postFeatureApproveAndPublish(
   // Approving anchors approvedBaseVersion to the current live version, so model
   // that post-approval state (staleApproval=false; only raw divergence blocks).
   const adminOverride = !!req.body.adminOverride;
-  if (adminOverride && !context.permissions.canBypassApprovalChecks(feature)) {
+  if (
+    adminOverride &&
+    !context.permissions.canBypassFlagApprovalChecks(feature, "feature")
+  ) {
     context.permissions.throwPermissionError();
   }
   if (!adminOverride) {
@@ -1539,7 +1669,7 @@ export async function postFeatureApproveAndPublish(
     }
   }
 
-  await submitReviewAndComments(
+  const { applied } = await submitReviewAndComments(
     context,
     revision,
     res.locals.eventAudit,
@@ -1547,6 +1677,14 @@ export async function postFeatureApproveAndPublish(
     comment,
     feature.version,
   );
+  if (!applied) {
+    // The verdict did not persist: a concurrent recall, discard or publish moved
+    // the revision out of the review cycle. Refuse rather than log, notify and
+    // report success for a review the document does not carry.
+    throw new Error(
+      "This revision is no longer in review — it was recalled, published or discarded while the request was in flight.",
+    );
+  }
 
   const approvedRevision = await getRevision({
     context,
@@ -1572,6 +1710,27 @@ export async function postFeatureApproveAndPublish(
     comment,
     reviewer,
   );
+
+  if (armedApproval) {
+    // Publishes under the armer's context, rather than as this approver.
+    const published = await maybeAutoPublishFeatureRevision(
+      context,
+      feature,
+      finalApproved,
+    );
+    if (published.status !== "published") {
+      // The approval landed and stands — it is already written. The PUBLISH did
+      // not, and this endpoint's whole contract is "approve and publish", so
+      // answering 200 leaves a draft nobody knows to go back for. Reached only on
+      // a transient failure now that the preflight asks the same question the
+      // publish does; the permanent causes refuse before the approval commits.
+      throw new Error(
+        "Approved, but the publish did not run. The draft is still approved — publish it directly.",
+      );
+    }
+    res.status(200).json({ status: 200, version: published.version });
+    return;
+  }
 
   await postFeaturePublish(req, res);
 }
@@ -1606,17 +1765,30 @@ export async function postFeatureToggleAutoPublish(
     );
   }
 
-  // Baseline: only draft managers may change auto-publish arming (else any org
-  // member could disarm another's draft). Enabling additionally needs publish
-  // authority, since auto-publish runs under this user's authority.
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
-    context.permissions.throwPermissionError();
-  }
-  if (enabled && !canEnableFeatureAutoPublishOnApproval(context, feature)) {
+  // Arming and DISARMING take the same authority — PUBLISH, and only that.
+  // Requiring less to turn it off than on gave a draft manager without publish
+  // rights a one-way control, and disagreed with the dated schedule beside it.
+  //
+  // The ELIGIBILITY gates (premium, the org's approval flow) are a precondition for
+  // taking ON a future publish, not for standing one down: asking them on the way
+  // out left an armed revision un-disarmable the moment either changed, while the
+  // arm still fired.
+  const mayToggle = enabled
+    ? await canEnableFeatureAutoPublishOnApproval(context, feature, revision)
+    : await canDisarmFeatureAutoPublishOnApproval(context, feature, revision);
+  if (!mayToggle) {
     context.permissions.throwPermissionError();
   }
 
   await setAutoPublishOnApproval(revision, !!enabled, context.userId || null);
+
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    revision,
+    "revision.publishScheduleChanged",
+    {},
+  );
 
   // Arming an already-approved draft must publish now — otherwise it waits for
   // an approval event that never comes.
@@ -1636,8 +1808,9 @@ export async function postFeatureToggleAutoPublish(
 }
 
 // Retract a review request: reverts pending-review / changes-requested /
-// approved back to draft. Gated on canManageFeatureDrafts (any draft manager,
-// not only the original requester).
+// approved back to draft. Draft authority reaches any draft; revert and delete
+// authority reach only a draft the caller authored, so a single-purpose role can
+// retract its own request without touching anyone else's.
 export async function postFeatureRecallReview(
   req: AuthRequest<Record<string, never>, { id: string; version: string }>,
   res: Response,
@@ -1646,9 +1819,6 @@ export async function postFeatureRecallReview(
   const { id, version } = req.params;
   const feature = await getFeature(context, id);
   if (!feature) throw new Error("Could not find feature");
-  if (!context.permissions.canManageFeatureDrafts(feature)) {
-    context.permissions.throwPermissionError();
-  }
   const revision = await getRevision({
     context,
     organization: context.org.id,
@@ -1657,7 +1827,29 @@ export async function postFeatureRecallReview(
     version: parseInt(version),
   });
   if (!revision) throw new Error("Could not find feature revision");
+  if (!(await canRecallFeatureReview({ context, feature, draft: revision }))) {
+    context.permissions.throwPermissionError();
+  }
   await recallReview(context, revision, res.locals.eventAudit);
+
+  // Re-read so the payload carries the post-recall state (draft, verdicts cleared)
+  // rather than the pending-review copy the check above ran on.
+  const recalled =
+    (await getRevision({
+      context,
+      organization: context.org.id,
+      featureId: feature.id,
+      feature,
+      version: parseInt(version),
+    })) ?? revision;
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    recalled,
+    "revision.recalled",
+    {},
+  );
+
   res.status(200).json({ status: 200 });
 }
 
@@ -1684,19 +1876,33 @@ export async function postFeatureUndoReview(
   if (!revision) throw new Error("Could not find feature revision");
   const newStatus = await undoReview(context, revision, res.locals.eventAudit);
 
+  const afterUndo =
+    (await getRevision({
+      context,
+      organization: context.org.id,
+      featureId: feature.id,
+      feature,
+      version: parseInt(version),
+    })) ?? revision;
+
+  // Retraction is its own event. This engine dispatched nothing at all for it,
+  // while the other revision families announce it — so the same action was visible
+  // or invisible depending on which kind of entity it happened to. Carries the
+  // REFRESHED revision: the pre-image still holds the verdict just removed and the
+  // status it implied, which is precisely what the event exists to report.
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    afterUndo,
+    "revision.reviewRetracted",
+    {},
+  );
+
   // Undoing a "changes-requested" verdict can flip the revision to "approved"
   // (another reviewer's approval still stands). Mirror the review path so an
   // armed draft auto-publishes instead of getting stuck in approved limbo.
   if (newStatus === "approved") {
-    const finalRevision =
-      (await getRevision({
-        context,
-        organization: context.org.id,
-        featureId: feature.id,
-        feature,
-        version: parseInt(version),
-      })) ?? revision;
-    await maybeAutoPublishFeatureRevision(context, feature, finalRevision);
+    await maybeAutoPublishFeatureRevision(context, feature, afterUndo);
   }
 
   res.status(200).json({ status: 200 });
@@ -1870,9 +2076,7 @@ export async function postFeaturePublish(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
-    context.permissions.throwPermissionError();
-  }
+  // Publish is gated per-env by canPublishFeature below; no manage required.
 
   const revision = await getRevision({
     context,
@@ -1969,7 +2173,10 @@ export async function postFeaturePublish(
   // adminOverride skips review requirements AND the rebase-required governance
   // gate below, so it always demands the bypass permission — not just when
   // reviews are required.
-  if (adminOverride && !context.permissions.canBypassApprovalChecks(feature)) {
+  if (
+    adminOverride &&
+    !context.permissions.canBypassFlagApprovalChecks(feature, "feature")
+  ) {
     context.permissions.throwPermissionError();
   }
   if (JSON.stringify(mergeResult) !== mergeResultSerialized) {
@@ -2006,10 +2213,15 @@ export async function postFeaturePublish(
     filledLiveRules: filledLive.rules ?? [],
     result: mergeResult.result,
     environmentIds,
+    rampActions: revision.rampActions,
   });
-  if (!context.permissions.canPublishFeature(feature, envsToCheck)) {
-    context.permissions.throwPermissionError();
-  }
+  await assertCanPublishFeatureRevision({
+    context,
+    feature,
+    revision,
+    environments: envsToCheck,
+    mergeChanges: mergeResult.result,
+  });
 
   // If publishing experiments along with this draft, ensure they are valid.
   // Experiments with a future statusUpdateSchedule.startAt are routed through
@@ -2176,7 +2388,8 @@ export async function postFeaturePublish(
     result: mergeResult.result,
     comment,
     bypassLockdown:
-      !!adminOverride && context.permissions.canBypassApprovalChecks(feature),
+      !!adminOverride &&
+      context.permissions.canBypassFlagApprovalChecks(feature, "feature"),
   });
 
   await req.audit({
@@ -2222,7 +2435,8 @@ export async function postFeaturePublish(
     // current feature stays live. Closing this gap fully would require cross-
     // collection transactions.
     const adminBypass =
-      !!adminOverride && context.permissions.canBypassApprovalChecks(feature);
+      !!adminOverride &&
+      context.permissions.canBypassFlagApprovalChecks(feature, "feature");
     const publishResult: PendingDraftPublishResult =
       await publishPendingFeatureDraftsForExperiment(
         context,
@@ -2309,13 +2523,23 @@ export async function postFeatureRevert(
     throw new Error("Can only revert to previously published revisions");
   }
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
-    context.permissions.throwPermissionError();
-  }
+  // Revert is its own capability (revertFeatures), gated per-change below.
 
   // Intentionally no assertRegisteredAttributes() call here — reverting
   // restores a previously-published state as-is, which may reference
   // attributes that have since been archived or removed.
+
+  // BEFORE the repair below, which WRITES: it updates the feature, audits, runs
+  // hooks and refreshes the payload, so a caller with no revert authority at all
+  // could drive all of that and only then receive a 403.
+  //
+  // Deliberately the weakest sufficient gate — the atom with no environment binding,
+  // i.e. "may this caller revert this feature anywhere". The per-change checks below
+  // are the real authority and each adds its own environments; anything stricter here
+  // would refuse an environment-limited reverter a narrow revert they can perform.
+  if (!context.permissions.canRevertFeature(feature, NO_ENVIRONMENT_BINDING)) {
+    context.permissions.throwPermissionError();
+  }
 
   // Heal pre-revert drift so the diff against `revision` reflects the true
   // live state. Without this, a feature stuck at an older version's rules
@@ -2340,7 +2564,7 @@ export async function postFeatureRevert(
   );
 
   if (revision.defaultValue !== feature.defaultValue) {
-    if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
+    if (!context.permissions.canRevertFeature(feature, allEnabledEnvs)) {
       context.permissions.throwPermissionError();
     }
     mergeChanges.defaultValue = revision.defaultValue;
@@ -2379,7 +2603,7 @@ export async function postFeatureRevert(
     mergeChanges.rules = revRules;
   }
   if (changedEnvs.length > 0) {
-    if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
+    if (!context.permissions.canRevertFeature(feature, changedEnvs)) {
       context.permissions.throwPermissionError();
     }
   }
@@ -2389,7 +2613,7 @@ export async function postFeatureRevert(
     revision.prerequisites !== undefined &&
     !isEqual(revision.prerequisites, feature.prerequisites || [])
   ) {
-    if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
+    if (!context.permissions.canRevertFeature(feature, allEnabledEnvs)) {
       context.permissions.throwPermissionError();
     }
     mergeChanges.prerequisites = revision.prerequisites;
@@ -2400,7 +2624,19 @@ export async function postFeatureRevert(
     revision.archived !== undefined &&
     revision.archived !== (feature.archived ?? false)
   ) {
-    if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
+    if (!context.permissions.canRevertFeature(feature, allEnabledEnvs)) {
+      context.permissions.throwPermissionError();
+    }
+    // Restoring an archived state still takes the flag out of service, so it
+    // carries the same delete-class gate as archiving it any other way. Revert
+    // authority covers the restoration, not the elevation.
+    if (
+      isArchiveTransition({
+        proposed: revision.archived,
+        current: feature.archived,
+      }) &&
+      !context.permissions.canDeleteFeature(feature, allEnabledEnvs)
+    ) {
       context.permissions.throwPermissionError();
     }
     mergeChanges.archived = revision.archived;
@@ -2462,10 +2698,55 @@ export async function postFeatureRevert(
       metadataChanges.jsonSchema = m.jsonSchema;
       hasMetadataChanges = true;
     }
+    // PAYLOAD-AFFECTING metadata only, the same rule the publish footprint and the
+    // Revert control apply via `metadataTouchesPayload`. Gating on ANY metadata
+    // diff meant a description-only revert answered for every serving environment,
+    // so a dev-limited reverter was offered Revert and then refused — the control
+    // and the endpoint disagreed in the direction that offers the action. Inert
+    // metadata (description, owner, tags, neverStale, customFields) reaches no SDK,
+    // which is exactly why the publish gate skips the check for it.
+    if (
+      hasMetadataChanges &&
+      metadataTouchesPayload(metadataChanges as Record<string, unknown>)
+    ) {
+      // Restored metadata can carry a project (relocating the flag) or an archived
+      // flag, each with its own authority class. One decision for all of it,
+      // shared with the REST reverts and the generic entities.
+      assertCanRevertRevision({
+        context,
+        entityType: "feature",
+        entity: feature as unknown as Record<string, unknown>,
+        fields: {
+          ...metadataChanges,
+          ...(metadataChanges.project !== undefined
+            ? { project: metadataChanges.project }
+            : {}),
+        },
+        landing: true,
+        // Includes environments the restore would switch back on, not just those
+        // enabled now — a revert that re-enables production is a production change
+        // — and the ones whose rules it would change. Both REST reverts pass
+        // `changedEnvs`; omitting it here made the dashboard demand LESS than the
+        // API for the same restore.
+        footprint: revertFootprint({
+          feature,
+          targetRevision: revision,
+          environmentIds,
+          changedEnvs,
+        }),
+      });
+    }
+    // OUTSIDE the gate. `mergeChanges` is not just permission evidence here — it is
+    // the delta handed to `publishRevision` and the thing the empty-diff check
+    // measures, and `computeRevisionMergeChanges` writes description/owner/tags/
+    // neverStale/customFields ONLY from `result.metadata`. Inside the gate, a
+    // description-only revert produced an empty delta and threw "Nothing to
+    // revert"; worse, a revert of a dev rule AND the description landed the rule and
+    // dropped the description while still recording the target metadata on the new
+    // revision — leaving feature.description and the live revision permanently
+    // disagreeing, and every later diff reading phantom churn.
+    // `revertFeature.ts` already had this shape: gate inside, assignment outside.
     if (hasMetadataChanges) {
-      if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
-        context.permissions.throwPermissionError();
-      }
       mergeChanges.metadata = metadataChanges;
     }
   }
@@ -2480,7 +2761,12 @@ export async function postFeatureRevert(
     mergeChanges.metadata?.project ?? feature.project,
   );
   if (!isEqual(targetHoldout, feature.holdout ?? null)) {
-    if (!context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
+    // Restoring a previously-published holdout is what the revert atom covers, so
+    // a revert-only role can land it. Publish still passes: it subsumes revert.
+    if (
+      !context.permissions.canPublishFeature(feature, allEnabledEnvs) &&
+      !context.permissions.canRevertFeature(feature, allEnabledEnvs)
+    ) {
       context.permissions.throwPermissionError();
     }
     mergeChanges.holdout = targetHoldout;
@@ -2527,6 +2813,13 @@ export async function postFeatureRevert(
     revisionChanges.metadata = revision.metadata;
   }
 
+  // Reverts restore a previously-published (already-reviewed) state. When the
+  // org enables "reverts bypass approval", any publisher may publish a revert
+  // without approval — publish perms were already enforced per-change above.
+  const revertBypass =
+    context.permissions.canBypassFlagApprovalChecks(feature, "feature") ||
+    !!org.settings?.revertsBypassApproval;
+
   const newRevision = await createRevision({
     context,
     feature,
@@ -2537,17 +2830,13 @@ export async function postFeatureRevert(
     org,
     comment: comment || `Revert to revision #${revision.version}`,
     revertedFrom: revision.version,
+    // Checked before the insert, so a revert that needs approval this caller
+    // can't give errors without leaving a draft behind. Safe to re-run if a
+    // version collision retries the insert — it only reads permissions.
+    preInsertValidation: revertBypass
+      ? undefined
+      : (draft) => assertCanAutoPublish(context, feature, draft),
   });
-
-  // Reverts restore a previously-published (already-reviewed) state. When the
-  // org enables "reverts bypass approval", any publisher may publish a revert
-  // without approval — publish perms were already enforced per-change above.
-  const revertBypass =
-    context.permissions.canBypassApprovalChecks(feature) ||
-    !!org.settings?.revertsBypassApproval;
-  if (!revertBypass) {
-    await assertCanAutoPublish(context, feature, newRevision);
-  }
   const updatedFeature = await publishRevision({
     context,
     feature,
@@ -2631,9 +2920,13 @@ export async function postFeatureRevertDraft(
     );
   }
 
+  // Proposing a revert as a draft is open to draft authors, and also to anyone
+  // with revert authority even if they have no general draft access.
   if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
+    !context.permissions.canEditFeatureDrafts(feature) &&
+    // No env list: a draft publishes nothing, so this only asks for revert
+    // authority in the feature's project.
+    !context.permissions.canRevertFeature(feature, [])
   ) {
     context.permissions.throwPermissionError();
   }
@@ -2643,6 +2936,8 @@ export async function postFeatureRevertDraft(
   const changes: Partial<FeatureRevisionInterface> = {
     defaultValue: revision.defaultValue,
     rules: revision.rules ?? feature.rules ?? [],
+    // Provenance for the revert-authority publish path; re-verified at publish.
+    revertedFromVersion: revision.version,
   };
 
   if (revision.environmentsEnabled !== undefined) {
@@ -2663,6 +2958,22 @@ export async function postFeatureRevertDraft(
     context,
     changes.metadata?.project ?? feature.project,
   );
+
+  // A restored revision can carry a different project, so this draft proposes a
+  // relocation. Staging one takes authoring rights in the destination as well as
+  // the source — read access there must not be enough to line a flag up to land
+  // somewhere the author cannot write.
+  if (
+    !holdsMoveDestination({
+      permissions: context.permissions,
+      model: "feature",
+      action: "draft",
+      existing: feature,
+      proposed: { ...feature, ...(changes.metadata ?? {}) },
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const newRevision = await createRevision({
     context,
@@ -2718,10 +3029,7 @@ export async function postFeatureFork(
     throw new Error("Could not find feature revision");
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -2770,10 +3078,7 @@ export async function postFeatureDiscard(
     throw new Error(`Can not discard ${revision.status} revisions`);
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!(await canDiscardFeatureDraft({ context, feature, draft: revision }))) {
     context.permissions.throwPermissionError();
   }
 
@@ -2855,10 +3160,7 @@ export async function postFeatureReopen(
     throw new Error(`Can only reopen discarded revisions`);
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -2929,10 +3231,7 @@ export async function postFeatureRule(
     }
   });
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -3235,7 +3534,7 @@ export async function postFeatureSync(
 
   const data = req.body;
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -3435,10 +3734,7 @@ export async function postFeatureExperimentRefRule(
     throw new Error("Could not find feature");
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -3473,7 +3769,12 @@ export async function postFeatureExperimentRefRule(
     ? environments
     : (scopedRule.environments ?? []);
 
-  if (!context.permissions.canPublishFeature(feature, ruleEnvFootprint)) {
+  // Landing authority only when this call lands. Staging the rule into a draft
+  // is authoring, already gated above; the draft reaches no one until published.
+  if (
+    autoPublish &&
+    !context.permissions.canPublishFeature(feature, ruleEnvFootprint)
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -3602,7 +3903,10 @@ export async function postFeatureExperimentRefRule(
       revision: updatedRevision,
       result: mergeResult.result,
       comment: `Add experiment rule for "${experiment.name}"`,
-      bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+      bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
+        feature,
+        "feature",
+      ),
     });
     await req.audit({
       event: "feature.publish",
@@ -3704,9 +4008,12 @@ export async function putRevisionComment(
     throw new Error("Could not find feature");
   }
 
+  // Editing a comment is commenting, judged by the same shared predicate as posting
+  // one — see the POST route above for why it is shared rather than restated.
   if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
+    !canCommentOnRevisionEntity(context.permissions, "feature", null, {
+      project: feature.project,
+    })
   ) {
     context.permissions.throwPermissionError();
   }
@@ -3740,6 +4047,8 @@ export async function putRevisionComment(
     feature,
     updatedRevisionAfterComment ?? revision,
     "metadata",
+    // No environment-scoped impact — see putFeatureRevisionMetadata.
+    { environments: [] },
   );
 
   res.status(200).json({
@@ -3761,10 +4070,7 @@ export async function putRevisionTitle(
     throw new Error("Could not find feature");
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -3797,6 +4103,8 @@ export async function putRevisionTitle(
     feature,
     updatedRevisionAfterTitle ?? revision,
     "metadata",
+    // No environment-scoped impact — see putFeatureRevisionMetadata.
+    { environments: [] },
   );
 
   res.status(200).json({
@@ -3818,10 +4126,7 @@ export async function postFeatureDefaultValue(
     throw new Error("Could not find feature");
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -3877,10 +4182,7 @@ export async function postFeatureSchema(
     throw new Error("Could not find feature");
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -3890,6 +4192,19 @@ export async function postFeatureSchema(
     ...schemaDef,
     date: new Date(),
   };
+  // A schema change lands across every enabled environment, so publishing it
+  // takes landing authority — `assertCanAutoPublish` only covers approvals.
+  // Checked before the revision is created so a blocked publish leaves no
+  // orphaned draft behind.
+  if (
+    autoPublish &&
+    !context.permissions.canPublishFeature(
+      feature,
+      Array.from(getEnabledEnvironments(feature, context.environments)),
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
   const draft = await createOrUpdateDraftWithChanges(
     context,
     feature,
@@ -3911,7 +4226,10 @@ export async function postFeatureSchema(
       feature,
       revision: draft,
       result: { metadata: { jsonSchema } },
-      bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+      bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
+        feature,
+        "feature",
+      ),
     });
   }
   return res.status(200).json({ status: 200, draftVersion: draft.version });
@@ -3930,12 +4248,19 @@ export async function putSafeRolloutStatus(
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  // `environment` is retained for audit context and reset-review scoping.
+  // `environment` names the one environment this status flip reaches — it scopes
+  // the publish gate below as well as audit context and reset-review scoping.
   const { status, environment, ruleId } = req.body;
   const { org } = context;
   const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
+  }
+
+  // A status flip is a live write in one environment; the revision below is
+  // just the mechanism. safe-rollout rules are deprecated, so no bespoke policy.
+  if (!context.permissions.canPublishFeature(feature, [environment])) {
+    context.permissions.throwPermissionError();
   }
 
   const revision = await createRevision({
@@ -3973,9 +4298,6 @@ export async function putSafeRolloutStatus(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
-    context.permissions.throwPermissionError();
-  }
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
     baseRevision: base,
@@ -4046,7 +4368,10 @@ export async function putSafeRolloutStatus(
       revision,
       result: mergeResult.result,
       comment: "auto-publish status change",
-      bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+      bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
+        feature,
+        "feature",
+      ),
     });
 
     await req.audit({
@@ -4089,10 +4414,7 @@ export async function putFeatureRule(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -4433,10 +4755,7 @@ export async function postFeatureCreateDraft(
     throw new Error("Could not find feature");
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -4536,9 +4855,14 @@ export async function postFeatureToggle(
     }
   }
 
+  // Two paths, two authorities: `autoPublish` lands the toggle live, while the
+  // draft path only stages it. Gating both on publish let a publisher stage a
+  // draft they have no authoring rights to, and stopped a drafter from staging
+  // one at all.
   if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canPublishFeature(feature, envIds)
+    autoPublish
+      ? !context.permissions.canPublishFeature(feature, envIds)
+      : !context.permissions.canEditFeatureDrafts(feature)
   ) {
     context.permissions.throwPermissionError();
   }
@@ -4584,7 +4908,10 @@ export async function postFeatureToggle(
       feature,
       revision,
       result: { environmentsEnabled: changes },
-      bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+      bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
+        feature,
+        "feature",
+      ),
     });
 
     await req.audit({
@@ -4680,10 +5007,7 @@ export async function postFeatureMoveRule(
     throw new Error("Could not find feature");
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -4783,10 +5107,7 @@ export async function deleteFeatureRule(
   const featureEnvs = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = featureEnvs.map((e) => e.id);
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -4887,7 +5208,7 @@ export async function putFeature(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { org, environments } = context;
+  const { org } = context;
   const { id } = req.params;
   const feature = await getFeature(context, id);
 
@@ -4897,7 +5218,7 @@ export async function putFeature(
 
   const { targetDraftVersion, autoPublish, forceNewDraft, ...updates } =
     req.body;
-  if (!context.permissions.canUpdateFeature(feature, updates)) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -4919,18 +5240,36 @@ export async function putFeature(
     );
   }
 
-  // Changing the project can affect SDK payload targeting; require publish permission in both old and new project
-  if ("project" in updates) {
-    if (
-      !context.permissions.canPublishFeature(
+  // MOVING the project can affect SDK payload targeting, so LANDING one takes
+  // publish in both the old and new project. Judged by the shared rule, not key
+  // presence — clients echo the current project back (the edit-info modal
+  // always submits it), and an identity write is not a move. Presence-gating
+  // 403'd draft-only users whose metadata edit changed no project at all.
+  //
+  // Staging one is a different question: a draft publishes nothing, so it takes
+  // AUTHORING rights in both projects — read access there must not be enough to
+  // line a flag up to land somewhere the author cannot write, but publish rights
+  // must not be required to propose it either. Same split the revert path applies.
+  if (
+    "project" in updates &&
+    projectScopeChanged(feature, { project: updates.project })
+  ) {
+    // APPLICABLE environments, not every org env — an environment scoped away from
+    // the flag's projects never serves it, and the archive path on this same file
+    // already filters. The unfiltered set is a superset, so the control (which does
+    // filter) was predicting a narrower demand than this check made.
+    const envs = Array.from(
+      getEnabledEnvironments(
         feature,
-        Array.from(getEnabledEnvironments(feature, environments)),
-      ) ||
-      !context.permissions.canPublishFeature(
-        updates,
-        Array.from(getEnabledEnvironments(feature, environments)),
-      )
-    ) {
+        getApplicableEnvIds(getEnvironments(context.org), feature),
+      ),
+    );
+    const holdsBothSides = autoPublish
+      ? context.permissions.canPublishFeature(feature, envs) &&
+        context.permissions.canPublishFeature(updates, envs)
+      : context.permissions.canEditFeatureDrafts(feature) &&
+        context.permissions.canEditFeatureDrafts(updates);
+    if (!holdsBothSides) {
       context.permissions.throwPermissionError();
     }
   }
@@ -4980,9 +5319,18 @@ export async function putFeature(
     "owner",
     "customFields",
   ];
+  // Diffed against live, not taken by KEY PRESENCE. The edit-info modal submits all
+  // of its form fields on every save, so `project` / `targetingAllProjects` /
+  // `targetingProjects` were always present — and none is payload-inert, so
+  // `mergeResultTouchesPayload` was true for a description-only edit and the
+  // footprint widened to every serving environment. A control cannot predict that
+  // (it has no reason to think a description edit reaches production), so the
+  // request has to carry only what actually changed.
   const metadataUpdates = Object.fromEntries(
-    Object.entries(updates).filter(([k]) =>
-      metadataKeys.includes(k as keyof FeatureInterface),
+    Object.entries(updates).filter(
+      ([k, v]) =>
+        metadataKeys.includes(k as keyof FeatureInterface) &&
+        !isEqual(v, feature[k as keyof FeatureInterface]),
     ),
   ) as Partial<FeatureInterface>;
   normalizeTargetingInUpdates(metadataUpdates, feature);
@@ -5093,7 +5441,10 @@ export async function putFeature(
         feature,
         revision: draft,
         result: envelopeChanges,
-        bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+        bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
+          feature,
+          "feature",
+        ),
         skipPrevalidateValidation: true,
       });
     }
@@ -5138,7 +5489,10 @@ export async function deleteFeatureById(
       throw new Error("Feature must be archived before it can be deleted");
     }
 
-    if (!context.permissions.canDeleteFeature(feature)) {
+    // Already archived (enforced above), so it is serving nothing anywhere.
+    if (
+      !context.permissions.canDeleteFeature(feature, NO_ENVIRONMENT_BINDING)
+    ) {
       context.permissions.throwPermissionError();
     }
     // Reference integrity: deleting a feature that other live features gate on
@@ -5296,6 +5650,34 @@ export async function postFeaturesEvaluate(
   });
 }
 
+/**
+ * The draft the archive flip would be written INTO — resolved the same way
+ * `createOrUpdateDraftWithChanges` resolves it, so the injection check and the write
+ * cannot disagree about which draft is at stake. Null when a fresh one will be made.
+ */
+async function getDraftForArchiveInjectionCheck(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  targetDraftVersion?: number,
+  forceNewDraft?: boolean,
+): Promise<FeatureRevisionInterface | null> {
+  // A write that will CREATE a fresh revision touches nobody's draft, so there is
+  // nothing to protect. Without this the check resolved the active draft — which is
+  // author-blind — and refused a Deleter whose write would have made a new one:
+  // the exact persona `canStageArchiveDraft` exists to serve.
+  if (forceNewDraft) return null;
+  if (targetDraftVersion) {
+    return await getRevision({
+      context,
+      organization: feature.organization,
+      featureId: feature.id,
+      feature,
+      version: targetDraftVersion,
+    });
+  }
+  return await getActiveDraft(context, feature);
+}
+
 export async function postFeatureArchive(
   req: AuthRequest<
     | {
@@ -5320,13 +5702,6 @@ export async function postFeatureArchive(
     throw new Error("Could not find feature");
   }
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
   const {
     archived: archivedParam,
     autoPublish,
@@ -5335,6 +5710,74 @@ export async function postFeatureArchive(
   } = req.body ?? {};
   // Use the explicitly requested state if provided; fall back to toggling.
   const newArchivedState = archivedParam ?? !feature.archived;
+
+  const archiveEnvs = getArchiveFootprint(feature, context.org);
+  // This endpoint only ever changes `archived`, so it's a pure archive by
+  // construction — the landing authority stands on its own and doesn't need
+  // draft rights alongside it. Same shape as revert: holding the authority for
+  // an action is enough to stage it, not just to land it.
+  const canLand = canLandArchivedState({
+    permissions: context.permissions,
+    model: "feature",
+    entity: feature,
+    archived: newArchivedState,
+    environments: archiveEnvs,
+  });
+  // Staging publishes nothing, so it asks the project-scoped question — the same
+  // `canStageArchiveDraft` the REST twin and the archive modal use. Requiring the
+  // LANDING authority to stage meant a dev-limited deleter was refused here by the
+  // dashboard while the API let them open the very same draft.
+  const canStage =
+    canLand ||
+    canStageArchiveDraft({
+      permissions: context.permissions,
+      model: "feature",
+      entity: { project: feature.project },
+      archived: newArchivedState,
+    });
+  if (!canStage) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Draft authority stages it; only the landing authority publishes it.
+  if (autoPublish && !canLand) {
+    context.permissions.throwPermissionError();
+  }
+  // Writing `archived` into an EXISTING draft is a write into someone else's work:
+  // it makes that draft delete-class, so its author — a publisher without delete —
+  // can no longer publish it, and `createOrUpdateDraftWithChanges` does NOT reset
+  // review, so an approved draft keeps approvals that never saw the archive. The
+  // landing authority above is enough to stage a NEW archive draft, never to reach
+  // into one this caller does not own. With no `draftVersion` this falls through to
+  // the active draft, so there is no version to guess.
+  // The SAME resolution the write performs below — `autoPublish` forces a new
+  // revision and clears the pinned version, so passing the raw body values asked a
+  // different question than the write answers.
+  const targetDraft = await getDraftForArchiveInjectionCheck(
+    context,
+    feature,
+    autoPublish ? undefined : draftVersion,
+    autoPublish ? true : forceNewDraft,
+  );
+  if (
+    targetDraft &&
+    !canWriteArchiveIntoDraft({
+      permissions: context.permissions,
+      model: "feature",
+      entity: feature,
+      revision: {
+        authorId:
+          targetDraft.createdBy && "id" in targetDraft.createdBy
+            ? targetDraft.createdBy.id
+            : undefined,
+        contributors: targetDraft.contributors,
+      },
+      userId: context.userId,
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
   const archiveChanges = { archived: newArchivedState };
   const archiveComment = newArchivedState
     ? "Archive feature"
@@ -5369,7 +5812,10 @@ export async function postFeatureArchive(
       feature,
       revision: draft,
       result: archiveChanges,
-      bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+      bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
+        feature,
+        "feature",
+      ),
     });
     // Re-fetch so the payload reflects the post-publish status ("published").
     const publishedRevision =
@@ -5941,7 +6387,7 @@ export async function toggleStaleFFDetectionForFeature(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -5952,6 +6398,16 @@ export async function toggleStaleFFDetectionForFeature(
   if (autoPublish) {
     if ((feature.neverStale ?? false) === neverStale) {
       return res.status(200).json({ status: 200 });
+    }
+    // Publishing takes landing authority; `assertCanAutoPublish` below only
+    // covers the approval requirement.
+    if (
+      !context.permissions.canPublishFeature(
+        feature,
+        Array.from(getEnabledEnvironments(feature, context.environments)),
+      )
+    ) {
+      context.permissions.throwPermissionError();
     }
     const environments = getEnvironmentIdsFromOrg(context.org);
     const revision = await createRevision({
@@ -5971,7 +6427,10 @@ export async function toggleStaleFFDetectionForFeature(
       feature,
       revision,
       result: { metadata: { neverStale } },
-      bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+      bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
+        feature,
+        "feature",
+      ),
     });
     return res
       .status(200)
@@ -6038,7 +6497,7 @@ export async function postPrerequisite(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -6092,7 +6551,7 @@ export async function putPrerequisite(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -6145,7 +6604,7 @@ export async function deletePrerequisite(
     throw new Error("Could not find feature");
   }
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 

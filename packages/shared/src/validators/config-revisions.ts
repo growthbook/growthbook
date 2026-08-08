@@ -8,6 +8,7 @@ import {
   publishOverrideBodyFields,
   bypassApprovalPublishBodyField,
   publishBypassedGatesField,
+  revisionScheduleResponseFields,
 } from "./shared";
 import {
   apiConfigValidator,
@@ -104,6 +105,8 @@ export const apiConfigRevisionValidator = namedSchema(
       revertedFrom: z.string().optional(),
       reviews: z.array(apiReviewValidator),
       activityLog: z.array(apiActivityLogEntryValidator),
+      // Deferred-publish state, shared across every revisioned entity.
+      ...revisionScheduleResponseFields,
       resolution: z
         .object({
           action: z.enum(["merged", "discarded"]),
@@ -308,7 +311,7 @@ export const postConfigRevisionPublishValidator = {
   operationId: "postConfigRevisionPublish",
   summary: "Publish a draft revision",
   description:
-    "Publishes a draft revision, making it the live state of the config. Blocked if the org requires approvals and the revision is not approved (callers with the bypass-approval permission may still publish). Under `requireRebaseBeforePublish`, a draft whose base has moved since it was created is blocked until rebased — a caller with the bypass-approval permission can force-merge instead by passing `ignoreWarnings: true` (the permission alone does not silently skip the rebase). A locked config is blocked until unlocked. When blocked, the 422 lists every applicable gate and how to clear each (see the response docs). Publishing a schema change cascades the 'base wins' normalization to descendant configs.",
+    "Publishes the draft and makes its changes live. The caller needs Publish access for the affected environments. When approval is required, the draft must be approved unless the caller has Bypass draft approvals access. If the organization requires rebasing, an out-of-date draft must be rebased first; an authorized caller can instead send `ignoreWarnings: true` to force-publish it. A locked Config cannot be published. A 422 response lists every blocking gate and the available resolution. Publishing a schema change also normalizes descendant Configs according to their inheritance rules.",
   tags: ["config-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
@@ -334,14 +337,21 @@ export const postConfigRevisionRevertValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      strategy: z.enum(["draft", "publish"]).optional(),
+      strategy: z
+        .enum(["draft", "publish"])
+        .optional()
+        .describe(
+          "Whether to stage the revert as a draft or publish it immediately. Defaults to `draft`, or to `publish` when the org enables 'reverts bypass approval'.",
+        ),
       title: z.string().optional(),
       comment: z.string().optional(),
       ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
 };
 
 export const postConfigRevisionRebaseValidator = {
@@ -397,7 +407,7 @@ export const postConfigRevisionSubmitReviewValidator = {
   operationId: "postConfigRevisionSubmitReview",
   summary: "Submit a review on a draft revision",
   description:
-    "Submits an `approve`, `request-changes`, or `comment` review on the revision. Authors and contributors cannot submit `approve` reviews on their own drafts when the org has `blockSelfApproval` enabled.\n\nWhen `decision` is `approve` and the revision has `autoPublishOnApproval` enabled, the revision is automatically published after approval. The response includes `autoPublished: true` when this happens. Pass `skipAutoPublish: true` to approve without triggering auto-publish.",
+    "Submits an `approve`, `request-changes`, or `comment` review on the revision. Submitting `approve` or `request-changes` needs Review access. A `comment` is participation rather than a verdict, so it is also open to the Comments permission or draft authority on the entity. Authors and contributors cannot submit `approve` reviews on their own drafts when the org has `blockSelfApproval` enabled.\n\nWhen `decision` is `approve` and the revision has `autoPublishOnApproval` enabled, the revision is automatically published after approval. The response includes `autoPublished: true` when this happens. Pass `skipAutoPublish: true` to approve without triggering auto-publish.",
   tags: ["config-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
@@ -424,7 +434,16 @@ export const postConfigRevisionSchedulePublishValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      scheduledPublishAt: z.string().nullable(),
+      // Validated RFC3339 rather than a bare `z.string()`, which documented no
+      // `format: date-time` and let `new Date()`'s lenient parsing accept things
+      // no client should be sending. Numeric offsets ARE accepted: this endpoint
+      // shipped taking any string, so rejecting `…-07:00` — valid RFC3339, and
+      // what an offset-preserving serializer emits — would 400 existing callers.
+      scheduledPublishAt: z
+        .union([z.iso.datetime({ offset: true }), z.null()])
+        .describe(
+          "When to publish, as an RFC3339 timestamp (e.g. `2026-01-31T09:00:00Z` or `2026-01-31T02:00:00-07:00`), or `null` to cancel a pending schedule.",
+        ),
       lockEdits: z.boolean().optional(),
       lockOthers: z.boolean().optional(),
       bypassApproval: z.boolean().optional(),
@@ -632,6 +651,21 @@ export const putConfigRevisionArchiveValidator = {
       ...publishOverrideBodyFields,
     })
     .strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};
+
+// The fourth lifecycle verb, previously only on Feature Flags.
+export const postConfigRevisionUndoReviewValidator = {
+  method: "post" as const,
+  path: "/configs-revisions/:key/:version/undo-review",
+  operationId: "postConfigRevisionUndoReview",
+  summary: "Retract your own review verdict",
+  description:
+    "Retracts the calling user's own active `approve` or `request-changes` verdict, returning the revision to `pending-review`. Review comments stay in the log. Retracting a `request-changes` can leave the revision approved by someone else, in which case an armed auto-publish fires.",
+  tags: ["config-revisions"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({}).strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };

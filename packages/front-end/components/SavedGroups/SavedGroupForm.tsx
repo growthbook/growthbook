@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { FC, useEffect, useMemo, useState } from "react";
 import {
   CreateSavedGroupProps,
@@ -106,11 +107,11 @@ const SavedGroupForm: FC<{
     (user?.role === "admin" ||
       (current.projects?.length
         ? current.projects.every((project) =>
-            permissionsUtil.canBypassApprovalChecks({ project: project || "" }),
+            permissionsUtil.canBypassSavedGroupApprovalChecks({
+              project: project || "",
+            }),
           )
-        : permissionsUtil.canBypassApprovalChecks({ project: "" })));
-
-  const canAutoPublish = !isApprovalFlowRequired || canAdminPublish;
+        : permissionsUtil.canBypassSavedGroupApprovalChecks({ project: "" })));
 
   // Metadata-only edit when the org's saved-group approval flow is on but
   // metadata review is off: skip the publish-now affordance in this form
@@ -260,26 +261,49 @@ const SavedGroupForm: FC<{
   }, [currentRevision, liveVersion, type, project, orgId, form, current]);
 
   const selectedProjects = form.watch("projects") || [];
+
+  // Publishing is its own authority: an author without it edits through drafts and is
+  // never offered "publish now" — the server refuses that write. Only applies to
+  // edits; creating a group isn't a publish.
+  //
+  // BOTH sides of a move, like the endpoint's `holdsMoveDestination`: publishing a
+  // group whose projects changed lands it in the destination, so authority there is
+  // required too. Judging `current` alone offered publish-now for a move into a
+  // project the caller cannot publish in.
+  const canAutoPublish =
+    (!current.id ||
+      (permissionsUtil.canRevisionAction("saved-group", "publish", current) &&
+        permissionsUtil.canRevisionAction("saved-group", "publish", {
+          ...current,
+          projects: selectedProjects,
+        }))) &&
+    (!isApprovalFlowRequired || canAdminPublish);
   const projectsOptions = useProjectOptions(
     (p) =>
       current.id
-        ? permissionsUtil.canUpdateSavedGroup(
-            { projects: current.projects || [] },
+        ? permissionsUtil.canRevisionAction(
+            "saved-group",
+            "draft",
             { projects: [p] },
+            NO_ENVIRONMENT_BINDING,
           )
         : permissionsUtil.canCreateSavedGroup({ projects: [p] }),
     selectedProjects,
   );
   const canCreateWithoutProject = current.id
-    ? permissionsUtil.canUpdateSavedGroup(
-        { projects: current.projects || [] },
+    ? permissionsUtil.canRevisionAction(
+        "saved-group",
+        "draft",
         { projects: [] },
+        NO_ENVIRONMENT_BINDING,
       )
     : permissionsUtil.canCreateSavedGroup({ projects: [] });
   const hasProjectPermission = current.id
-    ? permissionsUtil.canUpdateSavedGroup(
-        { projects: current.projects || [] },
+    ? permissionsUtil.canRevisionAction(
+        "saved-group",
+        "draft",
         { projects: selectedProjects },
+        NO_ENVIRONMENT_BINDING,
       )
     : permissionsUtil.canCreateSavedGroup({ projects: selectedProjects });
   const listAboveSizeLimit = savedGroupSizeLimit
@@ -300,7 +324,7 @@ const SavedGroupForm: FC<{
     : !hasProjectPermission && !editConditionOnly
       ? !selectedProjects.length && projectsOptions.length > 0
         ? "Select a project to continue."
-        : `You don't have permission to ${current.id ? "update" : "create"} saved groups.`
+        : `You don't have permission to ${current.id ? "update" : "create"} Saved Groups.`
       : !isValid
         ? editConditionOnly
           ? !form.watch("condition")

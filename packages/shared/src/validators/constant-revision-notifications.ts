@@ -71,6 +71,35 @@ export type ConstantRevisionReopenedPayload = z.infer<
   typeof constantRevisionReopenedPayload
 >;
 
+// Recall returns a revision from the REVIEW cycle to draft. Distinct from
+// `reopened`, which restores a DISCARDED revision — the two leave the revision in
+// the same status but mean opposite things to a consumer (one retracts a review
+// request, the other revives abandoned work), and recall additionally clears every
+// verdict and disarms any deferred publish.
+export const constantRevisionRecalledPayload = constantRevisionWebhookPayload;
+export type ConstantRevisionRecalledPayload = z.infer<
+  typeof constantRevisionRecalledPayload
+>;
+
+// A review verdict RETRACTED by the reviewer who gave it. The revision's content
+// is untouched; only the standing verdicts change. It used to ride
+// `revision.updated`, whose `change` field the dispatcher derives from the
+// revision's EXISTING patch ops — so a retraction announced a `value` change that
+// never happened.
+export const constantRevisionReviewRetractedPayload =
+  constantRevisionWebhookPayload;
+export type ConstantRevisionReviewRetractedPayload = z.infer<
+  typeof constantRevisionReviewRetractedPayload
+>;
+
+// A deferred publish ARMED, re-armed, or CANCELLED. Content is untouched, for the
+// same reason as `reviewRetracted` above.
+export const constantRevisionPublishScheduleChangedPayload =
+  constantRevisionWebhookPayload;
+export type ConstantRevisionPublishScheduleChangedPayload = z.infer<
+  typeof constantRevisionPublishScheduleChangedPayload
+>;
+
 // `change` indicates which kind of constant field was mutated, derived from the
 // revision's proposed-changes patch op paths when the event is dispatched.
 export const constantRevisionUpdatedPayload = constantRevisionWebhookPayload

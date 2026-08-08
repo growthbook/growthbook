@@ -22,9 +22,27 @@ export type BulkRevisionRef = {
   claimStamp?: Date | null;
   /**
    * Set by applyPrecomputed(): the entity doc as actually persisted (writes
-   * may normalize), the ownership baseline for restorePreImage.
+   * may normalize), the ownership baseline for restorePreImage. `null` means the
+   * post-apply read failed — there is then no trustworthy baseline, so
+   * restorePreImage reports the item published rather than best-guessing.
    */
   writtenEntity?: Record<string, unknown> | null;
+  /**
+   * Writes the apply made to OTHER entities on this item's behalf — a Config's
+   * descendant cascade. Restored AFTER the root, since a descendant put back while
+   * the root still declares the field is re-stripped by ancestor normalization —
+   * silently, and reporting success.
+   */
+  cascade?: {
+    before: Record<string, unknown> & { id: string };
+    written: Record<string, unknown>;
+    /**
+     * `dateUpdated` the cascade write left. A release publishing an ancestor and a
+     * descendant together re-anchors the descendant's CAS baseline on this, so its
+     * own guarded write isn't refused by the cascade that just preceded it.
+     */
+    stamp?: Date | null;
+  }[];
   /**
    * Set by applyPrecomputed(): the entity fields the apply actually persisted
    * (post updatable-filter and post-normalization). restorePreImage rolls back
@@ -32,11 +50,12 @@ export type BulkRevisionRef = {
    */
   persistedKeys?: string[];
   /**
-   * Set by applyPrecomputed() when the post-apply read that captures
-   * `writtenEntity` failed: compensation has no trustworthy ownership baseline,
-   * so restorePreImage reports the item published rather than best-guessing.
+   * Set by applyPrecomputed() when its guarded entity write lost the CAS race:
+   * NOTHING was written, so restorePreImage must be a no-op. Restoring would
+   * compare live against values this apply never wrote and mistake the
+   * concurrent winner's work for its own.
    */
-  writtenEntityUnavailable?: boolean;
+  casLost?: boolean;
 };
 
 /**
@@ -71,9 +90,6 @@ export interface BulkPublishableAdapter {
     entity: Record<string, unknown>,
     version: number,
   ): Promise<BulkRevisionRef | null>;
-
-  /** Publish authority over the entity (may be narrower than update). */
-  canPublish(context: Context, entity: Record<string, unknown>): boolean;
 
   /** Update authority — rechecked against the post-merge desired state. */
   canUpdate(context: Context, entity: Record<string, unknown>): boolean;

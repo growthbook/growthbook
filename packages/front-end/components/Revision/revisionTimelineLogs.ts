@@ -16,10 +16,12 @@ const ACTIVITY_ACTION_MAP: Record<string, string> = {
   merged: "publish",
   discarded: "discard",
   reopened: "reopen",
+  recalled: "Recall Review",
   "review-requested": "Review Requested",
   "scheduled-publish": "schedule publish",
   "scheduled-publish-updated": "update scheduled publish",
   "scheduled-publish-canceled": "cancel scheduled publish",
+  "merge-recovered": "re-publish",
 };
 
 // Activity actions that duplicate entries already surfaced from reviews[].

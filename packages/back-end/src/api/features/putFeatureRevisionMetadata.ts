@@ -41,10 +41,7 @@ export async function setRevisionMetadata(
   const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -150,6 +147,10 @@ export async function setRevisionMetadata(
     const finalRevision = updated ?? revision;
 
     await recordRevisionUpdate(context, feature, finalRevision, "metadata", {
+      // No environment-scoped impact — see recordRevisionUpdate. Omitting this lets
+      // routing derive environments from the revision's RULES, sending a metadata
+      // edit to every environment-filtered subscriber those rules touch.
+      environments: [],
       auditDetails: { fields: Object.keys(changes) },
     });
 

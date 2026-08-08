@@ -1,3 +1,4 @@
+import isEqual from "lodash/isEqual";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Environment,
@@ -25,6 +26,7 @@ import { FeatureUsageRecords } from "shared/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
 import {
   featureHasEnvironment,
+  filterEnvironmentsByFeature,
   generateVariationId,
   getNewDraftExperimentsToPublish,
   getRulesForEnvironment,
@@ -35,11 +37,22 @@ import {
   getRequireRegisteredAttributesSettings,
   formatJsonMultilineObjects,
   getTargetingProjectIds,
+  type MergeResultChanges,
   type RequireRegisteredAttributesSettings,
 } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import isEqual from "lodash/isEqual";
-import { SafeRolloutRule } from "shared/validators";
+import {
+  HoldoutInterface,
+  RevisionRampAction,
+  SafeRolloutRule,
+} from "shared/validators";
+import {
+  featurePublishFootprint,
+  rampActionFootprint,
+  servingEnvironments,
+  holdoutEnvsForChange,
+  HOLDOUT_ENVS_UNRESOLVED,
+} from "shared/permissions";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getFutureScheduledStartDate } from "@/services/experiments";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
@@ -885,20 +898,97 @@ export function getDefaultValue(valueType: FeatureValueType): string {
   return "";
 }
 
-export function getAffectedRevisionEnvs(
-  liveFeature: FeatureInterface,
-  revision: FeatureRevisionInterface,
-  environments: Environment[],
-): string[] {
-  const enabledEnvs = getEnabledEnvironments(liveFeature, environments);
-  if (revision.defaultValue !== liveFeature.defaultValue) return enabledEnvs;
-
-  return enabledEnvs.filter((env) => {
-    const liveRules = getRulesForEnvironment(liveFeature.rules, env);
-    const revisionRules = getRulesForEnvironment(revision.rules, env);
-
-    return !isEqual(liveRules, revisionRules);
+/**
+ * The environments publishing a draft would reach — the footprint the Publish
+ * control needs to predict the endpoint's authority check.
+ *
+ * The rule itself is `featurePublishFootprint` in `shared`, the same call the
+ * publish endpoints make. This wrapper only supplies what differs on the client:
+ * holdout environments come from the loaded holdouts map, and a holdout that isn't
+ * loaded widens the footprint to every environment rather than being skipped.
+ */
+export function getRevisionPublishEnvs({
+  liveFeature,
+  changes,
+  environments,
+  holdoutsMap,
+  rampActions,
+}: {
+  liveFeature: FeatureInterface;
+  changes: MergeResultChanges;
+  environments: Environment[];
+  holdoutsMap: Map<string, HoldoutInterface>;
+  /**
+   * The revision's ramp actions. They ride the REVISION rather than the merge
+   * result, so they were absent from this side entirely while the endpoint added
+   * their reach — a draft carrying a ramp made the server answer for environments
+   * the control never mentioned.
+   */
+  rampActions?: RevisionRampAction[];
+}): string[] {
+  const environmentIds = environments.map((e) => e.id);
+  const holdout = holdoutEnvsForChange({
+    currentHoldoutId: liveFeature.holdout?.id,
+    newHoldout: changes.holdout,
+    environmentIds,
+    resolve: (id) => holdoutsMap.get(id),
   });
+
+  const base = featurePublishFootprint({
+    feature: liveFeature,
+    liveRules: liveFeature.rules ?? [],
+    changes,
+    environmentIds,
+    holdoutEnvs: holdout.unresolved.length
+      ? HOLDOUT_ENVS_UNRESOLVED
+      : holdout.envs,
+  });
+
+  // Same function the endpoint calls, over the same live rules, so the ramp term
+  // cannot drift the way it did when only one side had it.
+  const rampEnvs = rampActionFootprint({
+    rampActions,
+    liveRules: liveFeature.rules ?? [],
+    environmentIds,
+  });
+  return rampEnvs === "all"
+    ? [...environmentIds]
+    : [...new Set([...base, ...rampEnvs])];
+}
+
+/**
+ * The environments an edit-info save answers for.
+ *
+ * Extracted from EditFeatureInfoModal so it can be held to the endpoint's own rule:
+ * inline, it widened only for a primary-project move, while the endpoint's live
+ * metadata diff treats targeting changes as payload-affecting too — and an unbound
+ * footprint SKIPS the environment check rather than narrowing it.
+ */
+export function getMetadataEditEnvs({
+  feature,
+  proposed,
+  environments,
+}: {
+  feature: FeatureInterface;
+  proposed: {
+    project?: string;
+    targetingAllProjects?: boolean;
+    targetingProjects?: string[];
+  };
+  environments: Environment[];
+}): string[] {
+  const relocates = (proposed.project || "") !== (feature.project || "");
+  const targetingChanged =
+    !!proposed.targetingAllProjects !== !!feature.targetingAllProjects ||
+    !isEqual(
+      [...(proposed.targetingProjects ?? [])].sort(),
+      [...(feature.targetingProjects ?? [])].sort(),
+    );
+  if (!relocates && !targetingChanged) return [];
+  return servingEnvironments(
+    feature,
+    filterEnvironmentsByFeature(environments, feature).map((e) => e.id),
+  );
 }
 
 export function getDefaultVariationValue(defaultValue: string) {

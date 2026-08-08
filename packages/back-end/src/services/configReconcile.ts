@@ -8,6 +8,7 @@ import {
   isConfigLocked,
 } from "shared/util";
 import { ConfigInterface } from "shared/types/config";
+import { CasConflictError } from "back-end/src/models/BaseModel";
 import {
   BadRequestError,
   SoftWarningError,
@@ -36,7 +37,7 @@ function assertNoSiblingConflictsInSubtree(
         .map((c) => `"${c.key}" (declared by ${c.owners.join(" and ")})`)
         .join(", ");
       throw new BadRequestError(
-        `This change makes config "${key}" inherit the same field from two ` +
+        `This change makes Config "${key}" inherit the same field from two ` +
           `separate branches, with no single owner: ${detail}. Remove the ` +
           `duplicate declaration from one branch before publishing.`,
       );
@@ -44,28 +45,26 @@ function assertNoSiblingConflictsInSubtree(
   }
 }
 
-/**
- * Dry run of the descendant sibling-conflict check, evaluated against the
- * PROPOSED root (a not-yet-persisted `{ ...existing, ...changes }` doc). Call
- * this BEFORE the live root write so a publish that would create an unresolvable
- * sibling conflict at a descendant is rejected with nothing persisted — instead
- * of committing the root and then throwing from `reconcileConfigDescendants`
- * (which would leave the root changed while a descendant carries an at-rest
- * conflict).
- *
- * ACCEPTED RACE (TOCTOU): this validates a snapshot read here, but a concurrent
- * write to another family member between this check and the live write could
- * still introduce a conflict the dry run didn't see. We accept that residual
- * race rather than locking the whole config family across the read→validate→
- * write window (the contention isn't worth it for a rare, self-healing case).
- * The hit is minimized by:
- *   - the CAS-guarded revision merge (a concurrent merge of the same revision
- *     can't double-apply), which keeps the vulnerable window to the gap between
- *     this check and the immediately-following write; and
- *   - the post-write `reconcileConfigDescendants` net, which still runs and will
- *     surface/normalize anything that slipped through (at the cost of the
- *     documented partial-write only in that rare interleaving).
- */
+// Dry run of the descendant sibling-conflict check, evaluated against the
+// PROPOSED root (a not-yet-persisted `{ ...existing, ...changes }` doc). Call
+// this BEFORE the live root write so a publish that would create an unresolvable
+// sibling conflict at a descendant is rejected with nothing persisted — instead
+// of committing the root and then throwing from `reconcileConfigDescendants`
+// (which would leave the root changed while a descendant carries an at-rest
+// conflict).
+//
+// ACCEPTED RACE (TOCTOU): this validates a snapshot read here, but a concurrent
+// write to another family member between this check and the live write could
+// still introduce a conflict the dry run didn't see. We accept that residual
+// race rather than locking the whole config family across the read→validate→
+// write window (the contention isn't worth it for a rare, self-healing case).
+// The hit is minimized by:
+// - the CAS-guarded revision merge (a concurrent merge of the same revision
+// can't double-apply), which keeps the vulnerable window to the gap between
+// this check and the immediately-following write; and
+// - the post-write `reconcileConfigDescendants` net, which still runs and will
+// surface/normalize anything that slipped through (at the cost of the
+// documented partial-write only in that rare interleaving).
 export async function assertConfigDescendantsReconcilable(
   context: Context,
   proposedRoot: ConfigInterface,
@@ -108,22 +107,20 @@ function formatImpactLine(impact: ConfigSchemaChangeImpact): string {
   return `${name}: ${parts.join("; ")}`;
 }
 
-/**
- * Soft publish gate: warn when a proposed root schema/lineage change removes or
- * retypes fields that descendants still override or reference, or would drop a
- * descendant's contract-differing declaration via the cascade. Bypassable with
- * `?ignoreWarnings=true`. Always soft on a synchronous publish, regardless of
- * `blockPublishOnSchemaError`: the warning is about OTHER configs' state, not
- * the written value, so it must never hard-block an ancestor's own legitimate
- * publish — and for the same reason it ignores `skipSchemaValidation`.
- *
- * On a DEFERRED merge (scheduled poller / auto-publish-on-approval) there is no
- * user to warn and request-less contexts force `ignoreWarnings=true`, which says
- * nothing about intent — so instead of silently skipping, a tripped warning is a
- * TERMINAL failure: the publish is rejected, the draft stays open, and the
- * `revision.publishFailed` webhook fires. The publisher re-publishes manually
- * with `ignoreWarnings` to push through.
- */
+// Soft publish gate: warn when a proposed root schema/lineage change removes or
+// retypes fields that descendants still override or reference, or would drop a
+// descendant's contract-differing declaration via the cascade. Bypassable with
+// `?ignoreWarnings=true`. Always soft on a synchronous publish, regardless of
+// `blockPublishOnSchemaError`: the warning is about OTHER configs' state, not
+// the written value, so it must never hard-block an ancestor's own legitimate
+// publish — and for the same reason it ignores `skipSchemaValidation`.
+//
+// On a DEFERRED merge (scheduled poller / auto-publish-on-approval) there is no
+// user to warn and request-less contexts force `ignoreWarnings=true`, which says
+// nothing about intent — so instead of silently skipping, a tripped warning is a
+// TERMINAL failure: the publish is rejected, the draft stays open, and the
+// `revision.publishFailed` webhook fires. The publisher re-publishes manually
+// with `ignoreWarnings` to push through.
 export async function assertConfigSchemaChangeSafeForDescendants(
   context: Context,
   proposedRoot: ConfigInterface,
@@ -143,7 +140,7 @@ export async function assertConfigSchemaChangeSafeForDescendants(
   const lines = impacts.map(formatImpactLine);
   const message =
     `This change removes, retypes, or takes over fields that ` +
-    `${impacts.length} descendant config(s) still use:\n` +
+    `${impacts.length} descendant Config(s) still use:\n` +
     lines.join("\n");
   if (opts?.deferred) {
     throw new TerminalPublishError(message);
@@ -151,12 +148,10 @@ export async function assertConfigSchemaChangeSafeForDescendants(
   throw new SoftWarningError(message, lines);
 }
 
-/**
- * The gate form of the schema-change-impact warning above, evaluated at plan
- * time (the read context decides the baseline — under the bulk publisher's
- * per-item overlay, `before` already reflects the other items' proposals).
- * Cleared by ignoreWarnings alone, matching the assert.
- */
+// The gate form of the schema-change-impact warning above, evaluated at plan
+// time (the read context decides the baseline — under the bulk publisher's
+// per-item overlay, `before` already reflects the other items' proposals).
+// Cleared by ignoreWarnings alone, matching the assert.
 export async function collectConfigSchemaChangeImpactGates(
   context: Context,
   proposedRoot: ConfigInterface,
@@ -176,7 +171,7 @@ export async function collectConfigSchemaChangeImpactGates(
       type: "schema-change-impact",
       severity: "warning",
       messages: [
-        `This change removes, retypes, or takes over fields that ${impacts.length} descendant config(s) still use:`,
+        `This change removes, retypes, or takes over fields that ${impacts.length} descendant Config(s) still use:`,
         ...impacts.map(formatImpactLine),
       ],
       override: "ignoreWarnings",
@@ -187,30 +182,48 @@ export async function collectConfigSchemaChangeImpactGates(
 }
 
 /**
- * Re-run "base wins" normalization across every descendant of `rootKey` after
- * that config's schema changes.
- *
- * When a base (ancestor) config publishes a new field, any descendant that had
- * already declared that key must drop its own definition: the ancestor now owns
- * it, and the descendant keeps only a value override. We walk the subtree base
- * → leaf so each node is reconciled against an already-normalized ancestor set,
- * and apply each strip as a system write (`dangerousUpdateBypassPermission`) so
- * the cascade isn't blocked by per-config/per-project edit permissions — the
- * acting user only published the base.
- *
- * The root itself is skipped: it's normalized against its own ancestors on its
- * primary write (see ConfigModel.normalizeSchemaAgainstAncestors).
- *
- * Reconcile-or-error: where an ancestor legitimately owns a descendant's field
- * we strip it (base wins). But a base's new field can also collide with a
- * SIBLING base at a shared (composing) descendant — there's no valid field to
- * strip there, since neither base is the other's ancestor. That's a structural
- * composition error, so we detect it up front and throw before mutating any
- * descendant.
+ * One descendant write the cascade performed: the doc it wrote against, and the
+ * fields it wrote. Compensation needs the PRE-IMAGE because
+ * `stripAncestorOwnedFields` can only REMOVE keys — re-running the cascade against
+ * a restored root can never un-strip one, so a root-only rollback silently deletes
+ * a field from a config the user never touched.
  */
+export type ConfigCascadeWrite = {
+  before: ConfigInterface;
+  written: Record<string, unknown>;
+  // `dateUpdated` this cascade write left on the descendant. A release publishing an
+  // ancestor and a descendant together needs it to tell its OWN cascade from a
+  // foreign write when re-anchoring the descendant's CAS baseline.
+  stamp: Date | null;
+};
+
+// Re-run "base wins" normalization across every descendant of `rootKey` after
+// that config's schema changes.
+//
+// When a base (ancestor) config publishes a new field, any descendant that had
+// already declared that key must drop its own definition: the ancestor now owns
+// it, and the descendant keeps only a value override. We walk the subtree base
+// → leaf so each node is reconciled against an already-normalized ancestor set,
+// and apply each strip as a system write (`dangerousUpdateBypassPermission`) so
+// the cascade isn't blocked by per-config/per-project edit permissions — the
+// acting user only published the base.
+//
+// The root itself is skipped: it's normalized against its own ancestors on its
+// primary write (see ConfigModel.normalizeSchemaAgainstAncestors).
+//
+// Reconcile-or-error: where an ancestor legitimately owns a descendant's field
+// we strip it (base wins). But a base's new field can also collide with a
+// SIBLING base at a shared (composing) descendant — there's no valid field to
+// strip there, since neither base is the other's ancestor. That's a structural
+// composition error, so we detect it up front and throw before mutating any
+// descendant.
 export async function reconcileConfigDescendants(
   context: Context,
   rootKey: string,
+  // Called as each descendant write LANDS, before its audit and afterUpdate hooks.
+  // The cascade is the one entity write in a compensated landing that used to
+  // persist silently.
+  onDescendantWritten?: (write: ConfigCascadeWrite) => void,
 ): Promise<void> {
   const all = await context.models.configs.getAllForReconcile();
   const byKey = new Map(all.map((c) => [c.key, c]));
@@ -245,21 +258,61 @@ export async function reconcileConfigDescendants(
       continue;
     }
 
-    const ancestorKeys = getAncestorSchemaKeys(node, byKey);
-    const kept = stripAncestorOwnedFields(node.schema, ancestorKeys);
-    if (!kept) continue;
+    // Guarded read-decide-write per descendant, retried: the walk computes from
+    // its snapshot, and a descendant PUBLISH landing between that snapshot and
+    // an unguarded write would be replaced by stale reconciliation output. On a
+    // loss, re-read the descendant and recompute against ITS new schema — the
+    // publish that beat us already normalized against the current ancestors, so
+    // a second loss usually means nothing is left to strip.
+    let current = node;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const ancestorKeys = getAncestorSchemaKeys(current, byKey);
+      const kept = stripAncestorOwnedFields(current.schema, ancestorKeys);
+      if (!kept) {
+        byKey.set(current.key, current);
+        break;
+      }
 
-    const newSchema = {
-      ...node.schema,
-      type: node.schema?.type ?? ("object" as const),
-      fields: kept,
-    };
-    const updated =
-      await context.models.configs.dangerousUpdateBypassPermission(node, {
-        schema: newSchema,
-      });
-    // Keep the working map current so a deeper descendant sees the parent's
-    // post-strip schema when computing its own ancestor-owned keys.
-    byKey.set(updated.key, updated);
+      const newSchema = {
+        ...current.schema,
+        type: current.schema?.type ?? ("object" as const),
+        fields: kept,
+      };
+      try {
+        const preImage = current;
+        const updated = await context.models.configs.updateIfUnchanged(
+          current,
+          { schema: newSchema },
+          undefined,
+          // Same authority contract as the bypass write this replaces: the
+          // cascade acts under the ancestor publish already authorized.
+          {
+            dangerouslyBypassCanUpdate: true,
+            // Reported from inside the write, so a later descendant's failure can
+            // put THIS one back. `preImage` is the doc this attempt wrote against —
+            // after a CAS retry that is the refreshed row, which is what ownership
+            // has to be judged against.
+            onWritten: (doc) =>
+              onDescendantWritten?.({
+                before: preImage,
+                written: { schema: newSchema },
+                stamp: (doc as { dateUpdated?: Date }).dateUpdated ?? null,
+              }),
+          },
+        );
+        // Keep the working map current so a deeper descendant sees the parent's
+        // post-strip schema when computing its own ancestor-owned keys.
+        byKey.set(updated.key, updated);
+        break;
+      } catch (e) {
+        if (e instanceof CasConflictError && attempt < 3) {
+          const fresh = await context.models.configs.getById(current.id);
+          if (!fresh) break;
+          current = fresh;
+          continue;
+        }
+        throw e;
+      }
+    }
   }
 }

@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { Response } from "express";
 import { isEqual } from "lodash";
 import { z } from "zod";
@@ -28,9 +29,16 @@ import {
   formatAncestorFieldConflictMessage,
   collectConfigInvariantViolations,
   stripConfigExtends,
+  scopedOverridesFootprint,
   ScopedOverrideEntry,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
+import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
+import {
+  compensateFailedLanding,
+  runGuardedWrite,
+} from "back-end/src/revisions/landingSequence";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -40,7 +48,13 @@ import {
   applyPatchToSnapshot,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { getAdapter } from "back-end/src/revisions";
+import { canLandArchivedState } from "back-end/src/revisions/archiveTransition";
+import {
+  archiveServeFootprint,
+  configPublishEnvironments,
+} from "back-end/src/revisions/revisionPublishEnvironments";
 import {
   ConstantReferences,
   ConfigFamilyFeatureRef,
@@ -72,6 +86,7 @@ import {
   isValidRevertBypass,
   revertRestoresTargetSnapshot,
 } from "back-end/src/services/configRevertBypass";
+import { isPureRevertPatch } from "back-end/src/revisions/revertPurity";
 import {
   assertScopedOverridesExperimentGuard,
   configChangeAffectsServedValue,
@@ -483,7 +498,7 @@ export const postConfig = async (
   // stay editable/deletable after a license lapses (err permissive).
   if (!context.hasPremiumFeature("feature-configs")) {
     throw new PlanDoesNotAllowError(
-      "Creating configs requires a plan that includes feature configs.",
+      "Creating Configs requires a plan that includes Configs.",
     );
   }
 
@@ -620,6 +635,7 @@ type PutConfigRequest = AuthRequest<
     revisionId?: string;
     forceCreateRevision?: string;
     title?: string;
+    comment?: string;
     revertedFrom?: string;
   }
 >;
@@ -662,11 +678,105 @@ export const putConfig = async (
     return context.throwNotFoundError("Config not found");
   }
 
-  if (
-    !context.permissions.canUpdateConfig(existing, {
-      project: project ?? existing.project,
-    })
-  ) {
+  // A request that touches nothing but `archived` is a pure archive/unarchive
+  // (what the archive modal sends), and rides its landing authority alone —
+  // a delete-only role can take a Config out of service without edit rights.
+  const archiveOnlyRequest =
+    typeof archived === "boolean" &&
+    Object.keys(req.body).every(
+      (k) => k === "archived" || k === "ignoreWarnings",
+    );
+  const canLandArchive =
+    archiveOnlyRequest &&
+    !!archived !== !!existing.archived &&
+    canLandArchivedState({
+      permissions: context.permissions,
+      model: "config",
+      entity: existing,
+      archived: !!archived,
+      // Serve footprint — the SAME helper the adapter's archive arm uses. The
+      // scoped list is empty for a base Config, and an empty footprint skips the
+      // environment check rather than narrowing it.
+      environments: archiveServeFootprint(
+        context,
+        existing,
+        configPublishEnvironments(context, existing),
+      ),
+    });
+
+  // If updating a specific revision, compare against its current (patched) state
+  // rather than the live entity so we don't re-propose unchanged fields.
+  const revisionId = req.query.revisionId;
+  let comparisonBase: ConfigInterface = existing;
+  if (revisionId) {
+    const // Live basis, matching the WRITE.
+      targetRevision =
+        await context.models.revisions.getByIdReadable(revisionId);
+    // Writing `archived` into a PINNED revision is a write into someone
+    // else's draft: it makes that draft delete-class, and its author — a
+    // publisher without delete — can then no longer publish their own work.
+    // `archiveOnlyRequest` above inspects only the BODY, and `revisionId` is
+    // a QUERY param, so the delete-atom exemption passed straight through.
+    if (
+      targetRevision &&
+      typeof archived === "boolean" &&
+      !canWriteArchiveIntoDraft({
+        permissions: context.permissions,
+        model: "config",
+        entity: existing,
+        revision: targetRevision,
+        userId: context.userId,
+      })
+    ) {
+      context.permissions.throwPermissionError();
+    }
+    if (targetRevision && targetRevision.target.type === "config") {
+      const patchedSnapshot = applyPatchToSnapshot(
+        targetRevision.target.snapshot as ConfigInterface,
+        normalizeProposedChanges(targetRevision.target.proposedChanges),
+      );
+      comparisonBase = { ...existing, ...patchedSnapshot };
+    }
+  }
+
+  // The destination of a move. A draft may already carry one: editing it
+  // without naming `project` again still authors content bound for that pending
+  // destination, so resolve from the draft's patched state rather than this
+  // request alone — otherwise a draft moving A→B checks A on both sides.
+  const destinationProject =
+    project ?? comparisonBase.project ?? existing.project ?? "";
+
+  // Both sides: authoring rights where it lives now, and where it would land.
+  const canDraftEntity =
+    context.permissions.canRevisionAction(
+      "config",
+      "draft",
+      existing,
+      NO_ENVIRONMENT_BINDING,
+    ) &&
+    holdsMoveDestination({
+      permissions: context.permissions,
+      model: "config",
+      action: "draft",
+      existing,
+      proposed: { ...existing, project: destinationProject },
+    });
+
+  // Restoring a previously-published revision is its own atom, so a revert-only
+  // role (no draft authority) still gets in when the request names a revert
+  // target. What it may then WRITE is narrowed to a pure restoration below, so
+  // this cannot be used to author arbitrary drafts.
+  const revertedFrom = req.query.revertedFrom;
+  const canRideRevert =
+    !!revertedFrom &&
+    context.permissions.canRevisionAction(
+      "config",
+      "revert",
+      existing,
+      configPublishEnvironments(context, existing),
+    );
+
+  if (!canLandArchive && !canDraftEntity && !canRideRevert) {
     context.permissions.throwPermissionError();
   }
 
@@ -677,21 +787,6 @@ export const putConfig = async (
   }
 
   // Cycle rejection is enforced in ConfigModel (covers every write path).
-
-  // If updating a specific revision, compare against its current (patched) state
-  // rather than the live entity so we don't re-propose unchanged fields.
-  const revisionId = req.query.revisionId;
-  let comparisonBase: ConfigInterface = existing;
-  if (revisionId) {
-    const targetRevision = await context.models.revisions.getById(revisionId);
-    if (targetRevision && targetRevision.target.type === "config") {
-      const patchedSnapshot = applyPatchToSnapshot(
-        targetRevision.target.snapshot as ConfigInterface,
-        normalizeProposedChanges(targetRevision.target.proposedChanges),
-      );
-      comparisonBase = { ...existing, ...patchedSnapshot };
-    }
-  }
 
   // null/undefined means "field wasn't intentionally changed".
   const hasChanged = (newVal: unknown, oldVal: unknown): boolean => {
@@ -742,10 +837,39 @@ export const putConfig = async (
     fieldsToUpdate.project = project;
   }
   if (hasChanged(archived, comparisonBase.archived)) {
+    // Same gate as the REST archive endpoints: archiving is delete-class,
+    // unarchiving is an ordinary publish. Compared against the LIVE state, so a
+    // caller writing back a full object doesn't get gated for a no-op.
+    if (
+      !!archived !== !!existing.archived &&
+      !canLandArchivedState({
+        permissions: context.permissions,
+        model: "config",
+        entity: existing,
+        archived: !!archived,
+        // Serve footprint — see the adapter's archive arm.
+        environments: archiveServeFootprint(
+          context,
+          existing,
+          configPublishEnvironments(context, existing),
+        ),
+      })
+    ) {
+      context.permissions.throwPermissionError();
+    }
     fieldsToUpdate.archived = archived;
   }
   // `schema` (config field definitions) is a content change like `value`.
-  if (hasChanged(schema, comparisonBase.schema)) {
+  //
+  // An explicit `null` CLEARS it, which `hasChanged` cannot express: its first line
+  // treats nullish as "not intentionally changed", which is right for every other
+  // field here and wrong for the one a revert has to be able to remove. Handled
+  // ahead of it, the same null-as-clear rule `postConfigRevisionRevert` applies.
+  if (schema === null) {
+    if ((comparisonBase.schema ?? null) !== null) {
+      fieldsToUpdate.schema = null as unknown as typeof fieldsToUpdate.schema;
+    }
+  } else if (hasChanged(schema, comparisonBase.schema)) {
     fieldsToUpdate.schema = schema;
   }
   if (extensible !== undefined && extensible !== comparisonBase.extensible) {
@@ -770,7 +894,17 @@ export const putConfig = async (
   // doing it here keeps drafts honest too.
   const lineageChanged =
     fieldsToUpdate.parent !== undefined || "extends" in fieldsToUpdate;
-  const schemaToNormalize = fieldsToUpdate.schema ?? existing.schema;
+  // `in`, not `??`: an explicit null is a CLEAR and must not fall through to the
+  // stored schema. With `??`, a revert that cleared the schema AND changed lineage
+  // in one request resurrected `existing.schema` here, normalized it against the
+  // new ancestors, and wrote the remnant back — so the clear became a partial
+  // schema. The pure clear was safe only by accident (`null || false` is falsy, so
+  // the block was skipped); adding a lineage change to the same request opened it.
+  //
+  // Same basis `postConfigRevisionRevert` uses. See `configSchemaNormalize.test.ts`
+  // for the strip that produces the remnant.
+  const schemaToNormalize =
+    "schema" in fieldsToUpdate ? fieldsToUpdate.schema : existing.schema;
   if ((fieldsToUpdate.schema || lineageChanged) && schemaToNormalize) {
     const { schema: normalized, conflicting } =
       await context.models.configs.normalizeSchemaAgainstAncestors(
@@ -841,7 +975,9 @@ export const putConfig = async (
   const bypassApproval = req.query.bypassApproval === "1";
   const autoPublish = req.query.autoPublish === "1";
   const title = req.query.title;
-  const revertedFrom = req.query.revertedFrom;
+  // The shared RevertModal renders "Add a Comment (optional)" and sends it for all
+  // three entities; only Saved Groups read it, so it was silently discarded here.
+  const comment = req.query.comment;
 
   const wantsDraft = !!revisionId || forceCreateRevision;
   const wantsMerge = bypassApproval || autoPublish || !wantsDraft;
@@ -890,6 +1026,25 @@ export const putConfig = async (
 
   const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
 
+  // Resolved once (only for a request that names a revert target) and consulted
+  // by both the write-narrowing check and the landing gate below.
+  const pureRevertPatch = revertedFrom
+    ? await isPureRevertPatch(context, {
+        revertedFrom,
+        entityType: "config",
+        entityId: existing.id,
+        patchOps,
+      })
+    : false;
+
+  // A caller who got in on revert authority alone may only write a revision that
+  // purely restores the named published revision — draft or publish alike. The
+  // change set comes from the caller's body, so a valid `revertedFrom` id must
+  // never be able to front arbitrary values.
+  if (!canLandArchive && !canDraftEntity && !pureRevertPatch) {
+    context.permissions.throwPermissionError();
+  }
+
   // Configs inherit the feature `requireReviews` settings (same as constants).
   // An env-scoped flavor's value change only needs review when its environments
   // fall in a review rule's scope — same logic as the revision adapter.
@@ -902,14 +1057,61 @@ export const putConfig = async (
 
   // Block publishing past a locked config's pinned revision (creating/editing
   // drafts stays allowed). Guard before creating or claiming a merge so a blocked
-  // publish leaves nothing behind. Unlock (bypassApprovalChecks) to publish.
+  // publish leaves nothing behind. Unlock (FlagsBypassApprovals) to publish.
   const willPublish =
     wantsMerge && (!approvalRequired || bypassApproval || autoPublish);
   if (willPublish) {
+    // Landing a move takes publish in the destination too.
+    if (
+      !holdsMoveDestination({
+        permissions: context.permissions,
+        model: "config",
+        action: "publish",
+        existing,
+        proposed: { ...existing, project: destinationProject },
+        environments: configPublishEnvironments(context, existing),
+      })
+    ) {
+      context.permissions.throwPermissionError();
+    }
+    // Landing a change live is publish-class, not edit-class. A pure archive
+    // carries its own landing authority (checked above), so it's exempt here.
+    // Revert authority lands one too, once the ops are proven pure (above).
+    if (
+      !canLandArchive &&
+      !context.permissions.canRevisionAction(
+        "config",
+        "publish",
+        existing,
+        configPublishEnvironments(context, existing),
+      ) &&
+      !(
+        pureRevertPatch &&
+        context.permissions.canRevisionAction(
+          "config",
+          "revert",
+          existing,
+          configPublishEnvironments(context, existing),
+        )
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
     assertConfigNotLocked(existing);
   }
 
   const forceCreate = wantsMerge || forceCreateRevision;
+
+  const canBypass = getAdapter("config").canBypassApproval(
+    context,
+    existing as unknown as Record<string, unknown>,
+  );
+
+  // bypassApproval is an explicit admin override — enforce it before the
+  // revision is written, so a caller without the atom doesn't leave one behind.
+  if (wantsMerge && bypassApproval && approvalRequired && !canBypass) {
+    context.permissions.throwPermissionError();
+  }
 
   let revision = await createOrUpdateRevision(
     context,
@@ -919,6 +1121,7 @@ export const putConfig = async (
     {
       forceCreate,
       title,
+      comment,
       revertedFrom,
       revisionId:
         wantsDraft && !bypassApproval && !autoPublish ? revisionId : undefined,
@@ -926,15 +1129,6 @@ export const putConfig = async (
   );
 
   if (wantsMerge) {
-    const canBypass = getAdapter("config").canBypassApproval(
-      context,
-      existing as unknown as Record<string, unknown>,
-    );
-
-    if (bypassApproval && approvalRequired && !canBypass) {
-      context.permissions.throwPermissionError();
-    }
-
     if (autoPublish && approvalRequired && !canBypass) {
       // A revert may auto-publish past review only when `revertedFrom` names a
       // genuine merged revision of THIS config AND the proposed changes actually
@@ -1032,16 +1226,42 @@ export const putConfig = async (
 
       // Claim the merge first (CAS-guarded) so a concurrent discard can't orphan
       // a half-applied change; reopen if the live write then fails.
+      // Kept for compensation: the claim overwrites `revision` with the merged row.
+      const priorRevision = revision;
       revision = await context.models.revisions.merge(
         revision.id,
         context.userId,
         { bypass: isBypass },
       );
 
+      let landedDoc: Record<string, unknown> | null = null;
+      // Descendant writes the cascade makes on this landing's behalf. Put back AFTER
+      // the root — a descendant restored while the root still declares the field is
+      // re-stripped by ancestor normalization, silently reporting success.
+      const cascadeWrites: {
+        before: Record<string, unknown> & { id: string };
+        written: Record<string, unknown>;
+      }[] = [];
       try {
-        await context.models.configs.update(
-          existing,
-          fieldsToUpdate as Parameters<typeof context.models.configs.update>[1],
+        // Guarded on the pre-image: the merge claim above guards the REVISION,
+        // not the entity. A lost race reopens the revision below and returns the
+        // same retryable 409 as every other landing.
+        // Reported from inside the write so a failure AFTER it — the cascade below —
+        // can put live state back. Without the report the catch could only un-merge,
+        // which left the change live with no revision recording it.
+        await runGuardedWrite("config", existing.id, () =>
+          context.models.configs.updateIfUnchanged(
+            existing,
+            fieldsToUpdate as Parameters<
+              typeof context.models.configs.update
+            >[1],
+            undefined,
+            {
+              onWritten: (doc: unknown) => {
+                landedDoc = doc as Record<string, unknown>;
+              },
+            },
+          ),
         );
         // A schema/lineage change can introduce a field a descendant already
         // declares; cascade "base wins" down the subtree (system-normalized live
@@ -1053,20 +1273,54 @@ export const putConfig = async (
           fieldsToUpdate.parent !== undefined ||
           "extends" in fieldsToUpdate
         ) {
-          await reconcileConfigDescendants(context, existing.key);
+          await reconcileConfigDescendants(context, existing.key, (w) =>
+            cascadeWrites.push({
+              before: w.before as unknown as Record<string, unknown> & {
+                id: string;
+              },
+              written: w.written,
+            }),
+          );
         }
       } catch (e) {
         try {
-          await context.models.revisions.reopen(revision.id, context.userId);
+          // Live back first, then un-merge — ordering and guards live in
+          // `compensateFailedLanding`.
+          await compensateFailedLanding({
+            context,
+            entityType: "config",
+            entity: existing as unknown as Record<string, unknown> & {
+              id: string;
+            },
+            persisted: landedDoc,
+            changes: fieldsToUpdate as Record<string, unknown>,
+            cascade: cascadeWrites,
+            unmerge: () =>
+              context.models.revisions.reopenAfterFailedApply(
+                revision.id,
+                context.userId,
+                priorRevision,
+                revision.dateUpdated,
+              ),
+          });
         } catch {
           // ignore — surface the original update error
         }
         throw e;
       }
 
+      // A revert that lands is ALSO a publish, so it owes both — `reverted` names
+      // what happened, `published` is the lifecycle event subscribers mirror state
+      // from. Emitting one OR the other made these landings invisible to anyone
+      // following the documented published lifecycle.
       await dispatchConfigRevisionEvent(context, revision, {
-        type: revision.revertedFrom ? "reverted" : "published",
+        type: "published",
       });
+      if (revision.revertedFrom) {
+        await dispatchConfigRevisionEvent(context, revision, {
+          type: "reverted",
+        });
+      }
 
       return res.status(200).json({ status: 200, revision });
     }
@@ -1100,12 +1354,22 @@ export const deleteConfig = async (
   }
   // Check delete permission before the (DB-scanning) dependency assertion, so a
   // reader without manage access gets a clean 403 rather than a dependency error.
-  if (!context.permissions.canDeleteConfig(existing)) {
+  if (
+    !context.permissions.canDeleteConfig(
+      existing,
+      // Archived (enforced below), so it is serving nothing anywhere — same
+      // reading of an archived entity's footprint that features and constants
+      // take. A live config still answers for the environments it scopes to.
+      existing.archived
+        ? NO_ENVIRONMENT_BINDING
+        : configPublishEnvironments(context, existing),
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
   // A locked config is frozen at its published revision; deleting it would
   // destroy that pinned revision. Refuse, matching the REST delete endpoint
-  // (lock removal is separately gated behind bypassApprovalChecks).
+  // (lock removal is separately gated behind FlagsBypassApprovals).
   assertConfigNotLocked(existing);
   // Require the config to be archived first (mirrors constants): archive is
   // reversible and flows through approvals; delete isn't.
@@ -1119,9 +1383,10 @@ export const deleteConfig = async (
   return res.status(200).json({ status: 200 });
 };
 
-// Freeze the config at its current published revision. Locking needs only edit
-// authority (the asymmetry: unlocking is gated). The lock lives outside the
-// revision merge allowlist, so write it directly after the auth check.
+// Freeze the config at its current published revision. Locking takes publish
+// authority — it changes what the live config does (the asymmetry: unlocking
+// needs the elevated bypass). The lock lives outside the revision merge
+// allowlist, so write it directly after the auth check.
 export const lockConfig = async (
   req: AuthRequest<{ reason?: string }, { id: string }>,
   res: Response<{ status: 200; config: ConfigInterface }>,
@@ -1131,7 +1396,14 @@ export const lockConfig = async (
   if (!config) {
     return context.throwNotFoundError("Config not found");
   }
-  if (!context.permissions.canUpdateConfig(config, config)) {
+  if (
+    !context.permissions.canRevisionAction(
+      "config",
+      "publish",
+      config,
+      configPublishEnvironments(context, config),
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -1159,7 +1431,7 @@ export const lockConfig = async (
 };
 
 // Clear the lock so changes can be published again. Requires the elevated
-// bypassApprovalChecks permission — the same trust that skips the review queue.
+// FlagsBypassApprovals permission — the same trust that skips the review queue.
 export const unlockConfig = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200; config: ConfigInterface }>,
@@ -1170,9 +1442,12 @@ export const unlockConfig = async (
     return context.throwNotFoundError("Config not found");
   }
   if (
-    !context.permissions.canBypassApprovalChecks({
-      project: config.project || "",
-    })
+    !context.permissions.canBypassFlagApprovalChecks(
+      {
+        project: config.project || "",
+      },
+      "config",
+    )
   ) {
     context.permissions.throwPermissionError();
   }
@@ -1189,8 +1464,8 @@ export const unlockConfig = async (
 };
 
 // Toggle the per-config experiment guard. Asymmetric like lock/unlock: turning it
-// ON needs only edit authority, turning it OFF (removing a protection) needs the
-// elevated bypassApprovalChecks. The flag lives outside the revision merge
+// ON takes publish authority, turning it OFF (removing a protection) needs the
+// elevated FlagsBypassApprovals. The flag lives outside the revision merge
 // allowlist, so it's written directly after the auth check.
 export const setConfigExperimentGuard = async (
   req: AuthRequest<{ enabled: boolean }, { id: string }>,
@@ -1204,13 +1479,23 @@ export const setConfigExperimentGuard = async (
   const enabled = !!req.body?.enabled;
 
   if (enabled) {
-    if (!context.permissions.canUpdateConfig(config, config)) {
+    if (
+      !context.permissions.canRevisionAction(
+        "config",
+        "publish",
+        config,
+        configPublishEnvironments(context, config),
+      )
+    ) {
       context.permissions.throwPermissionError();
     }
   } else if (
-    !context.permissions.canBypassApprovalChecks({
-      project: config.project || "",
-    })
+    !context.permissions.canBypassFlagApprovalChecks(
+      {
+        project: config.project || "",
+      },
+      "config",
+    )
   ) {
     context.permissions.throwPermissionError();
   }
@@ -1244,14 +1529,31 @@ export const setConfigScopedOverrides = async (
   if (!config) {
     return context.throwNotFoundError("Config not found");
   }
-  if (!context.permissions.canUpdateConfig(config, config)) {
+  const scopedOverrides = req.body?.scopedOverrides ?? [];
+  // Measured over the current AND proposed entries, matching the REST route. The
+  // Config's own `configPublishEnvironments` is the wrong question here: the config
+  // that OWNS overrides is the base one, which declares no scope, so the footprint
+  // came back empty and skipped the environment check — letting a dev-limited
+  // publisher attach a production flavor. This write also bypasses model permissions,
+  // so this gate is the only one.
+  if (
+    !context.permissions.canRevisionAction(
+      "config",
+      "publish",
+      config,
+      scopedOverridesFootprint({
+        current: config.scopedOverrides,
+        proposed: scopedOverrides,
+        allEnvironments: getEnvironmentIdsFromOrg(context.org),
+      }),
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
   // A locked config is frozen at its pinned revision; attaching/reordering a
   // flavor is value-affecting (it changes what resolves per env), so it must not
   // bypass the lock. Unlock first to change overrides.
   assertConfigNotLocked(config);
-  const scopedOverrides = req.body?.scopedOverrides ?? [];
   await assertScopedOverridesValid(
     context,
     { key: config.key, project: config.project, scopedOverrides },

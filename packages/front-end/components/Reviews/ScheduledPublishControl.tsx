@@ -65,11 +65,15 @@ export default function ScheduledPublishControl({
   toggleAutoPublishPath,
   entityNoun,
   canEdit,
+  canArm = true,
+  canCancel,
+  canDraft,
   canBypassApproval,
   requiresApproval,
   autopublishOnApproval,
   isReviewRequester,
   dateNote,
+  onStagedScheduleChange,
   mutate,
 }: {
   revision: ScheduleControlRevision;
@@ -85,11 +89,23 @@ export default function ScheduledPublishControl({
   schedulePublishPath: string;
   // POST endpoint for arming/disarming "publish when approved". Body { enabled }.
   toggleAutoPublishPath: string;
-  // Noun for the lock scope option ("this {entityNoun}"), e.g. "saved group",
+  // Noun for the lock scope option ("this {entityNoun}"), e.g. "Saved Group" —
+  // a named resource keeps its Title Case mid-sentence,
   // "feature".
   entityNoun: string;
   // The viewer has publish authority over this entity.
   canEdit: boolean;
+  /** False when new schedules are refused but an existing one may still be cancelled. */
+  canArm?: boolean;
+  /**
+   * Cancelling. The endpoint judges it on COARSE live-entity publish authority, so a
+   * change-aware `canEdit` that fails for this particular revision must not hide the
+   * one action still permitted. Defaults to `canEdit`.
+   */
+  canCancel?: boolean;
+  // Draft authority, for the "when approved" arm; defaults to permitted for
+  // callers whose canEdit already folds it in.
+  canDraft?: boolean;
   // The viewer can bypass the approval requirement (admin).
   canBypassApproval: boolean;
   // Approval is required for this revision.
@@ -102,6 +118,25 @@ export default function ScheduledPublishControl({
   // Optional extra note rendered under the date controls (e.g. the feature
   // flow's "linked experiments won't start" warning).
   dateNote?: ReactNode;
+  /**
+   * Reports a dated schedule the user has configured but that could NOT be
+   * persisted yet — a review-required draft, whose schedule endpoint refuses to arm
+   * until review is requested. The caller sends it with its request-review call so
+   * the intent isn't silently dropped.
+   *
+   * Needed because this control owns its schedule state internally while the
+   * feature surface keeps the equivalent state in its parent, which is the whole
+   * reason that surface could persist at submit and this one could not. Reporting
+   * upward is the cheap half of that convergence; making this a controlled
+   * component is the real one.
+   */
+  onStagedScheduleChange?: (
+    staged: {
+      scheduledPublishAt: string;
+      lockEdits: boolean;
+      lockOthers: boolean;
+    } | null,
+  ) => void;
   mutate: () => void | Promise<void>;
 }) {
   const { apiCall } = useAuth();
@@ -118,13 +153,33 @@ export default function ScheduledPublishControl({
   // ── Parity with the feature derivations ──
   const isArmingOwner = canEdit && (status === "draft" || isReviewRequester);
   // "when approved" only makes sense before approval — once approved it would
-  // just publish now.
+  // just publish now. The endpoint behind it additionally requires DRAFT
+  // authority (arming rides the draft's review flow), so publish authority
+  // alone must not surface the option.
   const canArmWhenApproved =
-    autopublishOnApproval && isArmingOwner && status !== "approved";
+    autopublishOnApproval &&
+    isArmingOwner &&
+    canArm &&
+    (canDraft ?? true) &&
+    status !== "approved";
   // Arming a dated schedule needs only publish authority (premium gates the
   // picker render below, not the option itself).
-  const canArmOnDate = canEdit;
-  const canManageAutoPublish = canArmWhenApproved || canArmOnDate;
+  //
+  // `canArm` is separate from authority: a locked Config refuses NEW schedules
+  // (`assertConfigNotLocked` runs only when this isn't a cancel) while still allowing
+  // an armed one to be cancelled. Suppressing the whole control there stranded the
+  // pending schedule with no way to call it off.
+  const canArmOnDate = canEdit && canArm;
+  // Standing an ALREADY-ARMED no-date schedule down survives everything that gates
+  // ARMING — the org switching auto-publish-on-approval off, and `canArm` going
+  // false because a locked Config refuses NEW schedules. Both of those describe
+  // taking a future publish ON; the endpoint asks neither on the way out. Mirroring
+  // them here left a locked Config's armed revision showing a read-only checkbox
+  // with no way to call it off. Authority itself is unchanged.
+  const canDisarmWhenApproved =
+    persistedArmed && isArmingOwner && (canDraft ?? true);
+  const canManageAutoPublish =
+    canArmWhenApproved || canArmOnDate || canDisarmWhenApproved;
   // The schedule's admin bypass is only relevant when the revision would
   // otherwise need approval (review required, not yet approved).
   const canBypassScheduleApproval =
@@ -151,9 +206,12 @@ export default function ScheduledPublishControl({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Re-sync local controls from the persisted values (keyed on the values so an
+  // Re-sync local controls from the persisted values. Keyed on the values so an
   // in-progress edit isn't clobbered when an auto-save's mutate() returns a new
-  // revision object whose values already match — mirrors the feature flow).
+  // revision object whose values already match (mirrors the feature flow) — AND
+  // on the schedule path, which carries the revision identity: two revisions
+  // with identical schedule values would otherwise skip the resync entirely and
+  // hand the next revision this one's unsaved edits.
   useEffect(() => {
     setArmed(!!revision.autoPublishOnApproval);
     setMode(revision.scheduledPublishAt ? "date" : "approve");
@@ -165,6 +223,7 @@ export default function ScheduledPublishControl({
     setLockScope(revision.scheduledPublishLockOthers ? "feature" : "draft");
     setBypass(!!revision.scheduledPublishBypassApproval);
   }, [
+    schedulePublishPath,
     revision.autoPublishOnApproval,
     revision.scheduledPublishAt,
     revision.scheduledPublishLockEdits,
@@ -242,6 +301,9 @@ export default function ScheduledPublishControl({
       await mutate();
     } catch (e) {
       setError((e as Error).message || "Failed to arm auto-publish");
+      // Rethrown so the caller can undo its optimistic check — swallowing it left the
+      // box armed with nothing behind it.
+      throw e;
     }
   };
 
@@ -277,14 +339,47 @@ export default function ScheduledPublishControl({
   // Auto-save the current dated config, but only when the backend will accept it
   // (see schedulePersistsImmediately). `persists` lets a handler recompute the
   // gate with its own about-to-be-set value (e.g. the admin bypass toggle).
+  // Push the staged schedule up whenever it changes and cannot be persisted here.
+  // Cleared (null) the moment it CAN be — the endpoint then owns it and a stale
+  // staged copy riding a later submit would re-arm something already handled.
+  useEffect(() => {
+    if (!onStagedScheduleChange) return;
+    const stageable =
+      armed &&
+      !!date &&
+      !schedulePersistsImmediately &&
+      effectiveMode === "date";
+    onStagedScheduleChange(
+      stageable
+        ? {
+            scheduledPublishAt: date,
+            lockEdits,
+            lockOthers,
+          }
+        : null,
+    );
+  }, [
+    armed,
+    date,
+    lockEdits,
+    lockOthers,
+    schedulePersistsImmediately,
+    effectiveMode,
+    onStagedScheduleChange,
+  ]);
+
   const persistIfReady = (
     d: string,
     le: boolean,
     lo: boolean,
     by: boolean,
     persists = schedulePersistsImmediately,
+    // Callers mid-toggle pass their about-to-be-set value: `setArmed` hasn't
+    // committed inside the same handler, so reading state here saw stale
+    // `false` and re-arming an already-dated schedule silently never saved.
+    isArmed = armed,
   ) => {
-    if (armed && d && persists) {
+    if (isArmed && d && persists) {
       void persistSchedule(d, le, lo, by);
     }
   };
@@ -296,14 +391,23 @@ export default function ScheduledPublishControl({
       return;
     }
     if (effectiveMode === "approve") {
-      // Only reachable when canArmWhenApproved — persist immediately.
-      void doArmApprove();
+      // Only reachable when canArmWhenApproved — persist immediately. The optimistic
+      // check is REVERTED if the request fails, or the box sits armed showing a
+      // schedule that was never persisted.
+      void doArmApprove().catch(() => setArmed(false));
       return;
     }
     // "date" mode: keep the controls open while configuring; persist now only
     // if a date is already chosen and the backend will accept it.
     setEditing(true);
-    persistIfReady(date, lockEdits, lockOthers, bypass);
+    persistIfReady(
+      date,
+      lockEdits,
+      lockOthers,
+      bypass,
+      schedulePersistsImmediately,
+      checked,
+    );
   };
 
   const onModeChange = (m: Mode) => {
@@ -407,16 +511,22 @@ export default function ScheduledPublishControl({
             </>
           }
           action={
-            canEdit ? (
+            (canCancel ?? canEdit) ? (
               <Flex gap="2" align="center">
-                <Button
-                  variant="ghost"
-                  color="red"
-                  size="sm"
-                  onClick={doDisarm}
-                >
-                  Cancel schedule
-                </Button>
+                {/* Disarming a NO-DATE auto-publish posts to the toggle endpoint,
+                    which requires DRAFT authority; the dated cancel needs publish.
+                    Offering the first to a publisher without draft rights invited a
+                    403. */}
+                {(isScheduled || (canDraft ?? true)) && (
+                  <Button
+                    variant="ghost"
+                    color="red"
+                    size="sm"
+                    onClick={doDisarm}
+                  >
+                    Cancel schedule
+                  </Button>
+                )}
                 {canManageAutoPublish && !scheduleArmedByAdmin && (
                   <Button
                     variant="outline"
@@ -456,6 +566,9 @@ export default function ScheduledPublishControl({
   // schedule's failure notice shows.
   if (!canManageAutoPublish) {
     if (persistedArmed) {
+      // Read-only for anyone who cannot manage it. Arming and disarming now take the
+      // same authority, so no role can move this one way — whoever may turn it off may
+      // turn it back on, and this branch is simply "not yours to change".
       return (
         <Box mb="5">
           {gaveUpNotice}
@@ -472,6 +585,16 @@ export default function ScheduledPublishControl({
     return gaveUpNotice ? <Box mb="5">{gaveUpNotice}</Box> : null;
   }
 
+  // One predicate for both `disabled` and `disabledMessage` below. Stating a lock
+  // and explaining it are two expressions of one rule, and the sibling review
+  // finding on this PR was precisely a button and its blocker drifting apart.
+  const lockedNoDateArm =
+    armed &&
+    !isScheduled &&
+    persistedArmed &&
+    !canDisarmWhenApproved &&
+    !canArmWhenApproved;
+
   // ── Editable form (auto-saves on change; no explicit schedule button) ──
   // Unified arming: one checkbox + an inline mode dropdown ("when approved" vs
   // "on a specific date" are mutually exclusive), matching the feature flow.
@@ -482,7 +605,19 @@ export default function ScheduledPublishControl({
         <Checkbox
           label="Automatically publish"
           weight="regular"
-          disabled={saving}
+          // Un-checking a PERSISTED no-date arm posts to the toggle endpoint, which
+          // requires DRAFT authority. A publish-only caller reaches this branch via
+          // `canArmOnDate` and would have got an interactive box that 403s. An
+          // unpersisted arm is local intent and clears without a request.
+          disabled={saving || lockedNoDateArm}
+          // ...and says WHY. Everything else on this row is editable for that
+          // viewer, so a silently locked checkbox reads as a bug rather than as a
+          // permission boundary.
+          disabledMessage={
+            lockedNoDateArm
+              ? "You need permission to edit drafts to turn off publish-on-approval."
+              : undefined
+          }
           value={armed}
           setValue={(val) => onToggleArmed(!!val)}
         />

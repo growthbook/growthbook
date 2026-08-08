@@ -1,5 +1,6 @@
 import { postFeatureRevisionPublishValidator } from "shared/validators";
 import { isStrandedLiveRevision } from "shared/util";
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { ApiRequestLocals } from "back-end/types/api";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -29,6 +30,7 @@ import {
   evaluatePublishGates,
   PublishBlockedError,
 } from "back-end/src/revisions/publishGates";
+import { assertCanPublishFeatureRevision } from "back-end/src/revisions/featureDraftAuthority";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function publishFeatureRevision(
@@ -51,7 +53,24 @@ export async function publishFeatureRevision(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (!req.context.permissions.canUpdateFeature(feature, {})) {
+  // Coarse authority check, before anything expensive or observable. The precise
+  // per-environment check runs below, once the merge footprint is known — but a
+  // caller holding none of the three landing atoms in this project cannot pass it
+  // under any footprint, so refusing here costs an authorized caller nothing. It
+  // keeps an unauthorized one from running the org's sandboxed validation hooks
+  // and from reading the governance-gate enumeration that gate collection
+  // returns in its 422.
+  if (
+    !req.context.permissions.canPublishFeature(
+      feature,
+      NO_ENVIRONMENT_BINDING,
+    ) &&
+    !req.context.permissions.canRevertFeature(
+      feature,
+      NO_ENVIRONMENT_BINDING,
+    ) &&
+    !req.context.permissions.canDeleteFeature(feature, NO_ENVIRONMENT_BINDING)
+  ) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -100,14 +119,14 @@ export async function publishFeatureRevision(
   // ignoreWarnings is always true, and force-merge for those must stay gated on
   // the schedule's persisted bypass intent (passed as body ignoreWarnings).
   const canBypassGovernance =
-    req.context.permissions.canBypassApprovalChecks(feature);
+    req.context.permissions.canBypassFlagApprovalChecks(feature, "feature");
   const forceMergeRequested = req.body.ignoreWarnings === true;
 
   // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
-  // calls should behave like dashboard actions) or bypassApprovalChecks.
+  // calls should behave like dashboard actions) or FlagsBypassApprovals.
   const canBypass =
     canUseRestApiBypass ||
-    req.context.permissions.canBypassApprovalChecks(feature);
+    req.context.permissions.canBypassFlagApprovalChecks(feature, "feature");
 
   // Aggregate every publish gate up front so a blocked publish returns ONE
   // structured 422 naming each gate, the flag that clears it, and a callable
@@ -142,10 +161,10 @@ export async function publishFeatureRevision(
     ignoreWarnings:
       forceMergeRequested ||
       (inlineValidationGates && req.context.ignoreWarnings),
-    skipSchemaValidation: req.context.skipSchemaValidation,
-    skipHooks: req.context.skipHooks,
+    skipSchemaValidation: req.context.canSkipSchemaValidationFor("feature"),
+    skipHooks: req.context.canSkipHooksFor("feature"),
     bypassApprovalPermission:
-      req.context.permissions.canBypassApprovalChecks(feature),
+      req.context.permissions.canBypassFlagApprovalChecks(feature, "feature"),
     restApiBypassesReviews: canUseRestApiBypass,
     canForceMergeStaleBase: canBypassGovernance,
   });
@@ -168,7 +187,7 @@ export async function publishFeatureRevision(
     throw new BadRequestError(
       `This revision requires approval before publishing (status: "${revision.status}"). ` +
         "Enable 'REST API always bypasses approval requirements' in organization settings, " +
-        "or use a role/token that grants bypassApprovalChecks on this project.",
+        "or use a role/token that grants FlagsBypassApprovals on this project.",
     );
   }
 
@@ -178,10 +197,16 @@ export async function publishFeatureRevision(
     filledLiveRules: plan.filledLiveRules,
     result: mergeChanges,
     environmentIds,
+    // The draft's ramp actions reach environments no rule diff mentions.
+    rampActions: revision.rampActions,
   });
-  if (!req.context.permissions.canPublishFeature(feature, envsToCheck)) {
-    req.context.permissions.throwPermissionError();
-  }
+  await assertCanPublishFeatureRevision({
+    context: req.context,
+    feature,
+    revision,
+    environments: envsToCheck,
+    mergeChanges,
+  });
 
   // Armed/scheduled path only: the feature's own-schema value net still throws
   // here (interactive publishes ran it above as a gate). The config-backed net +

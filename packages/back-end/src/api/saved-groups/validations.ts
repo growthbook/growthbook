@@ -1,3 +1,11 @@
+// The entity-agnostic revision helpers live in one place; re-exported here so
+// the handlers' existing imports keep working.
+export {
+  isDraftStatus,
+  assertUserScopedKeyForMine,
+  buildRevisionStatusFilter,
+} from "back-end/src/api/revisionValidations";
+export { ACTIVE_DRAFT_STATUSES as ACTIVE_STATUSES } from "shared/validators";
 import {
   ID_LIST_DATATYPES,
   validateCondition,
@@ -5,11 +13,7 @@ import {
   SAVED_GROUP_SIZE_LIMIT_BYTES,
 } from "shared/util";
 import type { SavedGroupInterface } from "shared/types/saved-group";
-import {
-  Revision,
-  RevisionStatus,
-  normalizeProposedChanges,
-} from "shared/enterprise";
+import { Revision, normalizeProposedChanges } from "shared/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import {
   applyPatchToSnapshot,
@@ -22,29 +26,18 @@ import { logger } from "back-end/src/util/logger";
 // Open statuses (i.e. editable, non-terminal). Mirrors `ACTIVE_DRAFT_STATUSES`
 // in features/validations.ts, but typed off the saved-group revision enum
 // since the feature and saved-group revision status enums are distinct.
-export const ACTIVE_STATUSES: readonly RevisionStatus[] = [
-  "draft",
-  "pending-review",
-  "approved",
-  "changes-requested",
-];
 
 /**
  * True iff the revision is in a status that allows further edits. Mirrors
  * `isDraftStatus` from features/validations.ts.
  */
-export function isDraftStatus(status: string): boolean {
-  return (ACTIVE_STATUSES as readonly string[]).includes(status);
-}
 
-/**
- * Build a fresh draft revision for a saved group. Used when callers pass
- * `version: "new"` to a field-edit endpoint and we need to auto-create the
- * draft they intend to edit.
- *
- * Pairs with `discardIfJustCreated` — call that on any downstream failure to
- * avoid leaving an orphaned empty draft behind.
- */
+// Build a fresh draft revision for a saved group. Used when callers pass
+// `version: "new"` to a field-edit endpoint and we need to auto-create the
+// draft they intend to edit.
+//
+// Pairs with `discardIfJustCreated` — call that on any downstream failure to
+// avoid leaving an orphaned empty draft behind.
 async function createBlankDraft(
   context: ApiReqContext,
   savedGroup: SavedGroupInterface,
@@ -73,14 +66,12 @@ async function createBlankDraft(
   );
 }
 
-/**
- * Look up a revision by version, scoped to the supplied saved group. Throws
- * `NotFoundError` if no such revision exists. The `target.id`/`target.type`
- * scoping prevents callers from peeking at revisions belonging to other
- * entities — the `getByTargetAndVersion` helper enforces this on the model
- * side as well, but we double-check here so a stale path-param can never
- * accidentally surface a different entity's revision.
- */
+// Look up a revision by version, scoped to the supplied saved group. Throws
+// `NotFoundError` if no such revision exists. The `target.id`/`target.type`
+// scoping prevents callers from peeking at revisions belonging to other
+// entities — the `getByTargetAndVersion` helper enforces this on the model
+// side as well, but we double-check here so a stale path-param can never
+// accidentally surface a different entity's revision.
 export async function loadRevisionByVersion(
   context: ApiReqContext,
   savedGroupId: string,
@@ -103,15 +94,13 @@ export async function loadRevisionByVersion(
   return revision;
 }
 
-/**
- * Resolve a revision pinned to a specific version, or auto-create a fresh
- * draft when `version === "new"`. Mirrors `resolveOrCreateRevision` from
- * features/validations.ts.
- *
- * Returns `{ revision, created }` where `created === true` indicates the
- * revision was just created — pair with `discardIfJustCreated` on downstream
- * failures so we never leave behind an orphaned empty draft.
- */
+// Resolve a revision pinned to a specific version, or auto-create a fresh
+// draft when `version === "new"`. Mirrors `resolveOrCreateRevision` from
+// features/validations.ts.
+//
+// Returns `{ revision, created }` where `created === true` indicates the
+// revision was just created — pair with `discardIfJustCreated` on downstream
+// failures so we never leave behind an orphaned empty draft.
 export async function resolveOrCreateRevision(
   context: ApiReqContext,
   savedGroup: SavedGroupInterface,
@@ -141,6 +130,10 @@ export async function discardIfJustCreated(
     await context.models.revisions.close(
       revision.id,
       context.userId,
+      {
+        authorizedByFlow:
+          "this flow created the draft moments ago and is unwinding its own failure",
+      },
       "Discarded after error during draft initialization",
     );
   } catch (err) {
@@ -215,13 +208,11 @@ export function assertValidListAttributeKey(
   }
 }
 
-/**
- * Validates the values list against the org's saved-group size limit. Mirrors
- * `validateListSize` from the internal controller. Re-implemented locally so
- * the API handlers don't have to reach into the controller and inherit its
- * `throw new Error(...)` style — public-API errors should be `BadRequestError`
- * so callers get a 400 instead of a 500.
- */
+// Validates the values list against the org's saved-group size limit. Mirrors
+// `validateListSize` from the internal controller. Re-implemented locally so
+// the API handlers don't have to reach into the controller and inherit its
+// `throw new Error(...)` style — public-API errors should be `BadRequestError`
+// so callers get a 400 instead of a 500.
 export function validateListSize(
   values: Array<unknown>,
   savedGroupSizeLimit: number | undefined,
@@ -272,54 +263,27 @@ export function assertValidDescription(description: string | undefined): void {
   }
 }
 
-/**
- * `mine=true` requires a user-scoped API key so we can identify the caller
- * as a user. A secret API key has no user identity attached, so we'd be
- * forced to either return everything (information leak) or return nothing
- * silently (footgun) — both are bad. Reject up front instead.
- */
-export function assertUserScopedKeyForMine(
-  context: ApiReqContext,
-  mine: boolean,
-): void {
-  if (mine && !context.userId) {
-    throw new BadRequestError(
-      "`mine=true` requires a user-scoped API key (the caller must be identifiable as a user).",
-    );
-  }
-}
+// `mine=true` requires a user-scoped API key so we can identify the caller
+// as a user. A secret API key has no user identity attached, so we'd be
+// forced to either return everything (information leak) or return nothing
+// silently (footgun) — both are bad. Reject up front instead.
 
-/**
- * Translate the public `status` query param (which accepts a single status, a
- * comma-separated list, or the literal `"open"` shortcut) into the model's
- * filter shape — `string | string[] | undefined`.
- *
- * The `"open"` alias is passed through as a single string so the model can
- * expand it into its own non-terminal status set (see `buildStatusFilter` on
- * `RevisionModel`).
- */
-export function buildRevisionStatusFilter(
-  input?: string,
-): string | string[] | undefined {
-  if (!input) return undefined;
-  const parts = input
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (parts.includes("open")) return "open";
-  return parts.length === 1 ? parts[0] : parts;
-}
+// Translate the public `status` query param (which accepts a single status, a
+// comma-separated list, or the literal `"open"` shortcut) into the model's
+// filter shape — `string | string[] | undefined`.
+//
+// The `"open"` alias is passed through as a single string so the model can
+// expand it into its own non-terminal status set (see `buildStatusFilter` on
+// `RevisionModel`).
 
 export function dedupeValues(values: string[]): string[] {
   return [...new Set(values)];
 }
 
-/**
- * Helper: when a caller passes a non-self-consistent metadata payload — e.g.
- * `revisionTitle` without any actual content edit — we don't want to silently
- * drop the title. The handlers that auto-create drafts pass these to
- * `resolveOrCreateRevision`, and ones that don't auto-create can ignore them.
- */
+// Helper: when a caller passes a non-self-consistent metadata payload — e.g.
+// `revisionTitle` without any actual content edit — we don't want to silently
+// drop the title. The handlers that auto-create drafts pass these to
+// `resolveOrCreateRevision`, and ones that don't auto-create can ignore them.
 export function pickNewDraftMetadata(body: {
   revisionTitle?: string;
   revisionComment?: string;

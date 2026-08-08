@@ -1,3 +1,4 @@
+import { projectScopeChanged, type ProjectScoped } from "shared/permissions";
 import { applyPatch } from "fast-json-patch";
 import type { Operation } from "fast-json-patch";
 import { cloneDeep, isEqual } from "lodash";
@@ -10,18 +11,17 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getAdapter } from "back-end/src/revisions/index";
+import { advanceAuthorityOnRow } from "back-end/src/revisions/revisionAuthority";
 import type { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";
 
-/**
- * Apply a set of JSON Patch ops to a snapshot, returning a new object.
- *
- * Clones with lodash `cloneDeep` (which preserves Date instances) and lets
- * applyPatch mutate that throwaway copy in place (mutateDocument = true).
- * Passing mutateDocument = false would make fast-json-patch internally
- * JSON-clone the input, converting Date fields (e.g. dateCreated/dateUpdated on
- * a saved-group snapshot) into ISO strings and breaking downstream serializers
- * that call `.toISOString()`.
- */
+// Apply a set of JSON Patch ops to a snapshot, returning a new object.
+//
+// Clones with lodash `cloneDeep` (which preserves Date instances) and lets
+// applyPatch mutate that throwaway copy in place (mutateDocument = true).
+// Passing mutateDocument = false would make fast-json-patch internally
+// JSON-clone the input, converting Date fields (e.g. dateCreated/dateUpdated on
+// a saved-group snapshot) into ISO strings and breaking downstream serializers
+// that call `.toISOString()`.
 export function applyPatchToSnapshot<T extends object>(
   snapshot: T,
   proposedChanges: JsonPatchOperation[] | unknown,
@@ -32,17 +32,13 @@ export function applyPatchToSnapshot<T extends object>(
     .newDocument as T;
 }
 
-/**
- * Ensure a "live" merged revision exists representing the entity's current state.
- * The first time an entity participates in the revision workflow, we backfill a
- * baseline revision so the history view has a starting point. No-op if any
- * revisions already exist for this target.
- *
- * Callers must already have verified that the current user can edit the
- * underlying entity — `RevisionModel.canCreate` delegates to the entity
- * adapter's `canCreate` (which mirrors the "edit entity" permission), so a
- * caller who lacks update permission will get a permission error here.
- */
+// Ensure a "live" merged revision exists representing the entity's current state.
+// The first time an entity participates in the revision workflow, we backfill a
+// baseline revision so the history view has a starting point. No-op if any
+// revisions already exist for this target.
+//
+// Callers must already have verified that the current user may bring the entity
+// into being; this write is not separately gated (see the note below).
 export async function ensureLiveRevisionExists(
   context: ReqContext | ApiReqContext,
   entityType: RevisionTargetType,
@@ -64,8 +60,14 @@ export async function ensureLiveRevisionExists(
   // Wrapped in createWithVersionRetry so that two concurrent backfill calls
   // (e.g. two users editing the same untracked entity at the same time) don't
   // collide on the unique (target.type, target.id, version) index.
+  //
+  // Permission-bypassed on purpose: this records live state that already exists,
+  // and whoever brought the entity into being was already authorized. Re-gating
+  // it as an authored revision would demand draft or publish authority from a
+  // creator who needs neither. The retry wrapper is applied here, so bypassing
+  // `create`'s own wrapper costs nothing.
   await context.models.revisions.createWithVersionRetry(() =>
-    context.models.revisions.create({
+    context.models.revisions.dangerousCreateBypassPermission({
       authorId,
       target: {
         type: entityType,
@@ -81,7 +83,9 @@ export async function ensureLiveRevisionExists(
       },
       activityLog: [],
       reviews: [],
-    } as unknown as Parameters<typeof context.models.revisions.create>[0]),
+    } as unknown as Parameters<
+      typeof context.models.revisions.dangerousCreateBypassPermission
+    >[0]),
   );
 }
 
@@ -98,28 +102,26 @@ export function isRevisionRequired(
   return getAdapter(resourceType).isRevisionRequired(context);
 }
 
-/**
- * Compute the desired final state for a merge by layering the revision's
- * proposed changes on top of the LIVE entity (not the baseline snapshot).
- *
- * Why on top of live: applying ops to the baseline produces a fully
- * materialised object containing every baseline-known field at its baseline
- * value. If a field was changed out-of-band between snapshot time and merge
- * time, that drift would be quietly overwritten with the baseline value
- * during the merge, even though the revision never proposed to change it.
- * Applying ops to live preserves out-of-band changes to fields the revision
- * did not touch.
- *
- * The op list is filtered to "effective" ops first:
- *  - Drop ops whose top-level path isn't in `updatableFields` (the entity's
- *    write allowlist).
- *  - Drop `add`/`replace` ops whose value equals the baseline value (these
- *    represent no real change vs the snapshot, so applying them to live
- *    would overwrite legitimate live drift).
- *  - Drop `remove` ops on fields the baseline didn't define.
- *  - Drop `move` / `copy` / `test` ops outright (they're accepted by the
- *    validator but not modelled by the rest of the revision pipeline).
- */
+// Compute the desired final state for a merge by layering the revision's
+// proposed changes on top of the LIVE entity (not the baseline snapshot).
+//
+// Why on top of live: applying ops to the baseline produces a fully
+// materialised object containing every baseline-known field at its baseline
+// value. If a field was changed out-of-band between snapshot time and merge
+// time, that drift would be quietly overwritten with the baseline value
+// during the merge, even though the revision never proposed to change it.
+// Applying ops to live preserves out-of-band changes to fields the revision
+// did not touch.
+//
+// The op list is filtered to "effective" ops first:
+// - Drop ops whose top-level path isn't in `updatableFields` (the entity's
+// write allowlist).
+// - Drop `add`/`replace` ops whose value equals the baseline value (these
+// represent no real change vs the snapshot, so applying them to live
+// would overwrite legitimate live drift).
+// - Drop `remove` ops on fields the baseline didn't define.
+// - Drop `move` / `copy` / `test` ops outright (they're accepted by the
+// validator but not modelled by the rest of the revision pipeline).
 export function buildMergeDesiredState<T extends Record<string, unknown>>(
   liveEntity: T,
   baseSnapshot: Record<string, unknown>,
@@ -141,10 +143,31 @@ export function buildMergeDesiredState<T extends Record<string, unknown>>(
   return applyPatchToSnapshot(liveEntity, effectiveOps);
 }
 
-/**
- * Convert a plain partial-update object into an array of JSON Patch `replace` operations.
- * Undefined/null values are skipped since they represent "no change".
- */
+// Whether a merge changes the entity's project ownership. Covers both the
+// scalar `project` field (features / configs / constants) and the `projects[]`
+// array (saved groups), and treats a cleared field — a move to the global
+// "no project" scope — as a change.
+//
+// Publishing an ownership change must additionally re-check manage permission
+// on the destination project(s): the publish-authority check only covers the
+// live (source) entity, so without this a publish-only role could launder an
+// entity into a project it can't otherwise touch. Keying off an actual
+// ownership change means an ordinary publish (no move) isn't blocked.
+// Delegates to the canonical comparison in shared so the back-end, the
+// front-end and the permission layer cannot disagree about what a move is.
+export function ownershipChanged(
+  entity: Record<string, unknown>,
+  proposedEntity: Record<string, unknown>,
+): boolean {
+  return projectScopeChanged(
+    entity as ProjectScoped,
+    proposedEntity as ProjectScoped,
+  );
+}
+
+// Convert a partial-update object into JSON Patch `replace` operations; nullish
+// values are skipped, since they mean "no change".
+//
 // Always emits `replace` (not `add`) regardless of whether the path exists on
 // the base: buildPatchOps has no base snapshot to distinguish present from
 // absent, and our applier (`applyTopLevelPatchOps`) treats `add`/`replace`
@@ -158,11 +181,33 @@ export function buildPatchOps(
   // config revert) builds its patch ops directly rather than routing through here.
   return Object.entries(changes)
     .filter(([, value]) => value !== undefined && value !== null)
-    .map(([key, value]) => ({
-      op: "replace" as const,
-      path: `/${key}`,
-      value,
-    }));
+    .map(([key, value]) => {
+      // A key containing `/` would manufacture a NESTED path — and this output is
+      // server-constructed, so it is written to the revision without passing back
+      // through `jsonPatchOperationValidator`. That matters because the authority
+      // footprint drops nested paths while the publish applies them, which was a
+      // live environment-scoped-publish bypass through the raw-ops endpoint.
+      //
+      // Every caller today destructures named fields, so this cannot fire. It is
+      // here so the invariant is ENFORCED rather than conventional: the first
+      // caller to spread a client-supplied object into `changes` would otherwise
+      // reopen the bypass from the inside, past the validator that guards the door.
+      // `/` ONLY, deliberately. `~` is the other JSON-Pointer metacharacter, but it
+      // is not on this security axis: `~1` unescapes to a literal `/` WITHIN a
+      // single token rather than acting as a separator, so both appliers still read
+      // such a path as top-level and no footprint/write divergence arises. Widening
+      // the guard would buy nothing here — recorded so the question isn't reopened.
+      if (key.includes("/")) {
+        throw new Error(
+          `Cannot build a patch op for field "${key}": field names may not contain "/".`,
+        );
+      }
+      return {
+        op: "replace" as const,
+        path: `/${key}`,
+        value,
+      };
+    });
 }
 
 /**
@@ -226,7 +271,17 @@ export async function createOrUpdateRevision(
   } = options;
 
   if (revisionId && !forceCreate) {
-    const targetRevision = await context.models.revisions.getById(revisionId);
+    // Live-entity basis: on the snapshot basis a moved entity's revision resolved
+    // to null here and the code fell through to CREATE a new draft — so a caller
+    // who had just resolved that revision on the live basis at the handler silently
+    // got a fork, once, and then everything looked normal.
+    const targetRevision =
+      await context.models.revisions.getByIdReadable(revisionId);
+    if (!targetRevision) {
+      // An explicitly named revision that cannot be resolved is a failure, never a
+      // new draft. Falling through is what made the fork silent.
+      throw new Error("Revision not found");
+    }
     if (targetRevision) {
       // Guard against cross-entity writes: a caller could pass a revisionId
       // that belongs to a different entity (same org) and we'd otherwise
@@ -250,6 +305,7 @@ export async function createOrUpdateRevision(
         targetRevision.id,
         finalChanges,
         context.userId,
+        advanceAuthorityOnRow(context),
       );
     }
   }
@@ -273,6 +329,7 @@ export async function createOrUpdateRevision(
         existingRevision.id,
         finalChanges,
         context.userId,
+        advanceAuthorityOnRow(context),
       );
     }
   }
@@ -290,14 +347,12 @@ export async function createOrUpdateRevision(
   });
 }
 
-/**
- * Recursively drop null/undefined-valued keys from objects (and recurse into
- * arrays without dropping elements, so positions are preserved). This equates
- * "key absent" with "key present but null/undefined" at every depth — the
- * representation-only difference between a normalized snapshot and a live Mongo
- * document. A real value → null change is still detected: the value side keeps
- * the key, the null side drops it, so the two differ.
- */
+// Recursively drop null/undefined-valued keys from objects (and recurse into
+// arrays without dropping elements, so positions are preserved). This equates
+// "key absent" with "key present but null/undefined" at every depth — the
+// representation-only difference between a normalized snapshot and a live Mongo
+// document. A real value → null change is still detected: the value side keeps
+// the key, the null side drops it, so the two differ.
 function deepOmitNullish(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(deepOmitNullish);
   if (value && typeof value === "object") {
@@ -311,23 +366,21 @@ function deepOmitNullish(value: unknown): unknown {
   return value;
 }
 
-/**
- * True when the revision's base snapshot no longer matches the live entity on
- * any updatable field.
- *
- * Both sides pass through the adapter's `buildSnapshot` before comparing. The
- * stored snapshot was normalized that way at capture time, but the live
- * entity comes straight from the database and can carry representation-only
- * differences — explicit nulls on optional fields, leftover fields removed
- * from the schema — that no API response or merge check ever surfaces.
- * Comparing the raw document against the normalized snapshot makes every
- * draft of such an entity read as diverged forever: rebasing cannot clear it,
- * because the next snapshot is normalized again.
- *
- * `buildSnapshot` only strips top-level nullish keys, so nested optional-null
- * shapes (e.g. a config's `schema`/`renderProjections` objects) would reopen
- * the same false-positive; `deepOmitNullish` normalizes at every depth.
- */
+// True when the revision's base snapshot no longer matches the live entity on
+// any updatable field.
+//
+// Both sides pass through the adapter's `buildSnapshot` before comparing. The
+// stored snapshot was normalized that way at capture time, but the live
+// entity comes straight from the database and can carry representation-only
+// differences — explicit nulls on optional fields, leftover fields removed
+// from the schema — that no API response or merge check ever surfaces.
+// Comparing the raw document against the normalized snapshot makes every
+// draft of such an entity read as diverged forever: rebasing cannot clear it,
+// because the next snapshot is normalized again.
+//
+// `buildSnapshot` only strips top-level nullish keys, so nested optional-null
+// shapes (e.g. a config's `schema`/`renderProjections` objects) would reopen
+// the same false-positive; `deepOmitNullish` normalizes at every depth.
 export function isRevisionDiverged(
   adapter: EntityRevisionAdapter,
   snapshot: Record<string, unknown>,

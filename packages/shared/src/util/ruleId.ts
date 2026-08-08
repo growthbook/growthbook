@@ -73,3 +73,78 @@ export function parseRuleId(id: string): ParsedRuleId {
   }
   return { stem, env: parts.slice(1).join(RULE_ID_ENV_SUFFIX_DELIMITER) };
 }
+
+import type { FeatureRule } from "shared/types/feature";
+
+export interface RampTargetQuery {
+  ruleId?: string | null;
+  environment?: string | null;
+}
+
+// Resolve a ramp target to every matching unified rule. Semantics by
+// (ruleId shape, environment?):
+//   (bare, env)      → match stem or stem__env, filtered by rule scope
+//   (suffixed, env)  → stemmed; falls through to (bare, env)
+//   (bare, no env)   → stem fan-out across all env siblings
+//   (suffixed, no env) → exact id match
+// `target.environment` is retained for pre-migration stored ramps.
+export function resolveRampTargets(
+  target: RampTargetQuery,
+  unifiedRules: FeatureRule[],
+): FeatureRule[] {
+  if (!target.ruleId) return [];
+  const stem = stemRuleId(target.ruleId);
+
+  if (target.environment) {
+    const env = target.environment;
+    const suffixed = suffixRuleId(stem, env);
+    return unifiedRules.filter((r) => {
+      if (r.id !== stem && r.id !== suffixed) return false;
+      if (r.allEnvironments) return true;
+      return r.environments?.includes(env) ?? false;
+    });
+  }
+
+  // No env supplied.
+  if (isMigrationSuffixedRuleId(target.ruleId)) {
+    // Caller explicitly disambiguated with a suffix — exact match only.
+    const exact = target.ruleId;
+    return unifiedRules.filter((r) => r.id === exact);
+  }
+  // Bare id, no env — stem fan-out.
+  return unifiedRules.filter((r) => stemRuleId(r.id) === stem);
+}
+
+/**
+ * The lookup key for a ramp target's current environments. Exported so the gate and
+ * the loader cannot spell it differently — the environment is part of the identity
+ * because `resolveRampTargets` resolves a different rule set with it than without.
+ *
+ * Components are ESCAPED, because a bare `:` join is ambiguous and that ambiguity is
+ * the same last-write-wins collision the environment field was added to close, through
+ * a different door. Feature ids permit `:` (`/^[a-zA-Z0-9_.:|-]+$/`) and rule ids are
+ * an unconstrained string a client can supply, so `("a:b","c",…)` and `("a","b:c",…)`
+ * both joined to `a:b:c:…` — letting a decoy target on a feature the caller DOES
+ * control overwrite the answer for one it does not.
+ */
+export function rampRuleEnvKey(
+  featureId: string,
+  ruleId?: string,
+  environment?: string,
+): string {
+  const parts = [featureId, ruleId ?? "", environment ?? ""];
+  try {
+    return parts.map(encodeURIComponent).join(":");
+  } catch {
+    // `encodeURIComponent` THROWS on a lone surrogate, and rule ids are an
+    // unconstrained client-supplied string — so a crafted id turned the gate's key
+    // computation into a 500 instead of a decision. Fail-closed either way, but a
+    // total function is better than a crash.
+    //
+    // JSON handles lone surrogates (well-formed stringify escapes them) and is
+    // injective, and its output starts with `[`, which `encodeURIComponent` always
+    // escapes to `%5B` — so the fallback namespace cannot collide with the normal
+    // one, and injectivity holds across both.
+    return JSON.stringify(parts);
+  }
+}

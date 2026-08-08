@@ -1,3 +1,8 @@
+import {
+  NO_ENVIRONMENT_BINDING,
+  canCommentOnRevisionEntity,
+  holdsFeatureMoveDestination,
+} from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import {
@@ -22,6 +27,8 @@ import {
   checkIfRevisionNeedsReview,
   evaluatePublishGovernance,
   getLiveChangesSinceBase,
+  isPureFeatureArchive,
+  isPureFeatureRevert,
   MergeStrategy,
 } from "shared/util";
 import {
@@ -50,7 +57,7 @@ import { getCurrentUser, useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
-  getAffectedRevisionEnvs,
+  getRevisionPublishEnvs,
   useEnvironments,
   useFeatureExperimentChecklists,
 } from "@/services/features";
@@ -112,8 +119,10 @@ type ReviewSubTab = "overview" | "changes";
 import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
 import NoticeBanner from "@/components/Reviews/NoticeBanner";
 import HelperText from "@/ui/HelperText";
+import PermissionBlocker from "@/ui/PermissionBlocker";
 import Metadata from "@/ui/Metadata";
 import ReviewCommentPopover from "@/components/Reviews/ReviewCommentPopover";
+import WaitingForReviewCallout from "@/components/Reviews/WaitingForReviewCallout";
 import CommentComposer from "@/components/Comments/CommentComposer";
 import {
   DropdownMenu,
@@ -177,8 +186,16 @@ export default function ReviewAndPublish({
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envIds = environments.map((e) => e.id);
   const permissionsUtil = usePermissionsUtil();
-  // POST /feature/:id/:version/comment requires canReviewFeatureDrafts.
-  const canCommentOnDraft = permissionsUtil.canReviewFeatureDrafts(feature);
+  // Commenting is participation. Through the SAME shared predicate the generic tab
+  // and both endpoints use, so Feature Flags cannot drift from the other entities
+  // again — the restated version had already lost the draft arm, which is what lets
+  // an author reply to feedback on their own draft.
+  const canCommentOnDraft = canCommentOnRevisionEntity(
+    permissionsUtil,
+    "feature",
+    null,
+    { project: feature.project },
+  );
   const { apiCall } = useAuth();
   const user = getCurrentUser();
   const {
@@ -545,7 +562,24 @@ export default function ReviewAndPublish({
   // collapsed when an auto-saved schedule change re-fetches the revision.
   useEffect(() => {
     setEditingSchedule(false);
-  }, [revision?.version]);
+  }, [feature.id, revision?.version]);
+
+  // Revision-local choices must not follow the viewer to a different revision:
+  // the admin-bypass toggle is consent to skip THIS draft's review, conflict
+  // strategies answer THIS draft's conflicts, and an in-flight dialog or error
+  // belongs to the revision it was opened on. Keyed by feature id AND version —
+  // version alone reads as "same revision" across two different features.
+  useEffect(() => {
+    setAdminPublish(false);
+    setStrategies({});
+    setConflictStep(0);
+    setResolveConflicts(false);
+    setExperimentsStep(false);
+    setSubmitError(null);
+    setRevertOpen(false);
+    setConfirmReopen(false);
+    setConfirmDiscard(false);
+  }, [feature.id, revision?.version]);
 
   // ── Sub-tabs ──
   // "Overview" (human-readable changes + review activity) vs "Changes" (JSON
@@ -654,7 +688,10 @@ export default function ReviewAndPublish({
     );
   }, [revision, baseRevision, liveRevision, envIds, strategies, feature]);
 
-  const canAdminPublish = permissionsUtil.canBypassApprovalChecks(feature);
+  const canAdminPublish = permissionsUtil.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
   const featureLockedByRamp =
     rampSchedules?.some(
       (rs) => rs.lockdownConfig?.mode === "locked" && rs.status === "running",
@@ -686,6 +723,54 @@ export default function ReviewAndPublish({
     !!isPendingReview &&
     createdBy?.id !== user?.id &&
     permissionsUtil.canReviewFeatureDrafts(feature);
+  // Moving a draft along normally takes draft authority. Revert and delete
+  // authority also reach a draft that only does what they cover, and either
+  // reaches one the caller authored whatever it contains. The client goes on
+  // provenance alone; the server re-verifies purity.
+  // Unbound, not every environment: advancing a DRAFT publishes nothing, and the
+  // server asks these two the same way (`featureDraftAuthority`). Scoping them to
+  // all environments hid draft actions from a reverter limited to one.
+  const hasRevertAuthority = permissionsUtil.canRevertFeature(
+    feature,
+    NO_ENVIRONMENT_BINDING,
+  );
+  const hasDeleteAuthority = permissionsUtil.canDeleteFeature(
+    feature,
+    NO_ENVIRONMENT_BINDING,
+  );
+  const authoredDraft =
+    (!!userId &&
+      !!revision?.createdBy &&
+      "id" in revision.createdBy &&
+      revision.createdBy.id === userId) ||
+    (!!userId && (revision?.contributors ?? []).includes(userId));
+  // The same predicates the server enforces, so the client can't offer an
+  // action the server then refuses.
+  const revertTargetRevision =
+    revision?.revertedFromVersion !== undefined
+      ? revisions.find(
+          (r) =>
+            r.version === revision.revertedFromVersion &&
+            r.status === "published",
+        )
+      : undefined;
+  const draftStagesRevert =
+    !!revision &&
+    !!revertTargetRevision &&
+    isPureFeatureRevert({
+      feature,
+      draft: revision,
+      target: revertTargetRevision,
+    });
+  // Mirrors the server's `isArchiveTransition`: only an ACTIVE flag being
+  // archived counts, else any draft on an archived flag looks like an archive.
+  const draftStagesArchive =
+    !!revision && isPureFeatureArchive({ feature, draft: revision });
+  const canAdvanceDraft =
+    permissionsUtil.canEditFeatureDrafts(feature) ||
+    (authoredDraft && (hasRevertAuthority || hasDeleteAuthority)) ||
+    (hasRevertAuthority && draftStagesRevert) ||
+    (hasDeleteAuthority && draftStagesArchive);
   const approved = revision?.status === "approved" || adminPublish;
 
   const autopublishOnApproval =
@@ -696,22 +781,41 @@ export default function ReviewAndPublish({
   const isReviewRequester =
     !!userId && !!reviewRequesterId && userId === reviewRequesterId;
 
+  // Schedule authority, the way `canPublishFeatureRevision` computes it: publish over
+  // the feature's environments AND over the project the draft would land in. Judging
+  // the live feature alone offered every schedule action on a relocating draft and
+  // got a 403 from each.
+  const holdsSchedulePublish =
+    permissionsUtil.canPublishFeature(feature, envIds) &&
+    holdsFeatureMoveDestination(
+      permissionsUtil,
+      feature,
+      revision?.metadata?.project,
+      envIds,
+    );
+
   // Only the draft / review-request owner can edit the arming; others see a
   // read-only summary when armed (matching main's auto-publish-on-approval rule).
   const isArmingOwner =
-    permissionsUtil.canPublishFeature(feature, envIds) &&
-    (revision?.status === "draft" || isReviewRequester);
+    holdsSchedulePublish && (revision?.status === "draft" || isReviewRequester);
   const hasScheduledRevisions = hasCommercialFeature("scheduled-revisions");
   // "when approved" only makes sense before approval — once approved it would
   // just publish now (which Publish already does), so approved revisions only
   // offer "on a date".
+  // The draft term matches the endpoint (`postFeatureToggleAutoPublish` requires
+  // `canEditFeatureDrafts` before anything else). Without it, a publisher WITHOUT
+  // draft rights — precisely the role split this PR enables — got a checked,
+  // enabled box that 403s the moment they uncheck it.
   const canArmWhenApproved =
-    autopublishOnApproval && isArmingOwner && revision?.status !== "approved";
+    autopublishOnApproval &&
+    isArmingOwner &&
+    permissionsUtil.canEditFeatureDrafts(feature) &&
+    revision?.status !== "approved";
   // Arming/editing a dated schedule needs only publish authority — not draft /
   // review-request ownership — matching the backend `canScheduleFeaturePublish`
   // gate, so a reviewer with publish permission can manage the schedule from the
   // UI. The premium (`scheduled-revisions`) gate is applied at render.
-  const canArmOnDate = permissionsUtil.canPublishFeature(feature, envIds);
+  const canArmOnDate = holdsSchedulePublish;
   const effectivePublishMode: "approve" | "date" = canArmWhenApproved
     ? publishMode
     : "date";
@@ -722,10 +826,21 @@ export default function ReviewAndPublish({
   // clears the bypass flag (reverts the admin override).
   const scheduleArmedByAdmin =
     scheduledPending && !!revision?.scheduledPublishBypassApproval;
-  const canCancelAdminSchedule =
-    scheduleArmedByAdmin && permissionsUtil.canPublishFeature(feature, envIds);
+  const canCancelAdminSchedule = scheduleArmedByAdmin && holdsSchedulePublish;
 
-  const canManageAutoPublish = canArmWhenApproved || canArmOnDate;
+  // Standing an ALREADY-ARMED no-date schedule down survives everything that gates
+  // ARMING — the org switching auto-publish-on-approval off, and the licence
+  // lapsing. Both describe taking a future publish ON; the endpoint asks neither on
+  // the way out. Without this arm the checkbox vanished exactly when disarming was
+  // the thing needed. The shared ScheduledPublishControl gained the same term; this
+  // surface has its own sibling implementation and had been missed.
+  const canDisarmWhenApproved =
+    revisionAutoPublishArmed &&
+    isArmingOwner &&
+    permissionsUtil.canEditFeatureDrafts(feature);
+
+  const canManageAutoPublish =
+    canArmWhenApproved || canArmOnDate || canDisarmWhenApproved;
   // Admin-armed schedules render read-only for everyone, so route them through
   // the read-only card (with an optional Cancel) rather than the editable/owner
   // controls.
@@ -1067,7 +1182,7 @@ export default function ReviewAndPublish({
             },
           ]}
           isDraft={isActiveDraft}
-          canEdit={permissionsUtil.canManageFeatureDrafts(feature)}
+          canEdit={permissionsUtil.canEditFeatureDrafts(feature)}
           onSaved={mutate}
         />
       )}
@@ -1111,6 +1226,10 @@ export default function ReviewAndPublish({
           revision={revision}
           ref={revisionLogRef}
           onRevisionMutate={mutate}
+          // The same gate the generic timeline passes. Wired unconditionally
+          // before, so "Retract review" showed on published revisions and to
+          // viewers with no verdict of their own.
+          canRetractVerdict={state.canUndoReview}
           // Overview foregrounds the conversation: comments, verdicts, and
           // lifecycle events. Granular content-edit entries collapse into
           // per-run "N other events" toggles.
@@ -1216,9 +1335,22 @@ export default function ReviewAndPublish({
       : revision.status === "published"
         ? revision
         : null;
-    const canManageDrafts = permissionsUtil.canManageFeatureDrafts(feature);
-    const canRevert = canManageDrafts && !!revertTarget;
+    const canManageDrafts = permissionsUtil.canEditFeatureDrafts(feature);
+    // Revert authority alone is enough to offer the action — a revert-only role
+    // holds no draft rights. UNBOUND, like the server's staging check and this
+    // file's own hasRevertAuthority: opening the flow proposes a revert, and the
+    // per-environment narrowing happens in the modal against the chosen target.
+    // Scoping the entry to every environment locked env-limited reverters out
+    // of the flow entirely.
+    const canRevertHere =
+      canManageDrafts ||
+      permissionsUtil.canRevertFeature(feature, NO_ENVIRONMENT_BINDING);
+    const canRevert = canRevertHere && !!revertTarget;
     const isDiscarded = revision.status === "discarded";
+    // The first published revision has nothing behind it to roll back to, so the
+    // whole revert affordance — explanation, button, and reason — is dropped
+    // rather than stacked up as three ways of saying "not available".
+    const nothingToRevertTo = !isDiscarded && !revertTarget;
     // Same page header as the draft path, but the summary line describes
     // the terminal state (merged/published, live, or discarded) instead of a
     // pending merge.
@@ -1357,26 +1489,28 @@ export default function ReviewAndPublish({
             </Box>
           )}
 
-          <Box mt="5" mb="4">
-            <HelperText status="info" size="sm">
-              {isDiscarded ? (
-                <>
-                  This revision was discarded. Reopen it as a draft to continue
-                  editing, request review, and publish.
-                </>
-              ) : isLive ? (
-                <>
-                  This revision is currently live. Rolling back reverts the
-                  feature to the previously published revision.
-                </>
-              ) : (
-                <>
-                  This revision was published and is now locked. You can revert
-                  the feature back to this revision.
-                </>
-              )}
-            </HelperText>
-          </Box>
+          {!nothingToRevertTo && (
+            <Box mt="5" mb="4">
+              <HelperText status="info" size="sm">
+                {isDiscarded ? (
+                  <>
+                    This revision was discarded. Reopen it as a draft to
+                    continue editing, request review, and publish.
+                  </>
+                ) : isLive ? (
+                  <>
+                    This revision is currently live. Rolling back reverts the
+                    Feature Flag to the previously published revision.
+                  </>
+                ) : (
+                  <>
+                    This revision was published and is now locked. You can
+                    revert the Feature Flag back to this revision.
+                  </>
+                )}
+              </HelperText>
+            </Box>
+          )}
 
           {isDiscarded ? (
             <Button
@@ -1387,7 +1521,7 @@ export default function ReviewAndPublish({
             >
               Reopen as draft
             </Button>
-          ) : (
+          ) : nothingToRevertTo ? null : (
             <Button
               color="red"
               variant="outline"
@@ -1399,15 +1533,16 @@ export default function ReviewAndPublish({
             </Button>
           )}
 
-          {!canManageDrafts && (
-            <HelperText status="info" size="md" mt="5">
-              You don&apos;t have permission to manage drafts for this feature.
-            </HelperText>
+          {isDiscarded && !canManageDrafts && (
+            <PermissionBlocker mt="2">
+              You don&apos;t have permission to edit drafts for this Feature
+              Flag.
+            </PermissionBlocker>
           )}
-          {!isDiscarded && canManageDrafts && !revertTarget && (
-            <HelperText status="info" size="md" mt="5">
-              There is no previously published revision to roll back to.
-            </HelperText>
+          {!isDiscarded && !nothingToRevertTo && !canRevertHere && (
+            <PermissionBlocker mt="2">
+              You don&apos;t have permission to revert this Feature Flag.
+            </PermissionBlocker>
           )}
         </Box>
       </Box>
@@ -1480,10 +1615,39 @@ export default function ReviewAndPublish({
       ),
   );
 
-  const hasPublishPermission = permissionsUtil.canPublishFeature(
-    feature,
-    getAffectedRevisionEnvs(feature, revision, environments),
-  );
+  // Publish authority, or the narrow atom that could land this exact change in
+  // one step: a pure revert under revert authority, a pure archive under delete
+  // authority. Staging a change as a draft must not require an atom that landing
+  // it directly doesn't. Provenance is all the client can see — the server
+  // re-verifies purity.
+  // The footprint the publish endpoint will derive, not a narrower one computed
+  // from the revision: a toggle, a holdout move, a prerequisite or an archive all
+  // reach environments that comparing `defaultValue` and rules alone misses.
+  const affectedRevisionEnvs = mergeResult.success
+    ? getRevisionPublishEnvs({
+        liveFeature: feature,
+        changes: mergeResult.result,
+        environments,
+        holdoutsMap,
+        // Ramp actions ride the revision, not the merge result, so they have to be
+        // passed explicitly — the endpoint adds their reach either way.
+        rampActions: revision?.rampActions,
+      })
+    : environments.map((e) => e.id);
+  const hasPublishPermission =
+    (permissionsUtil.canPublishFeature(feature, affectedRevisionEnvs) ||
+      (draftStagesRevert &&
+        permissionsUtil.canRevertFeature(feature, affectedRevisionEnvs)) ||
+      (draftStagesArchive &&
+        permissionsUtil.canDeleteFeature(feature, affectedRevisionEnvs))) &&
+    // A draft that also relocates the flag lands in the destination, so the
+    // narrow atoms above don't carry it — same rule the publish endpoint applies.
+    holdsFeatureMoveDestination(
+      permissionsUtil,
+      feature,
+      mergeResult?.success ? mergeResult.result.metadata?.project : undefined,
+      affectedRevisionEnvs,
+    );
 
   // Publishing is currently blocked (merge conflict, required rebase/divergence,
   // ramp lockdown, or nothing to publish). Used to suppress the reviewer's
@@ -1550,14 +1714,22 @@ export default function ReviewAndPublish({
   }
 
   const state = getReviewAndPublishState({
+    // Feature edits demote a changes-requested revision back to `draft`, and the
+    // request-review endpoint only accepts `draft`.
+    editsResetStatus: true,
     requireReviews,
     status: revision.status,
     mergeSuccess: mergeResult.success,
     hasChanges: hasChanges || isStranded,
     hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(feature),
-    canManageDraft: permissionsUtil.canManageFeatureDrafts(feature),
+    // Recall is derived from this in the state machine, and revert/delete
+    // authority may recall a review request on a draft they authored — so pass
+    // the widened predicate rather than the bare draft atom.
+    canManageDraft: canAdvanceDraft,
     isReviewRequester,
     isContributor: !!userId && contributorIds.includes(userId),
+    // `authoredFeatureDraft` — author OR contributor, matching this engine.
+    isDraftOwner: authoredDraft,
     isReviewer: !!userId && reviewers.some((r) => r.id === userId),
     adminPublish,
     hasSelectedExperiments: selectedExperiments.size > 0,
@@ -2018,7 +2190,12 @@ export default function ReviewAndPublish({
 
   // Shared by the no-changes empty state and the actions column kebab — the
   // only two places an active draft can be discarded from.
-  const canDiscardDraft = permissionsUtil.canManageFeatureDrafts(feature);
+  //
+  // Narrower than advancing, matching `canDiscardFeatureDraft`: draft authority or
+  // authorship. A narrow atom may land this draft or leave it, but not throw away
+  // work that isn't its own — the same rule the generic tab applies.
+  const canDiscardDraft =
+    permissionsUtil.canEditFeatureDrafts(feature) || authoredDraft;
   const discardConfirmModal = confirmDiscard ? (
     <ModalStandard
       trackingEventModalType="discard-feature-revision"
@@ -2440,16 +2617,12 @@ export default function ReviewAndPublish({
               "waiting for a reviewer" next to a working Publish button reads
               as a contradiction. */}
           {state.waitingForReview && !canReview && !showPublishSection && (
-            <Callout status="info" size="sm">
-              Waiting for a reviewer.{" "}
-              {createdBy?.id === user?.id
-                ? "Authors can't approve their own drafts. "
-                : ""}
-              Anyone with review permission on this feature can approve it.
-              {state.canRecallReview
-                ? " You can also return the draft to editing, which withdraws the review request."
-                : ""}
-            </Callout>
+            <WaitingForReviewCallout
+              isOwnDraft={createdBy?.id === user?.id}
+              canRecallReview={state.canRecallReview}
+              disabled={secondaryLoading !== null}
+              onRecallReview={doRecallReview}
+            />
           )}
 
           {(() => {
@@ -2656,11 +2829,21 @@ export default function ReviewAndPublish({
                       variant="soft"
                       onClick={doSubmit}
                       loading={submitting}
-                      disabled={!state.ctaEnabled}
+                      // Requesting review is a draft action, and the endpoint
+                      // gates on draft authority — so a publish- or review-only
+                      // role must not be offered it.
+                      disabled={!state.ctaEnabled || !canAdvanceDraft}
                       style={{ width: "100%" }}
                     >
                       {state.ctaLabel}
                     </Button>
+                    {state.submitAction === "request-review" &&
+                      !canAdvanceDraft && (
+                        <PermissionBlocker mt="2">
+                          You don&apos;t have permission to request review for
+                          this draft.
+                        </PermissionBlocker>
+                      )}
                   </Box>
                 )}
 
@@ -2682,7 +2865,7 @@ export default function ReviewAndPublish({
                         baseVersion={revision.baseVersion}
                         onUpdateFromLive={onUpdateFromLive}
                         updating={rebasing}
-                        canRebase={permissionsUtil.canManageFeatureDrafts(
+                        canRebase={permissionsUtil.canEditFeatureDrafts(
                           feature,
                         )}
                         onResolveConflicts={() => setResolveConflicts(true)}
@@ -2748,6 +2931,16 @@ export default function ReviewAndPublish({
                     messages. Stacked in priority order: ramps, errors, and
                     finally the "no approval necessary" note. */}
                     <Flex direction="column" gap="2" mt="3">
+                      {/* Lacking publish authority disables the CTA above, and
+                          a greyed-out button with no reason reads as a bug.
+                          First in the stack: it's the reason nothing else on
+                          this panel is actionable. */}
+                      {!hasPublishPermission && (
+                        <PermissionBlocker>
+                          You don&apos;t have permission to publish this draft.
+                        </PermissionBlocker>
+                      )}
+
                       {linkedRamps.map((ramp) => (
                         <Callout key={ramp.id} status="info" size="sm">
                           Publishing this draft will activate ramp schedule{" "}

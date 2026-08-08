@@ -100,6 +100,35 @@ export type FeatureRevisionReopenedPayload = z.infer<
   typeof featureRevisionReopenedPayload
 >;
 
+// Recall returns a revision from the REVIEW cycle to draft. Distinct from
+// `reopened`, which restores a DISCARDED revision — the two leave the revision in
+// the same status but mean opposite things to a consumer (one retracts a review
+// request, the other revives abandoned work), and recall additionally clears every
+// verdict and disarms any deferred publish.
+export const featureRevisionRecalledPayload =
+  featureRevisionWebhookPayload.strict();
+export type FeatureRevisionRecalledPayload = z.infer<
+  typeof featureRevisionRecalledPayload
+>;
+
+// A review verdict RETRACTED by the reviewer who gave it. The revision's content is
+// untouched; only the standing verdicts change, and the status is recomputed from
+// whatever remains. The other revision families got this event while Feature Flags —
+// which has its own revision engine — kept dispatching nothing at all for the same
+// action.
+export const featureRevisionReviewRetractedPayload =
+  featureRevisionWebhookPayload.strict();
+export type FeatureRevisionReviewRetractedPayload = z.infer<
+  typeof featureRevisionReviewRetractedPayload
+>;
+
+// A deferred publish ARMED, re-armed, or CANCELLED. Content is untouched.
+export const featureRevisionPublishScheduleChangedPayload =
+  featureRevisionWebhookPayload.strict();
+export type FeatureRevisionPublishScheduleChangedPayload = z.infer<
+  typeof featureRevisionPublishScheduleChangedPayload
+>;
+
 export const featureRevisionRebasedPayload =
   featureRevisionWebhookPayload.strict();
 export type FeatureRevisionRebasedPayload = z.infer<

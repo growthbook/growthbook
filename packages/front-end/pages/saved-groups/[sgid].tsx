@@ -1,12 +1,20 @@
+import {
+  NO_ENVIRONMENT_BINDING,
+  canCommentOnRevisionEntity,
+  canLandRevertToTarget,
+  canPublishRevisionEntity,
+  canReviewRevisionEntity,
+  holdsRevisionDestination,
+} from "shared/permissions";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import {
   Revision,
   applyTopLevelPatchOps,
-  isSavedGroupRevisionMetadataOnly,
   getLiveRevision,
   getRevisionNumber,
+  isSavedGroupRevisionMetadataOnly,
 } from "shared/enterprise";
 import { REVIEW_REQUESTED_STATUSES } from "shared/validators";
 import {
@@ -15,7 +23,7 @@ import {
   PiPlusCircleBold,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { isIdListSupportedAttribute } from "shared/util";
+import { isIdListSupportedAttribute, restoredProjectScope } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
@@ -275,9 +283,39 @@ export default function EditSavedGroupPage() {
   const valuesPage = sortedValues.slice(start, end);
   const { user } = useUser();
   const permissionsUtil = usePermissionsUtil();
-  const canUpdate = savedGroup
-    ? permissionsUtil.canUpdateSavedGroup(savedGroup, savedGroup)
+  const canDraft = savedGroup
+    ? permissionsUtil.canRevisionAction(
+        "saved-group",
+        "draft",
+        savedGroup,
+        NO_ENVIRONMENT_BINDING,
+      )
     : false;
+  // Reverting is its own authority — a revert-only role holds no draft or
+  // publish rights, and revert alone is enough to both propose and land one.
+  const canRevertEntity = savedGroup
+    ? permissionsUtil.canRevisionAction(
+        "saved-group",
+        "revert",
+        savedGroup,
+        NO_ENVIRONMENT_BINDING,
+      )
+    : false;
+
+  // Archiving is delete-class server-side — it takes the group out of service,
+  // and being archived is what allows deleting it. Unarchiving returns it to
+  // service, so it's an ordinary publish. Either authority is enough: the
+  // landing atom stands on its own for a pure archive, and an editor without it
+  // can still stage the flip as a draft.
+  // LIVE state, matching the endpoint and the modal — the projected state inverts
+  // the menu label and the atom whenever the viewed draft stages the opposite flip.
+  const isArchivedInView = !!savedGroup?.archived;
+  const canToggleArchive =
+    !!savedGroup &&
+    ((isArchivedInView
+      ? permissionsUtil.canRevisionAction("saved-group", "publish", savedGroup)
+      : permissionsUtil.canDeleteSavedGroup(savedGroup)) ||
+      canDraft);
 
   const canAdminPublish =
     !!approvalRequired &&
@@ -285,11 +323,18 @@ export default function EditSavedGroupPage() {
     (user?.role === "admin" ||
       (savedGroup?.projects?.length
         ? savedGroup.projects.every((project) =>
-            permissionsUtil.canBypassApprovalChecks({ project: project || "" }),
+            permissionsUtil.canBypassSavedGroupApprovalChecks({
+              project: project || "",
+            }),
           )
-        : permissionsUtil.canBypassApprovalChecks({ project: "" })));
+        : permissionsUtil.canBypassSavedGroupApprovalChecks({ project: "" })));
 
-  const canAutoPublish = !approvalRequired || canAdminPublish;
+  // Publishing is its own authority: an author without it edits through drafts
+  // and is never offered "publish now" — the server refuses that write.
+  const canAutoPublish =
+    !!savedGroup &&
+    permissionsUtil.canRevisionAction("saved-group", "publish", savedGroup) &&
+    (!approvalRequired || canAdminPublish);
 
   const { hasLargeSavedGroupFeature, unsupportedConnections, connections } =
     useLargeSavedGroupSupport();
@@ -560,11 +605,13 @@ export default function EditSavedGroupPage() {
           }}
         >
           <>
-            <div className="form-group">
-              {approvalRequired
-                ? "Changes will be saved as a draft and must be reviewed before taking effect."
-                : "Changes will be saved as a draft revision."}
-            </div>
+            {addItemsDraftMode !== "publish" && (
+              <Text as="p" mb="3" color="text-mid">
+                {approvalRequired
+                  ? "Changes will be saved as a draft and must be reviewed before taking effect."
+                  : "Changes will be saved as a draft revision."}
+              </Text>
+            )}
             <SavedGroupDraftSelectorForChanges
               savedGroup={savedGroup}
               openRevisions={openRevisions}
@@ -642,7 +689,12 @@ export default function EditSavedGroupPage() {
       )}
       {showArchiveModal && displayedSavedGroup && (
         <SavedGroupArchiveModal
-          savedGroup={displayedSavedGroup}
+          // LIVE state, like the feature page does: the endpoint flips against
+          // live, so handing the revision-PROJECTED Saved Group here inverted the
+          // action whenever the viewed draft staged the opposite archive state —
+          // the modal predicted one atom and submitted the other, and the endpoint
+          // saw no transition at all and wrote nothing.
+          savedGroup={savedGroup}
           close={() => setShowArchiveModal(false)}
           openRevisions={openRevisions}
           allRevisions={allRevisions}
@@ -676,8 +728,8 @@ export default function EditSavedGroupPage() {
           closeCta="Close"
         >
           <Text as="p" mb="3">
-            This saved group is referenced by the following features,
-            experiments, and saved groups.
+            This Saved Group is referenced by the following Feature Flags,
+            Experiments, and Saved Groups.
           </Text>
           <SavedGroupReferencesList
             features={referencingFeatures}
@@ -688,6 +740,19 @@ export default function EditSavedGroupPage() {
       )}
       {confirmRevert && revisionToRevert && (
         <SavedGroupRevertModal
+          canRevert={canRevertEntity}
+          // Recomputed per target: restoring an older snapshot can relocate the
+          // group, and the destination is judged on the state being restored.
+          canLandRevertForTarget={(t) =>
+            canLandRevertToTarget(
+              permissionsUtil,
+              "saved-group",
+              savedGroup,
+              restoredProjectScope(t),
+              NO_ENVIRONMENT_BINDING,
+            )
+          }
+          canDraft={canDraft}
           savedGroup={savedGroup}
           revision={revisionToRevert}
           allRevisions={allRevisions}
@@ -927,14 +992,17 @@ export default function EditSavedGroupPage() {
               <DropdownMenuGroup>
                 <DropdownMenuItem
                   disabled={
+                    !canDraft ||
                     !!(metadataReviewRequired && (isMerged || isDiscarded))
                   }
                   tooltip={
-                    metadataReviewRequired && isMerged
-                      ? "You cannot edit a merged revision."
-                      : metadataReviewRequired && isDiscarded
-                        ? "You cannot edit a discarded revision."
-                        : undefined
+                    !canDraft
+                      ? "You don't have permission to edit this Saved Group."
+                      : metadataReviewRequired && isMerged
+                        ? "You cannot edit a merged revision."
+                        : metadataReviewRequired && isDiscarded
+                          ? "You cannot edit a discarded revision."
+                          : undefined
                   }
                   onClick={() => {
                     setDropdownOpen(false);
@@ -962,23 +1030,14 @@ export default function EditSavedGroupPage() {
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
-                {displayedSavedGroup?.archived ? (
+                {canToggleArchive && (
                   <DropdownMenuItem
                     onClick={() => {
                       setDropdownOpen(false);
                       setShowArchiveModal(true);
                     }}
                   >
-                    Unarchive
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setDropdownOpen(false);
-                      setShowArchiveModal(true);
-                    }}
-                  >
-                    Archive
+                    {isArchivedInView ? "Unarchive" : "Archive"}
                   </DropdownMenuItem>
                 )}
                 {/* Delete is gated on the LIVE archive state, not the
@@ -1037,12 +1096,74 @@ export default function EditSavedGroupPage() {
             currentState={savedGroup}
             diffConfig={REVISION_SAVED_GROUP_DIFF_CONFIG}
             entityName={savedGroup.groupName}
-            entityNoun="saved group"
+            entityNoun="Saved Group"
             // Defer to the per-revision gate so metadata-only revisions skip
             // the review dance when `requireMetadataReview` is off (matching
             // the server-side rule in the saved-group adapter).
             requiresApproval={selectedRevisionRequiresApproval}
-            canEditEntity={permissionsUtil.canUpdateSavedGroup(savedGroup, {})}
+            canEditEntity={permissionsUtil.canRevisionAction(
+              "saved-group",
+              "draft",
+              savedGroup,
+              NO_ENVIRONMENT_BINDING,
+            )}
+            canRevertEntity={permissionsUtil.canRevisionAction(
+              "saved-group",
+              "revert",
+              savedGroup,
+            )}
+            canDeleteEntity={permissionsUtil.canRevisionAction(
+              "saved-group",
+              "delete",
+              savedGroup,
+            )}
+            holdsLandingDestination={holdsRevisionDestination(
+              permissionsUtil,
+              "saved-group",
+              "publish",
+              selectedRevision ?? displayRevision ?? null,
+              savedGroup,
+              NO_ENVIRONMENT_BINDING,
+            )}
+            canCommentOnEntity={canCommentOnRevisionEntity(
+              permissionsUtil,
+              "saved-group",
+              selectedRevision ?? displayRevision ?? null,
+              savedGroup,
+            )}
+            canReviewEntity={canReviewRevisionEntity(
+              permissionsUtil,
+              "saved-group",
+              selectedRevision ?? displayRevision ?? null,
+              savedGroup,
+            )}
+            canManageDraftsEntity={permissionsUtil.canRevisionAction(
+              "saved-group",
+              "draft",
+              savedGroup,
+            )}
+            canPublishEntity={canPublishRevisionEntity(
+              permissionsUtil,
+              "saved-group",
+              selectedRevision ?? displayRevision ?? null,
+              savedGroup,
+              // Saved Groups are not partitioned by environment, so the check is
+              // deliberately unbound rather than scoped to an empty list.
+              NO_ENVIRONMENT_BINDING,
+            )}
+            // The basis the CANCEL arm actually uses: the adapter's
+            // canPublishRevision(snapshot) = the entity's OWN scoped
+            // environments, with no destination term and no archive-flip
+            // widening. Dropping only the destination term left the widening,
+            // so an env-limited publisher on an archive-flipping revision
+            // still lost the Cancel button for a schedule the endpoint would
+            // let them withdraw.
+            canPublishEntityCoarse={permissionsUtil.canRevisionAction(
+              "saved-group",
+              "publish",
+              savedGroup,
+              NO_ENVIRONMENT_BINDING,
+            )}
             canBypassApproval={!!canAdminPublish}
             selectRevision={selectFlow}
             onPublish={handlePublish}
@@ -1119,7 +1240,7 @@ export default function EditSavedGroupPage() {
             {savedGroup.type === "list" &&
               !isIdListSupportedAttribute(attr) && (
                 <Callout status="error" mt="3">
-                  The attribute for this saved group has an unsupported
+                  The attribute for this Saved Group has an unsupported
                   datatype. It cannot be edited and it may produce unexpected
                   behavior when used in SDKs. Try using a{" "}
                   <Link href="/saved-groups#conditionGroups">
@@ -1131,10 +1252,10 @@ export default function EditSavedGroupPage() {
             <RevisionSummaryCard
               allRevisions={allRevisions}
               selectedRevision={selectedRevision}
-              entityNoun="saved group"
+              entityNoun="Saved Group"
               hasRevisions={hasRevisions}
-              canEditTitle={canUpdate}
-              canEditDescription={canUpdate}
+              canEditTitle={canDraft}
+              canEditDescription={canDraft}
               fallbackOwnerId={savedGroup.owner}
               fallbackDateCreated={savedGroup.dateCreated}
               onSelectRevision={selectFlow}
@@ -1145,7 +1266,7 @@ export default function EditSavedGroupPage() {
                 });
                 await mutateRevisions();
               }}
-              onNewDraft={() => setConfirmNewDraft(true)}
+              onNewDraft={canDraft ? () => setConfirmNewDraft(true) : undefined}
               onReviewPublish={() => setTabAndScroll("review")}
               onEditDescription={() => setEditDescriptionModal(true)}
             />
@@ -1174,12 +1295,14 @@ export default function EditSavedGroupPage() {
                           ? "You cannot edit a merged revision."
                           : isDiscarded
                             ? "You cannot edit a discarded revision."
-                            : ""
+                            : !canDraft
+                              ? "You don't have permission to edit drafts for this Saved Group."
+                              : ""
                       }
                     >
                       <Button
                         variant="ghost"
-                        disabled={!!(isMerged || isDiscarded)}
+                        disabled={!canDraft || !!(isMerged || isDiscarded)}
                         onClick={() => {
                           if (!selectedRevision && userOpenRevision) {
                             selectFlow(userOpenRevision);
@@ -1226,25 +1349,38 @@ export default function EditSavedGroupPage() {
                   </Box>
                   <Flex gap="4" align="center">
                     {selected.size > 0 && (
-                      <Button
-                        variant="ghost"
-                        color="red"
-                        onClick={() => {
-                          setDeleteItemsDraftMode(
-                            !approvalRequired
-                              ? "publish"
-                              : userOpenRevision
-                                ? "existing"
-                                : "new",
-                          );
-                          setDeleteItemsDraftSelectedId(
-                            userOpenRevision?.id ?? null,
-                          );
-                          setDeleteItemsModal(true);
-                        }}
+                      <Tooltip
+                        body={
+                          isMerged
+                            ? "You cannot edit a merged revision."
+                            : isDiscarded
+                              ? "You cannot edit a discarded revision."
+                              : !canDraft
+                                ? "You don't have permission to edit drafts for this Saved Group."
+                                : ""
+                        }
                       >
-                        Delete Selected ({selected.size})
-                      </Button>
+                        <Button
+                          variant="ghost"
+                          color="red"
+                          disabled={!canDraft || !!(isMerged || isDiscarded)}
+                          onClick={() => {
+                            setDeleteItemsDraftMode(
+                              !approvalRequired
+                                ? "publish"
+                                : userOpenRevision
+                                  ? "existing"
+                                  : "new",
+                            );
+                            setDeleteItemsDraftSelectedId(
+                              userOpenRevision?.id ?? null,
+                            );
+                            setDeleteItemsModal(true);
+                          }}
+                        >
+                          Delete Selected ({selected.size})
+                        </Button>
+                      </Tooltip>
                     )}
                     <Tooltip
                       body={
@@ -1252,13 +1388,15 @@ export default function EditSavedGroupPage() {
                           ? "You cannot edit a merged revision."
                           : isDiscarded
                             ? "You cannot edit a discarded revision."
-                            : ""
+                            : !canDraft
+                              ? "You don't have permission to edit drafts for this Saved Group."
+                              : ""
                       }
                     >
                       <Button
                         variant="ghost"
                         color="red"
-                        disabled={!!(isMerged || isDiscarded)}
+                        disabled={!canDraft || !!(isMerged || isDiscarded)}
                         onClick={() => {
                           // When viewing live, switch to/create draft first
                           if (!selectedRevision && userOpenRevision) {
@@ -1287,12 +1425,14 @@ export default function EditSavedGroupPage() {
                           ? "You cannot edit a merged revision."
                           : isDiscarded
                             ? "You cannot edit a discarded revision."
-                            : ""
+                            : !canDraft
+                              ? "You don't have permission to edit drafts for this Saved Group."
+                              : ""
                       }
                     >
                       <Button
                         variant="outline"
-                        disabled={!!(isMerged || isDiscarded)}
+                        disabled={!canDraft || !!(isMerged || isDiscarded)}
                         icon={<PiPlusCircleBold />}
                         onClick={() => {
                           // When viewing live, switch to/create draft first
@@ -1420,7 +1560,7 @@ export default function EditSavedGroupPage() {
                 {!displayedValues.length &&
                   !displayedSavedGroup?.useEmptyListGroup && (
                     <Callout status="info">
-                      This saved group has legacy behavior when empty and will
+                      This Saved Group has legacy behavior when empty and will
                       be completely ignored when used for targeting.{" "}
                       <DocLink useRadix={false} docSection="idLists">
                         Learn More

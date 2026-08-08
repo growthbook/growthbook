@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual, omit } from "lodash";
 import { ConstantInterface, ConstantWithoutValue } from "shared/types/constant";
 import {
@@ -11,7 +12,12 @@ import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 import { resolvableValueChanged } from "back-end/src/services/constants";
 import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
-import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
+import {
+  captureEventBuffer,
+  emitOrDeferBulkPublishEvent,
+  entityKey,
+} from "back-end/src/events/bulkPublishCorrelation";
+import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
 import {
   logConstantCreatedEvent,
   logConstantUpdatedEvent,
@@ -103,11 +109,20 @@ export class ConstantModel extends BaseClass {
     _updates: UpdateProps<ConstantInterface>,
     newDoc: ConstantInterface,
   ): boolean {
-    return this.context.permissions.canUpdateConstant(existing, newDoc);
+    return canLandEntityUpdate({
+      permissions: this.context.permissions,
+      model: "constant",
+      existing,
+      newDoc,
+      environments: NO_ENVIRONMENT_BINDING,
+    });
   }
 
   protected canDelete(doc: ConstantInterface): boolean {
-    return this.context.permissions.canDeleteConstant(doc);
+    return this.context.permissions.canDeleteConstant(
+      doc,
+      NO_ENVIRONMENT_BINDING,
+    );
   }
 
   // Reject cyclic values at the model layer so every write is covered, including
@@ -234,8 +249,10 @@ export class ConstantModel extends BaseClass {
     if (
       !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
     ) {
-      await emitOrDeferBulkPublishEvent(this.context, () =>
-        logConstantUpdatedEvent(this.context, previous, current),
+      await emitOrDeferBulkPublishEvent(
+        () => logConstantUpdatedEvent(this.context, previous, current),
+        entityKey("constant", newDoc.id),
+        captureEventBuffer(this.context),
       );
     }
   }
@@ -293,5 +310,20 @@ export class ConstantModel extends BaseClass {
     for (const constant of affected) {
       await this.dangerousUpdateBypassPermission(constant, { project: "" });
     }
+  }
+  /**
+   * Project scope only, for the ids given — what a read check consults.
+   *
+   * Revision listings ask this for every target in a filtered scan, so the
+   * heavy value fields are projected OUT (a Saved Group's `values` can be
+   * enormous; the read check only consults project scope).
+   * Read-filtered like any other find, so what comes back is what may be read.
+   */
+  public async getReadScopesByIds(ids: string[]) {
+    if (!ids.length) return [];
+    return this._find(
+      { id: { $in: ids } } as Parameters<typeof this._find>[0],
+      { projection: { value: 0, environmentValues: 0 } },
+    );
   }
 }

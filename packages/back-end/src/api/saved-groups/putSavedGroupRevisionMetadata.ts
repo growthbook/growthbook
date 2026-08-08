@@ -1,4 +1,5 @@
 import { putSavedGroupRevisionMetadataValidator } from "shared/validators";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
@@ -38,24 +39,39 @@ export const putSavedGroupRevisionMetadata = createApiRequestHandler(
     assertValidDescription(description);
     fieldsToUpdate.description = description;
   }
+  // Both checks run BEFORE probing project existence, so this can't be used as
+  // an existence oracle for projects the caller has no access to — same order
+  // as the Config and Constant twins.
+  if (
+    !req.context.permissions.canRevisionAction(
+      "saved-group",
+      "draft",
+      savedGroup,
+    )
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
+  // Staging a move takes draft authority in the destination too.
+  if (
+    !holdsMoveDestination({
+      permissions: req.context.permissions,
+      model: "saved-group",
+      action: "draft",
+      existing: savedGroup,
+      proposed: {
+        ...savedGroup,
+        ...(projects === undefined ? {} : { projects }),
+      },
+    })
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
+
   if (typeof projects !== "undefined") {
     if (projects.length > 0) {
       await req.context.models.projects.ensureProjectsExist(projects);
     }
     fieldsToUpdate.projects = projects;
-  }
-
-  // Re-check edit permission against the merged change set so a `projects`
-  // move requires edit on both old AND new project sets — matches the
-  // internal controller. canUpdateSavedGroup's second arg accepts a partial
-  // update; the model union gives us both projection sets here.
-  if (
-    !req.context.permissions.canUpdateSavedGroup(savedGroup, {
-      ...savedGroup,
-      ...fieldsToUpdate,
-    })
-  ) {
-    req.context.permissions.throwPermissionError();
   }
 
   await ensureLiveRevisionExists(

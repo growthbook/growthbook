@@ -1,11 +1,6 @@
-import { ConfigInterface, ConfigWithoutValue } from "shared/types/config";
-import { SimpleSchema } from "shared/types/feature";
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import {
-  ApiConfig,
-  configValidator,
-  getCyclicConstantRefs,
-} from "shared/validators";
-import {
+  configPublishEnvironments,
   getConfigBaseKeys,
   withConfigExtends,
   findBasePrecedenceInversions,
@@ -17,6 +12,13 @@ import {
   storedInvariantsToApi,
   isConfigLocked,
 } from "shared/util";
+import { ConfigInterface, ConfigWithoutValue } from "shared/types/config";
+import { SimpleSchema } from "shared/types/feature";
+import {
+  ApiConfig,
+  configValidator,
+  getCyclicConstantRefs,
+} from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { isEqual, omit } from "lodash";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -29,7 +31,13 @@ import {
 } from "back-end/src/services/constants";
 import { assertConfigArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { configToResolvable } from "back-end/src/services/resolvableValues";
-import { emitOrDeferBulkPublishEvent } from "back-end/src/events/bulkPublishCorrelation";
+import {
+  captureEventBuffer,
+  emitOrDeferBulkPublishEvent,
+  entityKey,
+} from "back-end/src/events/bulkPublishCorrelation";
+import { archiveServeFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
+import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
 import {
   logConfigCreatedEvent,
   logConfigUpdatedEvent,
@@ -85,11 +93,30 @@ export class ConfigModel extends BaseClass {
     _updates: UpdateProps<ConfigInterface>,
     newDoc: ConfigInterface,
   ): boolean {
-    return this.context.permissions.canUpdateConfig(existing, newDoc);
+    return canLandEntityUpdate({
+      permissions: this.context.permissions,
+      model: "config",
+      existing,
+      newDoc,
+      // An archived flip reaches everywhere the Config serves, and a BASE Config's
+      // scoped list is empty — which SKIPS the environment check instead of
+      // narrowing it. Same helper the adapter and controller use.
+      environments:
+        !!existing.archived !== !!newDoc.archived
+          ? archiveServeFootprint(
+              this.context,
+              newDoc,
+              configPublishEnvironments(newDoc),
+            )
+          : configPublishEnvironments(newDoc),
+    });
   }
 
   protected canDelete(doc: ConfigInterface): boolean {
-    return this.context.permissions.canDeleteConfig(doc);
+    return this.context.permissions.canDeleteConfig(
+      doc,
+      doc.archived ? NO_ENVIRONMENT_BINDING : configPublishEnvironments(doc),
+    );
   }
 
   // Reject cyclic lineage. Every base (`parent` + `extends`) is synthesized into
@@ -120,7 +147,7 @@ export class ConfigModel extends BaseClass {
     const cyclic = await this.findReferenceCycle(doc);
     if (cyclic.length) {
       throw new BadRequestError(
-        `This config references ${cyclic.join(", ")}, which would create a reference cycle.`,
+        `This Config references ${cyclic.join(", ")}, which would create a reference cycle.`,
       );
     }
   }
@@ -228,7 +255,7 @@ export class ConfigModel extends BaseClass {
       // Structural checks against the raw fields (getConfigBaseKeys already dedups
       // for resolution, so inspect the raw `extends` for duplicates/overlap).
       if (extendsList.includes(doc.key) || doc.parent === doc.key) {
-        throw new BadRequestError("A config cannot extend itself.");
+        throw new BadRequestError("A Config cannot extend itself.");
       }
       if (doc.parent && extendsList.includes(doc.parent)) {
         throw new BadRequestError(
@@ -252,7 +279,7 @@ export class ConfigModel extends BaseClass {
       const missing = baseKeys.filter((k) => !byKey.has(k));
       if (missing.length) {
         throw new BadRequestError(
-          `Unknown config(s) in lineage: ${missing.join(", ")}.`,
+          `Unknown Config(s) in lineage: ${missing.join(", ")}.`,
         );
       }
 
@@ -270,7 +297,7 @@ export class ConfigModel extends BaseClass {
       );
       if (unreadable.length) {
         throw new BadRequestError(
-          `Cannot compose config(s) you don't have access to: ${unreadable.join(
+          `Cannot compose Config(s) you don't have access to: ${unreadable.join(
             ", ",
           )}.`,
         );
@@ -307,7 +334,7 @@ export class ConfigModel extends BaseClass {
       const archivedMixins = extendsList.filter((k) => byKey.get(k)?.archived);
       if (archivedMixins.length) {
         throw new BadRequestError(
-          `Cannot extend archived config(s): ${archivedMixins.join(", ")}. ` +
+          `Cannot extend archived Config(s): ${archivedMixins.join(", ")}. ` +
             `Unarchive them or remove them from "extends".`,
         );
       }
@@ -319,9 +346,9 @@ export class ConfigModel extends BaseClass {
         .map((c) => `"${c.key}" (declared by ${c.owners.join(" and ")})`)
         .join(", ");
       throw new BadRequestError(
-        `This config's bases declare the same field on separate branches, so ` +
+        `This Config's bases declare the same field on separate branches, so ` +
           `there is no single owner: ${detail}. Each effective field must be ` +
-          `owned by exactly one config — remove the duplicate declaration from ` +
+          `owned by exactly one Config — remove the duplicate declaration from ` +
           `one of the bases or drop one of the conflicting bases.`,
       );
     }
@@ -383,8 +410,10 @@ export class ConfigModel extends BaseClass {
     if (
       !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
     ) {
-      await emitOrDeferBulkPublishEvent(this.context, () =>
-        logConfigUpdatedEvent(this.context, previous, current),
+      await emitOrDeferBulkPublishEvent(
+        () => logConfigUpdatedEvent(this.context, previous, current),
+        entityKey("config", newDoc.id),
+        captureEventBuffer(this.context),
       );
     }
   }
@@ -581,5 +610,20 @@ export class ConfigModel extends BaseClass {
     for (const config of affected) {
       await this.dangerousUpdateBypassPermission(config, { project: "" });
     }
+  }
+  /**
+   * Project scope only, for the ids given — what a read check consults.
+   *
+   * Revision listings ask this for every target in a filtered scan, so the
+   * heavy value fields are projected OUT (a Saved Group's `values` can be
+   * enormous; the read check only consults project scope).
+   * Read-filtered like any other find, so what comes back is what may be read.
+   */
+  public async getReadScopesByIds(ids: string[]) {
+    if (!ids.length) return [];
+    return this._find(
+      { id: { $in: ids } } as Parameters<typeof this._find>[0],
+      { projection: { value: 0, schema: 0 } },
+    );
   }
 }

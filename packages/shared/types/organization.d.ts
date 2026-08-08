@@ -53,10 +53,22 @@ export type Permission =
 
 export type PermissionsObject = Partial<Record<Permission, boolean>>;
 
+/** A principal's permissions in one scope, merged across their roles. */
 export type UserPermission = {
+  /** Union across roles. Legacy fallback — check environments via `envsAllowedBy`. */
   environments: string[];
   limitAccessByEnvironment: boolean;
   permissions: PermissionsObject;
+  /**
+   * Per role: its env-scoped permissions with its own env restriction, so one
+   * role's permission can't borrow another's environments. Absent for roles
+   * granting nothing env-scoped, and for payloads predating the field.
+   */
+  envGrants?: {
+    environments: string[];
+    limitAccessByEnvironment: boolean;
+    permissions: Permission[];
+  }[];
 };
 
 export type UserPermissions = {

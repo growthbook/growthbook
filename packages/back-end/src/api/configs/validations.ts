@@ -1,3 +1,11 @@
+// The entity-agnostic revision helpers live in one place; re-exported here so
+// the handlers' existing imports keep working.
+export {
+  isDraftStatus,
+  assertUserScopedKeyForMine,
+  buildRevisionStatusFilter,
+} from "back-end/src/api/revisionValidations";
+export { ACTIVE_DRAFT_STATUSES as ACTIVE_STATUSES } from "shared/validators";
 import {
   validateResolvableValue,
   simpleSchemaValidator,
@@ -7,11 +15,7 @@ import {
 import type { ConfigInterface } from "shared/types/config";
 import type { SimpleSchema } from "shared/types/feature";
 import { z } from "zod";
-import {
-  Revision,
-  RevisionStatus,
-  normalizeProposedChanges,
-} from "shared/enterprise";
+import { Revision, normalizeProposedChanges } from "shared/enterprise";
 import {
   parsePlainJSONObject,
   inferFieldsFromValue,
@@ -34,16 +38,6 @@ import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 
 // Open (editable, non-terminal) statuses — mirrors the constant helper.
-export const ACTIVE_STATUSES: readonly RevisionStatus[] = [
-  "draft",
-  "pending-review",
-  "approved",
-  "changes-requested",
-];
-
-export function isDraftStatus(status: string): boolean {
-  return (ACTIVE_STATUSES as readonly string[]).includes(status);
-}
 
 export type RevisionEntityArg = Record<string, unknown> & {
   id: string;
@@ -85,7 +79,7 @@ export async function loadRevisionByVersion(
     revision.target.type !== "config" ||
     revision.target.id !== configId
   ) {
-    throw new NotFoundError("Could not find config revision");
+    throw new NotFoundError("Could not find Config revision");
   }
   return revision;
 }
@@ -116,6 +110,10 @@ export async function discardIfJustCreated(
     await context.models.revisions.close(
       revision.id,
       context.userId,
+      {
+        authorizedByFlow:
+          "this flow created the draft moments ago and is unwinding its own failure",
+      },
       "Discarded after error during draft initialization",
     );
   } catch (err) {
@@ -134,28 +132,6 @@ export function applyRevisionToSnapshot(revision: Revision): ConfigInterface {
 }
 
 // `mine=true` requires a user-scoped key so the caller is identifiable.
-export function assertUserScopedKeyForMine(
-  context: ApiReqContext,
-  mine: boolean,
-): void {
-  if (mine && !context.userId) {
-    throw new BadRequestError(
-      "`mine=true` requires a user-scoped API key (the caller must be identifiable as a user).",
-    );
-  }
-}
-
-export function buildRevisionStatusFilter(
-  input?: string,
-): string | string[] | undefined {
-  if (!input) return undefined;
-  const parts = input
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (parts.includes("open")) return "open";
-  return parts.length === 1 ? parts[0] : parts;
-}
 
 export function pickNewDraftMetadata(body: {
   revisionTitle?: string;

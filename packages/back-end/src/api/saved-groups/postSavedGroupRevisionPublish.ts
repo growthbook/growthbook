@@ -1,9 +1,14 @@
-import { isEqual } from "lodash";
+import { holdsMoveDestination, type ProjectScoped } from "shared/permissions";
 import {
   checkMergeConflicts,
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { postSavedGroupRevisionPublishValidator } from "shared/validators";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import {
+  publishRevision,
+  assertCanPublishRevision,
+} from "back-end/src/revisions/revisionActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   BadRequestError,
@@ -13,15 +18,13 @@ import {
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import {
-  evaluatePublishGates,
-  PublishBlockedError,
+  resolveEntityPublishGates,
   PublishGate,
 } from "back-end/src/revisions/publishGates";
 import {
   buildMergeDesiredState,
   isRevisionDiverged,
 } from "back-end/src/revisions/util";
-import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { collectSavedGroupArchiveDependentsGate } from "back-end/src/services/archiveDependentsGuard";
 import { collectRevisionGovernanceGates } from "back-end/src/revisions/governanceGates";
 import { loadRevisionByVersion } from "./validations";
@@ -51,13 +54,9 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
 
   const adapter = getAdapter("saved-group");
 
-  // Re-check edit permission against the LIVE entity (not just the snapshot).
-  // A `projects` move encoded in the proposed changes shouldn't be able to
-  // launder write access — the caller still needs `canUpdateSavedGroup` on
-  // the existing entity, plus the bypass permission below if review is open.
-  if (!adapter.canUpdate(req.context, savedGroup as Record<string, unknown>)) {
-    req.context.permissions.throwPermissionError();
-  }
+  // Publish authority on the LIVE entity (not just the snapshot), or revert
+  // authority for a pure revert (project-move manage checked below).
+  await assertCanPublishRevision(req.context, revision, savedGroup);
 
   // Per-revision approval gate: saved-group adapter has a metadata-only
   // shortcut, so honour `isApprovalRequiredForRevision` when available.
@@ -65,14 +64,22 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
     ? adapter.isApprovalRequiredForRevision(req.context, revision)
     : adapter.isApprovalRequired(req.context);
 
-  // Bypass via either the org-wide `restApiBypassesReviews` flag or per-user
-  // bypass permission. Mirrors postFeatureRevisionPublish.ts.
+  // The org-wide REST bypass or per-user bypass permission. Via
+  // canUseRestApiBypassSetting, which also requires a non-JWT caller.
   const canBypass =
-    !!req.organization.settings?.restApiBypassesReviews ||
+    canUseRestApiBypassSetting(req) ||
     adapter.canBypassApproval(
       req.context,
       savedGroup as Record<string, unknown>,
     );
+
+  // Approval bypass and stale-base force-merge are different capabilities: the
+  // org's `restApiBypassesReviews` setting waives APPROVAL only, never the right
+  // to merge onto a base that has moved under another author's landed work.
+  const canForceMerge = adapter.canBypassApproval(
+    req.context,
+    savedGroup as Record<string, unknown>,
+  );
 
   // Aggregate every publish gate up front so a blocked publish returns ONE
   // structured 422 naming each gate, the flag that clears it, and a callable
@@ -107,38 +114,43 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
     )),
   ];
 
-  const { blocking, bypassed } = evaluatePublishGates(gates, {
-    ignoreWarnings: req.context.ignoreWarnings,
-    skipSchemaValidation: req.context.skipSchemaValidation,
-    skipHooks: req.context.skipHooks,
+  const { bypassed } = resolveEntityPublishGates({
+    entityType: "saved-group",
+    req,
+    gates,
     bypassApprovalPermission: adapter.canBypassApproval(
       req.context,
-      savedGroup as Record<string, unknown>,
+      savedGroup as unknown as Record<string, unknown>,
     ),
-    restApiBypassesReviews: !!req.organization.settings?.restApiBypassesReviews,
-    canForceMergeStaleBase: canBypass,
+    canForceMergeStaleBase: canForceMerge,
   });
-  if (blocking.length) {
-    throw new PublishBlockedError(blocking);
-  }
 
   if (approvalRequired && revision.status !== "approved" && !canBypass) {
     throw new BadRequestError(
       `This revision requires approval before publishing (status: "${revision.status}"). ` +
         "Enable 'REST API always bypasses approval requirements' in organization settings, " +
-        "or use a role/token that grants bypassApprovalChecks on this saved group's projects.",
+        "or use a role/token that grants bypassApprovalSavedGroups on this Saved Group's projects.",
     );
   }
 
   const isBypass = approvalRequired && revision.status !== "approved";
 
-  // The live check above covers the source projects. If the revision moves the
-  // group to different projects, also require update permission on the
-  // destination.
+  // A projects move (including a clear to global) lands content in the
+  // destination, so it takes edit rights on the resulting doc AND publish
+  // authority there. Saved Groups carry no environment footprint, so the
+  // destination check is project-scoped.
+  const destination = {
+    ...(savedGroup as unknown as Record<string, unknown>),
+    ...desiredState,
+  };
   if (
-    !adapter.canUpdate(req.context, {
-      ...(savedGroup as unknown as Record<string, unknown>),
-      ...desiredState,
+    !adapter.canUpdate(req.context, destination) ||
+    !holdsMoveDestination({
+      permissions: req.context.permissions,
+      model: "saved-group",
+      action: "publish",
+      existing: savedGroup as ProjectScoped,
+      proposed: destination as ProjectScoped,
     })
   ) {
     req.context.permissions.throwPermissionError();
@@ -159,8 +171,6 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
     );
   }
 
-  const updatableFields = adapter.getUpdatableFields();
-
   // Governance friction (parity with features): when the org enforces same-base
   // merges, a revision created against a snapshot that no longer matches the
   // live saved group must be rebased first. `ignoreWarnings` force-merges the
@@ -168,7 +178,7 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
   // the permission fails loudly rather than silently re-blocking.
   if (req.organization.settings?.requireRebaseBeforePublish) {
     const forceMergeRequested = req.context.ignoreWarnings;
-    const forceMerge = forceMergeRequested && canBypass;
+    const forceMerge = forceMergeRequested && canForceMerge;
     if (!forceMerge) {
       const diverged = isRevisionDiverged(
         adapter,
@@ -186,70 +196,14 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
       }
     }
   }
-  const hasChanges = Object.keys(desiredState).some((key) => {
-    if (!updatableFields.has(key)) return false;
-    return !isEqual(
-      desiredState[key],
-      (savedGroup as unknown as Record<string, unknown>)[key],
-    );
-  });
 
-  // No diff between the revision's desired state and the live entity. This is
-  // either a genuine no-op publish, OR a recovery retry after a partial failure
-  // where a previous publish ran `applyChanges` but then failed before `merge`
-  // landed — leaving the entity updated and this revision stranded as a draft.
-  // In both cases there's nothing to write to the entity, so just finish
-  // merging the revision. This closes the partial-failure window: the stranded
-  // draft self-heals on retry instead of being permanently un-publishable, and
-  // we skip a redundant entity write (and its no-op audit entry).
-  if (!hasChanges) {
-    const merged = await req.context.models.revisions.merge(
-      revision.id,
-      req.context.userId,
-      { bypass: isBypass },
-    );
-    await dispatchSavedGroupRevisionEvent(req.context, merged, {
-      type: merged.revertedFrom ? "reverted" : "published",
-    });
-    return {
-      revision: await toApiSavedGroupRevision(merged, req.context),
-      ...(bypassed.length ? { bypassedGates: bypassed } : {}),
-    };
-  }
-
-  // Claim the merge BEFORE applying to the live entity. `merge` is CAS-guarded,
-  // so a concurrent discard either already lost (merge throws, nothing applied)
-  // or will lose (its `close` CAS-fails). This closes the window where a discard
-  // landing between applyChanges and merge would orphan a half-applied change on
-  // the live group.
-  const merged = await req.context.models.revisions.merge(
-    revision.id,
-    req.context.userId,
-    { bypass: isBypass },
+  // Keep no-op publishes on the shared gated path.
+  const merged = await publishRevision(
+    req.context,
+    revision,
+    savedGroup as unknown as Record<string, unknown>,
+    { bypass: isBypass, skipHooks: true },
   );
-
-  try {
-    await adapter.applyChanges(
-      req.context,
-      savedGroup as unknown as Record<string, unknown>,
-      desiredState,
-      { isRevert: !!revision.revertedFrom },
-    );
-  } catch (e) {
-    // Couldn't apply after claiming the merge — reopen so the revision isn't
-    // stranded "merged" with the live group unchanged; a retry re-runs the
-    // publish (and the no-op self-heal path above if it was partially applied).
-    try {
-      await req.context.models.revisions.reopen(merged.id, req.context.userId);
-    } catch {
-      // ignore — surface the original applyChanges error
-    }
-    throw e;
-  }
-
-  await dispatchSavedGroupRevisionEvent(req.context, merged, {
-    type: merged.revertedFrom ? "reverted" : "published",
-  });
 
   return {
     revision: await toApiSavedGroupRevision(merged, req.context),

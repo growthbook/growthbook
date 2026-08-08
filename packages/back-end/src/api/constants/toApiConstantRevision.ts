@@ -7,6 +7,7 @@ import {
 } from "shared/enterprise";
 import { ApiConstantRevision } from "shared/validators";
 import { ConstantInterface } from "shared/types/constant";
+import { revisionScheduleApiFields } from "back-end/src/revisions/revisionScheduleApiFields";
 import { ApiReqContext } from "back-end/types/api";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
@@ -99,6 +100,7 @@ export async function toApiConstantRevisions(
       ...(revision.revertedFrom ? { revertedFrom: revision.revertedFrom } : {}),
       reviews: reviewsToApi(revision.reviews),
       activityLog: activityLogToApi(revision.activityLog),
+      ...revisionScheduleApiFields(revision),
       ...(revision.resolution
         ? {
             resolution: {

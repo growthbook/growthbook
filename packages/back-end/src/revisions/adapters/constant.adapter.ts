@@ -1,22 +1,31 @@
 import { ConstantInterface } from "shared/types/constant";
 import {
+  NO_ENVIRONMENT_BINDING,
+  bypassApprovalPermission,
+} from "shared/permissions";
+import {
   Revision,
   getConstantRevisionChange,
   normalizeProposedChanges,
 } from "shared/enterprise";
 import {
+  constantAutopublishOnApproval,
   constantRequiresReview,
   constantResetReviewOnChange,
-  constantAutopublishOnApproval,
+  flipsArchivedState,
+  proposedArchivedValue,
 } from "shared/util";
 import {
   constantValidator,
   constantUpdatableFieldsSchema,
 } from "shared/validators";
+import type { PublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
+  ApplyChangesResult,
   EntityRevisionAdapter,
   filterUpdatableChanges,
+  revisionActionHooks,
 } from "back-end/src/revisions/EntityRevisionAdapter";
 import {
   ArmAcknowledgments,
@@ -49,6 +58,7 @@ import {
   schemaFailureGateOverride,
 } from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
+import { constantPublishEnvironments } from "back-end/src/revisions/revisionPublishEnvironments";
 import { logger } from "back-end/src/util/logger";
 
 // Whitelist of fields the snapshot is allowed to carry, derived from the schema
@@ -70,9 +80,12 @@ function canBypassApprovalForConstant(
   context: Context,
   snapshot: ConstantInterface,
 ): boolean {
-  return context.permissions.canBypassApprovalChecks({
-    project: snapshot.project || "",
-  });
+  return context.permissions.canBypassFlagApprovalChecks(
+    {
+      project: snapshot.project || "",
+    },
+    "constant",
+  );
 }
 
 // canCreate and canUpdate both gate on the constant edit permission; extract so
@@ -81,7 +94,16 @@ function canEditConstant(
   context: Context,
   snapshot: ConstantInterface,
 ): boolean {
-  return context.permissions.canUpdateConstant(snapshot, {});
+  return context.permissions.canRevisionAction(
+    "constant",
+    "publish",
+    { projects: snapshot.project ? [snapshot.project] : [] },
+    constantPublishEnvironments(context),
+  );
+}
+
+function constantProjects(snapshot: ConstantInterface): string[] {
+  return snapshot.project ? [snapshot.project] : [];
 }
 
 // Constants inherit the feature `requireReviews` org settings (drop-in for
@@ -102,6 +124,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
   getModel(context: Context) {
     return context.models.constants as {
       getById(id: string): Promise<ConstantInterface | null>;
+      getReadScopesByIds(ids: string[]): Promise<ConstantInterface[]>;
     };
   },
 
@@ -146,6 +169,23 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     return canBypassApprovalForConstant(context, snapshot);
   },
 
+  ...revisionActionHooks<ConstantInterface>({
+    model: "constant",
+    projectsOf: constantProjects,
+    envsOf: (context) => constantPublishEnvironments(context),
+  }),
+
+  // Overrides the factory's env scoping: deleting isn't env-scoped for
+  // constants (mirrors ConstantModel.canDelete).
+  canDeleteEntity(context: Context, snapshot: ConstantInterface): boolean {
+    return context.permissions.canRevisionAction(
+      "constant",
+      "delete",
+      { projects: constantProjects(snapshot) },
+      NO_ENVIRONMENT_BINDING,
+    );
+  },
+
   isApprovalRequired(context: Context): boolean {
     return constantApprovalConfigured(context);
   },
@@ -154,6 +194,34 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
   // `value` change requires review (affects all environments); a per-environment
   // override requires review only when that environment is in scope; a
   // metadata-only change follows the rule's `featureRequireMetadataReview`.
+  publishFootprint(
+    context: Context,
+    snapshot: ConstantInterface,
+    proposedChanges: unknown,
+  ): PublishFootprint {
+    // An archive flip takes the constant out of service, or returns it, wherever
+    // it serves — it names no environments of its own, and saying so is what stops
+    // a dev-limited caller archiving production values.
+    if (
+      flipsArchivedState({
+        proposed: proposedArchivedValue(proposedChanges),
+        current: snapshot.archived,
+      })
+    ) {
+      return { scope: "everywhere" };
+    }
+    const environments = constantPublishEnvironments(
+      context,
+      getConstantRevisionChange(snapshot, proposedChanges).changedEnvironments,
+    );
+    // A base-value or metadata change carries no intrinsic environment (declared
+    // design), so the restriction does not apply to it. Distinct from the archive
+    // flip above, which reaches everywhere — the two used to be the same `[]`.
+    return environments.length
+      ? { scope: "environments", environments }
+      : { scope: "unscoped" };
+  },
+
   isApprovalRequiredForRevision(context: Context, revision: Revision): boolean {
     if (!context.hasPremiumFeature("require-approvals")) return false;
     const snapshot = revision.target.snapshot as ConstantInterface;
@@ -207,8 +275,12 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     // raw `@const:` placeholders into the payload). Unlike the saved-group
     // adapter's stale-attribute skip, there's no revert-safe validation to opt
     // out of here — so the flag is accepted for interface conformance only.
-    options?: { isRevert?: boolean },
-  ): Promise<string[]> {
+    options?: {
+      isRevert?: boolean;
+      guarded?: boolean;
+      onPersisted?: (result: ApplyChangesResult) => void;
+    },
+  ): Promise<ApplyChangesResult> {
     void options;
     const filteredChanges = filterUpdatableChanges(
       changes,
@@ -216,13 +288,44 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
       UPDATABLE_FIELDS,
     );
 
-    if (Object.keys(filteredChanges).length === 0) return [];
+    if (Object.keys(filteredChanges).length === 0) {
+      // REPORTED, not just returned: `null` means "ran and wrote nothing",
+      // which compensation must be able to tell apart from "never reported".
+      // Without this the two collapse into `undefined` and a no-op apply is
+      // indistinguishable from a failure that left state behind.
+      const nothing = { persistedKeys: [] as string[], written: null };
+      options?.onPersisted?.(nothing);
+      return nothing;
+    }
 
-    await context.models.constants.update(
+    const writeEntity = options?.guarded
+      ? context.models.constants.updateIfUnchanged.bind(
+          context.models.constants,
+        )
+      : context.models.constants.update.bind(context.models.constants);
+    // Reported from INSIDE the write, before audit logging and the
+    // afterUpdate hooks: those run after the document has landed, so a
+    // throw there is a persisted change. Reporting after this call
+    // returned could not tell that from "never wrote", and compensation
+    // read the second as the first — leaving the change live, unrecorded.
+    const report = (doc: Record<string, unknown>) =>
+      options?.onPersisted?.({
+        persistedKeys: Object.keys(filteredChanges),
+        written: doc,
+      });
+    const written = await writeEntity(
       entity,
       filteredChanges as Parameters<typeof context.models.constants.update>[1],
+      undefined,
+      {
+        onWritten: (doc: unknown) => report(doc as Record<string, unknown>),
+      },
     );
-    return Object.keys(filteredChanges);
+    const applied = {
+      persistedKeys: Object.keys(filteredChanges),
+      written: written as Record<string, unknown>,
+    };
+    return applied;
   },
 
   // Snapshot the deferred-publish guard fingerprints when arming (schedule /
@@ -366,7 +469,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
         type: "experiment-guard",
         severity: "warning",
         messages: [
-          `Publishing this constant rewrites the live value served to a running experiment (${describeConstantConflictKeys(
+          `Publishing this Constant rewrites the live value served to a running experiment (${describeConstantConflictKeys(
             experimentConflicts,
           )}).`,
         ],
@@ -399,7 +502,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
         type: "dependent-config-locked",
         severity: "warning",
         messages: [
-          `Publishing this constant changes the resolved value of locked config(s): ${lockConflicts.join(
+          `Publishing this Constant changes the resolved value of locked Config(s): ${lockConflicts.join(
             ", ",
           )}.`,
         ],
@@ -446,11 +549,12 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
         type: "schema-validation",
         severity: "warning",
         messages: [
-          "Breaks a dependent config or feature value:",
+          "Breaks a dependent Config or feature value:",
           ...schemaBreaks,
         ],
         ...schemaFailureGateOverride(
           context.org.settings?.blockPublishOnSchemaError !== false,
+          bypassApprovalPermission("constant"),
         ),
         resolution: null,
       });

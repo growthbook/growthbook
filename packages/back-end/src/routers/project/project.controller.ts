@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { Response } from "express";
 import { ProjectInterface, ProjectSettings } from "shared/types/project";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
@@ -232,7 +233,12 @@ export const deleteProject = async (
     }
 
     if (await projectHasFeatures(context, id)) {
-      requirePermission(context.permissions.canDeleteFeature({ project: id }));
+      requirePermission(
+        context.permissions.canDeleteFeature(
+          { project: id },
+          NO_ENVIRONMENT_BINDING,
+        ),
+      );
       resourceDeletes.push({
         label: "features",
         run: () => deleteAllFeaturesForAProject({ projectId: id, context }),

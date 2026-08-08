@@ -1,5 +1,6 @@
 import { SimpleSchema, SchemaField } from "shared/types/feature";
 import { CONSTANT_EXTENDS_KEY } from "../constants";
+import { NO_ENVIRONMENT_BINDING } from "../permissions/revisionPermissions";
 import { parsePlainJSONObject } from "./features";
 import {
   collectInvalidConfigValueKeys,
@@ -44,6 +45,62 @@ export function isScopedConfig(config: {
   scopedConfig?: { parent: string } | null;
 }): boolean {
   return (config.scopedConfig ?? null) !== null;
+}
+
+// The environments a Config change binds to. A flavor declares its own scope in
+// `scopedConfig.environments`, which is the one unambiguous binding a Config
+// has. A base or child Config declares none — its reach runs through whichever
+// features consume it, down to individual rules, which can't be computed inside
+// a permission check — so it binds to no environment and the check falls back to
+// project scope. Shared by the revision adapter, the REST endpoints and the
+// front end so every surface scopes identically.
+// The footprint of a change to a Config's `scopedOverrides`. UNION of the environments
+// the current entries name and the proposed ones: adding a production override starts
+// changing what production serves, and removing one stops it, so both directions answer
+// for production. An entry naming no environments is a catch-all and reaches everything.
+//
+// The Config's own `configPublishEnvironments` is the wrong footprint here — a BASE
+// Config declares no scope, so it returns none, and an overrides-only request then
+// skipped the environment check entirely rather than narrowing it.
+export function scopedOverridesFootprint({
+  current,
+  proposed,
+  allEnvironments,
+}: {
+  current?: { environments?: string[] }[] | null;
+  proposed?: { environments?: string[] }[] | null;
+  allEnvironments: string[];
+}): string[] {
+  const entries = [...(current ?? []), ...(proposed ?? [])];
+  if (!entries.length) return [];
+  if (entries.some((e) => !e.environments?.length)) return [...allEnvironments];
+  const envs = new Set<string>();
+  for (const e of entries)
+    for (const env of e.environments ?? []) envs.add(env);
+  return [...envs].filter((e) => allEnvironments.includes(e));
+}
+
+export function configPublishEnvironments(config: {
+  scopedConfig?: { environments?: string[] } | null;
+}): string[] {
+  return config.scopedConfig?.environments?.length
+    ? config.scopedConfig.environments
+    : NO_ENVIRONMENT_BINDING;
+}
+
+// A Constant binds to an environment only through `environmentValues`. Pass the
+// per-environment keys a change touches; a base-value change binds to nothing.
+//
+// A footprint exists where the entity is PARTITIONED by environment, not merely
+// where a change is felt. A base value is felt everywhere, but so is a Saved
+// Group's membership — and every Saved Group atom is project-scoped. Binding
+// base values would mean binding those too. Reviewed and kept 2026-08-01.
+export function constantPublishEnvironments(
+  changedEnvironments?: string[],
+): string[] {
+  return changedEnvironments?.length
+    ? changedEnvironments
+    : NO_ENVIRONMENT_BINDING;
 }
 
 // Every base config key for a config, in precedence order: the `parent` spine
@@ -697,7 +754,7 @@ export function formatAncestorFieldConflictMessage(
     .map((c) => `"${c.key}" (owned by "${c.owner}")`)
     .join(", ");
   return (
-    `This schema re-declares field(s) an ancestor config already defines, ` +
+    `This schema re-declares field(s) an ancestor Config already defines, ` +
     `with a different definition: ${detail}. A descendant may override a ` +
     `field's value but not its schema — remove the re-declaration or make ` +
     `it identical to the ancestor's definition.`
@@ -711,9 +768,9 @@ export function ancestorCollisionWarnings(
     code: "redundant-declaration",
     path: c.key,
     message:
-      `Field "${c.key}" re-declares ancestor config "${c.owner}"'s ` +
+      `Field "${c.key}" re-declares ancestor Config "${c.owner}"'s ` +
       `definition and was removed — the ancestor owns the field's schema ` +
-      `("base wins"); this config still inherits it.`,
+      `("base wins"); this Config still inherits it.`,
   }));
 }
 

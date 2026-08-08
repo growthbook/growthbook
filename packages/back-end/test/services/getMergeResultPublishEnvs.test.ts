@@ -80,7 +80,12 @@ describe("getMergeResultPublishEnvs", () => {
       ["defaultValue", { defaultValue: "b" }],
       ["prerequisites", { prerequisites: [] }],
       ["archived", { archived: true }],
-      ["metadata", { metadata: { description: "x" } }],
+      // A metadata key that DOES reach the payload. `description` does not, and
+      // pinning it here asserted the over-demand: editing a dev rule plus the
+      // description refused a dev-limited publisher, while dropping the
+      // description from the same request succeeded. The publish gate skips the
+      // check entirely for inert metadata; both now read one shared rule.
+      ["metadata", { metadata: { project: "prj_other" } }],
     ])("%s", async (_label, change) => {
       const envs = await getMergeResultPublishEnvs({
         context: ctxWith(),
@@ -90,6 +95,22 @@ describe("getMergeResultPublishEnvs", () => {
         environmentIds: ENVS,
       });
       expect(envs.sort()).toEqual([...ENVS].sort());
+    });
+
+    it("does NOT widen for metadata that never reaches an SDK", async () => {
+      const envs = await getMergeResultPublishEnvs({
+        context: ctxWith(),
+        feature: feat(),
+        filledLiveRules: [],
+        result: {
+          metadata: { description: "x" },
+          environmentsEnabled: { dev: true },
+        } as unknown as MergeResultChanges,
+        environmentIds: ENVS,
+      });
+      // Only the environment the change actually reaches. Widening to everything
+      // served refused a dev-limited publisher for adding a description.
+      expect(envs).toEqual(["dev"]);
     });
 
     it("excludes envs disabled on the feature", async () => {
@@ -289,6 +310,31 @@ describe("getMergeResultPublishEnvs", () => {
         environmentIds: ENVS,
       });
       expect(envs.sort()).toEqual([...ENVS].sort());
+    });
+
+    it("defaultValue + enabling a disabled env includes the env being enabled", async () => {
+      // The publish-side hole revertFootprint closed on the revert side: the
+      // global arm returned currently-enabled envs only, so pairing a global
+      // edit with an ENABLE toggle dropped the enabled env from the footprint —
+      // a staging-limited publisher could switch production on.
+      const feature = feat({
+        environmentSettings: {
+          dev: { enabled: true, rules: [] },
+          staging: { enabled: true, rules: [] },
+          production: { enabled: false, rules: [] },
+        },
+      });
+      const envs = await getMergeResultPublishEnvs({
+        context: ctxWith(),
+        feature,
+        filledLiveRules: [],
+        result: {
+          defaultValue: "b",
+          environmentsEnabled: { production: true },
+        },
+        environmentIds: ENVS,
+      });
+      expect(envs).toContain("production");
     });
   });
 });

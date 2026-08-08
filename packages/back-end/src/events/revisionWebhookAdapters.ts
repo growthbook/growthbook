@@ -3,10 +3,42 @@ import type {
   ReviewDecision,
   RevisionTargetType,
 } from "shared/enterprise";
+import { proposedProjectScope } from "shared/util";
 import type { Context } from "back-end/src/models/BaseModel";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
+
+/**
+ * Event routing scope for a revision lifecycle event: every project the change
+ * touches — the snapshot's (source), any destination its proposed changes relocate
+ * it to, and where the entity actually LIVES now.
+ *
+ * All three, because each alone has a blind spot. The snapshot predates a move, so
+ * a project-filtered webhook on the destination heard nothing about changes
+ * arriving in it. And an old draft publishing after the entity moved by some other
+ * route names neither the live project in its snapshot nor in its ops, so the
+ * project that owns the entity today heard nothing at all.
+ */
+export function revisionEventProjects(
+  revision: {
+    target: { snapshot?: unknown; proposedChanges?: unknown };
+  },
+  liveEntity?: { project?: string; projects?: string[] } | null,
+): string[] {
+  const snapshot = (revision.target.snapshot ?? {}) as {
+    project?: string;
+    projects?: string[];
+  };
+  const proposed = proposedProjectScope(revision.target.proposedChanges);
+  const all = new Set<string>([
+    ...(snapshot.projects ?? (snapshot.project ? [snapshot.project] : [])),
+    ...(proposed.projects ?? (proposed.project ? [proposed.project] : [])),
+    ...(liveEntity?.projects ??
+      (liveEntity?.project ? [liveEntity.project] : [])),
+  ]);
+  return [...all];
+}
 
 // Webhook-event plugin layer for the generic revision system.
 //
@@ -64,6 +96,15 @@ export type RevisionLifecycleAction =
     }
   | { type: "discarded" }
   | { type: "reopened" }
+  // A review request retracted by its author (or an editor) — the revision returns
+  // to draft with its verdicts cleared. Not `reopened`, which revives a DISCARDED
+  // revision; a consumer watching for "work is live again" must not see a recall.
+  | { type: "recalled" }
+  // Review/scheduling lifecycle. Deliberately NOT `updated`: that action's `change`
+  // is derived from the revision's existing patch ops, so a lifecycle-only write
+  // announced whatever content change the draft happened to already carry.
+  | { type: "reviewRetracted" }
+  | { type: "publishScheduleChanged" }
   // Fires whenever a revert lands on the live entity — both the direct-publish
   // path and an approval-gated draft that's later merged (the dispatcher
   // detects the latter via the revision's `revertedFrom`).

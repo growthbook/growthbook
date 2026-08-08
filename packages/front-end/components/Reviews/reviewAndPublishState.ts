@@ -40,6 +40,14 @@ export interface RnPStateInput {
   // touched the revision). Contributors share ownership of the draft, so they
   // can return it to draft even if someone else requested the review.
   isContributor: boolean;
+  /**
+   * The caller is the draft's OWNER by the backend's own definition, which grants
+   * recall regardless of current permissions — the feature engine's
+   * `authoredFeatureDraft` (author or contributor) and the generic engine's
+   * `isRevisionAuthor` (author). Each surface supplies its own engine's answer;
+   * the two differ, and encoding one of them here would misstate the other.
+   */
+  isDraftOwner: boolean;
   // The current user has an active reviewer verdict on this revision —
   // they're the only one who can retract it.
   isReviewer: boolean;
@@ -60,6 +68,19 @@ export interface RnPStateInput {
   checklistBlocked: boolean;
   // Governance allows publishing (false when a stale draft must be rebased).
   governanceCanPublish: boolean;
+  /**
+   * Does editing this entity's draft reset its status back to `draft`?
+   *
+   * TRUE on Feature Flags, whose edits demote a `changes-requested` revision, so the
+   * author lands back on "Request Review" naturally and the request-review endpoint
+   * only ever accepts `draft`.
+   *
+   * FALSE on the generic revision engine, where edits leave the status alone and
+   * `submitForReview` explicitly accepts `changes-requested` as the re-submit path.
+   * Assuming feature semantics there dead-ended the draft: the author had no CTA at
+   * all until a reviewer retracted their verdict.
+   */
+  editsResetStatus: boolean;
 }
 
 export interface RnPState {
@@ -103,6 +124,7 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     canManageDraft,
     isReviewRequester,
     isContributor,
+    isDraftOwner,
     isReviewer,
     adminPublish,
     hasSelectedExperiments,
@@ -112,25 +134,30 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     featureLockedBySchedule,
     checklistBlocked,
     governanceCanPublish,
+    editsResetStatus,
   } = input;
 
   // Ramp and scheduled-publish locks freeze publishing identically (lock glyph,
   // admin-bypassable), so collapse them into one concept below.
   const publishLocked = featureLockedByRamp || featureLockedBySchedule;
 
-  // recall-review ("Return to draft"): the requester or anyone with skin in
-  // the draft (author/contributor) can pull it back, provided they have
-  // draft-manage permission. Unrelated draft managers shouldn't be able to
-  // retract someone else's review request. (The backend only enforces
-  // canManageFeatureDrafts, so this is deliberately the stricter gate.)
+  // recall-review ("Return to draft"): the draft's owner may always pull back
+  // their own request — withdrawing an ask you made is not authority over the
+  // entity, and both backends short-circuit for them before any permission
+  // check. Everyone else needs draft-manage authority AND skin in the draft, so
+  // an unrelated draft manager can't retract someone else's request.
+  //
+  // Requiring `canManageDraft` of the owner too made the dashboard stricter than
+  // both engines: an author who lost draft authority (role change, project move)
+  // could still recall over REST while the button was simply missing.
   const recallableStatuses = [
     "pending-review",
     "changes-requested",
     "approved",
   ];
   const canRecallReview =
-    canManageDraft &&
-    (isReviewRequester || isContributor) &&
+    (isDraftOwner ||
+      (canManageDraft && (isReviewRequester || isContributor))) &&
     recallableStatuses.includes(status);
 
   // undo-review: only the reviewer who submitted the verdict can retract it.
@@ -180,7 +207,11 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
   const hasNextStep =
     mergeSuccess && approved && hasSelectedExperiments && !experimentsStep;
 
-  let ctaLabel = "Request Review";
+  // Where edits don't reset the status, `changes-requested` is the author's ball and
+  // re-submitting is the documented way forward — so it keeps its CTA.
+  const canResubmit = !editsResetStatus && status === "changes-requested";
+
+  let ctaLabel = canResubmit ? "Re-request Review" : "Request Review";
   let ctaLocked = false;
   if (approved && !hasNextStep) {
     ctaLabel = publishLabel(publishLocked, onlyScheduledSelected);
@@ -192,7 +223,7 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
   let submitAction: RnPSubmitAction;
   if (hasNextStep) {
     submitAction = "next-experiments";
-  } else if (!isPendingReview && !approved) {
+  } else if ((!isPendingReview && !approved) || canResubmit) {
     submitAction = "request-review";
   } else if (approved) {
     submitAction = "publish";
@@ -200,9 +231,10 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     submitAction = "none";
   }
 
-  // A pending-review draft is read-only for non-reviewers; approved drafts and
-  // request-review actions have step CTAs. Reviewers use the ReviewCommentPopover.
-  const hasSubmit = !isPendingReview || approved;
+  // A pending-review draft is read-only for non-reviewers; approved drafts,
+  // request-review actions and a re-submittable changes-requested draft have step
+  // CTAs. Reviewers use the ReviewCommentPopover.
+  const hasSubmit = !isPendingReview || approved || canResubmit;
 
   // Only "pending-review" waits on someone else; "changes-requested" hands
   // the ball back to the author, who has edit actions elsewhere on the page.

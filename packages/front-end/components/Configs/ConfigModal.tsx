@@ -5,6 +5,7 @@ import { ConfigWithoutValue } from "shared/types/config";
 import { Revision } from "shared/enterprise";
 import { generateTrackingKey } from "shared/experiments";
 import {
+  configPublishEnvironments,
   getConfigParentKey,
   isScopedConfig,
   orderConfigsByLineage,
@@ -14,6 +15,7 @@ import { PiPlus } from "react-icons/pi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Callout from "@/ui/Callout";
@@ -37,6 +39,8 @@ const EMPTY_REVISION_CTX: ConstantRevisionContext = {
   approvalRequired: false,
   metadataReviewRequired: false,
   canBypassApproval: false,
+  // Create has no revision flow — this context's draft routing is inert.
+  canPublish: true,
 };
 
 type FormValues = {
@@ -92,7 +96,8 @@ export default function ConfigModal({
   );
 
   // Called unconditionally (rules of hooks); unused on the create path.
-  const draft = useConstantDraftTarget(revisionCtx ?? EMPTY_REVISION_CTX, true);
+
+  const permissionsUtil = usePermissionsUtil();
 
   const form = useForm<FormValues>({
     defaultValues: {
@@ -107,6 +112,30 @@ export default function ConfigModal({
     },
   });
 
+  // Only an EXISTING entity can be relocated; a create lands in whatever project
+  // the form names, and the create gate on the options already covers that.
+  const holdsMoveDestination =
+    !existing ||
+    (form.watch("project") || "") === (existing.project || "") ||
+    permissionsUtil.canRevisionAction(
+      "config",
+      "publish",
+      {
+        project: form.watch("project") || "",
+      },
+      // The Config's OWN footprint, matching the endpoint's `publishFootprint`. An
+      // empty binding skips the environment check rather than narrowing it, so a
+      // scoped Config offered the move to a publisher limited to other environments
+      // and the endpoint then refused it.
+      configPublishEnvironments(existing),
+    );
+
+  const draft = useConstantDraftTarget(
+    revisionCtx ?? EMPTY_REVISION_CTX,
+    true,
+    holdsMoveDestination,
+  );
+
   // For create, the base/child distinction follows the selected parent.
   const isBaseSelection = editing ? isBaseConfig : !form.watch("parent");
 
@@ -119,7 +148,25 @@ export default function ConfigModal({
       (c) => !c.archived && !isScopedConfig(c) && c.key !== existing?.key,
     ),
   ).map(({ config: c, depth }) => ({ label: c.name, value: c.key, depth }));
-  const projectOptions = projects.map((p) => ({ label: p.name, value: p.id }));
+  // The server refuses a destination the caller cannot author in, so listing
+  // those projects only produces a predictable rejection.
+  const projectOptions = projects
+    .filter((p) =>
+      // Creating asks for create authority; moving an existing Config asks for
+      // authoring rights in the destination. Either way the server refuses a
+      // project the caller cannot write, so listing it only produces a rejection.
+      editing
+        ? permissionsUtil.canRevisionAction("config", "draft", {
+            project: p.id,
+          })
+        : permissionsUtil.canCreateConfig({ project: p.id }),
+    )
+    .map((p) => ({ label: p.name, value: p.id }));
+  // "All projects" is the global scope, which is its own authority — offering it
+  // to a project-limited creator produced a guaranteed rejection on submit.
+  const canGlobalScope = editing
+    ? permissionsUtil.canRevisionAction("config", "draft", { project: "" })
+    : permissionsUtil.canCreateConfig({ project: "" });
 
   // Auto-derive the slug key from the name until the user edits the key.
   const keyTouched = useRef(editing);
@@ -142,7 +189,7 @@ export default function ConfigModal({
     <ModalStandard
       open={true}
       trackingEventModalType="config-modal"
-      header={editing ? "Edit info" : "New config"}
+      header={editing ? "Edit info" : "New Config"}
       size="lg"
       close={close}
       cta={editing ? "Save" : "Create"}
@@ -192,9 +239,9 @@ export default function ConfigModal({
     >
       {!editing && (
         <Callout status="info" mb="3">
-          Configs are referenced from a feature flag — define the fields and
-          values here, then reference the config from a flag to deliver it to
-          your SDKs.
+          Configs are referenced from a Feature Flag — define the fields and
+          values here, then reference the Config from a Feature Flag to deliver
+          it to your SDKs.
         </Callout>
       )}
 
@@ -235,7 +282,7 @@ export default function ConfigModal({
           <MarkdownInput
             value={form.watch("description")}
             setValue={(v) => form.setValue("description", v)}
-            placeholder="Add notes about this config (markdown supported)"
+            placeholder="Add notes about this Config (markdown supported)"
             showButtons={false}
             hidePreview={false}
           />
@@ -257,11 +304,11 @@ export default function ConfigModal({
 
       {!editing && (
         <SelectField
-          label="Parent config (optional)"
+          label="Parent Config (optional)"
           value={form.watch("parent")}
           onChange={(v) => form.setValue("parent", v)}
           options={parentOptions}
-          initialOption="None (base config)"
+          initialOption="None (base Config)"
           sort={false}
           formatOptionLabel={(option, meta) => {
             const { value, label } = option;
@@ -298,7 +345,7 @@ export default function ConfigModal({
           label="Project"
           value={form.watch("project")}
           options={projectOptions}
-          initialOption="All projects"
+          initialOption={canGlobalScope ? "All projects" : undefined}
           onChange={(v) => form.setValue("project", v)}
         />
       )}
@@ -317,7 +364,7 @@ export default function ConfigModal({
             label="Allow extra fields in extensions"
             description={
               <Text weight="regular" color="text-high">
-                Child configs and feature flag rules can add keys beyond this
+                Child Configs and Feature Flag rules can add keys beyond this
                 Config&apos;s schema.
               </Text>
             }

@@ -1,19 +1,20 @@
-import { constantBlockSelfApproval } from "shared/util";
 import { postConfigRevisionSubmitReviewValidator } from "shared/validators";
+import { submitRevisionReview } from "back-end/src/revisions/revisionActions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { getAdapter } from "back-end/src/revisions";
-import { maybeAutoPublishRevision } from "back-end/src/revisions/revisionActions";
-import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
+import { NotFoundError } from "back-end/src/util/errors";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
 export const postConfigRevisionSubmitReview = createApiRequestHandler(
   postConfigRevisionSubmitReviewValidator,
 )(async (req) => {
+  // Addressed by the entity's own key, so an entity the caller cannot read is a
+  // 404 here even for a comment, which the internal controller — addressed by
+  // revision id — would allow on the snapshot. Deliberate: closing the gap means
+  // a permission-bypassing read on the key, and this direction fails closed.
   const config = await req.context.models.configs.getByKey(req.params.key);
   if (!config) {
-    throw new NotFoundError("Could not find config");
+    throw new NotFoundError("Could not find Config");
   }
 
   const revision = await loadRevisionByVersion(
@@ -22,77 +23,21 @@ export const postConfigRevisionSubmitReview = createApiRequestHandler(
     req.params.version,
   );
 
-  if (
-    !getAdapter("config").canUpdate(
-      req.context,
-      config as Record<string, unknown>,
-    )
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
-
-  const { decision, comment } = req.body;
-
-  // Block the author from any non-comment review action.
-  if (revision.authorId === req.context.userId && decision !== "comment") {
-    throw new BadRequestError("Cannot submit a review on a draft you created");
-  }
-
-  // Block contributor self-approve when `blockSelfApproval` is set.
-  if (
-    decision === "approve" &&
-    constantBlockSelfApproval(
-      { project: config.project },
-      req.context.org.settings,
-    )
-  ) {
-    const contributors = revision.contributors ?? [];
-    if (contributors.includes(req.context.userId)) {
-      throw new BadRequestError(
-        "You cannot approve a draft you contributed to.",
-      );
-    }
-  }
-
-  if (
-    decision !== "comment" &&
-    !["pending-review", "changes-requested", "approved"].includes(
-      revision.status,
-    )
-  ) {
-    throw new BadRequestError(
-      `Can only submit a review when review has been requested (status is "${revision.status}")`,
-    );
-  }
-
-  const updated = await req.context.models.revisions.addReview(
-    revision.id,
-    req.context.userId,
-    decision,
-    comment ?? "",
-  );
-
-  await dispatchConfigRevisionEvent(req.context, updated, {
-    type: "reviewed",
-    decision,
-    userId: req.context.userId,
-    ...(comment ? { comment } : {}),
+  const { revision: result, autoPublished } = await submitRevisionReview({
+    context: req.context,
+    entityType: "config",
+    entity: config as unknown as Record<string, unknown> & {
+      project?: string;
+      projects?: string[];
+    },
+    revision,
+    decision: req.body.decision,
+    comment: req.body.comment,
+    skipAutoPublish: req.body.skipAutoPublish,
   });
 
-  if (decision === "approve" && !req.body.skipAutoPublish) {
-    const afterAutoPublish = await maybeAutoPublishRevision(
-      req.context,
-      updated,
-      config as unknown as Record<string, unknown>,
-    );
-    return {
-      revision: await toApiConfigRevision(afterAutoPublish, req.context),
-      autoPublished: afterAutoPublish.status === "merged",
-    };
-  }
-
   return {
-    revision: await toApiConfigRevision(updated, req.context),
-    autoPublished: false,
+    revision: await toApiConfigRevision(result, req.context),
+    autoPublished,
   };
 });

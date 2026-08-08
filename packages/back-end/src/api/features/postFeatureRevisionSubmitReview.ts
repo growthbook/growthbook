@@ -1,11 +1,13 @@
 import { postFeatureRevisionSubmitReviewValidator } from "shared/validators";
 import { getReviewSetting } from "shared/util";
+import { canCommentOnRevisionEntity } from "shared/permissions";
 import type { ApiRequestLocals } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { dispatchRevisionReviewEvent } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { mayBeRevisionAuthor } from "back-end/src/revisions/revisionAuthority";
 import {
   getRevision,
   ReviewSubmittedType,
@@ -32,7 +34,29 @@ export async function submitRevisionReview(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (!req.context.permissions.canReviewFeatureDrafts(feature)) {
+  const { action = "comment", comment } = req.body;
+  const review = actionToReviewType[action];
+
+  // A VERDICT is the review atom; a plain comment is participation and takes the
+  // shared comment predicate instead — the same split the internal controller and
+  // the other three entities make. Demanding review for both meant this endpoint
+  // refused the very role an org grants to let people comment, while its dashboard
+  // twin allowed it.
+  // KNOWN DIVERGENCE from the other three entities, and structural rather than an
+  // oversight: they authorize commenting on `revision.target.snapshot`, so a review
+  // stays with the project the revision was opened in. Feature revisions carry no
+  // origin snapshot — `metadata.project` is the DESTINATION a draft stages, not
+  // where it started — so this engine can only ask about live. Both feature
+  // surfaces (this and the REST twin) ask it identically; closing the gap for real
+  // needs an origin project recorded on the revision, which is a schema change and
+  // a backfill, not a check.
+  if (
+    action === "comment"
+      ? !canCommentOnRevisionEntity(req.context.permissions, "feature", null, {
+          project: feature.project,
+        })
+      : !req.context.permissions.canReviewFeatureDrafts(feature)
+  ) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -45,35 +69,41 @@ export async function submitRevisionReview(
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
 
-  const { action = "comment", comment } = req.body;
-  const review = actionToReviewType[action];
-
   // Block the creator from any non-comment review action.
+  //
+  // An org-scoped API key carries no `id` on either side — `eventUserApiKey.id` is
+  // optional and a key context has userId "" — so an identity comparison here was
+  // structurally skipped, not merely tied, and such a key could create a draft,
+  // request review and approve it. `mayBeRevisionAuthor` asks the question this gate
+  // actually needs: not "is this provably the creator" but "could it be". Same rule
+  // the generic revision paths apply.
+  const creatorId =
+    revision.createdBy != null && "id" in revision.createdBy
+      ? revision.createdBy.id
+      : "";
   if (
-    revision.createdBy != null &&
-    "id" in revision.createdBy &&
-    revision.createdBy.id === req.context.userId &&
-    action !== "comment"
+    action !== "comment" &&
+    mayBeRevisionAuthor(creatorId, req.context.userId)
   ) {
     throw new BadRequestError("Cannot submit a review on a draft you created");
   }
 
   // Block contributors from self-approving when `blockSelfApproval` is set.
   // request-changes / comment are intentionally allowed.
-  if (action === "approve") {
-    const requireReviews = req.context.org.settings?.requireReviews;
-    const reviewSetting = Array.isArray(requireReviews)
-      ? getReviewSetting(requireReviews, feature)
-      : undefined;
-    if (reviewSetting?.blockSelfApproval) {
-      const isSelfApproval = (revision.contributors ?? []).some(
-        (id) => id === req.context.userId,
+  const requireReviews = req.context.org.settings?.requireReviews;
+  const blockSelfApproval = Array.isArray(requireReviews)
+    ? !!getReviewSetting(requireReviews, feature)?.blockSelfApproval
+    : false;
+  // The early, clear refusal. Re-applied inside the verdict's CAS against the row it
+  // writes, because this reads a copy the contributor list can outrun.
+  if (action === "approve" && blockSelfApproval) {
+    const isSelfApproval = (revision.contributors ?? []).some(
+      (id) => id === req.context.userId,
+    );
+    if (isSelfApproval) {
+      throw new BadRequestError(
+        "You cannot approve a draft you contributed to.",
       );
-      if (isSelfApproval) {
-        throw new BadRequestError(
-          "You cannot approve a draft you contributed to.",
-        );
-      }
     }
   }
 
@@ -88,7 +118,7 @@ export async function submitRevisionReview(
     );
   }
 
-  await submitReviewAndComments(
+  const { applied } = await submitReviewAndComments(
     req.context,
     revision,
     req.context.auditUser,
@@ -98,7 +128,16 @@ export async function submitRevisionReview(
     // can detect when the approval has gone stale (parity with the internal
     // app's review flow).
     feature.version,
+    blockSelfApproval,
   );
+  if (!applied) {
+    // The verdict did not persist: a concurrent recall, discard or publish moved
+    // the revision out of the review cycle. Refuse rather than log, notify and
+    // report success for a review the document does not carry.
+    throw new BadRequestError(
+      "This revision is no longer in review — it was recalled, published or discarded while the request was in flight.",
+    );
+  }
 
   const updated = await getRevision({
     context: req.context,
