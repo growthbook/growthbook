@@ -59,6 +59,67 @@ export async function runGuardedWrite<T>(
  * The baseline a landing computed its change from, and the identity of the merged
  * revision recording it. Re-checked immediately before the entity write.
  */
+/**
+ * The post-write half of the landing order, for every path that lands a revision.
+ *
+ * `assertLandingBaseline` before the write establishes the order; this re-asks it
+ * AFTER. The two are needed because the merge claim lives in the revisions
+ * collection and the entity write lives in another, and there are no transactions
+ * here (DocumentDB and CosmosDB have to keep working). Nothing makes the pair
+ * atomic: a newer revision can claim the merge in the window between them, and its
+ * claim alone does not disturb the entity — so the entity CAS still passes and an
+ * older revision lands under newer history.
+ *
+ * A guard on the entity does NOT close this, which is what made the direct and bulk
+ * paths look safe: the guard only excludes a concurrent ENTITY write, and a claim is
+ * not one.
+ *
+ * Detection rather than exclusion. The loser here has already written, so it throws
+ * into its caller's compensation — which restores while live still holds what this
+ * apply wrote, and the winner has not written yet, so the restore succeeds and both
+ * revisions stay retryable. What remains is the winner writing before our restore:
+ * the value check declines, the merged revision is kept, and the "could not be
+ * restored" path logs it. Eliminating that needs the ordering token on the ENTITY so
+ * one CAS decides both.
+ */
+export async function assertLandingStillOwned({
+  context,
+  entityType,
+  entityId,
+  mergedId,
+  /**
+   * The entity stamp AFTER this apply, when the applier reported one. Omitted when it
+   * cannot: the order check below is the half that matters here, and a tautological
+   * stamp comparison against a fresh re-read would only look like a second check.
+   */
+  expectedDateUpdated,
+}: {
+  context: Context;
+  entityType: RevisionTargetType;
+  entityId: string;
+  mergedId: string;
+  expectedDateUpdated?: Date | null;
+}): Promise<void> {
+  if (expectedDateUpdated !== undefined) {
+    await assertLandingBaseline({
+      context,
+      entityType,
+      entityId,
+      baselineDateUpdated: expectedDateUpdated,
+      requireLatestMergedId: mergedId,
+    });
+    return;
+  }
+
+  const latest = await context.models.revisions.getLatestMergedByTarget(
+    entityType,
+    entityId,
+  );
+  if (!latest || latest.id !== mergedId) {
+    throw landingConflictError(entityType, entityId);
+  }
+}
+
 export async function assertLandingBaseline({
   context,
   entityType,

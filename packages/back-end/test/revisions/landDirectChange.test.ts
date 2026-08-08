@@ -1,5 +1,9 @@
 jest.mock("back-end/src/revisions/landingSequence", () => ({
   assertLandingBaseline: jest.fn(),
+  // The POST-write half of the order. Distinct from the pre-check above: this one
+  // catches a newer revision that claimed the merge after that check, whose claim
+  // never touches the entity and so slips past the entity guard.
+  assertLandingStillOwned: jest.fn(),
   tryRestoreEntityPreImage: jest.fn(),
   // The post-failure ownership baseline; a null would make compensation refuse
   // to guess, so tests that exercise the restore path get a persisted-doc
@@ -25,6 +29,7 @@ jest.mock("back-end/src/revisions", () => ({
 
 import {
   assertLandingBaseline as assertLandingBaselineImpl,
+  assertLandingStillOwned as assertLandingStillOwnedImpl,
   LandingConflictError,
   tryRestoreEntityPreImage as tryRestoreEntityPreImageImpl,
 } from "back-end/src/revisions/landingSequence";
@@ -34,6 +39,7 @@ import { ConflictError } from "back-end/src/util/errors";
 
 const assertLandingBaseline = assertLandingBaselineImpl as jest.Mock;
 const tryRestoreEntityPreImage = tryRestoreEntityPreImageImpl as jest.Mock;
+const assertLandingStillOwned = assertLandingStillOwnedImpl as jest.Mock;
 
 /**
  * The order a direct landing writes in, which is the whole of its safety:
@@ -124,6 +130,47 @@ describe("landDirectChange", () => {
     expect(assertLandingBaseline).toHaveBeenLastCalledWith(
       expect.objectContaining({ requireLatestMergedId: "rev_mine" }),
     );
+  });
+
+  it("fences the order AFTER the write, not only before it", async () => {
+    // The pre-check establishes the order; a newer revision can still claim the
+    // merge in the window between it and the entity write, and that claim never
+    // touches the entity — so the entity guard passes and this landing writes older
+    // state under newer history. Only a post-write re-ask sees it.
+    const h = makeContext();
+    await landDirectChange({
+      context: h.context,
+      entityType: "constant",
+      entity,
+      patchOps: [],
+      bypass: true,
+      write: async () => "ok",
+    });
+
+    expect(assertLandingStillOwned).toHaveBeenCalledWith(
+      expect.objectContaining({ mergedId: "rev_mine" }),
+    );
+  });
+
+  it("compensates when the post-write fence refuses", async () => {
+    // Losing here means we have ALREADY written, so the refusal has to reach the
+    // caller's compensation rather than being swallowed — that is what makes the
+    // race recoverable instead of merely detected.
+    const h = makeContext();
+    assertLandingStillOwned.mockRejectedValueOnce(
+      new ConflictError("superseded"),
+    );
+
+    await expect(
+      landDirectChange({
+        context: h.context,
+        entityType: "constant",
+        entity,
+        patchOps: [],
+        bypass: true,
+        write: async () => "ok",
+      }),
+    ).rejects.toThrow(/superseded/i);
   });
 
   it("records nothing when the baseline check refuses up front", async () => {

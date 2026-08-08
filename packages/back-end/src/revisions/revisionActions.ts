@@ -58,6 +58,7 @@ import { decideScheduledPublishOutcome } from "back-end/src/revisions/publishFai
 import { logger } from "back-end/src/util/logger";
 import {
   assertLandingBaseline,
+  assertLandingStillOwned,
   liveMatchesDesiredState,
   runGuardedWrite,
   tryRestoreEntityPreImage,
@@ -853,36 +854,17 @@ async function publishRevisionInner(
       }),
     );
 
-    // Asked AGAIN, after the write. The check above and the entity CAS live in
-    // different collections and there are no transactions here (DocumentDB and
-    // CosmosDB have to keep working), so nothing makes the pair atomic: a newer
-    // revision can claim the merge in the window between them, and its claim alone
-    // does not disturb the entity, so our CAS still passes and we land older state
-    // under newer history.
-    //
-    // Re-asking closes the window by detection instead of exclusion. The loser here
-    // has written, so it throws into the compensation below — which restores only
-    // while live still holds what this apply wrote, and the winner has not written
-    // yet, so the restore succeeds and both revisions are left retryable.
-    //
-    // What remains is the case where the winner's write also lands before our
-    // restore: the value check then declines, we keep the merged revision, and the
-    // existing "could not be restored" path logs it for a human. Genuinely
-    // eliminating that needs the ordering token to live on the ENTITY, so one CAS
-    // decides both — a schema change across all four target types.
-    await assertLandingBaseline({
+    // The post-write half of the order; the rationale lives on the helper.
+    await assertLandingStillOwned({
       context,
       entityType: revision.target.type,
       entityId: revision.target.id,
-      // Our own write moved `dateUpdated`, so the baseline to require now is what
-      // the apply left, not what it started from. `undefined` means the adapter
-      // reported no entity write, in which case the pre-image still stands.
-      baselineDateUpdated:
+      mergedId: merged.id,
+      expectedDateUpdated:
         (applied?.written as { dateUpdated?: Date } | null | undefined)
           ?.dateUpdated ??
         (entity as { dateUpdated?: Date }).dateUpdated ??
         null,
-      requireLatestMergedId: merged.id,
     });
   } catch (e) {
     // Failed after claiming the merge. A lost race wrote NOTHING (restoring would undo

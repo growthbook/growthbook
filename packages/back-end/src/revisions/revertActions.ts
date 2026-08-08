@@ -4,6 +4,7 @@ import { Revision, RevisionTargetType } from "shared/enterprise";
 import { logger } from "back-end/src/util/logger";
 import {
   assertLandingBaseline,
+  assertLandingStillOwned,
   runGuardedWrite,
   tryRestoreEntityPreImage,
   withBufferedPayloadRefreshes,
@@ -277,6 +278,20 @@ export async function landDirectChange<T>({
         persisted = doc;
       });
       persisted = persistedFrom?.(result) ?? persisted;
+
+      // The post-write half of the order. The pre-check above establishes it; the
+      // entity guard only excludes a concurrent ENTITY write, and a newer revision's
+      // merge CLAIM is not one — so without this a direct landing could write older
+      // state under newer history and never notice.
+      await assertLandingStillOwned({
+        context,
+        entityType,
+        entityId: entity.id,
+        mergedId: merged.id,
+        expectedDateUpdated:
+          (persisted as { dateUpdated?: Date } | null)?.dateUpdated ??
+          baselineDateUpdated,
+      });
     } catch (e) {
       // Live state first: an unrecorded partial change is the one outcome no retry can
       // repair, so the revision is removed only once live is back — and KEPT as the

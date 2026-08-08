@@ -1,6 +1,9 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import uniqid from "uniqid";
-import { flushPayloadRefreshBuffer } from "back-end/src/revisions/landingSequence";
+import {
+  assertLandingStillOwned,
+  flushPayloadRefreshBuffer,
+} from "back-end/src/revisions/landingSequence";
 import type { Context } from "back-end/src/models/BaseModel";
 import type { DeferredEventBuffer } from "back-end/src/events/bulkPublishCorrelation";
 import { entityKey } from "back-end/src/events/bulkPublishCorrelation";
@@ -622,6 +625,23 @@ export async function commitBulkPublish(
           item.revision,
           item.desiredState,
         );
+
+        // The post-write half of the landing order. The claim above and this write
+        // are in different collections, so a newer revision can claim the merge in
+        // between — its claim never touches the entity, so the stale check above
+        // passes and this item lands older state under newer history. Throwing here
+        // drops into the compensation below, which is what makes it recoverable.
+        // Generic engine only: Feature Flags keep their merged history in
+        // FeatureRevisionModel, so this fence cannot speak for them and must not
+        // pretend to. Their landing order is that engine's business.
+        if (item.ref.entityType !== "feature") {
+          await assertLandingStillOwned({
+            context,
+            entityType: item.ref.entityType,
+            entityId: item.ref.entityId,
+            mergedId: item.revision.id,
+          });
+        }
         for (const write of item.revision.cascade ?? []) {
           cascadeStamps.set(
             stampKey(item, write.before.id),
