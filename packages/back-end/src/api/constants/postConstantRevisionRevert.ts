@@ -70,10 +70,10 @@ export const postConstantRevisionRevert = createApiRequestHandler(
   // override the restoration changes; a differing base value carries no
   // intrinsic environment, matching every other landing. Proposing a draft is
   // also open to anyone who can author drafts.
-  const { changedEnvironments: revertEnvs } = getConstantRestoreChange(
-    constant,
-    targetRevision.target,
-  );
+  const {
+    changedEnvironments: revertEnvs,
+    unresolvedOps: revertOpsUnresolved,
+  } = getConstantRestoreChange(constant, targetRevision.target);
   // Coarse standing before the reconstruction; assertCanRevertRevision below is
   // authoritative once the change set is known. Subset-refusing.
   if (
@@ -134,13 +134,18 @@ export const postConstantRevisionRevert = createApiRequestHandler(
     // it, EVERYWHERE it serves — the same footprint archiving uses. The changed-env
     // list is empty for a base-value-only revert, and an empty footprint skips the
     // environment check rather than narrowing it.
-    footprint: flipsArchivedState({
-      proposed:
-        "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
-      current: constant.archived,
-    })
-      ? archiveServeFootprint(req.context, constant)
-      : constantPublishEnvironments(req.context, revertEnvs),
+    //
+    // Same treatment when the restoration carries an op we couldn't read: the
+    // state is rebuilt with the FULL applier above, so a footprint derived from
+    // the lightweight one can name fewer environments than the revert writes.
+    footprint:
+      flipsArchivedState({
+        proposed:
+          "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
+        current: constant.archived,
+      }) || revertOpsUnresolved
+        ? archiveServeFootprint(req.context, constant)
+        : constantPublishEnvironments(req.context, revertEnvs),
     title,
     // Approval for this landing, resolved by the pipeline after authority.
     resolveApproval: async () => {

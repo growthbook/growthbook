@@ -148,7 +148,17 @@ export const getConstantRestoreChange = (
     snapshot: unknown;
     proposedChanges: JsonPatchOperation[] | unknown;
   },
-): { changedEnvironments: string[]; restoredProject?: string } => {
+): {
+  changedEnvironments: string[];
+  restoredProject?: string;
+  /**
+   * The restoration carries an op this applier couldn't read, so
+   * `changedEnvironments` is a floor rather than the answer. Callers deriving
+   * authority from it must widen instead of narrowing — an empty list would
+   * otherwise skip the environment check entirely.
+   */
+  unresolvedOps: boolean;
+} => {
   const restored = applyTopLevelPatchOps(
     (target.snapshot ?? {}) as Record<string, unknown>,
     normalizeProposedChanges(target.proposedChanges),
@@ -160,7 +170,11 @@ export const getConstantRestoreChange = (
     ...new Set([...Object.keys(liveEnvs), ...Object.keys(restoredEnvs)]),
   ].filter((env) => (liveEnvs[env] ?? "") !== (restoredEnvs[env] ?? ""));
 
-  return { changedEnvironments, restoredProject: restored.project };
+  return {
+    changedEnvironments,
+    restoredProject: restored.project,
+    unresolvedOps: hasUnappliablePatchOps(target.proposedChanges),
+  };
 };
 
 /**
@@ -194,8 +208,15 @@ export const getConstantRevisionChange = (
   // Deep-equal, not `!==`: a constant's value is a string, but a config reuses
   // this helper with an OBJECT value, where reference-inequality would flag a
   // restated-but-unchanged value as a change (spuriously forcing review).
+  //
+  // An op this applier can't account for reads as a base-value change — the
+  // widest thing it could be. Otherwise a change it dropped lands as
+  // `valueChanged: false` with no environments named, which is exactly the shape
+  // `constantRequiresReview` treats as "nothing to review".
   const valueChanged =
-    !isEqual(snapshot.value ?? "", patched.value ?? "") || contentChanged;
+    !isEqual(snapshot.value ?? "", patched.value ?? "") ||
+    contentChanged ||
+    hasUnappliablePatchOps(ops);
 
   const oldEnvs = snapshot.environmentValues ?? {};
   const newEnvs = patched.environmentValues ?? {};
@@ -392,6 +413,34 @@ export function normalizeProposedChanges(
  * This is intentionally a lightweight, dependency-free alternative to
  * `fast-json-patch` so it can be used in both front-end and back-end shared code.
  */
+/** Is this a path `applyTopLevelPatchOps` can apply — exactly `/field`? */
+function isTopLevelPath(path: string): boolean {
+  const parts = path.split("/");
+  return parts.length === 2 && !!parts[1];
+}
+
+/**
+ * Does this patch carry an operation `applyTopLevelPatchOps` will silently skip?
+ *
+ * The two appliers disagree by construction: the WRITE side applies a patch in
+ * full (fast-json-patch), while this one drops anything below the top level. So a
+ * caller that derives AUTHORITY or APPROVAL scope from the lightweight applier can
+ * conclude "nothing changed" about a change that does land — and both the empty
+ * environment list and "no value changed" read as permission to skip a check.
+ *
+ * `jsonPatchOperationValidator` now rejects nested paths at the write door, so
+ * nothing new can store one. Revisions written before that constraint still can,
+ * which is what this exists to catch: the callers below treat an op they cannot
+ * account for as the widest reading rather than the emptiest one.
+ */
+export function hasUnappliablePatchOps(
+  proposedChanges: JsonPatchOperation[] | unknown,
+): boolean {
+  return normalizeProposedChanges(proposedChanges).some(
+    (op) => !isTopLevelPath(op.path),
+  );
+}
+
 export function applyTopLevelPatchOps<T extends Record<string, unknown>>(
   snapshot: T,
   proposedChanges: JsonPatchOperation[] | unknown,
@@ -401,8 +450,8 @@ export function applyTopLevelPatchOps<T extends Record<string, unknown>>(
   const result: Record<string, unknown> = { ...snapshot };
   for (const op of ops) {
     // Only handle simple top-level paths like "/fieldName"
+    if (!isTopLevelPath(op.path)) continue;
     const parts = op.path.split("/");
-    if (parts.length !== 2 || !parts[1]) continue;
     const field = parts[1];
     if (op.op === "replace" || op.op === "add") {
       result[field] = op.value;

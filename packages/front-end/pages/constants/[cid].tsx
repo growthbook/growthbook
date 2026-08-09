@@ -834,7 +834,10 @@ export default function ConstantDetailPage(): React.ReactElement {
               "constant",
               constant,
               { project: restore.restoredProject },
-              flipsArchive
+              // `unresolvedOps` for the same reason the endpoint widens on it: a
+              // restoration carrying an op this applier can't read names fewer
+              // environments than the revert writes.
+              flipsArchive || restore.unresolvedOps
                 ? archiveFootprintForControl({
                     environments,
                     entity: constant ?? {},
