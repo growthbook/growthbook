@@ -71,6 +71,7 @@ const RefreshLearningsModal: FC<{
       setProgress({ done: 0, total: queue.length });
       let experimentsConsidered = 0;
       let learningsChecked = 0;
+      let failed = 0;
 
       for (const learning of queue) {
         if (cancelledRef.current) return;
@@ -99,16 +100,21 @@ const RefreshLearningsModal: FC<{
               ]);
             }
           } else if (queue.length === 1) {
-            // A lone failure is the whole run; surface it.
+            // A lone failure is the whole run; surface it directly.
             setError(res.message || "Could not refresh Learnings");
+          } else {
+            failed += 1;
           }
         } catch (e) {
           if (cancelledRef.current) return;
-          // One Learning failing shouldn't abandon the rest of the queue.
+          // One Learning failing shouldn't abandon the rest of the queue, but
+          // it must still be reported rather than counted as checked.
           if (queue.length === 1) {
             setError(
               e instanceof Error ? e.message : "Could not refresh Learnings",
             );
+          } else {
+            failed += 1;
           }
         }
         setProgress((p) => ({ ...p, done: p.done + 1 }));
@@ -119,6 +125,11 @@ const RefreshLearningsModal: FC<{
         learnings: learningsChecked,
         experiments: experimentsConsidered,
       });
+      if (failed) {
+        setError(
+          `${failed} of ${queue.length} Learnings could not be checked. Try again to retry those.`,
+        );
+      }
       setLoading(false);
     };
     run();

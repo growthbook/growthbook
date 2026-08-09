@@ -767,6 +767,7 @@ export const postRefreshLearnings = async (
   const customContext = (promptConfig.prompt || "").trim();
 
   const suggestions: LearningRefreshSuggestion[] = [];
+  let aiError: unknown = null;
   const refreshedIds: string[] = [];
   let numExperimentsConsidered = 0;
 
@@ -857,11 +858,25 @@ export const postRefreshLearnings = async (
           refreshedIds.push(learning.id);
         }
       } catch (e) {
-        // One failed Learning shouldn't abort the whole refresh
+        // The request covers a single Learning, so a failed AI call means the
+        // whole check failed. Record it — returning 200 with no suggestions
+        // here would be indistinguishable from "nothing to update", and the
+        // modal would report the Learning as up to date.
         logger.error(e, `refresh-learnings: error refreshing ${learning.id}`);
+        aiError = e;
       }
     }),
   );
+
+  if (aiError) {
+    return res.status(500).json({
+      status: 500,
+      message:
+        aiError instanceof Error
+          ? aiError.message
+          : "Could not check this Learning against recent experiments",
+    });
+  }
 
   // Stamp only the Learnings with nothing pending. Ones with a suggestion are
   // stamped by postApplyLearningRefresh when the user applies them.
