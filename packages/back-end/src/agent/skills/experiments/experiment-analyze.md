@@ -198,6 +198,9 @@ Use the `callApi` tool for every REST request. This skill is read-only — it ne
 
 ## Handoffs
 
+- `loadSkill('learnings')` — when the result generalizes beyond this one test
+  (a tactic, audience, or product behaviour that has now shown up more than
+  once), offer to record it as a Learning so it outlives the experiment.
 - `loadSkill('experiment-stop')` — when the user is ready to act on a conclusive result.
 - `loadSkill('flag-targeting')` — after stopping with a winner, the linked flag (if any) needs its `experiment-ref` rule updated or removed.
 - `loadSkill('experiment-brainstorm')` — to ground ideas for the next test in results from past experiments.
