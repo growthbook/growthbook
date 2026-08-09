@@ -95,7 +95,10 @@ const EditLearningModal: FC<{
     <ModalStandard
       open={true}
       close={close}
-      header={isNew ? "New saved learning" : "Edit learning"}
+      // Wider than the default: this form carries a markdown editor plus four
+      // multi-selects, and matches the Find/Refresh Learnings modals.
+      size="lg"
+      header={isNew ? "New Learning" : "Edit Learning"}
       cta={isNew ? "Create" : "Save"}
       ctaEnabled={title.trim().length > 0}
       trackingEventModalType={isNew ? "new-learning" : "edit-learning"}
