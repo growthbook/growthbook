@@ -1,5 +1,5 @@
 import { FC, useMemo, useState } from "react";
-import { Box } from "@radix-ui/themes";
+import { Box, Grid } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { LearningInterfaceStringDates } from "shared/validators";
 import { DEFAULT_LEARNING_STATUSES } from "shared/constants";
@@ -136,15 +136,6 @@ const EditLearningModal: FC<{
         />
       </Box>
       <Box mb="4">
-        <SelectField
-          label="Status"
-          value={status}
-          options={statusOptions}
-          onChange={(v) => setStatus(v)}
-          sort={false}
-        />
-      </Box>
-      <Box mb="4">
         <label>Description</label>
         <Box>
           <MarkdownInput
@@ -156,12 +147,25 @@ const EditLearningModal: FC<{
           />
         </Box>
       </Box>
-      <Box mb="4">
-        <label>Tags</label>
-        {/* TagsInput autofocuses by default and would steal focus from the
-            Title field, which mounts first. */}
-        <TagsInput value={tags} onChange={setTags} autoFocus={false} />
-      </Box>
+      {/* Status and Tags are both short inputs, so they share a row at the
+          modal's lg width and collapse to one column on narrow screens. */}
+      <Grid columns={{ initial: "1", sm: "2" }} gap="4" mb="4">
+        <Box>
+          <SelectField
+            label="Status"
+            value={status}
+            options={statusOptions}
+            onChange={(v) => setStatus(v)}
+            sort={false}
+          />
+        </Box>
+        <Box>
+          <label>Tags</label>
+          {/* TagsInput autofocuses by default and would steal focus from the
+              Title field, which mounts first. */}
+          <TagsInput value={tags} onChange={setTags} autoFocus={false} />
+        </Box>
+      </Grid>
       {orgProjects.length > 0 && (
         <Box mb="4">
           <MultiSelectField
