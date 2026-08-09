@@ -265,7 +265,7 @@ This will make an initial network request to download the features payload from 
 
 Every call to evaluate feature flags will use the latest available payload.
 
-To disable streaming even when it would otherwise start, set `backgroundSync: false` on the client (or via `configureCache`). That option does not turn streaming on by itself.
+To block streaming connections, call `configureCache({ backgroundSync: false })`. `GrowthBookClient` does not take a `backgroundSync` constructor option — that setting only lives on the cache config. `backgroundSync: true` (the default) does not turn streaming on by itself.
 
 ### Polling Updates
 
