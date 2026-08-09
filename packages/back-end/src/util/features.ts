@@ -648,6 +648,7 @@ export function getFeatureDefinition({
   savedGroupsMap,
   includeRuleIds,
   includeExperimentNames,
+  includeExperimentIds,
   includeDraftExperimentRefs,
   namespaces,
   metadataOptions,
@@ -675,6 +676,7 @@ export function getFeatureDefinition({
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
+  includeExperimentIds?: boolean;
   includeDraftExperimentRefs?: boolean;
   namespaces?: Map<
     string,
@@ -1035,6 +1037,7 @@ export function getFeatureDefinition({
               : phaseVariations.map((v) => ({ key: v.key }));
             rule.phase = exp.phases.length - 1 + "";
             if (includeExperimentNames) rule.name = exp.name;
+            if (includeExperimentIds) rule.experimentId = exp.id;
           }
           if (shouldExpandSavedGroups && savedGroupsMap && organization) {
             if (rule.condition)
@@ -1077,6 +1080,10 @@ export function getFeatureDefinition({
             ) as FeatureDefinitionRule;
             if (includeRuleIds && r.id != null) {
               (picked as Record<string, unknown>).id = stemRuleId(r.id);
+            }
+            if (rule.experimentId) {
+              (picked as Record<string, unknown>).experimentId =
+                rule.experimentId;
             }
             return picked;
           }
@@ -1424,6 +1431,9 @@ export function getFeatureDefinition({
           ) as FeatureDefinitionRule;
           if (includeRuleIds && r.id != null) {
             picked.id = stemRuleId(r.id);
+          }
+          if (rule.experimentId) {
+            picked.experimentId = rule.experimentId;
           }
           return picked;
         }

@@ -18369,6 +18369,8 @@ paths:
                   type: boolean
                 includeRuleIds:
                   type: boolean
+                includeExperimentIds:
+                  type: boolean
                 includeProjectIdInMetadata:
                   type: boolean
                 includeCustomFieldsInMetadata:
@@ -18483,6 +18485,8 @@ paths:
                 includeRedirectExperiments:
                   type: boolean
                 includeRuleIds:
+                  type: boolean
+                includeExperimentIds:
                   type: boolean
                 includeProjectIdInMetadata:
                   type: boolean
@@ -53820,6 +53824,8 @@ components:
         includeRedirectExperiments:
           type: boolean
         includeRuleIds:
+          type: boolean
+        includeExperimentIds:
           type: boolean
         includeProjectIdInMetadata:
           type: boolean

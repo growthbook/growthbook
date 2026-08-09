@@ -767,6 +767,88 @@ describe("SDK payload generation (scenario-specific)", () => {
     ).toBeUndefined();
   });
 
+  it("includeExperimentIds controls experiment-ref experimentId and survives pick", () => {
+    const exp: ExperimentInterface = {
+      id: "exp_abc123",
+      organization: "org-1",
+      project: "",
+      name: "Checkout Exp",
+      hypothesis: "",
+      status: "running",
+      phases: [
+        {
+          phase: "main",
+          coverage: 1,
+          variationWeights: [0.5, 0.5],
+          dateStarted: new Date(),
+        },
+      ],
+      variations: [
+        { id: "v0", key: "0", name: "C" },
+        { id: "v1", key: "1", name: "T" },
+      ],
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      trackingKey: "checkout-button",
+      archived: false,
+      hasVisualChangesets: true,
+    } as ExperimentInterface;
+    const feature: FeatureInterface = {
+      id: "f1",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      defaultValue: true,
+      organization: "org-1",
+      owner: "",
+      valueType: "boolean",
+      archived: false,
+      description: "",
+      version: 1,
+      environmentSettings: {
+        production: {
+          enabled: true,
+          rules: [
+            {
+              type: "experiment-ref",
+              id: "rule-1",
+              enabled: true,
+              experimentId: "exp_abc123",
+              variations: [
+                { variationId: "v0", value: false },
+                { variationId: "v1", value: true },
+              ],
+            },
+          ],
+        },
+      },
+    } as FeatureInterface;
+    const experimentMap = new Map([["exp_abc123", exp]]);
+
+    const withIds = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap,
+      safeRolloutMap: new Map(),
+      capabilities: ["bucketingV2"],
+      includeExperimentIds: true,
+    });
+    const withoutIds = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap,
+      safeRolloutMap: new Map(),
+      capabilities: ["bucketingV2"],
+      includeExperimentIds: false,
+    });
+
+    expect(withIds?.rules?.[0]?.key).toBe("checkout-button");
+    expect(withIds?.rules?.[0]?.experimentId).toBe("exp_abc123");
+    expect(withoutIds?.rules?.[0]?.key).toBe("checkout-button");
+    expect(withoutIds?.rules?.[0]?.experimentId).toBeUndefined();
+  });
+
   it("encryptPayload true with encryptionKey produces encryptedFeatures", async () => {
     const ctx = minimalContext();
     const out = await getFeatureDefinitionsResponse({
