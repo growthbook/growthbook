@@ -1,5 +1,8 @@
 import type { Context } from "back-end/src/models/BaseModel";
-import { resolvePublishFootprint } from "back-end/src/revisions/revisionPublishEnvironments";
+import {
+  archiveServeFootprint,
+  resolvePublishFootprint,
+} from "back-end/src/revisions/revisionPublishEnvironments";
 
 /**
  * Two different situations were both spelled `[]`, and only one of them was safe.
@@ -80,5 +83,47 @@ describe("resolvePublishFootprint", () => {
         entity,
       ).sort(),
     ).toEqual(["dev", "production", "staging"]);
+  });
+});
+
+/**
+ * The same fail-closed rule, on the helper ten call sites reach for directly.
+ *
+ * `archiveServeFootprint` states it plainly — "unbound means everywhere, never
+ * nowhere" — but nothing held it to that. Rewriting its fallback to `return
+ * scoped` (an archive of an unbound entity binding to NO environment, so an
+ * env-limited caller may take it out of service in production) left all 422
+ * revision tests and all 848 permission-matrix cases green.
+ *
+ * The matrix does exercise archive for env-limited roles; it just never does so
+ * against an entity with no scope of its own, which is the only shape that
+ * reaches the fallback. So the rule was asserted in a comment and nowhere else.
+ */
+describe("archiveServeFootprint", () => {
+  it("keeps an entity's own binding when it has one", () => {
+    expect(archiveServeFootprint(context, entity, ["production"])).toEqual([
+      "production",
+    ]);
+  });
+
+  it("falls back to every environment the entity serves when unbound", () => {
+    // The branch with the teeth. An unbound entity still SERVES production, so
+    // taking it out of service must demand production authority — `[]` here
+    // would skip the environment check entirely.
+    expect(archiveServeFootprint(context, entity, []).sort()).toEqual([
+      "dev",
+      "production",
+      "staging",
+    ]);
+  });
+
+  it("falls back the same way when no scope argument is passed at all", () => {
+    // Callers that omit the argument rely on the default; an omitted scope must
+    // not mean something weaker than an explicitly empty one.
+    expect(archiveServeFootprint(context, entity).sort()).toEqual([
+      "dev",
+      "production",
+      "staging",
+    ]);
   });
 });
