@@ -213,6 +213,19 @@ export class ConstantModel extends BaseClass {
 
   protected async afterCreate(doc: ConstantInterface) {
     this.invalidateAllSnapshot();
+    // A new constant can satisfy a `@const:` ref a feature already embeds, so
+    // refresh the SDK payload — the same reason `ConfigModel.afterCreate` does.
+    // Deleting a constant deliberately leaves its references unresolved (see
+    // `afterDelete`), so re-creating the key is an ordinary way back into this,
+    // not just an imported dangling ref. No-ops when nothing references the key.
+    resolvableValueChanged(this.context, "updated", "constant", doc.key).catch(
+      (e) => {
+        this.context.logger.error(
+          e,
+          "Error refreshing SDK Payload on constant create",
+        );
+      },
+    );
     await logConstantCreatedEvent(this.context, this.toApiInterface(doc));
   }
 

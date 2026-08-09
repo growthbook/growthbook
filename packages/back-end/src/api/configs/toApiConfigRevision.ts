@@ -26,6 +26,7 @@ function reviewsToApi(reviews: Review[] | undefined) {
     decision: r.decision,
     ...(r.comment ? { comment: r.comment } : {}),
     dateCreated: toIsoString(r.dateCreated),
+    stale: !!r.stale,
   }));
 }
 
