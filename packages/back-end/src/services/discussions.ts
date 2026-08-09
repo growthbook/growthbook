@@ -112,8 +112,15 @@ export async function getProjectsByParentId(
       return learning.projects || [];
     }
 
-    default:
-      throw new Error(`Unsupported discussion parent type: ${parentType}`);
+    default: {
+      // Compile-time proof that the switch covers every DiscussionParentType:
+      // adding a member to the union without a case here fails the build.
+      // The runtime throw still guards against an invalid string arriving via
+      // an unvalidated cast, which is how this function is reached from the
+      // legacy discussion routes.
+      const exhaustive: never = parentType;
+      throw new Error(`Unsupported discussion parent type: ${exhaustive}`);
+    }
   }
 }
 
