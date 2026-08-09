@@ -1,15 +1,17 @@
 import { FC, ReactNode } from "react";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { Box, Flex } from "@radix-ui/themes";
 import { useAuth, safeLogout } from "@/services/auth";
 import WatchProvider from "@/services/WatchProvider";
 import { UserContextProvider, useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
 import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
 import LoadingOverlay from "./LoadingOverlay";
 import CreateOrJoinOrganization from "./Auth/CreateOrJoinOrganization";
 import SelectInitialPlan from "./Auth/SelectInitialPlan";
 import InAppHelp from "./Auth/InAppHelp";
-import Button from "./Button";
 import TopNavLite from "./Layout/TopNavLite";
 
 const LoggedInPageGuard = ({
@@ -28,33 +30,36 @@ const LoggedInPageGuard = ({
         <TopNavLite />
         <main className="container">
           <div className="mt-5 pt-5">
-            <div
-              className="appbox p-4"
+            <Box
+              className="appbox"
+              p="4"
               style={{ maxWidth: 500, margin: "auto" }}
             >
-              <h3 className="mb-3">Something Went Wrong</h3>
+              <Heading as="h3" size="lg" mb="3">
+                Something Went Wrong
+              </Heading>
               <Callout status="error">{error}</Callout>
-              <div className="d-flex align-items-center mt-3">
+              {/* Reload first: it's the non-destructive option, and the two
+                  buttons previously sat flush against each other. */}
+              <Flex align="center" justify="end" gap="3" mt="4">
                 <Button
-                  className="ml-auto"
-                  onClick={async () => {
-                    await safeLogout();
-                  }}
-                  color="danger"
-                >
-                  Log Out
-                </Button>
-                <button
-                  className="btn btn-link"
-                  onClick={(e) => {
-                    e.preventDefault();
+                  variant="ghost"
+                  onClick={() => {
                     window.location.reload();
                   }}
                 >
                   Reload
-                </button>
-              </div>
-            </div>
+                </Button>
+                <Button
+                  color="red"
+                  onClick={async () => {
+                    await safeLogout();
+                  }}
+                >
+                  Log Out
+                </Button>
+              </Flex>
+            </Box>
           </div>
         </main>
       </div>
