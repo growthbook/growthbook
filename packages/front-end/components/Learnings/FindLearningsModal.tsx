@@ -225,8 +225,9 @@ const FindLearningsModal: FC<{
         {!loading && error && <Callout status="error">{error}</Callout>}
         {!loading && !error && suggestions.length === 0 && (
           <Callout status="info">
-            No meaningful cross-experiment patterns were found in this set. Try
-            expanding the date range or including more experiments.
+            No new cross-experiment patterns were found in this set. Patterns
+            that match your saved Learnings are filtered out, so try expanding
+            the date range or including more experiments.
           </Callout>
         )}
         {!loading && !error && analyzedCounts && (
