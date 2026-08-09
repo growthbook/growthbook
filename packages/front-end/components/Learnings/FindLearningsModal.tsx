@@ -46,6 +46,10 @@ const FindLearningsModal: FC<{
     analyzed: number;
   } | null>(null);
 
+  // saveProjects is rebuilt each render by the parent, so depend on the scalar
+  // rather than the array or the effect would re-fire the AI call.
+  const saveProject = saveProjects?.[0];
+
   // Stable key derived from the actual experiment IDs. We depend on this
   // rather than the experiments array reference so that SWR-driven
   // re-renders of the parent (e.g. on tab focus / revalidation) don't cause
@@ -87,6 +91,9 @@ const FindLearningsModal: FC<{
           method: "POST",
           body: JSON.stringify({
             experimentIds: ids,
+            // Scopes the server-side permission check to the same project the
+            // results will be saved into.
+            project: saveProject,
           }),
         });
         if (cancelled) return;
@@ -125,7 +132,7 @@ const FindLearningsModal: FC<{
     return () => {
       cancelled = true;
     };
-  }, [apiCall, experimentIdsKey]);
+  }, [apiCall, experimentIdsKey, saveProject]);
 
   const experimentMap = useMemo(
     () => new Map(experiments.map((e) => [e.id, e])),

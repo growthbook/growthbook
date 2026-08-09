@@ -190,6 +190,8 @@ export const deleteLearning = async (
 
 type FindLearningsRequest = AuthRequest<{
   experimentIds: string[];
+  /** Project the results would be saved into, used for the permission check. */
+  project?: string;
 }>;
 
 type FindLearningsResponse =
@@ -462,6 +464,23 @@ export const postFindLearnings = async (
   // gate fails).
   if (!(await runAccessGates(context, res))) {
     return;
+  }
+
+  // Finding is only useful if you can save the result, and it spends the org's
+  // AI quota — so require create permission before doing any work. Scoped to
+  // the project the results would be saved into, matching the UI's check;
+  // manageLearnings is project-scoped, so an unscoped check would wrongly
+  // reject someone who manages Learnings in a single project.
+  const { project } = req.body;
+  if (
+    !context.permissions.canCreateLearning({
+      projects: project ? [project] : [],
+    })
+  ) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have permission to create Learnings.",
+    });
   }
 
   const { experimentIds } = req.body;

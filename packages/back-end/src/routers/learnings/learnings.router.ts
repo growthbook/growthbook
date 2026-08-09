@@ -74,6 +74,7 @@ router.post(
     body: z
       .object({
         experimentIds: z.array(z.string()).min(2),
+        project: z.string().optional(),
       })
       .strict(),
   }),
