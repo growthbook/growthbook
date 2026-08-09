@@ -26,7 +26,7 @@ export const searchLearningsEndpoint = {
     querySchema: z.never(),
   },
   zodReturnObject: apiSearchLearningsResponse,
-  summary: "Semantically search saved learnings (learnings) by a query",
+  summary: "Search saved Learnings by meaning rather than keyword",
 };
 
 export const learningApiSpec = {

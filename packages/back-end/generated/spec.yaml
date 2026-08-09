@@ -47551,7 +47551,7 @@ paths:
   /v1/learnings/search:
     post:
       operationId: searchLearnings
-      summary: Semantically search saved learnings (learnings) by a query
+      summary: Search saved Learnings by meaning rather than keyword
       tags:
         - Learnings
       requestBody:
