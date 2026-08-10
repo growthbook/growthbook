@@ -597,9 +597,14 @@ export const postSubmit = async (
 
   const webhooks = getRevisionWebhookAdapter(revision.target.type);
   await webhooks?.dispatch(context, revision, { type: "reviewRequested" });
-  // Submitting can ARM a deferred publish in the same call; schedule
-  // subscribers watch `publishScheduleChanged`, not `reviewRequested`.
-  if (enableAutoPublish || parsedSchedule !== null) {
+  // Submitting can arm a deferred publish OR, submitted unarmed, clear a prior
+  // one. Either transition is a schedule change; subscribers watch
+  // `publishScheduleChanged`, not `reviewRequested`, so dispatch whenever the
+  // schedule state changes — not only when arming.
+  const wasScheduled =
+    !!existingRevision.autoPublishOnApproval ||
+    (existingRevision.scheduledPublishAt ?? null) !== null;
+  if (enableAutoPublish || parsedSchedule !== null || wasScheduled) {
     await webhooks?.dispatch(context, revision, {
       type: "publishScheduleChanged",
     });

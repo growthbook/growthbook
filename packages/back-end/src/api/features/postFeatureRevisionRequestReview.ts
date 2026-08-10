@@ -160,12 +160,16 @@ export async function requestReview(
     { reviewComment: req.body.comment ?? null },
   );
 
-  // Requesting review can ARM a deferred publish in the same call, and a schedule
-  // subscriber has no reason to be watching `reviewRequested`. The dedicated
-  // scheduling route fires this; request-review persisted the identical state and
-  // said nothing, so the same arm was visible or invisible depending on which
-  // button produced it. Same gap the generic engine's submit route had.
-  if (enableAutoPublish || scheduledDate !== null) {
+  // Requesting review can arm a deferred publish OR, submitted unarmed, clear a
+  // prior one (markRevisionAsReviewRequested unsets a stale schedule). Either is
+  // a schedule change, and a schedule subscriber has no reason to be watching
+  // `reviewRequested`. The dedicated scheduling route fires this; request-review
+  // persisted the identical state and said nothing, so the same transition was
+  // visible or invisible depending on which button produced it.
+  const wasScheduled =
+    !!revision.autoPublishOnApproval ||
+    (revision.scheduledPublishAt ?? null) !== null;
+  if (enableAutoPublish || scheduledDate !== null || wasScheduled) {
     await dispatchFeatureRevisionEvent(
       req.context,
       feature,

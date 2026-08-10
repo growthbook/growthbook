@@ -1,6 +1,7 @@
 import {
   metadataTouchesPayload,
   holdsMoveDestination,
+  NO_ENVIRONMENT_BINDING,
 } from "shared/permissions";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import type { EventUser } from "shared/types/events/event-types";
@@ -221,7 +222,10 @@ export async function revertFeatureRevision(
         !holdsMoveDestination({
           permissions: context.permissions,
           model: "feature",
-          action: isPublish ? "publish" : "draft",
+          // A direct revert lands under REVERT authority at the destination, not
+          // publish — matching v1 revertFeature.ts and the generic engine. This
+          // v2 route was the untouched twin still demanding publish.
+          action: isPublish ? "revert" : "draft",
           existing: feature,
           proposed: { ...feature, project: m.project },
           environments: isPublish
@@ -373,6 +377,16 @@ export async function revertFeatureRevision(
 
     // A draft lands nothing, so it clears no publish gate.
     return { feature, revision: newDraft, bypassedGates: [] };
+  }
+
+  // Coarse floor for the direct-publish path: every revert takes at least the
+  // revert atom, project-scoped and env-unbound. The per-field checks above add
+  // environment scope for payload fields, but they short-circuit for an
+  // inert-metadata-only revert (`metadataTouchesPayload` false) — without this
+  // floor that path published with no authority check. Mirrors v1 revertFeature.ts
+  // and the dashboard twin.
+  if (!context.permissions.canRevertFeature(feature, NO_ENVIRONMENT_BINDING)) {
+    context.permissions.throwPermissionError();
   }
 
   // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST

@@ -1328,10 +1328,14 @@ export async function postFeatureRequestReview(
     { reviewComment: comment ?? null },
   );
 
-  // Requesting review can ARM a deferred publish in the same call; fire the
-  // schedule event too, as the dedicated scheduling route does — a schedule
-  // subscriber has no reason to be watching `reviewRequested`.
-  if (enableAutoPublish || scheduledDate !== null) {
+  // Requesting review can arm a deferred publish OR, submitted unarmed, clear a
+  // prior one (markRevisionAsReviewRequested unsets a stale schedule). Either is
+  // a schedule change; fire the event whenever the schedule state transitions —
+  // a schedule subscriber has no reason to be watching `reviewRequested`.
+  const wasScheduled =
+    !!revision.autoPublishOnApproval ||
+    (revision.scheduledPublishAt ?? null) !== null;
+  if (enableAutoPublish || scheduledDate !== null || wasScheduled) {
     await dispatchFeatureRevisionEvent(
       context,
       feature,

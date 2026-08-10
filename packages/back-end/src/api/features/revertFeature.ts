@@ -1,6 +1,7 @@
 import {
   metadataTouchesPayload,
   holdsMoveDestination,
+  NO_ENVIRONMENT_BINDING,
 } from "shared/permissions";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import type { EventUser } from "shared/types/events/event-types";
@@ -62,7 +63,15 @@ export async function revertFeatureCore(
   const environmentIds = environments.map((e) => e.id);
   const allEnvironmentIds = getEnvironmentIdsFromOrg(organization);
 
-  // Revert is gated per-change below via canRevertFeature (revertFeatures).
+  // Coarse floor: EVERY revert takes at least the revert atom, project-scoped
+  // and env-unbound. The per-change checks below add environment scope for
+  // payload-affecting fields, but they short-circuit for an inert-metadata-only
+  // revert (`metadataTouchesPayload` false) — without this floor that path
+  // published with no authority check at all. The dashboard twin
+  // (controllers/features.ts) keeps the same floor.
+  if (!context.permissions.canRevertFeature(feature, NO_ENVIRONMENT_BINDING)) {
+    context.permissions.throwPermissionError();
+  }
 
   const { revision: version, comment } = body;
 
