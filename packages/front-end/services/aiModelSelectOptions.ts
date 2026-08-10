@@ -2,6 +2,7 @@ import type { AIModel, AIProvider, EmbeddingModel } from "shared/ai";
 import {
   AI_IMAGE_MODELS,
   AI_PROVIDER_MODEL_MAP,
+  DEFAULT_EMBEDDING_MODEL,
   getImageModelMeta,
   getProviderFromEmbeddingModel,
 } from "shared/ai";
@@ -180,7 +181,13 @@ export function getAvailableAIModelOptions(
  */
 export const USE_DEFAULT_MODEL_OPTION = {
   value: "",
-  label: "-- Use Default AI Model --",
+  label: "Use default AI model",
+};
+
+/** Names the embedding fallback: "default AI model" reads as the chat model. */
+export const USE_DEFAULT_EMBEDDING_MODEL_OPTION = {
+  value: "",
+  label: `Use default (${DEFAULT_EMBEDDING_MODEL})`,
 };
 
 /**
@@ -280,7 +287,7 @@ export function getAvailableEmbeddingModelOptions(
         });
 
   return withSelectedOption(
-    [USE_DEFAULT_MODEL_OPTION, ...options],
+    [USE_DEFAULT_EMBEDDING_MODEL_OPTION, ...options],
     selectedModel,
     (value) =>
       EMBEDDING_MODEL_OPTIONS.find((o) => o.value === value)?.label ?? value,

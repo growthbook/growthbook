@@ -340,13 +340,15 @@ function ProviderRow({
                 {affectedSettings.length > 0 && (
                   <Box mt="3">
                     {"We'll move these settings for you:"}
-                    <ul className="mb-0 mt-1">
-                      {affectedSettings.map((s) => (
-                        <li key={s.key}>
-                          {`${s.label} → ${getModelDisplayLabel(s.fallback)}`}
-                        </li>
-                      ))}
-                    </ul>
+                    <Box asChild mt="1" mb="0">
+                      <ul>
+                        {affectedSettings.map((s) => (
+                          <li key={s.key}>
+                            {`${s.label} → ${getModelDisplayLabel(s.fallback)}`}
+                          </li>
+                        ))}
+                      </ul>
+                    </Box>
                   </Box>
                 )}
                 <Box mt="3">
@@ -472,6 +474,12 @@ export default function AIProviderKeys({
               variable is set.
             </>
           )
+        ) : !aiEnabled ? (
+          /* Add/replace are hidden while AI is off, so don't pitch them. */
+          <>
+            Enable AI features above to add or replace a provider key. Existing
+            keys stay stored and encrypted at rest.
+          </>
         ) : isCloud() ? (
           <>
             Bring your own provider account. AI features run on
