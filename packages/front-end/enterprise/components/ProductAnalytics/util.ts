@@ -587,8 +587,8 @@ export function getColumnTopValues(
   }
   if (dataset.type === "funnel") {
     const initialStep = dataset.steps[0];
-    const ft = initialStep?.factTable
-      ? getFactTableById(initialStep.factTable)
+    const ft = initialStep?.factTableId
+      ? getFactTableById(initialStep.factTableId)
       : null;
     return ft ? getColumnInfo(ft, column).topValues : [];
   }
