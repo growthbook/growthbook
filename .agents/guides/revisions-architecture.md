@@ -227,5 +227,7 @@ refused rather than recovered.
 1. `revisionActions.ts` — `publishRevision` is the spine; everything else hangs off it.
 2. `landingSequence.ts` — the fences and the compensation ordering.
 3. `casLoop.ts` — every guarded write goes through it.
-4. `landAuthority.ts` + `revisionAuthority.ts` — the rules, stated once.
+4. `landAuthority.ts` — the shared authority rules. `revisionAuthority.ts`
+   wraps them for the generic engine, `featureDraftAuthority.ts` for the feature
+   engine; read the wrapper for the engine you are in.
 5. `bulkPublish/` — the same sequence across several entities, all-or-nothing.
