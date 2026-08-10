@@ -64,25 +64,13 @@ export async function canEnableFeatureAutoPublishOnApproval(
   return canPublishFeatureRevision(context, feature, revision);
 }
 
-/**
- * Authority to DISARM auto-publish-on-approval on a Feature Flag revision.
- *
- * The publish half of `canEnableFeatureAutoPublishOnApproval` and only that half —
- * the feature twin of `canDisarmAutoPublishOnApproval`. The premium feature and the
- * org's approval flow are preconditions for TAKING ON a future publish, not for
- * standing one down: asking them on the way out left a revision armed with no way
- * to disarm it the moment a licence lapsed or the flow was switched off, while the
- * arm itself still fired on approval.
- *
- * Same split `canScheduleFeaturePublish` / `canPublishFeatureRevision` already makes
- * for the dated schedule beside it.
- */
+/** Disarming requires publish authority, but not scheduling eligibility. */
 export async function canDisarmFeatureAutoPublishOnApproval(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision?: FeatureRevisionInterface | { metadata?: { project?: string } },
 ): Promise<boolean> {
-  return await canPublishFeatureRevision(context, feature, revision);
+  return canPublishFeatureRevision(context, feature, revision);
 }
 
 // Validate a client-supplied schedule date. null/undefined means "no schedule";
@@ -190,7 +178,7 @@ export async function canScheduleFeaturePublish(
   revision?: FeatureRevisionInterface | { metadata?: { project?: string } },
 ): Promise<boolean> {
   if (!context.hasPremiumFeature("scheduled-revisions")) return false;
-  return await canPublishFeatureRevision(context, feature, revision);
+  return canPublishFeatureRevision(context, feature, revision);
 }
 
 async function revisionRequiresPreLaunchChecklist(

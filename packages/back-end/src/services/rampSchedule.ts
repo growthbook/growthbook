@@ -3159,12 +3159,7 @@ export async function assertCanControlRampSchedule(
       allEnvironments: orgEnvironmentIds,
     });
     const existing = checks.get(target.entityId) ?? new Set<string>();
-    // `rampTargetFootprint` already resolved "all" against the ORG's environments,
-    // which is the point of passing them in. It used to be collapsed into
-    // `scheduleEnvs` — the schedule-wide PATCH footprint, i.e. the caller's own list
-    // whenever the patches name environments — so a rule with `allEnvironments: true`
-    // (the shape `flattenV1ToV2Rules` produces for any migrated rule covering every
-    // applicable environment) handed the gate ["dev"].
+    // "all" has already been resolved against the organization's environments.
     for (const env of envs) existing.add(env);
     checks.set(target.entityId, existing);
   }

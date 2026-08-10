@@ -112,22 +112,8 @@ reach for `[]` to make a type fit.
 
 ## Write sequencing
 
-Authority is necessary but not sufficient. Every landing also has an ordering
-contract, owned by `back-end/src/revisions/landingSequence`:
-
-1. The entity must still be where the change was computed from, checked **before**
-   any history is recorded.
-2. The check is repeated once the landing has its place in the order — still the
-   baseline, and this landing's own merged revision still the newest — immediately
-   **before** the entity write. A landing that lost the race aborts with a
-   retryable conflict rather than applying older state over newer.
-3. A write that fails partway restores live **first**, and removes its merged
-   revision only once that succeeded. When the restore cannot complete, the
-   revision is **kept**: an unrecorded partial change is the one outcome no retry
-   can repair.
-
-A claim on a revision does not guard the entity. Anything that claims first must
-re-verify the entity afterwards.
+See [Revision Architecture](./revisions-architecture.md#landing-sequence) for
+the shared ordering and compensation contract.
 
 ## Where a rule may live
 

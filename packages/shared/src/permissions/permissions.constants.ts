@@ -96,9 +96,7 @@ export const DEPRECATED_POLICIES: Policy[] = [
 export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   ReadData: ["readData"],
   Comments: ["readData", "addComments"],
-  // Archetypes are their own row in the editor, so they aren't bundled here.
-  // (The deprecated FeaturesFullAccess shim below still grants manageArchetype,
-  // because it did on main and stored roles rely on it.)
+  // Deprecated FeaturesFullAccess roles still grant manageArchetype.
   FlagsFullAccess: [
     "readData",
     "createFeatures",

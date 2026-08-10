@@ -277,7 +277,6 @@ export default function KillSwitchModal({
     (r) => r.version === currentVersion,
   );
 
-  // Pre-select: currentVersion if active draft, else mine, else most recent, else null
   const userId = organization?.ownerEmail;
   const defaultDraft = useMemo((): number | null => {
     if (activeDrafts.find((r) => r.version === currentVersion))
@@ -293,9 +292,10 @@ export default function KillSwitchModal({
   }, [activeDrafts, currentVersion, userId]);
 
   const canDraft = permissionsUtil.canEditFeatureDrafts(feature);
-  const [mode, setMode] = useState<DraftMode>(
-    !canDraft ? "publish" : viewingActiveDraft ? "existing" : "new",
-  );
+  let defaultMode: DraftMode = "new";
+  if (!canDraft) defaultMode = "publish";
+  else if (viewingActiveDraft) defaultMode = "existing";
+  const [mode, setMode] = useState<DraftMode>(defaultMode);
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );

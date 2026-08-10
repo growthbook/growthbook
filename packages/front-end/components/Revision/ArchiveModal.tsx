@@ -17,47 +17,23 @@ const DRAFT_STATUSES = [
 const isDraftRevision = (r: Revision) => DRAFT_STATUSES.includes(r.status);
 
 export interface Props {
-  // Entity being archived/unarchived (e.g. "Saved Group", "Constant"). Used in
-  // headers and copy.
   entityNoun: string;
-  // The live entity id and its current archived state.
   entityId: string;
   isArchived: boolean;
-  // PUT endpoint base for the entity (e.g. "/saved-groups", "/constants").
   apiPathBase: string;
-  // `openRevisions` seeds the default selected draft. (The draft selector node
-  // is supplied by the wrapper, which already has `allRevisions`.)
   openRevisions: Revision[];
-  // Org requires approval for archive/unarchive of this entity.
   approvalRequired: boolean;
-  // Viewer can bypass approval (admin) — records a bypass instead of merging.
   canBypassApproval: boolean;
-  // Viewer holds the authority to land this flip (delete to archive, publish to
-  // unarchive). Without it they can only stage the change as a draft.
+  // Archive uses delete authority; unarchive uses publish authority.
   canLand: boolean;
-  // References blocking: reference count + loading state. Archiving a
-  // still-referenced entity is blocked (it would silently drop config from the
-  // referencing items); unarchiving is always allowed.
   referenceCount: number;
   referencesLoading: boolean;
-  // The reference lookup failed — block archiving rather than fail open.
   referencesError?: boolean;
-  // The entity's reference list node, rendered when archiving is blocked.
   referencesList: ReactNode;
-  // "hard" (default): references hard-block the archive client-side. "soft": the
-  // server allows the archive but treats live references as a bypassable warning
-  // — the modal surfaces the referenced items inline and requires an explicit
-  // acknowledgment (which sends `ignoreWarnings`) before archiving.
+  // Soft mode allows an acknowledged server-side warning instead of blocking.
   referenceBlockMode?: "hard" | "soft";
-  // Soft mode only: render the reference warning as an elevated ("this will
-  // break live Feature Flags") confirmation rather than an ordinary warning —
-  // used when archiving a config that live feature flags consume.
   elevatedWarning?: boolean;
-  // Keep `entityNoun`'s casing in body copy instead of lowercasing it — set for
-  // glossary resource names (e.g. "Saved Group") that stay Title Case mid-sentence.
   preserveNounCase?: boolean;
-  // Renders the entity's DraftSelectorForChanges (publish-now vs. create-draft
-  // picker), reusing the same control the edit modals use.
   renderDraftSelector: (opts: {
     mode: DraftMode;
     setMode: (m: DraftMode) => void;
@@ -65,35 +41,19 @@ export interface Props {
     setSelectedDraftId: (v: string | null) => void;
     canAutoPublish: boolean;
     approvalRequired: boolean;
-    // Handed BACK to the caller so the picker filters by the same predicate this
-    // modal used to choose the initial selection — passing it in two places let the
-    // default land on a draft the picker itself would have excluded.
     canWriteIntoDraft?: (revision: Revision) => boolean;
-    // Whether this caller may STAGE a draft for THIS direction. Archiving is
-    // delete-class so the delete atom stages one; unarchiving is not, so it needs
-    // draft authority. Defaulted to `true` by the shell, a publish-only caller was
-    // offered "Create a new draft" on an unarchive the endpoint then refused.
     canDraft?: boolean;
   }) => ReactNode;
-  // Drafts this caller may write the archive flip into. Used for the INITIAL
-  // selection: filtering only the picker still opened the modal on another author's
-  // draft, which the endpoint then refuses with no user action at all.
+  // Keep initial selection and picker filtering aligned.
   canWriteIntoDraft?: (revision: Revision) => boolean;
-  /** May this caller stage a draft for the direction being taken? See above. */
   canStageDraft?: boolean;
   trackingEventModalType: string;
   close: () => void;
   onRevisionCreated?: (revision: Revision) => void;
   selectFlow?: (revision: Revision | null) => void;
-  // Called after a successful submit (e.g. mutate / mutateDefinitions).
   onSaved?: () => void | Promise<void>;
 }
 
-// Entity-agnostic archive/unarchive modal. The change flows through the
-// revision system (so it shows up in history) via the draft selector — create a
-// new draft, add to an existing one, or publish now. Thin per-entity wrappers
-// (SavedGroupArchiveModal, ConstantArchiveModal) supply the entity's reference
-// list, draft selector, API path, and tracking type.
 export default function ArchiveModal({
   entityNoun,
   entityId,

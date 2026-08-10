@@ -10,31 +10,11 @@ import { ApiReqContext } from "back-end/types/api";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 
-/**
- * The parts of a revision API response that are the same for every entity.
- *
- * A revision response is a generic envelope — status, reviews, activity log,
- * schedule, resolution, dates — wrapped around an entity payload (`baseX` /
- * `proposedX`). Only the payload differs between Configs, Constants and Saved
- * Groups; the envelope is identical, and was previously written out once per
- * entity.
- *
- * Those copies drifted, in ways nothing caught: `stale` was missing from the
- * Config response entirely, `toIsoString` disagreed about `null`, and the same
- * absent-description test was spelled three ways (one of them a loose `!=`,
- * which this repo forbids). None of that drift tracked a real difference
- * between the entities — it tracked the file boundary.
- *
- * So the envelope lives here once, and each serializer supplies only what is
- * genuinely its own: which model projects the snapshot, and what its two
- * payload fields are called.
- */
-
-/** ISO-8601, treating a missing OR null date as the epoch rather than throwing. */
+/** Shared API fields and snapshot projection for generic revision entities. */
 function toIsoString(d: Date | string | null | undefined): string {
-  if ((d ?? null) === null) return new Date(0).toISOString();
+  if (d === null || d === undefined) return new Date(0).toISOString();
   if (typeof d === "string") return d;
-  return (d as Date).toISOString();
+  return d.toISOString();
 }
 
 function reviewsToApi(reviews: Review[] | undefined) {
@@ -67,7 +47,6 @@ function activityLogToApi(entries: ActivityLogEntry[] | undefined) {
   }));
 }
 
-/** Every entity-independent field of a revision API response. */
 export function revisionEnvelopeToApi(revision: Revision) {
   return {
     id: revision.id,
@@ -96,14 +75,8 @@ export function revisionEnvelopeToApi(revision: Revision) {
   };
 }
 
-/**
- * Project each revision's base and proposed snapshots through the entity's own
- * API interface, resolving owner emails for the whole page in ONE batched
- * lookup — the reason list endpoints must go through this rather than calling
- * the single-revision serializer per row.
- */
 export async function projectRevisionSnapshots<
-  Snapshot,
+  Snapshot extends object,
   ApiShape extends object,
 >(
   revisions: Revision[],
@@ -125,9 +98,9 @@ export async function projectRevisionSnapshots<
       revision.target.proposedChanges,
     );
     const proposedSnapshot = applyPatchToSnapshot(
-      baseSnapshot as Record<string, unknown>,
+      baseSnapshot,
       proposedChanges,
-    ) as Snapshot;
+    );
 
     return {
       revision,

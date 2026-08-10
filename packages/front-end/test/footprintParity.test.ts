@@ -78,13 +78,7 @@ const feature = {
 const applicableIds = serveFootprint(environments, feature);
 
 describe("control footprint === endpoint footprint", () => {
-  // HARDCODED expectations, not a second call to the same function.
-  //
-  // Asserting `control === featurePublishFootprint(...)` is unfalsifiable when the
-  // control IS that function: gutting the endpoint's rule-diff term, or making it
-  // return every environment, passed such a comparison. A parity assertion only
-  // means something when the two sides are computed differently — here one side is
-  // the real control and the other is a value stated by hand.
+  // Expectations are hardcoded so the oracle is independent of the implementation.
   it("feature publish, rules-only draft: the environments whose rules differ", () => {
     // Live has a production rule and a staging rule; the draft has neither, so both
     // change. `edge` and `dev` carry no rules either side.

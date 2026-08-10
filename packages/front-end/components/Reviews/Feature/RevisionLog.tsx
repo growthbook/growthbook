@@ -32,21 +32,10 @@ export interface Props {
   // group) instead of rendering inline. The verdict-retraction scan still
   // runs over the full log so review-state badges stay correct.
   collapseFilter?: (log: RevisionLog) => boolean;
-  /**
-   * The viewer has an active verdict of their own to retract.
-   *
-   * Wired unconditionally before, so the affordance was offered on published
-   * revisions and to anyone at all, and the endpoint's 403 was swallowed. The
-   * generic timeline has always passed its `state.canUndoReview` here; this is the
-   * feature twin of the same gate.
-   */
+  // Whether the viewer can retract their active verdict.
   canRetractVerdict?: boolean;
 }
 
-// Feature wrapper around the shared <RevisionTimeline>: owns the feature log
-// fetch and wires the feature's own endpoints (edit/delete a log entry, undo a
-// review) as callbacks. The rendering and all timeline behavior live in the
-// shared component.
 const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
   { feature, revision, onRevisionMutate, collapseFilter, canRetractVerdict },
   ref,

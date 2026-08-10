@@ -7,16 +7,7 @@ import {
   togglePolicyPart,
 } from "@/components/Teams/Roles/policySelection";
 
-/**
- * The role editor's select-all behaviour, asserted over the STATE SPACE rather
- * than one scripted path.
- *
- * A scripted walkthrough is what let a real bug through: a policy holding every
- * part individually rendered "indeterminate" but cleared everything when clicked,
- * and a browser test that only ever entered the state via the bundle never saw it.
- * These enumerate every subset of parts and every click order instead, and assert
- * the invariants that must hold from all of them.
- */
+/** Exhaustively checks every policy-part subset and click order. */
 
 // Every bundled policy the editor renders, so a new one is covered on arrival.
 const BUNDLES = (Object.keys(POLICY_PARTS) as Policy[]).filter(

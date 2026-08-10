@@ -3217,15 +3217,7 @@ export function getEnvsForRampTarget(
   for (const patch of patches) {
     if (patch.allEnvironments) return "all";
     const scoped = patch.environments ?? [];
-    // Same rule as `getEnvsFromRampSchedule`, which is the whole-schedule twin: an
-    // A patch naming no environments does not TOUCH the field —
-    // `applyPatchToRule` writes it only on `"environments" in patch` — so its reach
-    // is wherever the rule already serves, which `currentRuleEnvs` supplies below.
-    // Widening to "all" here was the same over-demand `rampActionFootprint` had:
-    // `buildPatch` emits `{ruleId, coverage}` for every ramp created through the UI,
-    // so a publisher scoped to dev could create and publish a dev-only ramp and then
-    // control none of it. The vacuity this used to guard against is still guarded —
-    // by `if (!envs.size) return "all"` below, after the union.
+    // A patch without environments retains the rule's current scope.
     for (const env of scoped) envs.add(env);
   }
   // The rule's own environments, unioned BEFORE the widening below. Ordered the other

@@ -81,11 +81,7 @@ export type ConstantRevisionRecalledPayload = z.infer<
   typeof constantRevisionRecalledPayload
 >;
 
-// A review verdict RETRACTED by the reviewer who gave it. The revision's content
-// is untouched; only the standing verdicts change. It used to ride
-// `revision.updated`, whose `change` field the dispatcher derives from the
-// revision's EXISTING patch ops — so a retraction announced a `value` change that
-// never happened.
+// A retracted verdict changes reviews, not revision content.
 export const constantRevisionReviewRetractedPayload =
   constantRevisionWebhookPayload;
 export type ConstantRevisionReviewRetractedPayload = z.infer<

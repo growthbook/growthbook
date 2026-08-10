@@ -92,11 +92,6 @@ export default function SavedGroupArchiveModal({
           savedGroups={references?.savedGroups ?? []}
         />
       }
-      // Only drafts this caller may write `archived` into — the endpoint refuses a
-      // write into another author's draft, so listing them turned a picker choice
-      // into a 403.
-      // Left to the shell's `true` default, a publish-only caller was offered
-      // "Create a new draft" on an unarchive the endpoint then refuses.
       canStageDraft={canStageArchiveDraft({
         permissions: permissionsUtil,
         model: "saved-group",

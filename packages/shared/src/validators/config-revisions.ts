@@ -655,7 +655,6 @@ export const putConfigRevisionArchiveValidator = {
   responseSchema: revisionResponse,
 };
 
-// The fourth lifecycle verb, previously only on Feature Flags.
 export const postConfigRevisionUndoReviewValidator = {
   method: "post" as const,
   path: "/configs-revisions/:key/:version/undo-review",

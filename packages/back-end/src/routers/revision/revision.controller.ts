@@ -1343,25 +1343,7 @@ export const postToggleAutoPublish = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Arming and DISARMING take the same authority, deliberately.
-  //
-  // Disarming used to need only draft, so a draft manager without publish rights
-  // could turn auto-publish off but never on — a one-way control, which reads as a
-  // broken toggle whichever way the UI renders it. It also disagreed with the dated
-  // schedule next to it, where cancelling already requires publish ("it withdraws a
-  // pending publish rather than landing one"). Same operation, same rule.
-  //
-  // That rule is PUBLISH authority, and only that. An additional draft requirement
-  // was there to stop any org member disarming someone else's draft, but the publish
-  // check below already excludes them — so all it really excluded was the
-  // publisher-only role, which can arm and cancel the dated schedule sitting right
-  // beside this control. Two spellings of "commit a future publish" should not
-  // answer differently.
-
-  // Publish authority governs both directions; the ELIGIBILITY gates (premium,
-  // approval flow on for this project) are a precondition for taking on a future
-  // publish, not for standing one down. Asking them on the way out left a revision
-  // armed forever once a licence lapsed or the flow was switched off.
+  // Arming and disarming both require publish authority.
   const liveEntity = await loadLiveEntityForRevision(context, existing);
   const mayToggle =
     !!liveEntity &&

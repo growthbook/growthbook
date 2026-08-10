@@ -1,3 +1,5 @@
+import type { FeatureRule } from "shared/types/feature";
+
 /**
  * Rule id stem helpers — the single source of truth for the `__`-delimited
  * migration-suffix convention.
@@ -73,8 +75,6 @@ export function parseRuleId(id: string): ParsedRuleId {
   }
   return { stem, env: parts.slice(1).join(RULE_ID_ENV_SUFFIX_DELIMITER) };
 }
-
-import type { FeatureRule } from "shared/types/feature";
 
 export interface RampTargetQuery {
   ruleId?: string | null;

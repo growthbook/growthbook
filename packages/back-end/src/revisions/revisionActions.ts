@@ -423,21 +423,25 @@ export async function assertCanPublishRevision(
 
   await assertCanLandRevision({
     context,
-    holds: (action) =>
-      context.permissions.canRevisionAction(
-        revision.target.type,
-        action,
-        snapshot,
-        footprint,
-      ) &&
-      // The adapter's own entity-level gate, which can be narrower than the atom
-      // (a Config's edit rule, for instance). Only publish and revert have one;
-      // delete answers to the permission table alone, because adapter.canDelete
-      // gates deleting a revision DOCUMENT, not the entity.
-      (action === "delete" ||
-        (action === "publish"
-          ? (adapter.canPublishRevision ?? adapter.canUpdate)(context, snapshot)
-          : (adapter.canRevert ?? adapter.canUpdate)(context, snapshot))),
+    holds: (action) => {
+      if (
+        !context.permissions.canRevisionAction(
+          revision.target.type,
+          action,
+          snapshot,
+          footprint,
+        )
+      ) {
+        return false;
+      }
+      // adapter.canDelete gates the revision document, not the entity.
+      if (action === "delete") return true;
+      const canAct =
+        action === "publish"
+          ? (adapter.canPublishRevision ?? adapter.canUpdate)
+          : (adapter.canRevert ?? adapter.canUpdate);
+      return canAct(context, snapshot);
+    },
     archives: isArchiveTransition({
       proposed: proposedArchivedValue(revision.target.proposedChanges),
       current: snapshot.archived as boolean | undefined,

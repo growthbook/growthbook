@@ -133,10 +133,7 @@ export function gateOr5xx<G extends PublishGate>(
   return makeGate(getErrorMessage(e));
 }
 
-/** A gate that would have blocked the publish but was bypassed by the caller. */
-// Derived from the Zod enum rather than restated, so the type and the runtime
-// schema cannot drift — the field used to be a bare `string` on both sides, which
-// let a handler report a provenance the API docs never described.
+/** Bypass source derived from the runtime schema to prevent type drift. */
 export type BypassVia = (typeof bypassViaValues)[number];
 
 export type BypassedGate = {

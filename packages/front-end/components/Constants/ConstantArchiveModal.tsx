@@ -76,10 +76,6 @@ export default function ConstantArchiveModal({
           constants={references?.constants ?? []}
         />
       }
-      // Drafts the archive flip may be written into, for both the picker and
-      // this modal's initial selection.
-      // Left to the shell's `true` default, a publish-only caller was offered
-      // "Create a new draft" on an unarchive the endpoint then refuses.
       canStageDraft={canStageArchiveDraft({
         permissions: permissionsUtil,
         model: "constant",

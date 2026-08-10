@@ -59,20 +59,7 @@ export async function canRebaseWithNarrowAtom({
   return canAdvance();
 }
 
-/**
- * Discarding someone's draft, and recalling a review request on one.
- *
- * Deliberately narrower than advancing: `canAdvanceDraft` lets a narrow atom act on
- * a draft that only does what that atom covers, which is right for moving your own
- * work along and wrong for destroying someone else's — a delete-only role could
- * otherwise discard another author's archive draft, including one already in
- * review. So: draft authority, or authorship.
- *
- * The same rule on both engines, stated once. It was written twice, and drifted
- * twice: the feature copy additionally demanded revert or delete of an author
- * recalling their own review request, a stricter rule than the same action on a
- * Config for no reason either system could state.
- */
+/** Narrow landing authority cannot discard or recall another author's draft. */
 export function canDiscardOrRecallDraft({
   holdsDraftAuthority,
   isAuthor,

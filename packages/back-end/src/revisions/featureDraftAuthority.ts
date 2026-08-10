@@ -76,10 +76,6 @@ export function authoredFeatureDraft(
 // publish authority is required for those and nothing else: a flag that starts
 // disabled everywhere reaches no SDK payload, and Create alone is enough. Approval
 // doesn't apply either — there is no prior state to review it against.
-//
-// Both create paths ask through here. The dashboard used to require the publish
-// atom even for a flag enabled nowhere, while REST required only Create, so the
-// same body was accepted by one and refused by the other.
 export function assertCanCreateFeatureInState({
   context,
   feature,
@@ -196,14 +192,7 @@ export async function canDiscardFeatureDraft({
   });
 }
 
-/**
- * Recalling a review request: returning your own pending draft to draft state.
- *
- * Draft authority or authorship, matching the generic `postRecallReview`. The
- * authorship arm used to ALSO require revert or delete, which refused an author
- * holding neither the withdrawal of their own review request — a stricter rule than
- * the same action on a Config, for no reason either system could state.
- */
+/** Recall requires draft authority or authorship, matching generic revisions. */
 export async function canRecallFeatureReview({
   context,
   feature,

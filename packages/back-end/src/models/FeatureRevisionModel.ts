@@ -1435,9 +1435,7 @@ export async function updateRevision(
     },
     { new: true },
   );
-  // Previously this could only be null for a missing revision and every caller
-  // ignored it; now it also means the status moved, which is a lost race the
-  // caller must hear about rather than read as a successful no-op.
+  // A null result means the revision disappeared or changed status.
   if (!doc) {
     throw new Error(
       "This revision changed while the request was in flight — reload and try again.",
@@ -1455,11 +1453,6 @@ export async function updateRevision(
       logger.error(e, "Error creating revisionlog");
     });
 
-  // Non-null: the throw above already covered the missing/lost-race case. Kept as a
-  // ternary, the unreachable `: null` arm made the RETURN TYPE nullable, so callers'
-  // `?? revision` fallbacks stayed compiler-plausible while being dead at runtime —
-  // and a fallback that silently continues on a stale copy is the bug, not the
-  // remedy.
   const updatedRevision = toInterface(doc, context, feature);
 
   // Linkage sync whenever draft rules change.
@@ -2508,9 +2501,6 @@ export async function submitReviewAndComments(
       },
     );
 
-    // A refusal must reach the caller. It used to log the review, dispatch webhooks,
-    // consider auto-publishing and answer 200 for a verdict that is not in the
-    // document.
     if (outcome !== "applied") {
       if (outcome === "exhausted") {
         logger.warn(
@@ -2602,11 +2592,7 @@ export async function recallReview(
     );
   }
 
-  // `status` rides the FILTER, like `reopenRevision` below. The check above reads
-  // the caller's copy, which a concurrent publish may already have superseded, and
-  // an unconditioned write then demoted the LIVE revision to `draft` and wiped its
-  // verdicts — leaving released history showing as an open draft that discard and
-  // publish would both act on. Same fix the generic `recallReview` got.
+  // Guard on status so a concurrent publish cannot be demoted back to draft.
   const { matchedCount } = await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,

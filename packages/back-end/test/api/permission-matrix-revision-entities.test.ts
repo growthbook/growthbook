@@ -361,18 +361,7 @@ const CASES: Case[] = [
       api.post(`/api/v1/${e.base}-revisions/${id}/${v}/reopen`, {}),
   },
   {
-    // NOTE: this is the only case here that makes TWO requests, which doubles its
-    // exposure to the per-request supertest stall this file already suffers from —
-    // it surfaces as a 400 with NO body, distinguishable from any application
-    // refusal, all of which carry a `{message}`. It passes 30/30 in isolation
-    // across repeated runs; it only fails under whole-file load. Evidence for
-    // splitting this file, not for changing the case.
-    //
-    // Only your OWN verdict can be retracted, so the persona casts one first and
-    // the case asserts on the retraction. A persona without review authority is
-    // refused by both calls, which is the same verdict either way; seeding an
-    // ADMIN verdict instead would have made every allowed persona fail for
-    // "nothing of yours to retract" rather than pass.
+    // The persona must cast its own verdict before retracting it.
     name: "retract your own review verdict",
     allowed: OPERATION_ORACLE["retract your own review verdict"],
     needsReviewRequest: true,
@@ -695,16 +684,6 @@ describe.each(ENTITIES)("permission matrix — $label", (entity: Entity) => {
   );
 });
 
-/**
- * `canRebaseRevision` is unit-tested in revisions/revisionAuthority.test.ts; this
- * only has to prove the REST endpoint consults it rather than demanding the draft
- * atom outright — which is what it did, leaving a reverter's pure revert
- * unlandable under `requireRebaseBeforePublish` (publish 422s on the stale base,
- * and the rebase that would clear it was a 403).
- *
- * One entity and the four personas that characterise the rule, instead of the
- * full matrix: the setup is five round trips and the rule does not vary by entity.
- */
 describe("a Constant's environment overrides bind the environment restriction", () => {
   // The change-aware footprint: a base-value change carries no intrinsic
   // environment (declared design), but an environmentValues.production write
