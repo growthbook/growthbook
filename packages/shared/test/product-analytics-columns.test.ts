@@ -327,7 +327,7 @@ describe("getAvailableDimensionColumns", () => {
       {
         type: "funnel",
         unit: "user_id",
-        steps: [{ name: "s1", factTable: "numerator_ft", rowFilters: [] }],
+        steps: [{ name: "s1", factTableId: "numerator_ft", rowFilters: [] }],
       },
       getFactTableById,
       () => null,
