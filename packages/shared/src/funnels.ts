@@ -27,11 +27,13 @@ export function conversionWindowToSeconds(window: {
 }
 
 /**
- * Build the chained `COALESCE(stepN_resolved_ts, stepN-1_resolved_ts, ...)`
- * expression used as the "previous resolved timestamp" for step `index`.
- * Walks backward from `index - 1` and stops at the first required step: an
- * optional step the unit skipped resolves to NULL, so chaining COALESCE through
- * it anchors the next step's window on the most recent step actually completed.
+ * Build the "previous resolved timestamp" expression for step `index`.
+ *
+ * Optional steps do not anchor later steps: walk backward from `index - 1`,
+ * skip every optional step, and use the nearest required step's resolved
+ * timestamp. When every preceding step is optional, fall back to
+ * `exposureColumn` (experiment funnel metrics) or step 0 (product analytics),
+ * so an optional early step never blocks later conversions.
  *
  * `resolvedTsColumn` maps a step index to that step's resolved-timestamp column
  * name, which differs between the two callers.
@@ -41,18 +43,24 @@ export function buildPrevResolvedExpr({
   index,
   resolvedTsColumn,
   alias = "",
+  exposureColumn,
 }: {
   steps: { optional: boolean }[];
   index: number;
   resolvedTsColumn: (stepIndex: number) => string;
   alias?: string;
+  /** Bare column name (e.g. `timestamp`); prefixed with `alias` when set. */
+  exposureColumn?: string;
 }): string {
   const prefix = alias ? `${alias}.` : "";
-  const parts: string[] = [];
   for (let i = index - 1; i >= 0; i--) {
-    parts.push(`${prefix}${resolvedTsColumn(i)}`);
-    if (!steps[i].optional) break;
+    if (!steps[i].optional) {
+      return `${prefix}${resolvedTsColumn(i)}`;
+    }
   }
-  if (parts.length === 1) return parts[0];
-  return `COALESCE(${parts.join(", ")})`;
+  // No required step precedes this one. Experiment funnels anchor on exposure;
+  // product-analytics funnels anchor on step 0, which their qualifying-users
+  // filter already guarantees is non-null. Never emit a NULL bound, which
+  // would silently drop every candidate event.
+  return `${prefix}${exposureColumn ?? resolvedTsColumn(0)}`;
 }

@@ -26948,15 +26948,19 @@ paths:
                               additionalProperties: false
                           optional:
                             description: >-
-                              When true, this step can be skipped without
-                              breaking the funnel. Ignored for the initial step.
+                              When true, this step still counts for its own
+                              conversion but does not anchor later steps. Later
+                              steps window off the nearest prior required step
+                              (or exposure, for experiment funnel metrics, when
+                              every prior step is optional).
                             type: boolean
                           conversionWindow:
                             anyOf:
                               - description: >-
-                                  Bounds how long after the previous step this
-                                  step's event can occur. Ignored for the
-                                  initial step.
+                                  Bounds how long after the nearest prior
+                                  required step (or exposure, for the first step
+                                  / after only-optional priors of an experiment
+                                  funnel metric) this step's event can occur.
                                 type: object
                                 properties:
                                   unit:
@@ -27608,15 +27612,19 @@ paths:
                               additionalProperties: false
                           optional:
                             description: >-
-                              When true, this step can be skipped without
-                              breaking the funnel. Ignored for the initial step.
+                              When true, this step still counts for its own
+                              conversion but does not anchor later steps. Later
+                              steps window off the nearest prior required step
+                              (or exposure, for experiment funnel metrics, when
+                              every prior step is optional).
                             type: boolean
                           conversionWindow:
                             anyOf:
                               - description: >-
-                                  Bounds how long after the previous step this
-                                  step's event can occur. Ignored for the
-                                  initial step.
+                                  Bounds how long after the nearest prior
+                                  required step (or exposure, for the first step
+                                  / after only-optional priors of an experiment
+                                  funnel metric) this step's event can occur.
                                 type: object
                                 properties:
                                   unit:
@@ -57150,14 +57158,19 @@ components:
                       additionalProperties: false
                   optional:
                     description: >-
-                      When true, this step can be skipped without breaking the
-                      funnel. Ignored for the initial step.
+                      When true, this step still counts for its own conversion
+                      but does not anchor later steps. Later steps window off
+                      the nearest prior required step (or exposure, for
+                      experiment funnel metrics, when every prior step is
+                      optional).
                     type: boolean
                   conversionWindow:
                     anyOf:
                       - description: >-
-                          Bounds how long after the previous step this step's
-                          event can occur. Ignored for the initial step.
+                          Bounds how long after the nearest prior required step
+                          (or exposure, for the first step / after only-optional
+                          priors of an experiment funnel metric) this step's
+                          event can occur.
                         type: object
                         properties:
                           unit:

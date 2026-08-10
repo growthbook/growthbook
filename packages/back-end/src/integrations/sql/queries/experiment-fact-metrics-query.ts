@@ -363,6 +363,11 @@ export function getExperimentFactMetricsQuery(
               .join("")}
             ${banditDates?.length ? `, umj.bandit_period` : ""}
             , umj.${baseIdType}
+            ${
+              // Funnel resolution anchors step 0 (and optional-step fallthrough)
+              // on exposure; carry one per-user copy out of the event join.
+              funnelMetrics.length ? `, MIN(umj.timestamp) AS timestamp` : ""
+            }
             ${metricData
               .map((data) => {
                 const isKllMergeNumerator =
@@ -546,6 +551,7 @@ export function getExperimentFactMetricsQuery(
                 sourceTableName: perUserAggTableName,
                 terminalTableName: userMetricAggTable,
                 resolveTablePrefix: `__funnelResolve${suffix}_`,
+                exposureColumn: "timestamp",
               })
             : "");
 
@@ -642,8 +648,8 @@ export function getExperimentFactMetricsQuery(
                 }
                 ${
                   // The metric's own window bounds every step relative to
-                  // exposure; the per-step conversion windows are applied
-                  // later, relative to the preceding step.
+                  // exposure; per-step conversion windows are applied later
+                  // (step 0 vs exposure, later steps vs the preceding step).
                   isFactFunnelMetric(data.metric) &&
                   data.numeratorSourceIndex === f.index
                     ? data.metric.funnelSettings.steps

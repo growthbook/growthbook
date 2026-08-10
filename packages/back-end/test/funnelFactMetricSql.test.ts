@@ -230,15 +230,55 @@ describe("funnel fact metric SQL", () => {
     );
   });
 
-  it("anchors a step after an optional step on the last completed step", () => {
+  it("anchors a step after an optional step on the last required step", () => {
     const sql = buildSql([threeStepFunnel]);
 
-    // Step 1 follows a required step, so it anchors directly.
-    expect(sql).toContain("m0_step_1_resolved_ts");
-    // Step 2 follows the optional step 1, so it must fall back to step 0.
-    expect(sql).toContain(
+    // Step 1 is optional; step 2 skips it and windows off required step 0.
+    expect(sql).toContain("m0_step_0_resolved_ts");
+    expect(sql).not.toContain(
       "COALESCE(r.m0_step_1_resolved_ts, r.m0_step_0_resolved_ts)",
     );
+    // Step 2's window uses step 0 directly (concurrency lower bound).
+    expect(sql).toMatch(
+      /DATETIME_SUB\(\s*r\.m0_step_0_resolved_ts,\s*INTERVAL 300 SECOND\s*\)/,
+    );
+  });
+
+  it("falls through an optional first step to exposure", () => {
+    const sql = buildSql([
+      buildFunnelMetric({
+        steps: [
+          buildStep("view", { optional: true }),
+          buildStep("purchase", {
+            conversionWindow: { unit: "hours", value: 2 },
+          }),
+        ],
+      }),
+    ]);
+
+    // Optional step 0 is ignored as an anchor; step 1 windows off exposure.
+    expect(sql).toContain("r.timestamp");
+    expect(sql).not.toContain("COALESCE(r.m0_step_0_resolved_ts, r.timestamp)");
+  });
+
+  it("resolves the first step against exposure when it has a conversion window", () => {
+    const sql = buildSql([
+      buildFunnelMetric({
+        steps: [
+          buildStep("view", {
+            conversionWindow: { unit: "hours", value: 6 },
+          }),
+          buildStep("purchase"),
+        ],
+      }),
+    ]);
+
+    // Step 0 is materialized as an array and resolved in a dedicated CTE.
+    expect(sql).toContain("m0_step_0_arr");
+    expect(sql).toContain("__funnelResolve_0");
+    expect(sql).toMatch(/r\.timestamp/);
+    // 6 hours = 21600 seconds.
+    expect(sql).toContain("21600");
   });
 
   it("applies the per-step conversion window and the concurrency window", () => {

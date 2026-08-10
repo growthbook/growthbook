@@ -156,7 +156,7 @@ const apiFunnelStep = z.object({
   optional: z
     .boolean()
     .describe(
-      "When true, this step can be skipped without breaking the funnel. Ignored for the initial step.",
+      "When true, this step still counts for its own conversion but does not anchor later steps. Later steps window off the nearest prior required step (or exposure, for experiment funnel metrics, when every prior step is optional).",
     ),
   conversionWindow: z
     .object({
@@ -164,7 +164,7 @@ const apiFunnelStep = z.object({
       value: z.number().positive(),
     })
     .describe(
-      "Bounds how long after the previous step this step's event can occur. Ignored for the initial step.",
+      "Bounds how long after the nearest prior required step (or exposure, for the first step / after only-optional priors of an experiment funnel metric) this step's event can occur.",
     )
     .nullish(),
 });

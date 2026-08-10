@@ -743,8 +743,7 @@ export function generateRowsForMetric({
         isChildRow: true,
         childRowType: "funnelStep",
         funnelStepIndex: stepIndex,
-        // The first step can never be skipped, whatever the setting says.
-        funnelStepOptional: stepIndex > 0 && step.optional,
+        funnelStepOptional: step.optional,
         parentRowId: metricId,
         isHiddenByFilter: false,
       });

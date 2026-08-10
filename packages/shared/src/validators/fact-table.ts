@@ -343,11 +343,13 @@ export const funnelStepValidator = z.object({
   name: z.string(),
   factTableId: z.string(),
   rowFilters: z.array(rowFilterValidator),
-  // Ignored for the initial step. When true, the step is allowed to be
-  // skipped without breaking the funnel.
+  // When true, the step still resolves for its own conversion but does not
+  // anchor later steps' windows (those use the nearest prior required step,
+  // or exposure for experiment metrics when every prior step is optional).
   optional: z.boolean(),
-  // Ignored for the initial step. Bounds how long after the previous
-  // matched step's timestamp this step's event can occur.
+  // Bounds how long after the nearest prior required step (or exposure, for
+  // step 0 / after only-optional priors in experiment funnel metrics) this
+  // step's event can occur.
   conversionWindow: conversionWindowValidator.nullish(),
 });
 export type FunnelStep = z.infer<typeof funnelStepValidator>;

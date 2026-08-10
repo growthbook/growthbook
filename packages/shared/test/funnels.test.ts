@@ -40,7 +40,7 @@ describe("buildPrevResolvedExpr", () => {
     ).toBe("step_1_resolved_ts");
   });
 
-  it("falls through optional steps back to the first required one", () => {
+  it("skips optional steps and anchors on the nearest required one", () => {
     expect(
       buildPrevResolvedExpr({
         steps: [
@@ -52,12 +52,10 @@ describe("buildPrevResolvedExpr", () => {
         index: 3,
         resolvedTsColumn,
       }),
-    ).toBe(
-      "COALESCE(step_2_resolved_ts, step_1_resolved_ts, step_0_resolved_ts)",
-    );
+    ).toBe("step_0_resolved_ts");
   });
 
-  it("stops at the first required step even if earlier ones are optional", () => {
+  it("stops at the nearest required step even if earlier ones are optional", () => {
     expect(
       buildPrevResolvedExpr({
         steps: [{ optional: true }, { optional: false }, { optional: true }],
@@ -75,7 +73,54 @@ describe("buildPrevResolvedExpr", () => {
         resolvedTsColumn,
         alias: "r",
       }),
-    ).toBe("COALESCE(r.step_1_resolved_ts, r.step_0_resolved_ts)");
+    ).toBe("r.step_0_resolved_ts");
+  });
+
+  it("falls through an optional step 0 to exposure when provided", () => {
+    expect(
+      buildPrevResolvedExpr({
+        steps: [{ optional: true }, { optional: false }],
+        index: 1,
+        resolvedTsColumn,
+        alias: "r",
+        exposureColumn: "timestamp",
+      }),
+    ).toBe("r.timestamp");
+  });
+
+  it("does not use exposure when a required prior step exists", () => {
+    expect(
+      buildPrevResolvedExpr({
+        steps: [{ optional: false }, { optional: false }],
+        index: 1,
+        resolvedTsColumn,
+        exposureColumn: "timestamp",
+      }),
+    ).toBe("step_0_resolved_ts");
+  });
+
+  it("skips a run of optional steps onto exposure", () => {
+    expect(
+      buildPrevResolvedExpr({
+        steps: [{ optional: true }, { optional: true }, { optional: false }],
+        index: 2,
+        resolvedTsColumn,
+        exposureColumn: "timestamp",
+      }),
+    ).toBe("timestamp");
+  });
+
+  it("anchors on step 0 when every prior step is optional and there is no exposure", () => {
+    // Product-analytics funnels have no exposure anchor but do guarantee step 0
+    // is non-null, so this must never degrade to a NULL bound.
+    expect(
+      buildPrevResolvedExpr({
+        steps: [{ optional: true }, { optional: false }],
+        index: 1,
+        resolvedTsColumn,
+        alias: "r",
+      }),
+    ).toBe("r.step_0_resolved_ts");
   });
 });
 
