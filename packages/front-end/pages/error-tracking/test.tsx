@@ -1,17 +1,12 @@
-import React, { useMemo, useState } from "react";
-import { GrowthBook } from "@growthbook/growthbook";
-import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
-import { GrowthBookProvider } from "@growthbook/growthbook-react";
+import React, { useState } from "react";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { captureError } from "shared/error-tracking";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { AppFeatures } from "shared/types/app-features";
 import PageHead from "@/components/Layout/PageHead";
-import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
-import Link from "@/ui/Link";
 import { GrowthBookErrorBoundary } from "@/services/growthbook/plugins";
 import { useFeatureDisabledRedirect } from "@/hooks/useFeatureDisabledRedirect";
 import { getGrowthBookBuild } from "@/services/env";
@@ -28,17 +23,7 @@ export default function ErrorTrackingTestPage(): React.ReactElement {
     "error-tracking-test-page",
   );
   const { apiCall } = useAuth();
-
-  const { data: sdkData } = useApi<{ connections: SDKConnectionInterface[] }>(
-    "/sdk-connections",
-  );
-  const { data: configData } = useApi<{ ingestorHost: string }>(
-    "/error-tracking-test/config",
-  );
-
-  const connections = sdkData?.connections ?? [];
-  const [clientKey, setClientKey] = useState("");
-  const activeClientKey = clientKey || connections[0]?.key || "";
+  const growthbook = useGrowthBook<AppFeatures>();
 
   const [lastResult, setLastResult] = useState<{
     label: string;
@@ -47,69 +32,68 @@ export default function ErrorTrackingTestPage(): React.ReactElement {
   } | null>(null);
   const [crashCount, setCrashCount] = useState(0);
 
-  // Own tracking plugin only (no growthbookErrorTrackingPlugin), so
-  // reporting is limited to the explicit captureError calls below instead
-  // of also installing page-wide window.onerror/unhandledrejection
-  // listeners that would double-report unrelated bugs on this page.
-  const testClient = useMemo(() => {
-    if (!activeClientKey || !configData?.ingestorHost) return null;
-    return new GrowthBook({
-      clientKey: activeClientKey,
-      plugins: [
-        growthbookTrackingPlugin({ ingestorHost: configData.ingestorHost }),
-      ],
-    });
-  }, [activeClientKey, configData?.ingestorHost]);
-
   // Match the release value real captures use (see errorReporting.ts) so an
   // uploaded source map for this build will actually symbolicate these.
   const release = getGrowthBookBuild().sha || undefined;
 
-  const report = async (label: string, errorType: string, handled: boolean) => {
-    if (!testClient) return;
+  // "Handled" errors are reported explicitly, exercising captureError's
+  // manual-capture entry point on the app's own GrowthBook instance.
+  const reportHandled = async (label: string, errorType: string) => {
+    if (!growthbook) return;
     try {
       throw new Error(`[Error Tracking Test] ${label}`);
     } catch (error) {
       await captureError({
-        gb: testClient,
+        gb: growthbook,
         error,
         props: {
           errorType,
-          handled,
+          handled: true,
           release,
           transaction: "error-tracking-test-page",
         },
       });
-      setLastResult({ label, ok: true, detail: "Sent to " + activeClientKey });
+      setLastResult({
+        label,
+        ok: true,
+        detail: "Reported via GrowthBook's own internal client",
+      });
     }
   };
 
-  const reportRejection = async (label: string, errorType: string) => {
-    if (!testClient) return;
-    try {
-      await Promise.reject(new Error(`[Error Tracking Test] ${label}`));
-    } catch (error) {
-      await captureError({
-        gb: testClient,
-        error,
-        props: {
-          errorType,
-          handled: false,
-          release,
-          transaction: "error-tracking-test-page",
-        },
-      });
-      setLastResult({ label, ok: true, detail: "Sent to " + activeClientKey });
-    }
+  // "Uncaught"/"unhandled rejection" genuinely throw/reject so the app's
+  // already-installed growthbookErrorTrackingPlugin (window.onerror /
+  // unhandledrejection listeners, see pages/_app.tsx) captures them the
+  // same way it would a real bug — no separate capture call needed here.
+  const triggerUncaught = (label: string) => {
+    setLastResult({
+      label,
+      ok: true,
+      detail: "Thrown — captured automatically by the error tracking plugin",
+    });
+    throw new Error(`[Error Tracking Test] ${label}`);
+  };
+
+  const triggerUnhandledRejection = (label: string) => {
+    setLastResult({
+      label,
+      ok: true,
+      detail: "Rejected — captured automatically by the error tracking plugin",
+    });
+    void Promise.reject(new Error(`[Error Tracking Test] ${label}`));
   };
 
   const triggerBackend = async (scenario: BackendScenario, label: string) => {
     try {
       await apiCall("/error-tracking-test/backend", {
         method: "POST",
-        body: JSON.stringify({ clientKey: activeClientKey, scenario }),
+        body: JSON.stringify({ scenario }),
       });
-      setLastResult({ label, ok: true, detail: "Sent to " + activeClientKey });
+      setLastResult({
+        label,
+        ok: true,
+        detail: "Reported via GrowthBook's own internal backend client",
+      });
     } catch (e) {
       // "uncaught" and "async-rejection" scenarios intentionally fail the
       // request server-side; the error was still reported before that happened.
@@ -135,31 +119,10 @@ export default function ErrorTrackingTestPage(): React.ReactElement {
       />
       <h1>Error Tracking Test Page</h1>
       <Callout status="info">
-        Internal tool for generating synthetic errors to verify the error
-        tracking pipeline end to end. Not linked from the main nav.
+        Internal tool for exercising GrowthBook&apos;s own error tracking setup
+        (the internal telemetry client used to report on this app itself, not a
+        customer SDK connection). Not linked from the main nav.
       </Callout>
-
-      <div className="my-3" style={{ maxWidth: 400 }}>
-        <SelectField
-          label="SDK Connection"
-          options={connections.map((c) => ({
-            value: c.key,
-            label: `${c.name} (${c.key.slice(0, 8)}…)`,
-          }))}
-          value={activeClientKey}
-          onChange={setClientKey}
-        />
-      </div>
-
-      {activeClientKey && (
-        <div className="mb-3">
-          <Link
-            href={`/error-tracking?clientKey=${encodeURIComponent(activeClientKey)}`}
-          >
-            View issues for this connection
-          </Link>
-        </div>
-      )}
 
       {lastResult && (
         <Callout status={lastResult.ok ? "success" : "error"} mb="3">
@@ -169,68 +132,52 @@ export default function ErrorTrackingTestPage(): React.ReactElement {
 
       <h2 className="h4 mt-4">Front-end errors</h2>
       <div className="d-flex flex-wrap" style={{ gap: 8 }}>
-        <Button
-          disabled={!testClient}
-          onClick={() => setCrashCount((c) => c + 1)}
-        >
+        <Button onClick={() => setCrashCount((c) => c + 1)}>
           Uncaught render error (React)
         </Button>
-        <Button
-          disabled={!testClient}
-          onClick={() =>
-            report("Front-end uncaught exception", "test-fe-uncaught", false)
-          }
-        >
+        <Button onClick={() => triggerUncaught("Front-end uncaught exception")}>
           Uncaught exception
         </Button>
         <Button
-          disabled={!testClient}
           onClick={() =>
-            reportRejection(
-              "Front-end unhandled promise rejection",
-              "test-fe-unhandledrejection",
-            )
+            triggerUnhandledRejection("Front-end unhandled promise rejection")
           }
         >
           Unhandled promise rejection
         </Button>
         <Button
-          disabled={!testClient}
+          disabled={!growthbook}
           onClick={() =>
-            report("Front-end handled error", "test-fe-handled", true)
+            reportHandled("Front-end handled error", "test-fe-handled")
           }
         >
           Manually captured (handled) error
         </Button>
       </div>
 
-      {crashCount > 0 && testClient && (
+      {crashCount > 0 && (
         <div className="mt-3">
-          <GrowthBookProvider growthbook={testClient}>
-            <GrowthBookErrorBoundary
-              key={crashCount}
-              fallback={
-                <Callout status="error">
-                  Caught by GrowthBookErrorBoundary and reported.
-                </Callout>
-              }
-            >
-              <Crasher />
-            </GrowthBookErrorBoundary>
-          </GrowthBookProvider>
+          <GrowthBookErrorBoundary
+            key={crashCount}
+            fallback={
+              <Callout status="error">
+                Caught by GrowthBookErrorBoundary and reported.
+              </Callout>
+            }
+          >
+            <Crasher />
+          </GrowthBookErrorBoundary>
         </div>
       )}
 
       <h2 className="h4 mt-4">Back-end errors</h2>
       <div className="d-flex flex-wrap" style={{ gap: 8 }}>
         <Button
-          disabled={!activeClientKey}
           onClick={() => triggerBackend("uncaught", "Backend uncaught error")}
         >
           Uncaught exception
         </Button>
         <Button
-          disabled={!activeClientKey}
           onClick={() =>
             triggerBackend("async-rejection", "Backend async rejection")
           }
@@ -238,13 +185,11 @@ export default function ErrorTrackingTestPage(): React.ReactElement {
           Async rejection
         </Button>
         <Button
-          disabled={!activeClientKey}
           onClick={() => triggerBackend("logged", "Backend logged error")}
         >
           logger.error (handled)
         </Button>
         <Button
-          disabled={!activeClientKey}
           onClick={() => triggerBackend("handled", "Backend handled error")}
         >
           Manually captured (handled) error

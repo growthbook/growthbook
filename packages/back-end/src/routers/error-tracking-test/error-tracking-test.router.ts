@@ -10,14 +10,11 @@ const errorTrackingTestController = wrapController(
   errorTrackingTestControllerRaw,
 );
 
-router.get("/config", errorTrackingTestController.getConfig);
-
 router.post(
   "/backend",
   validateRequestMiddleware({
     body: z
       .object({
-        clientKey: z.string(),
         scenario: z.enum(["uncaught", "async-rejection", "logged", "handled"]),
       })
       .strict(),
