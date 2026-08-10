@@ -14,6 +14,7 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import { GrowthBookErrorBoundary } from "@/services/growthbook/plugins";
 import { useFeatureDisabledRedirect } from "@/hooks/useFeatureDisabledRedirect";
+import { getGrowthBookBuild } from "@/services/env";
 
 type BackendScenario = "uncaught" | "async-rejection" | "logged" | "handled";
 
@@ -60,6 +61,10 @@ export default function ErrorTrackingTestPage(): React.ReactElement {
     });
   }, [activeClientKey, configData?.ingestorHost]);
 
+  // Match the release value real captures use (see errorReporting.ts) so an
+  // uploaded source map for this build will actually symbolicate these.
+  const release = getGrowthBookBuild().sha || undefined;
+
   const report = async (label: string, errorType: string, handled: boolean) => {
     if (!testClient) return;
     try {
@@ -68,7 +73,12 @@ export default function ErrorTrackingTestPage(): React.ReactElement {
       await captureError({
         gb: testClient,
         error,
-        props: { errorType, handled, transaction: "error-tracking-test-page" },
+        props: {
+          errorType,
+          handled,
+          release,
+          transaction: "error-tracking-test-page",
+        },
       });
       setLastResult({ label, ok: true, detail: "Sent to " + activeClientKey });
     }
@@ -85,6 +95,7 @@ export default function ErrorTrackingTestPage(): React.ReactElement {
         props: {
           errorType,
           handled: false,
+          release,
           transaction: "error-tracking-test-page",
         },
       });
