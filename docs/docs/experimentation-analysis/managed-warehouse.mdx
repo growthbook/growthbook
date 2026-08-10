@@ -62,6 +62,10 @@ Go to **Metrics and Data** &rarr; **Data Sources** and click **Create** on the M
 
 Add the GrowthBook SDK to your application with the tracking plugin enabled. Here are the two most common setups:
 
+:::info Using eu-west-1?
+Events default to the `us-east-1` ingestor. If you selected **eu-west-1** as your Data Region, add the `ingestorHost` (or `data-event-ingestor-host` for the script tag) override — see [Sending events to the right region](#sending-events-to-the-right-region) below — otherwise your events won't reach your warehouse.
+:::
+
 **HTML Script Tag**: add one line to your page:
 
 ```html
@@ -274,9 +278,31 @@ req.growthbook.logEvent("Sign Up", {
 });
 ```
 
+#### Sending events to the right region
+
+The tracking plugin sends events to `https://us1.gb-ingest.com` by default. If you selected **eu-west-1** as your Data Region when creating your Managed Warehouse, override the ingestor host so events reach the right ClickHouse cluster instead of being dropped:
+
+- **HTML Script Tag**: add `data-event-ingestor-host="https://eu-west-1.gb-ingest.com"` to the script tag.
+- **JavaScript / React / Node.js**: pass `ingestorHost` to `growthbookTrackingPlugin()`:
+
+```js
+growthbookTrackingPlugin({
+  ingestorHost: "https://eu-west-1.gb-ingest.com",
+})
+```
+
+You can find your datasource's configured region on its settings page.
+
 ### Ingestion API
 
-You can also send events directly to our ingestion API. Pass an array of event objects, each with the following properties:
+You can also send events directly to our ingestion API. The host depends on the **Data Region** you chose when creating your Managed Warehouse datasource:
+
+- `us-east-1` → `https://us1.gb-ingest.com`
+- `eu-west-1` → `https://eu-west-1.gb-ingest.com`
+
+Sending events to the wrong region's host means they won't reach the ClickHouse cluster your data warehouse actually lives in — always match the host to the region shown on your datasource's settings page.
+
+Pass an array of event objects, each with the following properties:
 
 - **event_name**: The name of the event (e.g., "Purchase", "Button Click")
 - **properties**: Optional key-value pairs with properties of the event itself
@@ -284,7 +310,7 @@ You can also send events directly to our ingestion API. Pass an array of event o
 - **timestamp**: Optional ISO timestamp of when the event occurred. Only used when batching events with a `sentAt` field (see [Event timestamps](#event-timestamps) below).
 
 ```bash
-curl -X POST "https://us1.gb-ingest.com/track?client_key=YOUR_CLIENT_KEY" \
+curl -X POST "https://YOUR_WAREHOUSE_REGION.gb-ingest.com/track?client_key=YOUR_CLIENT_KEY" \
 -H "Content-Type: application/json" \
 -d '[{
   "event_name": "Purchase",

@@ -1,5 +1,5 @@
 ---
-title: Import from Figma or an Image — Design to Variant (Beta)
+title: Import from Figma or an Image — Design to Variant
 description: Turn a Figma frame or a mockup image into a high-fidelity, testable A/B variation. GrowthBook's AI rebuilds the design as a scoped component and injects it into the page.
 sidebar_label: Figma & image import
 slug: /app/visual/design-import
@@ -10,9 +10,9 @@ import CommercialFeature from '@site/src/components/CommercialFeature';
 
 <CommercialFeature feature="visual-editor" />
 
-:::info Beta
+:::info Review generated variations
 
-**Design → Variant** is in beta. Generated results can vary, so always review the variation before you save it. It also needs an up-to-date GrowthBook server and a configured vision-capable AI model — if your instance hasn't enabled it yet, the panel will say so and you can fall back to a mockup image (or ask an admin to update the server).
+Generated results can vary, so always review the variation before you save it. Design → Variant also needs an up-to-date GrowthBook server and a configured vision-capable AI model. If your instance hasn't enabled it yet, the panel will say so and you can fall back to a mockup image (or ask an admin to update the server).
 
 :::
 
@@ -65,7 +65,7 @@ The AI builds the component and previews it live on the page. Review it, then **
 
 :::tip Review before you save
 
-This is the beta caveat in practice: the AI reproduces the design as faithfully as it can, but fonts, spacing, and imagery can differ from the source. Treat the output as a strong first draft, eyeball it on the real page, and tweak with [Manual mode](/app/visual/manual-mode) or [global CSS](/app/visual/manual-mode) if needed before saving.
+The AI reproduces the design as faithfully as it can, but fonts, spacing, and imagery can differ from the source. Treat the output as a strong first draft, eyeball it on the real page, and tweak with [Manual mode](/app/visual/manual-mode) or [global CSS](/app/visual/manual-mode) if needed before saving.
 
 :::
 
@@ -87,7 +87,7 @@ The AI reproduces **layout, typography, spacing, and color** from the design. Fo
 
 - **One component per generation.** Design → Variant produces a single scoped component, not a multi-section page.
 - **Too-large designs are declined.** If the frame is a full page or a large multi-section layout, the AI returns a message explaining it's too large instead of producing a partial result. Target a smaller container.
-- **Results vary (beta).** Always preview and adjust before saving.
+- **Results vary.** Always preview and adjust before saving.
 - **Needs a vision-capable AI model.** Your org must have a vision-capable model configured in [AI Settings](/integrations/ai) (e.g. Gemini, GPT-4o/5, or Claude). Admins can set the model used for the Visual Editor there.
 
 ## Next steps

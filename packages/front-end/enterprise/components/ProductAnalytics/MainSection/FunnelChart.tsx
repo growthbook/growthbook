@@ -81,7 +81,7 @@ export default function FunnelChart({
     return allSteps.map((s, i) =>
       getFunnelStepDisplayLabel({
         step: s,
-        factTable: s.factTable ? getFactTableById(s.factTable) : null,
+        factTable: s.factTableId ? getFactTableById(s.factTableId) : null,
         fallbackIndex: i,
         allSteps,
       }),

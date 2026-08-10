@@ -1462,7 +1462,7 @@ export default function ConfigDetailPage(): React.ReactElement {
             <Flex align="start" justify="between" gap="2" mb="2">
               <Box style={{ marginTop: "-4px" }}>
                 <Flex align="center" gap="3">
-                  <Heading size="xl" as="h1" mb="0">
+                  <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
                     {displayedConfig.name}
                   </Heading>
                   {displayedConfig.archived && (

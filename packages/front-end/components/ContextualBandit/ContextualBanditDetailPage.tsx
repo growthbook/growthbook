@@ -258,24 +258,22 @@ export default function ContextualBanditDetailPage({
   return (
     <Box>
       <Flex direction="row" align="start" justify="between" gap="5">
-        <Box>
-          <h1
-            className="mb-0"
-            style={{ display: "inline", verticalAlign: "middle" }}
+        <Flex align="center" gap="2">
+          <Heading
+            as="h1"
+            size="xl"
+            weight="semibold"
+            overflowWrap="anywhere"
+            mb="0"
           >
             {cb.name}
-          </h1>
-          <Box
-            ml="2"
-            mt="1"
-            display="inline-block"
-            style={{ userSelect: "none" }}
-          >
+          </Heading>
+          <Box style={{ userSelect: "none" }}>
             <ExperimentStatusIndicator
               experimentData={contextualBanditStatusIndicatorData(cb)}
             />
           </Box>
-        </Box>
+        </Flex>
 
         <Flex direction="row" align="center" gap="2" flexShrink="0">
           {canRun && cb.status === "draft" ? (
