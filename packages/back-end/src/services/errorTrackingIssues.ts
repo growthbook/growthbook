@@ -257,7 +257,39 @@ export function buildIssueDetailSummary(
 export type IssueDimensions = {
   environments: { name: string; count: number }[];
   releases: { name: string; count: number }[];
+  /**
+   * Distinct `error_type` values within this issue. A single issue showing
+   * more than one errorType is a signal that events which should have
+   * grouped together didn't — the ingestor's fingerprint hash includes
+   * errorType, so events that are otherwise identical (same message, same
+   * stack) but tagged with a different errorType land as separate issues.
+   */
+  errorTypes: { name: string; count: number }[];
+  transactions: { name: string; count: number }[];
 };
+
+function dimensionQuery({
+  integration,
+  clientKey,
+  fingerprint,
+  column,
+}: {
+  integration: SqlIntegration;
+  clientKey: string;
+  fingerprint: string;
+  column: string;
+}): string {
+  return `
+SELECT ${column}, count() AS c
+FROM errors
+WHERE client_key = '${esc(integration, clientKey)}'
+AND issue_fingerprint = '${esc(integration, fingerprint)}'
+AND ${column} != ''
+GROUP BY ${column}
+ORDER BY c DESC
+LIMIT 20
+`;
+}
 
 export async function queryIssueDimensions({
   integration,
@@ -268,6 +300,8 @@ export async function queryIssueDimensions({
   clientKey: string;
   fingerprint: string;
 }): Promise<IssueDimensions> {
+  // environment intentionally omits the "!= ''" filter other dimensions use:
+  // an empty environment is itself a meaningful, common value worth counting.
   const dimensionsSql = `
 SELECT environment, count() AS c
 FROM errors
@@ -277,24 +311,46 @@ GROUP BY environment
 ORDER BY c DESC
 LIMIT 20
 `;
-  const releaseSql = `
-SELECT release_version, count() AS c
-FROM errors
-WHERE client_key = '${esc(integration, clientKey)}'
-AND issue_fingerprint = '${esc(integration, fingerprint)}'
-AND release_version != ''
-GROUP BY release_version
-ORDER BY c DESC
-LIMIT 20
-`;
 
-  const [{ rows: envRows }, { rows: relRows }] = await Promise.all([
+  const [
+    { rows: envRows },
+    { rows: relRows },
+    { rows: errorTypeRows },
+    { rows: transactionRows },
+  ] = await Promise.all([
     integration.runQuery(dimensionsSql, undefined, {
       queryType: "errorTrackingIssueDetail",
     }),
-    integration.runQuery(releaseSql, undefined, {
-      queryType: "errorTrackingIssueDetail",
-    }),
+    integration.runQuery(
+      dimensionQuery({
+        integration,
+        clientKey,
+        fingerprint,
+        column: "release_version",
+      }),
+      undefined,
+      { queryType: "errorTrackingIssueDetail" },
+    ),
+    integration.runQuery(
+      dimensionQuery({
+        integration,
+        clientKey,
+        fingerprint,
+        column: "error_type",
+      }),
+      undefined,
+      { queryType: "errorTrackingIssueDetail" },
+    ),
+    integration.runQuery(
+      dimensionQuery({
+        integration,
+        clientKey,
+        fingerprint,
+        column: "transaction_name",
+      }),
+      undefined,
+      { queryType: "errorTrackingIssueDetail" },
+    ),
   ]);
 
   return {
@@ -304,6 +360,14 @@ LIMIT 20
     })),
     releases: relRows.map((e) => ({
       name: String(e.release_version || ""),
+      count: Number(e.c || 0),
+    })),
+    errorTypes: errorTypeRows.map((e) => ({
+      name: String(e.error_type || ""),
+      count: Number(e.c || 0),
+    })),
+    transactions: transactionRows.map((e) => ({
+      name: String(e.transaction_name || ""),
       count: Number(e.c || 0),
     })),
   };

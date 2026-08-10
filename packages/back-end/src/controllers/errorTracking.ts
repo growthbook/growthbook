@@ -12,7 +12,6 @@ import { buildSymbolicatedStack } from "back-end/src/services/errorTrackingSymbo
 import { requireErrorTrackingClickhouse as requireClickhouse } from "back-end/src/services/errorTrackingSourceMaps";
 import {
   esc,
-  chErrorDisplayTitleExpr,
   clickhouseTimestampToIso,
   getIssueDocs,
   buildIssueSummary,
@@ -29,6 +28,15 @@ import {
   utcStartOfHour,
   utcStartOfMinute,
 } from "back-end/src/services/errorTrackingIssueGraph";
+import {
+  parseTimestampMsQuery,
+  buildEventSummary,
+  queryIssueEvents,
+  queryEventDetailRow,
+  queryRelatedFeatureUsage,
+  queryRelatedExperimentViews,
+  buildEventDetail,
+} from "back-end/src/services/errorTrackingEvents";
 
 async function findOrUpsertErrorTrackingIssue({
   organization,
@@ -59,49 +67,6 @@ async function findOrUpsertErrorTrackingIssue({
     throw new Error("Failed to upsert error tracking issue");
   }
   return doc;
-}
-
-function parseMaybeJson(raw: unknown): Record<string, unknown> {
-  if (raw == null) return {};
-  if (typeof raw === "object") return raw as Record<string, unknown>;
-  if (typeof raw !== "string" || !raw) return {};
-  try {
-    return JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
-
-/**
- * Resolve the user-visible error title for one event. Prefer `properties.message`, then the first
- * stack line (often repeats `Error.message`), then stored `title`.
- */
-function resolveErrorEventDisplayTitle(
-  properties: Record<string, unknown>,
-  rowTitle: string,
-): string {
-  const fromMessage = properties.message;
-  if (typeof fromMessage === "string" && fromMessage.trim()) {
-    return fromMessage.trim();
-  }
-
-  const stack = properties.stack;
-  if (typeof stack === "string" && stack.trim()) {
-    const head =
-      stack.split(/\r?\n/).find((line) => line.trim().length > 0) ?? "";
-    const trimmed = head.trim();
-    if (trimmed && !/^at\s+/i.test(trimmed)) {
-      const withoutName = trimmed.replace(/^[A-Za-z0-9_$]+\s*:\s*/, "").trim();
-      if (withoutName.length > 0) return withoutName;
-    }
-  }
-
-  const fromTitle = properties.title;
-  if (typeof fromTitle === "string" && fromTitle.trim()) {
-    return fromTitle.trim();
-  }
-
-  return rowTitle.trim();
 }
 
 function buildTrendBuckets(
@@ -416,12 +381,6 @@ ORDER BY ts
   }
 }
 
-function parseTimestampMsQuery(raw: string | undefined): number | undefined {
-  if (!raw) return undefined;
-  const value = parseInt(raw, 10);
-  return Number.isFinite(value) ? value : undefined;
-}
-
 /** List events for one issue. Query: clientKey (req), q?, limit?, offset?, fromMs?, toMs?, order=asc|desc */
 export async function getIssueEvents(
   req: AuthRequest<
@@ -453,63 +412,24 @@ export async function getIssueEvents(
     const limit = Math.min(parseInt(req.query.limit || "50", 10) || 50, 200);
     const offset = Math.max(parseInt(req.query.offset || "0", 10) || 0, 0);
     const q = req.query.q?.trim();
-    const searchClause = q
-      ? `AND ((${chErrorDisplayTitleExpr()}) ILIKE '%${esc(
-          integration,
-          q,
-        )}%' OR event_uuid = '${esc(integration, q)}')`
-      : "";
-
     const fromMs = parseTimestampMsQuery(req.query.fromMs);
     const toMs = parseTimestampMsQuery(req.query.toMs);
-    const dialect = integration.getSqlDialect();
-    const timeClause =
-      fromMs != null && toMs != null && fromMs < toMs
-        ? `AND timestamp >= ${dialect.toTimestamp(new Date(fromMs))} AND timestamp < ${dialect.toTimestamp(new Date(toMs))}`
-        : "";
-
     const orderAscending = req.query.order?.trim().toLowerCase() === "asc";
 
-    const sql = `
-SELECT
-  event_uuid,
-  timestamp,
-  ${chErrorDisplayTitleExpr()} AS title,
-  transaction_name,
-  release_version,
-  environment,
-  user_id,
-  device_id,
-  ua_device_type,
-  ua_os,
-  url,
-  runtime_name
-FROM errors
-WHERE client_key = '${esc(integration, clientKey)}'
-AND issue_fingerprint = '${esc(integration, fingerprint)}'
-${searchClause}
-${timeClause}
-ORDER BY timestamp ${orderAscending ? "ASC" : "DESC"}, event_uuid ${orderAscending ? "ASC" : "DESC"}
-LIMIT ${limit} OFFSET ${offset}
-`;
-    const { rows } = await integration.runQuery(sql, undefined, {
-      queryType: "errorTrackingEventList",
+    const { rows } = await queryIssueEvents({
+      integration,
+      clientKey,
+      fingerprint,
+      q,
+      limit,
+      offset,
+      fromMs,
+      toMs,
+      order: orderAscending ? "asc" : "desc",
     });
     return res.status(200).json({
       status: 200,
-      events: rows.map((r) => ({
-        eventId: String(r.event_uuid || ""),
-        timestamp: clickhouseTimestampToIso(r.timestamp),
-        title: String(r.title || ""),
-        transaction: String(r.transaction_name || ""),
-        release: String(r.release_version || ""),
-        environment: String(r.environment || ""),
-        user: String(r.user_id || r.device_id || ""),
-        device: String(r.ua_device_type || ""),
-        os: String(r.ua_os || ""),
-        url: String(r.url || ""),
-        runtime: String(r.runtime_name || ""),
-      })),
+      events: rows.map(buildEventSummary),
     });
   } catch (e) {
     if (e instanceof ManagedWarehousePendingError) {
@@ -543,120 +463,27 @@ export async function getEventDetail(
   try {
     const { integration } = await requireClickhouse(context);
     const eventSearch = req.query.eventSearch?.trim();
-    const uuidFilter = eventSearch
-      ? `event_uuid = '${esc(integration, eventSearch)}'`
-      : `event_uuid = '${esc(integration, req.params.eventUuid)}'`;
 
-    const fpClause = fingerprint
-      ? `AND issue_fingerprint = '${esc(integration, fingerprint)}'`
-      : "";
-
-    const sql = `
-SELECT
-  event_uuid,
-  timestamp,
-  ${chErrorDisplayTitleExpr()} AS title,
-  issue_fingerprint,
-  properties,
-  attributes,
-  environment,
-  release_version,
-  user_id,
-  device_id,
-  url,
-  transaction_name,
-  error_type,
-  runtime_name,
-  ua_device_type,
-  ua_os,
-  ua_browser,
-  sdk_version,
-  sdk_language
-FROM errors
-WHERE client_key = '${esc(integration, clientKey)}'
-AND ${uuidFilter}
-${fpClause}
-ORDER BY timestamp DESC
-LIMIT 1
-`;
-    const { rows } = await integration.runQuery(sql, undefined, {
-      queryType: "errorTrackingEventDetail",
+    const row = await queryEventDetailRow({
+      integration,
+      clientKey,
+      eventUuid: req.params.eventUuid,
+      fingerprint,
+      eventSearch,
     });
-    const row = rows[0];
     if (!row) {
       return res.status(404).json({ status: 404, message: "Event not found" });
     }
 
-    const properties = parseMaybeJson(row.properties);
-    const displayTitle = resolveErrorEventDisplayTitle(
-      properties,
-      String(row.title || ""),
-    );
-    properties.title = displayTitle;
-    if (typeof properties.message !== "string" || !properties.message.trim()) {
-      properties.message = displayTitle;
-    }
-    const attributes = parseMaybeJson(row.attributes);
-    const uid = String(row.user_id || row.device_id || "");
-    const url = String(row.url || "");
+    const { detail, properties, userId, release } = buildEventDetail(row);
 
-    let relatedFeatureUsage: Record<string, unknown>[] = [];
-    let relatedExperimentViews: Record<string, unknown>[] = [];
-    if (uid) {
-      const fuSql = `
-SELECT
-  feature,
-  value,
-  count() AS evaluations,
-  max(timestamp) AS lastSeen
-FROM feature_usage
-WHERE user_id = '${esc(integration, uid)}'
-AND timestamp > now() - INTERVAL 7 DAY
-GROUP BY feature, value
-ORDER BY lastSeen DESC
-LIMIT 40
-`;
-      const evSql = `
-SELECT
-  experiment_id,
-  variation_id,
-  count() AS views,
-  max(timestamp) AS lastSeen
-FROM experiment_views
-WHERE user_id = '${esc(integration, uid)}'
-AND timestamp > now() - INTERVAL 7 DAY
-GROUP BY experiment_id, variation_id
-ORDER BY lastSeen DESC
-LIMIT 40
-`;
-      relatedFeatureUsage = (
-        await integration.runQuery(fuSql, undefined, {
-          queryType: "errorTrackingEventDetail",
-        })
-      ).rows;
-      relatedExperimentViews = (
-        await integration.runQuery(evSql, undefined, {
-          queryType: "errorTrackingEventDetail",
-        })
-      ).rows;
-    }
+    const [relatedFeatureUsage, relatedExperimentViews] = userId
+      ? await Promise.all([
+          queryRelatedFeatureUsage({ integration, userId }),
+          queryRelatedExperimentViews({ integration, userId }),
+        ])
+      : [[], []];
 
-    const relatedFeatureUsageNormalized = relatedFeatureUsage.map((r) => ({
-      ...r,
-      lastSeen: clickhouseTimestampToIso(
-        (r as { lastSeen?: unknown }).lastSeen,
-      ),
-    }));
-    const relatedExperimentViewsNormalized = relatedExperimentViews.map(
-      (r) => ({
-        ...r,
-        lastSeen: clickhouseTimestampToIso(
-          (r as { lastSeen?: unknown }).lastSeen,
-        ),
-      }),
-    );
-
-    const release = String(row.release_version || properties.release || "");
     const symbolicatedStack = await buildSymbolicatedStack({
       organizationId: context.org.id,
       clientKey,
@@ -667,28 +494,10 @@ LIMIT 40
     return res.status(200).json({
       status: 200,
       event: {
-        event_uuid: String(row.event_uuid || ""),
-        timestamp: clickhouseTimestampToIso(row.timestamp),
-        title: displayTitle,
-        issue_fingerprint: String(row.issue_fingerprint || ""),
-        properties,
-        attributes,
-        environment: String(row.environment || ""),
-        release_version: release,
-        user_id: String(row.user_id || ""),
-        device_id: String(row.device_id || ""),
-        url,
-        transaction_name: String(row.transaction_name || ""),
-        error_type: String(row.error_type || ""),
-        runtime_name: String(row.runtime_name || ""),
-        ua_device_type: String(row.ua_device_type || ""),
-        ua_os: String(row.ua_os || ""),
-        ua_browser: String(row.ua_browser || ""),
-        sdk_version: String(row.sdk_version || ""),
-        sdk_language: String(row.sdk_language || ""),
-        relatedFeatureUsage: relatedFeatureUsageNormalized,
-        relatedExperimentViews: relatedExperimentViewsNormalized,
-        urlAtCapture: url,
+        ...detail,
+        relatedFeatureUsage,
+        relatedExperimentViews,
+        urlAtCapture: detail.url,
         symbolicatedStack,
       },
     });
