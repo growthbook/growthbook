@@ -9,7 +9,11 @@ import {
   getReviewSetting,
   getRulesForEnvironment,
 } from "shared/util";
-import { metadataTouchesPayload, revertFootprint } from "shared/permissions";
+import {
+  holdsMoveDestination,
+  metadataTouchesPayload,
+  revertFootprint,
+} from "shared/permissions";
 import isEqual from "lodash/isEqual";
 import { Flex, Box } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
@@ -166,6 +170,32 @@ export default function RevertModal({
   // authority alone is enough to propose one as a draft — so a revert-only role
   // can roll back without any edit or publish rights.
   const canRevert = permissionsUtil.canRevertFeature(feature, affectedEnvs);
+  // A revert can restore an older PROJECT, relocating the flag. The endpoints
+  // require authority in the DESTINATION too (postFeatureRevert via
+  // assertCanRevertRevision, postFeatureRevertDraft directly) — the source check
+  // above answers only for where the flag is now. Vacuously true when the revert
+  // doesn't move projects. Publishing lands under the revert verb + footprint;
+  // staging a draft takes draft authority there.
+  const destProject = targetRevisionForAction.metadata?.project;
+  const proposedMove = {
+    project: destProject !== undefined ? destProject : feature.project,
+  };
+  const holdsRevertDestination = holdsMoveDestination({
+    permissions: permissionsUtil,
+    model: "feature",
+    action: "revert",
+    existing: { project: feature.project },
+    proposed: proposedMove,
+    environments: affectedEnvs,
+  });
+  const holdsDraftDestination = holdsMoveDestination({
+    permissions: permissionsUtil,
+    model: "feature",
+    action: "draft",
+    existing: { project: feature.project },
+    proposed: proposedMove,
+    environments: [],
+  });
   const canBypassApprovals = permissionsUtil.canBypassFlagApprovalChecks(
     feature,
     "feature",
@@ -175,8 +205,9 @@ export default function RevertModal({
   // publisher to land. Publishing keeps the environment footprint via
   // `canRevert` above.
   const canCreateDraft =
-    permissionsUtil.canEditFeatureDrafts(feature) ||
-    permissionsUtil.canRevertFeature(feature, []);
+    (permissionsUtil.canEditFeatureDrafts(feature) ||
+      permissionsUtil.canRevertFeature(feature, [])) &&
+    holdsDraftDestination;
 
   // Restoring an archived state takes the flag out of service, so publishing it
   // carries the delete-class gate too (staging it as a draft doesn't). Matches
@@ -185,6 +216,7 @@ export default function RevertModal({
     targetRevisionForAction.archived === true && !feature.archived;
   const canLandRevert =
     canRevert &&
+    holdsRevertDestination &&
     (!revertWouldArchive ||
       permissionsUtil.canDeleteFeature(feature, affectedEnvs));
 

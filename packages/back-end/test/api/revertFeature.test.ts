@@ -320,3 +320,82 @@ describe("revertFeatureCore revision events", () => {
     expect(mockDispatchEvent).not.toHaveBeenCalled();
   });
 });
+
+describe("revertFeatureCore metadata-only revert authority floor", () => {
+  // A revert whose only change is inert metadata (description/owner/tags/…) takes
+  // the `metadataTouchesPayload` short-circuit, so every per-field revert check
+  // below the coarse floor is skipped. Without the floor this path publishes with
+  // no authority check at all. The deny/allow pair pins both directions: removing
+  // the floor makes the deny case publish (green→red), and a floor that demanded
+  // more than the weakest env-unbound atom would fail the allow case.
+  const inertMetadataRevision = {
+    version: 3,
+    status: "published",
+    defaultValue: "live-default",
+    rules: [],
+    metadata: { description: "old description" },
+  } as never;
+
+  it("denies a zero-revert caller and publishes nothing", async () => {
+    mockGetFeature.mockResolvedValue(
+      makeFeature({ description: "live description" }),
+    );
+    mockGetRevision.mockResolvedValue(inertMetadataRevision);
+    (ctx.permissions.canRevertFeature as jest.Mock).mockReturnValue(false);
+
+    try {
+      await expect(
+        revertFeatureCore(
+          ctx,
+          org,
+          eventAudit,
+          { id: "feat_1" },
+          { revision: 3 },
+          jest.fn(),
+          false,
+        ),
+      ).rejects.toThrow(/forbidden/);
+    } finally {
+      (ctx.permissions.canRevertFeature as jest.Mock).mockReturnValue(true);
+    }
+
+    // The floor asks the weakest question — the revert atom, env-unbound (`[]`) —
+    // so an environment-limited reverter still passes and only a caller holding
+    // no revert authority at all is refused.
+    expect(ctx.permissions.canRevertFeature).toHaveBeenCalledWith(
+      expect.anything(),
+      [],
+    );
+    expect(mockCreateAndPublish).not.toHaveBeenCalled();
+  });
+
+  it("allows a reverter and publishes the restored metadata", async () => {
+    mockGetFeature.mockResolvedValue(
+      makeFeature({ description: "live description" }),
+    );
+    mockGetRevision.mockResolvedValue(inertMetadataRevision);
+    mockCreateAndPublish.mockResolvedValue({
+      revision: { version: 6, status: "draft" } as never,
+      updatedFeature: makeFeature({
+        version: 6,
+        description: "old description",
+      }),
+    });
+
+    // canRevertFeature defaults to true on ctx, so the floor passes.
+    await revertFeatureCore(
+      ctx,
+      org,
+      eventAudit,
+      { id: "feat_1" },
+      { revision: 3 },
+      jest.fn(),
+      false,
+    );
+
+    expect(mockCreateAndPublish).toHaveBeenCalledTimes(1);
+    expect(mockCreateAndPublish.mock.calls[0][0].changes).toEqual({
+      metadata: { description: "old description" },
+    });
+  });
+});
