@@ -10,6 +10,9 @@
  * GrowthBook's own account (Pricing Phase 1, P0). JSON flags are typed as
  * Record<string, unknown> here; the pricing config is schema-validated with
  * zod at the read site (back-end services/plan-limits.ts).
+ *
+ * Exception: "error-tracking-test-page" is added ahead of the flag's creation
+ * for the same reason, gating the internal /error-tracking/test page.
  */
 export type AppFeatures = {
   "papercups-config": Record<string, unknown>;
@@ -143,4 +146,5 @@ export type AppFeatures = {
   "definitions-etag-304": boolean;
   "pricing-phase-1-limits": Record<string, unknown>;
   "eu-data-region": boolean;
+  "error-tracking-test-page": boolean;
 };

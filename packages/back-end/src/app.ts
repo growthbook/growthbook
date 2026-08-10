@@ -172,6 +172,7 @@ import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
 import { sessionReplayRouter } from "./routers/session-replay/session-replay.router";
 import { agentRouter } from "./routers/agent/agent.router";
+import { errorTrackingTestRouter } from "./routers/error-tracking-test/error-tracking-test.router";
 
 const app = express();
 
@@ -969,6 +970,9 @@ app.post(
   "/error-tracking/issues/:fingerprint/comments",
   errorTrackingController.postIssueComment,
 );
+// Internal-only: generates synthetic errors for testing the error tracking
+// pipeline. Gated on the front-end by the "error-tracking-test-page" flag.
+app.use("/error-tracking-test", errorTrackingTestRouter);
 
 app.get("/feature/:id/watchers", featuresController.getFeatureWatchers);
 app.post("/feature", featuresController.postFeatures);
