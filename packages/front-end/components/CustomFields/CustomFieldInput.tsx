@@ -1,4 +1,4 @@
-import { FC, useEffect, useMemo, useRef } from "react";
+import { FC, useEffect, useMemo } from "react";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { Flex, Box } from "@radix-ui/themes";
 import { filterCustomFieldsForSectionAndProject } from "@/hooks/useCustomFields";
@@ -13,6 +13,31 @@ import {
   isCustomFieldBooleanTrue,
   toCustomFieldBooleanString,
 } from "./constants";
+
+/**
+ * The stored string value to seed for a field that has no value yet, or
+ * `undefined` when the field has no configured default (leave it unset).
+ */
+function getSeededDefaultValue(field: CustomField): string | undefined {
+  const { defaultValue } = field;
+  const hasDefaultValue =
+    defaultValue !== undefined &&
+    defaultValue !== null &&
+    (Array.isArray(defaultValue)
+      ? defaultValue.length > 0
+      : defaultValue !== "");
+  if (!hasDefaultValue) return undefined;
+
+  if (field.type === "multiselect") {
+    return Array.isArray(defaultValue)
+      ? JSON.stringify(defaultValue)
+      : JSON.stringify([defaultValue]);
+  }
+  if (field.type === "boolean") {
+    return toCustomFieldBooleanString(isCustomFieldBooleanTrue(defaultValue));
+  }
+  return String(defaultValue);
+}
 
 const CustomFieldInput: FC<{
   customFields: CustomField[];
@@ -34,9 +59,6 @@ const CustomFieldInput: FC<{
     section,
     project,
   );
-  // react-hook-form ignores setValue called synchronously from a child mount
-  // effect; seed once after mount instead. Ref avoids re-seeding over user edits.
-  const hasSeededDefaults = useRef(false);
   const normalizedCustomFields = useMemo<Record<string, string>>(() => {
     // todo: investigate further: sometimes custom fields are incorrectly provided as strings (e.g. duplicate exp)
     let fields: Record<string, unknown>;
@@ -63,70 +85,40 @@ const CustomFieldInput: FC<{
     return normalized;
   }, [currentCustomFields]);
 
-  useEffect(() => {
-    if (hasSeededDefaults.current || !availableFields) return;
-
-    const nextCustomFields = { ...normalizedCustomFields };
-    let changed = false;
-
-    availableFields.forEach((v) => {
-      const currentValue = nextCustomFields[v.id];
-      // "false" is a real boolean value — do not treat it as missing
-      const missingCurrentValue =
-        currentValue === undefined ||
-        currentValue === null ||
-        currentValue === "";
-      const hasDefaultValue =
-        v.defaultValue !== undefined &&
-        v.defaultValue !== null &&
-        (Array.isArray(v.defaultValue)
-          ? v.defaultValue.length > 0
-          : v.defaultValue !== "");
-
-      if (missingCurrentValue && hasDefaultValue) {
-        if (v.type === "multiselect") {
-          nextCustomFields[v.id] = Array.isArray(v.defaultValue)
-            ? JSON.stringify(v.defaultValue)
-            : JSON.stringify([v.defaultValue]);
-        } else if (v.type === "boolean") {
-          nextCustomFields[v.id] = toCustomFieldBooleanString(
-            isCustomFieldBooleanTrue(v.defaultValue),
-          );
-        } else {
-          nextCustomFields[v.id] = String(v.defaultValue);
-        }
-        changed = true;
-      } else if (missingCurrentValue && v.type === "boolean") {
-        // Persist unchecked as an explicit "false" so saves include the key
-        nextCustomFields[v.id] = "false";
-        changed = true;
-      }
-    });
-
-    hasSeededDefaults.current = true;
-    // Defer so parent react-hook-form setValue applies after mount
-    queueMicrotask(() => {
-      if (changed) {
-        setCustomFields(nextCustomFields);
-      }
-    });
-  }, [availableFields, normalizedCustomFields, setCustomFields]);
-
-  // Clear previously set fields if they change so we don't send
-  // fields that are not accepted when changing projects for example
+  // Drop values for fields that no longer apply (e.g. after a project change)
+  // and seed configured defaults for fields that don't have a value yet.
+  // Re-runs when availableFields change, so switching projects re-seeds the
+  // new fields.
   useEffect(() => {
     if (!availableFields) return;
 
-    const allowedFields = new Set(availableFields.map((v) => v.id));
-    const currentEntries = Object.entries(normalizedCustomFields);
-    const filteredEntries = currentEntries.filter(([key]) =>
-      allowedFields.has(key),
-    );
-
-    // Only update when we actually need to remove disallowed keys.
-    if (filteredEntries.length !== currentEntries.length) {
-      setCustomFields(Object.fromEntries(filteredEntries));
+    const reconciled: Record<string, string> = {};
+    for (const v of availableFields) {
+      const currentValue = normalizedCustomFields[v.id];
+      // "false" is a real value; only "" / missing counts as unset
+      if (currentValue !== undefined && currentValue !== "") {
+        reconciled[v.id] = currentValue;
+        continue;
+      }
+      const seededDefault = getSeededDefaultValue(v);
+      if (seededDefault !== undefined) {
+        reconciled[v.id] = seededDefault;
+      } else if (v.type === "boolean") {
+        // Booleans always serialize explicitly, so unchecked saves as "false"
+        reconciled[v.id] = "false";
+      }
     }
+
+    const changed =
+      Object.keys(reconciled).length !==
+        Object.keys(normalizedCustomFields).length ||
+      Object.entries(reconciled).some(
+        ([key, value]) => normalizedCustomFields[key] !== value,
+      );
+    if (!changed) return;
+
+    // Defer so parent react-hook-form setValue applies after mount
+    queueMicrotask(() => setCustomFields(reconciled));
   }, [availableFields, normalizedCustomFields, setCustomFields]);
 
   const updateCustomField = (name: string, value: string) => {
