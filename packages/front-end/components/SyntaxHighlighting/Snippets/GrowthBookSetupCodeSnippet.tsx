@@ -187,7 +187,7 @@ gb.logEvent("Button Click", {
               Sending events to the managed warehouse this way requires
               GrowthBook SDK version 1.4.0 or later. Update the SDK version
               above, or send events directly with the{" "}
-              <DocLink useRadix={false} docSection="managedWarehouseTracking">
+              <DocLink docSection="managedWarehouseIngestionApi">
                 Ingestion API
               </DocLink>
               .
@@ -282,7 +282,7 @@ gb.logEvent("Button Click", {
               Sending events to the managed warehouse this way requires
               GrowthBook SDK version 1.4.0 or later. Update the SDK version
               above, or send events directly with the{" "}
-              <DocLink useRadix={false} docSection="managedWarehouseTracking">
+              <DocLink docSection="managedWarehouseIngestionApi">
                 Ingestion API
               </DocLink>
               .
