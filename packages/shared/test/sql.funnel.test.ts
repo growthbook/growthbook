@@ -222,9 +222,9 @@ describe("buildFunnelSql", () => {
   it("filters out non-qualifying users before the per-step CTEs, not just in the final SELECT", () => {
     const config = baseFunnelConfig(
       [
-        { name: "Step 1", factTable: "orders" },
-        { name: "Step 2", factTable: "orders" },
-        { name: "Step 3", factTable: "orders" },
+        { name: "Step 1", factTableId: "orders" },
+        { name: "Step 2", factTableId: "orders" },
+        { name: "Step 3", factTableId: "orders" },
       ],
       {
         dimensions: [
@@ -257,8 +257,8 @@ describe("buildFunnelSql", () => {
   it("filters to pinned values via a WHERE clause for a static dimension", () => {
     const config = baseFunnelConfig(
       [
-        { name: "Step 1", factTable: "orders" },
-        { name: "Step 2", factTable: "orders" },
+        { name: "Step 1", factTableId: "orders" },
+        { name: "Step 2", factTableId: "orders" },
       ],
       {
         dimensions: [
@@ -284,8 +284,8 @@ describe("buildFunnelSql", () => {
     // editor's 1-20 cap), so this must not emit a malformed `IN ()`.
     const config = baseFunnelConfig(
       [
-        { name: "Step 1", factTable: "orders" },
-        { name: "Step 2", factTable: "orders" },
+        { name: "Step 1", factTableId: "orders" },
+        { name: "Step 2", factTableId: "orders" },
       ],
       {
         dimensions: [
@@ -364,7 +364,7 @@ describe("buildFunnelSql", () => {
     expect(sql).toMatch(/step\d+_resolved_ts - INTERVAL '5 seconds'/);
   });
 
-  it("chains COALESCE through optional skipped steps", () => {
+  it("anchors past an optional step on the nearest required step", () => {
     const config = baseFunnelConfig([
       { name: "Step 1", factTableId: "orders" },
       { name: "Step 2", factTableId: "orders" },
@@ -374,11 +374,28 @@ describe("buildFunnelSql", () => {
     config.dataset.steps[1].optional = true;
 
     const { sql } = buildFunnelSql(config, factTableMap, helpers);
-    // Step 3's previous-resolved expression should fall through step 2
-    // (optional) to step 1 via COALESCE.
+    // Optional step 2 can land after step 3, so step 3 measures from required
+    // step 1 rather than chaining through whichever step resolved last. The
+    // anchor has to be asserted inside step 3's own range predicate.
     expect(sql).toMatch(
-      /COALESCE\(r\.step2_resolved_ts, r\.step1_resolved_ts\)/,
+      /FROM unnest\(r\.step3_arr\) AS t WHERE t >= r\.step1_resolved_ts/,
     );
+  });
+
+  it("anchors on step 1 when every preceding step is optional", () => {
+    const config = baseFunnelConfig([
+      { name: "Step 1", factTableId: "orders" },
+      { name: "Step 2", factTableId: "orders" },
+    ]);
+    if (config.dataset.type !== "funnel") throw new Error("never");
+    // Step 1 is guaranteed non-null by __funnel_qualifying_users, so it stays
+    // the anchor and no NULL bound reaches the window comparison.
+    config.dataset.steps[0].optional = true;
+    config.dataset.steps[1].conversionWindow = { unit: "minutes", value: 30 };
+
+    const { sql } = buildFunnelSql(config, factTableMap, helpers);
+    expect(sql).toContain("r.step1_resolved_ts + INTERVAL '1800 seconds'");
+    expect(sql).not.toMatch(/NULL \+ INTERVAL/);
   });
 
   it("rejects funnels without a unit", () => {
