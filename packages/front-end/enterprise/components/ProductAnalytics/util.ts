@@ -581,7 +581,10 @@ export function getColumnTopValues(
     const topValues = new Set<string>();
     dataset.values.forEach((value) => {
       const metric = getFactMetricById(value.metricId);
-      const ft = metric ? getFactTableById(metric.numerator.factTableId) : null;
+      const ft =
+        metric && metric.numerator
+          ? getFactTableById(metric.numerator.factTableId)
+          : null;
       if (ft) {
         getColumnInfo(ft, column).topValues.forEach((v) => topValues.add(v));
       }
@@ -590,8 +593,8 @@ export function getColumnTopValues(
   }
   if (dataset.type === "funnel") {
     const initialStep = dataset.steps[0];
-    const ft = initialStep?.factTable
-      ? getFactTableById(initialStep.factTable)
+    const ft = initialStep?.factTableId
+      ? getFactTableById(initialStep.factTableId)
       : null;
     return ft ? getColumnInfo(ft, column).topValues : [];
   }
