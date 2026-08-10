@@ -2,6 +2,7 @@ import {
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
+import { GrowthbookClickhouseDataSourceWithParams } from "shared/types/datasource";
 import { useCallback, useEffect, useState } from "react";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { PiArrowRight, PiPaperPlaneTiltFill } from "react-icons/pi";
@@ -12,6 +13,7 @@ import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
 import InstallationCodeSnippet from "@/components/SyntaxHighlighting/Snippets/InstallationCodeSnippet";
 import GrowthBookSetupCodeSnippet from "@/components/SyntaxHighlighting/Snippets/GrowthBookSetupCodeSnippet";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAttributeSchema } from "@/services/features";
 import TargetingAttributeCodeSnippet from "@/components/SyntaxHighlighting/Snippets/TargetingAttributeCodeSnippet";
 import { GBHashLock } from "@/components/Icons";
@@ -56,6 +58,11 @@ const VerifyConnectionPage = ({
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
   const { data, error, mutate } = useSDKConnections();
+  const { datasources } = useDefinitions();
+  const managedWarehouseRegion = datasources.find(
+    (d): d is GrowthbookClickhouseDataSourceWithParams =>
+      d.type === "growthbook_clickhouse",
+  )?.settings?.region;
 
   const currentConnection: SDKConnectionInterface | null =
     data?.connections.find((c) => c.id === connection) || null;
@@ -249,6 +256,7 @@ const VerifyConnectionPage = ({
                   remoteEvalEnabled={
                     currentConnection.remoteEvalEnabled || false
                   }
+                  managedWarehouseRegion={managedWarehouseRegion}
                 />
               </div>
             )}
@@ -280,6 +288,7 @@ const VerifyConnectionPage = ({
                   }
                   eventTracker={eventTracker}
                   setEventTracker={updateEventTracker}
+                  managedWarehouseRegion={managedWarehouseRegion}
                 />
               </div>
             )}

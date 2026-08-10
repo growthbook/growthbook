@@ -9,6 +9,7 @@ import EventTrackerSelector, {
 } from "@/components/SyntaxHighlighting/Snippets/EventTrackerSelector";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
 import { getAppOrigin, isCloud } from "@/services/env";
+import { DataRegion, getEventIngestorHost } from "@/services/dataRegions";
 
 function indentLines(code: string, indent: number | string = 2) {
   const spaces = typeof indent === "string" ? indent : " ".repeat(indent);
@@ -24,6 +25,7 @@ export default function GrowthBookSetupCodeSnippet({
   remoteEvalEnabled,
   eventTracker = "GA4",
   setEventTracker,
+  managedWarehouseRegion,
 }: {
   language: SDKLanguage;
   version?: string;
@@ -33,6 +35,7 @@ export default function GrowthBookSetupCodeSnippet({
   remoteEvalEnabled: boolean;
   eventTracker: string;
   setEventTracker: (value: string) => void;
+  managedWarehouseRegion?: DataRegion;
 }) {
   const featuresEndpoint = apiHost + "/api/features/" + apiKey;
   const trackingComment = "TODO: Use your real analytics tracking system";
@@ -146,6 +149,7 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
             remoteEvalEnabled,
             version,
             eventTracker,
+            managedWarehouseRegion,
             includeInit: true,
           })}
         />
@@ -194,6 +198,7 @@ gb.logEvent("Button Click", {
             remoteEvalEnabled,
             version,
             eventTracker,
+            managedWarehouseRegion,
             includeInit: false,
           })}
         />
@@ -1432,6 +1437,7 @@ const getJSCodeSnippet = ({
   remoteEvalEnabled,
   version,
   eventTracker,
+  managedWarehouseRegion,
   includeInit = true,
 }: {
   apiHost: string;
@@ -1440,6 +1446,7 @@ const getJSCodeSnippet = ({
   remoteEvalEnabled: boolean;
   version?: string;
   eventTracker: string;
+  managedWarehouseRegion?: DataRegion;
   includeInit?: boolean;
 }) => {
   const useInit = paddedVersionString(version) >= paddedVersionString("1.0.0");
@@ -1456,6 +1463,10 @@ const getJSCodeSnippet = ({
         : `["${eventTracker}"]`;
 
     if (eventTracker === "growthbook") {
+      const ingestorHost =
+        managedWarehouseRegion && managedWarehouseRegion !== "us-east-1"
+          ? getEventIngestorHost(managedWarehouseRegion)
+          : undefined;
       jsCode = `
 import { GrowthBook } from "@growthbook/growthbook";
 import {
@@ -1471,7 +1482,9 @@ const gb = new GrowthBook({
   enableDevMode: true,${!useInit ? `\n  subscribeToChanges: true,` : ""}
   plugins: [
     autoAttributesPlugin(),
-    growthbookTrackingPlugin()
+    growthbookTrackingPlugin(${
+      ingestorHost ? `{ ingestorHost: ${JSON.stringify(ingestorHost)} }` : ""
+    })
   ],
 });`;
     } else {
