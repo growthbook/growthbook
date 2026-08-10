@@ -2024,7 +2024,7 @@ function StandardFactMetricModal({
                             <strong>Mean</strong> metrics calculate the average
                             value of a numeric column in a fact table.
                           </div>
-                          <div>
+                          <div className="mb-2">
                             <strong>Ratio</strong> metrics allow you to
                             calculate a complex value by dividing two different
                             numeric columns in your fact tables.
@@ -2042,6 +2042,13 @@ function StandardFactMetricModal({
                             {!quantileMetricsAvailableForDatasource
                               ? " Quantile metrics are not available for MySQL data sources."
                               : ""}
+                          </div>
+                          <div>
+                            <strong>Funnel</strong> metrics calculate the share
+                            of exposed users who complete a series of steps in
+                            order. Each step is measured against all exposed
+                            users, not just those who entered the previous step
+                            of the funnel.
                           </div>
                         </div>
                       }
@@ -2081,12 +2088,6 @@ function StandardFactMetricModal({
                         steps: [
                           {
                             name: "Step 1",
-                            factTableId,
-                            rowFilters: [],
-                            optional: false,
-                          },
-                          {
-                            name: "Step 2",
                             factTableId,
                             rowFilters: [],
                             optional: false,

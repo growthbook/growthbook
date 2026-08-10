@@ -418,9 +418,15 @@ export class FactMetricModel extends BaseClass {
     data: FunnelFactMetricInterface,
     factTableMap: Map<string, FactTableInterface>,
   ): void {
-    const { steps } = data.funnelSettings;
+    const { steps, ordering, sessionBased } = data.funnelSettings;
     if (steps.length < 2) {
       throw new Error("Funnel metrics need at least 2 steps");
+    }
+    if ((ordering ?? "sequential") !== "sequential") {
+      throw new Error("Only sequential funnel ordering is supported for now");
+    }
+    if (sessionBased) {
+      throw new Error("Session-based funnels are not supported for now");
     }
 
     const factTableIds = new Set(steps.map((s) => s.factTableId));

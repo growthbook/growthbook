@@ -26,6 +26,10 @@ import {
   aggregatedFactTableSettingsValidator,
   StandardFactMetric,
   FunnelFactMetric,
+  conversionWindowValidator,
+  funnelStepValidator,
+  funnelOrderingValidator,
+  funnelSettingsValidator,
 } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { TestQueryRow } from "shared/types/integrations";

@@ -353,8 +353,8 @@ export const funnelStepValidator = z.object({
 export type FunnelStep = z.infer<typeof funnelStepValidator>;
 
 // Step ordering for funnel metrics. v1 supports "sequential" only; "strict"
-// and "unordered" are modeled now (locked via validateFunnelSettings) so
-// the fast-follows need no schema migration.
+// and "unordered" are modeled now (locked in FactMetricModel.customValidation)
+// so the fast-follows need no schema migration.
 export const funnelOrderingValidator = z.enum([
   "sequential",
   "strict",
@@ -370,8 +370,8 @@ export const funnelSettingsValidator = z.object({
   // Out-of-order tolerance between adjacent steps (seconds). Optional; only
   // meaningful for ordered modes (ignored for "unordered").
   concurrencyWindowSeconds: z.number().int().min(0).optional(),
-  // Session-scoped funnels: fast-follow, locked to false in v1 by
-  // validateFunnelSettings.
+  // Session-scoped funnels: fast-follow, locked to false by
+  // FactMetricModel.customValidation.
   sessionBased: z.boolean().optional(),
 });
 export type FunnelSettings = z.infer<typeof funnelSettingsValidator>;
@@ -434,30 +434,6 @@ const factMetricObjectValidator = z
   })
   .strict();
 
-export function validateFunnelSettings(
-  metric: Pick<
-    z.infer<typeof factMetricValidator>,
-    "metricType" | "funnelSettings"
-  >,
-): string[] {
-  if (metric.metricType !== "funnel") return [];
-  const fs = metric.funnelSettings;
-  const errors: string[] = [];
-  if (!fs) {
-    errors.push("funnelSettings is required when metricType is 'funnel'");
-    return errors;
-  }
-  if (fs.steps.length < 2) {
-    errors.push("Funnel metrics require at least 2 steps");
-  }
-  if ((fs.ordering ?? "sequential") !== "sequential") {
-    errors.push("Only 'sequential' funnel ordering is supported in v1");
-  }
-  if (fs.sessionBased) {
-    errors.push("Session-based funnels are not supported in v1");
-  }
-  return errors;
-}
 type FactMetricFields = z.infer<typeof factMetricObjectValidator>;
 type FactMetricSharedFields = Omit<
   FactMetricFields,
