@@ -624,7 +624,11 @@ async function publishRevisionInner(
   const approvalRequired = adapter.isApprovalRequiredForRevision
     ? adapter.isApprovalRequiredForRevision(context, revision)
     : adapter.isApprovalRequired(context);
-  const canBypass = bypass || adapter.canBypassApproval(context, entity);
+  // A deferred publish carries its bypass as PERSISTED INTENT — the poller ANDs
+  // the schedule's bypass flag with the armer's fire-time role. Re-deriving from
+  // role here force-published an admin's ordinary non-bypass schedule unapproved.
+  const canBypass =
+    bypass || (!deferred && adapter.canBypassApproval(context, entity));
 
   if (approvalRequired && revision.status !== "approved" && !canBypass) {
     throw new BadRequestError(

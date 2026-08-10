@@ -123,10 +123,20 @@ export async function publishFeatureRevision(
   const forceMergeRequested = req.body.ignoreWarnings === true;
 
   // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
-  // calls should behave like dashboard actions) or FlagsBypassApprovals.
+  // calls should behave like dashboard actions) or FlagsBypassApprovals. On the
+  // armed/scheduled path (!inlineValidationGates) the role counts only when the
+  // schedule carries PERSISTED bypass intent — deriving from role alone
+  // force-published an admin's ordinary non-bypass schedule unapproved, and
+  // overrode ramp lockdown the same way (bypassLockdown mirrors this term).
+  const roleBypass = req.context.permissions.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
   const canBypass =
     canUseRestApiBypass ||
-    req.context.permissions.canBypassFlagApprovalChecks(feature, "feature");
+    (inlineValidationGates
+      ? roleBypass
+      : !!revision.scheduledPublishBypassApproval && roleBypass);
 
   // Aggregate every publish gate up front so a blocked publish returns ONE
   // structured 422 naming each gate, the flag that clears it, and a callable
@@ -163,8 +173,11 @@ export async function publishFeatureRevision(
       (inlineValidationGates && req.context.ignoreWarnings),
     skipSchemaValidation: req.context.canSkipSchemaValidationFor("feature"),
     skipHooks: req.context.canSkipHooksFor("feature"),
-    bypassApprovalPermission:
-      req.context.permissions.canBypassFlagApprovalChecks(feature, "feature"),
+    // Same armed-intent rule as `canBypass`, so the gate model and the
+    // sequential backstop below cannot disagree about approval.
+    bypassApprovalPermission: inlineValidationGates
+      ? roleBypass
+      : !!revision.scheduledPublishBypassApproval && roleBypass,
     restApiBypassesReviews: canUseRestApiBypass,
     canForceMergeStaleBase: canBypassGovernance,
   });

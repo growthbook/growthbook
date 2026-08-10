@@ -2373,6 +2373,14 @@ export async function postFeaturePublish(
     });
   }
 
+  // An archive flip landing through a draft takes a flag out of service exactly
+  // like the direct archive endpoint, which runs this guard — live features and
+  // experiments still gating on this flag as a prerequisite must block it here
+  // too (REST publish already does).
+  if (mergeResult.result.archived === true && !feature.archived) {
+    await assertFeatureArchiveDependentsGuard(context, feature);
+  }
+
   const updatedFeature = await publishRevision({
     context,
     feature,
@@ -2829,6 +2837,11 @@ export async function postFeatureRevert(
       ? undefined
       : (draft) => assertCanAutoPublish(context, feature, draft),
   });
+  // A revert restoring an archived state is the same out-of-service flip the
+  // direct archive endpoint guards.
+  if (mergeChanges.archived === true && !feature.archived) {
+    await assertFeatureArchiveDependentsGuard(context, feature);
+  }
   const updatedFeature = await publishRevision({
     context,
     feature,
