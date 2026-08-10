@@ -21,6 +21,7 @@ import { DataSourceSettings, DataSourceType } from "shared/types/datasource";
 import {
   ProductAnalyticsDimension,
   ProductAnalyticsDynamicDimension,
+  ProductAnalyticsStaticDimension,
   FactTableDataset,
   ExplorationConfig,
   DataSourceDataset,
@@ -460,6 +461,58 @@ function generateRowFilterSQL(
     .filter((sql): sql is string => sql !== null);
 }
 
+// True if `column` resolves to a real underlying column on `factTable` —
+// either a top-level column, or (for a dotted path) a JSON field defined on
+// a JSON-typed top-level column. A ratio metric's denominator can live on a
+// different fact table than its numerator, and that table may not expose
+// the dimension's column at all; callers use this to skip applying a static
+// dimension's filter to a group whose table can't actually resolve it,
+// rather than injecting a WHERE clause that references a nonexistent
+// column and fails at the warehouse.
+function factTableHasResolvableColumn(
+  factTable: MinimalFactTable,
+  column: string,
+): boolean {
+  const [baseColumn, ...rest] = column.split(".");
+  const col = factTable.columns.find((c) => c.column === baseColumn);
+  if (!col) return false;
+  if (rest.length === 0) return true;
+  return col.datatype === "json" && !!col.jsonFields?.[rest.join(".")];
+}
+
+// Build `column IN (...)` clauses for every static (pinned-values) dimension,
+// so callers can drop rows outside the pinned list before aggregation.
+function getStaticDimensionFilters(
+  dimensions: ProductAnalyticsDimension[],
+  factTable: MinimalFactTable,
+  helpers: SqlDialect,
+): string[] {
+  const staticDimensions = dimensions.filter(
+    (d): d is ProductAnalyticsStaticDimension =>
+      d.dimensionType === "static" && d.values.length > 0,
+  );
+
+  // A ratio metric's denominator table may not expose a pinned column at
+  // all — exclude every row from this fact table rather than let them all
+  // through unfiltered on that dimension.
+  const hasUnresolvableDimension = staticDimensions.some(
+    (d) => !factTableHasResolvableColumn(factTable, d.column),
+  );
+  if (hasUnresolvableDimension) return ["1 = 0"];
+
+  return staticDimensions.map((d) => {
+    const columnExpr = getColumnExpression(
+      d.column,
+      factTable,
+      helpers.jsonExtract,
+    );
+    const valueList = d.values
+      .map((v) => `'${helpers.escapeStringLiteral(v)}'`)
+      .join(", ");
+    return `${columnExpr} IN (${valueList})`;
+  });
+}
+
 function getCappingSettings(
   metric: MinimalMetric,
 ): MetricCappingSettings | null {
@@ -510,20 +563,16 @@ export function generateDimensionExpression(
       END`;
     }
     case "static": {
-      const columnExpr = getColumnExpression(
+      // Rows outside the pinned value list are dropped entirely (filtered in
+      // generateFactTableCTE / buildFunnelSql), so this is just the raw
+      // column — no CASE/'other' fallback needed.
+      return getColumnExpression(
         dimension.column,
         factTable,
         helpers.jsonExtract,
         "",
         helpers.identifierQuote,
       );
-      const valueList = dimension.values
-        .map((v) => `'${helpers.escapeStringLiteral(v)}'`)
-        .join(", ");
-      return `CASE 
-        WHEN ${columnExpr} IN (${valueList}) THEN ${columnExpr}
-        ELSE 'other'
-      END`;
     }
     case "slice": {
       const cases = dimension.slices.map(
@@ -939,6 +988,7 @@ function generateFactTableCTE(
   factTableGroup: FactTableGroup,
   helpers: SqlDialect,
   dateRange: DateRange,
+  staticDimensionFilters: string[],
 ): CTE {
   const factTable = factTableGroup.factTable;
 
@@ -975,6 +1025,8 @@ function generateFactTableCTE(
   if (metricsFilter) {
     whereClauses.push(metricsFilter);
   }
+
+  whereClauses.push(...staticDimensionFilters);
 
   return {
     name: `_factTable${factTableGroup.index}`,
@@ -1534,13 +1586,33 @@ export function buildFunnelSql(
   };
   ctes.push(userAggregatesCte);
 
-  // 3b. Chained step-N resolution. Each CTE reads directly from the
-  // previous one — the prev CTE already carries `stepN_arr` forward from
-  // __funnel_user_aggregates, so a JOIN back to the aggregate would be
-  // a redundant self-join on user_id. Each step "consumes" its own array
-  // column (replacing it with `stepN_resolved_ts`) and forwards the
-  // remaining arrays for later steps.
-  let prevCte: CTE = userAggregatesCte;
+  // First-touch, like the dimension itself — filters on `dimension_1`, not
+  // raw per-fact-table events (which may also feed later, unrelated steps).
+  const staticDimensionFilter =
+    dimension?.dimensionType === "static" && dimension.values.length > 0
+      ? `dimension_1 IN (${dimension.values
+          .map((v) => `'${dialect.escapeStringLiteral(v)}'`)
+          .join(", ")})`
+      : null;
+
+  // 3a. Drop users who can't survive the funnel (no step 1, or a pinned
+  // dimension mismatch) before the per-step CTEs below, so later steps
+  // only process users who could still make it into the result.
+  const qualifyingUsersCte: CTE = {
+    name: "__funnel_qualifying_users",
+    sql: `
+      SELECT *
+      FROM ${userAggregatesCte.name}
+      WHERE step1_resolved_ts IS NOT NULL
+      ${staticDimensionFilter ? `AND ${staticDimensionFilter}` : ""}
+    `,
+  };
+  ctes.push(qualifyingUsersCte);
+
+  // 3b. Chained step-N resolution. Each CTE reads the previous one directly
+  // (it already carries `stepN_arr` forward) and "consumes" its own array,
+  // replacing it with `stepN_resolved_ts` and forwarding the rest.
+  let prevCte: CTE = qualifyingUsersCte;
   const carriedCols: string[] = [];
   if (dimensionExpr) carriedCols.push("dimension_1");
   carriedCols.push("step1_resolved_ts");
@@ -1608,11 +1680,12 @@ export function buildFunnelSql(
     }
   });
 
+  // step1_resolved_ts IS NOT NULL and the static dimension filter (if any)
+  // are already applied in __funnel_qualifying_users, above.
   const finalSelect = `
     SELECT
       ${finalSelects.join(",\n      ")}
     FROM ${prevCte.name}
-    WHERE step1_resolved_ts IS NOT NULL
     ${finalGroupBys.length ? `GROUP BY ${finalGroupBys.join(", ")}` : ""}
   `;
 
@@ -1717,7 +1790,8 @@ export function generateProductAnalyticsSQL(
     allMetrics.filter((m) => m.rollupCountExpr).map((m) => m.alias),
   );
 
-  // Get all dimensions
+  // Only `.alias` is used from this for the final SELECT (below); each
+  // group computes its own `.valueExpr` in `groupDimensions` instead.
   const allDimensions: DimensionData[] = [];
   config.dimensions.forEach((d, i) => {
     allDimensions.push({
@@ -1737,11 +1811,35 @@ export function generateProductAnalyticsSQL(
   const ctesToRollup: CTE[] = [];
 
   factTableGroups.forEach((factTableGroup, i) => {
+    // Recomputed against this group's own fact table — a ratio metric's
+    // denominator can resolve a column differently, or not at all (NULL;
+    // getStaticDimensionFilters excludes such a group's rows entirely).
+    const groupDimensions: DimensionData[] = config.dimensions.map((d, di) => ({
+      alias: `dimension${di}`,
+      valueExpr:
+        d.dimensionType === "static" &&
+        !factTableHasResolvableColumn(factTableGroup.factTable, d.column)
+          ? "NULL"
+          : generateDimensionExpression(
+              d,
+              di,
+              factTableGroup,
+              dialect,
+              dateRange,
+            ),
+    }));
+    const staticDimensionFilters = getStaticDimensionFilters(
+      config.dimensions,
+      factTableGroup.factTable,
+      dialect,
+    );
+
     // Add the raw fact table CTE
     const factTableCTE = generateFactTableCTE(
       factTableGroup,
       dialect,
       dateRange,
+      staticDimensionFilters,
     );
     ctes.push(factTableCTE);
 
@@ -1774,7 +1872,7 @@ export function generateProductAnalyticsSQL(
       factTableGroup,
       factTableCTE,
       percentileCapsCTE,
-      allDimensions,
+      groupDimensions,
       dialect,
     );
     ctes.push(factTableRowsCTE);
@@ -1803,7 +1901,7 @@ export function generateProductAnalyticsSQL(
       const unitAggregationCTE = generateUnitAggregationCTE(
         factTableGroup,
         factTableRowsCTE,
-        allDimensions,
+        groupDimensions,
         unitIndex,
         metrics,
       );
@@ -1813,7 +1911,7 @@ export function generateProductAnalyticsSQL(
       const unitRollupCTE = generateUnitAggregationRollupCTE(
         factTableGroup,
         unitAggregationCTE,
-        allDimensions,
+        groupDimensions,
         unitIndex,
         metrics,
         allMetricsAliases,
@@ -1829,7 +1927,7 @@ export function generateProductAnalyticsSQL(
       const eventRollupCTE = generateEventRollupCTE(
         factTableGroup,
         factTableRowsCTE,
-        allDimensions,
+        groupDimensions,
         eventMetrics,
         allMetricsAliases,
         aliasesWithDenominator,
