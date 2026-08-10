@@ -15,6 +15,7 @@ import type {
   FunnelStep,
   FunnelDataset,
   ExplorationDateRange,
+  ComparisonMode,
 } from "shared/validators";
 import { isEqual } from "lodash";
 import { createParser } from "nuqs";
@@ -45,18 +46,20 @@ export type RenderOpts = import("shared/enterprise").ExplorationRenderOpts;
 /** Explorer UI state: exploration config plus optional compare period (not on public API config). */
 export type ExplorerDraftConfig = ExplorationConfig & {
   previousTimeFrame?: ExplorationDateRange;
+  comparisonMode?: ComparisonMode;
 };
 
 export function stripExplorerDraftFields(
   config: ExplorerDraftConfig,
 ): ExplorationConfig {
-  const { previousTimeFrame: _, ...rest } = config;
+  const { previousTimeFrame: _, comparisonMode: __, ...rest } = config;
   return rest;
 }
 import {
   dateGranularity,
   explorationConfigValidator,
   explorationDateRangeValidator,
+  comparisonModeValidator,
 } from "shared/validators";
 import { operatorLabelMap } from "@/components/FactTables/rowFilterUtils";
 
@@ -757,7 +760,7 @@ export function removeIncompleteInputs(
 export function cleanConfigForSubmission(
   config: ExplorerDraftConfig,
 ): ExplorationConfig {
-  const { previousTimeFrame: _, ...configWithoutPrevious } = config;
+  const configWithoutPrevious = stripExplorerDraftFields(config);
   const cleanedDataset = removeIncompleteInputs(configWithoutPrevious.dataset);
   const cleanedDimensions = configWithoutPrevious.dimensions.filter((d) => {
     if (d.dimensionType === "date" || d.dimensionType === "slice") return true;
@@ -797,7 +800,9 @@ export function toFetchKey(
   config: ExplorationConfig | ExplorerDraftConfig,
 ): unknown {
   const base =
-    "previousTimeFrame" in config ? stripExplorerDraftFields(config) : config;
+    "previousTimeFrame" in config || "comparisonMode" in config
+      ? stripExplorerDraftFields(config)
+      : config;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { showAs, ...rest } = base;
   if (base.dataset.type === "funnel") {
@@ -932,10 +937,17 @@ export function compareConfig(
   previousWindows?: {
     lastPreviousTimeFrame: ExplorationDateRange | null;
     newPreviousTimeFrame: ExplorationDateRange | null;
+    lastComparisonMode?: ComparisonMode | null;
+    newComparisonMode?: ComparisonMode | null;
   },
 ): { needsFetch: boolean; needsUpdate: boolean } {
   const lastPrev = previousWindows?.lastPreviousTimeFrame ?? null;
   const newPrev = previousWindows?.newPreviousTimeFrame ?? null;
+  // Two modes can resolve to the same window (e.g. a whole-week custom range
+  // under previousPeriod vs the weekday-matching variant). The mode still has to
+  // reach the server, which pairs rows differently for each.
+  const lastMode = previousWindows?.lastComparisonMode ?? null;
+  const newMode = previousWindows?.newComparisonMode ?? null;
 
   if (!lastSubmittedConfig) {
     const hasInputs =
@@ -947,13 +959,18 @@ export function compareConfig(
 
   const lastComparable = stripExplorerDraftFields(lastSubmittedConfig);
 
-  if (isEqual(lastComparable, newConfig) && isEqual(lastPrev, newPrev)) {
+  if (
+    isEqual(lastComparable, newConfig) &&
+    isEqual(lastPrev, newPrev) &&
+    lastMode === newMode
+  ) {
     return { needsFetch: false, needsUpdate: false };
   }
 
   const needsFetch =
     !isEqual(toFetchKey(lastComparable), toFetchKey(newConfig)) ||
-    !isEqual(lastPrev, newPrev);
+    !isEqual(lastPrev, newPrev) ||
+    lastMode !== newMode;
   return { needsFetch, needsUpdate: true };
 }
 
@@ -1138,3 +1155,14 @@ export const previousTimeFrameQueryParser =
     },
     serialize: (value) => (value ? encodePreviousTimeFrameParam(value) : ""),
   });
+
+// Kept as its own plain param rather than folded into the base64
+// previousTimeFrame payload, which would invalidate already-shared links.
+export const comparisonModeQueryParser = createParser<ComparisonMode | null>({
+  parse: (raw) => {
+    if (!raw) return null;
+    const result = comparisonModeValidator.safeParse(raw);
+    return result.success ? result.data : null;
+  },
+  serialize: (value) => value ?? "",
+});

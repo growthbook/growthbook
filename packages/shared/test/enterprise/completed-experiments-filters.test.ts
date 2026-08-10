@@ -12,16 +12,28 @@ declare const expect: (value: unknown) => {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// Rolling presets are inclusive of both end days and open at UTC midnight, so
+// count calendar days rather than the raw span, which varies with time of day.
+const inclusiveUtcDays = (start: Date, end: Date) =>
+  Math.round(
+    (Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()) -
+      Date.UTC(
+        start.getUTCFullYear(),
+        start.getUTCMonth(),
+        start.getUTCDate(),
+      )) /
+      DAY_MS,
+  ) + 1;
+
 describe("resolveCompletedExperimentsFilters", () => {
-  it("resolves a predefined range to roughly [now - days, now]", () => {
+  it("resolves a predefined range to exactly that many inclusive days", () => {
     const { startDate, endDate, projects } = resolveCompletedExperimentsFilters(
       {
         dateRange: { predefined: "last90Days" },
         projects: ["prj_1"],
       },
     );
-    const spanDays = (endDate.getTime() - startDate.getTime()) / DAY_MS;
-    expect(Math.round(spanDays)).toEqual(90);
+    expect(inclusiveUtcDays(startDate, endDate)).toEqual(90);
     expect(projects).toEqual(["prj_1"]);
   });
 
@@ -34,8 +46,7 @@ describe("resolveCompletedExperimentsFilters", () => {
       },
       projects: [],
     });
-    const spanDays = (endDate.getTime() - startDate.getTime()) / DAY_MS;
-    expect(Math.round(spanDays)).toEqual(45);
+    expect(inclusiveUtcDays(startDate, endDate)).toEqual(45);
   });
 
   it("uses explicit start/end for a custom date range", () => {

@@ -1,13 +1,16 @@
 import { useMemo } from "react";
 import type {
+  ComparisonMode,
   ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
 import {
   calculateProductAnalyticsDateRange,
+  getComparisonAlignmentStrategy,
   getDateGranularity,
   buildAlignedComparisonRowLookup,
 } from "shared/enterprise";
+import type { ComparisonAlignmentStrategy } from "shared/enterprise";
 import { FactTableDefinition } from "shared/types/fact-table";
 import type { HeaderStructure } from "@/components/Settings/DisplayTestQueryResults";
 import {
@@ -131,6 +134,7 @@ function buildFunnelTableData(
   submittedExploreState: ExplorationConfig,
   getFactTableById: (id: string) => FactTableDefinition | null,
   comparisonExploration?: ProductAnalyticsExploration | null,
+  comparisonAlignment?: ComparisonAlignmentStrategy,
 ): ExplorationTableData {
   if (submittedExploreState.dataset.type !== "funnel") {
     return {
@@ -304,7 +308,12 @@ function buildFunnelTableData(
   const firstDimensionIsDate =
     submittedExploreState.dimensions?.[0]?.dimensionType === "date";
   const getAlignedCmpRow = compareActive
-    ? buildAlignedComparisonRowLookup(sortedRows, cmpRows, firstDimensionIsDate)
+    ? buildAlignedComparisonRowLookup(
+        sortedRows,
+        cmpRows,
+        firstDimensionIsDate,
+        comparisonAlignment,
+      )
     : null;
 
   const rowData: Record<string, unknown>[] = [];
@@ -368,6 +377,7 @@ export default function useExplorationTableData(
   options?: {
     compareEnabled?: boolean;
     comparisonExploration?: ProductAnalyticsExploration | null;
+    comparisonMode?: ComparisonMode | null;
     /** When set, `%` trend cells come from the server (aligned to sorted primary rows). */
     serverTableTrendsByRow?: Record<string, number | null>[] | null;
   },
@@ -376,6 +386,9 @@ export default function useExplorationTableData(
   const compareEnabled = options?.compareEnabled ?? false;
   const comparisonExploration = options?.comparisonExploration ?? null;
   const serverTableTrendsByRow = options?.serverTableTrendsByRow ?? null;
+  const comparisonAlignment = getComparisonAlignmentStrategy(
+    options?.comparisonMode ?? "previousPeriod",
+  );
 
   // Funnels have a wholly different column shape. Compute it once at the top
   // and bypass the rest of this hook (the metric/fact-table/data-source
@@ -387,6 +400,7 @@ export default function useExplorationTableData(
       submittedExploreState,
       getFactTableById,
       compareEnabled ? comparisonExploration : null,
+      comparisonAlignment,
     );
   }, [
     exploration,
@@ -394,6 +408,7 @@ export default function useExplorationTableData(
     getFactTableById,
     compareEnabled,
     comparisonExploration,
+    comparisonAlignment,
   ]);
 
   const renderOpts: RenderOpts = useMemo(
@@ -615,6 +630,7 @@ export default function useExplorationTableData(
         sortedRows,
         cmpSorted,
         isTimeseries,
+        comparisonAlignment,
       );
       return sortedRows.map((row, idx) => {
         // Pair by dimension key for both timeseries and categorical charts.
@@ -659,7 +675,9 @@ export default function useExplorationTableData(
               typeof rawCurr === "number" &&
               rawPrev !== 0
             ) {
-              trend = ((rawCurr - rawPrev) / rawPrev) * 100;
+              // Magnitude, matching the server and the big number. A signed
+              // denominator inverts the arrow for negative metrics.
+              trend = ((rawCurr - rawPrev) / Math.abs(rawPrev)) * 100;
             }
             entries.push(
               [currKey, formatCellForTable(rawCurr, col, fmtCtx)] as const,
@@ -682,6 +700,7 @@ export default function useExplorationTableData(
   }, [
     columns,
     comparisonExploration?.result?.rows,
+    comparisonAlignment,
     exploration?.result?.rows,
     firstDimensionIsDate,
     renderOpts,
