@@ -14,6 +14,7 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname),
     },
+    dedupe: ["react", "react-dom"],
   },
   esbuild: {
     jsx: "automatic",

@@ -13,7 +13,7 @@ import {
 } from "shared/enterprise";
 import Checkbox from "@/ui/Checkbox";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { useExperiments } from "@/hooks/useExperiments";
 import PipelineValidationResultsView from "@/enterprise/components/DataPipeline/PipelineValidationResults";
 import { useDataSourcePipelineSettingsValidation } from "@/enterprise/components/DataPipeline/useDataSourcePipelineSettingsValidation";
@@ -306,7 +306,7 @@ function ValidatePermissionsCheckbox({
 }) {
   return (
     <Checkbox
-      labelSize="3"
+      labelSize="lg"
       label="Validate permissions before saving"
       description="Verify that GrowthBook can write to your Data Source before exiting this modal"
       value={value}
@@ -356,7 +356,7 @@ function IncrementalScopeSelector({
   return (
     <Box>
       <RadioGroup
-        labelSize="3"
+        labelSize="lg"
         options={[
           { value: "true", label: "Enable for all Experiments" },
           { value: "false", label: "Enable for specific Experiments" },
@@ -367,6 +367,7 @@ function IncrementalScopeSelector({
       {!form.watch("applyToAllExperiments") ? (
         <Box ml="23px">
           <MultiSelectField
+            legacyHeight
             value={form.watch("includedExperimentIds") ?? []}
             onChange={(v) => {
               form.setValue("includedExperimentIds", v);

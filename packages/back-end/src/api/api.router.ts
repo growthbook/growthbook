@@ -16,6 +16,7 @@ import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplate
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTemplateModel";
 import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
+import { LearningModel } from "back-end/src/models/LearningModel";
 import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
@@ -33,6 +34,9 @@ import { environmentsRoutes } from "./environments/environments.router";
 import { attributesRoutes } from "./attributes/attributes.router";
 import { savedGroupsRoutes } from "./saved-groups/saved-groups.router";
 import { constantsRoutes } from "./constants/constants.router";
+import { configsRoutes } from "./configs/configs.router";
+import { releasesRoutes } from "./releases/releases.router";
+import { customHooksRoutes } from "./custom-hooks/custom-hooks.router";
 import { sdkConnectionsRoutes } from "./sdk-connections/sdk-connections.router";
 import { sdkPayloadRoutes } from "./sdk-payload/sdk-payload.router";
 import { dataSourcesRoutes } from "./data-sources/data-sources.router";
@@ -68,6 +72,7 @@ const API_MODELS: ModelClass[] = [
   AnalyticsExplorationModel,
   RampScheduleTemplateModel,
   RampScheduleModel,
+  LearningModel,
 ];
 
 const router = Router();
@@ -171,6 +176,9 @@ export const allRoutes = [
   ...visualChangesetsRoutes,
   ...savedGroupsRoutes,
   ...constantsRoutes,
+  ...configsRoutes,
+  ...releasesRoutes,
+  ...customHooksRoutes,
   ...organizationsRoutes,
   ...sdkPayloadRoutes,
   ...factTablesRoutes,

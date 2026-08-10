@@ -12,7 +12,10 @@ import {
   SchemaFormat,
 } from "shared/types/datasource";
 import { useForm } from "react-hook-form";
-import { isDemoDatasourceProject } from "shared/demo-datasource";
+import {
+  getDefaultProjectsForNewResource,
+  isDemoDatasourceProject,
+} from "shared/demo-datasource";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { Text } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -29,7 +32,7 @@ import {
   dataSourceConnections,
   eventSchema,
 } from "@/services/eventSchema";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
@@ -107,7 +110,10 @@ const NewDataSourceForm: FC<{
   >({
     name: "My Datasource",
     settings: {},
-    projects: project ? [project] : [],
+    projects: getDefaultProjectsForNewResource({
+      project,
+      organizationId: orgId || undefined,
+    }),
     ...initial,
   });
 
@@ -608,8 +614,9 @@ const NewDataSourceForm: FC<{
         </div>
         <div className="form-group">
           <label>Description</label>
-          <textarea
-            className="form-control"
+          <Field
+            textarea
+            minRows={1}
             maxLength={MAX_DESCRIPTION_LENGTH}
             name="description"
             onChange={onChange}
@@ -619,6 +626,7 @@ const NewDataSourceForm: FC<{
         {projects?.length > 0 && (
           <div className="form-group">
             <MultiSelectField
+              legacyHeight
               label={
                 <>
                   Projects{" "}
@@ -627,7 +635,7 @@ const NewDataSourceForm: FC<{
                   />
                 </>
               }
-              placeholder="All projects"
+              placeholder="All Projects"
               value={connectionInfo.projects || []}
               options={projectOptions}
               onChange={(v) => onManualChange("projects", v)}
@@ -677,6 +685,7 @@ const NewDataSourceForm: FC<{
           {selectedSchema?.options?.map(({ name, label, type, helpText }) => (
             <div key={name} className="form-group">
               <Field
+                size="legacy"
                 label={label}
                 name={name}
                 value={schemaOptionsForm.watch(name)}

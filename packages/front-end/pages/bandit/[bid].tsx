@@ -29,6 +29,7 @@ import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/ui/Callout";
 
 const BanditExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -240,10 +241,10 @@ const BanditExperimentPage = (): ReactElement => {
             (experiment.linkedFeatures?.length ||
               experiment.hasVisualChangesets ||
               experiment.hasURLRedirects) ? (
-              <div className="alert alert-danger">
+              <Callout status="error">
                 Changing the project may prevent your linked Feature Flags,
                 Visual Changes, and URL Redirects from being sent to users.
-              </div>
+              </Callout>
             ) : null
           }
           source="bid"

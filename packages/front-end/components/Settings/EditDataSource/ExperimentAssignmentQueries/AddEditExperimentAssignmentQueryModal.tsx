@@ -8,16 +8,18 @@ import {
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
-import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import { isEventForwarderManagedExposureQuery } from "shared/util";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -39,10 +41,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<
           exposureQuery ? exposureQuery.name : "Experiment Assignment"
         } query`;
 
-  const isManaged =
-    mode === "edit" &&
-    !!exposureQuery &&
-    isEventForwarderManagedExposureQuery(exposureQuery);
+  // Event Forwarder managed queries are intentionally editable for now. Restore
+  // `mode === "edit" && !!exposureQuery &&
+  // isEventForwarderManagedExposureQuery(exposureQuery)` to lock them again.
+  const isManaged = false;
 
   const userIdTypeOptions = dataSource?.settings?.userIdTypes?.map(
     ({ userIdType }) => ({
@@ -80,6 +82,15 @@ export const AddEditExperimentAssignmentQueryModal: FC<
     if (isManaged && exposureQuery) {
       value.userIdType = exposureQuery.userIdType;
       value.managedBy = exposureQuery.managedBy;
+    } else if (
+      exposureQuery &&
+      isEventForwarderManagedExposureQuery(exposureQuery) &&
+      value.userIdType !== exposureQuery.userIdType
+    ) {
+      // Re-pointing a managed query at a different identifier hands it to the
+      // user. Leaving managedBy: "api" would make attribute reconciliation
+      // treat that identifier as Event Forwarder owned and delete it.
+      value.managedBy = "";
     }
     await onSave(value);
 
@@ -255,15 +266,22 @@ export const AddEditExperimentAssignmentQueryModal: FC<
         <div className="my-2 ml-3 mr-3">
           <div className="row">
             <div className="col-12">
-              <Field label="Display Name" required {...form.register("name")} />
               <Field
+                size="legacy"
+                label="Display Name"
+                required
+                {...form.register("name")}
+              />
+              <Field
+                size="legacy"
                 label="Description (optional)"
                 textarea
                 minRows={1}
                 maxLength={MAX_DESCRIPTION_LENGTH}
                 {...form.register("description")}
               />
-              <Field
+              <SelectField
+                size="legacy"
                 label={
                   <>
                     Identifier Type
@@ -272,7 +290,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                     ) : null}
                   </>
                 }
-                options={identityTypes.map((i) => i.userIdType)}
+                options={identityTypes.map((i) => ({
+                  value: i.userIdType,
+                  label: i.userIdType,
+                }))}
                 required
                 disabled={isManaged}
                 helpText={
@@ -280,16 +301,16 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                     ? "Managed by Event Forwarder for this identifier."
                     : undefined
                 }
-                {...form.register("userIdType")}
+                value={form.watch("userIdType")}
+                onChange={(value) => form.setValue("userIdType", value)}
               />
               <div className="form-group">
                 <label className="mr-5">Query</label>
                 {userEnteredQuery === defaultQuery && (
-                  <div className="alert alert-info">
-                    <FaExclamationTriangle style={{ marginTop: "-2px" }} /> The
-                    prefilled query below may require editing to fit your data
-                    structure.
-                  </div>
+                  <Callout status="info">
+                    The prefilled query below may require editing to fit your
+                    data structure.
+                  </Callout>
                 )}
                 {userEnteredQuery && (
                   <Code
@@ -349,6 +370,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                         <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
                       </Flex>
                       <StringArrayField
+                        legacyHeight
                         label="Dimension Columns"
                         value={userEnteredDimensions}
                         onChange={(dimensions) => {

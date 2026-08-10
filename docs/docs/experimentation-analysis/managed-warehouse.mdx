@@ -29,7 +29,7 @@ We create 3 tables in a ClickHouse database managed by GrowthBook:
 
 ### Fact Table
 
-An **Events** fact table is pre-built on top of the `events` table. This is the base you use to define metrics. It includes 16+ standard columns (timestamp, event name, device ID, and all your key attributes) and is ready to use immediately.
+An **Events** fact table is pre-built on top of the `events` table. This is the base you use to define metrics. It includes 16+ standard columns (timestamp, event name, device ID, geo and browser data, etc.) plus an `attributes` JSON column with everything your events send, and is ready to use immediately.
 
 ### Starter metrics
 
@@ -43,14 +43,14 @@ Three metrics are auto-created to get you started:
 
 You can edit these or create your own. Read more about [metrics and fact tables](/app/metrics).
 
-### Default key attributes
+### Default identifiers and dimensions
 
-Key attributes are extracted from event data and stored as top-level columns for fast querying. We set up these defaults:
+Identifiers are the columns used to split traffic in experiments, and dimensions let you slice and dice results. These are set up out of the box:
 
-- **Identifier:** `device_id`
+- **Identifiers:** `user_id`, `device_id`
 - **Dimensions:** `geo_country`, `ua_browser`, `ua_os`, `ua_device_type`, `utm_source`, `utm_medium`, `utm_campaign`
 
-You can add more key attributes on the data source settings page. See [Key Attributes](#key-attributes-materialized-columns) for details.
+You can add more identifiers through your organization's attribute settings. See [Identifiers and custom attributes](#identifiers-and-custom-attributes) for details.
 
 ## Getting started
 
@@ -61,6 +61,10 @@ Go to **Metrics and Data** &rarr; **Data Sources** and click **Create** on the M
 ### 2. Install the SDK with tracking
 
 Add the GrowthBook SDK to your application with the tracking plugin enabled. Here are the two most common setups:
+
+:::info Using eu-west-1?
+Events default to the `us-east-1` ingestor. If you selected **eu-west-1** as your Data Region, add the `ingestorHost` (or `data-event-ingestor-host` for the script tag) override — see [Sending events to the right region](#sending-events-to-the-right-region) below — otherwise your events won't reach your warehouse.
+:::
 
 **HTML Script Tag**: add one line to your page:
 
@@ -130,7 +134,7 @@ With events flowing and metrics defined, you're ready to experiment:
 2. Add an **Experiment** rule to it.
 3. Start the experiment and watch results flow in on the **Results** tab.
 
-For a detailed walkthrough, see our [guide to running Feature Flag Experiments](/feature-flag-experiments).
+For a detailed walkthrough, see our [guide to running Feature Flag Experiments](/features/feature-flag-experiments).
 
 ---
 
@@ -274,9 +278,31 @@ req.growthbook.logEvent("Sign Up", {
 });
 ```
 
+#### Sending events to the right region
+
+The tracking plugin sends events to `https://us1.gb-ingest.com` by default. If you selected **eu-west-1** as your Data Region when creating your Managed Warehouse, override the ingestor host so events reach the right ClickHouse cluster instead of being dropped:
+
+- **HTML Script Tag**: add `data-event-ingestor-host="https://eu-west-1.gb-ingest.com"` to the script tag.
+- **JavaScript / React / Node.js**: pass `ingestorHost` to `growthbookTrackingPlugin()`:
+
+```js
+growthbookTrackingPlugin({
+  ingestorHost: "https://eu-west-1.gb-ingest.com",
+})
+```
+
+You can find your datasource's configured region on its settings page.
+
 ### Ingestion API
 
-You can also send events directly to our ingestion API. Pass an array of event objects, each with the following properties:
+You can also send events directly to our ingestion API. The host depends on the **Data Region** you chose when creating your Managed Warehouse datasource:
+
+- `us-east-1` → `https://us1.gb-ingest.com`
+- `eu-west-1` → `https://eu-west-1.gb-ingest.com`
+
+Sending events to the wrong region's host means they won't reach the ClickHouse cluster your data warehouse actually lives in — always match the host to the region shown on your datasource's settings page.
+
+Pass an array of event objects, each with the following properties:
 
 - **event_name**: The name of the event (e.g., "Purchase", "Button Click")
 - **properties**: Optional key-value pairs with properties of the event itself
@@ -284,7 +310,7 @@ You can also send events directly to our ingestion API. Pass an array of event o
 - **timestamp**: Optional ISO timestamp of when the event occurred. Only used when batching events with a `sentAt` field (see [Event timestamps](#event-timestamps) below).
 
 ```bash
-curl -X POST "https://us1.gb-ingest.com/track?client_key=YOUR_CLIENT_KEY" \
+curl -X POST "https://YOUR_WAREHOUSE_REGION.gb-ingest.com/track?client_key=YOUR_CLIENT_KEY" \
 -H "Content-Type: application/json" \
 -d '[{
   "event_name": "Purchase",
@@ -298,6 +324,16 @@ curl -X POST "https://us1.gb-ingest.com/track?client_key=YOUR_CLIENT_KEY" \
 ```
 
 Make sure you do not include any sensitive information in your events (or if you do, anonymize it first).
+
+#### Identifiers
+
+To tie events to users for experiment analysis, include identifier keys in `attributes`:
+
+- **`user_id`**: a logged-in user ID. Promoted to the top-level `user_id` column at ingest.
+- **`device_id`**: an anonymous device or browser ID. Promoted to the top-level `device_id` column at ingest.
+- **`anonymous_id`** or **`id`**: also resolve to the `device_id` identifier, but at analysis time instead of ingest — they stay inside the `attributes` JSON.
+
+Prefer the explicit `user_id` and `device_id` keys, and use each key for one kind of ID consistently. For example, if you send a logged-in user ID as `id` today and later start sending a real device ID as `device_id`, the `device_id` identifier will mix the two ID spaces and experiment analysis will silently drop units. See [Identifiers](#identifiers-and-custom-attributes) for how these keys map to identifiers.
 
 #### Event timestamps
 
@@ -335,7 +371,7 @@ In order to use GrowthBook's experiment analysis features, you must send an even
   - `experimentId`: The ID of the experiment being viewed
   - `variationId`: The ID of the variation that was shown to the user
 
-In addition, you must include `attributes` with the user attributes that were used to evaluate the experiment, plus any attributes you want to use as dimensions for slicing and dicing.
+In addition, you must include `attributes` with the user attributes that were used to evaluate the experiment, plus any attributes you want to use as dimensions for slicing and dicing. At minimum this must include the attribute the experiment hashes on (its **Assign Variation by Attribute**), since that's the [identifier](#identifiers) used to join exposures to your metrics.
 
 #### Feature usage events
 
@@ -386,21 +422,31 @@ When calling the ingestion API directly, be aware of the following default limit
 
 If you need to send more than this, reach out and we can increase your limits.
 
-## Key attributes (materialized columns)
+## Identifiers and custom attributes
 
-By default, all attributes are stored as a JSON string in the `attributes` column of the `events` table. This keeps the table structure clean, but it can be more tedious and slow to query.
+All attributes sent with your events are stored in a native ClickHouse JSON column called `attributes` on the `events` table (event properties live in a `properties` JSON column). Every attribute is automatically queryable — no setup required.
 
-On the data source settings page, you can pick a set of "Key Attributes" that will be added as top-level columns in the table.
+Identifiers — the attributes used to split traffic in experiments — come in two flavors:
 
-There are 2 main types of Key Attributes you should add:
+### Built-in identifiers
 
-1. **Identifiers**: used to split traffic in experiments. Common examples are `user_id`, `anonymous_id`, and `session_id`.
-2. **Dimensions**: used to slice and dice your experiment results. Common examples are `geo_country`, `ua_device_type`, and `account_plan`.
+Every table has `user_id` and `device_id` columns. The columns always exist, but they only carry values when your events include one of the following attribute keys:
 
-You can also select `Other` as the type for any attributes that don't fit into the above categories. This will add them as top-level columns, but they won't be used for splitting traffic or slicing results.
+| Identifier  | Populated from attribute keys (first non-empty wins) | Intended for                      |
+| ----------- | ---------------------------------------------------- | --------------------------------- |
+| `user_id`   | `user_id`                                            | Logged-in user IDs                |
+| `device_id` | `device_id`, `anonymous_id`, `id`                    | Anonymous, device, or session IDs |
+
+The SDK tracking plugin applies this mapping automatically from your SDK attributes, and the [Ingestion API](#identifiers) does the same for the `user_id` and `device_id` keys. Events that carried their ID as `anonymous_id` or `id` are resolved into `device_id` when queries run, so experiment analysis works with any of these keys — including for past events.
+
+When you assign an experiment by hash attribute, GrowthBook picks the matching identifier automatically: experiments assigned on the `id` or `anonymous_id` attribute use the `device_id` identifier for analysis.
+
+### Custom identifiers
+
+Any other scalar attribute marked as an **Identifier** under **SDK Connections** &rarr; **Attributes** (for example `account_id`) is automatically exposed as a top-level column on your fact tables and available for experiment assignment.
 
 :::note
-Adding new Key Attributes does not apply retroactively to existing events. It only affects new events going forward. The GrowthBook team can help you backfill existing events with Key Attributes if needed.
+Identifier resolution reads from the `attributes` JSON column, so marking an attribute as an identifier applies retroactively to all past events that included it.
 :::
 
 ## SQL Explorer
@@ -435,18 +481,39 @@ For best performance, take advantage of the indexed columns in each table:
 
 #### Querying attributes and properties
 
-If you need to access data inside attributes or properties, you can use the `JSONExtract` functions from ClickHouse to extract values from the JSON string. Here's an example:
+The `attributes` and `properties` columns are native ClickHouse JSON columns, so you can access fields inside them with dot syntax. Cast the value to get a concrete type:
 
 ```sql
 SELECT
-  JSONExtractString(attributes, 'geo_country') AS country,
-  JSONExtractFloat(properties, 'amount') AS amount
+  attributes.account_plan::Nullable(String) AS account_plan,
+  toFloat64OrNull(properties.amount::Nullable(String)) AS amount
 FROM events
 WHERE timestamp >= '2025-06-01 00:00:00'
   AND event_name = 'Purchase'
 ```
 
-For attributes that are commonly used in queries, define them as [Key Attributes](#key-attributes-materialized-columns) to pull them out as top-level columns. This makes querying easier and improves performance.
+Attributes marked as [Identifiers](#identifiers-and-custom-attributes) are already exposed as top-level columns, so you can reference them directly without the JSON path.
+
+#### Identifier columns in custom SQL
+
+The physical `user_id` and `device_id` columns only contain values that were promoted at ingest — by the SDK tracking plugin, or by the `user_id`/`device_id` attribute keys on the Ingestion API. Events that carried their ID as `anonymous_id` or `id` keep it inside the `attributes` JSON instead. GrowthBook-generated queries resolve this automatically, but hand-written SQL reads the raw columns.
+
+If your custom SQL joins or groups on identifiers — especially in a [custom fact table](/app/metrics) used for experiment analysis — use the same resolution expressions GrowthBook uses:
+
+```sql
+coalesce(
+  nullIf(user_id, ''),
+  nullIf(attributes.user_id::Nullable(String), '')
+) AS user_id,
+coalesce(
+  nullIf(device_id, ''),
+  nullIf(attributes.device_id::Nullable(String), ''),
+  nullIf(attributes.anonymous_id::Nullable(String), ''),
+  nullIf(attributes.id::Nullable(String), '')
+) AS device_id
+```
+
+Keep the standard column names (`user_id`, `device_id`): experiment analysis joins your fact table to GrowthBook's exposure queries by identifier, so a fact table that extracts an ID from the JSON under a different name won't match any exposures.
 
 #### Large queries
 
@@ -476,9 +543,13 @@ There are also functions like `toStartOfHour`, `toStartOfMonth`, etc. that you c
 
 Yes. You can add a separate data source for your own warehouse at any time and use both simultaneously. Note that each experiment pulls data from a single data source, so you can't mix metrics from both warehouses within one experiment.
 
-### How do I add custom identifiers like `user_id`?
+### How do I add custom identifiers like `account_id`?
 
-Go to your data source settings page and add `user_id` as a new Key Attribute with type **Identifier**. Once added, include `user_id` in the `attributes` of your events and it will be extracted as a top-level column.
+`user_id` and `device_id` are built in. To add another identifier, go to **SDK Connections** &rarr; **Attributes** and mark the attribute as an **Identifier**. Include it in the `attributes` of your events and it will be exposed as a top-level column on your fact tables.
+
+### Why are the `user_id`/`device_id` columns empty when I query directly?
+
+Those columns are only filled at ingest when events include the `user_id` or `device_id` attribute keys (the SDK tracking plugin does this for you). If your events carried their ID as `anonymous_id` or `id`, it lives in the `attributes` JSON — experiment analysis resolves it into `device_id` automatically, but your own SQL needs to do the same. See [Identifier columns in custom SQL](#identifier-columns-in-custom-sql).
 
 ### What happens if I exceed my event limit?
 

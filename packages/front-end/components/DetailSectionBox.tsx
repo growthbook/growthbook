@@ -20,7 +20,7 @@ export function DetailSectionBox({
   return (
     <Frame>
       <Flex align="center" justify="between" mb="4">
-        <Heading as="h4" size="small" mb="0">
+        <Heading as="h4" size="sm" mb="0">
           {title}
         </Heading>
         {onEdit ? (

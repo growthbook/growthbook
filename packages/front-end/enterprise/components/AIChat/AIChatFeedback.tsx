@@ -36,12 +36,15 @@ interface AIChatFeedbackProps {
     rating: AIChatFeedbackRating | null,
     comment: string,
   ) => void;
+  /** Defaults to "AI Chat Feedback" (PA). General agent passes "AI Assistant Feedback". */
+  trackingEventName?: string;
 }
 
 export function AIChatFeedback({
   messageId,
   value,
   onSubmit,
+  trackingEventName = "AI Chat Feedback",
 }: AIChatFeedbackProps) {
   const [commentOpen, setCommentOpen] = useState(false);
   const [draftComment, setDraftComment] = useState(value.comment);
@@ -59,13 +62,13 @@ export function AIChatFeedback({
       action: "rate" | "comment" | "clear",
       rating: AIChatFeedbackRating | null,
     ) => {
-      track("AI Chat Feedback", {
+      track(trackingEventName, {
         action,
         rating,
         hasComment: action === "comment",
       });
     },
-    [],
+    [trackingEventName],
   );
 
   const handleThumbsUp = useCallback(() => {
@@ -156,7 +159,7 @@ export function AIChatFeedback({
         contentStyle={{ padding: "12px", width: 280 }}
         content={
           <Flex direction="column" gap="2">
-            <Text size="small" weight="medium">
+            <Text size="sm" weight="medium">
               What went wrong?
             </Text>
             <Box asChild>
@@ -185,13 +188,13 @@ export function AIChatFeedback({
             <Flex justify="end" gap="2">
               <Button
                 variant="ghost"
-                size="xs"
+                size="sm"
                 onClick={() => setCommentOpen(false)}
               >
                 Skip
               </Button>
               <Button
-                size="xs"
+                size="sm"
                 onClick={handleCommentSubmit}
                 disabled={!draftComment.trim()}
               >
@@ -204,7 +207,7 @@ export function AIChatFeedback({
 
       {value.comment && value.rating === "negative" && (
         <Box ml="1">
-          <Text size="small" color="text-low">
+          <Text size="sm" color="text-low">
             Feedback sent
           </Text>
         </Box>

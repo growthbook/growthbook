@@ -273,7 +273,7 @@ export default function FilterQueryPopover({
 
   const content = (
     <div ref={contentRef} style={{ width: 420 }}>
-      <Text size="medium" weight="semibold" color="text-mid" as="div" mb="3">
+      <Text size="md" weight="semibold" color="text-mid" as="div" mb="3">
         Add Filter Condition
       </Text>
 
@@ -284,7 +284,7 @@ export default function FilterQueryPopover({
           value={property}
           setValue={setProperty}
           placeholder="Choose property..."
-          size="2"
+          size="md"
           container={contentRef.current}
           style={{ width: 185, flexShrink: 0 }}
         >
@@ -344,7 +344,7 @@ export default function FilterQueryPopover({
           value={operator}
           setValue={(v) => setOperator(v as FilterOperator)}
           placeholder="Operator..."
-          size="2"
+          size="md"
           disabled={!property}
           container={contentRef.current}
           style={{ width: 140, flexShrink: 0 }}
@@ -365,7 +365,7 @@ export default function FilterQueryPopover({
                 value={value}
                 setValue={setValue}
                 placeholder="Choose value..."
-                size="2"
+                size="md"
                 container={contentRef.current}
                 style={{ width: 140, flexShrink: 0 }}
               >
@@ -401,21 +401,21 @@ export default function FilterQueryPopover({
       {/* Add / Close */}
       <Flex gap="2" align="center" mb="2">
         <Button
-          size="xs"
+          size="sm"
           variant="solid"
           disabled={!canAdd}
           onClick={handleAdd}
         >
           Add
         </Button>
-        <Button size="xs" variant="outline" onClick={() => onOpenChange(false)}>
+        <Button size="sm" variant="outline" onClick={() => onOpenChange(false)}>
           Close
         </Button>
       </Flex>
 
       {/* Keyboard hints */}
       <Flex align="center" gap="1">
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           Press
         </Text>
         <kbd
@@ -432,10 +432,10 @@ export default function FilterQueryPopover({
         >
           Enter
         </kbd>
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           to add
         </Text>
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           ·
         </Text>
         <kbd
@@ -452,7 +452,7 @@ export default function FilterQueryPopover({
         >
           Esc
         </kbd>
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           to cancel
         </Text>
       </Flex>

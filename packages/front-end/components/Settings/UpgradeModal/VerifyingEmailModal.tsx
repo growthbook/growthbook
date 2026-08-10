@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
+import Callout from "@/ui/Callout";
 import LicenseSuccessModal from "./LicenseSuccessModal";
 import UpgradeModal from ".";
 
@@ -91,7 +92,7 @@ export default function VerifyingEmailModal() {
               try again.
             </a>
           </span>
-          <div className="alert alert-danger">{verifyEmailError}</div>
+          <Callout status="error">{verifyEmailError}</Callout>
         </div>
       ) : (
         <div>Please be patient while we verify your account.</div>

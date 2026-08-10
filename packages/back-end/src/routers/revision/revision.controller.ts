@@ -12,9 +12,11 @@ import {
 } from "shared/enterprise";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { ReqContext } from "back-end/types/request";
 import { ApiErrorResponse } from "back-end/types/api";
 import { ConflictError, MergeConflictError } from "back-end/src/util/errors";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { ArmAcknowledgments } from "back-end/src/services/armGuards";
 import {
   getAdapter,
   getApprovalEnabledEntityTypes,
@@ -30,6 +32,28 @@ import {
   maybeAutoPublishRevision,
   canEnableAutoPublishOnApproval,
 } from "back-end/src/revisions/revisionActions";
+
+// Arm-time acknowledgment for a deferred publish, via the entity's adapter hook
+// (config uses it for the experiment guard; others have none). Throws when the
+// armer must acknowledge a condition first; returns keys to snapshot on the arm.
+async function captureArmAcknowledgment(
+  context: ReqContext,
+  revision: Pick<Revision, "target">,
+  // Reuse an already-loaded entity when the caller has one.
+  prefetchedEntity?: Record<string, unknown> | null,
+): Promise<ArmAcknowledgments | undefined> {
+  const adapter = getAdapter(revision.target.type);
+  if (!adapter.captureArmAcknowledgment) return undefined;
+  const entity =
+    prefetchedEntity ??
+    (await adapter.getModel(context)?.getById(revision.target.id));
+  if (!entity) return undefined;
+  return adapter.captureArmAcknowledgment(
+    context,
+    entity,
+    revision.target.proposedChanges,
+  );
+}
 
 // region GET /revision
 
@@ -449,8 +473,13 @@ export const postSubmit = async (
       existingRevision.target.snapshot as Record<string, unknown>,
     );
 
+  const armAcknowledgments = enableAutoPublish
+    ? await captureArmAcknowledgment(context, existingRevision)
+    : undefined;
+
   const revision = await revisionModel.submitForReview(id, userId, {
     autoPublishOnApproval: enableAutoPublish,
+    armAcknowledgments,
   });
 
   await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
@@ -873,6 +902,7 @@ export const postRebase = async (
     baseSnapshot,
     liveSnapshot,
     existingOps,
+    getAdapter(revision.target.type).getUpdatableFields(),
   );
 
   // Optimistic-lock: verify the client's view of the conflict set still
@@ -1124,6 +1154,7 @@ export const postApproveAndPublish = async (
     revision.target.snapshot as Record<string, unknown>,
     entity as Record<string, unknown>,
     normalizeProposedChanges(revision.target.proposedChanges),
+    adapter.getUpdatableFields(),
   );
   if (!conflictResult.success) {
     throw new MergeConflictError(
@@ -1222,10 +1253,15 @@ export const postToggleAutoPublish = async (
     context.permissions.throwPermissionError();
   }
 
+  const armAcknowledgments = enabled
+    ? await captureArmAcknowledgment(context, existing)
+    : undefined;
+
   const revision = await revisionModel.setAutoPublishOnApproval(
     id,
     userId,
     !!enabled,
+    { armAcknowledgments },
   );
 
   // Arming an already-approved revision must publish now — otherwise it waits
@@ -1742,11 +1778,28 @@ export const postSchedulePublish = async (
     }
   }
 
+  // Arming against an entity that can't accept a future publish (e.g. a locked
+  // config) would just fail at every poller tick — reject up front. Canceling
+  // is never gated. Reused below for the config experiment-guard acknowledgment.
+  const scheduleEntity = isCancel
+    ? null
+    : ((await adapter.getModel(context)?.getById(existingRevision.target.id)) ??
+      null);
+  if (adapter.assertSchedulable && scheduleEntity) {
+    await adapter.assertSchedulable(context, scheduleEntity);
+  }
+
+  // Reuses the already-fetched entity.
+  const armAcknowledgments = isCancel
+    ? undefined
+    : await captureArmAcknowledgment(context, existingRevision, scheduleEntity);
+
   const revision = await revisionModel.setScheduledPublish(id, enabledBy, {
     scheduledPublishAt: parsedDate,
     lockEdits,
     lockOthers,
     bypassApproval: wantsBypass,
+    armAcknowledgments,
   });
 
   await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
@@ -1846,6 +1899,7 @@ export const getConflicts = async (
     revision.target.snapshot as unknown as Record<string, unknown>,
     liveEntity as Record<string, unknown>,
     normalizeProposedChanges(revision.target.proposedChanges),
+    getAdapter(revision.target.type).getUpdatableFields(),
   );
 
   res.status(200).json({

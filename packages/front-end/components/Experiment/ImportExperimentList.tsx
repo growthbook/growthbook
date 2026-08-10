@@ -167,7 +167,7 @@ const ImportExperimentList: FC<{
     return <LoadingOverlay />;
   }
   if (error) {
-    return <div className="alert alert-error">{error?.message}</div>;
+    return <Callout status="error">{error?.message}</Callout>;
   }
   if (!data || !ready) {
     return <LoadingOverlay />;
@@ -202,6 +202,7 @@ const ImportExperimentList: FC<{
         <div className="col-auto">
           {changeDatasource && supportedDatasources.length > 1 ? (
             <SelectField
+              size="legacy"
               value={data.experiments.datasource}
               options={supportedDatasources.map((d) => {
                 const isDefaultDataSource = d.id === defaultDataSource;
@@ -390,6 +391,7 @@ const ImportExperimentList: FC<{
             <div className="col-auto">
               <label className="small mb-0">Filter</label>
               <Field
+                size="legacy"
                 placeholder="Search..."
                 type="search"
                 {...searchInputProps}
@@ -397,6 +399,7 @@ const ImportExperimentList: FC<{
             </div>
             <div className="col-auto">
               <Field
+                size="legacy"
                 label="# Units"
                 labelClassName="small mb-0"
                 type="number"
@@ -412,6 +415,7 @@ const ImportExperimentList: FC<{
             </div>
             <div className="col-auto">
               <Field
+                size="legacy"
                 label="Test Duration"
                 labelClassName="small mb-0"
                 type="number"
@@ -428,6 +432,7 @@ const ImportExperimentList: FC<{
             </div>
             <div className="col-auto">
               <Field
+                size="legacy"
                 label="# Variations"
                 labelClassName="small mb-0"
                 type="number"
@@ -442,29 +447,19 @@ const ImportExperimentList: FC<{
               />
             </div>
             <div className="col-auto">
-              <Field
+              <SelectField
+                size="legacy"
                 label="Status"
                 labelClassName="small mb-0"
                 options={[
-                  {
-                    display: "All",
-                    value: "",
-                  },
-                  {
-                    display: "Running",
-                    value: "running",
-                  },
-                  {
-                    display: "Stopped",
-                    value: "stopped",
-                  },
+                  { label: "All", value: "" },
+                  { label: "Running", value: "running" },
+                  { label: "Stopped", value: "stopped" },
                 ]}
                 value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(
-                    (e.target.value as "" | "stopped" | "running") || "",
-                  );
-                }}
+                onChange={(value) =>
+                  setStatusFilter((value as "" | "stopped" | "running") || "")
+                }
               />
             </div>
             <div className="col-auto align-self-center">
@@ -635,7 +630,7 @@ const ImportExperimentList: FC<{
               {items.length <= 0 && totalRows > 0 && (
                 <tr>
                   <td colSpan={8}>
-                    <div className="alert alert-info">
+                    <Callout status="info">
                       <em>
                         No experiments match your current filters.{" "}
                         <a
@@ -648,7 +643,7 @@ const ImportExperimentList: FC<{
                           Clear all filters
                         </a>
                       </em>
-                    </div>
+                    </Callout>
                   </td>
                 </tr>
               )}

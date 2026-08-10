@@ -270,6 +270,18 @@ export type MaterializedColumn = {
   type?: MaterializedColumnType;
 };
 
+/**
+ * A schema-declared attribute exposed as a typed ALIAS column literally named
+ * `attributes.<property>` on the per-org managed-warehouse JSON tables, so
+ * hand-written SQL can reference the path bare (typed, drift-safe) instead of
+ * casting. `number` maps to Nullable(Float64) via toFloat64OrNull; everything
+ * else to Nullable(String) (mirroring the dialect's jsonExtract semantics).
+ */
+export type TypedAttributeColumn = {
+  property: string;
+  datatype: "string" | "number";
+};
+
 export type DataSourceSettings = {
   // @deprecated
   experimentDimensions?: string[];
@@ -319,6 +331,8 @@ export interface GrowthbookClickhouseSettings extends DataSourceSettings {
   /** When false, the warehouse exists in GrowthBook but ClickHouse was not provisioned yet. */
   hasBeenProvisioned?: boolean;
   sessionReplayProvisioned?: boolean;
+  /** AWS region the managed warehouse is provisioned in. Absent means `us-east-1` (pre-EU warehouses). */
+  region?: "us-east-1" | "eu-west-1";
   /** @deprecated Replaced by native JSON columns (`useJsonColumns`); kept for legacy warehouses. */
   materializedColumns?: MaterializedColumn[];
   /**
@@ -351,6 +365,31 @@ export interface GrowthbookClickhouseSettings extends DataSourceSettings {
    * field; that duplicate listing is harmless — both resolve to the same data.
    */
   migratedColumns?: MaterializedColumn[];
+  /**
+   * Schema-declared attributes exposed as typed `attributes.<property>` ALIAS
+   * columns on the per-org JSON tables (see TypedAttributeColumn). Derived from
+   * the org attribute schema on every attribute-change sync and persisted here
+   * so the license server (which applies the DDL at provision/recreate/sync
+   * time) reads the desired state from this doc.
+   */
+  typedAttributeColumns?: TypedAttributeColumn[];
+  /**
+   * Version of the JSON-ergonomics setup (user settings + typed attribute
+   * columns) last applied to this warehouse. The backfill sweep enqueues
+   * provisioned JSON warehouses whose version is behind
+   * MANAGED_WAREHOUSE_JSON_ERGONOMICS_VERSION; bump that constant to re-sweep.
+   */
+  jsonErgonomicsVersion?: number;
+  /**
+   * Which built-in identifier the `id` attribute folds into in generated SQL.
+   * Defaults to "device_id" (the SDK tracking plugin's contract). Orgs that send
+   * a logged-in user ID under the `id` key via the Ingestion API can set
+   * "user_id" so `attributes.id` participates in user_id joins instead. Only
+   * meaningful on JSON-column warehouses, and incompatible with the tracking
+   * plugin: the plugin folds `id` into the physical device_id column client-side
+   * and strips it from the JSON, where this query-time remap can't see it.
+   */
+  idAttributeIdentifier?: "user_id" | "device_id";
 }
 
 interface DataSourceBase {

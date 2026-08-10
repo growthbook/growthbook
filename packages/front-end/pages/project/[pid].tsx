@@ -35,6 +35,7 @@ import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListM
 import Metadata from "@/ui/Metadata";
 import ChanceToWinThresholdField from "@/components/GeneralSettings/ExperimentSettings/ChanceToWinThresholdField";
 import PValueThresholdField from "@/components/GeneralSettings/ExperimentSettings/PValueThresholdField";
+import Callout from "@/ui/Callout";
 
 function emptyStringToUndefined(v: unknown): number | undefined {
   if (v === "" || v === null || v === undefined) return undefined;
@@ -120,16 +121,16 @@ const ProjectPage: FC = () => {
   if (!canEditSettings) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           You do not have access to view this page.
-        </div>
+        </Callout>
       </div>
     );
   }
   if (error) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">{error}</div>
+        <Callout status="error">{error}</Callout>
       </div>
     );
   }
@@ -139,9 +140,9 @@ const ProjectPage: FC = () => {
   if (!p) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           Project <code>{pid}</code> does not exist.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -177,7 +178,7 @@ const ProjectPage: FC = () => {
         ) : null}
         <Flex align="center" justify="between" width="100%">
           <Flex align="start" direction="column">
-            <Heading size="x-large" as="h1">
+            <Heading size="xl" as="h1" overflowWrap="anywhere">
               {p.name}
             </Heading>
             <Flex gap="6" mb="4">
@@ -233,7 +234,7 @@ const ProjectPage: FC = () => {
                 <Frame>
                   <Flex gap="4">
                     <Box width="220px" flexShrink="0">
-                      <Heading as="h4" size="medium">
+                      <Heading as="h4" size="md">
                         Experiment Analysis
                       </Heading>
                     </Box>
@@ -242,7 +243,7 @@ const ProjectPage: FC = () => {
                         className="form-group align-items-start"
                         width="100%"
                       >
-                        <Heading as="h5" size="small">
+                        <Heading as="h5" size="sm">
                           Stats Engine Settings
                         </Heading>
                         <Box mb="3">
@@ -337,7 +338,7 @@ const ProjectPage: FC = () => {
                 <Frame>
                   <Flex gap="4" mb="4">
                     <Box width="220px" flexShrink="0">
-                      <Heading as="h4" size="medium">
+                      <Heading as="h4" size="md">
                         Experiment Settings
                       </Heading>
                     </Box>
@@ -348,7 +349,7 @@ const ProjectPage: FC = () => {
                             commercialFeature="custom-launch-checklist"
                             premiumText="Custom pre-launch checklists are available to Enterprise customers"
                           >
-                            <Heading as="h5" size="small">
+                            <Heading as="h5" size="sm">
                               Experiment Pre-Launch Checklist
                             </Heading>
                           </PremiumTooltip>

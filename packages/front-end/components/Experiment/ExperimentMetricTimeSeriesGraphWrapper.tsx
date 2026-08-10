@@ -9,7 +9,7 @@ import {
 import { daysBetween, getValidDate } from "shared/dates";
 import { addDays, min } from "date-fns";
 import { filterInvalidMetricTimeSeries } from "shared/util";
-import { ExperimentMetricInterface, getAdjustedCI } from "shared/experiments";
+import { ExperimentMetricDefinition, getAdjustedCI } from "shared/experiments";
 import { reportException } from "@/services/errorReporting";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -122,7 +122,7 @@ interface ExperimentMetricTimeSeriesGraphWrapperProps {
   experimentId: string;
   pValueThreshold: number;
   phase: number;
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   differenceType: DifferenceType;
   variations: GraphVariation[];
   showVariations: boolean[];

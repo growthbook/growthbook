@@ -73,6 +73,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
   type: { type: String },
   triggeredBy: String,
   report: String,
+  runnerKind: String,
   dateCreated: Date,
   sourceSnapshotId: String,
   sourceSnapshotDateCreated: Date,
@@ -231,6 +232,15 @@ const experimentSnapshotSchema = new mongoose.Schema({
 });
 experimentSnapshotSchema.index({
   experiment: 1,
+  dateCreated: -1,
+});
+// Backs the bulk-results export: organization + experiment equality, then
+// status (bounded by both branches of the query's $or), then dateCreated for
+// the window filter and the descending sort.
+experimentSnapshotSchema.index({
+  organization: 1,
+  experiment: 1,
+  status: 1,
   dateCreated: -1,
 });
 
@@ -864,6 +874,25 @@ export async function deleteSnapshotById(context: Context, id: string) {
   });
 }
 
+export async function deleteAllSnapshotsForExperiment(
+  context: Context,
+  experimentId: string,
+) {
+  const snapshots = await ExperimentSnapshotModel.find({
+    organization: context.org.id,
+    experiment: experimentId,
+  }).select({ id: 1 });
+  if (snapshots.length) {
+    await context.models.experimentSnapshotAnalysisChunks.deleteBySnapshotIds(
+      snapshots.map((s) => s.id),
+    );
+  }
+  await ExperimentSnapshotModel.deleteMany({
+    organization: context.org.id,
+    experiment: experimentId,
+  });
+}
+
 export async function findSnapshotById(
   context: Context,
   id: string,
@@ -887,6 +916,75 @@ export async function findSnapshotsByIds(
   });
   const snapshots = docs.map(toInterface);
   return populateSnapshotAnalyses(context, snapshots);
+}
+
+export async function findSnapshotsByExperiment(
+  context: ReqContext | ApiReqContext,
+  {
+    experiment,
+    dateStart,
+    dateEnd,
+    phase,
+    type,
+    limit,
+    offset,
+  }: {
+    experiment: string;
+    dateStart: Date;
+    dateEnd: Date;
+    phase?: number;
+    type?: SnapshotType;
+    limit: number;
+    offset: number;
+  },
+): Promise<{ snapshots: ExperimentSnapshotInterface[]; total: number }> {
+  const query: FilterQuery<ExperimentSnapshotDocument> = {
+    organization: context.org.id,
+    experiment,
+    dateCreated: { $gte: dateStart, $lte: dateEnd },
+    // `status` is derived at read time by migrateSnapshot, so snapshots
+    // written before the field existed need the legacy results check too.
+    // Both branches pin `status` so the index below can bound them; without
+    // that, `status` stops being an equality match and the dateCreated range
+    // and sort fall out of the index.
+    $or: [
+      { status: "success" },
+      {
+        status: { $exists: false },
+        results: { $exists: true, $type: "array", $ne: [] },
+      },
+    ],
+  };
+  if (phase !== undefined) {
+    query.phase = phase;
+  }
+  // Only filter by type when requested; by default include every type
+  // (standard, exploratory, and report) since this endpoint dumps all runs.
+  if (type === "standard") {
+    // `type` was added in Oct 2024 and never backfilled; the serializer reads
+    // a missing type as "standard", so the filter has to match that.
+    query.type = { $in: ["standard", null] };
+  } else if (type) {
+    query.type = type;
+  }
+
+  const total = await ExperimentSnapshotModel.countDocuments(query);
+
+  // Paginate over snapshots at the DB level (backed by the
+  // { organization, experiment, status, dateCreated } index) since hydrating
+  // chunked analyses per snapshot is expensive.
+  const docs = await ExperimentSnapshotModel.find(query, null, {
+    sort: { dateCreated: -1 },
+    skip: offset,
+    limit,
+  }).exec();
+
+  const snapshots = await populateSnapshotAnalyses(
+    context,
+    docs.map(toInterface),
+  );
+
+  return { snapshots, total };
 }
 
 export async function findRunningSnapshotsByQueryId(ids: string[]) {

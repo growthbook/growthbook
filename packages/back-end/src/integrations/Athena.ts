@@ -19,9 +19,6 @@ export default class Athena extends SqlIntegration {
   getSqlDialect(): SqlDialect {
     return athenaDialect;
   }
-  getSensitiveParamKeys(): string[] {
-    return ["accessKeyId", "secretAccessKey"];
-  }
   runQuery(
     sql: string,
     setExternalId: ExternalIdCallback,

@@ -33,7 +33,7 @@ import SelectField, {
   GroupedValue,
   SingleValue,
 } from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
@@ -534,10 +534,10 @@ const AnalysisForm: FC<{
             <Flex justify="between" align="start" gap="3">
               <Box style={{ flex: 1, minWidth: 0 }}>
                 <Box mb="1">
-                  <Text size="small" color="text-mid">
+                  <Text size="sm" color="text-mid">
                     Data Source:
                   </Text>{" "}
-                  <Text size="small" weight="medium">
+                  <Text size="sm" weight="medium">
                     {datasource?.name || (
                       <Text color="text-mid" fontStyle="italic">
                         None
@@ -547,10 +547,10 @@ const AnalysisForm: FC<{
                 </Box>
                 {datasource?.properties?.exposureQueries && (
                   <Box mb="1">
-                    <Text size="small" color="text-mid">
+                    <Text size="sm" color="text-mid">
                       Experiment Assignment Table:
                     </Text>{" "}
-                    <Text size="small" weight="medium">
+                    <Text size="sm" weight="medium">
                       {exposureQueries?.find(
                         (q) => q.id === form.watch("exposureQueryId"),
                       )?.name || (
@@ -563,10 +563,10 @@ const AnalysisForm: FC<{
                 )}
                 {datasource && !isHoldout && (
                   <Box>
-                    <Text size="small" color="text-mid">
+                    <Text size="sm" color="text-mid">
                       Tracking Key:
                     </Text>{" "}
-                    <Text size="small" weight="medium">
+                    <Text size="sm" weight="medium">
                       {form.watch("trackingKey") || "—"}
                     </Text>
                   </Box>
@@ -574,7 +574,7 @@ const AnalysisForm: FC<{
               </Box>
               {!isBandit && (
                 <Button
-                  size="xs"
+                  size="sm"
                   variant="ghost"
                   onClick={() => setEditingDataSource(true)}
                 >

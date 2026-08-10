@@ -1,0 +1,8 @@
+---
+description: "Backend data model patterns using BaseModel/MakeModelClass"
+globs: packages/back-end/src/models/**/*.ts
+alwaysApply: false
+---
+# Back-end Model Patterns
+
+Before creating or changing a back-end model, read and follow `.agents/guides/backend/model-patterns.md`.

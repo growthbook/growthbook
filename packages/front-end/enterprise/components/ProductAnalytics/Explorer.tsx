@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/router";
 import { Flex, Box, AlertDialog } from "@radix-ui/themes";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { PiDotsSix } from "react-icons/pi";
 import {
+  ComparisonMode,
   DatasetType,
   ExplorationConfig,
   ExplorationDateRange,
@@ -11,8 +13,10 @@ import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
 import { useQueryState } from "nuqs";
 import { NuqsAdapter } from "nuqs/adapters/next/pages";
 import ShadowedScrollArea from "@/components/ShadowedScrollArea/ShadowedScrollArea";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import ExplorerSideBar from "./SideBar/ExplorerSideBar";
 import {
   ExplorerProvider,
@@ -27,6 +31,7 @@ import {
   explorationConfigParser,
   ExplorerDraftConfig,
   previousTimeFrameQueryParser,
+  comparisonModeQueryParser,
   stripExplorerDraftFields,
 } from "./util";
 
@@ -34,6 +39,7 @@ const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
   metric: "Metric",
   fact_table: "Fact Table",
   data_source: "Data Source",
+  funnel: "Funnel",
 };
 
 const explorationQueryParser = explorationConfigParser.withOptions({
@@ -42,6 +48,11 @@ const explorationQueryParser = explorationConfigParser.withOptions({
 });
 
 const previousTimeFrameParser = previousTimeFrameQueryParser.withOptions({
+  shallow: true,
+  throttleMs: 0,
+});
+
+const comparisonModeParser = comparisonModeQueryParser.withOptions({
   shallow: true,
   throttleMs: 0,
 });
@@ -117,7 +128,11 @@ function ExplorerContent() {
 
         {/* Sidebar */}
         <Panel id="sidebar" order={2} defaultSize={25} minSize={20}>
-          <ShadowedScrollArea height="calc(100vh - 160px)">
+          {/* Let the scroll area fill the panel (which already sizes itself
+              against the parent group's height) instead of a hardcoded
+              `calc(100vh - 160px)` — the latter left ~88px dead space at
+              the bottom and caused unnecessary scrolling. */}
+          <ShadowedScrollArea height="100%">
             <ExplorerSideBar />
           </ShadowedScrollArea>
         </Panel>
@@ -147,10 +162,13 @@ function ExplorerUrlSync({
 
 function ExplorerPreviousTimeFrameUrlSync({
   setUrlPreviousTimeFrame,
+  setUrlComparisonMode,
 }: {
   setUrlPreviousTimeFrame: (value: ExplorationDateRange | null) => void;
+  setUrlComparisonMode: (value: ComparisonMode | null) => void;
 }) {
-  const { draftExploreState } = useExplorerContext();
+  const { draftExploreState, compareEnabled, comparisonMode } =
+    useExplorerContext();
   const hasUserModified = useRef(false);
 
   useEffect(() => {
@@ -159,7 +177,14 @@ function ExplorerPreviousTimeFrameUrlSync({
       return;
     }
     void setUrlPreviousTimeFrame(draftExploreState.previousTimeFrame ?? null);
-  }, [draftExploreState.previousTimeFrame, setUrlPreviousTimeFrame]);
+    void setUrlComparisonMode(compareEnabled ? comparisonMode : null);
+  }, [
+    draftExploreState.previousTimeFrame,
+    compareEnabled,
+    comparisonMode,
+    setUrlPreviousTimeFrame,
+    setUrlComparisonMode,
+  ]);
 
   return null;
 }
@@ -173,7 +198,10 @@ export default function Explorer({ type }: { type: DatasetType }) {
 }
 
 function ExplorerInner({ type }: { type: DatasetType }) {
+  const router = useRouter();
   const defaultDataSourceId = useDefaultDataSourceId();
+  const { ready, getFactMetricById, getFactTableById, getDatasourceById } =
+    useDefinitions();
 
   const [urlConfig, setUrlConfig] = useQueryState(
     "config",
@@ -185,10 +213,23 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     previousTimeFrameParser,
   );
 
-  const rawParam =
-    typeof window !== "undefined"
-      ? (new URLSearchParams(window.location.search).get("config") ?? undefined)
-      : undefined;
+  const [urlComparisonMode, setUrlComparisonMode] = useQueryState(
+    "comparisonMode",
+    comparisonModeParser,
+  );
+
+  const getQueryParam = (value: string | string[] | undefined) =>
+    Array.isArray(value) ? value[0] : value;
+  const rawParam = getQueryParam(router.query.config);
+  const metricId = getQueryParam(router.query.metricId);
+  const factTableId = getQueryParam(router.query.factTableId);
+  const datasourceId = getQueryParam(router.query.datasourceId);
+  const seedId =
+    type === "metric"
+      ? metricId
+      : type === "fact_table"
+        ? factTableId
+        : datasourceId;
 
   const configError = deriveConfigError(urlConfig, rawParam, type);
 
@@ -196,19 +237,99 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     () => configError,
   );
 
+  // Funnels manage their initial state via createEmptyDataset (which seeds
+  // one empty step); the other dataset types still seed an empty value here
+  // so the sidebar opens with one ready-to-edit row.
   const defaultDataset = createEmptyDataset(type);
   const defaultDraftState = {
     ...DEFAULT_EXPLORE_STATE,
     type,
     datasource: defaultDataSourceId,
-    dataset: { ...defaultDataset, values: [createEmptyValue(type)] },
+    dataset:
+      type === "funnel"
+        ? defaultDataset
+        : { ...defaultDataset, values: [createEmptyValue(type)] },
+    // Funnels don't render time-series charts, so the default date dimension
+    // from DEFAULT_EXPLORE_STATE doesn't apply — start with no dimensions and
+    // let the user add one explicitly via "Group By".
+    ...(type === "funnel" ? { dimensions: [] } : {}),
   } as ExplorerDraftConfig;
 
-  const baseConfig = urlConfig && !configError ? urlConfig : defaultDraftState;
+  let seedError: string | null = null;
+  let seededConfig: ExplorerDraftConfig | null = null;
+
+  if (!rawParam) {
+    if (type === "metric" && metricId) {
+      const metric = getFactMetricById(metricId);
+      if (metric) {
+        seededConfig = {
+          ...defaultDraftState,
+          datasource: metric.datasource,
+          dataset: {
+            ...createEmptyDataset("metric"),
+            values: [
+              {
+                ...createEmptyValue("metric"),
+                metricId: metric.id,
+                name: metric.name,
+              },
+            ],
+          },
+        } as ExplorerDraftConfig;
+      } else if (ready) {
+        seedError = "Could not find the requested Fact Metric.";
+      }
+    } else if (type === "fact_table" && factTableId) {
+      const factTable = getFactTableById(factTableId);
+      if (factTable) {
+        seededConfig = {
+          ...defaultDraftState,
+          datasource: factTable.datasource,
+          dataset: {
+            ...createEmptyDataset("fact_table"),
+            factTableId: factTable.id,
+            values: [createEmptyValue("fact_table")],
+          },
+        } as ExplorerDraftConfig;
+      } else if (ready) {
+        seedError = "Could not find the requested Fact Table.";
+      }
+    } else if (type === "data_source" && datasourceId) {
+      const datasource = getDatasourceById(datasourceId);
+      if (datasource) {
+        seededConfig = {
+          ...defaultDraftState,
+          datasource: datasource.id,
+        };
+      } else if (ready) {
+        seedError = "Could not find the requested Data Source.";
+      }
+    }
+  }
+
+  const restorationError = configError ?? seedError;
+
+  useEffect(() => {
+    if (restorationError) {
+      setConfigErrorModal(restorationError);
+    }
+  }, [restorationError]);
+
+  if (!router.isReady || !ready) {
+    return <LoadingOverlay />;
+  }
+
+  const baseConfig =
+    urlConfig && !configError ? urlConfig : (seededConfig ?? defaultDraftState);
   const initialConfig: ExplorerDraftConfig = {
     ...baseConfig,
     ...(urlPreviousTimeFrame
-      ? { previousTimeFrame: urlPreviousTimeFrame }
+      ? {
+          previousTimeFrame: urlPreviousTimeFrame,
+          // Links shared before named modes existed carry no mode; the context
+          // falls back to the legacy reading of the primary range.
+          ...(urlComparisonMode ? { comparisonMode: urlComparisonMode } : {}),
+        }
       : {}),
   };
 
@@ -233,13 +354,14 @@ function ExplorerInner({ type }: { type: DatasetType }) {
         </AlertDialog.Root>
       )}
       <ExplorerProvider
-        key={type}
+        key={`${type}:${seedId ?? ""}`}
         initialConfig={initialConfig}
         trackingSource="manual-explorer"
       >
         <ExplorerUrlSync setUrlConfig={setUrlConfig} />
         <ExplorerPreviousTimeFrameUrlSync
           setUrlPreviousTimeFrame={setUrlPreviousTimeFrame}
+          setUrlComparisonMode={setUrlComparisonMode}
         />
         <ExplorerContent />
       </ExplorerProvider>

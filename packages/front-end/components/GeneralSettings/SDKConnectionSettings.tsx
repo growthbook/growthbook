@@ -18,7 +18,7 @@ export default function SDKConnectionSettings() {
         <Frame>
           <Flex gap="4">
             <Box width="220px" flexShrink="0">
-              <Heading size="medium" as="h4">
+              <Heading size="md" as="h4">
                 Project Scoping
               </Heading>
             </Box>
@@ -28,7 +28,7 @@ export default function SDKConnectionSettings() {
                 <Checkbox
                   id="toggle-requireProjectForSdkConnections"
                   label="Require Project for all new SDK Connections"
-                  description="If enabled, users must select at least one project when creating an SDK Connection. Existing project-less SDK Connections can still be updated until a project is set."
+                  description="If enabled, users must select at least one Project when creating an SDK Connection. Existing project-less SDK Connections can still be updated until a Project is set."
                   value={!!watch("requireProjectForSdkConnections")}
                   setValue={(value) =>
                     setValue("requireProjectForSdkConnections", value, {

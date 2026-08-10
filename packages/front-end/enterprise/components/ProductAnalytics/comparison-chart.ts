@@ -1,11 +1,13 @@
 import { formatInTimeZone } from "date-fns-tz";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import {
-  buildComparisonDateRange,
+  buildComparisonDateRangeForMode,
   calculateProductAnalyticsDateRange,
   createComparisonAlignmentResolver,
 } from "shared/enterprise";
+import type { ComparisonAlignmentStrategy } from "shared/enterprise";
 import type {
+  ComparisonMode,
   ExplorationConfig,
   ProductAnalyticsExploration,
   ProductAnalyticsResultRow,
@@ -66,10 +68,12 @@ export function formatExplorerDateRangeHeading(dr: {
 export function getComparisonPeriodLabels(
   dateRange: ExplorationConfig["dateRange"],
   explicitPreviousDateRange?: ExplorationConfig["dateRange"],
+  mode: ComparisonMode = "previousPeriod",
 ): { currentLabel: string; previousLabel: string } {
   const currentDr = calculateProductAnalyticsDateRange(dateRange);
   const prevDr = calculateProductAnalyticsDateRange(
-    explicitPreviousDateRange ?? buildComparisonDateRange(dateRange),
+    explicitPreviousDateRange ??
+      buildComparisonDateRangeForMode(dateRange, mode),
   );
   return {
     currentLabel: formatExplorerDateRangeHeading(currentDr),
@@ -267,11 +271,13 @@ export function getAlignedComparisonDimensionKeyForTooltip(
   comparisonXValues: readonly string[],
   currentKey: string,
   firstDimensionIsDate: boolean,
+  strategy?: ComparisonAlignmentStrategy,
 ): string | undefined {
   return createComparisonAlignmentResolver(
     sortedXValues,
     comparisonXValues,
     firstDimensionIsDate,
+    strategy,
   )(currentKey);
 }
 
@@ -293,12 +299,14 @@ export function alignComparisonOverlayToCategories(
   sortedSeriesKeys: string[],
   comparisonXValues: string[],
   firstDimensionIsDate: boolean,
+  strategy?: ComparisonAlignmentStrategy,
 ): Record<string, Record<string, number>> {
   const aligned: Record<string, Record<string, number>> = {};
   const resolveComparisonKey = createComparisonAlignmentResolver(
     sortedXValues,
     comparisonXValues,
     firstDimensionIsDate,
+    strategy,
   );
 
   for (const seriesKey of sortedSeriesKeys) {
@@ -306,6 +314,8 @@ export function alignComparisonOverlayToCategories(
     aligned[seriesKey] = {};
     for (const x of sortedXValues) {
       const compKey = resolveComparisonKey(x);
+      // Buckets past the end of a shorter comparison window read as zero, same
+      // as a matched bucket the comparison simply had no rows in.
       aligned[seriesKey][x] = compKey !== undefined ? (src[compKey] ?? 0) : 0;
     }
   }
@@ -316,6 +326,7 @@ function metricIdForDatasetValue(
   config: ExplorationConfig,
   metricIndex: number,
 ): string {
+  if (config.dataset?.type === "funnel") return "";
   const values = config.dataset?.values;
   if (!values?.[metricIndex]) return "";
   const v = values[metricIndex];
@@ -326,6 +337,7 @@ function metricNameForDatasetValue(
   config: ExplorationConfig,
   metricIndex: number,
 ): string {
+  if (config.dataset?.type === "funnel") return `Metric ${metricIndex}`;
   return config.dataset?.values?.[metricIndex]?.name ?? `Metric ${metricIndex}`;
 }
 
@@ -345,7 +357,10 @@ export function buildComparisonOverlaySeriesMaps(
   const dataMap: Record<string, Record<string, number>> = {};
   const seriesMeta: Record<string, { metricId: string; name: string }> = {};
 
-  const numMetrics = config.dataset?.values?.length ?? 0;
+  const numMetrics =
+    config.dataset?.type !== "funnel"
+      ? (config.dataset?.values?.length ?? 0)
+      : 0;
   const numDimensions = config.dimensions?.length ?? 0;
 
   const bump = (seriesKey: string, x: string, y: number) => {
@@ -366,7 +381,7 @@ export function buildComparisonOverlaySeriesMaps(
             name: metricNameForDatasetValue(config, mi),
           };
         }
-        const cell = row.values[mi];
+        const cell = row.values?.[mi];
         if (!cell) continue;
         bump(
           seriesKey,
@@ -394,7 +409,7 @@ export function buildComparisonOverlaySeriesMaps(
           name: group || metricNameForDatasetValue(config, 0),
         };
       }
-      const cell = row.values[0];
+      const cell = row.values?.[0];
       if (!cell) continue;
       bump(
         seriesKey,
@@ -414,7 +429,7 @@ export function buildComparisonOverlaySeriesMaps(
         name: metricNameForDatasetValue(config, 0),
       };
     }
-    const cell = row.values[0];
+    const cell = row.values?.[0];
     if (!cell) continue;
     bump(
       seriesKey,
@@ -492,6 +507,7 @@ export function buildAlignedComparisonOverlayForExplorer(args: {
   renderOpts: RenderOpts;
   sortedSeriesKeys: string[];
   firstDimensionIsDate: boolean;
+  comparisonAlignment?: ComparisonAlignmentStrategy;
 }): {
   alignedMap: Record<string, Record<string, number>>;
   comparisonXValues: string[];
@@ -509,6 +525,7 @@ export function buildAlignedComparisonOverlayForExplorer(args: {
     args.sortedSeriesKeys,
     comparisonXValues,
     args.firstDimensionIsDate,
+    args.comparisonAlignment,
   );
   return { alignedMap, comparisonXValues };
 }
@@ -899,8 +916,8 @@ export function computeBigNumberComparisonTrendForMetricIndex(
     isRatioByIndex: getIsRatioByIndex(submittedExploreState, getFactMetricById),
   };
 
-  const currCell = exploration.result.rows[0]?.values[metricIndex];
-  const prevCell = comparisonExploration.result.rows[0]?.values[metricIndex];
+  const currCell = exploration.result.rows[0]?.values?.[metricIndex];
+  const prevCell = comparisonExploration.result.rows[0]?.values?.[metricIndex];
   if (!currCell || !prevCell) return null;
 
   const isRatio = renderOpts.isRatioByIndex[metricIndex] ?? false;
@@ -931,7 +948,10 @@ export function computeBigNumberComparisonTrends(
   submittedExploreState: ExplorationConfig,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): (BigNumberComparisonTrend | null)[] {
-  const n = submittedExploreState.dataset?.values?.length ?? 0;
+  const n =
+    submittedExploreState.dataset?.type !== "funnel"
+      ? (submittedExploreState.dataset?.values?.length ?? 0)
+      : 0;
   return Array.from({ length: n }, (_, metricIndex) =>
     computeBigNumberComparisonTrendForMetricIndex(
       exploration,
@@ -1129,6 +1149,7 @@ type BuildExplorerChartTooltipFormatterArgs = {
   sortedXValues: string[];
   seriesConfigsLength: number;
   formatNumber: (value: number) => string;
+  comparisonAlignment?: ComparisonAlignmentStrategy;
 };
 
 export function buildExplorerChartTooltipFormatter({
@@ -1142,6 +1163,7 @@ export function buildExplorerChartTooltipFormatter({
   sortedXValues,
   seriesConfigsLength,
   formatNumber,
+  comparisonAlignment,
 }: BuildExplorerChartTooltipFormatterArgs):
   | ((params: unknown) => string)
   | undefined {
@@ -1193,6 +1215,7 @@ export function buildExplorerChartTooltipFormatter({
             alignedComparisonOverlay.comparisonXValues,
             currentX,
             firstDimensionIsDate,
+            comparisonAlignment,
           );
           const currentFormatted = formatDateByGranularity(
             new Date(currentX),

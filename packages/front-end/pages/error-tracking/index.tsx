@@ -9,6 +9,7 @@ import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
 import MiniSparkline from "@/components/ErrorTracking/MiniSparkline";
 import Callout from "@/ui/Callout";
@@ -144,15 +145,14 @@ export default function ErrorTrackingIndexPage(): React.ReactElement {
 
       <div className="row mb-3 align-items-end">
         <div className="col-md-auto">
-          <Field
+          <SelectField
             label="Project"
             options={[
-              { value: "all", display: "All projects" },
-              ...projects.map((p) => ({ value: p.id, display: p.name })),
+              { value: "all", label: "All projects" },
+              ...projects.map((p) => ({ value: p.id, label: p.name })),
             ]}
             value={projectFilter || "all"}
-            onChange={(e) => {
-              const v = e.target.value;
+            onChange={(v) => {
               const next = v === "all" ? undefined : String(v);
               void router.push(
                 {
@@ -167,14 +167,14 @@ export default function ErrorTrackingIndexPage(): React.ReactElement {
           />
         </div>
         <div className="col-md-auto">
-          <Field
+          <SelectField
             label="SDK Connection"
             options={filteredConnections.map((c) => ({
               value: c.key,
-              display: `${c.name} (${c.key.slice(0, 8)}…)`,
+              label: `${c.name} (${c.key.slice(0, 8)}…)`,
             }))}
             value={clientKey}
-            onChange={(e) => setClientKey(e.target.value)}
+            onChange={(v) => setClientKey(v)}
           />
         </div>
         <div className="col-md-5">

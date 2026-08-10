@@ -5,6 +5,7 @@ import {
   filterEnvironmentsByFeature,
   MergeResultChanges,
   checkIfRevisionNeedsReview,
+  getRevertTargetHoldout,
   getRulesForEnvironment,
 } from "shared/util";
 import { isEqual } from "lodash";
@@ -12,7 +13,10 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { postFeatureRevisionRevertValidator } from "shared/validators";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
-import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
+import {
+  dispatchFeatureRevisionEvent,
+  getPublishedRevisionForEvents,
+} from "back-end/src/services/featureRevisionEvents";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   BadRequestError,
@@ -31,6 +35,7 @@ import {
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { assertValidHoldout } from "./v2Shared";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function revertFeatureRevision(
@@ -189,6 +194,20 @@ export async function revertFeatureRevision(
       metadataChanges.project = m.project;
       hasMetaChange = true;
     }
+    if (
+      m.targetingAllProjects !== undefined &&
+      m.targetingAllProjects !== (feature.targetingAllProjects ?? false)
+    ) {
+      metadataChanges.targetingAllProjects = m.targetingAllProjects;
+      hasMetaChange = true;
+    }
+    if (
+      m.targetingProjects !== undefined &&
+      !isEqual(m.targetingProjects, feature.targetingProjects ?? [])
+    ) {
+      metadataChanges.targetingProjects = m.targetingProjects;
+      hasMetaChange = true;
+    }
     if (m.tags !== undefined && !isEqual(m.tags, feature.tags ?? [])) {
       metadataChanges.tags = m.tags;
       hasMetaChange = true;
@@ -226,11 +245,31 @@ export async function revertFeatureRevision(
     }
   }
 
+  const targetHoldout = getRevertTargetHoldout(targetRevision);
+  // Read-gated: restoring a holdout the caller cannot see would attach the
+  // feature outside their scope, since publish resolves linkage unscoped.
+  await assertValidHoldout(
+    targetHoldout,
+    context,
+    changes.metadata?.project ?? feature.project,
+  );
+  const holdoutChanged = !isEqual(targetHoldout, feature.holdout ?? null);
+  if (holdoutChanged) {
+    if (
+      isPublish &&
+      !context.permissions.canPublishFeature(feature, allEnabledEnvs)
+    ) {
+      context.permissions.throwPermissionError();
+    }
+    changes.holdout = targetHoldout;
+  }
+
   // Full target state for the new revision; sparse `changes` above is only
   // used for per-field permission checks.
   const revisionChanges: Partial<FeatureRevisionInterface> = {
     defaultValue: targetRevision.defaultValue,
     rules: targetRevision.rules ?? feature.rules ?? [],
+    holdout: targetHoldout,
   };
   if (targetRevision.environmentsEnabled !== undefined) {
     revisionChanges.environmentsEnabled = targetRevision.environmentsEnabled;
@@ -264,6 +303,7 @@ export async function revertFeatureRevision(
       changes: revisionChanges,
       org: context.org,
       canBypassApprovalChecks: false,
+      revertedFrom: targetRevision.version,
     });
 
     return { feature, revision: newDraft };
@@ -313,6 +353,7 @@ export async function revertFeatureRevision(
       changes: revisionChanges,
       comment: comment ?? defaultComment,
       canBypassApprovalChecks: canBypass,
+      revertedFrom: targetRevision.version,
     });
 
   if (
@@ -338,14 +379,13 @@ export async function revertFeatureRevision(
     }),
   });
 
-  const updated = await getRevision({
+  // Re-read so events and the response carry the published status; falls back
+  // to the in-memory revision instead of failing the already-committed revert.
+  const finalRevision = await getPublishedRevisionForEvents(
     context,
-    organization: organization.id,
-    featureId: feature.id,
-    feature,
-    version: publishedRevision.version,
-  });
-  const finalRevision = updated ?? publishedRevision;
+    updatedFeature,
+    publishedRevision,
+  );
 
   await dispatchFeatureRevisionEvent(
     context,
@@ -353,6 +393,16 @@ export async function revertFeatureRevision(
     finalRevision,
     "revision.reverted",
     { revertedToVersion: targetRevision.version },
+  );
+
+  // A revert publishes a new revision, so emit the same lifecycle event as a
+  // regular publish — consumers watching `revision.published` see reverts too.
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    finalRevision,
+    "revision.published",
+    {},
   );
 
   return { feature, revision: finalRevision };

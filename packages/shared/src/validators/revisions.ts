@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { savedGroupValidator } from "./saved-group";
 import { constantValidator } from "./constant";
+import { configValidator } from "./config";
 
 export const revisionStatus = [
   "draft",
@@ -43,7 +44,11 @@ export type Review = z.infer<typeof reviewValidator>;
 // 4. Create packages/back-end/src/revisions/adapters/feature.adapter.ts
 // 5. Register it in packages/back-end/src/revisions/index.ts registry
 // 6. Extend getRevisionKey / canUserReviewEntity switches in shared/src/revisions/helpers.ts
-export const revisionTargetType = ["saved-group", "constant"] as const;
+export const revisionTargetType = [
+  "saved-group",
+  "constant",
+  "config",
+] as const;
 export type RevisionTargetType = (typeof revisionTargetType)[number];
 
 export const jsonPatchOperationValidator = z.discriminatedUnion("op", [
@@ -97,16 +102,10 @@ export const activityLogEntryValidator = z.object({
   ]),
   description: z.string().nullish(),
   dateCreated: z.date(),
-  // Snapshot of `target.proposedChanges` as of immediately AFTER this entry
-  // was recorded. Only persisted for content-changing actions ("created",
-  // "updated"). The UI uses this (combined with the previous content
-  // entry's snapshot) to reconstruct a per-entry before/after diff without
-  // needing additional per-edit history. Optional for backward
-  // compatibility with entries created before this field existed.
+  // `target.proposedChanges` after this entry; only for content-changing actions.
+  // The UI pairs it with the previous entry's snapshot to build a per-entry diff.
   proposedChangesSnapshot: z.array(jsonPatchOperationValidator).optional(),
-  // Snapshot of `target.snapshot` (the revision baseline) AFTER this entry,
-  // only persisted when the action changes the baseline itself (i.e. a
-  // rebase). Otherwise the revision's current `target.snapshot` is used.
+  // `target.snapshot` after this entry; only persisted on a rebase.
   targetSnapshot: z.unknown().optional(),
 });
 export type ActivityLogEntry = z.infer<typeof activityLogEntryValidator>;
@@ -131,11 +130,22 @@ export type RevisionConstantTarget = z.infer<
   typeof revisionConstantTargetValidator
 >;
 
+export const revisionConfigTargetValidator = z.object({
+  type: z.literal("config"),
+  id: z.string(),
+  snapshot: configValidator,
+  proposedChanges: z.array(jsonPatchOperationValidator),
+});
+export type RevisionConfigTarget = z.infer<
+  typeof revisionConfigTargetValidator
+>;
+
 // Extension point: add new revisionXxxTargetValidator entries here as new entity types are added.
 // Each validator must have a unique `type` literal and a `snapshot` field with the entity's schema.
 export const revisionTargetValidator = z.discriminatedUnion("type", [
   revisionSavedGroupTargetValidator,
   revisionConstantTargetValidator,
+  revisionConfigTargetValidator,
   // revisionFeatureTargetValidator,  ← add future entity types here
 ]);
 export type RevisionTarget = z.infer<typeof revisionTargetValidator>;
@@ -150,15 +160,11 @@ export const revisionValidator = z.object({
   target: revisionTargetValidator,
   status: z.enum(revisionStatus),
   reviews: z.array(reviewValidator),
-  // Users who have edited this revision's content beyond the original author.
-  // Always includes the author. Used by the `blockSelfApproval` setting to
-  // prevent contributors from approving their own work.
-  // Optional for backward compatibility with revisions created before this field existed.
+  // Everyone who edited this revision (always includes the author); drives
+  // `blockSelfApproval`. Optional for backward compatibility.
   contributors: z.array(z.string()).optional(),
   autoPublishOnApproval: z.boolean().optional(),
-  // User ID of whoever most recently armed `autoPublishOnApproval` — the
-  // auto-publish executes with this user's authority. Falls back to
-  // `authorId` when absent.
+  // Who armed `autoPublishOnApproval`; auto-publish runs with their authority.
   autoPublishEnabledBy: z.string().optional(),
   // ── Scheduled / deferred publish (shape mirrors FeatureRevisionInterface) ──
   // Defers an armed revision's auto-publish until on/after this date (and, if
@@ -177,6 +183,23 @@ export const revisionValidator = z.object({
   // retrying. Cleared on a successful publish or when the schedule is canceled.
   scheduledPublishAttempts: z.number().optional(),
   scheduledPublishLastError: z.string().optional(),
+  // Backoff gate: the poller skips a due-but-failing revision until this time,
+  // so doomed retries space out exponentially instead of firing every tick.
+  scheduledPublishNextAttemptAt: z.union([z.null(), z.date()]).optional(),
+  // Set when the poller gives up on a failing scheduled publish (terminal
+  // failure, or transient failures exhausted the attempt cap). The schedule is
+  // cleared and the draft left open; this timestamp marks it as abandoned so the
+  // UI can flag it. Cleared when the schedule is re-armed or canceled.
+  scheduledPublishGaveUpAt: z.union([z.null(), z.date()]).optional(),
+  // Deferred-publish guard fingerprints: per-guard (experiment / config-lock /
+  // schema-break) sets of conflicting keys the armer acknowledged (bypassed) when
+  // arming this deferred publish. At merge time each guard recomputes its live
+  // conflict set and compares key-for-key; a divergence fails the publish so a
+  // human re-contends. Keys only (not values), so re-editing the shipped values
+  // doesn't change conflict identity. Keyed by guard id so the same key acknowledged
+  // for different guards never collides. Config/constant revisions; cleared on
+  // re-arm/cancel.
+  armAcknowledgments: z.record(z.string(), z.array(z.string())).optional(),
   activityLog: z.array(activityLogEntryValidator),
   resolution: z
     .object({
@@ -200,6 +223,10 @@ export type ScheduledPublishInput = {
   lockEdits?: boolean;
   lockOthers?: boolean;
   bypassApproval?: boolean;
+  // Per-guard acknowledgment fingerprints captured at arm time (the conflicting
+  // keys the armer bypassed, keyed by guard id). Stored on the revision for the
+  // merge-time recheck. Absent/empty clears any prior fingerprint on (re-)arm.
+  armAcknowledgments?: Record<string, string[]>;
 };
 
 export const revisionCreateValidator = z.object({

@@ -42,6 +42,7 @@ import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
 import {
   migrateExperimentReport,
   migrateSnapshot,
+  pinLegacyRolloutSeeds,
   upgradeDatasourceObject,
   upgradeExperimentDoc,
   upgradeFeatureRule,
@@ -1869,6 +1870,22 @@ describe("Experiment Migration", () => {
       releasedVariationId: "foo",
     });
   });
+  it("uses `winner` 0 (control won) for releasedVariationId, not the default 1", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        status: "stopped",
+        results: "won",
+        winner: 0,
+      }),
+    ).toEqual({
+      ...upgraded,
+      status: "stopped",
+      results: "won",
+      winner: 0,
+      releasedVariationId: "0",
+    });
+  });
   it("Doesn't overwrite other attribution models", () => {
     expect(
       upgradeExperimentDoc({
@@ -2916,6 +2933,25 @@ describe("saved group migrations", () => {
     });
   });
 
+  it("does not synthesize a runtime condition when the read omitted condition", () => {
+    expect(
+      SavedGroupModel.migrateSavedGroup(
+        {
+          ...baseSavedGroup,
+          attributeKey: "foo",
+          values: [],
+          source: "runtime",
+        },
+        { conditionOmitted: true },
+      ),
+    ).toEqual({
+      ...baseSavedGroup,
+      attributeKey: "foo",
+      values: [],
+      type: "condition",
+    });
+  });
+
   it("does not migrate saved groups that already have type=list", () => {
     expect(
       SavedGroupModel.migrateSavedGroup({
@@ -2950,5 +2986,57 @@ describe("saved group migrations", () => {
       type: "condition",
       condition: JSON.stringify({ id: { $eq: "123" } }),
     });
+  });
+});
+
+describe("pinLegacyRolloutSeeds", () => {
+  const rollout = (over: Partial<FeatureRule> = {}) =>
+    ({
+      id: "fr_rule",
+      type: "rollout",
+      value: "true",
+      coverage: 0.5,
+      hashAttribute: "id",
+      ...over,
+    }) as FeatureRule;
+
+  it("pins a seedless rollout rule to the feature id", () => {
+    const [pinned] = pinLegacyRolloutSeeds([rollout()], "feat_1");
+    expect((pinned as { seed?: string }).seed).toBe("feat_1");
+  });
+
+  it("leaves an explicitly-seeded rollout rule untouched", () => {
+    const [pinned] = pinLegacyRolloutSeeds(
+      [rollout({ seed: "fr_rule" })],
+      "feat_1",
+    );
+    // An existing seed (rule.id default or a custom seed) is never rewritten.
+    expect((pinned as { seed?: string }).seed).toBe("fr_rule");
+  });
+
+  it("does not touch non-rollout rules", () => {
+    const force = { id: "fr_f", type: "force", value: "true" } as FeatureRule;
+    const safe = {
+      id: "fr_s",
+      type: "safe-rollout",
+      safeRolloutId: "sr_1",
+    } as unknown as FeatureRule;
+    const [pForce, pSafe] = pinLegacyRolloutSeeds([force, safe], "feat_1");
+    expect(pForce).not.toHaveProperty("seed");
+    // Safe rollouts carry their own random seed and are never pinned.
+    expect((pSafe as { seed?: string }).seed).toBeUndefined();
+  });
+
+  it("does not mutate the input rule objects", () => {
+    const input = rollout();
+    pinLegacyRolloutSeeds([input], "feat_1");
+    expect((input as { seed?: string }).seed).toBeUndefined();
+  });
+
+  it("tolerates sparse null array entries", () => {
+    const rules = [null, rollout()] as unknown as FeatureRule[];
+    const out = pinLegacyRolloutSeeds(rules, "feat_1");
+    expect(out[0]).toBeNull();
+    expect((out[1] as { seed?: string }).seed).toBe("feat_1");
   });
 });

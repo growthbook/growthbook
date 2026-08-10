@@ -35,6 +35,8 @@ interface Props {
   setRuleModal: () => void;
   setVersion: (version: number) => void;
   isDeleted?: boolean;
+  // The current draft adds this holdout; it goes live when the draft publishes.
+  isPendingAdd?: boolean;
   isLocked?: boolean;
   // Per-env tab passes its env id so the badge sorts current env first;
   // omitted in the All-Environments view.
@@ -51,6 +53,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
       mutate,
       setVersion,
       isDeleted = false,
+      isPendingAdd = false,
       isLocked = false,
       currentEnvironment,
       ...props
@@ -216,6 +219,11 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                 This feature has been removed from the holdout in the current
                 draft. Publish or discard the draft to resolve.
               </Callout>
+            ) : isPendingAdd ? (
+              <Callout status="info" size="sm">
+                This feature will be added to the holdout when the current draft
+                is published. Discard the draft to cancel.
+              </Callout>
             ) : holdoutExperiment.status === "stopped" ? (
               <Callout status="info">
                 This Holdout is stopped and this rule will be skipped.{" "}
@@ -254,7 +262,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                 hashAttribute={holdoutExperiment.hashAttribute || ""}
                 holdoutWeight={
                   holdoutExperiment.phases[0].coverage *
-                    holdoutExperiment.phases[0].variationWeights[0] || 1
+                  holdoutExperiment.phases[0].variationWeights[0]
                 }
               />
             </Box>

@@ -18,7 +18,16 @@ const BaseClass = MakeModelClass({
   pKey: ["key"] as const,
   globallyUniquePrimaryKeys: true,
   idPrefix: "key_",
-  additionalIndexes: [{ fields: { id: 1 } }],
+  additionalIndexes: [
+    { fields: { id: 1 } },
+    // Partial TTL for OAuth access tokens only — classic API keys/PATs are untouched.
+    {
+      fields: { expiresAt: 1 },
+      expireAfterSeconds: 0,
+      partialFilterExpression: { oauthClientId: { $exists: true } },
+      name: "oauthAccessTokenTtl",
+    },
+  ],
   skipDateUpdatedFields: ["lastUsed"],
   defaultValues: {
     limitAccessByEnvironment: false,
@@ -97,7 +106,10 @@ export class ApiKeyModel extends BaseClass {
     };
   }
 
-  protected async customValidation(doc: ApiKeyInterface) {
+  protected async customValidation(
+    doc: ApiKeyInterface,
+    previousDoc?: ApiKeyInterface,
+  ) {
     if (doc.userId) {
       // PATs inherit permissions from their user — scoping fields must not be set
       if (doc.limitAccessByEnvironment) {
@@ -113,6 +125,17 @@ export class ApiKeyModel extends BaseClass {
     } else {
       // Org API keys — validate role, environments, project roles, and commercial features
       this.validateRole(doc.role);
+      // Only gate a role change so existing keys keep working
+      if (
+        doc.role &&
+        doc.role !== previousDoc?.role &&
+        doc.role !== "admin" &&
+        !this.context.limits.orgSupportsRoles()
+      ) {
+        this.context.throwBadRequestError(
+          "Your plan only supports the admin role. Upgrade your plan to assign other roles.",
+        );
+      }
       if (
         doc.limitAccessByEnvironment &&
         !this.context.hasPremiumFeature("advanced-permissions")
@@ -330,6 +353,42 @@ export class ApiKeyModel extends BaseClass {
     await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateOne(
       { key, organization },
       { $set: { lastUsed: new Date() } },
+    );
+  }
+
+  // OAuth token endpoint has no ReqContext. These static helpers keep apikey
+  // writes in the model layer (same pattern as dangerousRecordUsageByKey).
+
+  public static async dangerousFindByKeyHash(
+    keyHash: string,
+  ): Promise<ApiKeyInterface | null> {
+    return getCollection<ApiKeyInterface>(COLLECTION_NAME).findOne({
+      key: keyHash,
+    });
+  }
+
+  public static async dangerousDisableByKeyHash(
+    keyHash: string,
+  ): Promise<void> {
+    await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateOne(
+      { key: keyHash },
+      { $set: { disabled: true } },
+    );
+  }
+
+  public static async dangerousDisableOAuthGrant(
+    clientId: string,
+    userId: string,
+    organization: string,
+  ): Promise<void> {
+    await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateMany(
+      {
+        oauthClientId: clientId,
+        userId,
+        organization,
+        disabled: { $ne: true },
+      },
+      { $set: { disabled: true } },
     );
   }
 

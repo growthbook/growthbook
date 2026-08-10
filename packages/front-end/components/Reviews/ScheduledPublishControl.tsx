@@ -33,6 +33,9 @@ export interface ScheduleControlRevision {
   scheduledPublishLockOthers?: boolean;
   scheduledPublishBypassApproval?: boolean;
   scheduledPublishLastError?: string;
+  // Set when the poller gave up on a failing scheduled publish; the schedule was
+  // cleared and the draft left open.
+  scheduledPublishGaveUpAt?: Date | string | null;
 }
 
 // Shared "arm auto-publish / schedule a publish" control. Lifted line-for-line
@@ -409,7 +412,7 @@ export default function ScheduledPublishControl({
                 <Button
                   variant="ghost"
                   color="red"
-                  size="xs"
+                  size="sm"
                   onClick={doDisarm}
                 >
                   Cancel schedule
@@ -417,7 +420,7 @@ export default function ScheduledPublishControl({
                 {canManageAutoPublish && !scheduleArmedByAdmin && (
                   <Button
                     variant="outline"
-                    size="xs"
+                    size="sm"
                     onClick={() => setEditing(true)}
                   >
                     Change
@@ -436,13 +439,26 @@ export default function ScheduledPublishControl({
     );
   }
 
+  // The poller gave up on the previous schedule (cleared on cancel/re-arm); the
+  // draft is still open. Shown to every viewer — managers can re-arm to retry.
+  const gaveUpNotice = revision.scheduledPublishGaveUpAt ? (
+    <HelperText status="error" size="sm" mb="2">
+      Could not publish
+      {revision.scheduledPublishLastError
+        ? `: ${revision.scheduledPublishLastError}`
+        : "."}
+    </HelperText>
+  ) : null;
+
   // A non-manager viewing a revision armed to "publish when approved" (no date)
   // gets a disabled read-only indicator, mirroring the feature flow; a dated
-  // schedule already rendered its card above. Otherwise there's nothing to show.
+  // schedule already rendered its card above. Otherwise only an abandoned
+  // schedule's failure notice shows.
   if (!canManageAutoPublish) {
     if (persistedArmed) {
       return (
         <Box mb="5">
+          {gaveUpNotice}
           <Checkbox
             label="Automatically publish when approved"
             weight="regular"
@@ -453,7 +469,7 @@ export default function ScheduledPublishControl({
         </Box>
       );
     }
-    return null;
+    return gaveUpNotice ? <Box mb="5">{gaveUpNotice}</Box> : null;
   }
 
   // ── Editable form (auto-saves on change; no explicit schedule button) ──
@@ -461,6 +477,7 @@ export default function ScheduledPublishControl({
   // "on a specific date" are mutually exclusive), matching the feature flow.
   return (
     <Box mb="5">
+      {gaveUpNotice}
       <Flex align="center" gap="1">
         <Checkbox
           label="Automatically publish"
@@ -489,7 +506,7 @@ export default function ScheduledPublishControl({
         ) : (
           // Approved revisions can only defer to a date — "when approved" would
           // just publish now, so show it as text.
-          <Text size="medium">on a specific date</Text>
+          <Text size="md">on a specific date</Text>
         )}
       </Flex>
       {armed && effectiveMode === "date" && (
@@ -544,7 +561,7 @@ export default function ScheduledPublishControl({
             </>
           ) : (
             <PremiumTooltip commercialFeature="scheduled-revisions">
-              <Text size="small" as="div">
+              <Text size="sm" as="div">
                 Upgrade to publish on a specific date.
               </Text>
             </PremiumTooltip>

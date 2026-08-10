@@ -36,7 +36,7 @@ const TeamPage: FC = () => {
   const isEditable = !team?.managedByIdp;
 
   const project = getProjectById(team?.defaultProject || "");
-  const projectName = project?.name || "All projects";
+  const projectName = project?.name || "All Projects";
   const projectIsDeReferenced = team?.defaultProject && !project?.name;
 
   if (!team) {

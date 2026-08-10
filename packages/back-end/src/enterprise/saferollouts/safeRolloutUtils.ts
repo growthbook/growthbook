@@ -3,7 +3,7 @@ import {
   getHealthSettings,
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
-import { autoMerge } from "shared/util";
+import { autoMerge, reconcileMergeBaselines } from "shared/util";
 import { SafeRolloutStatus, SafeRolloutRule } from "shared/validators";
 import {
   SafeRolloutInterface,
@@ -165,7 +165,12 @@ export async function checkAndRollbackSafeRollout({
       throw new Error("Could not lookup feature history");
     }
 
-    const mergeResult = autoMerge(live, base, revision, ruleEnvs, {});
+    const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+      feature,
+      live,
+      base,
+    );
+    const mergeResult = autoMerge(mergeLive, mergeBase, revision, ruleEnvs, {});
     if (!mergeResult.success) {
       throw new Error("could not merge the status");
     }
@@ -185,6 +190,17 @@ export function determineNextSafeRolloutSnapshotAttempt(
   safeRollout: SafeRolloutInterface,
   organization: OrganizationInterface,
 ): { nextSnapshot: Date; nextRampUp: Date } {
+  // Monitored ramp schedules carry their own refresh cadence in minutes. Honor
+  // it directly. The org-wide experiment update schedule below is far coarser
+  // (often daily) and would starve short monitored steps of the fresh analysis
+  // they need to advance, stranding them until the next org refresh.
+  if (safeRollout.updateScheduleMinutes) {
+    const next = new Date(
+      Date.now() + safeRollout.updateScheduleMinutes * 60 * 1000,
+    );
+    return { nextSnapshot: next, nextRampUp: next };
+  }
+
   const rampUpSchedule = safeRollout?.rampUpSchedule;
   const nextUpdate =
     determineNextDate(organization.settings?.updateSchedule || null) ||

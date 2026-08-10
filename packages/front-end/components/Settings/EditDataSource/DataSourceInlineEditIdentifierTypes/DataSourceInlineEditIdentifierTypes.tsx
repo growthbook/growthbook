@@ -4,8 +4,7 @@ import {
   DataSourceInterfaceWithParams,
   UserIdType,
 } from "shared/types/datasource";
-import { isEventForwarderManagedIdentifierId } from "shared/util";
-import { FaPlus } from "react-icons/fa";
+import { PiPlus } from "react-icons/pi";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { EditIdentifierType } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/EditIdentifierType";
@@ -16,6 +15,7 @@ import Button from "@/ui/Button";
 import Metadata from "@/ui/Metadata";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
+import Callout from "@/ui/Callout";
 
 type DataSourceInlineEditIdentifierTypesProps =
   DataSourceQueryEditingModalBaseProps;
@@ -29,33 +29,20 @@ export const DataSourceInlineEditIdentifierTypes: FC<
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
 
-  const eventForwarderActive = Boolean(dataSource.eventForwarderConfig);
-
   const userIdTypes = useMemo(
     () => dataSource.settings?.userIdTypes || [],
     [dataSource.settings?.userIdTypes],
   );
 
-  // Only Event Forwarder managed identifier types (prefixed with `ef_`) are
-  // locked. User-created identifier types that happen to use the same hash
-  // attribute remain editable / deletable.
-  const isEventForwarderManagedType = useCallback(
-    (userIdType: string) =>
-      eventForwarderActive && isEventForwarderManagedIdentifierId(userIdType),
-    [eventForwarderActive],
-  );
+  // Event Forwarder managed identifier types (prefixed with `ef_`) are
+  // intentionally editable and deletable for now. Restore
+  // `Boolean(dataSource.eventForwarderConfig) &&
+  // isEventForwarderManagedIdentifierId(userIdType)` to lock them again.
+  const isEventForwarderManagedType = false;
 
   const recordEditing = useMemo((): null | UserIdType => {
     return userIdTypes[editingIndex] || null;
   }, [editingIndex, userIdTypes]);
-
-  const isEditingEventForwarderManagedType = useMemo(
-    () =>
-      recordEditing
-        ? isEventForwarderManagedType(recordEditing.userIdType)
-        : false,
-    [isEventForwarderManagedType, recordEditing],
-  );
 
   const handleCancel = useCallback(() => {
     setUiMode("view");
@@ -88,7 +75,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
         const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
         const types = copy.settings?.userIdTypes ?? [];
         const editingManagedType =
-          uiMode === "edit" && isEventForwarderManagedType(userIdType);
+          uiMode === "edit" && isEventForwarderManagedType;
 
         if (idx >= types.length) {
           types.push({ userIdType, description, attributes });
@@ -130,28 +117,33 @@ export const DataSourceInlineEditIdentifierTypes: FC<
     <Box>
       <Flex align="center" gap="2" justify="between" mb="3">
         <Flex align="center" gap="3" mb="0">
-          <Heading as="h3" size="medium" mb="0">
+          <Heading as="h3" size="md" mb="0">
             Identifier Types
           </Heading>
           <Badge label={userIdTypes.length + ""} color="gray" radius="medium" />
         </Flex>
         <Box>
-          <Button variant="solid" onClick={handleAdd} disabled={!canEdit}>
-            <FaPlus className="mr-1" /> Add
+          <Button
+            variant="solid"
+            onClick={handleAdd}
+            disabled={!canEdit}
+            icon={<PiPlus />}
+          >
+            Add
           </Button>
         </Box>
       </Flex>
       <p>The different units you use to split traffic in an experiment.</p>
 
       {userIdTypes.map(({ userIdType, description, attributes }, idx) => {
-        const deleteDisabled = isEventForwarderManagedType(userIdType);
+        const deleteDisabled = isEventForwarderManagedType;
 
         return (
           <Card key={userIdType} mt="3">
             <Flex align="start" justify="between" py="2" px="3" gap="3">
               {/* region Identity Type text */}
               <Box>
-                <Heading size="small" as="h3" mb="1">
+                <Heading size="sm" as="h3" mb="1">
                   {userIdType}
                 </Heading>
                 <Box mb="2">
@@ -197,7 +189,9 @@ export const DataSourceInlineEditIdentifierTypes: FC<
 
       {/* region Identity Type empty state */}
       {userIdTypes.length === 0 ? (
-        <div className="mb-0 alert alert-info">No user identifier types.</div>
+        <Callout status="info" mb="0">
+          No user identifier types.
+        </Callout>
       ) : null}
       {/* endregion Identity Type empty state */}
 
@@ -211,7 +205,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           attributes={recordEditing?.attributes}
           onSave={handleSave(editingIndex)}
           dataSource={dataSource}
-          isEventForwarderManagedType={isEditingEventForwarderManagedType}
+          isEventForwarderManagedType={isEventForwarderManagedType}
         />
       ) : null}
       {/* endregion Add/Edit modal */}

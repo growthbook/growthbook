@@ -27,12 +27,14 @@ module.exports = {
       watch: false,
       max_memory_restart: process.env.PM2_MAX_MEMORY_RESTART || "6G",
     },
-    // Idle monitor for preview environments - shuts down container after inactivity
+    // Idle monitor for preview environments - shuts down the container after
+    // inactivity. Shell-free (reads /proc) so it runs on the distroless image.
     ...(process.env.PREVIEW_IDLE_TIMEOUT_SECONDS
       ? [
           {
             name: "idle-monitor",
-            script: "./preview/idle-monitor.sh",
+            script: "./preview/idle-monitor.js",
+            exec_mode: "fork",
             instances: 1,
             autorestart: false,
             watch: false,

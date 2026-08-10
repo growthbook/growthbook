@@ -748,6 +748,21 @@ export function getInitialDatasourceResources({
       return getRudderstackResources(datasource);
     case "amplitude":
       return getAmplitudeResources(datasource);
+    case undefined:
+    case "custom":
+    case "mixpanel":
+    case "snowplow":
+    case "jitsu":
+    case "freshpaint":
+    case "fullstory":
+    case "matomo":
+    case "heap":
+    case "mparticle":
+    case "firebase":
+    case "keen":
+    case "clevertap":
+    case "eventForwarder":
+      break;
     // TODO: add more
   }
 

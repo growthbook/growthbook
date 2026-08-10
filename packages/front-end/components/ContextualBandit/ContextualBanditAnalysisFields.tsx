@@ -90,7 +90,7 @@ export default function ContextualBanditAnalysisFields({
         {datasource ? (
           <>
             {cbQueries.length === 0 && !cbQueriesLoading ? (
-              <Callout status="warning" mt="3" contentsAs="div">
+              <Callout status="warning" mt="3">
                 No Contextual Bandit queries exist for this data source yet.{" "}
                 <Link
                   href="#"

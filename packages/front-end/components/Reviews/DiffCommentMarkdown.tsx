@@ -34,15 +34,15 @@ function DiffRefWidget({
     >
       <Flex align="center" gap="2" className="gb-diff-ref-widget-header">
         <PiGitDiff />
-        <Text size="small" weight="semibold">
+        <Text size="sm" weight="semibold">
           {refObj.sectionKey}
         </Text>
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           {sideLabel}, line {refObj.line}
         </Text>
         <Flex align="center" gap="1" ml="auto" className="gb-diff-ref-jump">
           <PiArrowBendUpRight />
-          <Text size="small">View in diff</Text>
+          <Text size="sm">View in diff</Text>
         </Flex>
       </Flex>
       {snapshot.lines.length > 0 && (

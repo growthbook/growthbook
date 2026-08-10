@@ -36,6 +36,7 @@ export const getConstantRevisionMergeStatus = createApiRequestHandler(
     baseSnapshot,
     liveSnapshot,
     normalizeProposedChanges(revision.target.proposedChanges),
+    adapter.getUpdatableFields(),
   );
 
   return {

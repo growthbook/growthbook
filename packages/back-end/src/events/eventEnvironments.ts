@@ -121,15 +121,16 @@ export function deriveRevisionEventEnvironments(
   orgEnvs: Environment[],
   overrideEnvironments?: string[],
 ): string[] {
-  const featureProject = feature.project;
+  // Union of primary + targeting projects (all envs when targeting all projects).
+  const featureProjects = [
+    feature.project,
+    ...(feature.targetingProjects ?? []),
+  ].filter((p): p is string => !!p);
   const inProject = (envId: string) => {
     const envDef = orgEnvs.find((e) => e.id === envId);
-    return (
-      !envDef ||
-      !envDef.projects?.length ||
-      !featureProject ||
-      envDef.projects.includes(featureProject)
-    );
+    if (!envDef || !envDef.projects?.length) return true;
+    if (feature.targetingAllProjects || !featureProjects.length) return true;
+    return featureProjects.some((p) => envDef.projects?.includes(p));
   };
 
   let rawEnvironments: string[];
@@ -141,7 +142,7 @@ export function deriveRevisionEventEnvironments(
     // pre-v2 docs) are skipped defensively — JIT-boundary filters already
     // drop them, but this loop fans out into event dispatch so a guard here
     // protects against any future regression.
-    const applicableEnvs = getApplicableEnvIds(orgEnvs, featureProject);
+    const applicableEnvs = getApplicableEnvIds(orgEnvs, feature);
     const declared = new Set<string>();
     for (const rule of revision.rules) {
       if (rule == null || typeof rule !== "object") continue;

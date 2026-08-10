@@ -16,6 +16,7 @@ import {
   DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
   DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
   DEFAULT_POST_STRATIFICATION_ENABLED,
+  DEFAULT_LEARNING_STATUSES,
   DEFAULT_REVISION_CONFIGURATION,
 } from "shared/constants";
 import {
@@ -49,6 +50,7 @@ import RampScheduleTemplates from "@/components/GeneralSettings/RampScheduleTemp
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
+import LearningSettings from "@/components/GeneralSettings/LearningSettings";
 import AISettings from "@/components/GeneralSettings/AISettings";
 import {
   SETTINGS_TAB,
@@ -175,9 +177,14 @@ const GeneralSettingsPage = (): React.ReactElement => {
           featureRequireMetadataReview: true,
         },
       ],
+      targetingReviewMode: settings.targetingReviewMode ?? [],
       restApiBypassesReviews: settings.restApiBypassesReviews ?? false,
       requireRebaseBeforePublish: settings.requireRebaseBeforePublish ?? false,
       revertsBypassApproval: settings.revertsBypassApproval ?? false,
+      configsExtensibleByDefault: settings.configsExtensibleByDefault ?? true,
+      configExperimentGuardDefault:
+        settings.configExperimentGuardDefault ?? false,
+      blockPublishOnSchemaError: settings.blockPublishOnSchemaError ?? true,
       maxConcurrentDrafts: settings.maxConcurrentDrafts ?? 0,
       defaultDataSource: settings.defaultDataSource || "",
       testQueryDays: DEFAULT_TEST_QUERY_DAYS,
@@ -249,6 +256,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.approvalFlows,
         hasRequireApprovals,
       ),
+      learningStatuses: settings.learningStatuses ?? DEFAULT_LEARNING_STATUSES,
     },
   });
   const { apiCall } = useAuth();
@@ -310,6 +318,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     topValuesLookbackValue: form.watch("topValuesLookbackValue"),
     savedGroupSizeLimit: form.watch("savedGroupSizeLimit"),
     approvalFlows: form.watch("approvalFlows"),
+    learningStatuses: form.watch("learningStatuses"),
     requireRegisteredAttributes: form.watch("requireRegisteredAttributes"),
   };
   function updateCronString(cron?: string) {
@@ -519,16 +528,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
         <Tabs value={activeTab} onValueChange={setUrlHash}>
           <StickyTabsList>
             <TabsTrigger value={SETTINGS_TAB.experiment}>
-              Experiment Settings
+              Experiments
             </TabsTrigger>
             <TabsTrigger value={SETTINGS_TAB.feature}>
-              Feature Settings
+              Feature Flags
             </TabsTrigger>
             <TabsTrigger value={SETTINGS_TAB.metrics}>
               Metrics &amp; Data
             </TabsTrigger>
             <TabsTrigger value={SETTINGS_TAB["approval-flow"]}>
-              {/* TODO: Check if we want to reuse this feature flag or not */}
               <PremiumTooltip commercialFeature="require-approvals">
                 Approval Flows
               </PremiumTooltip>
@@ -546,7 +554,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
             </TabsTrigger>
             <TabsTrigger value={SETTINGS_TAB.ai}>
               <PremiumTooltip commercialFeature="ai-suggestions">
-                AI Settings
+                AI &amp; Prompts
               </PremiumTooltip>
             </TabsTrigger>
           </StickyTabsList>
@@ -558,6 +566,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
               />
               <Frame mb="4">
                 <BanditSettings page="org-settings" />
+              </Frame>
+              <Frame mb="4">
+                <LearningSettings />
               </Frame>
             </TabsContent>
 
@@ -658,7 +669,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               }}
               setError={setSubmitError}
             >
-              Save All
+              Save all
             </Button>
           </Box>
         </Box>

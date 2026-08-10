@@ -14,7 +14,17 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    outputs:
+      short_sha: ${{ steps.sha.outputs.short }}
     steps:
+      # Deploy tags images with the first 7 chars of the SHA, so trim the input
+      # to match — a pasted full SHA would otherwise point at a tag never built.
+      - name: Normalize SHA to 7 chars
+        id: sha
+        env:
+          INPUT_SHA: ${{ inputs.sha }}
+        run: echo "short=${INPUT_SHA:0:7}" >> "$GITHUB_OUTPUT"
+
       - name: Login to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -24,25 +34,9 @@ jobs:
       - name: Install buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Configure AWS credentials for GrowthBook Cloud
-        uses: aws-actions/configure-aws-credentials@v5
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
       - name: Tag image as latest in DockerHub
         run: |
-          docker buildx imagetools create -t growthbook/growthbook:latest growthbook/growthbook:git-${{ inputs.sha }}
-
-      - name: Tag image as latest in ECR
-        run: |
-          ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
-          docker buildx imagetools create -t $ECR_REGISTRY/growthbook:latest $ECR_REGISTRY/growthbook:git-${{ inputs.sha }}
+          docker buildx imagetools create -t growthbook/growthbook:latest growthbook/growthbook:git-${{ steps.sha.outputs.short }}
 
   # Deploy the back-end for GrowthBook Cloud
   prod:
@@ -57,11 +51,53 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Deploy ECR image to ECS for GrowthBook Cloud API
-        run: aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1
+      - name: Login to Amazon ECR
+        id: login-ecr-prod
+        uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Deploy ECR image to ECS for GrowthBook Cloud API Python
-        run: aws ecs update-service --cluster prod-api-python --service prod-api-python --force-new-deployment --region us-east-1
+      # Services pin the git-<sha> tag, so re-tagging :latest no longer rolls
+      # anything back — point each service's task def at the target git-<sha>.
+      - name: Render API task definition
+        id: taskdef-api
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition-family: prod-api
+          container-name: api
+          image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook:git-${{ needs.docker.outputs.short_sha }}
+      - name: Deploy ECS for GrowthBook Cloud API
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef-api.outputs.task-definition }}
+          service: prod-api
+          cluster: prod-api
+          wait-for-service-stability: true
 
-      - name: Deploy ECR image to ECS for GrowthBook Cloud API Jobs
-        run: aws ecs update-service --cluster prod-api-jobs --service prod-api-jobs --force-new-deployment --region us-east-1
+      - name: Render Python task definition
+        id: taskdef-python
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition-family: prod-api-python
+          container-name: api-python
+          image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook:git-${{ needs.docker.outputs.short_sha }}
+      - name: Deploy ECS for GrowthBook Cloud Python
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef-python.outputs.task-definition }}
+          service: prod-api-python
+          cluster: prod-api-python
+          wait-for-service-stability: true
+
+      - name: Render Jobs task definition
+        id: taskdef-jobs
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition-family: prod-api-jobs
+          container-name: api-jobs
+          image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook:git-${{ needs.docker.outputs.short_sha }}
+      - name: Deploy ECS for GrowthBook Cloud Jobs
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef-jobs.outputs.task-definition }}
+          service: prod-api-jobs
+          cluster: prod-api-jobs
+          wait-for-service-stability: true

@@ -401,6 +401,7 @@ export default function NamespaceSelector({
         <div className="box p-3 mb-2">
           <label>Use namespace</label>
           <SelectField
+            size="legacy"
             value={namespace}
             onChange={(v) => {
               if (v === namespace) return;
@@ -463,7 +464,7 @@ export default function NamespaceSelector({
               const row = (
                 <Flex as="div" align="baseline">
                   <span>{option.label}</span>
-                  <Text size="small" color="text-mid" ml="auto">
+                  <Text size="sm" color="text-mid" ml="auto">
                     {hashAttr ? (
                       <>
                         {option.isDisabled && (
@@ -479,7 +480,7 @@ export default function NamespaceSelector({
                         hash attribute: <strong>{hashAttr}</strong>
                       </>
                     ) : option.value === "" ? (
-                      <Text size="small" color="text-low" weight="medium">
+                      <Text size="sm" color="text-low" weight="medium">
                         DEFAULT
                       </Text>
                     ) : (
@@ -584,6 +585,7 @@ export default function NamespaceSelector({
                       }
                     >
                       <Field
+                        size="legacy"
                         type="number"
                         min={0}
                         max={1}
@@ -619,6 +621,7 @@ export default function NamespaceSelector({
                       />
                       <Text>to</Text>
                       <Field
+                        size="legacy"
                         type="number"
                         min={0}
                         max={1}

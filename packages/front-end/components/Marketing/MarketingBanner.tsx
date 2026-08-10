@@ -54,7 +54,7 @@ export default function MarketingBanner({
   if (dismissible && dismissed) return null;
 
   return (
-    <Callout status="info" icon={null} contentsAs="div" mb="5">
+    <Callout status="info" icon={null} mb="5">
       <Flex align="center" gap="4" wrap="wrap">
         <Flex align="center" gap="3" flexGrow="1" style={{ minWidth: 0 }}>
           <Badge
@@ -65,7 +65,7 @@ export default function MarketingBanner({
             size="sm"
           />
           <Box style={{ minWidth: 0, lineHeight: 1.4 }}>
-            <Heading as="h6" size="x-small" mb="1" color="text-high">
+            <Heading as="h6" size="xs" mb="1" color="text-high">
               {icon ? (
                 <Flex as="span" align="center" gap="2">
                   {icon}
@@ -76,7 +76,7 @@ export default function MarketingBanner({
               )}
             </Heading>
             {subheader ? (
-              <Text as="div" size="small" color="text-mid">
+              <Text as="div" size="sm" color="text-mid">
                 {subheader}
               </Text>
             ) : null}
@@ -86,8 +86,8 @@ export default function MarketingBanner({
           <LinkButton
             href={cta.link}
             external={external}
-            color="violet"
-            size="sm"
+            color="inherit"
+            size="md"
           >
             {cta.copy}
           </LinkButton>

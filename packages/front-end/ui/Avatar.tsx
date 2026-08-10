@@ -1,21 +1,10 @@
 import { Avatar as RadixAvatar, AvatarProps } from "@radix-ui/themes";
-import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { forwardRef, ReactNode } from "react";
+import { radixSize, Size as SharedSize } from "@/ui/sizes";
 import styles from "./Avatar.module.scss";
 
-export type Size = "sm" | "md" | "lg";
-
-export function getRadixSize(size: Size): Responsive<"1" | "2" | "3"> {
-  switch (size) {
-    case "sm":
-      return "1";
-    case "md":
-      return "2";
-    case "lg":
-      return "3";
-  }
-}
+export type Size = SharedSize<"sm" | "md" | "lg">;
 
 export type Props = {
   size?: Size;
@@ -41,7 +30,7 @@ export default forwardRef<HTMLImageElement, Props>(function Avatar(
       {...otherProps}
       ref={ref}
       className={styles.avatar}
-      size={getRadixSize(size)}
+      size={radixSize(size)}
       color={color}
       variant={variant}
       radius={radius}

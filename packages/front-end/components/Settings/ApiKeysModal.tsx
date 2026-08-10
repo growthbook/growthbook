@@ -113,6 +113,7 @@ const ApiKeysModal: FC<{
       cta={editMode ? "Save" : "Create"}
     >
       <Field
+        size="legacy"
         label="Description"
         required={true}
         {...form.register("description")}
@@ -120,7 +121,7 @@ const ApiKeysModal: FC<{
       {!personalAccessToken && (
         <>
           {editMode && (
-            <Callout status="info" mb="3" contentsAs="div">
+            <Callout status="info" mb="3">
               <Box mb="2">
                 Editing permissions keeps the same key value, so existing
                 integrations keep working.
@@ -133,7 +134,11 @@ const ApiKeysModal: FC<{
               </Box>
             </Callout>
           )}
-          <RoleSelector value={roleState} setValue={setRoleState} />
+          <RoleSelector
+            value={roleState}
+            setValue={setRoleState}
+            isNewAssignment={!editMode}
+          />
         </>
       )}
     </ModalStandard>

@@ -9,6 +9,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Link from "@/ui/Link";
 import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import { DocLink } from "@/components/DocLink";
@@ -288,20 +289,20 @@ export default function ErrorIssuePage(): React.ReactElement {
     .filter((member) => member.id)
     .map((member) => ({
       value: member.id,
-      display: assigneeLabel(member.id),
+      label: assigneeLabel(member.id),
     }))
-    .sort((a, b) => a.display.localeCompare(b.display));
+    .sort((a, b) => a.label.localeCompare(b.label));
   if (
     assignee &&
     !memberAssigneeOptions.some((option) => option.value === assignee)
   ) {
     memberAssigneeOptions.push({
       value: assignee,
-      display: assigneeLabel(assignee),
+      label: assigneeLabel(assignee),
     });
   }
   const assigneeOptions = [
-    { value: "", display: "Unassigned" },
+    { value: "", label: "Unassigned" },
     ...memberAssigneeOptions,
   ];
 
@@ -340,7 +341,7 @@ export default function ErrorIssuePage(): React.ReactElement {
         <>
           <div className="mb-3">
             <h1 className="h2">{issue.title}</h1>
-            <Text color="text-low" size="medium">
+            <Text color="text-low" size="md">
               {issue.fingerprint}
             </Text>
           </div>
@@ -393,43 +394,40 @@ export default function ErrorIssuePage(): React.ReactElement {
               />
             </div>
             <div className="col-md-4">
-              <Field
+              <SelectField
                 label="Priority"
                 options={[
-                  { value: "low", display: "Low" },
-                  { value: "medium", display: "Medium" },
-                  { value: "high", display: "High" },
-                  { value: "critical", display: "Critical" },
+                  { value: "low", label: "Low" },
+                  { value: "medium", label: "Medium" },
+                  { value: "high", label: "High" },
+                  { value: "critical", label: "Critical" },
                 ]}
                 value={priority}
-                onChange={async (e) => {
-                  const nextPriority = e.target.value;
+                onChange={async (nextPriority) => {
                   setPriority(nextPriority);
                   await saveIssue({ priority: nextPriority });
                 }}
               />
-              <Field
+              <SelectField
                 label="Assignee"
                 options={assigneeOptions}
                 value={assignee}
-                onChange={async (e) => {
-                  const nextAssignee = e.target.value;
+                onChange={async (nextAssignee) => {
                   setAssignee(nextAssignee);
                   await saveIssue({
                     assigneeUserId: nextAssignee || null,
                   });
                 }}
               />
-              <Field
+              <SelectField
                 label="Status"
                 options={[
-                  { value: "open", display: "Open" },
-                  { value: "resolved", display: "Resolved" },
-                  { value: "muted", display: "Muted" },
+                  { value: "open", label: "Open" },
+                  { value: "resolved", label: "Resolved" },
+                  { value: "muted", label: "Muted" },
                 ]}
                 value={status}
-                onChange={async (e) => {
-                  const nextStatus = e.target.value;
+                onChange={async (nextStatus) => {
                   setStatus(nextStatus);
                   await saveIssue({ status: nextStatus });
                 }}
@@ -720,7 +718,7 @@ export default function ErrorIssuePage(): React.ReactElement {
           </div>
 
           <h3 className="h5">Upload source maps</h3>
-          <Text size="medium" color="text-low">
+          <Text size="md" color="text-low">
             From CI, POST to <code>/api/v1/error-tracking/source-maps</code>{" "}
             with a secret API key and JSON fields <code>clientKey</code>,{" "}
             <code>release</code>, <code>minifiedUrl</code>, and{" "}

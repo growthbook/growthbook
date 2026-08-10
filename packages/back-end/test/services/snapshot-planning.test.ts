@@ -14,14 +14,19 @@ import {
   assertIncrementalRefreshPrerequisites,
   exploratoryOverallRequiresFullRefresh,
 } from "back-end/src/enterprise/services/data-pipeline";
-import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  ExperimentIncrementalPipelineRequiresFullRefreshError,
+} from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
+  createExperimentSnapshot,
   getSnapshotSettings,
   planSnapshot,
 } from "back-end/src/services/experiments";
 import { planMetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   createExperimentSnapshotModel,
   findSnapshotById,
@@ -30,7 +35,10 @@ import {
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
-import { FactTableMap } from "back-end/src/models/FactTableModel";
+import {
+  FactTableMap,
+  getFactTableMap,
+} from "back-end/src/models/FactTableModel";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 import { factTableFactory } from "../factories/FactTable.factory";
 
@@ -46,6 +54,17 @@ jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
   getDataSourceById: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/MetricModel", () => ({
+  getMetricById: jest.fn(),
+  getMetricMap: jest.fn(),
+  getMetricsByIds: jest.fn(),
+  insertMetric: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/FactTableModel", () => ({
+  getFactTableMap: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/datasource", () => ({
@@ -64,6 +83,16 @@ jest.mock("back-end/src/enterprise", () => ({
 jest.mock("back-end/src/enterprise/services/data-pipeline", () => ({
   assertIncrementalRefreshPrerequisites: jest.fn(),
   exploratoryOverallRequiresFullRefresh: jest.fn(),
+  legacyDocDescribesPhase: (
+    args: Parameters<
+      (typeof import("back-end/src/enterprise/services/data-pipeline"))["legacyDocDescribesPhase"]
+    >[0],
+  ) =>
+    jest
+      .requireActual<
+        typeof import("back-end/src/enterprise/services/data-pipeline")
+      >("back-end/src/enterprise/services/data-pipeline")
+      .legacyDocDescribesPhase(args),
 }));
 
 const {
@@ -92,6 +121,12 @@ const getLatestSuccessfulSnapshotMock =
   >;
 const getDataSourceByIdMock = getDataSourceById as jest.MockedFunction<
   typeof getDataSourceById
+>;
+const getMetricMapMock = getMetricMap as jest.MockedFunction<
+  typeof getMetricMap
+>;
+const getFactTableMapMock = getFactTableMap as jest.MockedFunction<
+  typeof getFactTableMap
 >;
 const getSourceIntegrationObjectMock =
   getSourceIntegrationObject as jest.MockedFunction<
@@ -134,6 +169,19 @@ function wireIncrementalIntegration(datasource: DataSourceInterface): void {
       hasQuantileSketch: true,
     }),
   } as never);
+}
+
+function wireIncrementalRefreshState(
+  context: ApiReqContext,
+  {
+    phaseDoc = null,
+    legacyDoc = null,
+  }: { phaseDoc?: unknown; legacyDoc?: unknown } = {},
+): void {
+  context.models.incrementalRefresh = {
+    getByExperimentIdAndPhase: jest.fn().mockResolvedValue(phaseDoc),
+    getLegacyByExperimentIdWithoutPhase: jest.fn().mockResolvedValue(legacyDoc),
+  } as never;
 }
 
 function makeContext(): ApiReqContext {
@@ -190,6 +238,49 @@ function makeExperiment(
   } as unknown as ExperimentInterface;
 }
 
+function makeTwoPhaseExperiment(): ExperimentInterface {
+  return makeExperiment({
+    phases: [
+      {
+        dateStarted: new Date("2025-01-01T00:00:00.000Z"),
+        variationWeights: [0.5, 0.5],
+      },
+      {
+        dateStarted: new Date("2025-03-01T00:00:00.000Z"),
+        variationWeights: [0.5, 0.5],
+      },
+    ],
+  });
+}
+
+function settingsHashForPhase({
+  experiment,
+  datasource,
+  phaseIndex,
+}: {
+  experiment: ExperimentInterface;
+  datasource: DataSourceInterface;
+  phaseIndex: number;
+}): string {
+  return getExperimentSettingsHashForIncrementalRefresh(
+    getSnapshotSettings({
+      experiment,
+      phaseIndex,
+      snapshotType: "standard",
+      dimension: null,
+      regressionAdjustmentEnabled: false,
+      orgPriorSettings: undefined,
+      orgDisabledPrecomputedDimensions: true,
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+      metricGroups: [],
+      incrementalRefreshModel: null,
+      datasource,
+    }),
+  );
+}
+
 function makeAnalysisSettings(
   overrides: Partial<ExperimentSnapshotAnalysisSettings> = {},
 ): ExperimentSnapshotAnalysisSettings {
@@ -207,6 +298,8 @@ describe("snapshot planning", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getDataSourceByIdMock.mockResolvedValue(makeDatasource());
+    getMetricMapMock.mockResolvedValue(new Map());
+    getFactTableMapMock.mockResolvedValue(new Map() as FactTableMap);
     getSourceIntegrationObjectMock.mockReturnValue({} as never);
     exploratoryOverallRequiresFullRefreshMock.mockReturnValue(false);
   });
@@ -226,7 +319,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     // useCache: false → full refresh, with a free-form reason explaining why.
     expect(plan.fullRefresh).toBe(true);
     expect(plan.fullRefreshReason).toBe("Full refresh explicitly requested.");
@@ -236,6 +329,44 @@ describe("snapshot planning", () => {
     expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
     expect(updateExperimentMock).not.toHaveBeenCalled();
     expect(updateExperimentDashboardsMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a snapshot for an experiment with no metrics without persisting a record", async () => {
+    await expect(
+      createExperimentSnapshot({
+        context: makeContext(),
+        experiment: makeExperiment({
+          goalMetrics: [],
+          secondaryMetrics: [],
+          guardrailMetrics: [],
+        }),
+        datasource: makeDatasource(),
+        dimension: undefined,
+        phase: 0,
+        useCache: false,
+      }),
+    ).rejects.toThrow(BadRequestError);
+
+    expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a snapshot when none of the selected metrics can be resolved", async () => {
+    await expect(
+      createExperimentSnapshot({
+        context: makeContext(),
+        experiment: makeExperiment({
+          goalMetrics: ["fact__deleted"],
+          metricOverrides: [],
+        }),
+        datasource: makeDatasource(),
+        dimension: undefined,
+        phase: 0,
+        useCache: false,
+      }),
+    ).rejects.toThrow(BadRequestError);
+
+    expect(getMetricMapMock).toHaveBeenCalled();
+    expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
   });
 
   it("surfaces pipeline validation errors as incremental fallback reasons", async () => {
@@ -255,11 +386,9 @@ describe("snapshot planning", () => {
     );
 
     const context = makeContext();
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue({
-        unitsTableFullName: "db.schema.units_exp_123",
-      }),
-    } as never;
+    wireIncrementalRefreshState(context, {
+      phaseDoc: { unitsTableFullName: "db.schema.units_exp_123" },
+    });
 
     const plan = await planSnapshot({
       experiment: makeExperiment(),
@@ -276,7 +405,7 @@ describe("snapshot planning", () => {
     });
 
     expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalled();
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe("metric not compatible");
   });
 
@@ -299,9 +428,7 @@ describe("snapshot planning", () => {
     const context = makeContext();
     // First run: no prior incremental state, so the warehouse units table
     // does not exist yet and a full refresh is required.
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue(null),
-    } as never;
+    wireIncrementalRefreshState(context, { phaseDoc: null });
 
     const plan = await planSnapshot({
       experiment: makeExperiment(),
@@ -317,7 +444,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("incremental");
+    expect(plan.snapshot.runnerKind).toBe("incremental-full");
     // The incremental runner must not discard the computed full refresh, or it
     // would attempt an incremental update against a non-existent units table.
     expect(plan.fullRefresh).toBe(true);
@@ -326,6 +453,104 @@ describe("snapshot planning", () => {
     );
     expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledWith(
       expect.objectContaining({ analysisType: "main-fullRefresh" }),
+    );
+  });
+
+  it("claims a pre-phase document for the phase whose settings hash it matches, even when a newer phase exists", async () => {
+    const datasource = makeIncrementalDatasource();
+    wireIncrementalIntegration(datasource);
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+
+    const experiment = makeTwoPhaseExperiment();
+    const phaseZeroHash = settingsHashForPhase({
+      experiment,
+      datasource,
+      phaseIndex: 0,
+    });
+    // The hash covers the phase start date, so a document can only be claimed by
+    // one of these two phases. Equal hashes would make both tests vacuous.
+    expect(phaseZeroHash).not.toEqual(
+      settingsHashForPhase({ experiment, datasource, phaseIndex: 1 }),
+    );
+
+    const context = makeContext();
+    wireIncrementalRefreshState(context, {
+      legacyDoc: {
+        unitsTableFullName: "db.schema.units_exp_123",
+        experimentSettingsHash: phaseZeroHash,
+      },
+    });
+
+    const plan = await planSnapshot({
+      experiment,
+      context,
+      type: "standard",
+      triggeredBy: "manual-dashboard",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings(),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(
+      context.models.incrementalRefresh.getLegacyByExperimentIdWithoutPhase,
+    ).toHaveBeenCalledWith("exp_123");
+    expect(plan.snapshot.runnerKind).toBe("incremental-update");
+    expect(plan.fullRefresh).toBe(false);
+    expect(plan.fullRefreshReason).toBeNull();
+  });
+
+  it("refuses a pre-phase document whose settings hash belongs to a different phase", async () => {
+    const datasource = makeIncrementalDatasource();
+    wireIncrementalIntegration(datasource);
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+
+    const experiment = makeTwoPhaseExperiment();
+    const phaseZeroHash = settingsHashForPhase({
+      experiment,
+      datasource,
+      phaseIndex: 0,
+    });
+    expect(phaseZeroHash).not.toEqual(
+      settingsHashForPhase({ experiment, datasource, phaseIndex: 1 }),
+    );
+
+    const context = makeContext();
+    wireIncrementalRefreshState(context, {
+      legacyDoc: {
+        unitsTableFullName: "db.schema.units_exp_123",
+        experimentSettingsHash: phaseZeroHash,
+      },
+    });
+
+    const plan = await planSnapshot({
+      experiment,
+      context,
+      type: "standard",
+      triggeredBy: "manual-dashboard",
+      phaseIndex: 1,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings(),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(
+      context.models.incrementalRefresh.getLegacyByExperimentIdWithoutPhase,
+    ).toHaveBeenCalledWith("exp_123");
+    expect(plan.snapshot.runnerKind).toBe("incremental-full");
+    expect(plan.fullRefresh).toBe(true);
+    expect(plan.fullRefreshReason).toBe(
+      "No prior Incremental Pipeline state for this experiment.",
     );
   });
 
@@ -428,8 +653,8 @@ describe("snapshot planning", () => {
       getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
 
     const context = makeContext();
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue({
+    wireIncrementalRefreshState(context, {
+      phaseDoc: {
         ...incrementalRefreshModel,
         experimentSettingsHash,
         metricSources: [
@@ -438,8 +663,8 @@ describe("snapshot planning", () => {
             metrics: [{ id: "m1", settingsHash: staleMetricHash }],
           },
         ],
-      }),
-    } as never;
+      },
+    });
 
     const plan = await planSnapshot({
       experiment,
@@ -458,7 +683,7 @@ describe("snapshot planning", () => {
     expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledWith(
       expect.objectContaining({ analysisType: "main-update" }),
     );
-    expect(plan.runnerKind).toBe("incremental");
+    expect(plan.snapshot.runnerKind).toBe("incremental-update");
     expect(plan.fullRefresh).toBe(false);
     expect(plan.incrementalFallbackReason).toBeNull();
 
@@ -506,12 +731,12 @@ describe("snapshot planning", () => {
     );
 
     const context = makeContext();
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue({
+    wireIncrementalRefreshState(context, {
+      phaseDoc: {
         unitsTableFullName: "db.schema.units_exp_123",
         experimentSettingsHash: "stale_hash",
-      }),
-    } as never;
+      },
+    });
 
     const plan = await planSnapshot({
       experiment: makeExperiment(),
@@ -534,7 +759,7 @@ describe("snapshot planning", () => {
     expect(assertIncrementalRefreshPrerequisitesMock).not.toHaveBeenCalledWith(
       expect.objectContaining({ analysisType: "main-fullRefresh" }),
     );
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe(staleConfigMessage);
     expect(plan.fullRefresh).toBe(false);
     expect(plan.fullRefreshReason).toBeNull();
@@ -557,12 +782,12 @@ describe("snapshot planning", () => {
     );
 
     const context = makeContext();
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue({
+    wireIncrementalRefreshState(context, {
+      phaseDoc: {
         unitsTableFullName: "db.schema.units_exp_123",
         experimentSettingsHash: "current_hash",
-      }),
-    } as never;
+      },
+    });
 
     const plan = await planSnapshot({
       experiment: makeExperiment(),
@@ -582,7 +807,7 @@ describe("snapshot planning", () => {
     expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledWith(
       expect.objectContaining({ analysisType: "main-update" }),
     );
-    expect(plan.runnerKind).toBe("incremental");
+    expect(plan.snapshot.runnerKind).toBe("incremental-update");
     expect(plan.fullRefresh).toBe(false);
     expect(plan.fullRefreshReason).toBeNull();
     expect(plan.incrementalFallbackReason).toBeNull();
@@ -613,12 +838,12 @@ describe("snapshot planning", () => {
       .mockResolvedValueOnce(undefined as never);
 
     const context = makeContext();
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue({
+    wireIncrementalRefreshState(context, {
+      phaseDoc: {
         unitsTableFullName: "db.schema.units_exp_123",
         experimentSettingsHash: "stale_hash",
-      }),
-    } as never;
+      },
+    });
 
     const plan = await planSnapshot({
       experiment: makeExperiment(),
@@ -644,7 +869,7 @@ describe("snapshot planning", () => {
     );
     // The incremental runner is kept and promoted to a full refresh instead of
     // silently downgrading to the non-incremental results runner.
-    expect(plan.runnerKind).toBe("incremental");
+    expect(plan.snapshot.runnerKind).toBe("incremental-full");
     expect(plan.fullRefresh).toBe(true);
     expect(plan.fullRefreshReason).toBe(staleConfigMessage);
     expect(plan.incrementalFallbackReason).toBeNull();
@@ -671,12 +896,12 @@ describe("snapshot planning", () => {
       .mockRejectedValueOnce(new Error("metric not compatible"));
 
     const context = makeContext();
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue({
+    wireIncrementalRefreshState(context, {
+      phaseDoc: {
         unitsTableFullName: "db.schema.units_exp_123",
         experimentSettingsHash: "stale_hash",
-      }),
-    } as never;
+      },
+    });
 
     const plan = await planSnapshot({
       experiment: makeExperiment(),
@@ -693,7 +918,7 @@ describe("snapshot planning", () => {
     });
 
     expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledTimes(2);
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe("metric not compatible");
     expect(plan.fullRefresh).toBe(false);
     expect(plan.fullRefreshReason).toBeNull();
@@ -713,13 +938,13 @@ describe("snapshot planning", () => {
     } as never);
 
     const context = makeContext();
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue({
+    wireIncrementalRefreshState(context, {
+      phaseDoc: {
         unitsTableFullName: "db.schema.units_exp_123",
         experimentSettingsHash: "current_hash",
         materializedBySnapshotId,
-      }),
-    } as never;
+      },
+    });
 
     const plan = await planSnapshot({
       experiment: makeExperiment(),
@@ -737,7 +962,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("incremental-exploratory");
+    expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
     expect(findSnapshotByIdMock).toHaveBeenCalledWith(
       context,
       materializedBySnapshotId,
@@ -754,13 +979,13 @@ describe("snapshot planning", () => {
     );
 
     const context = makeContext();
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue({
+    wireIncrementalRefreshState(context, {
+      phaseDoc: {
         unitsTableFullName: "db.schema.units_exp_123",
         experimentSettingsHash: "current_hash",
         materializedBySnapshotId: null,
-      }),
-    } as never;
+      },
+    });
 
     const plan = await planSnapshot({
       experiment: makeExperiment(),
@@ -778,7 +1003,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("incremental-exploratory");
+    expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
     expect(findSnapshotByIdMock).not.toHaveBeenCalled();
     expect(getLatestSuccessfulSnapshotMock).not.toHaveBeenCalled();
     expect(plan.snapshot.sourceSnapshotId).toBeUndefined();
@@ -820,12 +1045,12 @@ describe("snapshot planning", () => {
     );
 
     const context = makeContext();
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue({
+    wireIncrementalRefreshState(context, {
+      phaseDoc: {
         unitsTableFullName: "db.schema.units_exp_123",
         experimentSettingsHash: "stale_hash",
-      }),
-    } as never;
+      },
+    });
 
     await expect(
       planSnapshot({
@@ -861,12 +1086,12 @@ describe("snapshot planning", () => {
     );
 
     const context = makeContext();
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue({
+    wireIncrementalRefreshState(context, {
+      phaseDoc: {
         unitsTableFullName: "db.schema.units_exp_123",
         experimentSettingsHash: "stale_hash",
-      }),
-    } as never;
+      },
+    });
 
     const plan = await planSnapshot({
       experiment: makeExperiment(),
@@ -882,19 +1107,19 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe("metric not compatible");
   });
 
   function makeExploratoryContext() {
     const context = makeContext();
-    context.models.incrementalRefresh = {
-      getByExperimentId: jest.fn().mockResolvedValue({
+    wireIncrementalRefreshState(context, {
+      phaseDoc: {
         unitsTableFullName: "db.schema.units_exp_123",
         experimentSettingsHash: "hash_abc",
         metricSources: [],
-      }),
-    } as never;
+      },
+    });
     return context;
   }
 
@@ -921,7 +1146,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("incremental-exploratory");
+    expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
   });
 
   it("throws ExperimentIncrementalPipelineRequiresFullRefreshError when the Overall units table requires a full refresh and prompting enabled", async () => {
@@ -973,7 +1198,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(plan.runnerKind).toBe("results");
+    expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe(
       "Overall Results need a full refresh; running non-incremental update instead of reading stale data.",
     );

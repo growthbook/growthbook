@@ -5,7 +5,7 @@ import { PiWarningCircle } from "react-icons/pi";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import { ExperimentMetricDefinition, isFactMetric } from "shared/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -29,7 +29,7 @@ export interface StatusLabels {
 
 interface ExperimentResultTooltipContentProps {
   stats: SnapshotMetric;
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   pValueThreshold: number;
   significant: boolean;
   resultsStatus: RowResults["resultsStatus"];

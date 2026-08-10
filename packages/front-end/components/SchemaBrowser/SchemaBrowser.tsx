@@ -24,6 +24,7 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
+import Callout from "@/ui/Callout";
 import SchemaBrowserWrapper from "./SchemaBrowserWrapper";
 import RetryInformationSchemaCard from "./RetryInformationSchemaCard";
 import PendingInformationSchemaCard from "./PendingInformationSchemaCard";
@@ -458,7 +459,11 @@ export default function SchemaBrowser({
         )}
       </PanelGroup>
 
-      {error && <div className="alert alert-danger mt-2 mb-0">{error}</div>}
+      {error && (
+        <Callout status="error" mt="2" mb="0">
+          {error}
+        </Callout>
+      )}
     </div>
   );
 }

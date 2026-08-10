@@ -25,6 +25,7 @@ const EXPLORER_PATHS: Record<ExplorationConfig["type"], string> = {
   metric: "/product-analytics/explore/metrics",
   fact_table: "/product-analytics/explore/fact-table",
   data_source: "/product-analytics/explore/data-source",
+  funnel: "/product-analytics/explore/funnel",
 };
 
 export function chartDataFromToolResult(result: unknown): ChartData | null {
@@ -84,13 +85,13 @@ export default function ExplorationBubble({
       )}
       <Flex align="center" gap="2" mb="2">
         <PiSparkle size={12} />
-        <Text size="small" weight="medium">
+        <Text size="sm" weight="medium">
           {isTable ? "Generated table" : "Generated chart"}
         </Text>
         <Flex ml="auto" gap="1">
           <Button
             variant="ghost"
-            size="xs"
+            size="sm"
             color="violet"
             onClick={() => setShowSaveModal(true)}
           >
@@ -99,7 +100,7 @@ export default function ExplorationBubble({
           <LinkButton
             href={explorerUrl}
             variant="ghost"
-            size="xs"
+            size="sm"
             color="violet"
           >
             Open in Explorer

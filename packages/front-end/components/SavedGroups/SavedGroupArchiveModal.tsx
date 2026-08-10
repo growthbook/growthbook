@@ -62,6 +62,11 @@ export default function SavedGroupArchiveModal({
       canBypassApproval={canBypass}
       referenceCount={totalReferences}
       referencesLoading={loading}
+      // The server is the source of truth: archiving a still-referenced Saved
+      // Group returns a soft warning the user acknowledges via the shared
+      // apiCall handler, rather than a client-side hard block.
+      referenceBlockMode="soft"
+      preserveNounCase
       referencesList={
         <SavedGroupReferencesList
           features={references?.features ?? []}

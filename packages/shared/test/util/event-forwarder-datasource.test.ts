@@ -7,7 +7,6 @@ import {
   getEventForwarderDatasourceParams,
   getEventForwarderSinkTypeForDatasource,
   getUserIdTypesToAdd,
-  isEventForwarderAllowedUserIdTypesChange,
   isHashAttributeUserIdType,
   mergeUserIdTypes,
   supportsEventForwarder,
@@ -198,119 +197,6 @@ describe("isHashAttributeUserIdType", () => {
   it("returns false for non-hash or unknown identifier types", () => {
     expect(isHashAttributeUserIdType("device_id", schema)).toBe(false);
     expect(isHashAttributeUserIdType("session_id", schema)).toBe(false);
-  });
-});
-
-describe("isEventForwarderAllowedUserIdTypesChange", () => {
-  const existing = [
-    {
-      // User-created identifier type that uses the same hash attribute as the
-      // managed one. This must stay editable / deletable.
-      userIdType: "user_id",
-      description: "Logged-in user",
-      attributes: ["user_id"],
-    },
-    {
-      // Event Forwarder managed identifier type (prefixed with `ef_`).
-      userIdType: "ef_user_id",
-      description: "Managed by Event Forwarder.",
-      attributes: ["user_id"],
-    },
-    {
-      userIdType: "device_id",
-      description: "",
-      attributes: ["device_id", "session_id"],
-    },
-  ];
-
-  it("allows description-only changes to managed identifier types", () => {
-    expect(
-      isEventForwarderAllowedUserIdTypesChange(existing, [
-        existing[0],
-        {
-          userIdType: "ef_user_id",
-          description: "Updated description",
-          attributes: ["user_id"],
-        },
-        existing[2],
-      ]),
-    ).toBe(true);
-  });
-
-  it("allows editing user-created identifier types that use a hash attribute", () => {
-    expect(
-      isEventForwarderAllowedUserIdTypesChange(existing, [
-        {
-          userIdType: "account_id",
-          description: "Renamed",
-          attributes: ["account_id"],
-        },
-        existing[1],
-        existing[2],
-      ]),
-    ).toBe(true);
-  });
-
-  it("allows deleting user-created identifier types", () => {
-    expect(
-      isEventForwarderAllowedUserIdTypesChange(existing, [
-        existing[1],
-        existing[2],
-      ]),
-    ).toBe(true);
-  });
-
-  it("allows deleting non-managed identifier types", () => {
-    expect(
-      isEventForwarderAllowedUserIdTypesChange(existing, [
-        existing[0],
-        existing[1],
-      ]),
-    ).toBe(true);
-  });
-
-  it("rejects deleting managed identifier types", () => {
-    expect(
-      isEventForwarderAllowedUserIdTypesChange(existing, [
-        existing[0],
-        existing[2],
-      ]),
-    ).toBe(false);
-  });
-
-  it("allows adding new identifier types", () => {
-    expect(
-      isEventForwarderAllowedUserIdTypesChange(existing, [
-        ...existing,
-        { userIdType: "session_id", description: "Session" },
-      ]),
-    ).toBe(true);
-  });
-
-  it("rejects structural changes to managed identifier types", () => {
-    expect(
-      isEventForwarderAllowedUserIdTypesChange(existing, [
-        existing[0],
-        {
-          userIdType: "ef_account_id",
-          description: "Managed by Event Forwarder.",
-          attributes: ["user_id"],
-        },
-        existing[2],
-      ]),
-    ).toBe(false);
-
-    expect(
-      isEventForwarderAllowedUserIdTypesChange(existing, [
-        existing[0],
-        {
-          userIdType: "ef_user_id",
-          description: "Managed by Event Forwarder.",
-          attributes: ["device_id"],
-        },
-        existing[2],
-      ]),
-    ).toBe(false);
   });
 });
 

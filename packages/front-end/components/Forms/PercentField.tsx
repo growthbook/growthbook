@@ -33,6 +33,7 @@ export default function PercentField({
 
   return (
     <Field
+      size="legacy"
       type="number"
       step={step}
       append="%"

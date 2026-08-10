@@ -30,7 +30,7 @@ import { getValidDate } from "shared/dates";
 import { MetricTimeSeries } from "shared/validators";
 import { Flex } from "@radix-ui/themes";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   ExperimentSortBy,
   SetExperimentSortBy,
   isFactMetric,
@@ -97,7 +97,7 @@ export type ResultsTableProps = {
     location,
   }: {
     label: string | ReactElement;
-    metric: ExperimentMetricInterface;
+    metric: ExperimentMetricDefinition;
     row: ExperimentTableRow;
     maxRows?: number;
     numDimensions?: number;
@@ -1009,7 +1009,7 @@ export default function ResultsTable({
                                       "Metric & Variation Names",
                                     ) && (
                                       <td
-                                        className={`variation with-variation-label variation${v.index} position-relative`}
+                                        className="variation position-relative"
                                         style={{
                                           width: 220 * tableCellScale,
                                         }}
@@ -1030,7 +1030,7 @@ export default function ResultsTable({
                                             <VariationLabel
                                               number={v.index}
                                               name={v.name}
-                                              size="medium"
+                                              size="md"
                                             />
                                           </div>
                                         ) : (
