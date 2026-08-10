@@ -184,9 +184,8 @@ gb.logEvent("Button Click", {
             </>
           ) : (
             <Callout status="warning" mt="3">
-              Sending events to the managed warehouse this way requires
-              GrowthBook SDK version 1.4.0 or later. Update the SDK version
-              above, or send events directly with the{" "}
+              Upgrade this SDK Connection to SDK version 1.4.0 or later to send
+              events this way, or send events directly with the{" "}
               <DocLink docSection="managedWarehouseIngestionApi">
                 Ingestion API
               </DocLink>
@@ -279,9 +278,8 @@ gb.logEvent("Button Click", {
             </>
           ) : (
             <Callout status="warning" mt="3">
-              Sending events to the managed warehouse this way requires
-              GrowthBook SDK version 1.4.0 or later. Update the SDK version
-              above, or send events directly with the{" "}
+              Upgrade this SDK Connection to SDK version 1.4.0 or later to send
+              events this way, or send events directly with the{" "}
               <DocLink docSection="managedWarehouseIngestionApi">
                 Ingestion API
               </DocLink>
