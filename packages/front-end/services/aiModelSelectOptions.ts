@@ -3,6 +3,7 @@ import {
   AI_IMAGE_MODELS,
   AI_PROVIDER_MODEL_MAP,
   getImageModelMeta,
+  getProviderForAIModel,
   getProviderFromEmbeddingModel,
 } from "shared/ai";
 import { ensureValuesExactlyMatchUnion } from "shared/util";
@@ -184,15 +185,46 @@ export const USE_DEFAULT_MODEL_OPTION = {
 };
 
 /**
+ * How a Cloud BYOK picker presents the model it falls back to when unset.
+ *
+ * - Covered by the org's key: no extra row, the model is already listed.
+ *   `valueWhenUnset` selects it there, so the picker never renders blank.
+ * - Not covered: an empty-valued row named after the model, listed first.
+ */
+export function getFallbackModelDisplay(
+  availableProviders: readonly AIProvider[] | undefined,
+  fallbackModel: string,
+): { option: FlatOption | null; valueWhenUnset: string } {
+  const provider = getProviderForAIModel("text", fallbackModel);
+  if (provider && availableProviders?.includes(provider)) {
+    return { option: null, valueWhenUnset: fallbackModel };
+  }
+  return {
+    option: {
+      value: "",
+      label: AI_MODEL_DISPLAY_LABELS[fallbackModel as AIModel] ?? fallbackModel,
+    },
+    valueWhenUnset: "",
+  };
+}
+
+/**
  * Per-prompt model override options with an "org default" sentinel prepended.
  * Filtered and grouped the same way as getAvailableAIModelOptions().
+ *
+ * Pass `fallbackModel` to name the model the prompt inherits instead of the
+ * generic sentinel. Cloud does; self-hosted has no managed model to name.
  */
 export function getAvailablePromptModelOptions(
   availableProviders: readonly AIProvider[] | undefined,
   selectedModel?: string,
+  fallbackModel?: string,
 ): (FlatOption | GroupedOption)[] {
+  const lead = fallbackModel
+    ? getFallbackModelDisplay(availableProviders, fallbackModel).option
+    : USE_DEFAULT_MODEL_OPTION;
   return [
-    USE_DEFAULT_MODEL_OPTION,
+    ...(lead ? [lead] : []),
     ...getAvailableAIModelOptions(availableProviders, selectedModel),
   ];
 }

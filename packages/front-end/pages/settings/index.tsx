@@ -229,7 +229,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.requireRegisteredAttributes,
       ),
       aiEnabled: settings.aiEnabled ?? false,
-      defaultAIModel: settings.defaultAIModel || "gpt-4o-mini",
+      // Seeding a model on Cloud would persist it on the next save of any
+      // setting, silently taking the org off the managed default.
+      defaultAIModel:
+        settings.defaultAIModel || (isCloud() ? undefined : "gpt-4o-mini"),
       embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
       visualEditorAIModel: settings.visualEditorAIModel,
       visualEditorImageModel: settings.visualEditorImageModel || "",

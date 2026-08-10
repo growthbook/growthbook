@@ -26,6 +26,8 @@ import {
   AIModelKind,
   AIProvider,
   AI_PROVIDERS,
+  CLOUD_MANAGED_AI_MODEL,
+  CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
   EmbeddingModel,
   getProviderForAIModel,
 } from "shared/ai";
@@ -332,21 +334,16 @@ export async function getAISettingsForOrg(
     keySource,
   );
   const defaultAIModel: AIModel =
-    orgDefaultAIModel ||
-    (IS_CLOUD ? "claude-haiku-4-5-20251001" : "gpt-5.4-mini");
+    orgDefaultAIModel || (IS_CLOUD ? CLOUD_MANAGED_AI_MODEL : "gpt-5.4-mini");
 
-  // Managed Cloud gets Sonnet: the visual editor's structured-output + vision
-  // workload fails schema adherence on Haiku too often. `!orgDefaultAIModel` on
-  // Cloud is exactly "still on the managed default".
+  // Cloud stays on Sonnet unless the Visual Editor's own setting overrides it:
+  // its structured-output + vision workload fails schema adherence on Haiku.
   const visualEditorAIModel: AIModel =
     getAllowedAIModel(
       "text",
       context.org.settings?.visualEditorAIModel,
       keySource,
-    ) ||
-    (IS_CLOUD && !orgDefaultAIModel
-      ? "claude-sonnet-4-5-20250929"
-      : defaultAIModel);
+    ) || (IS_CLOUD ? CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL : defaultAIModel);
   // Managed Cloud gets Gemini 3 Pro Image for aspect-ratio fidelity. An org on
   // its own Google key gets the stable default, since a preview model isn't
   // enabled on every account.

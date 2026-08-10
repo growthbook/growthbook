@@ -133,6 +133,12 @@ export const AI_PROVIDER_MODEL_MAP = {
 // Derive AIModel type from the models defined in AI_PROVIDER_MODEL_MAP
 export type AIModel = (typeof AI_PROVIDER_MODEL_MAP)[AIProvider][number];
 
+// Models GrowthBook pays for on Cloud when an org brings no key of its own.
+// Shared so the settings pickers can name them.
+export const CLOUD_MANAGED_AI_MODEL: AIModel = "claude-haiku-4-5-20251001";
+export const CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL: AIModel =
+  "claude-sonnet-4-5-20250929";
+
 // Helper to determine which provider a model belongs to
 export function getProviderFromModel(model: AIModel): AIProvider {
   for (const [provider, models] of Object.entries(AI_PROVIDER_MODEL_MAP)) {

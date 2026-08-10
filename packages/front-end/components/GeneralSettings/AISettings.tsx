@@ -4,6 +4,7 @@ import { useFormContext, UseFormReturn } from "react-hook-form";
 import {
   AI_PROMPT_DEFAULTS,
   AI_PROVIDER_META,
+  CLOUD_MANAGED_AI_MODEL,
   AIPromptInterface,
   AIModel,
   AIProvider,
@@ -18,6 +19,7 @@ import {
   getAvailableEmbeddingModelOptions,
   getAvailableImageModelOptions,
   getAvailablePromptModelOptions,
+  getFallbackModelDisplay,
   USE_DEFAULT_MODEL_OPTION,
 } from "@/services/aiModelSelectOptions";
 import { useAuth } from "@/services/auth";
@@ -186,6 +188,27 @@ const EmbeddingKeyWarning: React.FC<{
   );
 };
 
+// Adds a muted second line to the row a picker falls back to, so "what happens
+// if I leave this alone" is visible in the list. Menu only — the closed control
+// shows the label alone.
+const modelOptionLabel = (
+  option: { value: string; label: string },
+  context: string,
+  marked: { value: string; note: string } | null,
+) => {
+  if (!marked || context !== "menu" || option.value !== marked.value) {
+    return <span>{option.label}</span>;
+  }
+  return (
+    <Flex direction="column" gap="0">
+      <Text>{option.label}</Text>
+      <Text size="1" style={{ color: "var(--text-color-muted)" }}>
+        {marked.note}
+      </Text>
+    </Flex>
+  );
+};
+
 export default function AISettings({
   promptForm,
 }: {
@@ -193,7 +216,7 @@ export default function AISettings({
 }) {
   const form = useFormContext();
   const { apiCall } = useAuth();
-  const { aiAgreedTo } = useAISettings();
+  const { aiAgreedTo, defaultAIModel } = useAISettings();
   const [optInModal, setOptInModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [embeddingMsg, setEmbeddingMsg] = useState("");
@@ -207,6 +230,29 @@ export default function AISettings({
     canChooseModels,
     selectableProviders: availableProviders,
   } = aiProviderAccess;
+
+  // Cloud names the model an unset picker falls back to. Self-hosted has no
+  // managed model, so it keeps a plain list.
+  const managedDefault = isCloud()
+    ? getFallbackModelDisplay(availableProviders, CLOUD_MANAGED_AI_MODEL)
+    : { option: null, valueWhenUnset: "" };
+
+  // Which row to mark, and how: the lead row when GrowthBook is paying,
+  // otherwise the managed model already listed under the org's own provider.
+  const managedDefaultNote = !isCloud()
+    ? null
+    : managedDefault.option
+      ? { value: "", note: "GrowthBook managed" }
+      : { value: CLOUD_MANAGED_AI_MODEL, note: "GrowthBook default" };
+
+  // Same treatment for the per-prompt pickers, except they inherit the org's
+  // default rather than GrowthBook's managed model.
+  const orgDefault = isCloud()
+    ? getFallbackModelDisplay(availableProviders, defaultAIModel)
+    : { option: null, valueWhenUnset: "" };
+  const orgDefaultNote = isCloud()
+    ? { value: orgDefault.option ? "" : defaultAIModel, note: "Default model" }
+    : null;
 
   // Every field here writes org settings, which the back end gates on
   // canManageOrgSettings. Without this the controls look editable to a non-admin
@@ -351,21 +397,25 @@ export default function AISettings({
                       id="defaultAIModel"
                       disabled={!canEdit}
                       helpText="Used by every AI feature that doesn't override it."
-                      value={form.watch("defaultAIModel")}
+                      value={
+                        form.watch("defaultAIModel") ||
+                        managedDefault.valueWhenUnset
+                      }
                       onChange={(v) => form.setValue("defaultAIModel", v)}
                       // Keep the registry's newest-first model order.
                       sort={false}
                       options={[
-                        // Clearing the setting is what puts an org back on the
-                        // managed model, so the way back has to be an option
-                        // in the list. Cloud only: self-hosted has no managed
-                        // key to fall back to.
-                        ...(isCloud() ? [USE_DEFAULT_MODEL_OPTION] : []),
+                        ...(managedDefault.option
+                          ? [managedDefault.option]
+                          : []),
                         ...getAvailableAIModelOptions(
                           availableProviders,
                           form.watch("defaultAIModel"),
                         ),
                       ]}
+                      formatOptionLabel={(option, { context }) =>
+                        modelOptionLabel(option, context, managedDefaultNote)
+                      }
                     />
                     <ApiKeyWarning
                       // On Cloud an empty value means the managed model, which
@@ -481,7 +531,7 @@ export default function AISettings({
                                 value={
                                   promptForm.watch(
                                     `${prompt.promptType}-model`,
-                                  ) || ""
+                                  ) || orgDefault.valueWhenUnset
                                 }
                                 onChange={(v) =>
                                   promptForm.setValue(
@@ -497,7 +547,15 @@ export default function AISettings({
                                   promptForm.watch(
                                     `${prompt.promptType}-model`,
                                   ) || "",
+                                  isCloud() ? defaultAIModel : undefined,
                                 )}
+                                formatOptionLabel={(option, { context }) =>
+                                  modelOptionLabel(
+                                    option,
+                                    context,
+                                    orgDefaultNote,
+                                  )
+                                }
                                 helpText={prompt?.overrideModelHelpText || ""}
                               />
                               {(() => {

@@ -1,4 +1,5 @@
 import { AGREEMENT_TYPE_AI } from "shared/validators";
+import { CLOUD_MANAGED_AI_MODEL } from "shared/ai";
 import { DEFAULT_REVISION_CONFIGURATION } from "shared/constants";
 import { useUser } from "@/services/UserContext";
 import { isCloud, hasAnyAIKey } from "@/services/env";
@@ -48,6 +49,9 @@ export const useAISettings = (): {
     ? !!agreements?.includes(AGREEMENT_TYPE_AI)
     : true;
 
-  const defaultAIModel = settings?.defaultAIModel || "gpt-4o-mini";
+  // Unset on Cloud means GrowthBook's managed model, not the self-hosted one.
+  const defaultAIModel =
+    settings?.defaultAIModel ||
+    (isCloud() ? CLOUD_MANAGED_AI_MODEL : "gpt-4o-mini");
   return { aiEnabled, defaultAIModel, aiAgreedTo };
 };

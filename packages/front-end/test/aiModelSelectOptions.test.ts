@@ -1,10 +1,18 @@
 import { describe, it, expect } from "vitest";
-import { AI_IMAGE_MODELS, AI_PROVIDER_MODEL_MAP } from "shared/ai";
 import {
+  AI_IMAGE_MODELS,
+  AI_PROVIDER_MODEL_MAP,
+  CLOUD_MANAGED_AI_MODEL,
+} from "shared/ai";
+import {
+  AI_MODEL_DISPLAY_LABELS,
   EMBEDDING_MODEL_OPTIONS,
   getAvailableAIModelOptions,
   getAvailableEmbeddingModelOptions,
   getAvailableImageModelOptions,
+  getAvailablePromptModelOptions,
+  getFallbackModelDisplay,
+  USE_DEFAULT_MODEL_OPTION,
 } from "@/services/aiModelSelectOptions";
 
 type Option = { value: string; label: string };
@@ -117,6 +125,70 @@ describe("getAvailableAIModelOptions", () => {
     expect(groupLabels(getAvailableAIModelOptions(undefined))).toHaveLength(
       Object.keys(AI_PROVIDER_MODEL_MAP).length,
     );
+  });
+});
+
+describe("getFallbackModelDisplay", () => {
+  it("adds a row named after the model when the org has no key for it", () => {
+    const { option, valueWhenUnset } = getFallbackModelDisplay(
+      ["openai"],
+      CLOUD_MANAGED_AI_MODEL,
+    );
+
+    expect(option).toEqual({
+      value: "",
+      label: AI_MODEL_DISPLAY_LABELS[CLOUD_MANAGED_AI_MODEL],
+    });
+    expect(valueWhenUnset).toBe("");
+  });
+
+  it("adds no row when the org's own key covers the model", () => {
+    const { option, valueWhenUnset } = getFallbackModelDisplay(
+      ["anthropic"],
+      CLOUD_MANAGED_AI_MODEL,
+    );
+
+    expect(option).toBeNull();
+    // Selects the model in place, so the picker never renders blank.
+    expect(valueWhenUnset).toBe(CLOUD_MANAGED_AI_MODEL);
+  });
+
+  it("adds a row while provider access is still loading", () => {
+    expect(
+      getFallbackModelDisplay(undefined, CLOUD_MANAGED_AI_MODEL).option,
+    ).not.toBeNull();
+  });
+});
+
+describe("getAvailablePromptModelOptions", () => {
+  it("names the inherited model when given one", () => {
+    const options = getAvailablePromptModelOptions(
+      ["openai"],
+      "",
+      CLOUD_MANAGED_AI_MODEL,
+    );
+
+    expect(options[0]).toEqual({
+      value: "",
+      label: AI_MODEL_DISPLAY_LABELS[CLOUD_MANAGED_AI_MODEL],
+    });
+  });
+
+  it("drops the empty row when the inherited model is already listed", () => {
+    const options = getAvailablePromptModelOptions(
+      ["anthropic"],
+      "",
+      CLOUD_MANAGED_AI_MODEL,
+    );
+
+    expect(values(options)).not.toContain("");
+    expect(values(options)).toContain(CLOUD_MANAGED_AI_MODEL);
+  });
+
+  it("falls back to the generic sentinel with no inherited model", () => {
+    const options = getAvailablePromptModelOptions(["anthropic"], "");
+
+    expect(options[0]).toEqual(USE_DEFAULT_MODEL_OPTION);
   });
 });
 
