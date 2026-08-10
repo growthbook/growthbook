@@ -1286,28 +1286,25 @@ function conversionWindowToSeconds(window: ConversionWindow): number {
 }
 
 /**
- * Build the chained `COALESCE(stepN_resolved_ts, stepN-1_resolved_ts, ...)`
- * expression we use as the "previous resolved timestamp" for step `index`.
- * Walks backward from `index - 1` and prefers required steps (an optional
- * step that the user skipped falls through to its predecessor).
+ * The "previous resolved timestamp" that step `index` measures its window and
+ * concurrency against: the nearest preceding required step.
+ *
+ * Optional steps are skipped rather than chained through. An optional step can
+ * land *after* the step that follows it, and anchoring on it would then push
+ * that already-completed conversion outside the window and drop it.
  */
 function buildPrevResolvedExpr(
   steps: FunnelStep[],
   index: number,
   alias: string = "",
 ): string {
-  // Walk back from the immediate predecessor. Optional steps that the user
-  // skipped will be NULL, so chaining COALESCE through them lets the next
-  // step's window/concurrency be measured against the most recent step the
-  // user actually completed.
   const prefix = alias ? `${alias}.` : "";
-  const parts: string[] = [];
   for (let i = index - 1; i >= 0; i--) {
-    parts.push(`${prefix}step${i + 1}_resolved_ts`);
-    if (!steps[i].optional) break;
+    if (!steps[i].optional) return `${prefix}step${i + 1}_resolved_ts`;
   }
-  if (parts.length === 1) return parts[0];
-  return `COALESCE(${parts.join(", ")})`;
+  // Every preceding step is optional, so anchor on step 1, which
+  // __funnel_qualifying_users already guarantees is non-null.
+  return `${prefix}step1_resolved_ts`;
 }
 
 interface FunnelFactTableGroup {
