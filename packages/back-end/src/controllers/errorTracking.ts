@@ -187,7 +187,10 @@ function getIssueGraphQuery(
         buckets: buildTrendBuckets(30, "day"),
       };
     case "all": {
-      const firstSeenDate = new Date(String(firstSeen) + "Z");
+      const firstSeenMs = new Date(firstSeen).getTime();
+      const firstSeenDate = Number.isNaN(firstSeenMs)
+        ? new Date(0)
+        : new Date(firstSeenMs);
       const allTimeGraph = getAllTimeIssueGraphQuery(firstSeen, lastSeen);
       return {
         filterSql: `AND timestamp >= ${integration.getSqlDialect().toTimestamp(firstSeenDate)}`,
@@ -459,11 +462,14 @@ LIMIT 20
       },
     );
 
+    const firstSeenIso = clickhouseTimestampToIso(row.first_seen);
+    const lastSeenIso = clickhouseTimestampToIso(row.last_seen);
+
     const graphRange = parseIssueGraphRange(req.query.graphRange);
     const graphQuery = getIssueGraphQuery(
       graphRange,
-      String(row.first_seen),
-      String(row.last_seen),
+      firstSeenIso,
+      lastSeenIso,
       integration,
     );
     const graphSql = `
@@ -497,8 +503,8 @@ ORDER BY ts
       issue: {
         fingerprint,
         title: String(row.title || ""),
-        lastSeen: clickhouseTimestampToIso(row.last_seen),
-        firstSeen: clickhouseTimestampToIso(row.first_seen),
+        lastSeen: lastSeenIso,
+        firstSeen: firstSeenIso,
         events: Number(row.events || 0),
         users: Number(row.users || 0),
         lastRelease: String(row.last_release || ""),
