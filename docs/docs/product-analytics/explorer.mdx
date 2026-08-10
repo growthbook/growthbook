@@ -287,6 +287,10 @@ Clicking **New SQL Report** opens the SQL Explorer modal. You get:
 SQL Explorer enforces read-only `SELECT` queries. The query is rejected client-side if it doesn't start with `SELECT` or `WITH` (after stripping comments and string literals). Results are capped at **1,000 rows**.
 :::
 
+:::caution Redshift and Microsoft SQL Server
+Custom SQL containing a CTE (`WITH` clause) can run as a report, but it cannot be used in a Product Analytics visualization on Redshift or Microsoft SQL Server. GrowthBook wraps the custom query with generated SQL for filtering and aggregation, and these warehouses do not support the resulting nested `WITH` clause. Use inline subqueries or a database view instead.
+:::
+
 ### Visualizations
 
 Once a query has run successfully, switch to a visualization tab to render the results as a chart. Saved queries can have any number of visualizations attached. Available chart types are:

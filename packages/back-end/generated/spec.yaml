@@ -35720,7 +35720,6 @@ paths:
                                             - boolean
                                             - other
                                       values:
-                                        minItems: 1
                                         type: array
                                         items:
                                           type: object
@@ -38672,7 +38671,6 @@ paths:
                                             - boolean
                                             - other
                                       values:
-                                        minItems: 1
                                         type: array
                                         items:
                                           type: object
@@ -42039,7 +42037,6 @@ paths:
                                         - boolean
                                         - other
                                   values:
-                                    minItems: 1
                                     type: array
                                     items:
                                       type: object
@@ -46762,7 +46759,6 @@ paths:
                           - boolean
                           - other
                     values:
-                      minItems: 1
                       type: array
                       items:
                         type: object
@@ -47148,7 +47144,6 @@ paths:
                                         - boolean
                                         - other
                                   values:
-                                    minItems: 1
                                     type: array
                                     items:
                                       type: object
@@ -63254,7 +63249,6 @@ components:
                                 - boolean
                                 - other
                           values:
-                            minItems: 1
                             type: array
                             items:
                               type: object
@@ -66433,7 +66427,6 @@ components:
                           - boolean
                           - other
                     values:
-                      minItems: 1
                       type: array
                       items:
                         type: object

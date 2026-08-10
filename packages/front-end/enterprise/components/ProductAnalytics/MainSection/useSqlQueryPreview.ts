@@ -2,16 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ExplorationConfig,
   QueryExecutionResult,
-  SqlValue,
   type SqlDataset,
 } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { useSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
-import {
-  createEmptyValue,
-  getInferredTimestampColumn,
-} from "@/enterprise/components/ProductAnalytics/util";
+import { getInferredTimestampColumn } from "@/enterprise/components/ProductAnalytics/util";
 
 export const PREVIEW_ROW_LIMIT = 100;
 
@@ -109,15 +105,13 @@ export default function useSqlQueryPreview({
             sql,
             columnTypes,
             timestampColumn,
-            values: prev.dataset.values.length
-              ? prev.dataset.values.map((value) => ({
-                  ...value,
-                  valueColumn:
-                    value.valueColumn && valueColumns.has(value.valueColumn)
-                      ? value.valueColumn
-                      : null,
-                }))
-              : [createEmptyValue("sql") as SqlValue],
+            values: prev.dataset.values.map((value) => ({
+              ...value,
+              valueColumn:
+                value.valueColumn && valueColumns.has(value.valueColumn)
+                  ? value.valueColumn
+                  : null,
+            })),
           },
         } as ExplorationConfig;
       });

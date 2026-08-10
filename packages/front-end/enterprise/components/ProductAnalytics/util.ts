@@ -961,7 +961,7 @@ export function hasUnsatisfiedInlineFilters(
 }
 
 /** Checks if a config is minimally complete in order to be submitted.
- *  - metric/fact_table/data_source: need at least 1 value
+ *  - metric/fact_table/data_source/sql: need at least 1 value
  *  - fact_table: also needs a fact table id
  *  - data_source: also needs a table + timestamp column
  *  - funnel: needs ≥2 steps with fact tables, a `unit`, and the unit must

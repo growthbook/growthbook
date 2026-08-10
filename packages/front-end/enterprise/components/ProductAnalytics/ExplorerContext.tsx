@@ -1063,12 +1063,11 @@ export function ExplorerProvider({
       setExplorerState((prev) => {
         const type = prev.draftState.dataset.type;
         const emptyDataset = createEmptyDataset(type);
-        // Funnel datasets manage their own initial state (a single empty
-        // step) inside createEmptyDataset and have no `values`. For the
-        // other dataset types we still want to seed one default value so
-        // the sidebar opens with a ready-to-edit row.
+        // Funnel datasets seed their first step in createEmptyDataset. SQL
+        // starts without a value so raw query previews do not also run an
+        // exploration query.
         const dataset =
-          type === "funnel"
+          type === "funnel" || type === "sql"
             ? emptyDataset
             : ({
                 ...emptyDataset,

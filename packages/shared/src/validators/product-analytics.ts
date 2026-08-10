@@ -97,7 +97,7 @@ const sqlDatasetValidator = z
       z.string().nullable(),
     ),
     columnTypes: sqlDatasetColumnTypeValidator,
-    values: z.array(sqlValueValidator).min(1),
+    values: z.array(sqlValueValidator),
   })
   .strict();
 // Funnels

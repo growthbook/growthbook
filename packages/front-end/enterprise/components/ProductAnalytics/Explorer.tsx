@@ -259,16 +259,15 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     () => configError,
   );
 
-  // Funnels manage their initial state via createEmptyDataset (which seeds
-  // one empty step); the other dataset types still seed an empty value here
-  // so the sidebar opens with one ready-to-edit row.
+  // Funnels seed their first step in createEmptyDataset. SQL starts without a
+  // value so running raw SQL does not also trigger an exploration query.
   const defaultDataset = createEmptyDataset(type);
   const defaultDraftState = {
     ...DEFAULT_EXPLORE_STATE,
     type,
     datasource: defaultDataSourceId,
     dataset:
-      type === "funnel"
+      type === "funnel" || type === "sql"
         ? defaultDataset
         : { ...defaultDataset, values: [createEmptyValue(type)] },
     // Funnels don't render time-series charts, so the default date dimension
