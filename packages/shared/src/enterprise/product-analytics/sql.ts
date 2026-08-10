@@ -1282,9 +1282,6 @@ function generateFinalSelect(
 /* Funnel SQL                                                                 */
 /* -------------------------------------------------------------------------- */
 
-const resolvedTsColumn = (stepIndex: number) =>
-  `step${stepIndex + 1}_resolved_ts`;
-
 interface FunnelFactTableGroup {
   index: number;
   factTable: MinimalFactTable;
@@ -1393,6 +1390,9 @@ export function buildFunnelSql(
   const concurrencyWindowSeconds = dataset.concurrencyWindowSeconds ?? 0;
   const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
   const ftGroups = groupFunnelStepsByFactTable(steps, factTableMap);
+
+  const resolvedTsColumn = (stepIndex: number) =>
+    `step${stepIndex + 1}_resolved_ts`;
 
   // Validate that the unit exists on every step's fact table.
   for (const group of ftGroups) {
