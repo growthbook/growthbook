@@ -222,9 +222,9 @@ describe("buildFunnelSql", () => {
   it("filters out non-qualifying users before the per-step CTEs, not just in the final SELECT", () => {
     const config = baseFunnelConfig(
       [
-        { name: "Step 1", factTable: "orders" },
-        { name: "Step 2", factTable: "orders" },
-        { name: "Step 3", factTable: "orders" },
+        { name: "Step 1", factTableId: "orders" },
+        { name: "Step 2", factTableId: "orders" },
+        { name: "Step 3", factTableId: "orders" },
       ],
       {
         dimensions: [
@@ -257,8 +257,8 @@ describe("buildFunnelSql", () => {
   it("filters to pinned values via a WHERE clause for a static dimension", () => {
     const config = baseFunnelConfig(
       [
-        { name: "Step 1", factTable: "orders" },
-        { name: "Step 2", factTable: "orders" },
+        { name: "Step 1", factTableId: "orders" },
+        { name: "Step 2", factTableId: "orders" },
       ],
       {
         dimensions: [
@@ -284,8 +284,8 @@ describe("buildFunnelSql", () => {
     // editor's 1-20 cap), so this must not emit a malformed `IN ()`.
     const config = baseFunnelConfig(
       [
-        { name: "Step 1", factTable: "orders" },
-        { name: "Step 2", factTable: "orders" },
+        { name: "Step 1", factTableId: "orders" },
+        { name: "Step 2", factTableId: "orders" },
       ],
       {
         dimensions: [
