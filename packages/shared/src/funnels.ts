@@ -27,13 +27,29 @@ export function conversionWindowToSeconds(window: {
 }
 
 /**
+ * Index of the step that anchors `index`'s ordering and conversion window, or
+ * null when only optional steps precede it. Optional steps do not anchor later
+ * steps, so this walks backward from `index - 1` to the nearest required step.
+ * A null result means the caller should anchor on exposure (experiment funnel
+ * metrics) or step 0 (product analytics).
+ */
+export function getFunnelAnchorStepIndex(
+  steps: { optional: boolean }[],
+  index: number,
+): number | null {
+  for (let i = index - 1; i >= 0; i--) {
+    if (!steps[i].optional) return i;
+  }
+  return null;
+}
+
+/**
  * Build the "previous resolved timestamp" expression for step `index`.
  *
- * Optional steps do not anchor later steps: walk backward from `index - 1`,
- * skip every optional step, and use the nearest required step's resolved
- * timestamp. When every preceding step is optional, fall back to
- * `exposureColumn` (experiment funnel metrics) or step 0 (product analytics),
- * so an optional early step never blocks later conversions.
+ * Anchors on the nearest preceding required step (see
+ * `getFunnelAnchorStepIndex`). When every preceding step is optional, falls
+ * back to `exposureColumn` (experiment funnel metrics) or step 0 (product
+ * analytics), so an optional early step never blocks later conversions.
  *
  * `resolvedTsColumn` maps a step index to that step's resolved-timestamp column
  * name, which differs between the two callers.
@@ -53,10 +69,9 @@ export function buildPrevResolvedExpr({
   exposureColumn?: string;
 }): string {
   const prefix = alias ? `${alias}.` : "";
-  for (let i = index - 1; i >= 0; i--) {
-    if (!steps[i].optional) {
-      return `${prefix}${resolvedTsColumn(i)}`;
-    }
+  const anchorIndex = getFunnelAnchorStepIndex(steps, index);
+  if (anchorIndex !== null) {
+    return `${prefix}${resolvedTsColumn(anchorIndex)}`;
   }
   // No required step precedes this one. Experiment funnels anchor on exposure;
   // product-analytics funnels anchor on step 0, which their qualifying-users

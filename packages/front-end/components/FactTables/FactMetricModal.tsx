@@ -32,6 +32,7 @@ import {
   getSelectedColumnDatatype,
 } from "shared/experiments";
 import { createLikeStringMatchFn } from "shared/sql";
+import { getFunnelAnchorStepIndex } from "shared/funnels";
 import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -1020,8 +1021,31 @@ function getFunnelPreviewSQL({
   const identifier = "`" + (factTable?.userIdTypes?.[0] || "user_id") + "`";
   const factTableName = "`" + (factTable?.name || "Fact Table") + "`";
 
-  const getStepFilterWHERE = (step: FunnelStep) => {
-    const whereParts = getColumnRefWhereClause({
+  // Exposure, delay, and metric window bounds apply to every step, so they sit
+  // on the CTE rather than being repeated in each step's filter.
+  const WHERE = getWHERE({
+    factTable,
+    columnRef: null,
+    windowSettings,
+    quantileSettings: {
+      type: "unit",
+      quantile: 0.5,
+      ignoreZeros: false,
+    } as MetricQuantileSettings,
+    type: "proportion",
+  });
+
+  const stepSelects = steps.map((step, i) => {
+    const stepNumber = i + 1;
+    // A null anchor means only optional steps precede this one, so it is
+    // measured from exposure instead.
+    const anchorIndex = getFunnelAnchorStepIndex(steps, i);
+    const anchor =
+      anchorIndex === null
+        ? "exposure_timestamp"
+        : `step_${anchorIndex + 1}_at`;
+
+    const predicates = getColumnRefWhereClause({
       factTable,
       columnRef: {
         factTableId: step.factTableId,
@@ -1035,105 +1059,94 @@ function getFunnelPreviewSQL({
       }),
       jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
       evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
-      showSourceComment: true,
     });
-    return whereParts.length > 0
-      ? `\nWHERE\n${indentLines(whereParts.join(" AND\n"))}`
-      : "";
-  };
 
-  const cteBlocks = steps.map((step, i) => {
-    if (i === 0) {
-      const WHERE = getWHERE({
-        factTable,
-        columnRef: {
-          factTableId: step.factTableId,
-          column: "",
-          rowFilters: step.rowFilters,
-        },
-        windowSettings,
-        quantileSettings: {
-          type: "unit",
-          quantile: 0.5,
-          ignoreZeros: false,
-        } as MetricQuantileSettings,
-        type: "proportion",
-      });
+    // Ordering against exposure is already covered by the CTE's WHERE.
+    if (anchorIndex !== null) {
+      predicates.push(`timestamp > ${anchor}`);
+    }
+    if (step.conversionWindow) {
+      predicates.push(
+        `timestamp <= ${anchor} + '${step.conversionWindow.value} ${step.conversionWindow.unit}'`,
+      );
+    }
 
-      const body = `
--- Step 1
+    const timing = [
+      ...(step.optional ? ["optional"] : []),
+      anchorIndex === null ? "after exposure" : `after Step ${anchorIndex + 1}`,
+      ...(step.conversionWindow
+        ? [
+            `within ${step.conversionWindow.value} ${step.conversionWindow.unit}`,
+          ]
+        : []),
+    ];
+    const comments = [
+      `-- Step ${stepNumber}: ${step.name} (${timing.join(", ")})`,
+    ];
+
+    const skipped = steps
+      .slice((anchorIndex ?? -1) + 1, i)
+      .map((_, idx) => `Step ${(anchorIndex ?? -1) + 2 + idx}`);
+    if (skipped.length > 0) {
+      const plural = skipped.length > 1;
+      comments.push(
+        `-- ${skipped.join(", ")} ${plural ? "are" : "is"} optional, so ${
+          plural ? "they do" : "it does"
+        } not gate this step`,
+      );
+    }
+
+    const as = `AS step_${stepNumber}_at`;
+    let agg: string;
+    if (predicates.length === 0) {
+      agg = `MIN(timestamp) ${as}`;
+    } else {
+      const oneLine = `MIN(timestamp) FILTER (WHERE ${predicates.join(
+        " AND ",
+      )}) ${as}`;
+      // A row filter can span lines (a long IN list, say), so keep its
+      // continuation lines aligned under the predicate.
+      const aligned = predicates.map((p) => p.split("\n").join("\n    "));
+      agg =
+        oneLine.length <= 76 && !oneLine.includes("\n")
+          ? oneLine
+          : `MIN(timestamp) FILTER (\n  WHERE ${aligned.join(
+              "\n    AND ",
+            )}\n) ${as}`;
+    }
+
+    return `${comments.join("\n")}\n${agg}`;
+  });
+
+  const cteBody = `
 SELECT
   ${identifier} AS user,
-  MIN(timestamp) AS reached_at
+${indentLines(stepSelects.join(",\n"))}
 FROM
   ${factTableName}${WHERE}
 GROUP BY user`.trim();
-
-      return `  step_1 AS (\n${indentLines(body, 4)}\n  )`;
-    }
-
-    const stepNumber = i + 1;
-    const headerLines = [`-- Step ${stepNumber} (must occur after Step ${i})`];
-    if (step.optional) {
-      headerLines.push(
-        `-- Optional step: users who skip it still continue the funnel`,
-      );
-    }
-
-    const onConditions = [
-      `e.${identifier} = prev.user`,
-      `e.timestamp > prev.reached_at`,
-    ];
-    if (step.conversionWindow) {
-      onConditions.push(
-        `-- Within the step conversion window\ne.timestamp <= prev.reached_at + '${step.conversionWindow.value} ${step.conversionWindow.unit}'`,
-      );
-    }
-
-    const WHERE = getStepFilterWHERE(step);
-
-    const body = `
-${headerLines.join("\n")}
-SELECT
-  prev.user AS user,
-  MIN(e.timestamp) AS reached_at
-FROM
-  step_${i} prev
-  JOIN ${factTableName} e ON (
-${indentLines(onConditions.join(" AND\n"), 4)}
-  )${WHERE}
-GROUP BY prev.user`.trim();
-
-    return `  step_${stepNumber} AS (\n${indentLines(body, 4)}\n  )`;
-  });
 
   const caseLines = steps
     .map((_, i) => {
       const n = i + 1;
       const comment =
         i === 0 ? `  -- 1 if the user reached the step in order, else 0\n` : "";
-      return `${comment}  CASE WHEN step_${n}.user IS NOT NULL THEN 1 ELSE 0 END AS step_${n}_value`;
+      return `${comment}  CASE WHEN f.step_${n}_at IS NOT NULL THEN 1 ELSE 0 END AS step_${n}_value`;
     })
     .join(",\n");
-
-  const joinLines = steps
-    .map((_, i) => {
-      const n = i + 1;
-      return `  LEFT JOIN step_${n} ON (step_${n}.user = u.user)`;
-    })
-    .join("\n");
 
   const sql = `
 -- Funnel metric: share of exposed users who reach each step in order.
 -- Each step is measured against all exposed users, not just those who entered the funnel.
-WITH
-${cteBlocks.join(",\n")}
+WITH funnel AS (
+${indentLines(cteBody)}
+)
 SELECT
   u.user,
 ${caseLines}
 FROM
   exposed_users u
-${joinLines}`.trim();
+  LEFT JOIN funnel f ON (f.user = u.user)`.trim();
 
   const sumLines = steps
     .map((_, i) => {
