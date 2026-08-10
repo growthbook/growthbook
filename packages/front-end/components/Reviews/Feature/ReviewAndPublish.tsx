@@ -672,6 +672,30 @@ export default function ReviewAndPublish({
     );
   }, [revision, baseRevision, liveRevision, envIds, feature]);
 
+  // The footprint the publish and schedule endpoints check, so every control
+  // gates on what this draft actually reaches. Falls back to every applicable
+  // environment while the merge result is loading or conflicted — the same
+  // over-ask the endpoints apply on a failed merge.
+  const affectedRevisionEnvs = useMemo(() => {
+    if (!mergeResult?.success) return envIds;
+    return getRevisionPublishEnvs({
+      liveFeature: feature,
+      changes: mergeResult.result,
+      environments,
+      holdoutsMap,
+      // Ramp actions ride the revision, not the merge result, so they have to be
+      // passed explicitly — the endpoint adds their reach either way.
+      rampActions: revision?.rampActions,
+    });
+  }, [
+    mergeResult,
+    envIds,
+    feature,
+    environments,
+    holdoutsMap,
+    revision?.rampActions,
+  ]);
+
   // Strategies-applied preview for the Resolve Conflicts modal. Becomes
   // successful once every conflict has a chosen strategy, which enables the
   // modal's Next → Review Changes → Update Draft flow and forms the rebase
@@ -781,17 +805,18 @@ export default function ReviewAndPublish({
   const isReviewRequester =
     !!userId && !!reviewRequesterId && userId === reviewRequesterId;
 
-  // Schedule authority, the way `canPublishFeatureRevision` computes it: publish over
-  // the feature's environments AND over the project the draft would land in. Judging
-  // the live feature alone offered every schedule action on a relocating draft and
-  // got a 403 from each.
+  // Schedule authority, the way the schedule endpoints compute it: publish over
+  // the environments this draft reaches AND over the project it would land in.
+  // Judging the live feature alone offered every schedule action on a relocating
+  // draft; asking over every applicable environment hid the controls from
+  // publishers limited to the environments the draft actually touches.
   const holdsSchedulePublish =
-    permissionsUtil.canPublishFeature(feature, envIds) &&
+    permissionsUtil.canPublishFeature(feature, affectedRevisionEnvs) &&
     holdsFeatureMoveDestination(
       permissionsUtil,
       feature,
       revision?.metadata?.project,
-      envIds,
+      affectedRevisionEnvs,
     );
 
   // Only the draft / review-request owner can edit the arming; others see a
@@ -1620,20 +1645,6 @@ export default function ReviewAndPublish({
   // authority. Staging a change as a draft must not require an atom that landing
   // it directly doesn't. Provenance is all the client can see — the server
   // re-verifies purity.
-  // The footprint the publish endpoint will derive, not a narrower one computed
-  // from the revision: a toggle, a holdout move, a prerequisite or an archive all
-  // reach environments that comparing `defaultValue` and rules alone misses.
-  const affectedRevisionEnvs = mergeResult.success
-    ? getRevisionPublishEnvs({
-        liveFeature: feature,
-        changes: mergeResult.result,
-        environments,
-        holdoutsMap,
-        // Ramp actions ride the revision, not the merge result, so they have to be
-        // passed explicitly — the endpoint adds their reach either way.
-        rampActions: revision?.rampActions,
-      })
-    : environments.map((e) => e.id);
   const hasPublishPermission =
     (permissionsUtil.canPublishFeature(feature, affectedRevisionEnvs) ||
       (draftStagesRevert &&
