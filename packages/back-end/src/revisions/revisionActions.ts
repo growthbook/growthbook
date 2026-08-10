@@ -613,11 +613,6 @@ async function publishRevisionInner(
   // stranded merge from a completed one.
   const alreadyMerged = revision.status === "merged";
 
-  // A pure revert lands under REVERT authority, including when it relocates the
-  // entity — the same atom `assertCanPublishRevision` grants it above. The
-  // move check below must not re-demand "publish".
-  const pureRevert = await isPureRevertRevision(context, revision);
-
   const approvalRequired = adapter.isApprovalRequiredForRevision
     ? adapter.isApprovalRequiredForRevision(context, revision)
     : adapter.isApprovalRequired(context);
@@ -686,31 +681,13 @@ async function publishRevisionInner(
     adapter.getUpdatableFields(),
   );
 
-  // A move needs edit rights on the destination AND publish over the environments
-  // it reaches. The footprint comes from the PRE-patch entity: it is derived by
-  // diffing the snapshot against the proposed changes, so the patched destination
-  // would compare the change against itself and report nothing.
+  // Move AUTHORITY — publish/revert over the destination project and its envs —
+  // is decided once, in `assertCanPublishRevision` above (which picks the atom
+  // from pure-revert status and runs on this same entity). Here we add only the
+  // edit-on-destination check it does not cover: the adapter's own update hook
+  // against the relocated entity.
   const destination = { ...entity, ...desiredState };
-  if (
-    isMove(entity, destination) &&
-    (!adapter.canUpdate(context, destination) ||
-      !holdsMoveDestination({
-        permissions: context.permissions,
-        model: revision.target.type,
-        action: pureRevert ? "revert" : "publish",
-        existing: entity,
-        proposed: destination,
-        environments: resolvePublishFootprint(
-          context,
-          adapter.publishFootprint?.(
-            context,
-            entity,
-            revision.target.proposedChanges,
-          ),
-          entity,
-        ),
-      }))
-  ) {
+  if (isMove(entity, destination) && !adapter.canUpdate(context, destination)) {
     context.permissions.throwPermissionError();
   }
 
