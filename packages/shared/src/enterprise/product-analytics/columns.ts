@@ -121,8 +121,8 @@ export function getAvailableDimensionColumns(
       .map(([name]) => ({ column: name, name }));
   } else if (dataset.type === "funnel") {
     const initialStep = dataset.steps[0];
-    const ft = initialStep?.factTable
-      ? getFactTableById(initialStep.factTable)
+    const ft = initialStep?.factTableId
+      ? getFactTableById(initialStep.factTableId)
       : null;
     ft?.userIdTypes?.forEach((u) => userIdTypes.add(u));
     candidates = ft ? expandFactTableColumns(ft) : [];
