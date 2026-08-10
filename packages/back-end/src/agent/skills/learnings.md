@@ -53,7 +53,9 @@ When a search returns nothing:
 
 1. `POST /api/v1/learnings/search` with `{"query": "checkout friction"}` ranks
    Learnings by meaning, not keyword. Use this whenever the user's question is
-   conceptual. Optional `limit` (max 50) and `projectId`.
+   conceptual. Optional `limit` (max 50) and `projectId`. It's a POST only
+   because the query goes in the body — it reads, so it is not gated and runs
+   immediately.
 2. `GET /api/v1/learnings` when you want a filtered slice rather than a ranked
    one — supports `projectId`, `experimentId`, `tag`, and `status`.
    `experimentId` returns Learnings that cite that experiment in **either**
