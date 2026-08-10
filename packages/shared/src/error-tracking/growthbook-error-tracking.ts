@@ -1,10 +1,36 @@
-import {
+import type {
   GrowthBook,
   GrowthBookClient,
   UserScopedGrowthBook,
+  Attributes,
+  UserContext,
 } from "@growthbook/growthbook";
-import type { Attributes, UserContext } from "@growthbook/growthbook";
 import { EVENT_GROWTHBOOK_ERROR } from "../constants";
+
+/**
+ * Duck-typed instead of `instanceof`: `@growthbook/growthbook` ships both a
+ * CJS and an ESM build (see its package.json `exports`), and this package
+ * compiles to CommonJS while a bundler-built consumer (e.g. Next.js) may
+ * resolve the ESM build for its own code. Those are two distinct module
+ * instances, so `gb instanceof GrowthBookClient` silently returns false for
+ * an instance constructed via the other build — logError would then no-op
+ * instead of reporting. Checking for a method only that class has works
+ * regardless of which build defined the class.
+ */
+function isGrowthBookClient(
+  gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient,
+): gb is GrowthBookClient {
+  return (
+    "createScopedInstance" in gb &&
+    typeof gb.createScopedInstance === "function"
+  );
+}
+
+function isUserScopedGrowthBook(
+  gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient,
+): gb is UserScopedGrowthBook {
+  return "getUserContext" in gb && typeof gb.getUserContext === "function";
+}
 
 export { EVENT_GROWTHBOOK_ERROR };
 
@@ -204,21 +230,19 @@ async function logError({
     props: { ...fingerprintProps, ...props },
   });
 
-  if (gb instanceof GrowthBook || gb instanceof UserScopedGrowthBook) {
+  if (!isGrowthBookClient(gb)) {
     await gb.logEvent(EVENT_GROWTHBOOK_ERROR, eventProps);
     return;
   }
 
-  if (gb instanceof GrowthBookClient) {
-    if (!userContext) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        "captureError: pass userContext when gb is a GrowthBookClient.",
-      );
-      return;
-    }
-    gb.logEvent(EVENT_GROWTHBOOK_ERROR, eventProps, userContext);
+  if (!userContext) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      "captureError: pass userContext when gb is a GrowthBookClient.",
+    );
+    return;
   }
+  gb.logEvent(EVENT_GROWTHBOOK_ERROR, eventProps, userContext);
 }
 
 export async function captureError(
@@ -253,13 +277,13 @@ function readGrowthBookAttributes(
   }
 
   try {
-    if (gb instanceof UserScopedGrowthBook) {
+    if (isUserScopedGrowthBook(gb)) {
       return gb.getUserContext().attributes || {};
     }
     if ("getAttributes" in gb && typeof gb.getAttributes === "function") {
       return gb.getAttributes() || {};
     }
-    if (gb instanceof GrowthBookClient) {
+    if (isGrowthBookClient(gb)) {
       return gb.getGlobalAttributes();
     }
   } catch {
@@ -313,8 +337,9 @@ export function growthbookErrorTrackingPlugin({
       return typeof release === "string" ? release : undefined;
     };
 
-    const pluginUserContext =
-      gb instanceof UserScopedGrowthBook ? gb.getUserContext() : undefined;
+    const pluginUserContext = isUserScopedGrowthBook(gb)
+      ? gb.getUserContext()
+      : undefined;
 
     const run = async (error: unknown, props?: GrowthBookErrorEventProps) => {
       if (!enable) return;
@@ -363,7 +388,7 @@ export function growthbookErrorTrackingPlugin({
       return;
     }
 
-    if (gb instanceof GrowthBookClient) {
+    if (isGrowthBookClient(gb)) {
       return;
     }
 

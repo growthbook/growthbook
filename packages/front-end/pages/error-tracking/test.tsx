@@ -65,13 +65,22 @@ export default function ErrorTrackingTestPage(): React.ReactElement {
   // already-installed growthbookErrorTrackingPlugin (window.onerror /
   // unhandledrejection listeners, see pages/_app.tsx) captures them the
   // same way it would a real bug — no separate capture call needed here.
+  //
+  // The throw is deferred via setTimeout rather than thrown directly in the
+  // click handler: React's dev-mode event dispatch wraps synchronous handler
+  // exceptions for nicer devtools attribution, which can keep them from
+  // reaching window.onerror as a normal global error. A setTimeout callback
+  // runs as its own top-level task outside that wrapping, so it reproduces
+  // a real uncaught exception the same way in dev and production.
   const triggerUncaught = (label: string) => {
     setLastResult({
       label,
       ok: true,
       detail: "Thrown — captured automatically by the error tracking plugin",
     });
-    throw new Error(`[Error Tracking Test] ${label}`);
+    setTimeout(() => {
+      throw new Error(`[Error Tracking Test] ${label}`);
+    }, 0);
   };
 
   const triggerUnhandledRejection = (label: string) => {

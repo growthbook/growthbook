@@ -1,4 +1,4 @@
-import { GrowthBookClient } from "@growthbook/growthbook";
+import { GrowthBook, GrowthBookClient } from "@growthbook/growthbook";
 import {
   EVENT_GROWTHBOOK_ERROR,
   buildErrorEventProperties,
@@ -72,5 +72,57 @@ describe("growthbookErrorTracking helpers", () => {
 
   it("EVENT_GROWTHBOOK_ERROR matches warehouse filter string", () => {
     expect(EVENT_GROWTHBOOK_ERROR).toEqual("GrowthBook Error");
+  });
+
+  // @growthbook/growthbook ships both a CJS and an ESM build. A consumer
+  // whose bundler resolves a different build than this package's own
+  // (CommonJS) compiled output ends up with an object that behaves like a
+  // GrowthBook instance but fails `instanceof` against this module's copy
+  // of the class. Dispatch must not rely on instanceof for that reason —
+  // this simulates that cross-build object with a plain, unrelated class.
+  it("logs via a GrowthBook-shaped object from a different module instance", async () => {
+    class OtherModuleGrowthBook {
+      getClientKey() {
+        return "sdk-test";
+      }
+      logEvent = jest.fn();
+    }
+    const fakeGrowthBook = new OtherModuleGrowthBook();
+    expect(fakeGrowthBook).not.toBeInstanceOf(GrowthBook);
+
+    await captureError({
+      gb: fakeGrowthBook as unknown as GrowthBook,
+      error: new Error("cross-module error"),
+      props: { errorType: "manual" },
+    });
+
+    expect(fakeGrowthBook.logEvent).toHaveBeenCalledWith(
+      EVENT_GROWTHBOOK_ERROR,
+      expect.objectContaining({ message: "cross-module error" }),
+    );
+  });
+
+  it("logs via a GrowthBookClient-shaped object from a different module instance", async () => {
+    class OtherModuleGrowthBookClient {
+      createScopedInstance() {
+        /* marks this as client-like */
+      }
+      logEvent = jest.fn();
+    }
+    const fakeClient = new OtherModuleGrowthBookClient();
+    expect(fakeClient).not.toBeInstanceOf(GrowthBookClient);
+
+    await captureError({
+      gb: fakeClient as unknown as GrowthBookClient,
+      error: new Error("cross-module client error"),
+      userContext: { attributes: { id: "user-1" } },
+      props: { errorType: "manual" },
+    });
+
+    expect(fakeClient.logEvent).toHaveBeenCalledWith(
+      EVENT_GROWTHBOOK_ERROR,
+      expect.objectContaining({ message: "cross-module client error" }),
+      { attributes: { id: "user-1" } },
+    );
   });
 });
