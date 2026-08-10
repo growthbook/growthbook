@@ -4,7 +4,6 @@ import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { captureError } from "shared/error-tracking";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getIngestorHost } from "back-end/src/util/secrets";
-import { logger } from "back-end/src/util/logger";
 
 export type ErrorTestScenario =
   | "uncaught"
@@ -45,34 +44,30 @@ export async function triggerBackendError(
 
   const client = buildTestClient(clientKey);
   const error = scenarioError(scenario);
-  const props = {
-    errorType: `test-backend-${scenario}`,
-    transaction: "error-tracking-test-page",
-    handled: scenario === "logged" || scenario === "handled",
-  };
+  const handled = scenario === "logged" || scenario === "handled";
 
-  switch (scenario) {
-    case "logged":
-      // Exercises the same reporting path as a real logger.error call
-      // (see back-end/src/util/logger.ts), just targeted at the chosen
-      // SDK connection instead of GrowthBook's own internal tracking.
-      logger.error(error, "[Error Tracking Test] logged backend error");
-      await captureError({ gb: client, error, userContext: {}, props });
-      return res.status(200).json({ status: 200 });
-    case "handled":
-      await captureError({ gb: client, error, userContext: {}, props });
-      return res.status(200).json({ status: 200 });
-    case "async-rejection":
-      await captureError({ gb: client, error, userContext: {}, props });
-      // Now actually reject, so the request itself fails like a real
-      // unhandled backend error would.
-      return Promise.reject(error);
-    case "uncaught":
-    default:
-      await captureError({ gb: client, error, userContext: {}, props });
-      // Now actually throw, so the request itself fails like a real
-      // uncaught backend error would (caught by asyncHandler, reported
-      // again via the global error handler's captureBackendError).
-      throw error;
+  // Report only through this throwaway client, explicitly scoped to the
+  // chosen SDK connection. Do NOT also throw/reject or call logger.error:
+  // those route through Express's global error handler / logger, which
+  // always reports via the app's own internal telemetry client (a fixed
+  // connection unrelated to the one selected here) — routing through both
+  // would double-report the same error under two different `errorType`
+  // tags, which the ingestor's fingerprint hash treats as separate issues.
+  await captureError({
+    gb: client,
+    error,
+    userContext: {},
+    props: {
+      errorType: `test-backend-${scenario}`,
+      transaction: "error-tracking-test-page",
+      handled,
+    },
+  });
+
+  // "uncaught"/"async-rejection" simulate a failed request; "logged"/"handled"
+  // simulate an error that was caught and handled without failing the request.
+  if (handled) {
+    return res.status(200).json({ status: 200 });
   }
+  return res.status(500).json({ status: 500, message: error.message });
 }
