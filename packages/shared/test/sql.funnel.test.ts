@@ -375,10 +375,11 @@ describe("buildFunnelSql", () => {
 
     const { sql } = buildFunnelSql(config, factTableMap, helpers);
     // Optional step 2 can land after step 3, so step 3 measures from required
-    // step 1 rather than chaining through whichever step resolved last.
-    expect(sql).toMatch(/FROM unnest\(r\.step3_arr\) AS t/);
-    expect(sql).toMatch(/r\.step1_resolved_ts/);
-    expect(sql).not.toMatch(/COALESCE\(r\.step2_resolved_ts/);
+    // step 1 rather than chaining through whichever step resolved last. The
+    // anchor has to be asserted inside step 3's own range predicate.
+    expect(sql).toMatch(
+      /FROM unnest\(r\.step3_arr\) AS t WHERE t >= r\.step1_resolved_ts/,
+    );
   });
 
   it("anchors on step 1 when every preceding step is optional", () => {
