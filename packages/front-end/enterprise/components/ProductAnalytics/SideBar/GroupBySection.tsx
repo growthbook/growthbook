@@ -2,17 +2,64 @@ import { Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretRight, PiPlus, PiX } from "react-icons/pi";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Collapsible from "react-collapsible";
+import type {
+  ProductAnalyticsDimension,
+  ProductAnalyticsDynamicDimension,
+  ProductAnalyticsStaticDimension,
+} from "shared/validators";
 import Button from "@/ui/Button";
-import { getMaxDimensions } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  getMaxDimensions,
+  getColumnTopValues,
+} from "@/enterprise/components/ProductAnalytics/util";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
+import MultiSelectField from "@/ui/MultiSelectField";
+
+const DEFAULT_MAX_VALUES = 5;
+const MAX_PINNED_DIMENSION_VALUES = 20;
+
+type GroupByDimension =
+  | ProductAnalyticsDynamicDimension
+  | ProductAnalyticsStaticDimension;
+
+function isGroupByDimension(
+  dim: ProductAnalyticsDimension,
+): dim is GroupByDimension {
+  return dim.dimensionType === "dynamic" || dim.dimensionType === "static";
+}
+
+// Explicit choice, not inferred from pinned values — one input shows at a
+// time, and it scales to future dimension types.
+const BREAKDOWN_TYPE_OPTIONS: { label: string; value: "dynamic" | "static" }[] =
+  [
+    { label: "Top values", value: "dynamic" },
+    { label: "Pinned values", value: "static" },
+  ];
+
+// Shifts keys above `removedIndex` down by one and drops it, so index-keyed
+// maps stay aligned after a splice-out instead of losing other dimensions' state.
+function reindexAfterRemoval<T>(
+  record: Record<number, T>,
+  removedIndex: number,
+): Record<number, T> {
+  const next: Record<number, T> = {};
+  Object.entries(record).forEach(([key, value]) => {
+    const idx = Number(key);
+    if (idx === removedIndex) return;
+    next[idx > removedIndex ? idx - 1 : idx] = value;
+  });
+  return next;
+}
 
 export default function GroupBySection() {
   const { draftExploreState, setDraftExploreState, commonColumns } =
     useExplorerContext();
+  const { getFactTableById, getFactMetricById } = useDefinitions();
   const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(
     Array(draftExploreState.dimensions.length).fill(false),
   );
@@ -22,14 +69,33 @@ export default function GroupBySection() {
   const latestMaxValuesRef = useRef<Record<number, string>>({});
   const skipBlurCommitRef = useRef(false);
 
-  const prevDimensionsLengthRef = useRef(draftExploreState.dimensions.length);
+  // Tracks the length these maps were last synced to; Add/Remove update it
+  // directly. A mismatch means something outside those handlers reshaped
+  // `dimensions` (e.g. changeChartType) — full reset only then.
+  const expectedDimensionsLengthRef = useRef(
+    draftExploreState.dimensions.length,
+  );
   useEffect(() => {
-    if (draftExploreState.dimensions.length < prevDimensionsLengthRef.current) {
+    if (
+      draftExploreState.dimensions.length !==
+      expectedDimensionsLengthRef.current
+    ) {
       setLocalMaxValues({});
       latestMaxValuesRef.current = {};
+      expectedDimensionsLengthRef.current = draftExploreState.dimensions.length;
     }
-    prevDimensionsLengthRef.current = draftExploreState.dimensions.length;
   }, [draftExploreState.dimensions.length]);
+
+  // handleAdd/RemoveDimension already keep this in sync for their own
+  // changes. A mismatch means something else reshaped `dimensions` (e.g.
+  // changeChartType) — resync then, not on every ordinary Add/Remove.
+  useEffect(() => {
+    if (advancedSettingsOpen.length !== draftExploreState.dimensions.length) {
+      setAdvancedSettingsOpen(
+        Array(draftExploreState.dimensions.length).fill(false),
+      );
+    }
+  }, [draftExploreState.dimensions.length, advancedSettingsOpen.length]);
 
   const availableColumns = useMemo(() => {
     // Filter out columns already used in dimensions
@@ -43,8 +109,7 @@ export default function GroupBySection() {
 
   const getColumnOptionsForDimension = (index: number) => {
     const dim = draftExploreState.dimensions[index];
-    if (!dim || dim.dimensionType !== "dynamic" || !("column" in dim))
-      return [];
+    if (!dim || !isGroupByDimension(dim)) return [];
     const usedByOthers = new Set(
       draftExploreState.dimensions
         .map((d, i) => (i !== index && "column" in d ? d.column : null))
@@ -57,6 +122,9 @@ export default function GroupBySection() {
 
   const handleAddDimension = () => {
     setAdvancedSettingsOpen((prev) => [...prev, false]); // New dimension defaults to collapsed
+    // Appending doesn't shift existing indices — just mark this length
+    // change as already accounted for.
+    expectedDimensionsLengthRef.current += 1;
     setDraftExploreState((prev) => ({
       ...prev,
       dimensions: [
@@ -64,31 +132,67 @@ export default function GroupBySection() {
         {
           dimensionType: "dynamic",
           column: null,
-          maxValues: 5,
+          maxValues: DEFAULT_MAX_VALUES,
         },
       ],
     }));
   };
 
-  const handleUpdateDimension = (
-    index: number,
-    dimension: { column: string | null; maxValues: number },
-  ) => {
-    setDraftExploreState((prev) => ({
-      ...prev,
-      dimensions: prev.dimensions.map((d, i) =>
-        i === index && d.dimensionType === "dynamic"
-          ? { ...d, ...dimension }
-          : d,
-      ),
-    }));
-  };
-
   const handleRemoveDimension = (index: number) => {
     setAdvancedSettingsOpen((prev) => prev.filter((_, i) => i !== index));
+    // Splicing shifts later indices down by one — reindex instead of
+    // resetting other dimensions' state.
+    expectedDimensionsLengthRef.current -= 1;
+    setLocalMaxValues((prev) => reindexAfterRemoval(prev, index));
+    latestMaxValuesRef.current = reindexAfterRemoval(
+      latestMaxValuesRef.current,
+      index,
+    );
     setDraftExploreState((prev) => ({
       ...prev,
       dimensions: prev.dimensions.filter((_, i) => i !== index),
+    }));
+  };
+
+  // Keeps the breakdown type (a separate choice) but resets values/maxValues,
+  // since those were scoped to the previous column.
+  const handleColumnChange = (index: number, column: string) => {
+    setDraftExploreState((prev) => ({
+      ...prev,
+      dimensions: prev.dimensions.map((d, i) => {
+        if (i !== index || !isGroupByDimension(d)) return d;
+        return {
+          dimensionType: "dynamic",
+          column,
+          maxValues: DEFAULT_MAX_VALUES,
+        };
+      }),
+    }));
+  };
+
+  // Explicit choice via the selector below, not inferred from pinned values.
+  // Switching starts the new type fresh, like a column change.
+  const handleDimensionTypeChange = (
+    index: number,
+    dimensionType: GroupByDimension["dimensionType"],
+  ) => {
+    setDraftExploreState((prev) => ({
+      ...prev,
+      dimensions: prev.dimensions.map((d, i) => {
+        if (i !== index || !isGroupByDimension(d)) return d;
+        if (dimensionType === "static") {
+          return {
+            dimensionType: "static",
+            column: d.column ?? "",
+            values: [],
+          };
+        }
+        return {
+          dimensionType: "dynamic",
+          column: d.column,
+          maxValues: DEFAULT_MAX_VALUES,
+        };
+      }),
     }));
   };
 
@@ -109,7 +213,14 @@ export default function GroupBySection() {
 
     const dim = draftExploreState.dimensions[index];
     if (dim && dim.dimensionType === "dynamic") {
-      handleUpdateDimension(index, { column: dim.column, maxValues: parsed });
+      setDraftExploreState((prev) => ({
+        ...prev,
+        dimensions: prev.dimensions.map((d, i) =>
+          i === index && d.dimensionType === "dynamic"
+            ? { ...d, maxValues: parsed }
+            : d,
+        ),
+      }));
     }
     setLocalMaxValues((prev) => {
       const next = { ...prev };
@@ -117,6 +228,20 @@ export default function GroupBySection() {
       return next;
     });
     delete latestMaxValuesRef.current[index];
+  };
+
+  // Only edits the pinned list — switching type happens via the
+  // breakdown-type selector above, not by pinning/clearing values here.
+  const handleValuesChange = (index: number, values: string[]) => {
+    const capped = values.slice(0, MAX_PINNED_DIMENSION_VALUES);
+    setDraftExploreState((prev) => ({
+      ...prev,
+      dimensions: prev.dimensions.map((d, i) =>
+        i === index && d.dimensionType === "static"
+          ? { ...d, values: capped }
+          : d,
+      ),
+    }));
   };
 
   return (
@@ -155,8 +280,16 @@ export default function GroupBySection() {
       </Flex>
       {/* Display existing dimensions */}
       {draftExploreState.dimensions.map((dim, i) => {
-        if (dim.dimensionType === "date") return null; // Skip date dimension as it's usually handled separately or fixed
-        if (dim.dimensionType !== "dynamic") return null; // Skip static and slice dimensions for now
+        if (!isGroupByDimension(dim)) return null; // Skip date and slice dimensions for now
+        const isStatic = dim.dimensionType === "static";
+        const pinnedValues = isStatic ? dim.values : [];
+        const valueOptions = getColumnTopValues(
+          draftExploreState.dataset,
+          dim.column,
+          getFactTableById,
+          getFactMetricById,
+        ).map((v) => ({ label: v, value: v }));
+
         return (
           <Flex
             key={i}
@@ -171,15 +304,10 @@ export default function GroupBySection() {
           >
             <Flex direction="row" gap="2" align="center">
               <SelectField
-                size="legacy"
+                size="small"
                 containerStyle={{ flex: 1, minWidth: 0 }}
                 value={dim.column || ""}
-                onChange={(val) =>
-                  handleUpdateDimension(i, {
-                    column: val,
-                    maxValues: dim.maxValues,
-                  })
-                }
+                onChange={(val) => handleColumnChange(i, val)}
                 options={getColumnOptionsForDimension(i)}
                 placeholder="Select dimension..."
                 sort={false}
@@ -225,49 +353,85 @@ export default function GroupBySection() {
               triggerDisabled
             >
               <Flex direction="column" gap="2" mt="1">
-                <Text size="sm" weight="semibold">
-                  Max values
-                </Text>
-                <Field
-                  size="legacy"
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={
-                    localMaxValues[i] !== undefined &&
-                    localMaxValues[i] !== null
-                      ? localMaxValues[i]!
-                      : dim.maxValues.toString()
-                  }
-                  onFocus={() => {
-                    latestMaxValuesRef.current[i] = dim.maxValues.toString();
-                  }}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    latestMaxValuesRef.current[i] = v;
-                    setLocalMaxValues((prev) => ({ ...prev, [i]: v }));
-                  }}
-                  onBlur={() => {
-                    if (skipBlurCommitRef.current) {
-                      skipBlurCommitRef.current = false;
-                      return;
+                <Tooltip enabled={!dim.column} content="Select a column first.">
+                  <Flex direction="column" gap="2">
+                    <SelectField
+                      label="Breakdown type"
+                      size="small"
+                      disabled={!dim.column}
+                      value={dim.dimensionType}
+                      onChange={(val) =>
+                        handleDimensionTypeChange(
+                          i,
+                          val as GroupByDimension["dimensionType"],
+                        )
+                      }
+                      options={BREAKDOWN_TYPE_OPTIONS}
+                      sort={false}
+                      containerStyle={{ marginBottom: 0 }}
+                    />
+                  </Flex>
+                </Tooltip>
+
+                {!isStatic && (
+                  <Field
+                    label="Max values"
+                    size="md"
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={
+                      localMaxValues[i] !== undefined &&
+                      localMaxValues[i] !== null
+                        ? localMaxValues[i]!
+                        : dim.maxValues.toString()
                     }
-                    const toCommit =
-                      latestMaxValuesRef.current[i] ?? dim.maxValues.toString();
-                    commitMaxValues(i, toCommit);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
+                    onFocus={() => {
+                      latestMaxValuesRef.current[i] = dim.maxValues.toString();
+                    }}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      latestMaxValuesRef.current[i] = v;
+                      setLocalMaxValues((prev) => ({ ...prev, [i]: v }));
+                    }}
+                    onBlur={() => {
+                      if (skipBlurCommitRef.current) {
+                        skipBlurCommitRef.current = false;
+                        return;
+                      }
                       const toCommit =
                         latestMaxValuesRef.current[i] ??
                         dim.maxValues.toString();
                       commitMaxValues(i, toCommit);
-                      skipBlurCommitRef.current = true;
-                      (e.target as HTMLInputElement).blur();
-                    }
-                  }}
-                />
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const toCommit =
+                          latestMaxValuesRef.current[i] ??
+                          dim.maxValues.toString();
+                        commitMaxValues(i, toCommit);
+                        skipBlurCommitRef.current = true;
+                        (e.target as HTMLInputElement).blur();
+                      }
+                    }}
+                  />
+                )}
+
+                {isStatic && (
+                  <MultiSelectField
+                    label="Values"
+                    size="md"
+                    value={pinnedValues}
+                    onChange={(v) => handleValuesChange(i, v)}
+                    options={valueOptions}
+                    creatable
+                    sort={false}
+                    placeholder="Pin specific values..."
+                    helpText={`Select up to ${MAX_PINNED_DIMENSION_VALUES} values.`}
+                    showCopyButton={false}
+                  />
+                )}
               </Flex>
             </Collapsible>
           </Flex>

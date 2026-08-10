@@ -64,7 +64,10 @@ import {
   explorationDateRangeValidator,
   comparisonModeValidator,
 } from "shared/validators";
-import { operatorLabelMap } from "@/components/FactTables/rowFilterUtils";
+import {
+  operatorLabelMap,
+  getColumnInfo,
+} from "@/components/FactTables/rowFilterUtils";
 
 export { mapDatabaseTypeToEnum };
 
@@ -491,6 +494,22 @@ export function getCommonColumns(
         const ft = getFactTableById(getFactMetricFactTableId(factMetric));
         valueColumns = ft?.columns || [];
         ft?.userIdTypes?.forEach((u) => userIdTypes.add(u));
+
+        // A ratio metric's denominator can live on a different fact table —
+        // only offer columns both sides can resolve, so a dimension can
+        // never be picked that a group-by query can't evaluate.
+        if (factMetric.denominator?.factTableId) {
+          const denominatorFt = getFactTableById(
+            factMetric.denominator.factTableId,
+          );
+          const denominatorColumnNames = new Set(
+            (denominatorFt?.columns || []).map((c) => c.column),
+          );
+          valueColumns = valueColumns.filter((c) =>
+            denominatorColumnNames.has(c.column),
+          );
+          denominatorFt?.userIdTypes?.forEach((u) => userIdTypes.add(u));
+        }
       }
 
       if (columns === null) {
@@ -541,6 +560,43 @@ export function getCommonColumns(
   return groupByColumns.sort((a, b) =>
     (a.name || a.column).localeCompare(b.name || b.column),
   );
+}
+
+/** Cached top values for a column (not dimension-specific — also usable for
+ *  filtering UI); empty for data_source datasets, which have no cached
+ *  column metadata. */
+export function getColumnTopValues(
+  dataset: ExplorationDataset | null,
+  column: string | null,
+  getFactTableById: (id: string) => FactTableDefinition | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): string[] {
+  if (!dataset || !column) return [];
+
+  if (dataset.type === "fact_table") {
+    const ft = getFactTableById(dataset.factTableId || "");
+    return ft ? getColumnInfo(ft, column).topValues : [];
+  }
+  if (dataset.type === "metric") {
+    const topValues = new Set<string>();
+    dataset.values.forEach((value) => {
+      const metric = getFactMetricById(value.metricId);
+      const ft = metric ? getFactTableById(metric.numerator.factTableId) : null;
+      if (ft) {
+        getColumnInfo(ft, column).topValues.forEach((v) => topValues.add(v));
+      }
+    });
+    return Array.from(topValues);
+  }
+  if (dataset.type === "funnel") {
+    const initialStep = dataset.steps[0];
+    const ft = initialStep?.factTable
+      ? getFactTableById(initialStep.factTable)
+      : null;
+    return ft ? getColumnInfo(ft, column).topValues : [];
+  }
+
+  return [];
 }
 
 export function getMaxDimensions(dataset: ExplorationDataset): number {
@@ -604,7 +660,8 @@ export function validateDimensions(
   const maxDims = getMaxDimensions(config.dataset);
 
   let validDimensions = config.dimensions.filter((d) => {
-    if (d.dimensionType !== "dynamic") return true;
+    if (d.dimensionType !== "dynamic" && d.dimensionType !== "static")
+      return true;
     if (columns.length === 0) return true;
     return columns.some((c) => c.column === d.column || d.column === null);
   });
@@ -926,6 +983,14 @@ export function isSubmittableConfig(
   if (
     cleanedConfig.dateRange.predefined === "customDateRange" &&
     (!cleanedConfig.dateRange.startDate || !cleanedConfig.dateRange.endDate)
+  ) {
+    return false;
+  }
+
+  if (
+    cleanedConfig.dimensions.some(
+      (d) => d.dimensionType === "static" && d.values.length === 0,
+    )
   ) {
     return false;
   }
