@@ -549,13 +549,13 @@ describe("getRelevantFactTableIds", () => {
       steps: [
         {
           name: "s1",
-          factTable: "step1_ft",
+          factTableId: "step1_ft",
           rowFilters: [],
           optional: false,
         },
         {
           name: "s2",
-          factTable: "step2_ft",
+          factTableId: "step2_ft",
           rowFilters: [],
           optional: false,
         },
