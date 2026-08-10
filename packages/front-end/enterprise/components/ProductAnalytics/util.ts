@@ -502,7 +502,7 @@ export function getRelevantFactTableIds(
     });
   } else if (dataset.type === "funnel") {
     const initialStep = dataset.steps[0];
-    if (initialStep?.factTable) ids.add(initialStep.factTable);
+    if (initialStep?.factTableId) ids.add(initialStep.factTableId);
   }
 
   return Array.from(ids);
