@@ -160,11 +160,11 @@ export default function ScheduledPublishControl({
   // pending schedule.
   const canArmOnDate = canEdit && canArm;
   // Disarming an already-armed no-date schedule survives the gates on ARMING
-  // (org setting off, `canArm` false on a locked Config) — the endpoint asks
-  // neither on the way out, and hiding the checkbox would strand the armed
-  // revision. Authority itself is unchanged.
-  const canDisarmWhenApproved =
-    persistedArmed && isArmingOwner && (canDraft ?? true);
+  // (org setting off, `canArm` false on a locked Config, draft ownership) —
+  // the endpoint asks for publish authority alone on the way out, and hiding
+  // the checkbox would strand the armed revision. Same term as the feature
+  // sibling.
+  const canDisarmWhenApproved = persistedArmed && canEdit;
   const canManageAutoPublish =
     canArmWhenApproved || canArmOnDate || canDisarmWhenApproved;
   // The schedule's admin bypass is only relevant when the revision would

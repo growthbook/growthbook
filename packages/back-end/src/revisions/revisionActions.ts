@@ -241,6 +241,9 @@ async function recoverStrandedMerge({
     );
     if (latest?.id === revision.id) {
       await adapter.beforeNoOpMerge?.(context, entity, revision);
+      // The caller throws when this returns null, but the self-heal writes are
+      // durable — the flag makes their buffered events emit anyway.
+      context.landingLeftPartialState = true;
     }
     return null;
   }
@@ -776,6 +779,7 @@ async function publishRevisionInner(
     // Drift unwinds the claim into the same retryable 409 as every other fenced
     // landing. `beforeNoOpMerge` runs inside the same span: run earlier, its
     // descendant writes outlive a failure that then reopens the draft.
+    let selfHealStarted = false;
     try {
       await assertLandingBaseline({
         context,
@@ -785,8 +789,12 @@ async function publishRevisionInner(
           (entity as { dateUpdated?: Date }).dateUpdated ?? null,
         requireLatestMergedId: merged.id,
       });
+      selfHealStarted = true;
       await adapter.beforeNoOpMerge?.(context, entity, revision);
     } catch (e) {
+      // A self-heal that failed partway left durable writes; the flag makes
+      // their buffered events emit despite the failed call.
+      if (selfHealStarted) context.landingLeftPartialState = true;
       const reopened = await context.models.revisions
         .reopenAfterFailedApply(
           merged.id,
@@ -1311,9 +1319,17 @@ export async function requestRevisionReview({
     advanceAuthorityOnRow(context),
     { autoPublishOnApproval: enableAutoPublish, armAcknowledgments },
   );
-  await getRevisionWebhookAdapter(entityType)?.dispatch(context, updated, {
+  const requestWebhooks = getRevisionWebhookAdapter(entityType);
+  await requestWebhooks?.dispatch(context, updated, {
     type: "reviewRequested",
   });
+  // Requesting review can ARM a deferred publish in the same call; schedule
+  // subscribers watch `publishScheduleChanged`, not `reviewRequested`.
+  if (enableAutoPublish) {
+    await requestWebhooks?.dispatch(context, updated, {
+      type: "publishScheduleChanged",
+    });
+  }
   return updated;
 }
 

@@ -33,6 +33,7 @@ import {
   ScopedOverrideEntry,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
+import { assertCanCreateConfigInState } from "back-end/src/revisions/createAuthority";
 import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
 import {
   compensateFailedLanding,
@@ -493,6 +494,12 @@ export const postConfig = async (
   ) {
     context.permissions.throwPermissionError();
   }
+  // Flavors attached at creation are a publish into their environments — the
+  // same footprint gate the scoped-overrides update path enforces.
+  assertCanCreateConfigInState(context, {
+    project: body.project || undefined,
+    scopedOverrides: body.scopedOverrides,
+  });
 
   // Configs are a premium feature, gated on creation only — existing configs
   // stay editable/deletable after a license lapses (err permissive).

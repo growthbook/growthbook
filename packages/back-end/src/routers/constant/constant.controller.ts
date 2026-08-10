@@ -16,6 +16,7 @@ import {
   getConstantRevisionChange,
 } from "shared/enterprise";
 import { constantRequiresReview } from "shared/util";
+import { assertCanCreateConstantInState } from "back-end/src/revisions/createAuthority";
 import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
 import {
   compensateFailedLanding,
@@ -184,7 +185,12 @@ export const postConstant = async (
   // the key — `@const:foo` and `@config:foo` are distinct).
   await assertKeyAvailable(context, body.key, "constant");
 
-  // Permission is enforced by the model's canCreate.
+  // Project-scoped create authority is enforced by the model's canCreate;
+  // env-scoped values in the create body are a publish into those environments.
+  assertCanCreateConstantInState(context, {
+    project: body.project,
+    environmentValues: body.environmentValues,
+  });
   const constant = await context.models.constants.create({
     key: body.key,
     name: body.name,

@@ -1482,9 +1482,9 @@ export class Permissions {
   };
 
   /**
-   * Unbound for the same reason as `canCreateConfig`: a Constant is partitioned
-   * by environment only through `environmentValues`, and a new one declares
-   * none. See `constantPublishEnvironments` for why reach isn't a footprint.
+   * Project-scoped only. A create body CAN declare `environmentValues`; that
+   * env-scoped half is a publish and is gated at the create surfaces by
+   * `assertCanCreateConstantInState`, not here.
    */
   public canCreateConstant = (
     constant: Pick<ConstantInterface, "project">,
@@ -1510,11 +1510,10 @@ export class Permissions {
   };
 
   /**
-   * Unbound because a Config is PARTITIONED by environment only through its
-   * `scopedConfig` marker, which a new base Config has none of — not because it
-   * has no consumers: a feature may already embed a `@config:` ref to a key
-   * that doesn't exist yet. See `configPublishEnvironments` for why reach
-   * isn't a footprint.
+   * Project-scoped only. A create body CAN attach `scopedOverrides` (env-scoped
+   * flavors that serve immediately — a feature may already embed a `@config:`
+   * ref to the new key); that half is a publish and is gated at the create
+   * surfaces by `assertCanCreateConfigInState`, not here.
    */
   public canCreateConfig = (
     config: Pick<ConfigInterface, "project">,

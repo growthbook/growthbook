@@ -571,6 +571,9 @@ export const postSubmit = async (
     // Same authority the fire-time publish will take. The adapter check above is
     // coarse and cannot see the change set.
     await assertCanPublishRevision(context, existingRevision, snapshot);
+    // Same arming precondition as the dedicated schedule endpoints — without it
+    // this door armed schedules on a locked Config that could only park.
+    await adapter.assertSchedulable?.(context, snapshot);
   }
 
   // Any arm — dated or not — needs the guard fingerprints.
@@ -1345,6 +1348,16 @@ export const postToggleAutoPublish = async (
     !!enabled,
     { armAcknowledgments },
   );
+
+  // Schedule subscribers watch this, not the arm's response — same event the
+  // feature twin and the submit route dispatch for the same state change.
+  if (!!existing.autoPublishOnApproval !== !!enabled) {
+    await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+      context,
+      revision,
+      { type: "publishScheduleChanged" },
+    );
+  }
 
   // Arming an already-approved revision must publish now — otherwise it waits
   // for an approval event that never comes.

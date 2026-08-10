@@ -523,12 +523,16 @@ export default function FeaturesOverview({
     approvalsEngaged &&
     featureReviewConfig?.featureRequireMetadataReview !== false;
 
-  const canEditDrafts = permissionsUtil.canEditFeatureDrafts(feature);
+  // Judged on the LIVE flag, like the toggle endpoint — `feature` is the draft
+  // projection, so a draft staging a project move judged the wrong project.
+  const canEditDrafts = permissionsUtil.canEditFeatureDrafts(baseFeature);
   // An env change can be staged in a draft or published straight out. Offer the
   // control when either route is open; the modal narrows it to the ones that are.
   const canChangeEnvironments =
     canEditDrafts ||
-    envs.some((envId) => permissionsUtil.canPublishFeature(feature, [envId]));
+    envs.some((envId) =>
+      permissionsUtil.canPublishFeature(baseFeature, [envId]),
+    );
 
   const featureCustomFields = filterCustomFieldsForSectionAndProject(
     allCustomFields,

@@ -191,6 +191,22 @@ export async function canDiscardFeatureDraft({
   });
 }
 
+/** Reopen requires draft authority or authorship, matching generic revisions. */
+export async function canReopenFeatureDraft({
+  context,
+  feature,
+  draft,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  draft: FeatureRevisionInterface;
+}): Promise<boolean> {
+  return canDiscardOrRecallDraft({
+    holdsDraftAuthority: context.permissions.canEditFeatureDrafts(feature),
+    isAuthor: authoredFeatureDraft(context, draft),
+  });
+}
+
 /** Recall requires draft authority or authorship, matching generic revisions. */
 export async function canRecallFeatureReview({
   context,

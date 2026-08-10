@@ -251,7 +251,7 @@ export default function KillSwitchModal({
 
   const liveDoc = baseFeature ?? ctx?.baseFeature ?? feature;
   const isAdmin = permissionsUtil.canBypassFlagApprovalChecks(
-    feature,
+    liveDoc,
     "feature",
   );
 
@@ -291,7 +291,7 @@ export default function KillSwitchModal({
     return activeDrafts[0]?.version ?? null;
   }, [activeDrafts, currentVersion, userId]);
 
-  const canDraft = permissionsUtil.canEditFeatureDrafts(feature);
+  const canDraft = permissionsUtil.canEditFeatureDrafts(liveDoc);
   let defaultMode: DraftMode = "new";
   if (!canDraft) defaultMode = "publish";
   else if (viewingActiveDraft) defaultMode = "existing";
@@ -394,7 +394,7 @@ export default function KillSwitchModal({
   const canPublishFlippedEnvs = visibleEnvs.every(
     (env) =>
       getEffectiveState(env.id) === !!liveEnvSettings[env.id]?.enabled ||
-      permissionsUtil.canPublishFeature(feature, [env.id]),
+      permissionsUtil.canPublishFeature(liveDoc, [env.id]),
   );
 
   // Whether the publish route is open at all — judged over the environments on
@@ -404,7 +404,7 @@ export default function KillSwitchModal({
   // env-limited publisher may publish the envs they hold, and the flipped-set
   // check above plus the CTA gate enforce the actual selection.
   const canPublishAnyVisibleEnv = visibleEnvs.some((env) =>
-    permissionsUtil.canPublishFeature(feature, [env.id]),
+    permissionsUtil.canPublishFeature(liveDoc, [env.id]),
   );
   const canAutoPublish =
     (isAdmin || !envIsGated) &&
@@ -438,7 +438,7 @@ export default function KillSwitchModal({
 
   // Flipping a switch commits to nothing — the CTA enforces the chosen route.
   const canToggleEnv = (envId: string) =>
-    canDraft || permissionsUtil.canPublishFeature(feature, [envId]);
+    canDraft || permissionsUtil.canPublishFeature(liveDoc, [envId]);
 
   const submit = async () => {
     const environments: Record<string, boolean> = {};

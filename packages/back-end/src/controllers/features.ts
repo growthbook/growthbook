@@ -102,6 +102,7 @@ import {
   canDiscardFeatureDraft,
   canRebaseFeatureDraft,
   canRecallFeatureReview,
+  canReopenFeatureDraft,
   revertFootprint,
 } from "back-end/src/revisions/featureDraftAuthority";
 import { assertCanRevertRevision } from "back-end/src/revisions/revertActions";
@@ -3138,7 +3139,9 @@ export async function postFeatureReopen(
     throw new Error(`Can only reopen discarded revisions`);
   }
 
-  if (!context.permissions.canEditFeatureDrafts(feature)) {
+  // Draft authority or authorship, like discard/recall and the generic engine —
+  // an author who could discard their own draft can also undo it.
+  if (!(await canReopenFeatureDraft({ context, feature, draft: revision }))) {
     context.permissions.throwPermissionError();
   }
 

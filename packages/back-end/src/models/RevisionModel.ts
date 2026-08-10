@@ -63,21 +63,29 @@ const SCHEDULED_PUBLISH_FAILURE_UNSET = {
   scheduledPublishGaveUpAt: 1,
 } as const;
 
-// The whole schedule, cleared, as an UPDATE fragment. `undefined` means `$unset`
-// on this write path (`_updateOne` translates it), so a transition that disarms
-// does it in its OWN write — a follow-up raw write is a second race.
-const CLEARED_SCHEDULE = {
-  autoPublishOnApproval: false,
-  autoPublishEnabledBy: undefined,
+// The dated-schedule and poller-failure fields alone, as an UPDATE fragment
+// (`undefined` means `$unset` on this write path — `_updateOne` translates it).
+// The arm flag, its publisher and acknowledgments are managed by each write
+// that spreads this; a fresh arm must never inherit a prior admin-bypass
+// marker or park state.
+const CLEARED_DATED_SCHEDULE = {
   scheduledPublishAt: undefined,
   scheduledPublishLockEdits: undefined,
   scheduledPublishLockOthers: undefined,
   scheduledPublishBypassApproval: undefined,
-  armAcknowledgments: undefined,
   scheduledPublishAttempts: undefined,
   scheduledPublishLastError: undefined,
   scheduledPublishNextAttemptAt: undefined,
   scheduledPublishGaveUpAt: undefined,
+} as const;
+
+// The whole schedule, cleared, as an UPDATE fragment — a transition that
+// disarms does it in its OWN write; a follow-up raw write is a second race.
+const CLEARED_SCHEDULE = {
+  autoPublishOnApproval: false,
+  autoPublishEnabledBy: undefined,
+  armAcknowledgments: undefined,
+  ...CLEARED_DATED_SCHEDULE,
 } as const;
 
 // Schedule fields cleared together on cancel.
@@ -1075,13 +1083,19 @@ export class RevisionModel extends BaseClass {
             // review cycle — demote any prior verdicts.
             reviews: this.staleVerdicts(existing.reviews),
             autoPublishOnApproval: armed,
+            // A dated arm replaces the WHOLE dated schedule (a fresh arm never
+            // inherits a prior admin-bypass marker or park state); an armed
+            // no-date submit stands a prior dated schedule down the same way.
             ...(dated
               ? {
+                  ...CLEARED_DATED_SCHEDULE,
                   scheduledPublishAt,
                   scheduledPublishLockEdits: !!lockEdits,
                   scheduledPublishLockOthers: !!lockOthers,
                 }
-              : {}),
+              : armed
+                ? CLEARED_DATED_SCHEDULE
+                : {}),
             // The auto-publish runs with the arming user's authority. A stale
             // value from a previous cycle is harmless — `autoPublishOnApproval`
             // gates everything. `userId` is empty for API-key actors; skip so the

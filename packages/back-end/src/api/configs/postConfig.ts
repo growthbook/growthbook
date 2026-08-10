@@ -11,6 +11,7 @@ import {
   findUndeclaredInvariantRuleFields,
   undeclaredRuleFieldWarnings,
 } from "shared/util";
+import { assertCanCreateConfigInState } from "back-end/src/revisions/createAuthority";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -45,6 +46,12 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
   if (!req.context.permissions.canCreateConfig({ project: project || "" })) {
     req.context.permissions.throwPermissionError();
   }
+  // Flavors attached at creation are a publish into their environments — the
+  // same footprint gate the scoped-overrides update path enforces.
+  assertCanCreateConfigInState(req.context, {
+    project: project || "",
+    scopedOverrides,
+  });
 
   // Only creation is premium-gated; update/delete are not, so a lapsed license
   // can still manage existing configs.

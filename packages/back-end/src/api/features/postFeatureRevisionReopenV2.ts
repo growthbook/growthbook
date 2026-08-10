@@ -5,6 +5,7 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { canReopenFeatureDraft } from "back-end/src/revisions/featureDraftAuthority";
 import {
   getRevision,
   reopenRevision,
@@ -16,10 +17,6 @@ export const postFeatureRevisionReopenV2 = createApiRequestHandler(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (!req.context.permissions.canEditFeatureDrafts(feature)) {
-    req.context.permissions.throwPermissionError();
-  }
-
   const revision = await getRevision({
     context: req.context,
     organization: req.organization.id,
@@ -28,6 +25,17 @@ export const postFeatureRevisionReopenV2 = createApiRequestHandler(
     version: req.params.version,
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
+
+  // Draft authority or authorship, like discard/recall and the generic engine.
+  if (
+    !(await canReopenFeatureDraft({
+      context: req.context,
+      feature,
+      draft: revision,
+    }))
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
 
   if (revision.status !== "discarded") {
     throw new BadRequestError(
