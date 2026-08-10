@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
+import { Flex } from "@radix-ui/themes";
 import { datetime } from "shared/dates";
 import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
@@ -14,9 +15,24 @@ import Button from "@/ui/Button";
 import MiniSparkline from "@/components/ErrorTracking/MiniSparkline";
 import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
+import { RadixColor } from "@/ui/HelperText";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 import { useUser } from "@/services/UserContext";
 import { getMemberDisplayName } from "@/components/ErrorTracking/memberDisplay";
 import { useFeatureDisabledRedirect } from "@/hooks/useFeatureDisabledRedirect";
+
+const PRIORITY_COLORS: Record<string, RadixColor> = {
+  critical: "red",
+  high: "orange",
+  medium: "amber",
+  low: "gray",
+};
 
 type IssueRow = {
   fingerprint: string;
@@ -128,6 +144,9 @@ export default function ErrorTrackingIndexPage(): React.ReactElement {
     );
   }
 
+  const priorityColor = (priority: string): RadixColor =>
+    PRIORITY_COLORS[priority] || "gray";
+
   const runSearch = () => {
     setSearch(q.trim());
     void mutate();
@@ -138,75 +157,57 @@ export default function ErrorTrackingIndexPage(): React.ReactElement {
       <PageHead
         breadcrumb={[{ display: "Error Tracking", href: "/error-tracking" }]}
       />
-      <div className="d-flex justify-content-between align-items-center mb-3">
+      <Flex justify="between" align="center" mb="3">
         <h1>Error Tracking</h1>
         <Button onClick={() => mutate()}>Refresh</Button>
-      </div>
+      </Flex>
 
-      <div className="row mb-3 align-items-end">
-        <div className="col-md-auto">
-          <SelectField
-            label="Project"
-            options={[
-              { value: "all", label: "All projects" },
-              ...projects.map((p) => ({ value: p.id, label: p.name })),
-            ]}
-            value={projectFilter || "all"}
-            onChange={(v) => {
-              const next = v === "all" ? undefined : String(v);
-              void router.push(
-                {
-                  pathname: "/error-tracking",
-                  query: next ? { project: next } : {},
-                },
-                undefined,
-                { shallow: true },
-              );
-              setClientKey("");
-            }}
-          />
-        </div>
-        <div className="col-md-auto">
-          <SelectField
-            label="SDK Connection"
-            options={filteredConnections.map((c) => ({
-              value: c.key,
-              label: `${c.name} (${c.key.slice(0, 8)}…)`,
-            }))}
-            value={clientKey}
-            onChange={(v) => setClientKey(v)}
-          />
-        </div>
-        <div className="col-md-5">
+      <Flex gap="3" align="end" mb="3" wrap="wrap">
+        <SelectField
+          label="Project"
+          options={[
+            { value: "all", label: "All projects" },
+            ...projects.map((p) => ({ value: p.id, label: p.name })),
+          ]}
+          value={projectFilter || "all"}
+          onChange={(v) => {
+            const next = v === "all" ? undefined : String(v);
+            void router.push(
+              {
+                pathname: "/error-tracking",
+                query: next ? { project: next } : {},
+              },
+              undefined,
+              { shallow: true },
+            );
+            setClientKey("");
+          }}
+        />
+        <SelectField
+          label="SDK Connection"
+          options={filteredConnections.map((c) => ({
+            value: c.key,
+            label: `${c.name} (${c.key.slice(0, 8)}…)`,
+          }))}
+          value={clientKey}
+          onChange={(v) => setClientKey(v)}
+        />
+        <Flex gap="2" align="end">
           <Field
             label="Search"
             placeholder="Title or fingerprint…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            render={(id, ref) => (
-              <div className="d-flex align-items-center" style={{ gap: 8 }}>
-                <input
-                  id={id}
-                  ref={ref}
-                  className="form-control"
-                  value={q}
-                  placeholder="Title or fingerprint…"
-                  onChange={(e) => setQ(e.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      runSearch();
-                    }
-                  }}
-                />
-                <Button className="flex-shrink-0" onClick={runSearch}>
-                  Search
-                </Button>
-              </div>
-            )}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                runSearch();
+              }
+            }}
           />
-        </div>
-      </div>
+          <Button onClick={runSearch}>Search</Button>
+        </Flex>
+      </Flex>
 
       {error && (
         <Callout status="error">
@@ -218,72 +219,75 @@ export default function ErrorTrackingIndexPage(): React.ReactElement {
       {isLoading && <LoadingOverlay />}
 
       {!isLoading && data?.issues && (
-        <div style={{ overflowX: "auto" }}>
-          <table className="table table-hover table-sm">
-            <thead>
-              <tr>
-                <th>Issue</th>
-                <th>Last seen</th>
-                <th>Age</th>
-                <th>Trend (24h)</th>
-                <th>Trend (30d)</th>
-                <th>Events</th>
-                <th>Users</th>
-                <th>Priority</th>
-                <th>Assignee</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.issues.map((issue) => (
-                <tr key={issue.fingerprint}>
-                  <td style={{ maxWidth: 360 }}>
-                    <Link
-                      href={`/error-tracking/${encodeURIComponent(issue.fingerprint)}?clientKey=${encodeURIComponent(clientKey)}`}
-                    >
-                      {issue.title || issue.fingerprint}
-                    </Link>
-                    <div className="text-muted small text-truncate">
-                      {issue.fingerprint}
-                    </div>
-                    {issue.status === "resolved" && (
-                      <Badge color="green" label="Resolved" />
-                    )}
-                  </td>
-                  <td>{datetime(new Date(issue.lastSeen))}</td>
-                  <td>{ageLabel(issue.firstSeen)}</td>
-                  <td>
-                    <MiniSparkline data={issue.trend24h} />
-                  </td>
-                  <td>
-                    <MiniSparkline
-                      data={issue.trend30d}
-                      color="var(--violet-9)"
-                    />
-                  </td>
-                  <td>{issue.events}</td>
-                  <td>{issue.users}</td>
-                  <td>{issue.priority}</td>
-                  <td>
-                    {getMemberDisplayName(
-                      issue.assigneeUserId,
-                      users,
-                      getUserDisplay,
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {!data.issues.length && (
-                <tr>
-                  <td colSpan={9} className="text-muted">
-                    No errors recorded yet. Use the SDK{" "}
-                    <code>growthbookErrorTrackingPlugin</code> with{" "}
-                    <code>growthbookTrackingPlugin</code>.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <Table variant="list">
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Issue</TableColumnHeader>
+              <TableColumnHeader>Last seen</TableColumnHeader>
+              <TableColumnHeader>Age</TableColumnHeader>
+              <TableColumnHeader>Trend (24h)</TableColumnHeader>
+              <TableColumnHeader>Trend (30d)</TableColumnHeader>
+              <TableColumnHeader>Events</TableColumnHeader>
+              <TableColumnHeader>Users</TableColumnHeader>
+              <TableColumnHeader>Priority</TableColumnHeader>
+              <TableColumnHeader>Assignee</TableColumnHeader>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.issues.map((issue) => (
+              <TableRow key={issue.fingerprint}>
+                <TableCell style={{ maxWidth: 360 }}>
+                  <Link
+                    href={`/error-tracking/${encodeURIComponent(issue.fingerprint)}?clientKey=${encodeURIComponent(clientKey)}`}
+                  >
+                    {issue.title || issue.fingerprint}
+                  </Link>
+                  <div className="text-muted small text-truncate">
+                    {issue.fingerprint}
+                  </div>
+                  {issue.status === "resolved" && (
+                    <Badge color="green" label="Resolved" />
+                  )}
+                </TableCell>
+                <TableCell>{datetime(new Date(issue.lastSeen))}</TableCell>
+                <TableCell>{ageLabel(issue.firstSeen)}</TableCell>
+                <TableCell>
+                  <MiniSparkline data={issue.trend24h} />
+                </TableCell>
+                <TableCell>
+                  <MiniSparkline
+                    data={issue.trend30d}
+                    color="var(--violet-9)"
+                  />
+                </TableCell>
+                <TableCell>{issue.events}</TableCell>
+                <TableCell>{issue.users}</TableCell>
+                <TableCell>
+                  <Badge
+                    color={priorityColor(issue.priority)}
+                    label={issue.priority}
+                  />
+                </TableCell>
+                <TableCell>
+                  {getMemberDisplayName(
+                    issue.assigneeUserId,
+                    users,
+                    getUserDisplay,
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+            {!data.issues.length && (
+              <TableRow>
+                <TableCell colSpan={9} className="text-muted">
+                  No errors recorded yet. Use the SDK{" "}
+                  <code>growthbookErrorTrackingPlugin</code> with{" "}
+                  <code>growthbookTrackingPlugin</code>.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       )}
     </div>
   );

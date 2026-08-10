@@ -1,17 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
+import { Flex, Grid, Box } from "@radix-ui/themes";
 import { datetime, parseUtcInstantForDisplay } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
 import PageHead from "@/components/Layout/PageHead";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Link from "@/ui/Link";
+import LinkButton from "@/ui/LinkButton";
 import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import DataList from "@/ui/DataList";
+import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
+import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import { DocLink } from "@/components/DocLink";
 import { useUser } from "@/services/UserContext";
 import IssueTrendChart from "@/components/ErrorTracking/IssueTrendChart";
@@ -339,50 +343,53 @@ export default function ErrorIssuePage(): React.ReactElement {
 
       {issue && (
         <>
-          <div className="mb-3">
+          <Box mb="3">
             <h1 className="h2">{issue.title}</h1>
             <Text color="text-low" size="md">
               {issue.fingerprint}
             </Text>
-          </div>
+          </Box>
 
-          <div className="row mb-4">
-            <div className="col-md-8">
-              <Callout status="info">
-                <div className="small">
-                  <strong>First seen:</strong>{" "}
-                  {datetime(new Date(issue.firstSeen))}{" "}
-                  {issue.firstRelease ? `(release ${issue.firstRelease})` : ""}
-                  <br />
-                  <strong>Last seen:</strong>{" "}
-                  {datetime(new Date(issue.lastSeen))}{" "}
-                  {issue.lastRelease ? `(release ${issue.lastRelease})` : ""}
-                  <br />
-                  <strong>Events (all time):</strong> {issue.events}
-                  <br />
-                  <strong>Distinct users (all time):</strong> {issue.users}
-                </div>
-              </Callout>
+          <Grid columns={{ initial: "1", md: "2fr 1fr" }} gap="4" mb="4">
+            <Box>
+              <DataList
+                data={[
+                  {
+                    label: "First seen",
+                    value: `${datetime(new Date(issue.firstSeen))}${issue.firstRelease ? ` (release ${issue.firstRelease})` : ""}`,
+                  },
+                  {
+                    label: "Last seen",
+                    value: `${datetime(new Date(issue.lastSeen))}${issue.lastRelease ? ` (release ${issue.lastRelease})` : ""}`,
+                  },
+                  { label: "Events (all time)", value: String(issue.events) },
+                  {
+                    label: "Distinct users (all time)",
+                    value: String(issue.users),
+                  },
+                ]}
+                mb="3"
+              />
 
-              <div
-                className="d-flex flex-wrap align-items-center mt-3 mb-2"
-                style={{ gap: 8 }}
-              >
-                {GRAPH_RANGE_OPTIONS.map((option) => (
-                  <Button
-                    key={option.value}
-                    variant={graphRange === option.value ? "solid" : "outline"}
-                    onClick={() => setGraphRange(option.value)}
-                  >
-                    {option.label}
-                  </Button>
-                ))}
+              <Flex align="center" justify="between" wrap="wrap" gap="2" mb="2">
+                <Tabs
+                  value={graphRange}
+                  onValueChange={(v) => setGraphRange(v as GraphRange)}
+                >
+                  <TabsList>
+                    {GRAPH_RANGE_OPTIONS.map((option) => (
+                      <TabsTrigger key={option.value} value={option.value}>
+                        {option.label}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </Tabs>
                 {graphZoom && (
                   <Button variant="outline" onClick={() => setGraphZoom(null)}>
                     Reset zoom
                   </Button>
                 )}
-              </div>
+              </Flex>
               <IssueTrendChart
                 data={data?.graph || []}
                 zoomDomain={graphZoom}
@@ -392,8 +399,8 @@ export default function ErrorIssuePage(): React.ReactElement {
                   void selectLatestEventInRange(bucketStartMs, bucketEndMs);
                 }}
               />
-            </div>
-            <div className="col-md-4">
+            </Box>
+            <Box>
               <SelectField
                 label="Priority"
                 options={[
@@ -449,84 +456,90 @@ export default function ErrorIssuePage(): React.ReactElement {
                   });
                 }}
               />
-            </div>
-          </div>
+            </Box>
+          </Grid>
 
           <p className="small text-muted mb-2">
             Environment and release tables below use all time data.
           </p>
-          <div className="row mb-4">
-            <div className="col-md-6">
+          <Grid columns={{ initial: "1", md: "2" }} gap="4" mb="4">
+            <Box>
               <h3 className="h5">By environment</h3>
-              <table className="table table-sm">
-                <tbody>
+              <Table variant="list">
+                <TableBody>
                   {data?.dimensions.environments.map((e) => (
-                    <tr key={e.name}>
-                      <td>{e.name || "(empty)"}</td>
-                      <td>{e.count}</td>
-                    </tr>
+                    <TableRow key={e.name}>
+                      <TableCell>{e.name || "(empty)"}</TableCell>
+                      <TableCell>{e.count}</TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="col-md-6">
+                </TableBody>
+              </Table>
+            </Box>
+            <Box>
               <h3 className="h5">By release</h3>
-              <table className="table table-sm">
-                <tbody>
+              <Table variant="list">
+                <TableBody>
                   {data?.dimensions.releases.map((e) => (
-                    <tr key={e.name}>
-                      <td>{e.name || "(empty)"}</td>
-                      <td>{e.count}</td>
-                    </tr>
+                    <TableRow key={e.name}>
+                      <TableCell>{e.name || "(empty)"}</TableCell>
+                      <TableCell>{e.count}</TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                </TableBody>
+              </Table>
+            </Box>
+          </Grid>
 
           <h3 className="h5">Comments</h3>
-          <div className="mb-2">
+          <Box mb="2">
             {issue.comments?.map((c, i) => (
-              <div key={i} className="border rounded p-2 mb-2">
+              <Box
+                key={i}
+                mb="2"
+                p="2"
+                style={{
+                  border: "1px solid var(--gray-a5)",
+                  borderRadius: "var(--radius-3)",
+                }}
+              >
                 <div className="small text-muted">
                   {c.userName} · {datetime(new Date(c.date))}
                 </div>
                 <div>{c.body}</div>
-              </div>
+              </Box>
             ))}
-          </div>
-          <div className="mb-4">
+          </Box>
+          <Box mb="4">
             <Field
               label="New comment"
               textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
             />
-            <Button
-              className="mt-2"
-              onClick={async () => {
-                await apiCall(
-                  `/error-tracking/issues/${encodeURIComponent(fingerprint)}/comments?clientKey=${encodeURIComponent(clientKey)}`,
-                  {
-                    method: "POST",
-                    body: JSON.stringify({ body: comment }),
-                  },
-                );
-                setComment("");
-                await mutate();
-              }}
-            >
-              Add comment
-            </Button>
-          </div>
-
-          <div className="mb-4" style={{ position: "relative" }}>
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <h3 className="h5 mb-0">Events</h3>
-              <div
-                className="d-flex flex-wrap align-items-center"
-                style={{ gap: 12 }}
+            <Box mt="2">
+              <Button
+                onClick={async () => {
+                  await apiCall(
+                    `/error-tracking/issues/${encodeURIComponent(fingerprint)}/comments?clientKey=${encodeURIComponent(clientKey)}`,
+                    {
+                      method: "POST",
+                      body: JSON.stringify({ body: comment }),
+                    },
+                  );
+                  setComment("");
+                  await mutate();
+                }}
               >
+                Add comment
+              </Button>
+            </Box>
+          </Box>
+
+          <Box mb="4" style={{ position: "relative" }}>
+            <Flex justify="between" align="center" mb="2">
+              <h3 className="h5 mb-0">Events</h3>
+              <Flex wrap="wrap" align="center" gap="3">
                 <Button
                   disabled={!oldestEventId || activeEventId === oldestEventId}
                   onClick={() => {
@@ -567,34 +580,32 @@ export default function ErrorIssuePage(): React.ReactElement {
                 >
                   Last
                 </Button>
-                <Link
+                <LinkButton
                   href={`/error-tracking/${encodeURIComponent(fingerprint)}/events?clientKey=${encodeURIComponent(clientKey)}`}
                 >
-                  <Button>All events</Button>
-                </Link>
-              </div>
-            </div>
-            <div className="row mb-3 align-items-end">
-              <div className="col-md-6">
+                  All events
+                </LinkButton>
+              </Flex>
+            </Flex>
+            <Flex gap="2" align="end" mb="3">
+              <Box style={{ maxWidth: 400 }}>
                 <Field
                   label="Jump to event id"
                   value={jumpInput}
                   onChange={(e) => setJumpInput(e.target.value)}
                 />
-              </div>
-              <div className="col-md-auto">
-                <Button
-                  disabled={!jumpInput.trim()}
-                  onClick={() => {
-                    const eventId = jumpInput.trim();
-                    if (!eventId) return;
-                    navigateToEvent(eventId);
-                  }}
-                >
-                  Go
-                </Button>
-              </div>
-            </div>
+              </Box>
+              <Button
+                disabled={!jumpInput.trim()}
+                onClick={() => {
+                  const eventId = jumpInput.trim();
+                  if (!eventId) return;
+                  navigateToEvent(eventId);
+                }}
+              >
+                Go
+              </Button>
+            </Flex>
             {eventError && (
               <Callout status="error">
                 {eventError.message || "Failed to load event"}
@@ -607,76 +618,61 @@ export default function ErrorIssuePage(): React.ReactElement {
                   Event {activeEventId} ·{" "}
                   {datetime(parseUtcInstantForDisplay(activeEvent.timestamp))}
                 </div>
-                <div className="row mb-3">
-                  <div className="col-md-6">
+                <Grid columns={{ initial: "1", md: "2" }} gap="4" mb="3">
+                  <Box>
                     <h4 className="h6">Summary</h4>
-                    <table className="table table-sm">
-                      <tbody>
-                        <tr>
-                          <th>Timestamp</th>
-                          <td>
-                            {datetime(
-                              parseUtcInstantForDisplay(activeEvent.timestamp),
-                            )}
-                          </td>
-                        </tr>
-                        <tr>
-                          <th>Title</th>
-                          <td>
-                            {String(
-                              activeEventProperties.message ||
-                                activeEventProperties.title ||
-                                activeEvent.title ||
-                                "",
-                            )}
-                          </td>
-                        </tr>
-                        <tr>
-                          <th>Environment</th>
-                          <td>{String(activeEvent.environment || "")}</td>
-                        </tr>
-                        <tr>
-                          <th>Release</th>
-                          <td>
-                            {String(
-                              activeEvent.release_version ||
-                                activeEventProperties.release ||
-                                "",
-                            )}
-                          </td>
-                        </tr>
-                        <tr>
-                          <th>User</th>
-                          <td>
-                            {String(
-                              activeEvent.user_id ||
-                                activeEvent.device_id ||
-                                "",
-                            )}
-                          </td>
-                        </tr>
-                        <tr>
-                          <th>URL</th>
-                          <td>{String(activeEvent.url || "")}</td>
-                        </tr>
-                        <tr>
-                          <th>Device / OS</th>
-                          <td>
-                            {String(activeEvent.ua_device_type || "")} /{" "}
-                            {String(activeEvent.ua_os || "")}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="col-md-6">
+                    <DataList
+                      data={[
+                        {
+                          label: "Timestamp",
+                          value: datetime(
+                            parseUtcInstantForDisplay(activeEvent.timestamp),
+                          ),
+                        },
+                        {
+                          label: "Title",
+                          value: String(
+                            activeEventProperties.message ||
+                              activeEventProperties.title ||
+                              activeEvent.title ||
+                              "",
+                          ),
+                        },
+                        {
+                          label: "Environment",
+                          value: String(activeEvent.environment || ""),
+                        },
+                        {
+                          label: "Release",
+                          value: String(
+                            activeEvent.release_version ||
+                              activeEventProperties.release ||
+                              "",
+                          ),
+                        },
+                        {
+                          label: "User",
+                          value: String(
+                            activeEvent.user_id || activeEvent.device_id || "",
+                          ),
+                        },
+                        { label: "URL", value: String(activeEvent.url || "") },
+                        {
+                          label: "Device / OS",
+                          value: `${String(activeEvent.ua_device_type || "")} / ${String(activeEvent.ua_os || "")}`,
+                        },
+                      ]}
+                      columns={1}
+                    />
+                  </Box>
+                  <Box>
                     <h4 className="h6">Stack</h4>
                     <SymbolicatedStackTrace
                       rawStack={String(activeEventProperties.stack || "")}
                       symbolicatedStack={activeEvent?.symbolicatedStack}
                     />
-                  </div>
-                </div>
+                  </Box>
+                </Grid>
                 <details className="mb-3">
                   <summary className="h6 mb-0" style={{ cursor: "pointer" }}>
                     Raw event properties
@@ -715,7 +711,7 @@ export default function ErrorIssuePage(): React.ReactElement {
                 />
               </>
             )}
-          </div>
+          </Box>
 
           <h3 className="h5">Upload source maps</h3>
           <Text size="md" color="text-low">

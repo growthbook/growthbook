@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { FaAngleDown, FaAngleRight } from "react-icons/fa";
+import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 
 export type SymbolicatedStackLine = {
   number: number;
@@ -185,7 +185,7 @@ export default function SymbolicatedStackTrace({
                           verticalAlign: "middle",
                         }}
                       >
-                        {expanded ? <FaAngleDown /> : <FaAngleRight />}
+                        {expanded ? <PiCaretDown /> : <PiCaretRight />}
                       </span>
                     ) : null}
                     {formatFrameLine(frame)}

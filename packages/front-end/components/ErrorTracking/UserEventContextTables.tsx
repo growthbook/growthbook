@@ -4,6 +4,13 @@ import { datetime } from "shared/dates";
 import { truncateString } from "shared/util";
 import Tooltip from "@/ui/Tooltip";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 const MAX_VALUE_CHARS = 100;
 
@@ -127,30 +134,28 @@ export default function UserEventContextTables({
     <>
       <h4 className="h6 mt-3">Feature evaluations for user</h4>
       {featureRows.length ? (
-        <div className="table-responsive">
-          <table className="table table-sm">
-            <thead>
-              <tr>
-                <th>Feature</th>
-                <th>Value</th>
-                <th>Evaluations</th>
-                <th>Last seen</th>
-              </tr>
-            </thead>
-            <tbody>
-              {featureRows.map((row) => (
-                <tr key={row.key}>
-                  <td>{row.feature || "—"}</td>
-                  <td style={{ maxWidth: 360 }}>
-                    <TruncatedValueCell value={row.value} />
-                  </td>
-                  <td>{row.evaluations}</td>
-                  <td>{row.lastSeen}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table variant="list">
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Feature</TableColumnHeader>
+              <TableColumnHeader>Value</TableColumnHeader>
+              <TableColumnHeader>Evaluations</TableColumnHeader>
+              <TableColumnHeader>Last seen</TableColumnHeader>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {featureRows.map((row) => (
+              <TableRow key={row.key}>
+                <TableCell>{row.feature || "—"}</TableCell>
+                <TableCell style={{ maxWidth: 360 }}>
+                  <TruncatedValueCell value={row.value} />
+                </TableCell>
+                <TableCell>{row.evaluations}</TableCell>
+                <TableCell>{row.lastSeen}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       ) : (
         <p className="small text-muted mb-0">
           No feature evaluations for this user in the last 7 days.
@@ -159,28 +164,26 @@ export default function UserEventContextTables({
 
       <h4 className="h6 mt-3">Experiments user is in</h4>
       {experimentRows.length ? (
-        <div className="table-responsive">
-          <table className="table table-sm">
-            <thead>
-              <tr>
-                <th>Experiment</th>
-                <th>Variation</th>
-                <th>Views</th>
-                <th>Last seen</th>
-              </tr>
-            </thead>
-            <tbody>
-              {experimentRows.map((row) => (
-                <tr key={row.key}>
-                  <td>{row.experimentId || "—"}</td>
-                  <td>{row.variationId || "—"}</td>
-                  <td>{row.views}</td>
-                  <td>{row.lastSeen}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table variant="list">
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Experiment</TableColumnHeader>
+              <TableColumnHeader>Variation</TableColumnHeader>
+              <TableColumnHeader>Views</TableColumnHeader>
+              <TableColumnHeader>Last seen</TableColumnHeader>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {experimentRows.map((row) => (
+              <TableRow key={row.key}>
+                <TableCell>{row.experimentId || "—"}</TableCell>
+                <TableCell>{row.variationId || "—"}</TableCell>
+                <TableCell>{row.views}</TableCell>
+                <TableCell>{row.lastSeen}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       ) : (
         <p className="small text-muted mb-0">
           No experiment views for this user in the last 7 days.
