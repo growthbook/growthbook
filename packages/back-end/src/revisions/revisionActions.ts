@@ -347,6 +347,7 @@ async function recoverStrandedMerge({
     throw e;
   }
 
+  let applied: ApplyChangesResult | undefined;
   try {
     // Guarded like every other landing: the recheck above proves the baseline held
     // a moment ago, this proves it still holds at the write. Recovered state is by
@@ -355,9 +356,41 @@ async function recoverStrandedMerge({
       adapter.applyChanges(context, entity, desiredState, {
         isRevert: !!revision.revertedFrom,
         guarded: true,
+        onPersisted: (result) => {
+          applied = result;
+        },
       }),
     );
+    // The same post-write fence as the ordinary landing: a rival claim during the
+    // write never touches the entity, so the CAS above cannot see it — and recovered
+    // state standing over a newer claim is exactly the overwrite recovery must refuse.
+    await assertLandingStillOwned({
+      context,
+      entityType: revision.target.type,
+      entityId: revision.target.id,
+      mergedId: revision.id,
+      expectedDateUpdated:
+        (applied?.written as { dateUpdated?: Date } | null | undefined)
+          ?.dateUpdated ??
+        (entity as { dateUpdated?: Date }).dateUpdated ??
+        null,
+    });
   } catch (e) {
+    // Live goes back before the lease is given up; a write that never reported
+    // has nothing to restore. A restore that fails leaves the change live, so
+    // the buffered events must still announce it.
+    if (applied?.written) {
+      const restored = await tryRestoreEntityPreImage({
+        context,
+        entityType: revision.target.type,
+        preImage: entity as Record<string, unknown> & { id: string },
+        persistedKeys: Object.keys(desiredState).filter((k) =>
+          updatableFields.has(k),
+        ),
+        written: applied.written,
+      });
+      if (!restored) context.landingLeftPartialState = true;
+    }
     // The marker is a claim, not a record of success. Leaving it behind on a
     // failed apply would make every later retry see it and return without
     // applying anything — stranding the revision permanently, which is worse
@@ -752,8 +785,11 @@ async function publishRevisionInner(
       },
     );
     // "No changes" was decided against a now-stale read, and this branch has no guarded
-    // write to catch drift — so verify AFTER the claim is held. Any change later than
-    // the claim is simply later; drift unwinds the claim and returns a retryable 409.
+    // write to catch drift — so verify AFTER the claim is held, and require this claim
+    // to still be the newest merged one: a rival claim never touches the entity, so the
+    // dateUpdated compare alone cannot see it, and `beforeNoOpMerge` replays config
+    // cascades against whatever order this claim recorded. Drift unwinds the claim and
+    // returns the same retryable 409 as every other fenced landing.
     //
     // Inside the same protected span, after claim and baseline both hold — run before
     // them, its descendant writes outlived a failure that then reopened the draft.
@@ -764,6 +800,7 @@ async function publishRevisionInner(
         entityId: revision.target.id,
         baselineDateUpdated:
           (entity as { dateUpdated?: Date }).dateUpdated ?? null,
+        requireLatestMergedId: merged.id,
       });
       await adapter.beforeNoOpMerge?.(context, entity, revision);
     } catch (e) {
@@ -909,6 +946,9 @@ async function publishRevisionInner(
     }
     const entityRestored = rootRestored && cascadeRestored;
     if (!entityRestored) {
+      // Part of the change is live, so the buffered *.updated events must still
+      // fire — same signal every other landing's compensation sends.
+      context.landingLeftPartialState = true;
       logger.error(
         { revisionId: merged.id },
         "left merged after a failed apply: the live entity could not be restored, so the merged revision stays as the record of the partial change",

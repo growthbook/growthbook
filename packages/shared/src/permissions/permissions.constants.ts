@@ -590,7 +590,7 @@ export const POLICY_METADATA_MAP: Record<
   SDKPayloadPublish: {
     displayName: "SDK Payload Publish",
     description:
-      "Publish and revert changes that affect data sent to SDKs. For example: publish a revision, toggle a Feature Flag, revert to a previously published revision, stop an experiment.",
+      "Publish changes that affect data sent to SDKs. For example: publish a revision, toggle a Feature Flag, stop an experiment. Reverting to a previously published revision requires the Revert policy.",
   },
   SDKConnectionsFullAccess: {
     displayName: "SDK Connections Full Access",

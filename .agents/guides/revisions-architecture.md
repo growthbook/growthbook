@@ -4,19 +4,25 @@ Everything under `packages/back-end/src/revisions` exists to answer one question
 safely: **how does a proposed change become the live state of an SDK-critical
 entity, and what happens when that goes wrong halfway?**
 
-There are two engines. They answer the same questions and share their rules, but
-they store revisions differently:
+There are two engines. They share their rules but not their mechanics:
 
-|               | Generic engine                           | Feature engine                              |
-| ------------- | ---------------------------------------- | ------------------------------------------- |
-| Entities      | Configs, Constants, Saved Groups         | Feature Flags                               |
-| Model         | `RevisionModel` (`revisions` collection) | `FeatureRevisionModel` (`featurerevisions`) |
-| Addressed by  | revision `id`                            | `(organization, featureId, version)`        |
-| Change format | JSON Patch ops over a snapshot           | whole-revision fields                       |
+|                | Generic engine                              | Feature engine                                     |
+| -------------- | ------------------------------------------- | -------------------------------------------------- |
+| Entities       | Configs, Constants, Saved Groups            | Feature Flags                                      |
+| Model          | `RevisionModel` (`revisions` collection)    | `FeatureRevisionModel` (`featurerevisions`)        |
+| Addressed by   | revision `id`                               | `(organization, featureId, version)`               |
+| Change format  | JSON Patch ops over a snapshot              | whole-revision fields                              |
+| Landing order  | claim first, then write live                | write live first, claim last                       |
+| Half-done look | claimed revision, live unchanged            | live changed, revision still open                  |
+| Recovery       | republish routes via `recoverStrandedMerge` | rewinds at fail time + republish of the open draft |
 
-Shared rules live in one place so the two cannot drift: `landAuthority.ts`
-(who may discard / advance / rebase / land), `reviewCycle.ts` (which round of
-review a verdict belongs to), and `casLoop.ts` (the compare-and-swap skeleton).
+The rules live in one place: `landAuthority.ts` (who may discard / advance /
+rebase / land — the feature engine reaches it through `featureDraftAuthority.ts`),
+`reviewCycle.ts` (which round of review a verdict belongs to), and `casLoop.ts`
+(the compare-and-swap skeleton). The landing mechanics are NOT shared — the two
+engines put the claim at opposite ends of the sequence, so what a crash leaves
+behind and how it heals differ per engine. Sections 2 and 5 describe the generic
+engine; the feature engine's differences are called out where they matter.
 
 ---
 
@@ -69,12 +75,17 @@ round; a monotonic counter can.
 
 ---
 
-## 2. Landing a revision
+## 2. Landing a revision (generic engine)
 
 The dangerous part. The merge claim lives in the revisions collection and the
 entity write lives in another, and there are **no transactions** — DocumentDB
 and CosmosDB have to keep working. Every step below exists because that pair
 cannot be made atomic.
+
+The feature engine runs this sequence **inverted**: guarded feature write →
+satellites → re-fence on the feature's `dateUpdated` → claim
+(`markRevisionAsPublished`) last, with rewinds registered at each step. Same
+fences, opposite claim position — see section 5 for what that changes.
 
 ```mermaid
 flowchart TD
@@ -177,6 +188,12 @@ gave.
 
 ## 5. When a landing does not complete
 
+Each engine strands differently, because each puts the claim at a different end
+of the sequence.
+
+**Generic engine** — the claim comes first, so a crash strands a _claimed
+revision with unchanged live state_:
+
 ```mermaid
 flowchart TD
     A[revision is merged] --> B{did the entity<br/>write land?}
@@ -193,6 +210,15 @@ flowchart TD
 `recoverStrandedMerge` **is** the republish path, not automation on top of it:
 publishing a `merged` revision routes through it. The red branch is the case the
 landing fences exist to prevent, and the reason they are worth their cost.
+
+**Feature engine** — the claim comes last, so the failure surface is inverted: a
+crash can leave _live changed with the revision still open_. In-process failures
+run the registered rewinds (live restored first, revision touched last, residue
+reported when a rewind is refused); a crash that outruns the rewinds leaves an
+open draft whose changes are already live, and republishing that draft re-applies
+and claims. There is no `recoverStrandedMerge` here — a feature revision that
+reads `published` was claimed after its write landed, and re-publishing it is
+refused rather than recovered.
 
 ---
 

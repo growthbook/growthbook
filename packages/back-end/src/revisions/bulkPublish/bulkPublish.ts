@@ -570,6 +570,22 @@ export async function commitBulkPublish(
       ) {
         await abortWithBuffers(claimed, staleConflictError(item.ref));
       }
+      // A rival claim never touches the entity, so the compare above cannot see
+      // it — the no-op must also still be the newest merged claim, same as the
+      // single-revision no-op branch. Features live in the other engine's
+      // collection, where this query has nothing to find.
+      if (item.ref.entityType !== "feature") {
+        try {
+          await assertLandingStillOwned({
+            context,
+            entityType: item.ref.entityType,
+            entityId: item.ref.entityId,
+            mergedId: item.revision.id,
+          });
+        } catch (e) {
+          await abortWithBuffers(claimed, e);
+        }
+      }
       // The no-op self-heal replay (e.g. a descendant schema cascade an earlier
       // partial apply left unrun) runs INSIDE the protected span, after this
       // item's claim and baseline both hold — run before the claims, its writes
