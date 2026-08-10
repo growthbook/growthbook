@@ -17,8 +17,10 @@ import {
   getAvailableEmbeddingModelOptions,
   getAvailableImageModelOptions,
   getAvailablePromptModelOptions,
+  USE_DEFAULT_MODEL_OPTION,
 } from "@/services/aiModelSelectOptions";
 import { useAuth } from "@/services/auth";
+import { isCloud } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Frame from "@/ui/Frame";
 import Field from "@/components/Forms/Field";
@@ -337,13 +339,26 @@ export default function AISettings({
                       onChange={(v) => form.setValue("defaultAIModel", v)}
                       // Keep the registry's newest-first model order.
                       sort={false}
-                      options={getAvailableAIModelOptions(
-                        availableProviders,
-                        form.watch("defaultAIModel"),
-                      )}
+                      options={[
+                        // Clearing the setting is what puts an org back on the
+                        // managed model, so the way back has to be an option
+                        // in the list. Cloud only: self-hosted has no managed
+                        // key to fall back to.
+                        ...(isCloud() ? [USE_DEFAULT_MODEL_OPTION] : []),
+                        ...getAvailableAIModelOptions(
+                          availableProviders,
+                          form.watch("defaultAIModel"),
+                        ),
+                      ]}
                     />
                     <ApiKeyWarning
-                      model={form.watch("defaultAIModel") || "gpt-4o-mini"}
+                      // On Cloud an empty value means the managed model, which
+                      // needs no key of the org's — don't warn about the
+                      // self-hosted fallback it isn't using.
+                      model={
+                        form.watch("defaultAIModel") ||
+                        (isCloud() ? "" : "gpt-4o-mini")
+                      }
                       hasKey={hasKeyForModel}
                     />
                   </Box>
@@ -361,17 +376,20 @@ export default function AISettings({
                       id="embeddingModel"
                       disabled={!canEdit}
                       helpText="Used for semantic search across experiments. Supports OpenAI, Mistral, and Google. Default is text-embedding-ada-002."
-                      value={
-                        form.watch("embeddingModel") || "text-embedding-ada-002"
-                      }
+                      // Unset shows the "use default" entry rather than naming
+                      // the model it resolves to, so the field reads the same
+                      // as every other picker.
+                      value={form.watch("embeddingModel") || ""}
                       onChange={(v) => form.setValue("embeddingModel", v)}
                       options={getAvailableEmbeddingModelOptions(
                         availableProviders,
-                        form.watch("embeddingModel") ||
-                          "text-embedding-ada-002",
+                        form.watch("embeddingModel") || "",
                       )}
                     />
                     <EmbeddingKeyWarning
+                      // Warn against the model the default resolves to, not the
+                      // empty value: self-hosted still needs an OpenAI key for
+                      // it, and that is worth saying before the first query.
                       embeddingModel={
                         form.watch("embeddingModel") || "text-embedding-ada-002"
                       }
@@ -605,7 +623,7 @@ export default function AISettings({
                           // Keep the registry's newest-first model order.
                           sort={false}
                           options={[
-                            { value: "", label: "Use default AI model" },
+                            USE_DEFAULT_MODEL_OPTION,
                             ...getAvailableAIModelOptions(
                               availableProviders,
                               form.watch("visualEditorAIModel") || "",

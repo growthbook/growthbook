@@ -126,14 +126,22 @@ describe("getAvailableEmbeddingModelOptions", () => {
   });
 
   it("does not expose embedding models for an incompatible provider list", () => {
-    expect(values(getAvailableEmbeddingModelOptions(["anthropic"]))).toEqual(
-      [],
-    );
+    // Anthropic serves no embedding model, so only the sentinel is left.
+    expect(
+      values(getAvailableEmbeddingModelOptions(["anthropic"])).filter(Boolean),
+    ).toEqual([]);
   });
 
   it("shows every embedding model while provider access is unknown", () => {
-    expect(values(getAvailableEmbeddingModelOptions(undefined))).toHaveLength(
-      EMBEDDING_MODEL_OPTIONS.length,
+    expect(
+      values(getAvailableEmbeddingModelOptions(undefined)).filter(Boolean),
+    ).toHaveLength(EMBEDDING_MODEL_OPTIONS.length);
+  });
+
+  it("always keeps the 'use default' entry", () => {
+    // The only way back to the default once a model has been chosen.
+    expect(values(getAvailableEmbeddingModelOptions(["anthropic"]))).toContain(
+      "",
     );
   });
 });

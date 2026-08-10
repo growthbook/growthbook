@@ -172,6 +172,17 @@ export function getAvailableAIModelOptions(
 }
 
 /**
+ * "Leave this unset and inherit the default" — the same entry, worded the same
+ * way, in every model picker. What it inherits differs by field (the org
+ * default, or GrowthBook's managed model for the org default itself), but to
+ * the person choosing it always means "I'm not picking one".
+ */
+export const USE_DEFAULT_MODEL_OPTION = {
+  value: "",
+  label: "-- Use Default AI Model --",
+};
+
+/**
  * Per-prompt model override options with an "org default" sentinel prepended.
  * Filtered and grouped the same way as getAvailableAIModelOptions().
  */
@@ -180,7 +191,7 @@ export function getAvailablePromptModelOptions(
   selectedModel?: string,
 ): (FlatOption | GroupedOption)[] {
   return [
-    { value: "", label: "-- Use Default AI Model --" },
+    USE_DEFAULT_MODEL_OPTION,
     ...getAvailableAIModelOptions(availableProviders, selectedModel),
   ];
 }
@@ -209,6 +220,9 @@ export function getAvailableImageModelOptions(
 
   return withSelectedOption(
     [
+      // Names the model rather than using USE_DEFAULT_MODEL_OPTION: this picker
+      // has no org-level image default to inherit, so the fallback is worth
+      // spelling out.
       { value: "", label: "Use default (Gemini 2.5 Flash Image)" },
       ...group("Supports reference image", true),
       ...group("Text prompt only", false),
@@ -222,6 +236,9 @@ export function getAvailableImageModelOptions(
  * Embedding model options, restricted to providers with a key the same way as
  * getAvailableAIModelOptions(). Embedding models live in their own registry, so
  * they need their own model → provider lookup.
+ *
+ * Carries the same "use default" entry as the others: on Cloud an org whose
+ * providers serve no embedding model would otherwise face an empty picker.
  */
 export function getAvailableEmbeddingModelOptions(
   availableProviders: readonly AIProvider[] | undefined,
@@ -242,7 +259,7 @@ export function getAvailableEmbeddingModelOptions(
         });
 
   return withSelectedOption(
-    [...options],
+    [USE_DEFAULT_MODEL_OPTION, ...options],
     selectedModel,
     (value) =>
       EMBEDDING_MODEL_OPTIONS.find((o) => o.value === value)?.label ?? value,
