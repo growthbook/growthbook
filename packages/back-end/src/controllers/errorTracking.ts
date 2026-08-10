@@ -355,8 +355,8 @@ ORDER BY issue_fingerprint, ts
       return {
         fingerprint: fp,
         title: String(r.title || ""),
-        lastSeen: new Date(String(r.last_seen) + "Z").toISOString(),
-        firstSeen: new Date(String(r.first_seen) + "Z").toISOString(),
+        lastSeen: clickhouseTimestampToIso(r.last_seen),
+        firstSeen: clickhouseTimestampToIso(r.first_seen),
         events: Number(r.events || 0),
         users: Number(r.users || 0),
         trend24h: fillIssueTrendSeries(trend24Buckets, byFp24.get(fp) || []),
@@ -497,8 +497,8 @@ ORDER BY ts
       issue: {
         fingerprint,
         title: String(row.title || ""),
-        lastSeen: new Date(String(row.last_seen) + "Z").toISOString(),
-        firstSeen: new Date(String(row.first_seen) + "Z").toISOString(),
+        lastSeen: clickhouseTimestampToIso(row.last_seen),
+        firstSeen: clickhouseTimestampToIso(row.first_seen),
         events: Number(row.events || 0),
         users: Number(row.users || 0),
         lastRelease: String(row.last_release || ""),
