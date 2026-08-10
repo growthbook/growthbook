@@ -34,6 +34,7 @@ jest.mock("back-end/src/util/logger", () => ({
     warn: jest.fn(),
     debug: jest.fn(),
   },
+  setErrorTrackingHandler: jest.fn(),
 }));
 
 jest.mock("back-end/src/controllers/features", () => {

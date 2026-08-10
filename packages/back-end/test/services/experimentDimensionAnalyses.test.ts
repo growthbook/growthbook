@@ -42,6 +42,7 @@ jest.mock("back-end/src/util/logger", () => ({
     info: jest.fn(),
     warn: jest.fn(),
   },
+  setErrorTrackingHandler: jest.fn(),
 }));
 
 function makeAnalysisSettings(

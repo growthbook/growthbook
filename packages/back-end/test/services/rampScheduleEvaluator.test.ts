@@ -23,6 +23,7 @@ jest.mock("back-end/src/util/logger", () => ({
     warn: jest.fn(),
     error: jest.fn(),
   },
+  setErrorTrackingHandler: jest.fn(),
 }));
 
 const mockCreateSafeRolloutSnapshot =

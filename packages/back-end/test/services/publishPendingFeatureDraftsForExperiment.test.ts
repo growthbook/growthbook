@@ -27,6 +27,7 @@ jest.mock("back-end/src/services/features", () => ({
 
 jest.mock("back-end/src/util/logger", () => ({
   logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
+  setErrorTrackingHandler: jest.fn(),
 }));
 
 jest.mock("shared/util", () => ({
