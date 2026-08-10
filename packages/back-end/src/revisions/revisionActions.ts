@@ -437,6 +437,10 @@ export async function assertCanPublishRevision(
     snapshot,
   );
 
+  // Computed once: the landing exemption below and the move-destination check
+  // both need it, and it reads the reverted-from revision.
+  const pureRevert = await isPureRevertRevision(context, revision);
+
   await assertCanLandRevision({
     context,
     holds: (action) => {
@@ -462,7 +466,7 @@ export async function assertCanPublishRevision(
       proposed: proposedArchivedValue(revision.target.proposedChanges),
       current: snapshot.archived as boolean | undefined,
     }),
-    isPureRevert: () => isPureRevertRevision(context, revision),
+    isPureRevert: () => Promise.resolve(pureRevert),
     isPureArchive: () =>
       isPureArchiveRevision({
         proposedChanges: revision.target.proposedChanges,
@@ -470,15 +474,16 @@ export async function assertCanPublishRevision(
       }),
   });
 
-  // A change that relocates the entity lands in the DESTINATION, and none of
-  // the narrow-atom exemptions above cross a move — there is no revision there
-  // to judge purity against. In the engine rather than per handler, so a
-  // handler that forgets is not a bypass.
+  // A change that relocates the entity lands in the DESTINATION, in the engine
+  // rather than per handler so a handler that forgets is not a bypass. A pure
+  // revert that also moves lands under REVERT authority, the same atom the
+  // landing exemption above granted it — hardcoding "publish" over-asked and
+  // blocked a reverter who legitimately relocated the entity.
   if (
     !holdsMoveDestination({
       permissions: context.permissions,
       model: revision.target.type,
-      action: "publish",
+      action: pureRevert ? "revert" : "publish",
       existing: snapshot,
       proposed: {
         ...snapshot,

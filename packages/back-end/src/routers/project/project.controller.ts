@@ -1,8 +1,7 @@
-import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { Response } from "express";
 import { ProjectInterface, ProjectSettings } from "shared/types/project";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
-import { stringToBoolean } from "shared/util";
+import { stringToBoolean, filterEnvironmentsByFeature } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -16,8 +15,11 @@ import {
 } from "back-end/src/models/MetricModel";
 import {
   deleteAllFeaturesForAProject,
+  getAllFeatures,
   projectHasFeatures,
 } from "back-end/src/models/FeatureModel";
+import { getEnvironments } from "back-end/src/util/organization.util";
+import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
   deleteAllExperimentsForAProject,
   projectHasExperiments,
@@ -233,12 +235,35 @@ export const deleteProject = async (
     }
 
     if (await projectHasFeatures(context, id)) {
-      requirePermission(
-        context.permissions.canDeleteFeature(
-          { project: id },
-          NO_ENVIRONMENT_BINDING,
+      // Deleting a live feature drops it from the SDK payload in the
+      // environments it is enabled in, so this cascade owes the same delete +
+      // publish authority over that footprint that the single-feature delete
+      // does — passing NO_ENVIRONMENT_BINDING skipped the env check entirely and
+      // let a dev-only deleter hard-delete production features project-wide.
+      // Union across the project's non-archived features (archived ones are
+      // already out of service, so the delete atom alone covers them).
+      const orgEnvs = getEnvironments(context.org);
+      const liveFeatures = await getAllFeatures(context, { projects: [id] });
+      const footprint = Array.from(
+        new Set(
+          liveFeatures.flatMap((feature) =>
+            Array.from(
+              getEnabledEnvironments(
+                feature,
+                filterEnvironmentsByFeature(orgEnvs, feature).map((e) => e.id),
+              ),
+            ),
+          ),
         ),
       );
+      requirePermission(
+        context.permissions.canDeleteFeature({ project: id }, footprint),
+      );
+      if (footprint.length) {
+        requirePermission(
+          context.permissions.canPublishFeature({ project: id }, footprint),
+        );
+      }
       resourceDeletes.push({
         label: "features",
         run: () => deleteAllFeaturesForAProject({ projectId: id, context }),

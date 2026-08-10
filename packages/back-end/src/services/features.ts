@@ -34,6 +34,7 @@ import {
   getConfigBackingPatch,
   stripConfigExtends,
   entityTargetsProject,
+  filterEnvironmentsByFeature,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -3776,15 +3777,45 @@ export async function getMergeResultPublishEnvs({
   /** The revision's ramp actions, whose reach the publish must answer for. */
   rampActions?: RevisionRampAction[];
 }): Promise<string[]> {
+  // A project/targeting move makes environments applicable that the pre-move
+  // feature excluded, so `environmentIds` (computed against the OLD project)
+  // omits them. An env the feature is already enabled in but that only its
+  // DESTINATION project serves would then activate on the move with no publish
+  // check — the footprint must answer for it too. Widen to the union of pre-move
+  // and destination applicability; `servingEnvironments` still narrows to the
+  // ones actually enabled, so this cannot over-demand.
+  const m = result.metadata;
+  const moves =
+    m?.project !== undefined ||
+    m?.targetingProjects !== undefined ||
+    m?.targetingAllProjects !== undefined;
+  const effectiveEnvironmentIds = moves
+    ? [
+        ...new Set([
+          ...environmentIds,
+          ...filterEnvironmentsByFeature(getEnvironments(context.org), {
+            ...feature,
+            ...(m?.project !== undefined ? { project: m.project } : {}),
+            ...(m?.targetingProjects !== undefined
+              ? { targetingProjects: m.targetingProjects }
+              : {}),
+            ...(m?.targetingAllProjects !== undefined
+              ? { targetingAllProjects: m.targetingAllProjects }
+              : {}),
+          }).map((e) => e.id),
+        ]),
+      ]
+    : environmentIds;
+
   const base = await featurePublishFootprint({
     feature,
     liveRules: filledLiveRules,
     changes: result,
-    environmentIds,
+    environmentIds: effectiveEnvironmentIds,
     holdoutEnvs: await collectHoldoutAffectedEnvs(
       context,
       feature,
-      environmentIds,
+      effectiveEnvironmentIds,
       result.holdout,
     ),
   });
@@ -3792,10 +3823,10 @@ export async function getMergeResultPublishEnvs({
   const rampEnvs = rampActionFootprint({
     rampActions,
     liveRules: filledLiveRules,
-    environmentIds,
+    environmentIds: effectiveEnvironmentIds,
   });
   return rampEnvs === "all"
-    ? [...environmentIds]
+    ? [...effectiveEnvironmentIds]
     : [...new Set([...base, ...rampEnvs])];
 }
 
