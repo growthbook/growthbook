@@ -22,6 +22,7 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Metadata from "@/ui/Metadata";
+import VariationLabel from "@/ui/VariationLabel";
 import SortedTags from "@/components/Tags/SortedTags";
 import Markdown from "@/components/Markdown/Markdown";
 import Owner from "@/components/Avatar/Owner";
@@ -422,18 +423,31 @@ export default function ContextualBanditDetailPage({
       {cb.variations.some((v) => v.status === "pending") && (
         <Callout status="warning" mt="4">
           {(() => {
-            const pending = cb.variations.filter((v) => v.status === "pending");
-            const names = pending.map((v) => v.name).join(", ");
+            const pending = cb.variations
+              .map((v, index) => ({ ...v, index }))
+              .filter((v) => v.status === "pending");
+            const isSingular = pending.length === 1;
             return (
-              <Text as="span">
-                {pending.length === 1
-                  ? `Variation "${names}" is`
-                  : `Variations ${names} are`}{" "}
-                waiting on a linked feature rule to be published (e.g. pending
-                approval) and will not receive any traffic until then. They
-                activate automatically when the feature revision publishes;
-                re-saving the variations also retries the publish.
-              </Text>
+              <Flex align="center" gap="2" wrap="wrap">
+                {pending.map((v) => (
+                  <Box key={v.id} flexShrink="0">
+                    <VariationLabel
+                      number={v.index}
+                      name={v.name}
+                      size="sm"
+                      disableTooltip
+                    />
+                  </Box>
+                ))}
+                <Text>
+                  {isSingular ? "is" : "are"} waiting on a linked feature rule
+                  to be published (e.g. pending approval) and will not receive
+                  any traffic until then.{" "}
+                  {isSingular ? "It activates" : "They activate"} automatically
+                  when the feature revision publishes; re-saving the variations
+                  also retries the publish.
+                </Text>
+              </Flex>
             );
           })()}
         </Callout>

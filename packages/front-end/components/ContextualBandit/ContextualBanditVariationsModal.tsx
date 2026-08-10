@@ -1,10 +1,13 @@
 import { FormProvider, useForm } from "react-hook-form";
 import { useState } from "react";
+import { Box } from "@radix-ui/themes";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { LinkedFeatureInfo } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
+import VariationLabel from "@/ui/VariationLabel";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 
@@ -62,9 +65,9 @@ export default function ContextualBanditVariationsModal({
     useState<NewVariationValues>({});
 
   const watchedVariations = form.watch("variations") ?? [];
-  const addedVariations = watchedVariations.filter(
-    (v) => v.id && !originalIds.has(v.id),
-  );
+  const addedVariations = watchedVariations
+    .map((v, index) => ({ ...v, index }))
+    .filter((v) => v.id && !originalIds.has(v.id));
   const showNewValueEditors =
     addedVariations.length > 0 && linkedFeatures.length > 0;
 
@@ -140,8 +143,8 @@ export default function ContextualBanditVariationsModal({
       >
         <Callout status="info" size="sm" mb="4">
           {exploiting
-            ? "This bandit is exploiting. Removing a variation redistributes its weight proportionally across the others; a new variation starts with an even share and the bandit re-learns its weight from there."
-            : "Traffic is split evenly across variations while the bandit explores. Adding or removing a variation re-balances that even split."}
+            ? "This Bandit is exploiting. Removing a variation redistributes its weight proportionally across the others; a new variation starts with an even share and the Bandit re-learns its weight from there."
+            : "Traffic is split evenly across variations while the Bandit explores. Adding or removing a variation re-balances that even split."}
           {linkedFeatures.length > 0 &&
             " Linked features are updated automatically: removed variations are dropped from their rules, and new variations serve the values you set below."}
         </Callout>
@@ -183,25 +186,34 @@ export default function ContextualBanditVariationsModal({
         />
 
         {showNewValueEditors && (
-          <div className="mt-4">
-            <div className="mb-2">
-              <strong>Values for new variations</strong>
-              <div className="text-muted small">
+          <Box mt="4">
+            <Box mb="2">
+              <Text as="div" weight="semibold">
+                Values for new variations
+              </Text>
+              <Text as="div" size="sm" color="text-low">
                 Set the value each linked feature serves for the variation(s)
                 you added. Defaults to the control value; you can change it
                 later on the feature.
-              </div>
-            </div>
+              </Text>
+            </Box>
             {linkedFeatures.map((lf) => (
-              <div key={lf.feature.id} className="mb-3">
-                <div className="small font-weight-bold mb-1">
+              <Box key={lf.feature.id} mb="3">
+                <Text as="div" size="sm" weight="semibold" mb="1">
                   {lf.feature.id}
-                </div>
+                </Text>
                 {addedVariations.map((v) => (
-                  <div key={`${lf.feature.id}:${v.id}`} className="mb-2">
+                  <Box key={`${lf.feature.id}:${v.id}`} mb="2">
                     <FeatureValueField
                       id={`cb-newval-${lf.feature.id}-${v.id}`}
-                      label={v.name || v.key || "New variation"}
+                      label={
+                        <VariationLabel
+                          number={v.index}
+                          name={v.name || v.key || "New variation"}
+                          size="sm"
+                          disableTooltip
+                        />
+                      }
                       valueType={lf.feature.valueType}
                       feature={lf.feature}
                       value={valueFor(lf, v.id)}
@@ -209,11 +221,11 @@ export default function ContextualBanditVariationsModal({
                         setValueFor(lf.feature.id, v.id, value)
                       }
                     />
-                  </div>
+                  </Box>
                 ))}
-              </div>
+              </Box>
             ))}
-          </div>
+          </Box>
         )}
       </ModalStandard>
     </FormProvider>
