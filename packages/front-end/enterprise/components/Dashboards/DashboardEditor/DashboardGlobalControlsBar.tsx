@@ -1,6 +1,7 @@
 import { useContext, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiSlidersHorizontal } from "react-icons/pi";
+import { isEqual } from "lodash";
 import {
   canAutoRefreshDashboard,
   autoEnrollDashboardBlocksInDateControl,
@@ -12,6 +13,7 @@ import {
   getDashboardGlobalControlApplicability,
   getDashboardExperimentFilterApplicability,
   isEnablingGlobalFilter,
+  isEnablingDashboardDateControl,
 } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
@@ -54,6 +56,10 @@ interface Props {
     globalControls: DashboardInterface["globalControls"],
     blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
   ) => Promise<void>;
+  dashboardComparison?: DashboardInterface["comparison"];
+  onDashboardComparisonChange?: (
+    comparison: DashboardInterface["comparison"],
+  ) => Promise<void>;
   updateTemporaryDashboardResults?: (
     globalControls?: DashboardInterface["globalControls"],
     blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
@@ -66,6 +72,8 @@ export default function DashboardGlobalControlsBar({
   globalControls,
   canEdit,
   onGlobalControlsChange,
+  dashboardComparison,
+  onDashboardComparisonChange,
   updateTemporaryDashboardResults,
   setNeedsUpdate,
 }: Props) {
@@ -139,7 +147,9 @@ export default function DashboardGlobalControlsBar({
     Boolean(globalControls?.dateRange) ||
     Boolean(globalControls?.metricId) ||
     Boolean(globalControls?.experimentSearchString) ||
-    Array.isArray(globalControls?.projects);
+    Array.isArray(globalControls?.projects) ||
+    // Set from this bar's date dropdown, so it counts as a global filter.
+    Boolean(dashboardComparison?.enabled);
 
   // Persist a change to one of the experiment-block filters (projects / metric /
   // experiment search). Unlike the date control, these never trigger a snapshot
@@ -184,14 +194,18 @@ export default function DashboardGlobalControlsBar({
   ) => {
     setSaving(true);
     try {
+      // Only on first enable — re-enrolling on every date change would flip
+      // blocks the user had opted out of back onto the dashboard filter.
+      const enrolling = isEnablingDashboardDateControl(
+        globalControls,
+        nextGlobalControls,
+      );
       const blocksForRefresh =
         nextBlocks ??
-        (nextGlobalControls?.dateRange
-          ? autoEnrollDashboardBlocksInDateControl(blocks)
-          : blocks);
+        (enrolling ? autoEnrollDashboardBlocksInDateControl(blocks) : blocks);
       await onGlobalControlsChange(
         nextGlobalControls,
-        nextGlobalControls?.dateRange ? blocksForRefresh : nextBlocks,
+        enrolling ? blocksForRefresh : nextBlocks,
       );
       const nextApplicability = getDashboardGlobalControlApplicability({
         blocks: blocksForRefresh,
@@ -234,6 +248,15 @@ export default function DashboardGlobalControlsBar({
   // Order matters: the pills are cleared only once the empty controls have been
   // persisted, so a stale render can't re-mark a filter as touched.
   const resetAll = async () => {
+    // Dashboard-wide only: this clears the bar's own filters, including the
+    // comparison set from its date dropdown. Each block keeps whatever it has
+    // configured for itself — a block only loses a value here if it was
+    // inheriting one of these filters to begin with.
+    // Its own PUT, and it has to land first: persistGlobalControls ends by
+    // refreshing every block.
+    if (dashboardComparison?.enabled) {
+      await onDashboardComparisonChange?.({ enabled: false });
+    }
     await persistGlobalControls({});
     setAddedKeys([]);
     setLastAddedKey(null);
@@ -260,23 +283,34 @@ export default function DashboardGlobalControlsBar({
             value={globalControls?.dateRange ?? null}
             granularity={globalControls?.dateGranularity ?? "auto"}
             disabled={controlsDisabled}
-            onChange={(dateRange) => {
+            comparison={dashboardComparison ?? null}
+            showCompare={!!onDashboardComparisonChange}
+            // One write for range + granularity: separate persists each spread the
+            // same `globalControls`, so the second dropped the first's range.
+            onApply={async ({ dateRange, granularity, comparison }) => {
               const nextGlobalControls = { ...(globalControls ?? {}) };
               if (dateRange) {
                 nextGlobalControls.dateRange = dateRange;
-                nextGlobalControls.dateGranularity ??= "auto";
+                nextGlobalControls.dateGranularity = granularity;
               } else {
+                // "Chart Default": each block keeps its own range, so there is no
+                // dashboard-wide series left for a granularity to bucket.
                 delete nextGlobalControls.dateRange;
                 delete nextGlobalControls.dateGranularity;
               }
-              persistGlobalControls(nextGlobalControls);
-            }}
-            onGranularityChange={(granularity) => {
-              if (!globalControls?.dateRange) return;
-              persistGlobalControls({
-                ...(globalControls ?? {}),
-                dateGranularity: granularity,
-              });
+              // Its own PUT, and it must land before persistGlobalControls —
+              // that ends by refreshing every block.
+              const comparisonChanged =
+                !!onDashboardComparisonChange &&
+                !isEqual(comparison ?? null, dashboardComparison ?? null);
+              if (comparisonChanged) {
+                await onDashboardComparisonChange?.(comparison);
+              }
+              await persistGlobalControls(nextGlobalControls);
+              // Nothing was refreshed without a dashboard-wide range.
+              if (comparisonChanged && !nextGlobalControls.dateRange) {
+                setNeedsUpdate(true);
+              }
             }}
           />
           <DashboardFilterPills

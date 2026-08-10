@@ -93,6 +93,7 @@ export type BlockProps<T extends DashboardBlockInterface> = {
   isTabActive: boolean;
   block: DashboardBlockInterfaceOrData<T>;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
+  dashboardComparison?: DashboardInterface["comparison"];
   blockIndex?: number;
   setBlock: undefined | React.Dispatch<DashboardBlockInterfaceOrData<T>>;
   snapshot: ExperimentSnapshotInterface;
@@ -106,6 +107,7 @@ interface Props<DashboardBlock extends DashboardBlockInterface> {
   isTabActive: boolean;
   block: DashboardBlockInterfaceOrData<DashboardBlock>;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
+  dashboardComparison?: DashboardInterface["comparison"];
   blockIndex?: number;
   isFocused: boolean;
   isEditing: boolean;
@@ -153,6 +155,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   isTabActive,
   block,
   dashboardGlobalControls,
+  dashboardComparison,
   blockIndex,
   isEditing,
   isFocused,
@@ -701,6 +704,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
             isTabActive={isTabActive}
             block={block}
             dashboardGlobalControls={dashboardGlobalControls}
+            dashboardComparison={dashboardComparison}
             blockIndex={blockIndex}
             setBlock={setBlock}
             isEditing={isEditing}

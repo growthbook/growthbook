@@ -37,8 +37,8 @@ export default function ExperimentsWinRateSettings({
 
   return (
     <Flex direction="column" gap="4">
-      {/* The Compare toggle lives on the block title (see EditSingleBlock) so it
-          reads as a block-level mode rather than a per-field control. */}
+      {/* Compare lives inside the date panel, alongside the range it compares
+          against; the field's label row carries the inherit control instead. */}
       <CompletedExperimentsFilterFields
         value={block}
         onChange={(patch) => setBlock({ ...block, ...patch })}
@@ -46,18 +46,7 @@ export default function ExperimentsWinRateSettings({
         dashboardGlobalControls={dashboardGlobalControls}
         globalControlSettings={block.globalControlSettings}
         onToggleFollow={setFollow}
-        comparisonEnabled={!!block.comparison?.enabled}
-        previousTimeFrame={block.comparison?.previousTimeFrame}
-        onPreviousTimeFrameChange={(previousTimeFrame) =>
-          setBlock({
-            ...block,
-            comparison: {
-              ...(block.comparison ?? {}),
-              enabled: true,
-              previousTimeFrame,
-            },
-          })
-        }
+        showCompare
       />
 
       <Switch

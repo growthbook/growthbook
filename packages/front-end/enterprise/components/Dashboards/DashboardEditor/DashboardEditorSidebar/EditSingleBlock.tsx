@@ -48,7 +48,6 @@ import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import VariationLabel from "@/ui/VariationLabel";
 import Link from "@/ui/Link";
-import Switch from "@/ui/Switch";
 import MultiSelectField from "@/ui/MultiSelectField";
 import TagsInput from "@/components/Tags/TagsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -852,21 +851,6 @@ export default function EditSingleBlock({
               </Avatar>
               {BLOCK_TYPE_INFO[block.type].name}
             </Text>
-            {block.type === "experiments-win-rate" && (
-              <Switch
-                label="Compare"
-                value={!!block.comparison?.enabled}
-                onChange={(checked) =>
-                  setBlock({
-                    ...block,
-                    comparison: {
-                      ...(block.comparison ?? {}),
-                      enabled: checked,
-                    },
-                  })
-                }
-              />
-            )}
           </Flex>
 
           <Flex gap="5" direction="column" flexGrow="1">

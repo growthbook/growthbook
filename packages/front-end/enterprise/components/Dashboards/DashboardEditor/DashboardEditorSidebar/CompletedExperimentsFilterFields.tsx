@@ -1,11 +1,15 @@
 import { ReactNode } from "react";
-import { ExplorationDateRange } from "shared/validators";
-import { DashboardInterface, globalFilterIsSet } from "shared/enterprise";
+import { dateGranularity, ExplorationDateRange } from "shared/validators";
+import {
+  BlockComparison,
+  DashboardInterface,
+  globalFilterIsSet,
+} from "shared/enterprise";
 import MultiSelectField from "@/ui/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";
 import SidebarExperimentFilters from "@/components/Search/SidebarExperimentFilters";
-import BlockDateRangePicker from "./BlockDateRangePicker";
+import DateRangeCompareDropdown from "@/enterprise/components/ProductAnalytics/DateRangeCompareDropdown";
 import SidebarSettingField from "./SidebarSettingField";
 import DashboardInheritControl from "./DashboardInheritControl";
 
@@ -15,6 +19,9 @@ export interface CompletedExperimentsFilterValue {
   // Raw ExperimentSearchFilters query string; applied client-side on top of the
   // date/project scope.
   experimentSearchString?: string;
+  // Both patched through the same `onChange` as `dateRange` — see below.
+  comparison?: BlockComparison;
+  dateGranularity?: (typeof dateGranularity)[number];
 }
 
 // Per-field opt-in flags: whether the block follows the dashboard for each of
@@ -27,14 +34,12 @@ interface Props {
   // Restrict the project options (e.g. to the dashboard's projects). Empty
   // means all org projects are selectable.
   availableProjects?: string[];
-  // Optional content rendered between the Date Range and Projects fields
-  // (e.g. Team Velocity's Date Granularity control).
+  // Optional content rendered between the Date Range and Projects fields.
   afterDateRange?: ReactNode;
-  // Comparison support: when enabled and the range is a Custom Date Range, the
-  // picker shows the Prior / Current fields backed by previousTimeFrame.
-  comparisonEnabled?: boolean;
-  previousTimeFrame?: ExplorationDateRange;
-  onPreviousTimeFrameChange?: (dr: ExplorationDateRange) => void;
+  /** Blocks that bucket a time series (Team Velocity) opt in. */
+  showGranularity?: boolean;
+  /** Blocks that can't render a previous period leave this off. */
+  showCompare?: boolean;
   // Dashboard-wide global filters, used to populate the fields read-only when
   // the block follows them.
   dashboardGlobalControls?: DashboardInterface["globalControls"];
@@ -55,9 +60,8 @@ export default function CompletedExperimentsFilterFields({
   onChange,
   availableProjects,
   afterDateRange,
-  comparisonEnabled,
-  previousTimeFrame,
-  onPreviousTimeFrameChange,
+  showGranularity = false,
+  showCompare = false,
   dashboardGlobalControls,
   globalControlSettings,
   onToggleFollow,
@@ -94,6 +98,11 @@ export default function CompletedExperimentsFilterFields({
     dateControlled && dashboardGlobalControls?.dateRange
       ? dashboardGlobalControls.dateRange
       : value.dateRange;
+  // The dashboard date filter carries its own granularity, so a block following
+  // it is bucketed by the dashboard too — show that rather than the block's own.
+  const granularityValue = dateControlled
+    ? (dashboardGlobalControls?.dateGranularity ?? value.dateGranularity)
+    : value.dateGranularity;
   const projectsValue = projectsControlled
     ? (dashboardGlobalControls?.projects ?? [])
     : value.projects;
@@ -115,13 +124,29 @@ export default function CompletedExperimentsFilterFields({
           ) : undefined
         }
       >
-        <BlockDateRangePicker
-          value={dateRangeValue}
-          onChange={(dateRange) => onChange({ dateRange })}
-          comparisonEnabled={comparisonEnabled}
-          previousTimeFrame={previousTimeFrame}
-          onPreviousTimeFrameChange={onPreviousTimeFrameChange}
+        <DateRangeCompareDropdown
+          fullWidth
+          showCompare={showCompare}
+          showGranularity={showGranularity}
           disabled={dateControlled}
+          value={{
+            dateRange: dateRangeValue,
+            comparison: (showCompare ? value.comparison : null) ?? null,
+            granularity: granularityValue,
+          }}
+          // One Apply, one patch. Fanning out to separate setters, each
+          // spreading the same `block`, let the last one undo the others.
+          onChange={(next) =>
+            onChange({
+              dateRange: next.dateRange,
+              ...(showCompare
+                ? { comparison: next.comparison ?? undefined }
+                : {}),
+              ...(showGranularity && next.granularity
+                ? { dateGranularity: next.granularity }
+                : {}),
+            })
+          }
         />
       </SidebarSettingField>
 
