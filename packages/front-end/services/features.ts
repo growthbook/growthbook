@@ -964,6 +964,41 @@ export function getRevisionPublishEnvs({
  * metadata diff treats targeting changes as payload-affecting too — and an unbound
  * footprint SKIPS the environment check rather than narrowing it.
  */
+// The environment universe a staged change reaches once a project/targeting
+// MOVE is applied: the pre-move applicable set unioned with the destination's.
+// The FE twin of `getMergeResultPublishEnvs`'s `effectiveEnvironmentIds` — a
+// destination-only env the feature is already enabled in activates on the move,
+// and the control must gate on it or it offers a publish the server rejects.
+export function getMoveWidenedEnvironments({
+  feature,
+  changes,
+  allEnvironments,
+}: {
+  feature: FeatureInterface;
+  changes: MergeResultChanges;
+  allEnvironments: Environment[];
+}): Environment[] {
+  const base = filterEnvironmentsByFeature(allEnvironments, feature);
+  const m = changes.metadata;
+  const moves =
+    m?.project !== undefined ||
+    m?.targetingProjects !== undefined ||
+    m?.targetingAllProjects !== undefined;
+  if (!moves) return base;
+  const destination = filterEnvironmentsByFeature(allEnvironments, {
+    ...feature,
+    ...(m?.project !== undefined ? { project: m.project } : {}),
+    ...(m?.targetingProjects !== undefined
+      ? { targetingProjects: m.targetingProjects }
+      : {}),
+    ...(m?.targetingAllProjects !== undefined
+      ? { targetingAllProjects: m.targetingAllProjects }
+      : {}),
+  });
+  const seen = new Set(base.map((e) => e.id));
+  return [...base, ...destination.filter((e) => !seen.has(e.id))];
+}
+
 export function getMetadataEditEnvs({
   feature,
   proposed,

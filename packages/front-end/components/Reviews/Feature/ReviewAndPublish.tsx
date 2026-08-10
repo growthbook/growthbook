@@ -58,6 +58,7 @@ import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   getRevisionPublishEnvs,
+  getMoveWidenedEnvironments,
   useEnvironments,
   useFeatureExperimentChecklists,
 } from "@/services/features";
@@ -682,7 +683,13 @@ export default function ReviewAndPublish({
     return getRevisionPublishEnvs({
       liveFeature: feature,
       changes: mergeResult.result,
-      environments,
+      // A staged project/targeting move makes destination-only envs applicable;
+      // widen the universe so the control gates on them, matching the endpoint.
+      environments: getMoveWidenedEnvironments({
+        feature,
+        changes: mergeResult.result,
+        allEnvironments,
+      }),
       holdoutsMap,
       // Ramp actions ride the revision, not the merge result, so pass them
       // explicitly — the endpoint counts their reach either way.
@@ -692,7 +699,7 @@ export default function ReviewAndPublish({
     mergeResult,
     envIds,
     feature,
-    environments,
+    allEnvironments,
     holdoutsMap,
     revision?.rampActions,
   ]);

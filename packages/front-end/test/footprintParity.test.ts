@@ -16,6 +16,7 @@ import type { Environment } from "shared/types/organization";
 import {
   getEnabledEnvironments,
   getMetadataEditEnvs,
+  getMoveWidenedEnvironments,
   getRevisionPublishEnvs,
 } from "@/services/features";
 
@@ -337,6 +338,38 @@ describe("control footprint === endpoint footprint", () => {
         holdoutsMap: new Map(),
       }),
     ).not.toContain("edge");
+  });
+
+  // The move twin: a staged project move makes the destination-only `edge`
+  // (scoped to prj_other, enabled on the flag but dormant in prj_web) applicable,
+  // and the widened universe surfaces it — the FE counterpart of the
+  // getMergeResultPublishEnvs move fix, so the control gates on what the endpoint
+  // now demands instead of offering a publish the server rejects.
+  it("feature publish widens to destination-applicable envs on a staged move", () => {
+    const changes = { metadata: { project: "prj_other" } };
+    const widened = getMoveWidenedEnvironments({
+      feature,
+      changes,
+      allEnvironments: environments,
+    });
+    expect(widened.map((e) => e.id)).toContain("edge");
+    expect(
+      getRevisionPublishEnvs({
+        liveFeature: feature,
+        changes,
+        environments: widened,
+        holdoutsMap: new Map(),
+      }),
+    ).toContain("edge");
+  });
+
+  it("does not widen the universe when nothing moves", () => {
+    const widened = getMoveWidenedEnvironments({
+      feature,
+      changes: { defaultValue: "true" },
+      allEnvironments: environments,
+    });
+    expect(widened.map((e) => e.id)).not.toContain("edge");
   });
 });
 
