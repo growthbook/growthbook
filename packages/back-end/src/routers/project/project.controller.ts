@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import { ProjectInterface, ProjectSettings } from "shared/types/project";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
-import { stringToBoolean, filterEnvironmentsByFeature } from "shared/util";
+import { stringToBoolean } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -19,7 +19,7 @@ import {
   projectHasFeatures,
 } from "back-end/src/models/FeatureModel";
 import { getEnvironments } from "back-end/src/util/organization.util";
-import { getEnabledEnvironments } from "back-end/src/util/features";
+import { projectFeatureDeleteFootprint } from "back-end/src/util/features";
 import {
   deleteAllExperimentsForAProject,
   projectHasExperiments,
@@ -242,24 +242,13 @@ export const deleteProject = async (
       // let a dev-only deleter hard-delete production features project-wide.
       // Union across the project's non-archived features (archived ones are
       // already out of service, so the delete atom alone covers them).
-      const orgEnvs = getEnvironments(context.org);
-      // OWNED by this project only (project === id): the cascade deletes those,
-      // not features that merely target it. getAllFeatures's project clause is
-      // targeting-scoped (broader), so narrow it or the footprint over-demands.
-      const liveFeatures = (
-        await getAllFeatures(context, { projects: [id] })
-      ).filter((feature) => feature.project === id);
-      const footprint = Array.from(
-        new Set(
-          liveFeatures.flatMap((feature) =>
-            Array.from(
-              getEnabledEnvironments(
-                feature,
-                filterEnvironmentsByFeature(orgEnvs, feature).map((e) => e.id),
-              ),
-            ),
-          ),
-        ),
+      // Non-archived features in/targeting this project; the helper narrows to
+      // OWNED (project === id) — the ones the cascade actually deletes.
+      const liveFeatures = await getAllFeatures(context, { projects: [id] });
+      const footprint = projectFeatureDeleteFootprint(
+        liveFeatures,
+        id,
+        getEnvironments(context.org),
       );
       requirePermission(
         context.permissions.canDeleteFeature({ project: id }, footprint),

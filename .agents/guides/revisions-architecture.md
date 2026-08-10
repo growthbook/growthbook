@@ -12,9 +12,16 @@ There are two engines. They share their rules but not their mechanics:
 | Model          | `RevisionModel` (`revisions` collection)    | `FeatureRevisionModel` (`featurerevisions`)        |
 | Addressed by   | revision `id`                               | `(organization, featureId, version)`               |
 | Change format  | JSON Patch ops over a snapshot              | whole-revision fields                              |
-| Landing order  | claim first, then write live                | write live first, claim last                       |
+| Landing order  | claim first, then write live                | SINGLE publish writes live first, claims last      |
 | Half-done look | claimed revision, live unchanged            | live changed, revision still open                  |
 | Recovery       | republish routes via `recoverStrandedMerge` | rewinds at fail time + republish of the open draft |
+
+**Bulk publishing is claim-first for BOTH engines.** `bulkPublish/` claims every
+revision in the batch before writing any entity, so a bulk feature publish does
+NOT follow the single-publish claim-last order above — its half-done shape is a
+claimed revision with no entity write, the same as the generic engine, and it has
+no `recoverStrandedMerge` equivalent (a crash mid-batch strands claimed revisions
+for manual repair). The rows above describe the SINGLE-revision paths.
 
 The rules live in one place: `landAuthority.ts` (who may discard / advance /
 rebase / land — the feature engine reaches it through `featureDraftAuthority.ts`),
@@ -211,14 +218,18 @@ flowchart TD
 publishing a `merged` revision routes through it. The red branch is the case the
 landing fences exist to prevent, and the reason they are worth their cost.
 
-**Feature engine** — the claim comes last, so the failure surface is inverted: a
-crash can leave _live changed with the revision still open_. In-process failures
-run the registered rewinds (live restored first, revision touched last, residue
-reported when a rewind is refused); a crash that outruns the rewinds leaves an
-open draft whose changes are already live, and republishing that draft re-applies
-and claims. There is no `recoverStrandedMerge` here — a feature revision that
-reads `published` was claimed after its write landed, and re-publishing it is
-refused rather than recovered.
+**Feature engine, SINGLE publish** — the claim comes last, so the failure surface
+is inverted: a crash can leave _live changed with the revision still open_.
+In-process failures run the registered rewinds (live restored first, revision
+touched last, residue reported when a rewind is refused); a crash that outruns the
+rewinds leaves an open draft whose changes are already live, and republishing that
+draft re-applies and claims. There is no `recoverStrandedMerge` here — a feature
+revision that reads `published` was claimed after its write landed, and
+re-publishing it is refused rather than recovered.
+
+**Feature engine, BULK publish** — claim-FIRST, like the generic engine: it strands
+the OTHER way, a claimed revision with no entity write, and (like generic bulk) has
+no stranded-merge recovery, so a crash mid-batch needs manual repair. Tracked debt.
 
 ---
 

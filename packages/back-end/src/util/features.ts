@@ -433,6 +433,33 @@ export function getEnabledEnvironments(
   return environments;
 }
 
+// The environment footprint a project-delete cascade must hold delete + publish
+// authority over: the union of enabled environments across the project's OWNED
+// (project === id) features. Deleting a live feature drops it from the SDK
+// payload in the envs it is enabled in — the same footprint the single-feature
+// delete demands, applied to exactly the features the cascade deletes (features
+// merely TARGETING the project are owned elsewhere and are not deleted here).
+// Callers pass already-non-archived features (archived contribute no footprint).
+export function projectFeatureDeleteFootprint(
+  features: FeatureInterface[],
+  projectId: string,
+  orgEnvs: Environment[],
+): string[] {
+  const owned = features.filter((feature) => feature.project === projectId);
+  return Array.from(
+    new Set(
+      owned.flatMap((feature) =>
+        Array.from(
+          getEnabledEnvironments(
+            feature,
+            filterEnvironmentsByFeature(orgEnvs, feature).map((e) => e.id),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 export function getSDKPayloadKeys(
   environments: Set<string>,
   projects: Set<string>,
