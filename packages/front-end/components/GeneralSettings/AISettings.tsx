@@ -379,6 +379,7 @@ export default function AISettings({
               <AIProviderKeys
                 access={aiProviderAccess}
                 showPermissionCallout={false}
+                aiEnabled={form.watch("aiEnabled") && aiAgreedTo}
               />
 
               {form.watch("aiEnabled") && canChooseModels && (

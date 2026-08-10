@@ -98,6 +98,7 @@ function ProviderRow({
   inheritedFromEnv,
   canEdit,
   canUseOwnKeys,
+  aiEnabled,
   startEditing = false,
   onCancelAdd,
   onChanged,
@@ -108,6 +109,9 @@ function ProviderRow({
   canEdit: boolean;
   // Separate from canEdit: a downgraded org can still remove a leftover key.
   canUseOwnKeys: boolean;
+  // A key buys nothing while AI is off, so adding one is hidden. Removing one
+  // stays available.
+  aiEnabled: boolean;
   // Open the input immediately, for the provider just picked from the dropdown.
   startEditing?: boolean;
   // Set only while the row exists because of that pick, so cancelling can take
@@ -228,7 +232,7 @@ function ProviderRow({
           (canUseOwnKeys || credential) && (
             <Flex gap="2">
               {/* Remove stays available without the plan feature; adding doesn't. */}
-              {canUseOwnKeys && (
+              {canUseOwnKeys && aiEnabled && (
                 <Button variant="outline" onClick={() => setEditing(true)}>
                   {credential ? "Replace" : "Add key"}
                 </Button>
@@ -340,9 +344,13 @@ export default function AIProviderKeys({
   // AI Settings renders its own callout covering this section, so it opts out
   // rather than banner the same gap twice.
   showPermissionCallout = true,
+  // Hides the add/replace affordances while AI is switched off. Defaults to
+  // true for callers with no AI toggle of their own.
+  aiEnabled = true,
 }: {
   access: AIProviderAccess;
   showPermissionCallout?: boolean;
+  aiEnabled?: boolean;
 }) {
   const permissionsUtil = usePermissionsUtil();
   const canEdit = permissionsUtil.canManageOrgSettings();
@@ -449,6 +457,7 @@ export default function AIProviderKeys({
           inheritedFromEnv={envProviders.includes(provider)}
           canEdit={canEdit}
           canUseOwnKeys={canUseOwnKeys}
+          aiEnabled={aiEnabled}
           startEditing={provider === addingProvider}
           onCancelAdd={
             provider === addingProvider
@@ -476,7 +485,7 @@ export default function AIProviderKeys({
         </PremiumCallout>
       )}
 
-      {canEdit && canUseOwnKeys && showProviderPicker && (
+      {canEdit && canUseOwnKeys && aiEnabled && showProviderPicker && (
         <Box mt="3">
           <DropdownMenu
             trigger={
