@@ -1,5 +1,6 @@
 import {
   formatAIRateLimitRetryMessage,
+  getAIModelSettingsUsingProvider,
   getProviderForAIModel,
   parseAspectRatio,
   snapAspectRatio,
@@ -180,5 +181,51 @@ describe("buildImageAspectInstruction", () => {
       honorsAspectRatio: false,
     });
     expect(out).toContain("center-cropped");
+  });
+});
+
+describe("getAIModelSettingsUsingProvider", () => {
+  const settings = {
+    defaultAIModel: "claude-haiku-4-5-20251001",
+    visualEditorAIModel: "gpt-4o",
+    visualEditorImageModel: "gemini-2.5-flash-image",
+    embeddingModel: "gemini-embedding-001",
+  };
+
+  it("finds every setting served by the provider", () => {
+    expect(
+      getAIModelSettingsUsingProvider(settings, "google").map((s) => s.key),
+    ).toEqual(["visualEditorImageModel", "embeddingModel"]);
+  });
+
+  it("matches across the text, image and embedding registries", () => {
+    expect(
+      getAIModelSettingsUsingProvider(settings, "anthropic").map((s) => s.key),
+    ).toEqual(["defaultAIModel"]);
+    expect(
+      getAIModelSettingsUsingProvider(settings, "openai").map((s) => s.key),
+    ).toEqual(["visualEditorAIModel"]);
+  });
+
+  it("returns nothing for a provider no setting uses", () => {
+    expect(getAIModelSettingsUsingProvider(settings, "mistral")).toEqual([]);
+  });
+
+  it("catches the legacy openAIDefaultModel field", () => {
+    expect(
+      getAIModelSettingsUsingProvider(
+        { openAIDefaultModel: "gpt-4o-mini" },
+        "openai",
+      ).map((s) => s.key),
+    ).toEqual(["openAIDefaultModel"]);
+  });
+
+  it("ignores an unset or unrecognized model", () => {
+    expect(
+      getAIModelSettingsUsingProvider(
+        { defaultAIModel: "", visualEditorAIModel: "some-future-model" },
+        "openai",
+      ),
+    ).toEqual([]);
   });
 });

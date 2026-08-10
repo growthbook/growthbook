@@ -4,6 +4,7 @@ import { useFormContext, UseFormReturn } from "react-hook-form";
 import {
   AI_PROMPT_DEFAULTS,
   AI_PROVIDER_META,
+  AIModelSettingKey,
   CLOUD_MANAGED_AI_MODEL,
   AIPromptInterface,
   AIModel,
@@ -19,7 +20,8 @@ import {
   getAvailableEmbeddingModelOptions,
   getAvailableImageModelOptions,
   getAvailablePromptModelOptions,
-  getFallbackModelDisplay,
+  getModelDisplayLabel,
+  GROWTHBOOK_DEFAULT_MODEL_OPTION,
   USE_DEFAULT_MODEL_OPTION,
 } from "@/services/aiModelSelectOptions";
 import { useAuth } from "@/services/auth";
@@ -231,28 +233,22 @@ export default function AISettings({
     selectableProviders: availableProviders,
   } = aiProviderAccess;
 
-  // Cloud names the model an unset picker falls back to. Self-hosted has no
-  // managed model, so it keeps a plain list.
-  const managedDefault = isCloud()
-    ? getFallbackModelDisplay(availableProviders, CLOUD_MANAGED_AI_MODEL)
-    : { option: null, valueWhenUnset: "" };
-
-  // Which row to mark, and how: the lead row when GrowthBook is paying,
-  // otherwise the managed model already listed under the org's own provider.
-  const managedDefaultNote = !isCloud()
-    ? null
-    : managedDefault.option
-      ? { value: "", note: "GrowthBook managed" }
-      : { value: CLOUD_MANAGED_AI_MODEL, note: "GrowthBook default" };
-
-  // Same treatment for the per-prompt pickers, except they inherit the org's
-  // default rather than GrowthBook's managed model.
-  const orgDefault = isCloud()
-    ? getFallbackModelDisplay(availableProviders, defaultAIModel)
-    : { option: null, valueWhenUnset: "" };
-  const orgDefaultNote = isCloud()
-    ? { value: orgDefault.option ? "" : defaultAIModel, note: "Default model" }
+  // Cloud names the model each "use the default" row resolves to. Self-hosted
+  // has no managed model, so its rows stay unannotated.
+  const managedDefaultNote = isCloud()
+    ? { value: "", note: getModelDisplayLabel(CLOUD_MANAGED_AI_MODEL) }
     : null;
+  const orgDefaultNote = isCloud()
+    ? { value: "", note: getModelDisplayLabel(defaultAIModel) }
+    : null;
+
+  // Removing a key clears these server-side. The form holds its own copy and
+  // would write the stale model back on the next save, so clear that too. Any
+  // prompt override the server dropped comes back on the prompts refetch.
+  const clearModelSettings = (keys: AIModelSettingKey[]) => {
+    keys.forEach((key) => form.setValue(key, ""));
+    mutatePrompts();
+  };
 
   // Every field here writes org settings, which the back end gates on
   // canManageOrgSettings. Without this the controls look editable to a non-admin
@@ -294,7 +290,11 @@ export default function AISettings({
     }
   };
 
-  const { data, error: promptsError } = useApi<{
+  const {
+    data,
+    error: promptsError,
+    mutate: mutatePrompts,
+  } = useApi<{
     prompts: AIPromptInterface[];
   }>(`/ai/prompts`);
 
@@ -380,6 +380,7 @@ export default function AISettings({
                 access={aiProviderAccess}
                 showPermissionCallout={false}
                 aiEnabled={form.watch("aiEnabled") && aiAgreedTo}
+                onCleared={clearModelSettings}
               />
 
               {form.watch("aiEnabled") && canChooseModels && (
@@ -398,17 +399,12 @@ export default function AISettings({
                       id="defaultAIModel"
                       disabled={!canEdit}
                       helpText="Used by every AI feature that doesn't override it."
-                      value={
-                        form.watch("defaultAIModel") ||
-                        managedDefault.valueWhenUnset
-                      }
+                      value={form.watch("defaultAIModel") || ""}
                       onChange={(v) => form.setValue("defaultAIModel", v)}
                       // Keep the registry's newest-first model order.
                       sort={false}
                       options={[
-                        ...(managedDefault.option
-                          ? [managedDefault.option]
-                          : []),
+                        ...(isCloud() ? [GROWTHBOOK_DEFAULT_MODEL_OPTION] : []),
                         ...getAvailableAIModelOptions(
                           availableProviders,
                           form.watch("defaultAIModel"),
@@ -532,7 +528,7 @@ export default function AISettings({
                                 value={
                                   promptForm.watch(
                                     `${prompt.promptType}-model`,
-                                  ) || orgDefault.valueWhenUnset
+                                  ) || ""
                                 }
                                 onChange={(v) =>
                                   promptForm.setValue(
@@ -548,7 +544,6 @@ export default function AISettings({
                                   promptForm.watch(
                                     `${prompt.promptType}-model`,
                                   ) || "",
-                                  isCloud() ? defaultAIModel : undefined,
                                 )}
                                 formatOptionLabel={(option, { context }) =>
                                   modelOptionLabel(

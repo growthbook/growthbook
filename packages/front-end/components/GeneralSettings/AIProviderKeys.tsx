@@ -2,15 +2,18 @@ import React, { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlusBold } from "react-icons/pi";
 import {
+  AIModel,
+  AIModelSettingKey,
   AIProvider,
   AI_PROVIDERS,
   AI_PROVIDER_META,
+  getAIModelSettingsUsingProvider,
   getProviderFromModel,
-  AIModel,
 } from "shared/ai";
 import { AICredentialFrontEndInterface } from "shared/validators";
 import { date } from "shared/dates";
 import useApi from "@/hooks/useApi";
+import { getModelDisplayLabel } from "@/services/aiModelSelectOptions";
 import { useAuth } from "@/services/auth";
 import { isCloud } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -102,6 +105,7 @@ function ProviderRow({
   startEditing = false,
   onCancelAdd,
   onChanged,
+  onCleared,
 }: {
   provider: AIProvider;
   credential?: AICredentialFrontEndInterface;
@@ -112,6 +116,8 @@ function ProviderRow({
   // A key buys nothing while AI is off, so adding one is hidden. Removing one
   // stays available.
   aiEnabled: boolean;
+  // Settings the open form must drop after a removal cleared them server-side.
+  onCleared?: (keys: AIModelSettingKey[]) => void;
   // Open the input immediately, for the provider just picked from the dropdown.
   startEditing?: boolean;
   // Set only while the row exists because of that pick, so cancelling can take
@@ -134,6 +140,13 @@ function ProviderRow({
 
   // A stored key the plan no longer covers, so the resolver ignores it.
   const inactiveForPlan = !!credential && !canUseOwnKeys;
+
+  // Settings pointing at this provider's models. Cloud only: self-hosted keeps
+  // them, since the env var may still serve the same provider.
+  const { settings } = useUser();
+  const affectedSettings = isCloud()
+    ? getAIModelSettingsUsingProvider(settings ?? {}, provider)
+    : [];
 
   const [editing, setEditing] = useState(startEditing);
   const [apiKey, setApiKey] = useState("");
@@ -173,6 +186,10 @@ function ProviderRow({
     setWarning(null);
     await apiCall(`/ai/credentials/${provider}`, { method: "DELETE" });
     setConfirmingRemove(false);
+    // Before onChanged: the settings form keeps its own value when the org
+    // payload drops a field, so a server-side clear needs saying out loud or
+    // the next save writes the stale model back.
+    onCleared?.(affectedSettings.map((s) => s.key));
     await onChanged();
   };
 
@@ -313,20 +330,41 @@ function ProviderRow({
         <ConfirmDialog
           title={`Remove the ${label} API key?`}
           content={
-            <>
-              The key cannot be recovered, only replaced.{" "}
-              {isCloud() ? (
-                <>
-                  {label} models fall back to GrowthBook&apos;s managed key, and
-                  usage counts against your daily limit again.
-                </>
-              ) : (
-                <>
-                  {label} models stop working for everyone until{" "}
-                  <code>{envVar}</code> is set or a new key is saved.
-                </>
-              )}
-            </>
+            // Copy is interpolated into template strings rather than sitting as
+            // JSX text beside {label}: a wrapped expression loses the space.
+            isCloud() ? (
+              <>
+                <Box>
+                  {`${label}'s models will switch back to GrowthBook's, and usage will start counting toward your daily limit again.`}
+                </Box>
+                {affectedSettings.length > 0 && (
+                  <Box mt="3">
+                    {"We'll move these settings for you:"}
+                    <ul className="mb-0 mt-1">
+                      {affectedSettings.map((s) => (
+                        <li key={s.key}>
+                          {`${s.label} → ${getModelDisplayLabel(s.fallback)}`}
+                        </li>
+                      ))}
+                    </ul>
+                  </Box>
+                )}
+                <Box mt="3">
+                  {"Once deleted, the key can't be recovered, only replaced."}
+                </Box>
+              </>
+            ) : (
+              <>
+                <Box>
+                  {`${label}'s models will stop working for everyone until `}
+                  <code>{envVar}</code>
+                  {` is set or a new key is saved.`}
+                </Box>
+                <Box mt="3">
+                  {"Once deleted, the key can't be recovered, only replaced."}
+                </Box>
+              </>
+            )
           }
           yesText="Remove key"
           onConfirm={remove}
@@ -347,10 +385,12 @@ export default function AIProviderKeys({
   // Hides the add/replace affordances while AI is switched off. Defaults to
   // true for callers with no AI toggle of their own.
   aiEnabled = true,
+  onCleared,
 }: {
   access: AIProviderAccess;
   showPermissionCallout?: boolean;
   aiEnabled?: boolean;
+  onCleared?: (keys: AIModelSettingKey[]) => void;
 }) {
   const permissionsUtil = usePermissionsUtil();
   const canEdit = permissionsUtil.canManageOrgSettings();
@@ -458,6 +498,7 @@ export default function AIProviderKeys({
           canEdit={canEdit}
           canUseOwnKeys={canUseOwnKeys}
           aiEnabled={aiEnabled}
+          onCleared={onCleared}
           startEditing={provider === addingProvider}
           onCancelAdd={
             provider === addingProvider

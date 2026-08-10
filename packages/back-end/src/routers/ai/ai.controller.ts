@@ -6,12 +6,16 @@ import {
   AIProvider,
   AI_PROVIDERS,
   AI_PROVIDER_META,
+  getAIModelSettingsUsingProvider,
+  getProviderForAIModel,
 } from "shared/ai";
 import { AICredentialFrontEndInterface } from "shared/validators";
 import {
   getAISettingsForOrg,
   getContextFromReq,
 } from "back-end/src/services/organizations";
+import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { ReqContext } from "back-end/types/request";
 import {
   clearResolvedAIKeysCache,
   encryptAIKey,
@@ -167,9 +171,53 @@ export async function deleteAICredential(
 
   clearResolvedAIKeysCache(context);
 
+  // Cloud only: without the key these models stop resolving and silently fall
+  // back, so clear them instead of leaving settings pointing at something the
+  // org can no longer run. Self-hosted keeps them — the env var may still serve
+  // the same provider.
+  const cleared = IS_CLOUD
+    ? await clearModelsForProvider(context, provider)
+    : [];
+
   return res.status(200).json({
     status: 200,
+    cleared,
   });
+}
+
+// Unsets every org setting and prompt override naming a model from `provider`.
+// Returns the setting labels that changed, so the UI can confirm what moved.
+async function clearModelsForProvider(
+  context: ReqContext,
+  provider: AIProvider,
+): Promise<string[]> {
+  const affected = getAIModelSettingsUsingProvider(
+    context.org.settings ?? {},
+    provider,
+  );
+
+  if (affected.length) {
+    await updateOrganization(
+      context.org.id,
+      {},
+      Object.fromEntries(affected.map((s) => [`settings.${s.key}`, 1])),
+    );
+  }
+
+  const prompts = await context.models.aiPrompts.getAll();
+  const staleOverrides = prompts.filter(
+    (p) =>
+      p.overrideModel &&
+      getProviderForAIModel("text", p.overrideModel) === provider,
+  );
+  for (const prompt of staleOverrides) {
+    await context.models.aiPrompts.update(prompt, { overrideModel: undefined });
+  }
+
+  const labels = affected.map((s) => s.label);
+  if (staleOverrides.length) labels.push("Prompt model overrides");
+  // Dedupe: defaultAIModel and the legacy openAIDefaultModel share a label.
+  return [...new Set(labels)];
 }
 
 type GetAIPromptResponse = {

@@ -138,6 +138,9 @@ export type AIModel = (typeof AI_PROVIDER_MODEL_MAP)[AIProvider][number];
 export const CLOUD_MANAGED_AI_MODEL: AIModel = "claude-haiku-4-5-20251001";
 export const CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL: AIModel =
   "claude-sonnet-4-5-20250929";
+export const CLOUD_MANAGED_IMAGE_MODEL = "gemini-3-pro-image-preview";
+// Not Cloud-specific: the fallback on every deployment.
+export const DEFAULT_EMBEDDING_MODEL = "text-embedding-ada-002";
 
 // Helper to determine which provider a model belongs to
 export function getProviderFromModel(model: AIModel): AIProvider {
@@ -526,6 +529,59 @@ export function getProviderForAIModel(
   } catch {
     return null;
   }
+}
+
+// Org settings that name a model. Removing a provider key has to find every
+// one of them, so they are listed here rather than at each call site.
+// `fallback` mirrors getAISettingsForOrg, so the UI can name what takes over.
+export const AI_MODEL_SETTINGS = [
+  {
+    key: "defaultAIModel",
+    kind: "text",
+    label: "Default AI model",
+    fallback: CLOUD_MANAGED_AI_MODEL,
+  },
+  // Legacy field still read as a fallback for defaultAIModel.
+  {
+    key: "openAIDefaultModel",
+    kind: "text",
+    label: "Default AI model",
+    fallback: CLOUD_MANAGED_AI_MODEL,
+  },
+  {
+    key: "visualEditorAIModel",
+    kind: "text",
+    label: "Visual Editor text model",
+    fallback: CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
+  },
+  {
+    key: "visualEditorImageModel",
+    kind: "image",
+    label: "Visual Editor image model",
+    fallback: CLOUD_MANAGED_IMAGE_MODEL,
+  },
+  {
+    key: "embeddingModel",
+    kind: "embedding",
+    label: "Embedding model",
+    fallback: DEFAULT_EMBEDDING_MODEL,
+  },
+] as const;
+
+export type AIModelSettingKey = (typeof AI_MODEL_SETTINGS)[number]["key"];
+
+/**
+ * Which model settings would stop resolving if `provider` lost its key. Used
+ * both to warn before removing one and to clear them after.
+ */
+export function getAIModelSettingsUsingProvider(
+  settings: Partial<Record<AIModelSettingKey, string | undefined>>,
+  provider: AIProvider,
+): { key: AIModelSettingKey; label: string; fallback: string }[] {
+  return AI_MODEL_SETTINGS.filter((s) => {
+    const model = settings[s.key];
+    return !!model && getProviderForAIModel(s.kind, model) === provider;
+  }).map(({ key, label, fallback }) => ({ key, label, fallback }));
 }
 
 export interface AITokenUsageInterface {

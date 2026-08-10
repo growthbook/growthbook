@@ -27,7 +27,9 @@ import {
   AIProvider,
   AI_PROVIDERS,
   CLOUD_MANAGED_AI_MODEL,
+  CLOUD_MANAGED_IMAGE_MODEL,
   CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
+  DEFAULT_EMBEDDING_MODEL,
   EmbeddingModel,
   getProviderForAIModel,
 } from "shared/ai";
@@ -354,7 +356,7 @@ export async function getAISettingsForOrg(
       keySource,
     ) ||
     (IS_CLOUD && !canOrgChooseProviderModels(keySource, "google")
-      ? "gemini-3-pro-image-preview"
+      ? CLOUD_MANAGED_IMAGE_MODEL
       : GEMINI_IMAGE_MODEL);
 
   return {
@@ -371,7 +373,7 @@ export async function getAISettingsForOrg(
         "embedding",
         context.org.settings?.embeddingModel,
         keySource,
-      ) || "text-embedding-ada-002",
+      ) || DEFAULT_EMBEDDING_MODEL,
     visualEditorAIModel,
     visualEditorImageModel,
     visualEditorAIContext: (
