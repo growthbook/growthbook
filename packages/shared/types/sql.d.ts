@@ -119,8 +119,14 @@ export interface SqlDialect {
    * sorted timestamp array per user per step in a single GROUP BY pass —
    * the chained step-resolution CTEs then look up matching timestamps via
    * `arrayMinInRange` instead of self-joining the full event log.
+   *
+   * `orderByColAlias` is NOT a free-form sort expression: it MUST equal
+   * `col` on every row where `col` is non-null (funnel step timestamps
+   * satisfy this — each is a CASE-gated copy of the row's event timestamp).
+   * Passing the same alias to every call lets all aggregates in a SELECT
+   * share an identical WITHIN GROUP ordering, which Redshift requires.
    */
-  arrayAggSorted: (col: string) => string;
+  arrayAggSorted: (col: string, orderByColAlias?: string) => string;
   /**
    * Aggregate value: returns `valueCol` from the row where `tsCol` is the
    * minimum non-null timestamp in the group. Used by funnel SQL to capture

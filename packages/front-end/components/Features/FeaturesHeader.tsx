@@ -412,7 +412,7 @@ export default function FeaturesHeader({
         <Box>
           <Flex align="start" justify="between" gap="2">
             <Flex align="center" mb="2" gap="3" style={{ marginTop: "-4px" }}>
-              <Heading size="xl" as="h1" mb="0">
+              <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
                 {feature.id}
               </Heading>
               <FeatureStatusBadge

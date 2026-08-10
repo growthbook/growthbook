@@ -154,6 +154,8 @@ export const apiContextualBanditValidator = namedSchema(
     conversionWindowUnit: z.enum(["hours", "days"]).optional().nullable(),
     stage: z.enum(banditStageType).optional(),
     stageDateStarted: z.iso.datetime().optional(),
+    autoSnapshots: z.boolean().optional(),
+    nextSnapshotAttempt: z.iso.datetime().optional(),
   }),
 );
 
@@ -294,14 +296,18 @@ export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
 ] as const satisfies readonly (keyof ApiUpdateContextualBanditBody)[];
 
 export const apiContextualBanditStartValidator = {
-  paramsSchema: z.strictObject({ id: z.string() }),
-  bodySchema: z.strictObject({}).optional(),
+  paramsSchema: z.strictObject({
+    id: z.string().describe("The Contextual Bandit id"),
+  }),
+  bodySchema: z.never(),
   querySchema: z.never(),
 };
 
 export const apiContextualBanditStopValidator = {
-  paramsSchema: z.strictObject({ id: z.string() }),
-  bodySchema: z.strictObject({}).optional(),
+  paramsSchema: z.strictObject({
+    id: z.string().describe("The Contextual Bandit id"),
+  }),
+  bodySchema: z.never(),
   querySchema: z.never(),
 };
 
@@ -310,8 +316,10 @@ export const apiContextualBanditLifecycleReturn = z.object({
 });
 
 export const apiContextualBanditRefreshValidator = {
-  paramsSchema: z.strictObject({ id: z.string() }),
-  bodySchema: z.strictObject({}).optional(),
+  paramsSchema: z.strictObject({
+    id: z.string().describe("The Contextual Bandit id"),
+  }),
+  bodySchema: z.never(),
   querySchema: z.never(),
 };
 
@@ -319,6 +327,20 @@ export const apiContextualBanditRefreshReturn = z.object({
   snapshotId: z.string(),
   cbeId: z.string().optional(),
 });
+
+export const apiContextualBanditCancelValidator = {
+  paramsSchema: z.strictObject({
+    id: z.string().describe("The Contextual Bandit id"),
+  }),
+  bodySchema: z.never(),
+  querySchema: z.never(),
+};
+
+export const apiContextualBanditCancelReturn = z
+  .object({
+    status: z.number(),
+  })
+  .describe("Contextual Bandit snapshot refresh canceled");
 
 const contextualBanditIdAndSnapshotParam = z
   .object({

@@ -61,10 +61,14 @@ export type EventForwarderConfigDraft =
   | {
       sinkType: "bigquery";
       config: BigQueryEventForwarderConfigDraft;
+      /** AWS region to provision the forwarder's Kafka/Confluent resources in. Set once at creation. */
+      region?: "us-east-1" | "eu-west-1";
     }
   | {
       sinkType: "snowflake";
       config: SnowflakeEventForwarderConfigDraft;
+      /** AWS region to provision the forwarder's Kafka/Confluent resources in. Set once at creation. */
+      region?: "us-east-1" | "eu-west-1";
     };
 
 export type EventForwarderConfigWithMetadata = EventForwarderConfigDraft & {

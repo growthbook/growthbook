@@ -68,6 +68,8 @@ const STARTER_BILLING_PLAN: BillingPlan = {
   id: "starter-billing-plan",
   name: "Starter Plan",
   cost: "Free",
+  paymentMethodRequired: false,
+  scope: "installation",
   type: "subscription",
   details: [
     { label: "Feature Flags & Evaluations", value: "Unlimited" },
@@ -84,7 +86,8 @@ function getProBillingPlan(perSeatCost: number): BillingPlan {
     description: "Full featured experimentation and growth platform",
     id,
     name: "Pro Plan",
-
+    paymentMethodRequired: true,
+    scope: "installation",
     type: "subscription",
     cost: `Starting at $${perSeatCost}/month`,
     details: [
