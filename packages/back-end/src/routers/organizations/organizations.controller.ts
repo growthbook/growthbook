@@ -1536,6 +1536,14 @@ export async function signup(
       throw Error("Company length must be at least 3 characters");
     }
     if (IS_CLOUD && PROHIBITED_ORGANIZATION_NAME_REGEX?.test(company)) {
+      req.log.warn(
+        {
+          event: "signup_blocked_prohibited_organization_name",
+          company,
+          userId: req.userId,
+        },
+        "Blocked signup with prohibited organization name",
+      );
       throw Error(
         "Unable to create organization. Please contact support@growthbook.io",
       );
