@@ -185,7 +185,7 @@ gb.logEvent("Button Click", {
           ) : (
             <Callout status="warning" mt="3">
               Upgrade this SDK Connection to SDK version 1.4.0 or later to send
-              events this way, or send events directly with the{" "}
+              events to the Managed Warehouse, or send events directly with the{" "}
               <DocLink docSection="managedWarehouseIngestionApi">
                 Ingestion API
               </DocLink>
