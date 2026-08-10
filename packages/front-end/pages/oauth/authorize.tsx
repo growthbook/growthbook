@@ -181,11 +181,48 @@ export default function OAuthAuthorizePage() {
   const [orgId, setOrgId] = useState("");
   const [actionError, setActionError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const [ssoLogoutUrl, setSsoLogoutUrl] = useState("");
   const [completedRedirectTo, setCompletedRedirectTo] = useState<string | null>(
     null,
   );
 
   const hasRequiredParams = !!query.client_id && !!query.redirect_uri;
+
+  /**
+   * Sign out without leaving the authorization request behind.
+   *
+   * Deliberately not the auth context's `logout()`: that redirects to the app origin,
+   * which discards these query params and with them the whole request — the CLI would
+   * sit polling for a code that is never coming. Ending the session and reloading in
+   * place keeps the URL, so the sign-in screen renders over this page and the consent
+   * screen returns for whoever signs in next.
+   */
+  const switchAccount = useCallback(async () => {
+    setSwitching(true);
+    setActionError("");
+    try {
+      const res = await apiCall<{ redirectURI?: string }>("/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res?.redirectURI) {
+        // SSO with a logout endpoint. The identity provider holds its own session, so
+        // skipping this would sign them straight back in as the same person and make
+        // "use a different account" a lie. That round trip cannot carry these params,
+        // so hand over the link with an explanation instead of silently losing them.
+        setSsoLogoutUrl(res.redirectURI);
+        setSwitching(false);
+        return;
+      }
+      window.location.reload();
+    } catch (e) {
+      setActionError(
+        e instanceof Error ? e.message : "Couldn't sign out. Try again.",
+      );
+      setSwitching(false);
+    }
+  }, [apiCall]);
 
   const infoQueryString = new URLSearchParams({
     client_id: query.client_id,
@@ -377,7 +414,31 @@ export default function OAuthAuthorizePage() {
                     {info.user.email}
                   </Text>
                 </Box>
+                <Box ml="auto" style={{ flexShrink: 0 }}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={switchAccount}
+                    loading={switching}
+                    disabled={submitting}
+                  >
+                    Use a different account
+                  </Button>
+                </Box>
               </Flex>
+
+              {ssoLogoutUrl ? (
+                <Box mt="3">
+                  <Callout status="info">
+                    Your organization signs in through an identity provider, so
+                    switching accounts means signing out there too.{" "}
+                    <Link href={ssoLogoutUrl}>Sign out of your provider</Link>,
+                    then start the connection again from your terminal — this
+                    approval link can&apos;t survive the round trip.
+                  </Callout>
+                </Box>
+              ) : null}
+
               <Separator size="4" my="4" />
             </>
           ) : null}
