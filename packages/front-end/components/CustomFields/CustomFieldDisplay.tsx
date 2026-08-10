@@ -186,27 +186,46 @@ const CustomFieldDisplay: FC<{
       typeof cValue === "boolean"
         ? toCustomFieldBooleanString(cValue)
         : String(cValue ?? "");
-    return v.type === "multiselect" ? (
-      getMultiSelectValue(stringValue)
-    ) : v.type === "markdown" ? (
-      <Markdown className="card-text">{stringValue}</Markdown>
-    ) : v.type === "textarea" ? (
-      <div style={{ whiteSpace: "pre" }}>{stringValue}</div>
-    ) : v.type === "url" && stringValue !== "" ? (
-      <a href={stringValue} target="_blank" rel="noreferrer">
-        {stringValue}
-      </a>
-    ) : v.type === "boolean" ? (
-      <>{isCustomFieldBooleanTrue(cValue) ? "yes" : "no"}</>
-    ) : v.type === "date" && stringValue ? (
-      new Date(stringValue).toLocaleDateString()
-    ) : v.type === "datetime" && stringValue ? (
-      new Date(stringValue).toLocaleString()
-    ) : stringValue ? (
-      stringValue
-    ) : (
-      <Text color="text-mid">--</Text>
-    );
+
+    switch (v.type) {
+      case "multiselect":
+        return getMultiSelectValue(stringValue);
+      case "markdown":
+        return <Markdown className="card-text">{stringValue}</Markdown>;
+      case "textarea":
+        return <div style={{ whiteSpace: "pre" }}>{stringValue}</div>;
+      case "url":
+        if (stringValue !== "") {
+          return (
+            <a href={stringValue} target="_blank" rel="noreferrer">
+              {stringValue}
+            </a>
+          );
+        }
+        break;
+      case "boolean":
+        return <>{isCustomFieldBooleanTrue(cValue) ? "yes" : "no"}</>;
+      case "date":
+        if (stringValue) {
+          return new Date(stringValue).toLocaleDateString();
+        }
+        break;
+      case "datetime":
+        if (stringValue) {
+          return new Date(stringValue).toLocaleString();
+        }
+        break;
+      case "text":
+      case "enum":
+      case "number":
+        break;
+      default: {
+        const exhaustiveCheck: never = v.type;
+        return exhaustiveCheck;
+      }
+    }
+
+    return stringValue || <Text color="text-mid">--</Text>;
   };
 
   Array.from(customFieldsMap.values()).forEach((v: CustomField) => {
