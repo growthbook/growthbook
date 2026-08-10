@@ -789,7 +789,7 @@ async function normalizeConfigForExplorer(
         }
       });
     } else if (dataset.type === "funnel") {
-      const initialStepFactTable = dataset.steps[0]?.factTable;
+      const initialStepFactTable = dataset.steps[0]?.factTableId;
       if (initialStepFactTable) dimensionFactTableIds.add(initialStepFactTable);
     }
 
