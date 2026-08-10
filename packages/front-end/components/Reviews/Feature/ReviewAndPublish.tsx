@@ -1194,6 +1194,10 @@ export default function ReviewAndPublish({
   const renderLeftColumn = (
     diffs: FeatureRevisionDiff[],
     raw: { before: unknown; after: unknown },
+    // Passed by the caller rather than closed over: the read-only path renders
+    // this column before `state` is initialized, and a locked revision has no
+    // active verdict to retract, so it defaults off.
+    canRetractVerdict = false,
   ) => (
     <>
       {subTab === "overview" && (
@@ -1252,7 +1256,7 @@ export default function ReviewAndPublish({
           ref={revisionLogRef}
           onRevisionMutate={mutate}
           // Same gate the generic timeline passes.
-          canRetractVerdict={state.canUndoReview}
+          canRetractVerdict={canRetractVerdict}
           // Overview foregrounds the conversation: comments, verdicts, and
           // lifecycle events. Granular content-edit entries collapse into
           // per-run "N other events" toggles.
@@ -2359,10 +2363,11 @@ export default function ReviewAndPublish({
   ) : (
     // Left column shared with the read-only review (see renderLeftColumn).
     // The right actions column is rendered separately.
-    renderLeftColumn(allDiffs, {
-      before: currentRevisionData,
-      after: draftRawAfter,
-    })
+    renderLeftColumn(
+      allDiffs,
+      { before: currentRevisionData, after: draftRawAfter },
+      state.canUndoReview,
+    )
   );
 
   // ── Right column: reviewer / approval-flow actions and state ──
