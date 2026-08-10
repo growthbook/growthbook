@@ -384,6 +384,67 @@ export async function withBufferedPayloadRefreshes<T>(
  * never landed (models report from inside the document write, before audit and the
  * afterUpdate hooks), so there is nothing to restore.
  */
+// Undo the entity writes a failed landing left live: the root, then any cascade
+// it made to other entities. The one place the root-first-then-cascade order and
+// the `landingLeftPartialState` signal live, so every compensation path — direct
+// update, revert, ordinary publish, stranded-merge recovery — cannot drift on
+// either. Returns whether EVERY write went back; a caller decides what to do when
+// it didn't (keep the merged record, hold the recovery lease, etc.).
+//
+// ROOT FIRST, then descendants top-down: a restore writes through
+// `applyChanges({isRevert: true})`, where ancestor normalization is unconditional
+// — while the root still declares a field, a descendant's restore is normalized
+// straight back to the stripped schema and reports success. Restore the root
+// first and each descendant survives; descendants then go parents-before-children
+// for the same reason.
+export async function restoreLandingWrites({
+  context,
+  entityType,
+  // The root write to undo, or null when nothing was persisted — a lost CAS wrote
+  // nothing (restoring would undo the winner), so there is nothing to put back.
+  root,
+  cascade = [],
+}: {
+  context: Context;
+  entityType: RevisionTargetType;
+  root: {
+    preImage: Record<string, unknown> & { id: string };
+    persistedKeys: Iterable<string>;
+    written: Record<string, unknown>;
+  } | null;
+  cascade?: {
+    before: Record<string, unknown> & { id: string };
+    written: Record<string, unknown>;
+  }[];
+}): Promise<boolean> {
+  const rootRestored =
+    root === null
+      ? true
+      : await tryRestoreEntityPreImage({
+          context,
+          entityType,
+          preImage: root.preImage,
+          persistedKeys: root.persistedKeys,
+          written: root.written,
+        });
+  let cascadeRestored = true;
+  for (const write of cascade) {
+    const ok = await tryRestoreEntityPreImage({
+      context,
+      entityType,
+      preImage: write.before,
+      persistedKeys: Object.keys(write.written),
+      written: write.written,
+    });
+    if (!ok) cascadeRestored = false;
+  }
+  const fullyRestored = rootRestored && cascadeRestored;
+  // Part of the change is live, so consumers must hear about it — the buffered
+  // `*.updated` events, otherwise dropped as a rolled-back change, must fire.
+  if (!fullyRestored) context.landingLeftPartialState = true;
+  return fullyRestored;
+}
+
 export async function compensateFailedLanding({
   context,
   entityType,
@@ -410,41 +471,21 @@ export async function compensateFailedLanding({
   /** Returns the revision to its pre-merge state. */
   unmerge: () => Promise<unknown>;
 }): Promise<void> {
-  // ROOT FIRST, then descendants top-down. A restore writes through
-  // `applyChanges({isRevert: true})`, where ancestor normalization is
-  // unconditional — while the root still declares a field, a descendant's
-  // restore is normalized straight back to the stripped schema, and the
-  // verification reports success because nothing looks dropped. Restore the
-  // root first and each descendant's restore survives; descendants then go
-  // parents-before-children because a child normalizes against ancestors that
-  // must already be back.
-  const restored =
-    persisted === null
-      ? true
-      : await tryRestoreEntityPreImage({
-          context,
-          entityType,
-          preImage: entity,
-          persistedKeys: Object.keys(changes),
-          written: persisted,
-        });
-
-  let cascadeRestored = true;
-  for (const write of cascade) {
-    const ok = await tryRestoreEntityPreImage({
-      context,
-      entityType,
-      preImage: write.before,
-      persistedKeys: Object.keys(write.written),
-      written: write.written,
-    });
-    if (!ok) cascadeRestored = false;
-  }
-
-  if (!restored || !cascadeRestored) {
-    // Part of the change is live, so consumers must hear about it and the merged
-    // revision stays as the record of what actually happened.
-    context.landingLeftPartialState = true;
+  const fullyRestored = await restoreLandingWrites({
+    context,
+    entityType,
+    root:
+      persisted === null
+        ? null
+        : {
+            preImage: entity,
+            persistedKeys: Object.keys(changes),
+            written: persisted,
+          },
+    cascade,
+  });
+  if (!fullyRestored) {
+    // The merged revision stays as the record of what actually happened.
     logger.error(
       `Landing on ${entityType} "${entity.id}" failed and live state could not be restored; its merged revision is kept as the record and needs reconciling by hand`,
     );

@@ -4,7 +4,11 @@ jest.mock("back-end/src/revisions/landingSequence", () => ({
   // catches a newer revision that claimed the merge after that check, whose claim
   // never touches the entity and so slips past the entity guard.
   assertLandingStillOwned: jest.fn(),
-  tryRestoreEntityPreImage: jest.fn(),
+  // The shared restore primitive landDirectChange delegates to; its own
+  // root-first ordering + partial-state flag are pinned in
+  // compensateFailedLanding.test.ts. Here we assert landDirectChange builds the
+  // right root and removes history only when it returns true.
+  restoreLandingWrites: jest.fn(),
   // The post-failure ownership baseline; a null would make compensation refuse
   // to guess, so tests that exercise the restore path get a persisted-doc
   // stand-in by default.
@@ -31,14 +35,14 @@ import {
   assertLandingBaseline as assertLandingBaselineImpl,
   assertLandingStillOwned as assertLandingStillOwnedImpl,
   LandingConflictError,
-  tryRestoreEntityPreImage as tryRestoreEntityPreImageImpl,
+  restoreLandingWrites as restoreLandingWritesImpl,
 } from "back-end/src/revisions/landingSequence";
 import { landDirectChange } from "back-end/src/revisions/revertActions";
 import { Context } from "back-end/src/models/BaseModel";
 import { ConflictError } from "back-end/src/util/errors";
 
 const assertLandingBaseline = assertLandingBaselineImpl as jest.Mock;
-const tryRestoreEntityPreImage = tryRestoreEntityPreImageImpl as jest.Mock;
+const restoreLandingWrites = restoreLandingWritesImpl as jest.Mock;
 const assertLandingStillOwned = assertLandingStillOwnedImpl as jest.Mock;
 
 /**
@@ -83,7 +87,7 @@ function makeContext() {
 
 beforeEach(() => {
   assertLandingBaseline.mockReset().mockResolvedValue(undefined);
-  tryRestoreEntityPreImage.mockReset().mockResolvedValue(true);
+  restoreLandingWrites.mockReset().mockResolvedValue(true);
 });
 
 describe("landDirectChange", () => {
@@ -219,7 +223,7 @@ describe("landDirectChange", () => {
   it("restores live before removing history when the write fails", async () => {
     const h = makeContext();
     const order: string[] = [];
-    tryRestoreEntityPreImage.mockImplementation(async () => {
+    restoreLandingWrites.mockImplementation(async () => {
       order.push("restore");
       return true;
     });
@@ -246,14 +250,16 @@ describe("landDirectChange", () => {
     ).rejects.toThrow("cascade failed");
 
     expect(order).toEqual(["restore", "remove-history"]);
-    expect(tryRestoreEntityPreImage).toHaveBeenCalledWith(
+    expect(restoreLandingWrites).toHaveBeenCalledWith(
       expect.objectContaining({
-        preImage: entity,
-        // What the write REPORTED persisting, not the caller's intent: adapters
-        // and model hooks normalize, so ownership is judged against what
-        // actually landed on the doc.
-        written: { id: "ent_1", value: "after" },
-        persistedKeys: ["value"],
+        root: expect.objectContaining({
+          preImage: entity,
+          // What the write REPORTED persisting, not the caller's intent: adapters
+          // and model hooks normalize, so ownership is judged against what
+          // actually landed on the doc.
+          written: { id: "ent_1", value: "after" },
+          persistedKeys: ["value"],
+        }),
       }),
     );
   });
@@ -262,7 +268,7 @@ describe("landDirectChange", () => {
   // discoverable. Deleting the revision would erase the only record of it.
   it("keeps its history when live cannot be restored", async () => {
     const h = makeContext();
-    tryRestoreEntityPreImage.mockResolvedValue(false);
+    restoreLandingWrites.mockResolvedValue(false);
 
     await expect(
       landDirectChange({
@@ -328,8 +334,11 @@ describe("landDirectChange", () => {
     ).rejects.toThrow("write failed");
 
     // No `changes` means a single-document write: nothing partial to restore, so
+    // the restore is asked with a null root (a no-op that reports success) and
     // the history is removed directly.
-    expect(tryRestoreEntityPreImage).not.toHaveBeenCalled();
+    expect(restoreLandingWrites).toHaveBeenCalledWith(
+      expect.objectContaining({ root: null }),
+    );
     expect(h.dangerousDeleteByIdBypassPermission).toHaveBeenCalledWith(
       "rev_mine",
     );
@@ -359,7 +368,7 @@ describe("landDirectChange", () => {
   // dropped only when that restore reports CLEAN, and kept when it does not.
   it("keeps its history when the restore reports unclean", async () => {
     const h = makeContext();
-    tryRestoreEntityPreImage.mockResolvedValueOnce(false);
+    restoreLandingWrites.mockResolvedValueOnce(false);
 
     await expect(
       landDirectChange({
@@ -378,7 +387,7 @@ describe("landDirectChange", () => {
       }),
     ).rejects.toThrow("cascade failed");
 
-    expect(tryRestoreEntityPreImage).toHaveBeenCalled();
+    expect(restoreLandingWrites).toHaveBeenCalled();
     expect(h.dangerousDeleteByIdBypassPermission).not.toHaveBeenCalled();
   });
 
@@ -403,10 +412,12 @@ describe("landDirectChange", () => {
       }),
     ).rejects.toThrow("cascade failed");
 
-    // Nothing to restore, and the merged revision is phantom history — a record
-    // of a landing that wrote nothing must not survive. Same reading as bulk and
-    // the generic publish.
-    expect(tryRestoreEntityPreImage).not.toHaveBeenCalled();
+    // Nothing to restore (root null), and the merged revision is phantom history
+    // — a record of a landing that wrote nothing must not survive. Same reading
+    // as bulk and the generic publish.
+    expect(restoreLandingWrites).toHaveBeenCalledWith(
+      expect.objectContaining({ root: null }),
+    );
     expect(h.dangerousDeleteByIdBypassPermission).toHaveBeenCalled();
   });
 
@@ -443,26 +454,25 @@ describe("landDirectChange", () => {
       }),
     ).rejects.toThrow("cascade failed");
 
-    // Compensation restored the DESCENDANT, which only happens if the thunk's
+    // The DESCENDANT reached compensation, which only happens if the thunk's
     // result is iterated late — an early copy misses the later pushes.
-    expect(tryRestoreEntityPreImage).toHaveBeenCalledWith(
+    expect(restoreLandingWrites).toHaveBeenCalledWith(
       expect.objectContaining({
-        preImage: { id: "desc_1", schema: "before" },
-        persistedKeys: ["schema"],
+        cascade: expect.arrayContaining([
+          {
+            before: { id: "desc_1", schema: "before" },
+            written: { schema: "after" },
+          },
+        ]),
       }),
     );
   });
 
-  // Ordering, at this level: the ROOT goes back before the descendant. Restoring a
-  // descendant while the root still declares a field is normalized straight back to
-  // stripped AND reports success, so the wrong order is silent.
-  it("restores the root before any cascade entry", async () => {
+  // Forwards the root AND the cascade to the shared restore in one call — the
+  // root-before-descendant ordering that makes this safe is the primitive's
+  // own, pinned in compensateFailedLanding.test.ts.
+  it("forwards the root and cascade to the shared restore", async () => {
     const h = makeContext();
-    const order: string[] = [];
-    tryRestoreEntityPreImage.mockImplementation(async (args) => {
-      order.push((args.preImage as { id: string }).id);
-      return true;
-    });
 
     await expect(
       landDirectChange({
@@ -482,7 +492,12 @@ describe("landDirectChange", () => {
       }),
     ).rejects.toThrow("cascade failed");
 
-    expect(order).toEqual(["const_1", "desc_1"]);
+    expect(restoreLandingWrites).toHaveBeenCalledWith(
+      expect.objectContaining({
+        root: expect.objectContaining({ preImage: entity }),
+        cascade: [{ before: { id: "desc_1" }, written: { schema: "after" } }],
+      }),
+    );
   });
 
   // A rejected CAS means the guarded write matched NOTHING: compensating would
@@ -506,7 +521,10 @@ describe("landDirectChange", () => {
       }),
     ).rejects.toBeInstanceOf(LandingConflictError);
 
-    expect(tryRestoreEntityPreImage).not.toHaveBeenCalled();
+    // Nothing this landing wrote, so the restore is asked with a null root.
+    expect(restoreLandingWrites).toHaveBeenCalledWith(
+      expect.objectContaining({ root: null }),
+    );
     expect(h.dangerousDeleteByIdBypassPermission).toHaveBeenCalled();
   });
 
@@ -531,6 +549,10 @@ describe("landDirectChange", () => {
       }),
     ).rejects.toBeInstanceOf(ConflictError);
 
-    expect(tryRestoreEntityPreImage).not.toHaveBeenCalled();
+    // Never started its write, so the restore is asked with a null root — it
+    // cannot mistake a concurrent winner's identical value for its own.
+    expect(restoreLandingWrites).toHaveBeenCalledWith(
+      expect.objectContaining({ root: null }),
+    );
   });
 });

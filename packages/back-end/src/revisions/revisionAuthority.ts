@@ -124,6 +124,11 @@ export async function canAdvanceRevision(
   const snapshot = revision.target.snapshot as Record<string, unknown>;
 
   // Revert and entity-delete LAND on the entity, so they keep an explicit scope.
+  // Delete is asked directly, NOT through `canDoRevisionAction("delete")`, on
+  // purpose: that router falls back to `canUpdate` when an adapter has no
+  // `canDeleteEntity` hook (Saved Groups don't), which would let an editor
+  // advance via the delete narrow-atom path. Absent hook here means "no such
+  // atom" — fail closed. Do not unify these two lines.
   const hasRevert = canDoRevisionAction(type, "revert", context, snapshot);
   const hasDelete =
     getAdapter(type).canDeleteEntity?.(context, snapshot) ?? false;

@@ -5,8 +5,8 @@ import { logger } from "back-end/src/util/logger";
 import {
   assertLandingBaseline,
   assertLandingStillOwned,
+  restoreLandingWrites,
   runGuardedWrite,
-  tryRestoreEntityPreImage,
   withBufferedPayloadRefreshes,
 } from "back-end/src/revisions/landingSequence";
 import { Context } from "back-end/src/models/BaseModel";
@@ -295,40 +295,21 @@ export async function landDirectChange<T>({
       const compensating = !!changes && writeStarted && written !== null;
       // Nothing reported means the write never landed (the model reports from
       // inside it), so there is nothing to restore and the merged revision is
-      // phantom history to be removed. ROOT FIRST, then descendants in cascade
-      // order: ancestor normalization runs unconditionally on a revert, so a
-      // descendant restored while the root still declares the field is
-      // stripped straight back AND reports success.
-      const restored = compensating
-        ? await tryRestoreEntityPreImage({
-            context,
-            entityType,
-            preImage: entity,
-            persistedKeys: Object.keys(changes),
-            written,
-          })
-        : true;
-      let cascadeRestored = true;
-      // Read HERE, not at the call site: `onPersisted` fires before the cascade
-      // runs, so anything captured then is still empty.
-      for (const write of cascade?.() ?? []) {
-        const ok = await tryRestoreEntityPreImage({
-          context,
-          entityType,
-          preImage: write.before,
-          persistedKeys: Object.keys(write.written),
-          written: write.written,
-        });
-        if (!ok) cascadeRestored = false;
-      }
-      if (!restored || !cascadeRestored) {
-        // The buffered `*.updated` events are otherwise dropped as a rolled-back
-        // change; here the change is partly live, so they must still fire.
-        context.landingLeftPartialState = true;
-      }
+      // phantom history to be removed. Same restore primitive every landing
+      // uses. `cascade` is read HERE, not at the call site: `onPersisted` fires
+      // before the cascade runs, so anything captured then is still empty.
+      const fullyRestored = await restoreLandingWrites({
+        context,
+        entityType,
+        root:
+          compensating && written !== null
+            ? { preImage: entity, persistedKeys: Object.keys(changes), written }
+            : null,
+        cascade: cascade?.() ?? [],
+      });
       // BOTH restores: gating on the root alone could delete the record while
       // a descendant is left stripped and live.
-      if (restored && cascadeRestored) {
+      if (fullyRestored) {
         try {
           // The landing's own authority was established before this point, and the
           // revision exists only because of it — so removing it is not a fresh

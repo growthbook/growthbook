@@ -60,8 +60,8 @@ import {
   assertLandingBaseline,
   assertLandingStillOwned,
   liveMatchesDesiredState,
+  restoreLandingWrites,
   runGuardedWrite,
-  tryRestoreEntityPreImage,
   withBufferedPayloadRefreshes,
 } from "back-end/src/revisions/landingSequence";
 
@@ -366,33 +366,20 @@ async function recoverStrandedMerge({
     });
   } catch (e) {
     // Live goes back before the lease is given up; a write that never reported
-    // has nothing to restore. Root first, then cascade order, like the ordinary
-    // landing's compensation. A restore that fails leaves that change live, so
-    // the buffered events must still announce it.
+    // has nothing to restore. Same restore primitive every landing uses.
     if (applied?.written) {
-      const rootRestored = await tryRestoreEntityPreImage({
+      await restoreLandingWrites({
         context,
         entityType: revision.target.type,
-        preImage: entity as Record<string, unknown> & { id: string },
-        persistedKeys: Object.keys(desiredState).filter((k) =>
-          updatableFields.has(k),
-        ),
-        written: applied.written,
+        root: {
+          preImage: entity as Record<string, unknown> & { id: string },
+          persistedKeys: Object.keys(desiredState).filter((k) =>
+            updatableFields.has(k),
+          ),
+          written: applied.written,
+        },
+        cascade: applied.cascade ?? [],
       });
-      let cascadeRestored = true;
-      for (const write of applied.cascade ?? []) {
-        const ok = await tryRestoreEntityPreImage({
-          context,
-          entityType: revision.target.type,
-          preImage: write.before,
-          persistedKeys: Object.keys(write.written),
-          written: write.written,
-        });
-        if (!ok) cascadeRestored = false;
-      }
-      if (!rootRestored || !cascadeRestored) {
-        context.landingLeftPartialState = true;
-      }
     }
     await releaseRecoveryClaim(context, revision.id, claimId);
     throw e;
@@ -902,37 +889,22 @@ async function publishRevisionInner(
     // "someone else's". `undefined` means the apply never reported (nothing of
     // ours is live); `null` means it reported writing nothing.
     const written = nothingReported || !applied ? null : applied.written;
-    // ROOT FIRST, then descendants in cascade order: ancestor normalization is
-    // unconditional on a revert, so a descendant restored while the root still
-    // declares the field is re-stripped AND reports success.
-    const rootRestored =
-      nothingReported || written === null
-        ? true
-        : await tryRestoreEntityPreImage({
-            context,
-            entityType: revision.target.type,
-            preImage: entity as Record<string, unknown> & { id: string },
-            persistedKeys: Object.keys(desiredState).filter((k) =>
-              updatableFields.has(k),
-            ),
-            written,
-          });
-    let cascadeRestored = true;
-    for (const write of applied?.cascade ?? []) {
-      const ok = await tryRestoreEntityPreImage({
-        context,
-        entityType: revision.target.type,
-        preImage: write.before,
-        persistedKeys: Object.keys(write.written),
-        written: write.written,
-      });
-      if (!ok) cascadeRestored = false;
-    }
-    const entityRestored = rootRestored && cascadeRestored;
+    const entityRestored = await restoreLandingWrites({
+      context,
+      entityType: revision.target.type,
+      root:
+        nothingReported || written === null
+          ? null
+          : {
+              preImage: entity as Record<string, unknown> & { id: string },
+              persistedKeys: Object.keys(desiredState).filter((k) =>
+                updatableFields.has(k),
+              ),
+              written,
+            },
+      cascade: applied?.cascade ?? [],
+    });
     if (!entityRestored) {
-      // Part of the change is live, so the buffered *.updated events must still
-      // fire — same signal every other landing's compensation sends.
-      context.landingLeftPartialState = true;
       logger.error(
         { revisionId: merged.id },
         "left merged after a failed apply: the live entity could not be restored, so the merged revision stays as the record of the partial change",
