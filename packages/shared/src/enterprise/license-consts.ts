@@ -69,6 +69,7 @@ export type CommercialFeature =
   | "saveSqlExplorerQueries"
   | "metric-effects"
   | "metric-correlations"
+  | "learnings"
   | "dashboards"
   | "product-analytics-dashboards"
   | "share-product-analytics-dashboards"
@@ -271,6 +272,7 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "holdouts",
   "metric-effects",
   "metric-correlations",
+  "learnings",
   "dashboards",
   "custom-hooks",
   "metric-slices",

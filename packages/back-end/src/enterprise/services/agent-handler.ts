@@ -28,7 +28,7 @@ import {
 import { toModelMessages } from "back-end/src/enterprise/services/ai-chat-to-model";
 import { logger } from "back-end/src/util/logger";
 import {
-  runAccessGates,
+  runAIEnabledGates,
   enforceAIUsageCap,
   buildSystemPromptForRequest,
 } from "back-end/src/enterprise/services/ai-access";
@@ -182,7 +182,7 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
 
     config.onStreamStart?.(conversationId);
 
-    if (!(await runAccessGates(context, res))) {
+    if (!(await runAIEnabledGates(context, res))) {
       return;
     }
 

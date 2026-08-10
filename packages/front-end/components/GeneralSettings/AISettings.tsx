@@ -61,6 +61,21 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
         ?.overrideModel,
     },
     {
+      promptType: "find-learnings-context",
+      promptName: "Find Learnings Context",
+      promptDescription:
+        "Appended to the AI prompt when finding cross-experiment learnings (saved learnings). GrowthBook still provides the experiments and instructions automatically; use this field to add organization-specific context about your product, audience, brand voice, recurring patterns to watch for, or what counts as a meaningful insight.",
+      promptValue:
+        data.prompts.find((p) => p.type === "find-learnings-context")?.prompt ||
+        AI_PROMPT_DEFAULTS["find-learnings-context"],
+      promptDefaultValue: AI_PROMPT_DEFAULTS["find-learnings-context"],
+      promptHelpText:
+        "Optional. Leave blank to use only the built-in instructions. When set, this text is appended to the system prompt for find-learnings runs.",
+      overrideModel: data.prompts.find(
+        (p) => p.type === "find-learnings-context",
+      )?.overrideModel,
+    },
+    {
       promptType: "experiment-hypothesis",
       promptName: "Hypothesis Format",
       promptDescription:

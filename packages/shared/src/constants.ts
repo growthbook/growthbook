@@ -1,6 +1,9 @@
 import { FactMetricType } from "shared/types/fact-table";
 import { EntityEvents } from "shared/types/audit";
-import { ApprovalFlowConfigurations } from "shared/types/organization";
+import {
+  ApprovalFlowConfigurations,
+  LearningStatus,
+} from "shared/types/organization";
 
 // The object property that carries a JSON constant's `$extends` reference list.
 // Single source of truth shared by the resolver (sdk-versioning/resolveConstants)
@@ -111,6 +114,16 @@ export const DEFAULT_SRM_THRESHOLD = 0.001;
 
 export const DEFAULT_DECISION_FRAMEWORK_ENABLED = false;
 
+// Default statuses for saved learnings (insights). Orgs can customize the
+// list in General Settings → Experiment Settings. Status IDs are persisted
+// on each saved learning, so they must remain stable across renames.
+export const DEFAULT_LEARNING_STATUSES: LearningStatus[] = [
+  { id: "emerging", label: "Emerging", color: "blue" },
+  { id: "supported", label: "Supported", color: "amber" },
+  { id: "confirmed", label: "Confirmed", color: "green" },
+  { id: "rejected", label: "Rejected", color: "red" },
+];
+
 // Power
 export const DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS = 3;
 export const DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS = undefined; // undefined means no limit
@@ -192,6 +205,16 @@ export const attributeDataTypes = [
   "string[]",
   "number[]",
   "secureString[]",
+] as const;
+
+// Runtime allow-list for discussion parents. Kept here (rather than only as a
+// type) so request handlers can validate an incoming parentType.
+export const DISCUSSION_PARENT_TYPES = [
+  "experiment",
+  "idea",
+  "metric",
+  "feature",
+  "learning",
 ] as const;
 
 // for audits
@@ -293,6 +316,7 @@ export const entityEvents = {
     "start-approved",
   ],
   rampScheduleTemplate: ["create", "update", "delete"],
+  learning: ["create", "update", "delete"],
   contextualBandit: ["create", "update", "delete", "start", "stop"],
   eventForwarderConfig: ["create", "update", "delete", "teardownFailure"],
 } as const;

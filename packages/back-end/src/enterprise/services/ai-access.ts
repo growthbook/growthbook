@@ -3,61 +3,131 @@ import type { AIModel } from "shared/ai";
 import type { ReqContext } from "back-end/types/request";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { secondsUntilAICanBeUsedAgainForModel } from "back-end/src/enterprise/services/ai";
+import {
+  secondsUntilAICanBeUsedAgainForEmbeddings,
+  secondsUntilAICanBeUsedAgainForModel,
+} from "back-end/src/enterprise/services/ai";
+import { NotFoundError, PlanDoesNotAllowError } from "back-end/src/util/errors";
 import type { AgentConfig } from "back-end/src/enterprise/services/agent-handler";
 
 type OrgAIPromptConfig = Awaited<
   ReturnType<ReqContext["models"]["aiPrompts"]["getAIPrompt"]>
 >;
 
-// Model-independent checks: premium feature and AI-enabled. Writes the error
-// response and returns false if the request should be rejected. The usage cap is
-// provider-exact, so it lives in enforceAIUsageCap once the model is known.
-export async function runAccessGates(
-  context: ReqContext,
-  res: Response,
-): Promise<boolean> {
+// What the request is about to spend tokens on. The usage cap is provider-exact,
+// so the gate has to know: a BYOK Anthropic key must not exempt a managed OpenAI
+// model, and text models say nothing about the embedding provider. `{}` meters
+// against the org's default text model.
+export type AIUsageTarget = { model?: AIModel } | { embeddings: true };
+
+// Thrown when the org is over its AI usage limit. `status` is read by the
+// external API handler to set a 429; `retryAfter` is surfaced to callers.
+export class AIUsageLimitError extends Error {
+  status = 429;
+  constructor(public retryAfter: number) {
+    super("Over AI usage limits");
+  }
+}
+
+// Model-independent gates: premium feature and AI-enabled. Throws on the first
+// failure. Only for callers that don't yet know which model they'll run —
+// everything else should use assertAIAccess so the usage cap is checked too.
+async function assertAIEnabled(context: ReqContext): Promise<void> {
   if (!orgHasPremiumFeature(context.org, "ai-suggestions")) {
-    res.status(403).json({
-      status: 403,
-      message: "Your plan does not support AI features.",
-    });
-    return false;
+    throw new PlanDoesNotAllowError("Your plan does not support AI features.");
   }
 
   const { aiEnabled } = await getAISettingsForOrg(context);
   if (!aiEnabled) {
-    res.status(404).json({
-      status: 404,
-      message: "AI configuration not set or enabled",
+    throw new NotFoundError("AI configuration not set or enabled");
+  }
+}
+
+// Cloud daily cap for what `target` is about to spend, skipped only for a
+// provider the org brings its own key for.
+async function assertAIUsageCap(
+  context: ReqContext,
+  target: AIUsageTarget,
+): Promise<void> {
+  const secondsUntilReset =
+    "embeddings" in target
+      ? await secondsUntilAICanBeUsedAgainForEmbeddings(context)
+      : await secondsUntilAICanBeUsedAgainForModel(context, target.model);
+  if (secondsUntilReset > 0) {
+    throw new AIUsageLimitError(secondsUntilReset);
+  }
+}
+
+/**
+ * Premium-feature, AI-enabled, and usage-cap checks. Throws on the first
+ * failed gate. Shared by every AI entry point so they enforce the same
+ * limits — call this (not just a plan-flag check) before any AI/embedding
+ * work, including from external API handlers. Pass the model or embedding
+ * flag for the work about to run; the cap is provider-exact.
+ */
+export async function assertAIAccess(
+  context: ReqContext,
+  target: AIUsageTarget = {},
+): Promise<void> {
+  await assertAIEnabled(context);
+  await assertAIUsageCap(context, target);
+}
+
+// Maps a failed gate onto the error response, so every entry point rejects the
+// same way. Returns false for `if (!(await ...)) return;` call sites.
+async function runGate(
+  res: Response,
+  gate: () => Promise<void>,
+): Promise<boolean> {
+  try {
+    await gate();
+    return true;
+  } catch (e) {
+    const status =
+      e instanceof Error && "status" in e && typeof e.status === "number"
+        ? e.status
+        : 400;
+    res.status(status).json({
+      status,
+      message: e instanceof Error ? e.message : "AI access denied",
+      ...(e instanceof AIUsageLimitError ? { retryAfter: e.retryAfter } : {}),
     });
     return false;
   }
-
-  return true;
 }
 
-// Cloud daily cap for a request that will run `model`; writes a 429 and returns
-// false when over. Split out because the exemption is per provider: a BYOK
-// Anthropic key doesn't exempt a managed OpenAI model.
+/**
+ * Express-controller wrapper around assertAIAccess. Returns false (and writes
+ * the matching error response) if the request should be rejected.
+ */
+export async function runAccessGates(
+  context: ReqContext,
+  res: Response,
+  target: AIUsageTarget = {},
+): Promise<boolean> {
+  return runGate(res, () => assertAIAccess(context, target));
+}
+
+// Cap-free half of runAccessGates, for handlers that resolve the model after
+// gating (see createAgentHandler): run this first, then enforceAIUsageCap once
+// the model is known. Anything that knows its model up front wants
+// runAccessGates instead.
+export async function runAIEnabledGates(
+  context: ReqContext,
+  res: Response,
+): Promise<boolean> {
+  return runGate(res, () => assertAIEnabled(context));
+}
+
+// Usage-cap half, for a request that will run `model`. Split out because the
+// exemption is per provider: a BYOK Anthropic key doesn't exempt a managed
+// OpenAI model, so the cap can only be checked once the model is resolved.
 export async function enforceAIUsageCap(
   context: ReqContext,
   res: Response,
   model: AIModel,
 ): Promise<boolean> {
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgainForModel(
-    context,
-    model,
-  );
-  if (secondsUntilReset > 0) {
-    res.status(429).json({
-      status: 429,
-      message: "Over AI usage limits",
-      retryAfter: secondsUntilReset,
-    });
-    return false;
-  }
-  return true;
+  return runGate(res, () => assertAIUsageCap(context, { model }));
 }
 
 /**
