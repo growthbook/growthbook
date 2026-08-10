@@ -24,7 +24,8 @@ export async function assertCanLandRevision({
   isPureArchive: () => boolean;
 }): Promise<void> {
   // Archiving is delete-class wherever the transition lands, not only via an
-  // archive endpoint. Unarchiving returns the entity to service and is an ordinary
+  // archive endpoint. Unarchiving returns the entity to service and is an
+  // ordinary publish.
   if (archives && !holds("delete")) {
     context.permissions.throwPermissionError();
   }
@@ -95,11 +96,10 @@ export async function canAdvanceDraftWithNarrowAtom({
 
 // Callers must stage the archive flip ALONE — the delete atom is weaker than the
 // draft atom, so any other change riding along would be staged on authority that
-// doesn't cover it. The three archive endpoints take only `archived` from the
-// body; audited 2026-08-05.
+// doesn't cover it. The archive endpoints take only `archived` from the body.
 //
-// Both of these live in `shared` so the archive CONTROLS ask exactly what these
-// endpoints enforce; re-exported here because callers look for them here.
+// Defined in `shared` so the archive CONTROLS ask exactly what these
+// endpoints enforce.
 export {
   canStageArchiveDraft,
   canWriteArchiveIntoDraft,

@@ -15,18 +15,12 @@ import { setupApp } from "../api/api.setup";
 
 /**
  * Every feature-revision state transition must refuse a revision whose status
- * moved since the caller read it.
- *
- * These four write against real Mongo with no status predicate at all until
- * recently: each screens status on a copy read several awaits earlier, so a publish
- * landing in that window had the write demote the LIVE revision — back to
- * `pending-review` with `datePublished` nulled, back to `draft` with its verdicts
- * wiped, or stamped with auto-publish state on released history.
- *
- * The generic engine's twins were CAS-guarded first and these were missed, so the
- * mutation that matters for each case is "remove `status` from the filter" — do that
- * and the corresponding case here goes green-to-red. Nothing else in the suite
- * notices, which is why these exist.
+ * moved since the caller read it. Each screens status on a copy read several
+ * awaits earlier, so a publish landing in that window would otherwise demote the
+ * LIVE revision — back to `pending-review` with `datePublished` nulled, back to
+ * `draft` with its verdicts wiped, or stamped with auto-publish state on
+ * released history. The guard is `status` in the write FILTER; same rule as the
+ * generic engine's CAS-guarded twins.
  */
 
 const ORG_ID = "org_feature_revision_guards";
@@ -186,9 +180,9 @@ describe("feature revision status guards", () => {
   });
 
   /**
-   * Cancelling a schedule. Both halves of its guard shipped untested before this:
-   * the terminal-status filter, and the "something is armed" clause that makes
-   * `modifiedCount` mean what the log below it reads it to mean.
+   * Cancelling a schedule. The guard has two halves: the terminal-status filter,
+   * and the "something is armed" clause that makes `modifiedCount` mean what the
+   * log below it reads it to mean.
    */
   describe("cancelling a scheduled publish", () => {
     const armed = async () => {
@@ -266,8 +260,8 @@ describe("feature revision status guards", () => {
       expect({
         logs: await logCount(),
         // `touched` is corroboration, never the pin: `dateUpdated` has millisecond
-        // resolution, so a seed and a same-millisecond cancel-write compare EQUAL
-        // and it false-negatives. `logs` is what actually kills the mutant here.
+        // resolution, so a same-millisecond write compares EQUAL and it
+        // false-negatives. `logs` is the real assertion.
         touched:
           after?.dateUpdated?.getTime?.() !== before?.dateUpdated?.getTime?.(),
       }).toEqual({ logs: 0, touched: false });

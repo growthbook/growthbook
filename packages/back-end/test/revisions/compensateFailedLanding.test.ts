@@ -34,9 +34,9 @@ function writtenFor(id: string): string {
 }
 
 /**
- * The compensation five landings share, and which had no test of its own — the
- * dashboard's config publish, the internal constant publish and three saved-group
- * landings all route their rollback through here.
+ * The compensation five landings share — the dashboard's config publish, the
+ * internal constant publish and three saved-group landings all route their
+ * rollback through here.
  *
  * Two properties, both invisible to a happy-path test:
  *
@@ -130,8 +130,8 @@ describe("compensateFailedLanding", () => {
     expect(context.landingLeftPartialState).toBe(true);
   });
 
-  // The gap that produced round-7 P0-2 one file over: gating the un-merge on the
-  // root alone removed the record while a descendant was left mutated and live.
+  // Gating the un-merge on the root alone would remove the record while a
+  // descendant was left mutated and live.
   it("keeps the revision when only a DESCENDANT restore fails", async () => {
     const context = makeContext();
     failFor.add("cfg_child_a");

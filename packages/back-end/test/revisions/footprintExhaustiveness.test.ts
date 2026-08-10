@@ -14,11 +14,8 @@ import type { Context } from "back-end/src/models/BaseModel";
  * ENUMERATION, not examples: every (model × direction) that changes whether an
  * entity is in service must produce a NON-EMPTY environment footprint.
  *
- * This is the one bug class that recurred through four separate review rounds,
- * one installment at a time — Constants archive, then Configs archive, then the
- * unarchive direction, then base-vs-scoped Configs. Each was the same rule
- * missing from a different cell, and each example test only pinned the cell it
- * was written for.
+ * An example test pins only the cell it was written for; the same rule kept
+ * going missing from other cells, so the whole table is asserted at once.
  *
  * It matters because an empty footprint SKIPS the environment check rather than
  * narrowing it, so the failure is silent and it fails OPEN: a caller limited to
@@ -162,7 +159,7 @@ describe("feature archive-class footprints", () => {
 });
 
 /**
- * The same enumeration for the atom side, which is where this pattern started.
+ * The same enumeration for the atom side.
  * `granular-flag-permissions.test.ts` proves each declared scope matches the array
  * its atom lives in; this proves the two env-scoped LANDING actions actually have a
  * footprint to be measured against, for every model that declares them.

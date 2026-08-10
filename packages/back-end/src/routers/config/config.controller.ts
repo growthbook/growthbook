@@ -709,14 +709,13 @@ export const putConfig = async (
   const revisionId = req.query.revisionId;
   let comparisonBase: ConfigInterface = existing;
   if (revisionId) {
-    const // Live basis, matching the WRITE.
-      targetRevision =
-        await context.models.revisions.getByIdReadable(revisionId);
+    const targetRevision =
+      await context.models.revisions.getByIdReadable(revisionId);
     // Writing `archived` into a PINNED revision is a write into someone
-    // else's draft: it makes that draft delete-class, and its author — a
-    // publisher without delete — can then no longer publish their own work.
-    // `archiveOnlyRequest` above inspects only the BODY, and `revisionId` is
-    // a QUERY param, so the delete-atom exemption passed straight through.
+    // else's draft: it makes that draft delete-class, so its author — a
+    // publisher without delete — could no longer publish their own work.
+    // `archiveOnlyRequest` inspects only the body, so it does not cover
+    // this query-param path.
     if (
       targetRevision &&
       typeof archived === "boolean" &&
@@ -861,10 +860,9 @@ export const putConfig = async (
   }
   // `schema` (config field definitions) is a content change like `value`.
   //
-  // An explicit `null` CLEARS it, which `hasChanged` cannot express: its first line
-  // treats nullish as "not intentionally changed", which is right for every other
-  // field here and wrong for the one a revert has to be able to remove. Handled
-  // ahead of it, the same null-as-clear rule `postConfigRevisionRevert` applies.
+  // An explicit `null` CLEARS it, which `hasChanged` cannot express (nullish
+  // reads as "not intentionally changed"). Handled ahead of it, with the same
+  // null-as-clear rule as `postConfigRevisionRevert`.
   if (schema === null) {
     if ((comparisonBase.schema ?? null) !== null) {
       fieldsToUpdate.schema = null as unknown as typeof fieldsToUpdate.schema;
@@ -894,15 +892,11 @@ export const putConfig = async (
   // doing it here keeps drafts honest too.
   const lineageChanged =
     fieldsToUpdate.parent !== undefined || "extends" in fieldsToUpdate;
-  // `in`, not `??`: an explicit null is a CLEAR and must not fall through to the
-  // stored schema. With `??`, a revert that cleared the schema AND changed lineage
-  // in one request resurrected `existing.schema` here, normalized it against the
-  // new ancestors, and wrote the remnant back — so the clear became a partial
-  // schema. The pure clear was safe only by accident (`null || false` is falsy, so
-  // the block was skipped); adding a lineage change to the same request opened it.
-  //
-  // Same basis `postConfigRevisionRevert` uses. See `configSchemaNormalize.test.ts`
-  // for the strip that produces the remnant.
+  // `in`, not `??`: an explicit null is a CLEAR and must not fall through to
+  // the stored schema — otherwise a revert that clears the schema AND changes
+  // lineage in one request would normalize `existing.schema` against the new
+  // ancestors and write the remnant back. Same basis as
+  // `postConfigRevisionRevert`; see `configSchemaNormalize.test.ts`.
   const schemaToNormalize =
     "schema" in fieldsToUpdate ? fieldsToUpdate.schema : existing.schema;
   if ((fieldsToUpdate.schema || lineageChanged) && schemaToNormalize) {
@@ -975,8 +969,7 @@ export const putConfig = async (
   const bypassApproval = req.query.bypassApproval === "1";
   const autoPublish = req.query.autoPublish === "1";
   const title = req.query.title;
-  // The shared RevertModal renders "Add a Comment (optional)" and sends it for all
-  // three entities; only Saved Groups read it, so it was silently discarded here.
+  // Sent by the shared RevertModal for all three entities.
   const comment = req.query.comment;
 
   const wantsDraft = !!revisionId || forceCreateRevision;
@@ -1244,11 +1237,9 @@ export const putConfig = async (
       }[] = [];
       try {
         // Guarded on the pre-image: the merge claim above guards the REVISION,
-        // not the entity. A lost race reopens the revision below and returns the
-        // same retryable 409 as every other landing.
-        // Reported from inside the write so a failure AFTER it — the cascade below —
-        // can put live state back. Without the report the catch could only un-merge,
-        // which left the change live with no revision recording it.
+        // not the entity; a lost race reopens the revision below (retryable
+        // 409). The write reports its landed doc so a failure AFTER it — the
+        // cascade — can put live state back, not just un-merge.
         await runGuardedWrite("config", existing.id, () =>
           context.models.configs.updateIfUnchanged(
             existing,
@@ -1309,10 +1300,9 @@ export const putConfig = async (
         throw e;
       }
 
-      // A revert that lands is ALSO a publish, so it owes both — `reverted` names
-      // what happened, `published` is the lifecycle event subscribers mirror state
-      // from. Emitting one OR the other made these landings invisible to anyone
-      // following the documented published lifecycle.
+      // A revert that lands is ALSO a publish, so it owes both — `reverted`
+      // names what happened, `published` is the lifecycle event subscribers
+      // mirror state from.
       await dispatchConfigRevisionEvent(context, revision, {
         type: "published",
       });
@@ -1530,12 +1520,11 @@ export const setConfigScopedOverrides = async (
     return context.throwNotFoundError("Config not found");
   }
   const scopedOverrides = req.body?.scopedOverrides ?? [];
-  // Measured over the current AND proposed entries, matching the REST route. The
-  // Config's own `configPublishEnvironments` is the wrong question here: the config
-  // that OWNS overrides is the base one, which declares no scope, so the footprint
-  // came back empty and skipped the environment check — letting a dev-limited
-  // publisher attach a production flavor. This write also bypasses model permissions,
-  // so this gate is the only one.
+  // Measured over the current AND proposed entries, matching the REST route.
+  // The base config that OWNS overrides declares no scope, so its own
+  // `configPublishEnvironments` footprint is empty and would skip the
+  // environment check — letting a dev-limited publisher attach a production
+  // flavor. This write bypasses model permissions, so this gate is the only one.
   if (
     !context.permissions.canRevisionAction(
       "config",

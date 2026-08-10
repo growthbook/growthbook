@@ -2,17 +2,11 @@ import { buildRevisionStatusFilter } from "back-end/src/api/revisionValidations"
 
 /**
  * `status` is a comma-separated list, and `open` is an ALIAS inside it, not a
- * stored status. Mixing the two used to lose data on both surfaces:
- *
- *  - REST returned the bare `"open"` sentinel the moment the list contained it, so
- *    `status=open,merged` silently dropped `merged`.
- *  - The internal controller passed the list through verbatim, so the same query
- *    reached Mongo as `$in: ["open", "merged"]` — `open` matches no document, so it
- *    collapsed the other way, to merged-only.
- *
- * Both are silent wrong answers rather than errors: a paging client just sees fewer
- * revisions than exist. Unknown tokens are already rejected upstream by
- * `revisionStatusQuery`, so this only has to get the alias right.
+ * stored status. Mishandling the mix loses data silently in either direction:
+ * returning the bare sentinel drops the concrete statuses beside it, and passing
+ * the list verbatim sends `open` to Mongo where it matches nothing. Unknown
+ * tokens are already rejected upstream by `revisionStatusQuery`, so this only
+ * has to get the alias right.
  */
 
 describe("buildRevisionStatusFilter", () => {

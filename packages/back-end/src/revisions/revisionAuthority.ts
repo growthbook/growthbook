@@ -53,22 +53,18 @@ export function draftAuthorityOnRow(context: Context): CasAuthority<Revision> {
  * ADVANCING a draft, re-asked on the row: the same question `canAdvanceRevision`
  * answers, which is deliberately wider than draft authority — a narrow atom may
  * advance a draft that does only what that atom covers (a deleter over a pure
- * archive, a reverter over a pure revert).
- *
- * The authority injected into a CAS must be the SAME question the caller asked. Using
- * the draft check here instead refused exactly those narrow-atom paths, which the
- * permission matrix caught immediately.
+ * archive, a reverter over a pure revert). The authority injected into a CAS
+ * must be the SAME question the caller asked; the draft check would refuse
+ * exactly those narrow-atom paths.
  */
 export function advanceAuthorityOnRow(
   context: Context,
 ): CasAuthority<Revision> {
   return {
-    // The COMPLETE proof, re-run on the row each attempt reads — not an
-    // approximation of it. Asking only which atoms the caller holds admitted two
-    // things the caller's own gate refuses: a retry against content a concurrent
-    // rebase BROADENED (the narrow-atom arms require the change to still be a pure
-    // revert or a pure archive, which is a database question), and an author who
-    // holds no landing atom at all. Both are exactly what a retry can walk into.
+    // The COMPLETE proof, re-run on the row each attempt reads. An atoms-only
+    // approximation would admit exactly what a retry can walk into: content a
+    // concurrent rebase broadened past the pure-revert/pure-archive arms (a
+    // database question), or an author holding no landing atom at all.
     check: async (existing) => {
       if (!(await canAdvanceRevision(context, existing))) {
         context.permissions.throwPermissionError();
@@ -194,7 +190,7 @@ export async function canRebaseRevision({
       context,
       liveSnapshot,
     ),
-    // Ops-based proof: the draft's base already equals live over every field a
+    // Snapshot proof: the draft's base already equals live over every field a
     // revision may write, so rebasing carries nothing across.
     pullsInNothing: liveMatchesRevisionBase({
       baseSnapshot,

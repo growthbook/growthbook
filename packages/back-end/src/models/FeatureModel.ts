@@ -749,13 +749,12 @@ export async function getFeatureProjectsByIds(
 }
 
 /**
- * The environments each named rule CURRENTLY serves, keyed `featureId:ruleId`.
+ * The environments each named rule CURRENTLY serves, keyed by rampRuleEnvKey.
  *
  * The ramp control gate needs it because a patch naming `environments` REPLACES
- * that field on the rule — so narrowing production→dev stops serving production,
- * and a footprint read from the patch alone never mentions it. Raw fetch, like
- * `getFeatureProjectsByIds`: a target the caller cannot read is precisely the one
- * that must still be checked, and a rule that is gone contributes "all" — the
+ * that field, so a footprint read from the patch alone misses the environments
+ * being dropped. Raw fetch, like `getFeatureProjectsByIds`: an unreadable
+ * target must still be checked. A rule that is gone contributes "all" — the
  * strictest answer available.
  */
 export async function getFeatureRuleEnvironmentsByIds(
@@ -776,21 +775,15 @@ export async function getFeatureRuleEnvironmentsByIds(
   const byId = new Map(features.map((f) => [f.id, toInterface(f, context)]));
 
   for (const { featureId, ruleId, environment } of named) {
-    // The key must carry `environment`, because the RESOLUTION does. Two targets
-    // sharing a `ruleId` but naming different environments — the shape
-    // `flattenV1ToV2Rules` produces for a migrated feature — collided on
-    // `featureId:ruleId`, and the last one written won. A dev target could therefore
-    // overwrite a production target's answer, and the gate read ["dev"] for both
-    // while the executor resolved the production sibling and rescoped it. Unioning
-    // per rule id could not fix it: both refs agree on the id and differ only here.
+    // The key must carry `environment` because the resolution does: two targets
+    // sharing a `ruleId` but naming different environments must not collide on
+    // one answer.
     const key = rampRuleEnvKey(featureId, ruleId, environment);
     const feature = byId.get(featureId);
-    // EVERY sibling the execution path will patch, resolved the way it resolves
-    // them — `resolveRampTargets`, honouring `environment`. Taking the first stem
-    // match read whichever rule came first: with siblings `fr_x__dev` (["dev"]) and
-    // `fr_x` (["dev","production"]), the dev sibling gave a ["dev"] footprint while
-    // the write rescoped `fr_x` out of production. flattenRules states the rule
-    // explicitly: execution paths must iterate every match.
+    // Union EVERY sibling the execution path will patch, resolved the way it
+    // resolves them (`resolveRampTargets`, honouring `environment`); the first
+    // stem match alone can under-report the footprint. flattenRules states the
+    // rule: execution paths must iterate every match.
     const matches = resolveRampTargets(
       { ruleId, environment },
       feature?.rules ?? [],
@@ -905,10 +898,8 @@ export async function deleteFeature(
       }),
     );
   }
-  // The SDK refresh fires BEFORE the bandit-linkage cleanup: the flag is
-  // already gone from the store, and a linkage failure below must not strand it
-  // in served payloads. Linkage repair is retryable bookkeeping; a payload
-  // serving a deleted flag is an incident.
+  // The SDK refresh fires BEFORE the bandit-linkage cleanup: a linkage failure
+  // below must not strand the deleted flag in served payloads.
   onFeatureDelete(context, feature).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on feature delete");
   });
@@ -1192,11 +1183,9 @@ export async function onFeatureUpdate(
   updatedFeature: FeatureInterface,
   skipRefreshForProject?: string,
 ) {
-  // BEFORE the first await. This function is invoked fire-and-forget and suspends on
-  // `getAllProjectIds` — a real round trip on a cold cache, which is exactly the first
-  // iteration of a loop that publishes several features in turn. By the time it
-  // resumes, the next landing may have opened its own buffer, and reading the context
-  // then attributes this write to that landing.
+  // BEFORE the first await: this runs fire-and-forget, and by the time
+  // `getAllProjectIds` resolves, the next landing in a bulk publish may have
+  // opened its own buffer — reading the context then misattributes this write.
   const buffer = captureEventBuffer(context);
   const allProjectIds = await context.getAllProjectIds();
   queueSDKPayloadRefresh({
@@ -1243,28 +1232,20 @@ export async function updateFeature(
   feature: FeatureInterface,
   updates: Partial<FeatureInterface>,
   options?: {
-    // A compare-and-swap, degenerate: one guard field, no compute callback, no
-    // retry. Conditions the write on the doc still carrying this `dateUpdated` and
-    // throws `CasConflictError` when it doesn't — the feature twin of
-    // `updateIfUnchanged` on BaseModel, and named for the mechanism because the
-    // previous name hid it from a change that swept every other CAS site.
-    // Landings pass the pre-image's stamp; compensation and cascade writes stay
-    // unguarded because they re-read first and mean to write over what they found.
+    // Compare-and-swap: conditions the write on the doc still carrying this
+    // `dateUpdated`, throwing `CasConflictError` otherwise — the feature twin
+    // of `updateIfUnchanged` on BaseModel. Landings pass the pre-image's stamp;
+    // compensation and cascade writes stay unguarded because they re-read first
+    // and mean to write over what they found.
     casOnDateUpdated?: Date;
-    // Remove the holdout pointer in the SAME write. `updates` is a $set, and a
-    // landing that removes the holdout must not split into two writes — the gap
-    // between them is a window where a rival publish can land and be overwritten.
+    // Remove the holdout pointer in the SAME write: splitting into two writes
+    // opens a gap where a rival publish can land and be overwritten.
     unsetHoldout?: boolean;
-    // The stamp this write PUTS on the document, reported as it is computed.
-    //
-    // Fires only after Mongo confirms the write, so it means "this landed", never
-    // "this was attempted".
-    //
-    // Compensation uses it as the ownership token, and the returned doc is a
-    // set-then-fetch — so a rival landing between the write and the re-read makes
-    // the returned `dateUpdated` THEIRS. Reading ownership from that says "still
-    // ours" at the exact moment it isn't, and the unguarded satellite rewinds then
-    // reverse the rival's holdout, experiment and bandit linkage.
+    // The stamp this write PUTS on the document — fires only after Mongo
+    // confirms the write ("this landed", never "this was attempted").
+    // Compensation uses it as the ownership token; the returned doc is a
+    // set-then-fetch, so its `dateUpdated` may already be a rival's, and
+    // reading ownership from it says "still ours" at the moment it isn't.
     onStamped?: (stamp: Date) => void;
   },
 ): Promise<FeatureInterface> {
@@ -1274,10 +1255,9 @@ export async function updateFeature(
     // Strictly after the guarded token, even inside the same millisecond.
     dateUpdated: ourStamp,
   };
-  // Used only for hooks and linkedExperiment derivation; the post-write
-  // value is re-read from Mongo below. The holdout $unset is modeled here so
-  // callers can pass the TRUE pre-image — handing hooks a doc with the holdout
-  // pre-stripped hid a holdout-only change from diffing and events.
+  // Used only for hooks and linkedExperiment derivation; the post-write value
+  // is re-read from Mongo below. The holdout $unset is modeled here so callers
+  // pass the TRUE pre-image and hooks still see a holdout-only change.
   const projected = {
     ...feature,
     ...allUpdates,
@@ -1360,11 +1340,9 @@ export async function updateFeature(
     throw new CasConflictError();
   }
 
-  // Reported only once Mongo has CONFIRMED the write. Reporting it alongside the
-  // computation claimed ownership for a write that might never land: a CAS loser
-  // then looked like it owned a stamp live had never carried, its caller read that
-  // as "a rival took the feature", and every rewind was skipped — including the
-  // ramp schedules created before the write, which leaked.
+  // Only once Mongo has CONFIRMED the write: reporting earlier lets a CAS loser
+  // claim ownership of a stamp live never carried, and its caller then skips
+  // every rewind as "a rival took the feature".
   options?.onStamped?.(ourStamp);
 
   if (experimentsAdded.size > 0) {
@@ -1826,17 +1804,10 @@ export function computeSafeRolloutStatusMap(
   return map;
 }
 
-/**
- * Returns the post-apply image of each rollout this sync wrote — `before` with the
- * values it actually set folded in.
- *
- * Compensation needs to know what THIS publish wrote in order to tell its own
- * changes from a worker's. Re-reading the document afterwards cannot answer that:
- * anything the worker did between the write and the read is indistinguishable from
- * ours, so the reversal claims ownership of the worker's progress and undoes it.
- * The sync already holds the exact values it set; handing them back removes both
- * the race and the read that could fail.
- */
+// Returns the post-apply image of each rollout this sync wrote — `before` with
+// the values it set folded in. Compensation needs what THIS publish wrote to
+// tell its own changes from a worker's, and a re-read afterwards cannot make
+// that distinction.
 const updateSafeRolloutStatuses = async (
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1848,11 +1819,9 @@ const updateSafeRolloutStatuses = async (
 
   const safeRollouts = await context.models.safeRollout.getByIds(ids);
 
-  // SEQUENTIAL, with a rewind list. Under `Promise.all` one rollout could start
-  // while another failed, and the caller's compensation restores only the feature
-  // document — leaving a started rollout attached to a revision that never
-  // published. One at a time makes the set that landed knowable; the counts here
-  // are a handful per feature, so nothing is lost by not overlapping them.
+  // SEQUENTIAL, with a rewind list: under `Promise.all` one rollout could start
+  // while another failed, leaving a started rollout attached to a revision that
+  // never published. Counts are a handful per feature, so nothing is lost.
   const applied: {
     before: SafeRolloutInterface;
     written: UpdateProps<SafeRolloutInterface>;
@@ -1897,14 +1866,10 @@ const updateSafeRolloutStatuses = async (
           current: current as unknown as Record<string, unknown>,
         });
         if (Object.keys(restore).length) {
-          // GUARDED on the document ownership was read from — deriving the restore
-          // and then issuing a plain update is check-then-act, and a worker
-          // advancing this rollout in between would be overwritten by our pre-image.
-          // A lost race means they own it now, which is the same answer
-          // `ownedRestoreValues` gives for a key it can no longer claim.
-          // A lost race means the failed publish's values are STILL LIVE on this
-          // rollout, so it is a reversal failure like any other — swallowing it
-          // reported a clean rollback over state that never came back.
+          // GUARDED on the document ownership was read from: deriving the
+          // restore and then issuing a plain update is check-then-act, and a
+          // worker advancing this rollout in between would be overwritten by
+          // our pre-image. A lost race surfaces as a reversal failure below.
           await context.models.safeRollout.updateIfUnchanged(
             current,
             restore as UpdateProps<SafeRolloutInterface>,
@@ -2068,9 +2033,8 @@ export async function applyRevisionChanges(
   }
 
   // Every branch below is a landing, so its FIRST write is guarded on the
-  // pre-image `feature` — the same rule as the generic entities' guarded
-  // landings: two publishes of the same feature computed from the same read
-  // must not both apply, whichever the caller (publish, toggle, bulk).
+  // pre-image `feature` — same rule as the generic entities' guarded landings:
+  // two publishes computed from the same read must not both apply.
   const guard = { casOnDateUpdated: feature.dateUpdated, onStamped };
 
   if (!hasChanges) {
@@ -2079,16 +2043,11 @@ export async function applyRevisionChanges(
 
   let updated: FeatureInterface;
   // Handle holdout removal separately since updateFeature only does $set.
-  // The holdout $unset carries the guard here because it is the landing's first
-  // feature write; the follow-up content write is this landing's own turn, like
-  // a config cascade after its guarded root write.
   if (removeHoldout) {
-    // ONE write: the $unset rides the content $set under the same guard. As two
-    // writes — even token-chained — the gap between them was a window where a
-    // rival publish could land and then be overwritten, and a CAS loss on the
-    // second write stranded the $unset with no rewind registered yet. The TRUE
-    // pre-image goes through so hooks and events see the holdout coming off;
-    // updateFeature models the $unset in its own projection.
+    // ONE write: the $unset rides the content $set under the same guard — split
+    // in two, the gap is a window where a rival publish can land and be
+    // overwritten. The TRUE pre-image goes through so hooks and events see the
+    // holdout coming off; updateFeature models the $unset in its own projection.
     updated = await updateFeature(context, feature, changes, {
       ...guard,
       unsetHoldout: true,
@@ -2097,15 +2056,12 @@ export async function applyRevisionChanges(
     updated = await updateFeature(context, feature, changes, guard);
   }
 
-  // Behind the guard on purpose: these mutate rollout statuses, timestamps and
-  // schedules, and a landing that loses the CAS must leave NOTHING changed —
-  // running them first meant a rejected write still returned failure with the
-  // satellites already moved. And because they run AFTER the feature write, a
-  // sync failure must put that write back itself: the callers' compensation
-  // registers its feature rewind only on this function's success, so without
-  // this undo a rollout failure left draft feature state live with the revision
-  // unpublished. Value-checked restore, so a concurrent writer's newer value
-  // survives; the original failure is what surfaces either way.
+  // Behind the guard on purpose: a landing that loses the CAS must leave the
+  // rollout satellites untouched. And because the sync runs AFTER the feature
+  // write, a sync failure must put that write back itself — callers register
+  // their feature rewind only on this function's success. Value-checked
+  // restore, so a concurrent writer's newer value survives; the original
+  // failure surfaces either way.
   try {
     onSafeRolloutsWritten?.(
       await updateSafeRolloutStatuses(context, feature, revision),
@@ -2119,10 +2075,8 @@ export async function applyRevisionChanges(
         result,
         updated,
         // Re-point the caller's ownership token at the state this rollback just
-        // wrote. Otherwise the outer bulk compensation compared live against the
-        // ORIGINAL publish stamp, read its own successful restore as a rival taking
-        // the feature, and skipped every remaining rewind — leaving the revision
-        // published while the feature sat at its pre-publish version.
+        // wrote — otherwise the outer compensation reads its own restore as a
+        // rival taking the feature and skips every remaining rewind.
         onStamped,
       );
     } catch (undoErr) {
@@ -2381,13 +2335,9 @@ export type HoldoutExperimentLinkagePlan = {
   prevExperimentHoldoutIds: Record<string, string>;
   /**
    * The experiments whose scalar THIS landing actually wrote, filled in by the
-   * forward pass and read by the rewind.
-   *
-   * Recorded rather than inferred, because state cannot tell the two "already at
-   * target" cases apart: our own earlier attempt, and a CONCURRENT publish that got
-   * there first. The rewind's ownership test — live still holds what this plan
-   * wrote — matches both, so inferring ownership let this landing's compensation
-   * unlink an experiment a different, successful publish had just linked.
+   * forward pass and read by the rewind. Recorded rather than inferred: state
+   * cannot tell our own earlier attempt from a concurrent publish that got
+   * there first, and inferring let compensation unlink a rival's linkage.
    */
   writtenExperimentIds?: Set<string>;
 };
@@ -2498,52 +2448,41 @@ async function planLinkageForHoldout(
   return { holdoutId, toLink, toUnlink, prevExperimentHoldoutIds };
 }
 
-// `holdoutId` is a scalar last-writer-wins field: a batch that lost the feature doc to
-// a newer publish would still stamp its own holdout over the winner's. `expectedPrior`
-// turns the forward pass into a compare-and-swap, so a rival that re-linked an
-// experiment refuses us instead of being overwritten.
-//
-// The expectation goes in the WRITE FILTER, not a read-then-compare: between the read
-// and the write there are no awaits, but "no awaits" is not "no window" — the enclosing
-// `Promise.all` and event-loop lag both widen it, and a loss there is silent.
-//
-// Absent and `""` are the same state here (the field has no default, so absent is the
-// normal one) and a bare `holdoutId: ""` clause matches neither. The empty expectation
-// has to match both — the same absence subtlety `buildCasGuard` documents.
+// `holdoutId` is a scalar last-writer-wins field, so `expectedPrior` turns the
+// forward pass into a compare-and-swap: a rival that re-linked an experiment
+// refuses us instead of being overwritten. The expectation goes in the WRITE
+// FILTER, not a read-then-compare — the read-to-write window is real even
+// without awaits. Absent and `""` are the same state here, so the empty
+// expectation must match both (the absence subtlety `buildCasGuard` documents).
 async function setExperimentHoldoutIds(
   context: ReqContext | ApiReqContext,
   targets: Record<string, string>,
   expected?: Record<string, string>,
-  // What a mismatch means. Going FORWARD it is a lost race and the landing must not
-  // proceed. Going BACK it means someone else now owns this experiment's linkage, and
-  // the rollback leaves them alone — the same disposition `setLinkageState` and
-  // `safeRollout.restoreAfterFailedBulkPublish` take.
+  // Going FORWARD a mismatch is a lost race and the landing must not proceed;
+  // going BACK it means someone else owns the linkage and the rollback leaves
+  // them alone — the same disposition `setLinkageState` takes.
   onMismatch: "conflict" | "skip" = "conflict",
-  // Filled in as each scalar write LANDS, not returned, so a pass that throws partway
-  // still tells its compensation what it managed to write.
+  // Filled in as each scalar write LANDS, not returned, so a pass that throws
+  // partway still tells its compensation what it managed to write.
   recordWritten?: Set<string>,
 ): Promise<Set<string>> {
-  // Which experiments are now at the target. The membership arrays follow this — see
-  // `reverseHoldoutExperimentLinkage`. NOT the same question as who wrote them.
+  // Which experiments are now AT the target — the membership arrays follow
+  // this. NOT the same question as who wrote them.
   const applied = new Set<string>();
-  // Every write SETTLES before a failure is surfaced. `Promise.all` rejects on the
-  // first while its siblings keep running, so compensation could inspect an
-  // experiment before its scalar write had landed, judge it unowned, and have that
-  // write arrive after the rollback. Same requirement as the contextual-bandit batch.
+  // Every write SETTLES before a failure is surfaced: `Promise.all` rejects on
+  // the first while siblings keep running, so compensation could judge an
+  // experiment unowned before its write lands. Same requirement as the
+  // contextual-bandit batch. The try covers the READ as well as the write so
+  // a failed `getExperimentById` cannot reject the batch early either.
   const outcomes = await Promise.all(
-    // The try covers the READ as well as the write. With only the write inside it, a
-    // failed `getExperimentById` still rejected its entry, which rejects `Promise.all`
-    // at once and settles nothing — exactly the escape this comment says is closed.
     Object.entries(targets).map(async ([id, next]) => {
       try {
         const exp = await getExperimentById(context, id);
         if (!exp) return null;
-        // At target without this call writing it. It counts for MEMBERSHIP — a
-        // forward pass that failed between the scalar and the membership write leaves
-        // exactly this state, and calling it "not ours" would strand the membership
-        // half. It does NOT count as ours to undo: a concurrent publish that linked it
-        // first leaves the identical state, and compensating over that would remove
-        // their successful linkage.
+        // Already at target without us writing it: counts for MEMBERSHIP (a
+        // forward pass that failed between scalar and membership leaves this
+        // state) but NOT as ours to undo (a concurrent publish that linked it
+        // first leaves the identical state).
         if ((exp.holdoutId ?? "") === next) {
           applied.add(id);
           return null;
@@ -2574,20 +2513,16 @@ async function setExperimentHoldoutIds(
 export async function applyHoldoutExperimentLinkage(
   context: ReqContext | ApiReqContext,
   plan: HoldoutExperimentLinkagePlan,
-  // What this SEQUENCE of plans has already written, mutated as each one applies.
-  //
-  // A holdout change emits two plans — leave, then join — and both are computed
-  // before either applies, so they share one pre-image. For an experiment named by
-  // both, the join's expectation is stale the moment the leave writes it, and the
-  // guard would reject a conflict with our own earlier step: the same revert failing
-  // identically on every retry. Chaining makes each plan expect what the last left.
+  // What this SEQUENCE of plans has already written. A holdout change emits two
+  // plans (leave, then join) computed from one shared pre-image; for an
+  // experiment named by both, the join's expectation is stale the moment the
+  // leave writes it, and the guard would reject our own earlier step on every
+  // retry. Chaining makes each plan expect what the last left.
   chain?: Record<string, string>,
 ) {
   // The SCALAR first, then membership for the experiments it actually claimed —
-  // the same order the rewind uses, and for the same reason. Writing membership
-  // first meant an experiment whose scalar then went to a different owner kept the
-  // membership this publish had added: compensation correctly skips that experiment
-  // as theirs, so nothing was ever left to remove it.
+  // the same order the rewind uses. Membership written before a scalar that
+  // goes to a different owner has nothing left to remove it.
   const { targets, expectedPrior } = holdoutLinkageWrites(plan, chain);
   plan.writtenExperimentIds = plan.writtenExperimentIds ?? new Set<string>();
   const applied = await setExperimentHoldoutIds(
@@ -2613,11 +2548,8 @@ export async function applyHoldoutExperimentLinkage(
 }
 
 /**
- * What one plan writes, and what each write expects to find.
- *
- * Pure and exported for its own test: the expectation is the whole correctness
- * question, and getting it from the shared pre-image alone made a holdout CHANGE
- * fail its own second plan — identically on every retry.
+ * What one plan writes, and what each write expects to find. Pure and exported
+ * for its own test — the expectation is the whole correctness question.
  */
 export function holdoutLinkageWrites(
   plan: HoldoutExperimentLinkagePlan,
@@ -2632,31 +2564,27 @@ export function holdoutLinkageWrites(
     expectedPrior: Object.fromEntries(
       Object.keys(targets).map((id) => [
         id,
-        // What an earlier plan in this sequence left, falling back to the pre-image
-        // for an experiment this sequence has not touched yet.
+        // What an earlier plan in this sequence left, else the pre-image.
         chain?.[id] ?? plan.prevExperimentHoldoutIds[id] ?? "",
       ]),
     ),
   };
 }
 
-// Converges to the pre-image rather than inverting each write, so a forward pass that
-// failed partway still lands on the pre-publish state — but only for experiments still
-// holding what THIS plan wrote. The bulk ownership check proves the feature doc is
-// still ours; it says nothing about an experiment, which another feature's publish or
-// a direct edit can move while we are in flight. Converging unconditionally would
-// erase them. An experiment the forward pass never reached needs nothing undone, and
-// is skipped by the same comparison.
+// Converges to the pre-image rather than inverting each write, so a forward
+// pass that failed partway still lands on the pre-publish state — but only for
+// experiments still holding what THIS plan wrote: the bulk ownership check
+// proves nothing about an experiment, which another publish or a direct edit
+// can move while we are in flight.
 export async function reverseHoldoutExperimentLinkage(
   context: ReqContext | ApiReqContext,
   plan: HoldoutExperimentLinkagePlan,
 ) {
-  // The SCALAR first, because it decides ownership. Throws on failure: publishRevision
-  // treats this as a satellite and carries on to the feature document, while bulk
-  // compensation records it and reports the item stuck rather than cleanly rolled
-  // back. A skipped experiment is not a failure — it is a different owner.
-  // Restricted to what the forward pass actually WROTE. Undoing an experiment it
-  // merely found at the target reverses whoever really put it there.
+  // The SCALAR first, because it decides ownership, and restricted to what the
+  // forward pass actually WROTE — undoing an experiment it merely found at the
+  // target reverses whoever really put it there. Throws on failure so callers
+  // report the item stuck rather than cleanly rolled back; a skipped experiment
+  // is a different owner, not a failure.
   const written = plan.writtenExperimentIds;
   const { targets } = holdoutLinkageWrites(plan);
   const ourTargets = Object.fromEntries(
@@ -2672,14 +2600,11 @@ export async function reverseHoldoutExperimentLinkage(
     ourTargets,
     "skip",
   );
-  // Membership follows the scalar. Rewinding it unconditionally undid the teammate's
-  // half of a linkage whose scalar we had just declined to touch, leaving
-  // `linkedExperiments` and `holdoutId` disagreeing — and a later publish reads the
-  // live scalar as its expectation, matches, and quietly pulls the experiment out of
-  // their holdout. The two have to move together or not at all.
-  //
-  // An experiment the forward pass never reached is absent from `reverted` too, and
-  // needs no membership change either.
+  // Membership follows the scalar — the two move together or not at all:
+  // rewinding membership for an experiment whose scalar we declined leaves
+  // `linkedExperiments` and `holdoutId` disagreeing, which a later publish
+  // reads as its expectation and quietly acts on. An experiment the forward
+  // pass never reached is absent from `reverted` too.
   await context.models.holdout.addExperimentsToHoldout(
     plan.holdoutId,
     plan.toUnlink.filter((id) => reverted.has(id)),
@@ -2703,11 +2628,11 @@ export type HoldoutLinkagePreImage = {
   newHoldoutId: string | null;
   addsFeature: boolean;
   /**
-   * The entry the forward pass actually wrote, stamped onto this object by
-   * `applyHoldoutSideEffects`. Presence of SOME entry is not ownership: a writer
-   * who unlinked the feature and re-linked it left a different entry behind, and
-   * removing that undoes their work. `dateAdded` is the discriminator; absent
-   * means the forward pass never got that far, and there is nothing to remove.
+   * The entry the forward pass actually wrote, stamped on by
+   * `applyHoldoutSideEffects`. Presence of SOME entry is not ownership — a
+   * writer who unlinked and re-linked left a different entry, and `dateAdded`
+   * is what tells them apart. Absent means the forward pass never got that
+   * far, so there is nothing to remove.
    */
   addedFeatureEntry?: { id: string; dateAdded: Date } | null;
 };
@@ -2747,13 +2672,10 @@ export async function rewindHoldoutLinkage(
   pre: HoldoutLinkagePreImage,
 ) {
   if (pre.newHoldoutId && pre.addsFeature && pre.addedFeatureEntry) {
-    // Only remove the entry THIS publish added, and only while it is still the one
-    // it added: a concurrent writer who unlinked the feature and re-linked it owns
-    // the entry sitting there now, and dropping it would undo their change. The
-    // check used to be presence-only, which cannot see that — an entry was there
-    // before and an entry is there now, but not the same one. `dateAdded` is what
-    // tells them apart, and the comparison happens inside the model's own
-    // read-modify-write so it isn't check-then-act. The restore half below already
+    // Only remove the entry THIS publish added, and only while it is still the
+    // one it added: a concurrent writer who unlinked and re-linked owns the
+    // entry sitting there now. The comparison happens inside the model's own
+    // read-modify-write, so it isn't check-then-act; the restore half below
     // declines on the same reasoning.
     await context.models.holdout.removeLinkageFromHoldout(pre.newHoldoutId, {
       featureId: pre.featureId,
@@ -2784,12 +2706,10 @@ export async function applyRampCreateActionsForRevision(
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   result: MergeResultChanges,
-  // Called with the ids the failure path created but could NOT delete. On the
-  // throw path this function never returns, so its return value cannot carry
-  // them and the caller's assignment never runs — the ids died with the throw,
-  // leaving armed `pending` schedules that nothing reports and nothing retries
-  // (they activate if that revision is ever published again). This is the only
-  // way out for them.
+  // Called with the ids the failure path created but could NOT delete: on the
+  // throw path the return value never reaches the caller, so this is the only
+  // way out for armed `pending` schedules that nothing else reports or retries
+  // (they activate if that revision is ever published again).
   onLeaked?: (scheduleIds: string[]) => void,
 ): Promise<string[]> {
   const createActions = (revision.rampActions ?? []).filter(
@@ -2811,9 +2731,8 @@ export async function applyRampCreateActionsForRevision(
     // invisible to compensation (their ids die with the throw). Best-effort
     // delete them here; the original error still gates the publish.
     const leaked = await rollbackCreatedRampSchedules(context, createdIds);
-    // Whatever the cleanup could not delete is a real leak. Hand it up before
-    // rethrowing so compensation can retry it and, failing that, name it —
-    // discarding it reported a clean rollback over an armed schedule.
+    // Hand what could not be deleted up before rethrowing — discarding it
+    // reports a clean rollback over an armed schedule.
     if (leaked.length) onLeaked?.(leaked);
     throw e;
   }
@@ -3634,10 +3553,9 @@ async function restorePublishedFeatureDoc(
   // The persisted post-apply doc, not the computed $set: applyRevisionChanges
   // mutates `changes` before writing and the read-back normalizes further.
   writtenFeature: FeatureInterface,
-  // Reports the stamp THIS restore put on the document. A restore is a write, so it
-  // advances `dateUpdated` — and the caller's ownership token is the stamp of the
-  // original publish write, so without this the caller's own rollback looked like a
-  // concurrent owner and every remaining rewind was skipped.
+  // Reports the stamp THIS restore put on the document: a restore advances
+  // `dateUpdated`, and without re-pointing its token the caller reads its own
+  // rollback as a concurrent owner and skips every remaining rewind.
   onStamped?: (stamp: Date) => void,
 ) {
   const { changes } = computeRevisionMergeChanges(
@@ -3783,21 +3701,18 @@ async function planContextualBanditLinkageForPublish(
   );
 }
 
-// Named once because `featureDocumentWentBack` MATCHES on it. Two free-text copies
-// meant a reword — an ordinary edit next to "ramp schedules" and "holdout linkage" —
-// would silently make that match always true, recording every feature as rolled back
-// and taking the durable-change event back out of service.
+// Named once because `featureDocumentWentBack` MATCHES on it: a reworded
+// free-text copy would silently make that match always true.
 const FEATURE_DOC_REWIND = "feature document";
 
 /**
- * Whether a failed publish left the feature DOCUMENT back at its pre-image, which is
- * what decides the fate of the `feature.updated` the apply deferred.
+ * Whether a failed publish left the feature DOCUMENT back at its pre-image —
+ * the fate of the `feature.updated` the apply deferred.
  *
- * A lost race is NOT "back": our write landed and the rival's followed it, so the
- * event is factually true, and suppressing it breaks the diff chain — consumers would
- * then receive the rival's event carrying `previous = our value`, which they were
- * never told about. The bulk path throws before it can record, so it already answers
- * this way; both surfaces have to answer it the same.
+ * A lost race is NOT "back": our write landed and the rival's followed it, so
+ * the event is factually true, and suppressing it breaks the diff chain —
+ * consumers would receive the rival's event carrying `previous = our value`,
+ * which they were never told about. Matches the bulk path's answer.
  */
 export function featureDocumentWentBack({
   ownershipLost,
@@ -3860,12 +3775,11 @@ async function publishRevisionInner({
   }
 
   // The authoritative landing gate, INSIDE the engine: evidence comes from the
-  // merge result itself, so a caller cannot under-describe the change the way a
-  // hand-built field list can. Callers that already asserted re-pass the same
-  // inputs.
-  // A landing that reaches the payload takes publish authority; one that is
-  // entirely inert metadata is draft-class and skips the gate (the pre-split
-  // semantic the features matrix pins for drafters editing descriptions).
+  // merge result itself, so a caller cannot under-describe the change the way
+  // a hand-built field list can. A landing that reaches the payload takes
+  // publish authority; one that is entirely inert metadata is draft-class and
+  // skips the gate (the semantic the features matrix pins for drafters
+  // editing descriptions).
   if (mergeResultTouchesPayload(result)) {
     await assertCanPublishFeatureRevision({
       context,
@@ -3926,13 +3840,11 @@ async function publishRevisionInner({
 
   const rewinds: Rewind[] = [];
   let revisionStatusRewind: Rewind | null = null;
-  // Held aside rather than pushed, for the same reason as `revisionStatusRewind`:
-  // registration order and unwind order are different questions here. The feature
-  // doc's rewind must be registered the instant its write commits (nothing after it
-  // may throw before there is a way back), but the unwind is LIFO, so pushing it
-  // first would make the CRITICAL restore run last — behind a satellite whose
-  // failure stops the whole leave-whole unwind. Appending this at unwind time keeps
-  // the doc restore exactly where it was: after the satellites, before the rollouts.
+  // Held aside rather than pushed, like `revisionStatusRewind`: the unwind is
+  // LIFO, so pushing this first would run the CRITICAL doc restore last —
+  // behind a satellite whose failure stops the leave-whole unwind. Added at
+  // unwind time, it keeps the doc restore after the satellites and before the
+  // rollouts.
   let safeRolloutRewind: Rewind | null = null;
 
   let updatedFeature: FeatureInterface;
@@ -3940,13 +3852,11 @@ async function publishRevisionInner({
   // unwind below checks before reversing any satellite.
   let ourWriteStamp: Date | undefined;
   try {
-    // Inside the try, and registered BEFORE the creation runs. Creating several
-    // schedules is several writes: a throw partway through has already created
-    // some, and both the return value naming them and — while this sat outside
-    // the try — the unwind that would remove them were lost with the throw. The
-    // accumulator is written as each one lands, so the rewind names them whether
-    // the call returns or throws. Still before the feature write, so a schedule
-    // failure gates the publish.
+    // Registered BEFORE the creation runs: creating several schedules is
+    // several writes, and a throw partway has already created some whose ids
+    // die with the throw. The accumulator is written as each one lands, so the
+    // rewind names them whether the call returns or throws. Still before the
+    // feature write, so a schedule failure gates the publish.
     if (createActions.length) {
       const preCreatedScheduleIds: string[] = [];
       rewinds.push({
@@ -4005,8 +3915,9 @@ async function publishRevisionInner({
       result.rules ?? feature.rules ?? [],
     );
 
-    // Captured BEFORE the apply, whose sync rewrites them — the same disposition the
-    // sync itself computes, so the rewind restores exactly what this publish moved.
+    // Captured BEFORE the apply, whose sync rewrites them — the same
+    // disposition the sync computes, so the rewind restores exactly what this
+    // publish moved.
     const rolloutStatusMap = computeSafeRolloutStatusMap(feature, revision);
     const rolloutIds = Object.keys(rolloutStatusMap);
     const safeRolloutPreImages = rolloutIds.length
@@ -4016,9 +3927,9 @@ async function publishRevisionInner({
         }))
       : [];
 
-    // Reported by the apply itself, not read back afterwards: a re-read cannot tell
-    // this publish's writes from a worker's, and it is one more thing that can
-    // throw between the feature write and its rewind being registered.
+    // Reported by the apply itself, not read back afterwards: a re-read cannot
+    // tell this publish's writes from a worker's, and is one more thing that
+    // can throw before the feature rewind is registered.
     let safeRolloutPostById = new Map<string, SafeRolloutInterface>();
 
     updatedFeature = await runGuardedWrite("feature", feature.id, () =>
@@ -4028,10 +3939,9 @@ async function publishRevisionInner({
         revision,
         result,
         (stamp) => {
-          // The stamp OUR write put on the doc. `updatedFeature.dateUpdated` comes
-          // from a set-then-fetch, so a rival landing in that gap would hand us
-          // THEIR stamp and compensation would read "still ours" at the one moment
-          // it isn't — then reverse their linkage.
+          // The stamp OUR write put on the doc: `updatedFeature.dateUpdated`
+          // comes from a set-then-fetch, so a rival landing in that gap would
+          // hand us THEIR stamp.
           ourWriteStamp = stamp;
         },
         (postImages) => {
@@ -4040,11 +3950,9 @@ async function publishRevisionInner({
       ),
     );
 
-    // FIRST, before anything else that can throw. The feature document is written
-    // and committed by the line above; until its rewind is on the list there is no
-    // way back from it. Registering it after the safe-rollout snapshot meant a
-    // failed snapshot read left the feature advanced with its revision unpublished
-    // and no compensation able to touch it.
+    // FIRST, before anything else that can throw: the feature document is
+    // committed by the line above, and until its rewind is on the list there
+    // is no way back from it.
     rewinds.push({
       what: FEATURE_DOC_REWIND,
       critical: true,
@@ -4072,20 +3980,17 @@ async function publishRevisionInner({
     });
 
     // Safe-rollout statuses are rewritten inside the guarded apply above, and
-    // nothing put them back if a LATER step failed — `updateSafeRolloutStatuses`
-    // compensates its own failure, but a later `markRevisionAsPublished` failure
-    // left rollouts started while the revision stayed unpublished. Same
-    // ownership-checked restore the bulk path uses; a rollout whose post-image the
-    // apply never reported is refused rather than half-restored.
+    // `updateSafeRolloutStatuses` compensates only its own failure — a LATER
+    // step failing must still put them back. Same ownership-checked restore
+    // the bulk path uses; a rollout whose post-image the apply never reported
+    // is refused rather than half-restored.
     if (safeRolloutPreImages.length) {
       safeRolloutRewind = {
         what: "safe rollout statuses",
-        // CRITICAL, and ordered before the feature-document restore below.
-        // Rollouts are downstream of the rules this publish wrote, so a rollout
-        // that cannot go back must stop the restore rather than follow it: the flag
-        // reverted and the revision reopened, next to a rollout still advanced, is
-        // the mixed shape this whole path exists to avoid. Leave-whole — the
-        // publish stands and the residue is reported.
+        // CRITICAL, and ordered before the feature-document restore: a rollout
+        // that cannot go back must stop the restore rather than follow it — a
+        // reverted flag beside a still-advanced rollout is the mixed shape this
+        // path exists to avoid. Leave-whole; the residue is reported.
         critical: true,
         undo: async () => {
           for (const { pre, writtenStatus } of safeRolloutPreImages) {
@@ -4145,11 +4050,10 @@ async function publishRevisionInner({
       );
     }
 
-    // RE-FENCE, like the bulk path. The guarded document write proves nothing about
-    // the moment of each satellite write, and holdout membership cannot carry a guard
-    // of its own — its condition lives in another collection. If a rival took the
-    // document while we were writing, our satellite state is stale: fail here so the
-    // rewinds below run, rather than committing a publish on top of it.
+    // RE-FENCE, like the bulk path: the guarded document write proves nothing
+    // about the moment of each satellite write, and holdout membership cannot
+    // carry a guard of its own. If a rival took the document, fail here so the
+    // rewinds run rather than committing a publish on top of it.
     if (ourWriteStamp) {
       const afterSatellites = await getFeature(context, feature.id);
       if (afterSatellites?.dateUpdated?.getTime() !== ourWriteStamp.getTime()) {
@@ -4182,21 +4086,15 @@ async function publishRevisionInner({
     // satellite that stayed published is a worse shape than a publish that
     // stands. Reopening the revision goes last, so it is never a draft while
     // the feature doc it advanced stays published.
-    // Satellites first, then the feature document, then the revision status. The
-    // rollout rewind goes in FRONT of the reversed list rather than after it: run
-    // behind the document restore, a rollout it could not take back was already
-    // beside a reverted flag by the time anyone noticed.
+    // Satellites first, then the feature document, then the revision status.
+    // The rollout rewind goes in FRONT of the reversed list so it runs before
+    // the document restore, not after the flag has already reverted.
     const unwind = [...rewinds].reverse();
     if (safeRolloutRewind) unwind.unshift(safeRolloutRewind);
     if (revisionStatusRewind) unwind.push(revisionStatusRewind);
-    // OWNERSHIP FIRST, before any satellite is reversed. Only the doc restore is
-    // guarded; the holdout, experiment-linkage and bandit rewinds are not — run
-    // after a rival publish took the feature, they would undo ITS satellites
-    // while the doc restore correctly declined, leaving live with the rival's
-    // rules and our pre-image's satellites. Our own write's stamp is the token:
-    // if live has moved past it, reverse NOTHING and report the residue. Same
-    // rule bulk applies. No stamp means the feature write never landed, so there
-    // is nothing of ours to reverse either.
+    // OWNERSHIP FIRST, before anything is reversed: our own write's stamp is
+    // the token, same rule as bulk. No stamp means the feature write never
+    // landed, so there is nothing of ours behind it to reverse.
     let ownershipLost = false;
     const ourStamp = ourWriteStamp;
     if (ourStamp) {
@@ -4213,12 +4111,10 @@ async function publishRevisionInner({
     }
     for (const rewind of unwind) {
       const { what, undo, critical } = rewind;
-      // A rival owns the DOCUMENT, not our satellite writes. Restoring the document
-      // would overwrite their publish, and reopening the revision would contradict a
-      // still-published feature — but leaving our holdout, experiment-linkage and
-      // bandit writes in place strands stale state on top of theirs. Each of those
-      // reversals is ownership-aware and declines whatever a different owner now
-      // holds, so running them takes back exactly what is still ours.
+      // A rival owns the DOCUMENT, not our satellite writes: restoring the
+      // document or reopening the revision would fight their publish, but the
+      // holdout, experiment-linkage and bandit reversals are ownership-aware
+      // and take back exactly what is still ours.
       if (
         ownershipLost &&
         (what === FEATURE_DOC_REWIND || rewind === revisionStatusRewind)
@@ -4244,16 +4140,9 @@ async function publishRevisionInner({
         );
       }
     }
-    // Report whether the feature DOCUMENT went back, which is what decides its
-    // deferred `feature.updated`. This path compensates through its own rewinds rather
-    // than the shared restore funnel, so without this the set stayed empty on the one
-    // landing that actually produces late producers.
-    //
-    // A lost race is NOT "back": our write landed and the rival's followed it, so the
-    // event is factually true and suppressing it breaks the diff chain — consumers
-    // would then receive the rival's event carrying `previous = our value`, a value
-    // they were never told about. The bulk path throws before it can record, so it
-    // already answers this way; both surfaces have to answer it the same.
+    // This path compensates through its own rewinds rather than the shared
+    // restore funnel, so record the document's fate here — see
+    // featureDocumentWentBack for why a lost race still emits.
     if (featureDocumentWentBack({ ownershipLost, unreversed })) {
       context.bulkPublishRestoredEntities?.add(
         entityKey("feature", feature.id),
@@ -4263,8 +4152,8 @@ async function publishRevisionInner({
     // its revision consistent, but whatever could not be reversed is left behind
     // and the caller is the only one positioned to act on it.
     if (unreversed.length) {
-      // Same reason as the direct path: what could not be reversed is live, so the
-      // buffered update events must not be dropped as if nothing happened.
+      // What could not be reversed is live, so the buffered update events must
+      // not be dropped as if nothing happened.
       context.landingLeftPartialState = true;
       const residue = `(could not be rolled back: ${unreversed.join(", ")} — see server logs)`;
       // Appending keeps the original error's class, and so its status code.
@@ -4437,10 +4326,9 @@ export async function createAndPublishRevision({
     skipPrevalidateValidation: true,
   });
 
-  // `bypassedApproval` lets callers report the gate they skipped. Every other publish
-  // surface names its bypasses in the response; the paths that land through here were
-  // silent about it, so a caller could not tell a publish that needed no approval from
-  // one that stepped over a live requirement.
+  // Every other publish surface names its bypasses in the response; without
+  // this a caller cannot tell a publish that needed no approval from one that
+  // stepped over a live requirement.
   return { revision, updatedFeature, bypassedApproval: requiresReview };
 }
 

@@ -20,12 +20,9 @@ jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
 }));
 
 /**
- * The feature family's draft-authority rules, called directly.
- *
- * They were only ever exercised through endpoints, which meant the narrow-atom
+ * The feature family's draft-authority rules, called directly: the narrow-atom
  * reach — what a revert-only or delete-only role may do to a draft, and whose
- * draft — was asserted nowhere in isolation. These are the rules the endpoints
- * delegate to, so each is worth stating on its own.
+ * draft — stated on its own rather than through the endpoints that delegate here.
  */
 
 const feature = {
@@ -128,8 +125,7 @@ describe("assertCanCreateFeatureInState", () => {
   const environmentIds = ["dev", "production"];
 
   // A flag that starts disabled everywhere reaches no SDK payload, so Create
-  // alone carries it. The dashboard used to demand publish here while REST did
-  // not, and the same body was accepted by one and refused by the other.
+  // alone carries it — the rule both dashboard and REST must agree on.
   it("asks for nothing extra when the flag starts disabled everywhere", () => {
     const disabled = {
       ...feature,

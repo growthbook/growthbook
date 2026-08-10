@@ -434,11 +434,8 @@ export const postConfigRevisionSchedulePublishValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      // Validated RFC3339 rather than a bare `z.string()`, which documented no
-      // `format: date-time` and let `new Date()`'s lenient parsing accept things
-      // no client should be sending. Numeric offsets ARE accepted: this endpoint
-      // shipped taking any string, so rejecting `…-07:00` — valid RFC3339, and
-      // what an offset-preserving serializer emits — would 400 existing callers.
+      // Validated RFC3339, with numeric offsets accepted: this endpoint shipped
+      // taking any string, so rejecting `…-07:00` would 400 existing callers.
       scheduledPublishAt: z
         .union([z.iso.datetime({ offset: true }), z.null()])
         .describe(

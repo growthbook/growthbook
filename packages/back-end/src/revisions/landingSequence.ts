@@ -60,9 +60,8 @@ export async function runGuardedWrite<T>(
  *
  * The merge claim and the entity write live in different collections and there are
  * no transactions here, so a newer revision can claim the merge between the
- * pre-write check and this one. Its claim never touches the entity, so the entity
- * CAS still passes — which is exactly why a guard on the entity does not cover this,
- * and why the direct and bulk paths looked safe without it.
+ * pre-write check and this one. Its claim never touches the entity, so an entity
+ * CAS guard cannot catch it.
  *
  * Detection, not exclusion: the loser has already written, so it throws into its
  * caller's compensation and both revisions stay retryable.
@@ -73,9 +72,9 @@ export async function assertLandingStillOwned({
   entityId,
   mergedId,
   /**
-   * The entity stamp AFTER this apply, when the applier reported one. Omitted when it
-   * cannot: the order check below is the half that matters here, and a tautological
-   * stamp comparison against a fresh re-read would only look like a second check.
+   * The entity stamp AFTER this apply, when the applier reported one. Omitted when
+   * it cannot: comparing a fresh re-read against itself would only look like a
+   * second check.
    */
   expectedDateUpdated,
 }: {
@@ -140,10 +139,9 @@ export async function assertLandingBaseline({
       entityType,
       entityId,
     );
-    // A NULL latest is a failure too, not a pass. The caller supplies
-    // `requireLatestMergedId` for a row it just created, so its absence means that row
-    // is gone — and treating that as "no competing merge" let the entity write land
-    // with no history recording it, which is the one outcome nothing can repair.
+    // A NULL latest is a failure too, not a pass: the caller just created that
+    // row, so its absence means it is gone, and passing would land the entity
+    // write with no history recording it.
     if (!latest || latest.id !== requireLatestMergedId) {
       throw landingConflictError(entityType, entityId);
     }
@@ -219,22 +217,17 @@ export async function restoreEntityPreImage({
       // rival owns the root, and the rival's own apply reconciled dependents to
       // it; re-running here would act on state that isn't ours.
       const restoredKeys = Object.keys(restore);
-      // Recorded BEFORE the repair cascade: that call can throw, and by here the
-      // document's own restore has already committed. Recording after meant a repair
-      // failure left the id unrecorded, so the apply's event was emitted as durable
-      // over a document holding its pre-image.
+      // Recorded BEFORE the repair cascade, which can throw: by here the
+      // document's own restore has committed, so its id must be recorded even
+      // if the repair fails.
       context.bulkPublishRestoredEntities?.add(
         entityKey(entityType, preImage.id),
       );
       if (restoredKeys.length) {
-        // The repair cascade's writes are deliberately NOT rolled back, and rolling
-        // them back is not possible: the repair strips a descendant's field precisely
-        // BECAUSE the restored root declares it, so writing the pre-image back runs
-        // the same ancestor normalization and strips it again.
-        //
-        // What it leaves is base-wins-correct — the root owns the field, so the
-        // descendant must not declare it. The value is still on the descendant's
-        // document and re-inherits from the root.
+        // The repair cascade's writes stay: the repair strips a descendant's
+        // field BECAUSE the restored root declares it, so a rollback would be
+        // normalized right back. That end state is base-wins-correct — the
+        // descendant re-inherits the value from the root.
         await adapter.afterRestorePreImage?.(context, current, restoredKeys);
       }
       return;
@@ -323,9 +316,8 @@ export async function withBufferedPayloadRefreshes<T>(
   };
   // `*.updated` events defer alongside the refreshes: a landing that compensates would
   // otherwise have told consumers about a change that no longer exists.
-  // A CLOSED buffer left by an EARLIER landing is not an enclosing scope. Treating it
-  // as one handed the previous landing's verdict to this one, so a loop publishing
-  // several features on one context let a later failure govern the earlier successes.
+  // A CLOSED buffer left by an EARLIER landing is not an enclosing scope — reusing
+  // it would hand that landing's verdict to this one.
   const outer = context.bulkPublishDeferredEvents;
   const outerDeferred = outer && !outer.closed ? outer : null;
   const buffer: DeferredEventBuffer = {
@@ -365,8 +357,7 @@ export async function withBufferedPayloadRefreshes<T>(
       context.landingLeftPartialState = false;
       // Per DOCUMENT, like the bulk path: a Config root can be restored while a
       // descendant of the same landing is not, and emitting the root's event then
-      // asserts the published value over live pre-image state. Emitting everything
-      // self-healed only because the restore's own event followed it.
+      // asserts the published value over live pre-image state.
       for (const { owner, emit } of deferred) {
         if (buffer.restored.has(owner)) continue;
         await emit().catch((err: unknown) =>
@@ -410,11 +401,7 @@ export async function compensateFailedLanding({
   changes: Record<string, unknown>;
   /**
    * Writes a cascade made to OTHER entities on this landing's behalf, each with
-   * its own pre-image. Restored AFTER the root, and this ordering is load-bearing in
-   * that direction: a restore runs through unconditional ancestor normalization, so
-   * putting a descendant back while the root still declares the field strips it
-   * again — and reports success, because the key is still in `persistedKeys` and
-   * nothing looks dropped. Root first, and each descendant's restore survives.
+   * its own pre-image. Restored AFTER the root — see the ordering note below.
    */
   cascade?: {
     before: Record<string, unknown> & { id: string };
@@ -423,19 +410,14 @@ export async function compensateFailedLanding({
   /** Returns the revision to its pre-merge state. */
   unmerge: () => Promise<unknown>;
 }): Promise<void> {
-  // ROOT FIRST, then descendants top-down. The order matters and the intuitive one
-  // is wrong: a restore writes through `applyChanges({isRevert: true})`, and
-  // ancestor normalization is UNCONDITIONAL there — `isRevert` suppresses only the
-  // veto. So while the root still declares the field, restoring a descendant is
-  // normalized straight back to the stripped schema, and because the key is still in
-  // `persistedKeys` the verification sees nothing dropped and reports SUCCESS. The
-  // whole mechanism became a no-op that claimed a clean rollback.
-  //
-  // Once the root no longer owns the field, each descendant restore survives
-  // normalization — and the root's own `afterRestorePreImage` cascade is then a
-  // no-op, because there is nothing left to strip. Descendants go in cascade order
-  // (parents before children) for the same reason: a child's restore normalizes
-  // against ancestors that must already be back.
+  // ROOT FIRST, then descendants top-down. A restore writes through
+  // `applyChanges({isRevert: true})`, where ancestor normalization is
+  // unconditional — while the root still declares a field, a descendant's
+  // restore is normalized straight back to the stripped schema, and the
+  // verification reports success because nothing looks dropped. Restore the
+  // root first and each descendant's restore survives; descendants then go
+  // parents-before-children because a child normalizes against ancestors that
+  // must already be back.
   const restored =
     persisted === null
       ? true

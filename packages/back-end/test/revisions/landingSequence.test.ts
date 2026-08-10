@@ -21,9 +21,7 @@ import {
 import { CasConflictError, Context } from "back-end/src/models/BaseModel";
 
 /**
- * The write sequencing every landing shares. It had no coverage at all, which is
- * how four concurrency findings arrived by code reading rather than by a failing
- * test — so the ordering rules are pinned here as executable statements:
+ * The write sequencing every landing shares, pinned as executable statements:
  *
  *  - a landing computed against a stale read must not write;
  *  - a landing superseded by a newer merged revision must not write;
@@ -126,12 +124,10 @@ describe("assertLandingBaseline", () => {
     ).resolves.toBeUndefined();
   });
 
-  // This case used to assert that a NULL latest passes, which is exactly backwards.
-  // Both callers that supply `requireLatestMergedId` are holding a revision that is
-  // already merged — `landDirectChange` after `createMerged`, and the stranded-merge
-  // recovery — so the query must find at least that row. Null means it is GONE, and
-  // reading that as "no competing merge" let the entity write land with no history
-  // recording it.
+  // Both callers that supply `requireLatestMergedId` hold an already-merged
+  // revision, so the query must find at least that row. Null means it is GONE —
+  // reading it as "no competing merge" would land the entity write with no
+  // history recording it.
   it("refuses when the merged revision it requires has vanished", async () => {
     getById.mockResolvedValue({ id: "const_1", dateUpdated: new Date(BASE) });
     await expect(
@@ -184,10 +180,9 @@ describe("restoreEntityPreImage", () => {
     });
 
     // Dependents the failed cascade touched answer to the restored root — the
-    // adapter decides from the restored keys whether its cascade must re-run. The
+    // adapter decides from the restored keys whether its cascade must re-run.
     // No reporter: the repair cascade's own writes are deliberately not rolled
-    // back, because ancestor normalization would strip them straight back — see
-    // `restoreEntityPreImage` for why that machinery came out again.
+    // back, since ancestor normalization would strip them straight back.
     expect(afterRestorePreImage).toHaveBeenCalledWith(
       context,
       expect.objectContaining({ id: "const_1" }),

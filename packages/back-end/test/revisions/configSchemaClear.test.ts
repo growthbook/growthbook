@@ -6,23 +6,12 @@ import { setupApp } from "../api/api.setup";
 
 /**
  * A Config revert must be able to CLEAR a schema — including in the same request
- * that changes lineage.
+ * that changes lineage. Explicit null is the clear signal: `undefined` is dropped
+ * by JSON.stringify and read as "not intentionally changed".
  *
- * The clear used to be inexpressible end to end: the validator said `.optional()`
- * so an explicit null 400d in middleware, the revert modal sent `undefined` which
- * JSON.stringify drops, and `hasChanged` read nullish as "not intentionally
- * changed". Three layers losing the same intent while the Review Changes diff showed
- * the removal — and if schema was the only drift, the publish was a silent no-op.
- *
- * Fixing those three reopened a fourth, narrower one: `schemaToNormalize` resurrected
- * `existing.schema` via `??`, so a request clearing the schema AND changing lineage
- * normalized the resurrected schema against the new ancestors and persisted the
- * remnant. The pure clear was safe only by accident — `null || false` is falsy, so
- * the normalization block was skipped — and adding a lineage change to the same
- * request opened it.
- *
- * The second case below is the one that matters: it is the combination, not either
- * half, and it needs an ancestor that actually owns a key in the cleared schema so
+ * The combination case is the one that matters: a schema resurrected via `??` and
+ * normalized against the NEW ancestors persists a remnant instead of the clear.
+ * The fixture needs an ancestor that owns a key in the cleared schema so
  * normalization has something to strip.
  */
 
@@ -157,10 +146,10 @@ describe("clearing a Config schema through the internal PUT", () => {
   });
 
   it("clears the schema when the same request also changes lineage", async () => {
-    // The regression case. With `schemaToNormalize = fieldsToUpdate.schema ??
-    // existing.schema`, the null falls through, the lineage change opens the
-    // normalization guard, the ancestor-owned key is stripped, and the REMNANT is
-    // written — the clear silently becomes a partial schema.
+    // With `schemaToNormalize = fieldsToUpdate.schema ?? existing.schema`, the
+    // null falls through, the lineage change opens the normalization guard, the
+    // ancestor-owned key is stripped, and the REMNANT is written — the clear
+    // silently becomes a partial schema.
     const { res, captured } = resSpy();
     await putConfig(putFor({ schema: null, parent: "cfg_parent" }), res);
 

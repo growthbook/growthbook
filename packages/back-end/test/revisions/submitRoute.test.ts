@@ -6,14 +6,10 @@ import { postSubmit } from "back-end/src/routers/revision/revision.controller";
 import { setupApp } from "../api/api.setup";
 
 // The controller builds its own context via `getContextFromReq`, so the usual
-// `context.hasPremiumFeature = () => true` seam isn't reachable from here. Arming a
-// DATED publish requires `scheduled-revisions`, and without it every dated case
-// below would fail on the premium gate rather than on the thing it asserts.
-//
-// MUTABLE rather than a constant `true`: the scheduling gate's unique contribution
-// IS the premium check — its publish-authority half is re-asserted a few lines later
-// by `assertCanPublishRevision` — so a fixture that is always licensed cannot tell
-// the gate from its neighbour, and deleting it stays green.
+// `context.hasPremiumFeature = () => true` seam isn't reachable from here.
+// MUTABLE rather than a constant `true`: the scheduling gate's unique
+// contribution IS the premium check, so an always-licensed fixture cannot tell
+// the gate from its publish-authority neighbour.
 let hasScheduledRevisions = true;
 jest.mock("back-end/src/enterprise", () => ({
   ...jest.requireActual("back-end/src/enterprise"),
@@ -22,22 +18,11 @@ jest.mock("back-end/src/enterprise", () => ({
 }));
 
 /**
- * The submit ROUTE, at the two layers above the model.
- *
- * `submitForReviewSchedule.test.ts` calls the model directly, and that is exactly
- * why it could pass while the feature was dead: the request never reached the model
- * at all. The strict body schema 400s an undeclared key in middleware, and when
- * `postSubmit` learned to arm a dated schedule the schema was not updated — so the
- * front-end sending the new fields turned a working submit into a failing one.
- *
- * A test pins nothing above its own layer. These two describes are the layers the
- * change actually spanned:
- *  - the SCHEMA, asserted against the very object the router mounts;
- *  - the CONTROLLER, driven directly, which is where the three arming gates live
- *    (they were all green when individually deleted).
- *
- * The middleware between them is one `body: submitBodySchema` reference, which is
- * why asserting the exported object rather than a copy is the whole trick.
+ * The submit ROUTE, at the two layers above the model (which
+ * `submitForReviewSchedule.test.ts` covers directly):
+ *  - the SCHEMA, asserted against the very object the router mounts — the strict
+ *    body schema 400s any undeclared key in middleware, before the model;
+ *  - the CONTROLLER, driven directly, where the three arming gates live.
  */
 
 const ORG_ID = "org_submit_route";
@@ -93,7 +78,6 @@ describe("POST /revision/:id/submit — the body schema", () => {
   const tomorrow = new Date(Date.now() + 86_400_000).toISOString();
 
   it("accepts the staged schedule the front-end sends", () => {
-    // The P1: this exact payload used to 400 in middleware.
     const res = submitBodySchema.safeParse({
       autoPublishOnApproval: false,
       scheduledPublishAt: tomorrow,
@@ -179,9 +163,6 @@ describe("POST /revision/:id/submit — the controller's arming gates", () => {
           id: "cst_route",
           key: "cst_route",
           project: "",
-          // Safe to carry now: the CAS guard is cloned at capture, so the
-          // beforeUpdate rebuild can no longer corrupt it. Before that fix this
-          // exhausted the retry loop and made these two cases unwritable.
           environmentValues: { dev: "old", production: "old" },
         },
         proposedChanges: [],
@@ -298,21 +279,13 @@ describe("POST /revision/:id/submit — the controller's arming gates", () => {
     expect((await stored())?.status).toBe("pending-review");
   });
 
-  /**
-   * The change-aware `assertCanPublishRevision` re-assert, finally pinned.
-   *
-   * These use a TOP-LEVEL `/environmentValues` replace rather than a nested
-   * `/environmentValues/production`, and that distinction is why this sat unpinned
-   * for two rounds. The authority side reads ops through `applyTopLevelPatchOps`,
-   * which skips nested paths, so a nested op produced an EMPTY footprint and
-   * nothing narrowed — which turned out to be a live authorization bypass rather
-   * than a fixture problem. See `nestedPatchAuthority.test.ts`; nested paths are
-   * rejected at the validator now, so these fixtures could not be written the other
-   * way even if someone tried.
-   */
+  // The change-aware `assertCanPublishRevision` re-assert. These use a TOP-LEVEL
+  // `/environmentValues` replace: the authority side reads ops through
+  // `applyTopLevelPatchOps`, and nested paths are rejected at the validator —
+  // see `nestedPatchAuthority.test.ts`.
   it("refuses a DATE whose changes reach an environment the caller lacks", async () => {
-    // The coarse adapter gate cannot see the change set — its own comment says so —
-    // so only a caller who passes that and fails this one tells them apart.
+    // The coarse adapter gate cannot see the change set, so only a caller who
+    // passes that and fails this one tells them apart.
     await mongoose.connection.collection("revisions").updateOne(
       { organization: ORG_ID, id: REV_ID },
       {

@@ -100,13 +100,15 @@ export function getValidation(feature: Pick<FeatureInterface, "jsonSchema">) {
   }
 }
 
-// View-only JIT migration of a v1 feature snapshot (rules under
-// `environmentSettings[env].rules`) to v2 (top-level `feature.rules`).
-//
-// Used at the front-end model boundary for audit log snapshots, cached
-// responses, fixtures. Idempotent. Does NOT merge content-identical rules
-// across envs — naive stamp with `allEnvironments: false` +
-// `environments: [env]`. For persistence use `normalizeRulesInputToV2`.
+/**
+ * View-only JIT migration of a v1 feature snapshot (rules under
+ * `environmentSettings[env].rules`) to v2 (top-level `feature.rules`).
+ *
+ * Used at the front-end model boundary for audit log snapshots, cached
+ * responses, fixtures. Idempotent. Does NOT merge content-identical rules
+ * across envs — naive stamp with `allEnvironments: false` +
+ * `environments: [env]`. For persistence use `normalizeRulesInputToV2`.
+ */
 export function toV2FeatureSnapshot<T extends Partial<FeatureInterface>>(
   snapshot: T,
 ): T {
@@ -1129,14 +1131,12 @@ export function isStrandedLiveRevision({
 }
 
 // The metadata envelope as the live feature spells it. Revisions store metadata
-// sparsely — absent keys inherit live — so every baseline seeds from this before
-// being diffed, and every snapshot writes it. One definition, because a field
-// present in one spelling and absent from another reads as an edit nobody made.
+// sparsely — absent keys inherit live — so baselines seed from this and
+// snapshots write it; a field spelled in one place and absent from the other
+// reads as an edit nobody made.
 //
-// `CompleteMetadata` is the point: every key of `RevisionMetadata` is optional,
-// so without it a field added to the schema could be snapshotted but never
-// seeded into a baseline, and drafts on features using it would diff against
-// nothing. Only the keys are compulsory — values may still be undefined.
+// Every key of `RevisionMetadata` is optional, so `CompleteMetadata` forces
+// each key to be listed here (values may still be undefined).
 type CompleteMetadata = {
   [K in keyof Required<RevisionMetadata>]: RevisionMetadata[K];
 };
@@ -3032,16 +3032,9 @@ function normalizeRuleForDiff(
   return rest as Omit<FeatureRule, "scheduleType">;
 }
 
-/**
- * Returns the union of all environments explicitly targeted by a ramp
- * schedule's patch actions (startActions, steps, endActions).  Returns "all"
- * if any patch sets `allEnvironments: true`.
- */
-// The publish footprint for a live ramp-schedule action. Pausing, advancing or
-// rewinding a schedule changes what users are served right now, so it takes
-// publish authority over the environments the schedule actually touches — "all"
-// resolves to every environment rather than to an empty list, which would
-// satisfy the environment check vacuously.
+// The publish footprint for a live ramp-schedule action: the environments the
+// schedule touches, with "all" resolved to every environment rather than an
+// empty list (which would satisfy the environment check vacuously).
 export function rampSchedulePublishEnvironments(
   schedule: Parameters<typeof getEnvsFromRampSchedule>[0],
   allEnvironments: string[],
@@ -3073,12 +3066,9 @@ export function rampTargetRuleIds(
 /**
  * The environments ONE ramp target is acted on in, given what its rules serve.
  *
- * The unit both sides share. The gate needs it per target so it can group by feature
- * — checking each feature separately, since the union across targets would demand
- * authority in combinations the schedule never acts on — and the control needs it to
- * union globally over the one feature it is rendering. Sharing the whole footprint
- * function would have forced one of those shapes on the other; sharing the per-target
- * answer leaves the grouping to each caller and the RULE in one place.
+ * Per-target on purpose: the union across targets would demand authority in
+ * combinations the schedule never acts on, so callers do their own grouping
+ * (the gate by feature, the control over the one feature it renders).
  */
 export function rampTargetFootprint({
   schedule,
@@ -3103,13 +3093,10 @@ export function rampTargetFootprint({
  * The footprint a live ramp CONTROL action answers for — the client's mirror of
  * `assertCanControlRampSchedule`.
  *
- * Per target, unioned, with each target's answer measured against what its rule
- * currently serves. `rampSchedulePublishEnvironments` is the wrong function for this:
- * it goes through `getEnvsFromRampSchedule`, which widens an unscoped patch to "all"
- * because its callers have no rule in hand — and `buildPatch` emits
- * `{ruleId, coverage}` for every ramp created through the UI. So a dev-scoped
- * publisher saw pause/advance/complete disabled on their own dev-only ramp, which is
- * the user the server-side narrowing was written to unblock.
+ * Per target, unioned, with each target measured against what its rule
+ * currently serves. Not `rampSchedulePublishEnvironments`: that widens every
+ * unscoped patch to "all", disabling controls for publishers scoped to the
+ * only environments the ramp touches.
  *
  * A target whose rule the caller cannot resolve contributes "all" — fail-closed,
  * since the gate checks every target and the client may only hold one.
@@ -3142,8 +3129,6 @@ export function rampControlFootprint({
   const out = new Set<string>();
   for (const target of targets) {
     const current = ruleEnvsForTarget(target);
-    // Unresolvable: the gate checks every target while a control typically holds one
-    // rule, so this has to widen rather than contribute nothing.
     if (current === undefined) return [...allEnvironments];
     for (const e of rampTargetFootprint({
       schedule,
@@ -3168,16 +3153,9 @@ export function isRampScheduleServing(
   return schedule.status === "running" || schedule.status === "paused";
 }
 
-// The environments a single ramp target is acted on in. Actions carry a
-// `targetId`, so a schedule controlling rule A in dev and rule B in production
-// touches each target only in its own environments — taking the union across
-// targets and applying it to every target's project would demand authority in
-// combinations the schedule never acts on.
 /**
- * Every patch a schedule aims at one target. Exported because the control gate needs
- * the patches' own `ruleId`s, not just their environments: the executor resolves the
- * rule it writes from `patch.ruleId` and ignores `target.ruleId`, so a gate that
- * reads only the target asks about a different rule than the write performs.
+ * Every patch a schedule aims at one target. Exported for the control gate,
+ * which needs the patches' own `ruleId`s (see `rampTargetRuleIds`).
  */
 export function rampPatchesForTarget(
   schedule: Pick<
@@ -3201,14 +3179,11 @@ export function getEnvsForRampTarget(
     "startActions" | "steps" | "endActions"
   >,
   targetId: string,
-  // The environments the target rule CURRENTLY serves. A patch naming
-  // `environments` REPLACES that field (`applyPatchToRule` sets
-  // `allEnvironments: false` and overwrites `environments`), so narrowing a rule
-  // from production to dev is a PRODUCTION change — it stops serving there. Read
-  // from the patch alone, the footprint was ["dev"] and a dev-limited caller could
-  // strip a rule off production traffic. The union is the rule the revision-embedded
-  // ramp path already applies via `getDraftAffectedEnvironments`, which seeds from
-  // the current state and treats patch envs as widening.
+  // The environments the target rule CURRENTLY serves. A patch's `environments`
+  // REPLACES the rule's (`applyPatchToRule`), so narrowing a rule from
+  // production to dev is a production change — the footprint unions patch envs
+  // with current envs, the same rule `getDraftAffectedEnvironments` applies to
+  // revision-embedded ramps.
   currentRuleEnvs?: string[] | "all",
 ): string[] | "all" {
   if (currentRuleEnvs === "all") return "all";
@@ -3220,27 +3195,22 @@ export function getEnvsForRampTarget(
     // A patch without environments retains the rule's current scope.
     for (const env of scoped) envs.add(env);
   }
-  // The rule's own environments, unioned BEFORE the widening below. Ordered the other
-  // way, a target no patch names hit the widening and its known production-serving
-  // envs were discarded — the caller then collapsed "all" to their own narrow list.
+  // Union the rule's own envs before the empty check below, so a target no
+  // patch names keeps its known envs rather than widening.
   for (const env of currentRuleEnvs ?? []) envs.add(env);
-  // Nothing known from either source. A target no patch names is still acted on —
-  // with no steps the start actions enable every active target — so [] here would
-  // hand the permission layer an empty footprint, which SKIPS the environment check
-  // rather than narrowing it. This is the vacuity backstop.
+  // Nothing known from either source. A target no patch names is still acted on
+  // (start actions enable every active target), and an empty footprint SKIPS
+  // the environment check rather than narrowing it — so widen.
   if (!envs.size) return "all";
   return Array.from(envs);
 }
 
 // The environments a ramp schedule's patches reach, or "all".
 //
-// A patch that names NEITHER `environments` nor `allEnvironments` inherits the
-// rule's own environment scope at apply time — it still writes coverage/enabled/
-// force to whatever the rule serves. Returning [] for that case handed the
-// permission layer an empty footprint, which SKIPS the environment check (see
-// NO_ENVIRONMENT_BINDING) rather than restricting it, so a dev-limited caller
-// could arm production traffic. Unscoped patches therefore widen to "all", the
-// strictest answer available without resolving the rule here.
+// A patch naming neither `environments` nor `allEnvironments` inherits the
+// rule's scope at apply time, which can't be resolved here — so unscoped
+// patches widen to "all". Returning [] would hand the permission layer an
+// empty footprint, which SKIPS the environment check (NO_ENVIRONMENT_BINDING).
 export function getEnvsFromRampSchedule(
   schedule: Pick<
     RampScheduleInterface,
@@ -3261,10 +3231,8 @@ export function getEnvsFromRampSchedule(
       envs.add(env);
     }
   }
-  // Zero patches never enters the loop, so the widening above is skipped entirely
-  // — and a schedule armed with only a start date has zero patches. The poller
-  // still fires it and enables every attached target, so [] would hand the control
-  // gate an empty footprint for a schedule that publishes live state.
+  // A schedule with zero patches (armed with only a start date) skips the loop
+  // but still fires and enables every attached target — widen, don't return [].
   if (!envs.size) return "all";
   return [...envs];
 }
@@ -4166,10 +4134,12 @@ export function getExperimentIdsFromRules(rules: unknown): string[] {
   );
 }
 
-// Unlinking is doubly bounded: a holdout's experiment list is not only a
-// projection of feature rules — experiments can be added to a holdout directly —
-// so a candidate must both have been contributed by THIS feature and be
-// referenced by nothing else. Anything else belongs to another writer.
+/**
+ * Unlinking is doubly bounded: a holdout's experiment list is not only a
+ * projection of feature rules — experiments can be added to a holdout directly —
+ * so a candidate must both have been contributed by THIS feature and be
+ * referenced by nothing else. Anything else belongs to another writer.
+ */
 export function computeHoldoutExperimentLinkageDelta({
   publishedRules,
   previousRules,
@@ -4222,15 +4192,17 @@ export type ContextualBanditLinkageDelta = {
   draftsToDrop: number[];
 };
 
-// - `linkedFeatures`: the feature's live revision serves a rule for this
-// contextual bandit.
-// - `pendingFeatureDrafts`: open drafts that reference the contextual bandit, keyed by
-// revision version. These are the drafts the bandit publishes when it starts.
-//
-// Only CBs present in `currentStateByBandit` are considered — the caller
-// decides which of the referenced bandits exist and are writable, and includes
-// the ones that still hold entries for this feature so stale linkage is swept.
-// Bandits with nothing to change are left out of the result.
+/**
+ * - `linkedFeatures`: the feature's live revision serves a rule for this
+ *   contextual bandit.
+ * - `pendingFeatureDrafts`: open drafts that reference the contextual bandit, keyed by
+ *   revision version. These are the drafts the bandit publishes when it starts.
+ *
+ * Only CBs present in `currentStateByBandit` are considered — the caller
+ * decides which of the referenced bandits exist and are writable, and includes
+ * the ones that still hold entries for this feature so stale linkage is swept.
+ * Bandits with nothing to change are left out of the result.
+ */
 export function computeContextualBanditLinkageDelta({
   featureId,
   liveRules,

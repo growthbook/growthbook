@@ -1,13 +1,9 @@
 import { buildCasGuard, runCasLoop } from "back-end/src/models/casLoop";
 
 /**
- * The shared loop, tested directly.
- *
- * Both callers collapse `not-found` into their abort answer, so nothing reachable
- * from a boundary can see that outcome — mutating `not-found` to `aborted` inside the
- * loop left every other CAS suite green. Same for the ordering of read/compute/write
- * within an attempt. These pin the loop's own contract, which is the point of having
- * extracted it.
+ * The shared loop, tested directly. Both callers collapse `not-found` into their
+ * abort answer, so no boundary test can see that outcome — nor the ordering of
+ * read/compute/write within an attempt. These pin the loop's own contract.
  */
 
 const guardOf = (calls: Record<string, unknown>[]) => calls[calls.length - 1];

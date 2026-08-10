@@ -7,10 +7,10 @@ import {
 import { Context } from "back-end/src/models/BaseModel";
 
 /**
- * Revert authority is the piece that kept going wrong, in both directions: derived
- * from the landing footprint it locked environment-limited reverters out of even
- * proposing; derived from the project it let them land. These pin the distinction,
- * plus the two classes a revert can span beyond the revert atom itself.
+ * Revert authority can go wrong in both directions: derived from the landing
+ * footprint it locks environment-limited reverters out of even proposing;
+ * derived from the project it lets them land. These pin the distinction, plus
+ * the two classes a revert can span beyond the revert atom itself.
  */
 
 type Held = {

@@ -331,9 +331,8 @@ export function advancedGuardStamp(guardedOn: Date | undefined): Date {
 // between read and write). `updateWithCas` catches it to retry; landing paths
 // catch it to refuse, since a landing that lost the race must not be re-applied.
 export class CasConflictError extends Error {
-  // A lost race, not a malformed request: the same interleaving is reported as 409 by
-  // every path that converts it, and a plain retry usually succeeds. Without a status
-  // the handler defaulted to 400, which tells a client not to retry.
+  // A lost race, not a malformed request: 409 tells the client a plain retry
+  // usually succeeds, where the 400 default says don't bother.
   status = 409;
   constructor() {
     super(
@@ -718,19 +717,14 @@ export abstract class BaseModel<
   }
   /**
    * `update`, conditioned on `existing` still being the current stored doc.
+   * Where `update` is last-write-wins, this throws `CasConflictError`: the
+   * loser must refuse rather than apply state computed against a version that
+   * no longer exists.
    *
-   * The ordinary `update` writes whatever the caller computed, whenever it gets
-   * there — so two writers who both read the same doc silently overwrite each
-   * other, last-write-wins. This one fails with `CasConflictError` instead, which
-   * is what a landing wants: the loser must refuse rather than apply state it
-   * computed against a version that no longer exists.
-   *
-   * No baseline argument, deliberately. The guard IS the doc the caller was
-   * handed, so it cannot drift from the state the change was computed against.
-   *
-   * Guarded writes stamp via `advancedGuardStamp`, strictly after the token they
-   * were conditioned on, so two guarded writers holding the same token cannot both
-   * pass — even inside one millisecond.
+   * No baseline argument, deliberately — the guard IS the doc the caller was
+   * handed. Stamps via `advancedGuardStamp`, strictly after the guarded token,
+   * so two writers holding the same token cannot both pass even inside one
+   * millisecond.
    */
   public updateIfUnchanged(
     existing: z.infer<T>,
@@ -738,9 +732,9 @@ export abstract class BaseModel<
     writeOptions?: WriteOptions,
     options?: {
       // Skip the canUpdate gate, for orchestration writes whose authority the
-      // calling flow already established under a different rule — e.g. a Config
-      // scoped-overrides commit, which takes publish authority rather than
-      // manage. Same contract as updateWithCas's flag.
+      // calling flow already established under a different rule (e.g. a Config
+      // scoped-overrides commit takes publish authority, not manage). Same
+      // contract as updateWithCas's flag.
       dangerouslyBypassCanUpdate?: boolean;
       /** @see _updateOne's `onWritten` — fires before audit and afterUpdate. */
       onWritten?: (newDoc: z.infer<T>) => void;
@@ -825,15 +819,12 @@ export abstract class BaseModel<
       dangerouslyBypassCanUpdate?: boolean;
       // Skip the read gate, for models whose linkage is a side effect of an
       // authorized write on ANOTHER entity — e.g. a Feature Flag publish updating
-      // a Holdout in Projects the publisher cannot see. Those callers already read
-      // through an explicit bypass; without this they would silently get `null`
-      // (this method's not-found answer) and skip the write entirely.
+      // a Holdout in Projects the publisher cannot see. Without this those
+      // callers silently get `null` (the not-found answer) and skip the write.
       dangerouslyBypassCanRead?: boolean;
-      // Skip the licence gate, for the same class of caller. `update` checks it and
-      // `_updateOne` does not, so the raw writers these callers used before
-      // (dangerousUpdateBypassPermission) were never gated — moving them onto this
-      // method would newly fail a publish rewind on an org whose licence lapsed,
-      // stranding linkage that the flag write has already committed to removing.
+      // Skip the licence gate, for the same class of caller: gating them here
+      // would fail a publish rewind on an org whose licence lapsed, stranding
+      // linkage the flag write has already committed to removing.
       dangerouslyBypassPremium?: boolean;
     } = {},
   ): Promise<z.infer<T> | null> {
@@ -863,9 +854,8 @@ export abstract class BaseModel<
           this.migrate(this._removeMongooseFields(raw)) as z.infer<T>,
         );
 
-        // Read gate mirrors getById/_findOne; canUpdate is enforced in _updateOne.
-        // Denial ends the loop the same way a missing doc does, which is what this
-        // method's `null` return has always meant.
+        // Read gate mirrors getById/_findOne; canUpdate is enforced in
+        // _updateOne. Denial ends the loop the same way a missing doc does.
         await this.populateForeignRefs([existing]);
         if (!options.dangerouslyBypassCanRead && !this.canRead(existing)) {
           return null;
@@ -897,7 +887,7 @@ export abstract class BaseModel<
         `updateWithCas: exhausted ${maxAttempts} attempts for ${this.config.collectionName} ${id}`,
       );
     }
-    // `aborted` and `not-found` are one answer here, as they always were.
+    // `aborted` and `not-found` are one answer here.
     return null;
   }
   public async delete(
@@ -1050,12 +1040,12 @@ export abstract class BaseModel<
             [key: string]: 1 | -1;
           },
         );
-      // Page in the DATABASE when nothing downstream can drop a row. With read
-      // permissions applied per document, a post-filter shortens the result, so a
-      // cursor-side limit would under-fill the page — that case still slices below.
-      // Bypassed, the two are equivalent, and the caller stops materialising the whole
-      // match: an entity's revision history is full documents, snapshots included, so
-      // "load everything, keep 25" was tens of megabytes per page view.
+      // Page in the DATABASE only when nothing downstream can drop a row: the
+      // per-document read-permission post-filter shortens the result, so a
+      // cursor-side limit would under-fill the page — that case still slices
+      // below. Bypassed, the two are equivalent, and the caller stops
+      // materialising the whole match (revision history is full documents;
+      // "load everything, keep 25" was tens of megabytes per page view).
       pagedInDatabase = !!bypassReadPermissionChecks && !!(skip || limit);
       if (pagedInDatabase) {
         if (skip) cursor.skip(skip);
@@ -1242,11 +1232,10 @@ export abstract class BaseModel<
       // CAS guard: write only applies if the doc still matches these field
       // values, else throws CasConflictError. Set via `updateWithCas`.
       guard?: Record<string, unknown>;
-      // Called the instant the document write lands, BEFORE audit logging and the
-      // afterUpdate hooks. Compensation needs to know a write persisted even when
-      // a later hook throws — reporting after `_updateOne` RETURNS cannot tell
-      // "never wrote" from "wrote, then a hook failed", and treating the second as
-      // the first leaves a live change with no record of it.
+      // Called the instant the write lands, BEFORE audit logging and the
+      // afterUpdate hooks: reporting after `_updateOne` returns cannot tell
+      // "never wrote" from "wrote, then a hook failed", and compensation must
+      // not mistake the second for the first.
       onWritten?: (newDoc: z.infer<T>) => void;
     },
   ) {
@@ -1283,11 +1272,9 @@ export abstract class BaseModel<
     updates = pick(updates, updatedFields);
 
     // If no updates are needed, return immediately — UNLESS the write is
-    // guarded. A guarded write is a CAS fence as much as a mutation: the caller
-    // is asserting "the doc I read is still current", and skipping the write
-    // would confirm that without checking it or advancing the token, letting an
-    // older landing slip in after a newer one already changed the doc back to
-    // the same values. The fence writes only the advanced stamp.
+    // guarded. A guarded write is a CAS fence as much as a mutation: skipping
+    // it would confirm "the doc I read is still current" without checking it
+    // or advancing the token. The fence writes only the advanced stamp.
     if (!updatedFields.length && !options?.guard) {
       return doc;
     }

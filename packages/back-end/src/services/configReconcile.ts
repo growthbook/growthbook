@@ -182,18 +182,15 @@ export async function collectConfigSchemaChangeImpactGates(
 }
 
 /**
- * One descendant write the cascade performed: the doc it wrote against, and the
- * fields it wrote. Compensation needs the PRE-IMAGE because
- * `stripAncestorOwnedFields` can only REMOVE keys — re-running the cascade against
- * a restored root can never un-strip one, so a root-only rollback silently deletes
- * a field from a config the user never touched.
+ * One descendant write the cascade performed. Compensation needs the
+ * PRE-IMAGE: the cascade can only REMOVE keys, so re-running it against a
+ * restored root can never un-strip one.
  */
 export type ConfigCascadeWrite = {
   before: ConfigInterface;
   written: Record<string, unknown>;
-  // `dateUpdated` this cascade write left on the descendant. A release publishing an
-  // ancestor and a descendant together needs it to tell its OWN cascade from a
-  // foreign write when re-anchoring the descendant's CAS baseline.
+  // `dateUpdated` this write left on the descendant — lets a release publishing
+  // ancestor and descendant together tell its own cascade from a foreign write.
   stamp: Date | null;
 };
 
@@ -220,9 +217,8 @@ export type ConfigCascadeWrite = {
 export async function reconcileConfigDescendants(
   context: Context,
   rootKey: string,
-  // Called as each descendant write LANDS, before its audit and afterUpdate hooks.
-  // The cascade is the one entity write in a compensated landing that used to
-  // persist silently.
+  // Called as each descendant write lands, before its audit and afterUpdate
+  // hooks.
   onDescendantWritten?: (write: ConfigCascadeWrite) => void,
 ): Promise<void> {
   const all = await context.models.configs.getAllForReconcile();
@@ -258,12 +254,10 @@ export async function reconcileConfigDescendants(
       continue;
     }
 
-    // Guarded read-decide-write per descendant, retried: the walk computes from
-    // its snapshot, and a descendant PUBLISH landing between that snapshot and
-    // an unguarded write would be replaced by stale reconciliation output. On a
-    // loss, re-read the descendant and recompute against ITS new schema — the
-    // publish that beat us already normalized against the current ancestors, so
-    // a second loss usually means nothing is left to strip.
+    // Guarded read-decide-write per descendant, retried: a descendant PUBLISH
+    // landing between the walk's snapshot and an unguarded write would be
+    // replaced by stale reconciliation output. On a loss, re-read and recompute
+    // against the descendant's new schema.
     let current = node;
     for (let attempt = 1; attempt <= 3; attempt++) {
       const ancestorKeys = getAncestorSchemaKeys(current, byKey);
@@ -284,14 +278,12 @@ export async function reconcileConfigDescendants(
           current,
           { schema: newSchema },
           undefined,
-          // Same authority contract as the bypass write this replaces: the
-          // cascade acts under the ancestor publish already authorized.
+          // The cascade acts under the ancestor publish already authorized.
           {
             dangerouslyBypassCanUpdate: true,
-            // Reported from inside the write, so a later descendant's failure can
-            // put THIS one back. `preImage` is the doc this attempt wrote against —
-            // after a CAS retry that is the refreshed row, which is what ownership
-            // has to be judged against.
+            // Reported from inside the write so a later descendant's failure
+            // can put THIS one back. `preImage` is the doc this attempt wrote
+            // against (the refreshed row after a CAS retry).
             onWritten: (doc) =>
               onDescendantWritten?.({
                 before: preImage,

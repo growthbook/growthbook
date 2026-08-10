@@ -155,9 +155,9 @@ const featureRevisionSchema = new mongoose.Schema({
   ],
   status: String,
   requiresReview: Boolean,
-  // Must be declared here as well as in the validator: this schema is explicit, so
-  // Mongoose strips any undeclared path from both `$set` and the FILTER — an
-  // omitted field doesn't fail, it silently stops guarding.
+  // Declared here as well as in the validator: this schema is explicit, so
+  // Mongoose strips undeclared paths from both `$set` and the FILTER — an
+  // omitted field silently stops guarding.
   reviewCycle: Number,
   autoPublishOnApproval: Boolean,
   autoPublishEnabledBy: String,
@@ -241,15 +241,17 @@ export type RevisionFeatureContext = Pick<
   | "targetingAllProjects"
 >;
 
-// Pure JIT migration from a raw revision doc to a v2 `FeatureRevisionInterface`.
-// v1 `Record<env, FeatureRule[]>` is flattened via `flattenV1ToV2Rules`;
-// already-v2 arrays are filtered against the same `applicableEnvs` and
-// expanded for env inheritance so a rule scoped to a parent env also surfaces
-// in inheriting children.
-//
-// Callers should pass the parent `feature` (project + environmentSettings).
-// `undefined` is allowed for legacy paths but disables both the project
-// applicability filter and the inheritance expansion.
+/**
+ * Pure JIT migration from a raw revision doc to a v2 `FeatureRevisionInterface`.
+ * v1 `Record<env, FeatureRule[]>` is flattened via `flattenV1ToV2Rules`;
+ * already-v2 arrays are filtered against the same `applicableEnvs` and
+ * expanded for env inheritance so a rule scoped to a parent env also surfaces
+ * in inheriting children.
+ *
+ * Callers should pass the parent `feature` (project + environmentSettings).
+ * `undefined` is allowed for legacy paths but disables both the project
+ * applicability filter and the inheritance expansion.
+ */
 export function buildFeatureRevisionInterface(
   raw: FeatureRevisionInterface,
   context: ReqContext | ApiReqContext,
@@ -375,18 +377,22 @@ export function buildFeatureRevisionInterface(
   return revision;
 }
 
-// The LEGACY-doc revision id: a deterministic projection of the immutable
-// natural key (version-first so parsing is unambiguous even though feature
-// ids may contain underscores). Remains valid forever for old docs and
-// resolves by decoding back onto the (organization, featureId, version) index.
+/**
+ * The LEGACY-doc revision id: a deterministic projection of the immutable
+ * natural key (version-first so parsing is unambiguous even though feature
+ * ids may contain underscores). Remains valid forever for old docs and
+ * resolves by decoding back onto the (organization, featureId, version) index.
+ */
 export function featureRevisionId(featureId: string, version: number): string {
   return `${FEATURE_REVISION_ID_PREFIX}${version}_${featureId}`;
 }
 
-// Decode a tuple-shaped (legacy) feature revision id; null when the shape
-// doesn't match — including for minted `frev_<uniqid>` ids, whose suffixes
-// contain no underscores and therefore never parse as tuples. Resolve those
-// via findFeatureRevisionCoordinatesByRevisionId instead.
+/**
+ * Decode a tuple-shaped (legacy) feature revision id; null when the shape
+ * doesn't match — including for minted `frev_<uniqid>` ids, whose suffixes
+ * contain no underscores and therefore never parse as tuples. Resolve those
+ * via findFeatureRevisionCoordinatesByRevisionId instead.
+ */
 export function parseFeatureRevisionId(
   id: string,
 ): { featureId: string; version: number } | null {
@@ -496,14 +502,16 @@ export async function getLinkageSyncRevisionSummaries(
   };
 }
 
-// Reconcile both linkage projections after a write that only moves drafts
-// around, so there is no publish to gate.
-//
-// Bandit linkage is awaited, so the response the caller returns already reflects
-// it, but only when a bandit rule is involved on either side of the write —
-// which is also the only way linkage can go stale, since a bandit that drops out
-// of every revision was referenced by the pre-write rules. Experiment linkage
-// keeps its existing fire-and-forget behaviour.
+/**
+ * Reconcile both linkage projections after a write that only moves drafts
+ * around, so there is no publish to gate.
+ *
+ * Bandit linkage is awaited, so the response the caller returns already reflects
+ * it, but only when a bandit rule is involved on either side of the write —
+ * which is also the only way linkage can go stale, since a bandit that drops out
+ * of every revision was referenced by the pre-write rules. Experiment linkage
+ * keeps its existing fire-and-forget behaviour.
+ */
 async function syncLinkagesAfterDraftWrite(
   context: ReqContext | ApiReqContext,
   revision: Pick<FeatureRevisionInterface, "organization" | "featureId">,
@@ -865,14 +873,16 @@ export async function getRevisionsByStatus(
     .map((r) => toInterface(r, context, featuresByFeatureId?.[r.featureId]));
 }
 
-// Normalize a `rules` input to the canonical v2 `FeatureRule[]` shape. v2
-// arrays pass through; v1 records get env inheritance applied before
-// flattening so a legacy caller's sparse `{dev: [r1]}` writes a rule scoped
-// to dev and any envs that inherit from dev. `applicableEnvs` is seeded from
-// org envs + feature project so fully-covering rules collapse to
-// `allEnvironments: true`. Always runs `ensureUniqueRuleIds` on the way out
-// so a buggy v2 caller passing duplicate ids can't smuggle them onto disk.
-// Exported for unit testing.
+/**
+ * Normalize a `rules` input to the canonical v2 `FeatureRule[]` shape. v2
+ * arrays pass through; v1 records get env inheritance applied before
+ * flattening so a legacy caller's sparse `{dev: [r1]}` writes a rule scoped
+ * to dev and any envs that inherit from dev. `applicableEnvs` is seeded from
+ * org envs + feature project so fully-covering rules collapse to
+ * `allEnvironments: true`. Always runs `ensureUniqueRuleIds` on the way out
+ * so a buggy v2 caller passing duplicate ids can't smuggle them onto disk.
+ * Exported for unit testing.
+ */
 export function normalizeRulesInputToV2(
   rulesInput: unknown,
   opts: { orgEnvs: Environment[]; featureProject?: string },
@@ -1192,10 +1202,10 @@ export async function createRevision({
     return FeatureRevisionModel.create(revision);
   });
 
-  // Awaited, not fire-and-forget: a CAS-lost toggle deletes this revision AND
-  // its log rows, and an insert still in flight would land after that cleanup —
-  // stale history a later revision reusing the version number then adopts.
-  // Failures still only log; the revision exists either way.
+  // Awaited: a CAS-lost toggle deletes this revision and its log rows, and an
+  // insert still in flight would land after that cleanup — stale history a
+  // later revision reusing the version number then adopts. Failures still only
+  // log; the revision exists either way.
   await context.models.featureRevisionLogs
     .create({
       featureId: revision.featureId,
@@ -1398,9 +1408,8 @@ export async function updateRevision(
 
   // `status` rides the FILTER: the `status` being written was COMPUTED from the
   // caller's copy (an edit can demote an approval), so a status that moved
-  // underneath us — a publish claiming the revision, a reviewer's verdict landing —
-  // means that computation is stale and must not be written. The generic engine
-  // CAS-guards plain content edits for the same reason (`writeContentEdit`).
+  // underneath us means that computation is stale and must not land. Same rule
+  // as the generic engine's `writeContentEdit`.
   const doc = await FeatureRevisionModel.findOneAndUpdate(
     {
       organization: revision.organization,
@@ -1422,20 +1431,17 @@ export async function updateRevision(
           : {}),
         // The edit invalidated standing verdicts — demote them to "-stale" so
         // policy hooks and the REST API don't count approvals made against
-        // older content, while the UI can still attribute them. That is a new
-        // review cycle, so it takes a new cycle number: a verdict in flight
-        // against the old one must not land on the reset draft.
+        // older content, while the UI can still attribute them.
         ...(clearReviews ? { reviews: staleReviews } : {}),
       },
-      // The reset starts a new review cycle, so it takes a new cycle number — and
-      // takes it atomically, like every other cycle start.
+      // The reset starts a new review cycle, so it takes a new cycle number —
+      // atomically, like every other cycle start.
       ...(clearReviews ? { $inc: { reviewCycle: 1 } } : {}),
       ...(clearRevertedFrom ? { $unset: { revertedFrom: 1 } } : {}),
       ...contributorUpdate,
     },
     { new: true },
   );
-  // A null result means the revision disappeared or changed status.
   if (!doc) {
     throw new Error(
       "This revision changed while the request was in flight — reload and try again.",
@@ -1509,11 +1515,10 @@ export async function markRevisionAsPublished(
     original: revision,
   });
 
-  // Guarded, like the bulk claim: the filter carried no status condition, so two
-  // concurrent publishes of the same revision both reported success, and the
-  // loser's compensation would then reopen the WINNER's published revision.
-  // A published revision's schedule and auto-publish arming are spent, so the
-  // claim disarms both rather than leaving a published revision still "armed".
+  // Guarded, like the bulk claim: unguarded, two concurrent publishes of the
+  // same revision both report success, and the loser's compensation reopens the
+  // WINNER's published revision. The claim also disarms the now-spent schedule
+  // and auto-publish arming.
   const { claimed, claimStamp } = await applyRevisionPublishClaim(
     revision,
     changes,
@@ -1767,12 +1772,11 @@ export async function markRevisionAsReviewRequested(
     });
 
   try {
-    // `status` rides the FILTER, like `reopenRevision` below and the generic
-    // `submitForReview`. Both callers screen `status === "draft"` on a copy read
-    // several awaits earlier, and an unconditioned write let a publish claim the
-    // revision in that window and then rewrote the LIVE revision to
-    // `pending-review` with `datePublished` nulled — and, if this call armed a
-    // schedule, handed the poller an already-published revision to retry forever.
+    // `status` rides the FILTER, like `reopenRevision` and the generic
+    // `submitForReview`: callers screen `status === "draft"` on a copy read
+    // several awaits earlier, so a publish landing in that window would be
+    // rewritten back to `pending-review` — and, if this call armed a schedule,
+    // hand the poller an already-published revision to retry forever.
     const { matchedCount } = await FeatureRevisionModel.updateOne(
       {
         organization: revision.organization,
@@ -1799,16 +1803,12 @@ export async function markRevisionAsReviewRequested(
           // longer stand (mirrors the revision-log replay semantics).
           reviews: [],
         },
-        // Starts a new review cycle. `status` cannot identify one — recall then
-        // resubmit returns the row to `pending-review`, the same value it held
-        // before — so a verdict in flight against the RETRACTED cycle would
-        // otherwise satisfy every filter and approve this one.
-        //
-        // ATOMIC, not computed from `revision`: the caller's copy was read several
-        // awaits ago, and these filters key on `status`, which a recall/resubmit
-        // pair restores. A stale copy therefore wrote a cycle number LOWER than the
-        // stored one — moving the identity backwards and REUSING a number an old
-        // verdict was formed against, which is the very thing it exists to prevent.
+        // Starts a new review cycle. `status` cannot identify one (recall then
+        // resubmit returns the row to `pending-review`), so a verdict in flight
+        // against the RETRACTED cycle would otherwise satisfy every filter and
+        // approve this one. `$inc`, not a value computed from the caller's
+        // stale copy — that can move the cycle BACKWARDS, reusing a number an
+        // old verdict was formed against.
         $inc: { reviewCycle: 1 },
         ...(Object.keys(unset).length > 0 ? { $unset: unset } : {}),
       },
@@ -1858,10 +1858,9 @@ export async function setAutoPublishOnApproval(
   // falls back to `createdBy`).
   enabledBy: string | null,
 ) {
-  // Status rides the FILTER. This write had no status predicate at all, so it
-  // stamped auto-publish state onto a revision a concurrent publish had already
-  // released — corrupt state the REST response then reports back forever. The
-  // generic `setAutoPublishOnApproval` is CAS-guarded on status for this.
+  // Status rides the FILTER so auto-publish state can't be stamped onto a
+  // revision a concurrent publish already released. Mirrors the CAS guard in
+  // the generic `setAutoPublishOnApproval`.
   const { matchedCount } = await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -1978,9 +1977,8 @@ export async function setRevisionScheduledPublish(
     bypassApproval,
   }: ScheduledPublishInput,
   enabledBy: string | null,
-  // Whether the schedule actually moved. Callers dispatch a lifecycle event off
-  // this: both no-op branches below deliberately write nothing, and announcing a
-  // change on those told every subscriber a schedule changed when none had.
+  // Whether the schedule actually moved; callers dispatch a lifecycle event off
+  // this, and the no-op branches below deliberately write nothing.
 ): Promise<boolean> {
   const filter = {
     organization: revision.organization,
@@ -1989,16 +1987,12 @@ export async function setRevisionScheduledPublish(
   };
 
   if (scheduledPublishAt === null) {
-    // Terminal statuses ride the filter: `revision` is the caller's read, and one
-    // that published or was discarded since then must not be rewritten — its
-    // schedule fields are already spent, and bumping dateUpdated rewrites settled
-    // history.
-    // "Something is armed" rides the FILTER alongside the status. `dateUpdated` is
-    // unconditionally in the `$set`, so a cancel on an active-but-UNARMED revision
-    // always modifies — which meant `modifiedCount` could not tell a real
-    // cancellation from a no-op, and the no-op both logged a phantom cancellation
-    // and bumped `dateUpdated` on a revision nothing had changed. With this the
-    // count is honest, and the generic twin's early return has its equivalent here.
+    // Terminal statuses ride the filter: a revision that published or was
+    // discarded since the caller's read must not be rewritten. "Something is
+    // armed" rides it too — `dateUpdated` is unconditionally in the `$set`, so
+    // without it a cancel on an unarmed revision always "modifies", logging a
+    // phantom cancellation and bumping `dateUpdated` on an untouched revision.
+    // The generic twin early-returns for the same case.
     const res = await FeatureRevisionModel.updateOne(
       {
         ...filter,
@@ -2100,11 +2094,10 @@ export async function recordScheduledPublishFailure(
   >,
   message: string,
 ): Promise<number> {
-  // Conditioned on the revision still being OPEN and still carrying the schedule this
-  // attempt was acting on. Without it a stale worker could stamp an error and bump
-  // attempts on a revision a concurrent publish had already closed — and the caller,
-  // reading a non-zero count, would emit a `revision.publishFailed` for a publish that
-  // in fact succeeded. Returning 0 tells the caller its attempt is void.
+  // Conditioned on the revision still being OPEN and still carrying the schedule
+  // this attempt acted on: a stale worker must not stamp an error onto a revision
+  // a concurrent publish closed — the caller would then emit `revision.publishFailed`
+  // for a publish that succeeded. Returning 0 tells the caller its attempt is void.
   const doc = await FeatureRevisionModel.findOneAndUpdate(
     {
       organization: revision.organization,
@@ -2312,8 +2305,7 @@ export async function cancelScheduledPublishesForFeature(
 //
 // Feature revisions are addressed by `{organization, featureId, version}` rather
 // than a single id, which is why this doesn't go through `BaseModel.updateWithCas`.
-// Exported for its own tests: the loop's subtleties — absence guarding, the re-read
-// per attempt, aborted vs exhausted — are invisible from the four call sites.
+// Exported for its own tests.
 export async function casUpdate(
   filter: mongoose.FilterQuery<FeatureRevisionInterface>,
   guardFields: (keyof FeatureRevisionInterface)[],
@@ -2353,8 +2345,8 @@ export async function casUpdate(
         : { applied: false };
     },
   });
-  // A missing revision is an abort to this caller, as it always was — the enum's
-  // `not-found` only exists for callers that tell the two apart.
+  // A missing revision is an abort to this caller; the enum's `not-found` only
+  // exists for callers that tell the two apart.
   return outcome.status === "applied"
     ? "applied"
     : outcome.status === "exhausted"
@@ -2386,11 +2378,9 @@ export async function submitReviewAndComments(
   // when an approval has gone stale (live advanced past the approved point).
   liveVersion?: number,
   // Whether this feature's review setting forbids contributors from approving.
-  // Resolved by the caller (it needs the feature); re-APPLIED here against the row
-  // this write is conditioned on, because the caller's contributor list is a stale
-  // read — an edit records content and contributor separately, so one can land
-  // between the caller's check and this write. The generic engine does the same
-  // inside `addReview`.
+  // Resolved by the caller (it needs the feature); re-APPLIED here against the
+  // row this write is conditioned on, because an edit can land a new contributor
+  // between the caller's check and this write. Mirrors the generic `addReview`.
   blockSelfApproval?: boolean,
 ): Promise<{ applied: boolean }> {
   const action = reviewSubmittedType;
@@ -2402,10 +2392,9 @@ export async function submitReviewAndComments(
   };
   // Both filters below carry the review cycle the CALLER read, not just the
   // status: recall-then-resubmit puts the row back at `pending-review`, so a
-  // status-only filter cannot tell this cycle from the retracted one, and a verdict
-  // aimed at the old cycle lands on the new one — approving content nobody reviewed
-  // and firing auto-publish on it. Revisions predating the field read as cycle 0,
-  // which matches a caller that also read 0.
+  // status-only filter would let a verdict aimed at the retracted cycle approve
+  // content nobody reviewed — and fire auto-publish on it. Revisions predating
+  // the field read as cycle 0, which matches a caller that also read 0.
   const cycleGuard =
     reviewCycleOf(revision) === 0 ? { $in: [0, null] } : revision.reviewCycle;
 
@@ -2428,19 +2417,12 @@ export async function submitReviewAndComments(
   // not override another reviewer's active changes-requested. Stale verdicts
   // don't count, and comments never change the status.
   if (newReview !== null) {
-    // ONE write: the verdict and the status it implies, together.
-    //
-    // These were two CAS writes, and the gap between them was reachable — the first
-    // could persist while the second exhausted its retries, leaving a stored verdict
-    // under a status that did not reflect it. Deriving the status from the array this
-    // same write produces removes the intermediate state rather than guarding it.
-    //
-    // The whole array is `$set` rather than `$pull`+`$push`: Mongo cannot do both to
-    // one field in a single update, and the pair was not atomic across two — two
-    // verdicts from the same reviewer could interleave and leave both standing.
-    //
-    // `cycleFilter` pins the review cycle and the open statuses, so a recall or a
-    // publish landing mid-request takes the write out of the running entirely.
+    // ONE write: the verdict and the status it implies, together, so a stored
+    // verdict can never sit under a status that doesn't reflect it. The whole
+    // array is `$set` rather than `$pull`+`$push` — Mongo cannot do both to one
+    // field in a single update, and the pair is not atomic across two.
+    // `cycleFilter` pins the review cycle and the open statuses, so a recall or
+    // a publish landing mid-request takes the write out of the running.
     const cycleFilter = {
       ...filter,
       status: { $in: [...REVIEW_CYCLE_STATUSES] },
@@ -2450,9 +2432,8 @@ export async function submitReviewAndComments(
       cycleFilter,
       ["reviews", "status", "reviewCycle", "contributors"],
       async (current) => {
-        // Re-asked on every retry, which is where the ABA bites: a retry re-reads a
-        // row that a recall AND a resubmit may both have crossed since the first
-        // attempt.
+        // Re-asked on every retry: the re-read row may have crossed a recall
+        // AND a resubmit since the first attempt.
         if (
           !(REVIEW_CYCLE_STATUSES as readonly string[]).includes(
             current.status ?? "",
@@ -2462,9 +2443,8 @@ export async function submitReviewAndComments(
           return null;
         }
 
-        // Against the row this write is conditioned on, not the caller's copy: an
-        // edit records content and contributor separately, so the contributor list
-        // can be outrun between the handler's check and here.
+        // Against the row this write is conditioned on, not the caller's stale
+        // copy (see the `blockSelfApproval` param).
         if (
           verdict === "approved" &&
           blockSelfApproval &&
@@ -2533,11 +2513,11 @@ export async function submitReviewAndComments(
   // changes-requested verdicts don't each log a duplicate cancellation — only the
   // writer that actually clears it (modifiedCount > 0) logs.
   //
-  // `status` and `reviewCycle` ride the filter too. This cleanup is authorized by the
-  // decision the reconcile above just made, and that decision read both — so a newer
-  // approval landing in the window (which moves `status` while leaving the schedule
-  // fields alone) must make this cleanup miss rather than clear the schedule of an
-  // approved revision. The generic twin guards the same way.
+  // `status` and `reviewCycle` ride the filter too: this cleanup is authorized
+  // by the decision above, which read both — a newer approval landing in the
+  // window moves `status` while leaving the schedule alone, and must make this
+  // miss rather than clear an approved revision's schedule. The generic twin
+  // guards the same way.
   if (verdict === "changes-requested") {
     const res = await FeatureRevisionModel.updateOne(
       {
@@ -2609,9 +2589,7 @@ export async function recallReview(
         reviews: [],
         autoPublishOnApproval: false,
       },
-      // Atomic, for the reason given in markRevisionAsReviewRequested: computing
-      // it from the caller's copy can move the cycle backwards onto a number an
-      // in-flight verdict already names.
+      // Atomic increment — see markRevisionAsReviewRequested.
       $inc: { reviewCycle: 1 },
       $unset: {
         approvedBaseVersion: 1,
@@ -2762,10 +2740,10 @@ export async function undoReview(
     filter,
     ["reviews", "status", "reviewCycle"],
     async (current) => {
-      // Pinned to the cycle the caller read, symmetric with the verdict guard in
-      // `submitReviewAndComments`. A retraction crossing a recall/resubmit removes
-      // this reviewer's verdict from a cycle they never saw — and dropping a
-      // `changes-requested` can resolve the revision to `approved` below and fire
+      // Pinned to the cycle the caller read, symmetric with the verdict guard
+      // in `submitReviewAndComments`: a retraction crossing a recall/resubmit
+      // removes a verdict from a cycle this reviewer never saw — and dropping a
+      // `changes-requested` can resolve the revision to `approved` and fire
       // auto-publish on changes nobody cleared.
       if (!isSameReviewCycle(current, revision)) {
         throw new Error(reviewCycleSupersededMessage("retraction"));
@@ -2837,10 +2815,9 @@ export async function reopenRevision(
     throw new Error(`Can only reopen discarded revisions`);
   }
 
-  // `status` rides the FILTER, not just the check above: that check reads the
-  // caller's copy, which a concurrent publish may already have superseded, and an
-  // unconditioned write would then demote merged history back to `draft`. The
-  // generic revision reopen re-checks the same way inside its CAS.
+  // `status` rides the FILTER, not just the check above: that check read the
+  // caller's copy, and an unconditioned write would demote a concurrently
+  // published revision back to `draft`. Mirrors the generic reopen's CAS.
   const reopened = await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -2858,9 +2835,7 @@ export async function reopenRevision(
         reviews: [],
         autoPublishOnApproval: false,
       },
-      // Atomic, for the reason given in markRevisionAsReviewRequested: computing
-      // it from the caller's copy can move the cycle backwards onto a number an
-      // in-flight verdict already names.
+      // Atomic increment — see markRevisionAsReviewRequested.
       $inc: { reviewCycle: 1 },
       $unset: {
         approvedBaseVersion: 1,
@@ -2916,10 +2891,10 @@ export async function discardRevision(
     );
   }
 
-  // Pinned to the exact row the caller read. A status predicate is not enough
-  // here: a revision discarded, REOPENED, and then armed with a fresh schedule is
-  // back in the same status, so a stale discard still in flight would land and
-  // scrub the new schedule. `dateUpdated` moves on every one of those steps.
+  // Pinned to the exact row the caller read; a status predicate is not enough.
+  // A revision discarded, REOPENED, and re-armed is back in the same status, so
+  // a stale discard still in flight would land and scrub the new schedule.
+  // `dateUpdated` moves on every one of those steps.
   const discarded = await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -3033,14 +3008,11 @@ export async function getActiveDraftStates(
 }
 
 /**
- * Remove a revision its own creator is compensating away: it was recorded for a
- * landing whose guarded write then lost the CAS race, so nothing landed and the
- * record must not survive as published history. Keyed by exact identity and only
- * ever called by the flow that just created the revision.
- *
- * The revision's log rows go with it: creation writes one fire-and-forget, and a
- * later revision REUSES the freed version number — a surviving row would attach
- * this landing's history to that unrelated future revision.
+ * Remove a revision its own creator is compensating away: the landing's guarded
+ * write lost the CAS race, so nothing landed and the record must not survive as
+ * published history. Keyed by exact identity; only called by the flow that just
+ * created the revision. Its log rows go with it — a later revision REUSES the
+ * freed version number and would otherwise adopt this landing's history.
  */
 export async function deleteRevisionForFailedLanding(
   context: ReqContext | ApiReqContext,

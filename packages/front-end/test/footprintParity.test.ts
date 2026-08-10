@@ -27,12 +27,9 @@ const environments: Environment[] = [
   { id: "production", description: "" },
   // Scoped away from the flag's project — never serves it.
   { id: "edge", description: "", projects: ["prj_other"] },
-  // Applicable to the flag (no project restriction) but the flag is DISABLED there
-  // and no rule or ramp touches it — so no correct answer in this file includes `qa`.
-  // Without it, every environment landed in every answer and "return everything"
-  // coincided with correct: `featurePublishFootprint → all envs` and
-  // `revertFootprint → all envs` both passed. It is the environment that makes
-  // over-answering observable.
+  // Applicable to the flag but DISABLED there with no rule or ramp touching it,
+  // so no correct answer in this file includes `qa` — the environment that
+  // makes over-answering observable.
   { id: "qa", description: "" },
 ];
 const environmentIds = environments.map((e) => e.id);
@@ -54,8 +51,8 @@ const feature = {
       environments: ["production"],
     },
     // Serves an environment the flag is DISABLED in, so it is outside the base
-    // footprint. A ramp aimed here is the only thing that can contribute staging —
-    // which is what makes the ramp term's absence observable rather than masked.
+    // footprint — a ramp aimed here is the only thing that can contribute
+    // staging.
     {
       id: "fr_staging",
       type: "force",
@@ -69,9 +66,9 @@ const feature = {
     dev: { enabled: true, rules: [] },
     staging: { enabled: false, rules: [] },
     production: { enabled: true, rules: [] },
-    // ENABLED on purpose. Without this, `servingEnvironments` dropped `edge` before
-    // the universe filter could matter — so a control spelling its universe as raw
-    // org environments looked correct, which is the bug this fixture exists to catch.
+    // ENABLED on purpose: otherwise `servingEnvironments` drops `edge` before
+    // the universe filter can matter, and a control using raw org environments
+    // as its universe looks correct.
     edge: { enabled: true, rules: [] },
   },
 } as unknown as FeatureInterface;
@@ -109,9 +106,8 @@ describe("control footprint === endpoint footprint", () => {
     ).toEqual(["dev", "edge", "production"]);
   });
 
-  // The TOGGLE term, which had no coverage at all: deleting it from
-  // `featurePublishFootprint` outright survived every case. `revertFootprint`'s own
-  // docstring calls this out as the half historically missed.
+  // The toggle term of `featurePublishFootprint` — the only term that can
+  // contribute `qa`.
   it("feature publish, an environment toggle: exactly the toggled environments", () => {
     expect(
       [
@@ -127,8 +123,7 @@ describe("control footprint === endpoint footprint", () => {
     ).toEqual(["production", "qa"]);
   });
 
-  // Holdout resolution is the ONLY behaviour this wrapper uniquely has, and it was
-  // untested: `holdoutsMap` was always empty and `changes.holdout` never set.
+  // Holdout resolution is the only behaviour this wrapper uniquely has.
   it("feature publish, a holdout move: the holdout's own environments", () => {
     const holdout = {
       id: "hld_1",
@@ -161,8 +156,8 @@ describe("control footprint === endpoint footprint", () => {
     ).toEqual([...environmentIds].sort());
   });
 
-  // The case that was fail-open until this round: ramp actions ride the REVISION,
-  // so the control had no term for them while the endpoint added their reach.
+  // Ramp actions ride the REVISION, so the control needs its own term for them
+  // — the endpoint adds their reach.
   it("feature publish, draft carrying a ramp action with no named environments", () => {
     const rampActions = [
       {
@@ -173,10 +168,8 @@ describe("control footprint === endpoint footprint", () => {
         ],
       },
     ];
-    // Deliberately touches no rules: `{rules: []}` would remove every rule and put
-    // staging in the base footprint on its own, masking the ramp term entirely. That
-    // masking is why my first version of this case passed against the very bug it
-    // was written for.
+    // Deliberately touches no rules: `{rules: []}` would remove every rule and
+    // put staging in the base footprint on its own, masking the ramp term.
     const changes = {};
     const control = getRevisionPublishEnvs({
       liveFeature: feature,
@@ -185,10 +178,9 @@ describe("control footprint === endpoint footprint", () => {
       holdoutsMap: new Map(),
       rampActions: rampActions as never,
     });
-    // HARDCODED, not a second call to `rampActionFootprint`: comparing against it let
-    // "return all" pass. dev and production are what the flag serves; staging comes
-    // from the ramp's target rule, which the flag does NOT serve — so staging present
-    // and edge absent together prove the ramp term ran and stayed narrow.
+    // Hardcoded, not a second call to `rampActionFootprint`. Staging (from the
+    // ramp's target rule) present and edge absent together prove the ramp term
+    // ran and stayed narrow.
     expect([...control].sort()).toEqual([
       "dev",
       "edge",
@@ -197,8 +189,8 @@ describe("control footprint === endpoint footprint", () => {
     ]);
   });
 
-  // The edit-info control. Inline it widened only for a primary-project move, while
-  // the endpoint's metadata diff treats a targeting change as payload-affecting.
+  // The edit-info control: the endpoint's metadata diff treats targeting
+  // changes as payload-affecting, not just a primary-project move.
   it.each([
     ["a project move", { project: "prj_other" }],
     ["a targeting-project change", { targetingProjects: ["prj_extra"] }],
@@ -209,17 +201,15 @@ describe("control footprint === endpoint footprint", () => {
       proposed: { project: feature.project, ...proposed },
       environments,
     });
-    // Hardcoded, and NOT a second call to `featurePublishFootprint`: with no rule
-    // diff its two branches both return `serving`, so `metadataTouchesPayload → false`
-    // passed a comparison against it. Stated by hand, the branch matters.
-    // `edge` is absent because this helper narrows to the flag's APPLICABLE
-    // environments — which is exactly the behaviour a raw-org-envs spelling loses.
+    // Hardcoded, not a second call to `featurePublishFootprint` — with no rule
+    // diff its two branches agree, masking the branch. `edge` is absent because
+    // this helper narrows to the flag's APPLICABLE environments.
     expect([...control].sort()).toEqual(["dev", "production"]);
   });
 
-  // The ENDPOINT's metadata branch, with a rule diff so the two arms diverge. Without
-  // one, `touchesGlobalField ? serving ∪ ∅ : serving` returns the same thing either
-  // way — which is why `metadataTouchesPayload → false` passed every earlier case.
+  // The ENDPOINT's metadata branch, with a rule diff so the two arms diverge —
+  // without one, `touchesGlobalField ? serving ∪ ∅ : serving` returns the same
+  // thing either way.
   it.each([
     [
       "a payload-affecting key widens to serving",
@@ -263,12 +253,9 @@ describe("control footprint === endpoint footprint", () => {
     ).toEqual([]);
   });
 
-  // The universe, which is where the raw-org-envs spelling kept surviving sweeps.
-  //
-  // Only helpers that OWN their narrowing belong here. `getRevisionPublishEnvs` takes
-  // its universe from the caller and both real call sites narrow before calling it
-  // (ReviewAndPublish, RevertModal), so asserting on it would be testing code that
-  // isn't in the function — it gets its own case below instead.
+  // Only helpers that OWN their narrowing belong here. `getRevisionPublishEnvs`
+  // takes its universe from the caller (ReviewAndPublish, RevertModal both
+  // narrow first), so it gets its own contract case below instead.
   it.each([
     [
       "metadata edit",
@@ -290,13 +277,11 @@ describe("control footprint === endpoint footprint", () => {
     },
   );
 
-  // POSITIVELY, because `not.toContain` alone is satisfied by `return []` — and an
-  // empty footprint is the exact failure this helper exists to prevent, since it SKIPS
-  // the environment check rather than narrowing it.
-  //
-  // This is the GENERIC-entity rule (Configs, Constants, Saved Groups): archive
-  // reaches every applicable environment. The fixture is feature-shaped only for
-  // convenience — no feature control calls this helper.
+  // POSITIVELY, because `not.toContain` alone is satisfied by `return []` — and
+  // an empty footprint SKIPS the environment check rather than narrowing it.
+  // This is the GENERIC-entity rule (Configs, Constants, Saved Groups); the
+  // fixture is feature-shaped only for convenience — no feature control calls
+  // this helper.
   it("generic archive answers for every applicable environment", () => {
     expect(
       [...archiveFootprintForControl({ environments, entity: feature })].sort(),
@@ -316,9 +301,8 @@ describe("control footprint === endpoint footprint", () => {
     ).toEqual(["dev", "production"]);
   });
 
-  // The revert footprint, with BOTH union terms actually non-empty. Passing an
-  // already-narrowed universe, no `environmentsEnabled` and no `changedEnvs` made
-  // this tautological — `return [...environmentIds]` satisfied it.
+  // The revert footprint, with BOTH union terms non-empty — with either empty,
+  // `return [...environmentIds]` satisfies the case.
   it("revert answers for serving, re-enabled and rule-changed environments", () => {
     expect(
       [
@@ -330,9 +314,8 @@ describe("control footprint === endpoint footprint", () => {
             environmentsEnabled: { staging: true, edge: true },
           },
           environmentIds: applicableIds,
-          // `qa`, NOT `dev`: dev is already in the serving set, so ["dev"] contributed
-          // nothing and deleting this term entirely survived — the same masking I
-          // removed elsewhere while the comment here claimed both terms were live.
+          // `qa`, NOT `dev`: dev is already in the serving set, so it would
+          // contribute nothing and mask the term.
           changedEnvs: ["qa"],
         }),
       ].sort(),
@@ -357,24 +340,17 @@ describe("control footprint === endpoint footprint", () => {
   });
 });
 
-/**
- * The CANCEL footprint, which is not the publish footprint.
- *
- * Cancelling a pending schedule is judged by the endpoint on the adapter's
- * `canPublishRevision(snapshot)` — the entity's OWN scoped environments, with no
- * destination term and no archive-flip widening. The control originally passed its
- * publish footprint, which carries both, so an env-limited publisher lost the Cancel
- * button for a schedule the endpoint would have let them withdraw.
- *
- * The first fix dropped only the destination term. These pin the axis that was left:
- * a basis mismatch has more than one, and closing one reads as closing the finding.
- *
- * WHAT THESE DO NOT COVER: the page wiring. They hold the shared helpers to the
- * right answers, but nothing here asserts that `[cfgid]`/`[cid]`/`[sgid]` actually
- * pass THAT answer into `canPublishEntityCoarse` — those pages have no unit tests, so
- * a revert to the widened footprint stays green. That seam is guarded by comment
- * only. Read these rows as "the helper is right", not "the control uses it".
- */
+// The CANCEL footprint, which is not the publish footprint. Cancelling a
+// pending schedule is judged by the endpoint on the adapter's
+// `canPublishRevision(snapshot)` — the entity's OWN scoped environments, with
+// no destination term and no archive-flip widening; a control passing its
+// publish footprint hides Cancel from an env-limited publisher the endpoint
+// would allow.
+//
+// NOT COVERED: the page wiring. These hold the shared helpers to the right
+// answers, but nothing asserts that `[cfgid]`/`[cid]`/`[sgid]` pass THAT
+// answer into `canPublishEntityCoarse` — those pages have no unit tests. Read
+// these rows as "the helper is right", not "the control uses it".
 describe("the cancel footprint is the entity's own scope, unwidened", () => {
   const scopedConfig = { scopedConfig: { environments: ["dev"] } };
   const baseConfig = {};
@@ -384,9 +360,9 @@ describe("the cancel footprint is the entity's own scope, unwidened", () => {
   });
 
   it("a base Config answers unbound rather than widening to everywhere", () => {
-    // NOT the serve footprint. `archiveFootprintForControl` widens a base Config to
-    // every environment it serves, which is right for archiving and wrong here —
-    // that widening is what kept hiding Cancel from an env-limited publisher.
+    // NOT the serve footprint: `archiveFootprintForControl` widens a base
+    // Config to every environment it serves, which is right for archiving and
+    // wrong here.
     expect(configPublishEnvironments(baseConfig)).toEqual(
       NO_ENVIRONMENT_BINDING,
     );

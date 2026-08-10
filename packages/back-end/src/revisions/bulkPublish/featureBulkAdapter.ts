@@ -171,11 +171,10 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
 
   canUpdate(context, entity) {
     // Coarse destination-project pre-check for a publish that moves projects,
-    // deliberately unbound by environment: the precise per-environment
-    // destination check runs in `collectGates` via
-    // `assertCanPublishFeatureRevision`. Subset-refusing, so it costs an
-    // authorized caller nothing — the precise check demands publish in the
-    // destination too, so nobody is refused here who would have passed there.
+    // deliberately unbound by environment — the precise per-environment
+    // destination check runs in `collectGates`. Subset-refusing: the precise
+    // check demands publish in the destination too, so nobody is refused here
+    // who would have passed there.
     return context.permissions.canPublishFeature(
       entity as unknown as FeatureInterface,
       NO_ENVIRONMENT_BINDING,
@@ -238,12 +237,11 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       // Same blind spot as the single publish: ramp reach is not in any rule diff.
       rampActions: raw.rampActions,
     });
-    // Delegates to the same assertion a single publish makes, so the two cannot
-    // disagree: publish authority over those environments, OR a narrow atom over
-    // a draft that only does what the atom covers — a pure revert under revert, a
-    // pure archive under delete. Checking canPublishFeature alone refused valid
-    // revert-only and delete-only bulk publishes. It also carries the
-    // destination-project check for a move, over the same footprint.
+    // The same assertion a single publish makes, so the two cannot disagree:
+    // publish authority over those environments, OR a narrow atom over a draft
+    // that only does what the atom covers (a pure revert under revert, a pure
+    // archive under delete). Also carries the destination-project check for a
+    // move, over the same footprint.
     if (
       !(await canPublishFeatureRevisionChange({
         context: callerContext,
@@ -263,8 +261,8 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       );
     }
 
-    // Archiving is delete-class wherever the merge lands (it takes the flag out
-    // of service and is what lets it then be deleted freely), so bulk publish
+    // Archiving is delete-class wherever the merge lands — it takes the flag
+    // out of service and is what lets it then be deleted freely.
     if (
       isArchiveTransition({
         proposed: plan.mergeResult?.archived,
@@ -311,10 +309,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     try {
       await assertFeatureNotLockedByRamp(overlayContext, feature.id);
     } catch (e) {
-      // ONLY the lockdown signal becomes a gate. Treating every throw as the lock
-      // turned an infra failure of the schedule read into a bypassable `ramp-locked`
-      // gate, so a bypass-approval caller could publish without establishing whether
-      // an active ramp owns the Feature. Anything else propagates as a 5xx.
+      // ONLY the lockdown signal becomes a gate — the `ramp-locked` gate is
+      // bypassable, so an infra failure of the schedule read must propagate as
+      // a 5xx, not become a publish-without-checking path.
       if (!(e instanceof RampLockdownError)) throw e;
       gates.push(
         makeBlockingGate({
@@ -463,9 +460,8 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       feature,
       raw,
       mergeResult,
-      // Recorded on the desired state BEFORE the rethrow unwinds past the
-      // assignment above, so compensation sees schedules a failed create left
-      // behind instead of them vanishing with the error.
+      // Recorded even when the create throws, so compensation sees schedules
+      // a failed create left behind instead of them vanishing with the error.
       (leaked) => {
         desired.createdRampScheduleIds = [
           ...(desired.createdRampScheduleIds ?? []),
@@ -514,28 +510,20 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
           ),
       );
     } catch (e) {
-      // Decided by the REPORT, not the error class — the last place that had not
-      // adopted the unified signal. `ourWriteStamp` is set only once Mongo confirms
-      // the feature write, so its absence means no doc landed, which also covers a
-      // non-CAS failure before the write that the class check missed. Marked before
-      // the finally below, which would otherwise snapshot a concurrent winner's
-      // satellites as this apply's output.
+      // Decided by the REPORT, not the error class: `ourWriteStamp` is set
+      // only once Mongo confirms the feature write, so its absence means no
+      // doc landed — including a non-CAS failure before the write ever ran.
       if (desired.ourWriteStamp === undefined) revision.casLost = true;
       throw e;
     }
-    // The baseline is now reported by the sync (see the callback above) rather than
-    // re-read in a `finally`. The callback fires the moment the sync finishes, so it
-    // still covers the case that `finally` existed for — a later apply step throwing
-    // after the sync ran — without the read that could not distinguish our writes
-    // from a worker's, and without a read that could itself fail. A rollout with no
-    // reported baseline is still refused by restoreAfterFailedBulkPublish rather
-    // than half-restored.
+    // A rollout with no reported baseline is refused by
+    // restoreAfterFailedBulkPublish rather than half-restored.
 
-    // FENCE before the satellites. The doc write is CAS-guarded, but these three run
-    // after it and were unguarded — so a newer publish landing in between kept its
-    // feature doc while THIS item overwrote its holdout and bandit linkage. Our own
-    // write stamp is the token, exactly as the unwind path uses it; if live has moved
-    // past it, our doc write is already superseded and the whole item is a lost race.
+    // FENCE before the satellites: the doc write is CAS-guarded but these
+    // three run after it, so a newer publish landing in between would keep its
+    // feature doc while THIS item overwrote its holdout and bandit linkage.
+    // Our own write stamp is the token, exactly as the unwind path uses it; if
+    // live has moved past it, the whole item is a lost race.
     if (desired.ourWriteStamp) {
       const live = await getFeature(context, feature.id);
       if (live?.dateUpdated?.getTime() !== desired.ourWriteStamp.getTime()) {
@@ -586,12 +574,11 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         );
       }
 
-      // RE-FENCE. The check before the satellites proves nothing about the moment of
-      // each write, and the unguardable one is exactly the case that needs it. If a
-      // rival took the document while we were writing, our satellite state is stale:
-      // raise the same conflict the guarded writes raise, so the item routes into
-      // compensation — whose reversals are ownership-aware and skip whatever the rival
-      // now owns — instead of leaving the divergence silent and unreported.
+      // RE-FENCE: the check before the satellites proves nothing about the
+      // moment of each write, and the unguardable membership write is exactly
+      // the case that needs it. Raise the same conflict the guarded writes
+      // raise, so the item routes into compensation — whose reversals are
+      // ownership-aware and skip whatever the rival now owns.
       if (desired.ourWriteStamp) {
         const after = await getFeature(context, feature.id);
         if (after?.dateUpdated?.getTime() !== desired.ourWriteStamp.getTime()) {
@@ -600,12 +587,10 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       }
     } catch (e) {
       if (!(e instanceof CasConflictError)) throw e;
-      // NOT `casLost`: that means the guarded doc write was refused and nothing ran,
-      // and `restorePreImage` skips the whole rollback on it. By here the doc write
-      // has landed and satellites may have written, so claiming otherwise would
-      // strand them silently. The ordinary path is already right for both outcomes —
-      // its ownership check leaves the item whole and reported needs-attention when a
-      // rival took the doc, and rewinds normally when it is still ours.
+      // NOT `casLost` — that means nothing ran, and `restorePreImage` skips
+      // the whole rollback on it. By here the doc write landed and satellites
+      // may have written; the ordinary path's ownership checks handle both
+      // outcomes (rival took the doc → leave whole, still ours → rewind).
       throw new LandingConflictError("feature", feature.id);
     }
   },
@@ -665,13 +650,12 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       }
     };
 
-    // OWNERSHIP, decided up front and acted on at the END. A rival owns the DOCUMENT,
-    // not our satellite writes: the doc restore must stand down, but leaving our
-    // holdout, experiment-linkage and bandit writes in place strands stale state on
-    // top of theirs. Each of those reversals is ownership-aware now — they skip
-    // whatever a different owner holds — so running them takes back exactly what is
-    // still ours. That was NOT true when this check was written, which is why it used
-    // to reverse nothing.
+    // OWNERSHIP, decided up front and acted on at the END. A rival owns the
+    // DOCUMENT, not our satellite writes: the doc restore must stand down, but
+    // leaving our holdout, experiment-linkage and bandit writes in place would
+    // strand stale state on top of theirs. Each reversal is ownership-aware —
+    // it skips whatever a different owner holds — so running them takes back
+    // exactly what is still ours.
     const ourStamp = desired.ourWriteStamp;
     const docLostToRival = !!(
       ourStamp &&
@@ -834,11 +818,9 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       });
     }
     // This feature is back at its pre-release state, so the apply's deferred
-    // `feature.updated` describes a value that no longer exists. The generic adapter
-    // records this inside `restoreEntityPreImage`; this adapter restores through its
-    // own path, and without recording here every feature looked durable — so a clean
-    // rollback broadcast the value it had just taken back, with no corrective event
-    // ever following.
+    // `feature.updated` must not fire. The generic adapter records this inside
+    // `restoreEntityPreImage`; this adapter restores through its own path, so
+    // it records here.
     context.bulkPublishRestoredEntities?.add(entityKey("feature", feature.id));
   },
 

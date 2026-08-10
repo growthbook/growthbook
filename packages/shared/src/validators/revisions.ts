@@ -54,15 +54,12 @@ export type RevisionTargetType = (typeof revisionTargetType)[number];
 /**
  * TOP-LEVEL paths only — `/field`, never `/field/subfield`.
  *
- * Two appliers read these ops and they do NOT agree on nested paths. The AUTHORITY
- * side (`applyTopLevelPatchOps`, feeding the footprint `assertCanPublishRevision`
- * narrows on) skips any path with more than one segment; the WRITE side
- * (fast-json-patch) applies them fully. A nested path therefore produced an EMPTY
- * footprint — which skips the environment check rather than narrowing it — while
- * the publish wrote that environment.
- *
- * Constrained here because it is the narrowest place that closes it: every internal
- * writer already emits top-level paths, so nothing legitimate is affected.
+ * Two appliers read these ops and disagree on nested paths: the authority side
+ * (`applyTopLevelPatchOps`, feeding the footprint `assertCanPublishRevision`
+ * narrows on) skips multi-segment paths, while the write side (fast-json-patch)
+ * applies them — so a nested path yields an empty footprint (which skips the
+ * environment check) for a publish that still writes the environment. Every
+ * internal writer already emits top-level paths.
  */
 const topLevelPatchPath = z
   .string()
@@ -124,19 +121,16 @@ export const activityLogEntryValidator = z.object({
     "merged",
     "discarded",
     "reopened",
-    // The author (or an editor) retracted a review request, returning the revision
-    // to draft with its verdicts cleared. Shares `reopened`'s destination status
-    // but not its meaning — the timeline renders it as the feature side's "Recall
-    // Review" — and it starts a new review cycle, so cycle-start scans must
-    // recognize it alongside "review-requested".
+    // Review request retracted, returning the revision to draft with verdicts
+    // cleared. Starts a new review cycle, so cycle-start scans must recognize
+    // it alongside "review-requested".
     "recalled",
     "scheduled-publish",
     "scheduled-publish-updated",
     "scheduled-publish-canceled",
     // An operator re-published a revision whose merge was claimed but whose
-    // entity write never landed. Doubles as the idempotency marker for that
-    // recovery: its presence is what stops a second concurrent retry from
-    // applying and dispatching again.
+    // entity write never landed. Its presence is the idempotency marker: it
+    // stops a second concurrent retry from applying and dispatching again.
     "merge-recovered",
   ]),
   description: z.string().nullish(),
@@ -203,21 +197,16 @@ export const revisionValidator = z.object({
   // `blockSelfApproval`. Optional for backward compatibility.
   contributors: z.array(z.string()).optional(),
   /**
-   * Which review cycle the current verdicts belong to. Bumped by every action that
-   * STARTS a cycle — request review, recall, reopen, approval reset.
-   *
-   * Status alone cannot identify a cycle: recall then resubmit returns the row to
-   * `pending-review`, the same value it held before, so a verdict formed against the
-   * retracted cycle passes every status check and approves the new one — an ABA that
-   * a CAS retry crossing the two writes hits without any user doing anything odd.
+   * Which review cycle the current verdicts belong to; bumped by every action
+   * that STARTS a cycle — request review, recall, reopen, approval reset.
+   * See `enterprise/reviewCycle.ts` for why status alone cannot identify one.
    * Absent on revisions that predate this field; readers treat that as cycle 0.
    */
   reviewCycle: z.number().optional(),
   autoPublishOnApproval: z.boolean().optional(),
   // Who armed `autoPublishOnApproval`; auto-publish runs with their authority.
-  // Nullable, not just optional: callers pass an explicit null to mean "nobody", which
-  // the arming paths translate to `$unset`. Leaving the previous publisher behind let a
-  // later deferred publish run as them.
+  // Nullable: an explicit null means "nobody" (arming paths translate it to
+  // `$unset`) — a leftover publisher lets a later deferred publish run as them.
   autoPublishEnabledBy: z.string().nullable().optional(),
   // ── Scheduled / deferred publish (shape mirrors FeatureRevisionInterface) ──
   // Defers an armed revision's auto-publish until on/after this date (and, if

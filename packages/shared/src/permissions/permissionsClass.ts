@@ -35,9 +35,8 @@ import { ContextualBanditInterface } from "../validators/contextual-bandit";
 import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
 import { HoldoutInterface } from "../validators/holdout";
 import { PermissionError, isEventForwarderEventsFactTable } from "../util/";
-// Imported from the specific module, not the util barrel: the barrel pulls in
-// modules that import back from shared/permissions, and the resulting require
-// cycle intermittently leaves barrel re-exports uninitialized at load time.
+// Specific module, not the util barrel: the barrel imports back from
+// shared/permissions, and the require cycle leaves re-exports uninitialized.
 import {
   getTargetingProjectIds,
   TargetingScopedEntity,
@@ -368,8 +367,6 @@ export class Permissions {
   public canRevisionAction = (
     model: RevisionModel,
     action: RevisionAction,
-    // Pass the entity directly — single-project (`project`) or multi-project
-    // (`projects`) — so callers don't wrap or cast.
     obj: { project?: string; projects?: string[] },
     environments: string[] = [],
   ): boolean => {
@@ -411,10 +408,9 @@ export class Permissions {
   };
 
   // Creating a flag writes live state, so it takes the publish-class create
-  // atom with the environments the new flag is enabled in. Opening the create
-  // UI passes NO_ENVIRONMENT_BINDING — the payload doesn't exist yet, so the
-  // modal gate is "can they create anything here" and the endpoint re-checks
-  // against the real footprint on submit.
+  // atom with the environments the new flag is enabled in. The create UI passes
+  // NO_ENVIRONMENT_BINDING (no payload yet); the endpoint re-checks the real
+  // footprint on submit.
   public canCreateFeature = (
     feature: Pick<FeatureInterface, "project">,
     environments: string[],
@@ -1056,21 +1052,18 @@ export class Permissions {
     });
   };
 
-  // Bypass the review requirement on a Feature Flag, Config or Constant. Saved
-  // groups have their own atom — see canBypassSavedGroupApprovalChecks.
   /**
-   * Bypass the review requirement on a flag-family entity. `model` names which
-   * one: atoms are per entity, so a Config unlock must consult the Config atom,
-   * not the Feature one.
+   * Bypass the review requirement on a Feature Flag, Config, or Constant.
+   * Atoms are per entity, so a Config unlock must consult the Config atom, not
+   * the Feature one. Saved Groups: see canBypassSavedGroupApprovalChecks.
    */
   public canBypassFlagApprovalChecks = (
     obj: {
       project?: string;
       projects?: string[];
     },
-    // Required, no default. A default of "feature" let Config and Constant call
-    // sites silently consult the wrong entity's bypass atom — a Feature-only role
-    // bypassing safeguards elsewhere, and a valid Config-only role refused.
+    // No default: defaulting to "feature" would let Config/Constant call sites
+    // silently consult the wrong entity's bypass atom.
     model: Extract<RevisionModel, "feature" | "config" | "constant">,
   ): boolean => {
     return this.canRevisionAction(model, "bypass", obj);
@@ -1489,12 +1482,9 @@ export class Permissions {
   };
 
   /**
-   * Unbound because a Constant is PARTITIONED by environment only through
-   * `environmentValues`, and a new one declares none — not because it has no
-   * consumers. It can have them immediately: a feature may already embed a
-   * `@const:` ref to a key that doesn't exist yet, and nothing rejects one.
-   * Same rule `canUpdateConstant`/`canDeleteConstant` apply. See
-   * `constantPublishEnvironments` for why reach isn't a footprint.
+   * Unbound for the same reason as `canCreateConfig`: a Constant is partitioned
+   * by environment only through `environmentValues`, and a new one declares
+   * none. See `constantPublishEnvironments` for why reach isn't a footprint.
    */
   public canCreateConstant = (
     constant: Pick<ConstantInterface, "project">,
@@ -1522,12 +1512,9 @@ export class Permissions {
   /**
    * Unbound because a Config is PARTITIONED by environment only through its
    * `scopedConfig` marker, which a new base Config has none of — not because it
-   * has no consumers. It can have them the moment it exists: `ConfigModel`'s
-   * `afterCreate` refreshes SDK payloads precisely because a feature may already
-   * embed a `@config:` ref to a key that doesn't exist yet, and
-   * `configValidation` skips rather than rejects such a ref. Same rule
-   * `canUpdateConfig`/`canDeleteConfig` apply to a base Config. See
-   * `configPublishEnvironments` for why reach isn't a footprint.
+   * has no consumers: a feature may already embed a `@config:` ref to a key
+   * that doesn't exist yet. See `configPublishEnvironments` for why reach
+   * isn't a footprint.
    */
   public canCreateConfig = (
     config: Pick<ConfigInterface, "project">,

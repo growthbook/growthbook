@@ -391,10 +391,9 @@ export const postConstantRevisionRequestReviewValidator = {
   bodySchema: z
     .object({
       autoPublishOnApproval: z.boolean().optional(),
-      // Arming captures the entity's guard acknowledgments and throws asking for
-      // these when the draft conflicts with live — a strict body without them
-      // rejects the very retry the 422 instructs the caller to send. Config
-      // already carried the full set.
+      // Arming captures guard acknowledgments and 422s asking for these when
+      // the draft conflicts with live — a strict body without them rejects the
+      // retry that 422 instructs the caller to send.
       ...publishOverrideBodyFields,
     })
     .strict(),
@@ -489,10 +488,8 @@ export const putConstantRevisionArchiveValidator = {
     .object({
       ...newDraftMetadataFields,
       archived: z.boolean(),
-      // The archive-dependents guard soft-warns on a still-referenced entity and
-      // asks for an acknowledgment; a strict body without these rejected it, so a
-      // referenced one could never be archived through this endpoint. Config and
-      // Feature Flags already carried it.
+      // The archive-dependents guard soft-warns on a still-referenced entity
+      // and asks for an acknowledgment; a strict body must accept that retry.
       ...publishOverrideBodyFields,
     })
     .strict(),
@@ -501,10 +498,8 @@ export const putConstantRevisionArchiveValidator = {
 };
 
 // ---- Revision lifecycle: recall / reopen / schedule / undo-review ----
-//
-// The same four verbs Configs and Feature Flags expose, on the same rules — the
-// handlers all delegate to `revisionLifecycle`. They were missing here, so an API
-// consumer could withdraw a review request on a Config and not on a Constant.
+// The same four verbs Configs and Feature Flags expose, on the same rules —
+// the handlers all delegate to `revisionLifecycle`.
 
 export const postConstantRevisionSchedulePublishValidator = {
   method: "post" as const,
@@ -517,11 +512,8 @@ export const postConstantRevisionSchedulePublishValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      // Validated RFC3339 rather than a bare `z.string()`, which documented no
-      // `format: date-time` and let `new Date()`'s lenient parsing accept things
-      // no client should be sending. Numeric offsets ARE accepted: this endpoint
-      // shipped taking any string, so rejecting `…-07:00` — valid RFC3339, and
-      // what an offset-preserving serializer emits — would 400 existing callers.
+      // Validated RFC3339, with numeric offsets accepted: this endpoint shipped
+      // taking any string, so rejecting `…-07:00` would 400 existing callers.
       scheduledPublishAt: z
         .union([z.iso.datetime({ offset: true }), z.null()])
         .describe(

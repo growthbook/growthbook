@@ -12,8 +12,7 @@ export const POLICIES = [
   "FlagsDelete",
   "FlagsBypassApprovals",
   "ArchetypesFullAccess",
-  // Deprecated: merged into the Flags family. Kept resolvable for back-compat
-  // and hidden from the role editor; they resolve through the map below.
+  // Deprecated — see DEPRECATED_POLICIES.
   "FeaturesFullAccess",
   "FeaturesBypassApprovals",
   "ConstantsFullAccess",
@@ -73,19 +72,14 @@ export const POLICIES = [
 
 export type Policy = (typeof POLICIES)[number];
 
-// Policies retained only for back-compat after the Flags merge. They still
-// resolve (mapped to the merged Flags atoms in POLICY_PERMISSION_MAP) so
-// existing stored custom roles keep their exact access, but they are hidden
-// from the role editor (excluded from POLICY_DISPLAY_GROUPS) and must not be
-// offered for new selection.
+// Superseded by the Flags/SavedGroups families. Still resolvable in
+// POLICY_PERMISSION_MAP so stored custom roles keep their exact access, but
+// hidden from the role editor and not offered for new selection.
 export const DEPRECATED_POLICIES: Policy[] = [
-  // Superseded by BypassSavedGroupSizeLimit, which grants only the bypass atom.
-  // Stays resolvable as a superset: stored roles may rely on it for saved-group
+  // Superseded by BypassSavedGroupSizeLimit, which grants only the bypass atom;
+  // this one stays a superset since stored roles may rely on it for saved-group
   // management on its own.
   "SavedGroupsBypassSizeLimit",
-  // Everything it granted is now expressed by the Feature Flags family plus
-  // ExperimentsPublish, so it's hidden from the editor. Stays resolvable, since
-  // stored roles rely on it for publish authority.
   "SDKPayloadPublish",
   "FeaturesFullAccess",
   "FeaturesBypassApprovals",
@@ -229,21 +223,13 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   IdeasFullAccess: ["readData", "createIdeas"],
   PresentationsFullAccess: ["readData", "createPresentations"],
   ExperimentsPublish: ["readData", "runExperiments"],
-  // Deprecated. Mapped to exactly what it granted before the split — no revert:
-  // main had no revert atom, and its revert endpoints demanded `manageFeatures`,
-  // which this policy never carried. "Revert is a narrower publish" is true in
-  // the abstract but would hand a deployment-only legacy role authority it never
-  // had.
-  //
-  // Consequence, reviewed and accepted: a role holding this AND
-  // FeaturesFullAccess could revert on main and no longer can. Policies grant
-  // independently, so the only way to keep it is to put the revert atom on one
-  // of them, which hands that policy alone authority it never had —
-  // under-granting fails closed and an admin can add FlagsRevert. Pinned by
-  // "does not let the deployment-only legacy role revert" in
-  // shared/test/granular-flag-permissions.test.ts, whose BASELINE table carries
-  // the full reasoning. Standard roles are unaffected (they carry
-  // FlagsFullAccess).
+  // Deprecated. Mapped to exactly what it granted before the split — no revert
+  // atom: legacy revert endpoints demanded `manageFeatures`, which this policy
+  // never carried, so adding revert would hand a deployment-only legacy role
+  // authority it never had. Accepted cost: a role holding this AND
+  // FeaturesFullAccess loses revert on upgrade — under-granting fails closed
+  // and an admin can add FlagsRevert. Pinned in
+  // shared/test/granular-flag-permissions.test.ts.
   SDKPayloadPublish: ["readData", "publishFeatures", "runExperiments"],
   SDKConnectionsFullAccess: [
     "readData",

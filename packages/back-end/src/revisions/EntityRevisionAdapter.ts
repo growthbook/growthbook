@@ -96,10 +96,7 @@ export type ApplyChangesResult = {
   /**
    * Writes the apply made to OTHER entities on this landing's behalf — a Config's
    * descendant cascade — each with its own pre-image. Compensation restores these
-   * AFTER the root: ancestor normalization is unconditional on a revert, so a
-   * descendant restored while the root still declares the field is stripped straight
-   * back, reporting success. Re-running the cascade cannot undo it either, which is
-   * why the pre-images are recorded rather than recomputed.
+   * AFTER the root; see `compensateFailedLanding` for the ordering rationale.
    */
   cascade?: {
     before: Record<string, unknown> & { id: string };
@@ -172,7 +169,7 @@ export interface EntityRevisionAdapter<
   // Returns a tagged reach, never a bare list: `{scope:"environments"}` narrows,
   // `{scope:"unscoped"}` says the change has no environment dimension, and
   // `{scope:"everywhere"}` says it reaches all served environments without naming
-  // them. Spelling the last two the same way — as an empty list — is what let an
+  // them. Spelling the last two the same way — as an empty list — would let an
   // archive flip pass every environment check vacuously.
   publishFootprint?(
     context: Context,
@@ -279,10 +276,9 @@ export interface EntityRevisionAdapter<
 
   // Non-throwing view of the same guards the sequential asserts enforce, so a blocked
   // REST publish reports EVERY gate — and the flag that clears it — in one 422 rather
-  // than one per round trip. Gates the caller's authority or request disposition already
-  // clears are omitted, matching the asserts' synchronous override —
-  // but the overridden conflicts must still be logged, matching the asserts'
-  // override logging. On the REST publish path this plus the handler's
+  // than one per round trip. Gates the caller's authority or request disposition
+  // already clears are omitted, but the overridden conflicts must still be logged —
+  // both matching the asserts. On the REST publish path this plus the handler's
   // evaluatePublishGates IS the guard enforcement; deferred/internal paths keep
   // their asserts.
   collectPublishGates?(

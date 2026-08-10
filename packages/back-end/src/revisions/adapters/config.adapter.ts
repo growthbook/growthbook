@@ -109,8 +109,7 @@ function canBypassApprovalForConfig(
 }
 
 // Every remaining consumer of canCreate/canUpdate lands a change on the live
-// entity — the destination-project check on a publish that moves projects, and
-// the bulk publisher's move guard — so both are publish-class.
+// entity, so both are publish-class.
 function canEditConfig(context: Context, snapshot: ConfigInterface): boolean {
   return context.permissions.canRevisionAction(
     "config",
@@ -161,12 +160,9 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     return UPDATABLE_FIELDS;
   },
 
-  // A Config binds to the environments its scoped overrides name. Without this
-  // the generic publish engine had no footprint for Configs and fell back to an
-  // empty list, which passes every environment check vacuously — so a
-  // delete-only role could archive a production-scoped Config, and a
-  // dev-limited publisher could publish one, through the draft path. The
-  // controllers already gate on exactly this list.
+  // A Config binds to the environments its scoped overrides name — the same
+  // list the controllers gate on. An empty footprint would pass every
+  // environment check vacuously, so never report one for a scoped Config.
   publishFootprint(
     context: Context,
     snapshot: ConfigInterface,
@@ -207,14 +203,10 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     envsOf: (context, snapshot) => configPublishEnvironments(context, snapshot),
   }),
 
-  // Overrides the factory's env scoping, exactly as the Constant twin does.
-  // `canDeleteEntity` is consumed by `canAdvanceRevision` alone — whether a narrow
-  // atom may SUBMIT a pure-archive draft for review — and staging changes nothing
-  // live, so it is a project-scoped question. Scoped to serving environments, an
-  // archive-capable role limited to one environment could not even propose the
-  // archive, while the LANDING is still env-scoped — `publishFootprint` reports
-  // `everywhere` for an archive flip. That split is the point: propose in the project,
-  // publish across the environments it actually takes out of service.
+  // Overrides the factory's env scoping (same as the Constant twin). This only
+  // gates SUBMITTING a pure-archive draft (via canAdvanceRevision), which
+  // changes nothing live, so it is project-scoped; the landing stays
+  // env-scoped — `publishFootprint` reports `everywhere` for an archive flip.
   canDeleteEntity(context: Context, snapshot: ConfigInterface): boolean {
     return context.permissions.canRevisionAction(
       "config",
@@ -303,10 +295,8 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     );
 
     if (Object.keys(filteredChanges).length === 0) {
-      // REPORTED, not just returned: `null` means "ran and wrote nothing",
-      // which compensation must be able to tell apart from "never reported".
-      // Without this the two collapse into `undefined` and a no-op apply is
-      // indistinguishable from a failure that left state behind.
+      // Report even the no-op: `written: null` means "ran and wrote nothing",
+      // which compensation must distinguish from "never reported".
       const nothing = { persistedKeys: [] as string[], written: null };
       options?.onPersisted?.(nothing);
       return nothing;
@@ -403,18 +393,14 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     const writeEntity = options?.guarded
       ? context.models.configs.updateIfUnchanged.bind(context.models.configs)
       : context.models.configs.update.bind(context.models.configs);
-    // ONE result object, reported from inside the write and then filled in as the
-    // landing proceeds. The caller holds this exact reference, so cascade entries
-    // recorded after the report still reach compensation even though the return
-    // value never arrives when a later step throws.
+    // One mutable result object, reported from INSIDE the write — before audit
+    // logging and the afterUpdate hooks, where a throw is already a persisted
+    // change. The caller holds this exact reference, so cascade entries
+    // recorded after the report still reach compensation when a later step
+    // throws and the return value never arrives.
     //
-    // Reported from INSIDE the write, before audit logging and the afterUpdate
-    // hooks: those run after the document has landed, so a throw there is a
-    // persisted change. Reporting after the call RETURNED could not tell that from
-    // "never wrote", and compensation read the second as the first.
-    //
-    // Only the normalized set was persisted on THIS config — a field stripped as
-    // ancestor-owned was never written, so it must not be rolled back.
+    // persistedKeys is the normalized set: a field stripped as ancestor-owned
+    // was never written, so it must not be rolled back.
     const applied: ApplyChangesResult = {
       persistedKeys: Object.keys(normalizedChanges),
       written: null,
@@ -434,10 +420,9 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     // The re-read the write returns, for callers that use the result directly.
     applied.written = written as Record<string, unknown>;
 
-    // Cascade the change down to descendants when the schema or lineage changed.
-    // Each descendant write is recorded on the SAME object the report already
-    // handed the caller, so a cascade failure is compensable even though the
-    // return value never arrives.
+    // Cascade the change down to descendants when the schema or lineage
+    // changed. Each write is recorded on the already-reported object, so a
+    // cascade failure is still compensable.
     if (touchesLineageOrSchema) {
       await reconcileConfigDescendants(context, entity.key, (w) =>
         applied.cascade?.push({
@@ -454,11 +439,9 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
   },
 
   async afterRestorePreImage(context, entity, restoredKeys) {
-    // A restore that put back schema or lineage must bring descendants back in
-    // line with the restored root — the failed cascade may have reconciled them
-    // against the value that was just rolled back. Idempotent, so re-running is
-    // safe; keys that never made it into the restore need nothing (either the
-    // cascade never ran, or a rival owns the root and its own apply reconciled).
+    // A restore that put back schema or lineage must re-reconcile descendants —
+    // the failed cascade may have normalized them against the rolled-back
+    // value. Idempotent, so re-running is safe.
     if (
       restoredKeys.some(
         (k) => k === "schema" || k === "parent" || k === "extends",

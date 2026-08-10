@@ -169,10 +169,9 @@ const CASES: Case[] = [
       api.post(`/api/v2/features/${FEATURE_ID}`, { description: "hello" }),
   },
   {
-    // The critical this round's engine gate closed: environment flips ride the
-    // v2 update BODY separately from the gated field list, so the handler's own
-    // publish check never saw them — a draft-only key could flip production.
-    // The landing gate now derives its footprint from the merge result itself.
+    // Environment flips ride the v2 update BODY separately from the gated field
+    // list, so a handler-level publish check never sees them — the landing gate
+    // must derive its footprint from the merge result itself.
     name: "toggle an environment via the update body (v2)",
     // Direct-update semantics, same as "land a change directly": the update
     // body authors content AND lands it, so it takes both atoms — publish
@@ -240,8 +239,7 @@ const CASES: Case[] = [
   },
   {
     // ...and may NOT destroy it: discarding is draft authority or authorship,
-    // whatever the draft contains. This is the row that was missing when the
-    // narrowing landed on the generic revision system and not on this one.
+    // whatever the draft contains.
     name: "discard an archive-only draft",
     allowed: ["drafter", "editor", "full"],
     setup: seedArchiveDraft,
@@ -281,8 +279,7 @@ describe("permission matrix — Feature Flags", () => {
     });
 
     // The same case as a twin restricted to `dev`. Without this dimension an
-    // environment-scoped atom is only ever asked the project question, which is
-    // how three footprint bugs reached CI unnoticed.
+    // environment-scoped atom is only ever asked the project question.
     it.each(PERSONA_IDS)("%s, limited to dev", async (persona) => {
       const version = setup ? await setup() : 0;
       as(persona, true);

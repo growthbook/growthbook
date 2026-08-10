@@ -41,9 +41,9 @@ import { reverseHoldoutExperimentLinkage } from "back-end/src/models/FeatureMode
 /**
  * The rewind's ownership rule.
  *
- * Converging to the pre-image unconditionally erased a teammate who had moved the
- * experiment while we were in flight. The scalar now skips an experiment a different
- * owner holds — and the MEMBERSHIP arrays have to follow the same decision, or
+ * Converging to the pre-image unconditionally would erase a teammate who moved
+ * the experiment while we were in flight. The scalar skips an experiment a
+ * different owner holds — and the MEMBERSHIP arrays have to follow the same decision, or
  * `linkedExperiments` and `holdoutId` end up disagreeing and a later publish reads the
  * live scalar as its expectation, matches, and quietly pulls the experiment out of
  * their holdout.
@@ -127,8 +127,8 @@ describe("reverseHoldoutExperimentLinkage", () => {
     expect(removed).toEqual([{ holdoutId: "hld_1", ids: ["exp_E"] }]);
   });
 
-  // The toUnlink half specifically: dropping only THIS filter left the suite green,
-  // so the two directions need their own cases.
+  // The toUnlink half specifically: the two directions filter independently, so
+  // each needs its own case.
   it("leaves an unlinked experiment alone when a different owner holds it", async () => {
     experiments.set("exp_E", { id: "exp_E", holdoutId: "hld_OTHER" });
     await reverseHoldoutExperimentLinkage(makeContext(), {

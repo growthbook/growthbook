@@ -57,15 +57,10 @@ import { configPublishEnvironments } from "back-end/src/revisions/revisionPublis
 import { resolveConfigSchemaSource } from "./validations";
 
 /**
- * Put scoped overrides back after a combined request fails downstream of them.
- *
- * Only while they still hold what we wrote: a third request that has since changed
- * them owns them now, and converging to our pre-image would undo it.
- *
- * Read-then-compare is not enough — that is the same check-then-act the forward
- * commit guards against, and a request landing between the read and the write would
- * be erased by the rollback. The comparison is the early exit; the GUARD on `live` is
- * what makes it safe, refusing the write if anything at all has moved since this read.
+ * Put scoped overrides back after a combined request fails downstream of them —
+ * but only while they still hold what we wrote; a third request that changed
+ * them since owns them now. The compare is just the early exit: the CAS guard
+ * on `live` is what makes the write safe.
  */
 async function revertScopedOverridesTo(
   context: ApiReqContext,
@@ -85,12 +80,9 @@ async function revertScopedOverridesTo(
     );
   } catch (e) {
     if (!(e instanceof CasConflictError)) throw e;
-    // A lost race is not automatically "someone else owns the overrides". The
-    // concurrent write may have touched an unrelated field and left OUR overrides
-    // exactly as this request wrote them — in which case swallowing the conflict
-    // leaves a rejected request's overrides live. Re-read and retry against the new
-    // state; only give up once the overrides themselves have moved, which is the
-    // case that really belongs to someone else.
+    // A lost race may have touched only unrelated fields, leaving OUR
+    // overrides live. Re-read and retry; give up only once the overrides
+    // themselves have moved to another owner.
     for (let attempt = 0; attempt < 3; attempt++) {
       const fresh = await context.models.configs.getById(config.id);
       if (!fresh) return;
@@ -286,10 +278,9 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     // revision flow (matches the internal PUT /configs/:id/scoped-overrides).
     // Validate now, but DEFER the write until the rest of the request has
     // passed its gates, so a later rejection doesn't leave a half-applied mix.
-    // `onWritten` fires the instant the overrides are durable and hands back the
-    // undo for them. Callers install it there rather than on the commit's RETURN:
-    // marker synchronisation is a second write that runs after the first and can
-    // fail on its own, and a return-installed rollback did not exist yet when it did.
+    // `onWritten` fires the instant the overrides are durable and hands back
+    // their undo — installed there rather than on the commit's return because
+    // the marker sync is a second write that can fail before the return.
     let commitScopedOverrides:
       | ((
           onWritten: (revert: () => Promise<void>) => void,
@@ -300,15 +291,12 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       !isEqual(req.body.scopedOverrides, config.scopedOverrides ?? [])
     ) {
       const nextOverrides = req.body.scopedOverrides;
-      // Which flavors resolve per environment is a served value, so this takes
-      // publish authority, like the internal setConfigScopedOverrides twin. The
-      // value path checks it too, but an overrides-only request short-circuits
-      // before reaching it.
-      //
-      // Measured over the CURRENT AND PROPOSED entries, not the Config's own scope: a
-      // base Config declares none, so `configPublishEnvironments` returned an empty
-      // footprint and a dev-limited publisher could add a production override that
-      // changes the production payload immediately.
+      // Served behavior, so this takes publish authority (like the internal
+      // setConfigScopedOverrides twin); an overrides-only request
+      // short-circuits before the value path's check. Measured over the
+      // current AND proposed entries, not the Config's own scope — a base
+      // Config declares none, and an empty footprint would let a dev-limited
+      // publisher add a production override.
       if (
         !req.context.permissions.canRevisionAction(
           "config",
@@ -569,10 +557,9 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       // publish path. No `revision` arg: this is a bypass/direct write with no
       // review cycle.
       //
-      // `skipHooks`: the custom hooks run ONCE, below, after every authorization.
-      // Running them here executed customer sandbox code before the move-destination
-      // and approval-bypass checks — and then again later, so a value-bearing update
-      // invoked them twice.
+      // `skipHooks`: the custom hooks run once, below, after every
+      // authorization — running them here would execute customer sandbox code
+      // before the move-destination and approval-bypass checks.
       await assertConfigValueValidForPublish(
         req.context,
         {
@@ -635,10 +622,8 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         } as unknown as Revision)
       : adapter.isApprovalRequired(req.context);
 
-    // A direct update that skips a live approval requirement is a bypassed gate, and
-    // the contract says a successful publish names the ones it skipped. This route
-    // enforces approval on its own rather than through the gate pipeline, so it has
-    // to report the outcome itself.
+    // A successful publish must name the gates it skipped; this route enforces
+    // approval outside the gate pipeline, so it reports the outcome itself.
     const bypassedGates: BypassedGate[] = [];
     if (approvalRequired) {
       if (!bypassApproval) {
@@ -669,12 +654,8 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
 
     // Customer validateConfig hooks gate updates too (matching the feature
     // analog and the create path); `original` carries the stored state so
-    // incremental hooks can diff.
-    //
-    // AFTER EVERY authorization — the source publish check, the move-destination
-    // check, and the approval bypass. Hooks execute customer sandbox code, so running
-    // them before any of those let an unauthorized request drive that execution and
-    // observe its outcome.
+    // incremental hooks can diff. Runs after every authorization: hooks execute
+    // customer sandbox code, which an unauthorized request must not drive.
     await runValidateConfigHooks({
       context: req.context,
       config: {
@@ -699,24 +680,17 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       },
     });
 
-    // Scoped overrides commit BEFORE the landing. They were validated and
-    // authorized up front, stand alone as user intent (their own endpoint writes
-    // them independently), and committing them after the publish meant a failure
-    // here returned an error while the publish had already committed — and built
-    // marker syncs from the pre-publish doc. A landing that then loses its race
-    // leaves them applied, which a retry completes.
+    // Scoped overrides commit BEFORE the landing: they stand alone as user
+    // intent (their own endpoint writes them independently), and a landing
+    // that then loses its race leaves them applied for a retry to complete.
     //
     // The landing's pre-image is the doc the commit RETURNED — not a re-read.
-    // The commit advances the config's token (so the earlier read would lose to
-    // our own write), and a re-read could observe a THIRD request's overrides
-    // landing in between: this request's value would then publish on top of
-    // someone else's overrides while both callers report success. Chaining the
-    // landing to our own write's token makes any interleaver a clean 409.
+    // The commit advances the config's token, and a re-read could observe a
+    // third request's overrides landing in between; chaining to our own
+    // write's token makes any interleaver a clean 409.
     let landingConfig = config;
-    // Set when the overrides were committed, so a landing failure can put them back.
-    // They must be written FIRST — the landing's pre-image is the doc this commit
-    // RETURNS, since the commit advances the Config's token — so the only way to keep
-    // a combined request all-or-nothing is to undo them on the way out.
+    // Set when the overrides were committed, so a landing failure can put them
+    // back.
     let revertScopedOverrides: (() => Promise<void>) | null = null;
 
     // Descendant writes the cascade makes on this landing's behalf; restored
@@ -727,10 +701,10 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       written: Record<string, unknown>;
     }[] = [];
 
-    // Everything from the overrides commit to the end of the landing runs under one
-    // compensation path. Scoping it to the landing alone left two steps that could
-    // fail with the overrides already durable and nothing to put them back: the
-    // commit's own marker sync, and `ensureLiveRevisionExists`.
+    // Everything from the overrides commit to the end of the landing runs
+    // under one compensation path — the commit's marker sync and
+    // `ensureLiveRevisionExists` can each fail with the overrides already
+    // durable.
     const landed = await (async () => {
       if (commitScopedOverrides) {
         landingConfig = {
@@ -762,21 +736,17 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         patchOps,
         // Marks a skipped approval requirement; an org without one skips nothing.
         bypass: approvalRequired,
-        // The root write and the descendant cascade are two steps, so a failure
-        // in the second one has a partial change to put back. Descendants the
-        // failed cascade already reconciled are re-run by the config adapter's
-        // afterRestorePreImage, invoked from the shared restore.
+        // The root write and the descendant cascade are two steps, so a
+        // failure in the second has a partial change to put back; the
+        // adapter's afterRestorePreImage re-reconciles descendants.
         changes: fieldsToUpdate as Record<string, unknown>,
         cascade: () => cascadeWrites,
         write: async (report) => {
-          // Guarded on the SAME pre-image the landing was re-based onto: the
+          // Guarded on the pre-image the landing was re-based onto — the
           // overrides commit advanced the config's token, so guarding on the
-          // earlier read loses to our own write — overrides committed, value 409.
-          //
-          // Reports from INSIDE the write, before audit and the afterUpdate hooks.
-          // This is the case the report callback exists for: the root write lands,
-          // the cascade below throws, and without the report compensation reads
-          // "nothing persisted" and leaves the root change live and un-restored.
+          // earlier read loses to our own write. Reports from INSIDE the
+          // write, before audit and the afterUpdate hooks, so a cascade
+          // failure below still sees the root write as persisted.
           const written = await runGuardedWrite("config", config.id, () =>
             req.context.models.configs.updateIfUnchanged(
               landingConfig,
@@ -808,9 +778,8 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         },
       });
     })().catch((e) =>
-      // The overrides were committed before this landing (its pre-image is what that
-      // commit returned), so a failure anywhere in here would otherwise leave a
-      // combined request half-applied: overrides live, value not.
+      // A failure anywhere in here would otherwise leave the committed
+      // overrides live with the value unpublished.
       rollbackScopedOverridesOnFailure(config.id, revertScopedOverrides, e),
     );
     const { merged, result: updated } = landed;
@@ -830,9 +799,6 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         e,
         `Config ${config.id} published but its experiment-guard change failed to apply`,
       );
-      // Not an error status: an error would read as a failed request when the
-      // publish COMMITTED. The response succeeds with the published state and
-      // says exactly which part still needs doing.
       postPublishWarnings.push(
         "The value was published, but the experiment-guard change could not be applied. Retry the guard change on its own.",
       );

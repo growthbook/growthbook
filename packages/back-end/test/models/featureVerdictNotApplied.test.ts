@@ -11,19 +11,14 @@ import { setupApp } from "../api/api.setup";
 /**
  * When a verdict does not persist, the caller has to be told.
  *
- * Both halves of `submitReviewAndComments` already refuse correctly when a
- * concurrent recall/discard/publish moves the revision out of the review cycle —
- * step 1's filter won't match, and step 2's CAS returns null rather than
- * resurrecting `pending-review` over their `draft`. Neither refusal reached the
- * caller: the endpoint went on to write the review log, dispatch the review
- * webhooks, consider auto-publishing, and answer 200 for a verdict that is not in
- * the document.
+ * Both halves of `submitReviewAndComments` refuse correctly when a concurrent
+ * recall/discard/publish moves the revision out of the review cycle. A refusal
+ * that never reaches the caller still writes the review log, dispatches
+ * webhooks, considers auto-publishing, and answers 200 for a verdict that is not
+ * in the document — worse than a plain lost write.
  *
- * That is worse than a plain lost write. A reviewer sees "approved", a webhook
- * consumer records an approval, and the revision they are looking at has neither.
- *
- * `applied` is the signal. These pin it at the model, where the refusal is decided;
- * the three call sites turn it into an error.
+ * `applied` is the signal. These pin it at the model, where the refusal is
+ * decided; the three call sites turn it into an error.
  */
 
 const ORG_ID = "org_verdict_applied";

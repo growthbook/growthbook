@@ -13,14 +13,11 @@ import { setupApp } from "../api/api.setup";
  * nobody re-confirmed, carrying the arm-time acknowledgment fingerprint of content
  * that has since changed.
  *
- * It used to take two writes, because `this.update` was believed unable to `$unset`.
- * It can: `_updateOne` translates an explicitly-undefined field before the driver
- * sees it. The second write was a second race, and it needed its own guard to avoid
- * erasing a schedule armed between the two.
+ * One write, not two: a separate clear is a second race, needing its own guard
+ * against erasing a schedule armed between the writes.
  *
- * These pin the OUTCOME (fields gone from the stored document), not the mechanism, so
- * the test survives another change of approach — but it fails immediately if the
- * clearing stops happening, which nothing else in the suite noticed.
+ * These pin the OUTCOME (fields gone from the stored document), not the
+ * mechanism, so the test survives another change of approach.
  */
 
 const ORG_ID = "org_recall_schedule";

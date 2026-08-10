@@ -213,11 +213,10 @@ export class ConstantModel extends BaseClass {
 
   protected async afterCreate(doc: ConstantInterface) {
     this.invalidateAllSnapshot();
-    // A new constant can satisfy a `@const:` ref a feature already embeds, so
-    // refresh the SDK payload — the same reason `ConfigModel.afterCreate` does.
-    // Deleting a constant deliberately leaves its references unresolved (see
-    // `afterDelete`), so re-creating the key is an ordinary way back into this,
-    // not just an imported dangling ref. No-ops when nothing references the key.
+    // A new constant can satisfy a `@const:` ref a feature already embeds
+    // (deletes leave refs unresolved, so re-creating a key is ordinary), so
+    // refresh the SDK payload — same as `ConfigModel.afterCreate`. No-ops when
+    // nothing references the key.
     resolvableValueChanged(this.context, "updated", "constant", doc.key).catch(
       (e) => {
         this.context.logger.error(
@@ -325,12 +324,9 @@ export class ConstantModel extends BaseClass {
     }
   }
   /**
-   * Project scope only, for the ids given — what a read check consults.
-   *
-   * Revision listings ask this for every target in a filtered scan, so the
-   * heavy value fields are projected OUT (a Saved Group's `values` can be
-   * enormous; the read check only consults project scope).
-   * Read-filtered like any other find, so what comes back is what may be read.
+   * Project scope only, for the given ids, with heavy value fields projected
+   * out; read-filtered like any other find. Same contract as
+   * SavedGroupModel.getReadScopesByIds.
    */
   public async getReadScopesByIds(ids: string[]) {
     if (!ids.length) return [];

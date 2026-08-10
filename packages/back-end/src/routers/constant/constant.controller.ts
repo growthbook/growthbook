@@ -276,14 +276,13 @@ export const putConstant = async (
   const revisionId = req.query.revisionId;
   let comparisonBase: ConstantInterface = existing;
   if (revisionId) {
-    const // Live basis, matching the WRITE.
-      targetRevision =
-        await context.models.revisions.getByIdReadable(revisionId);
+    const targetRevision =
+      await context.models.revisions.getByIdReadable(revisionId);
     // Writing `archived` into a PINNED revision is a write into someone
-    // else's draft: it makes that draft delete-class, and its author — a
-    // publisher without delete — can then no longer publish their own work.
-    // `archiveOnlyRequest` above inspects only the BODY, and `revisionId` is
-    // a QUERY param, so the delete-atom exemption passed straight through.
+    // else's draft: it makes that draft delete-class, so its author — a
+    // publisher without delete — could no longer publish their own work.
+    // `archiveOnlyRequest` inspects only the body, so it does not cover
+    // this query-param path.
     if (
       targetRevision &&
       typeof archived === "boolean" &&
@@ -433,8 +432,7 @@ export const putConstant = async (
   const bypassApproval = req.query.bypassApproval === "1";
   const autoPublish = req.query.autoPublish === "1";
   const title = req.query.title;
-  // The shared RevertModal renders "Add a Comment (optional)" and sends it for all
-  // three entities; only Saved Groups read it, so it was silently discarded here.
+  // Sent by the shared RevertModal for all three entities.
   const comment = req.query.comment;
 
   // If no draft-intent flag was provided we treat the request as an implicit
@@ -661,12 +659,9 @@ export const putConstant = async (
       let landedDoc: Record<string, unknown> | null = null;
       try {
         // Guarded on the pre-image: the merge claim above guards the REVISION,
-        // not the entity, so two direct saves computed from the same read could
-        // still both apply. A lost race reopens the revision below and returns
-        // the same retryable 409 as every other landing.
-        // Reported from inside the write so a failure AFTER it — the cascade below —
-        // can put live state back. Without the report the catch could only un-merge,
-        // which left the change live with no revision recording it.
+        // not the entity; a lost race reopens the revision below (retryable
+        // 409). The write reports its landed doc so a post-write failure can
+        // put live state back, not just un-merge.
         await runGuardedWrite("constant", existing.id, () =>
           context.models.constants.updateIfUnchanged(
             existing,

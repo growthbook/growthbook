@@ -1,17 +1,16 @@
 /**
  * The review cycle: the identity of one round of review on a revision.
  *
- * `status` cannot serve as that identity — recall-then-resubmit returns a revision
- * to `pending-review`, the value it already held, so a verdict or retraction formed
- * against the RETRACTED round satisfies every status check and lands on the new one.
- * A stale approve can approve changes nobody reviewed and fire auto-publish on them;
- * a stale undo can drop the `changes-requested` that was holding a release back.
+ * `status` cannot serve as that identity — recall-then-resubmit returns a
+ * revision to `pending-review`, the value it already held, so a verdict or
+ * retraction formed against the RETRACTED round satisfies every status check
+ * and lands on the new one: a stale approve can approve changes nobody
+ * reviewed (and fire auto-publish), a stale undo can drop a standing
+ * `changes-requested`.
  *
- * Both engines need this and both got it wrong the same way, so it lives here. They
- * still WRITE the number differently (the generic one inside a CAS that guards
- * `reviewCycle`, the feature one via `$inc` because its writes are raw); both are
- * monotonic, which is the property that matters. What must not differ again is the
- * question they ask.
+ * Both engines share these reads. They write the number differently (generic:
+ * inside a CAS; feature: `$inc` on raw writes) — both monotonic, which is the
+ * property that matters.
  */
 
 /** Statuses in which a review cycle is open. */

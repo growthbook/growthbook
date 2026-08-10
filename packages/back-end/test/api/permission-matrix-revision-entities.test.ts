@@ -18,10 +18,6 @@ import {
  * Groups hold the mirrored SavedGroup* set. The expectations below therefore
  * track permission-matrix-features.test.ts, and a divergence is either a
  * deliberate difference or a bug.
- *
- * These caught three: an entity `canUpdate` that demanded publish for an
- * archive, a revision backstop that demanded publish for a draft edit, and
- * model-layer denials surfacing as 400 instead of 403.
  */
 
 const org: OrganizationInterface = buildOrg("org_perm_matrix_entities");
@@ -344,9 +340,8 @@ const CASES: Case[] = [
       api.post(`/api/v1/${e.base}-revisions/${id}/${v}/discard`, {}),
   },
   {
-    // The lifecycle verbs, which existed on Configs and Feature Flags and nowhere
-    // else until these rows. All three entities share one implementation now, and
-    // this is what holds them to it.
+    // The lifecycle verbs. All three entities share one implementation; these
+    // rows hold them to it.
     name: "recall a review request",
     allowed: OPERATION_ORACLE["recall a review request"],
     needsReviewRequest: true,

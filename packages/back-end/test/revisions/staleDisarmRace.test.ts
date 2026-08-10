@@ -5,21 +5,13 @@ import { ReqContextClass } from "back-end/src/services/context";
 import { setupApp } from "../api/api.setup";
 
 /**
- * A changes-requested verdict stands the schedule down IN THE WRITE THAT RECORDS IT.
+ * A changes-requested verdict stands the schedule down IN THE WRITE THAT RECORDS
+ * IT. A separate cleanup write can be stale: a newer approval landing in between
+ * moves `status` but not the schedule fields, so the older cleanup still matches
+ * and disarms a revision now approved and due to publish.
  *
- * This used to be two writes — reconcile the verdict, then scrub the schedule — and
- * the second one could be stale: a newer approval landing in between moves `status`
- * while leaving the schedule fields untouched, so the older cleanup still matched and
- * cleared the schedule of a revision that was now approved and due to publish. The
- * fix at the time was to guard the second write on the decision that authorized it.
- *
- * There is no second write now. `_updateOne` translates an explicitly-undefined field
- * to `$unset`, so the transition clears the schedule itself and the interleaving has
- * nowhere to happen. This pins the property that replaced the guard: after a
- * changes-requested verdict the schedule is gone, and after an approval it is not.
- *
- * If this goes red, the disarm has either stopped happening or started happening to
- * the wrong verdict — both of which the old two-write guard also existed to prevent.
+ * Pinned property: after a changes-requested verdict the schedule is gone, and
+ * after an approval it is not.
  */
 
 const ORG_ID = "org_stale_disarm";

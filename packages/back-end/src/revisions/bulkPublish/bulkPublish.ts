@@ -161,20 +161,14 @@ export async function planBulkPublish(
       );
       continue;
     }
-    // Coarse authority, before anything expensive or observable. Refusing on
-    // `canPublish` alone was wrong — a pure revert or pure archive is landable on
-    // the narrower revert/delete atoms, which can only be judged once the
-    // revision's changes are known — but refusing on NONE of the three landing
-    // atoms is safe: no footprint or purity path can rescue a caller who holds
-    // none of them in this project. Subset-refusing, so revert-only and
-    // delete-only callers still reach the purity-aware check in `collectGates`.
-    //
-    // This has to stay here rather than only in `collectGates`, which pushes the
-    // permission gate and then keeps collecting: entity guards, schema
-    // validation and the org's sandboxed Custom Hooks all run after it. Without
-    // this an unauthorized caller executes that hook code and reads the whole
-    // governance-gate enumeration on the way to their refusal. Mirrors
-    // postFeatureRevisionPublish.
+    // Coarse authority, before anything expensive or observable. A pure revert
+    // or pure archive can land on the narrower revert/delete atoms, so refuse
+    // only a caller holding NONE of the three landing atoms in this project;
+    // revert-only and delete-only callers still reach the purity-aware check
+    // in `collectGates`. Checked here rather than in `collectGates`, which
+    // keeps collecting past the permission gate — entity guards, schema
+    // validation, and the org's sandboxed Custom Hooks would all run for an
+    // unauthorized caller. Mirrors postFeatureRevisionPublish.
     if (
       (["publish", "revert", "delete"] as const).every(
         (action) =>
@@ -351,11 +345,10 @@ export async function planBulkPublish(
   return { items, gates: allGates, blockingGates, warnings, flags };
 }
 
-// Reverse apply order, except that an item whose cascade rewrote ANOTHER item's
-// entity is restored before that item. Ancestor normalization is unconditional on a
-// revert, so a descendant Config restored while its parent still declares a field is
-// re-stripped — and reports success, because the key was still persisted. Same
-// root-first rule the single-revision compensation follows.
+// Reverse apply order, except that an item whose cascade rewrote ANOTHER
+// item's entity is restored before that item: ancestor normalization on a
+// revert re-strips a descendant Config restored while its parent still
+// declares a field. Same root-first rule as single-revision compensation.
 export function restoreOrder(
   applied: PlannedItemPublish[],
 ): PlannedItemPublish[] {
@@ -444,14 +437,12 @@ export async function commitBulkPublish(
     throw e;
   };
 
-  // The finally clears every context field this commit installs, on every exit
-  // (success, 409/500 throw, or a raw infra throw). The terminals below clear the
-  // buffers earlier where ordering matters — the event clear has to precede the emit
-  // loop, or a write during that loop inherits the finished release's verdict — and
-  // this is the backstop for a throw that escapes them all. An OPEN buffer surviving
-  // here is the worst of the failure modes: capture hands it out happily, every later
-  // event is pushed into something nobody will flush, and the leaked refresh buffer
-  // stops the next landing installing its own to recover.
+  // The finally is the backstop: it clears every context field this commit
+  // installs, on every exit. The terminals below clear the buffers earlier
+  // where ordering matters (the event clear must precede the emit loop, or a
+  // write during that loop inherits the finished release's verdict). An OPEN
+  // buffer surviving here would swallow every later event and block the next
+  // landing from installing its own refresh buffer.
   try {
     // Entity drift check FIRST: claims guard revisions, not entities. Re-read
     // each target and abort (zero writes) if anything moved since plan. Before
@@ -498,11 +489,10 @@ export async function commitBulkPublish(
       claimed.push(item);
     }
 
-    // Side-effect buffering starts HERE, before the no-op self-heal replays:
-    // their descendant writes fire refreshes and events too, and unbuffered
-    // they leaked out of a release that then aborted. SDK payload refreshes are
-    // deduped to one flush; *.updated events are deferred per entity and
-    // dropped entirely on compensation.
+    // Side-effect buffering starts HERE, before the no-op self-heal replays,
+    // whose descendant writes fire refreshes and events too. SDK payload
+    // refreshes are deduped to one flush; *.updated events are deferred per
+    // entity and dropped entirely on compensation.
     context.sdkPayloadRefreshBuffer = {
       keys: [],
       treatEmptyProjectAsGlobal: false,
@@ -515,17 +505,15 @@ export async function commitBulkPublish(
     // Restores report into the buffer's own set, so it survives alongside the closed
     // buffer and a late producer can consult it.
     context.bulkPublishRestoredEntities = eventBuffer.restored;
-    // An abort past this point carries buffered effects: the replay's writes are REAL
-    // live writes, so their refreshes flush (a refresh rebuilds from live state and is
-    // correct whatever aborted) — and so do their EVENTS, for the same reason. Nothing
-    // published, but the self-heal writes are durable and nothing will restore them.
+    // An abort past this point still flushes buffered effects: the self-heal
+    // replays' writes are REAL live writes that nothing will restore, so their
+    // refreshes and events must go out even though nothing published.
     const abortWithBuffers = async (
       claimedSoFar: PlannedItemPublish[],
       e: unknown,
     ): Promise<never> => {
-      // Nothing has been applied, so nothing is in `restored` and every entry is a
-      // self-heal replay's — real live writes no compensation undoes. A late one takes
-      // the same answer from the same set, through the reference it captured.
+      // Nothing has been applied yet, so `restored` is empty and every entry
+      // is a self-heal replay's durable write.
       const durable = eventBuffer.entries;
       eventBuffer.closed = true;
       context.bulkPublishDeferredEvents = null;
@@ -544,18 +532,14 @@ export async function commitBulkPublish(
       return abort(claimedSoFar, e) as Promise<never>;
     };
 
-    // No-op items never perform a guarded entity write, so nothing later would
-    // catch drift for them — re-verify their baselines now that every claim is
-    // held. Items WITH changes are covered by the guard at their write. Without
-    // this, a change landing between the pre-claim drift check and the claims
-    // leaves a no-op revision merged while claiming a live state that no longer
-    // exists.
+    // No-op items never perform a guarded entity write, so nothing later
+    // catches drift for them — re-verify their baselines now that every claim
+    // is held. Items WITH changes are covered by the guard at their write.
     for (const item of plan.items) {
       if (item.hasChanges) continue;
       const adapter = getBulkAdapter(item.ref.entityType);
-      // Inside the protected span like everything else here: a bare throw from
-      // the load itself (infra) escaped past the claims, leaving every revision
-      // merged with no entity writes and the buffers still installed.
+      // Even the load stays inside the protected span: a bare infra throw
+      // here would leave every revision claimed with the buffers installed.
       let current: unknown;
       try {
         current = await adapter.loadEntity(context, item.ref.entityId);
@@ -586,11 +570,10 @@ export async function commitBulkPublish(
           await abortWithBuffers(claimed, e);
         }
       }
-      // The no-op self-heal replay (e.g. a descendant schema cascade an earlier
-      // partial apply left unrun) runs INSIDE the protected span, after this
-      // item's claim and baseline both hold — run before the claims, its writes
-      // survived a claim failure that then reopened every draft. Same ordering
-      // as the single-revision engine; a failure releases all claims.
+      // The no-op self-heal replay (e.g. a descendant schema cascade an
+      // earlier partial apply left unrun) runs after this item's claim and
+      // baseline both hold, so a failure releases all claims — same ordering
+      // as the single-revision engine.
       try {
         await adapter.prepareNoOpMerge?.(
           context,
@@ -606,22 +589,22 @@ export async function commitBulkPublish(
     // (ramp creates → entity write → holdout) can land real writes before
     // throwing, so compensation must restore the failing item too.
     const applied: PlannedItemPublish[] = [];
-    // Entities an earlier item's descendant cascade rewrote, and the stamp it left:
-    // publishing a parent Config and its child in one release moves the child's
-    // `dateUpdated` before the child's own guarded write, whose CAS is anchored on the
-    // plan-time pre-image. The release then succeeded or 409'd purely on item order.
+    // Entities an earlier item's descendant cascade rewrote, and the stamp it
+    // left: publishing a parent Config and its child in one release moves the
+    // child's `dateUpdated` before the child's own guarded write, whose CAS is
+    // anchored on the plan-time pre-image.
     const cascadeStamps = new Map<string, Date | null>();
-    // Keyed by TYPE and id: a cascade writes documents of the item's own type, but the
-    // map is consulted by every item, and bare ids collide across collections.
+    // Keyed by type AND id — bare ids collide across collections.
     const stampKey = (item: PlannedItemPublish, id: string) =>
       entityKey(item.ref.entityType, id);
     try {
       for (const item of plan.items) {
         if (!item.hasChanges) continue;
         const adapter = getBulkAdapter(item.ref.entityType);
-        // Re-anchor on the doc OUR OWN cascade left, and only that one — any other
-        // stamp is a foreign write and must still conflict. `entityPreImage` is
-        // untouched, so compensation still restores the pre-release state.
+        // Re-anchor on the doc OUR OWN cascade left, and only that one — any
+        // other stamp is a foreign write and must still conflict.
+        // `entityPreImage` is untouched, so compensation still restores the
+        // pre-release state.
         let writeBasis = item.entityPreImage;
         if (cascadeStamps.has(stampKey(item, item.ref.entityId))) {
           const ours =
@@ -642,14 +625,13 @@ export async function commitBulkPublish(
           item.desiredState,
         );
 
-        // The post-write half of the landing order. The claim above and this write
-        // are in different collections, so a newer revision can claim the merge in
-        // between — its claim never touches the entity, so the stale check above
-        // passes and this item lands older state under newer history. Throwing here
-        // drops into the compensation below, which is what makes it recoverable.
-        // Generic engine only: Feature Flags keep their merged history in
-        // FeatureRevisionModel, so this fence cannot speak for them and must not
-        // pretend to. Their landing order is that engine's business.
+        // The post-write half of the landing order: the claim above and this
+        // write are in different collections, so a newer revision can claim
+        // the merge in between without touching the entity, landing older
+        // state under newer history. Throwing here drops into compensation,
+        // which is what makes it recoverable. Generic engine only: Feature
+        // Flags keep merged history in FeatureRevisionModel, where this fence
+        // has nothing to check.
         if (item.ref.entityType !== "feature") {
           await assertLandingStillOwned({
             context,
@@ -666,27 +648,22 @@ export async function commitBulkPublish(
         }
       }
     } catch (e) {
-      // Compensation: drop the buffered side effects (nothing from the aborted
-      // release may reach consumers), restore pre-images in reverse order,
-      // release every claim. Restore writes get fresh buffers — their *.updated
-      // events are dropped too, while their payload refreshes flush once after
-      // the restores, healing any payload built from the partial state.
+      // Compensation: restore pre-images (in `restoreOrder`), then release the
+      // claims. Payload refreshes get a fresh buffer and flush once after the
+      // restores; events keep the SAME buffer so the per-document restored rule
+      // below decides them — both specifics are stated at their own steps.
       const applyBuffer = context.sdkPayloadRefreshBuffer;
-      // Refreshes get a fresh buffer for the restore phase; the old one is closed so
-      // straggler producers fall through to a live refresh, which rebuilds from live
-      // state and is right whatever happened.
+      // Refreshes get a fresh buffer for the restore phase; the old one is
+      // closed so straggler producers fall through to a live refresh.
       if (applyBuffer) applyBuffer.closed = true;
       context.sdkPayloadRefreshBuffer = {
         keys: [],
         treatEmptyProjectAsGlobal: false,
       };
-      // EVENTS keep the SAME buffer across the restore phase. A separate one had to
-      // guess in both directions and got both wrong: an apply-phase straggler resuming
-      // during the restores landed in it and was dropped even when its entity stayed
-      // durably published, and a restore's own event needed dropping regardless. One
-      // buffer plus the per-document rule below decides all of them the same way — an
-      // event is emitted only if its document was not put back, which excludes every
-      // restore write (its document is, by definition, restored).
+      // EVENTS keep the SAME buffer across the restore phase: the per-document
+      // rule below (emit only if the document was not put back) decides
+      // apply-phase stragglers and restore writes alike — a restore's own
+      // document is, by definition, restored.
       const appliedSet = new Set(applied);
       const restoreFailed = new Set<PlannedItemPublish>();
       for (const item of restoreOrder(applied)) {
@@ -728,15 +705,12 @@ export async function commitBulkPublish(
             ? ("rolled-back" as const)
             : ("not-applied" as const),
       }));
-      // Emit an event exactly when its DOCUMENT was not put back. One rule covering
-      // every durable case — a restore that failed, a document the feature adapter
-      // left whole, a self-heal replay's write no item owns — and excluding the case
-      // an item-level flag could not: a Config root that WAS restored while a
-      // descendant of the same item was not, whose event would assert the published
-      // value over live pre-publish state.
-      //
-      // Read AFTER the restores, so entries a straggler added mid-rollback are judged
-      // by the same rule rather than discarded with a separate buffer.
+      // Emit an event exactly when its DOCUMENT was not put back. One rule for
+      // every durable case (failed restore, document the feature adapter left
+      // whole, self-heal write no item owns) that an item-level flag could not
+      // match: a restored Config root whose same-item descendant stayed
+      // published must not emit. Read AFTER the restores so entries a
+      // straggler added mid-rollback are judged by the same rule.
       const survivingEvents = eventBuffer.entries.filter(
         (e) => !eventBuffer.restored.has(e.owner),
       );
@@ -770,17 +744,11 @@ export async function commitBulkPublish(
       // rejections and claim conflicts never reach here and stay silent.
       const reason = `Release publish failed and was rolled back: ${getErrorMessage(e)}`;
       for (const item of plan.items) {
-        // A stuck item must NOT get the plain "rolled back" reason — its state is
-        // the opposite, and its `status: "published"` result row says so. But it
-        // emitted NOTHING at all, which made the one incident-worthy outcome the
-        // only silent one while its cleanly-reverted neighbours each notified. The
-        // reason is free text, so the distinction rides there rather than needing a
-        // new event type — and the single-entity path already re-emits for exactly
-        // this situation, so the two publish surfaces now agree.
-        //
-        // A dedicated stuck/needs-attention event is still the right end state
-        // (new public webhook semantics, designed with the uniform publish-failure
-        // work); this stops the silence in the meantime.
+        // A stuck item's state is the OPPOSITE of "rolled back", so it gets
+        // its own reason. The distinction rides in the free-text reason rather
+        // than a new event type, matching the single-entity path's re-emit for
+        // the same situation; a dedicated stuck/needs-attention event is
+        // deferred to the uniform publish-failure webhook work.
         const itemReason = stuckPublished(item)
           ? `Release publish failed and this entity could NOT be rolled back — it remains published and needs reconciling by hand: ${getErrorMessage(e)}`
           : reason;

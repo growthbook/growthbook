@@ -27,9 +27,6 @@ import type {
 
 export type RevertStrategy = "draft" | "publish";
 
-// Everything a revert needs: the target state, the change set, the authority
-// decision, and the two strategies (stage a draft, or land it).
-
 /**
  * The state a historical revision described once published: its own snapshot with
  * its own proposed changes applied. Every revert answers to this and nothing else.
@@ -83,12 +80,11 @@ export function assertCanRevertRevision({
   const scope = landing ? footprint : NO_ENVIRONMENT_BINDING;
   const scoped = entity as { project?: string; projects?: string[] };
 
-  // The revert atom and nothing else. Publish subsumes revert when PUBLISHING a
-  // revision that happens to be a pure revert — that rule belongs to the publish
-  // engine — but the revert action itself is its own authority, which is the whole
-  // point of a revert-only incident responder and of a publisher who cannot
-  // rewrite history. Accepting publish here let publisher, creatorPublisher and
-  // editor revert Configs, which the persona matrix refuses.
+  // The revert atom and nothing else. Publish subsumes revert only when
+  // PUBLISHING a revision that happens to be a pure revert — that rule belongs
+  // to the publish engine. The revert action is its own authority: that is the
+  // whole point of a revert-only incident responder, and of a publisher who
+  // cannot rewrite history.
   const holdsRevert = context.permissions.canRevisionAction(
     entityType,
     "revert",
@@ -122,15 +118,11 @@ export function assertCanRevertRevision({
     context.permissions.throwPermissionError();
   }
 
-  // Restoring an archived state takes the entity out of service, so it carries
-  // the delete atom wherever it lands. Only relevant once it actually lands.
-  //
-  // "Wherever it lands" is literal: a revert target can restore an older PROJECT
-  // alongside `archived`, and the delete atom then has to hold in the project the
-  // entity ends up in — asking only about the source let a caller holding delete in
-  // A archive an entity it had just moved to B. Both sides, matching how publish is
-  // handled above: the source because that is where the entity is being taken out
-  // of, the destination because that is where it lands archived.
+  // Restoring an archived state takes the entity out of service, so once it
+  // lands it carries the delete atom on BOTH sides: a revert target can restore
+  // an older PROJECT alongside `archived`, so delete must hold in the source
+  // (where the entity is taken out of service) and the destination (where it
+  // lands archived).
   if (
     landing &&
     isArchiveTransition({
@@ -194,19 +186,15 @@ export async function landDirectChange<T>({
   write: (report: (doc: Record<string, unknown> | null) => void) => Promise<T>;
   // The doc the write PERSISTED — the ownership baseline compensation compares
   // live against. Adapters and model hooks normalize, so the caller's intended
-  // `changes` is not it, and a re-read after failure can observe a concurrent
-  // writer. `persistedFrom` maps the write's return value; `write` receives a
-  // `report` callback for the case where the write throws AFTER persisting (a
-  // Config cascade), when there is no return value to map.
+  // `changes` is not it. Maps the write's return value; `write` also receives a
+  // `report` callback for when the write throws AFTER persisting (a Config
+  // cascade) and there is no return value to map.
   persistedFrom?: (result: T) => Record<string, unknown> | null;
-  /**
-   * Writes the landing made to OTHER entities on its behalf — a Config's descendant
-   * cascade — each with its own pre-image. Restored AFTER the root: a descendant put
-   * back while the root still declares the field is re-stripped by ancestor
-   * normalization, silently and while reporting success. The caller pushes into this
-   * as the cascade reports, so read it as a thunk at compensation time — the root
-   * write reports BEFORE the cascade runs, so anything captured then is empty.
-   */
+  // Writes the landing made to OTHER entities on its behalf — a Config's
+  // descendant cascade — each with its own pre-image. Restored AFTER the root:
+  // a descendant put back while the root still declares the field is
+  // re-stripped by ancestor normalization while reporting success. A thunk
+  // because the root write reports BEFORE the cascade runs.
   cascade?: () => {
     before: Record<string, unknown> & { id: string };
     written: Record<string, unknown>;
@@ -214,11 +202,8 @@ export async function landDirectChange<T>({
 }): Promise<{ merged: Revision; result: T }> {
   return withBufferedPayloadRefreshes(context, "direct-landing", async () => {
     // The same landing gate the revision engine runs, on the landing's own
-    // evidence — snapshot, ops, and revert provenance. Every caller asserts its
-    // own verb-shaped variant first (clearer errors); this one exists so a
-    // caller that under-asserts is not a bypass. The arms admit exactly the
-    // callers' semantics: publish for direct updates, delete for pure archives,
-    // revert for pure reverts.
+    // evidence. Every caller asserts its own verb-shaped variant first (clearer
+    // errors); this one exists so a caller that under-asserts is not a bypass.
     await assertCanPublishRevision(
       context,
       {
@@ -293,33 +278,27 @@ export async function landDirectChange<T>({
           baselineDateUpdated,
       });
     } catch (e) {
-      // Live state first: an unrecorded partial change is the one outcome no retry can
-      // repair, so the revision is removed only once live is back — and KEPT as the
-      // record when it can't be.
-      //
-      // "Nothing was written" is what the REPORT says, not the error class. Both signals
-      // are needed: a rejected CAS proves nothing landed, but on the REST Config path a
-      // descendant cascade raises CasConflictError raw, AFTER the root write reported —
-      // and reading that as a lost race deleted the record of a live change.
+      // Live state first: an unrecorded partial change is the one outcome no
+      // retry can repair, so the revision is removed only once live is back —
+      // and KEPT as the record when it can't be. "Nothing was written" is what
+      // the REPORT says, not the error class: on the REST Config path a
+      // descendant cascade raises CasConflictError raw, AFTER the root write
+      // reported.
       const nothingReported = persisted === null || persisted === undefined;
       // Ownership against the PERSISTED doc, not the intent — the write path
-      // normalizes (adapter applyChanges and model hooks both), and comparing
-      // live to unnormalized changes misreads "ours" as "someone else's":
-      // skipping the restore while history is still removed below.
-      // Only what the write REPORTED persisting. No re-read fallback: a re-read
-      // after failure can observe a concurrent writer and hand compensation
-      // their values as if this landing had written them.
+      // normalizes, and comparing live to unnormalized changes misreads "ours"
+      // as "someone else's". No re-read fallback: a re-read after failure can
+      // observe a concurrent writer and hand compensation their values as if
+      // this landing had written them.
       const written =
         changes && writeStarted && !nothingReported ? persisted : null;
       const compensating = !!changes && writeStarted && written !== null;
-      // Nothing reported means the write never landed — the model reports from
-      // inside it, before audit and the afterUpdate hooks — so there is nothing to
-      // restore and the merged revision is phantom history to be removed. The same
-      // reading bulk and the generic publish take.
-      // ROOT FIRST, then descendants in cascade order — see `compensateFailedLanding`
-      // for why the intuitive order silently no-ops: ancestor normalization runs
-      // unconditionally on a revert, so a descendant restored while the root still
-      // declares the field is stripped straight back AND reports success.
+      // Nothing reported means the write never landed (the model reports from
+      // inside it), so there is nothing to restore and the merged revision is
+      // phantom history to be removed. ROOT FIRST, then descendants in cascade
+      // order: ancestor normalization runs unconditionally on a revert, so a
+      // descendant restored while the root still declares the field is
+      // stripped straight back AND reports success.
       const restored = compensating
         ? await tryRestoreEntityPreImage({
             context,
@@ -347,9 +326,8 @@ export async function landDirectChange<T>({
         // change; here the change is partly live, so they must still fire.
         context.landingLeftPartialState = true;
       }
-      // BOTH restores. Gating on the root alone deleted the record while a
-      // descendant was left stripped and live — no revision, no webhook, one log
-      // line. The other three landings already required both.
+      // BOTH restores: gating on the root alone could delete the record while
+      // a descendant is left stripped and live.
       if (restored && cascadeRestored) {
         try {
           // The landing's own authority was established before this point, and the
@@ -416,10 +394,10 @@ async function applyRevertDirectly({
           guarded: true,
           onPersisted: (applied) => {
             report(applied.written);
-            // The adapter's OWN array, held by reference — it is created before the
-            // write and appended to as the cascade proceeds, so reading it at
-            // compensation time sees every descendant write. Copying it here would
-            // capture nothing, since this fires before the cascade runs.
+            // The adapter's OWN array, held by reference — appended to as the
+            // cascade proceeds, so compensation sees every descendant write.
+            // Copying here would capture nothing: this fires before the
+            // cascade runs.
             cascadeRef = applied.cascade;
           },
         }),
@@ -464,22 +442,19 @@ export async function revertRevision({
   title?: string;
   /** Entity validation, run for both strategies before anything is written. */
   validate?: () => Promise<void>;
-  // Resolve whether this landing needs approval and whether the caller may bypass
-  // it, and refuse if not. Runs only when landing, and only AFTER authority —
-  // refusing for authority outranks refusing for process, and having each handler
-  // order that itself is what got it backwards.
+  // Resolve whether this landing needs approval and whether the caller may
+  // bypass it, refusing if not. Runs only when landing, and only AFTER
+  // authority — refusing for authority outranks refusing for process.
   resolveApproval?: () => Promise<{
     approvalRequired: boolean;
     canBypass: boolean;
     // Which authority cleared the approval gate, for the response's
-    // `bypassedGates`. A landing revert that skipped approval reported nothing,
-    // so the one publish path where a bypass is most consequential — it rewrites
-    // live state from history — was the one that left no trace in its response.
+    // `bypassedGates`.
     bypassVia?: BypassVia;
-    // The org's "reverts bypass approval" setting made approval NOT REQUIRED for
-    // this landing, on an entity that otherwise requires it. It never reaches
-    // `canBypass` (there is no gate left to bypass), so it needs its own signal or
-    // the most common approval skip of all goes unreported.
+    // The org's "reverts bypass approval" setting made approval NOT REQUIRED
+    // for this landing. It never reaches `canBypass` (there is no gate left to
+    // bypass), so it needs its own signal or the most common approval skip of
+    // all goes unreported.
     settingSuppressedApproval?: boolean;
   }>;
   /** Guards that only bite when the change lands live. */
@@ -500,9 +475,8 @@ export async function revertRevision({
     footprint,
   });
 
-  // Only now: this writes a revision row for an entity with no history yet, and a
-  // refused revert must leave nothing behind. Handlers used to call it themselves,
-  // before the authoritative check.
+  // Only after authority: this writes a revision row for an entity with no
+  // history yet, and a refused revert must leave nothing behind.
   await ensureLiveRevisionExists(
     context as Parameters<typeof ensureLiveRevisionExists>[0],
     entityType,
@@ -550,10 +524,9 @@ export async function revertRevision({
     title,
     bypass: !!approval?.approvalRequired && !!approval?.canBypass,
   });
-  // A revert that lands is ALSO a publish, so it owes both events: `reverted` names
-  // what happened, `published` is the lifecycle event subscribers mirror revision
-  // state from. Emitting only the first meant these landings were invisible to
-  // anyone following the documented published lifecycle.
+  // A revert that lands is ALSO a publish, so it owes both events: `reverted`
+  // names what happened, `published` is the lifecycle event subscribers mirror
+  // revision state from.
   await dispatch?.dispatch(context, merged, { type: "published" });
   await dispatch?.dispatch(context, merged, { type: "reverted" });
   return {

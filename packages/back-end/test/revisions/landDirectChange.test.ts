@@ -52,9 +52,6 @@ const assertLandingStillOwned = assertLandingStillOwnedImpl as jest.Mock;
  *     once that succeeded — an unrecorded partial change is the one outcome no
  *     retry can repair, so when the restore fails the history is kept as the
  *     record of what actually happened.
- *
- * Each of those was a finding. They are ordering properties, invisible to a test
- * that only checks the happy path.
  */
 
 const entity = {
@@ -385,11 +382,9 @@ describe("landDirectChange", () => {
     expect(h.dangerousDeleteByIdBypassPermission).not.toHaveBeenCalled();
   });
 
-  // The gap findings 5 and 6 turned on. A write that PERSISTED but never reported
-  // is indistinguishable from one that never wrote if you only look at the
-  // baseline — and treating the first as the second leaves the change live with no
-  // record. The report now fires from inside the document write, before audit and
-  // the afterUpdate hooks, so this shape means the write truly did not land.
+  // The report fires from inside the document write, before audit and the
+  // afterUpdate hooks — so no report means the write truly did not land, never
+  // "landed but unreported" (which would leave a live change with no record).
   it("removes its history when a write with changes reports nothing", async () => {
     const h = makeContext();
 
@@ -408,19 +403,16 @@ describe("landDirectChange", () => {
       }),
     ).rejects.toThrow("cascade failed");
 
-    // Nothing reported means the write never landed: the model reports from INSIDE
-    // the document write, before audit and the afterUpdate hooks. So there is
-    // nothing to restore, and the merged revision is phantom history — a record of
-    // a landing that wrote nothing must not survive. The same reading bulk and the
-    // generic publish take; it holds only because of where the report fires.
+    // Nothing to restore, and the merged revision is phantom history — a record
+    // of a landing that wrote nothing must not survive. Same reading as bulk and
+    // the generic publish.
     expect(tryRestoreEntityPreImage).not.toHaveBeenCalled();
     expect(h.dangerousDeleteByIdBypassPermission).toHaveBeenCalled();
   });
 
-  // The THUNK, tested rather than reasoned about. `cascade` has to be read at
-  // compensation time, not at call time: the apply reports its root write BEFORE
-  // running the cascade, so a value captured in the reporter is still empty. My
-  // first version copied the array there and silently compensated nothing.
+  // `cascade` has to be read at compensation time, not at call time: the apply
+  // reports its root write BEFORE running the cascade, so a value captured in
+  // the reporter is still empty and compensation would silently skip descendants.
   it("sees cascade entries appended AFTER the write reported", async () => {
     const h = makeContext();
     // The adapter's own array: created before the write, handed over at report
@@ -452,10 +444,7 @@ describe("landDirectChange", () => {
     ).rejects.toThrow("cascade failed");
 
     // Compensation restored the DESCENDANT, which only happens if the thunk's
-    // RESULT is iterated late. Mutation-checked: copying the contents early
-    // (`[...cascade()]` before the write) fails this, while reading the reference
-    // early still passes — a reference read sees later pushes, a copy does not. The
-    // copy is the shape my first version had.
+    // result is iterated late — an early copy misses the later pushes.
     expect(tryRestoreEntityPreImage).toHaveBeenCalledWith(
       expect.objectContaining({
         preImage: { id: "desc_1", schema: "before" },

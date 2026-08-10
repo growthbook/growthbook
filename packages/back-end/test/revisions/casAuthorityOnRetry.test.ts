@@ -7,15 +7,13 @@ import { setupApp } from "../api/api.setup";
 /**
  * Authority is re-asked on the row every CAS attempt, not once before the loop.
  *
- * A caller checks permission against the row it read. The loop then re-reads on each
- * retry, so a concurrent rebase can move the revision into a project the caller holds
- * nothing in — and the retry writes there. Guarding the moved field does NOT close
- * this: the guard makes the first attempt lose, and the retry proceeds against the
- * new row. That distinction is why five verbs shipped without a check while carrying
- * a comment claiming the guard covered it.
+ * The loop re-reads on each retry, so a concurrent rebase can move the revision
+ * into a project the caller holds nothing in — and the retry writes there.
+ * Guarding the moved field does not close this: the guard only makes the first
+ * attempt lose; the retry proceeds against the new row.
  *
- * These drive the model directly, which is the only layer where the retry is
- * observable — every controller check happens before the loop starts.
+ * These drive the model directly — the only layer where the retry is observable;
+ * every controller check happens before the loop starts.
  */
 
 const ORG_ID = "org_cas_authority";
@@ -101,16 +99,14 @@ describe("CAS-guarded revision writes re-ask authority on every attempt", () => 
   setupApp();
 
   it("refuses when the row it writes sits in a project the caller cannot draft in", async () => {
-    // The row as a rebase would leave it. The caller's own check passed against the
-    // project the revision USED to be in; this is the row the write lands on, and
-    // the check inside `compute` is the only one that sees it.
+    // The row as a rebase would leave it: the caller's check passed against the
+    // old project, and only the check inside `compute` sees this one.
     await seed("prj_any");
     const { draftAuthorityOnRow } = await import(
       "back-end/src/revisions/revisionAuthority"
     );
 
-    // A caller with no draft authority over the row the write lands on. Before this
-    // change the model took no authority argument at all, so this write succeeded.
+    // No draft authority over the row the write lands on.
     await expect(
       contextAs("readonly").models.revisions.updateProposedChanges(
         REV_ID,

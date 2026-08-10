@@ -134,9 +134,8 @@ describe("revision read basis", () => {
 
   it("excludes a revision whose entity no longer exists", async () => {
     // No constant seeded: deletion does not cascade to revisions, so this is the
-    // orphan case. Snapshot-basis counted it (its snapshot names a project the
-    // admin can read); live-basis does not, because there is no live entity to
-    // judge and guessing from the snapshot is what leaks after a move.
+    // orphan case. No live entity to judge, and guessing from the snapshot is
+    // what leaks after a move.
     await seedRevision("const_gone");
 
     const context = adminContext();
@@ -178,9 +177,9 @@ describe("revision read basis", () => {
     ).toBe(0);
   });
 
-  // Detail and history are the same rule in two more places. They read through
-  // different model methods, and only the listing was converted at first — so the
-  // destination could list a moved entity's revisions and then 404 on opening one.
+  // Detail and history are the same rule through two more model methods — if
+  // either lags, the destination lists a moved entity's revisions and then 404s
+  // on opening one.
   it("opens a single revision on the live basis, not the snapshot's", async () => {
     await seedConstant("const_moved");
     await seedRevision("const_moved");

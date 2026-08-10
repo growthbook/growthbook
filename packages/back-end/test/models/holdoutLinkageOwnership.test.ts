@@ -8,10 +8,10 @@ import { setupApp } from "../api/api.setup";
  * Compensation must remove the linkage entry it ADDED, not whatever occupies the
  * slot when it runs.
  *
- * The check was presence-only — "is this feature linked?" — which cannot see an
- * ABA. A writer who unlinks the feature and re-links it leaves a DIFFERENT entry
- * there: same feature id, new `dateAdded`. An entry was there before and an entry
- * is there now, so the old check says "still ours" and deletes theirs.
+ * A presence-only check — "is this feature linked?" — cannot see an ABA: a
+ * writer who unlinks the feature and re-links it leaves a DIFFERENT entry there
+ * (same feature id, new `dateAdded`), which presence calls "still ours" and
+ * deletes.
  *
  * `dateAdded` is the discriminator, and the comparison belongs inside the model's
  * own read-modify-write rather than in a caller that reads, decides, then writes.

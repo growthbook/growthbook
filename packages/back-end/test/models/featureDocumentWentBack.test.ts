@@ -5,9 +5,7 @@ import { featureDocumentWentBack } from "back-end/src/models/FeatureModel";
  * its deferred `feature.updated`.
  *
  * The single-entity path compensates through its own rewind list rather than the
- * shared restore funnel, so it reports this itself. The logic lived inline as three
- * lines matched against a free-text label, where deleting it outright left the whole
- * suite green and renaming the label made the match permanently true.
+ * shared restore funnel, so it reports this itself.
  */
 describe("featureDocumentWentBack", () => {
   it("is true when every rewind succeeded", () => {

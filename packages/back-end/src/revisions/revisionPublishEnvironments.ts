@@ -33,8 +33,8 @@ export function constantPublishEnvironments(
  *  - `unscoped`   — no environment dimension at all. A Constant's base value is
  *                   declared design: a dev-limited editor may change it.
  *  - `everywhere` — reaches every environment the entity serves while naming none.
- *                   An archive flip; read as `[]` it let a dev-limited caller
- *                   archive production.
+ *                   An archive flip; read as `[]` it would let a dev-limited
+ *                   caller archive production.
  *
  * Naming them makes the vacuous reading unreachable by omission.
  */

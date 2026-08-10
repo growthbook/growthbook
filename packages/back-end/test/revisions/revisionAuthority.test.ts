@@ -337,10 +337,9 @@ describe("canRebaseRevision", () => {
  * reviewing, reverting, publishing and archiving alike and the model cannot see
  * which one it is.
  *
- * Delete was missing from that union, so staging an archive as a draft — which the
- * handler allows on the delete atom alone, since archiving is delete-class — passed
- * the handler and then failed underneath it. Two layers, two answers, for one
- * request.
+ * Delete belongs in that union: the handler stages a pure archive on the delete
+ * atom alone (archiving is delete-class), and a backstop missing it refuses
+ * what the handler admitted.
  */
 describe("canTouchRevision", () => {
   const holders: RevisionAction[] = [
@@ -367,8 +366,8 @@ describe("canTouchRevision", () => {
     ).toBe(false);
   });
 
-  // The regression this closes, stated end to end: the handler admits a
-  // delete-only caller staging a pure archive, so the backstop must too.
+  // The handler admits a delete-only caller staging a pure archive, so the
+  // backstop must too.
   it("agrees with the handler about a delete-only archive staging", () => {
     const context = makeContext({ granted: ["delete"] });
     const stagingAllowed = canStageArchiveDraft({

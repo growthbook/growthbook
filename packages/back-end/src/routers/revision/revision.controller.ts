@@ -123,10 +123,9 @@ type GetAllRevisionsResponse = {
 const DEFAULT_REVISION_PAGE_SIZE = 100;
 const MAX_REVISION_PAGE_SIZE = 500;
 
-// Delegates to the REST layer's parser so both surfaces answer the same question.
-// The local copy passed the list through verbatim, so `status=open,merged` reached
-// the model as `$in: ["open", "merged"]` — `open` is an ALIAS, not a stored status,
-// so it matched nothing and the query silently collapsed to merged-only.
+// Delegates to the REST layer's parser so both surfaces answer the same
+// question — `open` is an alias, not a stored status, so passing it through
+// verbatim silently matches nothing.
 function parseStatusParam(status?: string): string | string[] | undefined {
   return buildRevisionStatusFilter(status);
 }
@@ -255,9 +254,8 @@ export const postRevision = async (
     );
   }
 
-  // Creating a draft requires draft-authoring permission (not entity-create).
-  // On the LIVE entity by necessity — there is no revision yet to have a snapshot,
-  // which is why this one keeps the explicit scope.
+  // Creating a draft requires draft-authoring permission (not entity-create),
+  // checked on the LIVE entity — there is no revision snapshot yet.
   if (
     !canDoRevisionAction(
       entityType,
@@ -268,9 +266,9 @@ export const postRevision = async (
   ) {
     context.permissions.throwPermissionError();
   }
-  // A draft that relocates the entity is authored in the DESTINATION as much as
-  // the source. Draft, not publish: staging publishes nothing — the landing gate
-  // asks for publish there when it lands.
+  // A draft that relocates the entity is also authored in the DESTINATION.
+  // Draft authority, not publish: staging publishes nothing — the landing gate
+  // asks for publish when it lands.
   if (
     !holdsMoveDestination({
       permissions: context.permissions,
@@ -476,10 +474,9 @@ export const getRevision = async (
 type PostSubmitRequest = AuthRequest<
   {
     autoPublishOnApproval?: boolean;
-    // A dated schedule armed as part of the same request. A review-required draft
-    // cannot arm one on its own — the schedule endpoint refuses until review is
-    // requested — so the control stages it and sends it here, which is what the
-    // feature twin's request-review has always accepted.
+    // A dated schedule armed with the same request — the schedule endpoint
+    // refuses review-required drafts until review is requested, so the control
+    // stages it here. Mirrors the feature twin's request-review.
     scheduledPublishAt?: string | null;
     scheduledPublishLockEdits?: boolean;
     scheduledPublishLockOthers?: boolean;
@@ -545,9 +542,8 @@ export const postSubmit = async (
       liveEntity,
     ));
 
-  // A DATE additionally needs the scheduled-publish capability, which is what the
-  // dedicated schedule endpoint asks; the no-date arm is governed by
-  // `canEnableAutoPublishOnApproval` above.
+  // A date additionally needs the scheduled-publish capability (same check as
+  // the dedicated schedule endpoint); the no-date arm is governed above.
   let parsedSchedule: Date | null = null;
   if ((scheduledPublishAt ?? null) !== null) {
     const adapter = getAdapter(existingRevision.target.type);
@@ -577,8 +573,7 @@ export const postSubmit = async (
     await assertCanPublishRevision(context, existingRevision, snapshot);
   }
 
-  // Captured whenever anything is armed — a dated schedule needs the guard
-  // fingerprints just as much as the no-date one.
+  // Any arm — dated or not — needs the guard fingerprints.
   const armAcknowledgments =
     enableAutoPublish || parsedSchedule !== null
       ? await captureArmAcknowledgment(context, existingRevision, liveEntity)
@@ -599,11 +594,8 @@ export const postSubmit = async (
 
   const webhooks = getRevisionWebhookAdapter(revision.target.type);
   await webhooks?.dispatch(context, revision, { type: "reviewRequested" });
-  // Submitting can ARM a deferred publish in the same call, and a schedule
-  // subscriber has no reason to be watching `reviewRequested`. The dedicated
-  // scheduling route fires this; the submit route persisted the identical state and
-  // said nothing, so the same arm was visible or invisible depending on which
-  // button produced it.
+  // Submitting can ARM a deferred publish in the same call; schedule
+  // subscribers watch `publishScheduleChanged`, not `reviewRequested`.
   if (enableAutoPublish || parsedSchedule !== null) {
     await webhooks?.dispatch(context, revision, {
       type: "publishScheduleChanged",
@@ -666,9 +658,8 @@ export const postReview = async (
       .json({ message: "Cannot review a discarded or merged revision" });
   }
 
-  // ...nor one that is not in review at all. The model re-checks this inside its
-  // CAS (which is what actually closes the recall race); this is the early, clear
-  // refusal, and the message the REST twin already gives.
+  // ...nor one that is not in review at all. Early refusal only — the model's
+  // CAS re-check is what actually closes the recall race.
   if (
     decision !== "comment" &&
     !(REVIEW_CYCLE_STATUSES as readonly string[]).includes(
@@ -815,21 +806,16 @@ export const putProposedChanges = async (
       .status(403)
       .json({ message: "Only the author can update proposed changes" });
   }
-  // Authorship narrows this to your OWN draft; it does not stand in for the
-  // permission. Without this an author who has since lost draft-edit rights
-  // could still rewrite the draft's contents.
+  // Authorship narrows this to your OWN draft; it is not the permission — an
+  // author who has since lost draft-edit rights must not rewrite the contents.
   if (!canRevisionOwnedAction(context, existingRevision, "draft")) {
     context.permissions.throwPermissionError();
   }
-  // Rewriting the draft can ADD a relocation the original draft didn't carry, so
-  // the destination is re-judged against the incoming ops.
-  //
-  // Measured from the LIVE entity, like the publish path — a move is relative to
-  // where the entity IS. Judged from the snapshot, ops naming the project the
-  // snapshot recorded read as "no move" even though the entity has since moved
-  // elsewhere, so publishing would relocate it back with the destination never
-  // checked. Draft authority above stays snapshot-based: that asks whether this
-  // revision is the caller's to edit, not where it would land.
+  // Rewriting the draft can ADD a relocation, so the destination is re-judged
+  // against the incoming ops — measured from the LIVE entity, like the publish
+  // path: judged from the snapshot, a move back to the snapshot's project would
+  // read as "no move". Draft authority above stays snapshot-based (whose draft
+  // this is, not where it lands).
   const liveForDestination =
     ((await getAdapter(existingRevision.target.type)
       .getModel(context)
@@ -1103,11 +1089,9 @@ export const postRebase = async (
     });
   }
 
-  // Resolution, persistence and the webhook all come from the shared pipeline —
-  // this handler had its own copy of the loop, which is how it kept the
-  // `!= null` that silently dropped an explicit-null resolution (a Config
-  // schema-clear) after the shared copy was fixed. The conflict-set optimistic
-  // lock above is the only route-specific part.
+  // Resolution, persistence and the webhook come from the shared rebase
+  // pipeline; the conflict-set optimistic lock above is the only
+  // route-specific part.
   const updatedRevision = await rebaseRevision({
     context,
     entityType: revision.target.type,
@@ -1228,20 +1212,17 @@ export const postApproveAndPublish = async (
           entity as Record<string, unknown>,
         ),
     ),
-    // On the revision's SNAPSHOT, like every other review check — `addReview`'s CAS,
-    // `reviewAuthorityOnRow`, and the REST submit-review all judge review authority
-    // there. A review belongs to the revision, whose project a later move on the live
-    // entity does not change; asking about live here rejected a reviewer who is
-    // scoped to the project the revision was opened in. Publish authority below
-    // stays on LIVE, because that is where the publish lands.
+    // Judged on the revision's SNAPSHOT like every other review check: a review
+    // belongs to the revision, so a later live-entity move must not reject a
+    // reviewer scoped to the project it was opened in. Publish authority below
+    // stays on LIVE, where the publish lands.
     canReview: (adapter.canReview ?? adapter.canUpdate)(
       context,
       revision.target.snapshot as Record<string, unknown>,
     ),
-    // Footprint-aware, not the adapter check alone: that cannot see the change
-    // set, so it would clear a dev-limited approver to approve a production
-    // override — writing the approval and then failing at publish, the exact
-    // stranding this preflight exists to prevent.
+    // Footprint-aware, not the adapter check alone — that cannot see the change
+    // set, so a dev-limited approver could approve a production override and
+    // strand the approval at publish.
     canPublish: await canPublishRevisionChange(
       context,
       revision,
@@ -1368,14 +1349,10 @@ export const postToggleAutoPublish = async (
   // Arming an already-approved revision must publish now — otherwise it waits
   // for an approval event that never comes.
   if (enabled && revision.status === "approved") {
-    // Re-read rather than publishing the doc the arming CAS returned. That doc is
-    // the CAS's READ merged with its own update, and the arm deliberately guards
-    // only `status` — arming is judged on the live entity, so a rebase must not
-    // conflict with it. The consequence is that `revision.target` can already be
-    // superseded: publishing it would apply the OLD proposed changes while the
-    // merge claim marks the CURRENT revision merged, splitting live state from the
-    // history that claims to describe it. Arming tolerates a stale target;
-    // publishing never can.
+    // Re-read rather than publishing the doc the arming CAS returned: the arm
+    // deliberately guards only `status` (a rebase must not conflict with it),
+    // so `revision.target` may already be superseded. Arming tolerates a stale
+    // target; publishing never can.
     const fresh = await revisionModel.getById(id);
     if (
       fresh &&
@@ -1398,9 +1375,8 @@ export const postToggleAutoPublish = async (
           .json({ status: 200, revision: afterAutoPublish });
       }
     }
-    // Something moved it out from under the arm (recalled, discarded, published,
-    // or disarmed by a concurrent writer). The arm itself stands; report the row
-    // as it now is rather than publishing against a state nobody asked for.
+    // A concurrent writer moved it out from under the arm. The arm itself
+    // stands; report the row as it now is rather than publishing.
     if (fresh) return res.status(200).json({ status: 200, revision: fresh });
   }
 
@@ -1454,9 +1430,8 @@ export const postClose = async (
     });
   }
 
-  // Draft authority or authorship — NOT the narrow atoms. Discarding destroys work,
-  // possibly someone else's and possibly mid-review, which is a different question
-  // from whether you may move a draft along. See `canDiscardRevision`.
+  // Draft authority or authorship, not the narrow atoms — discarding destroys
+  // work, possibly someone else's mid-review. See `canDiscardRevision`.
   if (!(await canDiscardRevision(context, existingRevision))) {
     context.permissions.throwPermissionError();
   }
@@ -1522,7 +1497,7 @@ export const postReopen = async (
   }
 
   if (!isRevisionAuthor(existingRevision.authorId, userId)) {
-    // Also allow draft authors to reopen
+    // Not the author: reopening someone else's revision takes draft authority.
     if (!canRevisionOwnedAction(context, existingRevision, "draft")) {
       context.permissions.throwPermissionError();
     }
@@ -1595,9 +1570,9 @@ export const postRecallReview = async (
     }
   }
 
-  // Re-asked inside the CAS on the row each attempt reads — the check above is the
-  // early refusal, and a retry after a concurrent rebase would otherwise proceed
-  // against a snapshot the caller was never authorized for.
+  // Re-asked inside the CAS on the row each attempt reads — a retry after a
+  // concurrent rebase would otherwise proceed against a snapshot the caller
+  // was never authorized for.
   const revision = await revisionModel.recallReview(
     id,
     userId,
@@ -1649,9 +1624,9 @@ export const postUndoReview = async (
     context.permissions.throwPermissionError();
   }
 
-  // Re-asked inside the CAS against the row the write is conditioned on — the check
-  // above is the early, clear refusal, and a rebase between the two would otherwise
-  // carry this retraction into a project the caller holds nothing in.
+  // Re-asked inside the CAS against the row the write is conditioned on — a
+  // rebase between the two would otherwise carry this retraction into a
+  // project the caller holds nothing in.
   const revision = await revisionModel.undoReview(
     id,
     userId,
@@ -1856,20 +1831,18 @@ export const postSchedulePublish = async (
     return res.status(404).json({ message: "Entity not found" });
   }
 
-  // Everything past this point — date validation, the publish/schedule authority
-  // pair, the fire-time footprint check, bypass intent, the actor the schedule runs
-  // as, approval preconditions, acknowledgment capture and the lifecycle event — is
-  // `scheduleRevisionPublish`, which the Config, Constant and Saved Group REST
-  // handlers already delegate to. This endpoint reimplemented all of it.
+  // Date validation, authority, bypass intent, the actor, approval
+  // preconditions, acknowledgment capture and the lifecycle event all live in
+  // `scheduleRevisionPublish`, shared with the Config/Constant/Saved Group
+  // REST handlers.
   const revision = await scheduleRevisionPublish({
     context,
     type: existingRevision.target.type,
     entity: liveEntity as Record<string, unknown>,
     revision: existingRevision,
     body: req.body,
-    // The one entity-specific arming precondition, applied generically here: a
-    // locked Config refuses NEW schedules while still allowing a pending one to be
-    // cancelled.
+    // Entity-specific arming precondition: a locked Config refuses NEW
+    // schedules but still allows cancelling a pending one.
     assertArmable: adapter.assertSchedulable
       ? () => {
           void adapter.assertSchedulable?.(

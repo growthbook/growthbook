@@ -1326,11 +1326,9 @@ export async function postFeatureRequestReview(
     { reviewComment: comment ?? null },
   );
 
-  // Requesting review can ARM a deferred publish in the same call, and a schedule
-  // subscriber has no reason to be watching `reviewRequested`. The dedicated
-  // scheduling route fires this; request-review persisted the identical state and
-  // said nothing, so the same arm was visible or invisible depending on which
-  // button produced it. Same gap the generic engine's submit route had.
+  // Requesting review can ARM a deferred publish in the same call; fire the
+  // schedule event too, as the dedicated scheduling route does — a schedule
+  // subscriber has no reason to be watching `reviewRequested`.
   if (enableAutoPublish || scheduledDate !== null) {
     await dispatchFeatureRevisionEvent(
       context,
@@ -1364,16 +1362,15 @@ export async function postFeatureReviewOrComment(
     throw new Error("Could not find feature");
   }
 
-  // A VERDICT is the review atom; a plain comment is participation, so the comment
-  // atom carries it — review implies it but must not gate it. Through the SHARED
-  // predicate, so all four entities answer identically, and narrowed to the primary
-  // project to match `canReviewFeatureDrafts`.
+  // A verdict is the review atom; a plain comment is participation, so the
+  // comment atom carries it — review implies it but must not gate it. Uses the
+  // shared predicate so all four entities answer identically, narrowed to the
+  // primary project to match `canReviewFeatureDrafts`.
   //
-  // KNOWN DIVERGENCE, structural: the other three judge this on
-  // `revision.target.snapshot`, so a review stays with the project the revision was
-  // opened in. Feature revisions carry no origin snapshot (`metadata.project` is the
-  // DESTINATION a draft stages), so this engine can only ask about live. Closing it
-  // needs an origin project on the revision — a schema change, not a check.
+  // Known structural divergence: the other three engines judge this on
+  // `revision.target.snapshot`; feature revisions carry no origin snapshot
+  // (`metadata.project` is the DESTINATION a draft stages), so this engine can
+  // only ask about live.
   const canCommentHere = canCommentOnRevisionEntity(
     context.permissions,
     "feature",
@@ -1602,15 +1599,14 @@ export async function postFeatureApproveAndPublish(
   });
   // Approving needs review authority (enforced by the review path). The publish
   // needs publish authority unless the revision is already armed — then it was
-  // authorized by whoever armed it and this approver is only the trigger, so the
-  // armed fire publishes under the armer instead of inline as them. Same rule the
-  // generic handler and REST submit-review already follow.
+  // authorized by whoever armed it and this approver is only the trigger, so it
+  // publishes under the armer. Same rule as the generic handler and REST
+  // submit-review.
   //
-  // Asked over the FULL footprint, destination included. Asking only about the
-  // source cleared an armer who had since lost authority in the project this
-  // draft moves the flag into: the approval committed, the armed publish then
-  // failed its own destination check, and that failure is swallowed — so the
-  // endpoint answered 200 with an approved draft that never published.
+  // Asked over the FULL footprint, destination included, so an armer who lost
+  // authority in the destination project is caught here — before the approval
+  // commits — rather than by the armed publish's own check, whose failure is
+  // swallowed.
   const armedApproval =
     (await isArmedWithAuthorizedPublisher(
       context,
@@ -1719,11 +1715,10 @@ export async function postFeatureApproveAndPublish(
       finalApproved,
     );
     if (published.status !== "published") {
-      // The approval landed and stands — it is already written. The PUBLISH did
-      // not, and this endpoint's whole contract is "approve and publish", so
-      // answering 200 leaves a draft nobody knows to go back for. Reached only on
-      // a transient failure now that the preflight asks the same question the
-      // publish does; the permanent causes refuse before the approval commits.
+      // The approval is already written and stands; the PUBLISH did not run,
+      // and answering 200 would leave a draft nobody knows to go back for.
+      // Reached only on transient failures — the preflight above refuses the
+      // permanent causes before the approval commits.
       throw new Error(
         "Approved, but the publish did not run. The draft is still approved — publish it directly.",
       );
@@ -1765,14 +1760,11 @@ export async function postFeatureToggleAutoPublish(
     );
   }
 
-  // Arming and DISARMING take the same authority — PUBLISH, and only that.
-  // Requiring less to turn it off than on gave a draft manager without publish
-  // rights a one-way control, and disagreed with the dated schedule beside it.
-  //
-  // The ELIGIBILITY gates (premium, the org's approval flow) are a precondition for
-  // taking ON a future publish, not for standing one down: asking them on the way
-  // out left an armed revision un-disarmable the moment either changed, while the
-  // arm still fired.
+  // Arming and DISARMING take the same authority — publish, and only that —
+  // matching the dated schedule beside it. The eligibility gates (premium, the
+  // org's approval flow) apply only to taking ON a future publish; asking them
+  // on the way out would leave an armed revision un-disarmable the moment
+  // either changed.
   const mayToggle = enabled
     ? await canEnableFeatureAutoPublishOnApproval(context, feature, revision)
     : await canDisarmFeatureAutoPublishOnApproval(context, feature, revision);
@@ -1885,11 +1877,9 @@ export async function postFeatureUndoReview(
       version: parseInt(version),
     })) ?? revision;
 
-  // Retraction is its own event. This engine dispatched nothing at all for it,
-  // while the other revision families announce it — so the same action was visible
-  // or invisible depending on which kind of entity it happened to. Carries the
-  // REFRESHED revision: the pre-image still holds the verdict just removed and the
-  // status it implied, which is precisely what the event exists to report.
+  // Retraction is its own event, announced here as the other revision families
+  // do. Carries the REFRESHED revision: the pre-image still holds the verdict
+  // just removed, which is exactly what the event exists to report.
   await dispatchFeatureRevisionEvent(
     context,
     feature,
@@ -2529,14 +2519,12 @@ export async function postFeatureRevert(
   // restores a previously-published state as-is, which may reference
   // attributes that have since been archived or removed.
 
-  // BEFORE the repair below, which WRITES: it updates the feature, audits, runs
-  // hooks and refreshes the payload, so a caller with no revert authority at all
-  // could drive all of that and only then receive a 403.
-  //
-  // Deliberately the weakest sufficient gate — the atom with no environment binding,
-  // i.e. "may this caller revert this feature anywhere". The per-change checks below
-  // are the real authority and each adds its own environments; anything stricter here
-  // would refuse an environment-limited reverter a narrow revert they can perform.
+  // Checked BEFORE the repair below, which writes (feature update, audit, hooks,
+  // payload refresh) — a caller with no revert authority must not drive that.
+  // Deliberately the weakest sufficient gate ("may this caller revert this
+  // feature anywhere"): the per-change checks below are the real authority and
+  // each adds its own environments, so anything stricter here would refuse an
+  // environment-limited reverter a narrow revert they can perform.
   if (!context.permissions.canRevertFeature(feature, NO_ENVIRONMENT_BINDING)) {
     context.permissions.throwPermissionError();
   }
@@ -2698,13 +2686,11 @@ export async function postFeatureRevert(
       metadataChanges.jsonSchema = m.jsonSchema;
       hasMetadataChanges = true;
     }
-    // PAYLOAD-AFFECTING metadata only, the same rule the publish footprint and the
-    // Revert control apply via `metadataTouchesPayload`. Gating on ANY metadata
-    // diff meant a description-only revert answered for every serving environment,
-    // so a dev-limited reverter was offered Revert and then refused — the control
-    // and the endpoint disagreed in the direction that offers the action. Inert
-    // metadata (description, owner, tags, neverStale, customFields) reaches no SDK,
-    // which is exactly why the publish gate skips the check for it.
+    // PAYLOAD-AFFECTING metadata only, the same `metadataTouchesPayload` rule
+    // the publish footprint and the Revert control apply — inert metadata
+    // (description, owner, tags, neverStale, customFields) reaches no SDK, and
+    // gating on any metadata diff would make a description-only revert answer
+    // for every serving environment.
     if (
       hasMetadataChanges &&
       metadataTouchesPayload(metadataChanges as Record<string, unknown>)
@@ -2723,11 +2709,9 @@ export async function postFeatureRevert(
             : {}),
         },
         landing: true,
-        // Includes environments the restore would switch back on, not just those
-        // enabled now — a revert that re-enables production is a production change
-        // — and the ones whose rules it would change. Both REST reverts pass
-        // `changedEnvs`; omitting it here made the dashboard demand LESS than the
-        // API for the same restore.
+        // Includes environments the restore would switch back on (a revert that
+        // re-enables production is a production change) and the ones whose
+        // rules it would change — the same footprint the REST reverts pass.
         footprint: revertFootprint({
           feature,
           targetRevision: revision,
@@ -2736,16 +2720,10 @@ export async function postFeatureRevert(
         }),
       });
     }
-    // OUTSIDE the gate. `mergeChanges` is not just permission evidence here — it is
-    // the delta handed to `publishRevision` and the thing the empty-diff check
-    // measures, and `computeRevisionMergeChanges` writes description/owner/tags/
-    // neverStale/customFields ONLY from `result.metadata`. Inside the gate, a
-    // description-only revert produced an empty delta and threw "Nothing to
-    // revert"; worse, a revert of a dev rule AND the description landed the rule and
-    // dropped the description while still recording the target metadata on the new
-    // revision — leaving feature.description and the live revision permanently
-    // disagreeing, and every later diff reading phantom churn.
-    // `revertFeature.ts` already had this shape: gate inside, assignment outside.
+    // OUTSIDE the payload gate (same shape as `revertFeature.ts`): `mergeChanges`
+    // is the delta handed to `publishRevision` and what the empty-diff check
+    // measures, and inert metadata only lands via `result.metadata` — putting
+    // this inside the gate silently drops description-only reverts.
     if (hasMetadataChanges) {
       mergeChanges.metadata = metadataChanges;
     }
@@ -4855,10 +4833,8 @@ export async function postFeatureToggle(
     }
   }
 
-  // Two paths, two authorities: `autoPublish` lands the toggle live, while the
-  // draft path only stages it. Gating both on publish let a publisher stage a
-  // draft they have no authoring rights to, and stopped a drafter from staging
-  // one at all.
+  // Two paths, two authorities: `autoPublish` lands the toggle live (publish),
+  // while the draft path only stages it (authoring).
   if (
     autoPublish
       ? !context.permissions.canPublishFeature(feature, envIds)
@@ -5242,22 +5218,17 @@ export async function putFeature(
 
   // MOVING the project can affect SDK payload targeting, so LANDING one takes
   // publish in both the old and new project. Judged by the shared rule, not key
-  // presence — clients echo the current project back (the edit-info modal
-  // always submits it), and an identity write is not a move. Presence-gating
-  // 403'd draft-only users whose metadata edit changed no project at all.
-  //
-  // Staging one is a different question: a draft publishes nothing, so it takes
-  // AUTHORING rights in both projects — read access there must not be enough to
-  // line a flag up to land somewhere the author cannot write, but publish rights
-  // must not be required to propose it either. Same split the revert path applies.
+  // presence — clients echo the current project back, and an identity write is
+  // not a move. Staging one takes only AUTHORING rights in both projects: a
+  // draft publishes nothing, but read access in the destination must not be
+  // enough to line a flag up to land there. Same split the revert path applies.
   if (
     "project" in updates &&
     projectScopeChanged(feature, { project: updates.project })
   ) {
-    // APPLICABLE environments, not every org env — an environment scoped away from
-    // the flag's projects never serves it, and the archive path on this same file
-    // already filters. The unfiltered set is a superset, so the control (which does
-    // filter) was predicting a narrower demand than this check made.
+    // APPLICABLE environments, not every org env — an environment scoped away
+    // from the flag's projects never serves it. Same filtering as the archive
+    // path in this file and the front-end control.
     const envs = Array.from(
       getEnabledEnvironments(
         feature,
@@ -5319,13 +5290,10 @@ export async function putFeature(
     "owner",
     "customFields",
   ];
-  // Diffed against live, not taken by KEY PRESENCE. The edit-info modal submits all
-  // of its form fields on every save, so `project` / `targetingAllProjects` /
-  // `targetingProjects` were always present — and none is payload-inert, so
-  // `mergeResultTouchesPayload` was true for a description-only edit and the
-  // footprint widened to every serving environment. A control cannot predict that
-  // (it has no reason to think a description edit reaches production), so the
-  // request has to carry only what actually changed.
+  // Diffed against live, not taken by key presence: the edit-info modal submits
+  // every form field on every save, and an echoed-but-unchanged `project` /
+  // targeting field would trip `mergeResultTouchesPayload` and widen a
+  // description-only edit's footprint to every serving environment.
   const metadataUpdates = Object.fromEntries(
     Object.entries(updates).filter(
       ([k, v]) =>
@@ -5661,10 +5629,9 @@ async function getDraftForArchiveInjectionCheck(
   targetDraftVersion?: number,
   forceNewDraft?: boolean,
 ): Promise<FeatureRevisionInterface | null> {
-  // A write that will CREATE a fresh revision touches nobody's draft, so there is
-  // nothing to protect. Without this the check resolved the active draft — which is
-  // author-blind — and refused a Deleter whose write would have made a new one:
-  // the exact persona `canStageArchiveDraft` exists to serve.
+  // A write that will CREATE a fresh revision touches nobody's draft, so there
+  // is nothing to protect — resolving the active draft here would wrongly
+  // refuse the very persona `canStageArchiveDraft` exists to serve.
   if (forceNewDraft) return null;
   if (targetDraftVersion) {
     return await getRevision({
@@ -5723,10 +5690,8 @@ export async function postFeatureArchive(
     archived: newArchivedState,
     environments: archiveEnvs,
   });
-  // Staging publishes nothing, so it asks the project-scoped question — the same
-  // `canStageArchiveDraft` the REST twin and the archive modal use. Requiring the
-  // LANDING authority to stage meant a dev-limited deleter was refused here by the
-  // dashboard while the API let them open the very same draft.
+  // Staging publishes nothing, so it asks the project-scoped question — the
+  // same `canStageArchiveDraft` the REST twin and the archive modal use.
   const canStage =
     canLand ||
     canStageArchiveDraft({
@@ -5743,16 +5708,15 @@ export async function postFeatureArchive(
   if (autoPublish && !canLand) {
     context.permissions.throwPermissionError();
   }
-  // Writing `archived` into an EXISTING draft is a write into someone else's work:
-  // it makes that draft delete-class, so its author — a publisher without delete —
-  // can no longer publish it, and `createOrUpdateDraftWithChanges` does NOT reset
-  // review, so an approved draft keeps approvals that never saw the archive. The
-  // landing authority above is enough to stage a NEW archive draft, never to reach
-  // into one this caller does not own. With no `draftVersion` this falls through to
+  // Writing `archived` into an EXISTING draft is a write into someone else's
+  // work: it makes that draft delete-class (its publisher-without-delete author
+  // can no longer publish it), and `createOrUpdateDraftWithChanges` does NOT
+  // reset review, so an approved draft would keep approvals that never saw the
+  // archive. Authority to stage a NEW archive draft never reaches into a draft
+  // this caller does not own — and with no `draftVersion` this falls through to
   // the active draft, so there is no version to guess.
-  // The SAME resolution the write performs below — `autoPublish` forces a new
-  // revision and clears the pinned version, so passing the raw body values asked a
-  // different question than the write answers.
+  // Resolved exactly as the write below resolves it (`autoPublish` forces a new
+  // revision and clears the pinned version), so check and write can't disagree.
   const targetDraft = await getDraftForArchiveInjectionCheck(
     context,
     feature,

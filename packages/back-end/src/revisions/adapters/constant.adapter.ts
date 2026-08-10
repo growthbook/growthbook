@@ -190,18 +190,13 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     return constantApprovalConfigured(context);
   },
 
-  // Precise, change-aware gate using the feature `requireReviews` model: a
-  // `value` change requires review (affects all environments); a per-environment
-  // override requires review only when that environment is in scope; a
-  // metadata-only change follows the rule's `featureRequireMetadataReview`.
   publishFootprint(
     context: Context,
     snapshot: ConstantInterface,
     proposedChanges: unknown,
   ): PublishFootprint {
-    // An archive flip takes the constant out of service, or returns it, wherever
-    // it serves — it names no environments of its own, and saying so is what stops
-    // a dev-limited caller archiving production values.
+    // An archive flip takes the constant out of service (or returns it)
+    // everywhere it serves, so a dev-limited caller must not be able to land it.
     if (
       flipsArchivedState({
         proposed: proposedArchivedValue(proposedChanges),
@@ -214,14 +209,18 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
       context,
       getConstantRevisionChange(snapshot, proposedChanges).changedEnvironments,
     );
-    // A base-value or metadata change carries no intrinsic environment (declared
-    // design), so the restriction does not apply to it. Distinct from the archive
-    // flip above, which reaches everywhere — the two used to be the same `[]`.
+    // A base-value or metadata change carries no intrinsic environment, so no
+    // environment restriction applies — distinct from the archive flip above,
+    // which reaches everywhere.
     return environments.length
       ? { scope: "environments", environments }
       : { scope: "unscoped" };
   },
 
+  // Precise, change-aware gate using the feature `requireReviews` model: a
+  // `value` change requires review (affects all environments); a per-environment
+  // override requires review only when that environment is in scope; a
+  // metadata-only change follows the rule's `featureRequireMetadataReview`.
   isApprovalRequiredForRevision(context: Context, revision: Revision): boolean {
     if (!context.hasPremiumFeature("require-approvals")) return false;
     const snapshot = revision.target.snapshot as ConstantInterface;
@@ -289,10 +288,8 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     );
 
     if (Object.keys(filteredChanges).length === 0) {
-      // REPORTED, not just returned: `null` means "ran and wrote nothing",
-      // which compensation must be able to tell apart from "never reported".
-      // Without this the two collapse into `undefined` and a no-op apply is
-      // indistinguishable from a failure that left state behind.
+      // Report even the no-op: `written: null` means "ran and wrote nothing",
+      // which compensation must distinguish from "never reported".
       const nothing = { persistedKeys: [] as string[], written: null };
       options?.onPersisted?.(nothing);
       return nothing;
@@ -303,11 +300,9 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
           context.models.constants,
         )
       : context.models.constants.update.bind(context.models.constants);
-    // Reported from INSIDE the write, before audit logging and the
-    // afterUpdate hooks: those run after the document has landed, so a
-    // throw there is a persisted change. Reporting after this call
-    // returned could not tell that from "never wrote", and compensation
-    // read the second as the first — leaving the change live, unrecorded.
+    // Reported from INSIDE the write, before audit logging and the afterUpdate
+    // hooks: those run after the document has landed, so a throw there is a
+    // persisted change compensation must know about.
     const report = (doc: Record<string, unknown>) =>
       options?.onPersisted?.({
         persistedKeys: Object.keys(filteredChanges),

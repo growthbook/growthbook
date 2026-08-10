@@ -151,10 +151,8 @@ export function buildMergeDesiredState<T extends Record<string, unknown>>(
 // Publishing an ownership change must additionally re-check manage permission
 // on the destination project(s): the publish-authority check only covers the
 // live (source) entity, so without this a publish-only role could launder an
-// entity into a project it can't otherwise touch. Keying off an actual
-// ownership change means an ordinary publish (no move) isn't blocked.
-// Delegates to the canonical comparison in shared so the back-end, the
-// front-end and the permission layer cannot disagree about what a move is.
+// entity into a project it can't otherwise touch. Delegates to the canonical
+// comparison in shared so all layers agree on what a move is.
 export function ownershipChanged(
   entity: Record<string, unknown>,
   proposedEntity: Record<string, unknown>,
@@ -182,21 +180,13 @@ export function buildPatchOps(
   return Object.entries(changes)
     .filter(([, value]) => value !== undefined && value !== null)
     .map(([key, value]) => {
-      // A key containing `/` would manufacture a NESTED path — and this output is
-      // server-constructed, so it is written to the revision without passing back
-      // through `jsonPatchOperationValidator`. That matters because the authority
-      // footprint drops nested paths while the publish applies them, which was a
-      // live environment-scoped-publish bypass through the raw-ops endpoint.
-      //
-      // Every caller today destructures named fields, so this cannot fire. It is
-      // here so the invariant is ENFORCED rather than conventional: the first
-      // caller to spread a client-supplied object into `changes` would otherwise
-      // reopen the bypass from the inside, past the validator that guards the door.
-      // `/` ONLY, deliberately. `~` is the other JSON-Pointer metacharacter, but it
-      // is not on this security axis: `~1` unescapes to a literal `/` WITHIN a
-      // single token rather than acting as a separator, so both appliers still read
-      // such a path as top-level and no footprint/write divergence arises. Widening
-      // the guard would buy nothing here — recorded so the question isn't reopened.
+      // A key containing `/` would manufacture a NESTED path, and this output is
+      // server-constructed — it skips `jsonPatchOperationValidator`. The authority
+      // footprint drops nested paths while the publish applies them, so a caller
+      // spreading a client-supplied object into `changes` would open an
+      // environment-scoped-publish bypass. `/` only: `~1` unescapes to a literal
+      // `/` within a single token, so both appliers still read such a path as
+      // top-level and no footprint/write divergence arises.
       if (key.includes("/")) {
         throw new Error(
           `Cannot build a patch op for field "${key}": field names may not contain "/".`,
@@ -271,15 +261,14 @@ export async function createOrUpdateRevision(
   } = options;
 
   if (revisionId && !forceCreate) {
-    // Live-entity basis: on the snapshot basis a moved entity's revision resolved
-    // to null here and the code fell through to CREATE a new draft — so a caller
-    // who had just resolved that revision on the live basis at the handler silently
-    // got a fork, once, and then everything looked normal.
+    // Live-entity basis, matching the handlers that resolved this id: the
+    // snapshot basis returns null for a moved entity, and falling through to
+    // create would silently fork a new draft.
     const targetRevision =
       await context.models.revisions.getByIdReadable(revisionId);
     if (!targetRevision) {
-      // An explicitly named revision that cannot be resolved is a failure, never a
-      // new draft. Falling through is what made the fork silent.
+      // An explicitly named revision that can't be resolved is an error,
+      // never a new draft.
       throw new Error("Revision not found");
     }
     if (targetRevision) {

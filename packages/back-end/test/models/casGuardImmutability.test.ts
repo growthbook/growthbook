@@ -5,26 +5,17 @@ import { postSubmit } from "back-end/src/routers/revision/revision.controller";
 import { setupApp } from "../api/api.setup";
 
 /**
- * A CAS guard must describe the document AS READ, and stay that way.
+ * A CAS guard must describe the document AS READ, and stay that way — which is
+ * why `buildCasGuard` clones what it captures. The read path copies only the top
+ * level, and `RevisionModel.beforeUpdate` rebuilds `target.snapshot` in the
+ * adapter's own key order inside the write; Mongo compares embedded documents by
+ * FIELD ORDER, so a by-reference guard stops matching the document it was read
+ * from and every retry fails identically (`exhausted 5 attempts`, a 500). A
+ * revision whose stored snapshot order differs from `SNAPSHOT_ALLOWED_KEYS`
+ * would be permanently un-writable across every verb that guards `target`.
  *
- * `buildCasGuard` used to capture guard values BY REFERENCE. The read path copies
- * only the top level, so `existing.target` is the very object the guard holds — and
- * `RevisionModel.beforeUpdate` runs inside the write and rebuilds
- * `target.snapshot` through the adapter's `buildSnapshot`, which emits keys in its
- * own allowed-keys order. Mongo compares embedded documents by FIELD ORDER, so the
- * guard reaching the filter no longer matched the document it was read from. Every
- * retry re-read and re-mutated identically: `updateWithCas: exhausted 5 attempts`,
- * a 500, on an ordinary revision.
- *
- * Nothing self-heals it — the rebuild is never persisted, because `target` isn't in
- * the `$set`. Any revision whose stored snapshot key order differs from
- * `SNAPSHOT_ALLOWED_KEYS` (an older write order, a migration, a direct import) is
- * permanently un-submittable and un-reviewable across every verb that guards
- * `target`: submitForReview, recallReview, undoReview, addReview, writeContentEdit.
- *
- * The fixture below is a revision whose snapshot carries `environmentValues` LAST,
- * which is where the rebuild visibly reorders it. Remove the clone in
- * `buildCasGuard` and this goes red.
+ * The fixture carries `environmentValues` LAST, where the rebuild visibly
+ * reorders it; removing the clone in `buildCasGuard` turns this red.
  */
 
 const ORG_ID = "org_cas_guard";
@@ -144,9 +135,8 @@ describe("CAS guards survive a beforeUpdate hook that rewrites the guarded field
   });
 
   it("still submits the ordinary snapshot shape", async () => {
-    // The control. This one's stored order already matches the rebuild, so it
-    // passed even with the bug — which is exactly why the bug went unseen: every
-    // fixture in the suite happened to be written in allowed-keys order.
+    // The control: this one's stored order already matches the rebuild, so it
+    // passes either way.
     await seed({ id: "cst_guard", key: "cst_guard", project: "" });
 
     const captured = await submit();

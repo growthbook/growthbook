@@ -170,10 +170,10 @@ export interface ReviewAndPublishTabProps<T> {
   // draft, which publishes nothing.
   canDeleteEntity?: boolean;
   // Delete authority over the environments an archive takes out of service. A
-  // draft that archives LANDS everywhere the entity serves, so the project-scoped
-  // atom above must not decide it — that gap offered Publish on an archive draft
-  // to a dev-limited deleter the endpoint refuses. Defaults to `canDeleteEntity`
-  // for entities with no environment footprint (Saved Groups).
+  // draft that archives LANDS everywhere the entity serves, so the
+  // project-scoped atom above must not decide it. Defaults to
+  // `canDeleteEntity` for entities with no environment footprint (Saved
+  // Groups).
   canLandArchiveEntity?: boolean;
   // Commenting is participation, gated by addComments rather than by authority
   // over the entity. Defaults to canEditEntity for callers that don't pass it.
@@ -186,14 +186,11 @@ export interface ReviewAndPublishTabProps<T> {
   // project-level approximation used to decide whether to offer the action.
   canPublishEntity?: boolean;
   /**
-   * Publish authority over the LIVE entity, without the revision's destination term.
-   *
-   * `canPublishEntity` is change-aware (it folds in `holdsRevisionDestination` for
-   * the selected revision), which is right for offering Publish and wrong for
-   * offering CANCEL: the cancel endpoint judges a pending schedule on coarse
-   * live-entity publish authority, so a relocating revision hid the one action still
-   * permitted — the exact stranding the `canCancel` prop exists to prevent.
-   * Defaults to `canPublishEntity` for callers that don't distinguish them.
+   * Publish authority over the LIVE entity, without the revision's destination
+   * term. `canPublishEntity` is change-aware, which is right for offering
+   * Publish and wrong for offering CANCEL: the cancel endpoint judges a
+   * pending schedule on coarse live-entity publish authority. Defaults to
+   * `canPublishEntity` for callers that don't distinguish them.
    */
   canPublishEntityCoarse?: boolean;
   // Whether the viewer holds the DESTINATION side of this revision's relocation.
@@ -603,13 +600,12 @@ function ReviewAndPublishRevision<T>({
   // authority or authorship only. A narrow atom lets you land a draft or leave it —
   // not throw away someone else's work, possibly mid-review.
   const canDiscardDraft = canDraftOrEdit || isAuthor;
-  // Publish authority, or a narrow atom that could land this exact change in one
-  // step: a pure revert under revert, a pure archive under delete. Archiving needs
-  // delete whatever else it carries; unarchiving is an ordinary publish.
-  // Landing a revert draft answers for the environments it restores, so this arm
-  // takes the landing value — `canRevertEntity` alone (project-scoped, since it
-  // also decides whether a revert can be PROPOSED) would offer Publish to a
-  // reverter the server refuses.
+  // Publish authority, or a narrow atom that could land this exact change in
+  // one step: a pure revert under revert, a pure archive under delete.
+  // Archiving needs delete whatever else it carries; unarchiving is an
+  // ordinary publish. Landing a revert answers for the environments it
+  // restores, so this arm takes the landing value, not the project-scoped
+  // `canRevertEntity`.
   const canLandRevert = canLandRevertEntity ?? canRevertEntity ?? canEditEntity;
   // A draft that relocates the entity also takes publish authority in the
   // DESTINATION, so the narrow-atom fallbacks must not offer Publish on source
@@ -617,12 +613,9 @@ function ReviewAndPublishRevision<T>({
   const holdsDestination = holdsLandingDestination ?? true;
   const canLandArchive = canLandArchiveEntity ?? canDeleteEntity;
   // `holdsDestination` gates EVERY landing route, not just the narrow-atom
-  // fallbacks. Landing a relocating draft is a publish wherever it lands, and it
-  // is vacuously true for a draft that relocates nothing — so ANDing it once is
-  // both safe and structural. Sitting inside the fallback arm, it was skipped
-  // entirely whenever `canPublishEntity` was true, which relied on every caller
-  // having composed the destination into that value; the `canEditEntity` fallback
-  // never does.
+  // fallbacks: landing a relocating draft is a publish wherever it lands, and
+  // it is vacuously true for a draft that relocates nothing, so ANDing it once
+  // is both safe and structural.
   const canPublishOrEdit =
     (!draftArchives || !!canLandArchive) &&
     holdsDestination &&
@@ -1162,8 +1155,8 @@ function ReviewAndPublishRevision<T>({
         </Heading>
       </Flex>
 
-      {/* Exactly the disjunction of the items below — `hasAnyAuthority` is wider
-          than any of them, so it rendered an empty menu for a publisher. */}
+      {/* Exactly the disjunction of the items below — anything wider renders
+          an empty menu. */}
       {isActiveDraft &&
         (state.canRecallReview ||
           state.canUndoReview ||
@@ -1264,10 +1257,8 @@ function ReviewAndPublishRevision<T>({
         {revision.status === "discarded" ? (
           <Button
             onClick={() => setConfirmReopen(true)}
-            // The endpoint asks author-or-draft, NOT the widened advance rule:
-            // `canAdvanceDraft` also admits the narrow atoms over a pure revert or
-            // archive, and reopen has no such exemption — so a reverter or deleter
-            // got an enabled button that 403s.
+            // The endpoint asks author-or-draft, NOT the widened advance rule —
+            // reopen has no narrow-atom exemption.
             disabled={!canDraftOrEdit && !isAuthor}
             style={{ width: "100%" }}
           >
@@ -1387,8 +1378,8 @@ function ReviewAndPublishRevision<T>({
               >
                 {state.ctaLabel}
               </Button>
-              {/* A greyed-out button with no reason reads as a bug — the Feature
-                  flow states it here and this tab did not. */}
+              {/* A greyed-out button with no reason reads as a bug — mirrors
+                  the Feature flow. */}
               {!canAdvanceDraft && (
                 <PermissionBlocker mt="2">
                   You don&apos;t have permission to request review for this
@@ -1398,10 +1389,8 @@ function ReviewAndPublishRevision<T>({
             </Box>
           )}
 
-          {/* Same notice the Feature tab shows. Without it this tab said nothing at
-              all while a draft sat with a reviewer, so it read as stuck — and gave no
-              hint that withdrawing the request was an option. Suppressed when the
-              publish section renders below, where "waiting for a reviewer" next to a
+          {/* Same notice the Feature tab shows. Suppressed when the publish
+              section renders below, where "waiting for a reviewer" next to a
               working Publish button reads as a contradiction. */}
           {state.waitingForReview &&
             !canReview &&
@@ -1414,11 +1403,9 @@ function ReviewAndPublishRevision<T>({
               />
             )}
 
-          {/* Publish section. The divider and its padding belong to the section, so
-              rendering them unconditionally drew a separator around nothing — what a
-              deleter sees on a pure-archive draft pending review: they may land it
-              eventually, so the "no permission" note is suppressed, but no publish
-              control applies yet. */}
+          {/* Publish section. The divider and its padding belong to the
+              section — rendered unconditionally they draw a separator around
+              nothing (e.g. a deleter on a pure-archive draft pending review). */}
           {publishSectionHasContent && (
             <Box
               mt="4"
@@ -1462,19 +1449,17 @@ function ReviewAndPublishRevision<T>({
                     schedulePublishPath={`/revision/${revision.id}/schedule-publish`}
                     toggleAutoPublishPath={`/revision/${revision.id}/toggle-auto-publish`}
                     entityNoun={entityNoun}
-                    // Arming a schedule commits a future PUBLISH, and the endpoint's
-                    // coarse gate requires the publish atom itself — the narrow-atom
-                    // landing fallbacks folded into canPublishOrEdit (a reverter's
-                    // pure revert, a deleter's pure archive) do not arm schedules,
-                    // so offering them here invited a 403.
+                    // Arming a schedule commits a future publish, and the
+                    // endpoint requires the publish atom itself — the
+                    // narrow-atom landing fallbacks in canPublishOrEdit do not
+                    // arm schedules.
                     canEdit={canPublishEntity ?? canEditEntity}
-                    // A blocked publish (a locked Config) refuses NEW schedules but still
-                    // allows cancelling one already armed — which the endpoint permits and
-                    // hiding the control made unreachable.
+                    // A blocked publish (a locked Config) refuses NEW schedules
+                    // but still allows cancelling one already armed.
                     canArm={!publishBlockedReason}
-                    // Cancelling is judged by the endpoint on COARSE live-entity publish
-                    // authority, so a change-aware `canEdit` failing for THIS revision
-                    // must not hide the one action still permitted.
+                    // The cancel endpoint judges on coarse live-entity publish
+                    // authority, so a change-aware `canEdit` failing for THIS
+                    // revision must not hide the one action still permitted.
                     canCancel={
                       canPublishEntityCoarse ??
                       canPublishEntity ??
@@ -1532,9 +1517,8 @@ function ReviewAndPublishRevision<T>({
                 )}
 
               <Flex direction="column" gap="2" mt="3">
-                {/* Lacking publish authority disables the CTA above, and a
-                  greyed-out button with no reason reads as a bug. First in the
-                  stack: it's the reason nothing else here is actionable. */}
+                {/* First in the stack: a disabled CTA with no reason reads as
+                  a bug. */}
                 {!canPublishOrEdit && (
                   <PermissionBlocker>
                     You don&apos;t have permission to publish this draft.

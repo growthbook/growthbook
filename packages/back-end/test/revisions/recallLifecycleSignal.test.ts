@@ -8,16 +8,10 @@ import {
 import { setupApp } from "../api/api.setup";
 
 /**
- * Recall and reopen are different events, and both surfaces used to call them the
- * same thing.
- *
- * They land on the same status — `draft` — but mean opposite things. Recall
- * RETRACTS a review request the author no longer wants judged, clearing every
- * verdict and disarming any deferred publish. Reopen REVIVES work that was
- * discarded. A consumer subscribed to `revision.reopened` for "abandoned work is
- * back" got woken by every recall; a consumer wanting recalls had no event at all.
- * The activity timeline had the same problem one layer down, rendering a recall as
- * "reopen".
+ * Recall and reopen are different events. Both land on `draft` but mean opposite
+ * things: recall RETRACTS a review request, clearing every verdict and disarming
+ * any deferred publish; reopen REVIVES discarded work. Conflating them wakes
+ * `revision.reopened` consumers on every recall and gives recall no event at all.
  *
  * The webhook half is the one that can regress silently: it is a single literal in
  * a call the type checker is happy with either way.

@@ -7,7 +7,7 @@ import { restoreOrder } from "back-end/src/revisions/bulkPublish/bulkPublish";
  * descendant cascade rewrote another item's entity: a Config restored while its parent
  * still declares a field is re-stripped by ancestor normalization, and the restore
  * REPORTS success because the key was still persisted. Only an assertion on order
- * catches it — which is why `[...applied].reverse()` looked correct for five rounds.
+ * catches it.
  */
 
 type Item = Parameters<typeof restoreOrder>[0][number];

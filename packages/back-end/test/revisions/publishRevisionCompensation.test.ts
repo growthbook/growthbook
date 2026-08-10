@@ -51,11 +51,9 @@ function ctx(): Context {
 }
 
 /**
- * The single-entity feature landing reports what it put back.
- *
- * That recording is what decides the fate of the `feature.updated` its apply deferred,
- * and deleting the call outright left the whole suite green — the predicate had tests,
- * its invocation did not.
+ * The single-entity feature landing reports what it put back. That recording
+ * decides the fate of the `feature.updated` its apply deferred — the predicate
+ * has its own tests; this pins the invocation.
  *
  * No module mocks. A `create` ramp action makes `createRampSchedulesForRevision` the
  * first step inside the try, and its premium gate is entirely context-owned, so a

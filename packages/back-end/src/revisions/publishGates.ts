@@ -268,24 +268,22 @@ export type PublishGateDisposition =
   | { outcome: "blocking" }
   | { outcome: "bypassed"; via: BypassVia };
 
+// Whether authority has already refused this item, so gate collection should
+// stop: everything after the authority checks is expensive or side-effecting
+// (entity guards, schema validation, the org's sandboxed Custom Hooks), a
+// permission-denied gate is never bypassable, and the gate list would enumerate
+// governance to a caller who cannot land the change anyway.
+export function authorityRefused(gates: PublishGate[]): boolean {
+  return gates.some((g) => g.type === "permission-denied");
+}
+
 // Decide whether a single active gate blocks the publish or is bypassed (and by
 // what). Pure — exported for unit tests. The flag path reuses `unclearedGates`
 // (so its requiresPermission handling stays the single source of truth); the
 // non-flag paths encode each gate kind's authority:
 // - config-locked: never bypassed on publish (unlock is a separate action).
-// Whether authority has already refused this item, so gate collection should stop.
-//
-// Everything after the authority checks is expensive or side-effecting to a
-// caller who cannot land the change: entity guards, schema validation and the
-// org's sandboxed Custom Hooks all run there, and the gate list is a full
-// enumeration of the org's governance. A permission-denied gate is never
-// bypassable, so stopping early cannot change the outcome.
-export function authorityRefused(gates: PublishGate[]): boolean {
-  return gates.some((g) => g.type === "permission-denied");
-}
-
 // - approval-required: bypassed by the bypass-approval permission or the org
-// REST setting (labeled by which was the reason).
+//   REST setting (labeled by which was the reason).
 // - stale-base: bypassed only by ignoreWarnings + force-merge authority.
 // - soft guards: bypassed by ignoreWarnings, or the bypass-approval permission.
 export function classifyPublishGate(
@@ -392,15 +390,10 @@ function formatGateLine(gate: PublishGate): string {
 }
 
 // Resolve a revision's gates against the caller's clearance, and refuse if any
-// survive.
-//
-// Every per-entity publish handler wired this identically — the four override
-// flags, the entity's bypass-approval permission, the org's REST review bypass,
-// the stale-base force — and one of them drifted: the Saved Group handler read
-// `settings.restApiBypassesReviews` directly, omitting the `!isJwtAuth` guard the
-// others get from `canUseRestApiBypassSetting`, so a JWT-backed REST call there
-// cleared reviews that Config and Constant refuse. Deciding it once is what stops
-// the next copy drifting.
+// survive. Every per-entity publish handler wires this identically — the four
+// override flags, the entity's bypass-approval permission, the org's REST review
+// bypass, the stale-base force — decided once so no handler drifts (e.g. an
+// inlined REST-bypass read missing the `!isJwtAuth` guard).
 export function resolveEntityPublishGates({
   req,
   gates,
@@ -416,8 +409,8 @@ export function resolveEntityPublishGates({
 }): { bypassed: BypassedGate[] } {
   const { blocking, bypassed } = evaluatePublishGates(gates, {
     ignoreWarnings: req.context.ignoreWarnings,
-    // Per-FAMILY, like bulk: the ORed authority let a Constants bypass clear
-    // Config schema gates.
+    // Per-FAMILY, like bulk: ORing families would let a Constants bypass
+    // clear Config schema gates.
     skipSchemaValidation: req.context.canSkipSchemaValidationFor(entityType),
     skipHooks: req.context.canSkipHooksFor(entityType),
     bypassApprovalPermission,

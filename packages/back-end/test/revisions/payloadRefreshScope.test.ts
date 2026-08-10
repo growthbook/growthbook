@@ -126,9 +126,8 @@ describe("advancedGuardStamp", () => {
 });
 
 describe("withBufferedPayloadRefreshes — entity events", () => {
-  // Deferred through the REAL producer, not by pushing onto the buffer by hand: the
-  // buffer's entry shape gained an owner tag and hand-built fixtures went on passing
-  // a bare function, which only the runtime noticed.
+  // Deferred through the REAL producer, not by pushing onto the buffer by hand —
+  // hand-built entries silently drift from the real entry shape.
   const defer = (
     context: Context,
     emit: () => Promise<unknown>,
@@ -203,8 +202,6 @@ describe("withBufferedPayloadRefreshes — entity events", () => {
  * arrive after the release it belongs to has been decided. Read-and-push atomicity
  * doesn't help there — the buffer has to stay reachable with a disposition, or the
  * straggler falls through to a live emit and announces a rolled-back change.
- *
- * Mutating the ownership predicate previously left the whole back-end suite green.
  */
 describe("deferred event dispositions", () => {
   function ctx(): Context {
@@ -215,14 +212,10 @@ describe("deferred event dispositions", () => {
     } as unknown as Context;
   }
 
-  // A straggler captures NO reference: `emitOrDeferBulkPublishEvent` reads the context
-  // fresh when the producer resumes. So these call it plainly after the landing has
-  // ended — an earlier version re-installed the buffer by hand, which faked a capture
-  // the real producer never performs and passed while the branch was unreachable.
-  //
-  // And it is judged by the SAME question the in-window flush asks: was this DOCUMENT
-  // put back? A release-wide verdict cannot answer it — a rollback that leaves one
-  // entity durably published must stay silent about the rest and speak about that one.
+  // A straggler is judged by the SAME question the in-window flush asks: was this
+  // DOCUMENT put back? A release-wide verdict cannot answer it — a rollback that
+  // leaves one entity durably published must stay silent about the rest and speak
+  // about that one.
   it("drops a straggler whose document was restored", async () => {
     const context = ctx();
     const emit = jest.fn();
@@ -270,18 +263,10 @@ describe("deferred event dispositions", () => {
     expect(featureEmit).toHaveBeenCalledTimes(1);
   });
 
-  // `captureEventBuffer`'s own contract, asserted directly.
-  //
-  // Two mechanisms keep a finished landing from judging a new write: this guard, and
-  // landings clearing the field when they end. With both in place, mutating EITHER
-  // alone is invisible to any test that goes through a landing — so both are pinned by
-  // direct assertions instead, here and at "the context stops carrying it". Neither
-  // mutation surviving a landing-driven test means the code is dead.
-  //
-  // Asserted against the helper rather than through a landing precisely because a
-  // landing cannot reach it: a defensive branch only a fixture can drive is worth less
-  // than none, while a contract test on a pure function claims nothing about
-  // reachability and so cannot mislead about it.
+  // `captureEventBuffer`'s own contract, asserted directly: this guard and the
+  // end-of-landing field clear are redundant with each other, so mutating either
+  // alone is invisible to any landing-driven test — each is pinned by a direct
+  // assertion instead (the clear at "the context stops carrying it").
   it.each([
     ["an open landing", { entries: [], restored: new Set<string>() }, true],
     [

@@ -10,13 +10,10 @@ import { setupApp } from "./api.setup";
 /**
  * Publishing claims the merge before touching the live entity, so a crash
  * between the two leaves a revision recorded as "merged" whose changes never
- * landed. Re-publishing is the documented recovery, and it is reachable only
- * over the real handler: the claim it makes runs against `RevisionModel`, whose
- * `canUpdate` refuses merged revisions outright to keep history immutable.
- *
- * No mock can cover it: the claim runs against the real `RevisionModel`, so this
- * strands a revision the way production does — mutate the stored status, leave
- * the entity behind — and drives the real engine over it.
+ * landed. Re-publishing is the documented recovery. The claim runs against the
+ * real `RevisionModel` (whose `canUpdate` refuses merged revisions to keep
+ * history immutable), so no mock can cover it — this strands a revision the way
+ * production does and drives the real engine over it.
  *
  * Drives `publishRevision` directly: the REST publish handlers carry their own
  * inline copies of the publish flow and never reach the shared engine, so

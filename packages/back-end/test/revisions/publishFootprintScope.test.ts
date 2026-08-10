@@ -14,15 +14,9 @@ import {
  * reaches everywhere without naming anything (an archive flip takes the entity out
  * of service in production too).
  *
- * Both adapters had grown a bespoke archive branch to tell them apart, each added
- * after the hazard was found in that adapter specifically. The tagged reach makes
- * the distinction something an adapter must STATE rather than something the next
- * one has to remember: there is no longer a way to mean "everywhere" by writing
- * nothing.
- *
- * These pin the mapping. The behaviour is deliberately identical to the hand-rolled
- * branches it replaces — what changed is that omitting the case is no longer
- * expressible.
+ * The tagged reach makes the distinction something an adapter must STATE rather
+ * than something the next one has to remember: there is no way to mean
+ * "everywhere" by writing nothing.
  */
 
 const context = {
@@ -87,17 +81,10 @@ describe("resolvePublishFootprint", () => {
 });
 
 /**
- * The same fail-closed rule, on the helper ten call sites reach for directly.
- *
- * `archiveServeFootprint` states it plainly — "unbound means everywhere, never
- * nowhere" — but nothing held it to that. Rewriting its fallback to `return
- * scoped` (an archive of an unbound entity binding to NO environment, so an
- * env-limited caller may take it out of service in production) left all 422
- * revision tests and all 848 permission-matrix cases green.
- *
- * The matrix does exercise archive for env-limited roles; it just never does so
- * against an entity with no scope of its own, which is the only shape that
- * reaches the fallback. So the rule was asserted in a comment and nowhere else.
+ * The same fail-closed rule, on the helper ten call sites reach for directly:
+ * unbound means everywhere, never nowhere. The permission matrix never exercises
+ * an entity with no scope of its own — the only shape that reaches the fallback —
+ * so the rule is pinned here.
  */
 describe("archiveServeFootprint", () => {
   it("keeps an entity's own binding when it has one", () => {

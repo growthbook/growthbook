@@ -704,8 +704,7 @@ export const postFeatureRevisionRequestReviewV2Validator = {
     .object({
       comment: z.string().optional(),
       autoPublishOnApproval: z.boolean().optional(),
-      // Same field, same rule as the schedule-publish endpoint below — it was
-      // documented as a date-time here and validated as one only there.
+      // Same field, same rule as the schedule-publish endpoint below.
       scheduledPublishAt: z
         .union([z.iso.datetime({ offset: true }), z.null()])
         .optional(),
@@ -729,17 +728,15 @@ export const postFeatureRevisionSchedulePublishV2Validator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      // Documented as date-time but never VALIDATED as one — the generic three
-      // cite this endpoint as their model, so make the claim true.
+      // Validated RFC3339, with numeric offsets accepted: this endpoint shipped
+      // taking any string, so rejecting `…-07:00` would 400 existing callers.
       scheduledPublishAt: z
         .union([z.iso.datetime({ offset: true }), z.null()])
         .describe(
           "When to publish, as an RFC3339 timestamp (e.g. `2026-01-31T09:00:00Z` or `2026-01-31T02:00:00-07:00`), or `null` to cancel a pending schedule.",
         ),
       // Accepted so a caller retrying a bypassable 422 raised anywhere in this
-      // request isn't turned away by the body schema itself. Feature Flags have no
-      // arm-time fingerprint capture of their own — that is the generic engine's
-      // mechanism, and the earlier wording here described it as if it were shared.
+      // request isn't turned away by the body schema itself.
       ...publishOverrideBodyFields,
       lockEdits: z.boolean().optional(),
       lockOthers: z.boolean().optional(),

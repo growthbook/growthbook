@@ -75,14 +75,10 @@ export type RevisionActionKind =
 
 /**
  * Authority for a verb that belongs to the REVISION rather than the live entity:
- * drafting, reviewing, commenting.
- *
- * Takes no scope argument, deliberately. A review belongs to the revision, whose
- * project a later move on the live entity does not change, so these are judged on
- * `target.snapshot` — always. The two bases have the same type, so a parameter here
- * is a standing invitation to pass the wrong one.
- *
- * Verbs that LAND on live keep the explicit scope via `canDoRevisionAction`.
+ * drafting, reviewing, commenting. Always judged on `target.snapshot` — a later
+ * move on the live entity does not change the revision's project — so there is
+ * deliberately no scope argument to pass wrongly. Verbs that LAND on live keep
+ * the explicit scope via `canDoRevisionAction`.
  */
 export function canRevisionOwnedAction(
   context: Context,
@@ -111,10 +107,8 @@ export function canDoRevisionAction(
   snapshot: Record<string, unknown>,
 ): boolean {
   const adapter = getAdapter(type);
-  // Exhaustive on purpose — no default arm. A chain that fell through to the
-  // publish check is how "delete" was added to the backstop's union and quietly
-  // asked about publishing instead; a new action must fail the build rather than
-  // inherit someone else's authority.
+  // Exhaustive on purpose: a new action must fail the build rather than fall
+  // through to another action's authority.
   const hookFor = (a: RevisionActionKind) => {
     switch (a) {
       case "draft":
@@ -130,9 +124,8 @@ export function canDoRevisionAction(
         // DOCUMENTS and is bypass-tier, which is the wrong authority here.
         return adapter.canDeleteEntity;
       default: {
-        // A new action reaches here and fails the build. The arms above may
-        // legitimately return undefined (an optional hook falls back to
-        // canUpdate), so the return type alone cannot enforce this.
+        // The arms above may legitimately return undefined (optional hooks fall
+        // back to canUpdate), so the return type alone cannot enforce this.
         const unhandled: never = a;
         return unhandled;
       }
@@ -142,9 +135,9 @@ export function canDoRevisionAction(
 }
 
 // Commenting is participation, not authority over the entity: the addComments
-// atom is what gates it everywhere else (feature and experiment discussions), so
-// honour it here too, alongside draft and review authority. Shared by the
-// internal controller and the REST submit-review handlers so the two agree.
+// atom gates it everywhere else (feature and experiment discussions), so honour
+// it here too, alongside draft and review authority. Shared by the internal
+// controller and the REST submit-review handlers.
 export function canCommentOnRevision(
   type: RevisionTargetType,
   context: Context,
@@ -174,9 +167,6 @@ export function canTouchRevision(
   );
 }
 
-// Landing authority for a JSON-patch revision: derives the footprint and the
-// purity proofs, then defers to the shared rule. Purity is only computed on the
-// fallback arms, so publishers pay no extra revision load.
 // How long a stranded-merge recovery claim is honoured. Applying takes seconds; a
 // marker older than this means the claiming process died before releasing it.
 const MERGE_RECOVERY_LEASE_MS = 10 * 60 * 1000;
@@ -188,12 +178,9 @@ const MERGE_RECOVERY_LEASE_MS = 10 * 60 * 1000;
 async function releaseRecoveryClaim(
   context: Context,
   revisionId: string,
-  // Only THIS claim. Dropping every `merge-recovered` entry released whoever held
-  // the lease, not necessarily the caller: an attempt that outran the lease has
-  // already been superseded by a reclaimer, and its failure path would then free
-  // the reclaimer's live lease — letting a third worker apply and dispatch
-  // alongside a recovery still in flight, which is exactly what the claim exists
-  // to prevent.
+  // Only THIS claim: dropping every `merge-recovered` entry could free a
+  // reclaimer's live lease, letting a third worker apply and dispatch alongside
+  // a recovery still in flight.
   claimId: string,
 ): Promise<void> {
   await context.models.revisions
@@ -218,6 +205,7 @@ async function releaseRecoveryClaim(
       );
     });
 }
+
 // Re-publish a merge that was claimed but never applied — a crash between the
 // merge claim and the entity write. Returns null when this is not one.
 //
@@ -270,10 +258,10 @@ async function recoverStrandedMerge({
     });
   if (!strandedMerge) return null;
   // The merge is already claimed, so recovery claims here instead, guarded on
-  // `dateUpdated` — otherwise two operators retrying at once both apply and dispatch.
-  // The marker is a LEASE. A recovery that succeeded needs no marker — live then matches
-  // and `hasChanges` keeps this path unentered — so one older than the lease belongs to a
-  // process that died mid-flight and is reclaimable, or a termination locks recovery out.
+  // `dateUpdated` — otherwise two operators retrying at once both apply and
+  // dispatch. The marker is a LEASE: a successful recovery needs no marker (live
+  // then matches, so `hasChanges` keeps this path unentered), so one older than
+  // the lease belongs to a process that died mid-flight and is reclaimable.
   const leaseCutoff = new Date(Date.now() - MERGE_RECOVERY_LEASE_MS);
   // Minted OUTSIDE the compute so it survives a CAS retry and so the release path
   // can name the entry this attempt actually wrote.
@@ -309,10 +297,8 @@ async function recoverStrandedMerge({
   );
   if (!claimed) {
     // Someone else holds the claim. Only report success once their apply has
-    // actually landed — otherwise this returns "published" while the winner is
-    // still mid-apply and the live entity is unchanged. Re-read the entity and
-    // require it to match the desired state; if it doesn't yet, the caller
-    // should retry rather than believe the change is live.
+    // actually landed — otherwise this returns "published" while the live
+    // entity is still unchanged.
     const fresh = await adapter.getModel(context)?.getById(revision.target.id);
     if (
       !liveMatchesDesiredState({
@@ -391,19 +377,12 @@ async function recoverStrandedMerge({
       });
       if (!restored) context.landingLeftPartialState = true;
     }
-    // The marker is a claim, not a record of success. Leaving it behind on a
-    // failed apply would make every later retry see it and return without
-    // applying anything — stranding the revision permanently, which is worse
-    // than the double-dispatch the claim exists to prevent.
     await releaseRecoveryClaim(context, revision.id, claimId);
     throw e;
   }
   // The failed attempt never dispatched; this apply is when the change lands.
-  // Dispatch and return the CLAIMED revision — `revision` predates the claim,
-  // so the webhook payload and the response would disagree with a refetch.
-  // A recovered revert is still a publish, and owes both events for the same reason
-  // the ordinary landing does — consumers mirroring the published lifecycle were
-  // missing every recovered revert.
+  // Dispatch and return the CLAIMED revision — `revision` predates the claim.
+  // A recovered revert is still a publish, so it owes both events.
   const recoveredWebhooks = getRevisionWebhookAdapter(revision.target.type);
   await recoveredWebhooks?.dispatch(context, claimed, { type: "published" });
   if (claimed.revertedFrom) {
@@ -516,11 +495,9 @@ export async function approveRevision(
 ): Promise<Revision> {
   const adapter = getAdapter(revision.target.type);
   const canReview = adapter.canReview ?? adapter.canUpdate;
-  // On the revision's SNAPSHOT, like every other review check — the preflight that
-  // calls this, `addReview`'s CAS, `reviewAuthorityOnRow`, and the REST twin. A
-  // review belongs to the revision, whose project a later move on the live entity
-  // does not change. Asking about live here undid the preflight's answer: the
-  // caller was cleared to approve and then refused one call later.
+  // On the revision's SNAPSHOT, like every other review check (the preflight,
+  // `addReview`'s CAS, the REST twin): a review belongs to the revision, whose
+  // project a later move on the live entity does not change.
   if (
     !canReview(context, revision.target.snapshot as Record<string, unknown>)
   ) {
@@ -671,11 +648,7 @@ async function publishRevisionInner(
 
   // Another draft's committed "lock other drafts" schedule blocks this publish.
   // Excludes this revision by id, so the locking revision can still fire itself.
-  //
-  // Bypassable, like the same rule on all three other publish paths — feature
-  // single skips it under `bypassLockdown`, and both bulk adapters raise it as a
-  // gate the approval-bypass permission clears. This path was the lone absolute
-  // refusal, so an admin could clear a sibling's lock everywhere except here.
+  // Bypassable, like the same rule on the other three publish paths.
   if (
     !canBypass &&
     (await context.models.revisions.hasPublishLockingScheduledSibling(
@@ -738,8 +711,7 @@ async function publishRevisionInner(
   await adapter.assertPublishable?.(context, entity, desiredState, revision, {
     isRevert: !!revision.revertedFrom,
     deferred: !!deferred,
-    // Forward it: the REST publish handlers evaluate this entity's hooks as gates
-    // before calling in, so the assert must not run them a second time.
+    // See `skipHooks` above: the assert must not run the hooks a second time.
     hooksAlreadyRan: !!skipHooks,
     ...(skipHooks ? { skipHooks: true } : {}),
   });
@@ -775,24 +747,21 @@ async function publishRevisionInner(
       {
         bypass: isBypass,
         // Pin the revision the caller AUTHORIZED: a draft edit landing between
-        // the gate phase (hooks make it seconds wide) and this claim must lose
-        // the race, not get its never-authorized ops recorded as merged. Same
-        // pin bulk passes at its claim.
+        // the gate phase and this claim must lose the race, not get its
+        // never-authorized ops recorded as merged. Same pin bulk passes.
         expected: {
           status: revision.status,
           dateUpdated: revision.dateUpdated,
         },
       },
     );
-    // "No changes" was decided against a now-stale read, and this branch has no guarded
-    // write to catch drift — so verify AFTER the claim is held, and require this claim
-    // to still be the newest merged one: a rival claim never touches the entity, so the
-    // dateUpdated compare alone cannot see it, and `beforeNoOpMerge` replays config
-    // cascades against whatever order this claim recorded. Drift unwinds the claim and
-    // returns the same retryable 409 as every other fenced landing.
-    //
-    // Inside the same protected span, after claim and baseline both hold — run before
-    // them, its descendant writes outlived a failure that then reopened the draft.
+    // "No changes" was decided against a now-stale read and this branch has no
+    // guarded write to catch drift, so verify AFTER the claim is held and
+    // require this claim to still be the newest merged one — a rival claim
+    // never touches the entity, so the dateUpdated compare alone cannot see it.
+    // Drift unwinds the claim into the same retryable 409 as every other fenced
+    // landing. `beforeNoOpMerge` runs inside the same span: run earlier, its
+    // descendant writes outlive a failure that then reopens the draft.
     try {
       await assertLandingBaseline({
         context,
@@ -847,20 +816,14 @@ async function publishRevisionInner(
 
   let applied: ApplyChangesResult | undefined;
   try {
-    // Re-checked now that this landing has a place in the order — the same pair the
-    // revert and recovery paths assert after THEIR claims, and the only one of the
-    // three that was missing it.
-    //
-    // The entity CAS below cannot cover the second half. A revision that claims the
-    // merge and then dies before writing leaves the entity untouched, so an OLDER
-    // revision's baseline still matches, its guarded write passes, and it lands
-    // older state under a newer merged revision that recorded something else. That
-    // split is permanent: recovery of the newer revision refuses, correctly, because
-    // the baseline it would apply onto has since changed. Requiring this revision to
-    // still be the newest merged one is what makes the order it claimed real.
-    //
-    // Thrown before any entity write, so the compensation below sees `applied`
-    // undefined, restores nothing, and cleanly reopens the draft for a retry.
+    // Re-checked now that this landing has a place in the order — the same pair
+    // the revert and recovery paths assert after their claims. The entity CAS
+    // below cannot cover the second half: a revision that claims the merge and
+    // dies before writing leaves the entity untouched, so an OLDER revision's
+    // baseline still matches and its guarded write lands old state under a
+    // newer merged revision — a permanent split. Thrown before any entity
+    // write, so the compensation below sees `applied` undefined, restores
+    // nothing, and cleanly reopens the draft for a retry.
     await assertLandingBaseline({
       context,
       entityType: revision.target.type,
@@ -901,26 +864,21 @@ async function publishRevisionInner(
         null,
     });
   } catch (e) {
-    // Failed after claiming the merge. A lost race wrote NOTHING (restoring would undo
-    // the winner); a partial apply — Config root written before its cascade failed —
-    // leaves live changes a bare reopen would orphan. Only a clean restore may reopen.
-    // Keyed on the absence of a REPORT, not the error class: a Config cascade raises
-    // CasConflictError long after the root write reported, and the class alone read that
-    // live change as having written nothing.
+    // Failed after claiming the merge. A lost race wrote NOTHING (restoring
+    // would undo the winner); a partial apply — Config root written before its
+    // cascade failed — leaves live changes a bare reopen would orphan. Only a
+    // clean restore may reopen. Keyed on the absence of a REPORT, not the error
+    // class: a Config cascade raises CasConflictError long after the root write
+    // reported.
     const nothingReported = !applied || applied.written === undefined;
-    // Ownership is judged against what the adapter PERSISTED, not the intent — adapters
-    // normalize, so unnormalized `desiredState` misreads "ours" as "someone else's".
-    // `undefined` means the apply never reported — it threw before its entity
-    // write, so nothing of ours is live. `null` means it reported writing
-    // nothing. Neither is a re-read: distinguishing them is why the callback
-    // exists, and conflating them with `??` sent both down a guessing path.
+    // Ownership is judged against what the adapter PERSISTED, not the intent —
+    // adapters normalize, so unnormalized `desiredState` misreads "ours" as
+    // "someone else's". `undefined` means the apply never reported (nothing of
+    // ours is live); `null` means it reported writing nothing.
     const written = nothingReported || !applied ? null : applied.written;
-    // Nothing reported means the apply never reached its entity write (adapters
-    // report from inside it), so there is nothing to restore and the revision may
-    // be reopened cleanly — the same reading bulk takes.
-    // ROOT FIRST, unconditionally, then descendants in cascade order. Ancestor
-    // normalization is unconditional on a revert, so a descendant restored while the
-    // root still declares the field is re-stripped AND reports success.
+    // ROOT FIRST, then descendants in cascade order: ancestor normalization is
+    // unconditional on a revert, so a descendant restored while the root still
+    // declares the field is re-stripped AND reports success.
     const rootRestored =
       nothingReported || written === null
         ? true
@@ -1012,25 +970,19 @@ export async function canEnableAutoPublishOnApproval(
         (entity as { project?: string }).project,
       );
   if (!enabled) return false;
-  // Arming auto-publish-on-approval is a publish-authority concern, and it takes
-  // the SAME authority the eventual fire will: the adapter check alone cannot
-  // see the change set, so a caller limited to dev could arm a
-  // production-touching override and have it record fine, then fail on publish.
+  // Arming takes the SAME change-aware authority the eventual fire will: the
+  // adapter check alone cannot see the change set, so a dev-limited caller
+  // could otherwise arm a production-touching publish.
   return canPublishRevisionChange(context, revision, entity);
 }
 
 /**
- * Authority to DISARM auto-publish-on-approval.
- *
- * The publish half of `canEnableAutoPublishOnApproval`, and only that half. Arming
- * additionally requires the premium feature and the org's approval flow switched on
- * for this project — conditions that make sense as a precondition for taking on a
- * future publish, and strand an already-armed revision if they are asked again on
- * the way out: a lapsed licence or a flow turned off would leave the revision armed
- * with no way to stand it down.
- *
- * Same split the dated schedule already makes, where `canScheduleFeaturePublish`
- * gates arming and `canPublishFeatureRevision` gates cancelling.
+ * Authority to DISARM auto-publish-on-approval: the publish half of
+ * `canEnableAutoPublishOnApproval`, and only that half. Re-asking the premium
+ * and approval-flow preconditions on the way out would strand an armed revision
+ * when the licence lapses or the flow is turned off. Same split as the dated
+ * schedule (`canScheduleFeaturePublish` arms, `canPublishFeatureRevision`
+ * cancels).
  */
 export async function canDisarmAutoPublishOnApproval(
   context: Context,
@@ -1062,9 +1014,8 @@ export async function maybeAutoPublishRevision(
       { revisionId: revision.id },
       "auto-publish-on-approval skipped: no arming user or author; left approved",
     );
-    // Returning quietly let "approve and publish" report success having only
-    // approved. The approval itself stands — it happened — but the caller has to
-    // learn the publish did not, or nobody goes back for it.
+    // The approval stands, but the caller must learn the publish did not run —
+    // or nobody goes back for it.
     throw new BadRequestError(
       "Approved, but the publish did not run: this draft has no arming user to publish as. Publish it directly.",
     );
@@ -1276,9 +1227,8 @@ export async function discardEntityRevision({
   }
 
   // Discarding is NARROWER than advancing: draft authority or authorship only.
-  // Letting a narrow atom discard — a deleter over any pure-archive draft — meant a
-  // delete-only role could throw away another author's work, including a draft
-  // already in review. They can still publish it or leave it alone.
+  // A narrow atom (a deleter over a pure-archive draft, say) must not be able
+  // to throw away another author's work.
   if (!(await canDiscardRevision(context, revision))) {
     context.permissions.throwPermissionError();
   }
@@ -1312,10 +1262,9 @@ export async function requestRevisionReview({
   revision: Revision;
   autoPublishOnApproval?: boolean;
 }): Promise<Revision> {
-  // canAdvanceRevision, not a bare draft check: advancing a draft is not authoring
-  // content, so a narrow atom covers one that does only what that atom covers — a
-  // revert-only author could otherwise create a pure-revert draft and never submit
-  // it for review.
+  // canAdvanceRevision, not a bare draft check: a narrow atom covers advancing
+  // a draft that does only what the atom covers — a revert-only author could
+  // otherwise create a pure-revert draft and never submit it for review.
   if (!(await canAdvanceRevision(context, revision))) {
     context.permissions.throwPermissionError();
   }
@@ -1379,9 +1328,8 @@ export async function submitRevisionReview({
   const isComment = decision === "comment";
 
   // Both verbs judged on the REVISION's snapshot, not the live entity: a review
-  // belongs to the revision, whose project may predate a move — the internal
-  // route, the CAS re-check inside addReview, and the front-end prediction all
-  // answer on the snapshot, and this was the one place still asking about live.
+  // belongs to the revision, whose project may predate a move — the same base
+  // the internal route, `addReview`'s CAS, and the front-end prediction use.
   if (
     !(isComment
       ? canCommentOnRevision(
@@ -1450,13 +1398,11 @@ export async function submitRevisionReview({
   return { revision: updated, autoPublished: false };
 }
 
-// Rebase a draft onto live state, resolving conflicts per the caller's strategies.
-// Two behaviours the code alone won't tell you, both pinned by the tests in
-// test/api/*-revision-rebase.test.ts: an unresolved conflict answers 409, and
-// `union` orders live values first, then the draft's additions, deduped.
-//
-// The request schema validates which strategies an entity offers (Constants have no
-// list, so no `union`); this only requires one per conflicting field.
+// Rebase a draft onto live state, resolving conflicts per the caller's
+// strategies. Pinned by test/api/*-revision-rebase.test.ts: an unresolved
+// conflict answers 409, and `union` orders live values first, then the draft's
+// additions, deduped. The request schema validates which strategies an entity
+// offers; this only requires one per conflicting field.
 export async function rebaseRevision({
   context,
   entityType,
@@ -1472,8 +1418,7 @@ export async function rebaseRevision({
   strategies: Record<string, "overwrite" | "discard" | "union">;
   customValues?: Record<string, unknown>;
 }): Promise<Revision> {
-  // The canonical list in shared, rather than any of the four per-entity
-  // isDraftStatus copies (three agree; the feature one has its own notion).
+  // The canonical list in shared — the per-entity isDraftStatus copies disagree.
   if (!(ACTIVE_DRAFT_STATUSES as readonly string[]).includes(revision.status)) {
     throw new BadRequestError(
       `Can only rebase active draft revisions (status is "${revision.status}")`,

@@ -174,8 +174,7 @@ export async function canAdvanceFeatureDraft({
  * that atom covers (a deleter over a pure archive), which is right for moving your
  * own work along and wrong for destroying someone else's: a qa-style delete-only
  * role could discard another author's archive draft, including one already in
- * review. So: draft authority, or authorship. A narrow-atom holder can still
- * publish the draft or leave it alone.
+ * review. So: draft authority, or authorship.
  */
 export async function canDiscardFeatureDraft({
   context,
@@ -228,8 +227,8 @@ export async function canRebaseFeatureDraft({
 }): Promise<boolean> {
   return canRebaseWithNarrowAtom({
     holdsDraftAuthority: context.permissions.canEditFeatureDrafts(feature),
-    // Merge-result proof, rather than the ops comparison the generic path uses:
-    // every field the merge would write is empty, so nothing crosses over.
+    // Merge-result proof, rather than the snapshot comparison the generic path
+    // uses: every field the merge would write is empty, so nothing crosses over.
     pullsInNothing: !!mergeChanges && rebasePullsInNothing(mergeChanges),
     canAdvance: () => canAdvanceFeatureDraft({ context, feature, draft }),
   });
@@ -279,7 +278,6 @@ export async function canPublishFeatureRevisionChange(
 // new payload-affecting field fails safe into "touches payload". Ramp actions
 // ride the REVISION (not the merge result) and always accompany rule changes,
 // which are classified above.
-
 export function mergeResultTouchesPayload(result: MergeResultChanges): boolean {
   if (
     result.defaultValue !== undefined ||
@@ -301,10 +299,8 @@ export function mergeResultTouchesPayload(result: MergeResultChanges): boolean {
  *
  * A move has to land where the publisher has authority, not just leave where they
  * do — whoever stages it needn't be whoever publishes it. Shared so a preflight
- * cannot ask a narrower question than the publish it is predicting: asking only
- * about the source cleared an armed publisher who had lost the destination, and
- * the failure then surfaced inside the swallowed auto-publish, which reported
- * success on a draft it never published.
+ * cannot ask a narrower question than the publish it is predicting: a source-only
+ * check would clear an armed publisher who had lost the destination.
  */
 export function holdsFeaturePublishAuthority({
   context,

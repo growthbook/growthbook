@@ -233,12 +233,9 @@ export const getSavedGroup = async (
 // region POST /saved-groups/:id/add-items and /remove-items
 
 /**
- * Add or remove items on an ID-list Saved Group.
- *
- * One flow, two verbs. The two endpoints differed by a single line — how
- * `newValues` is computed — and were otherwise 180 identical lines of permission
- * checks, draft stacking, merge claim, guarded write and compensation. Two copies
- * of that is two places for a landing rule to drift.
+ * Add or remove items on an ID-list Saved Group — one flow, two verbs. The
+ * endpoints differ only in how `newValues` is computed; sharing the rest
+ * keeps the landing rules from drifting.
  */
 type ItemsMutation = {
   /** "add items to" / "remove items from". */
@@ -398,10 +395,9 @@ const mutateSavedGroupItems =
       );
       let landedDoc: Record<string, unknown> | null = null;
       try {
-        // Guarded on the pre-image; the merge claim above guards the revision only.
-        // Reported from inside the write so a post-write failure can put live state
-        // back; without it the catch could only un-merge, leaving the change live
-        // with no revision recording it.
+        // Guarded on the pre-image; the merge claim above guards the revision
+        // only. The write reports its landed doc so a post-write failure can
+        // put live state back, not just un-merge.
         await runGuardedWrite("saved-group", savedGroup.id, () =>
           context.models.savedGroups.updateIfUnchanged(
             savedGroup,
@@ -596,13 +592,12 @@ export const putSavedGroup = async (
   let comparisonBase: SavedGroupInterface = savedGroup;
 
   if (revisionId) {
-    // Live basis, matching the WRITE.
     targetRevision = await context.models.revisions.getByIdReadable(revisionId);
     // Writing `archived` into a PINNED revision is a write into someone else's
-    // draft: it makes that draft delete-class, and its author — a publisher
-    // without delete — can then no longer publish their own work.
-    // `archiveOnlyRequest` inspects only the BODY, and `revisionId` is a QUERY
-    // param, so the delete-atom exemption passed straight through.
+    // draft: it makes that draft delete-class, so its author — a publisher
+    // without delete — could no longer publish their own work.
+    // `archiveOnlyRequest` inspects only the body, so it does not cover this
+    // query-param path.
     if (
       targetRevision &&
       typeof archived === "boolean" &&
@@ -708,9 +703,8 @@ export const putSavedGroup = async (
       await context.models.projects.ensureProjectsExist(projects);
     }
     // Taking a group INTO a project is a write there, so the destination needs
-    // authoring rights too. Via the shared helper, which is the one place that
-    // decides what a destination is — the hand-rolled version here derived it
-    // itself, which is how the same check went wrong elsewhere.
+    // authoring rights too — via the shared helper that decides what a
+    // destination is.
     if (
       !holdsMoveDestination({
         permissions: context.permissions,

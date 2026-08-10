@@ -186,10 +186,8 @@ export default function ReviewAndPublish({
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envIds = environments.map((e) => e.id);
   const permissionsUtil = usePermissionsUtil();
-  // Commenting is participation. Through the SAME shared predicate the generic tab
-  // and both endpoints use, so Feature Flags cannot drift from the other entities
-  // again — the restated version had already lost the draft arm, which is what lets
-  // an author reply to feedback on their own draft.
+  // Same shared predicate as the generic tab and both comment endpoints, so
+  // Feature Flags can't drift from the other entities.
   const canCommentOnDraft = canCommentOnRevisionEntity(
     permissionsUtil,
     "feature",
@@ -564,11 +562,10 @@ export default function ReviewAndPublish({
     setEditingSchedule(false);
   }, [feature.id, revision?.version]);
 
-  // Revision-local choices must not follow the viewer to a different revision:
-  // the admin-bypass toggle is consent to skip THIS draft's review, conflict
-  // strategies answer THIS draft's conflicts, and an in-flight dialog or error
-  // belongs to the revision it was opened on. Keyed by feature id AND version —
-  // version alone reads as "same revision" across two different features.
+  // Revision-local choices (admin bypass, conflict strategies, open dialogs,
+  // errors) must not follow the viewer to a different revision. Keyed by
+  // feature id AND version — version alone reads as "same revision" across
+  // two different features.
   useEffect(() => {
     setAdminPublish(false);
     setStrategies({});
@@ -683,8 +680,8 @@ export default function ReviewAndPublish({
       changes: mergeResult.result,
       environments,
       holdoutsMap,
-      // Ramp actions ride the revision, not the merge result, so they have to be
-      // passed explicitly — the endpoint adds their reach either way.
+      // Ramp actions ride the revision, not the merge result, so pass them
+      // explicitly — the endpoint counts their reach either way.
       rampActions: revision?.rampActions,
     });
   }, [
@@ -747,13 +744,11 @@ export default function ReviewAndPublish({
     !!isPendingReview &&
     createdBy?.id !== user?.id &&
     permissionsUtil.canReviewFeatureDrafts(feature);
-  // Moving a draft along normally takes draft authority. Revert and delete
-  // authority also reach a draft that only does what they cover, and either
-  // reaches one the caller authored whatever it contains. The client goes on
-  // provenance alone; the server re-verifies purity.
-  // Unbound, not every environment: advancing a DRAFT publishes nothing, and the
-  // server asks these two the same way (`featureDraftAuthority`). Scoping them to
-  // all environments hid draft actions from a reverter limited to one.
+  // Advancing a draft takes draft authority, or revert/delete authority over a
+  // draft that only does what they cover (or one the caller authored). The
+  // client goes on provenance alone; the server re-verifies purity.
+  // Unbound, not every environment: advancing a draft publishes nothing, and
+  // the server asks the same way (`featureDraftAuthority`).
   const hasRevertAuthority = permissionsUtil.canRevertFeature(
     feature,
     NO_ENVIRONMENT_BINDING,
@@ -807,9 +802,6 @@ export default function ReviewAndPublish({
 
   // Schedule authority, the way the schedule endpoints compute it: publish over
   // the environments this draft reaches AND over the project it would land in.
-  // Judging the live feature alone offered every schedule action on a relocating
-  // draft; asking over every applicable environment hid the controls from
-  // publishers limited to the environments the draft actually touches.
   const holdsSchedulePublish =
     permissionsUtil.canPublishFeature(feature, affectedRevisionEnvs) &&
     holdsFeatureMoveDestination(
@@ -827,10 +819,9 @@ export default function ReviewAndPublish({
   // "when approved" only makes sense before approval — once approved it would
   // just publish now (which Publish already does), so approved revisions only
   // offer "on a date".
-  // The draft term matches the endpoint (`postFeatureToggleAutoPublish` requires
-  // `canEditFeatureDrafts` before anything else). Without it, a publisher WITHOUT
-  // draft rights — precisely the role split this PR enables — got a checked,
-  // enabled box that 403s the moment they uncheck it.
+  // The draft term matches the endpoint (`postFeatureToggleAutoPublish`
+  // requires `canEditFeatureDrafts`); without it a publisher without draft
+  // rights sees a checkbox that 403s.
   const canArmWhenApproved =
     autopublishOnApproval &&
     isArmingOwner &&
@@ -853,12 +844,10 @@ export default function ReviewAndPublish({
     scheduledPending && !!revision?.scheduledPublishBypassApproval;
   const canCancelAdminSchedule = scheduleArmedByAdmin && holdsSchedulePublish;
 
-  // Standing an ALREADY-ARMED no-date schedule down survives everything that gates
-  // ARMING — the org switching auto-publish-on-approval off, and the licence
-  // lapsing. Both describe taking a future publish ON; the endpoint asks neither on
-  // the way out. Without this arm the checkbox vanished exactly when disarming was
-  // the thing needed. The shared ScheduledPublishControl gained the same term; this
-  // surface has its own sibling implementation and had been missed.
+  // Disarming an already-armed no-date schedule survives the gates on ARMING
+  // (org setting off, licence lapsed) — the endpoint asks neither on the way
+  // out, and hiding the checkbox would block exactly the disarm that's needed.
+  // Same term as the shared ScheduledPublishControl.
   const canDisarmWhenApproved =
     revisionAutoPublishArmed &&
     isArmingOwner &&
@@ -1251,9 +1240,7 @@ export default function ReviewAndPublish({
           revision={revision}
           ref={revisionLogRef}
           onRevisionMutate={mutate}
-          // The same gate the generic timeline passes. Wired unconditionally
-          // before, so "Retract review" showed on published revisions and to
-          // viewers with no verdict of their own.
+          // Same gate the generic timeline passes.
           canRetractVerdict={state.canUndoReview}
           // Overview foregrounds the conversation: comments, verdicts, and
           // lifecycle events. Granular content-edit entries collapse into
@@ -1361,20 +1348,17 @@ export default function ReviewAndPublish({
         ? revision
         : null;
     const canManageDrafts = permissionsUtil.canEditFeatureDrafts(feature);
-    // Revert authority alone is enough to offer the action — a revert-only role
-    // holds no draft rights. UNBOUND, like the server's staging check and this
-    // file's own hasRevertAuthority: opening the flow proposes a revert, and the
-    // per-environment narrowing happens in the modal against the chosen target.
-    // Scoping the entry to every environment locked env-limited reverters out
-    // of the flow entirely.
+    // Revert authority alone offers the action — a revert-only role holds no
+    // draft rights. Unbound like the server's staging check: opening the flow
+    // only proposes a revert; per-environment narrowing happens in the modal
+    // against the chosen target.
     const canRevertHere =
       canManageDrafts ||
       permissionsUtil.canRevertFeature(feature, NO_ENVIRONMENT_BINDING);
     const canRevert = canRevertHere && !!revertTarget;
     const isDiscarded = revision.status === "discarded";
-    // The first published revision has nothing behind it to roll back to, so the
-    // whole revert affordance — explanation, button, and reason — is dropped
-    // rather than stacked up as three ways of saying "not available".
+    // The first published revision has nothing behind it to roll back to, so
+    // the whole revert affordance is dropped rather than explained away.
     const nothingToRevertTo = !isDiscarded && !revertTarget;
     // Same page header as the draft path, but the summary line describes
     // the terminal state (merged/published, live, or discarded) instead of a
@@ -2942,10 +2926,8 @@ export default function ReviewAndPublish({
                     messages. Stacked in priority order: ramps, errors, and
                     finally the "no approval necessary" note. */}
                     <Flex direction="column" gap="2" mt="3">
-                      {/* Lacking publish authority disables the CTA above, and
-                          a greyed-out button with no reason reads as a bug.
-                          First in the stack: it's the reason nothing else on
-                          this panel is actionable. */}
+                      {/* First in the stack: a disabled CTA with no reason
+                          reads as a bug. */}
                       {!hasPublishPermission && (
                         <PermissionBlocker>
                           You don&apos;t have permission to publish this draft.

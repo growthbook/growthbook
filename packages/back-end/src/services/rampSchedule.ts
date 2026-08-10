@@ -156,10 +156,8 @@ export async function withRampScheduleAdvanceLockRetry<T>(
 
 // `fn` must re-validate any status preconditions screened on the caller's
 // pre-lock read — the schedule may have changed while waiting for the lock.
-//
-// Authorization is NOT re-checked here, because the callers do not agree on what
-// to check: the update and delete paths take their own atoms, and the scheduler
-// holds no user authority at all. Control-verb dispatch sites use
+// Authorization is NOT re-checked here (callers gate differently, and the
+// scheduler holds no user authority); control-verb dispatch sites use
 // `runControlledRampScheduleAction` below, which does re-check.
 export async function runLockedRampScheduleAction<T>(
   ctx: ReqContext | ApiReqContext,
@@ -183,19 +181,15 @@ export async function runLockedRampScheduleAction<T>(
 }
 
 /**
- * The locked runner for the CONTROL verbs — start, pause, resume, advance,
- * rollback and friends — which all gate on `assertCanControlRampSchedule`.
+ * Locked runner for the control verbs (start/pause/resume/advance/rollback…),
+ * which all gate on `assertCanControlRampSchedule`.
  *
- * Control authority is derived from the schedule's TARGETS, so it is only as
- * current as the document it was read from. Screening the pre-lock read leaves a
- * window in which a concurrent add-target attaches a flag in a project the waiting
- * caller holds nothing in, and the action then runs against it. So the verdict is
- * taken again on the in-lock document, which is the one the action actually acts
- * on — the same shape as the status preconditions each caller re-validates.
- *
- * Dispatch sites keep their pre-lock assertion: it refuses the common case before
- * the lock is taken, and gives a plain 403 instead of one that arrives after a
- * lock wait.
+ * Control authority derives from the schedule's targets, so a pre-lock check
+ * can go stale while waiting for the lock (e.g. a concurrent add-target
+ * attaches a flag the caller holds nothing in). The verdict is re-taken on the
+ * in-lock document — the one the action actually acts on. Dispatch sites keep
+ * their pre-lock assertion so the common case gets a plain 403 without a lock
+ * wait.
  */
 export async function runControlledRampScheduleAction<T>(
   ctx: ReqContext | ApiReqContext,
@@ -380,10 +374,9 @@ export function appendRampEvent(
   return history.slice(-MAX_EVENT_HISTORY);
 }
 
-// The lockdown signal, as its own class. A plain Error was indistinguishable from an
-// infra failure of the schedule read, and the bulk planner converted BOTH into a
-// bypassable `ramp-locked` gate — so a database error let an approval-bypass caller
-// publish without ever establishing whether an active ramp owns the Feature.
+// Distinct class so the bulk planner can tell a lockdown apart from an infra
+// failure of the schedule read — a plain Error let a database error become a
+// bypassable `ramp-locked` gate.
 export class RampLockdownError extends Error {
   constructor(message: string) {
     super(message);
@@ -2872,10 +2865,8 @@ export async function updateRampMonitoringConfig(
   schedule: RampScheduleInterface,
   newConfig: RampMonitoringConfig,
 ): Promise<RampScheduleInterface> {
-  // A started SafeRollout freezes its metrics and cadence too, not just its data
-  // source. This lived only at the INTERNAL controller's call site, so the REST
-  // twin could mutate guardrail metrics and cadence on a running SafeRollout —
-  // pulled in here so both surfaces enforce it and neither can drift again.
+  // A started SafeRollout freezes its metrics and cadence too, not just its
+  // data source. Enforced here so the internal and REST surfaces can't drift.
   await assertCanUpdateLinkedSafeRolloutMonitoringConfig(
     ctx,
     schedule,
@@ -3099,37 +3090,28 @@ export async function assertCanControlRampSchedule(
   // The strictest answer available: every environment the org has.
   const orgEnvironmentIds = getEnvironmentIdsFromOrg(context.org);
   // A multi-target schedule mutates every attached flag, so control takes
-  // publish over each target's project — not just the primary entity's. Each
-  // target is checked against ITS OWN environments: the union across targets
-  // would demand, of a caller holding A/dev and B/production, authority over
-  // A/production and B/dev that the schedule never acts on.
-  // Keyed by feature, so two targets on DIFFERENT rules of the SAME feature
-  // union their environments rather than the later one replacing the earlier —
-  // otherwise one of the two rules would go unchecked.
+  // publish over each target's project against that target's OWN environments —
+  // a union across targets would demand authority the schedule never acts on.
+  // Keyed by feature so two targets on different rules of the same feature
+  // union their environments instead of the later replacing the earlier.
   const checks = new Map<string, Set<string>>();
-  // What each target rule CURRENTLY serves. A patch naming `environments`
-  // REPLACES that field, so narrowing a rule from production to dev is a
-  // production change — the rule stops serving there — and a footprint read from
-  // the patch alone never mentions production at all. Without this the gate asked
-  // a NARROWER question than the write performs.
-  // Every rule id this schedule could touch, per target: the target's own AND every
-  // `patch.ruleId` its actions name. The executor resolves from the PATCH
-  // (`const { ruleId, ...patchFields } = patch`) and ignores `target.ruleId`
-  // entirely, so a gate keyed on the target alone asked about a DIFFERENT RULE than
-  // the write performs — a dev-only target with a production patch read as dev.
-  // `featureRulePatch.ruleId` is a bare string and the internal controller passes
-  // steps through verbatim, so nothing else reconciles the two.
+  // Every rule id this schedule could touch for a target: the target's own AND
+  // every `patch.ruleId` its actions name — the executor resolves rules from the
+  // patch, not `target.ruleId`, so a dev-only target can carry a production patch.
   const ruleIdsForTarget = (target: { id: string; ruleId?: string | null }) =>
     rampTargetRuleIds(schedule, target);
 
+  // Footprint is what each rule CURRENTLY serves, not what the patch names: a
+  // patch's `environments` REPLACES the field, so narrowing production → dev is
+  // still a production change the patch alone never mentions.
   const ruleEnvs = await getFeatureRuleEnvironmentsByIds(
     context,
     (schedule.targets ?? []).flatMap((t) =>
       ruleIdsForTarget(t).map((ruleId) => ({
         featureId: t.entityId,
         ruleId,
-        // Honoured by `resolveRampTargets`, so the gate resolves exactly the sibling
-        // set the write will patch.
+        // Same env scoping as `resolveRampTargets`, so the gate resolves the
+        // sibling set the write will patch.
         environment: t.environment ?? undefined,
       })),
     ),
@@ -3149,9 +3131,8 @@ export async function assertCanControlRampSchedule(
     const currentRuleEnvs: string[] | "all" = reachable.some((r) => r === "all")
       ? "all"
       : reachable.flatMap((r) => (Array.isArray(r) ? r : []));
-    // The SHARED per-target rule, the same call the Publish control makes. Inline
-    // here it was one shared function on one side only, and the two could still
-    // drift — which is the whole failure this consolidation exists to prevent.
+    // The same shared per-target footprint call the Publish control makes, so
+    // the two gates can't drift.
     const envs = rampTargetFootprint({
       schedule,
       target,
@@ -3166,8 +3147,8 @@ export async function assertCanControlRampSchedule(
   // The anchor feature is always checked, against the schedule-wide footprint
   // when it isn't itself a target.
   if (!checks.has(schedule.entityId)) {
-    // Same resolution as the per-target arm: an unscoped schedule-wide answer is
-    // every org environment, never the patch list.
+    // As in the per-target arm, an unscoped "all" resolves to every org
+    // environment, never the patch list.
     const anchorEnvs =
       getEnvsFromRampSchedule(schedule) === "all"
         ? orgEnvironmentIds

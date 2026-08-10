@@ -154,12 +154,11 @@ export function makeGenericBulkAdapter(
         revision: raw,
       });
 
-      // The load-time gate is coarse — it takes only the entity, so it cannot see
-      // which environments this change reaches, and a caller limited to dev
-      // cleared it while landing a production override. This is the
-      // authoritative check: the same assertion the single-revision engine
-      // makes, which layers the change-aware footprint and the purity fallbacks
-      // on top. The archive gate below still runs for its clearer message.
+      // The load-time gate is coarse — it takes only the entity, so a caller
+      // limited to dev could clear it while landing a production override.
+      // This is the authoritative check: the same change-aware footprint +
+      // purity assertion the single-revision engine makes. The archive gate
+      // below still runs for its clearer message.
       if (!(await canPublishRevisionChange(callerContext, raw, entity))) {
         gates.push(
           makeBlockingGate({
@@ -174,9 +173,9 @@ export function makeGenericBulkAdapter(
       }
 
       // A project move lands in the destination, so it takes publish authority
-      // there over the environments the change reaches — the generic path checks
-      // only `canUpdate` on the post-publish state, which cannot see the change.
-      // Footprint from the pre-patch entity so the diff is still visible.
+      // there over the environments the change reaches — `canUpdate` on the
+      // post-publish state cannot see the change. Footprint from the pre-patch
+      // entity so the diff is still visible.
       if (
         !holdsMoveDestination({
           permissions: callerContext.permissions,
@@ -207,8 +206,8 @@ export function makeGenericBulkAdapter(
         );
       }
 
-      // Archiving is delete-class wherever the merge lands, so bulk publish
-      // enforces it too — `canPublish` above only asks for publish authority.
+      // Archiving is delete-class wherever the merge lands — the publish
+      // checks above only ask for publish authority.
       if (
         isArchiveTransition({
           proposed: desiredState.archived as boolean | undefined,
@@ -244,12 +243,9 @@ export function makeGenericBulkAdapter(
       }
 
       // Another draft's committed "lock other drafts" schedule blocks this
-      // publish. The single-publish path has refused this since it shipped, and
-      // the FEATURE bulk adapter raises it as a gate — but no generic gate
-      // collector emitted it, so a lock-others schedule on a Config sibling
-      // blocked POST /configs-revisions/.../publish and not the bulk endpoint.
-      // Bypassable by the approval-bypass permission, matching the feature bulk
-      // gate and the (now bypassable) generic single path.
+      // publish — the same refusal the single-publish path and the feature
+      // bulk adapter make, bypassable by the approval-bypass permission like
+      // both.
       if (
         await callerContext.models.revisions.hasPublishLockingScheduledSibling(
           raw.target,
@@ -355,11 +351,10 @@ export function makeGenericBulkAdapter(
       try {
         // The keys the write actually persisted (post updatable-filter and
         // post-normalization) — the exact set compensation may roll back.
-        // Guarded on the pre-image the plan was computed against. The drift check
-        // before claiming proves nothing about the moment of the write — a single
-        // publish landing in between would otherwise be silently overwritten by
-        // this older plan. A lost race throws, which routes the batch into the
-        // existing compensation path.
+        // Guarded on the pre-image the plan was computed against: the
+        // pre-claim drift check proves nothing about the moment of the write,
+        // so a publish landing in between would be silently overwritten. A
+        // lost race throws, routing the batch into compensation.
         await runGuardedWrite(targetType, (entity as { id: string }).id, () =>
           adapter.applyChanges(context, entity, desiredState, {
             isRevert: !!raw.revertedFrom,
@@ -377,18 +372,13 @@ export function makeGenericBulkAdapter(
           }),
         );
       } catch (e) {
-        // Whether anything landed is decided by the REPORT, not the error class.
-        // A rejected CAS never reports — `onWritten` fires after the guard check —
-        // so an unreported failure is the "wrote nothing" case. Keying off the
-        // class instead was wrong in the one direction that matters:
-        // `reconcileConfigDescendants` re-throws CasConflictError from a
-        // DESCENDANT write, long after the root write landed AND reported, so a
-        // live change was marked as having written nothing and compensation
-        // returned clean while the item was reported rolled-back.
-        //
-        // Marked HERE rather than left to compensation, so a later post-apply read
-        // cannot snapshot a concurrent WINNER's doc as this item's output —
-        // compensation would then mistake their work for ours and erase it.
+        // Whether anything landed is decided by the REPORT, not the error
+        // class: `reconcileConfigDescendants` re-throws CasConflictError from
+        // a DESCENDANT write long after the root landed and reported. A
+        // rejected root CAS never reports, so an unreported failure is the
+        // "wrote nothing" case. Marked HERE rather than in compensation, so a
+        // later post-apply read cannot snapshot a concurrent winner's doc as
+        // this item's output and erase their work.
         if (revision.writtenEntity === undefined) {
           revision.persistedKeys = [];
           revision.casLost = true;
@@ -398,9 +388,8 @@ export function makeGenericBulkAdapter(
     },
 
     async restorePreImage(context, preImage, revision) {
-      // Nothing was reported written, so there is nothing to put back. Set in the
-      // apply's catch from the absence of a report rather than from the error
-      // class — see there for why the class was the wrong signal.
+      // Nothing was reported written, so there is nothing to put back (set in
+      // the apply's catch from the absence of a report — see there).
       if (revision.casLost) return;
       const model = adapter.getModel(context);
       const current = await model?.getById((preImage as { id: string }).id);
@@ -411,21 +400,14 @@ export function makeGenericBulkAdapter(
           `bulk publish compensation: ${targetType} "${(preImage as { id: string }).id}" no longer exists — cannot restore its pre-image`,
         );
       }
-      // The apply reports from INSIDE the document write, before audit logging and
-      // the afterUpdate hooks, so a missing baseline means the write never landed —
-      // and the `casLost` return above already covers that, because the apply's
-      // catch derives it from the same absent report. A guard here comparing
-      // `persistedKeys` against the baseline could never fire: `onPersisted`
-      // assigns both together, and the only other writer clears both.
-      // `null` is a REPORT: the apply ran and wrote nothing, so there is nothing to
-      // put back and the item is cleanly not-applied.
+      // Every adapter reports from INSIDE its entity write, before audit and
+      // the afterUpdate hooks. `null` is a report: the apply ran and wrote
+      // nothing, so the item is cleanly not-applied. `undefined` is the
+      // absence of a report: the apply never reached its entity write, so
+      // nothing of ours is live. Both readings depend on that placement —
+      // report after the write returns and an unreported live change would go
+      // unrestored.
       if (revision.writtenEntity === null) return;
-      // `undefined` is the absence of a report, which now means the apply never
-      // reached its entity write — every adapter reports from INSIDE that write,
-      // before audit and the afterUpdate hooks. Nothing of ours is live, so the
-      // item rolls back cleanly. That reading depends on the reporting placement:
-      // move it back after the write returns and this becomes a silent
-      // live-change-with-no-record, which is what H1 was.
       if (revision.writtenEntity === undefined) return;
 
       // Restore only the fields the apply persisted, so a key dropped by the
@@ -443,11 +425,10 @@ export function makeGenericBulkAdapter(
         written,
       });
 
-      // Descendants AFTER the root, in cascade order. Ancestor normalization is
-      // unconditional on a revert, so a descendant restored while the root still
-      // declares the field is stripped straight back — and reports success, because
-      // the key is still in `persistedKeys` so nothing looks dropped. A throw here
-      // keeps the claim, which is what leaves the item reported published.
+      // Descendants AFTER the root, in cascade order: ancestor normalization
+      // is unconditional on a revert, so a descendant restored while the root
+      // still declares the field is stripped straight back. A throw here keeps
+      // the claim, which is what leaves the item reported published.
       for (const write of revision.cascade ?? []) {
         await restoreEntityPreImage({
           context,

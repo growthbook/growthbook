@@ -27,17 +27,11 @@ describe("applyRampCreateActionsForRevision surfaces schedules it could not clea
     ],
   } as never;
 
-  // The rules the actions target must exist, or the loop skips them and the
-  // create is never reached — which is how the first draft of this test passed
-  // while asserting nothing.
   const feature = {
     id: "feat_1",
     organization: "org",
-    // A FLAT rule list (the unified shape), and each action's rule must be in it.
-    // The first draft of this test used the env-keyed shape and nested rules, and
-    // the loop skipped every action — so both cases "passed" having created
-    // nothing, which is the vacuous green a control case is supposed to catch and
-    // in this file only the FIRST case did.
+    // A FLAT rule list (the unified shape), and each action's rule must be in
+    // it — otherwise the loop skips every action and the cases pass vacuously.
     rules: [
       { id: "r1", type: "rollout", enabled: true, environment: "production" },
       { id: "r2", type: "rollout", enabled: true, environment: "production" },

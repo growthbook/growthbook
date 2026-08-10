@@ -8,9 +8,8 @@ import { getRulesForEnvironment } from "../util/index";
 import type { MergeResultChanges } from "../util/features";
 
 // Which environments publishing a Feature Flag draft reaches, and so which ones
-// authority is required in. ONE function for endpoint and control alike — they derived
-// it separately and disagreed every time, always in the direction that offered a
-// landing the server then refused.
+// authority is required in. One function for endpoint and control alike so the
+// control never offers a landing the server refuses.
 //
 // Synchronous on purpose: holdout resolution differs between the apps, so that one
 // input is injected and everything downstream of it is shared.
@@ -155,10 +154,9 @@ export function featurePublishFootprint({
   return envScoped.size > 0 ? Array.from(envScoped) : serving;
 }
 
-// What a REVERT answers for: serving now, plus any the restored revision switches back
-// ON, plus any whose rules it changes. Each of the three was missed on its own — an
-// environment re-enabled with identical rules appears in the enable half and not the
-// rule half, and vice versa.
+// What a REVERT answers for: serving now, plus any the restored revision switches
+// back ON, plus any whose rules it changes. All three are needed — an environment
+// re-enabled with identical rules appears only in the enable half.
 export function revertFootprint({
   feature,
   targetRevision,
@@ -188,9 +186,8 @@ export function revertFootprint({
  * direction — taking an entity out of service and returning it both reach
  * everywhere it serves.
  *
- * The rule the adapters apply server-side, exposed so the controls apply the same
- * one. Without it, a page derived the footprint from the change's own environments,
- * which is empty for an archive-only revision and empty for a base entity — and an
+ * The rule the server-side adapters apply, exposed so the controls apply the
+ * same one. An archive-only revision's own environment binding is empty, and an
  * empty footprint SKIPS the environment check rather than narrowing it.
  */
 export function revisionPublishFootprint({
@@ -248,8 +245,8 @@ export function archiveFootprintForControl({
 /**
  * The environments a revision's ramp actions reach: each action's patch
  * environments UNIONED with what its target rule currently serves, since a patch
- * naming `environments` REPLACES that field. Same rule the REST/internal ramp gate
- * applies via `getEnvsForRampTarget`; this is the revision-path half that had none.
+ * naming `environments` REPLACES that field. Same rule the REST/internal ramp
+ * gate applies via `getEnvsForRampTarget`.
  */
 export function rampActionFootprint({
   rampActions,
@@ -280,13 +277,12 @@ export function rampActionFootprint({
     ].map((a) => a.patch);
     for (const patch of patches) {
       if (patch?.allEnvironments) return "all";
-      // A patch WITHOUT an `environments` key does not touch the field —
-      // `applyPatchToRule` only writes it on `"environments" in patch` — so its
-      // reach is simply wherever the rule already serves, which the union below
-      // supplies. Widening to "all" here demanded publish in every org environment
-      // for the ordinary coverage-only step the UI emits, while the control asked
-      // for the rule's own environments. `environments: []` is the same answer: the
-      // rule stops serving where it served, and nowhere new.
+      // A patch WITHOUT an `environments` key does not touch the field
+      // (`applyPatchToRule` only writes it on `"environments" in patch`), so its
+      // reach is wherever the rule already serves — the union below. Widening to
+      // "all" here would demand publish everywhere for an ordinary coverage-only
+      // step. `environments: []` is the same answer: the rule stops serving where
+      // it served, and nowhere new.
       for (const e of patch?.environments ?? []) envs.add(e);
     }
     // The rule the actions aim at: a patch REPLACES its environments, so what it
@@ -296,7 +292,7 @@ export function rampActionFootprint({
     for (const r of targets) for (const e of r.environments ?? []) envs.add(e);
   }
   // Intersected with the feature's applicable set: an environment scoped away from
-  // its projects never serves it, so demanding authority there refuses a change with
-  // no effect. `environmentIds` was taken and discarded before.
+  // its projects never serves it, so demanding authority there refuses a change
+  // with no effect.
   return [...envs].filter((e) => environmentIds.includes(e));
 }

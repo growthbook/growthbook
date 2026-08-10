@@ -7,9 +7,8 @@ import { setupApp } from "../api/api.setup";
  *
  * It is a second implementation of the same skeleton as `BaseModel.updateWithCas`
  * (feature revisions are keyed by `{organization, featureId, version}`, not by a
- * single id), and every subtlety in it was invisible from its four call sites:
- * mutating the absence guard, hoisting the read out of the loop, and swapping
- * aborted for exhausted all left the whole back-end suite green.
+ * single id), and its subtleties — the absence guard, the in-loop read, aborted
+ * vs exhausted — are invisible from its call sites, so they are pinned here.
  */
 
 const ORG_ID = "org_fr_cas";

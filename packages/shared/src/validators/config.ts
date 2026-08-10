@@ -617,9 +617,8 @@ const apiConfigResponseWithWarnings = z
   })
   .strict();
 
-// Only an UPDATE lands directly, so only it can skip an approval requirement. Create
-// shares the warnings shape but never emits this, and documenting it there advertises
-// a field `POST /configs` cannot return.
+// Only an UPDATE lands directly, so only it can bypass approval; create shares
+// the warnings shape but never emits `bypassedGates`.
 const apiConfigUpdateResponse = apiConfigResponseWithWarnings.extend({
   bypassedGates: publishBypassedGatesField,
 });

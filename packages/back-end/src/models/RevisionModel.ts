@@ -63,14 +63,9 @@ const SCHEDULED_PUBLISH_FAILURE_UNSET = {
   scheduledPublishGaveUpAt: 1,
 } as const;
 
-// Schedule fields cleared together on cancel.
-// The whole schedule, cleared, as an UPDATE fragment.
-//
-// `undefined` means `$unset` on this write path (`_updateOne` translates it before
-// the driver sees it), so a transition that disarms can do it in its OWN write
-// instead of a follow-up raw one. That matters beyond tidiness: a second write is a
-// second race, and it needed its own guard to avoid erasing a schedule armed in
-// between.
+// The whole schedule, cleared, as an UPDATE fragment. `undefined` means `$unset`
+// on this write path (`_updateOne` translates it), so a transition that disarms
+// does it in its OWN write — a follow-up raw write is a second race.
 const CLEARED_SCHEDULE = {
   autoPublishOnApproval: false,
   autoPublishEnabledBy: undefined,
@@ -85,6 +80,7 @@ const CLEARED_SCHEDULE = {
   scheduledPublishGaveUpAt: undefined,
 } as const;
 
+// Schedule fields cleared together on cancel.
 const SCHEDULED_PUBLISH_UNSET = {
   scheduledPublishAt: 1,
   scheduledPublishLockEdits: 1,
@@ -148,10 +144,8 @@ const BaseClass = MakeModelClass({
         status: 1,
       },
     },
-    // Merge ORDER, read on every landing. The index above serves the equality filter
-    // but leaves the sort blocking — each landing sorted every merged revision of the
-    // entity in memory. Extending the same prefix with the sort keys makes it a
-    // one-row indexed walk.
+    // Merge order, read on every landing. Extends the equality prefix above with
+    // the sort keys so the read is a one-row indexed walk, not an in-memory sort.
     {
       fields: {
         organization: 1,
@@ -165,10 +159,8 @@ const BaseClass = MakeModelClass({
     {
       fields: { organization: 1, authorId: 1 },
     },
-    // The LISTING sort. Every paginated read sorts `{dateCreated: -1, id: -1}`, and
-    // without the sort keys on the filter's prefix each one was a blocking sort over
-    // the whole match — including an entity history page with no status filter, which
-    // several views mount at a high limit.
+    // The listing sort `{dateCreated: -1, id: -1}` on the filter's prefix, so
+    // paginated reads don't block-sort the whole match.
     {
       fields: {
         organization: 1,
@@ -197,11 +189,10 @@ const BaseClass = MakeModelClass({
       },
     },
     // Unique index on the per-target version number. Prevents two concurrent
-    // creates from being assigned the same version (the version is computed in
-    // beforeCreate from a count of existing revisions; without this guard, a
-    // race could produce duplicates). Combined with the retry-on-duplicate-key
-    // logic in `create()`, this gives correct sequential versioning under
-    // concurrency.
+    // creates from being assigned the same version (beforeCreate computes
+    // max(version)+1 over the raw collection; without this guard, a race could
+    // produce duplicates). Combined with the retry-on-duplicate-key logic in
+    // `create()`, this gives correct sequential versioning under concurrency.
     {
       fields: {
         organization: 1,
@@ -339,13 +330,14 @@ export class RevisionModel extends BaseClass {
     };
   }
 
-  /**
-   * The next review-cycle number. Every write that STARTS a cycle stamps this, so a
-   * verdict can name the cycle it was formed against and a later one can refuse it.
-   *
-   * Reopening a revision whose publish FAILED deliberately does not bump: that
-   * restores the prior state rather than starting a cycle, and its verdicts stand.
-   */
+  // The next review-cycle number. Every write that STARTS a cycle stamps this, so
+  // a verdict can name the cycle it was formed against and a later one can refuse
+  // it. Any CAS write that stamps this must guard `reviewCycle`: a number
+  // computed from a stale read moves the identity BACKWARDS onto one an in-flight
+  // verdict already names (see `reviewCycle.ts`).
+  //
+  // Reopening a revision whose publish FAILED deliberately does not bump: that
+  // restores the prior state rather than starting a cycle, and its verdicts stand.
   private nextReviewCycle(existing: Revision): number {
     return reviewCycleOf(existing) + 1;
   }
@@ -457,12 +449,10 @@ export class RevisionModel extends BaseClass {
   }
 
   protected async beforeCreate(doc: Revision) {
-    // Version allocation is bookkeeping over the RAW collection, on purpose:
-    // `_find` filters by canRead, so after a project move a destination-only
-    // caller couldn't see the source-project revisions, computed a version that
-    // already exists, and hit the unique index on every retry. Max, not count —
-    // a deleted revision (a CAS-lost toggle cleans its own up) makes any count
-    // undershoot versions that are still taken.
+    // Version allocation reads the RAW collection: `_find` filters by canRead,
+    // so a caller who can't see every revision would compute a version that
+    // already exists and hit the unique index on every retry. Max, not count —
+    // deleted revisions leave any count below versions that are still taken.
     const [latest] = await this._dangerousGetCollection()
       .find(
         {
@@ -479,8 +469,8 @@ export class RevisionModel extends BaseClass {
     // to "Revision N" (matching the feature flow).
 
     if (!doc.activityLog || doc.activityLog.length === 0) {
-      // A revert says so on its creation entry rather than adding a second one:
-      // both carried `action: "created"`, so the timeline drew the same row twice.
+      // A revert notes it on the creation entry itself — a separate entry with
+      // the same `created` action draws a duplicate timeline row.
       let description: string | undefined;
       if (doc.revertedFrom) {
         const revertedFrom = await this._dangerousGetCollection().findOne(
@@ -527,14 +517,12 @@ export class RevisionModel extends BaseClass {
     updates: UpdateProps<Revision>,
     newDoc: Revision,
   ) {
-    // NOTE: this MUTATES a shared reference. When `target` isn't in `updates`,
-    // `newDoc.target` IS `existing.target`, so the line below rewrites the
-    // pre-image too. Harmless where it stands — the rebuild is a key-order
-    // normalization applied to both diff sides, and it never persists because
-    // `target` isn't in the `$set` — but nothing downstream may assume the
-    // pre-image survives this hook intact. A CAS guard once did, and Mongo's
-    // field-order-sensitive embedded equality turned that into a permanently
-    // unsatisfiable filter (see `buildCasGuard`, which clones for this reason).
+    // NOTE: this MUTATES a shared reference — when `target` isn't in `updates`,
+    // `newDoc.target` IS `existing.target`, so the rebuild below rewrites the
+    // pre-image too. Harmless here (a key-order normalization applied to both
+    // diff sides, never persisted), but nothing downstream may assume the
+    // pre-image survives this hook intact. See `buildCasGuard`, which clones
+    // for this reason.
     //
     // Clean null values from snapshot before validation via the adapter
     newDoc.target.snapshot = getAdapter(newDoc.target.type).buildSnapshot(
@@ -567,23 +555,20 @@ export class RevisionModel extends BaseClass {
     return { $in: list };
   }
 
-  /**
-   * Which of these targets the caller may READ, judged on the LIVE entity.
-   *
-   * A revision's snapshot records where the entity was when the draft was
-   * opened, so snapshot-basis readability breaks BOTH ways after a move: the
-   * source project keeps seeing history for an entity it no longer owns, and the
-   * destination sees none for one it does. The live entity is the authority, and
-   * `getByIds` is itself read-filtered — a target it returns is readable.
-   *
-   * Anything it does not return is excluded, which covers both "present but
-   * unreadable" and "deleted" (entity deletion does not cascade to revisions).
-   * Fail-CLOSED on purpose, and the two are not worth distinguishing: falling
-   * back to the snapshot for a miss would restore the very leak this closes,
-   * since a moved-and-unreadable entity still carries a readable old snapshot.
-   * The cost is that a hard-deleted entity's orphaned drafts drop out of
-   * listings — they are unactionable anyway, and reachable by id.
-   */
+  // Which of these targets the caller may READ, judged on the LIVE entity.
+  //
+  // A revision's snapshot records where the entity was when the draft was
+  // opened, so snapshot-basis readability breaks BOTH ways after a move: the
+  // source project keeps seeing history for an entity it no longer owns, and
+  // the destination sees none for one it does. The live entity is the
+  // authority; `getByIds` is itself read-filtered, so a target it returns is
+  // readable.
+  //
+  // Anything it does not return is excluded — "present but unreadable" and
+  // "deleted" alike. Fail-CLOSED on purpose: falling back to the snapshot for
+  // a miss would restore the very leak this closes. The cost is that a
+  // hard-deleted entity's orphaned drafts drop out of listings — they are
+  // unactionable anyway, and reachable by id.
   private async readableTargetIds(
     entries: { type: RevisionTargetType; id: string }[],
   ): Promise<Set<string>> {
@@ -609,10 +594,10 @@ export class RevisionModel extends BaseClass {
     return readable;
   }
 
-  // Pagination and `total` over the rows the caller may READ: a raw count leaked how much
-  // activity exists in invisible projects AND broke paging (pages under-filled while
-  // `total` overstated). One projected pass, then a full fetch of the page. Widen the
-  // projection if an adapter ever reads more than project.
+  // Pagination and `total` over only the rows the caller may READ — a raw count
+  // leaks activity in invisible projects and breaks paging (under-filled pages,
+  // overstated `total`). One projected pass, then a full fetch of the page.
+  // Widen the projection if an adapter ever reads more than project.
   private async findReadablePage(
     filter: Record<string, unknown>,
     {
@@ -629,18 +614,13 @@ export class RevisionModel extends BaseClass {
   ): Promise<{ revisions: Revision[]; total: number }> {
     const sort = { dateCreated: -1 as const, id: -1 as const };
 
-    // Readability comes from the LIVE entity, which cannot be expressed as a filter
-    // on this collection — so the general path below has to load every matching row's
-    // projection before it can slice.
-    //
-    // Two callers still take that path: the org inbox and a whole-type listing. Both
-    // are bounded by the six projected fields, not whole documents, and both keep an
-    // exact `total` over readable rows — which is the property the scan exists for.
-    // Inverting the join (resolve readable entity ids, then `target.id: {$in: …}`) is
-    // semantically identical and would page in the database, but it is NOT the
-    // difference between an `$in` and no `$in`: the fetch below already issues one,
-    // sized by the page. Inverting only changes which unbounded list you carry, so
-    // the exact `total` is what would have to give first. Left as-is deliberately.
+    // Readability is judged on the LIVE entity, which cannot be expressed as a
+    // filter on this collection — so the general path below loads every matching
+    // row's projection before it can slice. Its two callers (the org inbox and a
+    // whole-type listing) are bounded by the six projected fields and keep an
+    // exact `total` over readable rows, which is the property the scan exists
+    // for; inverting the join (readable ids, then `$in`) would page in the
+    // database but give up that exact `total`. Left as-is deliberately.
     //
     // Anything scoped to ONE entity — every history page, the hot call — needs a
     // single readability lookup instead. With that answered, the database pages.
@@ -703,10 +683,8 @@ export class RevisionModel extends BaseClass {
     );
     if (!pageIds.length) return { revisions: [], total: readableIds.length };
 
-    // Readability was decided ABOVE on the live basis. `_find` would re-apply the
-    // model's own per-doc check, which reads the revision SNAPSHOT — undoing that
-    // decision and hiding a moved entity's history from the project that now owns
-    // it, while the total still counted it.
+    // Readability was decided ABOVE on the live basis; `_find`'s per-doc check
+    // reads the SNAPSHOT and would undo it.
     const rows = await this._find(
       { id: { $in: pageIds } },
       { sort, bypassReadPermissionChecks: true },
@@ -717,16 +695,12 @@ export class RevisionModel extends BaseClass {
   /**
    * One revision, readable on the LIVE-entity basis the listings use.
    *
-   * `canRead` decides on the revision's SNAPSHOT, which records where the entity
-   * was when the draft opened — so after a project move, detail reads and listings
-   * disagreed in both directions: the source could still open history for an entity
-   * it no longer owns, and the destination was denied history for one it does. The
-   * snapshot check can only be a floor, and it is bypassed here so the live basis
-   * is the only one that decides.
+   * `canRead` decides on the revision's SNAPSHOT (see readableTargetIds), so it
+   * can only be a floor; it is bypassed here so the live basis alone decides.
    *
-   * Every handler in the revision controller opens its row through here, not just
-   * the GETs. Converting only the reads left the destination able to LIST a moved
-   * entity's revisions and then 404 on every verb — the same split, one layer down.
+   * Every handler in the revision controller opens its row through here, not
+   * just the GETs — otherwise the destination project of a move could LIST an
+   * entity's revisions and then 404 on every verb.
    */
   async getByIdReadable(id: string): Promise<Revision | null> {
     const [doc] = await this._find(
@@ -830,12 +804,10 @@ export class RevisionModel extends BaseClass {
   private async countReadable(
     filter: Record<string, unknown>,
   ): Promise<number> {
-    // No permission short-circuit here. An "can this caller read everything"
-    // fast path skipped the live-entity basis below, so the count kept including
-    // revisions whose entity has since moved out of reach or been deleted — and
-    // it read as TRUE whenever the org resolves no projects, which is fail-open.
-    // The scan is projected (a few fields, indexed filter) and bounded by the
-    // open-revision count, which is small by nature.
+    // No "caller can read everything" fast path: it would skip the live-entity
+    // basis (counting moved/deleted entities) and reads as TRUE when the org
+    // resolves no projects — fail-open. The scan is projected and bounded by
+    // the open-revision count, which is small by nature.
     const projected = await this._dangerousGetCollection()
       .find(
         { organization: this.context.org.id, ...filter },
@@ -883,9 +855,9 @@ export class RevisionModel extends BaseClass {
     entityId: string,
     authorId: string,
   ) {
-    // Live-entity basis, like every other read. On the snapshot basis this
-    // returned null for a moved entity and its caller silently FORKED a new draft
-    // instead of editing the author's existing one.
+    // Live-entity basis, like every other read — a snapshot-basis null here
+    // makes the caller silently FORK a new draft instead of editing the
+    // author's existing one.
     const readable = await this.readableTargetIds([
       { type: entityType, id: entityId },
     ]);
@@ -908,10 +880,9 @@ export class RevisionModel extends BaseClass {
     entityId: string,
     version: number,
   ) {
-    // Live-entity basis, joining the listings, detail and history. `_findOne`
-    // applies the per-doc check, which decides on the revision's SNAPSHOT — so
-    // after a project move a pinned version resolved for the project that no
-    // longer owns the entity and 404'd for the one that does.
+    // Live-entity basis, like the listings — a snapshot-basis check resolves a
+    // pinned version for the project that no longer owns the entity and 404s
+    // for the one that does.
     const readable = await this.readableTargetIds([
       { type: entityType, id: entityId },
     ]);
@@ -945,9 +916,7 @@ export class RevisionModel extends BaseClass {
     if (options.authorId) {
       filter.authorId = options.authorId;
     }
-    // Live-entity basis, like every other listing: a snapshot-basis check hides a
-    // moved entity's open draft from the project that now owns it, and shows it to
-    // the one that no longer does.
+    // Live-entity basis, like every other listing — see readableTargetIds.
     const readable = await this.readableTargetIds([
       { type: entityType, id: entityId },
     ]);
@@ -975,18 +944,17 @@ export class RevisionModel extends BaseClass {
         "target.id": entityId,
         status: "merged",
       } as Record<string, unknown>,
-      // By WHEN IT MERGED, not by version: publishing v3 then v2 leaves v2's content
-      // live. `dateUpdated` was wrong the other way — any later touch of an old
-      // revision made it "latest" again. `resolution.dateCreated` is stamped once, at
-      // the merge, by every path that merges; version breaks same-ms ties.
+      // By WHEN IT MERGED, not by version: publishing v3 then v2 leaves v2's
+      // content live, and `dateUpdated` moves on any later touch of an old
+      // revision. `resolution.dateCreated` is stamped once, at the merge, by
+      // every path that merges; version breaks same-ms ties.
       {
         sort: { "resolution.dateCreated": -1, version: -1, id: -1 },
         limit: 1,
-        // NOT read-filtered: a consistency query, not a user-facing read. The per-doc
-        // check decides on the SNAPSHOT, so after a move this returned null for a
-        // destination-scoped caller — and `assertLandingBaseline` reads null as "no
-        // competing merge", making the baseline re-check a no-op exactly when it
-        // mattered.
+        // NOT read-filtered: a consistency query, not a user-facing read. A
+        // snapshot-basis null here reads to `assertLandingBaseline` as "no
+        // competing merge", disabling the baseline re-check exactly when it
+        // matters.
         bypassReadPermissionChecks: true,
       },
     );
@@ -1016,9 +984,7 @@ export class RevisionModel extends BaseClass {
       ...(opts.authorId ? { authorId: opts.authorId } : {}),
     };
 
-    // Same live-entity basis as the cross-entity listings — this one was left on
-    // the snapshot basis, so a moved entity's own history page disagreed with the
-    // org-level list about what the caller may see.
+    // Same live-entity basis as the cross-entity listings — see readableTargetIds.
     return this.findReadablePage(filter, {
       ...opts,
       singleTarget: { type: entityType, id: entityId },
@@ -1041,13 +1007,10 @@ export class RevisionModel extends BaseClass {
       autoPublishOnApproval?: boolean;
       armAcknowledgments?: ArmAcknowledgments;
       /**
-       * Arm a DATED publish as part of the same transition.
-       *
-       * Rides this write rather than following it, exactly as the feature twin
-       * `markRevisionAsReviewRequested` does. A review-required draft cannot have a
-       * dated schedule armed on its own (the schedule endpoint refuses one until
-       * review is requested), so the client had to stage it locally and hope —
-       * which meant the generic tab silently dropped it, because nothing sent it.
+       * Arm a DATED publish as part of the same transition, exactly as the
+       * feature twin `markRevisionAsReviewRequested` does. It must ride this
+       * write: the schedule endpoint refuses a dated schedule until review is
+       * requested.
        */
       scheduledPublishAt?: Date | null;
       lockEdits?: boolean;
@@ -1058,12 +1021,10 @@ export class RevisionModel extends BaseClass {
     const dated = (scheduledPublishAt ?? null) !== null;
     const armed = !!autoPublishOnApproval || dated;
 
-    // Both of the dedicated arm path's lock-others protections, which this write
-    // had neither of: the friendly pre-check, and the index-conflict translation
-    // below. Arming lock-others here while a sibling holds it otherwise surfaced a
-    // raw E11000. The feature twin this flow was ported from
-    // (`markRevisionAsReviewRequested`) catches the index conflict for exactly this
-    // write — the port took the flow and left the conflict handling behind.
+    // Both lock-others protections from the dedicated arm path: the friendly
+    // pre-check here and the index-conflict translation below — otherwise a
+    // sibling already holding the lock surfaces as a raw E11000. Mirrors
+    // `markRevisionAsReviewRequested`.
     if (dated && lockOthers) {
       const existing = await this.getById(id);
       if (existing) {
@@ -1071,21 +1032,17 @@ export class RevisionModel extends BaseClass {
       }
     }
     // CAS-guarded on the fields the transition reads, like `recallReview` and
-    // `undoReview`: an unguarded read-modify-write let a publish merge in between
-    // and this write then demoted the merged revision to `pending-review`.
+    // `undoReview` — unguarded, a publish merging in between gets demoted back
+    // to `pending-review`.
     const updated = await this.runTranslatingPublishLockConflict(() =>
       this.updateWithCas(
         id,
-        // `target` because this verb's AUTHORITY is row-scoped: callers gate on
-        // `canAdvanceRevision(target.snapshot)`, so a rebase that re-scopes the
-        // revision changes the answer and must lose the race rather than ride it.
-        // Same rule as `addReview` and `undoReview`. `armAcknowledgments` because the
-        // callback reads it to decide whether to clear a stale fingerprint — a
-        // concurrent arm's fresh set would otherwise survive a re-arm that should
-        // have cleared it.
-        // `reviewCycle` because this write computes the next one from the row it
-        // read: a number stamped from a stale read moves the identity BACKWARDS onto
-        // one an in-flight verdict already names. See `reviewCycle.ts`.
+        // `target` because this verb's authority is row-scoped (callers gate on
+        // `canAdvanceRevision(target.snapshot)`), so a rebase that re-scopes the
+        // revision must lose the race — same rule as `addReview`/`undoReview`.
+        // `armAcknowledgments` because the callback reads it to decide whether
+        // to clear a stale fingerprint. `reviewCycle` because this write stamps
+        // the next one from the row it read — see nextReviewCycle.
         [
           "status",
           "reviews",
@@ -1173,17 +1130,14 @@ export class RevisionModel extends BaseClass {
     enabled: boolean,
     { armAcknowledgments }: { armAcknowledgments?: ArmAcknowledgments } = {},
   ) {
-    // `status` on both paths: the check below reads it, and a terminal revision must
-    // not be stamped with auto-publish state.
-    //
-    // ARMING additionally guards `target`, because `armAcknowledgments` fingerprints
-    // `target.proposedChanges` and the fire-time drift check reads that fingerprint
-    // as consent — so it must describe the content actually armed. Arming's AUTHORITY
-    // is judged on the live entity, which is why `target` is otherwise irrelevant
-    // here; disarming carries nothing content-derived and keeps the narrow guard.
-    // `armAcknowledgments` on both paths: the compute READS it to decide whether a
-    // stale fingerprint needs clearing, so a concurrent arm could otherwise pair one
-    // actor's identity with another actor's acknowledgment.
+    // `status` on both paths: the check below reads it, and a terminal revision
+    // must not be stamped with auto-publish state. ARMING additionally guards
+    // `target`, because `armAcknowledgments` fingerprints
+    // `target.proposedChanges` and the fire-time drift check reads that
+    // fingerprint as consent — it must describe the content actually armed;
+    // disarming carries nothing content-derived and keeps the narrow guard.
+    // `armAcknowledgments` on both paths: the compute reads it to decide
+    // whether a stale fingerprint needs clearing.
     const guardFields: (keyof Revision)[] = enabled
       ? ["status", "target", "armAcknowledgments"]
       : ["status", "armAcknowledgments"];
@@ -1199,9 +1153,9 @@ export class RevisionModel extends BaseClass {
       }
 
       // Auto-publish runs with the arming user's authority, so the identity is
-      // REPLACED on every transition — never left behind. A conditional set meant an
-      // identityless arm (API key, system actor) inherited whoever armed it last, and
-      // the deferred publish then ran as that user. `null` clears it.
+      // REPLACED on every transition — left behind, an identityless arm (API
+      // key, system actor) inherits whoever armed last and the deferred publish
+      // runs as that user. `null` clears it.
       return {
         autoPublishOnApproval: enabled,
         autoPublishEnabledBy: enabled && userId ? userId : null,
@@ -1232,11 +1186,6 @@ export class RevisionModel extends BaseClass {
       if (refreshed) return refreshed;
     }
 
-    // Disabling: this.update can only flip the flag, leaving scheduledPublishAt
-    // and the locks set on the document. Scrub the whole schedule so a later
-    // re-arm can't resurrect a stale dated schedule and fire it (or re-block
-    // siblings via the lock-others index) without fresh confirmation. Mirrors
-    // recallReview / addReview's changes-requested disarm.
     return updated;
   }
 
@@ -1290,10 +1239,8 @@ export class RevisionModel extends BaseClass {
     // blockSelfApproval (contributors are recorded by their own atomic write).
     const updated = await this.updateWithCas(
       id,
-      // `reviewCycle` too: this write REFUSES on it (a verdict formed against a
-      // superseded round), so it is a decision input like any other. Every cycle start
-      // also moves `status` or `reviews`, so it is belt-and-braces — but the rule is
-      // that the guard covers what the decision read, not what usually co-varies.
+      // `reviewCycle` too: this write REFUSES on it, so it is a decision input —
+      // the guard covers what the decision read, not what usually co-varies.
       [
         "reviews",
         "status",
@@ -1342,13 +1289,12 @@ export class RevisionModel extends BaseClass {
         if (existing.status === "merged" || existing.status === "discarded") {
           throw new Error(`Cannot review a ${existing.status} revision`);
         }
-        // ...nor one that left the review cycle. Refusing only the TERMINAL
-        // statuses still admits `draft`, and a verdict written there sets
-        // `approved`/`changes-requested` from the row's own status — so a recall
-        // landing between the caller's read and this write had the retracted
-        // cycle's verdict re-approve a revision nobody had asked to be reviewed.
-        // Comments stay open: they carry no verdict and leave the status alone,
-        // and commenting on a draft is ordinary.
+        // ...nor one that left the review cycle. Refusing only TERMINAL statuses
+        // still admits `draft`, where a verdict would set
+        // `approved`/`changes-requested` — letting a recall landing between read
+        // and write have the retracted cycle's verdict re-approve a revision
+        // nobody asked to be reviewed. Comments stay open: no verdict, status
+        // untouched, and commenting on a draft is ordinary.
         if (
           !isComment &&
           !(REVIEW_CYCLE_STATUSES as readonly string[]).includes(
@@ -1410,17 +1356,15 @@ export class RevisionModel extends BaseClass {
     // Re-asked on the row every attempt — see `CasAuthority`.
     authority: CasAuthority<Revision>,
   ) {
-    // CAS-guarded on `status`, which the check below reads. An unguarded write
-    // let a publish merge between the read and the write, after which the recall
-    // rewrote a MERGED revision back to `draft` and cleared its reviews — the
-    // released change stayed live with its record demoted to an open draft.
+    // CAS-guarded on `status`, which the check below reads — unguarded, a recall
+    // racing a publish rewrites the MERGED revision back to `draft` while the
+    // released change stays live.
     const updated = await this.updateWithCas(
       id,
-      // `target` for the same reason as `submitForReview`: the non-author path is
-      // gated on draft authority over `target.snapshot`.
-      // `reviewCycle` because this write computes the next one from the row it
-      // read: a number stamped from a stale read moves the identity BACKWARDS onto
-      // one an in-flight verdict already names. See `reviewCycle.ts`.
+      // `target` for the same reason as `submitForReview`: the non-author path
+      // is gated on draft authority over `target.snapshot`. `reviewCycle`
+      // because this write stamps the next one from the row it read — see
+      // nextReviewCycle.
       ["status", "reviews", "activityLog", "target", "reviewCycle"],
       async (existing) => {
         await assertCasAuthority(authority, existing);
@@ -1470,13 +1414,11 @@ export class RevisionModel extends BaseClass {
     id: string,
     userId: string,
     authority: CasAuthority<Revision>,
-    // The review cycle the retraction was aimed at, for the same reason
-    // `addReview` takes one — and the reasoning is symmetric. A verdict must not
-    // cross a recall/resubmit; neither must its withdrawal. This reviewer's verdict
-    // on the NEW cycle looks exactly like their verdict on the retracted one, so an
-    // undo in flight across the boundary removes a verdict its sender never saw,
-    // and dropping a `changes-requested` can resolve the revision to `approved` and
-    // fire auto-publish on changes nobody cleared.
+    // The review cycle the retraction was aimed at — symmetric with `addReview`:
+    // a verdict must not cross a recall/resubmit, and neither may its
+    // withdrawal. Dropping a `changes-requested` across the boundary can resolve
+    // the revision to `approved` and fire auto-publish on changes nobody
+    // cleared.
     expectedReviewCycle?: number,
   ) {
     const updated = await this.updateWithCas(
@@ -1608,8 +1550,7 @@ export class RevisionModel extends BaseClass {
         if (idx < 0) throw new Error("Comment not found");
         const entry = existing.reviews[idx];
         // A reviewer may rewrite the text on their own verdict; the decision
-        // itself stays immutable (only `comment` is reassigned below), and
-        // deletion is still restricted to plain comments. Matches
+        // itself stays immutable (only `comment` is reassigned below). Matches
         // FeatureRevisionLogModel's EDITABLE_AUTHOR_ACTIONS, which the shared
         // timeline's Edit affordance is built against.
         if (entry.userId !== userId) {
@@ -1671,9 +1612,9 @@ export class RevisionModel extends BaseClass {
   ) {
     this.assertSupportedPatchOps(proposedChanges);
 
-    // Live-entity basis, so this resolves the same set of revisions the handler and
-    // `createOrUpdateRevision` do — check and write disagreeing about which
-    // revisions EXIST is how the silent-fork bug happened one layer up.
+    // Live-entity basis, so this resolves the same set of revisions the handler
+    // and `createOrUpdateRevision` do — disagreeing about which revisions EXIST
+    // is how drafts get silently forked.
     const existing = await this.getByIdReadable(id);
     if (!existing) throw new Error("Revision not found");
 
@@ -1738,15 +1679,13 @@ export class RevisionModel extends BaseClass {
   ): Promise<Revision> {
     const updated = await this.updateWithCas(
       id,
-      // Every field this write READS or OVERWRITES, not just `contributors`. Guarding
-      // the contributor list alone let a concurrent publish — which changes `status`
-      // without necessarily touching contributors — slip past: the stale edit still
-      // matched and rewrote merged history, including the status and reviews the
-      // publish had just set. `assertDraftAcceptsContentEdit` is re-checked inside the
-      // loop, so a retry sees the new status and refuses properly.
-      // `reviewCycle` because this write computes the next one from the row it
-      // read: a number stamped from a stale read moves the identity BACKWARDS onto
-      // one an in-flight verdict already names. See `reviewCycle.ts`.
+      // Every field this write READS or OVERWRITES, not just `contributors` —
+      // guarding the contributor list alone lets a concurrent publish (which
+      // moves `status` without necessarily touching contributors) slip past and
+      // the stale edit rewrite merged history. `assertDraftAcceptsContentEdit`
+      // re-runs inside the loop, so a retry sees the new status and refuses.
+      // `reviewCycle` because this write stamps the next one from the row it
+      // read — see nextReviewCycle.
       [
         "contributors",
         "status",
@@ -1864,8 +1803,8 @@ export class RevisionModel extends BaseClass {
       expected?: { status: string; dateUpdated: Date };
     },
   ) {
-    // Whether a schedule was armed on the winning CAS read — used after the
-    // status transition lands to scrub the schedule fields.
+    // Whether a schedule was armed on the winning CAS read — decides whether the
+    // merge write itself carries CLEARED_SCHEDULE.
     let hadSchedule = false;
     // `activityLog` and the schedule fields because the merge appends an entry to
     // the log it read and decides the scrub from the schedule it read — the same
@@ -2105,24 +2044,20 @@ export class RevisionModel extends BaseClass {
     // review cycle for a revision that was never submitted. Reopening to
     // `draft` lets the author explicitly re-submit via `submitForReview`
     // when ready — a safer default than inferring the pre-discard status.
-    // `reviewCycle` because this write computes the next one from the row it
-    // read: a number stamped from a stale read moves the identity BACKWARDS onto
-    // one an in-flight verdict already names. See `reviewCycle.ts`.
     const reopened = await this.updateWithCas(
       id,
-      // `reviews` and `activityLog` because this write REWRITES both wholesale from
-      // what it read (stale verdicts, cleaned log + a new entry). Unguarded, a review
-      // or an entry landing in between is silently dropped.
-      // `target` because the authority check judges on `target.snapshot`: a rebase
-      // that re-scopes the revision changes that answer, so it must be part of the
-      // predicate. Every verb taking a row-scoped authority owes this.
+      // `reviews`/`activityLog` because this write REWRITES both wholesale from
+      // what it read — unguarded, a review or entry landing in between is
+      // silently dropped. `target` because the authority check judges on
+      // `target.snapshot` (every verb taking a row-scoped authority owes this).
+      // `reviewCycle` because this write stamps the next one — see
+      // nextReviewCycle.
       ["status", "reviewCycle", "reviews", "activityLog", "target"],
       async (existing) => {
         await assertCasAuthority(authority, existing);
-        // Re-checked under the CAS, against the row this write is conditioned on:
-        // the guard alone only proves `status` hasn't changed since the CAS re-read,
-        // and a retry re-reads. Without this a reopen racing a publish could demote
-        // MERGED history back to `draft`. Only a discarded revision reopens.
+        // Re-checked under the CAS: the guard only proves `status` is unchanged
+        // since the re-read. Without this, a reopen racing a publish could
+        // demote MERGED history back to `draft`.
         if (existing.status !== "discarded") return null;
         return {
           status: "draft",
@@ -2143,9 +2078,8 @@ export class RevisionModel extends BaseClass {
         } as UpdateProps<Revision>;
       },
     );
-    // `updateWithCas` returns null for a missing row AND for a compute that refused,
-    // so reporting "not found" told the loser of a two-operator race that the revision
-    // does not exist. Re-read on the failure path only, to say which it was.
+    // `updateWithCas` returns null for a missing row AND for a compute that
+    // refused; re-read on the failure path only, to report which it was.
     if (!reopened) {
       const existing = await this.getById(id);
       if (!existing) throw new Error("Revision not found");
@@ -2193,11 +2127,11 @@ export class RevisionModel extends BaseClass {
       ) {
         return existing;
       }
-      // Status-guarded like the arm below, and for the same reason: a revision
-      // published or discarded between the read above and this write is no longer
-      // ours to touch. Cancelling one anyway rewrote terminal history and bumped
-      // `dateUpdated`, which is the stamp a failed landing's recovery compares —
-      // so a stray cancel could make that recovery disown its own merge.
+      // Status-guarded like the arm below: a revision published or discarded
+      // since the read above is no longer ours to touch. Cancelling it anyway
+      // rewrites terminal history and bumps `dateUpdated` — the stamp a failed
+      // landing's recovery compares — so a stray cancel could make that
+      // recovery disown its own merge.
       await coll.updateOne(
         { ...filter, status: { $in: [...ACTIVE_DRAFT_STATUSES] } },
         {
@@ -2238,19 +2172,15 @@ export class RevisionModel extends BaseClass {
     };
 
     try {
-      // Guard against a TOCTOU race: only arm a revision that's still active AND
-      // still holding the content this arm was computed against.
+      // TOCTOU guard: only arm a revision that's still active AND still holding
+      // the content this arm was computed against — `armAcknowledgments`
+      // fingerprints `target.proposedChanges` and the fire-time drift check
+      // reads it as consent, so it must describe changes somebody acknowledged.
       //
-      // `armAcknowledgments` is a fingerprint of `target.proposedChanges`, and the
-      // fire-time drift check reads it as consent — so content changing between the
-      // read above and this write armed a schedule whose fingerprint describes
-      // changes nobody acknowledged. Same defect the auto-publish arm had; this is
-      // its dated twin.
-      //
-      // Guarded on `dateUpdated` rather than on `target` itself: any write that
-      // touches the target bumps it, and it is a scalar. An embedded-document
-      // equality on `target` is field-order sensitive, which is what made an earlier
-      // guard here permanently unsatisfiable (see `buildCasGuard`).
+      // Guarded on `dateUpdated` rather than `target` itself: any write touching
+      // the target bumps it, and embedded-document equality on `target` is
+      // field-order sensitive — permanently unsatisfiable in practice (see
+      // `buildCasGuard`).
       const { matchedCount } = await coll.updateOne(
         {
           ...filter,
@@ -2303,19 +2233,9 @@ export class RevisionModel extends BaseClass {
     return updated;
   }
 
-  // Reject arming a second "lock other drafts" schedule on an entity — two would
-  // mutually block each other at fire time. Fast pre-check; the partial unique
-  // index is the atomic guard against the race. Raw query (org-scoped) so a
-  // sibling the caller can't read still counts.
-  /**
-   * Turn the `uniqueArmedPublishLockOthers` index conflict into the same friendly
-   * message the dedicated arm path produces.
-   *
-   * The pre-check above is the common case; this is the race that beats it. Both
-   * exist on `setScheduledPublish`, and both were missing from the arm inside
-   * `submitForReview`, so a lost race there surfaced a raw E11000 duplicate-key
-   * error to the caller.
-   */
+  // Turn the lock-others index conflict into the same friendly message the
+  // dedicated arm path produces — the pre-check is the common case; this
+  // catches the race that beats it.
   private async runTranslatingPublishLockConflict<T>(
     fn: () => Promise<T>,
   ): Promise<T> {
@@ -2329,6 +2249,10 @@ export class RevisionModel extends BaseClass {
     }
   }
 
+  // Reject arming a second "lock other drafts" schedule on an entity — two would
+  // mutually block each other at fire time. Fast pre-check; the partial unique
+  // index is the atomic guard against the race. Raw query (org-scoped) so a
+  // sibling the caller can't read still counts.
   private async assertNoConflictingPublishLock(
     target: Revision["target"],
     excludeId: string,
@@ -2520,9 +2444,7 @@ export class RevisionModel extends BaseClass {
     entityType: RevisionTargetType,
     entityId: string,
   ) {
-    // Live-entity basis, like every other listing: a `canRead` over the snapshot
-    // would hide a moved entity's history from the project that now owns it while
-    // showing it to the one that no longer does.
+    // Live-entity basis, like every other listing — see readableTargetIds.
     const readable = await this.readableTargetIds([
       { type: entityType, id: entityId },
     ]);
@@ -2542,12 +2464,10 @@ export class RevisionModel extends BaseClass {
   async getOpenRevisionTargetIds(
     entityType: RevisionTargetType,
   ): Promise<string[]> {
-    // A bare `distinct` over target IDs would hand back the keys of entities the
-    // caller cannot read. Readability is decided on the LIVE entity, like every
-    // other listing — the snapshot records where the entity was when the draft
-    // opened, so a snapshot-basis beacon lit up for the project that no longer
-    // owns it and stayed dark for the one that does. Only target ids are projected
-    // here; the live scopes come from one batched lookup per entity type.
+    // A bare `distinct` would hand back the keys of entities the caller cannot
+    // read; readability is decided on the LIVE entity, like every other listing
+    // (see readableTargetIds). Only target ids are projected here; the live
+    // scopes come from one batched lookup per entity type.
     const docs = await this._dangerousGetCollection()
       .find(
         {
@@ -2636,10 +2556,10 @@ export class RevisionModel extends BaseClass {
       )
       .toArray();
 
-    // Read-filtered on the LIVE entity, like the beacon one method over. Without
-    // it, calling this with no ids — which the draft-state hook does — returned
-    // every entity id in the org plus its draft activity, to any authenticated
-    // member. One batched projected lookup, not a fetch per row.
+    // Read-filtered on the LIVE entity (see readableTargetIds). Without it, a
+    // no-ids call — which the draft-state hook makes — returns every entity id
+    // in the org plus its draft activity to any authenticated member. One
+    // batched projected lookup, not a fetch per row.
     const seen = new Set<string>();
     for (const doc of docs) {
       const entityId = doc.target?.id as string;
@@ -2665,11 +2585,11 @@ export class RevisionModel extends BaseClass {
     return result;
   }
 
-  // A revision created already `merged`, in one write. Two writes (create then merge)
-  // strand the draft if the merge fails after the entity was updated — it can never be
-  // published, since there are then "no changes" against live. Callers must persist the live entity change
-  // *before* calling this so the merged revision is a faithful record of a
-  // change that has actually landed.
+  // A revision created already `merged`, in one write. Two writes (create then
+  // merge) strand the draft if the merge fails after the entity was updated —
+  // it can never be published, since there are then "no changes" against live.
+  // Callers must persist the live entity change BEFORE calling this so the
+  // merged revision records a change that has actually landed.
   async createMerged(params: {
     type: RevisionTargetType;
     id: string;

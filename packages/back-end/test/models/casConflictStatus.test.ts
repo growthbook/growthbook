@@ -4,9 +4,8 @@ import { CasConflictError } from "back-end/src/models/BaseModel";
  * A lost compare-and-swap race reaches API callers as 409, not 400.
  *
  * Both error boundaries read `e.status || 400`, so an error class without a status
- * told clients their request was malformed and must not be retried — for an
- * interleaving a plain retry usually clears. Nothing else pins this, and the direct
- * publish path only started throwing it out to the boundary in this branch.
+ * tells clients their request was malformed and must not be retried — for an
+ * interleaving a plain retry usually clears.
  */
 describe("CasConflictError", () => {
   it("carries a 409 for the error boundaries to read", () => {

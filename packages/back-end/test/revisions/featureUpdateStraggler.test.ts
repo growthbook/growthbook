@@ -71,7 +71,7 @@ const after = { ...before, description: "after" } as FeatureInterface;
  *
  * The fire-and-forget structure is load-bearing, not decoration: awaiting the producer
  * inside its own landing leaves buffer #1 open at the post-await capture point, and
- * the mutation passes. Verified as a control before trusting either case below.
+ * the mutation passes.
  *
  * The producer resumes MID-landing-2 rather than after it, which is both the faithful
  * race (the first feature's hook resuming while the loop applies the second) and quiet

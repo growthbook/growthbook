@@ -27,8 +27,7 @@ export async function recallRevisionReview({
 }: {
   context: ApiReqContext;
   type: RevisionTargetType;
-  // No `entity`: this verb is judged on the revision's own snapshot (see below),
-  // so the live entity is not part of the decision.
+  // No `entity`: judged on the revision's own snapshot, not the live entity.
   revision: Revision;
 }): Promise<Revision> {
   if (!(REVIEW_CYCLE_STATUSES as readonly string[]).includes(revision.status)) {
@@ -63,8 +62,7 @@ export async function reopenRevision({
 }: {
   context: ApiReqContext;
   type: RevisionTargetType;
-  // No `entity`: this verb is judged on the revision's own snapshot (see below),
-  // so the live entity is not part of the decision.
+  // No `entity`: judged on the revision's own snapshot, not the live entity.
   revision: Revision;
 }): Promise<Revision> {
   if (revision.status !== "discarded") {
@@ -233,12 +231,10 @@ export async function scheduleRevisionPublish({
     },
   );
 
-  // Only when the schedule actually moved. `setScheduledPublish` has two paths that
-  // deliberately write nothing and hand back the row as it stands: cancelling an
-  // already-disarmed revision, and cancelling one a publish or discard has claimed
-  // since the read. Dispatching regardless announced a change to every subscriber on
-  // a request that changed nothing — and, on the terminal path, described a schedule
-  // that the landing consumed rather than anything this caller did.
+  // Only when the schedule actually moved. `setScheduledPublish` deliberately
+  // writes nothing when cancelling an already-disarmed revision, or one a publish
+  // or discard has claimed since the read — dispatching there would announce a
+  // change this request never made.
   const settled = updated.status === "merged" || updated.status === "discarded";
   if (!settled && !isSameSchedule(revision, updated)) {
     await getRevisionWebhookAdapter(type)?.dispatch(context, updated, {

@@ -9,11 +9,10 @@ import { setupApp } from "../api/api.setup";
 /**
  * Restoring a Config descendant, through the REAL adapter.
  *
- * Every compensation test mocks `applyChanges` wholesale, so the adapter's ancestor
- * normalization never ran in any of them — which is why the ordering bug below
- * survived. A restore writes through `applyChanges({isRevert: true})`, and
- * `normalizeConfigChangesAgainstAncestors` is UNCONDITIONAL there: `isRevert`
- * suppresses the veto, not the strip.
+ * Every other compensation test mocks `applyChanges` wholesale, so ancestor
+ * normalization never runs in them. A restore writes through
+ * `applyChanges({isRevert: true})`, and `normalizeConfigChangesAgainstAncestors`
+ * is UNCONDITIONAL there: `isRevert` suppresses the veto, not the strip.
  *
  * So the order compensation restores in decides whether it works at all. Restore a
  * descendant while the root still declares the field and normalization takes it
@@ -96,9 +95,8 @@ describe("restoring a Config descendant after a failed cascade", () => {
       .deleteMany({ organization: ORG_ID });
   });
 
-  // The bug, stated as a test: with the root still owning `foo`, restoring the
-  // descendant is a no-op that REPORTS success. This is what made the whole cascade
-  // rollback mechanism ineffective while looking correct.
+  // With the root still owning `foo`, restoring the descendant is a no-op that
+  // REPORTS success.
   it("cannot put a field back while the root still declares it", async () => {
     const context = adminContext();
     // Root owns `foo`; the child has been stripped of it by the cascade.
@@ -123,17 +121,16 @@ describe("restoring a Config descendant after a failed cascade", () => {
       .then(() => true)
       .catch(() => false);
 
-    // It does not throw — the key is still in `persistedKeys`, so verification sees
-    // nothing dropped. That is exactly why the ordering bug was silent.
+    // It does not throw — the key is still in `persistedKeys`, so verification
+    // sees nothing dropped.
     expect(reported).toBe(true);
     // And `foo` is still gone, because normalization stripped it right back.
     expect(await schemaKeysOf("child")).toEqual([]);
   });
 
-  // The whole compensation, in the order it actually runs. This is the case that
-  // fails under the ordering I shipped first (descendants before the root) and
-  // passes under root-first — and it fails SILENTLY, reporting a clean rollback, so
-  // only an assertion on the descendant's stored schema catches it.
+  // The whole compensation, in the order it actually runs. Descendant-first fails
+  // SILENTLY, reporting a clean rollback — only an assertion on the descendant's
+  // stored schema catches it.
   it("restores root and descendant together, root first", async () => {
     const context = adminContext();
     // The landing added `foo` to the root, and the cascade stripped it from the
