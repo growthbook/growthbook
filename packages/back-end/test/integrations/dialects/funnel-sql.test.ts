@@ -259,14 +259,14 @@ const config: ExplorationConfig = {
     steps: [
       {
         name: "View",
-        factTable: "orders",
+        factTableId: "orders",
         rowFilters: [{ operator: "=", column: "event_name", values: ["view"] }],
         optional: false,
         conversionWindow: undefined,
       },
       {
         name: "Add to cart",
-        factTable: "orders",
+        factTableId: "orders",
         rowFilters: [
           { operator: "=", column: "event_name", values: ["add_to_cart"] },
         ],
@@ -275,7 +275,7 @@ const config: ExplorationConfig = {
       },
       {
         name: "Purchase",
-        factTable: "orders",
+        factTableId: "orders",
         rowFilters: [
           { operator: "=", column: "event_name", values: ["purchase"] },
         ],
@@ -426,14 +426,14 @@ describe("buildFunnelSql — launch subset (real dialects)", () => {
         steps: [
           {
             name: "View",
-            factTable: "visits",
+            factTableId: "visits",
             rowFilters: [],
             optional: false,
             conversionWindow: undefined,
           },
           {
             name: "Purchase",
-            factTable: "orders",
+            factTableId: "orders",
             rowFilters: [],
             optional: false,
             conversionWindow: undefined,
