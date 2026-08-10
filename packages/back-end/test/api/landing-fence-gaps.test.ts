@@ -297,6 +297,47 @@ describe("generic landing fences", () => {
     expect(child?.value).toBe("child-before");
   });
 
+  // A deferred publish carries its approval bypass as persisted intent; the
+  // armer's role alone must not force an unapproved schedule through at fire
+  // time, however privileged the armer is.
+  it("a deferred publish does not take approval bypass from the armer's role", async () => {
+    const ORG = "org_fence_deferred";
+    const ctx = makeContext(ORG);
+    await seedConstant(ORG, "fence_def", "before");
+    const version = await draftRevision("fence_def", "after");
+    const { revision, entity } = await loadRevisionAndEntity(
+      ctx,
+      "fence_def",
+      version,
+    );
+    await mongoose.connection
+      .collection("revisions")
+      .updateOne(
+        { organization: ORG, id: revision.id },
+        { $set: { status: "pending-review" } },
+      );
+    const { revision: pending } = await loadRevisionAndEntity(
+      ctx,
+      "fence_def",
+      version,
+    );
+
+    jest.spyOn(adapter, "isApprovalRequiredForRevision").mockReturnValue(true);
+    // The armer's role holds bypass — exactly what must NOT count here.
+    jest.spyOn(adapter, "canBypassApproval").mockReturnValue(true);
+
+    await expect(
+      publishRevision(ctx, pending, entity as Record<string, unknown>, {
+        deferred: true,
+      }),
+    ).rejects.toThrow(/must be approved/);
+
+    // The same publish NOT deferred takes the role bypass, as before.
+    await expect(
+      publishRevision(ctx, pending, entity as Record<string, unknown>),
+    ).resolves.toMatchObject({ status: "merged" });
+  });
+
   // The no-op branch writes nothing, but it still claims a place in the merged
   // order — and config's beforeNoOpMerge replays cascades against that claim. A
   // rival claimed since must unwind it, exactly as the with-changes branch does.
