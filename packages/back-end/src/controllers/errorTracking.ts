@@ -878,9 +878,16 @@ LIMIT 1
       return res.status(404).json({ status: 404, message: "Event not found" });
     }
 
+    const currentTimestampMs = new Date(
+      clickhouseTimestampToIso(current.timestamp),
+    ).getTime();
     const currentTimestamp = integration
       .getSqlDialect()
-      .toTimestamp(new Date(String(current.timestamp) + "Z"));
+      .toTimestamp(
+        Number.isNaN(currentTimestampMs)
+          ? new Date(0)
+          : new Date(currentTimestampMs),
+      );
     const currentEventUuid = String(current.event_uuid || "");
 
     const prevSql = `
