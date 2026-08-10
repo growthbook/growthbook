@@ -69,6 +69,9 @@ describe("generateRowsForMetric funnel parent", () => {
     expect(parent.numChildren).toBe(NUM_STEPS);
     expect(parent.isChildRow).toBeFalsy();
     expect(steps).toHaveLength(NUM_STEPS);
+    results.variations.forEach((v, j) => {
+      expect(parent.variations[j]).toEqual(v.metrics[FUNNEL_METRIC_ID]);
+    });
   });
 
   it("sources each funnel step child row from its step metric data", () => {

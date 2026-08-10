@@ -5,6 +5,7 @@ import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { formatDurationMs } from "@/enterprise/components/ProductAnalytics/util";
 import {
   CHART_COLORS,
+  cssColorToHex,
   getChartThemeColors,
 } from "@/enterprise/components/ProductAnalytics/chart-theme";
 import Text from "@/ui/Text";
@@ -54,11 +55,15 @@ export default function FunnelStepsChart({
   series,
   yAxisScale = "percent",
   animate = true,
+  colors = CHART_COLORS,
 }: {
   stepLabels: string[];
   series: FunnelChartSeries[];
   yAxisScale?: "count" | "percent";
   animate?: boolean;
+  // Per-series bar colors in series order, wrapping if fewer than series.
+  // Any CSS color, including `var(--…)` references.
+  colors?: string[];
 }) {
   const { theme } = useAppearanceUITheme();
   const { textColor, tooltipBackgroundColor, gridLineColor } =
@@ -78,7 +83,10 @@ export default function FunnelStepsChart({
     // still carry the raw count on each data point so the tooltip can
     // surface actual user numbers alongside the percentage.
     const seriesConfigs = series.flatMap((s, idx) => {
-      const baseColor = CHART_COLORS[idx % CHART_COLORS.length];
+      // Resolved here rather than by callers: `hexToRgba` below and zrender's
+      // hover emphasis both need concrete hex. `textColor` is a dep of this
+      // memo, so a theme switch re-resolves the variables to the new values.
+      const baseColor = cssColorToHex(colors[idx % colors.length]);
       const stackKey = `stack_${idx}`;
       const firstStep = s.counts[0] ?? 0;
       const toY = (n: number) =>
@@ -235,6 +243,7 @@ export default function FunnelStepsChart({
     tooltipBackgroundColor,
     animate,
     yAxisScale,
+    colors,
   ]);
 
   // Mirror legend toggles onto the matching low-opacity drop-off ghost so

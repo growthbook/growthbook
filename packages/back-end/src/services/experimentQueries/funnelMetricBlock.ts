@@ -14,8 +14,10 @@ const METRIC_SLOT_COLUMN_RE = /^m\d+_/;
  * The funnel's slot in the original query holds `{slotAlias}_step_{k}_sum` for
  * every step instead of a `main_sum`. gbstats has no notion of a funnel, so
  * each step becomes an ordinary proportion metric `{metricId}?step={k}` in slot
- * `m{k}` of a fresh result. Emitting a separate result rather than expanding in
- * place avoids renumbering the slots of the other metrics sharing the query.
+ * `m{k}` of a fresh result, and a final slot carries the bare `{metricId}` as a
+ * parent binomial for whole-funnel completion (units reaching the last step).
+ * Emitting a separate result rather than expanding in place avoids renumbering
+ * the slots of the other metrics sharing the query.
  *
  * A unit that never entered the funnel has no row-level value, hence the
  * `?? 0`: the denominator is every exposed unit, not just funnel enterers.
@@ -34,9 +36,12 @@ export function splitFunnelMetricBlock({
   const steps = metric.funnelSettings.steps;
 
   return {
-    metrics: steps.map((_step, stepIndex) =>
-      funnelStepMetricId(metric.id, stepIndex),
-    ),
+    metrics: [
+      metric.id,
+      ...steps.map((_step, stepIndex) =>
+        funnelStepMetricId(metric.id, stepIndex),
+      ),
+    ],
     rows: rows.map((row) => {
       // Carry variation, users, count, and every dimension / bandit attribute
       // column through untouched; drop all other metrics' slot columns.
@@ -46,6 +51,9 @@ export function splitFunnelMetricBlock({
 
       return {
         ...carried,
+        [`m${steps.length}_id`]: metric.id,
+        [`m${steps.length}_main_sum`]:
+          row[funnelStepSumColumn(slotAlias, steps.length - 1)] ?? 0,
         ...Object.fromEntries(
           steps.flatMap((_step, stepIndex) => [
             [`m${stepIndex}_id`, funnelStepMetricId(metric.id, stepIndex)],
