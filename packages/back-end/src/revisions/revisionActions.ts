@@ -419,6 +419,12 @@ export async function assertCanPublishRevision(
   revision: Revision,
   // Any entity object — only its project ownership is read, via the adapter.
   entity: object,
+  // The atom a RELOCATION demands over the destination, which is the verb of the
+  // operation, NOT the pure-revert status of the change (flag-family-authority.md):
+  // publishing a draft — even a pure-revert draft — is a `publish`, so the staged
+  // publish callers take the default. Only a DIRECT revert (landDirectChange) is a
+  // `revert`, and it passes that explicitly.
+  moveDestinationAction: "publish" | "revert" = "publish",
 ): Promise<void> {
   const adapter = getAdapter(revision.target.type);
   const snapshot = entity as Record<string, unknown>;
@@ -474,16 +480,17 @@ export async function assertCanPublishRevision(
       }),
   });
 
-  // A change that relocates the entity lands in the DESTINATION, in the engine
-  // rather than per handler so a handler that forgets is not a bypass. A pure
-  // revert that also moves lands under REVERT authority, the same atom the
-  // landing exemption above granted it — hardcoding "publish" over-asked and
-  // blocked a reverter who legitimately relocated the entity.
+  // A change that relocates the entity takes authority in the DESTINATION, in the
+  // engine rather than per handler so a handler that forgets is not a bypass. The
+  // atom is the verb of the OPERATION (`moveDestinationAction`): a staged publish
+  // demands `publish` there even when the change is a pure revert; only a direct
+  // revert demands `revert`. The source-side landing exemption (which does honour
+  // pure-revert) is `assertCanLandRevision` above, a separate question.
   if (
     !holdsMoveDestination({
       permissions: context.permissions,
       model: revision.target.type,
-      action: pureRevert ? "revert" : "publish",
+      action: moveDestinationAction,
       existing: snapshot,
       proposed: {
         ...snapshot,

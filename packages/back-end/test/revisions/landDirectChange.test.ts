@@ -38,8 +38,11 @@ import {
   restoreLandingWrites as restoreLandingWritesImpl,
 } from "back-end/src/revisions/landingSequence";
 import { landDirectChange } from "back-end/src/revisions/revertActions";
+import { assertCanPublishRevision as assertCanPublishRevisionImpl } from "back-end/src/revisions/revisionActions";
 import { Context } from "back-end/src/models/BaseModel";
 import { ConflictError } from "back-end/src/util/errors";
+
+const assertCanPublishRevision = assertCanPublishRevisionImpl as jest.Mock;
 
 const assertLandingBaseline = assertLandingBaselineImpl as jest.Mock;
 const restoreLandingWrites = restoreLandingWritesImpl as jest.Mock;
@@ -554,5 +557,49 @@ describe("landDirectChange", () => {
     expect(restoreLandingWrites).toHaveBeenCalledWith(
       expect.objectContaining({ root: null }),
     );
+  });
+
+  // The backstop's move-destination atom is the verb of the operation: a direct
+  // REVERT relocation takes revert authority; a direct non-revert landing takes
+  // publish. Pins that landDirectChange passes the right atom to the engine gate.
+  describe("names the operation's move-destination atom to the backstop", () => {
+    it("passes 'revert' for a direct revert", async () => {
+      const h = makeContext();
+      assertCanPublishRevision.mockClear();
+      await landDirectChange({
+        context: h.context,
+        entityType: "constant",
+        entity,
+        patchOps: [],
+        bypass: true,
+        revertedFrom: "rev_x",
+        write: async () => "ok",
+      });
+      expect(assertCanPublishRevision).toHaveBeenLastCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        "revert",
+      );
+    });
+
+    it("passes 'publish' for a direct non-revert landing", async () => {
+      const h = makeContext();
+      assertCanPublishRevision.mockClear();
+      await landDirectChange({
+        context: h.context,
+        entityType: "constant",
+        entity,
+        patchOps: [],
+        bypass: true,
+        write: async () => "ok",
+      });
+      expect(assertCanPublishRevision).toHaveBeenLastCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        "publish",
+      );
+    });
   });
 });

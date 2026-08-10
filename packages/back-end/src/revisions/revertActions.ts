@@ -216,6 +216,10 @@ export async function landDirectChange<T>({
         ...(revertedFrom ? { revertedFrom } : {}),
       } as Revision,
       entity,
+      // A direct revert relocation takes REVERT authority on the destination
+      // (the verb-shaped primary check does the same); a direct non-revert
+      // landing is a publish. Matches `assertCanRevertRevision`'s move check.
+      revertedFrom ? "revert" : "publish",
     );
 
     const baselineDateUpdated =
