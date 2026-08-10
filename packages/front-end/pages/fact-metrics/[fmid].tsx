@@ -631,6 +631,11 @@ export default function FactMetricPage() {
         <Flex align="center" gap="2" pr="2">
           <OpenInExplorerButton
             enabled={canOpenInExplorer}
+            disabledReason={
+              isFactFunnelMetric(factMetric)
+                ? "Funnel metrics are not yet supported in the Explorer."
+                : null
+            }
             href={`/product-analytics/explore/metrics?metricId=${encodeURIComponent(
               factMetric.id,
             )}`}

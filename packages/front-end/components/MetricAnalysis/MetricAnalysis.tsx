@@ -333,6 +333,10 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
             Standalone metric analysis not yet available for daily participation
             metrics.
           </Callout>
+        ) : factMetric.metricType === "funnel" ? (
+          <Callout status="warning" mt="2" mb="2">
+            Standalone metric analysis not yet available for funnel metrics.
+          </Callout>
         ) : (
           <>
             <div

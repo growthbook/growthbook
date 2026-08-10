@@ -44,6 +44,8 @@ export default function MetricTabContent() {
     const unManagedMetrics: SingleValue[] = [];
     factMetrics.forEach((m) => {
       if (m.datasource !== draftExploreState.datasource) return;
+      // The Explorer can't chart funnel metrics yet.
+      if (m.metricType === "funnel") return;
       if (m.managedBy) {
         managedMetrics.push({ label: m.name, value: m.id });
       } else {
