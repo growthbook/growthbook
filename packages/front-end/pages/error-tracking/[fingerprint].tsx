@@ -14,6 +14,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import DataList from "@/ui/DataList";
+import { TruncateMiddleWithTooltip } from "@/ui/TruncateMiddleWithTooltip";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import { DocLink } from "@/components/DocLink";
@@ -65,6 +66,20 @@ const GRAPH_RANGE_OPTIONS: { value: GraphRange; label: string }[] = [
   { value: "month", label: "Last month" },
   { value: "all", label: "All time" },
 ];
+
+function seenWithRelease(seenAt: string, release?: string): React.ReactNode {
+  return (
+    <>
+      {datetime(new Date(seenAt))}
+      {release ? (
+        <>
+          {" "}
+          (release <TruncateMiddleWithTooltip text={release} maxChars={12} />)
+        </>
+      ) : null}
+    </>
+  );
+}
 
 export default function ErrorIssuePage(): React.ReactElement {
   const { ready: featureReady, shouldRender } = useFeatureDisabledRedirect(
@@ -356,11 +371,11 @@ export default function ErrorIssuePage(): React.ReactElement {
                 data={[
                   {
                     label: "First seen",
-                    value: `${datetime(new Date(issue.firstSeen))}${issue.firstRelease ? ` (release ${issue.firstRelease})` : ""}`,
+                    value: seenWithRelease(issue.firstSeen, issue.firstRelease),
                   },
                   {
                     label: "Last seen",
-                    value: `${datetime(new Date(issue.lastSeen))}${issue.lastRelease ? ` (release ${issue.lastRelease})` : ""}`,
+                    value: seenWithRelease(issue.lastSeen, issue.lastRelease),
                   },
                   { label: "Events (all time)", value: String(issue.events) },
                   {
