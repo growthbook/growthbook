@@ -62,16 +62,7 @@ export function isArchiveTransition({
   return proposed === true && !current;
 }
 
-/**
- * Whether an `archived` value flips at all, in EITHER direction.
- *
- * The footprint question, as opposed to the atom question above: taking an entity
- * out of service and returning it to service both reach everywhere it serves, so
- * both answer for those environments. Only the archive direction was covered, and
- * an unarchive-only change names no environments — an empty footprint SKIPS the
- * environment check, so a dev-limited publisher could return an entity to service
- * in production.
- */
+/** Whether `archived` changes in either direction. */
 export function flipsArchivedState({
   proposed,
   current,
@@ -159,10 +150,7 @@ function environmentsEnabledOnlyRestore({
   });
 }
 
-// The version a draft reverts to. `revertedFromVersion` is the current field;
-// `revertedFrom` is the legacy one that drafts created before it still carry, and
-// both hold a version number. Reading only the new one made a legacy revert draft
-// unrecognizable as a pure revert, so a revert-only role could not land it.
+// Support both current and legacy revert-provenance fields.
 export function draftRevertedFromVersion(draft: {
   revertedFromVersion?: number;
   revertedFrom?: number;
@@ -267,12 +255,7 @@ export function isPureFeatureArchive({
  * The `archived` value a JSON-patch change set would land, or undefined when it
  * doesn't touch the field. Later ops win, matching patch application order.
  */
-// The project scope a revision's proposed changes would leave the entity in, as a
-// partial to spread over the live entity. Sibling of `proposedArchivedValue`.
-//
-// A revision can relocate an entity, so anything deciding whether a change may
-// LAND has to know where it lands — the live entity's own project answers the
-// wrong question.
+// Proposed project scope after applying revision changes.
 export function proposedProjectScope(proposedChanges: unknown): {
   project?: string;
   projects?: string[];
@@ -290,12 +273,7 @@ export function proposedProjectScope(proposedChanges: unknown): {
   return scope;
 }
 
-/**
- * The project scope a REVERT to this revision would leave the entity in: the
- * target's own snapshot with its proposed changes applied — what the revert
- * endpoint judges the destination against. The bare snapshot answers the wrong
- * question when the target revision itself relocated the entity.
- */
+/** Project scope restored by a revision, including its own move. */
 export function restoredProjectScope(targetRevision: {
   target: { snapshot?: unknown; proposedChanges?: unknown };
 }): { project?: string; projects?: string[] } {

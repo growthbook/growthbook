@@ -319,10 +319,6 @@ describe("getMergeResultPublishEnvs", () => {
     });
 
     it("defaultValue + enabling a disabled env includes the env being enabled", async () => {
-      // The publish-side hole revertFootprint closed on the revert side: the
-      // global arm returned currently-enabled envs only, so pairing a global
-      // edit with an ENABLE toggle dropped the enabled env from the footprint —
-      // a staging-limited publisher could switch production on.
       const feature = feat({
         environmentSettings: {
           dev: { enabled: true, rules: [] },
@@ -345,12 +341,6 @@ describe("getMergeResultPublishEnvs", () => {
   });
 
   describe("a project move widens to destination-applicable envs", () => {
-    // The escalation the reviewer caught: `production` is project-scoped so it
-    // is NOT applicable to the source project (excluded from environmentIds),
-    // but the feature is already enabled there. A revision that ONLY relocates
-    // the feature into the destination project activates production live. The
-    // footprint must include production so publish authority over it is
-    // demanded — computed from the DESTINATION project, not the pre-move one.
     function moveCtx(): ReqContext {
       return {
         org: {

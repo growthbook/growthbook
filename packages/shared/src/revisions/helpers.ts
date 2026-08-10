@@ -420,18 +420,8 @@ function isTopLevelPath(path: string): boolean {
 }
 
 /**
- * Does this patch carry an operation `applyTopLevelPatchOps` will silently skip?
- *
- * The two appliers disagree by construction: the WRITE side applies a patch in
- * full (fast-json-patch), while this one drops anything below the top level. So a
- * caller that derives AUTHORITY or APPROVAL scope from the lightweight applier can
- * conclude "nothing changed" about a change that does land — and both the empty
- * environment list and "no value changed" read as permission to skip a check.
- *
- * `jsonPatchOperationValidator` now rejects nested paths at the write door, so
- * nothing new can store one. Revisions written before that constraint still can,
- * which is what this exists to catch: the callers below treat an op they cannot
- * account for as the widest reading rather than the emptiest one.
+ * Detects operations the lightweight top-level applier cannot represent.
+ * Callers widen authority and approval scope for legacy nested operations.
  */
 export function hasUnappliablePatchOps(
   proposedChanges: JsonPatchOperation[] | unknown,
@@ -542,15 +532,7 @@ export function checkMergeConflicts(
   const fieldsChanged: string[] = [];
   const mergedChanges: Record<string, unknown> = { ...liveState };
 
-  // Whether one side differs from the other.
-  //
-  // `undefined` means no value was carried at all (what a `remove` op normalizes
-  // to) and is not a change. `null` is an explicit CLEAR and is a real change
-  // whenever the other side holds something: conflating the two made a draft's
-  // clear invisible here, so it neither merged nor conflicted and publishing it
-  // silently kept the old value. The symmetric case is a lost update — live
-  // clearing a field the draft also touched now conflicts instead of being
-  // overwritten.
+  // Undefined means absent; null is an explicit clear and participates in comparison.
   const hasChanged = (val1: unknown, val2: unknown): boolean => {
     if (val1 === undefined) return false;
     if ((val2 ?? null) === null) return (val1 ?? null) !== null;

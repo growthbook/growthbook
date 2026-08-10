@@ -149,17 +149,7 @@ export function hasPermission(
   return envsAllowedBy(usersPermissionsToCheck, permissionToCheck, envs);
 }
 
-// Whether a merged permission object clears `envs` for this permission.
-//
-// Shared by both check paths — this module's `hasPermission` (middleware and
-// API keys) and `Permissions.hasPermission` (everything else). They were
-// separate copies, and a fix to one silently left the other combining one
-// role's permission with another role's environments.
-//
-// Per-role grants decide it when any speaks to the permission: a single role
-// that grants it and covers every requested environment suffices. The flat
-// merged fields are the fallback for objects with no relevant grant, including
-// ones serialized before `envGrants` existed.
+// Resolve coverage from relevant grants; use merged legacy fields only when none exist.
 export function envsAllowedBy(
   userPermission: UserPermission,
   permissionToCheck: Permission,
@@ -171,13 +161,7 @@ export function envsAllowedBy(
     g.permissions.includes(permissionToCheck),
   );
   if (relevantGrants.length) {
-    // Union the environments across the grants that carry THIS permission. A
-    // role that doesn't grant it contributes nothing, which is the whole point
-    // — the leak was permissions borrowing another role's environments, not one
-    // permission reaching every environment its own roles allow. Requiring a
-    // single grant to cover the footprint would deny a member holding publish
-    // in dev from one role and production from another a change touching both,
-    // which they are plainly authorized for.
+    // Union environments across grants carrying this permission.
     if (relevantGrants.some((g) => !g.limitAccessByEnvironment)) return true;
     const allowed = new Set(relevantGrants.flatMap((g) => g.environments));
     return envs.every((env) => allowed.has(env));

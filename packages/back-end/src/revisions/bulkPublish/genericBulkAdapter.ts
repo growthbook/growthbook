@@ -46,11 +46,7 @@ function toRef(revision: Revision): BulkRevisionRef {
   };
 }
 
-// Bulk-publish surface for any entity on the generic revision system. Wraps
-// the entity's EntityRevisionAdapter for entity behavior and the shared
-// RevisionModel for revision lifecycle. `extraGates` lets a type contribute
-// gates its single-entity REST handler assembles inline (e.g. the config
-// lock gate) without the orchestrator knowing the type.
+// Adapts generic RevisionModel entities while allowing entity-specific plan gates.
 export function makeGenericBulkAdapter(
   targetType: RevisionTargetType,
   adapter: EntityRevisionAdapter,
@@ -122,8 +118,6 @@ export function makeGenericBulkAdapter(
         raw.target.proposedChanges,
         updatable,
       );
-      // Exactly what applyChanges will write — same filter, so hasChanges can
-      // never disagree with the apply about whether there's a net change.
       const hasChanges =
         Object.keys(filterUpdatableChanges(desiredState, entity, updatable))
           .length > 0;
@@ -142,10 +136,7 @@ export function makeGenericBulkAdapter(
       desiredState,
     }) {
       const raw = revision.raw as Revision;
-      // Approval + stale-base via the shared collector (approval scoping
-      // stays inside each adapter's isApprovalRequiredForRevision). Caller
-      // context: governance judges the caller's org policy, not the overlay
-      // end-state.
+      // Collect governance in caller context, then perform authoritative landing checks.
       const gates: PublishGate[] = collectRevisionGovernanceGates({
         context: callerContext,
         adapter,
@@ -154,11 +145,6 @@ export function makeGenericBulkAdapter(
         revision: raw,
       });
 
-      // The load-time gate is coarse — it takes only the entity, so a caller
-      // limited to dev could clear it while landing a production override.
-      // This is the authoritative check: the same change-aware footprint +
-      // purity assertion the single-revision engine makes. The archive gate
-      // below still runs for its clearer message.
       if (!(await canPublishRevisionChange(callerContext, raw, entity))) {
         gates.push(
           makeBlockingGate({
@@ -172,10 +158,7 @@ export function makeGenericBulkAdapter(
         );
       }
 
-      // A project move lands in the destination, so it takes publish authority
-      // there over the environments the change reaches — `canUpdate` on the
-      // post-publish state cannot see the change. Footprint from the pre-patch
-      // entity so the diff is still visible.
+      // A relocation also requires landing authority over the destination footprint.
       if (
         !holdsMoveDestination({
           permissions: callerContext.permissions,
@@ -206,8 +189,7 @@ export function makeGenericBulkAdapter(
         );
       }
 
-      // Archiving is delete-class wherever the merge lands — the publish
-      // checks above only ask for publish authority.
+      // Archiving additionally requires delete authority over the same footprint.
       if (
         isArchiveTransition({
           proposed: desiredState.archived as boolean | undefined,
@@ -217,8 +199,6 @@ export function makeGenericBulkAdapter(
           targetType,
           "delete",
           entity as { project?: string; projects?: string[] },
-          // Same change-aware footprint the single-revision engine applies, so a
-          // bulk archive can't clear a check the individual publish would fail.
           resolvePublishFootprint(
             callerContext,
             adapter.publishFootprint?.(
@@ -242,10 +222,7 @@ export function makeGenericBulkAdapter(
         );
       }
 
-      // Another draft's committed "lock other drafts" schedule blocks this
-      // publish — the same refusal the single-publish path and the feature
-      // bulk adapter make, bypassable by the approval-bypass permission like
-      // both.
+      // Match the single-publish sibling-schedule gate and bypass behavior.
       if (
         await callerContext.models.revisions.hasPublishLockingScheduledSibling(
           raw.target,
@@ -319,24 +296,17 @@ export function makeGenericBulkAdapter(
             },
           },
         );
-        // The dateUpdated our merge left behind — releaseClaim pins its reopen
-        // to it so a concurrent re-publish's successful merge isn't clobbered.
         revision.claimStamp = merged.dateUpdated;
         return true;
       } catch (e) {
-        // A lost CAS race is the expected "false" outcome; anything else
-        // (DB failure, permission error) must surface as itself, not a 409.
+        // Only claim CAS conflicts become the expected false result.
         if (e instanceof ConflictError) return false;
         throw e;
       }
     },
 
     async releaseClaim(context, revision) {
-      // Reopen only the exact merge we made (status still "merged" AND the
-      // dateUpdated our claim stamped). If a concurrent actor reopened and
-      // re-published the revision in the meantime, the fingerprint misses and
-      // we leave their published state alone — the orchestrator reports this
-      // item as still-published (needs attention), never a silent clobber.
+      // Reopen only this claim, preserving any concurrent re-publish.
       const restored = await context.models.revisions.reopenAfterFailedApply(
         revision.id,
         context.userId,
@@ -349,36 +319,20 @@ export function makeGenericBulkAdapter(
     async applyPrecomputed(context, entity, revision, desiredState) {
       const raw = revision.raw as Revision;
       try {
-        // The keys the write actually persisted (post updatable-filter and
-        // post-normalization) — the exact set compensation may roll back.
-        // Guarded on the pre-image the plan was computed against: the
-        // pre-claim drift check proves nothing about the moment of the write,
-        // so a publish landing in between would be silently overwritten. A
-        // lost race throws, routing the batch into compensation.
+        // Guard the write on its plan-time pre-image and report persisted state.
         await runGuardedWrite(targetType, (entity as { id: string }).id, () =>
           adapter.applyChanges(context, entity, desiredState, {
             isRevert: !!raw.revertedFrom,
             guarded: true,
-            // Reported AT the write, so a mid-cascade throw still leaves
-            // compensation an exact ownership baseline. A re-read would risk
-            // observing a concurrent writer and handing over their values.
             onPersisted: (applied) => {
               revision.persistedKeys = applied.persistedKeys;
               revision.writtenEntity = applied.written;
-              // The SAME array the adapter keeps appending to, so descendant writes
-              // made after this report still reach compensation.
               revision.cascade = applied.cascade;
             },
           }),
         );
       } catch (e) {
-        // Whether anything landed is decided by the REPORT, not the error
-        // class: `reconcileConfigDescendants` re-throws CasConflictError from
-        // a DESCENDANT write long after the root landed and reported. A
-        // rejected root CAS never reports, so an unreported failure is the
-        // "wrote nothing" case. Marked HERE rather than in compensation, so a
-        // later post-apply read cannot snapshot a concurrent winner's doc as
-        // this item's output and erase their work.
+        // Determine whether anything landed from the write report, not the error class.
         if (revision.writtenEntity === undefined) {
           revision.persistedKeys = [];
           revision.casLost = true;
@@ -388,8 +342,6 @@ export function makeGenericBulkAdapter(
     },
 
     async restorePreImage(context, preImage, revision) {
-      // Nothing was reported written, so there is nothing to put back (set in
-      // the apply's catch from the absence of a report — see there).
       if (revision.casLost) return;
       const model = adapter.getModel(context);
       const current = await model?.getById((preImage as { id: string }).id);
@@ -400,23 +352,14 @@ export function makeGenericBulkAdapter(
           `bulk publish compensation: ${targetType} "${(preImage as { id: string }).id}" no longer exists — cannot restore its pre-image`,
         );
       }
-      // Every adapter reports from INSIDE its entity write, before audit and
-      // the afterUpdate hooks. `null` is a report: the apply ran and wrote
-      // nothing, so the item is cleanly not-applied. `undefined` is the
-      // absence of a report: the apply never reached its entity write, so
-      // nothing of ours is live. Both readings depend on that placement —
-      // report after the write returns and an unreported live change would go
-      // unrestored.
+      // null is a reported no-op; undefined means no entity write was reported.
       if (revision.writtenEntity === null) return;
       if (revision.writtenEntity === undefined) return;
 
-      // Restore only the fields the apply persisted, so a key dropped by the
-      // filter or by normalization can't clobber a concurrent writer's value.
+      // Restore only fields actually persisted.
       const persistedKeys = revision.persistedKeys ?? [];
       const written =
         (revision.writtenEntity as Record<string, unknown> | null) ?? {};
-      // Same routine the direct-landing paths compensate with, so every write
-      // path restores by the same rule.
       await restoreEntityPreImage({
         context,
         entityType: targetType,
@@ -425,10 +368,7 @@ export function makeGenericBulkAdapter(
         written,
       });
 
-      // Descendants AFTER the root, in cascade order: ancestor normalization
-      // is unconditional on a revert, so a descendant restored while the root
-      // still declares the field is stripped straight back. A throw here keeps
-      // the claim, which is what leaves the item reported published.
+      // Restore descendants after the root so normalization does not strip them again.
       for (const write of revision.cascade ?? []) {
         await restoreEntityPreImage({
           context,
@@ -443,8 +383,6 @@ export function makeGenericBulkAdapter(
     async emitPublished(context, entity, revision) {
       const merged = await context.models.revisions.getById(revision.id);
       if (!merged) return;
-      // Both, like every other landing path: `published` is the lifecycle event,
-      // `reverted` names what this particular landing was.
       const webhooks = getRevisionWebhookAdapter(targetType);
       await webhooks?.dispatch(context, merged, { type: "published" });
       if (merged.revertedFrom) {

@@ -7,14 +7,10 @@ import {
   togglePolicyPart,
 } from "@/components/Teams/Roles/policySelection";
 
-/** Exhaustively checks every policy-part subset and click order. */
-
-// Every bundled policy the editor renders, so a new one is covered on arrival.
 const BUNDLES = (Object.keys(POLICY_PARTS) as Policy[]).filter(
   (p) => (POLICY_PARTS[p] || []).length > 0,
 );
 
-/** Every subset of a policy's parts. */
 function subsets(parts: Policy[]): Policy[][] {
   return parts.reduce<Policy[][]>(
     (acc, part) => [...acc, ...acc.map((set) => [...set, part])],
@@ -33,12 +29,10 @@ describe.each(BUNDLES)("%s", (policy) => {
         whole ? true : selected.length > 0 ? "indeterminate" : false,
       );
     }
-    // Stored as the bundle: also checked.
     expect(policyCheckboxState(policy, [policy])).toBe(true);
   });
 
-  // The invariant the shipped bug broke: what the box SAYS must match what
-  // clicking it DOES. Checked means the next click clears; anything else fills in.
+  // Checkbox state and its next transition must agree.
   it("clicking a checked box clears the group, from every state that reads checked", () => {
     const checkedStates = [[policy], parts, ...allSubsets].filter(
       (selected) => policyCheckboxState(policy, selected) === true,
@@ -65,11 +59,6 @@ describe.each(BUNDLES)("%s", (policy) => {
     }
   });
 
-  // Clicking the parent only ever lands on fully-on or fully-off, so
-  // indeterminate is reachable by touching an individual permission and never by
-  // clicking the group. That asymmetry is deliberate — it is why the first click
-  // from indeterminate fills in instead of discarding the user's picks — so it is
-  // pinned rather than left to be rediscovered as "inconsistent".
   it("settles on all-or-nothing and never returns to indeterminate", () => {
     for (const selected of [[policy], parts, ...allSubsets]) {
       const wasWhole = policyCheckboxState(policy, selected) === true;

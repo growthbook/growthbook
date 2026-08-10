@@ -3,12 +3,7 @@ import type { Context } from "back-end/src/models/BaseModel";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 import type { ClaimBaseline } from "back-end/src/revisions/bulkPublish/types";
 
-/**
- * A revision as the bulk publisher sees it, across both revision stores. The
- * generic store returns real `Revision` docs; the feature store adapts
- * FeatureRevisionInterface into this shape. `raw` carries the store's native
- * doc for the adapter's own methods — the orchestrator never inspects it.
- */
+/** Store-neutral revision reference; raw retains the adapter's native document. */
 export type BulkRevisionRef = {
   id: string;
   version: number;
@@ -21,18 +16,11 @@ export type BulkRevisionRef = {
    */
   claimStamp?: Date | null;
   /**
-   * Set by applyPrecomputed(): the entity doc as actually persisted (writes
-   * may normalize), the ownership baseline for restorePreImage. `null` means the
-   * post-apply read failed — there is then no trustworthy baseline, so
-   * restorePreImage reports the item published rather than best-guessing.
+   * Entity image reported by apply; null means no entity change, while undefined
+   * means no report.
    */
   writtenEntity?: Record<string, unknown> | null;
-  /**
-   * Writes the apply made to OTHER entities on this item's behalf — a Config's
-   * descendant cascade. Restored AFTER the root, since a descendant put back while
-   * the root still declares the field is re-stripped by ancestor normalization —
-   * silently, and reporting success.
-   */
+  /** Release-owned cascade writes, restored after their root. */
   cascade?: {
     before: Record<string, unknown> & { id: string };
     written: Record<string, unknown>;
@@ -49,27 +37,11 @@ export type BulkRevisionRef = {
    * ONLY these, so a field the write dropped never clobbers a concurrent value.
    */
   persistedKeys?: string[];
-  /**
-   * Set by applyPrecomputed() when its guarded entity write lost the CAS race:
-   * NOTHING was written, so restorePreImage must be a no-op. Restoring would
-   * compare live against values this apply never wrote and mistake the
-   * concurrent winner's work for its own.
-   */
+  /** The guarded entity write lost its CAS, so restoration must be skipped. */
   casLost?: boolean;
 };
 
-/**
- * Per-entity-type surface for the bulk publisher — the orchestrator
- * (bulkPublish.ts) contains zero entity-type switches. Implementations:
- * makeGenericBulkAdapter() (any generically-revisioned entity) and
- * featureBulkAdapter.
- *
- * Atomicity contract: everything that can fail deterministically
- * (permissions, validation, guards, hooks, merge computation) runs in the
- * plan-phase methods; claim() may fail ONLY on a CAS/baseline conflict, before
- * any live write; applyPrecomputed() may still throw on residual model-level
- * write validation, which the orchestrator treats as compensation-triggering.
- */
+/** Entity adapter for planning, guarded claims/apply, compensation, and effects. */
 export interface BulkPublishableAdapter {
   /**
    * Whether the org REST-bypass setting (in addition to the bypass-approval
@@ -113,27 +85,13 @@ export interface BulkPublishableAdapter {
     proposedEntity: Record<string, unknown>;
   }>;
 
-  /**
-   * Install this entity type's slice of the multi-entity end-state overlay on
-   * `overlayContext`: the proposed post-merge docs of every OTHER item of this
-   * type (the excluded item is validated against its own live baseline). Called
-   * once per type per item, so an empty list clears the overlay. Keeps the
-   * orchestrator free of any per-type overlay switch — each adapter owns its
-   * own overlay sink (a model's setScanOverlay, or the feature scan map).
-   */
+  /** Installs the other items' proposed states for this type in the overlay. */
   applyScanOverlay(
     overlayContext: Context,
     proposedEntities: Record<string, unknown>[],
   ): void;
 
-  /**
-   * Every publish gate for this item, evaluated against `overlayContext` (the
-   * hypothetical multi-entity end-state): approval-required, stale-base,
-   * entity locks, guard warnings, schema/hook validation. `callerContext`
-   * carries the caller's identity for checks that must not use the admin-role
-   * scan context. Gates are returned for every ACTIVE condition regardless of
-   * the caller's authority — clearance is evaluated separately per item.
-   */
+  /** Returns active gates using the overlay for scans and callerContext for authority. */
   collectGates(args: {
     callerContext: Context;
     overlayContext: Context;
@@ -150,12 +108,7 @@ export interface BulkPublishableAdapter {
 
   // ---------- Commit phase (writes) ----------
 
-  /**
-   * Replay side effects a no-op merge would otherwise skip (applyChanges is
-   * not called for items with no net entity change — e.g. a retry after a
-   * partial apply whose descendant cascade never ran). Runs BEFORE the claim
-   * so a failure leaves the draft open and retryable. Must be idempotent.
-   */
+  /** Replays idempotent no-op effects after claims; failure releases the claims. */
   prepareNoOpMerge?(
     context: Context,
     entity: Record<string, unknown>,

@@ -1,16 +1,6 @@
 /**
- * The review cycle: the identity of one round of review on a revision.
- *
- * `status` cannot serve as that identity — recall-then-resubmit returns a
- * revision to `pending-review`, the value it already held, so a verdict or
- * retraction formed against the RETRACTED round satisfies every status check
- * and lands on the new one: a stale approve can approve changes nobody
- * reviewed (and fire auto-publish), a stale undo can drop a standing
- * `changes-requested`.
- *
- * Both engines share these reads. They write the number differently (generic:
- * inside a CAS; feature: `$inc` on raw writes) — both monotonic, which is the
- * property that matters.
+ * Monotonic identity for a review round, preventing stale verdicts from
+ * applying after recall and resubmission.
  */
 
 /** Statuses in which a review cycle is open. */
@@ -37,14 +27,7 @@ export function reviewCycleSupersededMessage(what: string): string {
   return `This review request was superseded — the draft was recalled and resubmitted while your ${what} was in flight. Reload and review the current request.`;
 }
 
-/**
- * The status implied by the verdicts standing in the current cycle.
- *
- * A request for changes OUTRANKS an approval, so one reviewer's approval cannot
- * override another's standing objection. Callers normalize their own input and
- * choose their own fallback — those differ legitimately between the engines. The
- * precedence does not.
- */
+/** Changes requested outrank approvals; callers choose the no-verdict fallback. */
 export function statusFromStandingVerdicts<TFallback extends string>(
   verdicts: readonly ("approved" | "changes-requested")[],
   fallback: TFallback,

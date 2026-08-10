@@ -596,10 +596,6 @@ export type SavedGroupRevisionItemsBody = z.infer<
   typeof postSavedGroupRevisionItemsAddValidator.bodySchema
 >;
 
-// ---- Revision lifecycle: recall / reopen / schedule / undo-review ----
-// The same four verbs Configs and Feature Flags expose, on the same rules —
-// the handlers all delegate to `revisionLifecycle`.
-
 export const postSavedGroupRevisionSchedulePublishValidator = {
   method: "post" as const,
   path: "/saved-groups-revisions/:savedGroupId/:version/schedule-publish",
@@ -611,8 +607,7 @@ export const postSavedGroupRevisionSchedulePublishValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      // Validated RFC3339, with numeric offsets accepted: this endpoint shipped
-      // taking any string, so rejecting `…-07:00` would 400 existing callers.
+      // Accept RFC3339 numeric offsets for backward compatibility.
       scheduledPublishAt: z
         .union([z.iso.datetime({ offset: true }), z.null()])
         .describe(

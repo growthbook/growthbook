@@ -196,12 +196,7 @@ const BaseClass = MakeModelClass({
         status: 1,
       },
     },
-    // Unique index on the per-target version number. Prevents two concurrent
-    // creates from being assigned the same version (beforeCreate computes
-    // max(version)+1 over the raw collection; without this guard, a race could
-    // produce duplicates). Combined with the retry-on-duplicate-key logic in
-    // `createWithVersionRetry` — which revision-creating call sites must use —
-    // this gives correct sequential versioning under concurrency.
+    // Combined with createWithVersionRetry, serializes concurrent version allocation.
     {
       fields: {
         organization: 1,
@@ -253,13 +248,7 @@ function standingVerdicts(
 }
 
 export class RevisionModel extends BaseClass {
-  // Retry on duplicate key: the unique (org, target, version) index collides when two
-  // concurrent creates compute the same version in `beforeCreate`, which recomputes
-  // against the larger set on retry.
-  //
-  // EVERY revision-creating call site must go through this wrapper. Delegates
-  // to the shared `createWithVersionRetry` util so the retry semantics stay
-  // in lockstep with `FeatureRevisionModel.createRevision`.
+  // Revision creation must use this wrapper to retry concurrent version collisions.
   public createWithVersionRetry<R>(op: () => Promise<R>): Promise<R> {
     return createWithVersionRetry(op);
   }
@@ -304,10 +293,6 @@ export class RevisionModel extends BaseClass {
     }
   }
 
-  // If the entity-type's approval-flow has `resetReviewOnChange` enabled and
-  // the revision is currently `approved`, return a status update that bumps
-  // it back to `pending-review` plus an activity-log entry describing the
-  // reset. Otherwise return an empty object.
   private resetApprovalIfNeeded(
     existing: Revision,
     userId: string,
@@ -339,14 +324,7 @@ export class RevisionModel extends BaseClass {
     };
   }
 
-  // The next review-cycle number. Every write that STARTS a cycle stamps this, so
-  // a verdict can name the cycle it was formed against and a later one can refuse
-  // it. Any CAS write that stamps this must guard `reviewCycle`: a number
-  // computed from a stale read moves the identity BACKWARDS onto one an in-flight
-  // verdict already names (see `reviewCycle.ts`).
-  //
-  // Reopening a revision whose publish FAILED deliberately does not bump: that
-  // restores the prior state rather than starting a cycle, and its verdicts stand.
+  // New review cycles increment under CAS; failed-apply reopening restores the prior cycle.
   private nextReviewCycle(existing: Revision): number {
     return reviewCycleOf(existing) + 1;
   }
@@ -371,12 +349,7 @@ export class RevisionModel extends BaseClass {
     );
   }
 
-  // Without this, any authenticated user could insert a revision targeting any entity
-  // in their org.
-  //
-  // NOTE: `dangerousCreateBypassPermission` (inherited from BaseModel) skips
-  // this check AND skips the `createWithVersionRetry` wrapper above. Avoid it
-  // for revisions; prefer `createRequest` or `createWithVersionRetry(...)`.
+  // Revision creation requires target authority and the version-retry wrapper.
   protected canCreate(doc: Revision): boolean {
     return canTouchRevision(
       doc.target.type,
@@ -385,10 +358,7 @@ export class RevisionModel extends BaseClass {
     );
   }
 
-  // The author can always update their own revision; otherwise they must hold
-  // one of the revision authorities on the target. Merged revisions cannot be
-  // updated. The controller gates the specific action — this only stops a write
-  // from someone with no standing at all.
+  // Model backstop accepts authors or target authority; controllers gate actions.
   protected canUpdate(
     existing: Revision,
     _updates: UpdateProps<Revision>,
@@ -526,13 +496,7 @@ export class RevisionModel extends BaseClass {
     updates: UpdateProps<Revision>,
     newDoc: Revision,
   ) {
-    // NOTE: this MUTATES a shared reference — when `target` isn't in `updates`,
-    // `newDoc.target` IS `existing.target`, so the rebuild below rewrites the
-    // pre-image too. Harmless here (a key-order normalization applied to both
-    // diff sides, never persisted), but nothing downstream may assume the
-    // pre-image survives this hook intact. See `buildCasGuard`, which clones
-    // for this reason.
-    //
+    // buildCasGuard clones values because this normalization may mutate shared references.
     // Clean null values from snapshot before validation via the adapter
     newDoc.target.snapshot = getAdapter(newDoc.target.type).buildSnapshot(
       newDoc.target.snapshot as Record<string, unknown>,
@@ -564,20 +528,7 @@ export class RevisionModel extends BaseClass {
     return { $in: list };
   }
 
-  // Which of these targets the caller may READ, judged on the LIVE entity.
-  //
-  // A revision's snapshot records where the entity was when the draft was
-  // opened, so snapshot-basis readability breaks BOTH ways after a move: the
-  // source project keeps seeing history for an entity it no longer owns, and
-  // the destination sees none for one it does. The live entity is the
-  // authority; `getByIds` is itself read-filtered, so a target it returns is
-  // readable.
-  //
-  // Anything it does not return is excluded — "present but unreadable" and
-  // "deleted" alike. Fail-CLOSED on purpose: falling back to the snapshot for
-  // a miss would restore the very leak this closes. The cost is that a
-  // hard-deleted entity's orphaned drafts drop out of listings — they are
-  // unactionable anyway, and reachable by id.
+  // Revision visibility follows the live entity after moves; missing targets fail closed.
   private async readableTargetIds(
     entries: { type: RevisionTargetType; id: string }[],
   ): Promise<Set<string>> {
@@ -603,10 +554,7 @@ export class RevisionModel extends BaseClass {
     return readable;
   }
 
-  // Pagination and `total` over only the rows the caller may READ — a raw count
-  // leaks activity in invisible projects and breaks paging (under-filled pages,
-  // overstated `total`). One projected pass, then a full fetch of the page.
-  // Widen the projection if an adapter ever reads more than project.
+  // Filter and paginate only readable rows; raw counts leak hidden activity.
   private async findReadablePage(
     filter: Record<string, unknown>,
     {
@@ -623,16 +571,7 @@ export class RevisionModel extends BaseClass {
   ): Promise<{ revisions: Revision[]; total: number }> {
     const sort = { dateCreated: -1 as const, id: -1 as const };
 
-    // Readability is judged on the LIVE entity, which cannot be expressed as a
-    // filter on this collection — so the general path below loads every matching
-    // row's projection before it can slice. Its two callers (the org inbox and a
-    // whole-type listing) are bounded by the six projected fields and keep an
-    // exact `total` over readable rows, which is the property the scan exists
-    // for; inverting the join (readable ids, then `$in`) would page in the
-    // database but give up that exact `total`. Left as-is deliberately.
-    //
-    // Anything scoped to ONE entity — every history page, the hot call — needs a
-    // single readability lookup instead. With that answered, the database pages.
+    // Cross-entity scans preserve exact readable totals; single-target history pages in Mongo.
     if (singleTarget) {
       const readable = await this.readableTargetIds([singleTarget]);
       if (!readable.has(`${singleTarget.type}:${singleTarget.id}`)) {
@@ -701,16 +640,7 @@ export class RevisionModel extends BaseClass {
     return { revisions: rows, total: readableIds.length };
   }
 
-  /**
-   * One revision, readable on the LIVE-entity basis the listings use.
-   *
-   * `canRead` decides on the revision's SNAPSHOT (see readableTargetIds), so it
-   * can only be a floor; it is bypassed here so the live basis alone decides.
-   *
-   * Every handler in the revision controller opens its row through here, not
-   * just the GETs — otherwise the destination project of a move could LIST an
-   * entity's revisions and then 404 on every verb.
-   */
+  /** Loads one revision using the live-entity visibility basis. */
   async getByIdReadable(id: string): Promise<Revision | null> {
     const [doc] = await this._find(
       { id },
@@ -938,11 +868,7 @@ export class RevisionModel extends BaseClass {
     return results[0] ?? null;
   }
 
-  // The most-recently-published (merged) revision for the entity — the one whose
-  // post-merge state is currently live. A merged revision is terminal, so its
-  // `dateUpdated` reflects the merge time; sort by it (then version/id) to pick the
-  // latest publish even if drafts were published out of creation order. Used to
-  // capture the pinned revision when locking a config.
+  // Select the revision merged most recently; publish order can differ from creation order.
   async getLatestMergedByTarget(
     entityType: RevisionTargetType,
     entityId: string,
@@ -953,10 +879,6 @@ export class RevisionModel extends BaseClass {
         "target.id": entityId,
         status: "merged",
       } as Record<string, unknown>,
-      // By WHEN IT MERGED, not by version: publishing v3 then v2 leaves v2's
-      // content live, and `dateUpdated` moves on any later touch of an old
-      // revision. `resolution.dateCreated` is stamped once, at the merge, by
-      // every path that merges; version breaks same-ms ties.
       {
         sort: { "resolution.dateCreated": -1, version: -1, id: -1 },
         limit: 1,
@@ -1211,11 +1133,7 @@ export class RevisionModel extends BaseClass {
     comment: string,
     // Re-asked on the row every attempt — see `CasAuthority`.
     authority: CasAuthority<Revision>,
-    // The review cycle this verdict was formed against, as the caller read it.
-    // Status can't stand in for it: recall-then-resubmit returns the row to
-    // `pending-review`, the value it already had, so a verdict aimed at the
-    // retracted cycle satisfies every status check and lands on the new one —
-    // approving changes nobody reviewed, and firing auto-publish on them.
+    // Review cycle the caller formed this verdict against.
     expectedReviewCycle?: number,
   ) {
     const actionMap: Record<
@@ -1247,11 +1165,7 @@ export class RevisionModel extends BaseClass {
     // authorized on its own terms below and skips the general update backstop.
     const isComment = decision === "comment";
 
-    // CAS-guard every field the decision reads: `reviews`/`status`/`activityLog`
-    // so a concurrent verdict can't be lost, `target` so a rebase that re-scopes
-    // the revision loses the race instead of riding it, and `contributors` so an
-    // edit landing between the check and the write can't slip past
-    // blockSelfApproval (contributors are recorded by their own atomic write).
+    // Guard verdict inputs, including scope, contributors, status, and activity.
     const updated = await this.updateWithCas(
       id,
       // `reviewCycle` too: this write REFUSES on it, so it is a decision input —
@@ -1267,12 +1181,7 @@ export class RevisionModel extends BaseClass {
       async (existing) => {
         if (isComment) this.assertCanWriteCommentOn(existing);
         else await assertCasAuthority(authority, existing);
-        // Pinned to the caller's read, and re-asked on every CAS retry — the retry
-        // is the dangerous one, because it re-reads a row that a recall AND a
-        // resubmit may both have crossed since the first attempt. Comments are
-        // exempt: they belong to the conversation, not to a cycle. Revisions
-        // predating the field read as cycle 0, so a caller that also read 0 still
-        // matches and nothing legacy is locked out.
+        // Pin verdicts to the caller's cycle; comments are cycle-independent.
         if (
           !isComment &&
           expectedReviewCycle !== undefined &&
@@ -1670,19 +1579,7 @@ export class RevisionModel extends BaseClass {
     }));
   }
 
-  /**
-   * A content edit to a draft: its new target and activity entry, written
-   * together with the editor's contributor record.
-   *
-   * One CAS'd write, guarded on `contributors`. As two writes, an approval could
-   * land in between and see no contributor — exactly what `blockSelfApproval`
-   * exists to prevent. Guarding on the field also means a concurrent editor
-   * causes a retry rather than being dropped from the array, which is why the
-   * separate `$addToSet` existed in the first place.
-   *
-   * `build` runs inside the CAS compute, so the snapshot, the approval reset and
-   * the activity log are all derived from the row the write is conditioned on.
-   */
+  // Write content, contributor identity, approval reset, and activity together.
   private async writeContentEdit(
     id: string,
     userId: string,
@@ -1694,13 +1591,7 @@ export class RevisionModel extends BaseClass {
   ): Promise<Revision> {
     const updated = await this.updateWithCas(
       id,
-      // Every field this write READS or OVERWRITES, not just `contributors` —
-      // guarding the contributor list alone lets a concurrent publish (which
-      // moves `status` without necessarily touching contributors) slip past and
-      // the stale edit rewrite merged history. `assertDraftAcceptsContentEdit`
-      // re-runs inside the loop, so a retry sees the new status and refuses.
-      // `reviewCycle` because this write stamps the next one from the row it
-      // read — see nextReviewCycle.
+      // Guard every field this edit reads or overwrites; retries re-run authority.
       [
         "contributors",
         "status",

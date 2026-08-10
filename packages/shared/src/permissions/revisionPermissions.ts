@@ -1,17 +1,6 @@
 import { Permission } from "shared/types/organization";
 
-// Single source of truth for the per-action permission atoms of revisioned
-// "flag-like" entities. To add one: define its atoms in the scope arrays in
-// permissions.constants.ts, add its row below, and gate with
-// `context.permissions.canRevisionAction(model, action, obj, envs)`.
-//
-// Atoms are per entity, one per (model, action). Policies are what an
-// organization actually grants, and they bundle the three flag entities
-// together — so the granularity here is what the checks need, not what an admin
-// has to reason about.
-//
-// There is deliberately no "edit"/"manage" verb: an edit is a draft plus a
-// publish.
+// Maps each revision entity/action to its permission atom and scope.
 
 export type RevisionAction =
   | "create" // bring the entity into existence (no revision to draft against yet)
@@ -36,9 +25,7 @@ const FLAG_SCOPES: Record<RevisionAction, ActionPermission["scope"]> = {
   delete: "environment",
   publish: "environment",
   revert: "environment",
-  // Drafting touches nothing live. Review is a judgement on the whole proposed
-  // change, not on any one environment. Bypass only relaxes the review
-  // requirement on a publish that was already env-checked.
+  // Draft, review, and bypass are project-scoped; bypass does not replace publish.
   draft: "project",
   review: "project",
   bypass: "project",
@@ -112,12 +99,5 @@ export function isBypassApprovalPermission(permission: string): boolean {
   );
 }
 
-// The footprint for a change with NO intrinsic environment binding — a base
-// Config, a Constant's base value, any Saved Group. Their reach is
-// consumer-derived and can't be computed in a permission check, so only the
-// project is checked.
-//
-// Named rather than a bare `[]` because an empty footprint SKIPS the
-// environment check: passing one by accident widens access for env-limited
-// roles.
+// No intrinsic environment binding; a bare empty list would skip environment checks.
 export const NO_ENVIRONMENT_BINDING: string[] = [];

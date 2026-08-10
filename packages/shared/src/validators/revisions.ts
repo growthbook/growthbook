@@ -196,12 +196,7 @@ export const revisionValidator = z.object({
   // Everyone who edited this revision (always includes the author); drives
   // `blockSelfApproval`. Optional for backward compatibility.
   contributors: z.array(z.string()).optional(),
-  /**
-   * Which review cycle the current verdicts belong to; bumped by every action
-   * that STARTS a cycle — request review, recall, reopen, approval reset.
-   * See `enterprise/reviewCycle.ts` for why status alone cannot identify one.
-   * Absent on revisions that predate this field; readers treat that as cycle 0.
-   */
+  /** Review-cycle identity; absent legacy values are treated as cycle 0. */
   reviewCycle: z.number().optional(),
   autoPublishOnApproval: z.boolean().optional(),
   // Who armed `autoPublishOnApproval`; auto-publish runs with their authority.

@@ -16,12 +16,10 @@ There are two engines. They share their rules but not their mechanics:
 | Half-done look | claimed revision, live unchanged            | live changed, revision still open                  |
 | Recovery       | republish routes via `recoverStrandedMerge` | rewinds at fail time + republish of the open draft |
 
-**Bulk publishing is claim-first for BOTH engines.** `bulkPublish/` claims every
-revision in the batch before writing any entity, so a bulk feature publish does
-NOT follow the single-publish claim-last order above — its half-done shape is a
-claimed revision with no entity write, the same as the generic engine, and it has
-no `recoverStrandedMerge` equivalent (a crash mid-batch strands claimed revisions
-for manual repair). The rows above describe the SINGLE-revision paths.
+Bulk publishing is claim-first in both engines and can strand claimed revisions
+before their entity writes. There is no `recoverStrandedMerge` equivalent for
+bulk publishing, so recovery is manual. The rows above describe single-revision
+paths.
 
 The rules live in one place: `landAuthority.ts` (who may discard / advance /
 rebase / land — the feature engine reaches it through `featureDraftAuthority.ts`),
@@ -120,20 +118,14 @@ flowchart TD
     style G fill:#ffe6e6,stroke:#d66
 ```
 
-**The ordering rule in compensation is the whole point:** live state goes back
-first, the revision record goes back last. A live change with no revision
-recording it is the one outcome nothing can repair, so the record is kept
-whenever live cannot be put back.
+Compensation restores live state before reopening the revision, so no open draft
+can coexist with its already-landed state.
 
 ---
 
 ## 3. Who may do what, and on which basis
 
-The single most repeated defect in this area was asking the right question about
-the wrong entity. Verbs that belong to the **revision** are judged on
-`target.snapshot` — the entity as it was when the draft was opened. Verbs that
-**land** are judged on the **live** entity, because that is where the change
-arrives.
+Revision actions use `target.snapshot`; landing actions use current live state.
 
 ```mermaid
 flowchart LR
@@ -214,9 +206,7 @@ flowchart TD
     style H fill:#ffe6e6,stroke:#d66
 ```
 
-`recoverStrandedMerge` **is** the republish path, not automation on top of it:
-publishing a `merged` revision routes through it. The red branch is the case the
-landing fences exist to prevent, and the reason they are worth their cost.
+Republishing a merged generic revision invokes `recoverStrandedMerge`.
 
 **Feature engine, SINGLE publish** — the claim comes last, so the failure surface
 is inverted: a crash can leave _live changed with the revision still open_.
@@ -227,9 +217,9 @@ draft re-applies and claims. There is no `recoverStrandedMerge` here — a featu
 revision that reads `published` was claimed after its write landed, and
 re-publishing it is refused rather than recovered.
 
-**Feature engine, BULK publish** — claim-FIRST, like the generic engine: it strands
-the OTHER way, a claimed revision with no entity write, and (like generic bulk) has
-no stranded-merge recovery, so a crash mid-batch needs manual repair. Tracked debt.
+**Feature engine, bulk publish** — claim-first, like the generic engine. It can
+strand a claimed revision with no entity write and has no automated
+stranded-merge recovery.
 
 ---
 

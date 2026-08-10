@@ -1,16 +1,6 @@
 import { Revision } from "shared/enterprise";
 
-/**
- * A revision's deferred-publish state, shaped for any revision API response.
- *
- * One function for all three entities because the three serializers are otherwise
- * hand-written copies of each other, and a field added to one of them would have
- * stayed missing from the others — which is how none of them carried this state in
- * the first place. Callers spread the result.
- *
- * Every field is omitted rather than nulled when absent, matching how the rest of
- * these serializers treat optional data: an unarmed revision returns `{}`.
- */
+/** Serializes deferred-publish fields, omitting absent values across revision APIs. */
 export function revisionScheduleApiFields(revision: Revision) {
   const date = (d: Date | string | null | undefined): string | undefined =>
     (d ?? null) === null

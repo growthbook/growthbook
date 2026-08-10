@@ -1,17 +1,5 @@
-// The atom a RELOCATION demands over the destination is the verb of the
-// OPERATION, not whether the change is a pure revert (flag-family-authority.md):
-//
-//   Publishing a draft      -> destination `publish`   (even a pure-revert draft)
-//   Landing a direct revert -> destination `revert`
-//
-// assertCanPublishRevision takes that atom as an explicit argument defaulting to
-// "publish" — the staged publish callers use the default; only landDirectChange
-// passes "revert". The pure-revert status affects the SOURCE-side landing
-// exemption (assertCanLandRevision), which is mocked out here so only the
-// move-destination atom is under test.
-//
-// The move check is the sole move-authority decision (publishRevisionInner's
-// duplicate was removed), so these cases pin it for both operations.
+// Destination authority follows the operation: publishing a draft uses publish;
+// landing a direct revert uses revert.
 
 jest.mock("back-end/src/revisions", () => ({
   getAdapter: () => ({
@@ -32,9 +20,6 @@ import type { Revision } from "shared/enterprise";
 import { assertCanPublishRevision } from "back-end/src/revisions/revisionActions";
 import type { Context } from "back-end/src/models/BaseModel";
 
-// A relocation: snapshot is in the source project, the proposed change sets the
-// destination project. It is also a pure revert (the mock), which under the OLD
-// rule would have wrongly downgraded a staged publish to revert authority.
 const revision = {
   target: {
     type: "constant",
@@ -46,8 +31,6 @@ const revision = {
   revertedFrom: "rev_old",
 } as unknown as Revision;
 
-// Grants `action` over the DESTINATION project only, so the caller holds neither
-// atom on the source and passes only if the move check asks the atom listed.
 function contextGranting(grants: string[]): Context {
   return {
     permissions: {
@@ -71,9 +54,7 @@ function contextGranting(grants: string[]): Context {
 }
 
 describe("move-destination authority follows the operation, not pure-revert status", () => {
-  it("PUBLISHING a relocating pure-revert draft demands destination PUBLISH", async () => {
-    // The default operation is a staged publish. Destination revert authority is
-    // NOT enough even though the change is a pure revert.
+  it("publishing a relocating pure-revert draft demands destination publish", async () => {
     await expect(
       assertCanPublishRevision(
         contextGranting(["revert"]),
@@ -83,7 +64,7 @@ describe("move-destination authority follows the operation, not pure-revert stat
     ).rejects.toThrow("permission denied");
   });
 
-  it("...and passes with destination PUBLISH authority", async () => {
+  it("passes a staged publish with destination publish authority", async () => {
     await expect(
       assertCanPublishRevision(
         contextGranting(["publish"]),
@@ -93,7 +74,7 @@ describe("move-destination authority follows the operation, not pure-revert stat
     ).resolves.toBeUndefined();
   });
 
-  it("a DIRECT revert (explicit revert action) passes with only destination REVERT", async () => {
+  it("passes a direct revert with destination revert authority", async () => {
     await expect(
       assertCanPublishRevision(
         contextGranting(["revert"]),
@@ -104,7 +85,7 @@ describe("move-destination authority follows the operation, not pure-revert stat
     ).resolves.toBeUndefined();
   });
 
-  it("a direct revert is still refused without even destination REVERT", async () => {
+  it("refuses a direct revert without destination revert authority", async () => {
     await expect(
       assertCanPublishRevision(
         contextGranting([]),

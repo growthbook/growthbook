@@ -255,16 +255,7 @@ export const publishBypassedGatesField = z
     "Gates that would have blocked this publish but were bypassed by the caller's authority. Present only when at least one gate was bypassed.",
   );
 
-/**
- * A revision's DEFERRED-PUBLISH state, as read back on any revision response.
- *
- * Every revisioned entity can be armed to publish on approval or on a date, and no
- * revision response carried any of it — so a caller could POST a schedule and have
- * no way to confirm from the response that anything was armed, let alone when it
- * fires or why it last failed. Shared so the four entities cannot answer differently.
- *
- * All optional: an unarmed revision simply omits them.
- */
+/** Optional deferred-publish state shared by all revision responses. */
 export const revisionScheduleResponseFields = {
   autoPublishOnApproval: z
     .boolean()

@@ -87,9 +87,7 @@ import type {
   BulkRevisionRef,
 } from "back-end/src/revisions/bulkPublish/BulkPublishableAdapter";
 
-// Contains every feature-vs-generic revision-system difference: features keep
-// their own revision model, merge computation, and apply path. The
-// orchestrator can't tell this adapter from a generic one.
+// Adapts the feature revision store and apply path to the bulk orchestrator.
 
 /**
  * desiredState carried opaquely through the orchestrator for feature items.
@@ -142,12 +140,9 @@ function rawRevision(ref: BulkRevisionRef): FeatureRevisionInterface {
 }
 
 export const featureBulkAdapter: BulkPublishableAdapter = {
-  // Features gate stale-base force-merge on the permission alone.
   staleBaseForceAllowsRestBypass: false,
 
   applyScanOverlay(overlayContext, proposedEntities) {
-    // Feature guards resolve cross-entity state through featureScanOverlay
-    // (an id→feature map), not a model overlay.
     overlayContext.featureScanOverlay = new Map(
       (proposedEntities as unknown as FeatureInterface[]).map((f) => [f.id, f]),
     );
@@ -171,11 +166,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
   },
 
   canUpdate(context, entity) {
-    // Coarse destination-project pre-check for a publish that moves projects,
-    // deliberately unbound by environment — the precise per-environment
-    // destination check runs in `collectGates`. Subset-refusing: the precise
-    // check demands publish in the destination too, so nobody is refused here
-    // who would have passed there.
+    // Coarse destination precheck; collectGates performs footprint-aware authorization.
     return context.permissions.canPublishFeature(
       entity as unknown as FeatureInterface,
       NO_ENVIRONMENT_BINDING,
@@ -226,9 +217,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     const { plan } = desiredState as unknown as FeatureDesiredState;
     const gates: PublishGate[] = [];
 
-    // Environment-scoped publish authority, narrowed to the environments this
-    // merge actually touches — the caller's context, never the admin-role
-    // overlay context.
+    // Use caller context for footprint-aware landing authority.
     const envsToCheck = await getMergeResultPublishEnvs({
       context: callerContext,
       feature,
@@ -238,11 +227,6 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       // Same blind spot as the single publish: ramp reach is not in any rule diff.
       rampActions: raw.rampActions,
     });
-    // The same assertion a single publish makes, so the two cannot disagree:
-    // publish authority over those environments, OR a narrow atom over a draft
-    // that only does what the atom covers (a pure revert under revert, a pure
-    // archive under delete). Also carries the destination-project check for a
-    // move, over the same footprint.
     if (
       !(await canPublishFeatureRevisionChange({
         context: callerContext,
@@ -262,8 +246,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       );
     }
 
-    // Archiving is delete-class wherever the merge lands — it takes the flag
-    // out of service and is what lets it then be deleted freely.
+    // Archiving requires delete authority over the publish footprint.
     if (
       isArchiveTransition({
         proposed: plan.mergeResult?.archived,
@@ -283,8 +266,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
 
     if (authorityRefused(gates)) return gates;
 
-    // The generic no-op merge path doesn't apply to features — a publish must
-    // advance the live version pointer — so an empty revision blocks.
+    // Feature publishes must advance the live version pointer.
     if (
       !plan.hasChanges &&
       // Publishing a stranded revision is how it gets reconciled.
@@ -303,16 +285,10 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       );
     }
 
-    // Lockdown blocks, surfaced as plan-time gates. Both auto-clear for the
-    // bypass-approval permission or the org REST-bypass setting with no flag
-    // needed (classifyPublishGate's lockdown branch) — a safety gate against
-    // accidental live-traffic changes, not a security boundary.
     try {
       await assertFeatureNotLockedByRamp(overlayContext, feature.id);
     } catch (e) {
-      // ONLY the lockdown signal becomes a gate — the `ramp-locked` gate is
-      // bypassable, so an infra failure of the schedule read must propagate as
-      // a 5xx, not become a publish-without-checking path.
+      // Only RampLockdownError is bypassable; propagate schedule-read failures.
       if (!(e instanceof RampLockdownError)) throw e;
       gates.push(
         makeBlockingGate({
@@ -340,10 +316,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       );
     }
 
-    // The shared gate set, evaluated against the overlay context so
-    // config-backed value checks and hooks see the multi-entity end-state. It
-    // throws on a config-backed default carrying overrides (never demotable)
-    // — surfaced as a no-override gate so the plan reports it.
+    // Evaluate shared gates against the release overlay.
     try {
       gates.push(
         ...(await collectFeaturePublishGates({
@@ -352,18 +325,13 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
           revision: raw,
           plan,
           comment: flags.comment,
-          // Hooks judge publishedBy: the claim will stamp the CALLER's
-          // identity, never the identity-less overlay scan context's.
+          // Hooks must see the caller as publisher, not the overlay context.
           publisher: callerContext.auditUser,
           includeValidationGates: true,
         })),
       );
     } catch (e) {
-      // Only the structural config-backed-default rejection (a 4xx payload
-      // error, the one thing this collector throws rather than gates) becomes a
-      // no-override gate. Infra failures — transient DB errors in the
-      // archive-dependents / value scans inside — propagate as the 5xx they
-      // are, instead of masquerading as a permanent unfixable blocker.
+      // Convert only the collector's 4xx rejection to a gate.
       gates.push(
         gateOr5xx(e, (message) =>
           makeBlockingGate({
@@ -404,9 +372,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     const desired = desiredState as unknown as FeatureDesiredState;
     const { mergeResult } = desired;
 
-    // TOCTOU backstop — the plan gate is the primary check. Runs before any
-    // mutation so a change that became invalid since planning fails fast,
-    // without relying on compensation to undo an advanced feature.version.
+    // Recheck holdout validity before mutation to close planning-time drift.
     if (mergeResult.holdout !== undefined) {
       await assertHoldoutChangeAllowed(
         context,
@@ -454,8 +420,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         );
     }
 
-    // Ramp `create` actions run BEFORE the feature write: a schedule-creation
-    // failure gates the publish, and the ids are stashed for compensation.
+    // Create ramps before the feature write and retain leaked IDs for compensation.
     desired.createdRampScheduleIds = await applyRampCreateActionsForRevision(
       context,
       feature,
@@ -498,10 +463,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
             (stamp) => {
               desired.ourWriteStamp = stamp;
             },
-            // Reported by the sync itself. Re-reading the documents afterwards
-            // cannot tell this publish's writes from a worker's — anything the
-            // worker changed in the gap reads back as ours, and compensation then
-            // reverses their progress. These are the values the sync set.
+            // Use sync-reported rollout images; later reads could capture worker progress.
             (postImages) => {
               const postById = new Map(postImages.map((doc) => [doc.id, doc]));
               for (const entry of desired.safeRollouts ?? []) {
@@ -511,41 +473,24 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
           ),
       );
     } catch (e) {
-      // Decided by the REPORT, not the error class: `ourWriteStamp` is set
-      // only once Mongo confirms the feature write, so its absence means no
-      // doc landed — including a non-CAS failure before the write ever ran.
+      // No write stamp means the feature document did not land.
       if (desired.ourWriteStamp === undefined) revision.casLost = true;
       throw e;
     }
     // A rollout with no reported baseline is refused by
     // restoreAfterFailedBulkPublish rather than half-restored.
 
-    // FENCE before the satellites: the doc write is CAS-guarded but these
-    // three run after it, so a newer publish landing in between would keep its
-    // feature doc while THIS item overwrote its holdout and bandit linkage.
-    // Our own write stamp is the token, exactly as the unwind path uses it; if
-    // live has moved past it, the whole item is a lost race.
+    // Fence before satellite writes using the exact feature write stamp.
     if (desired.ourWriteStamp) {
       const live = await getFeature(context, feature.id);
       if (live?.dateUpdated?.getTime() !== desired.ourWriteStamp.getTime()) {
-        // Nothing of ours survives on the doc, so compensation must not try to put a
-        // pre-image back over the winner's state — the same reading a rejected CAS gets.
         revision.casLost = true;
         throw new LandingConflictError("feature", feature.id);
       }
     }
 
-    // These writes land in OTHER collections, so no guard on the feature document can
-    // cover them and no fence around them can be atomic — this deployment cannot
-    // assume Mongo transactions (standalone self-hosted, DocumentDB/Cosmos). Defence
-    // is therefore per-write plus detection, in that order:
-    //
-    //  - the experiment `holdoutId` write guards on each experiment's prior value;
-    //  - the contextual-bandit write guards on this feature's planned slice;
-    //  - holdout MEMBERSHIP is per-feature add/remove on another document, and the
-    //    condition it would need ("the feature still points at our holdout") lives in
-    //    a different collection, so it cannot be expressed as a write filter;
-    //  - the re-fence below catches whatever the first three could not.
+    // Satellite writes span collections and cannot be transactional. Guard each
+    // write, then re-fence the feature; holdout membership cannot encode ownership.
     try {
       if (mergeResult.holdout !== undefined) {
         // Guard already ran above, before any mutation.
@@ -575,11 +520,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
         );
       }
 
-      // RE-FENCE: the check before the satellites proves nothing about the
-      // moment of each write, and the unguardable membership write is exactly
-      // the case that needs it. Raise the same conflict the guarded writes
-      // raise, so the item routes into compensation — whose reversals are
-      // ownership-aware and skip whatever the rival now owns.
+      // Re-fence after satellites; loss triggers ownership-aware compensation.
       if (desired.ourWriteStamp) {
         const after = await getFeature(context, feature.id);
         if (after?.dateUpdated?.getTime() !== desired.ourWriteStamp.getTime()) {
@@ -588,19 +529,12 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       }
     } catch (e) {
       if (!(e instanceof CasConflictError)) throw e;
-      // NOT `casLost` — that means nothing ran, and `restorePreImage` skips
-      // the whole rollback on it. By here the doc write landed and satellites
-      // may have written; the ordinary path's ownership checks handle both
-      // outcomes (rival took the doc → leave whole, still ours → rewind).
       throw new LandingConflictError("feature", feature.id);
     }
   },
 
   async restorePreImage(context, preImage, revision, desiredState) {
-    // A lost CAS wrote no feature doc and reached none of the post-write
-    // satellites — but ramp `create` actions run BEFORE the guarded write (a
-    // creation failure gates the publish), so a CAS loser has still created
-    // schedules that must not outlive its rollback.
+    // A CAS loser may still have created ramps before the guarded feature write.
     if (revision.casLost) {
       const desired = desiredState as unknown as FeatureDesiredState;
       if (desired.createdRampScheduleIds?.length) {
@@ -630,19 +564,8 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     }
     const { mergeResult } = desired;
 
-    // Leave-whole rule (same as the generic adapter): the moment ANY reversal
-    // fails, stop mutating and leave the feature DOC at the published state —
-    // reverting rules/version beside a still-published satellite would be a
-    // false "rolled-back". Enforced before every mutating phase below, so each
-    // leave-whole outcome stays coherent (kept ramp schedules pair with the
-    // published doc, intact links pair with the published rules).
-    //
-    // ACCEPTED BOUNDARY: these reversals are not transactional. Deterministic
-    // failures are designed out (rollouts preflighted before any mutates, the
-    // holdout resolves its target before mutating and skips its config-guard on
-    // revert, revert-only writes gated), but an INFRA failure after a prior
-    // write can still leave a partial — reported "published" (needs attention).
-    // That residual needs DB transactions; it can't be reordered away.
+    // Leave the feature published if any satellite reversal fails; restoring the
+    // document beside unreverted satellites would falsely report a rollback.
     const assertNoReversalFailures = () => {
       if (reversalFailures.length) {
         throw new Error(
@@ -651,21 +574,14 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       }
     };
 
-    // OWNERSHIP, decided up front and acted on at the END. A rival owns the
-    // DOCUMENT, not our satellite writes: the doc restore must stand down, but
-    // leaving our holdout, experiment-linkage and bandit writes in place would
-    // strand stale state on top of theirs. Each reversal is ownership-aware —
-    // it skips whatever a different owner holds — so running them takes back
-    // exactly what is still ours.
+    // A rival owns the document, but ownership-aware satellite reversals still remove ours.
     const ourStamp = desired.ourWriteStamp;
     const docLostToRival = !!(
       ourStamp &&
       current.dateUpdated?.getTime() !== new Date(ourStamp).getTime()
     );
 
-    // Two passes over the safe-rollout reversals: a dry preflight (all checks,
-    // no writes) so a deterministic refusal — a missing ownership baseline —
-    // surfaces before ANY rollout mutates, then the real pass.
+    // Preflight every rollout reversal before performing any of them.
     for (const dryRun of [true, false]) {
       for (const entry of desired.safeRollouts ?? []) {
         try {
@@ -686,13 +602,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       assertNoReversalFailures();
     }
 
-    // Reverse the apply-time holdout transition from the pre-image the apply
-    // captured before any mutation, rather than running the transition backwards:
-    // a reversal derived from the delta cannot express "there was no holdout
-    // before" (its experiment restamping would be skipped entirely) and would
-    // stamp the old holdout onto experiments this revision newly added. Every
-    // step converges on a captured value, so it is an idempotent no-op if the
-    // forward write never landed and repairs the half if it landed partway.
+    // Reverse holdout linkage from pre-images so compensation is idempotent.
     for (const plan of desired.holdoutExperimentLinkage ?? []) {
       try {
         await reverseHoldoutExperimentLinkage(context, plan);
@@ -735,10 +645,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       assertNoReversalFailures();
     }
 
-    // Every satellite reversed → the revert is decided. Delete the ramp
-    // schedules this apply created (the pre-image had none). ONLY on a revert:
-    // a feature left published keeps its created ramp so the poller still
-    // activates it — deleting it there would freeze the rule at zero traffic.
+    // Delete created ramps only after all satellites are restored.
     if (desired.createdRampScheduleIds?.length) {
       const failedIds = await rollbackCreatedRampSchedules(
         context,
@@ -773,8 +680,6 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     }
     assertNoReversalFailures();
 
-    // Restore exactly the fields the apply wrote (plus the version pointer,
-    // which every merge advances) back to their pre-image values.
     const { changes } = computeRevisionMergeChanges(
       context,
       feature,
@@ -785,9 +690,6 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
     // A holdout removal lands via removeHoldoutFromFeature rather than
     // `changes`, so include the key explicitly when the apply transitioned it.
     if (mergeResult.holdout !== undefined) restoreKeys.add("holdout");
-    // What the apply wrote per key: the persisted post-apply doc when the
-    // feature write completed, else the computed $set (with a holdout removal
-    // written as an unset).
     const written: Record<string, unknown> = desired.updatedFeature
       ? (desired.updatedFeature as unknown as Record<string, unknown>)
       : {
@@ -801,27 +703,18 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       current: current as unknown as Record<string, unknown>,
     }) as Partial<FeatureInterface>;
     if (docLostToRival) {
-      // Satellites are back; the document is theirs. Reported published (needs
-      // attention) and deliberately NOT recorded as restored, so the apply's deferred
-      // `feature.updated` still fires — our write did land, and the rival's own event
-      // reports the transition from it.
+      // Satellites were restored, but a rival owns the document; report it published.
       throw new Error(
         `bulk publish compensation: feature "${feature.id}" was changed by a later write; its satellite writes were taken back but the document is left at the newer landing's state`,
       );
     }
     if (Object.keys(restore).length) {
-      // Guarded on the doc the ownership decision was read from — an unguarded
-      // restore could replace a newer landing arriving after that read. A loss
-      // means someone else owns the doc now; leave-whole (reported published)
-      // beats overwriting them, same as every other reversal failure here.
+      // Guard restoration on the ownership read; losing this CAS leaves the winner untouched.
       await updateFeature(context, current, restore, {
         casOnDateUpdated: current.dateUpdated,
       });
     }
-    // This feature is back at its pre-release state, so the apply's deferred
-    // `feature.updated` must not fire. The generic adapter records this inside
-    // `restoreEntityPreImage`; this adapter restores through its own path, so
-    // it records here.
+    // Suppress this adapter's deferred update event after restoration.
     context.bulkPublishRestoredEntities?.add(entityKey("feature", feature.id));
   },
 
@@ -834,9 +727,7 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       (await getFeature(context, feature.id)) ??
       feature;
 
-    // The load-bearing side effects run FIRST (the published hook activates
-    // armed pending ramps) before the best-effort tail, which is individually
-    // isolated so none of it can starve these.
+    // Run required published effects before the isolated best-effort tail.
     await emitFeatureRevisionPublishedSideEffects(
       context,
       raw,
@@ -854,8 +745,6 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       "revision.published",
       bulkPublishFields(context),
     );
-    // A revert that lands is ALSO a publish, so it owes both events — same
-    // rule as the generic bulk adapter and the direct revert doors.
     const revertedTo = draftRevertedFromVersion(finalRevision);
     if (revertedTo !== undefined) {
       await dispatchFeatureRevisionEvent(
@@ -878,7 +767,6 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       }
     };
 
-    // Post-commit only, so a rolled-back release never clears pending drafts.
     await bestEffort("pending-draft cleanup", () =>
       clearPendingFeatureDraftsForRevision(
         context,
@@ -915,9 +803,6 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       }),
     );
 
-    // Deferred ramp actions (updates, detaches, orphan cleanup) — best-effort
-    // after a known-good publish. Armed pending ramps activate via the
-    // published hook above.
     if (raw.rampActions?.length || desired.updatedFeature) {
       await bestEffort("ramp finalize", () =>
         finalizeRampActionsAfterPublish(

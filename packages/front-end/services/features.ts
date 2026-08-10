@@ -898,15 +898,7 @@ export function getDefaultValue(valueType: FeatureValueType): string {
   return "";
 }
 
-/**
- * The environments publishing a draft would reach — the footprint the Publish
- * control needs to predict the endpoint's authority check.
- *
- * The rule itself is `featurePublishFootprint` in `shared`, the same call the
- * publish endpoints make. This wrapper only supplies what differs on the client:
- * holdout environments come from the loaded holdouts map, and a holdout that isn't
- * loaded widens the footprint to every environment rather than being skipped.
- */
+/** Computes the client-side publish footprint using shared server rules. */
 export function getRevisionPublishEnvs({
   liveFeature,
   changes,
@@ -918,12 +910,7 @@ export function getRevisionPublishEnvs({
   changes: MergeResultChanges;
   environments: Environment[];
   holdoutsMap: Map<string, HoldoutInterface>;
-  /**
-   * The revision's ramp actions. They ride the REVISION rather than the merge
-   * result, so they were absent from this side entirely while the endpoint added
-   * their reach — a draft carrying a ramp made the server answer for environments
-   * the control never mentioned.
-   */
+  /** Revision ramp actions, which are not part of the merge result. */
   rampActions?: RevisionRampAction[];
 }): string[] {
   const environmentIds = environments.map((e) => e.id);
@@ -944,8 +931,6 @@ export function getRevisionPublishEnvs({
       : holdout.envs,
   });
 
-  // Same function the endpoint calls, over the same live rules, so the ramp term
-  // cannot drift the way it did when only one side had it.
   const rampEnvs = rampActionFootprint({
     rampActions,
     liveRules: liveFeature.rules ?? [],
@@ -956,19 +941,7 @@ export function getRevisionPublishEnvs({
     : [...new Set([...base, ...rampEnvs])];
 }
 
-/**
- * The environments an edit-info save answers for.
- *
- * Extracted from EditFeatureInfoModal so it can be held to the endpoint's own rule:
- * inline, it widened only for a primary-project move, while the endpoint's live
- * metadata diff treats targeting changes as payload-affecting too — and an unbound
- * footprint SKIPS the environment check rather than narrowing it.
- */
-// The environment universe a staged change reaches once a project/targeting
-// MOVE is applied: the pre-move applicable set unioned with the destination's.
-// The FE twin of `getMergeResultPublishEnvs`'s `effectiveEnvironmentIds` — a
-// destination-only env the feature is already enabled in activates on the move,
-// and the control must gate on it or it offers a publish the server rejects.
+/** Returns environments applicable before or after a staged project move. */
 export function getMoveWidenedEnvironments({
   feature,
   changes,

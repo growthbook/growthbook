@@ -614,17 +614,7 @@ export const notificationEventNames = (
   [] as NotificationEventName[],
 );
 
-/**
- * Only use this for zod validations!
- *
- * A non-empty tuple, which is all `z.enum` needs, rather than
- * `UnionToTuple<NotificationEventName>`. That helper recurses once per union
- * member, so every event added deepened it by one until the whole file failed to
- * compile with "type instantiation is excessively deep" — a wall the next event
- * would hit again. The runtime values are identical (same array), and `z.enum`
- * infers `NotificationEventName` either way, so nothing downstream can tell the
- * difference except the compiler.
- */
+/** Non-empty tuple for z.enum that avoids recursive union-to-tuple instantiation. */
 export const zodNotificationEventNamesEnum = notificationEventNames as [
   NotificationEventName,
   ...NotificationEventName[],

@@ -74,19 +74,8 @@ const EditFeatureInfoModal: FC<{
     },
   });
 
-  // Approval-gating decides whether publish needs review; AUTHORITY decides
-  // whether this user may publish at all. Without the second factor a
-  // draft-only user defaulted into publish mode and 403'd on submit. Metadata
-  // carries no environment footprint, so the project-scoped atom is the rule.
-  //
-  // The DESTINATION counts too when this edit relocates the flag: landing it is a
-  // publish wherever it lands, and asking only about the source offered "Publish
-  // now" for a move into a project the user cannot write to. Watched, not read
-  // once, so picking a different project updates the answer.
+  // Publishing metadata requires authority over its footprint and destination.
   const moveDestination = form.watch("project");
-  // The extracted helper, so the shipped path is the one `footprintParity` holds to
-  // the endpoint. Inline it widened only for a primary-project move while the
-  // endpoint's metadata diff treats a targeting change as payload-affecting too.
   const metadataEnvs = getMetadataEditEnvs({
     feature,
     proposed: {

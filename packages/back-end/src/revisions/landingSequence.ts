@@ -11,16 +11,9 @@ import { displayEntityName } from "back-end/src/revisions/entityNames";
 import { ownedRestoreValues } from "back-end/src/revisions/bulkPublish/ownedRestore";
 import { applyVerifiedRestore } from "back-end/src/revisions/bulkPublish/verifiedRestore";
 
-// The write sequencing every landing shares: check the baseline the change was
-// computed from before writing, and put live state back when the write fails partway.
-// Optimistic checks only — no transactions, so DocumentDB/CosmosDB stay supported.
-//
-// The pre-flight read is separate from the pre-write one on purpose: a doomed landing
-// that never becomes history can't leave phantom history if its removal then fails.
+// Shared optimistic landing and compensation primitives; transactions are unavailable.
 
-// Nothing was written. Its own class so compensation can tell it from a write that
-// failed partway: restoring after a rejected CAS would compare live against values this
-// landing never wrote, mistake the winner's identical values for its own, and undo them.
+// A rejected entity CAS must not restore values written by the winner.
 export class LandingConflictError extends ConflictError {
   constructor(entityType: RevisionTargetType | "feature", entityId: string) {
     super(
@@ -55,17 +48,7 @@ export async function runGuardedWrite<T>(
   }
 }
 
-/**
- * The post-write half of the landing order, for every path that lands a revision.
- *
- * The merge claim and the entity write live in different collections and there are
- * no transactions here, so a newer revision can claim the merge between the
- * pre-write check and this one. Its claim never touches the entity, so an entity
- * CAS guard cannot catch it.
- *
- * Detection, not exclusion: the loser has already written, so it throws into its
- * caller's compensation and both revisions stay retryable.
- */
+// Recheck merge ownership after writing because a newer claim does not touch the entity CAS token.
 export async function assertLandingStillOwned({
   context,
   entityType,
@@ -148,15 +131,7 @@ export async function assertLandingBaseline({
   }
 }
 
-// Put back the fields a failed write persisted. Restores a key only while live still
-// holds the value this apply wrote — value-based, so a concurrent writer who set the
-// same value is indistinguishable; that residual closes only by CAS-guarding the apply.
-//
-// Throws when the restore can't complete: callers keep the merged revision, since a
-// recorded partial change can be reconciled by hand and an unrecorded one cannot.
-//
-// The `dateUpdated`/audit residue a restore leaves is deliberate — these writes
-// happened, and a rollback that erased its tracks would hide what the system did.
+// Restore only fields still holding this apply's values; retain the merged revision on failure.
 export async function restoreEntityPreImage({
   context,
   entityType,
@@ -176,11 +151,7 @@ export async function restoreEntityPreImage({
   written: Record<string, unknown>;
 }): Promise<void> {
   const adapter = getAdapter(entityType);
-  // Read-decide-write under the same guard as any landing, retried: the restore
-  // decides ownership from a read, and a newer landing arriving between that
-  // read and an unguarded write would be replaced by the stale pre-image. A CAS
-  // loss here means someone else changed the doc — re-read, re-decide ownership
-  // (their keys drop out of the restore by value), and try again.
+  // CAS the restore against its ownership read; on loss, recompute owned fields.
   const maxAttempts = 3;
   for (let attempt = 1; ; attempt++) {
     const current = await adapter.getModel(context)?.getById(preImage.id);
@@ -299,11 +270,7 @@ export function flushPayloadRefreshBuffer(
   });
 }
 
-// Buffer a landing's SDK refreshes and flush ONCE when it settles. A multi-step apply
-// (config root then cascade; feature write then holdout pointer) otherwise briefly
-// broadcasts the mid-landing mix. Refreshes rebuild from live state at flush time, so
-// one flush in `finally` serves the landed state on success and the restored state after
-// compensation. A scope already holding a buffer keeps charge of its own flush.
+// Buffer refreshes until landing settles so consumers never observe mid-landing state.
 export async function withBufferedPayloadRefreshes<T>(
   context: Context,
   event: string,
@@ -372,31 +339,8 @@ export async function withBufferedPayloadRefreshes<T>(
   }
 }
 
-/**
- * Compensate a failed landing that had already claimed its merge: put LIVE state
- * back first, then un-merge the revision — and un-merge only when the restore came
- * back clean.
- *
- * The ordering is the whole point: a live change with no record is the one outcome
- * nothing can repair, so the record is kept whenever live cannot be put back.
- *
- * `persisted` is what the write REPORTED writing. Nothing reported means the write
- * never landed (models report from inside the document write, before audit and the
- * afterUpdate hooks), so there is nothing to restore.
- */
-// Undo the entity writes a failed landing left live: the root, then any cascade
-// it made to other entities. The one place the root-first-then-cascade order and
-// the `landingLeftPartialState` signal live, so every compensation path — direct
-// update, revert, ordinary publish, stranded-merge recovery — cannot drift on
-// either. Returns whether EVERY write went back; a caller decides what to do when
-// it didn't (keep the merged record, hold the recovery lease, etc.).
-//
-// ROOT FIRST, then descendants top-down: a restore writes through
-// `applyChanges({isRevert: true})`, where ancestor normalization is unconditional
-// — while the root still declares a field, a descendant's restore is normalized
-// straight back to the stripped schema and reports success. Restore the root
-// first and each descendant survives; descendants then go parents-before-children
-// for the same reason.
+// Restore live state before reopening the revision; keep the merged record if any
+// restore fails. Restore roots before descendants so normalization cannot strip them.
 export async function restoreLandingWrites({
   context,
   entityType,

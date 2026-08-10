@@ -2,10 +2,6 @@ import { FeatureInterface } from "shared/types/feature";
 import { Environment } from "shared/types/organization";
 import { projectFeatureDeleteFootprint } from "back-end/src/util/features";
 
-// The env footprint a project-delete cascade owes delete + publish authority
-// over: the union of enabled environments across the project's OWNED features,
-// excluding features that merely target it (owned elsewhere, not deleted here).
-
 const orgEnvs: Environment[] = [
   { id: "dev", description: "" },
   { id: "staging", description: "" },
@@ -48,10 +44,7 @@ describe("projectFeatureDeleteFootprint", () => {
     ).toEqual(["dev", "production"]);
   });
 
-  it("ignores features that only TARGET the project (owned elsewhere)", () => {
-    // Deleting project `prj` removes only features whose project IS `prj`. A
-    // feature owned by `other` that targets `prj` is not deleted, so its enabled
-    // envs must not inflate the footprint (which would over-demand authority).
+  it("ignores features that only target the project", () => {
     const features = [
       feat({ id: "owned", project: "prj" }),
       feat({
@@ -63,8 +56,6 @@ describe("projectFeatureDeleteFootprint", () => {
         },
       }),
     ];
-    // Only `owned`'s enabled envs (dev, production) — staging from `targeting`
-    // must be absent.
     expect(
       projectFeatureDeleteFootprint(features, "prj", orgEnvs).sort(),
     ).toEqual(["dev", "production"]);

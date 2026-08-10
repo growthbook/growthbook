@@ -497,10 +497,6 @@ export const putConstantRevisionArchiveValidator = {
   responseSchema: revisionResponse,
 };
 
-// ---- Revision lifecycle: recall / reopen / schedule / undo-review ----
-// The same four verbs Configs and Feature Flags expose, on the same rules —
-// the handlers all delegate to `revisionLifecycle`.
-
 export const postConstantRevisionSchedulePublishValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/schedule-publish",
@@ -512,8 +508,7 @@ export const postConstantRevisionSchedulePublishValidator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      // Validated RFC3339, with numeric offsets accepted: this endpoint shipped
-      // taking any string, so rejecting `…-07:00` would 400 existing callers.
+      // Accept RFC3339 numeric offsets for backward compatibility.
       scheduledPublishAt: z
         .union([z.iso.datetime({ offset: true }), z.null()])
         .describe(

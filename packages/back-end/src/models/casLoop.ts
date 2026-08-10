@@ -1,12 +1,4 @@
-/**
- * The compare-and-swap skeleton, once.
- *
- * `BaseModel.updateWithCas` and the feature revision loop are separate callers —
- * feature revisions are addressed by `{organization, featureId, version}` rather
- * than a single id — so what differs is injected as `read` and `write`. The parts
- * that must not diverge (read every attempt, guard on what that read observed,
- * retry on a lost race) have one home.
- */
+/** Shared read/compute/guard/write retry loop for BaseModel and feature revisions. */
 
 /**
  * The three ways a loop can end without applying. No caller currently tells
@@ -19,16 +11,7 @@ export type CasOutcome<TResult> =
   | { status: "not-found" }
   | { status: "exhausted" };
 
-/**
- * The filter clause that pins `guardFields` to the values a read observed.
- *
- * An ABSENT field guards on its absence, never on `undefined`: the raw driver
- * runs with `ignoreUndefined`, which strips an undefined clause and leaves the
- * write unconditional.
- *
- * Built from what the read OBSERVED, not from a migrated snapshot — the guard
- * has to describe the stored document.
- */
+// Guard stored values directly; absent fields require $exists:false because undefined is stripped.
 export function buildCasGuard(
   guardFields: readonly string[],
   observed: Record<string, unknown>,
@@ -38,40 +21,18 @@ export function buildCasGuard(
       const value = observed[f];
       return [
         f,
-        // CLONED, not referenced: a model's `beforeUpdate` hook runs on a
-        // `newDoc` that shares this very object (the read path copies only the
-        // top level) and can rewrite it before it reaches the filter — e.g.
-        // re-emitting an embedded document in a different key order, which
-        // Mongo compares by FIELD ORDER, so the guard never matches and the
-        // loop exhausts. `structuredClone` preserves Dates; it would throw on
-        // a BSON exotic like ObjectId, which no guarded field uses today.
+        // beforeUpdate may mutate shared nested references; Mongo compares object field order.
         value === undefined ? { $exists: false } : structuredClone(value),
       ];
     }),
   );
 }
 
-/**
- * Who is allowed to perform a CAS-guarded write, re-asked on the row EVERY
- * attempt: the caller's own permission check ran once, against the row it read,
- * but a retry can land on a row a concurrent rebase moved into a project the
- * caller holds nothing in. Guarding the moved field does NOT close this — it
- * only makes the first attempt lose. Required rather than optional so a write
- * with no authority decision cannot be spelled: supply a check, or state,
- * greppably, which flow already established it.
- */
+// Recheck authority on every retry because a concurrent move can change scope.
 export type CasAuthority<TSnapshot> =
-  /**
-   * May be async: the real authority questions here (is this change a PURE
-   * revert, a PURE archive) need database proofs a sync check could only
-   * approximate.
-   */
+  /** Async checks may perform purity lookups. */
   | { check: (existing: TSnapshot) => void | Promise<void> }
-  /**
-   * The calling flow established authority in a way the row cannot re-derive —
-   * a merge claim it already holds, a poller running as a resolved user. The
-   * string is the reason, written to be read in review.
-   */
+  /** Documents why the calling flow has already established authority. */
   | { authorizedByFlow: string };
 
 export async function assertCasAuthority<TSnapshot>(
@@ -148,8 +109,6 @@ export async function runCasLoop<TSnapshot, TUpdate, TResult>({
   return { status: "exhausted" };
 }
 
-// Fields every compute may read without guarding: a row's identity, and the
-// audit metadata a write stamps rather than decides on.
 const ALWAYS_READABLE: ReadonlySet<string> = new Set([
   "id",
   "organization",
@@ -160,7 +119,6 @@ const ALWAYS_READABLE: ReadonlySet<string> = new Set([
   "_id",
 ]);
 
-// Records which top-level fields `compute` actually touched.
 function watchFieldReads<TSnapshot>(snapshot: TSnapshot): {
   snapshot: TSnapshot;
   read: () => Set<string>;
@@ -183,12 +141,7 @@ function watchFieldReads<TSnapshot>(snapshot: TSnapshot): {
   return { snapshot: proxy, read: () => seen };
 }
 
-// The guard for one attempt: exactly the fields the decision read. Hand-written
-// guard lists drift into answering a narrower question than the write performs;
-// deriving the list removes the class — what `compute` reads IS what the write
-// is conditioned on. A spread reads everything and therefore guards everything,
-// which is correct: an update built by spreading the row carries every field
-// forward, so a concurrent change to any of them would be clobbered.
+// Guard every field compute reads; spreading the row therefore guards all fields.
 function derivedGuardFields(
   readFields: Set<string>,
   alsoGuard: readonly string[] = [],

@@ -7,12 +7,7 @@ import { resolveRampTargets } from "../util/ruleId";
 import { getRulesForEnvironment } from "../util/index";
 import type { MergeResultChanges } from "../util/features";
 
-// Which environments publishing a Feature Flag draft reaches, and so which ones
-// authority is required in. One function for endpoint and control alike so the
-// control never offers a landing the server refuses.
-//
-// Synchronous on purpose: holdout resolution differs between the apps, so that one
-// input is injected and everything downstream of it is shared.
+// Shared feature-publish footprint; holdout resolution is injected per app.
 
 // Unresolvable holdout → widen to every environment. A holdout may be enabled where the
 // flag is not, so no narrower set is guaranteed to contain what the server computes.
@@ -20,13 +15,7 @@ export const HOLDOUT_ENVS_UNRESOLVED = "unresolved" as const;
 
 export type HoldoutFootprint = string[] | typeof HOLDOUT_ENVS_UNRESOLVED;
 
-// Every environment the entity is reachable in — the footprint for a change with no
-// narrower binding, an archive above all. Narrowed to the entity's projects: an
-// environment scoped away from them never serves it, so demanding authority there
-// refuses archives that should be allowed.
-//
-// If this ever returns empty, callers must NOT pass it as a footprint — an empty
-// footprint SKIPS the environment check instead of narrowing it.
+// Unbound changes use every environment the entity can serve; empty skips authorization.
 export function serveFootprint(
   environments: { id: string; projects?: string[] }[],
   entity: {
@@ -58,10 +47,7 @@ export function servingEnvironments(
   return environmentIds.filter((env) => !!settings[env]?.enabled);
 }
 
-// The environments a holdout move reaches: those active in the one being left and the
-// one being joined. Unresolvable ids come back SEPARATELY rather than dropped, because
-// the callers mean different things by it — for the server the holdout is gone and
-// contributes nothing; for the client it is merely unloaded, which must widen.
+// Return unresolved holdouts separately so callers can apply their own fallback.
 export function holdoutEnvsForChange({
   currentHoldoutId,
   newHoldout,
@@ -181,15 +167,7 @@ export function revertFootprint({
   return Array.from(envs);
 }
 
-/**
- * A revision's publish footprint, widened when it flips `archived` in EITHER
- * direction — taking an entity out of service and returning it both reach
- * everywhere it serves.
- *
- * The rule the server-side adapters apply, exposed so the controls apply the
- * same one. An archive-only revision's own environment binding is empty, and an
- * empty footprint SKIPS the environment check rather than narrowing it.
- */
+/** Archive and unarchive changes reach every served environment. */
 export function revisionPublishFootprint({
   proposedChanges,
   currentArchived,
@@ -242,12 +220,7 @@ export function archiveFootprintForControl({
   return scoped.length ? scoped : serveFootprint(environments, entity);
 }
 
-/**
- * The environments a revision's ramp actions reach: each action's patch
- * environments UNIONED with what its target rule currently serves, since a patch
- * naming `environments` REPLACES that field. Same rule the REST/internal ramp
- * gate applies via `getEnvsForRampTarget`.
- */
+/** Ramp actions reach patched environments and the target rule's current scope. */
 export function rampActionFootprint({
   rampActions,
   liveRules,

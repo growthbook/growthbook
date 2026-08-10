@@ -648,8 +648,6 @@ describe("POST /api/v1/releases/publish-revisions", () => {
         datePublished: now,
       },
       {
-        // The FIX: the draft drops the constant reference, replacing the rule
-        // value with a literal that satisfies the schema.
         organization: ORG_ID,
         featureId: "qp-fp-feat",
         version: 2,

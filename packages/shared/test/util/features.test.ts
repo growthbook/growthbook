@@ -3691,31 +3691,20 @@ describe("getEnvsForRampTarget", () => {
     ).toBe("all");
   });
 
-  // An unscoped patch does not TOUCH the rule's environments, so its reach is
-  // wherever the rule already serves — which the gate always supplies. This case
-  // used to assert "all" and called the function with TWO arguments, omitting
-  // `currentRuleEnvs`: for that shape "all" is right, but the gate never uses it, so
-  // the test read as a blessing of a widening the production call shape never wants.
-  // Widening there meant a dev-scoped publisher could create and publish a dev-only
-  // ramp and then control none of it.
+  // An unscoped patch inherits the target rule's environments.
   it("answers for what the rule serves when the patch names nothing", () => {
     expect(
       getEnvsForRampTarget(target({ coverage: 1 }) as never, "t1", ["dev"]),
     ).toEqual(["dev"]);
   });
 
-  // The vacuity backstop is still there: nothing known at all widens rather than
-  // handing the permission layer an empty footprint.
   it("widens to 'all' when nothing is known — patch and rule both silent", () => {
     expect(getEnvsForRampTarget(target({ coverage: 1 }) as never, "t1")).toBe(
       "all",
     );
   });
 
-  // My previous version of this case asserted [], which PINNED the vacuity as
-  // correct one cell over from the one it closed. A target no patch names is still
-  // acted on — with no steps, the start actions enable every attached target — so
-  // an empty footprint here made every control action on the schedule vacuous.
+  // A target without matching patches still participates in schedule actions.
   it("widens a target no patch names to 'all', never []", () => {
     expect(
       getEnvsForRampTarget(
@@ -3749,9 +3738,7 @@ describe("rampControlFootprint", () => {
       targets,
     }) as never;
 
-  // The case the whole function exists for: the shape `buildPatch` emits. Widening
-  // here is what disabled every control on a dev-only ramp for a dev-scoped
-  // publisher, so the answer must be the rule's own environments.
+  // Runtime controls use the target rule's current environments.
   it("answers for what the rule serves when the patch names no environments", () => {
     expect(
       rampControlFootprint({
@@ -3774,9 +3761,7 @@ describe("rampControlFootprint", () => {
     ).toEqual(["dev", "staging"]);
   });
 
-  // FAIL-CLOSED, and the branch I most wanted pinned: a control typically holds one
-  // rule while the gate checks every target, so a target it cannot resolve has to
-  // widen. Getting this backwards would offer an action the endpoint refuses.
+  // Unresolved target rules widen the footprint to fail closed.
   it("widens to every environment when a target's rule cannot be resolved", () => {
     expect(
       rampControlFootprint({
@@ -3814,8 +3799,6 @@ describe("rampControlFootprint", () => {
     ).toEqual(["dev", "production"]);
   });
 
-  // No targets means no rule to measure against, so the schedule-wide answer is all
-  // there is — and it must not collapse to [], which would SKIP the check.
   it("falls back to the schedule-wide footprint with no targets", () => {
     expect(
       rampControlFootprint({
@@ -3833,8 +3816,6 @@ describe("rampControlFootprint", () => {
 });
 
 describe("getEnvsFromRampSchedule", () => {
-  // The arming gate's footprint. A schedule created with only a start date has no
-  // patches, so the loop never runs and the unscoped widening never applies.
   it("widens a schedule with no patches to 'all', never []", () => {
     expect(
       getEnvsFromRampSchedule({
@@ -3865,10 +3846,7 @@ describe("getEnvsFromRampSchedule", () => {
   });
 
   it("widens to all when a patch names no environments", () => {
-    // An unscoped patch inherits the RULE's environments at apply time, so it
-    // still writes to whatever the rule serves. Returning [] handed the
-    // permission layer an empty footprint, which SKIPS the environment check
-    // rather than narrowing it — a dev-limited caller could arm production.
+    // Unscoped patches inherit rule scope, so an empty footprint would fail open.
     const sched = makeSchedule([{ environments: [] }, {}]);
     expect(getEnvsFromRampSchedule(sched)).toBe("all");
   });
