@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
+import { Box } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
+import Text from "@/ui/Text";
 
 export type SymbolicatedStackLine = {
   number: number;
@@ -68,32 +70,49 @@ function SourceContextSnippet({
   frame: SymbolicatedStackFrame;
 }): React.ReactElement {
   return (
-    <div className="mt-1 mb-2 border-left pl-2">
-      <div className="small text-muted mb-1">
+    <Box
+      mt="1"
+      mb="2"
+      pl="2"
+      style={{ borderLeft: "2px solid var(--gray-a5)" }}
+    >
+      <Text as="div" size="sm" color="text-low" mb="1">
         {frame.original?.filename}
         {frame.original?.line ? `:${frame.original.line}` : ""}
-      </div>
-      <div className="bg-white border rounded p-2 small">
-        {frame.context?.lines.map((line) => (
-          <div
-            key={line.number}
-            style={{
-              background: line.highlight
-                ? "rgba(255, 193, 7, 0.25)"
-                : undefined,
-            }}
-          >
-            <span
-              className="text-muted"
-              style={{ display: "inline-block", width: 36 }}
+      </Text>
+      <Box
+        p="2"
+        style={{
+          background: "var(--color-panel-solid)",
+          border: "1px solid var(--gray-a5)",
+          borderRadius: "var(--radius-2)",
+        }}
+      >
+        <Text as="div" size="sm">
+          {frame.context?.lines.map((line) => (
+            <div
+              key={line.number}
+              style={{
+                background: line.highlight
+                  ? "rgba(255, 193, 7, 0.25)"
+                  : undefined,
+              }}
             >
-              {line.number}
-            </span>
-            {line.content || " "}
-          </div>
-        ))}
-      </div>
-    </div>
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 36,
+                  color: "var(--color-text-low)",
+                }}
+              >
+                {line.number}
+              </span>
+              {line.content || " "}
+            </div>
+          ))}
+        </Text>
+      </Box>
+    </Box>
   );
 }
 
@@ -121,21 +140,27 @@ export default function SymbolicatedStackTrace({
   return (
     <div>
       {hasResolvedStack ? (
-        <div className="small text-muted mb-2">
+        <Text as="div" size="sm" color="text-low" mb="2">
           Resolved {symbolicatedStack?.resolvedFrameCount} of{" "}
           {symbolicatedStack?.frames.length} stack frame
           {symbolicatedStack?.frames.length === 1 ? "" : "s"} from uploaded
           source maps.
-        </div>
+        </Text>
       ) : (
-        <div className="small text-muted mb-2">
+        <Text as="div" size="sm" color="text-low" mb="2">
           Showing the captured stack. Upload source maps for this release to
           resolve original file paths and source lines.
-        </div>
+        </Text>
       )}
       <pre
-        className="bg-light p-2 small mb-0"
-        style={{ maxHeight: 280, overflow: "auto" }}
+        style={{
+          background: "var(--gray-a2)",
+          padding: "var(--space-2)",
+          fontSize: "var(--font-size-1)",
+          marginBottom: 0,
+          maxHeight: 280,
+          overflow: "auto",
+        }}
       >
         {hasResolvedStack ? (
           <>
@@ -176,13 +201,13 @@ export default function SymbolicatedStackTrace({
                   >
                     {expandable ? (
                       <span
-                        className="text-muted"
                         aria-hidden
                         style={{
                           display: "inline-block",
                           width: 12,
                           marginRight: 4,
                           verticalAlign: "middle",
+                          color: "var(--color-text-low)",
                         }}
                       >
                         {expanded ? <PiCaretDown /> : <PiCaretRight />}

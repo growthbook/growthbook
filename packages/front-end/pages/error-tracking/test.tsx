@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Flex, Box } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { captureError } from "shared/error-tracking";
 import { AppFeatures } from "shared/types/app-features";
@@ -139,8 +140,10 @@ export default function ErrorTrackingTestPage(): React.ReactElement {
         </Callout>
       )}
 
-      <h2 className="h4 mt-4">Front-end errors</h2>
-      <div className="d-flex flex-wrap" style={{ gap: 8 }}>
+      <Box mt="4">
+        <h2 className="h4">Front-end errors</h2>
+      </Box>
+      <Flex wrap="wrap" gap="2">
         <Button onClick={() => setCrashCount((c) => c + 1)}>
           Uncaught render error (React)
         </Button>
@@ -162,10 +165,10 @@ export default function ErrorTrackingTestPage(): React.ReactElement {
         >
           Manually captured (handled) error
         </Button>
-      </div>
+      </Flex>
 
       {crashCount > 0 && (
-        <div className="mt-3">
+        <Box mt="3">
           <GrowthBookErrorBoundary
             key={crashCount}
             fallback={
@@ -176,11 +179,13 @@ export default function ErrorTrackingTestPage(): React.ReactElement {
           >
             <Crasher />
           </GrowthBookErrorBoundary>
-        </div>
+        </Box>
       )}
 
-      <h2 className="h4 mt-4">Back-end errors</h2>
-      <div className="d-flex flex-wrap" style={{ gap: 8 }}>
+      <Box mt="4">
+        <h2 className="h4">Back-end errors</h2>
+      </Box>
+      <Flex wrap="wrap" gap="2">
         <Button
           onClick={() => triggerBackend("uncaught", "Backend uncaught error")}
         >
@@ -203,7 +208,7 @@ export default function ErrorTrackingTestPage(): React.ReactElement {
         >
           Manually captured (handled) error
         </Button>
-      </div>
+      </Flex>
     </div>
   );
 }

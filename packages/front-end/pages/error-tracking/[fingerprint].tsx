@@ -10,7 +10,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import LinkButton from "@/ui/LinkButton";
 import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
+import { Select, SelectItem } from "@/ui/Select";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import DataList from "@/ui/DataList";
@@ -321,7 +321,7 @@ export default function ErrorIssuePage(): React.ReactElement {
     });
   }
   const assigneeOptions = [
-    { value: "", label: "Unassigned" },
+    { value: "unassigned", label: "Unassigned" },
     ...memberAssigneeOptions,
   ];
 
@@ -416,44 +416,48 @@ export default function ErrorIssuePage(): React.ReactElement {
               />
             </Box>
             <Box>
-              <SelectField
+              <Select
                 label="Priority"
-                options={[
-                  { value: "low", label: "Low" },
-                  { value: "medium", label: "Medium" },
-                  { value: "high", label: "High" },
-                  { value: "critical", label: "Critical" },
-                ]}
                 value={priority}
-                onChange={async (nextPriority) => {
+                setValue={async (nextPriority) => {
                   setPriority(nextPriority);
                   await saveIssue({ priority: nextPriority });
                 }}
-              />
-              <SelectField
+              >
+                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="critical">Critical</SelectItem>
+              </Select>
+              <Select
                 label="Assignee"
-                options={assigneeOptions}
-                value={assignee}
-                onChange={async (nextAssignee) => {
+                value={assignee || "unassigned"}
+                setValue={async (v) => {
+                  const nextAssignee = v === "unassigned" ? "" : v;
                   setAssignee(nextAssignee);
                   await saveIssue({
                     assigneeUserId: nextAssignee || null,
                   });
                 }}
-              />
-              <SelectField
+              >
+                {assigneeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </Select>
+              <Select
                 label="Status"
-                options={[
-                  { value: "open", label: "Open" },
-                  { value: "resolved", label: "Resolved" },
-                  { value: "muted", label: "Muted" },
-                ]}
                 value={status}
-                onChange={async (nextStatus) => {
+                setValue={async (nextStatus) => {
                   setStatus(nextStatus);
                   await saveIssue({ status: nextStatus });
                 }}
-              />
+              >
+                <SelectItem value="open">Open</SelectItem>
+                <SelectItem value="resolved">Resolved</SelectItem>
+                <SelectItem value="muted">Muted</SelectItem>
+              </Select>
               <Field
                 label="Resolved in release (optional)"
                 placeholder="e.g. git SHA"

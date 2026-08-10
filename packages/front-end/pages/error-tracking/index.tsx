@@ -10,7 +10,7 @@ import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
+import { Select, SelectItem } from "@/ui/Select";
 import Button from "@/ui/Button";
 import MiniSparkline from "@/components/ErrorTracking/MiniSparkline";
 import Callout from "@/ui/Callout";
@@ -163,15 +163,11 @@ export default function ErrorTrackingIndexPage(): React.ReactElement {
       </Flex>
 
       <Flex gap="3" align="end" mb="3" wrap="wrap">
-        <SelectField
+        <Select
           label="Project"
-          options={[
-            { value: "all", label: "All projects" },
-            ...projects.map((p) => ({ value: p.id, label: p.name })),
-          ]}
           value={projectFilter || "all"}
-          onChange={(v) => {
-            const next = v === "all" ? undefined : String(v);
+          setValue={(v) => {
+            const next = v === "all" ? undefined : v;
             void router.push(
               {
                 pathname: "/error-tracking",
@@ -182,16 +178,25 @@ export default function ErrorTrackingIndexPage(): React.ReactElement {
             );
             setClientKey("");
           }}
-        />
-        <SelectField
+        >
+          <SelectItem value="all">All projects</SelectItem>
+          {projects.map((p) => (
+            <SelectItem key={p.id} value={p.id}>
+              {p.name}
+            </SelectItem>
+          ))}
+        </Select>
+        <Select
           label="SDK Connection"
-          options={filteredConnections.map((c) => ({
-            value: c.key,
-            label: `${c.name} (${c.key.slice(0, 8)}…)`,
-          }))}
           value={clientKey}
-          onChange={(v) => setClientKey(v)}
-        />
+          setValue={(v) => setClientKey(v)}
+        >
+          {filteredConnections.map((c) => (
+            <SelectItem key={c.key} value={c.key}>
+              {`${c.name} (${c.key.slice(0, 8)}…)`}
+            </SelectItem>
+          ))}
+        </Select>
         <Flex gap="2" align="end">
           <Field
             label="Search"
