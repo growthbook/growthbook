@@ -1,8 +1,6 @@
 import { Response } from "express";
 import { ManagedWarehousePendingError } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
-import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { generateId } from "back-end/src/util/uuid";
@@ -11,6 +9,18 @@ import {
   ErrorTrackingIssueDocument,
 } from "back-end/src/models/ErrorTrackingIssueModel";
 import { buildSymbolicatedStack } from "back-end/src/services/errorTrackingSymbolication";
+import { requireErrorTrackingClickhouse as requireClickhouse } from "back-end/src/services/errorTrackingSourceMaps";
+import {
+  esc,
+  chErrorDisplayTitleExpr,
+  clickhouseTimestampToIso,
+  getIssueDocs,
+  buildIssueSummary,
+  queryGroupedIssues,
+  queryIssueDetailRow,
+  queryIssueDimensions,
+  buildIssueDetailSummary,
+} from "back-end/src/services/errorTrackingIssues";
 import {
   fillIssueTrendSeries,
   getAllTimeIssueGraphQuery,
@@ -19,10 +29,6 @@ import {
   utcStartOfHour,
   utcStartOfMinute,
 } from "back-end/src/services/errorTrackingIssueGraph";
-
-function esc(integration: SqlIntegration, value: string): string {
-  return integration.getSqlDialect().escapeStringLiteral(value);
-}
 
 async function findOrUpsertErrorTrackingIssue({
   organization,
@@ -55,22 +61,6 @@ async function findOrUpsertErrorTrackingIssue({
   return doc;
 }
 
-async function requireClickhouse(
-  context: ReturnType<typeof getContextFromReq>,
-) {
-  const ds = await getGrowthbookDatasource(context);
-  if (!ds) {
-    throw new Error(
-      "Managed warehouse is not configured for this organization.",
-    );
-  }
-  const integration = getSourceIntegrationObject(context, ds, true);
-  if (!(integration instanceof SqlIntegration)) {
-    throw new Error("Managed warehouse datasource is not ClickHouse.");
-  }
-  return { datasource: ds, integration };
-}
-
 function parseMaybeJson(raw: unknown): Record<string, unknown> {
   if (raw == null) return {};
   if (typeof raw === "object") return raw as Record<string, unknown>;
@@ -80,11 +70,6 @@ function parseMaybeJson(raw: unknown): Record<string, unknown> {
   } catch {
     return {};
   }
-}
-
-/** ClickHouse: prefer explicit `message` (full `Error.message`) over `title` when both exist in `properties` JSON. */
-function chErrorDisplayTitleExpr(): string {
-  return `coalesce(nullIf(JSONExtractString(properties, 'message'), ''), title)`;
 }
 
 /**
@@ -208,20 +193,6 @@ function getIssueGraphQuery(
   }
 }
 
-async function getIssueDocs(
-  organization: string,
-  clientKey: string,
-  fingerprints: string[],
-): Promise<Map<string, ErrorTrackingIssueDocument>> {
-  if (!fingerprints.length) return new Map();
-  const docs = await ErrorTrackingIssueModel.find({
-    organization,
-    clientKey,
-    fingerprint: { $in: fingerprints },
-  }).exec();
-  return new Map(docs.map((d) => [d.fingerprint, d]));
-}
-
 /** List issues for a client key (grouped by fingerprint). Query: clientKey, q?, limit?, offset? */
 export async function getIssues(
   req: AuthRequest<
@@ -244,39 +215,14 @@ export async function getIssues(
     const limit = Math.min(parseInt(req.query.limit || "50", 10) || 50, 200);
     const offset = Math.max(parseInt(req.query.offset || "0", 10) || 0, 0);
     const q = req.query.q?.trim();
-    const groupedIssuesSql = `
-SELECT
-  issue_fingerprint,
-  argMax(${chErrorDisplayTitleExpr()}, timestamp) AS title,
-  max(timestamp) AS last_seen,
-  min(timestamp) AS first_seen,
-  count() AS events,
-  uniqExact(coalesce(nullIf(user_id, ''), device_id)) AS users
-FROM errors
-WHERE client_key = '${esc(integration, clientKey)}'
-GROUP BY issue_fingerprint
-`;
-    const searchClause = q
-      ? `WHERE (
-  title ILIKE '%${esc(integration, q)}%'
-  OR issue_fingerprint = '${esc(integration, q)}'
-)`
-      : "";
-    const groupedSql = `
-SELECT *
-FROM (${groupedIssuesSql}) AS grouped_issues
-${searchClause}
-ORDER BY last_seen DESC
-LIMIT ${limit} OFFSET ${offset}
-`;
 
-    const { rows: issueRows } = await integration.runQuery(
-      groupedSql,
-      undefined,
-      {
-        queryType: "errorTrackingIssueList",
-      },
-    );
+    const { rows: issueRows } = await queryGroupedIssues({
+      integration,
+      clientKey,
+      q,
+      limit,
+      offset,
+    });
     const fingerprints = issueRows.map((r) =>
       String(r.issue_fingerprint || ""),
     );
@@ -354,21 +300,10 @@ ORDER BY issue_fingerprint, ts
 
     const issues = issueRows.map((r) => {
       const fp = String(r.issue_fingerprint || "");
-      const doc = meta.get(fp);
       return {
-        fingerprint: fp,
-        title: String(r.title || ""),
-        lastSeen: clickhouseTimestampToIso(r.last_seen),
-        firstSeen: clickhouseTimestampToIso(r.first_seen),
-        events: Number(r.events || 0),
-        users: Number(r.users || 0),
+        ...buildIssueSummary(r, meta.get(fp)),
         trend24h: fillIssueTrendSeries(trend24Buckets, byFp24.get(fp) || []),
         trend30d: fillIssueTrendSeries(trend30Buckets, byFp30.get(fp) || []),
-        assigneeUserId: doc?.assigneeUserId || null,
-        priority: doc?.priority || "medium",
-        status: doc?.status || "open",
-        resolvedAt: doc?.resolvedAt || null,
-        resolvedInRelease: doc?.resolvedInRelease || null,
       };
     });
 
@@ -403,24 +338,12 @@ export async function getIssueDetail(
 
   try {
     const { integration } = await requireClickhouse(context);
-    const sql = `
-SELECT
-  argMax(${chErrorDisplayTitleExpr()}, timestamp) AS title,
-  max(timestamp) AS last_seen,
-  min(timestamp) AS first_seen,
-  count() AS events,
-  uniqExact(coalesce(nullIf(user_id, ''), device_id)) AS users,
-  argMax(release_version, timestamp) AS last_release,
-  argMin(release_version, timestamp) AS first_release
-FROM errors
-WHERE client_key = '${esc(integration, clientKey)}'
-AND issue_fingerprint = '${esc(integration, fingerprint)}'
-`;
-    const { rows } = await integration.runQuery(sql, undefined, {
-      queryType: "errorTrackingIssueDetail",
+    const row = await queryIssueDetailRow({
+      integration,
+      clientKey,
+      fingerprint,
     });
-    const row = rows[0];
-    if (!row || !row.last_seen) {
+    if (!row) {
       return res.status(404).json({ status: 404, message: "Issue not found" });
     }
 
@@ -428,42 +351,14 @@ AND issue_fingerprint = '${esc(integration, fingerprint)}'
       fingerprint,
     ]);
     const doc = metaMap.get(fingerprint);
+    const summary = buildIssueDetailSummary(fingerprint, row, doc);
+    const { firstSeen: firstSeenIso, lastSeen: lastSeenIso } = summary;
 
-    const dimensionsSql = `
-SELECT environment, count() AS c
-FROM errors
-WHERE client_key = '${esc(integration, clientKey)}'
-AND issue_fingerprint = '${esc(integration, fingerprint)}'
-GROUP BY environment
-ORDER BY c DESC
-LIMIT 20
-`;
-    const { rows: envRows } = await integration.runQuery(
-      dimensionsSql,
-      undefined,
-      { queryType: "errorTrackingIssueDetail" },
-    );
-
-    const releaseSql = `
-SELECT release_version, count() AS c
-FROM errors
-WHERE client_key = '${esc(integration, clientKey)}'
-AND issue_fingerprint = '${esc(integration, fingerprint)}'
-AND release_version != ''
-GROUP BY release_version
-ORDER BY c DESC
-LIMIT 20
-`;
-    const { rows: relRows } = await integration.runQuery(
-      releaseSql,
-      undefined,
-      {
-        queryType: "errorTrackingIssueDetail",
-      },
-    );
-
-    const firstSeenIso = clickhouseTimestampToIso(row.first_seen);
-    const lastSeenIso = clickhouseTimestampToIso(row.last_seen);
+    const dimensions = await queryIssueDimensions({
+      integration,
+      clientKey,
+      fingerprint,
+    });
 
     const graphRange = parseIssueGraphRange(req.query.graphRange);
     const graphQuery = getIssueGraphQuery(
@@ -501,31 +396,10 @@ ORDER BY ts
     return res.status(200).json({
       status: 200,
       issue: {
-        fingerprint,
-        title: String(row.title || ""),
-        lastSeen: lastSeenIso,
-        firstSeen: firstSeenIso,
-        events: Number(row.events || 0),
-        users: Number(row.users || 0),
-        lastRelease: String(row.last_release || ""),
-        firstRelease: String(row.first_release || ""),
-        assigneeUserId: doc?.assigneeUserId || null,
-        priority: doc?.priority || "medium",
-        status: doc?.status || "open",
-        resolvedAt: doc?.resolvedAt || null,
-        resolvedInRelease: doc?.resolvedInRelease || null,
+        ...summary,
         comments: doc?.comments || [],
       },
-      dimensions: {
-        environments: envRows.map((e) => ({
-          name: String(e.environment || ""),
-          count: Number(e.c || 0),
-        })),
-        releases: relRows.map((e) => ({
-          name: String(e.release_version || ""),
-          count: Number(e.c || 0),
-        })),
-      },
+      dimensions,
       graph: graphPoints.map((g) => ({
         t: g.t,
         c: g.v,
@@ -546,20 +420,6 @@ function parseTimestampMsQuery(raw: string | undefined): number | undefined {
   if (!raw) return undefined;
   const value = parseInt(raw, 10);
   return Number.isFinite(value) ? value : undefined;
-}
-
-/** ClickHouse DateTime often omits timezone; warehouse stores UTC. */
-function clickhouseTimestampToIso(raw: unknown): string {
-  if (raw == null || raw === "") return "";
-  const s = String(raw).trim();
-  if (!s) return "";
-  if (/Z$/i.test(s) || /[+-]\d{2}:\d{2}$/.test(s)) {
-    const d = new Date(s);
-    return Number.isNaN(d.getTime()) ? s : d.toISOString();
-  }
-  const normalized = s.includes("T") ? `${s}Z` : `${s.replace(" ", "T")}Z`;
-  const d = new Date(normalized);
-  return Number.isNaN(d.getTime()) ? s : d.toISOString();
 }
 
 /** List events for one issue. Query: clientKey (req), q?, limit?, offset?, fromMs?, toMs?, order=asc|desc */

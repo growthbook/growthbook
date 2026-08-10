@@ -1,4 +1,115 @@
 import { z } from "zod";
+import { paginationQueryFields, apiPaginationFieldsValidator } from "./shared";
+
+const errorTrackingIssueSummary = z
+  .object({
+    fingerprint: z.string(),
+    title: z.string(),
+    firstSeen: z.string().meta({ format: "date-time" }),
+    lastSeen: z.string().meta({ format: "date-time" }),
+    events: z.number().int(),
+    users: z.number().int(),
+    priority: z.enum(["low", "medium", "high", "critical"]),
+    status: z.enum(["open", "resolved", "muted"]),
+    assigneeUserId: z.union([z.string(), z.null()]),
+    resolvedAt: z.union([z.string(), z.null()]).meta({ format: "date-time" }),
+    resolvedInRelease: z.union([z.string(), z.null()]),
+  })
+  .strict();
+
+const errorTrackingIssueDetail = errorTrackingIssueSummary
+  .omit({ firstSeen: true })
+  .safeExtend({
+    firstSeen: z.string().meta({ format: "date-time" }),
+    lastRelease: z.string(),
+    firstRelease: z.string(),
+    comments: z.array(
+      z
+        .object({
+          userId: z.string(),
+          userName: z.string(),
+          body: z.string(),
+          date: z.string().meta({ format: "date-time" }),
+        })
+        .strict(),
+    ),
+  });
+
+const errorTrackingIssueDimensions = z
+  .object({
+    environments: z.array(
+      z.object({ name: z.string(), count: z.number().int() }).strict(),
+    ),
+    releases: z.array(
+      z.object({ name: z.string(), count: z.number().int() }).strict(),
+    ),
+  })
+  .strict();
+
+export const listErrorTrackingIssuesValidator = {
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      clientKey: z
+        .string()
+        .describe("SDK connection key for the app that emitted the errors"),
+      q: z
+        .string()
+        .describe("Optional search over issue title/fingerprint")
+        .optional(),
+      ...paginationQueryFields,
+    })
+    .strict(),
+  paramsSchema: z.never(),
+  responseSchema: z.intersection(
+    z.object({ issues: z.array(errorTrackingIssueSummary) }),
+    apiPaginationFieldsValidator,
+  ),
+  summary: "List error tracking issues",
+  description:
+    "Lists issues (grouped by fingerprint) for an SDK connection, most recently seen first.",
+  operationId: "listErrorTrackingIssues",
+  tags: ["error-tracking"],
+  method: "get" as const,
+  path: "/error-tracking/issues",
+  exampleRequest: {
+    query: {
+      clientKey: "sdk-abc123",
+      limit: 10,
+    },
+  },
+};
+
+export const getErrorTrackingIssueValidator = {
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      clientKey: z
+        .string()
+        .describe("SDK connection key for the app that emitted the error"),
+    })
+    .strict(),
+  paramsSchema: z
+    .object({
+      fingerprint: z.string().describe("The issue's fingerprint"),
+    })
+    .strict(),
+  responseSchema: z
+    .object({
+      issue: errorTrackingIssueDetail,
+      dimensions: errorTrackingIssueDimensions,
+    })
+    .strict(),
+  summary: "Get an error tracking issue's details",
+  operationId: "getErrorTrackingIssue",
+  tags: ["error-tracking"],
+  method: "get" as const,
+  path: "/error-tracking/issues/:fingerprint",
+  exampleRequest: {
+    params: { fingerprint: "a1b2c3d4" },
+    query: { clientKey: "sdk-abc123" },
+  },
+};
 
 const sourceMapSummary = z
   .object({

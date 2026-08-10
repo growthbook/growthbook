@@ -32875,6 +32875,93 @@ paths:
             'https://api.growthbook.io/api/v1/error-tracking/source-maps?clientKey=sdk-abc123&release=a1b2c3d4'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/error-tracking/issues:
+    get:
+      operationId: listErrorTrackingIssues
+      summary: List error tracking issues
+      description: >-
+        Lists issues (grouped by fingerprint) for an SDK connection, most
+        recently seen first.
+      tags:
+        - error-tracking
+      parameters:
+        - name: clientKey
+          in: query
+          required: true
+          description: SDK connection key for the app that emitted the errors
+          schema:
+            description: SDK connection key for the app that emitted the errors
+            type: string
+        - name: q
+          in: query
+          description: Optional search over issue title/fingerprint
+          schema:
+            description: Optional search over issue title/fingerprint
+            type: string
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      issues:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/issues'
+                    required:
+                      - issues
+                    additionalProperties: false
+                  - $ref: '#/components/schemas/PaginationFields'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/error-tracking/issues?clientKey=sdk-abc123&limit=10'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/error-tracking/issues/{fingerprint}:
+    get:
+      operationId: getErrorTrackingIssue
+      summary: Get an error tracking issue's details
+      tags:
+        - error-tracking
+      parameters:
+        - $ref: '#/components/parameters/fingerprint'
+        - name: clientKey
+          in: query
+          required: true
+          description: SDK connection key for the app that emitted the error
+          schema:
+            description: SDK connection key for the app that emitted the error
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  issue:
+                    $ref: '#/components/schemas/issue'
+                  dimensions:
+                    $ref: '#/components/schemas/dimensions'
+                required:
+                  - issue
+                  - dimensions
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/error-tracking/issues/a1b2c3d4?clientKey=sdk-abc123'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/transform-copy:
     post:
       operationId: postCopyTransform
@@ -48408,6 +48495,14 @@ components:
       description: Optional release filter
       schema:
         description: Optional release filter
+        type: string
+    fingerprint:
+      name: fingerprint
+      in: path
+      required: true
+      description: The issue's fingerprint
+      schema:
+        description: The issue's fingerprint
         type: string
     index:
       name: index
@@ -66833,6 +66928,178 @@ components:
       required:
         - minifiedUrl
         - release
+      additionalProperties: false
+    issues:
+      type: object
+      properties:
+        fingerprint:
+          type: string
+        title:
+          type: string
+        firstSeen:
+          format: date-time
+          type: string
+        lastSeen:
+          format: date-time
+          type: string
+        events:
+          type: integer
+        users:
+          type: integer
+        priority:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+            - critical
+        status:
+          type: string
+          enum:
+            - open
+            - resolved
+            - muted
+        assigneeUserId:
+          anyOf:
+            - type: string
+            - type: 'null'
+        resolvedAt:
+          format: date-time
+          anyOf:
+            - type: string
+            - type: 'null'
+        resolvedInRelease:
+          anyOf:
+            - type: string
+            - type: 'null'
+      required:
+        - fingerprint
+        - title
+        - firstSeen
+        - lastSeen
+        - events
+        - users
+        - priority
+        - status
+        - assigneeUserId
+        - resolvedAt
+        - resolvedInRelease
+      additionalProperties: false
+    issue:
+      type: object
+      properties:
+        fingerprint:
+          type: string
+        title:
+          type: string
+        lastSeen:
+          format: date-time
+          type: string
+        events:
+          type: integer
+        users:
+          type: integer
+        priority:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+            - critical
+        status:
+          type: string
+          enum:
+            - open
+            - resolved
+            - muted
+        assigneeUserId:
+          anyOf:
+            - type: string
+            - type: 'null'
+        resolvedAt:
+          format: date-time
+          anyOf:
+            - type: string
+            - type: 'null'
+        resolvedInRelease:
+          anyOf:
+            - type: string
+            - type: 'null'
+        firstSeen:
+          format: date-time
+          type: string
+        lastRelease:
+          type: string
+        firstRelease:
+          type: string
+        comments:
+          type: array
+          items:
+            type: object
+            properties:
+              userId:
+                type: string
+              userName:
+                type: string
+              body:
+                type: string
+              date:
+                format: date-time
+                type: string
+            required:
+              - userId
+              - userName
+              - body
+              - date
+            additionalProperties: false
+      required:
+        - fingerprint
+        - title
+        - lastSeen
+        - events
+        - users
+        - priority
+        - status
+        - assigneeUserId
+        - resolvedAt
+        - resolvedInRelease
+        - firstSeen
+        - lastRelease
+        - firstRelease
+        - comments
+      additionalProperties: false
+    dimensions:
+      type: object
+      properties:
+        environments:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              count:
+                type: integer
+            required:
+              - name
+              - count
+            additionalProperties: false
+        releases:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              count:
+                type: integer
+            required:
+              - name
+              - count
+            additionalProperties: false
+      required:
+        - environments
+        - releases
       additionalProperties: false
     learnings:
       type: object
