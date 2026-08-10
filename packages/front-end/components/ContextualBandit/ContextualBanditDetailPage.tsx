@@ -419,6 +419,26 @@ export default function ContextualBanditDetailPage({
         </div>
       </div>
 
+      {cb.variations.some((v) => v.status === "pending") && (
+        <Callout status="warning" mt="4">
+          {(() => {
+            const pending = cb.variations.filter((v) => v.status === "pending");
+            const names = pending.map((v) => v.name).join(", ");
+            return (
+              <Text as="span">
+                {pending.length === 1
+                  ? `Variation "${names}" is`
+                  : `Variations ${names} are`}{" "}
+                waiting on a linked feature rule to be published (e.g. pending
+                approval) and will not receive any traffic until then. They
+                activate automatically when the feature revision publishes;
+                re-saving the variations also retries the publish.
+              </Text>
+            );
+          })()}
+        </Callout>
+      )}
+
       <Tabs
         defaultValue={cb.status === "running" ? "results" : "overview"}
         persistInURL={true}

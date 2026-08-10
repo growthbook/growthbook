@@ -1,10 +1,49 @@
-import { VariationWeightPair } from "shared/validators";
+import {
+  ContextualBanditVariationStatus,
+  VariationWeightPair,
+} from "shared/validators";
 import { getEqualWeights } from "./experiments";
 
 export const MIN_CONTEXTUAL_BANDIT_VARIATIONS = 2;
 
 export type WeightReconcileMode = "uniform" | "redistribute";
 export type VariationIdentity = { id: string };
+
+/**
+ * CB variation (arm) lifecycle status.
+ * - active (default when absent): served, weighted, analyzed
+ * - pending: added but value not yet live on a linked feature; no weight
+ * - deactivated: removed; tombstoned so the id is never reused
+ */
+export type VariationWithStatus = VariationIdentity & {
+  status?: ContextualBanditVariationStatus;
+};
+
+export function isActiveVariation(v: VariationWithStatus): boolean {
+  return !v.status || v.status === "active";
+}
+
+export function isPendingVariation(v: VariationWithStatus): boolean {
+  return v.status === "pending";
+}
+
+export function isDeactivatedVariation(v: VariationWithStatus): boolean {
+  return v.status === "deactivated";
+}
+
+/** Arms the user can see and edit: active + pending (tombstones hidden). */
+export function getVisibleVariations<T extends VariationWithStatus>(
+  variations: T[],
+): T[] {
+  return variations.filter((v) => !isDeactivatedVariation(v));
+}
+
+/** Arms that serve traffic and receive weight: active only. */
+export function getActiveVariations<T extends VariationWithStatus>(
+  variations: T[],
+): T[] {
+  return variations.filter(isActiveVariation);
+}
 export type VariationDiff = {
   addedIds: string[];
   removedIds: string[];
@@ -34,14 +73,6 @@ export function assertAtLeastTwoVariations(
       `A contextual bandit must have at least ${MIN_CONTEXTUAL_BANDIT_VARIATIONS} variations.`,
     );
   }
-}
-
-export function getRemovedVariationsInUse(
-  removedIds: string[],
-  referencedVariationIds: Iterable<string>,
-): string[] {
-  const referenced = new Set(referencedVariationIds);
-  return removedIds.filter((id) => referenced.has(id));
 }
 
 export function defaultAddedVariationValue(

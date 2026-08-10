@@ -17,7 +17,9 @@ import {
   ContextualBanditLinkageDelta,
   ContextualBanditLinkageState,
   generateVariationId,
+  getContextualBanditIdsFromRules,
 } from "shared/util";
+import type { FeatureInterface } from "shared/types/feature";
 import { isFactMetricId } from "shared/experiments";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
@@ -34,6 +36,7 @@ import {
   executeContextualBanditStop,
 } from "back-end/src/services/contextualBanditChanges";
 import {
+  activatePendingContextualBanditVariations,
   executeContextualBanditVariationChange,
   cancelContextualBanditLatestRunningSnapshot,
   getContextualBanditLinkedFeatureInfo,
@@ -165,7 +168,7 @@ const BaseClass = MakeModelClass({
           if (!req.context.permissions.canUpdateContextualBandit(cb, cb)) {
             req.context.permissions.throwPermissionError();
           }
-          const { updated, featureDraftPublishFailures } =
+          const { updated, featureDraftPublishFailures, pendingVariationIds } =
             await executeContextualBanditVariationChange(
               req.context,
               cb,
@@ -177,6 +180,7 @@ const BaseClass = MakeModelClass({
             ...(featureDraftPublishFailures.length > 0
               ? { featureDraftPublishFailures }
               : {}),
+            ...(pendingVariationIds.length > 0 ? { pendingVariationIds } : {}),
           };
         },
       }),
@@ -222,12 +226,16 @@ export function toApiContextualBandit(
     dateStopped: doc.dateStopped?.toISOString(),
     trackingKey: doc.trackingKey,
     hashAttribute: doc.hashAttribute,
-    variations: doc.variations.map((v) => ({
-      id: v.id,
-      key: v.key,
-      name: v.name,
-      description: v.description,
-    })),
+    // Tombstones are hidden from API consumers; pending arms surface status.
+    variations: doc.variations
+      .filter((v) => v.status !== "deactivated")
+      .map((v) => ({
+        id: v.id,
+        key: v.key,
+        name: v.name,
+        description: v.description,
+        ...(v.status === "pending" ? { status: "pending" as const } : {}),
+      })),
     datasource: doc.datasource,
     contextualBanditQueryId: doc.contextualBanditQueryId,
     coverage: doc.coverage,
@@ -464,6 +472,30 @@ export class ContextualBanditModel extends BaseClass {
       throw new Error(`ContextualBandit ${cbId} disappeared after update`);
     }
     return refreshed;
+  }
+
+  /**
+   * Feature-revision publish hook: promotes pending variations on any bandit
+   * this feature's rules reference. Best-effort — never throws; a missed
+   * promotion self-heals on the next variation-change save.
+   */
+  public async activatePendingVariationsForFeature(
+    feature: FeatureInterface,
+  ): Promise<void> {
+    try {
+      const cbIds = getContextualBanditIdsFromRules(feature.rules ?? []);
+      for (const cbId of cbIds) {
+        const cb = await this.getById(cbId);
+        if (!cb) continue;
+        if (!cb.variations.some((v) => v.status === "pending")) continue;
+        await activatePendingContextualBanditVariations(this.context, cb);
+      }
+    } catch (e) {
+      this.context.logger.error(
+        e,
+        `Failed to activate pending contextual bandit variations after publishing feature ${feature.id}`,
+      );
+    }
   }
 
   /** Used when starting the bandit consumes a queued draft; every other write goes through `applyLinkageDelta`. */

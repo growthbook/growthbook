@@ -17,7 +17,8 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { publishRevision } from "back-end/src/models/FeatureModel";
+import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
+import { publishPendingFeatureDraftsForContextualBandit } from "back-end/src/services/experiment-feature";
 
 jest.mock("back-end/src/services/features", () => ({
   queueSDKPayloadRefresh: jest.fn(),
@@ -30,6 +31,7 @@ jest.mock("back-end/src/services/features", () => ({
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   getRevision: jest.fn(),
   updateRevision: jest.fn(),
+  discardRevision: jest.fn(),
   getLinkageSyncRevisionSummaries: jest
     .fn()
     .mockResolvedValue({ openDrafts: [], liveRevision: null }),
@@ -37,6 +39,13 @@ jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
   publishRevision: jest.fn(),
+  getFeature: jest.fn(),
+}));
+
+jest.mock("back-end/src/services/experiment-feature", () => ({
+  publishPendingFeatureDraftsForContextualBandit: jest
+    .fn()
+    .mockResolvedValue({ published: [], failed: [] }),
 }));
 
 jest.mock("back-end/src/util/featureContextualBanditSync", () => ({
@@ -89,6 +98,9 @@ const updateRevisionMock = updateRevision as jest.MockedFunction<
 const publishRevisionMock = publishRevision as jest.MockedFunction<
   typeof publishRevision
 >;
+const getFeatureMock = getFeature as jest.Mock;
+const publishPendingDraftsMock =
+  publishPendingFeatureDraftsForContextualBandit as jest.Mock;
 const getLiveAndBaseRevisionsMock =
   getLiveAndBaseRevisionsForFeature as jest.MockedFunction<
     typeof getLiveAndBaseRevisionsForFeature
@@ -198,18 +210,24 @@ function makeCb(
 }
 
 function makeContext(cb: ContextualBanditInterface) {
-  const updateMock = jest
-    .fn()
-    .mockImplementation((existing, changes) => ({ ...existing, ...changes }));
+  // Mirrors the real model: update() persists, patchLeafWeights() re-fetches.
+  let currentDoc: ContextualBanditInterface = cb;
+  const updateMock = jest.fn().mockImplementation((existing, changes) => {
+    currentDoc = { ...existing, ...changes };
+    return currentDoc;
+  });
   const patchLeafWeightsMock = jest
     .fn()
-    .mockImplementation((_cbId: string, leafWeights) => ({
-      ...cb,
-      currentLeafWeights: leafWeights.length
-        ? leafWeights
-        : cb.currentLeafWeights,
-      banditVersion: cb.banditVersion + 1,
-    }));
+    .mockImplementation((_cbId: string, leafWeights) => {
+      currentDoc = {
+        ...currentDoc,
+        currentLeafWeights: leafWeights.length
+          ? leafWeights
+          : currentDoc.currentLeafWeights,
+        banditVersion: currentDoc.banditVersion + 1,
+      };
+      return currentDoc;
+    });
   const canPublishFeature = jest.fn().mockReturnValue(true);
   const throwPermissionError = jest.fn(() => {
     throw new Error("permission error");
@@ -262,6 +280,8 @@ describe("executeContextualBanditVariationChange", () => {
     refreshLinkedFeaturePayloadsMock.mockResolvedValue(undefined);
     getRefLinkedFeatureInfoMock.mockResolvedValue([]);
     getDraftRevisionMock.mockResolvedValue(makeRevision());
+    getFeatureMock.mockResolvedValue(makeFeature());
+    publishPendingDraftsMock.mockResolvedValue({ published: [], failed: [] });
     updateRevisionMock.mockImplementation(
       async (_context, _feature, revision, changes) =>
         ({ ...revision, ...changes }) as FeatureRevisionInterface,
@@ -324,10 +344,15 @@ describe("executeContextualBanditVariationChange", () => {
     ]);
 
     const [, changes] = updateMock.mock.calls[0];
+    // Removed arm stays as a tombstone at the tail.
     expect(changes.variations.map((x: Variation) => x.id)).toEqual([
       "v0",
       "v2",
+      "v1",
     ]);
+    expect(
+      changes.variations.find((x: { id: string }) => x.id === "v1").status,
+    ).toBe("deactivated");
     expect(changes.variationWeights).toEqual([
       { variationId: "v0", weight: 0.5 },
       { variationId: "v2", weight: 0.5 },
@@ -522,13 +547,27 @@ describe("executeContextualBanditVariationChange", () => {
     expect(updateMock).toHaveBeenCalledTimes(1);
   });
 
-  it("adding an arm on a running CB writes the value into the rule and publishes immediately", async () => {
+  it("adding an arm on a running CB writes the value into the rule, publishes immediately, and the arm starts ACTIVE with seeded weight", async () => {
     const feature = makeFeature();
     getRefLinkedFeatureInfoMock.mockResolvedValue([linkedInfo(feature)]);
+    // Publish succeeded, so the re-read sees the new arm.
+    getFeatureMock.mockResolvedValue(
+      makeFeature({
+        rules: [
+          cbRefRule({
+            variations: [
+              { variationId: "v0", value: "control" },
+              { variationId: "v1", value: "treatment" },
+              { variationId: "v2", value: "added-value" },
+            ],
+          }),
+        ],
+      } as Partial<FeatureInterface>),
+    );
     const cb = makeCb({ status: "running", linkedFeatures: ["feature"] });
-    const { context } = makeContext(cb);
+    const { context, updateMock } = makeContext(cb);
 
-    const { featureDraftPublishFailures } =
+    const { featureDraftPublishFailures, pendingVariationIds, updated } =
       await executeContextualBanditVariationChange(
         context,
         cb,
@@ -544,16 +583,28 @@ describe("executeContextualBanditVariationChange", () => {
     expect(publishRevisionMock).toHaveBeenCalledTimes(1);
     expect(featureDraftPublishFailures).toEqual([]);
     expect(refreshLinkedFeaturePayloadsMock).toHaveBeenCalledTimes(1);
+    // Live everywhere → straight to active, with a weight seed.
+    expect(pendingVariationIds).toEqual([]);
+    const savedVariations = updateMock.mock.calls[0][1].variations;
+    expect(
+      savedVariations.find((x: { id: string }) => x.id === "v2").status,
+    ).toBeUndefined();
+    expect(updated.variationWeights?.map((p) => p.variationId).sort()).toEqual([
+      "v0",
+      "v1",
+      "v2",
+    ]);
   });
 
-  it("downgrades a failed auto-publish to a staged draft and reports it (change still saved)", async () => {
+  it("downgrades a failed auto-publish to a staged draft, reports it, and holds the added arm PENDING with no weight", async () => {
     const feature = makeFeature();
     getRefLinkedFeatureInfoMock.mockResolvedValue([linkedInfo(feature)]);
     publishRevisionMock.mockRejectedValueOnce(new Error("boom"));
+    // Publish failed, so the live doc still only carries v0/v1.
     const cb = makeCb({ status: "running", linkedFeatures: ["feature"] });
     const { context, updateMock } = makeContext(cb);
 
-    const { featureDraftPublishFailures } =
+    const { featureDraftPublishFailures, pendingVariationIds, updated } =
       await executeContextualBanditVariationChange(context, cb, [
         v("v0", "0"),
         v("v1", "1"),
@@ -566,6 +617,164 @@ describe("executeContextualBanditVariationChange", () => {
     ]);
     expect(updateMock).toHaveBeenCalledTimes(1);
     expect(refreshLinkedFeaturePayloadsMock).toHaveBeenCalledTimes(1);
+    expect(pendingVariationIds).toEqual(["v2"]);
+    expect(updated.variations.find((x) => x.id === "v2")?.status).toBe(
+      "pending",
+    );
+    expect(updated.variationWeights?.map((p) => p.variationId).sort()).toEqual([
+      "v0",
+      "v1",
+    ]);
+    expect(sum(updated.variationWeights ?? [])).toBeCloseTo(1, 6);
+  });
+
+  it("activates a pending arm and seeds its weight when a re-save finds its value live (retry path)", async () => {
+    // v2 was pending; the draft has since published, so the live doc now carries it.
+    getFeatureMock.mockResolvedValue(
+      makeFeature({
+        rules: [
+          cbRefRule({
+            variations: [
+              { variationId: "v0", value: "control" },
+              { variationId: "v1", value: "treatment" },
+              { variationId: "v2", value: "added-value" },
+            ],
+          }),
+        ],
+      } as Partial<FeatureInterface>),
+    );
+    const cb = makeCb({
+      status: "running",
+      linkedFeatures: ["feature"],
+      variations: [
+        v("v0", "0"),
+        v("v1", "1"),
+        { ...v("v2", "2"), status: "pending" as const },
+      ],
+    } as Partial<ContextualBanditInterface>);
+    const { context, patchLeafWeightsMock } = makeContext(cb);
+
+    // Same visible arm set — the old code treated this re-save as a no-op.
+    const { pendingVariationIds, updated } =
+      await executeContextualBanditVariationChange(context, cb, [
+        v("v0", "0"),
+        v("v1", "1"),
+        v("v2", "2"),
+      ]);
+
+    // The re-save retried the stuck drafts and promoted the arm.
+    expect(publishPendingDraftsMock).toHaveBeenCalledTimes(1);
+    expect(pendingVariationIds).toEqual([]);
+    expect(updated.variations.find((x) => x.id === "v2")?.status).toBe(
+      "active",
+    );
+    expect(updated.variationWeights?.map((p) => p.variationId).sort()).toEqual([
+      "v0",
+      "v1",
+      "v2",
+    ]);
+    // Activation opens a new weight epoch.
+    expect(patchLeafWeightsMock).toHaveBeenCalledWith("cb_1", [], {
+      bumpVersion: true,
+    });
+  });
+
+  it("keeps a pending arm pending on re-save while its value is still not live", async () => {
+    const cb = makeCb({
+      status: "running",
+      linkedFeatures: ["feature"],
+      variations: [
+        v("v0", "0"),
+        v("v1", "1"),
+        { ...v("v2", "2"), status: "pending" as const },
+      ],
+    } as Partial<ContextualBanditInterface>);
+    const { context, patchLeafWeightsMock } = makeContext(cb);
+
+    const { pendingVariationIds, updated } =
+      await executeContextualBanditVariationChange(context, cb, [
+        v("v0", "0"),
+        v("v1", "1"),
+        v("v2", "2"),
+      ]);
+
+    expect(pendingVariationIds).toEqual(["v2"]);
+    expect(updated.variations.find((x) => x.id === "v2")?.status).toBe(
+      "pending",
+    );
+    // No activation → no weight epoch bump.
+    expect(patchLeafWeightsMock).not.toHaveBeenCalled();
+  });
+
+  it("removing a variation tombstones it in place: id preserved, no weight, hidden from the API arm set", async () => {
+    const cb = makeCb({
+      variations: [v("v0", "0"), v("v1", "1"), v("v2", "2")],
+      variationWeights: [
+        { variationId: "v0", weight: 0.33 },
+        { variationId: "v1", weight: 0.33 },
+        { variationId: "v2", weight: 0.34 },
+      ],
+    } as Partial<ContextualBanditInterface>);
+    const { context, updateMock } = makeContext(cb);
+
+    const { updated } = await executeContextualBanditVariationChange(
+      context,
+      cb,
+      [v("v0", "0"), v("v1", "1")],
+    );
+
+    const savedVariations = updateMock.mock.calls[0][1].variations;
+    const tombstone = savedVariations.find(
+      (x: { id: string }) => x.id === "v2",
+    );
+    expect(tombstone).toBeDefined();
+    expect(tombstone.status).toBe("deactivated");
+    expect(updated.variationWeights?.map((p) => p.variationId).sort()).toEqual([
+      "v0",
+      "v1",
+    ]);
+  });
+
+  it("never resurrects a tombstoned variation id", async () => {
+    const cb = makeCb({
+      variations: [
+        v("v0", "0"),
+        v("v1", "1"),
+        { ...v("v2", "2"), status: "deactivated" as const },
+      ],
+    } as Partial<ContextualBanditInterface>);
+    const { context } = makeContext(cb);
+
+    await expect(
+      executeContextualBanditVariationChange(context, cb, [
+        v("v0", "0"),
+        v("v1", "1"),
+        v("v2", "2"),
+      ]),
+    ).rejects.toThrow(/cannot be re-added/);
+  });
+
+  it("carries tombstones through a metadata-only save untouched", async () => {
+    const cb = makeCb({
+      variations: [
+        v("v0", "0"),
+        v("v1", "1"),
+        { ...v("v2", "2"), status: "deactivated" as const },
+      ],
+    } as Partial<ContextualBanditInterface>);
+    const { context, updateMock } = makeContext(cb);
+
+    await executeContextualBanditVariationChange(context, cb, [
+      { id: "v0", name: "Renamed", key: "0", screenshots: [] } as Variation,
+      v("v1", "1"),
+    ]);
+
+    const savedVariations = updateMock.mock.calls[0][1].variations;
+    expect(
+      savedVariations.find((x: { id: string }) => x.id === "v2")?.status,
+    ).toBe("deactivated");
+    // A save on a bandit with tombstones retries the linked-feature sync.
+    expect(publishPendingDraftsMock).toHaveBeenCalledTimes(1);
   });
 
   it("bundles the rule edit into the pending draft that carries the bandit's rule", async () => {

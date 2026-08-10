@@ -3614,6 +3614,14 @@ export async function publishRevision({
   // Clean up orphaned ramp schedules (best-effort).
   await cleanupOrphanedRampSchedules(context, feature, updatedFeature);
 
+  // Promote any bandit arms this publish made servable. Best-effort and
+  // intentionally after the commit point; never unwinds the publish.
+  if (referencesAnyContextualBandit(updatedFeature.rules)) {
+    await context.models.contextualBandits.activatePendingVariationsForFeature(
+      updatedFeature,
+    );
+  }
+
   return updatedFeature;
 }
 

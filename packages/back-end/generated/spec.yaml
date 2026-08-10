@@ -40761,43 +40761,6 @@ paths:
                   type: string
                 hashAttribute:
                   type: string
-                variations:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      name:
-                        type: string
-                      description:
-                        type: string
-                        maxLength: 10000
-                      key:
-                        type: string
-                      screenshots:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            path:
-                              type: string
-                            width:
-                              type: number
-                            height:
-                              type: number
-                            description:
-                              type: string
-                              maxLength: 10000
-                          required:
-                            - path
-                          additionalProperties: false
-                    required:
-                      - id
-                      - name
-                      - key
-                      - screenshots
-                    additionalProperties: false
                 datasource:
                   type: string
                 contextualBanditQueryId:
@@ -40888,19 +40851,6 @@ paths:
                     additionalProperties: false
                 seed:
                   type: string
-                variationWeights:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      variationId:
-                        type: string
-                      weight:
-                        type: number
-                    required:
-                      - variationId
-                      - weight
-                    additionalProperties: false
               additionalProperties: false
       responses:
         '200':
@@ -41261,6 +41211,10 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/featureDraftPublishFailures'
+                  pendingVariationIds:
+                    type: array
+                    items:
+                      type: string
                 required:
                   - contextualBandit
                 additionalProperties: false
@@ -61108,6 +61062,11 @@ components:
                 type: string
               description:
                 type: string
+              status:
+                type: string
+                enum:
+                  - active
+                  - pending
             required:
               - id
               - key

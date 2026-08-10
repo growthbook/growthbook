@@ -29,6 +29,23 @@ export type LeafWeight = z.infer<typeof leafWeightValidator>;
 export const contextualBanditStatus = ["draft", "running", "stopped"] as const;
 export type ContextualBanditStatus = (typeof contextualBanditStatus)[number];
 
+// Absent = "active". See contextual-bandit-variation-changes.ts for semantics.
+export const contextualBanditVariationStatus = [
+  "active",
+  "pending",
+  "deactivated",
+] as const;
+export type ContextualBanditVariationStatus =
+  (typeof contextualBanditVariationStatus)[number];
+
+// Only the stored document carries status; the server owns transitions.
+export const contextualBanditVariation = variation.extend({
+  status: z.enum(contextualBanditVariationStatus).optional(),
+});
+export type ContextualBanditVariation = z.infer<
+  typeof contextualBanditVariation
+>;
+
 export const contextualBanditValidator = baseSchema
   .extend({
     name: z.string(),
@@ -45,7 +62,7 @@ export const contextualBanditValidator = baseSchema
     trackingKey: z.string(),
     hashAttribute: z.string(),
 
-    variations: z.array(variation),
+    variations: z.array(contextualBanditVariation),
 
     datasource: z.string(),
     contextualBanditQueryId: z.string(),
@@ -107,6 +124,8 @@ const apiContextualBanditVariation = z.object({
   key: z.string(),
   name: z.string(),
   description: z.string().optional(),
+  // Tombstones are stripped from API responses; "deactivated" never appears here.
+  status: z.enum(["active", "pending"]).optional(),
 });
 
 export const apiContextualBanditValidator = namedSchema(
@@ -227,8 +246,6 @@ export const apiUpdateContextualBanditBody = z.strictObject({
   trackingKey: z.string().optional(),
   hashAttribute: z.string().optional(),
 
-  variations: z.array(variation).optional(),
-
   datasource: z.string().optional(),
   contextualBanditQueryId: z.string().optional(),
 
@@ -256,7 +273,6 @@ export const apiUpdateContextualBanditBody = z.strictObject({
   savedGroups: z.array(savedGroupTargeting).optional(),
   prerequisites: z.array(featurePrerequisite).optional(),
   seed: z.string().optional(),
-  variationWeights: z.array(variationWeightPairValidator).optional(),
 });
 
 export type ApiUpdateContextualBanditBody = z.infer<
@@ -340,6 +356,8 @@ export const apiContextualBanditVariationsReturn = z.object({
       }),
     )
     .optional(),
+  // Added variations still pending (value not live everywhere yet).
+  pendingVariationIds: z.array(z.string()).optional(),
 });
 
 export const apiContextualBanditRefreshValidator = {

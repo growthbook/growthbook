@@ -2,7 +2,11 @@ import {
   assertAtLeastTwoVariations,
   defaultAddedVariationValue,
   diffVariations,
-  getRemovedVariationsInUse,
+  getActiveVariations,
+  getVisibleVariations,
+  isActiveVariation,
+  isDeactivatedVariation,
+  isPendingVariation,
   MIN_CONTEXTUAL_BANDIT_VARIATIONS,
   reconcileVariationWeights,
 } from "../src/experiments/contextual-bandit-variation-changes";
@@ -50,22 +54,6 @@ describe("assertAtLeastTwoVariations", () => {
 
   it("uses the shared minimum constant", () => {
     expect(MIN_CONTEXTUAL_BANDIT_VARIATIONS).toBe(2);
-  });
-});
-
-describe("getRemovedVariationsInUse", () => {
-  it("returns removed ids that are still referenced", () => {
-    expect(getRemovedVariationsInUse(["a", "b"], ["b", "c"])).toEqual(["b"]);
-  });
-
-  it("returns empty when no removed id is referenced", () => {
-    expect(getRemovedVariationsInUse(["a"], ["b", "c"])).toEqual([]);
-  });
-
-  it("accepts any iterable of referenced ids (e.g. a Set)", () => {
-    expect(getRemovedVariationsInUse(["a", "b"], new Set(["a"]))).toEqual([
-      "a",
-    ]);
   });
 });
 
@@ -235,5 +223,53 @@ describe("reconcileVariationWeights — redistribute mode (Luke A + B)", () => {
       "redistribute",
     );
     expect(res.map((p) => p.variationId)).toEqual(["c", "b", "a"]);
+  });
+});
+
+describe("variation lifecycle helpers", () => {
+  const arms = [
+    { id: "a" },
+    { id: "b", status: "active" as const },
+    { id: "c", status: "pending" as const },
+    { id: "d", status: "deactivated" as const },
+  ];
+
+  it("treats a missing status as active (no migration needed for old docs)", () => {
+    expect(isActiveVariation({ id: "a" })).toBe(true);
+    expect(isActiveVariation({ id: "b", status: "active" })).toBe(true);
+    expect(isActiveVariation({ id: "c", status: "pending" })).toBe(false);
+    expect(isActiveVariation({ id: "d", status: "deactivated" })).toBe(false);
+  });
+
+  it("classifies pending and deactivated", () => {
+    expect(isPendingVariation({ id: "c", status: "pending" })).toBe(true);
+    expect(isPendingVariation({ id: "a" })).toBe(false);
+    expect(isDeactivatedVariation({ id: "d", status: "deactivated" })).toBe(
+      true,
+    );
+    expect(isDeactivatedVariation({ id: "a" })).toBe(false);
+  });
+
+  it("visible = active + pending (tombstones hidden)", () => {
+    expect(getVisibleVariations(arms).map((v) => v.id)).toEqual([
+      "a",
+      "b",
+      "c",
+    ]);
+  });
+
+  it("active = weight-holding, servable arms only", () => {
+    expect(getActiveVariations(arms).map((v) => v.id)).toEqual(["a", "b"]);
+  });
+
+  it("weights reconciled over the active set leave pending arms with no pair (the mismatch invariant)", () => {
+    const current = [
+      { variationId: "a", weight: 0.5 },
+      { variationId: "b", weight: 0.5 },
+    ];
+    const activeIds = getActiveVariations(arms).map((v) => v.id);
+    const res = reconcileVariationWeights(current, activeIds, "redistribute");
+    expect(res.map((p) => p.variationId)).toEqual(["a", "b"]);
+    expect(res.reduce((s, p) => s + p.weight, 0)).toBeCloseTo(1, 9);
   });
 });

@@ -18,6 +18,7 @@ import {
   ContextualBanditQueryInterface,
   ContextualBanditSnapshotInterface,
   ContextualBanditSnapshotSettings,
+  ContextualBanditVariation,
   LeafWeight,
   Variation,
   RevisionRampAction,
@@ -34,6 +35,10 @@ import {
   conditionFromLeafClauses,
   defaultAddedVariationValue,
   diffVariations,
+  getActiveVariations,
+  getVisibleVariations,
+  isDeactivatedVariation,
+  isPendingVariation,
   reconcileVariationWeights,
   WeightReconcileMode,
 } from "shared/experiments";
@@ -43,7 +48,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { discardIfJustCreated } from "back-end/src/api/features/validations";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { publishRevision } from "back-end/src/models/FeatureModel";
+import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
 import {
   getLinkageSyncRevisionSummaries,
   getRevision,
@@ -68,6 +73,7 @@ import { BadRequestError } from "back-end/src/util/errors";
 import {
   PendingDraftFailure,
   PendingDraftFailureReason,
+  publishPendingFeatureDraftsForContextualBandit,
 } from "back-end/src/services/experiment-feature";
 import {
   ContextualBanditResultsQueryRunner,
@@ -764,6 +770,109 @@ export async function unlinkFeatureFromContextualBandit({
   }
 }
 
+// Live arm ids per linked feature, read from the feature docs (drafts live
+// in revisions). An arm is live only if every enabled CB rule on the
+// feature includes it.
+async function getLiveArmIdsByLinkedFeature(
+  context: ReqContext | ApiReqContext,
+  cb: ContextualBanditInterface,
+): Promise<{ featureId: string; liveArmIds: Set<string> }[]> {
+  const out: { featureId: string; liveArmIds: Set<string> }[] = [];
+  for (const featureId of cb.linkedFeatures ?? []) {
+    const feature = await getFeature(context, featureId);
+    if (!feature || feature.archived) continue;
+    const ruleArmSets: Set<string>[] = [];
+    for (const rule of feature.rules ?? []) {
+      if (!isRuleForContextualBandit(rule, cb.id)) continue;
+      const cbRule = rule as ContextualBanditRefRule;
+      // A disabled rule serves nothing, so it cannot serve `null` either.
+      if (cbRule.enabled === false) continue;
+      ruleArmSets.push(
+        new Set((cbRule.variations ?? []).map((v) => v.variationId)),
+      );
+    }
+    if (!ruleArmSets.length) continue;
+    const liveArmIds = ruleArmSets.reduce(
+      (acc, s) => new Set([...acc].filter((id) => s.has(id))),
+    );
+    out.push({ featureId, liveArmIds });
+  }
+  return out;
+}
+
+// Ids not live on every linked feature (none pending if no linked features).
+function computePendingVariationIds(
+  candidateIds: string[],
+  liveArmInfo: { liveArmIds: Set<string> }[],
+): string[] {
+  if (!liveArmInfo.length) return [];
+  return candidateIds.filter(
+    (id) => !liveArmInfo.every((i) => i.liveArmIds.has(id)),
+  );
+}
+
+/**
+ * Promotes pending arms whose values are now live everywhere and seeds their
+ * weights. Called from the feature publish hook and after every
+ * variation-change save (also catches missed publish events).
+ */
+export async function activatePendingContextualBanditVariations(
+  context: ReqContext | ApiReqContext,
+  cb: ContextualBanditInterface,
+): Promise<{
+  activatedIds: string[];
+  updated: ContextualBanditInterface;
+}> {
+  const pendingIds = cb.variations.filter(isPendingVariation).map((v) => v.id);
+  if (!pendingIds.length) return { activatedIds: [], updated: cb };
+
+  const liveArmInfo = await getLiveArmIdsByLinkedFeature(context, cb);
+  const stillPending = new Set(
+    computePendingVariationIds(pendingIds, liveArmInfo),
+  );
+  const activatedIds = pendingIds.filter((id) => !stillPending.has(id));
+  if (!activatedIds.length) return { activatedIds: [], updated: cb };
+
+  const activatedSet = new Set(activatedIds);
+  const newVariations: ContextualBanditVariation[] = cb.variations.map((v) =>
+    activatedSet.has(v.id) ? { ...v, status: "active" as const } : v,
+  );
+
+  const mode: WeightReconcileMode =
+    !cb.stage || cb.stage === "explore" ? "uniform" : "redistribute";
+  const activeIds = getActiveVariations(newVariations).map((v) => v.id);
+  const variationWeights = reconcileVariationWeights(
+    cb.variationWeights ?? [],
+    activeIds,
+    mode,
+  );
+  const leafWeights: LeafWeight[] =
+    mode === "uniform"
+      ? []
+      : (cb.currentLeafWeights ?? []).map((lw) => ({
+          ...lw,
+          weights: reconcileVariationWeights(lw.weights, activeIds, mode),
+        }));
+
+  await context.models.contextualBandits.update(cb, {
+    variations: newVariations,
+    variationWeights,
+  });
+  const updated = await context.models.contextualBandits.patchLeafWeights(
+    cb.id,
+    leafWeights,
+    { bumpVersion: true },
+  );
+
+  await refreshLinkedFeaturePayloads(
+    context,
+    updated,
+    "contextualBandit.refresh",
+  );
+
+  return { activatedIds, updated };
+}
+
 export async function executeContextualBanditVariationChange(
   context: ReqContext | ApiReqContext,
   cb: ContextualBanditInterface,
@@ -772,6 +881,7 @@ export async function executeContextualBanditVariationChange(
 ): Promise<{
   updated: ContextualBanditInterface;
   featureDraftPublishFailures: PendingDraftFailure[];
+  pendingVariationIds: string[];
 }> {
   if (cb.status === "stopped") {
     throw new Error(
@@ -779,18 +889,36 @@ export async function executeContextualBanditVariationChange(
     );
   }
 
-  const newVariations: Variation[] = requestedVariations.map((v) => ({
-    ...v,
-    id: v.id || generateVariationId(),
-    screenshots: v.screenshots ?? [],
-  }));
+  // Request is declarative over visible arms; tombstones carry through untouched.
+  const previousVisible = getVisibleVariations(cb.variations);
+  const tombstones = cb.variations.filter(isDeactivatedVariation);
+  const tombstoneIds = new Set(tombstones.map((v) => v.id));
+  const previousById = new Map(previousVisible.map((v) => [v.id, v]));
+
+  const newVariations: ContextualBanditVariation[] = requestedVariations.map(
+    (v) => ({
+      ...v,
+      id: v.id || generateVariationId(),
+      screenshots: v.screenshots ?? [],
+    }),
+  );
+
+  // Never resurrect a tombstoned id.
+  for (const v of newVariations) {
+    if (tombstoneIds.has(v.id)) {
+      throw new BadRequestError(
+        `Variation ${v.id} was removed from this contextual bandit and cannot be re-added. Create a new variation instead.`,
+      );
+    }
+  }
 
   assertAtLeastTwoVariations(newVariations);
 
-  const diff = diffVariations(cb.variations, newVariations);
+  const diff = diffVariations(previousVisible, newVariations);
   const armSetChanged = diff.addedIds.length > 0 || diff.removedIds.length > 0;
 
   let featureDraftPublishFailures: PendingDraftFailure[] = [];
+  let updated: ContextualBanditInterface;
 
   if (armSetChanged) {
     const linkedInfo = await getContextualBanditLinkedFeatureInfo(context, cb);
@@ -810,18 +938,38 @@ export async function executeContextualBanditVariationChange(
         providedValues: newVariationValues,
         linkedInfo,
       }));
-  }
 
-  let updated: ContextualBanditInterface;
+    // A new arm starts active only if its value is live on every linked
+    // feature; otherwise it stays pending rather than trusting the publish
+    // failure list alone.
+    const liveArmInfo = await getLiveArmIdsByLinkedFeature(context, cb);
+    const pendingAdded = new Set(
+      computePendingVariationIds(diff.addedIds, liveArmInfo),
+    );
 
-  if (armSetChanged) {
+    const finalVariations: ContextualBanditVariation[] = [
+      ...newVariations.map((v) => {
+        const prev = previousById.get(v.id);
+        if (prev) return prev.status ? { ...v, status: prev.status } : v;
+        return pendingAdded.has(v.id)
+          ? { ...v, status: "pending" as const }
+          : v;
+      }),
+      ...diff.removedIds.map((id) => ({
+        ...previousById.get(id)!,
+        status: "deactivated" as const,
+      })),
+      ...tombstones,
+    ];
+
+    // Weights are reconciled over active arms only.
     const mode: WeightReconcileMode =
       !cb.stage || cb.stage === "explore" ? "uniform" : "redistribute";
-    const newVariationIds = newVariations.map((v) => v.id);
+    const activeIds = getActiveVariations(finalVariations).map((v) => v.id);
 
     const newVariationWeights = reconcileVariationWeights(
       cb.variationWeights ?? [],
-      newVariationIds,
+      activeIds,
       mode,
     );
 
@@ -830,15 +978,11 @@ export async function executeContextualBanditVariationChange(
         ? []
         : (cb.currentLeafWeights ?? []).map((lw) => ({
             ...lw,
-            weights: reconcileVariationWeights(
-              lw.weights,
-              newVariationIds,
-              mode,
-            ),
+            weights: reconcileVariationWeights(lw.weights, activeIds, mode),
           }));
 
     await context.models.contextualBandits.update(cb, {
-      variations: newVariations,
+      variations: finalVariations,
       variationWeights: newVariationWeights,
     });
 
@@ -848,16 +992,21 @@ export async function executeContextualBanditVariationChange(
       { bumpVersion: true },
     );
   } else {
-    // Same arm set: weights stay valid (keyed by variationId). A reorder still
-    // shifts variation indices / the positional SDK arrays, so it must open a
-    // new epoch (bump banditVersion) to avoid conflating pre/post-reorder
-    // exposures; a pure metadata edit (names/keys) leaves assignment unchanged
-    // and skips the bump.
+    // Same visible arm set: weights stay valid. A reorder still shifts the
+    // positional SDK arrays, so it bumps banditVersion; a metadata-only edit
+    // does not. Tombstones stay at the tail and are ignored for reordering.
+    const finalVariations: ContextualBanditVariation[] = [
+      ...newVariations.map((v) => {
+        const prev = previousById.get(v.id);
+        return prev?.status ? { ...v, status: prev.status } : v;
+      }),
+      ...tombstones,
+    ];
     const orderChanged =
-      cb.variations.map((v) => v.id).join(",") !==
+      previousVisible.map((v) => v.id).join(",") !==
       newVariations.map((v) => v.id).join(",");
     updated = await context.models.contextualBandits.update(cb, {
-      variations: newVariations,
+      variations: finalVariations,
     });
     if (orderChanged) {
       updated = await context.models.contextualBandits.patchLeafWeights(
@@ -866,7 +1015,30 @@ export async function executeContextualBanditVariationChange(
         { bumpVersion: true },
       );
     }
+
+    // A re-save with pending arms or tombstones is a retry: re-attempt
+    // publishing staged drafts, then reconcile any still-diverged rules.
+    if (tombstones.length > 0 || finalVariations.some(isPendingVariation)) {
+      const publishResult =
+        await publishPendingFeatureDraftsForContextualBandit(context, updated);
+      featureDraftPublishFailures = publishResult.failed;
+
+      ({ failures: featureDraftPublishFailures } = mergePendingDraftFailures(
+        featureDraftPublishFailures,
+        await reconcileLinkedFeatureVariations(context, updated, {
+          addedIds: newVariations.map((v) => v.id),
+          removedIds: tombstones.map((v) => v.id),
+          providedValues: newVariationValues,
+        }),
+      ));
+    }
   }
+
+  // No-op if nothing is pending.
+  ({ updated } = await activatePendingContextualBanditVariations(
+    context,
+    updated,
+  ));
 
   await refreshLinkedFeaturePayloads(
     context,
@@ -874,7 +1046,27 @@ export async function executeContextualBanditVariationChange(
     "contextualBandit.refresh",
   );
 
-  return { updated, featureDraftPublishFailures };
+  return {
+    updated,
+    featureDraftPublishFailures,
+    pendingVariationIds: updated.variations
+      .filter(isPendingVariation)
+      .map((v) => v.id),
+  };
+}
+
+/** Union of two failure lists, deduped by feature (first entry wins). */
+function mergePendingDraftFailures(
+  first: PendingDraftFailure[],
+  second: { failures: PendingDraftFailure[] },
+): { failures: PendingDraftFailure[] } {
+  const seen = new Set(first.map((f) => f.featureId));
+  return {
+    failures: [
+      ...first,
+      ...second.failures.filter((f) => !seen.has(f.featureId)),
+    ],
+  };
 }
 
 function validateAndAuthorizeVariationChange(
@@ -963,7 +1155,9 @@ export async function reconcileLinkedFeatureVariations(
       (v) => !removedSet.has(v.variationId),
     );
     const existingIds = new Set(nextVariations.map((v) => v.variationId));
-    const controlValue = currentVariations[0]?.value;
+    // Must come from a surviving arm — index 0 may be one being removed.
+    const controlValue =
+      nextVariations[0]?.value ?? currentVariations[0]?.value;
     for (const addedId of addedIds) {
       if (existingIds.has(addedId)) continue;
       const value = validateFeatureValue(
@@ -1159,7 +1353,10 @@ export async function runContextualBanditSnapshot(
     false,
   );
 
-  const variationNames = (updatedCb.variations ?? []).map((v) => v.name);
+  // Must match the settings' variation list — names pair positionally.
+  const variationNames = getActiveVariations(updatedCb.variations ?? []).map(
+    (v) => v.name,
+  );
 
   await runner.startAnalysis({
     snapshotSettings,
@@ -1323,16 +1520,20 @@ export async function persistContextualBanditEvent(
   }
 
   const discardWeights = inExploreStage || staleWeightEpoch;
+  // Engine weights are positional over the run's frozen variation list, not
+  // today's cb.variations (which may have gained pending arms/tombstones).
+  const engineVariations =
+    cbs.frozenSettings?.variations ?? getActiveVariations(cb.variations);
   const weightsWereUpdated = discardWeights
     ? false
     : contextualBanditWeightsWereUpdated(
         result,
         currentLeafWeights,
-        cb.variations,
+        engineVariations,
       );
   const leafWeights = discardWeights
     ? []
-    : leafWeightsFromContextualBanditResult(result, cb.variations);
+    : leafWeightsFromContextualBanditResult(result, engineVariations);
 
   const cbe = await context.models.contextualBanditEvents.create({
     contextualBandit: cb.id,
@@ -1362,7 +1563,9 @@ export function buildContextualBanditSnapshotSettings(
   cb: ContextualBanditInterface,
   cbQuery: ContextualBanditQueryInterface,
 ): ContextualBanditSnapshotSettings {
-  const numVariations = cb.variations?.length || 1;
+  // Only active arms are analyzed; pending/deactivated hold no weight.
+  const activeVariations = getActiveVariations(cb.variations ?? []);
+  const numVariations = activeVariations.length || 1;
 
   const banditStart = cb.dateStarted ?? new Date();
   const effectiveEnd = cb.dateStopped ?? new Date();
@@ -1388,7 +1591,7 @@ export function buildContextualBanditSnapshotSettings(
     decisionMetric: cb.decisionMetric ?? "",
     metricSettings: {},
 
-    variations: (cb.variations ?? []).map((v) => ({
+    variations: activeVariations.map((v) => ({
       id: v.id,
       weight:
         cb.variationWeights?.find((w) => w.variationId === v.id)?.weight ??
