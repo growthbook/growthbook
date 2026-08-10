@@ -15,6 +15,7 @@ import {
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import {
+  draftRevertedFromVersion,
   autoMerge,
   filterEnvironmentsByFeature,
   filterProjectsByEnvironmentWithNull,
@@ -2409,6 +2410,18 @@ export async function postFeaturePublish(
     "revision.published",
     {},
   );
+  // A revert that lands is ALSO a publish, so it owes both events — same rule
+  // as the generic engine and the direct revert doors.
+  const publishedRevertedTo = draftRevertedFromVersion(publishedRevision);
+  if (publishedRevertedTo !== undefined) {
+    await dispatchFeatureRevisionEvent(
+      context,
+      updatedFeature,
+      publishedRevision,
+      "revision.reverted",
+      { revertedToVersion: publishedRevertedTo },
+    );
+  }
 
   for (const { experiment, changes } of experimentsToUpdate) {
     // Reload so pendingFeatureDrafts reflects the just-published feature.

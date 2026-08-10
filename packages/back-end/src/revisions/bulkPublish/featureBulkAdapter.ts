@@ -1,4 +1,5 @@
 import { isStrandedLiveRevision, type MergeResultChanges } from "shared/util";
+import { draftRevertedFromVersion } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
 import {
   bypassApprovalPermission,
@@ -853,6 +854,18 @@ export const featureBulkAdapter: BulkPublishableAdapter = {
       "revision.published",
       bulkPublishFields(context),
     );
+    // A revert that lands is ALSO a publish, so it owes both events — same
+    // rule as the generic bulk adapter and the direct revert doors.
+    const revertedTo = draftRevertedFromVersion(finalRevision);
+    if (revertedTo !== undefined) {
+      await dispatchFeatureRevisionEvent(
+        context,
+        updated,
+        finalRevision,
+        "revision.reverted",
+        { ...bulkPublishFields(context), revertedToVersion: revertedTo },
+      );
+    }
 
     const bestEffort = async (label: string, fn: () => Promise<unknown>) => {
       try {

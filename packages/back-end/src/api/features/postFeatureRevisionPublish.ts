@@ -1,5 +1,5 @@
 import { postFeatureRevisionPublishValidator } from "shared/validators";
-import { isStrandedLiveRevision } from "shared/util";
+import { draftRevertedFromVersion, isStrandedLiveRevision } from "shared/util";
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import type { ApiRequestLocals } from "back-end/types/api";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -289,6 +289,18 @@ export async function publishFeatureRevision(
     "revision.published",
     {},
   );
+  // A revert that lands is ALSO a publish, so it owes both events — same rule
+  // as the generic engine and the direct revert doors.
+  const restRevertedTo = draftRevertedFromVersion(finalRevision);
+  if (restRevertedTo !== undefined) {
+    await dispatchFeatureRevisionEvent(
+      req.context,
+      updatedFeature,
+      finalRevision,
+      "revision.reverted",
+      { revertedToVersion: restRevertedTo },
+    );
+  }
 
   return {
     feature,
