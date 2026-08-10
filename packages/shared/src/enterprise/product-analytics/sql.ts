@@ -1275,21 +1275,21 @@ function groupFunnelStepsByFactTable(
 ): FunnelFactTableGroup[] {
   const groups: Map<string, FunnelFactTableGroup> = new Map();
   steps.forEach((step, idx) => {
-    if (!step.factTable) {
+    if (!step.factTableId) {
       throw new Error(
         `Funnel step ${idx + 1} ("${step.name}") is missing a fact table`,
       );
     }
-    const existing = groups.get(step.factTable);
+    const existing = groups.get(step.factTableId);
     if (existing) {
       existing.stepIndexes.push(idx + 1);
       return;
     }
-    const factTable = factTableMap.get(step.factTable);
+    const factTable = factTableMap.get(step.factTableId);
     if (!factTable) {
-      throw new Error(`Fact table ${step.factTable} not found`);
+      throw new Error(`Fact table ${step.factTableId} not found`);
     }
-    groups.set(step.factTable, {
+    groups.set(step.factTableId, {
       index: groups.size,
       factTable,
       stepIndexes: [idx + 1],
@@ -1379,9 +1379,9 @@ export function buildFunnelSql(
   // Funnels are capped at 1 dimension (Phase 1) and the dimension must
   // resolve against the initial step's fact table.
   const dimension = config.dimensions[0] ?? null;
-  const initialFactTable = factTableMap.get(steps[0].factTable);
+  const initialFactTable = factTableMap.get(steps[0].factTableId);
   if (!initialFactTable) {
-    throw new Error(`Fact table ${steps[0].factTable} not found`);
+    throw new Error(`Fact table ${steps[0].factTableId} not found`);
   }
   const initialFactTableGroup: FactTableGroup = {
     index: 0,
