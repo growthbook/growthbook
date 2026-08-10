@@ -13,6 +13,7 @@ import {
   getProviderFromEmbeddingModel,
 } from "shared/ai";
 import {
+  EMBEDDING_MODEL_OPTIONS,
   getAvailableAIModelOptions,
   getAvailableEmbeddingModelOptions,
   getAvailableImageModelOptions,
@@ -391,15 +392,23 @@ export default function AISettings({
                       id="embeddingModel"
                       disabled={!canEdit}
                       helpText="Used for semantic search across experiments. Supports OpenAI, Mistral, and Google. Default is text-embedding-ada-002."
-                      // Unset shows the "use default" entry rather than naming
-                      // the model it resolves to, so the field reads the same
-                      // as every other picker.
-                      value={form.watch("embeddingModel") || ""}
+                      // Self-hosted keeps the pre-BYOK picker: all models, no
+                      // "use default" entry.
+                      value={
+                        isCloud()
+                          ? form.watch("embeddingModel") || ""
+                          : form.watch("embeddingModel") ||
+                            "text-embedding-ada-002"
+                      }
                       onChange={(v) => form.setValue("embeddingModel", v)}
-                      options={getAvailableEmbeddingModelOptions(
-                        availableProviders,
-                        form.watch("embeddingModel") || "",
-                      )}
+                      options={
+                        isCloud()
+                          ? getAvailableEmbeddingModelOptions(
+                              availableProviders,
+                              form.watch("embeddingModel") || "",
+                            )
+                          : EMBEDDING_MODEL_OPTIONS
+                      }
                     />
                     <EmbeddingKeyWarning
                       // Warn against the model the default resolves to, not the
@@ -671,8 +680,9 @@ export default function AISettings({
                             form.setValue("visualEditorImageModel", v)
                           }
                           sort={false}
+                          // Unfiltered on self-hosted, as before BYOK.
                           options={getAvailableImageModelOptions(
-                            availableProviders,
+                            isCloud() ? availableProviders : undefined,
                             form.watch("visualEditorImageModel") || "",
                           )}
                         />

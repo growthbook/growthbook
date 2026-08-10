@@ -134,12 +134,11 @@ function withSelectedOption<T extends FlatOption | GroupedOption>(
 
 /**
  * Model options grouped by provider, restricted to the providers this org can
- * reach. Callers pass those in because the front-end server's env flags can't
- * see org-stored keys. `undefined` means access is still loading; an empty list
- * means access loaded and no provider is available.
+ * reach. Callers pass those in: the front-end env flags can't see stored keys.
  *
- * Groups are alphabetical; models keep the registry's newest-first order, so
- * callers must pass `sort={false}` to SelectField or it re-sorts by label.
+ * - `undefined` providers: still loading, show all.
+ * - Empty providers: no key anywhere, show all.
+ * - Pass `sort={false}` to SelectField to keep the registry's newest-first order.
  */
 export function getAvailableAIModelOptions(
   availableProviders: readonly AIProvider[] | undefined,
@@ -147,12 +146,14 @@ export function getAvailableAIModelOptions(
 ): (FlatOption | GroupedOption)[] {
   const allProviders = Object.keys(AI_PROVIDER_MODEL_MAP) as AIProvider[];
 
-  // Filter the full list rather than mapping availableProviders, so provider
-  // order doesn't depend on the order keys happen to be stored in.
-  const providers =
+  // Filter, don't map, so provider order doesn't follow key storage order.
+  const filtered =
     availableProviders === undefined
       ? allProviders
       : allProviders.filter((p) => availableProviders.includes(p));
+
+  // No key anywhere: show everything so a fresh install can still pick.
+  const providers = filtered.length > 0 ? filtered : allProviders;
 
   const groups = providers
     .map((provider) => ({

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { AI_IMAGE_MODELS } from "shared/ai";
+import { AI_IMAGE_MODELS, AI_PROVIDER_MODEL_MAP } from "shared/ai";
 import {
   EMBEDDING_MODEL_OPTIONS,
   getAvailableAIModelOptions,
@@ -105,6 +105,18 @@ describe("getAvailableAIModelOptions", () => {
 
     expect(values(options)).toContain("gpt-4o-mini");
     expect(groupLabels(options)).toContain("Selected, no API key");
+  });
+
+  it("shows every provider when none has a key", () => {
+    expect(groupLabels(getAvailableAIModelOptions([]))).toEqual(
+      groupLabels(getAvailableAIModelOptions(undefined)),
+    );
+  });
+
+  it("shows every provider when access is still loading", () => {
+    expect(groupLabels(getAvailableAIModelOptions(undefined))).toHaveLength(
+      Object.keys(AI_PROVIDER_MODEL_MAP).length,
+    );
   });
 });
 
