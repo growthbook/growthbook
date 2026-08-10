@@ -29,9 +29,6 @@ export const putSavedGroupRevisionMetadata = createApiRequestHandler(
 
   const { name, owner, description, projects } = req.body;
 
-  // Mass-assignment guard: only fields in the explicit allowlist are
-  // forwarded to the patch builder. New fields that should be editable via
-  // metadata MUST also extend the validator body schema.
   const fieldsToUpdate: Record<string, unknown> = {};
   if (typeof name !== "undefined") fieldsToUpdate.groupName = name;
   if (typeof owner !== "undefined") fieldsToUpdate.owner = owner;
@@ -39,9 +36,7 @@ export const putSavedGroupRevisionMetadata = createApiRequestHandler(
     assertValidDescription(description);
     fieldsToUpdate.description = description;
   }
-  // Both checks run BEFORE probing project existence, so this can't be used as
-  // an existence oracle for projects the caller has no access to — same order
-  // as the Config and Constant twins.
+  // Authorize both scopes before checking project existence.
   if (
     !req.context.permissions.canRevisionAction(
       "saved-group",
@@ -51,7 +46,6 @@ export const putSavedGroupRevisionMetadata = createApiRequestHandler(
   ) {
     req.context.permissions.throwPermissionError();
   }
-  // Staging a move takes draft authority in the destination too.
   if (
     !holdsMoveDestination({
       permissions: req.context.permissions,
@@ -99,10 +93,7 @@ export const putSavedGroupRevisionMetadata = createApiRequestHandler(
     }
 
     if (Object.keys(fieldsToUpdate).length === 0) {
-      // No-op: drop any auto-created draft so we don't leave one stranded.
       await discardIfJustCreated(req.context, revision, created);
-      // Re-fetch the revision so the returned status reflects the actual
-      // DB state ("discarded") rather than the stale in-memory "draft".
       const closed =
         (await req.context.models.revisions.getById(revision.id)) ?? revision;
       return {

@@ -90,7 +90,6 @@ export async function toggleFeatureCore(
     await context.models.safeRollout.getAllPayloadSafeRollouts();
 
   if (Object.keys(changedToggles).length === 0) {
-    // No changes — return current state
     const revision = await getRevision({
       context,
       organization: feature.organization,
@@ -105,8 +104,7 @@ export async function toggleFeatureCore(
       experimentMap,
       revision,
       safeRolloutMap,
-      // Nothing changed, so nothing was published and no gate was cleared.
-      bypassedGates: [] as BypassedGate[],
+      bypassedGates: [],
     };
   }
 
@@ -158,10 +156,7 @@ export async function toggleFeatureCore(
     );
   }
 
-  // Toggle is an immediate publish like any other, so a bypass it performed is
-  // owed to the response — same shape, same precedence, same `via` values as the
-  // publish and revert surfaces. It reported nothing, which reads identically to
-  // "this feature needed no review".
+  // Report approval bypasses consistently with other publish endpoints.
   const bypassedGates: BypassedGate[] =
     reviewRequired && canBypass
       ? [

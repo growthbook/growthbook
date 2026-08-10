@@ -37,10 +37,11 @@ export async function recallRevisionReview({
   }
 
   // Lifecycle authority follows the revision snapshot, not later live-entity moves.
-  if (!isRevisionAuthor(revision.authorId, context.userId)) {
-    if (!canRevisionOwnedAction(context, revision, "draft")) {
-      context.permissions.throwPermissionError();
-    }
+  if (
+    !isRevisionAuthor(revision.authorId, context.userId) &&
+    !canRevisionOwnedAction(context, revision, "draft")
+  ) {
+    context.permissions.throwPermissionError();
   }
 
   const recalled = await context.models.revisions.recallReview(
@@ -69,10 +70,11 @@ export async function reopenRevision({
     throw new BadRequestError("Only discarded revisions can be reopened");
   }
 
-  if (!isRevisionAuthor(revision.authorId, context.userId)) {
-    if (!canRevisionOwnedAction(context, revision, "draft")) {
-      context.permissions.throwPermissionError();
-    }
+  if (
+    !isRevisionAuthor(revision.authorId, context.userId) &&
+    !canRevisionOwnedAction(context, revision, "draft")
+  ) {
+    context.permissions.throwPermissionError();
   }
 
   const reopened = await context.models.revisions.reopen(

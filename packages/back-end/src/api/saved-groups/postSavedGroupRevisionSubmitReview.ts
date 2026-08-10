@@ -8,10 +8,7 @@ import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 export const postSavedGroupRevisionSubmitReview = createApiRequestHandler(
   postSavedGroupRevisionSubmitReviewValidator,
 )(async (req) => {
-  // Addressed by the entity's own id, so an entity the caller cannot read is a
-  // 404 here even for a comment, which the internal controller — addressed by
-  // revision id — would allow on the snapshot. Deliberate: closing the gap means
-  // a permission-bypassing read, and this direction fails closed.
+  // Id-addressed REST handlers fail closed when the live entity is unreadable.
   const savedGroup = await req.context.models.savedGroups.getById(
     req.params.savedGroupId,
   );
@@ -25,8 +22,6 @@ export const postSavedGroupRevisionSubmitReview = createApiRequestHandler(
     req.params.version,
   );
 
-  // Anyone with edit permission can comment / request-changes; the
-  // self-approve guard below blocks `approve` decisions.
   const { revision: result, autoPublished } = await submitRevisionReview({
     context: req.context,
     entityType: "saved-group",

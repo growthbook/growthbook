@@ -37,19 +37,8 @@ export async function submitRevisionReview(
   const { action = "comment", comment } = req.body;
   const review = actionToReviewType[action];
 
-  // A VERDICT is the review atom; a plain comment is participation and takes the
-  // shared comment predicate instead — the same split the internal controller and
-  // the other three entities make. Demanding review for both meant this endpoint
-  // refused the very role an org grants to let people comment, while its dashboard
-  // twin allowed it.
-  // KNOWN DIVERGENCE from the other three entities, and structural rather than an
-  // oversight: they authorize commenting on `revision.target.snapshot`, so a review
-  // stays with the project the revision was opened in. Feature revisions carry no
-  // origin snapshot — `metadata.project` is the DESTINATION a draft stages, not
-  // where it started — so this engine can only ask about live. Both feature
-  // surfaces (this and the REST twin) ask it identically; closing the gap for real
-  // needs an origin project recorded on the revision, which is a schema change and
-  // a backfill, not a check.
+  // Comments use participation permission; verdicts require review permission.
+  // Feature revisions lack an origin snapshot, so comments use the live project.
   if (
     action === "comment"
       ? !canCommentOnRevisionEntity(req.context.permissions, "feature", null, {
@@ -69,14 +58,7 @@ export async function submitRevisionReview(
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
 
-  // Block the creator from any non-comment review action.
-  //
-  // An org-scoped API key carries no `id` on either side — `eventUserApiKey.id` is
-  // optional and a key context has userId "" — so an identity comparison here was
-  // structurally skipped, not merely tied, and such a key could create a draft,
-  // request review and approve it. `mayBeRevisionAuthor` asks the question this gate
-  // actually needs: not "is this provably the creator" but "could it be". Same rule
-  // the generic revision paths apply.
+  // Identityless principals may be the author and cannot submit a verdict.
   const creatorId =
     revision.createdBy != null && "id" in revision.createdBy
       ? revision.createdBy.id
@@ -94,8 +76,7 @@ export async function submitRevisionReview(
   const blockSelfApproval = Array.isArray(requireReviews)
     ? !!getReviewSetting(requireReviews, feature)?.blockSelfApproval
     : false;
-  // The early, clear refusal. Re-applied inside the verdict's CAS against the row it
-  // writes, because this reads a copy the contributor list can outrun.
+  // Rechecked inside the verdict CAS against the row it writes.
   if (action === "approve" && blockSelfApproval) {
     const isSelfApproval = (revision.contributors ?? []).some(
       (id) => id === req.context.userId,
@@ -124,9 +105,7 @@ export async function submitRevisionReview(
     req.context.auditUser,
     review,
     comment,
-    // Capture the live version the approval is made against so a later publish
-    // can detect when the approval has gone stale (parity with the internal
-    // app's review flow).
+    // Anchor approval to the current live version.
     feature.version,
     blockSelfApproval,
   );

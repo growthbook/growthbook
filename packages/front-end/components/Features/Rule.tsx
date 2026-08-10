@@ -238,15 +238,7 @@ interface SortableProps {
   holdout: HoldoutInterface | undefined;
   revisionList: MinimalFeatureRevisionInterface[];
   rampSchedule?: RampScheduleInterface;
-  /**
-   * The LIVE rule and the PERSISTED schedule, for the runtime-control authority check
-   * only. `feature` on this page is the draft projection whenever a non-live revision
-   * is selected — and the user's own draft is the DEFAULT — while `rampSchedule` has
-   * draft steps merged in. Runtime controls act on live state (see `canControlRamp`),
-   * so measuring their footprint against draft content made a dev-scoped publisher's
-   * own unpublished env-scope edit hide Pause and Advance on a live rollout the server
-   * would have let them stop.
-   */
+  /** Live state used only for runtime-control authority checks. */
   liveRule?: FeatureRule;
   liveRampSchedule?: RampScheduleInterface;
   draftRevision?: FeatureRevisionInterface | null;
@@ -441,12 +433,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const router = useRouter();
     const useDummyData = router.query["dummy"] === "true";
 
-    // Editing a rule on an existing flag is draft-class; the create gate has
-    // no bearing on it.
     const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
 
-    // Landing a safe-rollout decision writes live state across the feature's
-    // environments, so it takes publish the same way a ramp action does.
     const canPublishFeatureEnvs = useMemo(
       () =>
         permissionsUtil.canPublishFeature(
@@ -456,29 +444,16 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       [feature, permissionsUtil, environments],
     );
 
-    // Live ramp control changes what users are served right now, so it takes
-    // publish over the schedule's environments — not the draft authority that
-    // gates editing its steps in a revision.
     const canControlRamp = useMemo(() => {
       if (!rampSchedule) return false;
       return permissionsUtil.canPublishFeature(
         feature,
-        // The gate's own rule, per target, measured against what each target's rule
-        // serves. `rampSchedulePublishEnvironments` widens an unscoped patch to every
-        // environment — right for callers with no rule in hand, wrong here — and that
-        // is the shape the UI emits, so it disabled these controls for exactly the
-        // dev-scoped publisher the server-side narrowing unblocked.
+        // Match the server's target-specific ramp footprint.
         rampControlFootprint({
-          // The PERSISTED schedule, not the draft-merged one: the gate reads it from
-          // `getById`, so measuring draft patches here diverged from what the endpoint
-          // demands.
           schedule: liveRampSchedule ?? rampSchedule,
           allEnvironments: allEnvironments.map((e) => e.id),
           ruleEnvsForTarget: (target) => {
-            // The LIVE rule, and deliberately conservative about what this component
-            // cannot see: a target on another feature, or on a rule not held here,
-            // returns undefined and widens — the gate checks every target and resolves
-            // stem siblings, both of which reach past one rule on one page.
+            // Unknown targets widen conservatively.
             const basis = liveRule ?? rule;
             if (target.entityId && target.entityId !== feature.id) {
               return undefined;

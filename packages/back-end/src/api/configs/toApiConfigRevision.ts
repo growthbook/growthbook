@@ -7,9 +7,6 @@ import {
   revisionEnvelopeToApi,
 } from "back-end/src/api/revisionApiEnvelope";
 
-// Build the API response for a config revision: hides the raw `target` shape
-// and surfaces base/proposed config views + the raw patch ops. Everything
-// except those two payload fields is the shared revision envelope.
 export async function toApiConfigRevision(
   revision: Revision,
   context: ApiReqContext,

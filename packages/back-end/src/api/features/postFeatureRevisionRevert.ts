@@ -222,9 +222,7 @@ export async function revertFeatureRevision(
         !holdsMoveDestination({
           permissions: context.permissions,
           model: "feature",
-          // A direct revert lands under REVERT authority at the destination, not
-          // publish — matching v1 revertFeature.ts and the generic engine. This
-          // v2 route was the untouched twin still demanding publish.
+          // Direct revert moves require revert authority in the destination.
           action: isPublish ? "revert" : "draft",
           existing: feature,
           proposed: { ...feature, project: m.project },
@@ -379,12 +377,7 @@ export async function revertFeatureRevision(
     return { feature, revision: newDraft, bypassedGates: [] };
   }
 
-  // Coarse floor for the direct-publish path: every revert takes at least the
-  // revert atom, project-scoped and env-unbound. The per-field checks above add
-  // environment scope for payload fields, but they short-circuit for an
-  // inert-metadata-only revert (`metadataTouchesPayload` false) — without this
-  // floor that path published with no authority check. Mirrors v1 revertFeature.ts
-  // and the dashboard twin.
+  // Prevent metadata-only reverts from bypassing the project-scoped check.
   if (!context.permissions.canRevertFeature(feature, NO_ENVIRONMENT_BINDING)) {
     context.permissions.throwPermissionError();
   }

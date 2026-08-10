@@ -10,7 +10,6 @@ import { ApiReqContext } from "back-end/types/api";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 
-/** Shared API fields and snapshot projection for generic revision entities. */
 function toIsoString(d: Date | string | null | undefined): string {
   if (d === null || d === undefined) return new Date(0).toISOString();
   if (typeof d === "string") return d;

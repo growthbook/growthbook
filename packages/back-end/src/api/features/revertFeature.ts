@@ -63,12 +63,7 @@ export async function revertFeatureCore(
   const environmentIds = environments.map((e) => e.id);
   const allEnvironmentIds = getEnvironmentIdsFromOrg(organization);
 
-  // Coarse floor: EVERY revert takes at least the revert atom, project-scoped
-  // and env-unbound. The per-change checks below add environment scope for
-  // payload-affecting fields, but they short-circuit for an inert-metadata-only
-  // revert (`metadataTouchesPayload` false) — without this floor that path
-  // published with no authority check at all. The dashboard twin
-  // (controllers/features.ts) keeps the same floor.
+  // Prevent metadata-only reverts from bypassing the project-scoped check.
   if (!context.permissions.canRevertFeature(feature, NO_ENVIRONMENT_BINDING)) {
     context.permissions.throwPermissionError();
   }

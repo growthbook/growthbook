@@ -1293,10 +1293,7 @@ export async function requestRevisionReview({
   await requestWebhooks?.dispatch(context, updated, {
     type: "reviewRequested",
   });
-  // Requesting review can arm a deferred publish OR, submitted unarmed, clear a
-  // prior one (submitForReview applies CLEARED_SCHEDULE on an unarmed submit).
-  // Either is a schedule change; subscribers watch `publishScheduleChanged`, not
-  // `reviewRequested`, so dispatch whenever the schedule state transitions.
+  // Emit schedule changes for both arming and clearing an existing schedule.
   const wasScheduled =
     !!revision.autoPublishOnApproval ||
     (revision.scheduledPublishAt ?? null) !== null;

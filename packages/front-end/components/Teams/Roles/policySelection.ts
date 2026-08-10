@@ -6,11 +6,7 @@ function partsOf(policy: Policy): Policy[] {
   return POLICY_PARTS[policy] ?? [];
 }
 
-/**
- * Whether a policy is granted in full: the bundle itself, or every one of its
- * parts selected individually — which is how a role saved before the bundle
- * existed comes back.
- */
+// Treat legacy roles with every part selected as holding the whole policy.
 export function holdsWholePolicy(policy: Policy, policies: string[]): boolean {
   const parts = partsOf(policy);
   return (
@@ -19,7 +15,6 @@ export function holdsWholePolicy(policy: Policy, policies: string[]): boolean {
   );
 }
 
-/** How the parent checkbox reads: whole → checked, some → indeterminate. */
 export function policyCheckboxState(
   policy: Policy,
   policies: string[],
@@ -30,7 +25,6 @@ export function policyCheckboxState(
     : false;
 }
 
-/** Whether an individual permission is granted, by bundle or by its own entry. */
 export function holdsPolicyPart(
   policy: Policy,
   part: Policy,
@@ -39,23 +33,14 @@ export function holdsPolicyPart(
   return policies.includes(policy) || policies.includes(part);
 }
 
-/**
- * Clicking the parent: select the whole group, or clear it when it is already
- * whole. From indeterminate it fills in rather than discarding the picks the user
- * just made — the toggle a select-all is expected to be.
- */
+// Selecting the parent replaces its individual parts with the bundle.
 export function togglePolicy(policy: Policy, policies: string[]): string[] {
   const parts = new Set<string>(partsOf(policy));
   const rest = policies.filter((p) => p !== policy && !parts.has(p));
-  // The bundle grants everything its parts do, so it is stored alone.
   return holdsWholePolicy(policy, policies) ? rest : [...rest, policy];
 }
 
-/**
- * Clicking one permission ejects from the bundle: the whole-policy grant is
- * replaced by the individual parts it covered, plus or minus this one. Back at
- * every part, it collapses to the bundle again rather than storing them all.
- */
+// Editing a part expands the bundle, then collapses it again when all parts remain.
 export function togglePolicyPart(
   policy: Policy,
   part: Policy,

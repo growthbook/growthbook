@@ -160,12 +160,7 @@ export async function requestReview(
     { reviewComment: req.body.comment ?? null },
   );
 
-  // Requesting review can arm a deferred publish OR, submitted unarmed, clear a
-  // prior one (markRevisionAsReviewRequested unsets a stale schedule). Either is
-  // a schedule change, and a schedule subscriber has no reason to be watching
-  // `reviewRequested`. The dedicated scheduling route fires this; request-review
-  // persisted the identical state and said nothing, so the same transition was
-  // visible or invisible depending on which button produced it.
+  // Emit schedule changes for both arming and clearing an existing schedule.
   const wasScheduled =
     !!revision.autoPublishOnApproval ||
     (revision.scheduledPublishAt ?? null) !== null;

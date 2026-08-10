@@ -26,14 +26,12 @@ export const putConstantRevisionMetadata = createApiRequestHandler(
 
   const { name, owner, description, project } = req.body;
 
-  // Both checks run BEFORE probing project existence, so this can't be used as
-  // an existence oracle for projects the caller has no access to.
+  // Authorize both scopes before checking project existence.
   if (
     !req.context.permissions.canRevisionAction("constant", "draft", constant)
   ) {
     req.context.permissions.throwPermissionError();
   }
-  // Staging a move takes draft authority in the destination too.
   if (
     !holdsMoveDestination({
       permissions: req.context.permissions,
@@ -46,7 +44,6 @@ export const putConstantRevisionMetadata = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  // Mass-assignment guard: only allowlisted fields reach the patch builder.
   const fieldsToUpdate: Record<string, unknown> = {};
   if (typeof name !== "undefined") fieldsToUpdate.name = name;
   if (typeof owner !== "undefined") fieldsToUpdate.owner = owner;

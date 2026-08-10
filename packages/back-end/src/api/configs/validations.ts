@@ -1,5 +1,3 @@
-// The entity-agnostic revision helpers live in one place; re-exported here so
-// the handlers' existing imports keep working.
 export {
   isDraftStatus,
   assertUserScopedKeyForMine,
@@ -36,8 +34,6 @@ import {
 } from "back-end/src/revisions/util";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
-
-// Open (editable, non-terminal) statuses — mirrors the constant helper.
 
 export type RevisionEntityArg = Record<string, unknown> & {
   id: string;
@@ -130,8 +126,6 @@ export function applyRevisionToSnapshot(revision: Revision): ConfigInterface {
     normalizeProposedChanges(revision.target.proposedChanges),
   ) as ConfigInterface;
 }
-
-// `mine=true` requires a user-scoped key so the caller is identifiable.
 
 export function pickNewDraftMetadata(body: {
   revisionTitle?: string;

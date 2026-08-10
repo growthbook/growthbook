@@ -21,8 +21,6 @@ export const postSavedGroupRevisionSchedulePublish = createApiRequestHandler(
     req.params.version,
   );
 
-  // No `assertArmable`: the lock precondition is a Config feature, and nothing
-  // else gates arming for this entity.
   const updated = await scheduleRevisionPublish({
     context: req.context,
     type: "saved-group",

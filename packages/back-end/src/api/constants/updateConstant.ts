@@ -125,12 +125,7 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
       );
     }
 
-    // Change-aware approval gate (a value change always requires review when the
-    // project has requireReviews; metadata-only may be exempt) — mirrors the
-    // internal PUT controller and the saved-group REST update.
-    // This endpoint always lands the change live (there's no draft mode), so it
-    // needs publish authority on top of edit — same rule as the internal PUT.
-    // Open a draft via POST /constants-revisions/:key without it.
+    // Direct updates require publish authority over the change footprint.
     if (
       !req.context.permissions.canRevisionAction(
         "constant",

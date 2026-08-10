@@ -1,5 +1,3 @@
-// The entity-agnostic revision helpers live in one place; re-exported here so
-// the handlers' existing imports keep working.
 export {
   isDraftStatus,
   assertUserScopedKeyForMine,
@@ -23,21 +21,6 @@ import {
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 
-// Open statuses (i.e. editable, non-terminal). Mirrors `ACTIVE_DRAFT_STATUSES`
-// in features/validations.ts, but typed off the saved-group revision enum
-// since the feature and saved-group revision status enums are distinct.
-
-/**
- * True iff the revision is in a status that allows further edits. Mirrors
- * `isDraftStatus` from features/validations.ts.
- */
-
-// Build a fresh draft revision for a saved group. Used when callers pass
-// `version: "new"` to a field-edit endpoint and we need to auto-create the
-// draft they intend to edit.
-//
-// Pairs with `discardIfJustCreated` — call that on any downstream failure to
-// avoid leaving an orphaned empty draft behind.
 async function createBlankDraft(
   context: ApiReqContext,
   savedGroup: SavedGroupInterface,
@@ -262,19 +245,6 @@ export function assertValidDescription(description: string | undefined): void {
     throw new BadRequestError("Description must be at most 100 characters");
   }
 }
-
-// `mine=true` requires a user-scoped API key so we can identify the caller
-// as a user. A secret API key has no user identity attached, so we'd be
-// forced to either return everything (information leak) or return nothing
-// silently (footgun) — both are bad. Reject up front instead.
-
-// Translate the public `status` query param (which accepts a single status, a
-// comma-separated list, or the literal `"open"` shortcut) into the model's
-// filter shape — `string | string[] | undefined`.
-//
-// The `"open"` alias is passed through as a single string so the model can
-// expand it into its own non-terminal status set (see `buildStatusFilter` on
-// `RevisionModel`).
 
 export function dedupeValues(values: string[]): string[] {
   return [...new Set(values)];

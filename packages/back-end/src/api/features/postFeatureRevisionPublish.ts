@@ -42,24 +42,13 @@ export async function publishFeatureRevision(
     };
   },
   canUseRestApiBypass: boolean,
-  // Interactive REST publishes surface publish-time value + custom-hook failures
-  // as structured publish gates (and skip the throwing re-run inside
-  // publishRevision). Armed/scheduled publishes (no interactive request
-  // disposition) leave this false and keep the original throwing checks so their
-  // block-vs-suppress behavior — which relies on the background context's
-  // always-true ignoreWarnings — is preserved exactly.
+  // Interactive publishes return validation failures as structured gates.
   inlineValidationGates: boolean = false,
 ) {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  // Coarse authority check, before anything expensive or observable. The precise
-  // per-environment check runs below, once the merge footprint is known — but a
-  // caller holding none of the three landing atoms in this project cannot pass it
-  // under any footprint, so refusing here costs an authorized caller nothing. It
-  // keeps an unauthorized one from running the org's sandboxed validation hooks
-  // and from reading the governance-gate enumeration that gate collection
-  // returns in its 422.
+  // Fail closed before exposing gates or running hooks; precise checks follow planning.
   if (
     !req.context.permissions.canPublishFeature(
       feature,

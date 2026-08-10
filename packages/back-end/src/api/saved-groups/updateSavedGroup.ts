@@ -119,15 +119,7 @@ export const updateSavedGroup = createApiRequestHandler(
 
   const adapter = getAdapter("saved-group");
 
-  // Build the patch ops up front so the approval gate can honour the
-  // saved-group adapter's metadata-only shortcut (`requireMetadataReview`),
-  // matching POST .../revisions/{version}/publish. Without this, a
-  // metadata-only change (name/owner/description) in an org that exempts
-  // metadata from review would be blocked here even though publishing the
-  // same change via a revision would be allowed.
-  // This endpoint always lands the change live (there's no draft mode), so it
-  // needs publish authority on top of edit — same rule as the internal PUT.
-  // Open a draft via POST /saved-groups-revisions/:id without it.
+  // Direct updates require publish authority.
   if (
     !req.context.permissions.canRevisionAction(
       "saved-group",

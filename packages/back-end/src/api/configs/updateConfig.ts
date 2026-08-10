@@ -504,9 +504,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       };
     }
 
-    // This endpoint always lands the change live (there's no draft mode), so it
-    // needs publish authority on top of edit — same rule as the internal PUT.
-    // Open a draft via POST /configs-revisions/:key without it.
+    // Direct updates require publish authority.
     if (
       !req.context.permissions.canRevisionAction(
         "config",

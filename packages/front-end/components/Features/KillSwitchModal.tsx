@@ -368,8 +368,7 @@ export default function KillSwitchModal({
     return baseEnvEnabled[envId] ?? false;
   };
 
-  // Which envs have an approval policy for kill-switch changes (badge coloring).
-  // featureRequireEnvironmentReview=false means kill-switch changes bypass env approvals.
+  // Environments gated by kill-switch approval policy.
   const gatedEnvSet: Set<string> | "all" | "none" = (() => {
     if (rawRequireReviews === true) return "all";
     if (!reviewSetting?.requireReviewOn) return "none";
@@ -378,7 +377,6 @@ export default function KillSwitchModal({
     return gatedEnvs.length === 0 ? "all" : new Set(gatedEnvs);
   })();
 
-  // Gated only when the proposal actually flips a gated env's switch from live.
   const liveEnvSettings = liveDoc.environmentSettings ?? {};
   const envIsGated =
     gatedEnvSet !== "none" &&
@@ -388,21 +386,13 @@ export default function KillSwitchModal({
       return getEffectiveState(env.id) !== !!liveEnvSettings[env.id]?.enabled;
     });
 
-  // Landing the toggle needs publish authority in every environment it actually
-  // flips. Approval gating alone is not enough: a draft-only editor may stage a
-  // toggle but never land one, however inconsequential it is.
   const canPublishFlippedEnvs = visibleEnvs.every(
     (env) =>
       getEffectiveState(env.id) === !!liveEnvSettings[env.id]?.enabled ||
       permissionsUtil.canPublishFeature(liveDoc, [env.id]),
   );
 
-  // Whether the publish route is open at all — judged over the environments on
-  // offer rather than only the ones flipped so far, because before the first
-  // toggle that set is empty and `every` on it is vacuously true, which would
-  // offer "Publish now" to a draft-only user. `some`, not `every`: an
-  // env-limited publisher may publish the envs they hold, and the flipped-set
-  // check above plus the CTA gate enforce the actual selection.
+  // Require at least one visible environment the user may publish.
   const canPublishAnyVisibleEnv = visibleEnvs.some((env) =>
     permissionsUtil.canPublishFeature(liveDoc, [env.id]),
   );
@@ -410,13 +400,8 @@ export default function KillSwitchModal({
     (isAdmin || !envIsGated) &&
     canPublishFlippedEnvs &&
     canPublishAnyVisibleEnv;
-  // Without draft rights, publishing is the only route — and an approval-gated
-  // change closes it, leaving nothing this user can submit.
   const noRouteAvailable = !canDraft && !canAutoPublish;
 
-  // Reset mode if "publish now" becomes unavailable due to a newly gated change.
-  // Without draft rights there's nowhere to fall back to — leave the mode alone
-  // so the selector keeps reporting the one route the user has.
   useEffect(() => {
     if (!canAutoPublish && canDraft && mode === "publish") {
       setMode("new");
@@ -436,7 +421,6 @@ export default function KillSwitchModal({
     return getEffectiveState(envId);
   };
 
-  // Flipping a switch commits to nothing — the CTA enforces the chosen route.
   const canToggleEnv = (envId: string) =>
     canDraft || permissionsUtil.canPublishFeature(liveDoc, [envId]);
 

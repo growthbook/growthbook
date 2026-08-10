@@ -123,9 +123,6 @@ type GetAllRevisionsResponse = {
 const DEFAULT_REVISION_PAGE_SIZE = 100;
 const MAX_REVISION_PAGE_SIZE = 500;
 
-// Delegates to the REST layer's parser so both surfaces answer the same
-// question — `open` is an alias, not a stored status, so passing it through
-// verbatim silently matches nothing.
 function parseStatusParam(status?: string): string | string[] | undefined {
   return buildRevisionStatusFilter(status);
 }
@@ -139,10 +136,6 @@ function resolvePagination(query: RevisionListQuery) {
   return { limit, offset };
 }
 
-// GET /revision
-// Get a paginated list of revisions for the organization. Pass `?status=open`
-// to restrict to non-merged/non-discarded revisions, or a comma-separated list
-// of explicit statuses.
 export const getAllRevisions = async (
   req: GetAllRevisionsRequest,
   res: Response<GetAllRevisionsResponse | ApiErrorResponse>,
@@ -181,13 +174,7 @@ type GetOpenRevisionCountResponse = {
   count: number;
 };
 
-// GET /revision/count
-// Lightweight count of open revisions across the org. Used by the top-nav
-// badge so it doesn't have to fetch full revision documents.
-//
-// When `entityType` is not specified, the count is restricted to entity types
-// whose approval flow is currently enabled in the org settings — otherwise
-// stale drafts for a disabled type would inflate the badge.
+// Without an entity filter, count only types with enabled approval flows.
 export const getOpenRevisionCount = async (
   req: GetOpenRevisionCountRequest,
   res: Response<GetOpenRevisionCountResponse | ApiErrorResponse>,
@@ -597,10 +584,7 @@ export const postSubmit = async (
 
   const webhooks = getRevisionWebhookAdapter(revision.target.type);
   await webhooks?.dispatch(context, revision, { type: "reviewRequested" });
-  // Submitting can arm a deferred publish OR, submitted unarmed, clear a prior
-  // one. Either transition is a schedule change; subscribers watch
-  // `publishScheduleChanged`, not `reviewRequested`, so dispatch whenever the
-  // schedule state changes — not only when arming.
+  // Emit schedule changes for both arming and clearing an existing schedule.
   const wasScheduled =
     !!existingRevision.autoPublishOnApproval ||
     (existingRevision.scheduledPublishAt ?? null) !== null;
@@ -1126,10 +1110,7 @@ type PostMergeResponse = {
   revision: Revision;
 };
 
-// POST /revision/:id/merge
-// Merge a revision (apply the changes). A revision with no net change vs the
-// live entity is closed out as merged (200), not an error, to self-heal
-// partial-failure retries.
+// No-op merges close as merged to self-heal partial-failure retries.
 export const postMerge = async (
   req: PostMergeRequest,
   res: Response<PostMergeResponse | ApiErrorResponse>,

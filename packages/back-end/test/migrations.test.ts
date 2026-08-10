@@ -3157,11 +3157,13 @@ describe("Funnel Step Migration (factTable → factTableId)", () => {
           },
         },
       };
-      const result = migrateBlock(block as any);
-      expect((result as any).config.dataset.steps).toEqual([
-        migratedStep("orders"),
-        migratedStep("visits"),
-      ]);
+      expect(migrateBlock(block)).toMatchObject({
+        config: {
+          dataset: {
+            steps: [migratedStep("orders"), migratedStep("visits")],
+          },
+        },
+      });
     });
 
     it("passes through blocks that already have factTableId", () => {
@@ -3188,10 +3190,13 @@ describe("Funnel Step Migration (factTable → factTableId)", () => {
           },
         },
       };
-      const result = migrateBlock(block as any);
-      expect((result as any).config.dataset.steps).toEqual([
-        migratedStep("orders"),
-      ]);
+      expect(migrateBlock(block)).toMatchObject({
+        config: {
+          dataset: {
+            steps: [migratedStep("orders")],
+          },
+        },
+      });
     });
   });
 });

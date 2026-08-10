@@ -251,10 +251,6 @@ export function isPureFeatureArchive({
   );
 }
 
-/**
- * The `archived` value a JSON-patch change set would land, or undefined when it
- * doesn't touch the field. Later ops win, matching patch application order.
- */
 // Proposed project scope after applying revision changes.
 export function proposedProjectScope(proposedChanges: unknown): {
   project?: string;
@@ -288,6 +284,10 @@ export function restoredProjectScope(targetRevision: {
   };
 }
 
+/**
+ * The `archived` value a JSON-patch change set would land, or undefined when it
+ * doesn't touch the field. Later ops win, matching patch application order.
+ */
 export function proposedArchivedValue(
   proposedChanges: unknown,
 ): boolean | undefined {

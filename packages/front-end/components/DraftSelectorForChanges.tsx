@@ -49,22 +49,15 @@ export default function DraftSelectorForChanges<K>({
   hideExisting?: boolean;
   triggerPrefix?: string;
   metadataOnly?: boolean;
-  // Whether the user may author drafts. Without it publishing is the only route
-  // their change can take, so the draft options aren't offered.
   canDraft?: boolean;
   // Soft per-entity draft cap (org setting). 0 means no cap.
   maxDrafts?: number;
   isAdmin?: boolean;
-  // Keep "create a new draft" available even when the org's soft draft cap is
-  // reached — for critical flows (revert, archive) that shouldn't be blocked.
+  // Allow critical flows to exceed the soft draft cap.
   allowNewDraftAtCap?: boolean;
   // Subject of the cap message, e.g. "This feature". Defaults to "This".
   capNoun?: string;
-  /**
-   * Draft keys this flow may WRITE into, when that is narrower than "active".
-   * Offering another author's draft to a caller the endpoint refuses turns a
-   * picker choice into a 403 — see RevisionDraftSelectorForChanges.
-   */
+  /** Active drafts this flow may write to. */
   writableDraftKeys?: K[];
 }) {
   const activeDraftKeys = writableDraftKeys ?? allActiveDraftKeys;
@@ -72,37 +65,24 @@ export default function DraftSelectorForChanges<K>({
     !canDraft ||
     (!canAutoPublish && (hideExisting || activeDraftKeys.length === 0));
 
-  // Soft per-entity draft cap (org setting). At/over the cap we steer users to
-  // an existing draft and block creating a new one — except admins and critical
-  // flows (revert, archive) that opt in via `allowNewDraftAtCap`.
   const atDraftCap =
     !hideExisting && maxDrafts > 0 && activeDraftKeys.length >= maxDrafts;
   const newDraftBlocked = atDraftCap && !isAdmin && !allowNewDraftAtCap;
 
-  // Correcting a mode the parent can't reach itself, in an effect rather than
-  // during render: these call the PARENT's setters, and React refuses to update
-  // another component mid-render.
+  // Reconcile externally controlled mode after permissions and drafts change.
   useEffect(() => {
-    // Without draft rights the only route is publishing, so that's the one mode.
     if (!canDraft) {
       if (mode !== "publish") {
         setSelectedDraft(null);
         setMode("publish");
       }
     } else if (singleOption && mode !== "new") {
-      // Otherwise the sole remaining mode is "new"; keep the form in sync in case
-      // the parent initialised with a stale value.
       setSelectedDraft(null);
       setMode("new");
     } else if (newDraftBlocked && mode === "new") {
-      // "new" is disabled at the cap — fall back to the most recent active draft.
       setMode("existing");
       setSelectedDraft(selectedDraft ?? activeDraftKeys[0] ?? null);
     } else if (mode === "publish" && !canAutoPublish) {
-      // Publish authority can disappear while the form is open — a project move to a
-      // destination the caller may only draft in. The control stops OFFERING publish,
-      // but a mode already selected stayed selected and the submit still asked for it,
-      // returning 403.
       setMode("new");
       setSelectedDraft(null);
     } else if (
@@ -111,9 +91,6 @@ export default function DraftSelectorForChanges<K>({
       writableDraftKeys &&
       !writableDraftKeys.includes(selectedDraft)
     ) {
-      // The picker deliberately keeps a selected draft visible after a permission
-      // change so its label doesn't vanish — but leaving it SELECTED means submitting
-      // a write the endpoint refuses. Fall back to a writable draft, or to a new one.
       const fallback = writableDraftKeys[0] ?? null;
       setSelectedDraft(fallback);
       if (fallback === null) setMode("new");

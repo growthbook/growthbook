@@ -1,5 +1,3 @@
-// The entity-agnostic revision helpers live in one place; re-exported here so
-// the handlers' existing imports keep working.
 export {
   isDraftStatus,
   assertUserScopedKeyForMine,
@@ -18,9 +16,6 @@ import {
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 
-// Open (editable, non-terminal) statuses — mirrors the saved-group helper.
-
-// The loosely-typed entity shape the revision helpers expect.
 type RevisionEntityArg = Record<string, unknown> & {
   id: string;
   owner?: string;
@@ -113,10 +108,6 @@ export function applyRevisionToSnapshot(revision: Revision): ConstantInterface {
     normalizeProposedChanges(revision.target.proposedChanges),
   ) as ConstantInterface;
 }
-
-// `mine=true` requires a user-scoped key so the caller is identifiable.
-
-// Translate the public `status` query param into the model's filter shape.
 
 export function pickNewDraftMetadata(body: {
   revisionTitle?: string;

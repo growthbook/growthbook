@@ -1328,10 +1328,7 @@ export async function postFeatureRequestReview(
     { reviewComment: comment ?? null },
   );
 
-  // Requesting review can arm a deferred publish OR, submitted unarmed, clear a
-  // prior one (markRevisionAsReviewRequested unsets a stale schedule). Either is
-  // a schedule change; fire the event whenever the schedule state transitions —
-  // a schedule subscriber has no reason to be watching `reviewRequested`.
+  // Emit schedule changes for both arming and clearing an existing schedule.
   const wasScheduled =
     !!revision.autoPublishOnApproval ||
     (revision.scheduledPublishAt ?? null) !== null;

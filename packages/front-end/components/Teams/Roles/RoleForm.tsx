@@ -298,11 +298,6 @@ export default function RoleForm({
                             description={policyData.description}
                           />
                           {policyData.warning ? (
-                            // These are privilege-escalation notices ("can create
-                            // admin users"), so they take the attention tier rather
-                            // than the least-prominent warning one. Still beside the
-                            // checkbox rather than tinting it — not a validation
-                            // error.
                             <Box ml="5" mt="1">
                               <HelperText status="attention" size="sm">
                                 {policyData.warning}
@@ -326,13 +321,10 @@ export default function RoleForm({
                                 <Flex direction="column" gap="2" mt="2">
                                   {parts.map((part) => {
                                     const meta = POLICY_METADATA_MAP[part];
-                                    if (!meta) return null;
                                     return (
                                       <Checkbox
                                         key={part}
                                         id={`${policy}-${part}-checkbox`}
-                                        // Checked either because the bundle grants
-                                        // it or because it was picked directly.
                                         value={
                                           checked ||
                                           currentPolicies.includes(part)
@@ -341,9 +333,6 @@ export default function RoleForm({
                                           togglePolicyPart(policy, part)
                                         }
                                         disabled={status === "viewing"}
-                                        // Lighter than the policy above it, so the
-                                        // parent/child tiers read apart inside the
-                                        // disclosure.
                                         weight="regular"
                                         label={meta.displayName}
                                         description={meta.description}

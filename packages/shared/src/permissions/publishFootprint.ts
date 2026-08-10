@@ -109,14 +109,15 @@ export function featurePublishFootprint({
 
   if (holdoutEnvs === HOLDOUT_ENVS_UNRESOLVED) return [...environmentIds];
 
+  const changedRules = changes.rules;
   const changedRuleEnvs =
-    changes.rules === undefined
+    changedRules === undefined
       ? []
       : environmentIds.filter(
           (env) =>
             !isEqual(
               getRulesForEnvironment(liveRules, env),
-              getRulesForEnvironment(changes.rules ?? [], env),
+              getRulesForEnvironment(changedRules, env),
             ),
         );
 

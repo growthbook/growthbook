@@ -1,10 +1,6 @@
 /** Shared read/compute/guard/write retry loop for BaseModel and feature revisions. */
 
-/**
- * The three ways a loop can end without applying. No caller currently tells
- * `aborted` from `not-found`, but the loop keeps them separate so one that wants
- * "no such document" need not re-read to find out.
- */
+/** Distinguishes compute aborts from missing reads. */
 export type CasOutcome<TResult> =
   | { status: "applied"; result: TResult }
   | { status: "aborted" }

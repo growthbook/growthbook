@@ -126,24 +126,20 @@ export function canStageArchiveDraft({
   entity: ProjectScoped;
   archived: boolean;
 }): boolean {
-  if (
+  return (
     permissions.canRevisionAction(
       model,
       "draft",
       entity,
       NO_ENVIRONMENT_BINDING,
-    )
-  ) {
-    return true;
-  }
-  return (
-    archived &&
-    permissions.canRevisionAction(
-      model,
-      "delete",
-      entity,
-      NO_ENVIRONMENT_BINDING,
-    )
+    ) ||
+    (archived &&
+      permissions.canRevisionAction(
+        model,
+        "delete",
+        entity,
+        NO_ENVIRONMENT_BINDING,
+      ))
   );
 }
 
