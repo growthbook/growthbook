@@ -613,6 +613,11 @@ async function publishRevisionInner(
   // stranded merge from a completed one.
   const alreadyMerged = revision.status === "merged";
 
+  // A pure revert lands under REVERT authority, including when it relocates the
+  // entity — the same atom `assertCanPublishRevision` grants it above. The
+  // move check below must not re-demand "publish".
+  const pureRevert = await isPureRevertRevision(context, revision);
+
   const approvalRequired = adapter.isApprovalRequiredForRevision
     ? adapter.isApprovalRequiredForRevision(context, revision)
     : adapter.isApprovalRequired(context);
@@ -692,7 +697,7 @@ async function publishRevisionInner(
       !holdsMoveDestination({
         permissions: context.permissions,
         model: revision.target.type,
-        action: "publish",
+        action: pureRevert ? "revert" : "publish",
         existing: entity,
         proposed: destination,
         environments: resolvePublishFootprint(

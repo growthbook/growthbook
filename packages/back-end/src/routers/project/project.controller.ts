@@ -243,7 +243,12 @@ export const deleteProject = async (
       // Union across the project's non-archived features (archived ones are
       // already out of service, so the delete atom alone covers them).
       const orgEnvs = getEnvironments(context.org);
-      const liveFeatures = await getAllFeatures(context, { projects: [id] });
+      // OWNED by this project only (project === id): the cascade deletes those,
+      // not features that merely target it. getAllFeatures's project clause is
+      // targeting-scoped (broader), so narrow it or the footprint over-demands.
+      const liveFeatures = (
+        await getAllFeatures(context, { projects: [id] })
+      ).filter((feature) => feature.project === id);
       const footprint = Array.from(
         new Set(
           liveFeatures.flatMap((feature) =>

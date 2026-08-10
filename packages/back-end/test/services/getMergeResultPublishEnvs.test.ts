@@ -57,6 +57,12 @@ function ctxWith(
   holdoutsById: Record<string, HoldoutInterface | null> = {},
 ): ReqContext {
   return {
+    // A project/targeting move re-derives the destination's applicable envs
+    // from the org's environment list, so the context must carry it.
+    org: {
+      id: "org_test",
+      settings: { environments: ENVS.map((id) => ({ id })) },
+    },
     models: {
       holdout: {
         getById: jest.fn(async (id: string) => holdoutsById[id] ?? null),
@@ -335,6 +341,73 @@ describe("getMergeResultPublishEnvs", () => {
         environmentIds: ENVS,
       });
       expect(envs).toContain("production");
+    });
+  });
+
+  describe("a project move widens to destination-applicable envs", () => {
+    // The escalation the reviewer caught: `production` is project-scoped so it
+    // is NOT applicable to the source project (excluded from environmentIds),
+    // but the feature is already enabled there. A revision that ONLY relocates
+    // the feature into the destination project activates production live. The
+    // footprint must include production so publish authority over it is
+    // demanded — computed from the DESTINATION project, not the pre-move one.
+    function moveCtx(): ReqContext {
+      return {
+        org: {
+          id: "org_test",
+          settings: {
+            environments: [
+              { id: "dev" },
+              { id: "staging" },
+              // production only serves the destination project.
+              { id: "production", projects: ["prj_dest"] },
+            ],
+          },
+        },
+        models: { holdout: { getById: jest.fn(async () => null) } },
+      } as unknown as ReqContext;
+    }
+
+    it("demands authority over a destination-only env the move activates", async () => {
+      const feature = feat({
+        project: "prj_src",
+        environmentSettings: {
+          dev: { enabled: true, rules: [] },
+          staging: { enabled: true, rules: [] },
+          // Enabled but dormant: prj_src does not serve production.
+          production: { enabled: true, rules: [] },
+        },
+      });
+      // Pre-move applicable set excludes production (source can't serve it).
+      const sourceApplicable = ["dev", "staging"];
+      const envs = await getMergeResultPublishEnvs({
+        context: moveCtx(),
+        feature,
+        filledLiveRules: [],
+        result: { metadata: { project: "prj_dest" } },
+        environmentIds: sourceApplicable,
+      });
+      expect(envs).toContain("production");
+    });
+
+    it("does not widen when nothing moves", async () => {
+      // Same dormant-production feature, but a non-move change — production must
+      // stay out of the footprint (the source still cannot serve it).
+      const feature = feat({
+        project: "prj_src",
+        environmentSettings: {
+          dev: { enabled: true, rules: [] },
+          production: { enabled: true, rules: [] },
+        },
+      });
+      const envs = await getMergeResultPublishEnvs({
+        context: moveCtx(),
+        feature,
+        filledLiveRules: [],
+        result: { defaultValue: "b" },
+        environmentIds: ["dev"],
+      });
+      expect(envs).not.toContain("production");
     });
   });
 });
