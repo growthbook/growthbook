@@ -58,6 +58,8 @@ const usesOwnAIKey = (
   keySource: Record<AIProvider, AIKeySource>,
   model: AIModel,
 ): boolean => {
+  // Self-hosted keys are the customer's whatever the source, so `env` counts.
+  if (!IS_CLOUD) return true;
   try {
     return keySource[getProviderFromModel(model)] === "organization";
   } catch {
@@ -65,6 +67,16 @@ const usesOwnAIKey = (
     return false;
   }
 };
+
+// One resolution rule for text models, shared by the usage gate and the call
+// itself. They must agree: gating a model the call would reject can 429 a
+// request that was going to run on the org's own key.
+export const resolveTextAIModel = (
+  overrideModel: AIModel | undefined,
+  defaultAIModel: AIModel,
+  keySource: Record<AIProvider, AIKeySource>,
+): AIModel =>
+  getAllowedAIModel("text", overrideModel, keySource) || defaultAIModel;
 
 export const getAIProviderClass = async (
   context: ReqContext | ApiReqContext,
@@ -207,21 +219,27 @@ export const secondsUntilAICanBeUsedAgainForProvider = async (
   context: ReqContext | ApiReqContext,
   provider: AIProvider | undefined,
 ): Promise<number> => {
+  // Self-hosted has no managed key to ration.
+  if (!IS_CLOUD) return 0;
   const { keySource } = await getAISettingsForOrg(context);
   if (provider && keySource[provider] === "organization") return 0;
   return secondsUntilAICanBeUsedAgain(context.org);
 };
 
-// Pass the model the request will actually use, override included. Omit to
-// check the org's default model.
+// Pass the request's override, not the model it settles on: an override whose
+// provider the org no longer keys is dropped at call time in favour of the
+// default, and gating the stale one can 429 a request that would have run
+// uncapped. Omit to check the org's default model.
 export const secondsUntilAICanBeUsedAgainForModel = async (
   context: ReqContext | ApiReqContext,
-  model?: AIModel,
+  overrideModel?: AIModel,
 ): Promise<number> => {
-  const resolved = model || (await getAISettingsForOrg(context)).defaultAIModel;
+  if (!IS_CLOUD) return 0;
+  const { defaultAIModel, keySource } = await getAISettingsForOrg(context);
+  const model = resolveTextAIModel(overrideModel, defaultAIModel, keySource);
   let provider: AIProvider | undefined;
   try {
-    provider = getProviderFromModel(resolved);
+    provider = getProviderFromModel(model);
   } catch {
     // Unknown model — leave the provider unset so the request is metered.
   }
@@ -234,6 +252,7 @@ export const secondsUntilAICanBeUsedAgainForPrompt = async (
   context: ReqContext | ApiReqContext,
   type: AIPromptType,
 ): Promise<number> => {
+  if (!IS_CLOUD) return 0;
   const { overrideModel } = await context.models.aiPrompts.getAIPrompt(type);
   return secondsUntilAICanBeUsedAgainForModel(context, overrideModel);
 };
@@ -242,6 +261,7 @@ export const secondsUntilAICanBeUsedAgainForPrompt = async (
 export const secondsUntilAICanBeUsedAgainForEmbeddings = async (
   context: ReqContext | ApiReqContext,
 ): Promise<number> => {
+  if (!IS_CLOUD) return 0;
   const { embeddingModel } = await getAISettingsForOrg(context);
   let provider: AIProvider | undefined;
   try {
@@ -317,8 +337,7 @@ export const simpleCompletion = async ({
     true,
   );
 
-  const model =
-    getAllowedAIModel("text", overrideModel, keySource) || defaultAIModel;
+  const model = resolveTextAIModel(overrideModel, defaultAIModel, keySource);
   const ownKey = usesOwnAIKey(keySource, model);
 
   const aiProvider = await getAIProviderClass(context, model);
@@ -431,8 +450,7 @@ export const streamingChatCompletion = async ({
     context,
     true,
   );
-  const model =
-    getAllowedAIModel("text", overrideModel, keySource) || defaultAIModel;
+  const model = resolveTextAIModel(overrideModel, defaultAIModel, keySource);
   const ownKey = usesOwnAIKey(keySource, model);
   const aiProvider = await getAIProviderClass(context, model);
 
@@ -633,8 +651,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     context,
     true,
   );
-  const model =
-    getAllowedAIModel("text", overrideModel, keySource) || defaultAIModel;
+  const model = resolveTextAIModel(overrideModel, defaultAIModel, keySource);
   const ownKey = usesOwnAIKey(keySource, model);
 
   const aiProvider = await getAIProviderClass(context, model);

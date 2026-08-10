@@ -1,9 +1,30 @@
 import { AIProvider } from "shared/ai";
 import { AIKeySource } from "back-end/src/services/aiCredentials";
 
-jest.mock("back-end/src/services/organizations", () => ({
-  getAISettingsForOrg: jest.fn(),
+// The cap only exists on Cloud, so every case here is a Cloud case.
+jest.mock("back-end/src/util/secrets", () => ({
+  ...jest.requireActual("back-end/src/util/secrets"),
+  IS_CLOUD: true,
 }));
+jest.mock("back-end/src/services/organizations", () => {
+  // Mirrors getAllowedAIModel's Cloud rule. requireActual on the real module
+  // cycles through OrganizationModel, and the rule is one line.
+  const { getProviderForAIModel } = jest.requireActual("shared/ai");
+  return {
+    getAISettingsForOrg: jest.fn(),
+    getAllowedAIModel: (
+      kind: "text" | "embedding" | "image",
+      model: string | undefined,
+      keySource: Record<string, string>,
+    ) => {
+      if (!model) return undefined;
+      const provider = getProviderForAIModel(kind, model);
+      return provider && keySource[provider] === "organization"
+        ? model
+        : undefined;
+    },
+  };
+});
 jest.mock("back-end/src/models/AITokenUsageModel", () => ({
   getTokensUsedByOrganization: jest.fn(),
   updateTokenUsage: jest.fn(),
@@ -103,13 +124,41 @@ describe("provider-exact AI usage cap", () => {
     expect(await secondsUntilAICanBeUsedAgainForModel(context)).toBe(0);
   });
 
-  it("meters an unrecognized model rather than exempting it", async () => {
-    setSettings({ keySource: keySources({ openai: "organization" }) });
+  it("meters an unrecognized model against the default it falls back to", async () => {
+    setSettings({
+      keySource: keySources({ anthropic: "organization" }),
+      defaultAIModel: "gpt-4o-mini",
+    });
 
     expect(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await secondsUntilAICanBeUsedAgainForModel(context, "not-a-model" as any),
     ).toBeGreaterThan(0);
+  });
+
+  it("exempts a stale override that execution would drop for an org-owned default", async () => {
+    // The OpenAI key is gone, so the call drops the GPT override and runs the
+    // org's own Claude. Gating the stale GPT would 429 a request that never
+    // touches a managed key.
+    setSettings({
+      keySource: keySources({ anthropic: "organization" }),
+      defaultAIModel: "claude-sonnet-4-6",
+    });
+
+    expect(await secondsUntilAICanBeUsedAgainForModel(context, "gpt-5.2")).toBe(
+      0,
+    );
+  });
+
+  it("still meters an override the org does key when the default is managed", async () => {
+    setSettings({
+      keySource: keySources({ anthropic: "organization" }),
+      defaultAIModel: "gpt-4o-mini",
+    });
+
+    expect(
+      await secondsUntilAICanBeUsedAgainForModel(context, "claude-sonnet-4-6"),
+    ).toBe(0);
   });
 
   it("uses the embedding model's own provider lookup", async () => {
