@@ -4,10 +4,7 @@ import type {
   GrowthBookClient,
 } from "../GrowthBookClient";
 import { genUUID } from "../util";
-import {
-  getOrCreateSessionReplayId,
-  touchSessionReplayId,
-} from "./session-replay-id";
+import { getOrCreateGbSessionId } from "./gb-session";
 
 export type AutoAttributeSettings = {
   uuidCookieName?: string;
@@ -18,15 +15,9 @@ export type AutoAttributeSettings = {
   // anonymous id is shared across subdomains. Without this the cookie is
   // host-only and a redirect to another subdomain mints a brand new id.
   uuidCookieDomain?: string;
+  // Hard time cap (ms) on the generic browser session. Defaults to 30 minutes.
+  maxDuration?: number;
 };
-
-const SESSION_REPLAY_TOUCH_THROTTLE_MS = 60 * 1000;
-const SESSION_REPLAY_ACTIVITY_EVENTS = [
-  "pointerdown",
-  "keydown",
-  "scroll",
-  "touchstart",
-] as const;
 
 function getBrowserDevice(ua: string): { browser: string; deviceType: string } {
   const browser = ua.match(/Edg/)
@@ -112,7 +103,9 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     return {
       ...getDataLayerVariables(),
       [uuidKey]: _uuid,
-      sessionReplayId: getOrCreateSessionReplayId(),
+      gbSessionId: getOrCreateGbSessionId({
+        maxDuration: settings.maxDuration,
+      }),
       ...getURLAttributes(url),
       pageTitle: document.title,
       viewportWidth: window.innerWidth || 0,
@@ -132,21 +125,6 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     const attributes = getAutoAttributes(settings);
     attributes.url && gb.setURL(attributes.url);
     gb.updateAttributes(attributes);
-
-    let lastSessionReplayTouchAt = Date.now();
-    const sessionReplayActivityListener = () => {
-      const now = Date.now();
-      if (now - lastSessionReplayTouchAt < SESSION_REPLAY_TOUCH_THROTTLE_MS) {
-        return;
-      }
-      lastSessionReplayTouchAt = now;
-      touchSessionReplayId();
-    };
-    SESSION_REPLAY_ACTIVITY_EVENTS.forEach((eventName) => {
-      window.addEventListener(eventName, sessionReplayActivityListener, {
-        passive: true,
-      });
-    });
 
     // Poll for URL changes and update GrowthBook
     let currentUrl = attributes.url;
@@ -172,9 +150,6 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
       gb.onDestroy(() => {
         clearInterval(intervalTimer);
         document.removeEventListener("growthbookrefresh", refreshListener);
-        SESSION_REPLAY_ACTIVITY_EVENTS.forEach((eventName) => {
-          window.removeEventListener(eventName, sessionReplayActivityListener);
-        });
       });
     }
   };

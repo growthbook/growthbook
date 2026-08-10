@@ -1,6 +1,5 @@
 import { GrowthBook, GrowthBookClient } from "../../src";
 import { autoAttributesPlugin } from "../../src/plugins/auto-attributes";
-import { SESSION_REPLAY_IDLE_TIMEOUT_MS } from "../../src/plugins/session-replay-id";
 
 declare global {
   interface Window {
@@ -55,7 +54,7 @@ describe("autoAttributesPlugin", () => {
     query: "",
     viewportWidth: expect.any(Number),
     viewportHeight: expect.any(Number),
-    sessionReplayId: expect.any(String),
+    gbSessionId: expect.any(String),
   };
 
   beforeEach(() => {
@@ -90,7 +89,7 @@ describe("autoAttributesPlugin", () => {
 
     expect(gb.getAttributes()).toEqual({
       id: expect.any(String),
-      sessionReplayId: expect.any(String),
+      gbSessionId: expect.any(String),
       browser: "chrome",
       deviceType: "desktop",
       url: "http://localhost/test?hello=world",
@@ -105,45 +104,26 @@ describe("autoAttributesPlugin", () => {
     gb.destroy();
   });
 
-  it("stores sessionReplayId in sessionStorage", () => {
+  it("stores gbSessionId in sessionStorage", () => {
     const plugin = autoAttributesPlugin();
     const gb = new GrowthBook({
       plugins: [plugin],
     });
 
     const stored = JSON.parse(sessionStorage.getItem("gb_session") || "{}") as {
-      sessionReplayId?: string;
+      gbSessionId?: string;
     };
-    expect(stored.sessionReplayId).toBe(gb.getAttributes().sessionReplayId);
+    expect(stored.gbSessionId).toBe(gb.getAttributes().gbSessionId);
 
     gb.destroy();
   });
 
-  it("keeps the session replay ID alive during SPA activity", () => {
-    const dateNowSpy = jest.spyOn(Date, "now").mockReturnValue(1000);
-    const plugin = autoAttributesPlugin();
-    const gb = new GrowthBook({
-      plugins: [plugin],
-    });
-    const sessionReplayId = gb.getAttributes().sessionReplayId;
-
-    dateNowSpy.mockReturnValue(1000 + SESSION_REPLAY_IDLE_TIMEOUT_MS - 1000);
-    window.dispatchEvent(new Event("pointerdown"));
-    dateNowSpy.mockReturnValue(1000 + SESSION_REPLAY_IDLE_TIMEOUT_MS + 1000);
-    document.dispatchEvent(new Event("growthbookrefresh"));
-
-    expect(gb.getAttributes().sessionReplayId).toBe(sessionReplayId);
-
-    gb.destroy();
-    dateNowSpy.mockRestore();
-  });
-
-  it("preserves customer session_id while owning sessionReplayId", () => {
+  it("preserves customer session_id while owning gbSessionId", () => {
     sessionStorage.setItem(
       "gb_session",
       JSON.stringify({
-        sessionReplayId: "internal-replay-id",
-        lastTouchedAt: Date.now(),
+        gbSessionId: "internal-replay-id",
+        createdAt: Date.now(),
       }),
     );
 
@@ -151,7 +131,7 @@ describe("autoAttributesPlugin", () => {
     const gb = new GrowthBook({
       attributes: {
         session_id: "customer-session-id",
-        sessionReplayId: "user-supplied-replay-id",
+        gbSessionId: "user-supplied-replay-id",
       },
       plugins: [plugin],
     });
@@ -159,12 +139,13 @@ describe("autoAttributesPlugin", () => {
     expect(gb.getAttributes()).toEqual(
       expect.objectContaining({
         session_id: "customer-session-id",
-        sessionReplayId: "internal-replay-id",
+        gbSessionId: "internal-replay-id",
       }),
     );
 
     gb.destroy();
   });
+
   it("should update attributes on URL change", async () => {
     setWindowURL("http://localhost/test?hello=world");
 
@@ -260,7 +241,7 @@ describe("autoAttributesPlugin", () => {
       JSON.stringify({ utmSource: "google", utmMedium: "cpc" }),
     );
 
-    // getAutoAttributes() calls getOrCreateSessionId() before getUtmAttributes(), so
+    // getAutoAttributes() calls getOrCreateGbSessionId() before getUtmAttributes(), so
     // the session storage read for "gb_session" happens first. Chain two Once values:
     // call 1 (gb_session) → null (generate new session), call 2 (utm_params) → UTM data.
     sessionStorage.getItem

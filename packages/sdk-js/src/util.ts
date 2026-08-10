@@ -397,6 +397,21 @@ export function getAutoExperimentChangeType(
   return "unknown";
 }
 
+// Use the browser's crypto.randomUUID if available to generate a UUID.
+export function genUUID(crypto?: Crypto) {
+  if (crypto && crypto.randomUUID) return crypto.randomUUID();
+  return ("" + 1e7 + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) => {
+    const n =
+      crypto && crypto.getRandomValues
+        ? crypto.getRandomValues(new Uint8Array(1))[0]
+        : Math.floor(Math.random() * 256);
+    return (
+      (c as unknown as number) ^
+      (n & (15 >> ((c as unknown as number) / 4)))
+    ).toString(16);
+  });
+}
+
 // Guarantee the promise always resolves within {timeout} ms
 // Resolved value will be `null` when there's an error or it takes too long
 // Note: The promise will continue running in the background, even if the timeout is hit
@@ -419,20 +434,5 @@ export async function promiseTimeout<T>(
     }
 
     promise.then((data) => finish(data)).catch(() => finish());
-  });
-}
-
-// Use the browser's crypto.randomUUID if available, otherwise fall back to a v4-like UUID.
-export function genUUID(crypto?: Crypto) {
-  if (crypto && crypto.randomUUID) return crypto.randomUUID();
-  return ("" + 1e7 + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) => {
-    const n =
-      crypto && crypto.getRandomValues
-        ? crypto.getRandomValues(new Uint8Array(1))[0]
-        : Math.floor(Math.random() * 256);
-    return (
-      (c as unknown as number) ^
-      (n & (15 >> ((c as unknown as number) / 4)))
-    ).toString(16);
   });
 }
