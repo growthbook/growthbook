@@ -46,7 +46,6 @@ import {
   getDashboardsForExperimentEndpoint,
 } from "back-end/src/api/specs/dashboard.spec";
 import { determineNextDate } from "back-end/src/services/experiments";
-import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { shouldRecalculateNextUpdate } from "back-end/src/enterprise/services/dashboards";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 
