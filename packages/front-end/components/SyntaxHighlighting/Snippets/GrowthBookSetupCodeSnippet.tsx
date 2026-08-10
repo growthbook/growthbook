@@ -10,10 +10,16 @@ import EventTrackerSelector, {
 import ClickToCopy from "@/components/Settings/ClickToCopy";
 import { getAppOrigin, isCloud } from "@/services/env";
 import { DataRegion, getEventIngestorHost } from "@/services/dataRegions";
+import Callout from "@/ui/Callout";
 
 function indentLines(code: string, indent: number | string = 2) {
   const spaces = typeof indent === "string" ? indent : " ".repeat(indent);
   return code.split("\n").join("\n" + spaces);
+}
+
+// growthbookTrackingPlugin (and the plugin system generally) requires this version or later
+function supportsGrowthbookTrackingPlugin(version?: string): boolean {
+  return paddedVersionString(version) >= paddedVersionString("1.4.0");
 }
 
 export default function GrowthBookSetupCodeSnippet({
@@ -153,18 +159,19 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
             includeInit: true,
           })}
         />
-        {eventTracker === "growthbook" && (
-          <>
-            <br />
-            If you want to use GrowthBook for experiments (and metrics), you
-            will need to log events you care about. Read more about our{" "}
-            <DocLink useRadix={false} docSection="managedWarehouseTracking">
-              managed warehouse tracking
-            </DocLink>
-            . Here are some examples:
-            <Code
-              language="javascript"
-              code={`
+        {eventTracker === "growthbook" &&
+          (supportsGrowthbookTrackingPlugin(version) ? (
+            <>
+              <br />
+              If you want to use GrowthBook for experiments (and metrics), you
+              will need to log events you care about. Read more about our{" "}
+              <DocLink useRadix={false} docSection="managedWarehouseTracking">
+                managed warehouse tracking
+              </DocLink>
+              . Here are some examples:
+              <Code
+                language="javascript"
+                code={`
 // Simple (no properties)
 gb.logEvent("Page View");
 
@@ -173,9 +180,19 @@ gb.logEvent("Button Click", {
   button: "Sign Up",
 });
               `}
-            />
-          </>
-        )}
+              />
+            </>
+          ) : (
+            <Callout status="warning" mt="3">
+              Sending events to the managed warehouse this way requires
+              GrowthBook SDK version 1.4.0 or later. Update the SDK version
+              above, or send events directly with the{" "}
+              <DocLink useRadix={false} docSection="managedWarehouseTracking">
+                Ingestion API
+              </DocLink>
+              .
+            </Callout>
+          ))}
       </>
     );
   }
@@ -236,19 +253,20 @@ export default function MyApp() {
         </a>{" "}
         with examples of using GrowthBook with SSR, API routes, static pages,
         and more.
-        {eventTracker === "growthbook" && (
-          <>
-            <br />
-            <br />
-            If you want to use GrowthBook for experiments (and metrics), you
-            will need to log events you care about. Read more about our{" "}
-            <DocLink useRadix={false} docSection="managedWarehouseTracking">
-              managed warehouse tracking
-            </DocLink>
-            . Here are some examples:
-            <Code
-              language="javascript"
-              code={`
+        {eventTracker === "growthbook" &&
+          (supportsGrowthbookTrackingPlugin(version) ? (
+            <>
+              <br />
+              <br />
+              If you want to use GrowthBook for experiments (and metrics), you
+              will need to log events you care about. Read more about our{" "}
+              <DocLink useRadix={false} docSection="managedWarehouseTracking">
+                managed warehouse tracking
+              </DocLink>
+              . Here are some examples:
+              <Code
+                language="javascript"
+                code={`
 // Simple (no properties)
 gb.logEvent("Page View");
 
@@ -257,9 +275,19 @@ gb.logEvent("Button Click", {
   button: "Sign Up",
 });
               `}
-            />
-          </>
-        )}
+              />
+            </>
+          ) : (
+            <Callout status="warning" mt="3">
+              Sending events to the managed warehouse this way requires
+              GrowthBook SDK version 1.4.0 or later. Update the SDK version
+              above, or send events directly with the{" "}
+              <DocLink useRadix={false} docSection="managedWarehouseTracking">
+                Ingestion API
+              </DocLink>
+              .
+            </Callout>
+          ))}
       </>
     );
   }
