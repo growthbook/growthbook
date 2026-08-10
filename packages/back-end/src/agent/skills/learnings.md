@@ -1,6 +1,6 @@
 ---
 name: learnings
-description: Search, read, and record Learnings — the durable conclusions a team has drawn across multiple experiments. Use when the user asks "what have we learned about X", "do we already know whether Y works", "have we tested this before", "record this as a learning", or when a finished experiment produces a conclusion worth keeping. Consult before designing a new experiment so you don't re-test something already settled.
+description: Search, read, and record Learnings — the durable conclusions a team has drawn across multiple experiments. Use when the user asks "what have we learned about X", "do we already know whether Y works", "have we tested this before", "record this as a learning", or when a finished experiment produces a conclusion worth keeping. Consult before designing a new experiment so you don't re-test something already settled. Most orgs have no Learnings yet — an empty result means none are recorded, not that there's no history, so fall through to experiment-brainstorm. For a single experiment's results, use experiment-analyze.
 ---
 
 # Learnings
@@ -9,6 +9,12 @@ A Learning is a durable conclusion that spans **multiple** experiments — "urge
 messaging lifts checkout on mobile" — not a summary of a single test. Each one
 cites the experiments that support it and the ones that contradict it, so it
 carries its own evidence.
+
+Learnings are a **curated layer on top of** the experiment record, never a
+replacement for it. A Learning is what someone concluded; the experiments are
+the evidence. Most teams have far more experiment history than Learnings, so
+reading Learnings is a shortcut when one exists — not a substitute for looking
+at past experiments.
 
 Call the GrowthBook REST API through the `callApi` tool. All paths below are
 relative to the GrowthBook server.
@@ -23,6 +29,24 @@ Reach for this skill in three situations:
 3. **After analyzing a finished experiment**, when the result generalizes beyond
    that one test — offer to record it.
    </when_to_use>
+
+<empty_corpus>
+**An empty Learnings corpus is the normal starting state**, not a finding.
+Learnings only exist once someone has saved one, so most orgs have none at
+first — including orgs with years of experiment history.
+
+When a search returns nothing:
+
+- Say plainly that no Learnings have been recorded yet. Do **not** report it as
+  "the team has no prior knowledge about this" — that conflates an empty
+  curated layer with an empty experiment history.
+- Fall back to the experiment record: `loadSkill('experiment-brainstorm')`
+  grounds ideas in past stopped experiments, and `loadSkill('experiment-analyze')`
+  reads a specific experiment's results. An empty Learnings search must never
+  stop you from checking those.
+- If the user's question was answered by past experiments, that is a good moment
+  to offer to record the conclusion as the team's first Learning.
+  </empty_corpus>
 
 <workflow>
 **Finding what's already known** — prefer search over list:

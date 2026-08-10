@@ -107,6 +107,9 @@ Use the `callApi` tool for every REST request. This skill is read-only — it pr
 - `loadSkill('learnings')` — search what the team already concluded before
   designing. If a Learning already settles the question, or contradicts the
   hypothesis, surface it rather than designing a test that re-litigates it.
+  Most orgs have no Learnings yet; an empty result means nothing has been
+  recorded, not that there's no relevant history — fall through to
+  `experiment-brainstorm` for the experiment record itself.
 - `loadSkill('experiment-launch')` — consumes the spec and creates the draft experiment in GrowthBook.
 - Manual metric creation — if the primary metric doesn't exist yet, the user needs to create it in the GrowthBook UI at `/metrics` (or `/fact-tables` for fact metrics) before launching. No skill for that yet.
 - `loadSkill('experiment-brainstorm')` — if the user came in without a specific hypothesis, route back here to ground a new idea in past results.
