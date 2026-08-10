@@ -15,9 +15,9 @@ import { setupApp } from "./api.setup";
  * history immutable), so no mock can cover it — this strands a revision the way
  * production does and drives the real engine over it.
  *
- * Drives `publishRevision` directly: the REST publish handlers carry their own
- * inline copies of the publish flow and never reach the shared engine, so
- * recovery is currently reachable only from the internal revision controller.
+ * Drives `publishRevision` directly — not because REST cannot reach it (all
+ * three REST publish handlers delegate to it) but to control the stranding
+ * without a handler's gates in the way.
  */
 
 const ORG_ID = "org_stranded_recovery";

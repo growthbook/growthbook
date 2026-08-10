@@ -27,9 +27,9 @@ const environments: Environment[] = [
   { id: "production", description: "" },
   // Scoped away from the flag's project — never serves it.
   { id: "edge", description: "", projects: ["prj_other"] },
-  // Applicable to the flag but DISABLED there with no rule or ramp touching it,
-  // so no correct answer in this file includes `qa` — the environment that
-  // makes over-answering observable.
+  // Applicable to the flag but DISABLED there with no rule or ramp touching it.
+  // Only the toggle case may answer `qa` (toggling is the one term that reaches
+  // a disabled environment) — everywhere else its presence means over-answering.
   { id: "qa", description: "" },
 ];
 const environmentIds = environments.map((e) => e.id);

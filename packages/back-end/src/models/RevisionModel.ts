@@ -192,7 +192,8 @@ const BaseClass = MakeModelClass({
     // creates from being assigned the same version (beforeCreate computes
     // max(version)+1 over the raw collection; without this guard, a race could
     // produce duplicates). Combined with the retry-on-duplicate-key logic in
-    // `create()`, this gives correct sequential versioning under concurrency.
+    // `createWithVersionRetry` — which revision-creating call sites must use —
+    // this gives correct sequential versioning under concurrency.
     {
       fields: {
         organization: 1,

@@ -205,8 +205,9 @@ export const revisionValidator = z.object({
   reviewCycle: z.number().optional(),
   autoPublishOnApproval: z.boolean().optional(),
   // Who armed `autoPublishOnApproval`; auto-publish runs with their authority.
-  // Nullable: an explicit null means "nobody" (arming paths translate it to
-  // `$unset`) — a leftover publisher lets a later deferred publish run as them.
+  // Nullable: an explicit null means "nobody" — the generic arming paths store
+  // it literally, the disarm fragment clears via `$unset`, and both read the
+  // same. A leftover publisher lets a later deferred publish run as them.
   autoPublishEnabledBy: z.string().nullable().optional(),
   // ── Scheduled / deferred publish (shape mirrors FeatureRevisionInterface) ──
   // Defers an armed revision's auto-publish until on/after this date (and, if

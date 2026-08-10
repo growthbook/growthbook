@@ -220,6 +220,83 @@ describe("generic landing fences", () => {
     ).toHaveLength(0);
   });
 
+  // Recovery's compensation restores the CASCADE too, not just the root — a
+  // config recovery that strips descendant fields and then loses the fence must
+  // put the descendants back, same as the ordinary landing's compensation.
+  it("recovery compensation restores cascade writes, not just the root", async () => {
+    const ORG = "org_fence_cascade";
+    const ctx = makeContext(ORG);
+    await seedConstant(ORG, "fence_casc_root", "before");
+    await seedConstant(ORG, "fence_casc_child", "child-before");
+    const version = await draftRevision("fence_casc_root", "after");
+    const { revision: draft, entity } = await loadRevisionAndEntity(
+      ctx,
+      "fence_casc_root",
+      version,
+    );
+    await mongoose.connection.collection("revisions").updateOne(
+      { organization: ORG, id: draft.id },
+      {
+        $set: {
+          status: "merged",
+          resolution: { action: "merged", userId: "", dateCreated: new Date() },
+        },
+      },
+    );
+    const { revision } = await loadRevisionAndEntity(
+      ctx,
+      "fence_casc_root",
+      version,
+    );
+    const childPre = await mongoose.connection
+      .collection("constants")
+      .findOne({ organization: ORG, key: "fence_casc_child" });
+
+    const orig = adapter.applyChanges.bind(adapter);
+    jest
+      .spyOn(adapter, "applyChanges")
+      .mockImplementation(async (c, current, values, opts) => {
+        if (opts?.isRevert) return orig(c, current, values, opts);
+        // Rival claims during the write, and the apply reports a cascade write
+        // it also physically performed — the shape a config schema strip leaves.
+        await insertRivalMerged(ORG, (entity as { id: string }).id);
+        await mongoose.connection
+          .collection("constants")
+          .updateOne(
+            { organization: ORG, key: "fence_casc_child" },
+            { $set: { value: "child-stripped" } },
+          );
+        const innerOnPersisted = opts?.onPersisted;
+        return orig(c, current, values, {
+          ...opts,
+          onPersisted: (result) => {
+            innerOnPersisted?.({
+              ...result,
+              cascade: [
+                {
+                  before: childPre as Record<string, unknown> & { id: string },
+                  written: { value: "child-stripped" },
+                },
+              ],
+            });
+          },
+        });
+      });
+
+    await expect(
+      publishRevision(ctx, revision, entity as Record<string, unknown>),
+    ).rejects.toThrow(/changed while this was being applied/);
+
+    const root = await mongoose.connection
+      .collection("constants")
+      .findOne({ organization: ORG, key: "fence_casc_root" });
+    expect(root?.value).toBe("before");
+    const child = await mongoose.connection
+      .collection("constants")
+      .findOne({ organization: ORG, key: "fence_casc_child" });
+    expect(child?.value).toBe("child-before");
+  });
+
   // The no-op branch writes nothing, but it still claims a place in the merged
   // order — and config's beforeNoOpMerge replays cascades against that claim. A
   // rival claimed since must unwind it, exactly as the with-changes branch does.

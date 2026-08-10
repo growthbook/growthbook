@@ -363,10 +363,11 @@ async function recoverStrandedMerge({
     });
   } catch (e) {
     // Live goes back before the lease is given up; a write that never reported
-    // has nothing to restore. A restore that fails leaves the change live, so
+    // has nothing to restore. Root first, then cascade order, like the ordinary
+    // landing's compensation. A restore that fails leaves that change live, so
     // the buffered events must still announce it.
     if (applied?.written) {
-      const restored = await tryRestoreEntityPreImage({
+      const rootRestored = await tryRestoreEntityPreImage({
         context,
         entityType: revision.target.type,
         preImage: entity as Record<string, unknown> & { id: string },
@@ -375,7 +376,20 @@ async function recoverStrandedMerge({
         ),
         written: applied.written,
       });
-      if (!restored) context.landingLeftPartialState = true;
+      let cascadeRestored = true;
+      for (const write of applied.cascade ?? []) {
+        const ok = await tryRestoreEntityPreImage({
+          context,
+          entityType: revision.target.type,
+          preImage: write.before,
+          persistedKeys: Object.keys(write.written),
+          written: write.written,
+        });
+        if (!ok) cascadeRestored = false;
+      }
+      if (!rootRestored || !cascadeRestored) {
+        context.landingLeftPartialState = true;
+      }
     }
     await releaseRecoveryClaim(context, revision.id, claimId);
     throw e;

@@ -628,9 +628,10 @@ export default function ReviewAndPublish({
   const diffComments = useMemo<DiffCommentsProps>(
     () => ({
       anchors: diffCommentAnchors,
-      // New comments only on active drafts when the user can review drafts.
-      // Existing markers stay visible (read-only) on published / discarded
-      // revisions, and when the user lacks canReviewFeatureDrafts.
+      // New comments only on active drafts, gated by canCommentOnRevisionEntity
+      // (comment, draft, or review authority). Existing markers stay visible
+      // (read-only) on published / discarded revisions and for callers without
+      // that authority.
       onSubmitNew:
         isActiveDraft && revision && canCommentOnDraft
           ? async (text: string) => {
@@ -672,7 +673,10 @@ export default function ReviewAndPublish({
   // The footprint the publish and schedule endpoints check, so every control
   // gates on what this draft actually reaches. Falls back to every applicable
   // environment while the merge result is loading or conflicted — the same
-  // over-ask the endpoints apply on a failed merge.
+  // over-ask the endpoints apply on a failed merge. One known transient: a
+  // stale draft can toggle an environment scoped away from the flag, which the
+  // real footprint includes but this fallback doesn't, so a control can render
+  // for a few frames and then 403 — the server re-verifies either way.
   const affectedRevisionEnvs = useMemo(() => {
     if (!mergeResult?.success) return envIds;
     return getRevisionPublishEnvs({
@@ -819,9 +823,10 @@ export default function ReviewAndPublish({
   // "when approved" only makes sense before approval — once approved it would
   // just publish now (which Publish already does), so approved revisions only
   // offer "on a date".
-  // The draft term matches the endpoint (`postFeatureToggleAutoPublish`
-  // requires `canEditFeatureDrafts`); without it a publisher without draft
-  // rights sees a checkbox that 403s.
+  // The draft term matches the STAGING path (arming at request-review rides
+  // `postFeatureRequestReview`, which takes draft authority); the toggle
+  // endpoint itself gates on publish authority alone. Deliberately stricter
+  // than the endpoint on the arm side — arming is a content decision.
   const canArmWhenApproved =
     autopublishOnApproval &&
     isArmingOwner &&
@@ -845,13 +850,12 @@ export default function ReviewAndPublish({
   const canCancelAdminSchedule = scheduleArmedByAdmin && holdsSchedulePublish;
 
   // Disarming an already-armed no-date schedule survives the gates on ARMING
-  // (org setting off, licence lapsed) — the endpoint asks neither on the way
-  // out, and hiding the checkbox would block exactly the disarm that's needed.
-  // Same term as the shared ScheduledPublishControl.
+  // (org setting off, licence lapsed, draft ownership) — the endpoint asks for
+  // publish authority alone on the way out, and hiding the checkbox would block
+  // exactly the disarm that's needed. Same term as the shared
+  // ScheduledPublishControl.
   const canDisarmWhenApproved =
-    revisionAutoPublishArmed &&
-    isArmingOwner &&
-    permissionsUtil.canEditFeatureDrafts(feature);
+    revisionAutoPublishArmed && holdsSchedulePublish;
 
   const canManageAutoPublish =
     canArmWhenApproved || canArmOnDate || canDisarmWhenApproved;
