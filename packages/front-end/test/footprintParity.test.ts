@@ -9,10 +9,12 @@ import {
 import {
   configPublishEnvironments,
   constantPublishEnvironments,
+  filterEnvironmentsByFeature,
 } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import type { Environment } from "shared/types/organization";
 import {
+  getEnabledEnvironments,
   getMetadataEditEnvs,
   getRevisionPublishEnvs,
 } from "@/services/features";
@@ -291,10 +293,27 @@ describe("control footprint === endpoint footprint", () => {
   // POSITIVELY, because `not.toContain` alone is satisfied by `return []` — and an
   // empty footprint is the exact failure this helper exists to prevent, since it SKIPS
   // the environment check rather than narrowing it.
-  it("archive answers for every environment the flag is reachable in", () => {
+  //
+  // This is the GENERIC-entity rule (Configs, Constants, Saved Groups): archive
+  // reaches every applicable environment. The fixture is feature-shaped only for
+  // convenience — no feature control calls this helper.
+  it("generic archive answers for every applicable environment", () => {
     expect(
       [...archiveFootprintForControl({ environments, entity: feature })].sort(),
     ).toEqual(["dev", "production", "qa", "staging"]);
+  });
+
+  // Feature Flags deliberately archive over a NARROWER basis: applicable AND
+  // enabled, because a disabled environment already serves no payload for the
+  // flag. Pinned here so the per-family difference is a visible diff, not an
+  // accident waiting for unification — see flag-family-authority.md.
+  it("feature archive answers only where the flag is enabled", () => {
+    expect(
+      getEnabledEnvironments(
+        feature,
+        filterEnvironmentsByFeature(environments, feature),
+      ).sort(),
+    ).toEqual(["dev", "production"]);
   });
 
   // The revert footprint, with BOTH union terms actually non-empty. Passing an

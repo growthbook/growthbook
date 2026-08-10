@@ -88,6 +88,13 @@ The footprint is the set of environments a change actually reaches:
 - A **revert**: the environments where the _restored_ state differs from
   **current live** — not what the historical revision changed when it was
   published, which a later change can have superseded.
+- An **archive**: everywhere the entity is in service. For a Feature Flag that
+  is the environments it is applicable AND enabled in — a disabled environment
+  already serves no payload for it, so archiving changes nothing there. Configs,
+  Constants and Saved Groups have no per-environment enabled toggle, so their
+  archive reaches every applicable environment (`archiveServeFootprint`). The
+  two rules are deliberately different; do not unify them without deciding
+  which flags-disabled-everywhere case should win.
 - A new Feature Flag: exactly the environments it starts enabled in. A flag that
   starts disabled everywhere reaches no payload and needs create authority alone.
 
