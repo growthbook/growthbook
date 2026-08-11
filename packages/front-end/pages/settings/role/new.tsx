@@ -5,11 +5,7 @@ import Heading from "@/ui/Heading";
 
 const NewCustomRolePage: FC = () => {
   return (
-    <RoleFormWrapper
-      display="Members"
-      href="/settings/team#roles"
-      breadcrumb="Create Custom Role"
-    >
+    <RoleFormWrapper breadcrumb="Create Custom Role">
       <>
         <Heading as="h1" size="lg" mb="3">
           Create Custom Role

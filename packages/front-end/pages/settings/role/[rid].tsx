@@ -20,11 +20,7 @@ const CustomRolePage: FC = () => {
   }
 
   return (
-    <RoleFormWrapper
-      display="Members"
-      href="/settings/team#roles"
-      breadcrumb={`${rid}`}
-    >
+    <RoleFormWrapper breadcrumb={`${rid}`}>
       <>
         <Heading as="h1" size="lg" mb="3">
           {rid}
