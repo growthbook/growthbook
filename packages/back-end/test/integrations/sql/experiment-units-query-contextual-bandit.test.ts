@@ -52,8 +52,8 @@ function compact(sql: string): string {
   return sql.replace(/\s+/g, "");
 }
 
-describe("getExperimentUnitsQuery contextual bandit multiple exposures", () => {
-  it("scopes __multiple__ detection to a single bandit_version", () => {
+describe("getExperimentUnitsQuery contextual bandit bandit_version splitting", () => {
+  it("splits units by (user, bandit_version) and scopes __multiple__ within a version", () => {
     const sql = getExperimentUnitsQuery(
       postgresDialect,
       datasource,
@@ -67,20 +67,19 @@ describe("getExperimentUnitsQuery contextual bandit multiple exposures", () => {
     );
     const c = compact(sql);
 
+    // bandit_version is carried through and becomes part of the unit grain.
     expect(c).toContain("e.bandit_versionASbandit_version");
-    expect(c).toContain("__cbMultipleExposuresByVersionAS");
-    expect(c).toContain("COUNT(DISTINCTe.variation)AS__num_variations");
     expect(c).toContain("GROUPBYe.user_id,e.bandit_version");
-    expect(c).toContain(
-      "MAX(pv.__num_variations)AS__max_variations_per_version",
-    );
-    expect(c).toContain(
-      "LEFTJOIN__cbMultipleExposuresByVersionmultON(mult.user_id=e.user_id)",
-    );
-    expect(c).toContain("MAX(mult.__max_variations_per_version)>1");
 
-    // The global (un-scoped) multiple-exposure rule must NOT be used for CBs.
-    expect(c).not.toContain("count(distincte.variation)>1");
+    // Within a single (user, bandit_version) group, >1 distinct variation
+    // flags the unit as __multiple__.
+    expect(c).toContain("count(distincte.variation)>1");
+    expect(c).toContain("'__multiple__'");
+
+    // The old per-user pre-aggregation used to scope multiple exposures is
+    // no longer needed now that units are grouped by (user, bandit_version).
+    expect(c).not.toContain("__cbMultipleExposuresByVersion");
+    expect(c).not.toContain("__max_variations_per_version");
   });
 
   it("uses the global multiple-exposure rule for standard experiments", () => {

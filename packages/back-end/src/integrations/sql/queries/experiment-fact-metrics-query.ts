@@ -1,5 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
 import { getUserIdTypes } from "shared/experiments";
+import { queryHasContextualBanditVersionColumn } from "shared/validators";
 import { format } from "shared/sql";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type {
@@ -136,12 +137,16 @@ export function getExperimentFactMetricsQuery(
 
   const banditDates = getBanditDates(settings.banditSettings);
 
+  const splitUnitsByBanditVersion =
+    params.unitsSource !== "otherQuery" &&
+    !!settings.banditSettings?.contextualBandit &&
+    queryHasContextualBanditVersionColumn(
+      params.unitsSettings.exposureQuery.query,
+    );
+
   const dimensionCols: DimensionColumnData[] = params.dimensions.map((d) =>
     getDimensionCol(dialect, d),
   );
-  // if bandit and there is no dimension column, we need to create a dummy column to make some of the joins
-  // work later on. `"dimension"` is a special column that gbstats can handle if there is no dimension
-  // column specified. See `BANDIT_DIMENSION` in gbstats.py.
   if (banditDates?.length && dimensionCols.length === 0) {
     dimensionCols.push({
       alias: "dimension",
@@ -243,6 +248,18 @@ export function getExperimentFactMetricsQuery(
         , ${timestampColumn} AS timestamp
         , ${dialect.dateTrunc("first_exposure_timestamp", "day")} AS first_exposure_date
         ${banditDates?.length ? getBanditCaseWhen(dialect, banditDates) : ""}
+        ${
+          splitUnitsByBanditVersion
+            ? `, bandit_version
+        -- End of this (user, bandit_version)'s active window: the next
+        -- version's first exposure for the same user (NULL for the latest
+        -- version, which stays open-ended).
+        , LEAD(first_exposure_timestamp) OVER (
+            PARTITION BY ${baseIdType}
+            ORDER BY first_exposure_timestamp, bandit_version
+          ) AS version_window_end`
+            : ""
+        }
     ${raMetricSettings
       .map(
         ({ alias, hours, minDelay }) => `
@@ -326,6 +343,7 @@ export function getExperimentFactMetricsQuery(
               .map((c) => `, umj.${c.alias} AS ${c.alias}`)
               .join("")}
             ${banditDates?.length ? `, umj.bandit_period` : ""}
+            ${splitUnitsByBanditVersion ? `, umj.bandit_version` : ""}
             , umj.${baseIdType}
             ${metricData
               .map((data) => {
@@ -414,6 +432,7 @@ export function getExperimentFactMetricsQuery(
             umj.variation
             ${dimensionCols.map((c) => `, umj.${c.alias}`).join("")}
             ${banditDates?.length ? `, umj.bandit_period` : ""}
+            ${splitUnitsByBanditVersion ? `, umj.bandit_version` : ""}
             , umj.${baseIdType}
         `;
 
@@ -530,6 +549,7 @@ export function getExperimentFactMetricsQuery(
           , d.timestamp AS timestamp
           ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
           ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
+          ${splitUnitsByBanditVersion ? `, d.bandit_version AS bandit_version` : ""}
           , d.${baseIdType} AS ${baseIdType}
           ${metricData
             .map(
@@ -619,6 +639,13 @@ export function getExperimentFactMetricsQuery(
           __distinctUsers d
         LEFT JOIN __factTable${suffix} m ON (
           m.${baseIdType} = d.${baseIdType}
+          ${
+            // Attribute each event to the (user, bandit_version) whose active
+            // window contains it.
+            splitUnitsByBanditVersion
+              ? `AND (d.version_window_end IS NULL OR m.timestamp < d.version_window_end)`
+              : ""
+          }
         )
       )${downstreamCtes}
     ${
@@ -658,6 +685,7 @@ export function getExperimentFactMetricsQuery(
       capValueTableName: "__capValue",
       factTablesWithIndices,
       percentileTableIndices,
+      hasBanditVersion: splitUnitsByBanditVersion,
     })}
     `
     }`,
