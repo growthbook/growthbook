@@ -99,15 +99,15 @@ const CustomFieldDisplay: FC<{
   const currentCustomFields = target?.customFields || {};
   const { hasCommercialFeature } = useUser();
   const hasCustomFieldAccess = hasCommercialFeature("custom-metadata");
+  // Also used to re-seed on open so `isDirty` compares against what's shown.
+  const savedCustomFieldValues = reconcileCustomFieldValues(
+    customFields,
+    target?.customFields,
+  );
   const form = useForm<
     Partial<ExperimentInterfaceStringDates | FeatureInterface>
   >({
-    defaultValues: {
-      customFields: reconcileCustomFieldValues(
-        customFields,
-        target?.customFields,
-      ),
-    },
+    defaultValues: { customFields: savedCustomFieldValues },
   });
 
   const { availableFields, value: customFieldValues } =
@@ -119,12 +119,7 @@ const CustomFieldDisplay: FC<{
     });
 
   const openEditModal = () => {
-    form.reset({
-      customFields: reconcileCustomFieldValues(
-        customFields,
-        target?.customFields,
-      ),
-    });
+    form.reset({ customFields: savedCustomFieldValues });
     setEditModal(true);
   };
   const { apiCall } = useAuth();

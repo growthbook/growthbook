@@ -48,14 +48,8 @@ import RuleEnvironmentScopeField from "@/components/Features/RuleModal/Environme
 import DraftSelectorDropdown, {
   DraftMode,
 } from "@/components/Features/DraftSelectorDropdown";
-import {
-  filterCustomFieldsForSectionAndProject,
-  reconcileCustomFieldValues,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -98,13 +92,11 @@ const genFormDefaultValues = ({
   permissions,
   project,
   experiment,
-  customFields,
 }: {
   environments: ReturnType<typeof useEnvironments>;
   permissions: ReturnType<typeof usePermissionsUtil>;
   project: string;
   experiment: ExperimentInterfaceStringDates;
-  customFields?: ReturnType<typeof useCustomFields>;
 }): Omit<
   FeatureInterface,
   | "organization"
@@ -122,7 +114,6 @@ const genFormDefaultValues = ({
     permissions,
     project,
   });
-  const customFieldValues = reconcileCustomFieldValues(customFields, undefined);
   const type =
     getLatestPhaseVariations(experiment).length > 2 ? "string" : "boolean";
   const defaultValue = getDefaultValue(type);
@@ -137,7 +128,8 @@ const genFormDefaultValues = ({
     tags: experiment.tags || [],
     environmentSettings,
     rules: [],
-    customFields: customFieldValues,
+    // Seeded by useReconciledCustomFields once the modal mounts.
+    customFields: {},
     variations: getLatestPhaseVariations(experiment).map((v, i) => {
       return {
         value: i ? getDefaultVariationValue(defaultValue) : defaultValue,
@@ -164,24 +156,14 @@ export default function FeatureFromExperimentModal({
   );
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
-  const { hasCommercialFeature } = useUser();
   const settings = useOrgSettings();
   const { holdoutsMap } = useHoldouts();
-  const allCustomFields = useCustomFields();
-  const customFields = filterCustomFieldsForSectionAndProject(
-    allCustomFields,
-    "feature",
-    selectedProject,
-  );
 
   const defaultValues = genFormDefaultValues({
     environments,
     permissions: permissionsUtil,
     experiment,
     project: selectedProject,
-    customFields: hasCommercialFeature("custom-metadata")
-      ? customFields
-      : undefined,
   });
 
   const { features } = useFeatureMetaInfo({ project: experiment.project });

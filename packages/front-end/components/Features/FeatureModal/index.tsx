@@ -34,13 +34,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useWatching } from "@/services/WatchProvider";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
-import {
-  filterCustomFieldsForSectionAndProject,
-  reconcileCustomFieldValues,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
-import { useUser } from "@/services/UserContext";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
@@ -97,13 +91,11 @@ const genFormDefaultValues = ({
   permissions: permissionsUtil,
   featureToDuplicate,
   project,
-  customFields,
 }: {
   environments: ReturnType<typeof useEnvironments>;
   permissions: ReturnType<typeof usePermissionsUtil>;
   featureToDuplicate?: FeatureInterface;
   project: string;
-  customFields?: ReturnType<typeof useCustomFields>;
 }): Pick<
   FeatureInterface,
   | "valueType"
@@ -126,10 +118,9 @@ const genFormDefaultValues = ({
     permissions: permissionsUtil,
     project,
   });
-  const customFieldValues = reconcileCustomFieldValues(
-    customFields,
-    featureToDuplicate?.customFields,
-  );
+  // Seeding defaults and dropping out-of-scope fields is owned by
+  // useReconciledCustomFields, which runs against the selected project.
+  const customFieldValues = featureToDuplicate?.customFields ?? {};
 
   return featureToDuplicate
     ? {
@@ -181,24 +172,13 @@ export default function FeatureModal({
   const environments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
-  const { hasCommercialFeature } = useUser();
   const { requireProjectForFeatures } = useOrgSettings();
-
-  const allCustomFields = useCustomFields();
-  const initialCustomFields = filterCustomFieldsForSectionAndProject(
-    allCustomFields,
-    "feature",
-    project,
-  );
 
   const defaultValues = genFormDefaultValues({
     environments,
     permissions: permissionsUtil,
     featureToDuplicate,
     project,
-    customFields: hasCommercialFeature("custom-metadata")
-      ? initialCustomFields
-      : undefined,
   });
 
   const [showDescription, setShowDescription] = useState(

@@ -220,9 +220,20 @@ describe("reconcileCustomFieldValues", () => {
     });
   });
 
-  it("omits optional non-boolean fields that remain unset", () => {
+  it("omits optional non-boolean fields that have no entry and no default", () => {
     const field = makeField({ id: "cf_text", type: "text" });
-    expect(reconcileCustomFieldValues([field], { cf_text: "" })).toEqual({});
+    expect(reconcileCustomFieldValues([field], {})).toEqual({});
+  });
+
+  it("keeps an explicitly cleared value instead of re-seeding the default", () => {
+    const field = makeField({
+      id: "cf_text",
+      type: "text",
+      defaultValue: "seed",
+    });
+    expect(reconcileCustomFieldValues([field], { cf_text: "" })).toEqual({
+      cf_text: "",
+    });
   });
 
   it("drops keys for fields that no longer apply (project switch)", () => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import {
   customFieldValuesEqual,
@@ -36,22 +36,30 @@ export function useReconciledCustomFields({
     [allCustomFields, section, project, enabled],
   );
 
-  const reconciledValue = useMemo(
-    () => reconcileCustomFieldValues(availableFields, value),
-    [availableFields, value],
+  const normalizedValue = useMemo(
+    () => normalizeCustomFieldValues(value),
+    [value],
   );
 
+  const reconciledValue = useMemo(
+    () => reconcileCustomFieldValues(availableFields, normalizedValue),
+    [availableFields, normalizedValue],
+  );
+
+  // `setValue` is an inline closure at every call site; depending on it would
+  // re-run the sync effect on every render of the forms using this hook.
+  const setValueRef = useRef(setValue);
   useEffect(() => {
+    setValueRef.current = setValue;
+  });
+
+  useEffect(() => {
+    // Skipped when unlicensed so a downgrade can't wipe already-saved values.
     if (!enabled) return;
-    if (
-      !customFieldValuesEqual(
-        reconciledValue,
-        normalizeCustomFieldValues(value),
-      )
-    ) {
-      setValue(reconciledValue);
+    if (!customFieldValuesEqual(reconciledValue, normalizedValue)) {
+      setValueRef.current(reconciledValue);
     }
-  }, [enabled, reconciledValue, value, setValue]);
+  }, [enabled, reconciledValue, normalizedValue]);
 
   return { availableFields, value: reconciledValue };
 }

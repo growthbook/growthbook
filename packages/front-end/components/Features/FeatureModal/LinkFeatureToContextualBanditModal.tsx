@@ -38,14 +38,8 @@ import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
-import {
-  filterCustomFieldsForSectionAndProject,
-  reconcileCustomFieldValues,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useUser } from "@/services/UserContext";
 import HelperText from "@/ui/HelperText";
 import FeatureKeyField from "./FeatureKeyField";
 import TagsField from "./TagsField";
@@ -84,13 +78,11 @@ const genFormDefaultValues = ({
   permissions,
   project,
   cb,
-  customFields,
 }: {
   environments: ReturnType<typeof useEnvironments>;
   permissions: ReturnType<typeof usePermissionsUtil>;
   project: string;
   cb: ApiContextualBanditInterface;
-  customFields?: ReturnType<typeof useCustomFields>;
 }): Omit<
   FeatureInterface,
   | "organization"
@@ -108,7 +100,6 @@ const genFormDefaultValues = ({
     permissions,
     project,
   });
-  const customFieldValues = reconcileCustomFieldValues(customFields, undefined);
   const type = cb.variations.length > 2 ? "string" : "boolean";
   const defaultValue = getDefaultValue(type);
   return {
@@ -122,7 +113,8 @@ const genFormDefaultValues = ({
     tags: cb.tags || [],
     environmentSettings,
     rules: [],
-    customFields: customFieldValues,
+    // Seeded by useReconciledCustomFields once the modal mounts.
+    customFields: {},
     variations: cb.variations.map((v, i) => ({
       value: i ? getDefaultVariationValue(defaultValue) : defaultValue,
       variationId: v.id,
@@ -143,22 +135,12 @@ export default function LinkFeatureToContextualBanditModal({
   const environments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
-  const { hasCommercialFeature } = useUser();
-  const allCustomFields = useCustomFields();
-  const customFields = filterCustomFieldsForSectionAndProject(
-    allCustomFields,
-    "feature",
-    selectedProject,
-  );
 
   const defaultValues = genFormDefaultValues({
     environments,
     permissions: permissionsUtil,
     cb,
     project: selectedProject,
-    customFields: hasCommercialFeature("custom-metadata")
-      ? customFields
-      : undefined,
   });
 
   const { features } = useFeatureMetaInfo({ project: cb.project });

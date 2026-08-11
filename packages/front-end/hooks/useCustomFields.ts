@@ -66,6 +66,11 @@ export function getSeededCustomFieldDefaultValue(
   return String(defaultValue);
 }
 
+/**
+ * Drops values for fields that no longer apply and seeds defaults for fields
+ * with no entry. A present-but-empty value counts as set — re-seeding it would
+ * make a field with a default impossible to clear.
+ */
 export function reconcileCustomFieldValues(
   availableFields: CustomField[] | undefined,
   currentValues: Record<string, unknown> | string | null | undefined,
@@ -76,7 +81,7 @@ export function reconcileCustomFieldValues(
 
   for (const v of availableFields) {
     const currentValue = normalized[v.id];
-    if (currentValue !== undefined && currentValue !== "") {
+    if (currentValue !== undefined) {
       reconciled[v.id] = currentValue;
       continue;
     }
@@ -84,7 +89,8 @@ export function reconcileCustomFieldValues(
     if (seededDefault !== undefined) {
       reconciled[v.id] = seededDefault;
     } else if (v.type === "boolean") {
-      reconciled[v.id] = "false";
+      // Sent explicitly so an untouched toggle saves as false, not as absent.
+      reconciled[v.id] = toCustomFieldBooleanString(false);
     }
   }
   return reconciled;
