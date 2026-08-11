@@ -261,7 +261,7 @@ const ContainsSelectRow: FC<{
           <FilterItem item={label} exists={true} />
           <Box onClick={(e) => e.stopPropagation()}>
             <Select
-              size="x-small"
+              size="sm"
               variant="surface"
               placeholder={placeholder}
               value={currentValue ?? ""}
@@ -506,7 +506,7 @@ const FeatureSearchFilters: FC<
                 </Box>
                 <Flex align="center" gap="2">
                   <Button
-                    size="sm"
+                    size="md"
                     variant={isOn ? "soft" : "ghost"}
                     color="violet"
                     onClick={() => updateEnvQuery("on", e.id)}
@@ -516,7 +516,7 @@ const FeatureSearchFilters: FC<
                     </Text>
                   </Button>
                   <Button
-                    size="sm"
+                    size="md"
                     variant={isOff ? "soft" : "ghost"}
                     color="violet"
                     onClick={() => updateEnvQuery("off", e.id)}

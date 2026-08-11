@@ -366,7 +366,9 @@ export default function DatePicker({
               }}
             >
               {(isRange ? (label ?? label2) : label) ? (
-                <Text as="label" weight="semibold">
+                // Associated with the input when the caller supplies an `id`;
+                // without it the label is visible but has no accessible name.
+                <Text as="label" htmlFor={id || undefined} weight="semibold">
                   {isRange ? (label ?? label2) : label}
                 </Text>
               ) : null}
@@ -467,7 +469,7 @@ export default function DatePicker({
                     color="red"
                     disabled={disabled || !bufferedDate}
                     variant="ghost"
-                    size="sm"
+                    size="md"
                     onClick={() => {
                       setBufferedDate("");
                       setDate(undefined);

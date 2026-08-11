@@ -9,7 +9,10 @@ import {
   NoOutputGeneratedError,
 } from "ai";
 import type { ToolSet, ModelMessage } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
+import {
+  createOpenAI,
+  type OpenAIResponsesProviderOptions,
+} from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createXai } from "@ai-sdk/xai";
 import { createMistral } from "@ai-sdk/mistral";
@@ -102,6 +105,19 @@ export const getAIProviderClass = (
     });
   }
 };
+
+function getOpenAIProviderOptions(model: AIModel) {
+  if (getProviderFromModel(model) !== "openai") return {};
+
+  return {
+    providerOptions: {
+      openai: {
+        store: false,
+        include: ["reasoning.encrypted_content"],
+      } satisfies OpenAIResponsesProviderOptions,
+    },
+  };
+}
 
 /**
  * The docs say OpenAI might not always return token usage info in rare edge cases.
@@ -239,6 +255,7 @@ export const simpleCompletion = async ({
   const generateOptions = {
     model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
     messages,
+    ...getOpenAIProviderOptions(model),
     ...(effectiveTemperature != null
       ? { temperature: effectiveTemperature }
       : {}),
@@ -330,6 +347,7 @@ export const streamingChatCompletion = async ({
     model: aiProvider(model) as Parameters<typeof streamText>[0]["model"],
     system,
     messages,
+    ...getOpenAIProviderOptions(model),
     ...(effectiveTemperature != null
       ? { temperature: effectiveTemperature }
       : {}),
@@ -466,6 +484,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     const result = await generateText({
       model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
       messages: messages,
+      ...getOpenAIProviderOptions(model),
       output: Output.object({
         schema: zodObjectSchema,
       }),
@@ -620,7 +639,7 @@ export function cosineSimilarity(vec1: number[], vec2: number[]): number {
   if (vec1.length !== vec2.length) {
     throw new Error("Vectors must be of the same length");
   }
-  const dot = vec1.reduce((sum, val, _i) => sum + val * val, 0);
+  const dot = vec1.reduce((sum, val, i) => sum + val * vec2[i], 0);
   const normA = Math.sqrt(vec1.reduce((sum, val) => sum + val * val, 0));
   const normB = Math.sqrt(vec2.reduce((sum, val) => sum + val * val, 0));
   return dot / (normA * normB);

@@ -103,6 +103,7 @@ export async function createDashboard(
     blocks,
     projects,
     globalControls,
+    comparison,
     userId,
   } = req.body;
 
@@ -127,6 +128,7 @@ export async function createDashboard(
     title,
     projects,
     globalControls,
+    comparison,
     blocks: blocksWithGlobalControls,
   });
 

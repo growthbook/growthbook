@@ -38,8 +38,12 @@ export const redshiftDialect: SqlDialect = {
       .join(", ")}, TRUE)`;
     return isNumeric ? redshiftDialect.castToFloat(raw) : raw;
   },
-  arrayAggSorted: (col: string) =>
-    `SPLIT_TO_ARRAY(LISTAGG(CAST(${col} AS VARCHAR), '||~gb~||') WITHIN GROUP (ORDER BY ${col}), '||~gb~||')`,
+  // Redshift rejects a SELECT whose WITHIN GROUP (ORDER BY) clauses differ
+  // across aggregates ("within group ORDER BY clauses for aggregate functions
+  // must be the same"), so honor the shared alias when provided. See the
+  // SqlDialect docs: the alias must equal `col` wherever `col` is non-null.
+  arrayAggSorted: (col: string, orderByColAlias?: string) =>
+    `SPLIT_TO_ARRAY(LISTAGG(CAST(${col} AS VARCHAR), '||~gb~||') WITHIN GROUP (ORDER BY ${orderByColAlias ?? col}), '||~gb~||')`,
   argMinByTimestamp: (valueCol: string, tsCol: string) =>
     `SPLIT_PART(MIN(CAST(${tsCol} AS VARCHAR) || '||~gb~||' || CAST(${valueCol} AS VARCHAR)), '||~gb~||', 2)`,
   arrayMinInRange: (col, lowerBound, upperBound) => {

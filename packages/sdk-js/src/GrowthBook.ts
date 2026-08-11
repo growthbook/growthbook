@@ -16,8 +16,8 @@ import type {
   RenderFunction,
   Result,
   SubscriptionFunction,
-  FeatureEvalCallback,
-  EventEvalCallback,
+  FeatureUsageSubCallback,
+  CustomEventSubCallback,
   TrackingCallback,
   TrackingData,
   WidenPrimitives,
@@ -84,8 +84,8 @@ export class GrowthBook<
   private _completedChangeIds: Set<string>;
   private _trackedFeatures: Record<string, string>;
   private _subscriptions: Set<SubscriptionFunction>;
-  private _featureEvalSubs: Set<FeatureEvalCallback>;
-  private _eventEvalSubs: Set<EventEvalCallback>;
+  private _featureUsageSubs: Set<FeatureUsageSubCallback>;
+  private _customEventSubs: Set<CustomEventSubCallback>;
   private _assigned: Map<
     string,
     {
@@ -127,8 +127,8 @@ export class GrowthBook<
     this._trackedFeatures = {};
     this.debug = !!options.debug;
     this._subscriptions = new Set();
-    this._featureEvalSubs = new Set();
-    this._eventEvalSubs = new Set();
+    this._featureUsageSubs = new Set();
+    this._customEventSubs = new Set();
     this.ready = false;
     this._assigned = new Map();
     this._activeAutoExperiments = new Map();
@@ -536,16 +536,18 @@ export class GrowthBook<
     };
   }
 
-  /** @internal — for plugin use only (e.g. sessionReplayPlugin) */
-  public _onFeatureEval(cb: FeatureEvalCallback): () => void {
-    this._featureEvalSubs.add(cb);
-    return () => this._featureEvalSubs.delete(cb);
+  // Internal — first-party plugin use only.
+  // Fires on deduped feature value changes (not every evalFeature call).
+  public _subscribeFeatureUsage(cb: FeatureUsageSubCallback): () => void {
+    this._featureUsageSubs.add(cb);
+    return () => this._featureUsageSubs.delete(cb);
   }
 
-  /** @internal — for plugin use only (e.g. sessionReplayPlugin) */
-  public _onEvent(cb: EventEvalCallback): () => void {
-    this._eventEvalSubs.add(cb);
-    return () => this._eventEvalSubs.delete(cb);
+  // Internal — first-party plugin use only.
+  // Fires for explicit logEvent() calls only, not SDK-internal events.
+  public _subscribeCustomEvents(cb: CustomEventSubCallback): () => void {
+    this._customEventSubs.add(cb);
+    return () => this._customEventSubs.delete(cb);
   }
 
   private async _refreshForRemoteEval() {
@@ -621,8 +623,8 @@ export class GrowthBook<
     this._sessionReplayStart = undefined;
     this._sessionReplayStop = undefined;
     this._subscriptions.clear();
-    this._featureEvalSubs.clear();
-    this._eventEvalSubs.clear();
+    this._featureUsageSubs.clear();
+    this._customEventSubs.clear();
     this._assigned.clear();
     this._trackedExperiments.clear();
     this._completedChangeIds.clear();
@@ -717,7 +719,7 @@ export class GrowthBook<
       trackingCallback: this._options.trackingCallback,
       onFeatureUsage: this._options.onFeatureUsage,
       devLogs: this.logs,
-      featureEvalSubs: this._featureEvalSubs,
+      featureUsageSubs: this._featureUsageSubs,
       trackedExperiments: this._trackedExperiments,
       trackedFeatureUsage: this._trackedFeatures,
     };
@@ -1045,10 +1047,10 @@ export class GrowthBook<
         logType: "event",
       });
     }
-    if (this._eventEvalSubs.size) {
-      this._eventEvalSubs.forEach((cb) => {
+    if (this._customEventSubs.size) {
+      this._customEventSubs.forEach((cb) => {
         try {
-          cb(eventName, properties);
+          cb(eventName, properties || {});
         } catch (e) {
           console.error(e);
         }

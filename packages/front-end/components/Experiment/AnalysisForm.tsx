@@ -534,10 +534,10 @@ const AnalysisForm: FC<{
             <Flex justify="between" align="start" gap="3">
               <Box style={{ flex: 1, minWidth: 0 }}>
                 <Box mb="1">
-                  <Text size="small" color="text-mid">
+                  <Text size="sm" color="text-mid">
                     Data Source:
                   </Text>{" "}
-                  <Text size="small" weight="medium">
+                  <Text size="sm" weight="medium">
                     {datasource?.name || (
                       <Text color="text-mid" fontStyle="italic">
                         None
@@ -547,10 +547,10 @@ const AnalysisForm: FC<{
                 </Box>
                 {datasource?.properties?.exposureQueries && (
                   <Box mb="1">
-                    <Text size="small" color="text-mid">
+                    <Text size="sm" color="text-mid">
                       Experiment Assignment Table:
                     </Text>{" "}
-                    <Text size="small" weight="medium">
+                    <Text size="sm" weight="medium">
                       {exposureQueries?.find(
                         (q) => q.id === form.watch("exposureQueryId"),
                       )?.name || (
@@ -563,10 +563,10 @@ const AnalysisForm: FC<{
                 )}
                 {datasource && !isHoldout && (
                   <Box>
-                    <Text size="small" color="text-mid">
+                    <Text size="sm" color="text-mid">
                       Tracking Key:
                     </Text>{" "}
-                    <Text size="small" weight="medium">
+                    <Text size="sm" weight="medium">
                       {form.watch("trackingKey") || "—"}
                     </Text>
                   </Box>
@@ -574,7 +574,7 @@ const AnalysisForm: FC<{
               </Box>
               {!isBandit && (
                 <Button
-                  size="xs"
+                  size="sm"
                   variant="ghost"
                   onClick={() => setEditingDataSource(true)}
                 >
@@ -761,36 +761,40 @@ const AnalysisForm: FC<{
             </small>
           </div>
         )}
-        {!!phaseObj && editDates && !isBandit && !isHoldout && (
-          <div className="row">
-            <div className="col">
-              <DatePicker
-                label="Start Time (UTC)"
-                helpText="Only include users who entered the experiment on or after this date"
-                date={form.watch("dateStarted")}
-                setDate={(v) => {
-                  form.setValue("dateStarted", v ? datetime(v) : "");
-                }}
-                scheduleEndDate={form.watch("dateEnded")}
-                disableAfter={form.watch("dateEnded") || undefined}
-              />
-            </div>
-            {experiment.status === "stopped" && (
+        {!!phaseObj &&
+          editDates &&
+          !isBandit &&
+          !isHoldout &&
+          experiment.status !== "draft" && (
+            <div className="row">
               <div className="col">
                 <DatePicker
-                  label="End Time (UTC)"
-                  helpText="Only include users who entered the experiment on or before this date"
-                  date={form.watch("dateEnded")}
+                  label="Start Time (UTC)"
+                  helpText="Only include users who entered the experiment on or after this date"
+                  date={form.watch("dateStarted")}
                   setDate={(v) => {
-                    form.setValue("dateEnded", v ? datetime(v) : "");
+                    form.setValue("dateStarted", v ? datetime(v) : "");
                   }}
-                  scheduleStartDate={form.watch("dateStarted")}
-                  disableBefore={form.watch("dateStarted") || undefined}
+                  scheduleEndDate={form.watch("dateEnded")}
+                  disableAfter={form.watch("dateEnded") || undefined}
                 />
               </div>
-            )}
-          </div>
-        )}
+              {experiment.status === "stopped" && (
+                <div className="col">
+                  <DatePicker
+                    label="End Time (UTC)"
+                    helpText="Only include users who entered the experiment on or before this date"
+                    date={form.watch("dateEnded")}
+                    setDate={(v) => {
+                      form.setValue("dateEnded", v ? datetime(v) : "");
+                    }}
+                    scheduleStartDate={form.watch("dateStarted")}
+                    disableBefore={form.watch("dateStarted") || undefined}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         <Flex gap="3" align="start" wrap="wrap">
           <Box style={{ flex: "1 1 200px", minWidth: 200 }}>
             <StatsEngineSelect

@@ -307,7 +307,7 @@ export default function StandardRuleFields({
       </Box>
 
       <div className="mb-3">
-        <Heading as="h3" size="small" mb="2">
+        <Heading as="h3" size="sm" mb="2">
           Release plan
         </Heading>
         {releasePlanLocked && (
@@ -319,7 +319,7 @@ export default function StandardRuleFields({
                   : `Locked while ${isSimpleSchedule ? "Schedule" : "Ramp-up"} is running`}
               </Text>
               {!pendingScheduleRemoval && (
-                <Text as="div" mt="1" size="small">
+                <Text as="div" mt="1" size="sm">
                   To change the release plan, pause or end the Ramp-up
                 </Text>
               )}
@@ -443,7 +443,7 @@ export default function StandardRuleFields({
                           action={
                             <Button
                               color="inherit"
-                              size="xs"
+                              size="sm"
                               variant="outline"
                               onClick={() =>
                                 setRampSectionState({
@@ -485,14 +485,14 @@ export default function StandardRuleFields({
         {/* Ramp-up schedule editor is rendered on page 2 (see index.tsx) */}
       </div>
 
-      <Heading as="h3" size="small" mb="4" mt="6">
+      <Heading as="h3" size="sm" mb="4" mt="6">
         Targeting
       </Heading>
       {rampLocksTargeting ? (
         <HelperText status="info" mb="2" icon={<PiLockSimple />}>
           <Box>
             <Text as="div">Controlled by ramp schedule</Text>
-            <Text as="div" mt="1" size="small">
+            <Text as="div" mt="1" size="sm">
               Coverage and targeting are controlled by the live ramp schedule.
               Pause or end the ramp-up to make immediate changes.
             </Text>

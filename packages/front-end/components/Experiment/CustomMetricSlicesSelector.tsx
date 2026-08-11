@@ -721,7 +721,7 @@ function EditingInterface({
 
       <div className="d-flex align-items-center" style={{ gap: "0.5rem" }}>
         <Button
-          size="xs"
+          size="sm"
           onClick={saveEditing}
           disabled={
             editingSliceLevels.length === 0 ||

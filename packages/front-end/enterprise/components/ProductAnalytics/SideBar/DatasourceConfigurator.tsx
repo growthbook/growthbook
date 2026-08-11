@@ -345,8 +345,8 @@ export default function DatasourceConfigurator({
                   open={dropdownOpen}
                   onOpenChange={setDropdownOpen}
                   trigger={
-                    <Button size="xs" variant="ghost">
-                      <Text weight="semibold" size="small">
+                    <Button size="sm" variant="ghost">
+                      <Text weight="semibold" size="sm">
                         {!databaseDataset?.timestampColumn
                           ? "select"
                           : "change"}

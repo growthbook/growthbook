@@ -9,6 +9,7 @@ export const POLICIES = [
   "ConstantsFullAccess",
   "ConfigsFullAccess",
   "ExperimentsFullAccess",
+  "LearningsFullAccess",
   "VisualEditorFullAccess",
   "SuperDeleteReports",
   "DataSourcesFullAccess",
@@ -118,6 +119,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   NamespacesFullAccess: ["readData", "manageNamespaces"],
   ConstantsFullAccess: ["readData", "manageConstants"],
   ConfigsFullAccess: ["readData", "manageConfigs"],
+  LearningsFullAccess: ["readData", "manageLearnings"],
   SavedGroupsFullAccess: ["readData", "manageSavedGroups"],
   SavedGroupsBypassSizeLimit: [
     "readData",
@@ -179,6 +181,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
     name: "Experiments",
     policies: [
       "ExperimentsFullAccess",
+      "LearningsFullAccess",
       "VisualEditorFullAccess",
       "SuperDeleteReports",
       "TemplatesFullAccess",
@@ -275,6 +278,10 @@ export const POLICY_METADATA_MAP: Record<
   FeaturesBypassApprovals: {
     displayName: "Features Bypass Approvals",
     description: "Bypass required approval checks for feature flag changes",
+  },
+  LearningsFullAccess: {
+    displayName: "Learnings Full Access",
+    description: "Create, edit, and delete Learnings",
   },
   ConstantsFullAccess: {
     displayName: "Constants Full Access",
@@ -544,6 +551,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "SqlExplorerFullAccess",
       "MetricsFullAccess",
       "ExperimentsFullAccess",
+      "LearningsFullAccess",
       "VisualEditorFullAccess",
       "FactTablesFullAccess",
       "FactMetricsFullAccess",
@@ -568,6 +576,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "Comments",
       "FeaturesFullAccess",
       "ExperimentsFullAccess",
+      "LearningsFullAccess",
       "VisualEditorFullAccess",
       "ArchetypesFullAccess",
       "RunQueries",
@@ -604,6 +613,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "Comments",
       "FeaturesFullAccess",
       "ExperimentsFullAccess",
+      "LearningsFullAccess",
       "VisualEditorFullAccess",
       "ArchetypesFullAccess",
       "RunQueries",
@@ -684,6 +694,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageTargetingAttributes",
   "manageVisualChanges",
   "manageSavedGroups",
+  "manageLearnings",
   "manageConstants",
   "manageConfigs",
   "manageCustomFields",

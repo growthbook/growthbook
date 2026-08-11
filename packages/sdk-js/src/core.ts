@@ -147,8 +147,8 @@ function onFeatureUsage(
       });
     }
 
-    if (ctx.user.featureEvalSubs?.size) {
-      ctx.user.featureEvalSubs.forEach((cb) => {
+    if (ctx.user.featureUsageSubs?.size) {
+      ctx.user.featureUsageSubs.forEach((cb) => {
         try {
           cb(key, ret);
         } catch (e) {
