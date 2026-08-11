@@ -10,7 +10,6 @@ import {
   shouldChartSectionShow,
 } from "@/enterprise/components/ProductAnalytics/util";
 import Callout from "@/ui/Callout";
-import { RadixStatusIcon } from "@/ui/HelperText";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ExplorerChart from "./ExplorerChart";
 import ExplorerDataTable from "./ExplorerDataTable";
@@ -213,47 +212,41 @@ export default function ExplorerMainSection() {
               <Callout
                 status={isTimeoutError ? "error" : "info"}
                 size="sm"
-                icon={null}
-              >
-                <Flex align="center" gap="3" wrap="nowrap">
-                  {loading ? (
+                align="center"
+                wrap="nowrap"
+                icon={
+                  loading ? (
                     <LoadingSpinner style={{ width: "12px", height: "12px" }} />
-                  ) : (
-                    <RadixStatusIcon
-                      status={isTimeoutError ? "error" : "info"}
-                      size="sm"
-                    />
-                  )}
-                  <Text
-                    whiteSpace="nowrap"
-                    title={
-                      !loading && !isTimeoutError
-                        ? "Some configuration changes require running a new SQL query against your data source"
-                        : undefined
-                    }
-                  >
-                    {loading
-                      ? "Loading..."
-                      : isTimeoutError
-                        ? "Query timed out"
-                        : "Latest changes not applied"}
-                  </Text>
-                  {!loading && (
+                  ) : undefined
+                }
+                action={
+                  !loading ? (
                     <Button
                       color="inherit"
                       size="sm"
                       variant="solid"
                       disabled={retryDisabled}
                       onClick={() => handleSubmit({ force: true })}
-                      style={{ whiteSpace: "nowrap" }}
+                      icon={<PiArrowsClockwise />}
                     >
-                      <Flex align="center" gap="2">
-                        <PiArrowsClockwise />
-                        {isTimeoutError ? "Retry" : "Refresh"}
-                      </Flex>
+                      {isTimeoutError ? "Retry" : "Refresh"}
                     </Button>
-                  )}
-                </Flex>
+                  ) : undefined
+                }
+              >
+                <Text
+                  title={
+                    !loading && !isTimeoutError
+                      ? "Some configuration changes require running a new SQL query against your data source"
+                      : undefined
+                  }
+                >
+                  {loading
+                    ? "Loading..."
+                    : isTimeoutError
+                      ? "Query timed out"
+                      : "Latest changes not applied"}
+                </Text>
               </Callout>
             </Box>
           )}
