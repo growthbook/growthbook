@@ -8,6 +8,10 @@ import {
   blockUsesGlobalFilter,
   globalFilterIsSet,
   isDifferenceType,
+  isDashboardExperimentBlock,
+  getActiveBlockGlobalFilterKeys,
+  getCustomBlockGlobalFilterKeys,
+  withBlockGlobalFilterFollowing,
   BLOCK_CONFIG_ITEM_TYPES,
   DIFFERENCE_TYPE_OPTIONS,
 } from "shared/enterprise";
@@ -84,6 +88,7 @@ import MetricExperimentsSettings from "./MetricExperimentsSettings";
 import ExperimentsScaledImpactSettings from "./ExperimentsScaledImpactSettings";
 import ExperimentsWinRateSettings from "./ExperimentsWinRateSettings";
 import ExperimentsStatusSettings from "./ExperimentsStatusSettings";
+import DashboardFilterSummary from "./DashboardFilterSummary";
 
 type RequiredField = {
   field: string;
@@ -852,6 +857,31 @@ export default function EditSingleBlock({
               {BLOCK_TYPE_INFO[block.type].name}
             </Text>
           </Flex>
+
+          {/* Exploration blocks render their own summary in ExplorerSideBar, next
+              to the draft date state it has to revert. */}
+          {isDashboardExperimentBlock(block) &&
+            getActiveBlockGlobalFilterKeys(block, dashboardGlobalControls)
+              .length > 0 && (
+              <DashboardFilterSummary
+                customCount={
+                  getCustomBlockGlobalFilterKeys(block, dashboardGlobalControls)
+                    .length
+                }
+                onRevertAll={() =>
+                  setBlock(
+                    withBlockGlobalFilterFollowing(
+                      block,
+                      getActiveBlockGlobalFilterKeys(
+                        block,
+                        dashboardGlobalControls,
+                      ),
+                      true,
+                    ),
+                  )
+                }
+              />
+            )}
 
           <Flex gap="5" direction="column" flexGrow="1">
             {block.type === "experiment-metadata" && (

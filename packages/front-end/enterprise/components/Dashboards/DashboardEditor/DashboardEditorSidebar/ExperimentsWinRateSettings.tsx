@@ -4,6 +4,7 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardInterface,
   ExperimentsWinRateBlockInterface,
+  withBlockGlobalFilterFollowing,
 } from "shared/enterprise";
 import Switch from "@/ui/Switch";
 import CompletedExperimentsFilterFields from "./CompletedExperimentsFilterFields";
@@ -23,29 +24,27 @@ export default function ExperimentsWinRateSettings({
   projects,
   dashboardGlobalControls,
 }: Props) {
-  const setFollow = (
-    key: "dateRange" | "projects" | "experimentSearchString",
-    enabled: boolean,
-  ) =>
-    setBlock({
-      ...block,
-      globalControlSettings: {
-        ...(block.globalControlSettings ?? {}),
-        [key]: enabled,
-      },
-    });
-
   return (
     <Flex direction="column" gap="4">
       {/* Compare lives inside the date panel, alongside the range it compares
-          against; the field's label row carries the inherit control instead. */}
+          against; the field's label row carries the inheritance tag instead. */}
       <CompletedExperimentsFilterFields
         value={block}
-        onChange={(patch) => setBlock({ ...block, ...patch })}
+        onChange={(patch, claim = []) =>
+          setBlock(
+            withBlockGlobalFilterFollowing(
+              { ...block, ...patch },
+              claim,
+              false,
+            ),
+          )
+        }
+        onRevert={(key) =>
+          setBlock(withBlockGlobalFilterFollowing(block, [key], true))
+        }
         availableProjects={projects}
         dashboardGlobalControls={dashboardGlobalControls}
         globalControlSettings={block.globalControlSettings}
-        onToggleFollow={setFollow}
         showCompare
       />
 

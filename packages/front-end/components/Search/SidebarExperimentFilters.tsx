@@ -79,11 +79,16 @@ interface Props {
   // Additional non-search-string filters (e.g. date ranges), appended as their
   // own accordion rows below the search-string categories.
   extraFilters?: ExtraFilter[];
-  // Lock the experiment search string: the free-text box and search-string
-  // categories become read-only (values are shown but can't be added or
-  // removed). Used when a block follows the dashboard's experiment search
-  // filter. Any `extraFilters` (e.g. phase date pickers) stay fully editable.
-  searchDisabled?: boolean;
+}
+
+// Whether a search string carries any filter tokens or free text. For callers
+// rendering their own "Clear all" (see below).
+export function experimentSearchIsActive(searchValue: string): boolean {
+  const { searchTerm, syntaxFilters } = transformQuery(
+    searchValue,
+    EXPERIMENT_FILTER_KEYS,
+  );
+  return syntaxFilters.length > 0 || searchTerm.trim().length > 0;
 }
 
 // Design order for the search-string category rows.
@@ -104,6 +109,10 @@ const CATEGORY_ORDER = [
  * combobox that adds the chosen values as chips. All selections are written into
  * the same raw search string (and therefore the same syntax filters) as
  * ExperimentSearchFilters, so backend parsing/filtering is unchanged.
+ *
+ * Category headings sit a size below the caller's field label, since they read as
+ * children of it. "Clear all" belongs to the caller too: on that label row it can
+ * clear `extraFilters` in the same update as the search string.
  */
 const SidebarExperimentFilters: FC<Props> = ({
   searchValue,
@@ -113,7 +122,6 @@ const SidebarExperimentFilters: FC<Props> = ({
   showStatusFilter = true,
   showProjectFilter = true,
   extraFilters = [],
-  searchDisabled = false,
 }) => {
   const { searchTerm, syntaxFilters } = useMemo(
     () => transformQuery(searchValue, EXPERIMENT_FILTER_KEYS),
@@ -306,22 +314,6 @@ const SidebarExperimentFilters: FC<Props> = ({
     return m;
   }, [extraFilters]);
 
-  const hasAnyActive =
-    syntaxFilters.length > 0 ||
-    searchTerm.trim().length > 0 ||
-    extraFilters.some((f) => f.isActive);
-
-  // Clear everything: the whole search string and any active extra filters.
-  const clearAll = () => {
-    setSearchValue("");
-    extraFilters.forEach((f) => {
-      if (f.isActive) f.onRemove();
-    });
-    setExpandedField("");
-    setOptionsOpenField("");
-    setFilterSearch("");
-  };
-
   // Expand/collapse an accordion row. Expanding an inactive extra filter seeds
   // its default value so its panel has something to edit.
   const toggleExpand = (key: string) => {
@@ -354,8 +346,7 @@ const SidebarExperimentFilters: FC<Props> = ({
   );
 
   // Right-side control for a row given its state.
-  const rowControl = (expanded: boolean, count: number, locked: boolean) => {
-    if (locked) return null;
+  const rowControl = (expanded: boolean, count: number) => {
     if (expanded) {
       return <PiCaretDown size={15} color="var(--violet-11)" aria-hidden />;
     }
@@ -370,12 +361,11 @@ const SidebarExperimentFilters: FC<Props> = ({
       <Badge label={`${count}`} color="gray" variant="soft" radius="full" />
     ) : null;
 
-  // A selected-value chip (gray pill with a remove ×), or read-only when locked.
+  // A selected-value chip: gray pill with a remove ×.
   const valueChip = (
     label: React.ReactNode,
     onRemove: () => void,
     ariaLabel: string,
-    readOnly: boolean,
   ) => (
     <Badge
       color="gray"
@@ -392,18 +382,16 @@ const SidebarExperimentFilters: FC<Props> = ({
           >
             {label}
           </Text>
-          {!readOnly && (
-            <IconButton
-              size="1"
-              variant="ghost"
-              color="gray"
-              radius="full"
-              aria-label={ariaLabel}
-              onClick={onRemove}
-            >
-              <PiX size={12} />
-            </IconButton>
-          )}
+          <IconButton
+            size="1"
+            variant="ghost"
+            color="gray"
+            radius="full"
+            aria-label={ariaLabel}
+            onClick={onRemove}
+          >
+            <PiX size={12} />
+          </IconButton>
         </Flex>
       }
     />
@@ -579,7 +567,6 @@ const SidebarExperimentFilters: FC<Props> = ({
                   labelNodeFor(category.key, value),
                   () => removeValue(category.key, value),
                   `Remove ${category.heading} ${value}`,
-                  false,
                 )}
               </React.Fragment>
             ))}
@@ -603,11 +590,7 @@ const SidebarExperimentFilters: FC<Props> = ({
   // A single search-string category accordion row.
   const renderCategoryRow = (category: FilterCategory) => {
     const count = selectedValuesFor(category.key).length;
-    // When locked by the dashboard, hide categories that have no value — only
-    // the applied filters are relevant in the read-only state.
-    if (searchDisabled && count === 0) return null;
     const expanded = expandedField === category.key;
-    const clickable = !searchDisabled;
     return (
       <Box
         key={category.key}
@@ -617,42 +600,22 @@ const SidebarExperimentFilters: FC<Props> = ({
           align="center"
           justify="between"
           py="3"
-          role={clickable ? "button" : undefined}
-          tabIndex={clickable ? 0 : undefined}
-          className={clickable ? "cursor-pointer" : undefined}
-          onClick={clickable ? () => toggleExpand(category.key) : undefined}
-          onKeyDown={
-            clickable
-              ? (e) => activateOnKey(e, () => toggleExpand(category.key))
-              : undefined
-          }
+          role="button"
+          tabIndex={0}
+          className="cursor-pointer"
+          onClick={() => toggleExpand(category.key)}
+          onKeyDown={(e) => activateOnKey(e, () => toggleExpand(category.key))}
         >
           <Flex align="center" gap="2">
-            <Text weight="medium" size="md">
+            <Text weight="medium" size="sm">
               {category.heading}
             </Text>
             {countBadge(count)}
           </Flex>
-          {rowControl(expanded, count, searchDisabled)}
+          {rowControl(expanded, count)}
         </Flex>
 
-        {expanded && !searchDisabled ? renderCategoryPanel(category) : null}
-
-        {/* Locked by the dashboard: show the selected values read-only. */}
-        {searchDisabled && count > 0 ? (
-          <Flex wrap="wrap" gap="1" pb="3">
-            {selectedValuesFor(category.key).map((value) => (
-              <React.Fragment key={value}>
-                {valueChip(
-                  labelNodeFor(category.key, value),
-                  () => {},
-                  `${category.heading} ${value}`,
-                  true,
-                )}
-              </React.Fragment>
-            ))}
-          </Flex>
-        ) : null}
+        {expanded ? renderCategoryPanel(category) : null}
       </Box>
     );
   };
@@ -675,7 +638,7 @@ const SidebarExperimentFilters: FC<Props> = ({
           onKeyDown={(e) => activateOnKey(e, () => toggleExpand(extra.key))}
         >
           <Flex align="center" gap="2" style={{ minWidth: 0 }}>
-            <Text weight="medium" size="md">
+            <Text weight="medium" size="sm">
               {extra.heading}
             </Text>
             {extra.isActive && extra.label ? (
@@ -684,7 +647,7 @@ const SidebarExperimentFilters: FC<Props> = ({
               </Text>
             ) : null}
           </Flex>
-          {rowControl(expanded, count, false)}
+          {rowControl(expanded, count)}
         </Flex>
 
         {expanded ? (
@@ -712,23 +675,11 @@ const SidebarExperimentFilters: FC<Props> = ({
 
   return (
     <Flex direction="column" gap="0">
-      <Flex align="center" justify="between" mb="2">
-        <Text size="sm" color="text-low">
-          Filter by...
-        </Text>
-        {hasAnyActive && !searchDisabled ? (
-          <Link size="sm" color="red" onClick={clearAll}>
-            Clear all
-          </Link>
-        ) : null}
-      </Flex>
-
       <Field
         placeholder="Search..."
         type="search"
         value={searchTerm}
         onChange={handleFreeTextChange}
-        disabled={searchDisabled}
       />
 
       {advancedFilters.length > 0 ? (
@@ -745,7 +696,6 @@ const SidebarExperimentFilters: FC<Props> = ({
                   label,
                   () => removeFilter(filter),
                   `Remove ${label} filter`,
-                  searchDisabled,
                 )}
               </React.Fragment>
             );

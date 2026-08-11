@@ -199,10 +199,7 @@ export default function DashboardUpdateDisplay({
             }
             icon={refreshing ? <LoadingSpinner /> : <PiArrowClockwise />}
             iconPosition="left"
-            // Outline pill at rest, matching the filter bar below. A pending
-            // update keeps the solid fill so it still reads as the next action.
-            variant={needsUpdate ? "solid" : "outline"}
-            className={needsUpdate ? undefined : styles.controlPill}
+            variant="outline"
             onClick={async () => {
               if (updateTemporaryDashboardResults) {
                 setUpdatingTemporaryDashboard(true);

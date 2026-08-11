@@ -6,11 +6,12 @@ import {
   ExperimentsScaledImpactBlockInterface,
   blockUsesGlobalFilter,
   globalFilterIsSet,
+  withBlockGlobalFilterFollowing,
 } from "shared/enterprise";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import CompletedExperimentsFilterFields from "./CompletedExperimentsFilterFields";
 import SidebarSettingField from "./SidebarSettingField";
-import DashboardInheritControl from "./DashboardInheritControl";
+import DashboardFilterInheritTag from "./DashboardFilterInheritTag";
 
 interface Props {
   block: DashboardBlockInterfaceOrData<ExperimentsScaledImpactBlockInterface>;
@@ -27,25 +28,12 @@ export default function ExperimentsScaledImpactSettings({
   projects,
   dashboardGlobalControls,
 }: Props) {
-  const setFollow = (
-    key: "metricId" | "dateRange" | "projects" | "experimentSearchString",
-    enabled: boolean,
-  ) =>
-    setBlock({
-      ...block,
-      globalControlSettings: {
-        ...(block.globalControlSettings ?? {}),
-        [key]: enabled,
-      },
-    });
-
   const metricSet = globalFilterIsSet(dashboardGlobalControls, "metricId");
-  const metricFollowing = blockUsesGlobalFilter(block, "metricId");
-  const metricControlled = metricFollowing && metricSet;
+  const metricInherited = blockUsesGlobalFilter(block, "metricId") && metricSet;
 
   const dashboardMetricId = dashboardGlobalControls?.metricId;
   const metricValue =
-    metricControlled && dashboardMetricId ? dashboardMetricId : block.metricId;
+    metricInherited && dashboardMetricId ? dashboardMetricId : block.metricId;
 
   return (
     <Flex direction="column" gap="5">
@@ -53,31 +41,52 @@ export default function ExperimentsScaledImpactSettings({
         label="Metric"
         accessory={
           metricSet ? (
-            <DashboardInheritControl
+            <DashboardFilterInheritTag
               label="Metric"
-              inherited={metricFollowing}
-              onChange={(inherited) => setFollow("metricId", inherited)}
+              inherited={metricInherited}
+              onRevert={() =>
+                setBlock(
+                  withBlockGlobalFilterFollowing(block, ["metricId"], true),
+                )
+              }
             />
           ) : undefined
         }
       >
         <MetricSelector
           value={metricValue}
-          onChange={(metricId) => setBlock({ ...block, metricId })}
+          onChange={(metricId) =>
+            setBlock(
+              withBlockGlobalFilterFollowing(
+                { ...block, metricId },
+                metricInherited ? ["metricId"] : [],
+                false,
+              ),
+            )
+          }
           includeFacts={true}
           projects={projects}
           placeholder="Select a metric..."
-          disabled={metricControlled}
         />
       </SidebarSettingField>
 
       <CompletedExperimentsFilterFields
         value={block}
-        onChange={(patch) => setBlock({ ...block, ...patch })}
+        onChange={(patch, claim = []) =>
+          setBlock(
+            withBlockGlobalFilterFollowing(
+              { ...block, ...patch },
+              claim,
+              false,
+            ),
+          )
+        }
+        onRevert={(key) =>
+          setBlock(withBlockGlobalFilterFollowing(block, [key], true))
+        }
         availableProjects={projects}
         dashboardGlobalControls={dashboardGlobalControls}
         globalControlSettings={block.globalControlSettings}
-        onToggleFollow={setFollow}
       />
     </Flex>
   );

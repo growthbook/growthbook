@@ -6,6 +6,7 @@ import {
   DIFFERENCE_TYPE_OPTIONS,
   blockUsesGlobalFilter,
   globalFilterIsSet,
+  withBlockGlobalFilterFollowing,
 } from "shared/enterprise";
 import { ExplorationDateRange } from "shared/validators";
 import React, { useState } from "react";
@@ -18,6 +19,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";
 import SidebarExperimentFilters, {
   ExtraFilter,
+  experimentSearchIsActive,
 } from "@/components/Search/SidebarExperimentFilters";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import SelectField from "@/components/Forms/SelectField";
@@ -27,7 +29,7 @@ import { DATE_RANGE_PREDEFINED_LABELS } from "@/enterprise/components/ProductAna
 import MetricExperimentsColumnSettings from "./MetricExperimentsColumnSettings";
 import BlockDateRangePicker from "./BlockDateRangePicker";
 import SidebarSettingField from "./SidebarSettingField";
-import DashboardInheritControl from "./DashboardInheritControl";
+import DashboardFilterInheritTag from "./DashboardFilterInheritTag";
 
 // Short human-readable label for a date range, shown on the filter pill.
 function formatDateRange(dr: ExplorationDateRange): string {
@@ -66,8 +68,7 @@ export default function MetricExperimentsSettings({
   const { experiments } = useExperiments();
   const [columnsOpen, setColumnsOpen] = useState(false);
 
-  // Per-field follow state: a field follows the dashboard only when the block
-  // has opted in to that filter AND the dashboard currently has a value for it.
+  // A field inherits only if the block opted in AND the dashboard has a value.
   const metricSet = globalFilterIsSet(dashboardGlobalControls, "metricId");
   const projectsSet = globalFilterIsSet(dashboardGlobalControls, "projects");
   const searchSet = globalFilterIsSet(
@@ -75,28 +76,23 @@ export default function MetricExperimentsSettings({
     "experimentSearchString",
   );
 
-  const metricFollowing = blockUsesGlobalFilter(block, "metricId");
-  const projectsFollowing = blockUsesGlobalFilter(block, "projects");
-  const searchFollowing = blockUsesGlobalFilter(
-    block,
-    "experimentSearchString",
-  );
+  const metricInherited = blockUsesGlobalFilter(block, "metricId") && metricSet;
+  const projectsInherited =
+    blockUsesGlobalFilter(block, "projects") && projectsSet;
+  const searchInherited =
+    blockUsesGlobalFilter(block, "experimentSearchString") && searchSet;
 
-  const metricControlled = metricFollowing && metricSet;
-  const projectsControlled = projectsFollowing && projectsSet;
-  const experimentControlled = searchFollowing && searchSet;
-
-  const setFollow = (
-    key: "metricId" | "projects" | "experimentSearchString",
-    enabled: boolean,
+  // Keys in `claim` stop following the dashboard in the same update as the patch.
+  const patchBlock = (
+    patch: Partial<MetricExperimentsBlockInterface>,
+    claim: ("metricId" | "projects" | "experimentSearchString")[] = [],
   ) =>
-    setBlock({
-      ...block,
-      globalControlSettings: {
-        ...(block.globalControlSettings ?? {}),
-        [key]: enabled,
-      },
-    });
+    setBlock(
+      withBlockGlobalFilterFollowing({ ...block, ...patch }, claim, false),
+    );
+
+  const revert = (key: "metricId" | "projects" | "experimentSearchString") =>
+    setBlock(withBlockGlobalFilterFollowing(block, [key], true));
 
   const dashboardProjects = dashboardGlobalControls?.projects ?? [];
 
@@ -107,10 +103,10 @@ export default function MetricExperimentsSettings({
   ).map((p) => ({ label: p.name, value: p.id }));
 
   const metricValue =
-    metricControlled && dashboardGlobalControls?.metricId
+    metricInherited && dashboardGlobalControls?.metricId
       ? dashboardGlobalControls.metricId
       : block.metricId;
-  const projectsValue = projectsControlled ? dashboardProjects : block.projects;
+  const projectsValue = projectsInherited ? dashboardProjects : block.projects;
 
   const resolvedColumns = resolveMetricExperimentColumns(
     block.columns,
@@ -122,16 +118,29 @@ export default function MetricExperimentsSettings({
   const hiddenCount = resolvedColumns.length - visibleLabels.length;
   const columnsSummary = ["Experiment", ...visibleLabels].join(", ");
 
-  // When the experiment text filter follows the dashboard it's locked; it shows
-  // the dashboard value when one is set, otherwise the block's own value
-  // read-only. The block's own start/end phase-date windows below stay editable
-  // (they are never driven by the dashboard filter).
-  const searchValue = experimentControlled
+  // The displayed string is already the dashboard's, so an edit keeps whichever
+  // inherited tokens the user left alone.
+  const searchValue = searchInherited
     ? (dashboardGlobalControls?.experimentSearchString ?? "")
     : block.experimentSearchString;
-  const setSearchValue = experimentControlled
-    ? () => {}
-    : (value: string) => setBlock({ ...block, experimentSearchString: value });
+  const setSearchValue = (value: string) =>
+    patchBlock(
+      { experimentSearchString: value },
+      searchInherited ? ["experimentSearchString"] : [],
+    );
+
+  // While inheriting, Revert is the way back — so no Clear all.
+  const showClearAll =
+    !searchInherited &&
+    (experimentSearchIsActive(searchValue) ||
+      !!block.startDateRange ||
+      !!block.endDateRange);
+  const clearAllFilters = () =>
+    patchBlock({
+      experimentSearchString: "",
+      startDateRange: undefined,
+      endDateRange: undefined,
+    });
 
   // Start Date filters on the experiment's phase start (so running experiments
   // can be included); End Date filters on the phase end date.
@@ -180,10 +189,10 @@ export default function MetricExperimentsSettings({
         label="Metric"
         accessory={
           metricSet ? (
-            <DashboardInheritControl
+            <DashboardFilterInheritTag
               label="Metric"
-              inherited={metricFollowing}
-              onChange={(inherited) => setFollow("metricId", inherited)}
+              inherited={metricInherited}
+              onRevert={() => revert("metricId")}
             />
           ) : undefined
         }
@@ -191,11 +200,12 @@ export default function MetricExperimentsSettings({
         <MetricSelector
           containerClassName="mb-0"
           value={metricValue}
-          onChange={(metricId) => setBlock({ ...block, metricId })}
+          onChange={(metricId) =>
+            patchBlock({ metricId }, metricInherited ? ["metricId"] : [])
+          }
           includeFacts={true}
           projects={projects}
           placeholder="Select a metric..."
-          disabled={metricControlled}
         />
       </SidebarSettingField>
 
@@ -218,10 +228,10 @@ export default function MetricExperimentsSettings({
         label="Projects"
         accessory={
           projectsSet ? (
-            <DashboardInheritControl
+            <DashboardFilterInheritTag
               label="Projects"
-              inherited={projectsFollowing}
-              onChange={(inherited) => setFollow("projects", inherited)}
+              inherited={projectsInherited}
+              onRevert={() => revert("projects")}
             />
           ) : undefined
         }
@@ -229,36 +239,42 @@ export default function MetricExperimentsSettings({
         <MultiSelectField
           value={projectsValue}
           options={projectOptions}
-          onChange={(v) => setBlock({ ...block, projects: v })}
+          onChange={(v) =>
+            patchBlock({ projects: v }, projectsInherited ? ["projects"] : [])
+          }
           placeholder="All projects"
-          disabled={projectsControlled}
         />
       </SidebarSettingField>
 
       <SidebarSettingField
         label="Experiment filters"
         accessory={
-          searchSet ? (
-            <DashboardInheritControl
-              label="Experiment filters"
-              inherited={searchFollowing}
-              onChange={(inherited) =>
-                setFollow("experimentSearchString", inherited)
-              }
-            />
+          showClearAll || searchSet ? (
+            <Flex align="center" gap="3">
+              {showClearAll ? (
+                <Link size="sm" color="red" onClick={clearAllFilters}>
+                  Clear all
+                </Link>
+              ) : null}
+              {searchSet ? (
+                <DashboardFilterInheritTag
+                  label="Experiment filters"
+                  inherited={searchInherited}
+                  onRevert={() => revert("experimentSearchString")}
+                />
+              ) : null}
+            </Flex>
           ) : undefined
         }
       >
-        {/* The start/end phase-date windows below are specific to this block and
-            are never driven by the dashboard filter, so they stay editable even
-            when the experiment text filter follows the dashboard. */}
+        {/* The start/end phase-date windows are this block's own — the dashboard
+            filter never drives them. */}
         <SidebarExperimentFilters
           searchValue={searchValue}
           setSearchValue={setSearchValue}
           experiments={experiments}
           extraFilters={dateFilters}
           showProjectFilter={false}
-          searchDisabled={experimentControlled}
         />
       </SidebarSettingField>
 

@@ -291,6 +291,46 @@ export function blockUsesGlobalFilter(
   );
 }
 
+// Filters this block could follow and the dashboard has a value for. Unlike
+// getActiveExperimentGlobalFilterKeys, covers exploration blocks too.
+export function getActiveBlockGlobalFilterKeys(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  globalControls: DashboardInterface["globalControls"] | undefined,
+): DashboardGlobalFilterKey[] {
+  return DASHBOARD_GLOBAL_FILTER_KEYS.filter(
+    (key) =>
+      blockSupportsGlobalFilter(block, key) &&
+      globalFilterIsSet(globalControls, key),
+  );
+}
+
+// Active filters the block owns locally — the sidebar's "Custom filters" count.
+// One entry per filter, however many values it holds.
+export function getCustomBlockGlobalFilterKeys(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  globalControls: DashboardInterface["globalControls"] | undefined,
+): DashboardGlobalFilterKey[] {
+  return getActiveBlockGlobalFilterKeys(block, globalControls).filter(
+    (key) => !blockUsesGlobalFilter(block, key),
+  );
+}
+
+// Switch the given filters between following the dashboard and carrying their own
+// value. Returns a whole block, not just the settings, so a value patch and the
+// flag flip can go out as one setBlock — two calls would undo each other.
+export function withBlockGlobalFilterFollowing<
+  T extends DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+>(block: T, keys: DashboardGlobalFilterKey[], following: boolean): T {
+  if (keys.length === 0) return block;
+  const settings: GlobalControlSettings = {
+    ...(getBlockGlobalControlSettings(block) ?? {}),
+  };
+  keys.forEach((key) => {
+    settings[key] = following;
+  });
+  return { ...block, globalControlSettings: settings };
+}
+
 // Enroll every block that supports `key` and hasn't yet made a choice
 // (undefined). Blocks that were explicitly opted out (`false`) or in (`true`)
 // are left untouched, so this is safe to call on every persist.

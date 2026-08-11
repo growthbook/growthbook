@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { Flex } from "@radix-ui/themes";
 import { dateGranularity, ExplorationDateRange } from "shared/validators";
 import {
   BlockComparison,
@@ -6,12 +7,15 @@ import {
   globalFilterIsSet,
 } from "shared/enterprise";
 import MultiSelectField from "@/ui/MultiSelectField";
+import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";
-import SidebarExperimentFilters from "@/components/Search/SidebarExperimentFilters";
+import SidebarExperimentFilters, {
+  experimentSearchIsActive,
+} from "@/components/Search/SidebarExperimentFilters";
 import DateRangeCompareDropdown from "@/enterprise/components/ProductAnalytics/DateRangeCompareDropdown";
 import SidebarSettingField from "./SidebarSettingField";
-import DashboardInheritControl from "./DashboardInheritControl";
+import DashboardFilterInheritTag from "./DashboardFilterInheritTag";
 
 export interface CompletedExperimentsFilterValue {
   dateRange: ExplorationDateRange;
@@ -24,13 +28,17 @@ export interface CompletedExperimentsFilterValue {
   dateGranularity?: (typeof dateGranularity)[number];
 }
 
-// Per-field opt-in flags: whether the block follows the dashboard for each of
-// these filters (the fields this component renders).
 type FollowKey = "dateRange" | "projects" | "experimentSearchString";
 
 interface Props {
   value: CompletedExperimentsFilterValue;
-  onChange: (patch: Partial<CompletedExperimentsFilterValue>) => void;
+  // Keys in `claim` stop following the dashboard in the same update as the patch,
+  // so the value and the flag can't clobber each other.
+  onChange: (
+    patch: Partial<CompletedExperimentsFilterValue>,
+    claim?: FollowKey[],
+  ) => void;
+  onRevert: (key: FollowKey) => void;
   // Restrict the project options (e.g. to the dashboard's projects). Empty
   // means all org projects are selectable.
   availableProjects?: string[];
@@ -40,17 +48,12 @@ interface Props {
   showGranularity?: boolean;
   /** Blocks that can't render a previous period leave this off. */
   showCompare?: boolean;
-  // Dashboard-wide global filters, used to populate the fields read-only when
-  // the block follows them.
   dashboardGlobalControls?: DashboardInterface["globalControls"];
-  // The block's per-field opt-in flags and a setter, driving the per-field
-  // "Use dashboard … filter" toggles on each field's label row.
   globalControlSettings?: {
     dateRange?: boolean;
     projects?: boolean;
     experimentSearchString?: boolean;
   };
-  onToggleFollow: (key: FollowKey, enabled: boolean) => void;
 }
 
 // Shared date-range + project scoping controls for the "Completed Experiments"
@@ -58,13 +61,13 @@ interface Props {
 export default function CompletedExperimentsFilterFields({
   value,
   onChange,
+  onRevert,
   availableProjects,
   afterDateRange,
   showGranularity = false,
   showCompare = false,
   dashboardGlobalControls,
   globalControlSettings,
-  onToggleFollow,
 }: Props) {
   const { projects } = useDefinitions();
   const { experiments } = useExperiments();
@@ -75,9 +78,7 @@ export default function CompletedExperimentsFilterFields({
       : projects
   ).map((p) => ({ label: p.name, value: p.id }));
 
-  // Each field follows the dashboard only when the block has opted in AND the
-  // dashboard currently has a value for that filter. The per-field toggle is
-  // shown whenever the dashboard has a value to follow.
+  // A field inherits only if the block opted in AND the dashboard has a value.
   const dateSet = globalFilterIsSet(dashboardGlobalControls, "dateRange");
   const projectsSet = globalFilterIsSet(dashboardGlobalControls, "projects");
   const searchSet = globalFilterIsSet(
@@ -85,30 +86,31 @@ export default function CompletedExperimentsFilterFields({
     "experimentSearchString",
   );
 
-  const dateFollowing = globalControlSettings?.dateRange === true;
-  const projectsFollowing = globalControlSettings?.projects === true;
-  const searchFollowing =
-    globalControlSettings?.experimentSearchString === true;
-
-  const dateControlled = dateFollowing && dateSet;
-  const projectsControlled = projectsFollowing && projectsSet;
-  const experimentControlled = searchFollowing && searchSet;
+  const dateInherited = globalControlSettings?.dateRange === true && dateSet;
+  const projectsInherited =
+    globalControlSettings?.projects === true && projectsSet;
+  const searchInherited =
+    globalControlSettings?.experimentSearchString === true && searchSet;
 
   const dateRangeValue =
-    dateControlled && dashboardGlobalControls?.dateRange
+    dateInherited && dashboardGlobalControls?.dateRange
       ? dashboardGlobalControls.dateRange
       : value.dateRange;
-  // The dashboard date filter carries its own granularity, so a block following
-  // it is bucketed by the dashboard too — show that rather than the block's own.
-  const granularityValue = dateControlled
+  // The dashboard date filter carries its own granularity, so inheriting the date
+  // means inheriting the bucketing too.
+  const granularityValue = dateInherited
     ? (dashboardGlobalControls?.dateGranularity ?? value.dateGranularity)
     : value.dateGranularity;
-  const projectsValue = projectsControlled
+  const projectsValue = projectsInherited
     ? (dashboardGlobalControls?.projects ?? [])
     : value.projects;
-  const searchValue = experimentControlled
+  const searchValue = searchInherited
     ? (dashboardGlobalControls?.experimentSearchString ?? "")
     : (value.experimentSearchString ?? "");
+
+  // While inheriting, Revert is the way back — so no Clear all.
+  const showClearAll =
+    !searchInherited && experimentSearchIsActive(searchValue);
 
   return (
     <>
@@ -116,10 +118,10 @@ export default function CompletedExperimentsFilterFields({
         label="Date Range"
         accessory={
           dateSet ? (
-            <DashboardInheritControl
+            <DashboardFilterInheritTag
               label="Date Range"
-              inherited={dateFollowing}
-              onChange={(inherited) => onToggleFollow("dateRange", inherited)}
+              inherited={dateInherited}
+              onRevert={() => onRevert("dateRange")}
             />
           ) : undefined
         }
@@ -128,24 +130,25 @@ export default function CompletedExperimentsFilterFields({
           fullWidth
           showCompare={showCompare}
           showGranularity={showGranularity}
-          disabled={dateControlled}
           value={{
             dateRange: dateRangeValue,
             comparison: (showCompare ? value.comparison : null) ?? null,
             granularity: granularityValue,
           }}
-          // One Apply, one patch. Fanning out to separate setters, each
-          // spreading the same `block`, let the last one undo the others.
+          // One Apply, one patch — separate setters would undo each other.
           onChange={(next) =>
-            onChange({
-              dateRange: next.dateRange,
-              ...(showCompare
-                ? { comparison: next.comparison ?? undefined }
-                : {}),
-              ...(showGranularity && next.granularity
-                ? { dateGranularity: next.granularity }
-                : {}),
-            })
+            onChange(
+              {
+                dateRange: next.dateRange,
+                ...(showCompare
+                  ? { comparison: next.comparison ?? undefined }
+                  : {}),
+                ...(showGranularity && next.granularity
+                  ? { dateGranularity: next.granularity }
+                  : {}),
+              },
+              dateInherited ? ["dateRange"] : [],
+            )
           }
         />
       </SidebarSettingField>
@@ -156,10 +159,10 @@ export default function CompletedExperimentsFilterFields({
         label="Projects"
         accessory={
           projectsSet ? (
-            <DashboardInheritControl
+            <DashboardFilterInheritTag
               label="Projects"
-              inherited={projectsFollowing}
-              onChange={(inherited) => onToggleFollow("projects", inherited)}
+              inherited={projectsInherited}
+              onRevert={() => onRevert("projects")}
             />
           ) : undefined
         }
@@ -167,32 +170,47 @@ export default function CompletedExperimentsFilterFields({
         <MultiSelectField
           value={projectsValue}
           options={projectOptions}
-          onChange={(v) => onChange({ projects: v })}
+          onChange={(v) =>
+            onChange({ projects: v }, projectsInherited ? ["projects"] : [])
+          }
           placeholder="All projects"
-          disabled={projectsControlled}
         />
       </SidebarSettingField>
 
       <SidebarSettingField
         label="Experiment filters"
         accessory={
-          searchSet ? (
-            <DashboardInheritControl
-              label="Experiment filters"
-              inherited={searchFollowing}
-              onChange={(inherited) =>
-                onToggleFollow("experimentSearchString", inherited)
-              }
-            />
+          showClearAll || searchSet ? (
+            <Flex align="center" gap="3">
+              {showClearAll ? (
+                <Link
+                  size="sm"
+                  color="red"
+                  onClick={() => onChange({ experimentSearchString: "" })}
+                >
+                  Clear all
+                </Link>
+              ) : null}
+              {searchSet ? (
+                <DashboardFilterInheritTag
+                  label="Experiment filters"
+                  inherited={searchInherited}
+                  onRevert={() => onRevert("experimentSearchString")}
+                />
+              ) : null}
+            </Flex>
           ) : undefined
         }
       >
         <SidebarExperimentFilters
           searchValue={searchValue}
-          setSearchValue={
-            experimentControlled
-              ? () => {}
-              : (experimentSearchString) => onChange({ experimentSearchString })
+          // The displayed string is already the dashboard's, so an edit keeps
+          // whichever inherited tokens the user left alone.
+          setSearchValue={(experimentSearchString) =>
+            onChange(
+              { experimentSearchString },
+              searchInherited ? ["experimentSearchString"] : [],
+            )
           }
           experiments={experiments}
           // These blocks only ever include completed (stopped) experiments, so
@@ -201,7 +219,6 @@ export default function CompletedExperimentsFilterFields({
           showStatusFilter={false}
           // The "Projects" field above already scopes by project.
           showProjectFilter={false}
-          searchDisabled={experimentControlled}
         />
       </SidebarSettingField>
     </>

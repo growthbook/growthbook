@@ -172,6 +172,32 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       onSubmit={() =>
         handleSubmit({ force: true, config: getEffectiveDraftConfig() })
       }
+      // Writes config, not just the flag: block.config is what reseeds the draft,
+      // so this is what makes the edit survive a provider remount.
+      onClaimDashboardDateRange={({ dateRange, granularity }) =>
+        setBlock({
+          ...block,
+          globalControlSettings: {
+            ...block.globalControlSettings,
+            dateRange: false,
+          },
+          config: {
+            ...block.config,
+            dateRange,
+            dimensions: granularity
+              ? block.config.dimensions.map((dimension) =>
+                  dimension.dimensionType === "date"
+                    ? { ...dimension, dateGranularity: granularity }
+                    : dimension,
+                )
+              : block.config.dimensions,
+          },
+        } as
+          | MetricExplorationBlockInterface
+          | FactTableExplorationBlockInterface
+          | DataSourceExplorationBlockInterface
+          | FunnelExplorationBlockInterface)
+      }
       onGlobalControlSettingsChange={(settings) => {
         const nextSettings = {
           ...block.globalControlSettings,

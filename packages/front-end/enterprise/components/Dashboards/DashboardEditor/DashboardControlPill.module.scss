@@ -1,23 +1,15 @@
-// Shared pill treatment for the dashboard's control rows — the topbar (Update,
-// view queries) and the filter bar (date picker, filter pills, "Add filter").
-// Each control reads as a card sitting on the page background, so it gets an
-// opaque panel fill instead of the outline variant's transparent one. The class
-// is doubled to outrank Radix's own `.rt-variant-outline` background rules.
+// Opaque panel fill for outline pills; doubled to beat Radix's transparent bg.
 .controlPill {
   &.controlPill {
     background-color: var(--color-panel-solid);
   }
 
-  // A solid step rather than an alpha tint, so the page background can't show
-  // through the pill on hover.
   &.controlPill:hover:not(:disabled) {
     background-color: var(--gray-2);
   }
 }
 
-// A removable pill reserves room on its right edge, and the ✕ is laid over that
-// space as a sibling button (it can't live inside the pill — that would nest one
-// interactive control in another).
+// Extra right padding so the sibling ✕ can sit over the pill edge.
 .controlPillRemovable {
   &.controlPillRemovable {
     padding-right: 26px;
@@ -30,9 +22,7 @@
   align-items: center;
 }
 
-// The ✕ itself — colors only; its size and placement are set inline on the
-// element (see DashboardChecklistFilter). Darkens on hover so it reads as its own
-// target rather than part of the pill.
+// Size/placement set inline on the element.
 .pillRemove {
   &.pillRemove {
     border-radius: var(--radius-1);
