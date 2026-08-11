@@ -7,7 +7,6 @@ import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { useCustomFields } from "@/hooks/useCustomFields";
-import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import {
   filterCustomFieldsForSectionAndProject,
   reconcileCustomFieldValues,
@@ -60,15 +59,14 @@ const CustomFieldEditModal: FC<{
     latestActiveDraft?.version ?? null,
   );
 
-  const customFields = filterCustomFieldsForSectionAndProject(
-    useCustomFields(),
-    section,
-    target.project,
-  );
+  const customFields =
+    filterCustomFieldsForSectionAndProject(
+      useCustomFields(),
+      section,
+      target.project,
+    ) ?? [];
 
-  const form = useForm<
-    Partial<ExperimentInterfaceStringDates | FeatureInterface>
-  >({
+  const form = useForm<{ customFields: Record<string, string> }>({
     defaultValues: {
       customFields: reconcileCustomFieldValues(
         customFields,
@@ -77,13 +75,7 @@ const CustomFieldEditModal: FC<{
     },
   });
 
-  const { availableFields, value: customFieldValues } =
-    useReconciledCustomFields({
-      section,
-      project: target.project,
-      value: form.watch("customFields"),
-      setValue: (value) => form.setValue("customFields", value),
-    });
+  const customFieldValues = form.watch("customFields");
 
   const submitForm = async (value) => {
     if (section === "experiment") {
@@ -144,7 +136,7 @@ const CustomFieldEditModal: FC<{
         />
       )}
       <CustomFieldInput
-        fields={availableFields}
+        fields={customFields}
         value={customFieldValues}
         onChange={(value) => {
           form.setValue("customFields", value, { shouldDirty: true });
