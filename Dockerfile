@@ -227,8 +227,8 @@ ENV LD_LIBRARY_PATH="/opt/python/lib:/opt/pydeps:/opt/krb5deps:/usr/lib/x86_64-l
 # Read-only-rootfs friendly defaults: don't write venv .pyc into the read-only
 # /opt/venv, skip Next's telemetry write, and point PM2_HOME at /tmp (pm2 writes
 # its pid/socket/log files there; the default $HOME/.pm2 isn't writable under a
-# read-only rootfs). The remaining writable paths (/tmp, .next/cache, uploads)
-# are declared as mounts by the deployer (emptyDir or PVC in k8s — see the chart).
+# read-only rootfs). The remaining writable paths (/tmp, uploads) are declared
+# as mounts by the deployer (emptyDir or PVC in k8s — see the chart).
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PM2_HOME=/tmp/.pm2

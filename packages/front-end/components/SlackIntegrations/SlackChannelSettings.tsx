@@ -205,7 +205,7 @@ function EventSelect({
   label?: string;
 }) {
   return (
-    <Select size="small" label={label} value={value} setValue={onChange}>
+    <Select size="md" label={label} value={value} setValue={onChange}>
       {PREVIEW_EVENT_GROUPS.map((g) => (
         <SelectGroup key={g.key}>
           <SelectLabel>{g.heading}</SelectLabel>
@@ -303,7 +303,7 @@ function DigestSubSection({
             gapY="4"
           >
             <Select
-              size="small"
+              size="md"
               label="Frequency"
               value={value.frequency}
               setValue={(v) =>
@@ -321,7 +321,7 @@ function DigestSubSection({
 
             {value.frequency === "weekly" && (
               <Select
-                size="small"
+                size="md"
                 label="Day of week"
                 value={`${value.dayOfWeekUtc}`}
                 setValue={(v) =>
@@ -339,7 +339,7 @@ function DigestSubSection({
             {(value.frequency === "monthly" ||
               value.frequency === "quarterly") && (
               <Select
-                size="small"
+                size="md"
                 label="Day of month"
                 value={`${value.dayOfMonth}`}
                 setValue={(v) => onChange({ ...value, dayOfMonth: Number(v) })}
@@ -354,7 +354,7 @@ function DigestSubSection({
 
             {value.frequency === "custom" && (
               <Select
-                size="small"
+                size="md"
                 label="Every"
                 value={`${value.intervalDays}`}
                 setValue={(v) =>
@@ -370,7 +370,7 @@ function DigestSubSection({
             )}
 
             <Select
-              size="small"
+              size="md"
               label="Time (UTC)"
               value={`${value.hourUtc}`}
               setValue={(v) => onChange({ ...value, hourUtc: Number(v) })}
@@ -383,7 +383,7 @@ function DigestSubSection({
             </Select>
           </Grid>
 
-          <Text as="p" size="small" color="text-mid" mt="2" mb="0">
+          <Text as="p" size="md" color="text-mid" mt="2" mb="0">
             Scheduled in UTC.
           </Text>
 
@@ -459,7 +459,7 @@ function EventPreview({
   if (!imageSrc) {
     return (
       <>
-        <Text as="p" color="text-mid" size="small" mb="2">
+        <Text as="p" color="text-mid" size="md" mb="2">
           {cardKind
             ? "Card style is off — this event posts a text-only message. Example:"
             : "This event posts a text message (no card). Example:"}
@@ -471,7 +471,7 @@ function EventPreview({
   if (err) return <HelperText status="error">{err}</HelperText>;
   if (!url) {
     return (
-      <Text as="p" color="text-mid" size="small" mb="0">
+      <Text as="p" color="text-mid" size="md" mb="0">
         Rendering preview…
       </Text>
     );
@@ -738,7 +738,7 @@ export default function SlackChannelSettings({
               <Button
                 variant="ghost"
                 color="gray"
-                size="xs"
+                size="sm"
                 onClick={() => resetCategory(category)}
               >
                 Reset
@@ -747,7 +747,7 @@ export default function SlackChannelSettings({
             <Button
               variant="ghost"
               color="gray"
-              size="xs"
+              size="sm"
               onClick={() => toggleAdvanced(category)}
             >
               {advancedOpen ? "Hide events" : "Customize events"}
@@ -761,7 +761,7 @@ export default function SlackChannelSettings({
               {groupsForCategory(category).map((group) => (
                 <Box key={group}>
                   <Text
-                    size="small"
+                    size="md"
                     weight="medium"
                     color="text-mid"
                     as="div"
@@ -805,7 +805,7 @@ export default function SlackChannelSettings({
               {SLACK_EVENT_OPTIONS.some(
                 (o) => o.category === category && optionPostsCard(o),
               ) && (
-                <Text size="small" color="text-mid" as="div">
+                <Text size="md" color="text-mid" as="div">
                   <span style={{ color: "var(--violet-11)" }}>
                     {CARD_MARKER}
                   </span>{" "}
@@ -986,7 +986,7 @@ export default function SlackChannelSettings({
               onChange={setTestEvent}
             />
           </Box>
-          <Text size="small" weight="medium" color="text-mid" as="div" mb="2">
+          <Text size="md" weight="medium" color="text-mid" as="div" mb="2">
             Preview
           </Text>
           <EventPreview eventName={testEvent} style={cardFormat} />
@@ -997,10 +997,10 @@ export default function SlackChannelSettings({
         {/* Detail header: channel identity + per-channel actions. */}
         <Flex justify="between" align="start" gap="3" wrap="wrap">
           <Box>
-            <Heading as="h2" size="medium" mb="0">
+            <Heading as="h2" size="md" mb="0">
               {getSlackChannelLabel(integration)}
             </Heading>
-            <Text color="text-mid" size="small">
+            <Text color="text-mid" size="md">
               {getSlackWorkspaceLabel(integration)}
               {integration.lastRunAt
                 ? ` · last run ${ago(integration.lastRunAt)}`
@@ -1052,7 +1052,7 @@ export default function SlackChannelSettings({
               <Button
                 variant="ghost"
                 color="gray"
-                size="xs"
+                size="sm"
                 aria-label="Dismiss"
                 onClick={() => setTestResult(null)}
               >
@@ -1079,7 +1079,7 @@ export default function SlackChannelSettings({
 
         {/* Scope */}
         <Frame mb="0">
-          <Heading as="h3" size="small" mb="1">
+          <Heading as="h3" size="md" mb="1">
             Scope
           </Heading>
           <Text as="p" color="text-mid" mb="4">
@@ -1122,7 +1122,7 @@ export default function SlackChannelSettings({
               <Box mt="3">
                 <Button
                   variant="ghost"
-                  size="xs"
+                  size="sm"
                   onClick={() => setShowMoreFilters(true)}
                 >
                   + Add tag, experiment, metric or feature filter
@@ -1132,7 +1132,7 @@ export default function SlackChannelSettings({
               <Box mt="4">
                 <Grid columns={{ initial: "1", sm: "2" }} gapX="4" gapY="4">
                   <Box>
-                    <Text as="label" size="medium" weight="medium">
+                    <Text as="label" size="md" weight="medium">
                       Tags
                     </Text>
                     <TagsInput
@@ -1190,7 +1190,7 @@ export default function SlackChannelSettings({
                     <Button
                       variant="ghost"
                       color="gray"
-                      size="xs"
+                      size="sm"
                       onClick={() => setShowMoreFilters(false)}
                     >
                       − Hide these filters
@@ -1205,7 +1205,7 @@ export default function SlackChannelSettings({
         {/* Subject sections — each owns its event notifications + digest. */}
         {(["experiment", "feature"] as SlackEventCategory[]).map((category) => (
           <Frame key={category} mb="0">
-            <Heading as="h3" size="small" mb="1">
+            <Heading as="h3" size="md" mb="1">
               {SUBJECT_META[category].heading}
             </Heading>
             <Text as="p" color="text-mid" mb="4">
@@ -1237,7 +1237,7 @@ export default function SlackChannelSettings({
 
         {/* Results card */}
         <Frame mb="0">
-          <Heading as="h3" size="small" mb="1">
+          <Heading as="h3" size="md" mb="1">
             Results card
           </Heading>
           <Text as="p" color="text-mid" mb="4">
@@ -1249,7 +1249,7 @@ export default function SlackChannelSettings({
           <Flex gap="6" align="start" wrap="wrap">
             <Box style={{ flex: 1, minWidth: 220 }}>
               <Select
-                size="small"
+                size="md"
                 label="Card style"
                 value={cardFormat}
                 setValue={(v) => {
@@ -1268,7 +1268,7 @@ export default function SlackChannelSettings({
             <Box style={{ flex: "none", width: 460, maxWidth: "100%" }}>
               <Text
                 as="div"
-                size="small"
+                size="md"
                 weight="medium"
                 color="text-mid"
                 textTransform="uppercase"
@@ -1283,7 +1283,7 @@ export default function SlackChannelSettings({
                   value={previewEvent}
                   onChange={setPreviewEvent}
                 />
-                <Text as="p" size="small" color="text-mid" mt="1" mb="0">
+                <Text as="p" size="md" color="text-mid" mt="1" mb="0">
                   Choose which event to preview — started, significance, won /
                   lost, stopped, health, or a digest.
                 </Text>
@@ -1327,7 +1327,7 @@ export default function SlackChannelSettings({
                   <HelperText status="warning">Unsaved changes</HelperText>
                 )}
                 {saved && !dirty && (
-                  <Text color="text-mid" size="small">
+                  <Text color="text-mid" size="md">
                     Saved.
                   </Text>
                 )}

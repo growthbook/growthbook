@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { FeatureInterface } from "shared/types/feature";
+import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { Flex } from "@radix-ui/themes";
 import {
   DndContext,
@@ -31,6 +32,7 @@ import { Environment } from "shared/types/organization";
 import { getTargetingProjectIds, ruleProjectScope } from "shared/util";
 import { buildRuleRampScheduleMap } from "@/services/rampScheduleHelpers";
 import { useAuth } from "@/services/auth";
+import useApi from "@/hooks/useApi";
 import { getRules, isRuleInactive } from "@/services/features";
 import {
   buildConflictBanners,
@@ -66,6 +68,7 @@ type CommonProps = {
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
   holdout: HoldoutInterface | undefined;
   holdoutIsDeleted: boolean;
+  holdoutIsPendingAdd: boolean;
   openHoldoutModal: () => void;
   revisionList: MinimalFeatureRevisionInterface[];
   rampSchedules?: RampScheduleInterface[];
@@ -108,6 +111,7 @@ export default function RuleList(props: RuleListProps) {
     safeRolloutsMap,
     holdout,
     holdoutIsDeleted,
+    holdoutIsPendingAdd,
     openHoldoutModal,
     revisionList,
     rampSchedules,
@@ -122,23 +126,29 @@ export default function RuleList(props: RuleListProps) {
   const { savedGroups, getProjectById } = useDefinitions();
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // Saved group definitions for conflict detection. Condition groups carry
-  // their `condition` in the definitions payload, but ID-list `values` are
-  // stripped from it (for size), so we fetch those lazily below. Until they
-  // arrive, a list group is opaque — conflict detection still surfaces soft
-  // overlap on its attribute, then upgrades to precise conflicts once values
-  // load and this map (and the memos below) recompute.
+  const { data: savedGroupsWithCondition } = useApi<{
+    savedGroups: SavedGroupWithoutValues[];
+  }>("/saved-groups");
+  const conditionById = useMemo<Map<string, string | undefined>>(() => {
+    const map = new Map<string, string | undefined>();
+    for (const g of savedGroupsWithCondition?.savedGroups ?? []) {
+      map.set(g.id, g.condition);
+    }
+    return map;
+  }, [savedGroupsWithCondition]);
+
+  // Missing conditions or values keep conflict detection conservative.
   const savedGroupDefs = useMemo<Map<string, SavedGroupForConflicts>>(() => {
     const map = new Map<string, SavedGroupForConflicts>();
     for (const g of savedGroups) {
       map.set(g.id, {
         type: g.type,
         attributeKey: g.attributeKey,
-        condition: g.condition,
+        condition: conditionById.get(g.id),
       });
     }
     return map;
-  }, [savedGroups]);
+  }, [savedGroups, conditionById]);
 
   // ID-list saved group ids referenced by this feature's rules (any env).
   const referencedListGroupIds = useMemo<string[]>(() => {
@@ -294,7 +304,7 @@ export default function RuleList(props: RuleListProps) {
   // status is confined to some projects. "rule number" = 1-based position (+1 for holdout).
   const bannersByRule = useMemo<Map<string, ConflictBanner[]>>(() => {
     const flat = feature.rules ?? [];
-    const offset = holdout ? 2 : 1;
+    const offset = holdout || holdoutIsPendingAdd ? 2 : 1;
     const ruleNumber = (id: string) => {
       const idx = flat.findIndex((r) => r.id === id);
       return idx === -1 ? undefined : idx + offset;
@@ -319,12 +329,13 @@ export default function RuleList(props: RuleListProps) {
     multiProject,
     feature.rules,
     holdout,
+    holdoutIsPendingAdd,
     getProjectById,
   ]);
 
   const inactiveRules = items.filter((r) => isRuleInactive(r, experimentsMap));
 
-  if (!items.length && !holdout && !holdoutIsDeleted) {
+  if (!items.length && !holdout && !holdoutIsDeleted && !holdoutIsPendingAdd) {
     return (
       <div className="px-3 mb-3">
         <em>None</em>
@@ -421,10 +432,11 @@ export default function RuleList(props: RuleListProps) {
             <em>No Active Rules</em>
           </div>
         )}
-        {(holdout || holdoutIsDeleted) && (
+        {(holdout || holdoutIsDeleted || holdoutIsPendingAdd) && (
           <HoldoutRule
             feature={holdoutIsDeleted ? baseFeature : feature}
             isDeleted={holdoutIsDeleted}
+            isPendingAdd={holdoutIsPendingAdd}
             setRuleModal={openHoldoutModal}
             mutate={mutate}
             revisionList={revisionList}

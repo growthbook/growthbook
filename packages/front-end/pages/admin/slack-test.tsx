@@ -469,7 +469,7 @@ const SlackTestPage: NextPage = () => {
                   <Flex direction="column" gap="3">
                     <Flex align="center" justify="between" gap="3" wrap="wrap">
                       <Box>
-                        <Heading as="h2" size="small" mb="1">
+                        <Heading as="h2" size="sm" mb="1">
                           {TEST_EVENT_LABELS.get(preview.eventName) ||
                             preview.eventName}
                         </Heading>

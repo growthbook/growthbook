@@ -264,7 +264,7 @@ export default function CustomFieldModal({
         />
         <Box>
           <MultiSelectField
-            size="legacy"
+            legacyHeight
             label="Applies to"
             value={form.watch("sections") ?? defaultSections}
             options={APPLIES_TO_OPTIONS}
@@ -282,7 +282,7 @@ export default function CustomFieldModal({
         {projects?.length > 0 && (
           <Box>
             <MultiSelectField
-              size="legacy"
+              legacyHeight
               label="Projects"
               value={form.watch("projects") ?? []}
               placeholder="All Projects"
@@ -323,7 +323,7 @@ export default function CustomFieldModal({
           form.watch("type") === "multiselect") && (
           <Box>
             <StringArrayField
-              size="legacy"
+              legacyHeight
               label="Values"
               value={
                 form

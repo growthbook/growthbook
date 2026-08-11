@@ -178,7 +178,7 @@ const CustomFieldInput: FC<{
                   />
                 ) : v.type === "multiselect" ? (
                   <MultiSelectField
-                    size="legacy"
+                    legacyHeight
                     label={
                       <>
                         {v.name}
@@ -252,7 +252,7 @@ const CustomFieldInput: FC<{
                       (!v.required && normalizedCustomFields?.[v.id])) && (
                       <Flex justify="between" align="start" mt="1">
                         {v.description ? (
-                          <Text size="small" color="text-low">
+                          <Text size="sm" color="text-low">
                             {v.description}
                           </Text>
                         ) : (
@@ -262,7 +262,7 @@ const CustomFieldInput: FC<{
                           <Link
                             onClick={() => updateCustomField(v.id, "")}
                             color="gray"
-                            size="1"
+                            size="sm"
                           >
                             Clear
                           </Link>

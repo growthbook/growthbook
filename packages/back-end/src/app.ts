@@ -26,6 +26,7 @@ import {
   ENVIRONMENT,
   EXPRESS_TRUST_PROXY_OPTS,
   IS_CLOUD,
+  OAUTH_AS_ENABLED,
   SENTRY_DSN,
 } from "./util/secrets";
 import {
@@ -33,10 +34,15 @@ import {
   getExperimentsScript,
 } from "./controllers/config";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
+import { trackRequestCompletion } from "./services/growthbook";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
 import scimRouter from "./scim/scim.router";
 import { getBuild } from "./util/build";
+import {
+  oauthAsAuthedRouter,
+  oauthAsPublicRouter,
+} from "./routers/oauth-as/oauth-as.router";
 
 // Begin Controllers
 import * as authControllerRaw from "./controllers/auth";
@@ -110,6 +116,7 @@ import {
   ExperimentIncrementalPipelineRequiresFullRefreshError,
   shouldSkipErrorLog,
   SoftWarningError,
+  SQLExecutionError,
 } from "./util/errors";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
@@ -119,6 +126,7 @@ import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.rou
 import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { ArchetypeRouter } from "./routers/archetype/archetype.router";
+import { learningsRouter } from "./routers/learnings/learnings.router";
 import { AttributeRouter } from "./routers/attributes/attributes.router";
 import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router";
 import {
@@ -515,12 +523,22 @@ app.post("/auth/refresh", authController.postRefresh);
 app.post("/auth/logout", authController.postLogout);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
 
+// OAuth 2.1 Authorization Server (public) — discovery, DCR, token, revoke.
+// CORS is per-route on the router; don't add app-wide cors(*) here.
+if (OAUTH_AS_ENABLED) {
+  app.use(oauthAsPublicRouter);
+}
+
 // All other routes require a valid JWT
 const auth = getAuthConnection();
 app.use(auth.middleware as RequestHandler);
 
 // Add logged in user props to the request
 app.use(asyncHandler(processJWT as unknown as RequestHandler));
+
+// Track request completion for GrowthBook telemetry — only routes past this
+// point can have `req.gb` set, so earlier (public/SDK) routes never pay for it
+app.use(trackRequestCompletion as unknown as RequestHandler);
 
 // Add logged in user props to the logger
 app.use(((
@@ -567,6 +585,11 @@ const requireUserIdHandler: RequestHandler = async (req, res, next) => {
   next();
 };
 app.use(asyncHandler(requireUserIdHandler));
+
+// OAuth consent helpers (authenticated)
+if (OAUTH_AS_ENABLED) {
+  app.use(oauthAsAuthedRouter);
+}
 
 // Organization and Settings
 app.use(organizationsRouter);
@@ -649,6 +672,8 @@ app.use("/tag", tagRouter);
 app.use("/saved-groups", savedGroupRouter);
 
 app.use("/archetype", ArchetypeRouter);
+
+app.use("/learnings", learningsRouter);
 
 app.use("/attribute", AttributeRouter);
 
@@ -1109,6 +1134,10 @@ app.post(
   "/datasource/:datasourceId/managed-warehouse/remove-legacy-identifier",
   datasourcesController.postRemoveManagedWarehouseLegacyIdentifier,
 );
+app.put(
+  "/datasource/:datasourceId/managed-warehouse/id-attribute-identifier",
+  datasourcesController.putManagedWarehouseIdAttributeIdentifier,
+);
 
 if (IS_CLOUD) {
   app.post(
@@ -1201,6 +1230,10 @@ app.delete(
   discussionsController.deleteComment,
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
+app.get(
+  "/discussions/counts/:parentType",
+  discussionsController.getDiscussionCounts,
+);
 app.use("/upload", uploadRouter);
 
 app.use("/session-replay", sessionReplayRouter);
@@ -1319,6 +1352,7 @@ const errorHandler: ErrorRequestHandler = (
     warnings?: string[];
     code?: string;
     details?: unknown;
+    sql?: string;
   } = {
     status: status,
     message: err.message || "An error occurred",
@@ -1327,6 +1361,10 @@ const errorHandler: ErrorRequestHandler = (
   // Picked up by front-end (when combined with 422 status code) to show a "Save anyway" dialog
   if (err instanceof SoftWarningError) {
     body.warnings = err.warnings;
+  }
+  // Surface the rendered SQL so the front-end can display it alongside the error
+  if (err instanceof SQLExecutionError) {
+    body.sql = err.query;
   }
   // Structured errors carry a machine-readable code + details so the front-end
   // can render richer error states.

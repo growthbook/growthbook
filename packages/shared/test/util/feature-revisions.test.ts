@@ -6,7 +6,9 @@ import {
   checkIfRevisionNeedsReview,
   fillRevisionFromFeature,
   getDraftAffectedEnvironments,
+  getEffectiveRevisionHoldout,
   getReviewSetting,
+  isStrandedLiveRevision,
   getFeatureAutopublishOnApproval,
   mergeResultHasChanges,
   mergeRevision,
@@ -518,6 +520,37 @@ describe("autoMerge with new envelopes", () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.result.environmentsEnabled).toEqual({ production: true });
+      }
+    });
+
+    // Same drift, on holdout: membership lives on the feature document, so a
+    // base snapshot predating an attach made outside a publish would otherwise
+    // equal the draft's removal and drop it.
+    it("detects a holdout removal even when the base snapshot drifted to match it", () => {
+      const holdout = { id: "hld_1", value: "false" };
+      const driftedBase: RevisionFields = {
+        version: 2,
+        defaultValue: "OFF",
+        rules: {},
+        holdout: null, // stale snapshot, predates the attach
+      };
+      const liveFeatureModel: RevisionFields = {
+        version: 2,
+        defaultValue: "OFF",
+        rules: {},
+        holdout, // what's actually live
+      };
+      const revision: RevisionFields = {
+        version: 4,
+        defaultValue: "OFF",
+        rules: {},
+        holdout: null, // draft removes it
+      };
+      const result = autoMerge(liveFeatureModel, driftedBase, revision, [], {});
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.result.holdout).toBeNull();
+        expect(mergeResultHasChanges(result)).toBe(true);
       }
     });
 
@@ -1139,6 +1172,41 @@ describe("fillRevisionFromFeature", () => {
     };
     const filled = fillRevisionFromFeature(revision, feature);
     expect(filled.holdout).toBeNull();
+  });
+});
+
+describe("getEffectiveRevisionHoldout", () => {
+  const featureHoldout = { id: "h-1", value: "feature-value" };
+
+  it("carries the feature's holdout forward when the revision predates the field", () => {
+    const feature: FeatureInterface = {
+      ...baseFeature,
+      holdout: featureHoldout,
+    };
+    expect(getEffectiveRevisionHoldout({}, feature)).toEqual(featureHoldout);
+  });
+
+  it("returns null for an explicit removal even when the feature has a holdout", () => {
+    const feature: FeatureInterface = {
+      ...baseFeature,
+      holdout: featureHoldout,
+    };
+    expect(getEffectiveRevisionHoldout({ holdout: null }, feature)).toBeNull();
+  });
+
+  it("prefers the revision's holdout over the feature's", () => {
+    const revisionHoldout = { id: "h-2", value: "revision-value" };
+    const feature: FeatureInterface = {
+      ...baseFeature,
+      holdout: featureHoldout,
+    };
+    expect(
+      getEffectiveRevisionHoldout({ holdout: revisionHoldout }, feature),
+    ).toEqual(revisionHoldout);
+  });
+
+  it("returns null when neither the revision nor the feature has a holdout", () => {
+    expect(getEffectiveRevisionHoldout({}, baseFeature)).toBeNull();
   });
 });
 
@@ -2208,4 +2276,41 @@ describe("getFeatureAutopublishOnApproval", () => {
       ).toBe(false);
     },
   );
+});
+
+describe("isStrandedLiveRevision", () => {
+  const stranded = {
+    featureVersion: 13,
+    revisionVersion: 13,
+    revisionStatus: "draft",
+    hasChanges: false,
+  };
+
+  it("detects an open draft that is already the live version", () => {
+    expect(isStrandedLiveRevision(stranded)).toBe(true);
+    expect(
+      isStrandedLiveRevision({ ...stranded, revisionStatus: "approved" }),
+    ).toBe(true);
+  });
+
+  it("is false when the revision still has changes to publish", () => {
+    expect(isStrandedLiveRevision({ ...stranded, hasChanges: true })).toBe(
+      false,
+    );
+  });
+
+  it("is false for an ordinary no-op draft ahead of the live version", () => {
+    expect(isStrandedLiveRevision({ ...stranded, revisionVersion: 14 })).toBe(
+      false,
+    );
+  });
+
+  it("is false for revisions already published or discarded", () => {
+    expect(
+      isStrandedLiveRevision({ ...stranded, revisionStatus: "published" }),
+    ).toBe(false);
+    expect(
+      isStrandedLiveRevision({ ...stranded, revisionStatus: "discarded" }),
+    ).toBe(false);
+  });
 });

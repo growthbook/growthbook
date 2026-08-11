@@ -127,7 +127,7 @@ const NorthStar: FC<{
                     (7 day trailing)
                   </label>
                   <Switch
-                    size="3"
+                    size="lg"
                     value={smoothBy === "week"}
                     onChange={() =>
                       setSmoothBy(smoothBy === "week" ? "day" : "week")

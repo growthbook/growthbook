@@ -302,7 +302,9 @@ describe("productAnalytics", () => {
 
     const now = new Date();
     const startTimestamp = new Date(now);
-    startTimestamp.setUTCDate(startTimestamp.getUTCDate() - 7);
+    // `last7Days` covers 7 inclusive UTC days, so it opens at midnight 6 days back.
+    startTimestamp.setUTCDate(startTimestamp.getUTCDate() - 6);
+    startTimestamp.setUTCHours(0, 0, 0, 0);
 
     const expected = format(
       `
@@ -432,7 +434,9 @@ describe("productAnalytics", () => {
 
     const now = new Date();
     const startTimestamp = new Date(now);
-    startTimestamp.setUTCDate(startTimestamp.getUTCDate() - 7);
+    // `last7Days` covers 7 inclusive UTC days, so it opens at midnight 6 days back.
+    startTimestamp.setUTCDate(startTimestamp.getUTCDate() - 6);
+    startTimestamp.setUTCHours(0, 0, 0, 0);
 
     const expected = format(
       `
@@ -569,7 +573,9 @@ describe("productAnalytics", () => {
 
     const now = new Date();
     const startTimestamp = new Date(now);
-    startTimestamp.setUTCDate(startTimestamp.getUTCDate() - 7);
+    // `last7Days` covers 7 inclusive UTC days, so it opens at midnight 6 days back.
+    startTimestamp.setUTCDate(startTimestamp.getUTCDate() - 6);
+    startTimestamp.setUTCHours(0, 0, 0, 0);
 
     const expected = format(
       `
@@ -707,7 +713,9 @@ describe("productAnalytics", () => {
 
     const now = new Date();
     const startTimestamp = new Date(now);
-    startTimestamp.setUTCDate(startTimestamp.getUTCDate() - 7);
+    // `last7Days` covers 7 inclusive UTC days, so it opens at midnight 6 days back.
+    startTimestamp.setUTCDate(startTimestamp.getUTCDate() - 6);
+    startTimestamp.setUTCHours(0, 0, 0, 0);
 
     const expected = format(
       `
@@ -983,5 +991,236 @@ describe("productAnalytics", () => {
       /CAST\s*\(\s*KLL_POINT\s*\(\s*KLL_MERGE\s*\(\s*m0\s*\),\s*0\.9\s*\)\s+AS\s+FLOAT\s*\)\s+AS\s+m0_numerator/,
     );
     expect(sql).not.toContain("APPROX_PERCENTILE(m0, 0.9)");
+  });
+
+  it("inlines virtual column expressions instead of referencing them by name", () => {
+    const baseColumn = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "",
+      numberFormat: "" as const,
+      alwaysInlineFilter: false,
+      deleted: false,
+      autoSlices: [],
+      isAutoSliceColumn: false,
+    };
+    const virtualFactTableMap = new Map<string, FactTableInterface>([
+      [
+        "orders",
+        {
+          ...factTableMap.get("orders")!,
+          sql: "SELECT user_id, anonymous_id, timestamp, amount, qty FROM orders",
+          columns: [
+            {
+              ...baseColumn,
+              column: "amount",
+              datatype: "number",
+              name: "amount",
+            },
+            { ...baseColumn, column: "qty", datatype: "number", name: "qty" },
+            {
+              ...baseColumn,
+              column: "user_id",
+              datatype: "string",
+              name: "user_id",
+            },
+            {
+              ...baseColumn,
+              column: "anonymous_id",
+              datatype: "string",
+              name: "anonymous_id",
+            },
+            {
+              ...baseColumn,
+              column: "timestamp",
+              datatype: "date",
+              name: "timestamp",
+            },
+            // Virtual (computed) column: not a real column in the warehouse.
+            {
+              ...baseColumn,
+              column: "revenue_vc",
+              datatype: "number",
+              name: "revenue_vc",
+              isVirtual: true,
+              sql: "amount * qty",
+            },
+          ],
+        },
+      ],
+    ]);
+
+    const config: ExplorationConfig = {
+      type: "fact_table",
+      datasource: "ds_1",
+      chartType: "line",
+      showAs: "total",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        { dimensionType: "date", column: null, dateGranularity: "day" },
+      ],
+      dataset: {
+        type: "fact_table",
+        factTableId: "orders",
+        values: [
+          {
+            name: "revenue",
+            type: "fact_table",
+            rowFilters: [],
+            valueType: "sum",
+            unit: null,
+            valueColumn: "revenue_vc",
+          },
+        ],
+      },
+    };
+
+    const { sql } = generateProductAnalyticsSQL(
+      config,
+      virtualFactTableMap,
+      metricMap,
+      helpers,
+      datasource,
+    );
+
+    // The virtual column must be expanded into its SQL expression, never
+    // emitted as a bare identifier the warehouse cannot resolve.
+    expect(sql).toContain("(amount * qty) AS m0");
+    expect(sql).not.toContain("revenue_vc AS m0");
+  });
+
+  it("inlines a virtual column used as an aggregate filter column", () => {
+    const baseColumn = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "",
+      numberFormat: "" as const,
+      alwaysInlineFilter: false,
+      deleted: false,
+      autoSlices: [],
+      isAutoSliceColumn: false,
+    };
+    const virtualFactTableMap = new Map<string, FactTableInterface>([
+      [
+        "orders",
+        {
+          ...factTableMap.get("orders")!,
+          sql: "SELECT user_id, anonymous_id, timestamp, amount, qty FROM orders",
+          columns: [
+            {
+              ...baseColumn,
+              column: "amount",
+              datatype: "number",
+              name: "amount",
+            },
+            { ...baseColumn, column: "qty", datatype: "number", name: "qty" },
+            {
+              ...baseColumn,
+              column: "user_id",
+              datatype: "string",
+              name: "user_id",
+            },
+            {
+              ...baseColumn,
+              column: "anonymous_id",
+              datatype: "string",
+              name: "anonymous_id",
+            },
+            {
+              ...baseColumn,
+              column: "timestamp",
+              datatype: "date",
+              name: "timestamp",
+            },
+            {
+              ...baseColumn,
+              column: "revenue_vc",
+              datatype: "number",
+              name: "revenue_vc",
+              isVirtual: true,
+              sql: "amount * qty",
+            },
+          ],
+        },
+      ],
+    ]);
+
+    // Unique users, filtered on an aggregate of a virtual column.
+    const aggregateFilterMetricMap = new Map<string, FactMetricInterface>([
+      [
+        "big_spenders",
+        {
+          id: "big_spenders",
+          name: "Big Spenders",
+          metricType: "proportion",
+          numerator: {
+            factTableId: "orders",
+            column: "$$distinctUsers",
+            aggregation: "sum",
+            aggregateFilter: ">= 100",
+            aggregateFilterColumn: "revenue_vc",
+          },
+          denominator: null,
+          cappingSettings: { type: "", value: 0 },
+          windowSettings: {
+            type: "",
+            delayValue: 0,
+            delayUnit: "days",
+            windowValue: 0,
+            windowUnit: "days",
+          },
+          quantileSettings: null,
+        } as FactMetricInterface,
+      ],
+    ]);
+
+    const config: ExplorationConfig = {
+      type: "metric",
+      datasource: "ds_1",
+      chartType: "line",
+      showAs: "total",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        { dimensionType: "date", column: null, dateGranularity: "day" },
+      ],
+      dataset: {
+        type: "metric",
+        values: [
+          {
+            name: "Big Spenders",
+            type: "metric",
+            metricId: "big_spenders",
+            rowFilters: [],
+            unit: null,
+            denominatorUnit: null,
+          },
+        ],
+      },
+    };
+
+    const { sql } = generateProductAnalyticsSQL(
+      config,
+      virtualFactTableMap,
+      aggregateFilterMetricMap,
+      helpers,
+      datasource,
+    );
+
+    // The aggregate filter column goes through the same expansion as a value
+    // column — a bare `revenue_vc` does not exist in the warehouse.
+    expect(sql).toContain("(amount * qty)");
+    expect(sql).not.toContain("revenue_vc");
   });
 });

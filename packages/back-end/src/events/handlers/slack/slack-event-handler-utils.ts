@@ -14,6 +14,7 @@ import { SlackIntegrationInterface } from "shared/types/slack-integration";
 import {
   ExperimentWarningNotificationPayload,
   ExperimentInfoSignificancePayload,
+  ExperimentInfoScheduledStatusUpdatePayload,
   ExperimentDecisionNotificationPayload,
   ExperimentStartedNotificationPayload,
   ExperimentStoppedNotificationPayload,
@@ -29,6 +30,7 @@ import {
   SafeRolloutDecisionNotificationPayload,
   SafeRolloutUnhealthyNotificationPayload,
   RampScheduleStepApprovalRequiredPayload,
+  slackCardKindForEvent,
 } from "shared/validators";
 import {
   DiffResult,
@@ -150,6 +152,11 @@ export const getSlackMessageForNotificationEvent = async (
         event.data.object,
         eventId,
         renderContext,
+      );
+
+    case "experiment.info.scheduled-status-update":
+      return buildSlackMessageForExperimentScheduledStatusUpdateEvent(
+        event.data.object,
       );
 
     case "experiment.deleted":
@@ -403,43 +410,33 @@ export const getSlackMessageForNotificationEvent = async (
 
 // Map a notification event to the compact card's *event* (which drives its hero
 // layout). Returns undefined when it doesn't map cleanly; the card then derives
-// one from the experiment's state. The set of card events here mirrors
-// SLACK_CARD_EVENT_KINDS in shared (used by the settings UI to badge card vs
-// text) — keep the two in sync.
+// one from the experiment's state.
+//
+// Derived from SLACK_CARD_EVENT_KINDS (shared), which the settings UI also uses
+// to badge card-vs-text events — so the two can't drift. A lookup rather than a
+// switch: the event union is huge and only these few map to a card.
 const compactEventForNotification = (
   event: NotificationEvent,
 ): CompactEvent | undefined => {
-  switch (event.event) {
-    case "experiment.started":
-      return "started";
-    case "experiment.info.significance":
-      return "significance";
-    // Decision Framework recommendations — the experiment is still running, so
-    // these are "ship/rollback recommended", not the stopped "won"/"lost"
-    // outcome (that's experiment.stopped.*).
-    case "experiment.decision.ship":
-      return "decisionShip";
-    case "experiment.decision.rollback":
-      return "decisionRollback";
-    case "experiment.warning":
-    case "experiment.health.guardrailFailed":
-    case "experiment.health.noData":
-    case "experiment.health.queryFailed":
-      return "warning";
-    // A stop is emitted as shipped/rolledback, but the real outcome is in
-    // `results`: a non-ship stop can be inconclusive/dnf, i.e. a neutral
-    // "stopped" rather than a "rolled back / no lift" loss.
-    case "experiment.stopped.shipped":
-    case "experiment.stopped.rolledback": {
-      const results = (event.data?.object as { results?: string } | undefined)
-        ?.results;
-      if (results === "won") return "won";
-      if (results === "lost") return "lost";
-      return "stopped";
-    }
-    default:
-      return undefined;
+  // A stop is emitted as shipped/rolledback, but the real outcome is in
+  // `results`: a non-ship stop can be inconclusive/dnf, i.e. a neutral
+  // "stopped" rather than a "rolled back / no lift" loss.
+  if (
+    event.event === "experiment.stopped.shipped" ||
+    event.event === "experiment.stopped.rolledback"
+  ) {
+    const results = (event.data?.object as { results?: string } | undefined)
+      ?.results;
+    if (results === "won") return "won";
+    if (results === "lost") return "lost";
+    return "stopped";
   }
+
+  // Every other card event maps 1:1 to its shared card kind, which is a subset
+  // of CompactEvent (the two extra CompactEvents — won/lost — are resolved from
+  // `results` above).
+  const kind = slackCardKindForEvent(event.event);
+  return kind === "stopped" ? undefined : kind;
 };
 
 // Short, URL-free card caption. Omits the experiment name (which can contain a
@@ -2246,6 +2243,51 @@ const buildSlackMessageForExperimentInfoSignificanceEvent = (
     { experimentId, experimentName },
     renderContext,
   );
+};
+
+const buildSlackMessageForExperimentScheduledStatusUpdateEvent = (
+  data: ExperimentInfoScheduledStatusUpdatePayload,
+): SlackMessage => {
+  const shippedVariation = data.shippedVariationName ?? data.shippedVariationId;
+  const recommendedVariation =
+    data.recommendedVariationName ?? data.recommendedVariationId;
+
+  const text = (experimentName: string): string => {
+    switch (data.action) {
+      case "started":
+        return `Experiment ${experimentName} was automatically started as scheduled.`;
+      case "stopped":
+        if (data.shipped && shippedVariation) {
+          return data.forced
+            ? `Experiment ${experimentName} reached its scheduled end date with no clear winner; the pre-selected variation "${shippedVariation}" was shipped.`
+            : `Experiment ${experimentName} reached its scheduled end date and the winning variation "${shippedVariation}" was automatically shipped.`;
+        }
+        return `Experiment ${experimentName} was automatically stopped at its scheduled end date. No variation was shipped.`;
+      case "kept-running":
+        return recommendedVariation
+          ? `Experiment ${experimentName} reached its scheduled end date and was kept running. Recommended variation to ship: "${recommendedVariation}".`
+          : `Experiment ${experimentName} reached its scheduled end date and was kept running. There is no clear winner yet.`;
+      default: {
+        const exhaustiveCheck: never = data.action;
+        return exhaustiveCheck;
+      }
+    }
+  };
+
+  return {
+    text: text(data.experimentName),
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            text(`*${data.experimentName}*`) +
+            getExperimentUrlFormatted(data.experimentId),
+        },
+      },
+    ],
+  };
 };
 
 const buildSlackMessageForExperimentWarningEvent = async (

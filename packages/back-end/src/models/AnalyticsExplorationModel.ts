@@ -102,6 +102,18 @@ const BaseClass = MakeModelClass({
 });
 
 export class AnalyticsExplorationModel extends BaseClass {
+  // Every saved exploration in the org, ignoring the caller's read permissions.
+  // Only for authoritative dependency scans (e.g. blocking deletion of a fact
+  // table column an exploration still references), where missing an exploration
+  // the caller cannot read would let the delete through and leave that
+  // exploration generating SQL for a column that no longer exists. Never return
+  // these to the caller.
+  public async dangerousGetAllForDependencyScan(): Promise<
+    ProductAnalyticsExploration[]
+  > {
+    return this._find({}, { bypassReadPermissionChecks: true });
+  }
+
   public getConfigHashes(config: ExplorationConfig) {
     const dataset = config.dataset;
     if (!dataset) return null;
@@ -156,6 +168,31 @@ export class AnalyticsExplorationModel extends BaseClass {
       generalSettingsHash,
       valueHashes,
     };
+  }
+
+  public static migrateFunnelSteps(
+    steps: Record<string, unknown>[],
+  ): Record<string, unknown>[] {
+    return steps.map((s) => {
+      if ("factTable" in s && !("factTableId" in s)) {
+        const { factTable, ...rest } = s;
+        return { ...rest, factTableId: factTable };
+      }
+      return s;
+    });
+  }
+
+  protected migrate(legacyDoc: unknown): ProductAnalyticsExploration {
+    const doc = { ...(legacyDoc as ProductAnalyticsExploration) };
+    if (doc.config?.dataset?.type === "funnel") {
+      const { dataset } = doc.config;
+      if (dataset.steps.some((s) => !("factTableId" in s))) {
+        dataset.steps = AnalyticsExplorationModel.migrateFunnelSteps(
+          dataset.steps as unknown as Record<string, unknown>[],
+        ) as typeof dataset.steps;
+      }
+    }
+    return doc;
   }
 
   protected canRead(doc: ProductAnalyticsExploration): boolean {

@@ -263,7 +263,7 @@ export default function ExperimentSettings({
                     ]}
                     value={form.watch("attributionModel")}
                     gap="2"
-                    descriptionSize="2"
+                    descriptionSize="md"
                     setValue={(v) => {
                       form.setValue("attributionModel", v);
                     }}
@@ -340,7 +340,7 @@ export default function ExperimentSettings({
                     },
                   ]}
                   gap="2"
-                  descriptionSize="2"
+                  descriptionSize="md"
                   value={form.watch("updateSchedule.type")}
                   setValue={(v) => {
                     form.setValue("updateSchedule.type", v);

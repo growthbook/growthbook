@@ -28,6 +28,15 @@ $text-colors:
     border: 1px solid var(--slate-a11);
     border-radius: 50%;
     box-sizing: border-box;
+
+    .number {
+      display: inline-block;
+
+      // At 1×, glyphs for the 11px Inter face rasterize half a pixel left.
+      @media (resolution: 1dppx) {
+        transform: translateX(0.5px);
+      }
+    }
   }
 
   @for $i from 0 through 99 {

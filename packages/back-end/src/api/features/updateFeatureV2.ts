@@ -30,6 +30,7 @@ import {
   getApiFeatureObjV2,
   getNextScheduledUpdate,
   getSavedGroupMap,
+  inheritStoredRolloutSeeds,
 } from "back-end/src/services/features";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { getEnabledEnvironments } from "back-end/src/util/features";
@@ -222,7 +223,13 @@ export const updateFeatureV2 = createApiRequestHandler(
         }))
       : null;
 
-  await assertValidHoldout(req.body.holdout, req.context);
+  if (req.body.holdout !== undefined || req.body.project !== undefined) {
+    await assertValidHoldout(
+      req.body.holdout !== undefined ? req.body.holdout : feature.holdout,
+      req.context,
+      req.body.project ?? feature.project,
+    );
+  }
 
   // Block a config-backed default value coexisting with an enabled JSON schema
   // (either inbound or already on the flag), using the effective post-update
@@ -262,6 +269,8 @@ export const updateFeatureV2 = createApiRequestHandler(
       effectiveBaseConfig,
       effectiveProject,
     );
+    // Inherit stored seed/hashVersion first so the backfill can't re-bucket a legacy rollout.
+    inheritStoredRolloutSeeds(inboundFlatRules, feature.rules ?? []);
     addIdsToFlatRules(inboundFlatRules, feature.id);
     // `mapV2ApiRuleToFeatureRule` doesn't validate values; enforce the schema
     // here (against the effective schema, opt-out via ?skipSchemaValidation).

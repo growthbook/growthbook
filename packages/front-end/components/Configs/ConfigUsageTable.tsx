@@ -142,7 +142,7 @@ function OverrideValues({
               </Box>
             )}
             {shownKeys.length === 0 ? (
-              <Text as="div" size="small" color="text-low">
+              <Text as="div" size="sm" color="text-low">
                 No override
               </Text>
             ) : (
@@ -327,7 +327,7 @@ function ExperimentCell({
       : null;
   if (!href)
     return impl.experimentName ? (
-      <Text size="small">{impl.experimentName}</Text>
+      <Text size="sm">{impl.experimentName}</Text>
     ) : null;
   const label =
     impl.experimentName ?? impl.experimentId ?? impl.contextualBanditId ?? href;
@@ -382,7 +382,7 @@ function KeyCell({
 }): React.ReactElement {
   if (!keys.length)
     return (
-      <Text size="small" color="text-low">
+      <Text size="sm" color="text-low">
         —
       </Text>
     );
@@ -410,7 +410,7 @@ function KeyCell({
             </Flex>
           }
         >
-          <Text as="span" size="small" color="text-low">
+          <Text as="span" size="sm" color="text-low">
             +{overflow.length} more
           </Text>
         </Tooltip>

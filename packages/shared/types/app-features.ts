@@ -116,6 +116,7 @@ export type AppFeatures = {
   "experimentation-focused-onboarding": boolean;
   teresatest: string;
   teresa_test_feature: boolean;
+  "teresa-cb-feature": boolean;
   "new-test-values": boolean;
   "test-feature": boolean;
   "pro-signup-flow": boolean;
@@ -123,8 +124,7 @@ export type AppFeatures = {
   "events-forwarder": boolean;
   "enable-error-tracking": boolean;
   "managed-warehouse-diagnostics": boolean;
-  "managed-warehouse-json-migration": boolean;
-  "managed-warehouse-migration-sweep": boolean;
+  "managed-warehouse-json-ergonomics-sweep": boolean;
   "session-replays": boolean;
   "login-page-content": Record<string, unknown>;
   "slackbot-enabled": boolean;
@@ -140,5 +140,7 @@ export type AppFeatures = {
   "show-switch-to-old-exp-create": boolean;
   "playstation-new-internal-dashboard": boolean;
   tester123: boolean;
+  "definitions-etag-304": boolean;
   "pricing-phase-1-limits": Record<string, unknown>;
+  "eu-data-region": boolean;
 };

@@ -219,7 +219,7 @@ function AddChannelModal({
       <Flex gap="3" align="center" mt="2" wrap="wrap">
         <Button
           variant="ghost"
-          size="xs"
+          size="sm"
           icon={<PiArrowsClockwise />}
           loading={loading}
           onClick={() => fetchChannels()}
@@ -229,7 +229,7 @@ function AddChannelModal({
         {nextCursor && (
           <Button
             variant="ghost"
-            size="xs"
+            size="sm"
             loading={loading}
             onClick={() => fetchChannels(nextCursor)}
           >
@@ -238,7 +238,7 @@ function AddChannelModal({
         )}
       </Flex>
 
-      <Text as="p" size="small" color="text-mid" mt="3" mb="0">
+      <Text as="p" size="sm" color="text-mid" mt="3" mb="0">
         Don&rsquo;t see a private channel? Run <code>/invite @GrowthBook</code>{" "}
         in that channel in Slack, then refresh.
       </Text>
@@ -400,7 +400,7 @@ function SelfHostedSetupPanel({
 }) {
   return (
     <Flex direction="column" gap="3" align="center" p="8">
-      <Heading as="h2" size="small" mb="0">
+      <Heading as="h2" size="sm" mb="0">
         Finish self-hosted Slack setup
       </Heading>
       <Box style={{ maxWidth: 520 }}>
@@ -413,7 +413,7 @@ function SelfHostedSetupPanel({
       <Button icon={<FaSlack />} onClick={onOpenManifest}>
         Set up Slack app
       </Button>
-      <Text size="small" color="text-mid" align="center">
+      <Text size="sm" color="text-mid" align="center">
         Requires <code>SLACK_CLIENT_ID</code>, <code>SLACK_CLIENT_SECRET</code>,
         and <code>SLACK_SIGNING_SECRET</code> on the API server.
       </Text>
@@ -708,7 +708,7 @@ const SlackIntegrationsPage: NextPage = () => {
           <Box style={{ maxWidth: 520, width: "100%" }}>
             {installStatus === "connecting" ? (
               <Flex direction="column" align="center" gap="3">
-                <Heading as="h1" size="medium" align="center" mb="0">
+                <Heading as="h1" size="md" align="center" mb="0">
                   Connecting…
                 </Heading>
                 <Text as="p" color="text-mid" align="center">
@@ -718,7 +718,7 @@ const SlackIntegrationsPage: NextPage = () => {
             ) : (
               <Flex direction="column" gap="4">
                 <Box>
-                  <Heading as="h1" size="large" mb="2">
+                  <Heading as="h1" size="lg" mb="2">
                     Connect Slack to GrowthBook
                   </Heading>
                   <Text as="p" color="text-mid">
@@ -735,10 +735,10 @@ const SlackIntegrationsPage: NextPage = () => {
                     background: "var(--color-panel-solid)",
                   }}
                 >
-                  <Text size="small" color="text-mid" as="p" mb="1">
+                  <Text size="sm" color="text-mid" as="p" mb="1">
                     Connecting to
                   </Text>
-                  <Heading as="h2" size="medium" mb="2">
+                  <Heading as="h2" size="md" mb="2">
                     {currentOrgName}
                   </Heading>
                   {installOrgOptions.length > 1 && (
@@ -900,7 +900,7 @@ const SlackIntegrationsPage: NextPage = () => {
           style={{ borderBottom: "1px solid var(--gray-a4)" }}
         >
           <Box style={{ maxWidth: 640, flex: 1 }}>
-            <Heading as="h1" size="large" mb="2">
+            <Heading as="h1" size="lg" mb="2">
               Slack
             </Heading>
             <Text as="p" color="text-mid" mb="0">
@@ -959,7 +959,7 @@ const SlackIntegrationsPage: NextPage = () => {
                 <Text as="p" weight="medium" mb="1">
                   AI assistant
                 </Text>
-                <Text as="p" size="small" color="text-mid" mb="0">
+                <Text as="p" size="sm" color="text-mid" mb="0">
                   Let people @mention the bot in Slack to ask about experiments,
                   features, and metrics. Turn this off to run notifications only
                   — cards and digests keep posting either way. Requires AI to be
@@ -992,7 +992,7 @@ const SlackIntegrationsPage: NextPage = () => {
                 <Text as="p" weight="medium" mb="1">
                   Link previews
                 </Text>
-                <Text as="p" size="small" color="text-mid" mb="0">
+                <Text as="p" size="sm" color="text-mid" mb="0">
                   When someone shares a GrowthBook experiment link in Slack,
                   unfurl it into a short summary (name, goal metric, lift). Turn
                   off to leave shared links untouched. Only shown to people who
@@ -1026,7 +1026,7 @@ const SlackIntegrationsPage: NextPage = () => {
             />
           ) : (
             <Flex direction="column" gap="3" align="center" p="8">
-              <Heading as="h2" size="small" mb="0">
+              <Heading as="h2" size="sm" mb="0">
                 No Slack workspace connected
               </Heading>
               <Text color="text-mid" align="center">
@@ -1058,7 +1058,7 @@ const SlackIntegrationsPage: NextPage = () => {
             >
               <Flex justify="between" align="center" px="2" pb="2">
                 <Text
-                  size="small"
+                  size="sm"
                   weight="medium"
                   color="text-mid"
                   textTransform="uppercase"
@@ -1068,7 +1068,7 @@ const SlackIntegrationsPage: NextPage = () => {
                 {addChannelTarget && (
                   <Button
                     variant="ghost"
-                    size="xs"
+                    size="sm"
                     aria-label="Add channel"
                     onClick={() => setAddChannelTeamId(addChannelTarget)}
                   >
@@ -1103,7 +1103,7 @@ const SlackIntegrationsPage: NextPage = () => {
                       <Box style={{ minWidth: 0 }}>
                         <Text
                           as="div"
-                          size="medium"
+                          size="md"
                           weight={isSelected ? "semibold" : "medium"}
                           truncate
                         >
@@ -1117,7 +1117,7 @@ const SlackIntegrationsPage: NextPage = () => {
                       )}
                     </Flex>
                     <Box pl="4">
-                      <Text as="div" size="small" color="text-mid" truncate>
+                      <Text as="div" size="sm" color="text-mid" truncate>
                         {scopeSummary(channel)}
                       </Text>
                     </Box>
@@ -1137,7 +1137,7 @@ const SlackIntegrationsPage: NextPage = () => {
                 </Box>
               )}
               {!addChannelTarget && (
-                <Text size="small" color="text-mid" mt="2" as="div">
+                <Text size="sm" color="text-mid" mt="2" as="div">
                   Reconnect to Slack to add channels from here.
                 </Text>
               )}
@@ -1163,7 +1163,7 @@ const SlackIntegrationsPage: NextPage = () => {
                 />
               ) : (
                 <Flex direction="column" gap="3" align="start" p="4">
-                  <Heading as="h2" size="small" mb="0">
+                  <Heading as="h2" size="sm" mb="0">
                     No channels yet
                   </Heading>
                   <Text color="text-mid">

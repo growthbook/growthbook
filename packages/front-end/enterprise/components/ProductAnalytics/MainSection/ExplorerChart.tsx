@@ -3,6 +3,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import * as echarts from "echarts/core";
 import type {
+  ComparisonMode,
   ExplorationConfig,
   ProductAnalyticsExploration,
   ProductAnalyticsRunComparisonPayload,
@@ -10,6 +11,8 @@ import type {
 import { isManagedWarehousePendingQueryError } from "shared/util";
 import {
   calculateProductAnalyticsDateRange,
+  extendDateBucketsForward,
+  getComparisonAlignmentStrategy,
   getDateGranularity,
 } from "shared/enterprise";
 import {
@@ -107,6 +110,7 @@ export default function ExplorerChart({
   loading,
   animate = true,
   submittedPreviousTimeFrame = null,
+  submittedComparisonMode = null,
   serverBigNumberTrends = null,
 }: {
   exploration: ProductAnalyticsExploration | null;
@@ -118,6 +122,7 @@ export default function ExplorerChart({
   /** When false, ECharts entry animations are disabled (e.g. for already-seen charts). */
   animate?: boolean;
   submittedPreviousTimeFrame?: ExplorationConfig["dateRange"] | null;
+  submittedComparisonMode?: ComparisonMode | null;
   serverBigNumberTrends?:
     | ProductAnalyticsRunComparisonPayload["bigNumberTrends"]
     | null;
@@ -330,6 +335,30 @@ export default function ExplorerChart({
       sortedXValues = Array.from(uniqueXValues).sort();
     }
 
+    // A custom comparison window can hold more buckets than the primary. The
+    // axis has to reach the longer of the two, so continue the primary's cadence
+    // past its own last bucket; both series read null out there until the
+    // comparison's rank-aligned values fill in.
+    if (firstDimensionIsDate && !isBarType && resolvedGranularity) {
+      const comparisonBucketCount = new Set(
+        (comparisonExploration?.result?.rows ?? []).map((r) =>
+          String(r.dimensions[0] ?? ""),
+        ),
+      ).size;
+      const shortfall = comparisonBucketCount - sortedXValues.length;
+      const lastBucket = sortedXValues[sortedXValues.length - 1];
+      if (shortfall > 0 && lastBucket) {
+        sortedXValues = [
+          ...sortedXValues,
+          ...extendDateBucketsForward({
+            resolvedGranularity,
+            afterIso: lastBucket,
+            count: shortfall,
+          }),
+        ];
+      }
+    }
+
     // 3. Build Series (ordered by cumulative total, highest first)
     const seriesColor = (i: number) => CHART_COLORS[i % CHART_COLORS.length];
     const comparisonSeriesColor = (i: number) =>
@@ -347,10 +376,15 @@ export default function ExplorerChart({
       : "xAxisIndex";
     const needsDualCompareAxis = compareOverlayActive && isBarType;
 
+    const comparisonAlignment = getComparisonAlignmentStrategy(
+      submittedComparisonMode ?? "previousPeriod",
+    );
+
     const comparisonPeriodLabels = compareOverlayActive
       ? getComparisonPeriodLabels(
           submittedExploreState.dateRange,
           submittedPreviousTimeFrame ?? undefined,
+          submittedComparisonMode ?? "previousPeriod",
         )
       : null;
 
@@ -363,6 +397,7 @@ export default function ExplorerChart({
             renderOpts,
             sortedSeriesKeys,
             firstDimensionIsDate,
+            comparisonAlignment,
           })
         : null;
     const alignedComparisonDataForCurrent =
@@ -620,6 +655,7 @@ export default function ExplorerChart({
       sortedXValues,
       seriesConfigsLength: seriesConfigs.length,
       formatNumber,
+      comparisonAlignment,
     });
 
     return {
@@ -688,6 +724,7 @@ export default function ExplorerChart({
     compareEnabled,
     submittedExploreState,
     submittedPreviousTimeFrame,
+    submittedComparisonMode,
     renderOpts,
     textColor,
     gridLineColor,
@@ -706,6 +743,7 @@ export default function ExplorerChart({
     const labels = getComparisonPeriodLabels(
       submittedExploreState.dateRange,
       submittedPreviousTimeFrame ?? undefined,
+      submittedComparisonMode ?? "previousPeriod",
     );
     const items = buildCompareChartLegendModel(series, labels);
     if (!items.length) return null;
@@ -715,6 +753,7 @@ export default function ExplorerChart({
     chartConfig,
     submittedExploreState.dateRange,
     submittedPreviousTimeFrame,
+    submittedComparisonMode,
   ]);
 
   // Series toggled off via the custom compare legend. Reset whenever the legend

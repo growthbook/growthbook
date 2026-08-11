@@ -1,5 +1,6 @@
 import { Permissions, userHasPermission } from "shared/permissions";
 import { uniq } from "lodash";
+import md5 from "md5";
 import type pino from "pino";
 import type { Request } from "express";
 import { ExperimentMetricInterface } from "shared/experiments";
@@ -85,11 +86,15 @@ import { ContextualBanditEventModel } from "back-end/src/enterprise/models/Conte
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RevisionModel } from "back-end/src/models/RevisionModel";
 import { AIConversationModel } from "back-end/src/models/AIConversationModel";
+import { LearningModel } from "back-end/src/models/LearningModel";
 import { EventForwarderConfigModel } from "back-end/src/models/EventForwarderConfigModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { FigmaConnectionModel } from "back-end/src/models/FigmaConnectionModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
+import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
+import { OAuthGrantModel } from "back-end/src/models/OAuthGrantModel";
+import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
 import { getUserByEmail, getUsersByIds } from "back-end/src/models/UserModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
@@ -141,9 +146,13 @@ export type ModelName =
   | "watch"
   | "figmaConnections"
   | "apiKeys"
+  | "oauthAuthCodes"
+  | "oauthGrants"
+  | "oauthRefreshTokens"
   | "rampSchedules"
   | "rampScheduleTemplates"
   | "aiConversations"
+  | "learnings"
   | "contextualBandits"
   | "contextualBanditQueries"
   | "contextualBanditSnapshots"
@@ -192,9 +201,13 @@ export const modelClasses = {
   watch: WatchModel,
   figmaConnections: FigmaConnectionModel,
   apiKeys: ApiKeyModel,
+  oauthAuthCodes: OAuthAuthCodeModel,
+  oauthGrants: OAuthGrantModel,
+  oauthRefreshTokens: OAuthRefreshTokenModel,
   rampSchedules: RampScheduleModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
+  learnings: LearningModel,
   contextualBandits: ContextualBanditModel,
   contextualBanditQueries: ContextualBanditQueryModel,
   contextualBanditSnapshots: ContextualBanditSnapshotModel,
@@ -333,9 +346,13 @@ export class ReqContextClass {
       watch: new WatchModel(this),
       figmaConnections: new FigmaConnectionModel(this),
       apiKeys: new ApiKeyModel(this),
+      oauthAuthCodes: new OAuthAuthCodeModel(this),
+      oauthGrants: new OAuthGrantModel(this),
+      oauthRefreshTokens: new OAuthRefreshTokenModel(this),
       rampSchedules: new RampScheduleModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
+      learnings: new LearningModel(this),
       contextualBandits: new ContextualBanditModel(this),
       contextualBanditQueries: new ContextualBanditQueryModel(this),
       contextualBanditSnapshots: new ContextualBanditSnapshotModel(this),
@@ -545,6 +562,18 @@ export class ReqContextClass {
 
   public hasPremiumFeature(feature: CommercialFeature) {
     return orgHasPremiumFeature(this.org, feature);
+  }
+
+  // Stable hash of this user's resolved permissions. Used to vary the
+  // `/organization/definitions` ETag, since that response is permission
+  // filtered per user. Over-invalidation on any perm change is fine (extra
+  // 200, never stale).
+  private _permissionsFingerprint?: string;
+  public getPermissionsFingerprint(): string {
+    if (this._permissionsFingerprint === undefined) {
+      this._permissionsFingerprint = md5(JSON.stringify(this.userPermissions));
+    }
+    return this._permissionsFingerprint;
   }
 
   private _limits: OrgLimitsAccessor | null = null;

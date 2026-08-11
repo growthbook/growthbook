@@ -42,6 +42,7 @@ import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
 import {
   migrateExperimentReport,
   migrateSnapshot,
+  pinLegacyRolloutSeeds,
   upgradeDatasourceObject,
   upgradeExperimentDoc,
   upgradeFeatureRule,
@@ -50,6 +51,8 @@ import {
   upgradeV0Feature,
 } from "back-end/src/util/migrations";
 import { flattenV1ToV2Rules } from "back-end/src/util/flattenRules";
+import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
+import { migrateBlock } from "back-end/src/enterprise/models/DashboardModel";
 
 describe("Fact Metric Migration", () => {
   it("upgrades delay hours", () => {
@@ -2932,6 +2935,25 @@ describe("saved group migrations", () => {
     });
   });
 
+  it("does not synthesize a runtime condition when the read omitted condition", () => {
+    expect(
+      SavedGroupModel.migrateSavedGroup(
+        {
+          ...baseSavedGroup,
+          attributeKey: "foo",
+          values: [],
+          source: "runtime",
+        },
+        { conditionOmitted: true },
+      ),
+    ).toEqual({
+      ...baseSavedGroup,
+      attributeKey: "foo",
+      values: [],
+      type: "condition",
+    });
+  });
+
   it("does not migrate saved groups that already have type=list", () => {
     expect(
       SavedGroupModel.migrateSavedGroup({
@@ -2965,6 +2987,159 @@ describe("saved group migrations", () => {
       values: [],
       type: "condition",
       condition: JSON.stringify({ id: { $eq: "123" } }),
+    });
+  });
+});
+
+describe("pinLegacyRolloutSeeds", () => {
+  const rollout = (over: Partial<FeatureRule> = {}) =>
+    ({
+      id: "fr_rule",
+      type: "rollout",
+      value: "true",
+      coverage: 0.5,
+      hashAttribute: "id",
+      ...over,
+    }) as FeatureRule;
+
+  it("pins a seedless rollout rule to the feature id", () => {
+    const [pinned] = pinLegacyRolloutSeeds([rollout()], "feat_1");
+    expect((pinned as { seed?: string }).seed).toBe("feat_1");
+  });
+
+  it("leaves an explicitly-seeded rollout rule untouched", () => {
+    const [pinned] = pinLegacyRolloutSeeds(
+      [rollout({ seed: "fr_rule" })],
+      "feat_1",
+    );
+    // An existing seed (rule.id default or a custom seed) is never rewritten.
+    expect((pinned as { seed?: string }).seed).toBe("fr_rule");
+  });
+
+  it("does not touch non-rollout rules", () => {
+    const force = { id: "fr_f", type: "force", value: "true" } as FeatureRule;
+    const safe = {
+      id: "fr_s",
+      type: "safe-rollout",
+      safeRolloutId: "sr_1",
+    } as unknown as FeatureRule;
+    const [pForce, pSafe] = pinLegacyRolloutSeeds([force, safe], "feat_1");
+    expect(pForce).not.toHaveProperty("seed");
+    // Safe rollouts carry their own random seed and are never pinned.
+    expect((pSafe as { seed?: string }).seed).toBeUndefined();
+  });
+
+  it("does not mutate the input rule objects", () => {
+    const input = rollout();
+    pinLegacyRolloutSeeds([input], "feat_1");
+    expect((input as { seed?: string }).seed).toBeUndefined();
+  });
+
+  it("tolerates sparse null array entries", () => {
+    const rules = [null, rollout()] as unknown as FeatureRule[];
+    const out = pinLegacyRolloutSeeds(rules, "feat_1");
+    expect(out[0]).toBeNull();
+    expect((out[1] as { seed?: string }).seed).toBe("feat_1");
+  });
+});
+
+describe("Funnel Step Migration (factTable → factTableId)", () => {
+  const legacyStep = (factTable: string) => ({
+    name: "Step 1",
+    factTable,
+    rowFilters: [],
+    optional: false,
+  });
+
+  const migratedStep = (factTableId: string) => ({
+    name: "Step 1",
+    factTableId,
+    rowFilters: [],
+    optional: false,
+  });
+
+  describe("AnalyticsExplorationModel.migrateFunnelSteps", () => {
+    it("renames factTable to factTableId", () => {
+      const steps = [legacyStep("orders"), legacyStep("visits")];
+      const result = AnalyticsExplorationModel.migrateFunnelSteps(steps);
+      expect(result).toEqual([migratedStep("orders"), migratedStep("visits")]);
+    });
+
+    it("passes through steps that already have factTableId", () => {
+      const steps = [migratedStep("orders")];
+      const result = AnalyticsExplorationModel.migrateFunnelSteps(
+        steps as Record<string, unknown>[],
+      );
+      expect(result).toEqual([migratedStep("orders")]);
+    });
+
+    it("handles a mix of legacy and migrated steps", () => {
+      const steps = [legacyStep("orders"), migratedStep("visits")];
+      const result = AnalyticsExplorationModel.migrateFunnelSteps(steps);
+      expect(result).toEqual([migratedStep("orders"), migratedStep("visits")]);
+    });
+  });
+
+  describe("migrateBlock (funnel-exploration)", () => {
+    it("renames factTable to factTableId on funnel steps", () => {
+      const block = {
+        type: "funnel-exploration" as const,
+        title: "My funnel",
+        explorerAnalysisId: "ae_1",
+        config: {
+          type: "funnel" as const,
+          datasource: "ds_1",
+          chartType: "bar" as const,
+          dimensions: [],
+          dateRange: {
+            predefined: "last7Days" as const,
+            startDate: null,
+            endDate: null,
+            lookbackValue: null,
+            lookbackUnit: null,
+          },
+          dataset: {
+            type: "funnel" as const,
+            unit: "user_id",
+            steps: [legacyStep("orders"), legacyStep("visits")],
+          },
+        },
+      };
+      const result = migrateBlock(block as any);
+      expect((result as any).config.dataset.steps).toEqual([
+        migratedStep("orders"),
+        migratedStep("visits"),
+      ]);
+    });
+
+    it("passes through blocks that already have factTableId", () => {
+      const block = {
+        type: "funnel-exploration" as const,
+        title: "My funnel",
+        explorerAnalysisId: "ae_1",
+        config: {
+          type: "funnel" as const,
+          datasource: "ds_1",
+          chartType: "bar" as const,
+          dimensions: [],
+          dateRange: {
+            predefined: "last7Days" as const,
+            startDate: null,
+            endDate: null,
+            lookbackValue: null,
+            lookbackUnit: null,
+          },
+          dataset: {
+            type: "funnel" as const,
+            unit: "user_id",
+            steps: [migratedStep("orders")],
+          },
+        },
+      };
+      const result = migrateBlock(block as any);
+      expect((result as any).config.dataset.steps).toEqual([
+        migratedStep("orders"),
+      ]);
     });
   });
 });

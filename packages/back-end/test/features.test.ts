@@ -15,10 +15,12 @@ import {
   generateRuleId,
   addIdsToFlatRules,
   addIdsToRules,
+  inheritStoredRolloutSeeds,
   getFeatureDefinitionsResponse,
   hashStrings,
   sha256,
   generateFeaturesPayload,
+  validateFeatureRuleValues,
 } from "back-end/src/services/features";
 import { getCurrentEnabledState } from "back-end/src/util/scheduleRules";
 import {
@@ -3402,6 +3404,41 @@ describe("buildFeatureRulesFromApiEnvSettings", () => {
     expect(rules[0]).not.toHaveProperty("prerequisites");
   });
 
+  // GET→edit→PUT must persist rollout id/seed/hashVersion verbatim (else re-bucketing).
+  it("preserves rollout id/seed/hashVersion through the v1 converter", () => {
+    const rules = buildFeatureRulesFromApiEnvSettings(
+      mockContext,
+      baseFeature,
+      [{ id: "production" }],
+      {
+        production: {
+          enabled: true,
+          rules: [
+            {
+              id: "fr_explicit",
+              type: "rollout",
+              value: "true",
+              coverage: 0.5,
+              hashAttribute: "userId",
+              seed: "my-seed",
+              hashVersion: 2,
+            },
+          ],
+        },
+      },
+    );
+    const rule = rules[0] as {
+      id?: string;
+      seed?: string;
+      hashAttribute?: string;
+      hashVersion?: number;
+    };
+    expect(rule.id).toBe("fr_explicit");
+    expect(rule.seed).toBe("my-seed");
+    expect(rule.hashAttribute).toBe("userId");
+    expect(rule.hashVersion).toBe(2);
+  });
+
   // ---------------------------------------------------------------------------
   // Content-identical rules across envs must merge into ONE v2 rule with a
   // multi-env footprint — not two split rules with the second id suffixed by
@@ -3676,5 +3713,126 @@ describe("addIdsToRules — rollout seed backfill (legacy env format)", () => {
     const rule = (envSettings.production as { rules?: { seed?: string }[] })
       .rules?.[0];
     expect(rule?.seed).toBe("keep-me");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// inheritStoredRolloutSeeds — a bulk update that echoes a rollout rule by id
+// but omits seed/hashVersion must inherit them from the stored (already
+// read-time-pinned) rule, so the write-time backfill can't re-bucket it.
+// ---------------------------------------------------------------------------
+describe("inheritStoredRolloutSeeds", () => {
+  const inboundRollout = (over: Record<string, unknown> = {}) =>
+    ({
+      id: "fr_legacy",
+      type: "rollout",
+      value: "true",
+      coverage: 0.5,
+      hashAttribute: "id",
+      ...over,
+    }) as unknown as FeatureInterface["rules"][number];
+
+  const storedRollout = (over: Record<string, unknown> = {}) =>
+    ({
+      id: "fr_legacy",
+      type: "rollout",
+      value: "true",
+      coverage: 0.5,
+      hashAttribute: "id",
+      seed: "feat_1", // pinned to the feature id at read time
+      ...over,
+    }) as unknown as FeatureInterface["rules"][number];
+
+  it("inherits a stored seed when the inbound rule omits it", () => {
+    const inbound = [inboundRollout()];
+    inheritStoredRolloutSeeds(inbound, [storedRollout()]);
+    expect((inbound[0] as { seed?: string }).seed).toBe("feat_1");
+  });
+
+  it("inherits stored hashVersion when omitted", () => {
+    const inbound = [inboundRollout()];
+    inheritStoredRolloutSeeds(inbound, [
+      storedRollout({ hashVersion: 1, seed: "feat_1" }),
+    ]);
+    expect((inbound[0] as { hashVersion?: number }).hashVersion).toBe(1);
+  });
+
+  it("does not override a seed the caller explicitly sent", () => {
+    const inbound = [inboundRollout({ seed: "client-seed" })];
+    inheritStoredRolloutSeeds(inbound, [storedRollout()]);
+    expect((inbound[0] as { seed?: string }).seed).toBe("client-seed");
+  });
+
+  it("only matches by id — a new rule (no stored match) is left seedless", () => {
+    const inbound = [inboundRollout({ id: "fr_new" })];
+    inheritStoredRolloutSeeds(inbound, [storedRollout()]);
+    expect((inbound[0] as { seed?: string }).seed).toBeUndefined();
+  });
+
+  it("ignores non-rollout stored/inbound rules", () => {
+    const inbound = [inboundRollout({ type: "force" })];
+    inheritStoredRolloutSeeds(inbound, [storedRollout()]);
+    expect(inbound[0]).not.toHaveProperty("seed");
+  });
+
+  // force → rollout promotion: the stored rule shares the id but is a force
+  // rule, so there's no cohort to preserve. Inheritance must skip it, leaving
+  // the backfill to seed it off its own id for independent stacking.
+  it("skips inheritance when the stored rule is a force rule (promotion)", () => {
+    const inbound = [inboundRollout()];
+    const storedForce = {
+      id: "fr_legacy",
+      type: "force",
+      value: "true",
+    } as unknown as FeatureInterface["rules"][number];
+
+    inheritStoredRolloutSeeds(inbound, [storedForce]);
+    expect((inbound[0] as { seed?: string }).seed).toBeUndefined();
+
+    addIdsToFlatRules(inbound as FeatureInterface["rules"], "feat_1");
+    expect((inbound[0] as { seed?: string }).seed).toBe("fr_legacy");
+  });
+
+  it("treats an empty-string seed as absent and inherits the stored seed", () => {
+    const inbound = [inboundRollout({ seed: "" })];
+    inheritStoredRolloutSeeds(inbound, [storedRollout()]);
+    expect((inbound[0] as { seed?: string }).seed).toBe("feat_1");
+  });
+
+  // The regression Anna reported: a client echoes a legacy rule by id but omits
+  // the seed. With inheritance it settles on the stored (feature-id) seed; the
+  // backfill must NOT then stamp the rule id.
+  it("keeps a legacy rollout on the feature-id seed through inherit → backfill", () => {
+    const inbound = [inboundRollout()]; // no seed
+    inheritStoredRolloutSeeds(inbound, [storedRollout({ seed: "feat_1" })]);
+    addIdsToFlatRules(inbound as FeatureInterface["rules"], "feat_1");
+    expect((inbound[0] as { seed?: string }).seed).toBe("feat_1");
+    expect((inbound[0] as { seed?: string }).seed).not.toBe(inbound[0].id);
+  });
+});
+
+describe("validateFeatureRuleValues", () => {
+  const numberFeature: Pick<FeatureInterface, "valueType" | "jsonSchema"> = {
+    valueType: "number",
+    jsonSchema: {
+      schemaType: "schema",
+      schema: JSON.stringify({ type: "number", minimum: 1, maximum: 10 }),
+      simple: { type: "primitive", fields: [] },
+      date: new Date(),
+      enabled: true,
+    },
+  };
+
+  it("throws on an out-of-range value in a contextual-bandit-ref rule", () => {
+    expect(() =>
+      validateFeatureRuleValues(numberFeature, {
+        id: "a",
+        type: "contextual-bandit-ref",
+        variations: [
+          { variationId: "0", value: "5" },
+          { variationId: "1", value: "999" },
+        ],
+      } as never),
+    ).toThrow();
   });
 });

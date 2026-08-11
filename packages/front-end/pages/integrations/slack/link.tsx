@@ -99,7 +99,7 @@ const SlackLinkPage = () => {
         {state && ready && status === "confirming" && (
           <Flex direction="column" gap="4">
             <Box>
-              <Heading as="h1" size="large" mb="2">
+              <Heading as="h1" size="lg" mb="2">
                 Link your Slack account
               </Heading>
               <Text as="p" color="text-mid">
@@ -117,21 +117,21 @@ const SlackLinkPage = () => {
                 background: "var(--color-panel-solid)",
               }}
             >
-              <Text size="small" color="text-mid" as="p" mb="1">
+              <Text size="sm" color="text-mid" as="p" mb="1">
                 Linking to
               </Text>
-              <Heading as="h2" size="medium" mb="2">
+              <Heading as="h2" size="md" mb="2">
                 {currentOrgName}
               </Heading>
               {(name || email) && (
-                <Text size="small" color="text-mid" as="p">
+                <Text size="sm" color="text-mid" as="p">
                   as {name ? `${name} (${email})` : email}
                 </Text>
               )}
 
               {orgOptions.length > 1 && (
                 <Box mt="3">
-                  <Text size="small" color="text-mid" as="p" mb="1">
+                  <Text size="sm" color="text-mid" as="p" mb="1">
                     Not the right organization?
                   </Text>
                   <SelectField
@@ -147,7 +147,7 @@ const SlackLinkPage = () => {
 
             <Flex gap="3" align="center">
               <Button onClick={onConfirm}>Link to {currentOrgName}</Button>
-              <Text size="small" color="text-mid">
+              <Text size="sm" color="text-mid">
                 You can unlink at any time.
               </Text>
             </Flex>
@@ -157,7 +157,7 @@ const SlackLinkPage = () => {
         {state && ready && status === "linking" && (
           <Flex direction="column" align="center" gap="3">
             <LoadingSpinner />
-            <Heading as="h1" size="medium" align="center" mb="0">
+            <Heading as="h1" size="md" align="center" mb="0">
               Linking…
             </Heading>
           </Flex>
@@ -165,7 +165,7 @@ const SlackLinkPage = () => {
 
         {state && status === "done" && (
           <Flex direction="column" align="center" gap="3">
-            <Heading as="h1" size="large" align="center" mb="0">
+            <Heading as="h1" size="lg" align="center" mb="0">
               You&rsquo;re linked
             </Heading>
             <Text as="p" color="text-mid" align="center">
@@ -178,7 +178,7 @@ const SlackLinkPage = () => {
 
         {state && status === "error" && (
           <Flex direction="column" align="center" gap="3">
-            <Heading as="h1" size="large" align="center" mb="0">
+            <Heading as="h1" size="lg" align="center" mb="0">
               Couldn&rsquo;t link
             </Heading>
             <Callout status="error">

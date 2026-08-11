@@ -107,7 +107,7 @@ function renderMessageBody(msg: PreviewMessage): ReactNode {
         .join(" · ");
       if (t)
         parts.push(
-          <Text key={`c${i}`} size="small" color="text-mid" as="div">
+          <Text key={`c${i}`} size="sm" color="text-mid" as="div">
             {renderMrkdwn(t)}
           </Text>,
         );
@@ -164,7 +164,7 @@ export default function SlackMessagePreview({
   if (err) return <HelperText status="error">{err}</HelperText>;
   if (!message)
     return (
-      <Text as="p" color="text-mid" size="small" mb="0">
+      <Text as="p" color="text-mid" size="sm" mb="0">
         Building preview…
       </Text>
     );
@@ -215,7 +215,7 @@ export default function SlackMessagePreview({
             >
               App
             </span>
-            <Text size="small" color="text-mid" as="span">
+            <Text size="sm" color="text-mid" as="span">
               now
             </Text>
           </Flex>

@@ -6,6 +6,7 @@ import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
 import { evalCondition } from "@growthbook/growthbook";
 import {
+  ContextualBanditRefRule,
   ExperimentRefRule,
   RevisionMetadata,
   ApiFeature,
@@ -562,9 +563,14 @@ export function getRevertValueValidationWarnings(
         );
         break;
       case "experiment-ref":
+      case "contextual-bandit-ref":
         rule.variations.forEach((v, j) =>
           check(v.value, `${label} variation #${j + 1}`),
         );
+        break;
+      case "safe-rollout":
+        check(rule.controlValue, `${label} control value`);
+        check(rule.variationValue, `${label} variation value`);
         break;
     }
   });
@@ -729,6 +735,9 @@ const isForceRule = (rule: FeatureRule): rule is ForceRule =>
   rule.type === "force";
 const isExperimentRefRule = (rule: FeatureRule): rule is ExperimentRefRule =>
   rule.type === "experiment-ref";
+const isContextualBanditRefRule = (
+  rule: FeatureRule,
+): rule is ContextualBanditRefRule => rule.type === "contextual-bandit-ref";
 
 // A rule that unconditionally matches all users, blocking any rules after it.
 const isUnconditionalCatcher = (rule: FeatureRule): boolean => {
@@ -1077,6 +1086,50 @@ export type RevisionFields = Pick<
   | "rampActions"
 >;
 
+// Resolves the holdout a revision will publish under. Revisions store holdout
+// sparsely: `undefined` (legacy revisions that predate the field) means
+// carry-forward from the live feature, while an explicit `null` means the
+// draft removes the holdout.
+export function getEffectiveRevisionHoldout(
+  revision: Pick<RevisionFields, "holdout">,
+  feature: FeatureInterface,
+): Exclude<RevisionFields["holdout"], undefined> {
+  return revision.holdout !== undefined
+    ? revision.holdout
+    : (feature.holdout ?? null);
+}
+
+// The holdout a revert restores. Unlike getEffectiveRevisionHoldout, an absent
+// value means "no holdout" rather than carrying the live one forward — carrying
+// forward makes a holdout attached after this revision un-revertable, which
+// reads as a revert that silently does nothing.
+export function getRevertTargetHoldout(
+  revision: Pick<RevisionFields, "holdout">,
+): Exclude<RevisionFields["holdout"], undefined> {
+  return revision.holdout ?? null;
+}
+
+// An open draft that is already the feature's live version: a publish advanced
+// the feature but never marked the revision published. Publishing it reconciles.
+export function isStrandedLiveRevision({
+  featureVersion,
+  revisionVersion,
+  revisionStatus,
+  hasChanges,
+}: {
+  featureVersion: number;
+  revisionVersion: number;
+  revisionStatus: string;
+  hasChanges: boolean;
+}): boolean {
+  return (
+    !hasChanges &&
+    revisionVersion === featureVersion &&
+    revisionStatus !== "published" &&
+    revisionStatus !== "discarded"
+  );
+}
+
 // Per-field backfill for old/sparse revisions before passing to autoMerge.
 // Fields not listed here are left as-is; sparse absence is meaningful for those.
 const revisionFieldFillers: Partial<{
@@ -1115,9 +1168,8 @@ const revisionFieldFillers: Partial<{
   // Backfill holdout from feature so that removing a holdout is detected as a change.
   // Without this, comparing draft.holdout (null) vs base.holdout (undefined → null)
   // would show no change when the feature actually has a holdout.
-  // Note: we check for undefined explicitly because null is a valid value (means removal).
   holdout: (feature, current) =>
-    current !== undefined ? current : (feature.holdout ?? null),
+    getEffectiveRevisionHoldout({ holdout: current }, feature),
 };
 
 // Backfills stale/missing fields on a revision before passing to autoMerge.
@@ -1831,10 +1883,15 @@ export function autoMerge(
       result.archived = revision.archived;
     }
 
-    // holdout
+    // holdout — compared against live, not base. Membership lives on the feature
+    // document, and a base revision snapshot can predate an attach that happened
+    // outside a publish, in which case a draft's removal equals the stale base
+    // and the change would be dropped. `live` is canonical (see
+    // liveRevisionFromFeature), which also keeps this in step with
+    // draftDiffersFromLive.
     if (
       "holdout" in revision &&
-      !isEqual(revision.holdout, base.holdout ?? null)
+      !isEqual(revision.holdout ?? null, live.holdout ?? null)
     ) {
       result.holdout = revision.holdout;
     }
@@ -2010,13 +2067,16 @@ export function autoMerge(
     }
   }
 
-  // holdout (nullable object, same conflict pattern as archived)
+  // holdout (nullable object, same conflict pattern as archived) — differing
+  // from live is what makes it a change, since membership lives on the feature
+  // document and a base snapshot can predate an attach made outside a publish.
+  // base is then only consulted to tell a conflict from a clean change.
   if ("holdout" in revision) {
-    const revVal = revision.holdout;
+    const revVal = revision.holdout ?? null;
     const baseVal = base.holdout ?? null;
     const liveVal = live.holdout ?? null;
-    if (!isEqual(revVal, baseVal) && !isEqual(revVal, liveVal)) {
-      if (!isEqual(liveVal, baseVal) && !isEqual(liveVal, revVal)) {
+    if (!isEqual(revVal, liveVal)) {
+      if (!isEqual(liveVal, baseVal)) {
         const conflictInfo: MergeConflict = {
           name: "Holdout",
           key: "holdout",
@@ -2143,8 +2203,9 @@ export function validateAndFixCondition(
   applySuggestion: (suggestion: string) => void,
   throwOnSuggestion: boolean = true,
   groupMap?: GroupMap,
+  skipSavedGroupCycleCheck: boolean = false,
 ): ValidateConditionReturn {
-  const res = validateCondition(condition, groupMap);
+  const res = validateCondition(condition, groupMap, skipSavedGroupCycleCheck);
   if (res.success) return res;
   if (res.suggestedValue) {
     applySuggestion(res.suggestedValue);
@@ -3662,6 +3723,11 @@ export function inferSchemaField(
       }
       max = Math.max(max || 999, value);
       break;
+    case "bigint":
+    case "symbol":
+    case "undefined":
+    case "object":
+    case "function":
     default:
       throw new Error(`Invalid value type: ${typeof value}`);
   }
@@ -3804,4 +3870,152 @@ export function getApiFeatureEnabledEnvs(feature: ApiFeature) {
 
 export function getApiFeatureAllEnvs(feature: ApiFeature) {
   return Object.keys(feature.environments);
+}
+
+// Accepts legacy v1 (Record<env, rules>) as well as v2 arrays: raw-doc readers
+// hand over v1 shapes until the migration completes.
+export function getExperimentIdsFromRules(rules: unknown): string[] {
+  return Array.from(
+    new Set(
+      naiveFlattenV1Rules(rules)
+        .filter(isExperimentRefRule)
+        .map((r) => r.experimentId)
+        .filter(Boolean),
+    ),
+  );
+}
+
+/**
+ * Unlinking is doubly bounded: a holdout's experiment list is not only a
+ * projection of feature rules — experiments can be added to a holdout directly —
+ * so a candidate must both have been contributed by THIS feature and be
+ * referenced by nothing else. Anything else belongs to another writer.
+ */
+export function computeHoldoutExperimentLinkageDelta({
+  publishedRules,
+  previousRules,
+  linkedExperimentIds,
+  experimentIdsReferencedElsewhere,
+}: {
+  publishedRules: FeatureRule[];
+  previousRules: FeatureRule[];
+  linkedExperimentIds: string[];
+  experimentIdsReferencedElsewhere: string[];
+}): { toLink: string[]; toUnlink: string[] } {
+  const desired = getExperimentIdsFromRules(publishedRules);
+  const desiredSet = new Set(desired);
+  const linked = new Set(linkedExperimentIds);
+  const elsewhere = new Set(experimentIdsReferencedElsewhere);
+  const contributed = new Set(getExperimentIdsFromRules(previousRules));
+
+  return {
+    toLink: desired.filter((id) => !linked.has(id)),
+    toUnlink: linkedExperimentIds.filter(
+      (id) => contributed.has(id) && !desiredSet.has(id) && !elsewhere.has(id),
+    ),
+  };
+}
+
+// Accepts legacy v1 (Record<env, rules>) as well as v2 arrays, same as
+// `getExperimentIdsFromRules`.
+export function getContextualBanditIdsFromRules(rules: unknown): string[] {
+  return Array.from(
+    new Set(
+      naiveFlattenV1Rules(rules)
+        .filter(isContextualBanditRefRule)
+        .map((r) => r.contextualBanditId)
+        .filter(Boolean),
+    ),
+  );
+}
+
+/** A contextual bandit's linkage as it stands, narrowed to one feature's entries. */
+export type ContextualBanditLinkageState = {
+  linkedFeatures: string[];
+  pendingFeatureDrafts: { featureId: string; revisionVersion: number }[];
+};
+
+export type ContextualBanditLinkageDelta = {
+  contextualBanditId: string;
+  link: boolean;
+  unlink: boolean;
+  draftsToQueue: number[];
+  draftsToDrop: number[];
+};
+
+/**
+ * - `linkedFeatures`: the feature's live revision serves a rule for this
+ *   contextual bandit.
+ * - `pendingFeatureDrafts`: open drafts that reference the contextual bandit, keyed by
+ *   revision version. These are the drafts the bandit publishes when it starts.
+ *
+ * Only CBs present in `currentStateByBandit` are considered — the caller
+ * decides which of the referenced bandits exist and are writable, and includes
+ * the ones that still hold entries for this feature so stale linkage is swept.
+ * Bandits with nothing to change are left out of the result.
+ */
+export function computeContextualBanditLinkageDelta({
+  featureId,
+  liveRules,
+  openDrafts,
+  currentStateByBandit,
+}: {
+  featureId: string;
+  liveRules: unknown;
+  openDrafts: { version: number; rules: unknown }[];
+  currentStateByBandit: Record<string, ContextualBanditLinkageState>;
+}): ContextualBanditLinkageDelta[] {
+  const liveIds = new Set(getContextualBanditIdsFromRules(liveRules));
+
+  const draftVersionsByBandit = new Map<string, Set<number>>();
+  for (const draft of openDrafts) {
+    for (const cbId of getContextualBanditIdsFromRules(draft.rules)) {
+      if (!draftVersionsByBandit.has(cbId)) {
+        draftVersionsByBandit.set(cbId, new Set());
+      }
+      const versions = draftVersionsByBandit.get(cbId);
+      if (versions) {
+        versions.add(draft.version);
+      }
+    }
+  }
+
+  const deltas: ContextualBanditLinkageDelta[] = [];
+  for (const [contextualBanditId, state] of Object.entries(
+    currentStateByBandit,
+  )) {
+    const isLive = liveIds.has(contextualBanditId);
+    const isLinked = state.linkedFeatures.includes(featureId);
+
+    const desiredVersions =
+      draftVersionsByBandit.get(contextualBanditId) ?? new Set<number>();
+    const currentVersions = new Set(
+      state.pendingFeatureDrafts
+        .filter((d) => d.featureId === featureId)
+        .map((d) => d.revisionVersion),
+    );
+
+    const delta: ContextualBanditLinkageDelta = {
+      contextualBanditId,
+      link: isLive && !isLinked,
+      unlink: !isLive && isLinked,
+      draftsToQueue: Array.from(desiredVersions)
+        .filter((v) => !currentVersions.has(v))
+        .sort((a, b) => a - b),
+      draftsToDrop: Array.from(currentVersions)
+        .filter((v) => !desiredVersions.has(v))
+        .sort((a, b) => a - b),
+    };
+
+    if (
+      delta.link ||
+      delta.unlink ||
+      delta.draftsToQueue.length ||
+      delta.draftsToDrop.length
+    ) {
+      deltas.push(delta);
+    }
+  }
+
+  return deltas;
 }

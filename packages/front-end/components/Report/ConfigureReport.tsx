@@ -272,7 +272,7 @@ export default function ConfigureReport({
                 />
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="md"
                   style={{ height: 45, textAlign: "left" }}
                   onClick={() => {
                     form.setValue(
@@ -302,7 +302,7 @@ export default function ConfigureReport({
                   <div className="mt-1">
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="md"
                       mt="2"
                       style={{ height: 45, textAlign: "left" }}
                       onClick={() => {
@@ -371,7 +371,7 @@ export default function ConfigureReport({
                     <div className="flex-1">
                       <Button
                         variant="ghost"
-                        size="sm"
+                        size="md"
                         mt="2"
                         style={{ height: 45, textAlign: "left" }}
                         onClick={() => {

@@ -7,6 +7,7 @@ import {
   getAllExperiments,
   getExperimentById,
 } from "back-end/src/models/ExperimentModel";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   createApiRequestHandler,
   applyPagination,
@@ -49,7 +50,10 @@ export const listReports = createApiRequestHandler(listReportsValidator)(async (
   const { filtered, returnFields } = applyPagination(reports, req.query);
 
   return {
-    reports: filtered.map((r) => toReportApiInterface(r)),
+    reports: await resolveOwnerEmails(
+      filtered.map((r) => toReportApiInterface(r)),
+      req.context,
+    ),
     ...returnFields,
   };
 });
