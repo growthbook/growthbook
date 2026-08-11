@@ -9,6 +9,7 @@ import {
   ExperimentReportVariation,
 } from "shared/types/report";
 import FunnelStepsChart from "@/enterprise/components/ProductAnalytics/MainSection/FunnelStepsChart";
+import { getVariationColor } from "@/services/features";
 
 export default function ExperimentFunnelChart({
   metric,
@@ -23,10 +24,13 @@ export default function ExperimentFunnelChart({
   yAxisScale?: "count" | "percent";
   animate?: boolean;
 }) {
-  const { stepLabels, series } = useMemo(() => {
+  const { stepLabels, series, colors } = useMemo(() => {
     const steps = isFactFunnelMetric(metric) ? metric.funnelSettings.steps : [];
     return {
       stepLabels: steps.map((s) => s.name),
+      // Match the bars to each variation's identity color so the funnel reads
+      // consistently with VariationNumber/VariationLabel elsewhere.
+      colors: variations.map((v) => getVariationColor(v.index, true)),
       series: variations.map((v) => ({
         key: String(v.index),
         label: v.name,
@@ -49,6 +53,7 @@ export default function ExperimentFunnelChart({
       series={series}
       yAxisScale={yAxisScale}
       animate={animate}
+      colors={colors}
     />
   );
 }

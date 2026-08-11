@@ -446,6 +446,14 @@ export function getMetricsAndQueryDataForStatsEngine(
                 sql: query.query,
               }),
             );
+
+            metricSettings[metric.id] = getMetricSettingsForStatsEngine(
+              metric,
+              metricMap,
+              settings,
+              true,
+            );
+
             metric.funnelSettings.steps.forEach((step, stepIndex) => {
               const stepId = funnelStepMetricId(metric.id, stepIndex);
               metricSettings[stepId] = getMetricSettingsForStatsEngine(

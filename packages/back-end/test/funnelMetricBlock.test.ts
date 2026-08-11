@@ -61,10 +61,11 @@ describe("splitFunnelMetricBlock", () => {
     },
   ] as ExperimentFactMetricsQueryResponseRows;
 
-  it("names one binomial metric per step", () => {
+  it("names one binomial per step plus a parent binomial", () => {
     expect(
       splitFunnelMetricBlock({ metric, slotAlias: "m1", rows }).metrics,
     ).toEqual([
+      "fact__funnel",
       "fact__funnel?step=0",
       "fact__funnel?step=1",
       "fact__funnel?step=2",
@@ -85,6 +86,8 @@ describe("splitFunnelMetricBlock", () => {
       m1_main_sum: 30,
       m2_id: "fact__funnel?step=2",
       m2_main_sum: 10,
+      m3_id: "fact__funnel",
+      m3_main_sum: 10,
     });
   });
 
@@ -96,6 +99,8 @@ describe("splitFunnelMetricBlock", () => {
       users: 120,
       m2_id: "fact__funnel?step=2",
       m2_main_sum: 0,
+      m3_id: "fact__funnel",
+      m3_main_sum: 0,
     });
   });
 

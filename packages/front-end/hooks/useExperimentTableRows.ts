@@ -549,14 +549,9 @@ export function generateRowsForMetric({
     numSlices > 0 &&
     !sliceTagsFilter.includes("overall");
 
-  // A funnel has no results of its own; completing it is completing its last
-  // step, so the parent row reads that step's results.
   const funnelSteps = isFactFunnelMetric(metric)
     ? metric.funnelSettings.steps
     : [];
-  const resultsMetricId = funnelSteps.length
-    ? funnelStepMetricId(metricId, funnelSteps.length - 1)
-    : metricId;
 
   const parentRow: ExperimentTableRow = {
     label: newMetric?.name,
@@ -572,7 +567,7 @@ export function generateRowsForMetric({
         }))
       : resultsArray[0].variations.map((v) => {
           return (
-            v.metrics?.[resultsMetricId] || {
+            v.metrics?.[metricId] || {
               users: 0,
               value: 0,
               cr: 0,
