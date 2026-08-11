@@ -1,11 +1,7 @@
 import { ConversionWindowUnit } from "shared/types/fact-table";
 
 /**
- * Window/anchoring rules shared by the two funnel SQL builders: the
- * product-analytics funnel explorer (`enterprise/product-analytics/sql.ts`) and
- * the experiment funnel fact metric pipeline (back-end `funnel-resolution-cte`).
- * Both describe steps with their own shape, so these helpers take the minimum
- * they need rather than a concrete step type.
+ * Window/anchoring rules shared by PA and experiment funnel SQL builders
  */
 
 const CONVERSION_WINDOW_UNIT_TO_SECONDS: Record<ConversionWindowUnit, number> =

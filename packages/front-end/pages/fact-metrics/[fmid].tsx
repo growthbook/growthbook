@@ -10,7 +10,7 @@ import {
 } from "shared/types/fact-table";
 import {
   getAggregateFilters,
-  getFactMetricFactTableId,
+  getFactMetricPrimaryFactTableId,
   isBinomialMetric,
   isFactFunnelMetric,
   isRatioMetric,
@@ -342,7 +342,9 @@ export default function FactMetricPage() {
     canDelete = false;
   }
 
-  const factTable = getFactTableById(getFactMetricFactTableId(factMetric));
+  const factTable = getFactTableById(
+    getFactMetricPrimaryFactTableId(factMetric),
+  );
   const denominatorFactTable = getFactTableById(
     factMetric.denominator?.factTableId || "",
   );
@@ -926,7 +928,7 @@ export default function FactMetricPage() {
                 <div className="mt-2">
                   <FactTableAutoSliceSelector
                     factMetric={factMetric}
-                    factTableId={getFactMetricFactTableId(factMetric)}
+                    factTableId={getFactMetricPrimaryFactTableId(factMetric)}
                     canEdit={
                       permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
                       !factMetric.managedBy &&

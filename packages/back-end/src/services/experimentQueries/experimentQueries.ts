@@ -8,7 +8,7 @@ import {
   quantileMetricType,
   eligibleForUncappedMetric,
   isFactFunnelMetric,
-  getFactMetricFactTableId,
+  getFactMetricPrimaryFactTableId,
 } from "shared/experiments";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { MetricInterface } from "shared/types/metric";
@@ -163,6 +163,8 @@ export function maxColumnsNeededForMetric({
   // A funnel occupies one metric slot but emits one sum column per step, so
   // chunkMetrics has to budget for the step count, not for a fixed block.
   if (isFactFunnelMetric(metric)) {
+    // TODO(funnel): when adding time from previous step, we should
+    // account for those additional columns.
     return boilerplateCols + metric.funnelSettings.steps.length;
   }
 
@@ -256,7 +258,7 @@ export function getFactMetricGroup(
   // per-user aggregate, so they can ride along with other metrics on the same
   // fact table and conversion window.
   if (isFactFunnelMetric(metric)) {
-    const factTableId = getFactMetricFactTableId(metric);
+    const factTableId = getFactMetricPrimaryFactTableId(metric);
     return factTableId ? `${factTableId}${conversionWindowKey}` : "";
   }
 

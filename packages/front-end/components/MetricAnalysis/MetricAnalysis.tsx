@@ -7,7 +7,10 @@ import {
 } from "react-icons/fa";
 import clsx from "clsx";
 import { isEqual } from "lodash";
-import { getFactMetricFactTableId, isBinomialMetric } from "shared/experiments";
+import {
+  getFactMetricPrimaryFactTableId,
+  isBinomialMetric,
+} from "shared/experiments";
 import {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,
@@ -272,7 +275,9 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
   }>(`/metric-analysis/metric/${factMetric.id}`);
 
   const metricAnalysis = data?.metricAnalysis;
-  const factTable = getFactTableById(getFactMetricFactTableId(factMetric));
+  const factTable = getFactTableById(
+    getFactMetricPrimaryFactTableId(factMetric),
+  );
   // get latest full object or add reset to default?
   const { reset, watch, getValues, setValue, register } =
     useForm<MetricAnalysisFormFields>({
@@ -399,7 +404,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                     }
                     setValue("userIdType", v);
                   }}
-                  factTableId={getFactMetricFactTableId(factMetric)}
+                  factTableId={getFactMetricPrimaryFactTableId(factMetric)}
                 />
               </div>
               <div className="col-auto form-inline pr-5">

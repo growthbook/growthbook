@@ -510,8 +510,9 @@ export const computeExperimentChanges = async ({
       if (criticalValue === undefined) continue;
 
       // A snapshot's results can carry metric ids with no resolvable
-      // definition (the ephemeral funnel demo metric, or a metric since
-      // removed from the org), so skip those rather than failing the update.
+      // definition (a slice metric since removed from the org or an
+      // ephemeral funnel metric), so skip those rather than failing the update.
+      // TODO(funnel): modify to work with parent funnel metric
       const metric = await getExperimentMetricById(context, m);
       if (!metric) continue;
 

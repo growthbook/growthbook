@@ -127,7 +127,7 @@ export function getFactMetricCTE(
           : timestampDateTimeColumn;
 
         metricCols.push(`-- ${m.name} (step ${stepIndex + 1}: ${step.name})
-        ${column} as ${funnelStepTimestampColumn(`m${index}`, stepIndex)}`);
+        ${column} AS ${funnelStepTimestampColumn(`m${index}`, stepIndex)}`);
 
         allMetricFilters.push(filters);
       });

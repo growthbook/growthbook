@@ -23,7 +23,6 @@ import {
   FactTableDefinitionMap,
   FactTableInterface,
   FactTableMap,
-  FunnelStep,
   FunnelFactMetricInterface,
   MetricQuantileSettings,
   MetricWindowSettings,
@@ -1103,7 +1102,7 @@ export function getMetricTemplateVariables(
   if (isFactMetric(m)) {
     const factTableId = useDenominator
       ? m.denominator?.factTableId
-      : getFactMetricFactTableId(m);
+      : getFactMetricPrimaryFactTableId(m);
     if (!factTableId) return {};
 
     const factTable = factTableMap.get(factTableId);
@@ -1123,16 +1122,21 @@ export function isCappableMetricType(m: ExperimentMetricDefinition) {
 
 export function isBinomialMetric(m: ExperimentMetricDefinition) {
   if (isFactMetric(m))
-    // TODO(luke-funnel): validate that setting funnel here is the righty type
     return ["proportion", "retention", "funnel"].includes(m.metricType);
   return m.type === "binomial";
+}
+
+export function isEligibleAsActivationMetric(m: ExperimentMetricDefinition) {
+  return isBinomialMetric(m) && !isFactFunnelMetric(m);
 }
 
 /**
  * Fact table the metric's primary events come from: the numerator's for most
  * metric types, the first step's for funnels (which have no numerator).
  */
-export function getFactMetricFactTableId(m: FactMetricInterface): string {
+export function getFactMetricPrimaryFactTableId(
+  m: FactMetricInterface,
+): string {
   return isFactFunnelMetric(m)
     ? (m.funnelSettings.steps[0]?.factTableId ?? "")
     : m.numerator.factTableId;
@@ -1178,9 +1182,7 @@ export function quantileMetricType(
 /**
  * LEGACY funnel metric: a non-fact metric whose (binomial) denominator metric
  * gates the numerator (denominator chaining). This is NOT the new fact-metric
- * funnel type — see isFactFunnelMetric. Renamed from isFunnelMetric so the two
- * concepts don't get conflated; the experiment SQL path still uses this for the
- * existing legacy behavior.
+ * funnel type — see isFactFunnelMetric.
  */
 export function isLegacyFunnelMetric(
   m: ExperimentMetricDefinition,
@@ -1197,16 +1199,6 @@ export function isFactFunnelMetric(
   m: ExperimentMetricDefinition,
 ): m is FunnelFactMetricInterface {
   return isFactMetric(m) && m.metricType === "funnel";
-}
-
-/**
- * Ordered funnel steps for a fact-metric funnel, or [] for any other metric.
- */
-export function getFunnelSteps(m: ExperimentMetricInterface): FunnelStep[] {
-  if (isFactFunnelMetric(m)) {
-    return m.funnelSettings?.steps ?? [];
-  }
-  return [];
 }
 
 export function isRegressionAdjusted(
@@ -1313,7 +1305,7 @@ export function getUserIdTypes(
     const factTable = factTableMap.get(
       useDenominator
         ? metric.denominator?.factTableId || ""
-        : getFactMetricFactTableId(metric),
+        : getFactMetricPrimaryFactTableId(metric),
     );
     return factTable?.userIdTypes || [];
   }

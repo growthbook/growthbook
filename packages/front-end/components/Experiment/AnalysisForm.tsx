@@ -1029,6 +1029,7 @@ const AnalysisForm: FC<{
                             {" "}
                             <MetricsSelectorTooltip
                               onlyBinomial={true}
+                              noFactFunnelMetrics={true}
                               isSingular={true}
                             />
                           </>
@@ -1037,6 +1038,7 @@ const AnalysisForm: FC<{
                     }
                     initialOption="None"
                     onlyBinomial
+                    filterFactFunnelMetrics
                     value={form.watch("activationMetric")}
                     onChange={(value) =>
                       form.setValue("activationMetric", value || "")

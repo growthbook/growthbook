@@ -59,7 +59,7 @@ import {
   getAllVariations,
   getLatestPhaseVariations,
   getPhaseVariations,
-  getFactMetricFactTableId,
+  getFactMetricPrimaryFactTableId,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
@@ -537,7 +537,7 @@ export function isJoinableMetric({
 
   const metricIdTypes =
     (isFactMetric(metric)
-      ? factTableMap.get(getFactMetricFactTableId(metric))?.userIdTypes
+      ? factTableMap.get(getFactMetricPrimaryFactTableId(metric))?.userIdTypes
       : metric.userIdTypes) ?? [];
 
   return isMetricJoinable(metricIdTypes, experimentIdType, datasource.settings);
@@ -1336,6 +1336,7 @@ export function resolveSnapshotRunner({
     return { runnerFamily: "results", incrementalFallbackReason: null };
   }
 
+  // TODO(funnel): incremental support for funnel metrics
   // Funnel resolution needs the full per-unit event timestamps, which the
   // materialized caches don't retain, so there is no incremental equivalent.
   if (hasFunnelMetric) {

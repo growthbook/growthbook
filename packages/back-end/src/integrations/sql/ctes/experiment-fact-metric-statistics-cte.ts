@@ -45,10 +45,7 @@ export function getExperimentFactMetricStatisticsCTE(
         , COUNT(*) AS users
         ${metricData
           .map((data) => {
-            // A funnel emits one count per step instead of the usual
-            // main_sum/main_sum_squares pair. No sum of squares: the stats
-            // engine builds each step's ProportionStatistic from the sum and
-            // the unit count alone, so squares would be dead weight.
+            // A funnel emits its own set of statistics
             if (isFactFunnelMetric(data.metric)) {
               return `
            , ${dialect.castToString(`'${data.id}'`)} as ${data.alias}_id

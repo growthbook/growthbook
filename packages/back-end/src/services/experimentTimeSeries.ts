@@ -5,7 +5,7 @@ import {
   expandAllSliceMetricsInMap,
   getLatestPhaseVariations,
   isDimensionPrecomputed,
-  getFactMetricFactTableId,
+  getFactMetricPrimaryFactTableId,
 } from "shared/experiments";
 import {
   CreateMetricTimeSeriesSingleDataPoint,
@@ -397,7 +397,7 @@ function getMetricSettingsHash(
   if (!factMetric) {
     return hashObject(metricSettings ?? { id: metricId });
   } else {
-    const numeratorFactTableId = getFactMetricFactTableId(factMetric);
+    const numeratorFactTableId = getFactMetricPrimaryFactTableId(factMetric);
     const numeratorFactTable = numeratorFactTableId
       ? factTableMap?.get(numeratorFactTableId)
       : undefined;
