@@ -1541,7 +1541,7 @@ export default function ReviewAndPublish({
                 ) : isLive ? (
                   <>
                     This revision is currently live. Rolling back reverts the
-                    Feature Flag to the previously published revision.
+                    Feature Flag to a previously published revision.
                   </>
                 ) : (
                   <>

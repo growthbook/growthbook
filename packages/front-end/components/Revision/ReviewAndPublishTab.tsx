@@ -1242,7 +1242,7 @@ function ReviewAndPublishRevision<T>({
               </>
             ) : isLive ? (
               <>
-                This revision is currently live. Rolling back reverts to the
+                This revision is currently live. Rolling back reverts to a
                 previously published revision.
               </>
             ) : (
