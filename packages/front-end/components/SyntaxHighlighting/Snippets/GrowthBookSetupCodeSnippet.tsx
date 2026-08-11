@@ -6,6 +6,7 @@ import React from "react";
 import { DocLink } from "@/components/DocLink";
 import Code from "@/components/SyntaxHighlighting/Code";
 import EventTrackerSelector, {
+  backendEventTrackerOptions,
   pluginSupportedTrackers,
 } from "@/components/SyntaxHighlighting/Snippets/EventTrackerSelector";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
@@ -299,12 +300,49 @@ gb.logEvent("Button Click", {
       paddedVersionString(version) >= paddedVersionString("1.3.1");
 
     if (useMultiUser) {
+      const usesGrowthbookPlugin =
+        eventTracker === "growthbook" &&
+        supportsGrowthbookTrackingPlugin(language, version);
+      const showUpgradeWarning =
+        eventTracker === "growthbook" && !usesGrowthbookPlugin;
+      const eventIngestorHost =
+        managedWarehouseRegion && managedWarehouseRegion !== "us-east-1"
+          ? getEventIngestorHost(managedWarehouseRegion)
+          : undefined;
+
       return (
         <>
+          <EventTrackerSelector
+            eventTracker={eventTracker}
+            setEventTracker={setEventTracker}
+            options={backendEventTrackerOptions}
+          />
           Create and initialize a GrowthBook client
           <Code
             language="javascript"
-            code={`
+            code={
+              usesGrowthbookPlugin
+                ? `
+const { GrowthBookClient } = require("@growthbook/growthbook");
+const { growthbookTrackingPlugin } = require("@growthbook/growthbook/plugins");
+
+const client = new GrowthBookClient({
+  apiHost: ${JSON.stringify(apiHost)},
+  clientKey: ${JSON.stringify(apiKey)},${
+    encryptionKey ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},` : ""
+  }
+  plugins: [
+    growthbookTrackingPlugin(${
+      eventIngestorHost
+        ? `{ ingestorHost: ${JSON.stringify(eventIngestorHost)} }`
+        : ""
+    })
+  ],
+});
+
+await client.init({ timeout: 1000 });
+          `.trim()
+                : `
 const { GrowthBookClient } = require("@growthbook/growthbook");
 
 const client = new GrowthBookClient({
@@ -322,8 +360,19 @@ const client = new GrowthBookClient({
 });
 
 await client.init({ timeout: 1000 });
-          `.trim()}
+          `.trim()
+            }
           />
+          {showUpgradeWarning && (
+            <Callout status="warning" mt="3">
+              Upgrade this SDK Connection to SDK version 1.4.0 or later to send
+              events to the Managed Warehouse, or send events directly with the{" "}
+              <DocLink docSection="managedWarehouseIngestionApi">
+                Ingestion API
+              </DocLink>
+              .
+            </Callout>
+          )}
           Use a middleware to create a GrowthBook instance that is scoped to the
           current user/request. Store this in the request object for use in
           other routes.
@@ -336,11 +385,34 @@ app.use((req, res, next) => {
       id: req.user.id
     }
   }
-  
+
   req.growthbook = client.createScopedInstance(userContext);
 });
           `.trim()}
           />
+          {usesGrowthbookPlugin && (
+            <>
+              <br />
+              If you want to use GrowthBook for experiments (and metrics), you
+              will need to log events you care about. Read more about our{" "}
+              <DocLink useRadix={false} docSection="managedWarehouseTracking">
+                managed warehouse tracking
+              </DocLink>
+              . Here are some examples:
+              <Code
+                language="javascript"
+                code={`
+// Simple (no properties)
+req.growthbook.logEvent("Page View");
+
+// With custom properties
+req.growthbook.logEvent("Button Click", {
+  button: "Sign Up",
+});
+              `}
+              />
+            </>
+          )}
         </>
       );
     }

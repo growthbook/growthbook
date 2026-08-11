@@ -300,6 +300,9 @@ export default {
         caseInsensitiveRegex: "≥ v1.6.3",
       },
       {
+        trackingPlugin: "≥ v1.4.0",
+      },
+      {
         savedGroupReferences: "≥ v1.1.0",
       },
       {
