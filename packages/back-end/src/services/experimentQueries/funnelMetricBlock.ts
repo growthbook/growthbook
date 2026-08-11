@@ -37,10 +37,10 @@ export function splitFunnelMetricBlock({
 
   return {
     metrics: [
-      metric.id,
       ...steps.map((_step, stepIndex) =>
         funnelStepMetricId(metric.id, stepIndex),
       ),
+      metric.id,
     ],
     rows: rows.map((row) => {
       // Carry variation, users, count, and every dimension / bandit attribute

@@ -65,11 +65,19 @@ describe("splitFunnelMetricBlock", () => {
     expect(
       splitFunnelMetricBlock({ metric, slotAlias: "m1", rows }).metrics,
     ).toEqual([
-      "fact__funnel",
       "fact__funnel?step=0",
       "fact__funnel?step=1",
       "fact__funnel?step=2",
+      "fact__funnel",
     ]);
+  });
+
+  it("aligns each metric with its numbered stats slot", () => {
+    const result = splitFunnelMetricBlock({ metric, slotAlias: "m1", rows });
+
+    result.metrics.forEach((metricId, metricIndex) => {
+      expect(result.rows[0]?.[`m${metricIndex}_id`]).toBe(metricId);
+    });
   });
 
   it("renumbers each step's sum into its own slot's main_sum", () => {
