@@ -315,9 +315,9 @@ type ExtractCrudSchema<
       : DefaultCrudValidators[Action][Slot]
     : DefaultCrudValidators[Action][Slot];
 
-// Thrown by `_updateOne` when a guarded write matches zero docs (the doc
-// changed between read and write). Caught only by `updateWithCas` to retry.
-class CasConflictError extends Error {
+// Thrown by `_updateOne` when a guarded write matches zero docs. Caught by
+// `updateWithCas`; exported so a model guarding its own call can retry too.
+export class CasConflictError extends Error {
   constructor() {
     super("Compare-and-swap conflict");
     this.name = "CasConflictError";
