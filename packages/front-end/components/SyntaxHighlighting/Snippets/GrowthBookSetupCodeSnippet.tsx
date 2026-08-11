@@ -1,5 +1,6 @@
 import { SDKLanguage } from "shared/types/sdk-connection";
 import { paddedVersionString } from "@growthbook/growthbook";
+import { getSDKCapabilities } from "shared/sdk-versioning";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import React from "react";
 import { DocLink } from "@/components/DocLink";
@@ -17,9 +18,11 @@ function indentLines(code: string, indent: number | string = 2) {
   return code.split("\n").join("\n" + spaces);
 }
 
-// growthbookTrackingPlugin (and the plugin system generally) requires this version or later
-function supportsGrowthbookTrackingPlugin(version?: string): boolean {
-  return paddedVersionString(version) >= paddedVersionString("1.4.0");
+function supportsGrowthbookTrackingPlugin(
+  language: SDKLanguage,
+  version?: string,
+): boolean {
+  return getSDKCapabilities(language, version).includes("trackingPlugin");
 }
 
 export default function GrowthBookSetupCodeSnippet({
@@ -160,7 +163,7 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
           })}
         />
         {eventTracker === "growthbook" &&
-          (supportsGrowthbookTrackingPlugin(version) ? (
+          (supportsGrowthbookTrackingPlugin(language, version) ? (
             <>
               <br />
               If you want to use GrowthBook for experiments (and metrics), you
@@ -253,7 +256,7 @@ export default function MyApp() {
         with examples of using GrowthBook with SSR, API routes, static pages,
         and more.
         {eventTracker === "growthbook" &&
-          (supportsGrowthbookTrackingPlugin(version) ? (
+          (supportsGrowthbookTrackingPlugin(language, version) ? (
             <>
               <br />
               <br />
