@@ -120,6 +120,12 @@ export type QueryType =
   // Session replay metadata queries
   | "sessionReplayList"
   | "sessionReplayDetail"
+  // Error tracking queries
+  | "errorTrackingIssueList"
+  | "errorTrackingIssueDetail"
+  | "errorTrackingEventList"
+  | "errorTrackingEventDetail"
+  | "errorTrackingEventAdjacent"
 
   // ---
   // Legacy, should be deprecated

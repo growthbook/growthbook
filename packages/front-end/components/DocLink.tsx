@@ -135,6 +135,8 @@ const docSections = {
   queryOptimization: "/app/query-optimization",
   metricGroups: "/app/metrics#metric-groups",
   managedWarehouseTracking: "/app/managed-warehouse#sending-events",
+  errorTracking: "/lib/error-tracking",
+  errorTrackingSourceMaps: "/lib/error-tracking#upload-source-maps",
   eventForwarder: "/app/event-forwarder",
   chooseDataPath: "/app/choose-data-path",
   devTools: "/tools/chrome-extension",

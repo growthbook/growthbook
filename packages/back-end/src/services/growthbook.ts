@@ -3,7 +3,12 @@ import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { EventSource } from "eventsource";
 import { NextFunction, Request, Response } from "express";
 import { AppFeatures } from "shared/types/app-features";
-import { logger } from "back-end/src/util/logger";
+import {
+  captureError,
+  growthbookErrorTrackingPlugin,
+  type GrowthBookErrorEventProps,
+} from "shared/error-tracking";
+import { logger, setErrorTrackingHandler } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   GB_SDK_ID,
@@ -40,6 +45,10 @@ function createGrowthBookClient(): GrowthBookClient<AppFeatures> {
           return true;
         },
         dedupeKeyAttributes: ["id", "organizationId"],
+      }),
+      // Must be registered after growthbookTrackingPlugin (required for warehouse ingest).
+      growthbookErrorTrackingPlugin({
+        enable: isGrowthBookTelemetryEnabled(),
       }),
     ],
   });
@@ -194,6 +203,28 @@ function ensureGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
 
   return gbClient;
 }
+
+/**
+ * Report a back-end error to GrowthBook error tracking (managed warehouse),
+ * mirroring what we send to Sentry. Registered as the global error tracking
+ * handler below so logger.error/fatal report here automatically.
+ */
+export function captureBackendError(
+  error: unknown,
+  props?: GrowthBookErrorEventProps,
+): void {
+  const client = ensureGrowthBookClient();
+  if (!client) return;
+
+  void captureError({
+    gb: client,
+    error,
+    userContext: {},
+    props: { errorType: "backend", ...props },
+  });
+}
+
+setErrorTrackingHandler(captureBackendError);
 
 /**
  * Get the singleton GrowthBookClient instance

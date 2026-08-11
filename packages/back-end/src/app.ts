@@ -34,7 +34,10 @@ import {
   getExperimentsScript,
 } from "./controllers/config";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
-import { trackRequestCompletion } from "./services/growthbook";
+import {
+  trackRequestCompletion,
+  captureBackendError,
+} from "./services/growthbook";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
 import scimRouter from "./scim/scim.router";
@@ -102,6 +105,9 @@ const informationSchemasController = wrapController(
   informationSchemasControllerRaw,
 );
 
+import * as errorTrackingControllerRaw from "./controllers/errorTracking";
+const errorTrackingController = wrapController(errorTrackingControllerRaw);
+
 import * as uploadControllerRaw from "./routers/upload/upload.controller";
 const uploadController = wrapController(uploadControllerRaw);
 
@@ -166,6 +172,7 @@ import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
 import { sessionReplayRouter } from "./routers/session-replay/session-replay.router";
 import { agentRouter } from "./routers/agent/agent.router";
+import { errorTrackingTestRouter } from "./routers/error-tracking-test/error-tracking-test.router";
 
 const app = express();
 
@@ -937,6 +944,36 @@ app.get("/feature", featuresController.getFeatures);
 app.get("/feature/:id", featuresController.getFeatureById);
 app.get("/feature/:id/revisions", featuresController.getFeatureRevisions);
 app.get("/feature/:id/usage", featuresController.getFeatureUsage);
+
+app.get("/error-tracking/issues", errorTrackingController.getIssues);
+app.get(
+  "/error-tracking/issues/:fingerprint/detail",
+  errorTrackingController.getIssueDetail,
+);
+app.get(
+  "/error-tracking/issues/:fingerprint/events",
+  errorTrackingController.getIssueEvents,
+);
+app.get(
+  "/error-tracking/events/:eventUuid",
+  errorTrackingController.getEventDetail,
+);
+app.get(
+  "/error-tracking/events/:eventUuid/adjacent",
+  errorTrackingController.getEventAdjacent,
+);
+app.patch(
+  "/error-tracking/issues/:fingerprint",
+  errorTrackingController.patchIssue,
+);
+app.post(
+  "/error-tracking/issues/:fingerprint/comments",
+  errorTrackingController.postIssueComment,
+);
+// Internal-only: generates synthetic errors for testing the error tracking
+// pipeline. Gated on the front-end by the "error-tracking-test-page" flag.
+app.use("/error-tracking-test", errorTrackingTestRouter);
+
 app.get("/feature/:id/watchers", featuresController.getFeatureWatchers);
 app.post("/feature", featuresController.postFeatures);
 app.put("/feature/:id", featuresController.putFeature);
@@ -1333,6 +1370,9 @@ const errorHandler: ErrorRequestHandler = (
   } else {
     httpLogger.logger[level](getCustomLogProps(req), err.message);
   }
+  // Mirrors Sentry.setupExpressErrorHandler above — this handler logs via
+  // req.log/httpLogger directly, bypassing logger.error's Sentry/GrowthBook reporting.
+  captureBackendError(err);
 
   const body: {
     status: number;

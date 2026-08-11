@@ -1,7 +1,9 @@
 import { useRouter } from "next/router";
 import { useState } from "react";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { Box, Separator, Text } from "@radix-ui/themes";
+import { AppFeatures } from "shared/types/app-features";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
@@ -33,6 +35,8 @@ export default function ManagedWarehouseModal({
   const router = useRouter();
 
   const { effectiveAccountPlan } = useUser();
+  const gb = useGrowthBook<AppFeatures>();
+  const enableErrorTracking = gb?.isOn("enable-error-tracking") ?? false;
 
   const [agree, setAgree] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -64,6 +68,7 @@ export default function ManagedWarehouseModal({
     const resources = getInitialDatasourceResources({
       datasource: ds,
       attributeSchema: settings.attributeSchema,
+      enableErrorTracking,
     });
     if (!resources.factTables.length) {
       setCreatingResources(false);

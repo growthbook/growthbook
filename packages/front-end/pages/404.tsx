@@ -1,14 +1,12 @@
-import { captureMessage as sentryCaptureMessage } from "@sentry/nextjs";
 import { useRouter } from "next/router";
 import { useEffect } from "react";
-import { isSentryEnabled } from "@/services/env";
+import { reportMessage } from "@/services/errorReporting";
 
 export default function Custom404() {
   const ind = Math.ceil(Math.random() * 2);
   const router = useRouter();
   const badPath = router?.asPath;
   useEffect(() => {
-    if (!isSentryEnabled()) return;
     if (!badPath) return;
 
     const referrer =
@@ -17,7 +15,10 @@ export default function Custom404() {
         : document?.referrer
           ? document.referrer
           : "-";
-    sentryCaptureMessage("404: " + badPath + " from " + referrer);
+    reportMessage("404: " + badPath + " from " + referrer, {
+      errorType: "404",
+      transaction: badPath,
+    });
   }, [badPath]);
 
   return (

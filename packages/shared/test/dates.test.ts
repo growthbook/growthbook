@@ -1,6 +1,7 @@
 import {
   dateStringArrayBetweenDates,
   getValidDate,
+  parseUtcInstantForDisplay,
   resolveScheduleStopAfter,
   resolveScheduledStop,
 } from "../src/dates";
@@ -22,6 +23,25 @@ describe("getValidDate", () => {
     expect(getValidDate(d, fallback)).toEqual(d);
     expect(getValidDate(t, fallback)).toEqual(d);
     expect(getValidDate(d.toISOString(), fallback)).toEqual(d);
+  });
+});
+
+describe("parseUtcInstantForDisplay", () => {
+  it("treats naive ISO datetime as UTC", () => {
+    const naive = "2020-06-15T18:30:00";
+    const explicit = "2020-06-15T18:30:00.000Z";
+    expect(parseUtcInstantForDisplay(naive).getTime()).toEqual(
+      new Date(explicit).getTime(),
+    );
+  });
+
+  it("passes through explicit Z and offset strings", () => {
+    expect(parseUtcInstantForDisplay("2020-01-02T03:04:05Z").getTime()).toEqual(
+      new Date("2020-01-02T03:04:05Z").getTime(),
+    );
+    expect(
+      parseUtcInstantForDisplay("2020-01-02T03:04:05+00:00").getTime(),
+    ).toEqual(new Date("2020-01-02T03:04:05Z").getTime());
   });
 });
 

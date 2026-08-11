@@ -9,6 +9,7 @@
   "exports": {
     "./package.json": "./package.json",
     ".": {
+      "types": "./dist/index.d.ts",
       "import": {
         "types": "./dist/index.d.ts",
         "default": "./dist/esm/index.mjs"
@@ -19,6 +20,7 @@
       }
     },
     "./plugins": {
+      "types": "./dist/plugins/index.d.ts",
       "import": {
         "types": "./dist/plugins/index.d.ts",
         "default": "./dist/esm/plugins/index.mjs"

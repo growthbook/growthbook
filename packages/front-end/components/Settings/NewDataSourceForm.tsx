@@ -18,6 +18,8 @@ import {
 } from "shared/demo-datasource";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { Text } from "@radix-ui/themes";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "shared/types/app-features";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import {
@@ -87,6 +89,8 @@ const NewDataSourceForm: FC<{
 
   const settings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
+  const gb = useGrowthBook<AppFeatures>();
+  const enableErrorTracking = gb?.isOn("enable-error-tracking") ?? false;
 
   useEffect(() => {
     track("View Datasource Form", {
@@ -349,6 +353,7 @@ const NewDataSourceForm: FC<{
     const resources = getInitialDatasourceResources({
       datasource: ds,
       attributeSchema: settings.attributeSchema,
+      enableErrorTracking,
     });
     if (!resources.factTables.length) {
       setCreatingResources(false);

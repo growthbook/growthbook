@@ -1,4 +1,3 @@
-import * as Sentry from "@sentry/node";
 import { AccountPlan } from "shared/enterprise";
 import {
   OrganizationInterface,
@@ -109,7 +108,7 @@ export async function updateUsagesFromServer(organizationIds: string[]) {
       setUsageInCache(orgId, usages[orgId]);
     });
   } catch (err) {
-    Sentry.captureException(err);
+    logger.error({ err }, "Failed to update usages from license server");
   }
 }
 

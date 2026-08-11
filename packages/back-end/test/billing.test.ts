@@ -1,5 +1,4 @@
 import fetch, { Response } from "node-fetch";
-import * as Sentry from "@sentry/node";
 import { OrganizationInterface } from "shared/types/organization";
 import {
   backgroundUpdateUsageDataFromServerForTests,
@@ -10,11 +9,7 @@ import {
   UNLIMITED_USAGE,
 } from "back-end/src/enterprise/billing";
 import * as licenseUtil from "back-end/src/enterprise/licenseUtil";
-
-jest.mock("@sentry/node", () => ({
-  ...jest.requireActual("@sentry/node"),
-  captureException: jest.fn(),
-}));
+import { logger } from "back-end/src/util/logger";
 
 jest.mock("back-end/src/enterprise/licenseUtil", () => ({
   ...jest.requireActual("back-end/src/enterprise/licenseUtil"),
@@ -174,7 +169,7 @@ describe("getUsage", () => {
         const usage = await getUsage(mockOrganization);
 
         expect(usage).toEqual(UNLIMITED_USAGE);
-        expect(Sentry.captureException).toHaveBeenCalled();
+        expect(logger.error).toHaveBeenCalled();
         expect(mockedFetch).toHaveBeenCalledTimes(1);
       });
 

@@ -98,7 +98,7 @@ export const navlinks: SidebarLinkProps[] = [
   {
     name: "Product Analytics",
     href: "/product-analytics/explore",
-    path: /^(product-analytics|sql-explorer|session-replay)/,
+    path: /^(product-analytics|sql-explorer|session-replay|error-tracking)/,
     Icon: GBProductAnalytics,
     subLinks: [
       {
@@ -120,6 +120,13 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Dashboards",
         href: "/product-analytics/dashboards",
         path: /^product-analytics\/dashboards/,
+      },
+      {
+        name: "Error Tracking",
+        href: "/error-tracking",
+        path: /^error-tracking/,
+        beta: true,
+        filter: ({ gb }) => !!gb?.isOn("enable-error-tracking"),
       },
       {
         name: "Session Replay",

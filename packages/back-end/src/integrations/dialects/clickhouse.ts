@@ -1,3 +1,4 @@
+import type { DataType } from "shared/types/integrations";
 import { createLikeStringMatchFn } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
@@ -19,6 +20,14 @@ const quoteClickHouseJsonPath = (path: string): string =>
 export const clickHouseDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "clickhouse",
+  getDataType: (dataType: DataType): string => {
+    if (dataType === "hll") {
+      // Fact metrics only allow count distinct on string columns; `uniqState`
+      // for String produces this aggregate state type.
+      return "AggregateFunction(uniq, String)";
+    }
+    return baseDialect.getDataType(dataType);
+  },
   escapeStringLiteral: clickHouseEscapeStringLiteral,
   stringMatch: createLikeStringMatchFn({
     escapeStringLiteral: clickHouseEscapeStringLiteral,

@@ -4,6 +4,8 @@ import { date } from "shared/dates";
 import { FaArrowRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "shared/types/app-features";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -65,6 +67,8 @@ export default function FactTablesPage() {
   );
 
   const { apiCall } = useAuth();
+  const gb = useGrowthBook<AppFeatures>();
+  const enableErrorTracking = gb?.isOn("enable-error-tracking") ?? false;
   const settings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
   const [autoGenerateError, setAutoGenerateError] = useState<string | null>(
@@ -78,6 +82,7 @@ export default function FactTablesPage() {
         const resources = getInitialDatasourceResources({
           datasource,
           attributeSchema: settings.attributeSchema,
+          enableErrorTracking,
         });
         if (resources.factTables.length > 0) {
           return {
@@ -89,7 +94,13 @@ export default function FactTablesPage() {
     }
 
     return null;
-  }, [factTables.length, datasources, project, settings.attributeSchema]);
+  }, [
+    factTables.length,
+    datasources,
+    project,
+    settings.attributeSchema,
+    enableErrorTracking,
+  ]);
 
   const permissionsUtil = usePermissionsUtil();
 

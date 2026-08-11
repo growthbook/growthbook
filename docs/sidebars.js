@@ -101,6 +101,11 @@ export default {
           label: "Managed Warehouse",
         },
         {
+          type: "doc",
+          id: "error-tracking/overview",
+          label: "Error tracking",
+        },
+        {
           type: "category",
           label: "Connecting to Your Data Warehouse",
           collapsed: true,

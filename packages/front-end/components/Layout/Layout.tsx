@@ -53,6 +53,10 @@ const otherPageTitles = [
     path: /^dashboard/,
     title: "Dashboard",
   },
+  {
+    path: /^error-tracking/,
+    title: "Error Tracking",
+  },
 ];
 
 const backgroundShade = (color: string) => {
