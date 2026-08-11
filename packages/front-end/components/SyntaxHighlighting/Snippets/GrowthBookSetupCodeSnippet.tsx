@@ -34,7 +34,7 @@ export default function GrowthBookSetupCodeSnippet({
   remoteEvalEnabled,
   eventTracker = "GA4",
   setEventTracker,
-  managedWarehouseRegion,
+  eventIngestorRegion,
 }: {
   language: SDKLanguage;
   version?: string;
@@ -44,7 +44,7 @@ export default function GrowthBookSetupCodeSnippet({
   remoteEvalEnabled: boolean;
   eventTracker: string;
   setEventTracker: (value: string) => void;
-  managedWarehouseRegion?: DataRegion;
+  eventIngestorRegion?: DataRegion;
 }) {
   const featuresEndpoint = apiHost + "/api/features/" + apiKey;
   const trackingComment = "TODO: Use your real analytics tracking system";
@@ -60,7 +60,7 @@ export default function GrowthBookSetupCodeSnippet({
             You will need to implement additional tracking for other events. See
             our guide to{" "}
             <DocLink useRadix={false} docSection="managedWarehouseTracking">
-              custom event tracking with GrowthBook Managed Warehouse
+              custom event tracking with GrowthBook
             </DocLink>
             <br />
             <br />
@@ -158,7 +158,7 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
             remoteEvalEnabled,
             version,
             eventTracker,
-            managedWarehouseRegion,
+            eventIngestorRegion,
             includeInit: true,
           })}
         />
@@ -169,7 +169,7 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
               If you want to use GrowthBook for experiments (and metrics), you
               will need to log events you care about. Read more about our{" "}
               <DocLink useRadix={false} docSection="managedWarehouseTracking">
-                managed warehouse tracking
+                GrowthBook event tracking
               </DocLink>
               . Here are some examples:
               <Code
@@ -188,7 +188,7 @@ gb.logEvent("Button Click", {
           ) : (
             <Callout status="warning" mt="3">
               Upgrade this SDK Connection to SDK version 1.4.0 or later to send
-              events to the Managed Warehouse, or send events directly with the{" "}
+              events to GrowthBook, or send events directly with the{" "}
               <DocLink docSection="managedWarehouseIngestionApi">
                 Ingestion API
               </DocLink>
@@ -217,7 +217,7 @@ gb.logEvent("Button Click", {
             remoteEvalEnabled,
             version,
             eventTracker,
-            managedWarehouseRegion,
+            eventIngestorRegion,
             includeInit: false,
           })}
         />
@@ -263,7 +263,7 @@ export default function MyApp() {
               If you want to use GrowthBook for experiments (and metrics), you
               will need to log events you care about. Read more about our{" "}
               <DocLink useRadix={false} docSection="managedWarehouseTracking">
-                managed warehouse tracking
+                GrowthBook event tracking
               </DocLink>
               . Here are some examples:
               <Code
@@ -282,7 +282,7 @@ gb.logEvent("Button Click", {
           ) : (
             <Callout status="warning" mt="3">
               Upgrade this SDK Connection to SDK version 1.4.0 or later to send
-              events to the Managed Warehouse, or send events directly with the{" "}
+              events to GrowthBook, or send events directly with the{" "}
               <DocLink docSection="managedWarehouseIngestionApi">
                 Ingestion API
               </DocLink>
@@ -1466,7 +1466,7 @@ const getJSCodeSnippet = ({
   remoteEvalEnabled,
   version,
   eventTracker,
-  managedWarehouseRegion,
+  eventIngestorRegion,
   includeInit = true,
 }: {
   apiHost: string;
@@ -1475,7 +1475,7 @@ const getJSCodeSnippet = ({
   remoteEvalEnabled: boolean;
   version?: string;
   eventTracker: string;
-  managedWarehouseRegion?: DataRegion;
+  eventIngestorRegion?: DataRegion;
   includeInit?: boolean;
 }) => {
   const useInit = paddedVersionString(version) >= paddedVersionString("1.0.0");
@@ -1493,8 +1493,8 @@ const getJSCodeSnippet = ({
 
     if (eventTracker === "growthbook") {
       const ingestorHost =
-        managedWarehouseRegion && managedWarehouseRegion !== "us-east-1"
-          ? getEventIngestorHost(managedWarehouseRegion)
+        eventIngestorRegion && eventIngestorRegion !== "us-east-1"
+          ? getEventIngestorHost(eventIngestorRegion)
           : undefined;
       jsCode = `
 import { GrowthBook } from "@growthbook/growthbook";

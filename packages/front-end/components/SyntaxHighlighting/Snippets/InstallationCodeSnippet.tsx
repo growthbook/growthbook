@@ -14,7 +14,7 @@ export default function InstallationCodeSnippet({
   remoteEvalEnabled,
   eventTracker,
   setEventTracker,
-  managedWarehouseRegion,
+  eventIngestorRegion,
 }: {
   language: SDKLanguage;
   apiKey: string;
@@ -23,13 +23,13 @@ export default function InstallationCodeSnippet({
   remoteEvalEnabled: boolean;
   eventTracker: string;
   setEventTracker: (value: string) => void;
-  managedWarehouseRegion?: DataRegion;
+  eventIngestorRegion?: DataRegion;
 }) {
   const eventIngestorHost =
     eventTracker === "growthbook" &&
-    managedWarehouseRegion &&
-    managedWarehouseRegion !== "us-east-1"
-      ? getEventIngestorHost(managedWarehouseRegion)
+    eventIngestorRegion &&
+    eventIngestorRegion !== "us-east-1"
+      ? getEventIngestorHost(eventIngestorRegion)
       : undefined;
   const nocodeSnippet =
     eventTracker && eventTracker === "GTM"

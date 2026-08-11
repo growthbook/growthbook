@@ -2,12 +2,12 @@ import {
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
-import { GrowthbookClickhouseDataSourceWithParams } from "shared/types/datasource";
 import { useCallback, useEffect, useState } from "react";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { PiArrowRight, PiPaperPlaneTiltFill } from "react-icons/pi";
 import { Flex, Box } from "@radix-ui/themes";
 import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
+import { getEventIngestorRegion } from "@/services/dataRegions";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
 import InstallationCodeSnippet from "@/components/SyntaxHighlighting/Snippets/InstallationCodeSnippet";
@@ -59,10 +59,7 @@ const VerifyConnectionPage = ({
   const attributeSchema = useAttributeSchema();
   const { data, error, mutate } = useSDKConnections();
   const { datasources } = useDefinitions();
-  const managedWarehouseRegion = datasources.find(
-    (d): d is GrowthbookClickhouseDataSourceWithParams =>
-      d.type === "growthbook_clickhouse",
-  )?.settings?.region;
+  const eventIngestorRegion = getEventIngestorRegion(datasources);
 
   const currentConnection: SDKConnectionInterface | null =
     data?.connections.find((c) => c.id === connection) || null;
@@ -256,7 +253,7 @@ const VerifyConnectionPage = ({
                   remoteEvalEnabled={
                     currentConnection.remoteEvalEnabled || false
                   }
-                  managedWarehouseRegion={managedWarehouseRegion}
+                  eventIngestorRegion={eventIngestorRegion}
                 />
               </div>
             )}
@@ -288,7 +285,7 @@ const VerifyConnectionPage = ({
                   }
                   eventTracker={eventTracker}
                   setEventTracker={updateEventTracker}
-                  managedWarehouseRegion={managedWarehouseRegion}
+                  eventIngestorRegion={eventIngestorRegion}
                 />
               </div>
             )}
