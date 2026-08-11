@@ -188,15 +188,24 @@ export class FactMetricModel extends BaseClass {
     factTableId?: string;
     projectId?: string;
   }) {
-    const filter: FilterQuery<FactMetricInterface> = {
-      ...(options?.datasourceId && { datasource: options.datasourceId }),
-      ...(options?.factTableId && {
+    // Both the factTableId filter and projectFilterQuery use a top-level $or,
+    // so combine them under $and to keep one from clobbering the other.
+    const andClauses: FilterQuery<FactMetricInterface>[] = [];
+    if (options?.factTableId) {
+      andClauses.push({
         $or: [
           { "numerator.factTableId": options.factTableId },
           { "funnelSettings.steps.factTableId": options.factTableId },
         ],
-      }),
-      ...(options?.projectId && projectFilterQuery(options.projectId)),
+      });
+    }
+    if (options?.projectId) {
+      andClauses.push(projectFilterQuery(options.projectId));
+    }
+
+    const filter: FilterQuery<FactMetricInterface> = {
+      ...(options?.datasourceId && { datasource: options.datasourceId }),
+      ...(andClauses.length && { $and: andClauses }),
     };
 
     return this._find(filter, { sort: { id: 1 } });
