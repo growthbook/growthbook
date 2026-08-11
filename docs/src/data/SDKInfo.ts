@@ -224,7 +224,7 @@ export default {
   },
   php: {
     name: "PHP SDK",
-    version: "1.7.0",
+    version: "2.4.0",
     github: "https://github.com/growthbook/growthbook-php",
     examples: [],
     packageRepos: [
@@ -239,6 +239,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        trackingPlugin: "≥ v2.4.0",
       },
       {
         savedGroupReferences: "≥ v1.7.0",
@@ -382,7 +385,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "2.1.1",
+    version: "2.2.0",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
@@ -397,6 +400,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        trackingPlugin: "≥ v2.2.0",
       },
       {
         caseInsensitiveMembership: "≥ v2.1.1",
@@ -452,6 +458,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        trackingPlugin: "≥ v0.2.8",
       },
       {
         caseInsensitiveMembership: "≥ v0.2.7",
@@ -1162,7 +1171,7 @@ export default {
   },
   flutter: {
     name: "Flutter SDK",
-    version: "4.2.1",
+    version: "4.4.0",
     github: "https://github.com/growthbook/growthbook-flutter",
     examples: [],
     packageRepos: [
@@ -1177,6 +1186,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        trackingPlugin: "≥ v4.4.0",
       },
       {
         stickyBucketing: "≥ v3.8.0",

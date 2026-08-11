@@ -1,6 +1,10 @@
 {
   "versions": [
     {
+      "version": "4.4.0",
+      "capabilities": ["trackingPlugin"]
+    },
+    {
       "version": "4.2.1"
     },
     {
