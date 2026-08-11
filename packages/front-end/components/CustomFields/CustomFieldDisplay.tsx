@@ -9,11 +9,13 @@ import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { useCustomFields } from "@/hooks/useCustomFields";
 import {
-  useCustomFields,
   filterCustomFieldsForSectionAndProject,
+  isCustomFieldBooleanTrue,
   reconcileCustomFieldValues,
-} from "@/hooks/useCustomFields";
+  toCustomFieldBooleanString,
+} from "@/services/customFields";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import Markdown from "@/components/Markdown/Markdown";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -26,10 +28,6 @@ import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import CustomFieldInput from "./CustomFieldInput";
-import {
-  isCustomFieldBooleanTrue,
-  toCustomFieldBooleanString,
-} from "./constants";
 
 /** Optional draft-mode context for feature metadata approval flows. */
 export interface CustomFieldDraftInfo {
@@ -89,20 +87,14 @@ const CustomFieldDisplay: FC<{
     section,
     target.project,
   );
-  const customFieldsMap = new Map<string, CustomField>();
-  if (customFields && customFields.length) {
-    customFields.forEach((v) => {
-      customFieldsMap.set(v.id, v);
-    });
-  }
 
-  const currentCustomFields = target?.customFields || {};
+  const currentCustomFields = target.customFields || {};
   const { hasCommercialFeature } = useUser();
   const hasCustomFieldAccess = hasCommercialFeature("custom-metadata");
   // Also used to re-seed on open so `isDirty` compares against what's shown.
   const savedCustomFieldValues = reconcileCustomFieldValues(
     customFields,
-    target?.customFields,
+    target.customFields,
   );
   const form = useForm<
     Partial<ExperimentInterfaceStringDates | FeatureInterface>
@@ -153,7 +145,7 @@ const CustomFieldDisplay: FC<{
     }
     if (mutate) mutate();
   };
-  if (!customFields || customFields?.length === 0) {
+  if (!customFields?.length) {
     return null;
   }
 
@@ -218,7 +210,7 @@ const CustomFieldDisplay: FC<{
     return stringValue || <Text color="text-mid">--</Text>;
   };
 
-  Array.from(customFieldsMap.values()).forEach((v: CustomField) => {
+  customFields.forEach((v) => {
     displayFieldsObj.push({
       label: v.name,
       value: getDisplayValue(v, currentValueMap.get(v.id) ?? ""),
@@ -280,15 +272,30 @@ const CustomFieldDisplay: FC<{
           )}
         </ModalStandard>
       )}
-      {displayFieldsObj &&
-        (section === "feature" ? (
-          <>
-            <Flex justify="between" align="center" mt={mt}>
-              <Flex align="center" gap="1">
-                <Heading as="h4" size="sm" mb="0">
-                  {label ? label : ""}
-                </Heading>
-              </Flex>
+      {section === "feature" ? (
+        <>
+          <Flex justify="between" align="center" mt={mt}>
+            <Flex align="center" gap="1">
+              <Heading as="h4" size="sm" mb="0">
+                {label ? label : ""}
+              </Heading>
+            </Flex>
+            <div className="flex-1" />
+            {canEdit && hasCustomFieldAccess && (
+              <Link onClick={openEditModal}>
+                <Text weight="semibold">Edit</Text>
+              </Link>
+            )}
+          </Flex>
+          <DataList data={displayFieldsObj} maxColumns={3} />
+        </>
+      ) : (
+        <Frame className={className} my="3">
+          <Box>
+            <Flex justify="between" align="center" mb="3">
+              <Heading color="text-high" as="h4" size="sm" mb="0">
+                {label ? label : ""}
+              </Heading>
               <div className="flex-1" />
               {canEdit && hasCustomFieldAccess && (
                 <Link onClick={openEditModal}>
@@ -297,25 +304,9 @@ const CustomFieldDisplay: FC<{
               )}
             </Flex>
             <DataList data={displayFieldsObj} maxColumns={3} />
-          </>
-        ) : (
-          <Frame className={className} my="3">
-            <Box>
-              <Flex justify="between" align="center" mb="3">
-                <Heading color="text-high" as="h4" size="sm" mb="0">
-                  {label ? label : ""}
-                </Heading>
-                <div className="flex-1" />
-                {canEdit && hasCustomFieldAccess && (
-                  <Link onClick={openEditModal}>
-                    <Text weight="semibold">Edit</Text>
-                  </Link>
-                )}
-              </Flex>
-              <DataList data={displayFieldsObj} maxColumns={3} />
-            </Box>
-          </Frame>
-        ))}
+          </Box>
+        </Frame>
+      )}
     </>
   );
 };

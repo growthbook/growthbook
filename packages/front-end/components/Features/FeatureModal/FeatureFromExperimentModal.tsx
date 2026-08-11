@@ -128,7 +128,6 @@ const genFormDefaultValues = ({
     tags: experiment.tags || [],
     environmentSettings,
     rules: [],
-    // Seeded by useReconciledCustomFields once the modal mounts.
     customFields: {},
     variations: getLatestPhaseVariations(experiment).map((v, i) => {
       return {

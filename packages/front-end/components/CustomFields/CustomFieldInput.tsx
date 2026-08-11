@@ -11,7 +11,7 @@ import Text from "@/ui/Text";
 import {
   isCustomFieldBooleanTrue,
   toCustomFieldBooleanString,
-} from "./constants";
+} from "@/services/customFields";
 
 const CustomFieldInput: FC<{
   fields: CustomField[];

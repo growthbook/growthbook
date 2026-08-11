@@ -118,8 +118,6 @@ const genFormDefaultValues = ({
     permissions: permissionsUtil,
     project,
   });
-  // Seeding defaults and dropping out-of-scope fields is owned by
-  // useReconciledCustomFields, which runs against the selected project.
   const customFieldValues = featureToDuplicate?.customFields ?? {};
 
   return featureToDuplicate

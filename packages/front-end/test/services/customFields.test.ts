@@ -5,7 +5,7 @@ import {
   getSeededCustomFieldDefaultValue,
   normalizeCustomFieldValues,
   reconcileCustomFieldValues,
-} from "@/hooks/useCustomFields";
+} from "@/services/customFields";
 
 const makeField = (overrides: Partial<CustomField>): CustomField => ({
   id: "cf_default",

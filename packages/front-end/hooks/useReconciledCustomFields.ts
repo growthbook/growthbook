@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef } from "react";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
+import { useCustomFields } from "@/hooks/useCustomFields";
 import {
   customFieldValuesEqual,
   filterCustomFieldsForSectionAndProject,
   normalizeCustomFieldValues,
   reconcileCustomFieldValues,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
+} from "@/services/customFields";
 import { useUser } from "@/services/UserContext";
 
 export function useReconciledCustomFields({

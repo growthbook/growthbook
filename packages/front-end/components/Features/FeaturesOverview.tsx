@@ -86,10 +86,8 @@ import EditFeatureDescriptionModal from "@/components/Features/EditFeatureDescri
 import CustomFieldDisplay, {
   CustomFieldDraftInfo,
 } from "@/components/CustomFields/CustomFieldDisplay";
-import {
-  useCustomFields,
-  filterCustomFieldsForSectionAndProject,
-} from "@/hooks/useCustomFields";
+import { useCustomFields } from "@/hooks/useCustomFields";
+import { filterCustomFieldsForSectionAndProject } from "@/services/customFields";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";

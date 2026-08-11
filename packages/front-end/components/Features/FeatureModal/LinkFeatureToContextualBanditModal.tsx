@@ -113,7 +113,6 @@ const genFormDefaultValues = ({
     tags: cb.tags || [],
     environmentSettings,
     rules: [],
-    // Seeded by useReconciledCustomFields once the modal mounts.
     customFields: {},
     variations: cb.variations.map((v, i) => ({
       value: i ? getDefaultVariationValue(defaultValue) : defaultValue,
