@@ -3,6 +3,7 @@ import { paddedVersionString } from "@growthbook/growthbook";
 import { getSDKCapabilities } from "shared/sdk-versioning";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import React from "react";
+import { Box } from "@radix-ui/themes";
 import { DocLink } from "@/components/DocLink";
 import Code from "@/components/SyntaxHighlighting/Code";
 import EventTrackerSelector, {
@@ -200,12 +201,11 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
         />
         {eventTracker === "growthbook" &&
           (supportsGrowthbookTrackingPlugin(language, version) ? (
-            <>
-              <br />
+            <Box mt="3">
               If you want to use GrowthBook for experiments (and metrics), you
               will need to log events you care about. Read more about our{" "}
               <DocLink useRadix={false} docSection="managedWarehouseTracking">
-                managed warehouse tracking
+                Managed Warehouse tracking
               </DocLink>
               . Here are some examples:
               <Code
@@ -220,7 +220,7 @@ gb.logEvent("Button Click", {
 });
               `}
               />
-            </>
+            </Box>
           ) : (
             <Callout status="warning" mt="3">
               Upgrade this SDK Connection to SDK version 1.4.0 or later to send
@@ -293,13 +293,11 @@ export default function MyApp() {
         and more.
         {eventTracker === "growthbook" &&
           (supportsGrowthbookTrackingPlugin(language, version) ? (
-            <>
-              <br />
-              <br />
+            <Box mt="3">
               If you want to use GrowthBook for experiments (and metrics), you
               will need to log events you care about. Read more about our{" "}
               <DocLink useRadix={false} docSection="managedWarehouseTracking">
-                managed warehouse tracking
+                Managed Warehouse tracking
               </DocLink>
               . Here are some examples:
               <Code
@@ -314,7 +312,7 @@ gb.logEvent("Button Click", {
 });
               `}
               />
-            </>
+            </Box>
           ) : (
             <Callout status="warning" mt="3">
               Upgrade this SDK Connection to SDK version 1.4.0 or later to send
@@ -417,12 +415,11 @@ app.use((req, res, next) => {
           `.trim()}
           />
           {usesGrowthbookPlugin && (
-            <>
-              <br />
+            <Box mt="3">
               If you want to use GrowthBook for experiments (and metrics), you
               will need to log events you care about. Read more about our{" "}
               <DocLink useRadix={false} docSection="managedWarehouseTracking">
-                managed warehouse tracking
+                Managed Warehouse tracking
               </DocLink>
               . Here are some examples:
               <Code
@@ -437,7 +434,7 @@ req.growthbook.logEvent("Request Completed", {
 });
               `}
               />
-            </>
+            </Box>
           )}
         </>
       );
@@ -764,15 +761,14 @@ func main() {
           <ManagedWarehouseUpgradeWarning minVersion="0.2.8" />
         )}
         {usesGrowthbookPlugin && (
-          <>
-            <br />
+          <Box mt="3">
             Experiment view and feature usage events are tracked automatically.
             To track additional custom events, send them directly with the{" "}
             <DocLink docSection="managedWarehouseIngestionApi">
               Ingestion API
             </DocLink>
             .
-          </>
+          </Box>
         )}
       </>
     );
@@ -905,15 +901,14 @@ $growthbook->initialize(
           <ManagedWarehouseUpgradeWarning minVersion="2.4.0" />
         )}
         {usesGrowthbookPlugin && (
-          <>
-            <br />
+          <Box mt="3">
             Experiment view and feature usage events are tracked automatically.
             To track additional custom events, send them directly with the{" "}
             <DocLink docSection="managedWarehouseIngestionApi">
               Ingestion API
             </DocLink>
             .
-          </>
+          </Box>
         )}
       </>
     );
@@ -996,12 +991,11 @@ gb.load_features()
           <ManagedWarehouseUpgradeWarning minVersion="2.2.0" />
         )}
         {usesGrowthbookPlugin && (
-          <>
-            <br />
+          <Box mt="3">
             If you want to use GrowthBook for experiments (and metrics), you
             will need to log events you care about. Read more about our{" "}
             <DocLink useRadix={false} docSection="managedWarehouseTracking">
-              managed warehouse tracking
+              Managed Warehouse tracking
             </DocLink>
             . Here are some examples:
             <Code
@@ -1016,7 +1010,7 @@ gb.log_event("Request Completed", {
 })
               `.trim()}
             />
-          </>
+          </Box>
         )}
       </>
     );
@@ -1131,15 +1125,14 @@ final GrowthBookSDK gb = GBSDKBuilderApp(
           <ManagedWarehouseUpgradeWarning minVersion="4.4.0" />
         )}
         {usesGrowthbookPlugin && (
-          <>
-            <br />
+          <Box mt="3">
             Experiment view and feature usage events are tracked automatically.
             To track additional custom events, send them directly with the{" "}
             <DocLink docSection="managedWarehouseIngestionApi">
               Ingestion API
             </DocLink>
             .
-          </>
+          </Box>
         )}
       </>
     );

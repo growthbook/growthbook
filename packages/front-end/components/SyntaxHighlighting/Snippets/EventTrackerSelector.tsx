@@ -1,5 +1,8 @@
 import React from "react";
+import { Box } from "@radix-ui/themes";
 import SelectField from "@/components/Forms/SelectField";
+import RadioGroup from "@/ui/RadioGroup";
+import Text from "@/ui/Text";
 
 const eventTrackerOptions = [
   { label: "GrowthBook Managed Warehouse", value: "growthbook" },
@@ -35,11 +38,28 @@ const EventTrackerSelector: React.FC<{
     ? eventTracker
     : "other";
 
+  // A binary choice (e.g. the back-end tracker list) reads clearer as radios
+  // than as a dropdown.
+  if (options.length <= 2) {
+    return (
+      <Box mb="3">
+        <Text as="div" weight="medium" mb="1">
+          Event tracking system
+        </Text>
+        <RadioGroup
+          value={value}
+          setValue={setEventTracker}
+          options={options}
+        />
+      </Box>
+    );
+  }
+
   return (
     <div className="form-inline mb-3">
       <SelectField
         size="legacy"
-        label="Event Tracking System"
+        label="Event tracking system"
         labelClassName="mr-2"
         options={options}
         sort={false}
