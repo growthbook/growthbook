@@ -57,6 +57,7 @@ import {
   getApiHosts,
   getExperimentDedupeKey,
   getStickyBucketAttributes,
+  getTrackingUserContext,
 } from "./core";
 import { StickyBucketServiceSync } from "./sticky-bucket-service";
 
@@ -1028,7 +1029,7 @@ export class GrowthBook<
         await this._options.eventLogger(
           eventName,
           properties || {},
-          this._getUserContext(),
+          getTrackingUserContext(this._getUserContext()),
         );
       } catch (e) {
         console.error(e);

@@ -158,7 +158,7 @@ function buildFunnelTableData(
   const stepLabels = steps.map((s, i) =>
     getFunnelStepDisplayLabel({
       step: s,
-      factTable: s.factTable ? getFactTableById(s.factTable) : null,
+      factTable: s.factTableId ? getFactTableById(s.factTableId) : null,
       fallbackIndex: i,
       allSteps: steps,
     }),
