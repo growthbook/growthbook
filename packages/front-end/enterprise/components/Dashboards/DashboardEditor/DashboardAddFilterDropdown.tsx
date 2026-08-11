@@ -1,4 +1,4 @@
-import { Fragment, useRef } from "react";
+import { useRef } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import {
@@ -10,7 +10,6 @@ import {
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import {
-  DASHBOARD_FILTER_GROUPS,
   DASHBOARD_OPTIONAL_FILTERS,
   DashboardOptionalFilterKey,
 } from "./dashboardFilterCatalog";
@@ -79,53 +78,48 @@ export default function DashboardAddFilterDropdown({
         </Button>
       }
     >
-      {DASHBOARD_FILTER_GROUPS.map((group, groupIndex) => (
-        <Fragment key={group.key}>
-          {groupIndex > 0 ? <DropdownMenuSeparator /> : null}
-          <DropdownMenuLabel
-            textSize="sm"
-            textStyle={{
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              fontWeight: 600,
-            }}
-          >
-            {group.label}
-          </DropdownMenuLabel>
-          {DASHBOARD_OPTIONAL_FILTERS.filter(
-            (filter) => filter.group === group.key,
-          ).map((filter) => {
-            const added = visibleKeys.includes(filter.key);
-            const available = applicability[filter.requires];
-            // Already in the bar, or no block on the dashboard honors it.
-            const status = added ? "added" : available ? null : "unavailable";
-            return (
-              <DropdownMenuItem
-                key={filter.key}
-                disabled={status !== null}
-                tooltip={
-                  status === "unavailable"
-                    ? UNAVAILABLE_REASON[filter.requires]
-                    : undefined
-                }
-                onClick={() => {
-                  addedFilterRef.current = true;
-                  onAdd(filter.key);
-                }}
-              >
-                <Flex align="center" justify="between" gap="4" width="100%">
-                  <span>{filter.label}</span>
-                  {status ? (
-                    <Text size="sm" color="text-low">
-                      {status}
-                    </Text>
-                  ) : null}
-                </Flex>
-              </DropdownMenuItem>
-            );
-          })}
-        </Fragment>
-      ))}
+      <DropdownMenuLabel
+        textSize="sm"
+        textStyle={{
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+          fontWeight: 600,
+        }}
+      >
+        Add a filter
+      </DropdownMenuLabel>
+      {DASHBOARD_OPTIONAL_FILTERS.filter((filter) => filter.addable).map(
+        (filter) => {
+          const added = visibleKeys.includes(filter.key);
+          const available = applicability[filter.requires];
+          // Already in the bar, or no block on the dashboard honors it.
+          const status = added ? "added" : available ? null : "unavailable";
+          return (
+            <DropdownMenuItem
+              key={filter.key}
+              disabled={status !== null}
+              tooltip={
+                status === "unavailable"
+                  ? UNAVAILABLE_REASON[filter.requires]
+                  : undefined
+              }
+              onClick={() => {
+                addedFilterRef.current = true;
+                onAdd(filter.key);
+              }}
+            >
+              <Flex align="center" justify="between" gap="4" width="100%">
+                <span>{filter.label}</span>
+                {status ? (
+                  <Text size="sm" color="text-low">
+                    {status}
+                  </Text>
+                ) : null}
+              </Flex>
+            </DropdownMenuItem>
+          );
+        },
+      )}
       <DropdownMenuSeparator />
       <Box px="2" py="1">
         <Text size="sm" color="text-low">

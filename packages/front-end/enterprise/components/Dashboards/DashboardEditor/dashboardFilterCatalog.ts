@@ -28,10 +28,7 @@ export const EXPERIMENT_CATEGORY_LABELS: Record<
   DashboardExperimentCategoryKey,
   string
 > = {
-  // Plural, and grouped under the "Experiment filters" heading in the menu, so it
-  // reads apart from the dashboard's own singular Metric filter: this one narrows
-  // which experiments are included, not which metric the blocks report on.
-  metric: "Metrics",
+  metric: "Metric",
   is: "Result",
   owner: "Owner",
   status: "Status",
@@ -51,46 +48,55 @@ export const EXPERIMENT_CATEGORY_SEARCH_PLACEHOLDERS: Record<
   has: "Search types...",
 };
 
-/**
- * Sections of the "Add filter" menu, rendered in this order and separated by a
- * divider. The dashboard's own filters come first; the experiment filter
- * categories sit under their own heading, which is what keeps "Metrics" (narrow
- * the experiments) legible next to "Metric" (what the blocks report on).
- */
-export const DASHBOARD_FILTER_GROUPS = [
-  { key: "dashboard", label: "Add a filter" },
-  { key: "experiment", label: "Experiment filters" },
-] as const;
+// Menu order for the experiment filter categories, independent of the order the
+// search-string parser declares them in. A Record so a new category can't be
+// left out of the menu silently.
+const EXPERIMENT_CATEGORY_MENU_ORDER: Record<
+  DashboardExperimentCategoryKey,
+  number
+> = {
+  metric: 0,
+  owner: 1,
+  is: 2,
+  tag: 3,
+  has: 4,
+  status: 5,
+};
 
-export type DashboardFilterGroupKey =
-  (typeof DASHBOARD_FILTER_GROUPS)[number]["key"];
-
-// Bar and "Add filter" menu order: the dashboard's own filters first, then the
-// experiment filter categories.
+// Bar and "Add filter" menu order.
 export const DASHBOARD_OPTIONAL_FILTERS: {
   key: DashboardOptionalFilterKey;
   label: string;
   requires: FilterRequirement;
-  group: DashboardFilterGroupKey;
+  // Offered in the "Add filter" menu. A filter that isn't still gets a pill when
+  // the dashboard has a saved value, so the value stays visible and removable.
+  addable: boolean;
 }[] = [
   {
     key: "projects",
     label: "Projects",
     requires: "projects",
-    group: "dashboard",
+    addable: true,
   },
+  ...[...DASHBOARD_EXPERIMENT_CATEGORY_KEYS]
+    .sort(
+      (a, b) =>
+        EXPERIMENT_CATEGORY_MENU_ORDER[a] - EXPERIMENT_CATEGORY_MENU_ORDER[b],
+    )
+    .map((category) => ({
+      key: `exp:${category}` as DashboardOptionalFilterKey,
+      label: EXPERIMENT_CATEGORY_LABELS[category],
+      requires: "experimentSearchString" as FilterRequirement,
+      addable: true,
+    })),
   {
+    // Retired from the menu: the experiment Metric filter above covers picking a
+    // metric, so offering both read as duplicates.
     key: "metricId",
     label: "Metric",
     requires: "metricId",
-    group: "dashboard",
+    addable: false,
   },
-  ...DASHBOARD_EXPERIMENT_CATEGORY_KEYS.map((category) => ({
-    key: `exp:${category}` as DashboardOptionalFilterKey,
-    label: EXPERIMENT_CATEGORY_LABELS[category],
-    requires: "experimentSearchString" as FilterRequirement,
-    group: "experiment" as DashboardFilterGroupKey,
-  })),
 ];
 
 /** The experiment filter category behind an `exp:*` key, or null for the rest. */
