@@ -197,7 +197,7 @@ req.growthbook.logEvent("Sign Up", {
 
 #### Sending events to the right region
 
-The tracking plugin sends events to `https://us1.gb-ingest.com` by default. If you selected **eu-west-1** as your Event Forwarder's Data Region, override the ingestor host so events reach the right Kafka/Confluent resources instead of being dropped:
+The tracking plugin sends events to `https://us-east-1.gb-ingest.com` by default. If you selected **eu-west-1** as your Event Forwarder's Data Region, override the ingestor host so events reach the right Kafka/Confluent resources instead of being dropped:
 
 - **HTML Script Tag**: add `data-event-ingestor-host="https://eu-west-1.gb-ingest.com"` to the script tag.
 - **JavaScript / React / Node.js**: pass `ingestorHost` to `growthbookTrackingPlugin()`:

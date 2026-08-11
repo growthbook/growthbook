@@ -62,7 +62,7 @@ export function isGrowthBookTelemetryDebug(): boolean {
 }
 
 export function getIngestorHost(): string {
-  return INGESTOR_HOST || "https://us1.gb-ingest.com";
+  return INGESTOR_HOST || "https://us-east-1.gb-ingest.com";
 }
 
 // Default to true
