@@ -49,6 +49,7 @@ export type CommercialFeature =
   | "custom-roles"
   | "quantile-metrics"
   | "retention-metrics"
+  | "funnel-metrics"
   | "custom-markdown"
   | "experiment-impact"
   | "metric-populations"
@@ -225,6 +226,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "multiple-sdk-webhooks",
   "quantile-metrics",
   "retention-metrics",
+  "funnel-metrics",
   "metric-populations",
   "multi-armed-bandits",
   "historical-power",

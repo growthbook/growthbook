@@ -1609,6 +1609,8 @@ function StandardFactMetricModal({
     hasCommercialFeature("quantile-metrics");
   const hasRetentionMetricCommercialFeature =
     hasCommercialFeature("retention-metrics");
+  const hasFunnelMetricCommercialFeature =
+    hasCommercialFeature("funnel-metrics");
 
   const numerator = form.watch("numerator");
   const numeratorFactTable = getFactTableById(numerator?.factTableId || "");
@@ -2083,6 +2085,9 @@ function StandardFactMetricModal({
                   ) {
                     return;
                   }
+                  if (type === "funnel" && !hasFunnelMetricCommercialFeature) {
+                    return;
+                  }
 
                   // always reset delay value when switching away from retention
                   if (
@@ -2206,7 +2211,13 @@ function StandardFactMetricModal({
                   },
                   {
                     value: "funnel",
-                    label: "Funnel",
+                    label: (
+                      <>
+                        <PremiumTooltip commercialFeature="funnel-metrics">
+                          Funnel
+                        </PremiumTooltip>
+                      </>
+                    ),
                   },
                 ]}
               />

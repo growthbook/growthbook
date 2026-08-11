@@ -397,6 +397,9 @@ export class FactMetricModel extends BaseClass {
     }
 
     if (isFactFunnelMetric(data)) {
+      if (!this.context.hasPremiumFeature("funnel-metrics")) {
+        throw new Error("Funnel metrics are a premium feature");
+      }
       await this.validateFunnelSettings(data, existingMetric, factTableMap);
     } else {
       await this.validateColumnRefs(data, existingMetric, factTableMap);
