@@ -12,7 +12,9 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import {
   useCustomFields,
   filterCustomFieldsForSectionAndProject,
+  reconcileCustomFieldValues,
 } from "@/hooks/useCustomFields";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import Markdown from "@/components/Markdown/Markdown";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import DataList, { DataListItem } from "@/ui/DataList";
@@ -88,32 +90,11 @@ const CustomFieldDisplay: FC<{
     target.project,
   );
   const customFieldsMap = new Map<string, CustomField>();
-  const defaultFields: Record<string, string> = {};
   if (customFields && customFields.length) {
     customFields.forEach((v) => {
-      defaultFields[v.id] =
-        v.type === "boolean"
-          ? toCustomFieldBooleanString(isCustomFieldBooleanTrue(v.defaultValue))
-          : v.type === "multiselect"
-            ? JSON.stringify([v?.defaultValue ? v.defaultValue : ""])
-            : "" + (v?.defaultValue ? v.defaultValue : "");
       customFieldsMap.set(v.id, v);
     });
   }
-
-  const normalizeCustomFieldValues = (
-    values: Record<string, unknown> | undefined,
-  ): Record<string, string> => {
-    const normalized: Record<string, string> = { ...defaultFields };
-    for (const [key, value] of Object.entries(values || {})) {
-      if (typeof value === "boolean") {
-        normalized[key] = toCustomFieldBooleanString(value);
-      } else if (value !== undefined && value !== null) {
-        normalized[key] = String(value);
-      }
-    }
-    return normalized;
-  };
 
   const currentCustomFields = target?.customFields || {};
   const { hasCommercialFeature } = useUser();
@@ -122,13 +103,27 @@ const CustomFieldDisplay: FC<{
     Partial<ExperimentInterfaceStringDates | FeatureInterface>
   >({
     defaultValues: {
-      customFields: normalizeCustomFieldValues(target?.customFields),
+      customFields: reconcileCustomFieldValues(
+        customFields,
+        target?.customFields,
+      ),
     },
   });
 
+  const { availableFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section,
+      project: target.project,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
+
   const openEditModal = () => {
     form.reset({
-      customFields: normalizeCustomFieldValues(target?.customFields),
+      customFields: reconcileCustomFieldValues(
+        customFields,
+        target?.customFields,
+      ),
     });
     setEditModal(true);
   };
@@ -275,13 +270,11 @@ const CustomFieldDisplay: FC<{
           )}
           {hasCustomFieldAccess ? (
             <CustomFieldInput
-              customFields={customFields}
-              section={section}
-              project={target.project}
-              setCustomFields={(value) => {
+              fields={availableFields}
+              value={customFieldValues}
+              onChange={(value) => {
                 form.setValue("customFields", value, { shouldDirty: true });
               }}
-              currentCustomFields={form.watch("customFields") || {}}
             />
           ) : (
             <div className="text-center">

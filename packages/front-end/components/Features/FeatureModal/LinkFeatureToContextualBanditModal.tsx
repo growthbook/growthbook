@@ -40,8 +40,10 @@ import FeatureValueField from "@/components/Features/FeatureValueField";
 import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
 import {
   filterCustomFieldsForSectionAndProject,
+  reconcileCustomFieldValues,
   useCustomFields,
 } from "@/hooks/useCustomFields";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import HelperText from "@/ui/HelperText";
@@ -106,11 +108,7 @@ const genFormDefaultValues = ({
     permissions,
     project,
   });
-  const customFieldValues = customFields
-    ? Object.fromEntries(
-        customFields.map((field) => [field.id, field.defaultValue ?? ""]),
-      )
-    : {};
+  const customFieldValues = reconcileCustomFieldValues(customFields, undefined);
   const type = cb.variations.length > 2 ? "string" : "boolean";
   const defaultValue = getDefaultValue(type);
   return {
@@ -174,6 +172,14 @@ export default function LinkFeatureToContextualBanditModal({
   const form = useForm<ReturnType<typeof genFormDefaultValues>>({
     defaultValues: defaultValues as never,
   });
+
+  const { availableFields: availableCustomFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "feature",
+      project: selectedProject,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
 
   const [showTags, setShowTags] = useState(cb.tags && cb.tags.length > 0);
   const [showDescription, setShowDescription] = useState(
@@ -449,21 +455,15 @@ export default function LinkFeatureToContextualBanditModal({
             my="5"
           />
 
-          {hasCommercialFeature("custom-metadata") &&
-            customFields &&
-            customFields.length > 0 && (
-              <div>
-                <CustomFieldInput
-                  customFields={customFields}
-                  setCustomFields={(value) => {
-                    form.setValue("customFields", value);
-                  }}
-                  currentCustomFields={form.watch("customFields") || {}}
-                  section={"feature"}
-                  project={selectedProject}
-                />
-              </div>
-            )}
+          {availableCustomFields.length > 0 && (
+            <div>
+              <CustomFieldInput
+                fields={availableCustomFields}
+                value={customFieldValues}
+                onChange={(value) => form.setValue("customFields", value)}
+              />
+            </div>
+          )}
         </>
       )}
 

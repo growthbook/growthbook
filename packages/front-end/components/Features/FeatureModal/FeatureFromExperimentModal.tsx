@@ -50,8 +50,10 @@ import DraftSelectorDropdown, {
 } from "@/components/Features/DraftSelectorDropdown";
 import {
   filterCustomFieldsForSectionAndProject,
+  reconcileCustomFieldValues,
   useCustomFields,
 } from "@/hooks/useCustomFields";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
@@ -120,11 +122,7 @@ const genFormDefaultValues = ({
     permissions,
     project,
   });
-  const customFieldValues = customFields
-    ? Object.fromEntries(
-        customFields.map((field) => [field.id, field.defaultValue ?? ""]),
-      )
-    : {};
+  const customFieldValues = reconcileCustomFieldValues(customFields, undefined);
   const type =
     getLatestPhaseVariations(experiment).length > 2 ? "string" : "boolean";
   const defaultValue = getDefaultValue(type);
@@ -205,6 +203,14 @@ export default function FeatureFromExperimentModal({
   const form = useForm<ReturnType<typeof genFormDefaultValues>>({
     defaultValues: defaultValues as never,
   });
+
+  const { availableFields: availableCustomFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "feature",
+      project: selectedProject,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
 
   const [showTags, setShowTags] = useState(
     experiment.tags && experiment.tags.length > 0,
@@ -617,21 +623,15 @@ export default function FeatureFromExperimentModal({
             my="5"
           />
 
-          {hasCommercialFeature("custom-metadata") &&
-            customFields &&
-            customFields.length > 0 && (
-              <div>
-                <CustomFieldInput
-                  customFields={customFields}
-                  setCustomFields={(value) => {
-                    form.setValue("customFields", value);
-                  }}
-                  currentCustomFields={form.watch("customFields") || {}}
-                  section={"feature"}
-                  project={selectedProject}
-                />
-              </div>
-            )}
+          {availableCustomFields.length > 0 && (
+            <div>
+              <CustomFieldInput
+                fields={availableCustomFields}
+                value={customFieldValues}
+                onChange={(value) => form.setValue("customFields", value)}
+              />
+            </div>
+          )}
         </>
       )}
 

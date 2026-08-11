@@ -36,8 +36,10 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import {
   filterCustomFieldsForSectionAndProject,
+  reconcileCustomFieldValues,
   useCustomFields,
 } from "@/hooks/useCustomFields";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import { useUser } from "@/services/UserContext";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -124,14 +126,10 @@ const genFormDefaultValues = ({
     permissions: permissionsUtil,
     project,
   });
-  const customFieldValues = customFields
-    ? Object.fromEntries(
-        customFields.map((field) => [
-          field.id,
-          featureToDuplicate?.customFields?.[field.id] ?? field.defaultValue,
-        ]),
-      )
-    : {};
+  const customFieldValues = reconcileCustomFieldValues(
+    customFields,
+    featureToDuplicate?.customFields,
+  );
 
   return featureToDuplicate
     ? {
@@ -222,11 +220,13 @@ export default function FeatureModal({
   const canCreateWithoutProject =
     !requireProjectForFeatures && permissionsUtil.canViewFeatureModal();
   const selectedProject = form.watch("project");
-  const customFields = filterCustomFieldsForSectionAndProject(
-    allCustomFields,
-    "feature",
-    selectedProject,
-  );
+  const { availableFields: customFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "feature",
+      project: selectedProject,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
   const { projectId: demoProjectId } = useDemoDataSourceProject();
   const creatingInDemoProject =
     !!demoProjectId && selectedProject === demoProjectId;
@@ -599,21 +599,15 @@ export default function FeatureModal({
           />
         </Box>
 
-        {hasCommercialFeature("custom-metadata") &&
-          customFields &&
-          customFields?.length > 0 && (
-            <div>
-              <CustomFieldInput
-                customFields={customFields}
-                setCustomFields={(value) => {
-                  form.setValue("customFields", value);
-                }}
-                currentCustomFields={form.watch("customFields") || {}}
-                section={"feature"}
-                project={selectedProject}
-              />
-            </div>
-          )}
+        {customFields.length > 0 && (
+          <div>
+            <CustomFieldInput
+              fields={customFields}
+              value={customFieldValues}
+              onChange={(value) => form.setValue("customFields", value)}
+            />
+          </div>
+        )}
 
         <Flex direction="column" mt="3">
           {showTags && (
