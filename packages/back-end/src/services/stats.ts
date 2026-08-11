@@ -11,7 +11,7 @@ import { putBaselineVariationFirst } from "shared/util";
 import {
   ExperimentMetricInterface,
   eligibleForUncappedMetric,
-  funnelStepMetricId,
+  getFunnelStepMetrics,
   isBinomialMetric,
   isFactMetric,
   isFactFunnelMetric,
@@ -454,14 +454,9 @@ export function getMetricsAndQueryDataForStatsEngine(
               true,
             );
 
-            metric.funnelSettings.steps.forEach((step, stepIndex) => {
-              const stepId = funnelStepMetricId(metric.id, stepIndex);
-              metricSettings[stepId] = getMetricSettingsForStatsEngine(
-                {
-                  ...metric,
-                  id: stepId,
-                  name: `${metric.name}: ${step.name}`,
-                },
+            getFunnelStepMetrics(metric).forEach((stepMetric) => {
+              metricSettings[stepMetric.id] = getMetricSettingsForStatsEngine(
+                stepMetric,
                 metricMap,
                 settings,
                 true,

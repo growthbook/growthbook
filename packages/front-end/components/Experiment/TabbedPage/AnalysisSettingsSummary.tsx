@@ -18,7 +18,7 @@ import {
   getFactMetricPrimaryFactTableId,
   isFactMetric,
   isMetricJoinable,
-  expandAllSliceMetricsInMap,
+  expandDerivedMetricsInMap,
   ExperimentMetricDefinition,
   getLatestPhaseVariations,
   isDimensionPrecomputed,
@@ -986,8 +986,8 @@ export default function AnalysisSettingsSummary({
                   factTables.map((table) => [table.id, table]),
                 );
 
-                // Expand slice metrics and add them to the map
-                expandAllSliceMetricsInMap({
+                // Expand derived metrics and add them to the map
+                expandDerivedMetricsInMap({
                   metricMap,
                   factTableMap,
                   experiment,

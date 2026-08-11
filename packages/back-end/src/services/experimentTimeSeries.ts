@@ -2,7 +2,7 @@ import md5 from "md5";
 import {
   getAllExpandedMetricIdsFromExperiment,
   isFactMetricId,
-  expandAllSliceMetricsInMap,
+  expandDerivedMetricsInMap,
   getLatestPhaseVariations,
   isDimensionPrecomputed,
   getFactMetricPrimaryFactTableId,
@@ -103,8 +103,8 @@ export async function getExperimentTimeSeriesContext({
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
-  // Expand all slice metrics (auto and custom) and add them to the metricMap
-  expandAllSliceMetricsInMap({
+  // Expand all derived metrics (slices and funnel steps) into the metricMap
+  expandDerivedMetricsInMap({
     metricMap,
     factTableMap,
     experiment,

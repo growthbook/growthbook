@@ -3,12 +3,15 @@ import {
   conversionWindowToSeconds,
 } from "shared/funnels";
 import {
+  expandDerivedMetricsInMap,
   ExperimentMetricInterface,
   funnelStepMetricId,
   getAllExpandedMetricIdsFromExperiment,
+  getFunnelStepMetrics,
+  getMetricSnapshotSettings,
   parseFunnelStepMetricId,
 } from "shared/experiments";
-import { FunnelFactMetricInterface } from "shared/types/fact-table";
+import { FunnelFactMetricInterface, RowFilter } from "shared/types/fact-table";
 
 describe("conversionWindowToSeconds", () => {
   it("converts each supported unit", () => {
@@ -150,30 +153,134 @@ describe("funnel step metric ids", () => {
   });
 });
 
-describe("getAllExpandedMetricIdsFromExperiment funnel expansion", () => {
-  const funnelMetric = {
-    id: "fact__funnel",
-    name: "Signup Funnel",
-    metricType: "funnel",
-    numerator: null,
-    denominator: null,
-    funnelSettings: {
-      steps: [
-        { name: "View", factTableId: "ft", rowFilters: [], optional: false },
-        { name: "Signup", factTableId: "ft", rowFilters: [], optional: false },
-      ],
-    },
-  } as unknown as FunnelFactMetricInterface;
+const signupRowFilter: RowFilter = {
+  operator: "equals",
+  column: "event",
+  values: ["signup"],
+};
 
-  it("derives a step id per funnel step for a real funnel goal metric", () => {
+const funnelMetric = {
+  id: "fact__funnel",
+  name: "Signup Funnel",
+  metricType: "funnel",
+  numerator: null,
+  denominator: null,
+  regressionAdjustmentOverride: true,
+  regressionAdjustmentEnabled: true,
+  regressionAdjustmentDays: 14,
+  priorSettings: { override: false, proper: false, mean: 0, stddev: 1 },
+  funnelSettings: {
+    steps: [
+      {
+        name: "View",
+        factTableId: "ft_views",
+        rowFilters: [],
+        optional: false,
+      },
+      {
+        name: "Signup",
+        factTableId: "ft_events",
+        rowFilters: [signupRowFilter],
+        optional: false,
+      },
+    ],
+  },
+} as unknown as FunnelFactMetricInterface;
+
+function expandFunnelMetric(): Map<string, ExperimentMetricInterface> {
+  const metricMap = new Map<string, ExperimentMetricInterface>([
+    [funnelMetric.id, funnelMetric],
+  ]);
+  expandDerivedMetricsInMap({
+    metricMap,
+    factTableMap: new Map(),
+    experiment: { goalMetrics: [funnelMetric.id] },
+  });
+  return metricMap;
+}
+
+describe("getFunnelStepMetrics", () => {
+  it("mints one proportion metric per step, keyed by step id", () => {
+    const steps = getFunnelStepMetrics(funnelMetric);
+
+    expect(steps.map((s) => s.id)).toEqual([
+      funnelStepMetricId(funnelMetric.id, 0),
+      funnelStepMetricId(funnelMetric.id, 1),
+    ]);
+    expect(steps.map((s) => s.name)).toEqual([
+      "Signup Funnel: View",
+      "Signup Funnel: Signup",
+    ]);
+    steps.forEach((step) => {
+      expect(step.metricType).toBe("proportion");
+      expect(step.funnelSettings).toBeNull();
+      expect(step.denominator).toBeNull();
+    });
+  });
+
+  it("turns each step's own events into a distinct-users numerator", () => {
+    expect(getFunnelStepMetrics(funnelMetric)[1].numerator).toEqual({
+      factTableId: "ft_events",
+      column: "$$distinctUsers",
+      rowFilters: [signupRowFilter],
+    });
+  });
+});
+
+describe("expandDerivedMetricsInMap funnel expansion", () => {
+  it("adds the step metrics to the map", () => {
+    const metricMap = expandFunnelMetric();
+
+    getFunnelStepMetrics(funnelMetric).forEach((step) => {
+      expect(metricMap.get(step.id)).toEqual(step);
+    });
+  });
+
+  it("leaves the funnel itself untouched", () => {
+    expect(expandFunnelMetric().get(funnelMetric.id)).toBe(funnelMetric);
+  });
+});
+
+describe("getAllExpandedMetricIdsFromExperiment funnel expansion", () => {
+  it("picks up the step ids minted into the map", () => {
     const ids = getAllExpandedMetricIdsFromExperiment({
       exp: { goalMetrics: [funnelMetric.id] },
-      expandedMetricMap: new Map<string, ExperimentMetricInterface>([
-        [funnelMetric.id, funnelMetric],
-      ]),
+      expandedMetricMap: expandFunnelMetric(),
     });
     expect(ids).toContain(funnelMetric.id);
     expect(ids).toContain(funnelStepMetricId(funnelMetric.id, 0));
     expect(ids).toContain(funnelStepMetricId(funnelMetric.id, 1));
+  });
+});
+
+describe("regression adjustment for funnel metrics", () => {
+  // The funnel SQL emits no covariate columns, so the settings must say so even
+  // when the metric itself asks for CUPED.
+  const getRegressionAdjustment = (metric: ExperimentMetricInterface) =>
+    getMetricSnapshotSettings({
+      metric,
+      denominatorMetrics: [],
+      experimentRegressionAdjustmentEnabled: true,
+      organizationSettings: { regressionAdjustmentEnabled: true },
+    }).metricSnapshotSettings;
+
+  it("is disabled for the funnel", () => {
+    const settings = getRegressionAdjustment(funnelMetric);
+    expect(settings.regressionAdjustmentEnabled).toBe(false);
+    expect(settings.regressionAdjustmentAvailable).toBe(false);
+    expect(settings.regressionAdjustmentReason).toBe(
+      "funnel metrics not supported",
+    );
+  });
+
+  it("is disabled for its steps, which are proportions on their own", () => {
+    getFunnelStepMetrics(funnelMetric).forEach((step) => {
+      const settings = getRegressionAdjustment(step);
+      expect(settings.regressionAdjustmentEnabled).toBe(false);
+      expect(settings.regressionAdjustmentAvailable).toBe(false);
+      expect(settings.regressionAdjustmentReason).toBe(
+        "funnel metrics not supported",
+      );
+    });
   });
 });

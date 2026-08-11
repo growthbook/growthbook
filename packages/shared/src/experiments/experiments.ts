@@ -27,6 +27,7 @@ import {
   MetricQuantileSettings,
   MetricWindowSettings,
   RowFilter,
+  StandardFactMetricInterface,
 } from "shared/types/fact-table";
 import {
   MetricDefaults,
@@ -1446,6 +1447,39 @@ export function parseFunnelStepMetricId(
   };
 }
 
+/**
+ * One proportion metric per funnel step, cloned from the parent funnel. Each
+ * counts the units that reached that step, so the step's own fact table and row
+ * filters become an ordinary `$$distinctUsers` numerator.
+ *
+ * These are never queried — the parent funnel is queried once and its result
+ * block split per step (see `splitFunnelMetricBlock`). They exist so step ids
+ * resolve to a real definition for names, snapshot settings, and result
+ * lookups, the same way slice metrics do.
+ *
+ * Note: you cannot use these metrics to generate SQL standalone, as the condition
+ * for which units reach that step of the funnel are not contained in this metric
+ * definition.
+ */
+export function getFunnelStepMetrics(
+  metric: FunnelFactMetricInterface,
+): StandardFactMetricInterface[] {
+  return metric.funnelSettings.steps.map((step, stepIndex) => ({
+    ...metric,
+    id: funnelStepMetricId(metric.id, stepIndex),
+    name: `${metric.name}: ${step.name}`,
+    description: `Units reaching "${step.name}" in the ${metric.name} funnel.`,
+    metricType: "proportion" as const,
+    numerator: {
+      factTableId: step.factTableId,
+      column: "$$distinctUsers",
+      rowFilters: step.rowFilters,
+    },
+    denominator: null,
+    funnelSettings: null,
+  }));
+}
+
 export function dedupeMetricIdsPreserveOrder(ids: string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -1638,6 +1672,17 @@ export function getMetricSnapshotSettings<
       regressionAdjustmentEnabled = false;
       regressionAdjustmentAvailable = false;
       regressionAdjustmentReason = "custom aggregation";
+    }
+    // The funnel SQL does not emit covariate columns yet, so neither the funnel
+    // nor its per-step proportions can be regression adjusted. Gating both here
+    // keeps the snapshot settings honest about what the query computed.
+    if (
+      isFactFunnelMetric(metric) ||
+      parseFunnelStepMetricId(metric.id).isFunnelStepMetric
+    ) {
+      regressionAdjustmentEnabled = false;
+      regressionAdjustmentAvailable = false;
+      regressionAdjustmentReason = "funnel metrics not supported";
     }
   }
 
@@ -2042,7 +2087,8 @@ export function chanceToWinFlatPrior(
   return 1 - ctwInverse;
 }
 
-// get all metric ids from an experiment, excluding ephemeral metrics (slices)
+// get all metric ids from an experiment, excluding derived metrics (slices and
+// funnel steps)
 export function getAllMetricIdsFromExperiment(
   exp: {
     goalMetrics?: string[];
@@ -2070,8 +2116,10 @@ export function getAllMetricIdsFromExperiment(
   );
 }
 
-// Extracts all metric ids from an experiment, including ephemeral metrics (slices)
-// NOTE: The expandedMetricMap should be expanded with slice metrics via expandAllSliceMetricsInMap() before calling this function
+// Extracts all metric ids from an experiment, including derived metrics (slices
+// and funnel steps)
+// NOTE: The expandedMetricMap should be expanded via expandDerivedMetricsInMap()
+// before calling this function
 export function getAllExpandedMetricIdsFromExperiment({
   exp,
   expandedMetricMap,
@@ -2096,23 +2144,15 @@ export function getAllExpandedMetricIdsFromExperiment({
   const expandedMetricIds = new Set<string>(baseMetricIds);
 
   // Scoop up expanded metric ids that only exist in the map, not in the base
-  // experiment: slice metrics (dim:, standard and custom) and ephemeral funnel
-  // step metrics (funnelStep=).
+  // experiment: slice metrics (dim:, standard and custom) and funnel step
+  // metrics (step=).
   expandedMetricMap.forEach((_, metricId) => {
-    if (/[?&]dim:/.test(metricId) || /[?&]funnelStep=/.test(metricId)) {
+    if (
+      /[?&]dim:/.test(metricId) ||
+      parseFunnelStepMetricId(metricId).isFunnelStepMetric
+    ) {
       expandedMetricIds.add(metricId);
     }
-  });
-
-  // Funnel step metrics are derived rather than stored, so they are not in the
-  // map to be scanned for. Results are reported per step, so the step ids have
-  // to appear here for snapshot metric settings and time series to cover them.
-  baseMetricIds.forEach((metricId) => {
-    const metric = expandedMetricMap.get(metricId);
-    if (!metric || !isFactFunnelMetric(metric)) return;
-    metric.funnelSettings.steps.forEach((_, stepIndex) => {
-      expandedMetricIds.add(funnelStepMetricId(metricId, stepIndex));
-    });
   });
 
   return Array.from(expandedMetricIds);
@@ -2216,7 +2256,7 @@ export function createAutoSliceDataForMetric({
 
 // Auto-slice metric variants of a base fact metric (clones with slice-encoded
 // ids `<baseId>?dim:col=value`, plus an "other" bucket). Experiment-independent
-// so it can be reused outside `expandAllSliceMetricsInMap`.
+// so it can be reused outside `expandDerivedMetricsInMap`.
 export function getAutoSliceMetrics({
   metric,
   factTable,
@@ -2695,7 +2735,13 @@ export function dedupeSliceMetrics(
   });
 }
 
-export function expandAllSliceMetricsInMap({
+/**
+ * Adds every metric derived from the experiment's stored metrics to the map:
+ * slice metrics (auto and custom) and funnel step metrics. These only ever
+ * exist in the map, so analysis, naming, and result lookups by id all depend on
+ * this having run.
+ */
+export function expandDerivedMetricsInMap({
   metricMap,
   factTableMap,
   experiment,
@@ -2724,9 +2770,14 @@ export function expandAllSliceMetricsInMap({
   for (const metric of baseMetrics) {
     if (!metric) continue;
     if (!isFactMetric(metric)) continue;
-    // Slices are not supported for funnel metrics yet; their steps are
-    // expanded separately by getAllExpandedMetricIdsFromExperiment.
-    if (isFactFunnelMetric(metric)) continue;
+    // A funnel expands into its per-step proportions instead of slices, which
+    // are not supported for funnel metrics yet.
+    if (isFactFunnelMetric(metric)) {
+      getFunnelStepMetrics(metric).forEach((stepMetric) => {
+        metricMap.set(stepMetric.id, stepMetric);
+      });
+      continue;
+    }
 
     const factTable = factTableMap.get(metric.numerator.factTableId);
     if (!factTable) continue;

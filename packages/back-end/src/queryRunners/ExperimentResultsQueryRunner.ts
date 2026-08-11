@@ -4,7 +4,6 @@ import { addDays } from "date-fns";
 import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
-  parseFunnelStepMetricId,
   quantileMetricType,
 } from "shared/experiments";
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
@@ -47,7 +46,10 @@ import {
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
-import { getFactMetricGroups } from "back-end/src/services/experimentQueries/experimentQueries";
+import {
+  getFactMetricGroups,
+  getQueryableMetricsFromSnapshotSettings,
+} from "back-end/src/services/experimentQueries/experimentQueries";
 import { parseDimension } from "back-end/src/services/experiments";
 import {
   analyzeExperimentResults,
@@ -110,12 +112,10 @@ export const startExperimentResultQueries = async (
     : null;
 
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
-  const selectedMetrics = snapshotSettings.metricSettings
-    // A funnel's per-step ids are analysis-time artifacts of the parent metric,
-    // which is itself in this list. Querying them would double-count.
-    .filter((m) => !parseFunnelStepMetricId(m.id).isFunnelStepMetric)
-    .map((m) => metricMap.get(m.id))
-    .filter((m) => m) as ExperimentMetricInterface[];
+  const selectedMetrics = getQueryableMetricsFromSnapshotSettings(
+    snapshotSettings,
+    metricMap,
+  );
   if (!selectedMetrics.length) {
     throw new UnrecoverableSnapshotError(
       "Experiment must have at least 1 metric selected.",

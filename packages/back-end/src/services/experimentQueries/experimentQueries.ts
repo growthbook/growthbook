@@ -9,6 +9,7 @@ import {
   eligibleForUncappedMetric,
   isFactFunnelMetric,
   getFactMetricPrimaryFactTableId,
+  parseFunnelStepMetricId,
 } from "shared/experiments";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { MetricInterface } from "shared/types/metric";
@@ -35,6 +36,28 @@ import {
   RATIO_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
   RATIO_METRIC_FLOAT_COLS_UNCAPPED,
 } from "./constants";
+
+/**
+ * The metrics a snapshot should actually query, resolved from its metric
+ * settings.
+ *
+ * Funnel step metrics live in the metric map and in `metricSettings` so their
+ * ids resolve for names, settings, and result lookups, but they are not
+ * queryable: the parent funnel is queried once and its result block is split
+ * per step afterwards (see `splitFunnelMetricBlock`). Querying a step would
+ * double-count the parent and, since a step carries no funnel definition of its
+ * own, produce wrong SQL. Every path that turns `metricSettings` into things to
+ * query must go through here so that contract lives in one place.
+ */
+export function getQueryableMetricsFromSnapshotSettings(
+  snapshotSettings: Pick<ExperimentSnapshotSettings, "metricSettings">,
+  metricMap: Map<string, ExperimentMetricInterface>,
+): ExperimentMetricInterface[] {
+  return snapshotSettings.metricSettings
+    .filter((m) => !parseFunnelStepMetricId(m.id).isFunnelStepMetric)
+    .map((m) => metricMap.get(m.id))
+    .filter((m): m is ExperimentMetricInterface => !!m);
+}
 
 // Gets all columns besides the speciality quantile and funnel columns for all metrics
 export function getNonQuantileNonFunnelFloatColumns({
