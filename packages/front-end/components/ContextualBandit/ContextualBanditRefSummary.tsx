@@ -71,7 +71,7 @@ export default function ContextualBanditRefSummary({
   return (
     <Box>
       <Flex align="center" gap="2" mb="2" wrap="wrap">
-        <Text size="medium" weight="medium">
+        <Text size="md" weight="medium">
           <Link href={detailHref}>{cb.name}</Link>
         </Text>
         <Badge
@@ -79,7 +79,7 @@ export default function ContextualBanditRefSummary({
           label={cb.status}
         />
         {cb.contextualAttributes.length > 0 && (
-          <Text size="small" color="text-low">
+          <Text size="sm" color="text-low">
             Context: {cb.contextualAttributes.join(", ")}
           </Text>
         )}

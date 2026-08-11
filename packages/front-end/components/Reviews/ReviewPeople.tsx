@@ -40,11 +40,11 @@ export function PersonRow({
         />
       </Box>
       <Box flexGrow="1" style={{ minWidth: 0, lineHeight: 1.3 }}>
-        <Text size="small" color="text-high" as="div" overflowWrap="anywhere">
+        <Text size="sm" color="text-high" as="div" overflowWrap="anywhere">
           {displayName}
         </Text>
         {trimmedName && email && (
-          <Text size="small" color="text-low" as="div" overflowWrap="anywhere">
+          <Text size="sm" color="text-low" as="div" overflowWrap="anywhere">
             {email}
           </Text>
         )}

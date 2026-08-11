@@ -57,6 +57,7 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ArchetypeAttributeValues } from "shared/types/archetype";
 import {
   AutoExperimentWithMetadata,
+  ContextualBanditDefinitions,
   ExperimentMetadata,
   FeatureDefinition,
 } from "shared/types/sdk";
@@ -101,6 +102,12 @@ import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ApiReqContext } from "back-end/types/api";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import {
+  CB_PAYLOAD_WARN_BYTES,
+  CB_PAYLOAD_WARN_FRACTION,
+  measureContextualBanditPayload,
+  recordContextualBanditPayloadMetrics,
+} from "back-end/src/services/contextualBanditPayload";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import {
   getAllFeatures,
@@ -118,6 +125,7 @@ import {
   getFeatureDefinition,
   getHoldoutFeatureDefId,
   getParsedCondition,
+  pairedWeightsToPositional,
 } from "back-end/src/util/features";
 import { getEnabledEnvironments as getEnabledHoldoutEnvironments } from "back-end/src/util/holdouts";
 import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
@@ -162,6 +170,7 @@ export function generateFeaturesPayload({
   includeCustomFieldsInMetadata,
   allowedCustomFieldsInMetadata,
   includeTagsInMetadata,
+  includeExperimentScheduleInMetadata,
   projectsMap,
   capabilities,
   savedGroupReferencesEnabled,
@@ -192,6 +201,7 @@ export function generateFeaturesPayload({
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeExperimentScheduleInMetadata?: boolean;
   projectsMap?: Map<string, ProjectInterface>;
   capabilities?: SDKCapability[];
   savedGroupReferencesEnabled?: boolean;
@@ -244,6 +254,7 @@ export function generateFeaturesPayload({
         includeCustomFieldsInMetadata,
         allowedCustomFieldsInMetadata,
         includeTagsInMetadata,
+        includeExperimentScheduleInMetadata,
       },
       projectsMap,
       payloadProjects,
@@ -355,6 +366,7 @@ export function generateAutoExperimentsPayload({
   includeCustomFieldsInMetadata,
   allowedCustomFieldsInMetadata,
   includeTagsInMetadata,
+  includeExperimentScheduleInMetadata,
   projectsMap,
   capabilities,
   savedGroupReferencesEnabled,
@@ -372,6 +384,7 @@ export function generateAutoExperimentsPayload({
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeExperimentScheduleInMetadata?: boolean;
   projectsMap?: Map<string, ProjectInterface>;
   capabilities?: SDKCapability[];
   savedGroupReferencesEnabled?: boolean;
@@ -528,12 +541,18 @@ export function generateAutoExperimentsPayload({
       }
 
       const metadata = buildPayloadMetadata<ExperimentMetadata>(
-        { project: e.project, customFields: e.customFields, tags: e.tags },
+        {
+          project: e.project,
+          customFields: e.customFields,
+          tags: e.tags,
+          statusUpdateSchedule: e.statusUpdateSchedule,
+        },
         {
           includeProjectIdInMetadata,
           includeCustomFieldsInMetadata,
           allowedCustomFieldsInMetadata,
           includeTagsInMetadata,
+          includeExperimentScheduleInMetadata,
         },
         projectsMap,
       );
@@ -641,6 +660,38 @@ export function filterUsedSavedGroups(
   return pickBy(savedGroups, (_values, savedGroupId) =>
     usedGroupIds.has(savedGroupId),
   );
+}
+
+export function filterUsedContextualBandits(
+  cbMap: Map<string, ContextualBanditInterface> | undefined,
+  features: Record<string, FeatureDefinition>,
+): ContextualBanditDefinitions | undefined {
+  if (!cbMap || cbMap.size === 0) return undefined;
+
+  const usedIds = new Set<string>();
+  Object.values(features).forEach((feature) => {
+    feature.rules?.forEach((rule) => {
+      if (rule.contextualBanditRef) {
+        usedIds.add(rule.contextualBanditRef);
+      }
+    });
+  });
+
+  const map: ContextualBanditDefinitions = {};
+  usedIds.forEach((id) => {
+    const cb = cbMap.get(id);
+    if (!cb) return;
+    map[id] = {
+      banditVersion: cb.banditVersion,
+      contexts: (cb.currentLeafWeights ?? []).map((lw) => ({
+        leafId: lw.leafId,
+        condition: lw.condition,
+        weights: pairedWeightsToPositional(lw.weights, cb.variations),
+      })),
+    };
+  });
+
+  return Object.keys(map).length > 0 ? map : undefined;
 }
 
 export function isSDKConnectionAffectedByPayloadKey(
@@ -961,6 +1012,8 @@ export async function refreshSDKPayloadCache({
               connection.allowedCustomFieldsInMetadata,
             includeTagsInMetadata: connection.includeTagsInMetadata,
             sessionReplayEnabled: connection.sessionReplayEnabled,
+            includeExperimentScheduleInMetadata:
+              connection.includeExperimentScheduleInMetadata,
           },
           data: { ...rawData, holdoutsMap, constantMap: constantMapByEnv[env] },
         });
@@ -1055,6 +1108,7 @@ export type FeatureDefinitionsResponseArgs = {
   capabilities: SDKCapability[];
   usedSavedGroups: SavedGroupInterface[];
   savedGroupReferencesEnabled?: boolean;
+  contextualBandits?: ContextualBanditDefinitions;
   organization: OrganizationInterface;
   sessionReplay?: SessionReplaySDKPayload;
 };
@@ -1069,6 +1123,7 @@ export async function getFeatureDefinitionsResponse({
   secureAttributeSalt,
   capabilities,
   usedSavedGroups,
+  contextualBandits,
   savedGroupReferencesEnabled,
   organization,
   sessionReplay,
@@ -1081,6 +1136,8 @@ export async function getFeatureDefinitionsResponse({
   savedGroups?: SavedGroupsValues;
   encryptedSavedGroups?: string;
   sessionReplay?: SessionReplaySDKPayload;
+  contextualBandits?: ContextualBanditDefinitions;
+  encryptedContextualBandits?: string;
 }> {
   features = cloneDeep(features);
   let processedExperiments: AutoExperiment[] =
@@ -1155,6 +1212,46 @@ export async function getFeatureDefinitionsResponse({
       ? savedGroupsValues
       : undefined;
 
+  const contextualBanditsForPayload = capabilities.includes("contextualBandits")
+    ? contextualBandits
+    : undefined;
+
+  if (
+    contextualBanditsForPayload &&
+    Object.keys(contextualBanditsForPayload).length > 0
+  ) {
+    const cbStats = measureContextualBanditPayload(
+      contextualBanditsForPayload,
+      features,
+    );
+    const totalBytes = Buffer.byteLength(
+      JSON.stringify({
+        features,
+        experiments: processedExperiments,
+        savedGroups: savedGroupsForPayload,
+        contextualBandits: contextualBanditsForPayload,
+      }),
+    );
+    recordContextualBanditPayloadMetrics(cbStats, totalBytes);
+    const logData = {
+      orgId: organization?.id,
+      ...cbStats,
+      totalBytes,
+    };
+    if (
+      cbStats.cbBytes > CB_PAYLOAD_WARN_BYTES ||
+      (totalBytes > 0 &&
+        cbStats.cbBytes / totalBytes > CB_PAYLOAD_WARN_FRACTION)
+    ) {
+      logger.warn(
+        logData,
+        "[sdk-payload] contextual bandit payload size above threshold",
+      );
+    } else {
+      logger.debug(logData, "[sdk-payload] contextual bandit payload size");
+    }
+  }
+
   if (!encryptPayload || !encryptionKey) {
     return {
       features,
@@ -1163,6 +1260,9 @@ export async function getFeatureDefinitionsResponse({
       savedGroups: savedGroupsForPayload,
       // Session replay config is not feature data — always plaintext.
       ...(sessionReplay && { sessionReplay }),
+      ...(contextualBanditsForPayload !== undefined && {
+        contextualBandits: contextualBanditsForPayload,
+      }),
     };
   }
 
@@ -1179,6 +1279,10 @@ export async function getFeatureDefinitionsResponse({
     ? await encrypt(JSON.stringify(savedGroupsForPayload), encryptionKey)
     : undefined;
 
+  const encryptedContextualBandits = contextualBanditsForPayload
+    ? await encrypt(JSON.stringify(contextualBanditsForPayload), encryptionKey)
+    : undefined;
+
   return {
     features: {},
     ...(experiments !== undefined && { experiments: [] }),
@@ -1188,6 +1292,9 @@ export async function getFeatureDefinitionsResponse({
     encryptedSavedGroups: encryptedSavedGroups,
     // Session replay config is not feature data — always plaintext.
     ...(sessionReplay && { sessionReplay }),
+    ...(encryptedContextualBandits !== undefined && {
+      encryptedContextualBandits,
+    }),
   };
 }
 
@@ -1208,6 +1315,7 @@ export type FeatureDefinitionArgs = {
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeExperimentScheduleInMetadata?: boolean;
   hashSecureAttributes?: boolean;
   savedGroupReferencesEnabled?: boolean;
   sessionReplayEnabled?: boolean;
@@ -1258,6 +1366,7 @@ export type ConnectionPayloadOptions = {
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
   sessionReplayEnabled?: boolean;
+  includeExperimentScheduleInMetadata?: boolean;
 };
 
 // Full input for building one connection's SDK payload
@@ -1307,6 +1416,7 @@ export async function buildSDKPayloadForConnection(
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
     sessionReplayEnabled,
+    includeExperimentScheduleInMetadata,
   } = connection;
 
   // Operator break-glass: when a super-admin has force-disabled session replay
@@ -1434,6 +1544,7 @@ export async function buildSDKPayloadForConnection(
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
+    includeExperimentScheduleInMetadata,
     projectsMap,
     payloadProjects: projectList,
     cbMap,
@@ -1464,6 +1575,7 @@ export async function buildSDKPayloadForConnection(
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
+    includeExperimentScheduleInMetadata,
     projectsMap,
   });
 
@@ -1485,6 +1597,11 @@ export async function buildSDKPayloadForConnection(
     ...featureDefinitions,
     ...holdoutsInUse,
   };
+
+  const contextualBanditsInUse = filterUsedContextualBandits(
+    cbMap,
+    featuresWithHoldouts,
+  );
 
   let attributes: SDKAttributeSchema | undefined = undefined;
   let secureAttributeSalt: string | undefined = undefined;
@@ -1510,6 +1627,7 @@ export async function buildSDKPayloadForConnection(
     savedGroupReferencesEnabled:
       !!savedGroupReferencesEnabled &&
       capabilities.includes("savedGroupReferences"),
+    contextualBandits: contextualBanditsInUse,
     organization: context.org,
     sessionReplay,
   });
@@ -1524,6 +1642,8 @@ export type FeatureDefinitionSDKPayload = {
   savedGroups?: SavedGroupsValues;
   encryptedSavedGroups?: string;
   sessionReplay?: SessionReplaySDKPayload;
+  contextualBandits?: ContextualBanditDefinitions;
+  encryptedContextualBandits?: string;
 };
 
 export async function getFeatureDefinitions(
@@ -1564,6 +1684,8 @@ export async function getFeatureDefinitions(
       allowedCustomFieldsInMetadata: args.allowedCustomFieldsInMetadata,
       includeTagsInMetadata: args.includeTagsInMetadata,
       sessionReplayEnabled: args.sessionReplayEnabled,
+      includeExperimentScheduleInMetadata:
+        args.includeExperimentScheduleInMetadata,
     },
     data: {
       features: allFeatures,
@@ -1749,7 +1871,7 @@ export async function evaluateAllFeatures({
       allFeatures[f.id] = {
         ...f,
         project: f.project,
-      } as FeatureDefinition;
+      } as unknown as FeatureDefinition;
     });
   }
   // get all features definitions
@@ -3011,6 +3133,7 @@ export function validateFeatureRuleValues(
       );
       break;
     case "experiment-ref":
+    case "contextual-bandit-ref":
       (rule.variations ?? []).forEach((v, i) =>
         validateFeatureValue(feature, v.value, `Variation ${i + 1}`),
       );

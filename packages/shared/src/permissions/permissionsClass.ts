@@ -37,6 +37,7 @@ import { HoldoutInterface } from "../validators/holdout";
 import {
   PermissionError,
   getTargetingProjectIds,
+  isEventForwarderEventsFactTable,
   TargetingScopedEntity,
 } from "../util/";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
@@ -45,6 +46,21 @@ type NotificationEvent = {
   containsSecrets: boolean;
   projects: string[];
 };
+
+// The Event Forwarder Events fact table is `managedBy: "api"` but is
+// intentionally editable and deletable by users for now, so it skips the
+// manageOfficialResources checks below.
+function isEventForwarderManagedFactTable(
+  factTable: Partial<
+    Pick<FactTableInterface, "id" | "managedBy" | "datasource">
+  >,
+): boolean {
+  if (!factTable.id || !factTable.datasource) return false;
+  return isEventForwarderEventsFactTable(
+    { id: factTable.id, managedBy: factTable.managedBy },
+    factTable.datasource,
+  );
+}
 
 export class Permissions {
   private userPermissions: UserPermissions;
@@ -816,12 +832,20 @@ export class Permissions {
   };
 
   public canUpdateFactTable = (
-    existing: Pick<FactTableInterface, "projects" | "managedBy">,
+    existing: Pick<FactTableInterface, "projects" | "managedBy"> &
+      Partial<Pick<FactTableInterface, "id" | "datasource">>,
     updates: UpdateFactTableProps,
   ): boolean => {
     // We allow changing columns even for managed fact tables
     const changedKeys = Object.keys(updates);
-    const requireManagedByCheck = changedKeys.some((k) => k !== "columns");
+    // The Event Forwarder exception never covers changing managedBy itself —
+    // promoting the table to an official resource still needs the permission.
+    const changesManagedBy =
+      updates.managedBy !== undefined &&
+      updates.managedBy !== existing.managedBy;
+    const requireManagedByCheck =
+      changedKeys.some((k) => k !== "columns") &&
+      (changesManagedBy || !isEventForwarderManagedFactTable(existing));
 
     if (requireManagedByCheck && (existing.managedBy || updates.managedBy)) {
       if (!this.canUpdateOfficialResources(existing, updates)) {
@@ -836,10 +860,37 @@ export class Permissions {
     );
   };
 
-  public canDeleteFactTable = (
+  // Virtual columns carry a raw SQL expression that is inlined into generated
+  // queries, so creating, editing, testing, or deleting one is equivalent in
+  // power to editing the fact table's own SQL.
+  //
+  // `canUpdateFactTable` deliberately skips the managedBy check for
+  // `columns`-only updates, because column metadata is refreshed automatically
+  // even on managed fact tables. That carve-out predates virtual columns, when
+  // `columns` held metadata only. Routing virtual column writes through
+  // `canUpdateFactTable(ft, { columns: [] })` would therefore let a user
+  // without official-resource access inject SQL into a managed fact table, so
+  // apply both gates explicitly here.
+  public canManageFactTableVirtualColumn = (
     factTable: Pick<FactTableInterface, "projects" | "managedBy">,
   ): boolean => {
-    if (factTable.managedBy && ["admin", "api"].includes(factTable.managedBy)) {
+    if (factTable.managedBy) {
+      if (!this.canUpdateOfficialResources(factTable, factTable)) {
+        return false;
+      }
+    }
+    return this.checkProjectFilterPermission(factTable, "manageFactTables");
+  };
+
+  public canDeleteFactTable = (
+    factTable: Pick<FactTableInterface, "projects" | "managedBy"> &
+      Partial<Pick<FactTableInterface, "id" | "datasource">>,
+  ): boolean => {
+    if (
+      factTable.managedBy &&
+      ["admin", "api"].includes(factTable.managedBy) &&
+      !isEventForwarderManagedFactTable(factTable)
+    ) {
       if (!this.canDeleteOfficialResources(factTable)) {
         return false;
       }
@@ -1175,9 +1226,12 @@ export class Permissions {
   };
 
   public canRunFeatureDiagnosticsQueries = (
-    datasource: Pick<DataSourceInterface, "projects">,
+    feature: Pick<FeatureInterface, "project">,
   ): boolean => {
-    return this.checkProjectFilterPermission(datasource, "runQueries");
+    return this.checkProjectFilterPermission(
+      { projects: feature.project ? [feature.project] : [] },
+      "manageFeatures",
+    );
   };
 
   public canViewSqlExplorerQueries = (
@@ -1376,6 +1430,31 @@ export class Permissions {
     savedGroup: Pick<SavedGroupInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
+  };
+
+  public canCreateLearning = (learning: { projects?: string[] }): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: learning.projects || [] },
+      "manageLearnings",
+    );
+  };
+
+  public canUpdateLearning = (
+    existing: { projects?: string[] },
+    updates: { projects?: string[] },
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.projects || [] },
+      { projects: updates.projects || [] },
+      "manageLearnings",
+    );
+  };
+
+  public canDeleteLearning = (learning: { projects?: string[] }): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: learning.projects || [] },
+      "manageLearnings",
+    );
   };
 
   public canCreateConstant = (

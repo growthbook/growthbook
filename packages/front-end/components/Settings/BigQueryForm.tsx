@@ -8,13 +8,21 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/components/Button";
 import Callout from "@/ui/Callout";
+import { useCanKeepExistingCredentials } from "@/components/Forms/secretInput";
 
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;
   existing: boolean;
+  datasourceId?: string;
   setParams: (params: { [key: string]: string | boolean }) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
-}> = ({ params, setParams, existing, onParamChange }) => {
+}> = ({ params, setParams, existing, datasourceId, onParamChange }) => {
+  const cloud = isCloud();
+  const authType = cloud ? "json" : (params.authType ?? "json");
+  const canKeepExistingCredentials = useCanKeepExistingCredentials(
+    existing,
+    authType,
+  );
   const [testConnectionResults, setTestConnectionResults] = useState<{
     status: "success" | "danger" | "warning";
     message: string;
@@ -33,6 +41,7 @@ const BigQueryForm: FC<{
             projectId: params.projectId,
             client_email: params.clientEmail,
             private_key: params.privateKey,
+            datasourceId,
           }),
         },
       );
@@ -65,7 +74,7 @@ const BigQueryForm: FC<{
 
   return (
     <div className="row">
-      {!isCloud() && (
+      {!cloud && (
         <div className="col-md-12">
           <SelectField
             size="legacy"
@@ -75,18 +84,18 @@ const BigQueryForm: FC<{
               { value: "auto", label: "Auto-discovery" },
             ]}
             helpText="'Auto-discovery' will look for credentials in environment variables and GCP metadata."
-            value={params.authType || "json"}
+            value={authType}
             onChange={(value) => setParams({ authType: value })}
           />
         </div>
       )}
-      {(isCloud() || params.authType !== "auto") && (
+      {(cloud || authType !== "auto") && (
         <>
           <div className="form-group col-md-12">
             <div className="custom-file">
               <input
                 type="file"
-                required={!existing}
+                required={!canKeepExistingCredentials}
                 className="custom-file-input"
                 id="bigQueryFileInput"
                 accept="application/json"
@@ -133,8 +142,13 @@ const BigQueryForm: FC<{
                 }}
               />
               <label className="custom-file-label" htmlFor="bigQueryFileInput">
-                Upload key file...
+                {canKeepExistingCredentials
+                  ? "Upload a new key file..."
+                  : "Upload key file..."}
               </label>
+              {canKeepExistingCredentials ? (
+                <small>Leave blank to keep the existing credentials.</small>
+              ) : null}
             </div>
           </div>
           <div className="form-group col-md-12">
@@ -171,7 +185,9 @@ const BigQueryForm: FC<{
             )}
             <Button
               disabled={
-                !params.projectId || !params.clientEmail || !params.privateKey
+                !params.projectId ||
+                !params.clientEmail ||
+                (!params.privateKey && !datasourceId)
               }
               color="primary"
               className="mt-2"
@@ -244,7 +260,7 @@ const BigQueryForm: FC<{
             onChange={onParamChange}
             placeholder=""
             helpText={
-              params.authType !== "auto"
+              authType !== "auto"
                 ? "Use the 'Test Connection' button to fetch a list of datasets from your BigQuery project."
                 : ""
             }

@@ -33,6 +33,7 @@ export type EditSDKConnectionParams = {
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeExperimentScheduleInMetadata?: boolean;
   remoteEvalEnabled?: boolean;
   eventTracker?: string;
   sessionReplayEnabled?: boolean;
@@ -58,6 +59,7 @@ export type CreateSDKConnectionParams = {
   includeCustomFieldsInMetadata: boolean;
   allowedCustomFieldsInMetadata: string[];
   includeTagsInMetadata: boolean;
+  includeExperimentScheduleInMetadata?: boolean;
   remoteEvalEnabled?: boolean;
   managedBy?: ManagedBy;
   sessionReplayEnabled?: boolean;
@@ -96,6 +98,7 @@ export interface SDKConnectionInterface {
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeExperimentScheduleInMetadata?: boolean;
 
   // URL slug for fetching features from the API
   key: string;

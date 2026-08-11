@@ -5,8 +5,10 @@ import Button from "@/components/Button";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import { planNameFromAccountPlan } from "@/services/utils";
+import { useForceLicenseRefresh } from "@/hooks/useForceLicenseRefresh";
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import Callout from "@/ui/Callout";
+import UIButton from "@/ui/Button";
 import Modal from "@/components/Modal";
 import UpgradeModal from "./UpgradeModal";
 import UpdateOrbSubscriptionModal from "./UpdateOrbSubscriptionModal";
@@ -21,9 +23,13 @@ export default function SubscriptionInfo() {
     canSubscribe,
     accountPlan,
     users,
-    refreshOrganization,
     organization,
   } = useUser();
+  const {
+    status: organizationRefreshStatus,
+    refresh: refreshOrganizationAfterCancellation,
+    retry: retryOrganizationRefresh,
+  } = useForceLicenseRefresh();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [cancelSubscriptionModal, setCancelSubscriptionModal] = useState(false);
@@ -94,7 +100,7 @@ export default function SubscriptionInfo() {
           submitColor="danger"
           submit={async () => {
             await apiCall("/subscription/cancel", { method: "POST" });
-            refreshOrganization();
+            await refreshOrganizationAfterCancellation();
             setCancelSubscriptionModal(false);
             setShowCancellationSurveyModal(true);
           }}
@@ -122,6 +128,25 @@ export default function SubscriptionInfo() {
           />
         </StripeProvider>
       )}
+      {organizationRefreshStatus !== "idle" ? (
+        <Callout
+          status="warning"
+          mb="3"
+          action={
+            <UIButton
+              size="sm"
+              color="inherit"
+              loading={organizationRefreshStatus === "loading"}
+              onClick={retryOrganizationRefresh}
+            >
+              Try again
+            </UIButton>
+          }
+        >
+          We couldn&apos;t refresh your organization details. Try again to see
+          your updated plan.
+        </Callout>
+      ) : null}
       <div className="col-auto mb-3">
         <strong>Current Plan:</strong> {isCloud() ? "Cloud" : "Self-Hosted"} Pro
         {subscription?.status === "trialing" && (

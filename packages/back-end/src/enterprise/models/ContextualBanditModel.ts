@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  apiContextualBanditCancelReturn,
   apiContextualBanditLifecycleReturn,
   apiContextualBanditRefreshReturn,
   apiCreateContextualBanditBody,
@@ -11,10 +12,15 @@ import {
   contextualBanditValidator,
   LeafWeight,
 } from "shared/validators";
-import { generateVariationId } from "shared/util";
+import {
+  ContextualBanditLinkageDelta,
+  ContextualBanditLinkageState,
+  generateVariationId,
+} from "shared/util";
 import { isFactMetricId } from "shared/experiments";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
+  cancelContextualBanditEndpoint,
   contextualBanditApiSpec,
   refreshContextualBanditEndpoint,
   startContextualBanditEndpoint,
@@ -25,11 +31,19 @@ import {
   executeContextualBanditStart,
   executeContextualBanditStop,
 } from "back-end/src/services/contextualBanditChanges";
-import { runContextualBanditSnapshot } from "back-end/src/enterprise/services/contextualBandits";
+import {
+  cancelContextualBanditLatestRunningSnapshot,
+  getContextualBanditLinkedFeatureInfo,
+  runContextualBanditSnapshot,
+} from "back-end/src/enterprise/services/contextualBandits";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { getCollection } from "back-end/src/util/mongo.util";
 
 const COLLECTION = "contextualbandits";
+
+type LinkageChanges = Partial<
+  Pick<ContextualBanditInterface, "linkedFeatures" | "pendingFeatureDrafts">
+>;
 
 const BaseClass = MakeModelClass({
   schema: contextualBanditValidator,
@@ -72,6 +86,15 @@ const BaseClass = MakeModelClass({
             req.context.org.settings?.environments?.map((e) => e.id) ?? [];
           if (!req.context.permissions.canRunContextualBandit(cb, envs)) {
             req.context.permissions.throwPermissionError();
+          }
+          const linkedFeatures = await getContextualBanditLinkedFeatureInfo(
+            req.context,
+            cb,
+          );
+          if (linkedFeatures.length === 0) {
+            throw new Error(
+              "Link at least one Feature Flag before starting this contextual bandit",
+            );
           }
           const { updated } = await executeContextualBanditStart(
             req.context,
@@ -123,6 +146,26 @@ const BaseClass = MakeModelClass({
           return runContextualBanditSnapshot(req.context, cb, {
             triggeredBy: "manual",
           });
+        },
+      }),
+      defineCustomApiHandler({
+        ...cancelContextualBanditEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiContextualBanditCancelReturn>> => {
+          const cb = await req.context.models.contextualBandits.getById(
+            req.params.id,
+          );
+          if (!cb) {
+            return req.context.throwNotFoundError();
+          }
+          const envs =
+            req.context.org.settings?.environments?.map((e) => e.id) ?? [];
+          if (!req.context.permissions.canRunContextualBandit(cb, envs)) {
+            req.context.permissions.throwPermissionError();
+          }
+          await cancelContextualBanditLatestRunningSnapshot(req.context, cb);
+          return { status: 200 };
         },
       }),
     ],
@@ -177,6 +220,8 @@ export function toApiContextualBandit(
     conversionWindowUnit: doc.conversionWindowUnit,
     stage: doc.stage,
     stageDateStarted: doc.stageDateStarted?.toISOString(),
+    autoSnapshots: doc.autoSnapshots,
+    nextSnapshotAttempt: doc.nextSnapshotAttempt?.toISOString(),
   };
 }
 
@@ -348,6 +393,9 @@ export class ContextualBanditModel extends BaseClass {
   public async patchLeafWeights(
     cbId: string,
     leafWeights: LeafWeight[],
+    options?: {
+      bumpVersion?: boolean;
+    },
   ): Promise<ContextualBanditInterface> {
     const existingCB = await this.getById(cbId);
     if (!existingCB) {
@@ -370,7 +418,7 @@ export class ContextualBanditModel extends BaseClass {
       },
       {
         $set: set,
-        $inc: { banditVersion: 1 },
+        ...(options?.bumpVersion ? { $inc: { banditVersion: 1 } } : {}),
       },
     );
     if (res.matchedCount === 0) {
@@ -386,50 +434,7 @@ export class ContextualBanditModel extends BaseClass {
     return refreshed;
   }
 
-  public async addLinkedFeature(
-    cbId: string,
-    featureId: string,
-  ): Promise<void> {
-    const cb = await this.getById(cbId);
-    if (!cb) return;
-    if (cb.linkedFeatures?.includes(featureId)) return;
-    await this.update(cb, {
-      linkedFeatures: [...(cb.linkedFeatures ?? []), featureId],
-    });
-  }
-
-  public async removeLinkedFeature(
-    cbId: string,
-    featureId: string,
-  ): Promise<void> {
-    const cb = await this.getById(cbId);
-    if (!cb || !cb.linkedFeatures?.includes(featureId)) return;
-    await this.update(cb, {
-      linkedFeatures: cb.linkedFeatures.filter((f) => f !== featureId),
-    });
-  }
-
-  public async addPendingFeatureDraft(
-    cbId: string,
-    featureId: string,
-    revisionVersion: number,
-  ): Promise<void> {
-    const cb = await this.getById(cbId);
-    if (!cb) return;
-    const drafts = cb.pendingFeatureDrafts ?? [];
-    if (
-      drafts.some(
-        (d) =>
-          d.featureId === featureId && d.revisionVersion === revisionVersion,
-      )
-    ) {
-      return;
-    }
-    await this.update(cb, {
-      pendingFeatureDrafts: [...drafts, { featureId, revisionVersion }],
-    });
-  }
-
+  /** Used when starting the bandit consumes a queued draft; every other write goes through `applyLinkageDelta`. */
   public async removePendingFeatureDraft(
     cbId: string,
     featureId: string,
@@ -449,32 +454,116 @@ export class ContextualBanditModel extends BaseClass {
     });
   }
 
+  /**
+   * Every bandit relevant to planning one feature's linkage, in a single query:
+   * those still holding an entry for it (however stale) union those its rules
+   * currently reference (which may not hold an entry yet).
+   */
+  public getLinkageCandidates(
+    featureId: string,
+    referencedIds: string[],
+  ): Promise<ContextualBanditInterface[]> {
+    const or: Record<string, unknown>[] = [
+      { linkedFeatures: featureId },
+      { "pendingFeatureDrafts.featureId": featureId },
+    ];
+    if (referencedIds.length) {
+      or.push({ id: { $in: referencedIds } });
+    }
+    return this._find({ $or: or });
+  }
+
+  /** Applies one feature's whole linkage delta in a single write. */
+  public async applyLinkageDelta(
+    featureId: string,
+    delta: ContextualBanditLinkageDelta,
+  ): Promise<void> {
+    const cb = await this.getById(delta.contextualBanditId);
+    if (!cb) return;
+
+    const changes: LinkageChanges = {};
+
+    const linked = cb.linkedFeatures ?? [];
+    if (delta.link && !linked.includes(featureId)) {
+      changes.linkedFeatures = [...linked, featureId];
+    } else if (delta.unlink && linked.includes(featureId)) {
+      changes.linkedFeatures = linked.filter((f) => f !== featureId);
+    }
+
+    if (delta.draftsToQueue.length || delta.draftsToDrop.length) {
+      const drop = new Set(delta.draftsToDrop);
+      const drafts = (cb.pendingFeatureDrafts ?? []).filter(
+        (d) => !(d.featureId === featureId && drop.has(d.revisionVersion)),
+      );
+      const present = new Set(
+        drafts
+          .filter((d) => d.featureId === featureId)
+          .map((d) => d.revisionVersion),
+      );
+      changes.pendingFeatureDrafts = [
+        ...drafts,
+        ...delta.draftsToQueue
+          .filter((version) => !present.has(version))
+          .map((revisionVersion) => ({ featureId, revisionVersion })),
+      ];
+    }
+
+    if (!Object.keys(changes).length) return;
+    await this.update(cb, changes);
+  }
+
+  /**
+   * Converges one feature's slice of the linkage back to `state`, leaving every
+   * other feature's entries as they stand now. Used to rewind a linkage write
+   * whose publish then failed.
+   */
+  public async setLinkageState(
+    cbId: string,
+    featureId: string,
+    state: ContextualBanditLinkageState,
+  ): Promise<void> {
+    const cb = await this.getById(cbId);
+    if (!cb) return;
+
+    const shouldBeLinked = state.linkedFeatures.includes(featureId);
+    const linked = cb.linkedFeatures ?? [];
+    const isLinked = linked.includes(featureId);
+
+    const changes: LinkageChanges = {};
+    if (shouldBeLinked && !isLinked) {
+      changes.linkedFeatures = [...linked, featureId];
+    } else if (!shouldBeLinked && isLinked) {
+      changes.linkedFeatures = linked.filter((f) => f !== featureId);
+    }
+
+    const otherDrafts = (cb.pendingFeatureDrafts ?? []).filter(
+      (d) => d.featureId !== featureId,
+    );
+    const restored = [
+      ...otherDrafts,
+      ...state.pendingFeatureDrafts.filter((d) => d.featureId === featureId),
+    ];
+    const current = cb.pendingFeatureDrafts ?? [];
+    const changed =
+      restored.length !== current.length ||
+      restored.some(
+        (d, i) =>
+          d.featureId !== current[i]?.featureId ||
+          d.revisionVersion !== current[i]?.revisionVersion,
+      );
+    if (changed) {
+      changes.pendingFeatureDrafts = restored;
+    }
+
+    if (!Object.keys(changes).length) return;
+    await this.update(cb, changes);
+  }
+
   /** All contextual bandits that reference a given contextual bandit query. */
   public getByContextualBanditQueryId(
     contextualBanditQueryId: string,
   ): Promise<ContextualBanditInterface[]> {
     return this._find({ contextualBanditQueryId });
-  }
-
-  public async clearStalePendingFeatureDrafts(
-    featureId: string,
-    keepIds: string[],
-  ): Promise<void> {
-    const keep = new Set(keepIds);
-    const contextualbandits = await this._find({
-      "pendingFeatureDrafts.featureId": featureId,
-    });
-    await Promise.all(
-      contextualbandits
-        .filter((cb: ContextualBanditInterface) => !keep.has(cb.id))
-        .map((cb: ContextualBanditInterface) =>
-          this.update(cb, {
-            pendingFeatureDrafts: (cb.pendingFeatureDrafts ?? []).filter(
-              (d) => d.featureId !== featureId,
-            ),
-          }),
-        ),
-    );
   }
 }
 

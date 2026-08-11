@@ -116,6 +116,7 @@ export type AppFeatures = {
   "experimentation-focused-onboarding": boolean;
   teresatest: string;
   teresa_test_feature: boolean;
+  "teresa-cb-feature": boolean;
   "new-test-values": boolean;
   "test-feature": boolean;
   "pro-signup-flow": boolean;
@@ -141,4 +142,5 @@ export type AppFeatures = {
   tester123: boolean;
   "definitions-etag-304": boolean;
   "pricing-phase-1-limits": Record<string, unknown>;
+  "eu-data-region": boolean;
 };

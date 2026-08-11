@@ -74,9 +74,9 @@ export const dashboardInterface = z
     title: z.string(),
     blocks: z.array(dashboardBlockInterface),
     globalControls: dashboardGlobalControlsValidator.optional(),
-    // Dashboard-wide period comparison. Currently set only per exploration
-    // block; this is the seam for a future dashboard-level compare toggle
-    // (see resolveBlockComparison) and is honored on refresh/render already.
+    // Dashboard-wide period comparison, set from the dashboard date controls.
+    // Takes precedence over a block's own setting (see resolveBlockComparison)
+    // and is honored on refresh and render.
     comparison: blockComparisonValidator.optional(),
     grid: dashboardGridConfig.optional(),
     projects: z.array(z.string()).optional(), // General dashboards only, experiment dashboards use the experiment's projects

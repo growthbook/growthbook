@@ -115,6 +115,25 @@ export function getExperimentSettingsHashForIncrementalRefresh(
   return hashObject(settingsForHash);
 }
 
+/**
+ * A incremental refresh doc without a phase belongs to the phase
+ * that matches the experiment's settings hash.
+ */
+export function legacyDocDescribesPhase({
+  legacyDoc,
+  snapshotSettings,
+}: {
+  legacyDoc: IncrementalRefreshInterface;
+  snapshotSettings: ExperimentSnapshotSettings;
+}): boolean {
+  const storedHash = legacyDoc.experimentSettingsHash;
+  if (!storedHash) return false;
+  return (
+    storedHash ===
+    getExperimentSettingsHashForIncrementalRefresh(snapshotSettings)
+  );
+}
+
 type ComputedSettingsForSnapshot = NonNullable<
   MetricForSnapshot["computedSettings"]
 >;

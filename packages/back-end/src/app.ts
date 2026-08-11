@@ -116,6 +116,7 @@ import {
   ExperimentIncrementalPipelineRequiresFullRefreshError,
   shouldSkipErrorLog,
   SoftWarningError,
+  SQLExecutionError,
 } from "./util/errors";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
@@ -125,6 +126,7 @@ import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.rou
 import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { ArchetypeRouter } from "./routers/archetype/archetype.router";
+import { learningsRouter } from "./routers/learnings/learnings.router";
 import { AttributeRouter } from "./routers/attributes/attributes.router";
 import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router";
 import {
@@ -663,6 +665,8 @@ app.use("/saved-groups", savedGroupRouter);
 
 app.use("/archetype", ArchetypeRouter);
 
+app.use("/learnings", learningsRouter);
+
 app.use("/attribute", AttributeRouter);
 
 app.use("/custom-fields", customFieldsRouter);
@@ -1122,6 +1126,10 @@ app.post(
   "/datasource/:datasourceId/managed-warehouse/remove-legacy-identifier",
   datasourcesController.postRemoveManagedWarehouseLegacyIdentifier,
 );
+app.put(
+  "/datasource/:datasourceId/managed-warehouse/id-attribute-identifier",
+  datasourcesController.putManagedWarehouseIdAttributeIdentifier,
+);
 
 if (IS_CLOUD) {
   app.post(
@@ -1211,6 +1219,10 @@ app.delete(
   discussionsController.deleteComment,
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
+app.get(
+  "/discussions/counts/:parentType",
+  discussionsController.getDiscussionCounts,
+);
 app.use("/upload", uploadRouter);
 
 app.use("/session-replay", sessionReplayRouter);
@@ -1329,6 +1341,7 @@ const errorHandler: ErrorRequestHandler = (
     warnings?: string[];
     code?: string;
     details?: unknown;
+    sql?: string;
   } = {
     status: status,
     message: err.message || "An error occurred",
@@ -1337,6 +1350,10 @@ const errorHandler: ErrorRequestHandler = (
   // Picked up by front-end (when combined with 422 status code) to show a "Save anyway" dialog
   if (err instanceof SoftWarningError) {
     body.warnings = err.warnings;
+  }
+  // Surface the rendered SQL so the front-end can display it alongside the error
+  if (err instanceof SQLExecutionError) {
+    body.sql = err.query;
   }
   // Structured errors carry a machine-readable code + details so the front-end
   // can render richer error states.

@@ -26,9 +26,6 @@ export default class Vertica extends SqlIntegration {
       defaultSchema: this.params.defaultSchema || "",
     };
   }
-  getSensitiveParamKeys(): string[] {
-    return ["password", "caCert", "clientCert", "clientKey"];
-  }
   runQuery(sql: string): Promise<QueryResponse> {
     return runPostgresQuery(this.params, sql);
   }

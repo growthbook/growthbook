@@ -239,9 +239,8 @@ export function isDuplicateKeyErrorForIndex(
  * set of existing rows before retrying the insert.
  *
  * The provided `op` is invoked at most MAX_VERSION_RETRY_ATTEMPTS times. The
- * caller is also responsible for ensuring `op` is the only thing inside the
- * retry scope — non-idempotent work (custom hooks, audit logs, etc.) must
- * live outside or it will run multiple times under contention.
+ * Retry-safe work inside `op` may run multiple times under contention.
+ * Non-idempotent work must remain outside the retry scope.
  */
 export async function createWithVersionRetry<R>(
   op: () => Promise<R>,

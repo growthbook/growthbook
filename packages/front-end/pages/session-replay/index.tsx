@@ -502,7 +502,7 @@ export default function SessionReplayPage() {
         >
           <Button
             variant="soft"
-            size="xs"
+            size="sm"
             icon={<PiCaretDoubleRight />}
             aria-label="Expand sessions panel"
             title="Expand sessions panel"
@@ -529,16 +529,16 @@ export default function SessionReplayPage() {
           {/* Header */}
           <Flex justify="between" align="start">
             <Box>
-              <Text size="large" weight="semibold" color="text-high">
+              <Text size="lg" weight="semibold" color="text-high">
                 Recorded Sessions
               </Text>
-              <Text color="text-mid" size="small" as="div">
+              <Text color="text-mid" size="sm" as="div">
                 Select a session to begin playback
               </Text>
             </Box>
             <Button
               variant="soft"
-              size="xs"
+              size="sm"
               icon={<PiCaretDoubleLeft />}
               aria-label="Collapse sessions panel"
               title="Collapse sessions panel"
@@ -624,7 +624,7 @@ export default function SessionReplayPage() {
                       </Flex>
                       <Text
                         color="text-low"
-                        size="small"
+                        size="sm"
                         whiteSpace="nowrap"
                         ml="2"
                       >
@@ -632,7 +632,7 @@ export default function SessionReplayPage() {
                       </Text>
                     </Flex>
                     <Box style={{ marginTop: 2 }}>
-                      <Text size="small">
+                      <Text size="sm">
                         <span
                           style={{
                             fontFamily: "monospace",
@@ -645,20 +645,20 @@ export default function SessionReplayPage() {
                     </Box>
                     {session.urlFirst && (
                       <Text
-                        size="small"
+                        size="sm"
                         color="text-mid"
                         weight="medium"
                         truncate={true}
-                        style={{ marginTop: 2 }}
+                        mt="1"
                       >
                         URL: {session.urlFirst}
                       </Text>
                     )}
                     <Flex gap="2" mt="1" align="center" wrap="wrap">
-                      <Text color="text-low" size="small">
+                      <Text color="text-low" size="sm">
                         ⌁ {session.keyEventCount.toLocaleString()} key events
                       </Text>
-                      <Text color="text-low" size="small">
+                      <Text color="text-low" size="sm">
                         ⏱ {formatDuration(session.durationMs)}
                       </Text>
                       {session.errorCount > 0 && (
@@ -737,7 +737,7 @@ export default function SessionReplayPage() {
 
           {/* Pagination */}
           <Flex justify="between" align="center" mt="3">
-            <Text color="text-low" size="small">
+            <Text color="text-low" size="sm">
               Showing {sessions.length} session
               {sessions.length === 1 ? "" : "s"}
             </Text>
@@ -801,7 +801,7 @@ export default function SessionReplayPage() {
                 </Text>
                 <Button
                   variant="ghost"
-                  size="xs"
+                  size="sm"
                   icon={<PiCopy />}
                   onClick={copySessionId}
                   aria-label="Copy session ID"
@@ -842,7 +842,7 @@ export default function SessionReplayPage() {
                   {metadata?.keyEventCount?.toLocaleString() ?? "—"}
                 </Text>
                 {metadata ? (
-                  <Text color="text-low" size="small" ml="1">
+                  <Text color="text-low" size="sm" ml="1">
                     ({metadata.eventCount.toLocaleString()} total)
                   </Text>
                 ) : null}
@@ -874,7 +874,7 @@ export default function SessionReplayPage() {
               <Box style={{ marginLeft: "auto" }}>
                 <Button
                   variant={evalOpen ? "soft" : "outline"}
-                  size="sm"
+                  size="md"
                   icon={<PiListBullets />}
                   onClick={() => setEvalOpen(!evalOpen)}
                 >
@@ -963,12 +963,12 @@ export default function SessionReplayPage() {
                 flexShrink: 0,
               }}
             >
-              <Text size="large" weight="semibold" color="text-high">
+              <Text size="lg" weight="semibold" color="text-high">
                 Evaluations
               </Text>
               <Button
                 variant="ghost"
-                size="xs"
+                size="sm"
                 icon={<PiX />}
                 onClick={() => setEvalOpen(false)}
                 aria-label="Close evaluations"
@@ -989,10 +989,10 @@ export default function SessionReplayPage() {
                   )
                 }
               >
-                <TabsList size="1">
+                <TabsList size="sm">
                   <TabsTrigger value="all">
                     <Text
-                      size="small"
+                      size="sm"
                       weight="medium"
                       color={evalTab === "all" ? "text-high" : "text-low"}
                     >
@@ -1001,7 +1001,7 @@ export default function SessionReplayPage() {
                   </TabsTrigger>
                   <TabsTrigger value="flags">
                     <Text
-                      size="small"
+                      size="sm"
                       weight="medium"
                       color={evalTab === "flags" ? "text-high" : "text-low"}
                     >
@@ -1010,7 +1010,7 @@ export default function SessionReplayPage() {
                   </TabsTrigger>
                   <TabsTrigger value="exp">
                     <Text
-                      size="small"
+                      size="sm"
                       weight="medium"
                       color={evalTab === "exp" ? "text-high" : "text-low"}
                     >
@@ -1019,7 +1019,7 @@ export default function SessionReplayPage() {
                   </TabsTrigger>
                   <TabsTrigger value="events">
                     <Text
-                      size="small"
+                      size="sm"
                       weight="medium"
                       color={evalTab === "events" ? "text-high" : "text-low"}
                     >
@@ -1028,7 +1028,7 @@ export default function SessionReplayPage() {
                   </TabsTrigger>
                   <TabsTrigger value="attributes">
                     <Text
-                      size="small"
+                      size="sm"
                       weight="medium"
                       color={
                         evalTab === "attributes" ? "text-high" : "text-low"
@@ -1047,7 +1047,7 @@ export default function SessionReplayPage() {
                 <>
                   {!metadata && selectedSessionId && (
                     <Box style={{ padding: "12px 16px" }}>
-                      <Text size="small" color="text-low" weight="regular">
+                      <Text size="sm" color="text-low" weight="regular">
                         Loading attributes…
                       </Text>
                     </Box>
@@ -1091,23 +1091,23 @@ export default function SessionReplayPage() {
                               cursor: "pointer",
                             }}
                           >
-                            <Text
-                              size="small"
-                              weight="regular"
-                              color="text-low"
-                              style={{ flexShrink: 0 }}
+                            <span style={{ flexShrink: 0 }}>
+                              <Text size="sm" weight="regular" color="text-low">
+                                {label}
+                              </Text>
+                            </span>
+                            <span
+                              style={{
+                                maxWidth: 160,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                              }}
                             >
-                              {label}
-                            </Text>
-                            <Text
-                              size="small"
-                              weight="medium"
-                              color="text-high"
-                              truncate={true}
-                              style={{ maxWidth: 160 }}
-                            >
-                              {value}
-                            </Text>
+                              <Text size="sm" weight="medium" color="text-high">
+                                {value}
+                              </Text>
+                            </span>
                           </Flex>
                         ))}
                     </>
@@ -1119,14 +1119,14 @@ export default function SessionReplayPage() {
                     events &&
                     visibleEvaluations.length === 0 && (
                       <Box style={{ padding: "12px 16px" }}>
-                        <Text size="small" color="text-low" weight="regular">
+                        <Text size="sm" color="text-low" weight="regular">
                           No evaluations recorded for this session.
                         </Text>
                       </Box>
                     )}
                   {!events && !playerError && selectedSessionId && (
                     <Box style={{ padding: "12px 16px" }}>
-                      <Text size="small" color="text-low" weight="regular">
+                      <Text size="sm" color="text-low" weight="regular">
                         Loading evaluations…
                       </Text>
                     </Box>
@@ -1149,7 +1149,7 @@ export default function SessionReplayPage() {
                       <Box style={{ flex: 1, minWidth: 0 }}>
                         <Text
                           as="div"
-                          size="medium"
+                          size="md"
                           weight="semibold"
                           color="text-high"
                           truncate={true}
@@ -1158,7 +1158,7 @@ export default function SessionReplayPage() {
                         </Text>
                         <Text
                           as="div"
-                          size="small"
+                          size="sm"
                           weight="regular"
                           color="text-low"
                         >

@@ -8,6 +8,7 @@ export * from "./power";
 export * from "./decision-criteria";
 export * from "./dashboards";
 export * from "./product-analytics/sql";
+export * from "./product-analytics/column-dependencies";
 export * from "./product-analytics/comparison";
 export * from "./product-analytics/utils";
 export * from "../validators/revisions";

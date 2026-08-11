@@ -75,7 +75,7 @@ function DashboardStatusSummary({
 
   return (
     <Flex gap="1" align="center">
-      <Text size="small">
+      <Text size="sm">
         {enableAutoUpdates && updateSchedule?.type !== "never" && (
           <Tooltip
             tipPosition="top"
@@ -89,7 +89,7 @@ function DashboardStatusSummary({
           </Tooltip>
         )}
       </Text>
-      <Text size="small">
+      <Text size="sm">
         <span style={{ color: textColor }}>{content}</span>
       </Text>
       {tooltipBody && (
@@ -189,7 +189,7 @@ export default function DashboardUpdateDisplay({
       <div className="position-relative">
         {canRefresh && (
           <Button
-            size="xs"
+            size="sm"
             disabled={
               refreshing ||
               !dashboardId ||
@@ -232,7 +232,7 @@ export default function DashboardUpdateDisplay({
       {isEditing && <Separator orientation="vertical" />}
       {isEditing && (
         <DashboardViewQueriesButton
-          size="small"
+          size="sm"
           buttonProps={{ variant: "ghost" }}
           hideQueryCount
           iconOnly
