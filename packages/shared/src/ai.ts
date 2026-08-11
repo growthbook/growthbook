@@ -1,7 +1,65 @@
 import { parseOptionalInt } from "./util/numbers";
 
-// AI Provider types and configurations
-export type AIProvider = "openai" | "anthropic" | "xai" | "mistral" | "google";
+// A const tuple, not a bare union, so it feeds z.enum() and can be iterated in
+// the UI without a second hand-maintained list.
+export const AI_PROVIDERS = [
+  "openai",
+  "anthropic",
+  "google",
+  "xai",
+  "mistral",
+] as const;
+export type AIProvider = (typeof AI_PROVIDERS)[number];
+
+// Per-provider display and config metadata, shared by the settings UI and the
+// back end's error messages. Replaces duplicated local maps in AISettings.tsx.
+export const AI_PROVIDER_META: Record<
+  AIProvider,
+  {
+    label: string;
+    // Env var read as the fallback when the org has no key stored in the DB.
+    envVar: string;
+    // Any additional env vars accepted for backwards compatibility.
+    legacyEnvVars?: string[];
+    // Placeholder only. Not validated against: a stale regex would lock users
+    // out of a valid key.
+    keyPlaceholder: string;
+    // Where a user goes to create a key for this provider.
+    consoleUrl: string;
+  }
+> = {
+  openai: {
+    label: "OpenAI",
+    envVar: "OPENAI_API_KEY",
+    keyPlaceholder: "sk-...",
+    consoleUrl: "https://platform.openai.com/api-keys",
+  },
+  anthropic: {
+    label: "Anthropic",
+    envVar: "ANTHROPIC_API_KEY",
+    keyPlaceholder: "sk-ant-...",
+    consoleUrl: "https://console.anthropic.com/settings/keys",
+  },
+  google: {
+    label: "Google",
+    envVar: "GOOGLE_AI_API_KEY",
+    legacyEnvVars: ["GEMINI_API_KEY"],
+    keyPlaceholder: "AIza...",
+    consoleUrl: "https://aistudio.google.com/apikey",
+  },
+  xai: {
+    label: "xAI",
+    envVar: "XAI_API_KEY",
+    keyPlaceholder: "xai-...",
+    consoleUrl: "https://console.x.ai",
+  },
+  mistral: {
+    label: "Mistral",
+    envVar: "MISTRAL_API_KEY",
+    keyPlaceholder: "...",
+    consoleUrl: "https://console.mistral.ai/api-keys",
+  },
+};
 
 // Available text generation models for each provider
 export const AI_PROVIDER_MODEL_MAP = {
@@ -74,6 +132,15 @@ export const AI_PROVIDER_MODEL_MAP = {
 
 // Derive AIModel type from the models defined in AI_PROVIDER_MODEL_MAP
 export type AIModel = (typeof AI_PROVIDER_MODEL_MAP)[AIProvider][number];
+
+// Models GrowthBook pays for on Cloud when an org brings no key of its own.
+// Shared so the settings pickers can name them.
+export const CLOUD_MANAGED_AI_MODEL: AIModel = "claude-haiku-4-5-20251001";
+export const CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL: AIModel =
+  "claude-sonnet-4-5-20250929";
+export const CLOUD_MANAGED_IMAGE_MODEL = "gemini-3-pro-image-preview";
+// Not Cloud-specific: the fallback on every deployment.
+export const DEFAULT_EMBEDDING_MODEL = "text-embedding-ada-002";
 
 // Helper to determine which provider a model belongs to
 export function getProviderFromModel(model: AIModel): AIProvider {
@@ -441,6 +508,80 @@ export function getProviderFromEmbeddingModel(
     }
   }
   throw new Error(`Embedding model ${model} is not supported.`);
+}
+
+// Text, embedding and image models each have their own registry, so callers
+// holding an org setting must say which one it came from.
+export type AIModelKind = "text" | "embedding" | "image";
+
+// Provider that serves `model`, or null when the id isn't in that registry.
+// Null rather than a throw: a stale org setting should read as "not selectable",
+// not fail the request that looked at it.
+export function getProviderForAIModel(
+  kind: AIModelKind,
+  model: string,
+): AIProvider | null {
+  try {
+    if (kind === "text") return getProviderFromModel(model as AIModel);
+    if (kind === "embedding")
+      return getProviderFromEmbeddingModel(model as EmbeddingModel);
+    return getImageModelMeta(model)?.provider ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// Org settings that name a model. Removing a provider key has to find every
+// one of them, so they are listed here rather than at each call site.
+// `fallback` mirrors getAISettingsForOrg, so the UI can name what takes over.
+export const AI_MODEL_SETTINGS = [
+  {
+    key: "defaultAIModel",
+    kind: "text",
+    label: "Default AI model",
+    fallback: CLOUD_MANAGED_AI_MODEL,
+  },
+  // Legacy field still read as a fallback for defaultAIModel.
+  {
+    key: "openAIDefaultModel",
+    kind: "text",
+    label: "Default AI model",
+    fallback: CLOUD_MANAGED_AI_MODEL,
+  },
+  {
+    key: "visualEditorAIModel",
+    kind: "text",
+    label: "Visual Editor text model",
+    fallback: CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
+  },
+  {
+    key: "visualEditorImageModel",
+    kind: "image",
+    label: "Visual Editor image model",
+    fallback: CLOUD_MANAGED_IMAGE_MODEL,
+  },
+  {
+    key: "embeddingModel",
+    kind: "embedding",
+    label: "Embedding model",
+    fallback: DEFAULT_EMBEDDING_MODEL,
+  },
+] as const;
+
+export type AIModelSettingKey = (typeof AI_MODEL_SETTINGS)[number]["key"];
+
+/**
+ * Which model settings would stop resolving if `provider` lost its key. Used
+ * both to warn before removing one and to clear them after.
+ */
+export function getAIModelSettingsUsingProvider(
+  settings: Partial<Record<AIModelSettingKey, string | undefined>>,
+  provider: AIProvider,
+): { key: AIModelSettingKey; label: string; fallback: string }[] {
+  return AI_MODEL_SETTINGS.filter((s) => {
+    const model = settings[s.key];
+    return !!model && getProviderForAIModel(s.kind, model) === provider;
+  }).map(({ key, label, fallback }) => ({ key, label, fallback }));
 }
 
 export interface AITokenUsageInterface {
