@@ -220,6 +220,15 @@ describe("reconcileCustomFieldValues", () => {
     });
   });
 
+  it("does not seed missing values when disabled", () => {
+    const fields = [
+      makeField({ id: "cf_bool", type: "boolean" }),
+      makeField({ id: "cf_text", type: "text", defaultValue: "seed" }),
+    ];
+
+    expect(reconcileCustomFieldValues(fields, {}, false)).toEqual({});
+  });
+
   it("omits optional non-boolean fields that have no entry and no default", () => {
     const field = makeField({ id: "cf_text", type: "text" });
     expect(reconcileCustomFieldValues([field], {})).toEqual({});

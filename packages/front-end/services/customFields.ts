@@ -64,13 +64,14 @@ export function getSeededCustomFieldDefaultValue(
 }
 
 /**
- * Drops values for fields that no longer apply and seeds defaults for fields
- * with no entry. A present-but-empty value counts as set — re-seeding it would
- * make a field with a default impossible to clear.
+ * Drops values for fields that no longer apply. When enabled, seeds defaults
+ * for fields with no entry. A present-but-empty value counts as set —
+ * re-seeding it would make a field with a default impossible to clear.
  */
 export function reconcileCustomFieldValues(
   availableFields: CustomField[] | undefined,
   currentValues: Record<string, unknown> | string | null | undefined,
+  seedMissingValues = true,
 ): Record<string, string> {
   const normalized = normalizeCustomFieldValues(currentValues);
   const reconciled: Record<string, string> = {};
@@ -82,6 +83,8 @@ export function reconcileCustomFieldValues(
       reconciled[v.id] = currentValue;
       continue;
     }
+    if (!seedMissingValues) continue;
+
     const seededDefault = getSeededCustomFieldDefaultValue(v);
     if (seededDefault !== undefined) {
       reconciled[v.id] = seededDefault;

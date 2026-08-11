@@ -71,6 +71,7 @@ const CustomFieldEditModal: FC<{
       customFields: reconcileCustomFieldValues(
         customFields,
         target.customFields,
+        false,
       ),
     },
   });
