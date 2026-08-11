@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import { PiCaretDown, PiCheck, PiX } from "react-icons/pi";
+import clsx from "clsx";
 import Field from "@/components/Forms/Field";
 import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
@@ -120,7 +121,7 @@ export default function DashboardChecklistFilter({
   // so the current filter is readable without scrolling the options.
   const showChips = !singleSelect && selectedOptions.length > 0;
 
-  return (
+  const popover = (
     <Popover
       open={open}
       onOpenChange={setOpen}
@@ -129,7 +130,10 @@ export default function DashboardChecklistFilter({
           variant="outline"
           color="gray"
           size="md"
-          className={styles.controlPill}
+          className={clsx(styles.controlPill, {
+            // Reserves room for the ✕ that sits over the pill's right edge.
+            [styles.controlPillRemovable]: !!onRemove,
+          })}
           disabled={disabled}
           icon={icon}
           iconPosition="left"
@@ -140,32 +144,7 @@ export default function DashboardChecklistFilter({
             {showCount && value.length > 0 ? (
               <FilterCountBadge count={value.length} />
             ) : null}
-            {onRemove ? (
-              // A span rather than a button: the pill itself is the popover
-              // trigger, and a button can't nest inside another button.
-              <span
-                role="button"
-                tabIndex={0}
-                aria-label={`Remove ${label} filter`}
-                title={`Remove ${label} filter`}
-                className={styles.pillRemove}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onRemove();
-                }}
-                onKeyDown={(e) => {
-                  if (e.key !== "Enter" && e.key !== " ") return;
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onRemove();
-                }}
-              >
-                <PiX aria-hidden />
-              </span>
-            ) : (
-              <PiCaretDown aria-hidden />
-            )}
+            {onRemove ? null : <PiCaretDown aria-hidden />}
           </Flex>
         </Button>
       }
@@ -307,5 +286,43 @@ export default function DashboardChecklistFilter({
         </Flex>
       }
     />
+  );
+
+  if (!onRemove) return popover;
+
+  // The ✕ is a sibling of the trigger, not a child of it: nesting one
+  // interactive control inside another breaks keyboard and screen-reader
+  // behavior. The wrapper is inert — it only positions the ✕ over the padding
+  // the pill reserved for it, so the pill keeps its own chrome.
+  return (
+    <span className={styles.pillWrap}>
+      {popover}
+      <IconButton
+        size="1"
+        variant="ghost"
+        color="gray"
+        className={styles.pillRemove}
+        aria-label={`Remove ${label} filter`}
+        title={`Remove ${label} filter`}
+        disabled={disabled}
+        onClick={onRemove}
+        // Geometry inline: an IconButton is 24px square with its own margins,
+        // which reads oversized inside a 32px pill, and Radix's size rules match
+        // a class override too closely to reliably win.
+        style={{
+          position: "absolute",
+          right: 6,
+          top: "50%",
+          transform: "translateY(-50%)",
+          width: 18,
+          height: 18,
+          minWidth: 0,
+          margin: 0,
+          padding: 0,
+        }}
+      >
+        <PiX size={13} aria-hidden />
+      </IconButton>
+    </span>
   );
 }

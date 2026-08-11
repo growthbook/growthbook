@@ -29,6 +29,12 @@ const UNAVAILABLE_REASON: Record<
     "Add a block that includes experiments to use this filter",
 };
 
+// Sentence case, per the copy guide — these are status hints, not tokens.
+const STATUS_LABEL = {
+  added: "Added",
+  unavailable: "Unavailable",
+} as const;
+
 interface Props {
   // Filters already in the bar — listed as "added" and not selectable.
   visibleKeys: DashboardOptionalFilterKey[];
@@ -112,7 +118,7 @@ export default function DashboardAddFilterDropdown({
                 <span>{filter.label}</span>
                 {status ? (
                   <Text size="sm" color="text-low">
-                    {status}
+                    {STATUS_LABEL[status]}
                   </Text>
                 ) : null}
               </Flex>

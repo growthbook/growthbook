@@ -15,21 +15,33 @@
   }
 }
 
-// The ✕ inside a removable filter pill. Sized to the pill's text so it lines up
-// with the label, and it darkens on hover to read as its own target rather than
-// part of the pill.
-.pillRemove {
+// A removable pill reserves room on its right edge, and the ✕ is laid over that
+// space as a sibling button (it can't live inside the pill — that would nest one
+// interactive control in another).
+.controlPillRemovable {
+  &.controlPillRemovable {
+    padding-right: 26px;
+  }
+}
+
+.pillWrap {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-1);
-  padding: 2px;
-  margin-right: -2px;
-  color: var(--gray-a10);
-  cursor: pointer;
+}
 
-  &:hover,
-  &:focus-visible {
+// The ✕ itself — colors only; its size and placement are set inline on the
+// element (see DashboardChecklistFilter). Darkens on hover so it reads as its own
+// target rather than part of the pill.
+.pillRemove {
+  &.pillRemove {
+    border-radius: var(--radius-1);
+    color: var(--gray-a10);
+    cursor: pointer;
+  }
+
+  &.pillRemove:hover:not(:disabled),
+  &.pillRemove:focus-visible {
     color: var(--gray-12);
     background-color: var(--gray-a4);
   }

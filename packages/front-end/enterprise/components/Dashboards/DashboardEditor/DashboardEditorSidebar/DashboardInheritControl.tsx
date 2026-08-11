@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import Button from "@/ui/Button";
 import styles from "./DashboardInheritControl.module.scss";
 
 interface Props {
@@ -16,6 +17,9 @@ interface Props {
  * read unambiguously at a glance, where a switch left you working out what "off"
  * meant. Rendered on the right of a field's label row (see SidebarSettingField
  * `accessory`); the field control itself is disabled while inheriting.
+ *
+ * Each segment is a ghost @/ui/Button squeezed down to badge size by the module's
+ * `.segment` class, with `aria-pressed` carrying the on/off state.
  */
 export default function DashboardInheritControl({
   label,
@@ -29,8 +33,10 @@ export default function DashboardInheritControl({
       role="group"
       aria-label={`${label} filter source`}
     >
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        color="gray"
+        size="sm"
         className={clsx(styles.segment, { [styles.activeCustom]: !inherited })}
         aria-pressed={!inherited}
         disabled={disabled}
@@ -38,9 +44,11 @@ export default function DashboardInheritControl({
         onClick={() => onChange(false)}
       >
         Custom
-      </button>
-      <button
-        type="button"
+      </Button>
+      <Button
+        variant="ghost"
+        color="gray"
+        size="sm"
         className={clsx(styles.segment, { [styles.active]: inherited })}
         aria-pressed={inherited}
         disabled={disabled}
@@ -48,7 +56,7 @@ export default function DashboardInheritControl({
         onClick={() => onChange(true)}
       >
         Inherit
-      </button>
+      </Button>
     </div>
   );
 }
