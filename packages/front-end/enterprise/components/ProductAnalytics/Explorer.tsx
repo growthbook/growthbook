@@ -262,7 +262,7 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     if (type === "metric" && metricId) {
       const metric = getFactMetricById(metricId);
       if (metric?.metricType === "funnel") {
-        seedError = "Funnel metrics are not yet supported in the explorer.";
+        seedError = "Funnel metrics are not yet supported in the Explorer.";
       } else if (metric) {
         seededConfig = {
           ...defaultDraftState,

@@ -205,8 +205,8 @@ function FunnelStepsDisplay({
   // rather than repeating the same link inside each step panel.
   const sharedFactTableId = funnelSettings.steps[0]?.factTableId;
 
-  const getStepItems = (step: FunnelStep, i: number): DataListItem[] => [
-    ...(step.rowFilters?.length
+  const getStepItems = (step: FunnelStep): DataListItem[] =>
+    step.rowFilters?.length
       ? [
           {
             label: "Row Filter",
@@ -218,24 +218,17 @@ function FunnelStepsDisplay({
             ),
           },
         ]
-      : []),
-    ...(i > 0 && step.conversionWindow
-      ? [
-          {
-            label: "Conversion Window",
-            value: `Within ${step.conversionWindow.value} ${step.conversionWindow.unit} of the previous step`,
-          },
-        ]
-      : []),
-    ...(i > 0 && step.optional
-      ? [
-          {
-            label: "Optional",
-            value: "Yes",
-          },
-        ]
-      : []),
-  ];
+      : [];
+
+  const getConversionWindowValue = (
+    step: FunnelStep,
+    i: number,
+  ): string | null =>
+    step.conversionWindow
+      ? i === 0
+        ? `Within ${step.conversionWindow.value} ${step.conversionWindow.unit} of exposure`
+        : `Within ${step.conversionWindow.value} ${step.conversionWindow.unit} of the nearest required prior step`
+      : null;
 
   return (
     <Box>
@@ -249,15 +242,36 @@ function FunnelStepsDisplay({
         <FactTableLink id={sharedFactTableId} />
       </Box>
       {funnelSettings.steps.map((step, i) => {
-        const items = getStepItems(step, i);
+        const items = getStepItems(step);
+        const conversionWindowValue = getConversionWindowValue(step, i);
+        const hasMetadata = !!conversionWindowValue || !!step.optional;
+        const hasContent = items.length > 0 || hasMetadata;
         return (
           <Box key={i} className="appbox p-3 mb-2">
             <Heading
               as="h4"
               size="sm"
-              mb={items.length ? "2" : "0"}
+              mb={hasContent ? "2" : "0"}
             >{`Step ${i + 1}: ${step.name}`}</Heading>
             {items.length ? <DataList data={items} maxColumns={1} /> : null}
+            {hasMetadata ? (
+              <Flex
+                gap="4"
+                align="center"
+                wrap="wrap"
+                mt={items.length ? "2" : "0"}
+              >
+                {conversionWindowValue ? (
+                  <Metadata
+                    label="Conversion Window"
+                    value={conversionWindowValue}
+                  />
+                ) : null}
+                {step.optional ? (
+                  <Metadata label="Optional" value="Yes" />
+                ) : null}
+              </Flex>
+            ) : null}
           </Box>
         );
       })}

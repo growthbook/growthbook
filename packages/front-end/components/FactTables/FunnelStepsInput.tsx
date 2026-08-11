@@ -177,8 +177,8 @@ export default function FunnelStepsInput({
             </Text>
             <Text as="div" size="sm" color="text-low" mb="2">
               {i === 0
-                ? "Maximum time allowed to reach this step."
-                : "Must occur within this time after the previous step."}
+                ? "Maximum time after exposure to reach this step."
+                : "Must occur within this time of the nearest required prior step."}
             </Text>
             {step.conversionWindow ? (
               <Flex align="center" gap="2">
