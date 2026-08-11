@@ -1,8 +1,9 @@
 import { FC } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import {
-  getFactMetricFactTableId,
+  getFactMetricPrimaryFactTableId,
   isBinomialMetric,
+  isFactFunnelMetric,
   isMetricJoinable,
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -19,6 +20,7 @@ export type MetricOption = {
   userIdTypes: string[];
   isBinomial: boolean;
   isConversionWindowMetric: boolean;
+  isFactFunnelMetric: boolean;
 };
 
 const MetricSelector: FC<
@@ -31,6 +33,7 @@ const MetricSelector: FC<
     availableIds?: string[];
     onlyBinomial?: boolean;
     filterConversionWindowMetrics?: boolean;
+    filterFactFunnelMetrics?: boolean;
     sortMetrics?: (a: MetricOption, b: MetricOption) => number;
     filterMetrics?: (m: MetricOption) => boolean;
     onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
@@ -45,6 +48,7 @@ const MetricSelector: FC<
   availableIds,
   onlyBinomial,
   filterConversionWindowMetrics,
+  filterFactFunnelMetrics,
   sortMetrics,
   filterMetrics,
   onPaste,
@@ -63,6 +67,7 @@ const MetricSelector: FC<
       factTables: [],
       userIdTypes: m.userIdTypes || [],
       isBinomial: isBinomialMetric(m) && !m.denominator,
+      isFactFunnelMetric: isFactFunnelMetric(m),
       isConversionWindowMetric: m?.windowSettings?.type === "conversion",
     })),
     ...(includeFacts
@@ -73,16 +78,17 @@ const MetricSelector: FC<
           tags: m.tags || [],
           projects: m.projects || [],
           factTables: [
-            getFactMetricFactTableId(m),
+            getFactMetricPrimaryFactTableId(m),
             (m.metricType === "ratio" && m.denominator
               ? m.denominator.factTableId
               : "") || "",
           ],
           // only focus on numerator user id types
           userIdTypes:
-            factTables.find((f) => f.id === getFactMetricFactTableId(m))
+            factTables.find((f) => f.id === getFactMetricPrimaryFactTableId(m))
               ?.userIdTypes || [],
           isBinomial: isBinomialMetric(m),
+          isFactFunnelMetric: isFactFunnelMetric(m),
           isConversionWindowMetric: m?.windowSettings?.type === "conversion",
         }))
       : []),
@@ -106,6 +112,7 @@ const MetricSelector: FC<
     .filter((m) => !availableIds || availableIds.includes(m.id))
     .filter((m) => (datasource ? m.datasource === datasource : true))
     .filter((m) => !onlyBinomial || m.isBinomial)
+    .filter((m) => !filterFactFunnelMetrics || !m.isFactFunnelMetric)
     .filter((m) =>
       userIdType && m.userIdTypes.length
         ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)

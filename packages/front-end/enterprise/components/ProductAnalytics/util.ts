@@ -21,7 +21,7 @@ import { isEqual } from "lodash";
 import { createParser } from "nuqs";
 import {
   canInlineFilterColumn,
-  getFactMetricFactTableId,
+  getFactMetricPrimaryFactTableId,
 } from "shared/experiments";
 import {
   encodeExplorationConfig,
@@ -491,7 +491,9 @@ export function getCommonColumns(
 
       const factMetric = getFactMetricById(metricId);
       if (factMetric) {
-        const ft = getFactTableById(getFactMetricFactTableId(factMetric));
+        const ft = getFactTableById(
+          getFactMetricPrimaryFactTableId(factMetric),
+        );
         valueColumns = ft?.columns || [];
         ft?.userIdTypes?.forEach((u) => userIdTypes.add(u));
 
@@ -738,7 +740,7 @@ export function fillMissingUnits(
     if (v.unit || !v.metricId) return v;
     const metric = getFactMetricById(v.metricId);
     if (!metric) return v;
-    const factTable = getFactTableById(getFactMetricFactTableId(metric));
+    const factTable = getFactTableById(getFactMetricPrimaryFactTableId(metric));
     const defaultUnit = factTable?.userIdTypes?.[0];
     if (!defaultUnit) return v;
     changed = true;

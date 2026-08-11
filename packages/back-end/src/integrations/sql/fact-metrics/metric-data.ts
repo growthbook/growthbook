@@ -1,7 +1,7 @@
 import {
   eligibleForUncappedMetric,
   ExperimentMetricInterface,
-  getFactMetricFactTableId,
+  getFactMetricPrimaryFactTableId,
   isFactFunnelMetric,
   isFactMetric,
   isPercentileCappedMetric,
@@ -68,7 +68,8 @@ export function getMetricData(
     : undefined) ?? { type: "unit", quantile: 0, ignoreZeros: false };
 
   const { regressionAdjusted, regressionAdjustmentHours } = funnelMetric
-    ? { regressionAdjusted: false, regressionAdjustmentHours: 0 }
+    ? // TODO(funnel): CUPED for funnel metrics
+      { regressionAdjusted: false, regressionAdjustmentHours: 0 }
     : getMetricRegressionAdjustmentData(
         metric,
         settings.regressionAdjustmentEnabled,
@@ -83,7 +84,8 @@ export function getMetricData(
 
   const numeratorSourceIndex =
     factTablesWithIndices.find(
-      (f) => f.factTable.id === getFactMetricFactTableId(metric),
+      // TODO(funnel): multi-fact table support for funnel metrics
+      (f) => f.factTable.id === getFactMetricPrimaryFactTableId(metric),
     )?.index ?? 0;
   const denominatorSourceIndex =
     factTablesWithIndices.find(

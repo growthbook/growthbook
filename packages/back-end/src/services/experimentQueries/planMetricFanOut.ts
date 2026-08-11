@@ -42,6 +42,7 @@ export function isCrossFtRatioMetric(
 ): metric is FactMetricInterface & {
   denominator: NonNullable<FactMetricInterface["denominator"]>;
 } {
+  // TODO(funnel): multi-fact table support for funnel metrics
   return (
     isRatioMetric(metric) &&
     !!metric.denominator?.factTableId &&

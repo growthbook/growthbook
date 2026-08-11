@@ -52,16 +52,15 @@ export function getExperimentFactMetricsQuery(
     settings,
   );
 
-  // Funnel resolution needs arrayAggSorted / arrayMinInRange, which several
-  // dialects can't express. Fail with the metric name rather than letting the
-  // dialect throw a generic unsupported-operation error deep in the builder.
+  // Throw noisely instead of letting the dialect throw a generic
+  // unsupported-operation error.
   if (!isFunnelSupportedDatasourceType(datasource.type)) {
-    const unsupported = metricsWithIndices.find((m) =>
-      isFactFunnelMetric(m.metric),
-    );
-    if (unsupported) {
+    const unsupported = metricsWithIndices
+      .filter((m) => isFactFunnelMetric(m.metric))
+      .map((m) => m.metric.name);
+    if (unsupported.length > 0) {
       throw new Error(
-        `Funnel metrics are not supported for ${datasource.type} data sources (metric: ${unsupported.metric.name})`,
+        `Funnel metrics are not supported for ${datasource.type} data sources (metric(s): ${unsupported.join(", ")})`,
       );
     }
   }
@@ -364,8 +363,8 @@ export function getExperimentFactMetricsQuery(
             ${banditDates?.length ? `, umj.bandit_period` : ""}
             , umj.${baseIdType}
             ${
-              // Funnel resolution anchors step 0 (and optional-step fallthrough)
-              // on exposure; carry one per-user copy out of the event join.
+              // Funnel metrics still need access to the exposure timestamp
+              // to resolve funnel steps.
               funnelMetrics.length ? `, MIN(umj.timestamp) AS timestamp` : ""
             }
             ${metricData
@@ -583,11 +582,8 @@ export function getExperimentFactMetricsQuery(
           d.variation AS variation
           , d.timestamp AS timestamp
           ${
-            // Every funnel step column is a CASE-gated copy of the metric
-            // event's timestamp, so this single column can serve as the
-            // shared ORDER BY for all of the step arrays in the per-user
-            // aggregate (Redshift requires all WITHIN GROUP orderings in a
-            // SELECT to be identical).
+            // Pass through event_timestamp to enable certain dialects (Redshift)
+            // to order by it for array sorting
             funnelMetrics.length ? `, m.timestamp AS event_timestamp` : ""
           }
           ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
@@ -597,7 +593,6 @@ export function getExperimentFactMetricsQuery(
             .map(
               (data) =>
                 `${
-                  // A funnel has per-step timestamp columns instead of a value.
                   data.numeratorSourceIndex === f.index &&
                   !isFactFunnelMetric(data.metric)
                     ? `, ${addCaseWhenTimeFilter(dialect, {
@@ -647,9 +642,6 @@ export function getExperimentFactMetricsQuery(
                     : ""
                 }
                 ${
-                  // The metric's own window bounds every step relative to
-                  // exposure; per-step conversion windows are applied later
-                  // (step 0 vs exposure, later steps vs the preceding step).
                   isFactFunnelMetric(data.metric) &&
                   data.numeratorSourceIndex === f.index
                     ? data.metric.funnelSettings.steps
@@ -658,6 +650,8 @@ export function getExperimentFactMetricsQuery(
                             data.alias,
                             stepIndex,
                           );
+                          // This case when applies the overall conversion window.
+                          // Step-specific conversion windows are applied later.
                           return `, ${addCaseWhenTimeFilter(dialect, {
                             col: `m.${col}`,
                             metric: data.metric,

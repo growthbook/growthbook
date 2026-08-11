@@ -33,6 +33,8 @@ export function processExperimentFactMetricsQueryRows(
       // set, so its columns can't come from a static list.
       Object.keys(row).forEach((key) => {
         const parsed = parseFunnelStepSumColumn(key);
+        // TODO(funnel): clean-up with alias helper to solidify
+        // the column alias throughout the code
         if (parsed?.alias === `m${i}`) {
           metricData[key] = parseFloat(row[key]) || 0;
         }

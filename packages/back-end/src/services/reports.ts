@@ -21,7 +21,7 @@ import {
   SliceLevelsData,
   getEffectiveLookbackOverride,
   getLatestPhaseVariations,
-  getFactMetricFactTableId,
+  getFactMetricPrimaryFactTableId,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import { differenceInMinutes } from "date-fns";
@@ -925,7 +925,7 @@ export async function generateExperimentReportSSRData({
   > = {};
   for (const factMetric of factMetrics) {
     if (factMetric.metricAutoSlices?.length) {
-      const factTableId = getFactMetricFactTableId(factMetric);
+      const factTableId = getFactMetricPrimaryFactTableId(factMetric);
       const factTable = factTableId ? factTableMap[factTableId] : undefined;
       if (factTable) {
         const dimensionColumns = factTable.columns.filter(

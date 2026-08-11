@@ -424,9 +424,7 @@ export class FactMetricModel extends BaseClass {
 
   /**
    * Funnel metrics describe their events through ordered steps rather than a
-   * numerator ColumnRef, so none of the column/aggregation rules apply. V1
-   * keeps the surface deliberately small: one fact table, no capping, no
-   * quantiles, no slices.
+   * numerator ColumnRef, so none of the column/aggregation rules apply.
    */
   private async validateFunnelSettings(
     data: FunnelFactMetricInterface,
@@ -437,13 +435,16 @@ export class FactMetricModel extends BaseClass {
     if (steps.length < 2) {
       throw new Error("Funnel metrics need at least 2 steps");
     }
+    // TODO(funnel): support non-sequential ordering
     if ((ordering ?? "sequential") !== "sequential") {
       throw new Error("Only sequential funnel ordering is supported for now");
     }
+    // TODO(funnel): support session-based funnels
     if (sessionBased) {
       throw new Error("Session-based funnels are not supported for now");
     }
 
+    // TODO(funnel): multi-fact table support for funnel metrics
     const factTableIds = new Set(steps.map((s) => s.factTableId));
     if (factTableIds.size > 1) {
       throw new Error(

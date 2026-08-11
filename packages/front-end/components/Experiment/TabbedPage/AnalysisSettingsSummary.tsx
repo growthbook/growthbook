@@ -15,7 +15,7 @@ import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
-  getFactMetricFactTableId,
+  getFactMetricPrimaryFactTableId,
   isFactMetric,
   isMetricJoinable,
   expandAllSliceMetricsInMap,
@@ -439,8 +439,9 @@ export default function AnalysisSettingsSummary({
       const metric = getExperimentMetricById(m);
       if (!metric) return;
       const userIdTypes = isFactMetric(metric)
-        ? factTables.find((f) => f.id === getFactMetricFactTableId(metric))
-            ?.userIdTypes || []
+        ? factTables.find(
+            (f) => f.id === getFactMetricPrimaryFactTableId(metric),
+          )?.userIdTypes || []
         : metric.userIdTypes || [];
       const isJoinable =
         userIdType && datasourceSettings

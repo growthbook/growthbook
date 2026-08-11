@@ -4,7 +4,7 @@ import {
 } from "shared/types/fact-table";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { date } from "shared/dates";
-import { getFactMetricFactTableId } from "shared/experiments";
+import { getFactMetricPrimaryFactTableId } from "shared/experiments";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import Link from "@/ui/Link";
@@ -185,7 +185,7 @@ export default function FactMetricList({
       providedMetrics ||
       factMetrics.filter(
         (m) =>
-          getFactMetricFactTableId(m) === factTable.id ||
+          getFactMetricPrimaryFactTableId(m) === factTable.id ||
           (m.denominator && m.denominator.factTableId === factTable.id),
       ),
     [providedMetrics, factMetrics, factTable.id],

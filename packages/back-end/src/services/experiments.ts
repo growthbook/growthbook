@@ -50,7 +50,6 @@ import {
   getMetricSnapshotSettings,
   isFactMetric,
   isFactMetricId,
-  isFactFunnelMetric,
   isMetricJoinable,
   isDimensionPrecomputed,
   parseSliceMetricId,
@@ -59,7 +58,7 @@ import {
   getAllVariations,
   getLatestPhaseVariations,
   getPhaseVariations,
-  getFactMetricFactTableId,
+  getFactMetricPrimaryFactTableId,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
@@ -537,7 +536,7 @@ export function isJoinableMetric({
 
   const metricIdTypes =
     (isFactMetric(metric)
-      ? factTableMap.get(getFactMetricFactTableId(metric))?.userIdTypes
+      ? factTableMap.get(getFactMetricPrimaryFactTableId(metric))?.userIdTypes
       : metric.userIdTypes) ?? [];
 
   return isMetricJoinable(metricIdTypes, experimentIdType, datasource.settings);
@@ -1315,14 +1314,12 @@ export function resolveSnapshotRunner({
   snapshotType,
   hasSnapshotDimensions,
   hasMaterializedUnitsTable,
-  hasFunnelMetric,
 }: {
   datasource: DataSourceInterface;
   experiment: ExperimentInterface;
   snapshotType: SnapshotType;
   hasSnapshotDimensions: boolean;
   hasMaterializedUnitsTable: boolean;
-  hasFunnelMetric: boolean;
 }): {
   runnerFamily: SnapshotQueryRunnerFamily;
   incrementalFallbackReason: string | null;
@@ -1334,16 +1331,6 @@ export function resolveSnapshotRunner({
     )
   ) {
     return { runnerFamily: "results", incrementalFallbackReason: null };
-  }
-
-  // Funnel resolution needs the full per-unit event timestamps, which the
-  // materialized caches don't retain, so there is no incremental equivalent.
-  if (hasFunnelMetric) {
-    return {
-      runnerFamily: "results",
-      incrementalFallbackReason:
-        "Funnel metrics are not supported by incremental refresh.",
-    };
   }
 
   const unsupportedTypeReason = getUnsupportedIncrementalExperimentTypeReason(
@@ -1579,10 +1566,6 @@ async function planSnapshotQueryRunner({
     snapshotType,
     hasSnapshotDimensions: snapshotSettings.dimensions.length > 0,
     hasMaterializedUnitsTable: !!incrementalRefreshModel?.unitsTableFullName,
-    hasFunnelMetric: snapshotSettings.metricSettings.some((m) => {
-      const metric = metricMap.get(m.id);
-      return !!metric && isFactFunnelMetric(metric);
-    }),
   });
 
   if (decision.runnerFamily === "results") {

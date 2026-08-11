@@ -1,4 +1,7 @@
-import { getFactMetricFactTableId, isRatioMetric } from "shared/experiments";
+import {
+  getFactMetricPrimaryFactTableId,
+  isRatioMetric,
+} from "shared/experiments";
 import type {
   FactMetricInterface,
   FactTableInterface,
@@ -61,7 +64,7 @@ export function getFactTablesForMetrics(
   metrics.forEach(({ metric, index }) => {
     // A funnel's events all come from its steps' fact table (V1 requires a
     // single one), which stands in for the numerator here.
-    const numeratorFactTableId = getFactMetricFactTableId(metric);
+    const numeratorFactTableId = getFactMetricPrimaryFactTableId(metric);
     addMetricToFactTable(numeratorFactTableId, metric, index);
 
     if (

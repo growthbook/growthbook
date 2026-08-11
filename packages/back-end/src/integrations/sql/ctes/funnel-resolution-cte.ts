@@ -68,9 +68,8 @@ export function getFunnelUserMetricAggColumns(
  * own 0/1, but never anchor later steps.
  *
  * Two deliberate differences from product-analytics funnels: there is no
- * `WHERE step_0_resolved_ts IS NOT NULL` filter, because the experiment
- * denominator is every exposed unit and non-enterers must count as 0; and no
- * time-from-previous-step columns are emitted.
+ * `WHERE step_0_resolved_ts IS NOT NULL` filter, because we need to pass forward
+ * all user's data; and no time-from-previous-step columns are emitted yet.
  */
 export function getFunnelResolutionCTEs(
   dialect: SqlDialect,

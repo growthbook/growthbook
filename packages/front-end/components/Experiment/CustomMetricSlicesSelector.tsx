@@ -10,7 +10,7 @@ import { Text, Flex, IconButton } from "@radix-ui/themes";
 import {
   isFactMetric,
   expandMetricGroups,
-  getFactMetricFactTableId,
+  getFactMetricPrimaryFactTableId,
   SliceLevelsData,
 } from "shared/experiments";
 import { FactMetricInterface } from "shared/types/fact-table";
@@ -91,13 +91,15 @@ export default function CustomMetricSlicesSelector({
       .map((id) => factMetrics.find((m) => m.id === id))
       .filter((metric) => {
         const factTable = metric
-          ? factTableMap.get(getFactMetricFactTableId(metric))
+          ? factTableMap.get(getFactMetricPrimaryFactTableId(metric))
           : null;
         const hasColumns = !!factTable?.columns;
         return !!metric && isFactMetric(metric) && hasColumns;
       })
       .map((metric) => {
-        const factTable = factTableMap.get(getFactMetricFactTableId(metric!));
+        const factTable = factTableMap.get(
+          getFactMetricPrimaryFactTableId(metric!),
+        );
         const stringColumns = factTable?.columns?.filter(
           (col) =>
             (col.datatype === "string" || col.datatype === "boolean") &&
