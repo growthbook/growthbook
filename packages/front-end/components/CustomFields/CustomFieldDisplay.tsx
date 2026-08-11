@@ -1,42 +1,24 @@
-import React, { FC, useMemo, useState } from "react";
+import React, { FC, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { useForm } from "react-hook-form";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex } from "@radix-ui/themes";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { useUser } from "@/services/UserContext";
-import { useAuth } from "@/services/auth";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import {
   filterCustomFieldsForSectionAndProject,
   isCustomFieldBooleanTrue,
-  reconcileCustomFieldValues,
   toCustomFieldBooleanString,
 } from "@/services/customFields";
-import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import Markdown from "@/components/Markdown/Markdown";
-import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import DataList, { DataListItem } from "@/ui/DataList";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
-import DraftSelectorForChanges, {
-  DraftMode,
-} from "@/components/Features/DraftSelectorForChanges";
-import CustomFieldInput from "./CustomFieldInput";
-
-/** Optional draft-mode context for feature metadata approval flows. */
-export interface CustomFieldDraftInfo {
-  feature: FeatureInterface;
-  revisionList: MinimalFeatureRevisionInterface[];
-  gatedEnvSet: Set<string> | "all" | "none";
-  /** Called with the new/updated draft version after save so the UI can switch to it. */
-  onDraftCreated: (version: number) => void;
-}
+import CustomFieldEditModal, {
+  CustomFieldDraftInfo,
+} from "./CustomFieldEditModal";
 
 const CustomFieldDisplay: FC<{
   label?: string;
@@ -60,28 +42,6 @@ const CustomFieldDisplay: FC<{
 }) => {
   const [editModal, setEditModal] = useState(false);
 
-  const canAutoPublish = !draftInfo || draftInfo.gatedEnvSet === "none";
-
-  const latestActiveDraft = useMemo(
-    () =>
-      (draftInfo?.revisionList ?? [])
-        .filter((r) =>
-          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
-        )
-        .sort((a, b) => b.version - a.version)[0] ?? null,
-    [draftInfo],
-  );
-
-  const [mode, setMode] = useState<DraftMode>(
-    canAutoPublish
-      ? "publish"
-      : latestActiveDraft !== null
-        ? "existing"
-        : "new",
-  );
-  const [selectedDraft, setSelectedDraft] = useState<number | null>(
-    latestActiveDraft?.version ?? null,
-  );
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
     section,
@@ -91,61 +51,8 @@ const CustomFieldDisplay: FC<{
   const currentCustomFields = target.customFields || {};
   const { hasCommercialFeature } = useUser();
   const hasCustomFieldAccess = hasCommercialFeature("custom-metadata");
-  // Also used to re-seed on open so `isDirty` compares against what's shown.
-  const savedCustomFieldValues = reconcileCustomFieldValues(
-    customFields,
-    target.customFields,
-  );
-  const form = useForm<
-    Partial<ExperimentInterfaceStringDates | FeatureInterface>
-  >({
-    defaultValues: { customFields: savedCustomFieldValues },
-  });
 
-  const { availableFields, value: customFieldValues } =
-    useReconciledCustomFields({
-      section,
-      project: target.project,
-      value: form.watch("customFields"),
-      setValue: (value) => form.setValue("customFields", value),
-    });
-
-  const openEditModal = () => {
-    form.reset({ customFields: savedCustomFieldValues });
-    setEditModal(true);
-  };
-  const { apiCall } = useAuth();
-  const submitForm = async (value) => {
-    if (section === "experiment") {
-      await apiCall(`/experiment/${target.id}`, {
-        method: "POST",
-        body: JSON.stringify({ ...value }),
-      });
-    } else if (section === "feature") {
-      const body: Record<string, unknown> = { ...value };
-      if (draftInfo) {
-        if (mode === "publish") {
-          body.autoPublish = true;
-        } else if (mode === "existing") {
-          body.targetDraftVersion = selectedDraft;
-        } else {
-          body.forceNewDraft = true;
-        }
-      }
-      const res = await apiCall<{ draftVersion?: number }>(
-        `/feature/${target.id}`,
-        {
-          method: "PUT",
-          body: JSON.stringify(body),
-        },
-      );
-      if (res?.draftVersion !== undefined && draftInfo) {
-        draftInfo.onDraftCreated(res.draftVersion);
-      }
-    }
-    if (mutate) mutate();
-  };
-  if (!customFields?.length) {
+  if (!customFields?.length || !hasCustomFieldAccess) {
     return null;
   }
 
@@ -218,59 +125,22 @@ const CustomFieldDisplay: FC<{
     });
   });
 
-  if (!hasCustomFieldAccess) return null;
+  const editLink = canEdit ? (
+    <Link onClick={() => setEditModal(true)}>
+      <Text weight="semibold">Edit</Text>
+    </Link>
+  ) : null;
 
   return (
     <>
       {editModal && (
-        <ModalStandard
-          trackingEventModalType="edit-custom-fields"
-          header={"Edit Custom Fields"}
-          open={editModal}
-          close={() => {
-            setEditModal(false);
-          }}
-          size="lg"
-          submit={form.handleSubmit(async (value) => {
-            await submitForm(value);
-          })}
-          cta={
-            draftInfo
-              ? mode === "publish"
-                ? "Publish"
-                : "Save to Draft"
-              : "Save"
-          }
-          ctaEnabled={form.formState.isDirty}
-        >
-          {draftInfo && (
-            <DraftSelectorForChanges
-              feature={draftInfo.feature}
-              revisionList={draftInfo.revisionList}
-              mode={mode}
-              setMode={setMode}
-              selectedDraft={selectedDraft}
-              setSelectedDraft={setSelectedDraft}
-              canAutoPublish={canAutoPublish}
-              gatedEnvSet={draftInfo.gatedEnvSet}
-            />
-          )}
-          {hasCustomFieldAccess ? (
-            <CustomFieldInput
-              fields={availableFields}
-              value={customFieldValues}
-              onChange={(value) => {
-                form.setValue("customFields", value, { shouldDirty: true });
-              }}
-            />
-          ) : (
-            <div className="text-center">
-              <PremiumTooltip commercialFeature={"custom-metadata"}>
-                Custom fields are available as part of the enterprise plan
-              </PremiumTooltip>
-            </div>
-          )}
-        </ModalStandard>
+        <CustomFieldEditModal
+          section={section}
+          target={target}
+          close={() => setEditModal(false)}
+          mutate={mutate}
+          draftInfo={draftInfo}
+        />
       )}
       {section === "feature" ? (
         <>
@@ -281,11 +151,7 @@ const CustomFieldDisplay: FC<{
               </Heading>
             </Flex>
             <div className="flex-1" />
-            {canEdit && hasCustomFieldAccess && (
-              <Link onClick={openEditModal}>
-                <Text weight="semibold">Edit</Text>
-              </Link>
-            )}
+            {editLink}
           </Flex>
           <DataList data={displayFieldsObj} maxColumns={3} />
         </>
@@ -297,11 +163,7 @@ const CustomFieldDisplay: FC<{
                 {label ? label : ""}
               </Heading>
               <div className="flex-1" />
-              {canEdit && hasCustomFieldAccess && (
-                <Link onClick={openEditModal}>
-                  <Text weight="semibold">Edit</Text>
-                </Link>
-              )}
+              {editLink}
             </Flex>
             <DataList data={displayFieldsObj} maxColumns={3} />
           </Box>
