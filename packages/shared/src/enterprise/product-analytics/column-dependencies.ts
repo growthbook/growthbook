@@ -116,7 +116,7 @@ export function explorationConfigReferencesColumn(
   if (config.type === "funnel") {
     const stepMatches = config.dataset.steps.some(
       (step) =>
-        step.factTable === factTableId &&
+        step.factTableId === factTableId &&
         step.rowFilters.some((f) =>
           rowFilterReferencesColumn(f, columnName, identifierQuote, filters),
         ),
@@ -126,7 +126,7 @@ export function explorationConfigReferencesColumn(
     // Dimensions on a funnel are evaluated against the funnel's fact tables, so
     // only scan them when this fact table participates in the funnel.
     const usesFactTable = config.dataset.steps.some(
-      (step) => step.factTable === factTableId,
+      (step) => step.factTableId === factTableId,
     );
     if (!usesFactTable) return false;
 

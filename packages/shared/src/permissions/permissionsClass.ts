@@ -1447,6 +1447,31 @@ export class Permissions {
     return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
   };
 
+  public canCreateLearning = (learning: { projects?: string[] }): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: learning.projects || [] },
+      "manageLearnings",
+    );
+  };
+
+  public canUpdateLearning = (
+    existing: { projects?: string[] },
+    updates: { projects?: string[] },
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.projects || [] },
+      { projects: updates.projects || [] },
+      "manageLearnings",
+    );
+  };
+
+  public canDeleteLearning = (learning: { projects?: string[] }): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: learning.projects || [] },
+      "manageLearnings",
+    );
+  };
+
   public canCreateConstant = (
     constant: Pick<ConstantInterface, "project">,
   ): boolean => {

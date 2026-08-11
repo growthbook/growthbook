@@ -217,7 +217,7 @@ const DataSourcePage: FC = () => {
       )}
       <Flex align="center" justify="between">
         <Flex align="center" gap="3">
-          <Heading as="h1" size="xl" mb="0">
+          <Heading as="h1" size="xl" overflowWrap="anywhere" mb="0">
             {d.name}
           </Heading>
           <Badge

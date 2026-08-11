@@ -2002,11 +2002,6 @@
       "count": 2
     }
   },
-  "packages/front-end/enterprise/components/ProductAnalytics/SideBar/GroupBySection.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/enterprise/components/ProductAnalytics/SideBar/MetricTabContent.tsx": {
     "no-restricted-syntax": {
       "count": 1
@@ -2110,14 +2105,6 @@
   },
   "packages/front-end/pages/interactions.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/learnings/index.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
       "count": 1
     }
   },

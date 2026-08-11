@@ -62,7 +62,10 @@ import {
   explorationDateRangeValidator,
   comparisonModeValidator,
 } from "shared/validators";
-import { operatorLabelMap } from "@/components/FactTables/rowFilterUtils";
+import {
+  operatorLabelMap,
+  getColumnInfo,
+} from "@/components/FactTables/rowFilterUtils";
 
 export { mapDatabaseTypeToEnum };
 
@@ -257,7 +260,7 @@ export function getFunnelStepPreview({
   allSteps?: FunnelStep[];
 }): string {
   const factTableLabel = showFactTable
-    ? (factTable?.name ?? step.factTable ?? "")
+    ? (factTable?.name ?? step.factTableId ?? "")
     : "";
   const complete = step.rowFilters.filter(isPreviewableFilter);
   const commonKeys = allSteps
@@ -370,18 +373,18 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
   }
 }
 
-/** Builds an empty funnel step. `factTable` is optional so the "Add step"
+/** Builds an empty funnel step. `factTableId` is optional so the "Add step"
  *  button can prefill from the previous step (the inherited default). */
 export function createEmptyFunnelStep({
   name,
-  factTable = "",
+  factTableId = "",
 }: {
   name: string;
-  factTable?: string;
+  factTableId?: string;
 }): FunnelStep {
   return {
     name,
-    factTable,
+    factTableId,
     rowFilters: [],
     optional: false,
   };
@@ -395,8 +398,8 @@ export function getFunnelUnitOptions(
 ): string[] {
   const factTablesForSteps = dataset.steps
     .map((s) =>
-      s.factTable
-        ? (factTables.find((ft) => ft.id === s.factTable) ?? null)
+      s.factTableId
+        ? (factTables.find((ft) => ft.id === s.factTableId) ?? null)
         : null,
     )
     .filter((ft): ft is FactTableDefinition => !!ft);
@@ -506,6 +509,22 @@ export function getCommonColumns(
         const ft = getFactTableById(factMetric.numerator.factTableId);
         valueColumns = ft?.columns || [];
         ft?.userIdTypes?.forEach((u) => userIdTypes.add(u));
+
+        // A ratio metric's denominator can live on a different fact table —
+        // only offer columns both sides can resolve, so a dimension can
+        // never be picked that a group-by query can't evaluate.
+        if (factMetric.denominator?.factTableId) {
+          const denominatorFt = getFactTableById(
+            factMetric.denominator.factTableId,
+          );
+          const denominatorColumnNames = new Set(
+            (denominatorFt?.columns || []).map((c) => c.column),
+          );
+          valueColumns = valueColumns.filter((c) =>
+            denominatorColumnNames.has(c.column),
+          );
+          denominatorFt?.userIdTypes?.forEach((u) => userIdTypes.add(u));
+        }
       }
 
       if (columns === null) {
@@ -525,8 +544,8 @@ export function getCommonColumns(
     }));
   } else if (dataset.type === "funnel") {
     const initialStep = dataset.steps[0];
-    const ft = initialStep?.factTable
-      ? getFactTableById(initialStep.factTable)
+    const ft = initialStep?.factTableId
+      ? getFactTableById(initialStep.factTableId)
       : null;
     columns = ft?.columns || [];
   }
@@ -556,6 +575,43 @@ export function getCommonColumns(
   return groupByColumns.sort((a, b) =>
     (a.name || a.column).localeCompare(b.name || b.column),
   );
+}
+
+/** Cached top values for a column (not dimension-specific — also usable for
+ *  filtering UI); empty for data_source datasets, which have no cached
+ *  column metadata. */
+export function getColumnTopValues(
+  dataset: ExplorationDataset | null,
+  column: string | null,
+  getFactTableById: (id: string) => FactTableDefinition | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): string[] {
+  if (!dataset || !column) return [];
+
+  if (dataset.type === "fact_table") {
+    const ft = getFactTableById(dataset.factTableId || "");
+    return ft ? getColumnInfo(ft, column).topValues : [];
+  }
+  if (dataset.type === "metric") {
+    const topValues = new Set<string>();
+    dataset.values.forEach((value) => {
+      const metric = getFactMetricById(value.metricId);
+      const ft = metric ? getFactTableById(metric.numerator.factTableId) : null;
+      if (ft) {
+        getColumnInfo(ft, column).topValues.forEach((v) => topValues.add(v));
+      }
+    });
+    return Array.from(topValues);
+  }
+  if (dataset.type === "funnel") {
+    const initialStep = dataset.steps[0];
+    const ft = initialStep?.factTableId
+      ? getFactTableById(initialStep.factTableId)
+      : null;
+    return ft ? getColumnInfo(ft, column).topValues : [];
+  }
+
+  return [];
 }
 
 export function getMaxDimensions(dataset: ExplorationDataset): number {
@@ -619,7 +675,8 @@ export function validateDimensions(
   const maxDims = getMaxDimensions(config.dataset);
 
   let validDimensions = config.dimensions.filter((d) => {
-    if (d.dimensionType !== "dynamic") return true;
+    if (d.dimensionType !== "dynamic" && d.dimensionType !== "static")
+      return true;
     if (columns.length === 0) return true;
     return columns.some((c) => c.column === d.column || d.column === null);
   });
@@ -670,7 +727,7 @@ export function fillMissingUnits(
     const steps = config.dataset.steps;
     if (!steps.length) return config;
     const factTables = steps
-      .map((s) => (s.factTable ? getFactTableById(s.factTable) : null))
+      .map((s) => (s.factTableId ? getFactTableById(s.factTableId) : null))
       .filter((ft): ft is FactTableDefinition => !!ft);
     if (factTables.length !== steps.length) return config;
     const intersection = factTables.reduce<string[] | null>((acc, ft) => {
@@ -780,7 +837,7 @@ export function removeIncompleteInputs(
   } else if (dataset.type === "funnel") {
     return {
       ...dataset,
-      steps: dataset.steps.filter((s) => !!s.factTable).map(cleanRowFilters),
+      steps: dataset.steps.filter((s) => !!s.factTableId).map(cleanRowFilters),
     };
   }
   return dataset;
@@ -954,7 +1011,7 @@ export function hasUnsatisfiedInlineFilters(
   }
   if (dataset.type === "funnel") {
     return dataset.steps.some((s) =>
-      stepHasUnsatisfied(s.factTable || null, s.rowFilters),
+      stepHasUnsatisfied(s.factTableId || null, s.rowFilters),
     );
   }
   return false;
@@ -977,13 +1034,13 @@ export function isSubmittableConfig(
     const { unit, steps } = cleanedConfig.dataset;
     if (!unit) return false;
     if (!Array.isArray(steps) || steps.length < 2) return false;
-    if (!steps.every((s) => !!s.factTable)) return false;
+    if (!steps.every((s) => !!s.factTableId)) return false;
     if (getFactTableById) {
       // Every step's fact table must expose the funnel-level unit as a
       // userIdType — otherwise per-user joins across steps are impossible.
       // We block submission rather than silently returning empty results.
       for (const step of steps) {
-        const ft = getFactTableById(step.factTable);
+        const ft = getFactTableById(step.factTableId);
         if (!ft) return false;
         if (!ft.userIdTypes?.includes(unit)) return false;
       }
@@ -1017,6 +1074,14 @@ export function isSubmittableConfig(
   if (
     cleanedConfig.dateRange.predefined === "customDateRange" &&
     (!cleanedConfig.dateRange.startDate || !cleanedConfig.dateRange.endDate)
+  ) {
+    return false;
+  }
+
+  if (
+    cleanedConfig.dimensions.some(
+      (d) => d.dimensionType === "static" && d.values.length === 0,
+    )
   ) {
     return false;
   }

@@ -175,6 +175,31 @@ export class AnalyticsExplorationModel extends BaseClass {
     };
   }
 
+  public static migrateFunnelSteps(
+    steps: Record<string, unknown>[],
+  ): Record<string, unknown>[] {
+    return steps.map((s) => {
+      if ("factTable" in s && !("factTableId" in s)) {
+        const { factTable, ...rest } = s;
+        return { ...rest, factTableId: factTable };
+      }
+      return s;
+    });
+  }
+
+  protected migrate(legacyDoc: unknown): ProductAnalyticsExploration {
+    const doc = { ...(legacyDoc as ProductAnalyticsExploration) };
+    if (doc.config?.dataset?.type === "funnel") {
+      const { dataset } = doc.config;
+      if (dataset.steps.some((s) => !("factTableId" in s))) {
+        dataset.steps = AnalyticsExplorationModel.migrateFunnelSteps(
+          dataset.steps as unknown as Record<string, unknown>[],
+        ) as typeof dataset.steps;
+      }
+    }
+    return doc;
+  }
+
   protected canRead(doc: ProductAnalyticsExploration): boolean {
     const { datasource } = this.getForeignRefs(doc);
     return this.context.permissions.canReadMultiProjectResource(
