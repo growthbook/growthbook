@@ -2,8 +2,10 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
+  MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
 import { FunnelFactMetricInterface } from "shared/types/fact-table";
+import { funnelStepMetricId } from "shared/experiments";
 import { ExperimentInterface } from "shared/validators";
 import {
   getMetricSettingsHash,
@@ -507,6 +509,52 @@ describe("getMetricSettingsHash funnel settings", () => {
         new Map([[factTable.id, factTable]]),
       ),
     ).not.toEqual(originalHash);
+  });
+
+  it("hashes a funnel step against its parent definition", () => {
+    const stepId = funnelStepMetricId(metric.id, 0);
+    const originalHash = getMetricSettingsHash(
+      stepId,
+      undefined,
+      [metric],
+      new Map([[factTable.id, factTable]]),
+    );
+    const changedMetric: FunnelFactMetricInterface = {
+      ...metric,
+      funnelSettings: {
+        ...metric.funnelSettings,
+        steps: metric.funnelSettings.steps.map((step, index) =>
+          index === 1
+            ? { ...step, conversionWindow: { unit: "hours", value: 48 } }
+            : step,
+        ),
+      },
+    };
+
+    // Step 0's own definition is untouched, but the funnel it comes from
+    // changed, so the step is flagged too rather than silently continuing.
+    expect(
+      getMetricSettingsHash(
+        stepId,
+        undefined,
+        [changedMetric],
+        new Map([[factTable.id, factTable]]),
+      ),
+    ).not.toEqual(originalHash);
+  });
+
+  it("keeps the steps of one funnel distinct from each other", () => {
+    const hashForStep = (stepIndex: number) => {
+      const id = funnelStepMetricId(metric.id, stepIndex);
+      return getMetricSettingsHash(
+        id,
+        { id } as MetricForSnapshot,
+        [metric],
+        new Map([[factTable.id, factTable]]),
+      );
+    };
+
+    expect(hashForStep(0)).not.toEqual(hashForStep(1));
   });
 
   it("changes when a referenced saved filter changes", () => {
