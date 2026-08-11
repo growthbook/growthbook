@@ -35,7 +35,7 @@ const CustomFieldInput: FC<{
   };
 
   return (
-    <Flex direction="column" gap="6" my="2" className={className}>
+    <Flex direction="column" gap="4" mt="4" className={className}>
       {!fields.length ? (
         <Text align="center" color="text-low">
           No fields available for this experiment or project
