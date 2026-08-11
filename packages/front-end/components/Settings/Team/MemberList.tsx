@@ -10,7 +10,7 @@ import {
   getEffectiveRolesForProject,
   getRoleDisplayName,
 } from "shared/permissions";
-import { roleHasAccessToEnv, useAuth } from "@/services/auth";
+import { memberEnvAccess, useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import Callout from "@/ui/Callout";
@@ -321,10 +321,11 @@ const MemberList: FC<{
                     </TableCell>
                   )}
                   {environments.map((env) => {
-                    const access = roleHasAccessToEnv(
-                      roleInfo,
-                      env.id,
+                    const access = memberEnvAccess(
+                      member,
+                      env,
                       organization,
+                      project,
                     );
                     return (
                       <TableCell key={env.id}>

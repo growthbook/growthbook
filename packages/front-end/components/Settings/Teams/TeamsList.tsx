@@ -10,7 +10,7 @@ import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useEnvironments } from "@/services/features";
-import { roleHasAccessToEnv, useAuth } from "@/services/auth";
+import { memberEnvAccess, useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
@@ -107,7 +107,7 @@ const TeamsList: FC = () => {
                       })}
                   </TableCell>
                   {environments.map((env) => {
-                    const access = roleHasAccessToEnv(t, env.id, organization);
+                    const access = memberEnvAccess(t, env, organization, "");
                     return (
                       <TableCell key={env.id}>
                         {access === "N/A" ? (

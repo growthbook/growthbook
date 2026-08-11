@@ -5,7 +5,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { date, datetime } from "shared/dates";
 import { getRoleDisplayName } from "shared/permissions";
 import { Box, IconButton } from "@radix-ui/themes";
-import { roleHasAccessToEnv, useAuth } from "@/services/auth";
+import { memberEnvAccess, useAuth } from "@/services/auth";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useEnvironments } from "@/services/features";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -192,10 +192,11 @@ const InviteList: FC<{
                   </TableCell>
                 )}
                 {environments.map((env) => {
-                  const access = roleHasAccessToEnv(
-                    roleInfo,
-                    env.id,
+                  const access = memberEnvAccess(
+                    member,
+                    env,
                     organization,
+                    project,
                   );
                   return (
                     <TableCell key={env.id}>
