@@ -3,11 +3,11 @@ import {
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
-import { GrowthbookClickhouseDataSourceWithParams } from "shared/types/datasource";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { FeatureInterface } from "shared/types/feature";
 import { getLatestSDKVersion } from "shared/sdk-versioning";
 import { PiPackage } from "react-icons/pi";
+import { getEventIngestorRegion } from "@/services/dataRegions";
 import Link from "@/ui/Link";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -108,10 +108,7 @@ export default function CodeSnippetModal({
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
   const { datasources } = useDefinitions();
-  const managedWarehouseRegion = datasources.find(
-    (d): d is GrowthbookClickhouseDataSourceWithParams =>
-      d.type === "growthbook_clickhouse",
-  )?.settings?.region;
+  const eventIngestorRegion = getEventIngestorRegion(datasources);
 
   const permissionsUtil = usePermissionsUtil();
   const canUpdate = currentConnection
@@ -419,7 +416,7 @@ export default function CodeSnippetModal({
                     apiKey={clientKey}
                     encryptionKey={encryptionKey}
                     remoteEvalEnabled={remoteEvalEnabled}
-                    managedWarehouseRegion={managedWarehouseRegion}
+                    eventIngestorRegion={eventIngestorRegion}
                   />
                   {languageMapping[language]?.packageUrl && (
                     <div className="mt-3">
@@ -467,7 +464,7 @@ export default function CodeSnippetModal({
                     remoteEvalEnabled={remoteEvalEnabled}
                     eventTracker={eventTracker}
                     setEventTracker={updateEventTracker}
-                    managedWarehouseRegion={managedWarehouseRegion}
+                    eventIngestorRegion={eventIngestorRegion}
                   />
                 </div>
               )}

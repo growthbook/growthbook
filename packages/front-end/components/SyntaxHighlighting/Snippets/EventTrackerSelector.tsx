@@ -5,7 +5,7 @@ import RadioGroup from "@/ui/RadioGroup";
 import Text from "@/ui/Text";
 
 const eventTrackerOptions = [
-  { label: "GrowthBook Managed Warehouse", value: "growthbook" },
+  { label: "GrowthBook", value: "growthbook" },
   { label: "Google Analytics 4", value: "GA4" },
   { label: "Google Analytics 4 via GTM", value: "GTM" },
   { label: "Segment.io", value: "segment" },
