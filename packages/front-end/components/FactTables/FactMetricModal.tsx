@@ -2107,7 +2107,9 @@ function StandardFactMetricModal({
                           {
                             name: "Step 1",
                             factTableId,
-                            rowFilters: [],
+                            rowFilters: numeratorFactTable
+                              ? getInitialInlineFilters(numeratorFactTable)
+                              : [],
                             optional: false,
                           },
                         ],

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlus, PiX } from "react-icons/pi";
 import {
@@ -15,7 +16,6 @@ import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
-import Text from "@/ui/Text";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 
@@ -44,7 +44,21 @@ export default function FunnelStepsInput({
   // v1 constraint: every step reads from one shared fact table, chosen once in
   // the top-level selector and written to every step.
   const sharedFactTableId = value.steps[0]?.factTableId || "";
+  const sharedFactTable = getFactTableById(sharedFactTableId);
   const { factTable: fullFactTable } = useFullFactTable(sharedFactTableId);
+
+  useEffect(() => {
+    if (!sharedFactTable || sharedFactTable.datasource === datasource) return;
+
+    setValue({
+      ...value,
+      steps: value.steps.map((step) => ({
+        ...step,
+        factTableId: "",
+        rowFilters: [],
+      })),
+    });
+  }, [datasource, setValue, sharedFactTable, value]);
 
   const factTableOptions = factTables
     .filter((t) => t.datasource === datasource)
@@ -110,128 +124,133 @@ export default function FunnelStepsInput({
           {/* v1 constraint: all steps read from one shared fact table. Step 1
               owns the picker; later steps show it disabled and inherit that
               choice. */}
-          <Box mb="3">
-            <SelectField
-              size="medium"
-              label={i === 0 ? "Fact Table" : "Fact Table (inherited)"}
-              disabled={i !== 0 || !!initialFactTable}
-              value={sharedFactTableId}
-              options={factTableOptions}
-              formatOptionLabel={({ value: id, label }) => {
-                const factTable = getFactTableById(id);
-                if (factTable) {
-                  return (
-                    <>
-                      {factTable.name}
-                      <OfficialBadge
-                        managedBy={factTable.managedBy}
-                        type="fact table"
-                      />
-                    </>
-                  );
-                }
-                return label;
-              }}
-              onChange={(factTableId) => {
-                const newFactTable = getFactTableById(factTableId);
-                if (!newFactTable) return;
+          <Flex>
+            <Box>
+              <SelectField
+                size="small"
+                label="Fact Table"
+                disabled={i !== 0 || !!initialFactTable}
+                value={sharedFactTableId}
+                options={factTableOptions}
+                formatOptionLabel={({ value: id, label }) => {
+                  const factTable = getFactTableById(id);
+                  if (factTable) {
+                    return (
+                      <>
+                        {factTable.name}
+                        <OfficialBadge
+                          managedBy={factTable.managedBy}
+                          type="fact table"
+                        />
+                      </>
+                    );
+                  }
+                  return label;
+                }}
+                onChange={(factTableId) => {
+                  const newFactTable = getFactTableById(factTableId);
+                  if (!newFactTable) return;
 
-                // Repointing Step 1's fact table repoints every step and drops
-                // each step's filters, whose columns no longer apply.
-                setValue({
-                  ...value,
-                  steps: value.steps.map((s) => ({
-                    ...s,
-                    factTableId,
-                    rowFilters: getInitialInlineFilters(newFactTable, []),
-                  })),
-                });
-              }}
-              placeholder="Select..."
-              required
-            />
-          </Box>
-
-          <Field
-            size="md"
-            label="Step name"
-            value={step.name}
-            onChange={(e) => updateStep(i, { name: e.target.value })}
-            required
-          />
-
-          {fullFactTable && (
-            <Box mb="3">
-              <RowFilterInput
-                factTable={fullFactTable}
-                value={step.rowFilters || []}
-                setValue={(rowFilters) => updateStep(i, { rowFilters })}
+                  // Repointing Step 1's fact table repoints every step and drops
+                  // each step's filters, whose columns no longer apply.
+                  setValue({
+                    ...value,
+                    steps: value.steps.map((s) => ({
+                      ...s,
+                      factTableId,
+                      rowFilters: getInitialInlineFilters(newFactTable, []),
+                    })),
+                  });
+                }}
+                placeholder="Select..."
+                required
               />
             </Box>
+          </Flex>
+
+          {sharedFactTableId && (
+            <>
+              <Field
+                size="md"
+                label="Step name"
+                value={step.name}
+                onChange={(e) => updateStep(i, { name: e.target.value })}
+                required
+              />
+
+              {fullFactTable && (
+                <Box mb="3">
+                  <RowFilterInput
+                    factTable={fullFactTable}
+                    value={step.rowFilters || []}
+                    setValue={(rowFilters) => updateStep(i, { rowFilters })}
+                  />
+                </Box>
+              )}
+
+              <Box mt="2" mb="3">
+                <Checkbox
+                  label="Optional step"
+                  value={step.optional}
+                  setValue={(v) => updateStep(i, { optional: v === true })}
+                />
+              </Box>
+
+              <Box mb="3">
+                <Checkbox
+                  label="Conversion window"
+                  description={
+                    step.conversionWindow
+                      ? i === 0
+                        ? "Maximum time after exposure to reach this step."
+                        : "Must occur within this time of the nearest required prior step."
+                      : undefined
+                  }
+                  value={!!step.conversionWindow}
+                  setValue={(v) =>
+                    setConversionWindow(
+                      i,
+                      v === true ? { value: 1, unit: "days" } : null,
+                    )
+                  }
+                />
+                {/* pl matches the checkbox width + gap so the fields align
+                    with the description text above. */}
+                {step.conversionWindow && (
+                  <Flex align="center" gap="2" mt="2" pl="5">
+                    <Field
+                      size="md"
+                      type="number"
+                      min={1}
+                      value={step.conversionWindow.value}
+                      onChange={(e) =>
+                        setConversionWindow(i, {
+                          value: Math.max(
+                            1,
+                            Number(e.currentTarget.value) || 1,
+                          ),
+                        })
+                      }
+                      containerStyle={{ marginBottom: 0, width: 80 }}
+                    />
+                    <SelectField
+                      size="small"
+                      value={step.conversionWindow.unit}
+                      options={CONVERSION_WINDOW_UNITS.map((u) => ({
+                        label: u,
+                        value: u,
+                      }))}
+                      onChange={(unit) =>
+                        setConversionWindow(i, {
+                          unit: unit as ConversionWindow["unit"],
+                        })
+                      }
+                    />
+                  </Flex>
+                )}
+              </Box>
+            </>
           )}
-
-          <Box mt="2" mb="3">
-            <Checkbox
-              label="Optional step"
-              value={step.optional}
-              setValue={(v) => updateStep(i, { optional: v === true })}
-            />
-          </Box>
-
-          <Box mb="3">
-            <Text as="div" weight="medium">
-              Conversion window
-            </Text>
-            <Text as="div" size="sm" color="text-low" mb="2">
-              {i === 0
-                ? "Maximum time after exposure to reach this step."
-                : "Must occur within this time of the nearest required prior step."}
-            </Text>
-            {step.conversionWindow ? (
-              <Flex align="center" gap="2">
-                <Field
-                  size="md"
-                  type="number"
-                  min={1}
-                  value={step.conversionWindow.value}
-                  onChange={(e) =>
-                    setConversionWindow(i, {
-                      value: Math.max(1, Number(e.currentTarget.value) || 1),
-                    })
-                  }
-                  containerStyle={{ marginBottom: 0, width: 80 }}
-                />
-                <SelectField
-                  size="small"
-                  value={step.conversionWindow.unit}
-                  options={CONVERSION_WINDOW_UNITS.map((u) => ({
-                    label: u,
-                    value: u,
-                  }))}
-                  onChange={(unit) =>
-                    setConversionWindow(i, {
-                      unit: unit as ConversionWindow["unit"],
-                    })
-                  }
-                />
-                <Button
-                  variant="ghost"
-                  onClick={() => setConversionWindow(i, null)}
-                >
-                  Clear
-                </Button>
-              </Flex>
-            ) : (
-              <Button
-                variant="ghost"
-                onClick={() =>
-                  setConversionWindow(i, { value: 1, unit: "days" })
-                }
-              >
-                <PiPlus /> Set conversion window
-              </Button>
-            )}
-          </Box>
         </Box>
       ))}
 
@@ -247,7 +266,9 @@ export default function FunnelStepsInput({
                 {
                   name: `Step ${value.steps.length + 1}`,
                   factTableId: sharedFactTableId,
-                  rowFilters: [],
+                  rowFilters: sharedFactTable
+                    ? getInitialInlineFilters(sharedFactTable)
+                    : [],
                   optional: false,
                 },
               ],
