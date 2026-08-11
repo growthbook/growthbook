@@ -71,7 +71,7 @@ const factTableById = (id: string): FactTableInterface | null => {
 
 function makeFunnelConfig(overrides: {
   unit?: string | null;
-  steps?: { factTable: string }[];
+  steps?: { factTableId: string }[];
 }): ExplorationConfig {
   return {
     type: "funnel",
@@ -91,10 +91,13 @@ function makeFunnelConfig(overrides: {
       // default — `null ?? default` would replace it.
       unit: "unit" in overrides ? (overrides.unit ?? null) : "user_id",
       steps: (
-        overrides.steps ?? [{ factTable: "orders" }, { factTable: "orders" }]
+        overrides.steps ?? [
+          { factTableId: "orders" },
+          { factTableId: "orders" },
+        ]
       ).map((s, i) => ({
         name: `Step ${i + 1}`,
-        factTable: s.factTable,
+        factTableId: s.factTableId,
         rowFilters: [],
         optional: false,
       })),
@@ -110,7 +113,7 @@ describe("ProductAnalytics util — funnel branches", () => {
       expect(dataset.steps).toHaveLength(1);
       expect(dataset.steps[0]).toEqual({
         name: "Step 1",
-        factTable: "",
+        factTableId: "",
         rowFilters: [],
         optional: false,
       });
@@ -121,10 +124,10 @@ describe("ProductAnalytics util — funnel branches", () => {
   describe("createEmptyFunnelStep", () => {
     it("prefills the fact-table id when one is supplied (inherited steps)", () => {
       expect(
-        createEmptyFunnelStep({ name: "Step 2", factTable: "orders" }),
+        createEmptyFunnelStep({ name: "Step 2", factTableId: "orders" }),
       ).toEqual({
         name: "Step 2",
-        factTable: "orders",
+        factTableId: "orders",
         rowFilters: [],
         optional: false,
       });
@@ -139,13 +142,13 @@ describe("ProductAnalytics util — funnel branches", () => {
         steps: [
           {
             name: "Step 1",
-            factTable: "orders",
+            factTableId: "orders",
             rowFilters: [],
             optional: false,
           },
           {
             name: "Step 2",
-            factTable: "",
+            factTableId: "",
             rowFilters: [],
             optional: false,
           },
@@ -154,13 +157,13 @@ describe("ProductAnalytics util — funnel branches", () => {
       const cleaned = removeIncompleteInputs(dataset);
       if (cleaned.type !== "funnel") throw new Error("type narrowing");
       expect(cleaned.steps).toHaveLength(1);
-      expect(cleaned.steps[0].factTable).toBe("orders");
+      expect(cleaned.steps[0].factTableId).toBe("orders");
     });
   });
 
   describe("isSubmittableConfig", () => {
     it("rejects funnels with fewer than 2 steps", () => {
-      const config = makeFunnelConfig({ steps: [{ factTable: "orders" }] });
+      const config = makeFunnelConfig({ steps: [{ factTableId: "orders" }] });
       expect(isSubmittableConfig(config, factTableById)).toBe(false);
     });
 
@@ -172,7 +175,7 @@ describe("ProductAnalytics util — funnel branches", () => {
     it("rejects funnels whose unit isn't a userIdType on every step's fact table", () => {
       const config = makeFunnelConfig({
         unit: "user_id",
-        steps: [{ factTable: "orders" }, { factTable: "visits" }],
+        steps: [{ factTableId: "orders" }, { factTableId: "visits" }],
       });
       // visits doesn't expose user_id as a userIdType.
       expect(isSubmittableConfig(config, factTableById)).toBe(false);
@@ -181,7 +184,7 @@ describe("ProductAnalytics util — funnel branches", () => {
     it("accepts a well-formed two-step funnel", () => {
       const config = makeFunnelConfig({
         unit: "user_id",
-        steps: [{ factTable: "orders" }, { factTable: "orders" }],
+        steps: [{ factTableId: "orders" }, { factTableId: "orders" }],
       });
       expect(isSubmittableConfig(config, factTableById)).toBe(true);
     });
@@ -189,9 +192,9 @@ describe("ProductAnalytics util — funnel branches", () => {
 
   describe("hasSubmittablePayload", () => {
     it("requires ≥2 steps for funnels", () => {
-      const single = makeFunnelConfig({ steps: [{ factTable: "orders" }] });
+      const single = makeFunnelConfig({ steps: [{ factTableId: "orders" }] });
       const pair = makeFunnelConfig({
-        steps: [{ factTable: "orders" }, { factTable: "orders" }],
+        steps: [{ factTableId: "orders" }, { factTableId: "orders" }],
       });
       expect(hasSubmittablePayload(single)).toBe(false);
       expect(hasSubmittablePayload(pair)).toBe(true);
