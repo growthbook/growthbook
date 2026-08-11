@@ -199,9 +199,14 @@ export default function IdLists({ groups, mutate }: Props) {
           <Heading size="6" mb="0">
             ID Lists
           </Heading>
-          {canCreate ? (
-            <Button onClick={() => setSavedGroupForm({})}>Add ID List</Button>
-          ) : null}
+          <Tooltip
+            body="You do not have permission to create Saved Groups."
+            shouldDisplay={!canCreate}
+          >
+            <Button disabled={!canCreate} onClick={() => setSavedGroupForm({})}>
+              Add ID List
+            </Button>
+          </Tooltip>
         </Flex>
         <p className="text-gray mb-1">
           Specify a list of values to include for an attribute.
