@@ -93,6 +93,13 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     ) {
       throw new Error("Must specify a project");
     }
+    if (
+      req.context.org.settings?.requireDescriptionForFeatures &&
+      description != null &&
+      !description.trim()
+    ) {
+      throw new Error("Must specify a description");
+    }
 
     if (project != null) {
       if (

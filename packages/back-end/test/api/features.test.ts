@@ -664,6 +664,155 @@ describe("features API", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // requireDescriptionForFeatures
+  // ---------------------------------------------------------------------------
+
+  describe("requireDescriptionForFeatures enabled", () => {
+    const requireDescContext = (overrides: Record<string, unknown> = {}) =>
+      defaultContext({
+        org: {
+          ...org,
+          settings: { ...org.settings, requireDescriptionForFeatures: true },
+        },
+        ...overrides,
+      });
+
+    it("fails to create new features without a description", async () => {
+      requireDescContext();
+
+      const response = await request(app)
+        .post("/api/v1/features")
+        .send({
+          defaultValue: "defaultValue",
+          valueType: "string",
+          owner: "owner",
+          description: "",
+          project: "project",
+          id: "id",
+          archived: false,
+          tags: ["tag"],
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        message: "Must specify a description for new features",
+      });
+    });
+
+    it("fails to create new features with whitespace-only description", async () => {
+      requireDescContext();
+
+      const response = await request(app)
+        .post("/api/v1/features")
+        .send({
+          defaultValue: "defaultValue",
+          valueType: "string",
+          owner: "owner",
+          description: "   ",
+          project: "project",
+          id: "id",
+          archived: false,
+          tags: [],
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        message: "Must specify a description for new features",
+      });
+    });
+
+    it("fails to create new features when description is omitted", async () => {
+      requireDescContext();
+
+      const response = await request(app).post("/api/v1/features").send({
+        defaultValue: "defaultValue",
+        valueType: "string",
+        owner: "owner",
+        project: "project",
+        id: "id",
+        archived: false,
+        tags: [],
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        message: "Must specify a description for new features",
+      });
+    });
+
+    it("succeeds when a description is provided", async () => {
+      requireDescContext();
+
+      const response = await request(app).post("/api/v1/features").send({
+        defaultValue: "defaultValue",
+        valueType: "string",
+        owner: "owner",
+        description: "This flag controls the new checkout flow",
+        project: "project",
+        id: "id",
+        archived: false,
+        tags: [],
+      });
+
+      expect(response.status).toBe(200);
+    });
+
+    it("fails to update a feature when description is whitespace-only", async () => {
+      requireDescContext();
+
+      const existingFeature = makeFeature({ description: "existing desc" });
+      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+
+      const response = await request(app)
+        .post(`/api/v1/features/${existingFeature.id}`)
+        .send({ description: "   " });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ message: "Must specify a description" });
+    });
+
+    it("fails to update a feature when description is cleared", async () => {
+      requireDescContext();
+
+      const existingFeature = makeFeature({ description: "existing desc" });
+      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+
+      const response = await request(app)
+        .post(`/api/v1/features/${existingFeature.id}`)
+        .send({ description: "" });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ message: "Must specify a description" });
+    });
+
+    it("allows updating a feature without touching description", async () => {
+      requireDescContext();
+
+      const existingFeature = makeFeature({ description: "existing desc" });
+      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+
+      const response = await request(app)
+        .post(`/api/v1/features/${existingFeature.id}`)
+        .send({ tags: ["new-tag"] });
+
+      expect(response.status).toBe(200);
+    });
+
+    it("allows updating description to a new non-empty value", async () => {
+      requireDescContext();
+
+      const existingFeature = makeFeature({ description: "old desc" });
+      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+
+      const response = await request(app)
+        .post(`/api/v1/features/${existingFeature.id}`)
+        .send({ description: "updated description" });
+
+      expect(response.status).toBe(200);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // nextScheduledUpdate
   // ---------------------------------------------------------------------------
 

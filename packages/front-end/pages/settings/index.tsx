@@ -14,6 +14,7 @@ import {
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
+  DEFAULT_REQUIRE_DESCRIPTION_FOR_FEATURES,
   DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
   DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_LEARNING_STATUSES,
@@ -222,6 +223,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
       requireProjectForFeatures:
         settings.requireProjectForFeatures ??
         DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
+      requireDescriptionForFeatures:
+        settings.requireDescriptionForFeatures ??
+        DEFAULT_REQUIRE_DESCRIPTION_FOR_FEATURES,
       requireProjectForSdkConnections:
         settings.requireProjectForSdkConnections ??
         DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
