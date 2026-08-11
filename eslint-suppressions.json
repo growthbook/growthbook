@@ -4,11 +4,6 @@
       "count": 1
     }
   },
-  "packages/back-end/src/services/features.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Admin/EditOrganization.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -2010,11 +2005,6 @@
       "count": 2
     }
   },
-  "packages/front-end/enterprise/components/ProductAnalytics/SideBar/GroupBySection.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/enterprise/components/ProductAnalytics/SideBar/MetricTabContent.tsx": {
     "no-restricted-syntax": {
       "count": 1
@@ -2121,14 +2111,6 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/learnings/index.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/metric-effects.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -2207,11 +2189,6 @@
   },
   "packages/front-end/services/auth.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/shared/src/util/features.ts": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 1
     }
   },
