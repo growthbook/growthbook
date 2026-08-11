@@ -80,8 +80,7 @@ export type ConversionWindow = z.infer<typeof conversionWindowValidator>;
 export const funnelStepValidator = z.object({
   // Display name shown in the sidebar / chart / table.
   name: z.string(),
-  // Id of the fact table the step's events come from.
-  factTable: z.string(),
+  factTableId: z.string(),
   // Filters that decide whether an event row counts as this step.
   rowFilters: z.array(rowFilterValidator),
   // Ignored for the initial step. When true, the step is allowed to be
@@ -155,6 +154,8 @@ export const dynamicDimensionValidator = z.object({
 export const staticDimensionValidator = z.object({
   dimensionType: z.literal("static"),
   column: z.string(),
+  // Unbounded so this can parse older saved/URL-encoded explorations too;
+  // the editor enforces the 20-value cap.
   values: z.array(z.string()),
 });
 
@@ -189,14 +190,29 @@ export const chartTypes = [
 
 export const dateRangePredefined = [
   "today",
+  "yesterday",
   "last7Days",
   "last30Days",
   "last90Days",
+  "last12Months",
+  "lastCalendarYear",
   "customLookback",
   "customDateRange",
 ] as const;
 
 export const lookbackUnit = ["hour", "day", "week", "month"] as const;
+
+// Order drives the option order in the comparison-mode pickers.
+export const comparisonMode = [
+  "previousPeriod",
+  "previousPeriodMatchDayOfWeek",
+  "previousYear",
+  "previousYearMatchDayOfWeek",
+  "custom",
+] as const;
+
+export const comparisonModeValidator = z.enum(comparisonMode);
+export type ComparisonMode = z.infer<typeof comparisonModeValidator>;
 
 export const showAsValidator = z.enum(["total", "per_unit"]);
 export type ShowAs = z.infer<typeof showAsValidator>;
@@ -365,6 +381,9 @@ export type ProductAnalyticsDimension = z.infer<typeof dimensionValidator>;
 export type ProductAnalyticsDynamicDimension = z.infer<
   typeof dynamicDimensionValidator
 >;
+export type ProductAnalyticsStaticDimension = z.infer<
+  typeof staticDimensionValidator
+>;
 export type ProductAnalyticsResult = z.infer<
   typeof productAnalyticsResultValidator
 >;
@@ -379,6 +398,9 @@ export const productAnalyticsRunRequestBodyValidator = z
   .object({
     config: explorationConfigValidator,
     previousTimeFrame: explorationDateRangeValidator.optional(),
+    // The client sends the already-resolved window, so this is only used to pick
+    // how the two periods' rows are paired.
+    comparisonMode: comparisonModeValidator.optional(),
   })
   .strict();
 

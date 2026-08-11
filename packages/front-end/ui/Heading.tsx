@@ -12,6 +12,7 @@ type HeadingWhiteSpace =
   | "pre-wrap"
   | "pre-line"
   | "break-spaces";
+type HeadingOverflowWrap = "normal" | "anywhere" | "break-word";
 // NB: We might need to expand this to support RadixHeadingProps["color"], but being conservative for now.
 type HeadingColors = "text-high" | "text-mid" | "text-low";
 
@@ -40,6 +41,7 @@ export interface HeadingProps {
   align?: HeadingAlign;
   title?: string;
   whiteSpace?: HeadingWhiteSpace;
+  overflowWrap?: HeadingOverflowWrap;
   textTransform?: "uppercase" | "lowercase" | "capitalize";
 
   // Margin props
@@ -61,6 +63,7 @@ export default function Heading({
   align = "left",
   title,
   whiteSpace,
+  overflowWrap = "normal",
   textTransform,
   m,
   mx,
@@ -70,7 +73,7 @@ export default function Heading({
   mb,
   ml,
 }: HeadingProps) {
-  const style: React.CSSProperties = {};
+  const style: React.CSSProperties = { overflowWrap };
   if (whiteSpace) style.whiteSpace = whiteSpace;
   if (textTransform) style.textTransform = textTransform;
 
