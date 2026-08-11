@@ -13,6 +13,8 @@ import {
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
   isMetricGroupId,
+  isFactFunnelMetric,
+  funnelStepMetricId,
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -390,10 +392,19 @@ export function useExperimentDimensionRows({
         sortDirection: sortDirection || "desc",
       };
 
-      return tables.map((table) => ({
-        ...table,
-        rows: [...table.rows].sort((a, b) => compareRows(a, b, sortOptions)),
-      }));
+      // A funnel table's rows are dimension-value groups with per-step child
+      // rows beneath each; a flat sort would tear that grouping apart, so leave
+      // funnel tables in their emitted order.
+      return tables.map((table) =>
+        isFactFunnelMetric(table.metric)
+          ? table
+          : {
+              ...table,
+              rows: [...table.rows].sort((a, b) =>
+                compareRows(a, b, sortOptions),
+              ),
+            },
+      );
     }
 
     return tables;
@@ -470,30 +481,60 @@ export function generateDimensionRowsForMetric({
 }): ExperimentTableRow[] {
   const filteredResults = includeVariation(results, dimensionValuesFilter);
 
+  const funnelSteps = isFactFunnelMetric(newMetric)
+    ? newMetric.funnelSettings.steps
+    : [];
+
+  const noData = () => ({ users: 0, value: 0, cr: 0, errorMessage: "No data" });
+
   const rows: ExperimentTableRow[] = [];
 
-  // Create a row for each dimension result
+  // One row per dimension result. For a funnel metric the dimension value is
+  // the parent (whole-funnel completion) and each step follows as a child row,
+  // mirroring the overall table's nesting one level deeper.
   filteredResults.forEach((dimensionResult) => {
-    const row: ExperimentTableRow = {
+    const parentRow: ExperimentTableRow = {
       label: dimensionResult.name,
       metric: newMetric,
       metricOverrideFields: overrideFields,
       rowClass: newMetric?.inverse ? "inverse" : "",
-      variations: dimensionResult.variations.map((v) => {
-        return (
-          v.metrics?.[metricId] || {
-            users: 0,
-            value: 0,
-            cr: 0,
-            errorMessage: "No data",
-          }
-        );
-      }),
+      variations: dimensionResult.variations.map(
+        (v) => v.metrics?.[metricId] || noData(),
+      ),
       metricSnapshotSettings,
       resultGroup,
     };
 
-    rows.push(row);
+    if (!funnelSteps.length) {
+      rows.push(parentRow);
+      return;
+    }
+
+    const parentRowId = `${metricId}:${dimensionResult.name}`;
+    parentRow.numChildren = funnelSteps.length;
+    rows.push(parentRow);
+
+    funnelSteps.forEach((step, stepIndex) => {
+      const stepMetricId = funnelStepMetricId(metricId, stepIndex);
+      rows.push({
+        label: step.name,
+        metric: newMetric,
+        metricOverrideFields: overrideFields,
+        rowClass: newMetric?.inverse ? "inverse" : "",
+        variations: dimensionResult.variations.map(
+          (v) => v.metrics?.[stepMetricId] || noData(),
+        ),
+        metricSnapshotSettings,
+        resultGroup,
+        numChildren: 0,
+        isChildRow: true,
+        childRowType: "funnelStep",
+        funnelStepIndex: stepIndex,
+        funnelStepOptional: step.optional,
+        parentRowId,
+        isHiddenByFilter: false,
+      });
+    });
   });
 
   return rows;
