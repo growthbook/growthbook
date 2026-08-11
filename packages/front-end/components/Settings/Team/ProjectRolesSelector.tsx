@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
 import { ProjectMemberRole } from "shared/types/organization";
 import { getDefaultRole } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
@@ -6,6 +7,7 @@ import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Text from "@/ui/Text";
+import Button from "@/ui/Button";
 import SingleRoleSelector from "./SingleRoleSelector";
 
 export default function ProjectRolesSelector({
@@ -77,8 +79,8 @@ export default function ProjectRolesSelector({
         </div>
       ))}
       {unusedProjects.length > 0 && (
-        <div className="row">
-          <div className="col">
+        <Flex gap="3" align="start">
+          <Box flexGrow="1">
             <SelectField
               size="legacy"
               value={newProject}
@@ -90,30 +92,27 @@ export default function ProjectRolesSelector({
               }))}
               disabled={!hasFeature}
             />
-          </div>
-          <div className="col-auto">
-            <button
-              className="btn btn-outline-primary"
-              disabled={!newProject || !hasFeature}
-              onClick={(e) => {
-                e.preventDefault();
-                if (!newProject) return;
+          </Box>
+          <Button
+            variant="outline"
+            disabled={!newProject || !hasFeature}
+            onClick={() => {
+              if (!newProject) return;
 
-                const newProjectRoles: ProjectMemberRole[] = [...projectRoles];
-                newProjectRoles.push({
-                  project: newProject,
-                  role: defaultRole.role,
-                  limitAccessByEnvironment: false,
-                  environments: [],
-                });
-                setProjectRoles(newProjectRoles);
-                setNewProject("");
-              }}
-            >
-              Add Project Role
-            </button>
-          </div>
-        </div>
+              const newProjectRoles: ProjectMemberRole[] = [...projectRoles];
+              newProjectRoles.push({
+                project: newProject,
+                role: defaultRole.role,
+                limitAccessByEnvironment: false,
+                environments: [],
+              });
+              setProjectRoles(newProjectRoles);
+              setNewProject("");
+            }}
+          >
+            Add Project Role
+          </Button>
+        </Flex>
       )}
     </>
   );
