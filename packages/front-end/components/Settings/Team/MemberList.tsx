@@ -258,10 +258,22 @@ const MemberList: FC<{
                       {member.email}
                     </Flex>
                   </TableCell>
-                  <TableCell>
-                    {member.dateCreated && datetime(member.dateCreated)}
+                  <TableCell
+                    title={
+                      member.dateCreated
+                        ? datetime(member.dateCreated)
+                        : undefined
+                    }
+                  >
+                    {member.dateCreated && date(member.dateCreated)}
                   </TableCell>
-                  <TableCell>
+                  <TableCell
+                    title={
+                      member.lastLoginDate
+                        ? datetime(member.lastLoginDate)
+                        : undefined
+                    }
+                  >
                     {member.lastLoginDate && date(member.lastLoginDate)}
                   </TableCell>
                   <TableCell>

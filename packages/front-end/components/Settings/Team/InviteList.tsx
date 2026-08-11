@@ -2,7 +2,7 @@ import React, { FC, useState, ReactElement } from "react";
 import { Invite, MemberRoleInfo } from "shared/types/organization";
 import { FaCheck, FaTimes } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { datetime } from "shared/dates";
+import { date, datetime } from "shared/dates";
 import { getRoleDisplayName } from "shared/permissions";
 import { Box, IconButton } from "@radix-ui/themes";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
@@ -166,7 +166,9 @@ const InviteList: FC<{
             return (
               <TableRow key={key}>
                 <TableCell>{email}</TableCell>
-                <TableCell>{datetime(dateCreated)}</TableCell>
+                <TableCell title={datetime(dateCreated)}>
+                  {date(dateCreated)}
+                </TableCell>
                 <TableCell>
                   {getRoleDisplayName(roleInfo.role, organization)}
                 </TableCell>

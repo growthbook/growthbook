@@ -2,7 +2,7 @@ import { FC, useState } from "react";
 import { FaCheck, FaTimes, FaUserCheck } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PendingMember } from "shared/types/organization";
-import { datetime } from "shared/dates";
+import { date, datetime } from "shared/dates";
 import { getRoleDisplayName } from "shared/permissions";
 import { Box, IconButton } from "@radix-ui/themes";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
@@ -95,8 +95,14 @@ const PendingMemberList: FC<{
               <TableRow key={member.id}>
                 <TableCell>{member.name}</TableCell>
                 <TableCell>{member.email}</TableCell>
-                <TableCell>
-                  {member.dateCreated && datetime(member.dateCreated)}
+                <TableCell
+                  title={
+                    member.dateCreated
+                      ? datetime(member.dateCreated)
+                      : undefined
+                  }
+                >
+                  {member.dateCreated && date(member.dateCreated)}
                 </TableCell>
                 <TableCell>
                   {getRoleDisplayName(roleInfo.role, organization)}
