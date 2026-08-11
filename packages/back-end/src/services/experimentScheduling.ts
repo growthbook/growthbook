@@ -459,6 +459,10 @@ export function validateScheduledStopPlan(
       "Auto-ship requires the Decision Framework (Pro+ and enabled in org settings)",
     );
   }
+  // Auto-ship requires a fallback to specify what to do when there's no winner.
+  if (mode === "auto-ship" && !plan.fallback) {
+    throw new BadRequestError('fallback is required when mode is "auto-ship".');
+  }
   // force-ship/stop work without EDF, but no win/loss verdict is recorded.
   if ((mode === "force-ship" || mode === "stop") && !hasEDF) {
     warnings.push(
