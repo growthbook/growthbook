@@ -129,7 +129,7 @@ export default function DashboardAddFilterDropdown({
       <DropdownMenuSeparator />
       <Box px="2" py="1">
         <Text size="sm" color="text-low">
-          Only filters that apply to blocks on this dashboard are shown
+          Filters marked Unavailable need a block that supports them
         </Text>
       </Box>
     </DropdownMenu>

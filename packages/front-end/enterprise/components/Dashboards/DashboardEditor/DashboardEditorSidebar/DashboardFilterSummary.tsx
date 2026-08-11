@@ -21,7 +21,7 @@ export default function DashboardFilterSummary({
     <Flex justify="between" align="center" gap="3">
       {hasCustom ? (
         <Badge
-          label={`Custom filters: ${customCount}`}
+          label={`Custom ${customCount === 1 ? "filter" : "filters"}: ${customCount}`}
           color="violet"
           variant="soft"
           radius="medium"
