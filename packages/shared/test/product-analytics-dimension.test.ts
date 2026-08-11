@@ -1,4 +1,5 @@
 import { generateDimensionExpression } from "shared/enterprise";
+import { staticDimensionValidator } from "shared/validators";
 import { ColumnInterface } from "shared/types/fact-table";
 import { SqlDialect } from "shared/types/sql";
 
@@ -150,7 +151,10 @@ describe("generateDimensionExpression", () => {
   });
 
   describe("static dimension", () => {
-    it("builds a CASE over the configured values for a top-level column", () => {
+    // Rows outside the pinned value list are dropped via a WHERE filter
+    // built elsewhere (generateFactTableCTE / buildFunnelSql), so the
+    // expression itself is just the raw column — no CASE/'other' fallback.
+    it("returns the raw column expression for a top-level column", () => {
       const result = generateDimensionExpression(
         { dimensionType: "static", column: "country", values: ["US", "CA"] },
         0,
@@ -158,9 +162,7 @@ describe("generateDimensionExpression", () => {
         helpers,
         dateRange,
       );
-      expect(norm(result)).toBe(
-        "CASE WHEN country IN ('US', 'CA') THEN country ELSE 'other' END",
-      );
+      expect(norm(result)).toBe("country");
     });
 
     it("expands a JSON field when used as a static dimension", () => {
@@ -171,20 +173,7 @@ describe("generateDimensionExpression", () => {
         helpers,
         dateRange,
       );
-      expect(norm(result)).toBe(
-        "CASE WHEN props:'plan'::text IN ('free') THEN props:'plan'::text ELSE 'other' END",
-      );
-    });
-
-    it("escapes single quotes in static values", () => {
-      const result = generateDimensionExpression(
-        { dimensionType: "static", column: "country", values: ["O'Brien"] },
-        0,
-        makeFactTableGroup(),
-        helpers,
-        dateRange,
-      );
-      expect(norm(result)).toContain("IN ('O''Brien')");
+      expect(norm(result)).toBe("props:'plan'::text");
     });
   });
 
@@ -234,5 +223,45 @@ describe("generateDimensionExpression", () => {
       );
       expect(norm(result)).toContain("props:'plan'::text = 'free'");
     });
+  });
+});
+
+describe("staticDimensionValidator", () => {
+  // Intentionally unbounded: this schema also parses already-persisted and
+  // URL-encoded explorations (not just fresh writes from the editor), so it
+  // must keep accepting configs that predate the editor's own 1-20 cap —
+  // an empty or oversized `values` array must not fail to parse. The editor
+  // enforces 1-20 pins at authoring time; the SQL layer skips the filter
+  // entirely for an empty values array (see sql.ts) rather than emitting
+  // invalid SQL.
+  it("accepts an empty pinned values array", () => {
+    expect(() =>
+      staticDimensionValidator.parse({
+        dimensionType: "static",
+        column: "country",
+        values: [],
+      }),
+    ).not.toThrow();
+  });
+
+  it("accepts more than 20 pinned values", () => {
+    const values = Array.from({ length: 21 }, (_, i) => `v${i}`);
+    expect(() =>
+      staticDimensionValidator.parse({
+        dimensionType: "static",
+        column: "country",
+        values,
+      }),
+    ).not.toThrow();
+  });
+
+  it("accepts a typical pinned values array", () => {
+    expect(() =>
+      staticDimensionValidator.parse({
+        dimensionType: "static",
+        column: "country",
+        values: ["US"],
+      }),
+    ).not.toThrow();
   });
 });
