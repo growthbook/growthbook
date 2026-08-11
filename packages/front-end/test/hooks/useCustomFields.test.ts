@@ -228,7 +228,6 @@ describe("reconcileCustomFieldValues", () => {
   it("drops keys for fields that no longer apply (project switch)", () => {
     const globalField = makeField({ id: "cf_global", type: "text" });
 
-    // Simulate switching to a project where only the global field applies
     expect(
       reconcileCustomFieldValues([globalField], {
         cf_global: "keep",

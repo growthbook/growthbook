@@ -13,12 +13,6 @@ import {
   toCustomFieldBooleanString,
 } from "./constants";
 
-/**
- * Controlled renderer for a set of custom fields. Value normalization, default
- * seeding, and project reconciliation happen upstream via
- * `useReconciledCustomFields`; this component only reads `value` and reports
- * user edits through `onChange`.
- */
 const CustomFieldInput: FC<{
   fields: CustomField[];
   value: Record<string, string>;
@@ -56,7 +50,7 @@ const CustomFieldInput: FC<{
                     id={`bool-${v.id}`}
                     label={v.name}
                     description={v.description}
-                    value={isCustomFieldBooleanTrue(value?.[v.id])}
+                    value={isCustomFieldBooleanTrue(value[v.id])}
                     setValue={(checked) => {
                       updateCustomField(
                         v.id,
@@ -75,7 +69,7 @@ const CustomFieldInput: FC<{
                         )}
                       </>
                     }
-                    value={value?.[v.id] ?? v?.defaultValue ?? ""}
+                    value={value[v.id] ?? v.defaultValue ?? ""}
                     options={
                       v.values
                         ? v.values
@@ -102,9 +96,7 @@ const CustomFieldInput: FC<{
                         )}
                       </>
                     }
-                    value={
-                      value?.[v.id] ? getMultiSelectValue(value[v.id]) : []
-                    }
+                    value={value[v.id] ? getMultiSelectValue(value[v.id]) : []}
                     options={
                       v.values
                         ? v.values
@@ -126,7 +118,7 @@ const CustomFieldInput: FC<{
                     textarea
                     minRows={2}
                     maxRows={6}
-                    value={value?.[v.id] ?? ""}
+                    value={value[v.id] ?? ""}
                     label={
                       <>
                         {v.name}
@@ -146,7 +138,7 @@ const CustomFieldInput: FC<{
                 ) : v.type === "date" || v.type === "datetime" ? (
                   <Box>
                     <DatePicker
-                      date={value?.[v.id] || undefined}
+                      date={value[v.id] || undefined}
                       setDate={(d) => {
                         updateCustomField(v.id, d?.toISOString() ?? "");
                       }}
@@ -161,7 +153,7 @@ const CustomFieldInput: FC<{
                       precision={v.type === "datetime" ? "datetime" : "date"}
                       containerClassName="mb-0"
                     />
-                    {(v.description || (!v.required && value?.[v.id])) && (
+                    {(v.description || (!v.required && value[v.id])) && (
                       <Flex justify="between" align="start" mt="1">
                         {v.description ? (
                           <Text size="sm" color="text-low">
@@ -170,7 +162,7 @@ const CustomFieldInput: FC<{
                         ) : (
                           <Box />
                         )}
-                        {!v.required && value?.[v.id] && (
+                        {!v.required && value[v.id] && (
                           <Link
                             onClick={() => updateCustomField(v.id, "")}
                             color="gray"
@@ -185,7 +177,7 @@ const CustomFieldInput: FC<{
                 ) : (
                   <Field
                     size="legacy"
-                    value={value?.[v.id] ?? ""}
+                    value={value[v.id] ?? ""}
                     label={
                       <>
                         {v.name}
@@ -196,7 +188,7 @@ const CustomFieldInput: FC<{
                     }
                     type={v.type}
                     required={v.required}
-                    placeholder={v?.placeholder ?? ""}
+                    placeholder={v.placeholder ?? ""}
                     onChange={(e) => {
                       updateCustomField(v.id, e.target.value);
                     }}

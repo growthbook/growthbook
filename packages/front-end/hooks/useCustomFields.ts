@@ -16,11 +16,6 @@ export function useCustomFields() {
   return customFields;
 }
 
-/**
- * Coerce stored/API custom-field values into the string map the form uses.
- * Handles the legacy case where values arrive as a JSON string (e.g. when
- * duplicating an experiment).
- */
 export function normalizeCustomFieldValues(
   values: Record<string, unknown> | string | null | undefined,
 ): Record<string, string> {
@@ -48,10 +43,6 @@ export function normalizeCustomFieldValues(
   return normalized;
 }
 
-/**
- * The stored string value to seed for a field that has no value yet, or
- * `undefined` when the field has no configured default (leave it unset).
- */
 export function getSeededCustomFieldDefaultValue(
   field: CustomField,
 ): string | undefined {
@@ -75,11 +66,6 @@ export function getSeededCustomFieldDefaultValue(
   return String(defaultValue);
 }
 
-/**
- * Reconcile stored values against the fields that currently apply: normalize
- * inputs, drop values for fields that no longer apply (e.g. after a project
- * change), and seed configured defaults for fields without a value yet.
- */
 export function reconcileCustomFieldValues(
   availableFields: CustomField[] | undefined,
   currentValues: Record<string, unknown> | string | null | undefined,
@@ -90,7 +76,6 @@ export function reconcileCustomFieldValues(
 
   for (const v of availableFields) {
     const currentValue = normalized[v.id];
-    // "false" is a real value; only "" / missing counts as unset
     if (currentValue !== undefined && currentValue !== "") {
       reconciled[v.id] = currentValue;
       continue;
@@ -99,7 +84,6 @@ export function reconcileCustomFieldValues(
     if (seededDefault !== undefined) {
       reconciled[v.id] = seededDefault;
     } else if (v.type === "boolean") {
-      // Booleans always serialize explicitly, so unchecked saves as "false"
       reconciled[v.id] = "false";
     }
   }

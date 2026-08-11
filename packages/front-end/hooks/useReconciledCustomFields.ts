@@ -9,19 +9,6 @@ import {
 } from "@/hooks/useCustomFields";
 import { useUser } from "@/services/UserContext";
 
-/**
- * Owns custom-field reconciliation for a form. The form owner passes its
- * current custom-field value and a setter; the hook derives the fields that
- * apply for the section/project, reconciles the stored value against them
- * (seeding defaults, dropping stale keys), and syncs the reconciled value back
- * into the form when it differs.
- *
- * Custom fields are gated behind the "custom-metadata" commercial feature, so
- * the hook no-ops (no available fields, no form writes) when it isn't licensed.
- *
- * Reconciliation runs in an effect owned by the form component, so
- * react-hook-form is already initialized and no microtask deferral is needed.
- */
 export function useReconciledCustomFields({
   section,
   project,
