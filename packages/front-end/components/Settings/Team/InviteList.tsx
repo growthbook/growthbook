@@ -47,6 +47,7 @@ const InviteList: FC<{
 
   const { projects } = useDefinitions();
   const environments = useEnvironments();
+  const forceScroll = environments.length > 3;
 
   const onResend = async (key: string, email: string) => {
     if (resending) return;
@@ -138,133 +139,134 @@ const InviteList: FC<{
       )}
       {resending && <LoadingOverlay />}
       {resendMessage}
-      <Box style={{ overflowX: "auto" }}>
-        <Table variant="list" stickyHeader={false} roundedCorners>
-          <TableHeader>
-            <TableRow>
-              <TableColumnHeader>Email</TableColumnHeader>
-              <TableColumnHeader>Date Invited</TableColumnHeader>
-              <TableColumnHeader>
-                {project ? "Project Role" : "Global Role"}
-              </TableColumnHeader>
-              {!project && <TableColumnHeader>Project Roles</TableColumnHeader>}
-              {environments.map((env) => (
-                <TableColumnHeader key={env.id}>{env.id}</TableColumnHeader>
-              ))}
-              <TableColumnHeader style={{ width: 50 }} />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {invites.map(({ email, key, dateCreated, ...member }) => {
-              const roleInfo =
-                (project &&
-                  member.projectRoles?.find((r) => r.project === project)) ||
-                member;
-              return (
-                <TableRow key={key}>
-                  <TableCell>{email}</TableCell>
-                  <TableCell>{datetime(dateCreated)}</TableCell>
+      <Table
+        variant="surface"
+        style={forceScroll ? { whiteSpace: "nowrap" } : undefined}
+      >
+        <TableHeader>
+          <TableRow>
+            <TableColumnHeader>Email</TableColumnHeader>
+            <TableColumnHeader>Date Invited</TableColumnHeader>
+            <TableColumnHeader>
+              {project ? "Project Role" : "Global Role"}
+            </TableColumnHeader>
+            {!project && <TableColumnHeader>Project Roles</TableColumnHeader>}
+            {environments.map((env) => (
+              <TableColumnHeader key={env.id}>{env.id}</TableColumnHeader>
+            ))}
+            <TableColumnHeader style={{ width: 50 }} />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {invites.map(({ email, key, dateCreated, ...member }) => {
+            const roleInfo =
+              (project &&
+                member.projectRoles?.find((r) => r.project === project)) ||
+              member;
+            return (
+              <TableRow key={key}>
+                <TableCell>{email}</TableCell>
+                <TableCell>{datetime(dateCreated)}</TableCell>
+                <TableCell>
+                  {getRoleDisplayName(roleInfo.role, organization)}
+                </TableCell>
+                {!project && (
                   <TableCell>
-                    {getRoleDisplayName(roleInfo.role, organization)}
-                  </TableCell>
-                  {!project && (
-                    <TableCell>
-                      {member.projectRoles?.map((pr) => {
-                        const p = projects.find((p) => p.id === pr.project);
-                        if (p?.name) {
-                          return (
-                            <div key={`project-tags-${p.id}`}>
-                              <ProjectBadges
-                                resourceType="member"
-                                projectIds={[p.id]}
-                              />{" "}
-                              — {getRoleDisplayName(pr.role, organization)}
-                            </div>
-                          );
-                        }
-                        return null;
-                      })}
-                    </TableCell>
-                  )}
-                  {environments.map((env) => {
-                    const access = roleHasAccessToEnv(
-                      roleInfo,
-                      env.id,
-                      organization,
-                    );
-                    return (
-                      <TableCell key={env.id}>
-                        {access === "N/A" ? (
-                          <span className="text-muted">N/A</span>
-                        ) : access === "yes" ? (
-                          <FaCheck className="text-success" />
-                        ) : (
-                          <FaTimes className="text-danger" />
-                        )}
-                      </TableCell>
-                    );
-                  })}
-                  <TableCell>
-                    <DropdownMenu
-                      trigger={
-                        <IconButton
-                          variant="ghost"
-                          color="gray"
-                          radius="full"
-                          size="2"
-                          highContrast
-                        >
-                          <BsThreeDotsVertical size={18} />
-                        </IconButton>
+                    {member.projectRoles?.map((pr) => {
+                      const p = projects.find((p) => p.id === pr.project);
+                      if (p?.name) {
+                        return (
+                          <div key={`project-tags-${p.id}`}>
+                            <ProjectBadges
+                              resourceType="member"
+                              projectIds={[p.id]}
+                            />{" "}
+                            — {getRoleDisplayName(pr.role, organization)}
+                          </div>
+                        );
                       }
-                      menuPlacement="end"
-                      variant="soft"
-                    >
-                      <DropdownMenuGroup>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setRoleModal({
-                              key,
-                              displayInfo: email,
-                              roleInfo,
-                            });
-                          }}
-                        >
-                          Edit Role
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            onResend(key, email);
-                          }}
-                        >
-                          Resend Invite
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          color="red"
-                          confirmation={{
-                            submit: async () => {
-                              setResendMessage(null);
-                              await apiCall(`/invite`, {
-                                method: "DELETE",
-                                body: JSON.stringify({ key }),
-                              });
-                              mutate();
-                            },
-                            confirmationTitle: `Remove ${email}?`,
-                            cta: "Remove",
-                          }}
-                        >
-                          Remove
-                        </DropdownMenuItem>
-                      </DropdownMenuGroup>
-                    </DropdownMenu>
+                      return null;
+                    })}
                   </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </Box>
+                )}
+                {environments.map((env) => {
+                  const access = roleHasAccessToEnv(
+                    roleInfo,
+                    env.id,
+                    organization,
+                  );
+                  return (
+                    <TableCell key={env.id}>
+                      {access === "N/A" ? (
+                        <span className="text-muted">N/A</span>
+                      ) : access === "yes" ? (
+                        <FaCheck className="text-success" />
+                      ) : (
+                        <FaTimes className="text-danger" />
+                      )}
+                    </TableCell>
+                  );
+                })}
+                <TableCell>
+                  <DropdownMenu
+                    trigger={
+                      <IconButton
+                        variant="ghost"
+                        color="gray"
+                        radius="full"
+                        size="2"
+                        highContrast
+                      >
+                        <BsThreeDotsVertical size={18} />
+                      </IconButton>
+                    }
+                    menuPlacement="end"
+                    variant="soft"
+                  >
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setRoleModal({
+                            key,
+                            displayInfo: email,
+                            roleInfo,
+                          });
+                        }}
+                      >
+                        Edit Role
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          onResend(key, email);
+                        }}
+                      >
+                        Resend Invite
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        color="red"
+                        confirmation={{
+                          submit: async () => {
+                            setResendMessage(null);
+                            await apiCall(`/invite`, {
+                              method: "DELETE",
+                              body: JSON.stringify({ key }),
+                            });
+                            mutate();
+                          },
+                          confirmationTitle: `Remove ${email}?`,
+                          cta: "Remove",
+                        }}
+                      >
+                        Remove
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
     </Box>
   );
 };

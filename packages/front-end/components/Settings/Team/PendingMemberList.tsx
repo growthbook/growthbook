@@ -36,6 +36,7 @@ const PendingMemberList: FC<{
   );
   const { projects } = useDefinitions();
   const environments = useEnvironments();
+  const forceScroll = environments.length > 3;
   const { organization } = useUser();
 
   return (
@@ -64,142 +65,143 @@ const PendingMemberList: FC<{
           }}
         />
       )}
-      <Box style={{ overflowX: "auto" }}>
-        <Table variant="list" stickyHeader={false} roundedCorners>
-          <TableHeader>
-            <TableRow>
-              <TableColumnHeader>Name</TableColumnHeader>
-              <TableColumnHeader>Email</TableColumnHeader>
-              <TableColumnHeader>Date Joined</TableColumnHeader>
-              <TableColumnHeader>
-                {project ? "Project Role" : "Global Role"}
-              </TableColumnHeader>
-              {!project && <TableColumnHeader>Project Roles</TableColumnHeader>}
-              {environments.map((env) => (
-                <TableColumnHeader key={env.id}>{env.id}</TableColumnHeader>
-              ))}
-              <TableColumnHeader />
-              <TableColumnHeader style={{ width: 50 }} />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {pendingMembers.map((member) => {
-              const roleInfo =
-                (project &&
-                  member.projectRoles?.find((r) => r.project === project)) ||
-                member;
-              return (
-                <TableRow key={member.id}>
-                  <TableCell>{member.name}</TableCell>
-                  <TableCell>{member.email}</TableCell>
+      <Table
+        variant="surface"
+        style={forceScroll ? { whiteSpace: "nowrap" } : undefined}
+      >
+        <TableHeader>
+          <TableRow>
+            <TableColumnHeader>Name</TableColumnHeader>
+            <TableColumnHeader>Email</TableColumnHeader>
+            <TableColumnHeader>Date Joined</TableColumnHeader>
+            <TableColumnHeader>
+              {project ? "Project Role" : "Global Role"}
+            </TableColumnHeader>
+            {!project && <TableColumnHeader>Project Roles</TableColumnHeader>}
+            {environments.map((env) => (
+              <TableColumnHeader key={env.id}>{env.id}</TableColumnHeader>
+            ))}
+            <TableColumnHeader />
+            <TableColumnHeader style={{ width: 50 }} />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {pendingMembers.map((member) => {
+            const roleInfo =
+              (project &&
+                member.projectRoles?.find((r) => r.project === project)) ||
+              member;
+            return (
+              <TableRow key={member.id}>
+                <TableCell>{member.name}</TableCell>
+                <TableCell>{member.email}</TableCell>
+                <TableCell>
+                  {member.dateCreated && datetime(member.dateCreated)}
+                </TableCell>
+                <TableCell>
+                  {getRoleDisplayName(roleInfo.role, organization)}
+                </TableCell>
+                {!project && (
                   <TableCell>
-                    {member.dateCreated && datetime(member.dateCreated)}
-                  </TableCell>
-                  <TableCell>
-                    {getRoleDisplayName(roleInfo.role, organization)}
-                  </TableCell>
-                  {!project && (
-                    <TableCell>
-                      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                      {member.projectRoles.map((pr) => {
-                        const p = projects.find((p) => p.id === pr.project);
-                        if (p?.name) {
-                          return (
-                            <div key={`project-tags-${p.id}`}>
-                              <ProjectBadges
-                                resourceType="member"
-                                projectIds={[p.id]}
-                              />
-                              — {getRoleDisplayName(pr.role, organization)}
-                            </div>
-                          );
-                        }
-                        return null;
-                      })}
-                    </TableCell>
-                  )}
-                  {environments.map((env) => {
-                    const access = roleHasAccessToEnv(
-                      roleInfo,
-                      env.id,
-                      organization,
-                    );
-                    return (
-                      <TableCell key={env.id}>
-                        {access === "N/A" ? (
-                          <span className="text-muted">N/A</span>
-                        ) : access === "yes" ? (
-                          <FaCheck className="text-success" />
-                        ) : (
-                          <FaTimes className="text-danger" />
-                        )}
-                      </TableCell>
-                    );
-                  })}
-                  <TableCell>
-                    <Button
-                      variant="outline"
-                      icon={<FaUserCheck />}
-                      onClick={async () => {
-                        await apiCall(`/member/${member.id}/approve`, {
-                          method: "POST",
-                        });
-                        mutate();
-                      }}
-                    >
-                      Approve
-                    </Button>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu
-                      trigger={
-                        <IconButton
-                          variant="ghost"
-                          color="gray"
-                          radius="full"
-                          size="2"
-                          highContrast
-                        >
-                          <BsThreeDotsVertical size={18} />
-                        </IconButton>
+                    {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
+                    {member.projectRoles.map((pr) => {
+                      const p = projects.find((p) => p.id === pr.project);
+                      if (p?.name) {
+                        return (
+                          <div key={`project-tags-${p.id}`}>
+                            <ProjectBadges
+                              resourceType="member"
+                              projectIds={[p.id]}
+                            />
+                            — {getRoleDisplayName(pr.role, organization)}
+                          </div>
+                        );
                       }
-                      menuPlacement="end"
-                      variant="soft"
-                    >
-                      <DropdownMenuGroup>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setRoleModalUser(member);
-                          }}
-                        >
-                          Edit Role
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          color="red"
-                          confirmation={{
-                            submit: async () => {
-                              await apiCall(`/member/${member.id}`, {
-                                method: "DELETE",
-                              });
-                              mutate();
-                            },
-                            confirmationTitle: "Remove User",
-                            cta: "Remove User",
-                            getConfirmationContent: async () =>
-                              `Are you sure you want to remove ${member.email}?`,
-                          }}
-                        >
-                          Remove User
-                        </DropdownMenuItem>
-                      </DropdownMenuGroup>
-                    </DropdownMenu>
+                      return null;
+                    })}
                   </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </Box>
+                )}
+                {environments.map((env) => {
+                  const access = roleHasAccessToEnv(
+                    roleInfo,
+                    env.id,
+                    organization,
+                  );
+                  return (
+                    <TableCell key={env.id}>
+                      {access === "N/A" ? (
+                        <span className="text-muted">N/A</span>
+                      ) : access === "yes" ? (
+                        <FaCheck className="text-success" />
+                      ) : (
+                        <FaTimes className="text-danger" />
+                      )}
+                    </TableCell>
+                  );
+                })}
+                <TableCell>
+                  <Button
+                    variant="outline"
+                    icon={<FaUserCheck />}
+                    onClick={async () => {
+                      await apiCall(`/member/${member.id}/approve`, {
+                        method: "POST",
+                      });
+                      mutate();
+                    }}
+                  >
+                    Approve
+                  </Button>
+                </TableCell>
+                <TableCell>
+                  <DropdownMenu
+                    trigger={
+                      <IconButton
+                        variant="ghost"
+                        color="gray"
+                        radius="full"
+                        size="2"
+                        highContrast
+                      >
+                        <BsThreeDotsVertical size={18} />
+                      </IconButton>
+                    }
+                    menuPlacement="end"
+                    variant="soft"
+                  >
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setRoleModalUser(member);
+                        }}
+                      >
+                        Edit Role
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        color="red"
+                        confirmation={{
+                          submit: async () => {
+                            await apiCall(`/member/${member.id}`, {
+                              method: "DELETE",
+                            });
+                            mutate();
+                          },
+                          confirmationTitle: "Remove User",
+                          cta: "Remove User",
+                          getConfirmationContent: async () =>
+                            `Are you sure you want to remove ${member.email}?`,
+                        }}
+                      >
+                        Remove User
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
     </Box>
   );
 };
