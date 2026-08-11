@@ -251,7 +251,7 @@ function FunnelStepsDisplay({
       {funnelSettings.steps.map((step, i) => {
         const items = getStepItems(step, i);
         return (
-          <Box key={i} className="appbox p-3 mb-2">
+          <Box key={i} className="appbox" p="3" mb="2">
             <Heading
               as="h4"
               size="sm"

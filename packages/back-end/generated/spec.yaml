@@ -26542,12 +26542,12 @@ paths:
         - name: factTableId
           in: query
           description: >-
-            Filter by Fact Table Id (for ratio metrics, we only look at the
-            numerator)
+            Filter by Fact Table Id (for ratio metrics, only the numerator is
+            considered)
           schema:
             description: >-
-              Filter by Fact Table Id (for ratio metrics, we only look at the
-              numerator)
+              Filter by Fact Table Id (for ratio metrics, only the numerator is
+              considered)
             type: string
       responses:
         '200':
@@ -26614,123 +26614,126 @@ paths:
                     - dailyParticipation
                     - funnel
                 numerator:
-                  type: object
-                  properties:
-                    factTableId:
-                      type: string
-                    column:
-                      description: >-
-                        Must be empty for proportion metrics and
-                        dailyParticipation metrics. Otherwise, the column name
-                        or one of the special values: '$$distinctUsers' or
-                        '$$count' (or '$$distinctDates' if metricType is 'mean'
-                        or 'ratio' or 'quantile' and quantileSettings.type is
-                        'unit')
-                      type: string
-                    aggregation:
-                      description: >-
-                        User aggregation of selected column. Either sum or max
-                        for numeric columns; count distinct for string columns;
-                        hll merge / kll merge for pre-built sketch columns
-                        (requires data-source support); ignored for special
-                        columns. Default: sum. If you specify a string column
-                        you must explicitly specify count distinct. Not used for
-                        proportion metrics; for event quantile metrics only kll
-                        merge is applicable.
-                      type: string
-                      enum:
-                        - sum
-                        - max
-                        - count distinct
-                        - hll merge
-                        - kll merge
-                    filters:
-                      deprecated: true
-                      description: >-
-                        Array of Fact Table Filter Ids. Deprecated, use
-                        rowFilters instead.
-                      type: array
-                      items:
-                        type: string
-                    inlineFilters:
-                      deprecated: true
-                      description: >-
-                        Inline filters to apply to the fact table. Keys are
-                        column names, values are arrays of values to filter by.
-                        Deprecated, use rowFilters instead.
-                      type: object
-                      propertyNames:
-                        type: string
-                      additionalProperties:
-                        type: array
-                        items:
+                  anyOf:
+                    - type: object
+                      properties:
+                        factTableId:
                           type: string
-                    rowFilters:
-                      description: >-
-                        Filters to apply to the rows of the fact table before
-                        aggregation.
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          operator:
+                        column:
+                          description: >-
+                            Must be empty for proportion metrics and
+                            dailyParticipation metrics. Otherwise, the column
+                            name or one of the special values: '$$distinctUsers'
+                            or '$$count' (or '$$distinctDates' if metricType is
+                            'mean' or 'ratio' or 'quantile' and
+                            quantileSettings.type is 'unit')
+                          type: string
+                        aggregation:
+                          description: >-
+                            User aggregation of selected column. Either sum or
+                            max for numeric columns; count distinct for string
+                            columns; hll merge / kll merge for pre-built sketch
+                            columns (requires data-source support); ignored for
+                            special columns. Default: sum. If you specify a
+                            string column you must explicitly specify count
+                            distinct. Not used for proportion metrics; for event
+                            quantile metrics only kll merge is applicable.
+                          type: string
+                          enum:
+                            - sum
+                            - max
+                            - count distinct
+                            - hll merge
+                            - kll merge
+                        filters:
+                          deprecated: true
+                          description: >-
+                            Array of Fact Table Filter Ids. Deprecated, use
+                            rowFilters instead.
+                          type: array
+                          items:
                             type: string
-                            enum:
-                              - '='
-                              - '!='
-                              - '>'
-                              - <
-                              - '>='
-                              - <=
-                              - between
-                              - not_between
-                              - in
-                              - not_in
-                              - is_null
-                              - not_null
-                              - is_true
-                              - is_false
-                              - contains
-                              - not_contains
-                              - starts_with
-                              - ends_with
-                              - sql_expr
-                              - saved_filter
-                          values:
-                            description: >-
-                              Not required for is_null, not_null, is_true,
-                              is_false operators. The between and not_between
-                              operators take at most two values, a lower and an
-                              upper bound in that order; leave a bound as an
-                              empty string for an open-ended range.
+                        inlineFilters:
+                          deprecated: true
+                          description: >-
+                            Inline filters to apply to the fact table. Keys are
+                            column names, values are arrays of values to filter
+                            by. Deprecated, use rowFilters instead.
+                          type: object
+                          propertyNames:
+                            type: string
+                          additionalProperties:
                             type: array
                             items:
                               type: string
-                          column:
-                            description: >-
-                              Required for all operators except sql_expr and
-                              saved_filter.
-                            type: string
-                        required:
-                          - operator
-                        additionalProperties: false
-                    aggregateFilterColumn:
-                      description: >-
-                        Column to use to filter users after aggregation. Either
-                        '$$count' of rows or the name of a numeric column that
-                        will be summed by user. Must specify `aggregateFilter`
-                        if using this. Only can be used with 'retention' and
-                        'proportion' metrics.
-                      type: string
-                    aggregateFilter:
-                      description: >-
-                        Simple comparison operator and value to apply after
-                        aggregation (e.g. '= 10' or '>= 1'). Requires
-                        `aggregateFilterColumn`.
-                      type: string
-                  required:
-                    - factTableId
-                  additionalProperties: false
+                        rowFilters:
+                          description: >-
+                            Filters to apply to the rows of the fact table
+                            before aggregation.
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              operator:
+                                type: string
+                                enum:
+                                  - '='
+                                  - '!='
+                                  - '>'
+                                  - <
+                                  - '>='
+                                  - <=
+                                  - between
+                                  - not_between
+                                  - in
+                                  - not_in
+                                  - is_null
+                                  - not_null
+                                  - is_true
+                                  - is_false
+                                  - contains
+                                  - not_contains
+                                  - starts_with
+                                  - ends_with
+                                  - sql_expr
+                                  - saved_filter
+                              values:
+                                description: >-
+                                  Not required for is_null, not_null, is_true,
+                                  is_false operators. The between and
+                                  not_between operators take at most two values,
+                                  a lower and an upper bound in that order;
+                                  leave a bound as an empty string for an
+                                  open-ended range.
+                                type: array
+                                items:
+                                  type: string
+                              column:
+                                description: >-
+                                  Required for all operators except sql_expr and
+                                  saved_filter.
+                                type: string
+                            required:
+                              - operator
+                            additionalProperties: false
+                        aggregateFilterColumn:
+                          description: >-
+                            Column to use to filter users after aggregation.
+                            Either '$$count' of rows or the name of a numeric
+                            column that will be summed by user. Must specify
+                            `aggregateFilter` if using this. Only can be used
+                            with 'retention' and 'proportion' metrics.
+                          type: string
+                        aggregateFilter:
+                          description: >-
+                            Simple comparison operator and value to apply after
+                            aggregation (e.g. '= 10' or '>= 1'). Requires
+                            `aggregateFilterColumn`.
+                          type: string
+                      required:
+                        - factTableId
+                      additionalProperties: false
+                    - type: 'null'
                 denominator:
                   description: Only when metricType is 'ratio'
                   type: object
@@ -26886,6 +26889,8 @@ paths:
                   properties:
                     steps:
                       description: Ordered list of funnel steps. Minimum 2 steps required.
+                      minItems: 2
+                      maxItems: 20
                       type: array
                       items:
                         type: object
@@ -27185,7 +27190,6 @@ paths:
               required:
                 - name
                 - metricType
-                - numerator
               additionalProperties: false
       responses:
         '200':
@@ -27278,123 +27282,126 @@ paths:
                     - dailyParticipation
                     - funnel
                 numerator:
-                  type: object
-                  properties:
-                    factTableId:
-                      type: string
-                    column:
-                      description: >-
-                        Must be empty for proportion metrics and
-                        dailyParticipation metrics. Otherwise, the column name
-                        or one of the special values: '$$distinctUsers' or
-                        '$$count' (or '$$distinctDates' if metricType is 'mean'
-                        or 'ratio' or 'quantile' and quantileSettings.type is
-                        'unit')
-                      type: string
-                    aggregation:
-                      description: >-
-                        User aggregation of selected column. Either sum or max
-                        for numeric columns; count distinct for string columns;
-                        hll merge / kll merge for pre-built sketch columns
-                        (requires data-source support); ignored for special
-                        columns. Default: sum. If you specify a string column
-                        you must explicitly specify count distinct. Not used for
-                        proportion metrics; for event quantile metrics only kll
-                        merge is applicable.
-                      type: string
-                      enum:
-                        - sum
-                        - max
-                        - count distinct
-                        - hll merge
-                        - kll merge
-                    filters:
-                      deprecated: true
-                      description: >-
-                        Array of Fact Table Filter Ids. Deprecated, use
-                        rowFilters instead.
-                      type: array
-                      items:
-                        type: string
-                    inlineFilters:
-                      deprecated: true
-                      description: >-
-                        Inline filters to apply to the fact table. Keys are
-                        column names, values are arrays of values to filter by.
-                        Deprecated, use rowFilters instead.
-                      type: object
-                      propertyNames:
-                        type: string
-                      additionalProperties:
-                        type: array
-                        items:
+                  anyOf:
+                    - type: object
+                      properties:
+                        factTableId:
                           type: string
-                    rowFilters:
-                      description: >-
-                        Filters to apply to the rows of the fact table before
-                        aggregation.
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          operator:
+                        column:
+                          description: >-
+                            Must be empty for proportion metrics and
+                            dailyParticipation metrics. Otherwise, the column
+                            name or one of the special values: '$$distinctUsers'
+                            or '$$count' (or '$$distinctDates' if metricType is
+                            'mean' or 'ratio' or 'quantile' and
+                            quantileSettings.type is 'unit')
+                          type: string
+                        aggregation:
+                          description: >-
+                            User aggregation of selected column. Either sum or
+                            max for numeric columns; count distinct for string
+                            columns; hll merge / kll merge for pre-built sketch
+                            columns (requires data-source support); ignored for
+                            special columns. Default: sum. If you specify a
+                            string column you must explicitly specify count
+                            distinct. Not used for proportion metrics; for event
+                            quantile metrics only kll merge is applicable.
+                          type: string
+                          enum:
+                            - sum
+                            - max
+                            - count distinct
+                            - hll merge
+                            - kll merge
+                        filters:
+                          deprecated: true
+                          description: >-
+                            Array of Fact Table Filter Ids. Deprecated, use
+                            rowFilters instead.
+                          type: array
+                          items:
                             type: string
-                            enum:
-                              - '='
-                              - '!='
-                              - '>'
-                              - <
-                              - '>='
-                              - <=
-                              - between
-                              - not_between
-                              - in
-                              - not_in
-                              - is_null
-                              - not_null
-                              - is_true
-                              - is_false
-                              - contains
-                              - not_contains
-                              - starts_with
-                              - ends_with
-                              - sql_expr
-                              - saved_filter
-                          values:
-                            description: >-
-                              Not required for is_null, not_null, is_true,
-                              is_false operators. The between and not_between
-                              operators take at most two values, a lower and an
-                              upper bound in that order; leave a bound as an
-                              empty string for an open-ended range.
+                        inlineFilters:
+                          deprecated: true
+                          description: >-
+                            Inline filters to apply to the fact table. Keys are
+                            column names, values are arrays of values to filter
+                            by. Deprecated, use rowFilters instead.
+                          type: object
+                          propertyNames:
+                            type: string
+                          additionalProperties:
                             type: array
                             items:
                               type: string
-                          column:
-                            description: >-
-                              Required for all operators except sql_expr and
-                              saved_filter.
-                            type: string
-                        required:
-                          - operator
-                        additionalProperties: false
-                    aggregateFilterColumn:
-                      description: >-
-                        Column to use to filter users after aggregation. Either
-                        '$$count' of rows or the name of a numeric column that
-                        will be summed by user. Must specify `aggregateFilter`
-                        if using this. Only can be used with 'retention' and
-                        'proportion' metrics.
-                      type: string
-                    aggregateFilter:
-                      description: >-
-                        Simple comparison operator and value to apply after
-                        aggregation (e.g. '= 10' or '>= 1'). Requires
-                        `aggregateFilterColumn`.
-                      type: string
-                  required:
-                    - factTableId
-                  additionalProperties: false
+                        rowFilters:
+                          description: >-
+                            Filters to apply to the rows of the fact table
+                            before aggregation.
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              operator:
+                                type: string
+                                enum:
+                                  - '='
+                                  - '!='
+                                  - '>'
+                                  - <
+                                  - '>='
+                                  - <=
+                                  - between
+                                  - not_between
+                                  - in
+                                  - not_in
+                                  - is_null
+                                  - not_null
+                                  - is_true
+                                  - is_false
+                                  - contains
+                                  - not_contains
+                                  - starts_with
+                                  - ends_with
+                                  - sql_expr
+                                  - saved_filter
+                              values:
+                                description: >-
+                                  Not required for is_null, not_null, is_true,
+                                  is_false operators. The between and
+                                  not_between operators take at most two values,
+                                  a lower and an upper bound in that order;
+                                  leave a bound as an empty string for an
+                                  open-ended range.
+                                type: array
+                                items:
+                                  type: string
+                              column:
+                                description: >-
+                                  Required for all operators except sql_expr and
+                                  saved_filter.
+                                type: string
+                            required:
+                              - operator
+                            additionalProperties: false
+                        aggregateFilterColumn:
+                          description: >-
+                            Column to use to filter users after aggregation.
+                            Either '$$count' of rows or the name of a numeric
+                            column that will be summed by user. Must specify
+                            `aggregateFilter` if using this. Only can be used
+                            with 'retention' and 'proportion' metrics.
+                          type: string
+                        aggregateFilter:
+                          description: >-
+                            Simple comparison operator and value to apply after
+                            aggregation (e.g. '= 10' or '>= 1'). Requires
+                            `aggregateFilterColumn`.
+                          type: string
+                      required:
+                        - factTableId
+                      additionalProperties: false
+                    - type: 'null'
                 denominator:
                   description: Only when metricType is 'ratio'
                   type: object
@@ -27550,6 +27557,8 @@ paths:
                   properties:
                     steps:
                       description: Ordered list of funnel steps. Minimum 2 steps required.
+                      minItems: 2
+                      maxItems: 20
                       type: array
                       items:
                         type: object
@@ -57097,6 +57106,8 @@ components:
           properties:
             steps:
               description: Ordered list of funnel steps. Minimum 2 steps required.
+              minItems: 2
+              maxItems: 20
               type: array
               items:
                 type: object

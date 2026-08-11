@@ -54,7 +54,11 @@ const BaseClass = MakeModelClass({
     tags: [],
   },
   // Compound indexes for API list filtering
-  additionalIndexes: [{ fields: { organization: 1, datasource: 1 } }],
+  additionalIndexes: [
+    { fields: { organization: 1, datasource: 1 } },
+    { fields: { organization: 1, "numerator.factTableId": 1 } },
+    { fields: { organization: 1, "funnelSettings.steps.factTableId": 1 } },
+  ],
 });
 
 // extra checks on user filter
@@ -187,7 +191,10 @@ export class FactMetricModel extends BaseClass {
     const filter: FilterQuery<FactMetricInterface> = {
       ...(options?.datasourceId && { datasource: options.datasourceId }),
       ...(options?.factTableId && {
-        "numerator.factTableId": options.factTableId,
+        $or: [
+          { "numerator.factTableId": options.factTableId },
+          { "funnelSettings.steps.factTableId": options.factTableId },
+        ],
       }),
       ...(options?.projectId && projectFilterQuery(options.projectId)),
     };
@@ -373,8 +380,15 @@ export class FactMetricModel extends BaseClass {
 
     const factTableMap = await this.getFactTableMap();
 
+    if (data.metricType === "funnel" && !data.funnelSettings) {
+      throw new Error("Funnel settings required for funnel metrics");
+    }
+    if (data.metricType !== "funnel" && !data.numerator) {
+      throw new Error("Numerator required for non-funnel metrics");
+    }
+
     if (isFactFunnelMetric(data)) {
-      this.validateFunnelSettings(data, factTableMap);
+      await this.validateFunnelSettings(data, existingMetric, factTableMap);
     } else {
       await this.validateColumnRefs(data, existingMetric, factTableMap);
     }
@@ -414,10 +428,11 @@ export class FactMetricModel extends BaseClass {
    * keeps the surface deliberately small: one fact table, no capping, no
    * quantiles, no slices.
    */
-  private validateFunnelSettings(
+  private async validateFunnelSettings(
     data: FunnelFactMetricInterface,
+    existingMetric: FactMetricInterface | null,
     factTableMap: Map<string, FactTableInterface>,
-  ): void {
+  ): Promise<void> {
     const { steps, ordering, sessionBased } = data.funnelSettings;
     if (steps.length < 2) {
       throw new Error("Funnel metrics need at least 2 steps");
@@ -441,6 +456,11 @@ export class FactMetricModel extends BaseClass {
     if (!factTable) {
       throw new Error("Could not find funnel fact table");
     }
+    if (factTable.datasource !== data.datasource) {
+      throw new Error(
+        "Funnel Fact Table must belong to the metric's Data Source",
+      );
+    }
 
     steps.forEach((step, i) => {
       if (!step.name) {
@@ -453,6 +473,9 @@ export class FactMetricModel extends BaseClass {
       });
     });
 
+    if (data.numerator) {
+      throw new Error("Numerator not allowed for funnel metrics");
+    }
     if (data.denominator) {
       throw new Error("Denominator not allowed for funnel metrics");
     }
@@ -465,6 +488,35 @@ export class FactMetricModel extends BaseClass {
     if (data.metricAutoSlices?.length) {
       throw new Error("Slices are not supported for funnel metrics");
     }
+
+    const previousSteps =
+      existingMetric && isFactFunnelMetric(existingMetric)
+        ? existingMetric.funnelSettings.steps
+        : [];
+    const rowFiltersToValidate = steps.flatMap((step, index) =>
+      getNetNewSqlExprRowFilters({
+        rowFilters: step.rowFilters,
+        previousRowFilters: previousSteps[index]?.rowFilters,
+        validateAll: previousSteps[index]?.factTableId !== step.factTableId,
+      }),
+    );
+    if (!rowFiltersToValidate.length) return;
+
+    const datasource = await getDataSourceById(this.context, data.datasource);
+    if (!datasource) {
+      throw new Error("Could not find datasource");
+    }
+    const integration = getSourceIntegrationObject(
+      this.context,
+      datasource,
+      true,
+    );
+    await validateFactMetricRowFilterSql({
+      integration,
+      factTable,
+      rowFilters: rowFiltersToValidate,
+      errorPrefix: "Invalid funnel step row filter SQL: ",
+    });
   }
 
   private async validateColumnRefs(
@@ -479,6 +531,11 @@ export class FactMetricModel extends BaseClass {
     const numeratorFactTable = factTableMap.get(data.numerator.factTableId);
     if (!numeratorFactTable) {
       throw new Error("Could not find numerator fact table");
+    }
+    if (numeratorFactTable.datasource !== data.datasource) {
+      throw new Error(
+        "Numerator Fact Table must belong to the metric's Data Source",
+      );
     }
 
     validateSavedFilterIds({

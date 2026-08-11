@@ -3,12 +3,18 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
+import { FunnelFactMetricInterface } from "shared/types/fact-table";
 import { ExperimentInterface } from "shared/validators";
-import { updateExperimentAnalysisTimeSeries } from "back-end/src/services/experimentTimeSeries";
+import {
+  getMetricSettingsHash,
+  updateExperimentAnalysisTimeSeries,
+} from "back-end/src/services/experimentTimeSeries";
 import {
   getTimeSeriesAnalyses,
   getTimeSeriesAnalysisSettings,
 } from "back-end/src/services/experimentDimensionTimeSeries";
+import { factMetricFactory } from "back-end/test/factories/FactMetric.factory";
+import { factTableFactory } from "back-end/test/factories/FactTable.factory";
 
 function makeAnalysisSettings(
   overrides: Partial<ExperimentSnapshotAnalysisSettings> = {},
@@ -424,5 +430,107 @@ describe("time series analysis settings", () => {
     expect(
       selected.map((analysis) => analysis.settings.differenceType),
     ).toEqual(["relative", "absolute", "scaled"]);
+  });
+});
+
+describe("getMetricSettingsHash funnel settings", () => {
+  const now = new Date("2025-01-01T00:00:00Z");
+  const factTable = factTableFactory.build({
+    id: "ft_events",
+    filters: [
+      {
+        id: "purchase_filter",
+        name: "Purchases",
+        description: "",
+        value: "event_name = 'purchase'",
+        dateCreated: now,
+        dateUpdated: now,
+        managedBy: "",
+      },
+    ],
+  });
+  const metric: FunnelFactMetricInterface = {
+    ...factMetricFactory.build({ id: "fact__checkout_funnel" }),
+    id: "fact__checkout_funnel",
+    metricType: "funnel",
+    numerator: null,
+    denominator: null,
+    funnelSettings: {
+      steps: [
+        {
+          name: "Viewed product",
+          factTableId: factTable.id,
+          rowFilters: [],
+          optional: false,
+          conversionWindow: null,
+        },
+        {
+          name: "Purchased",
+          factTableId: factTable.id,
+          rowFilters: [
+            { operator: "saved_filter", values: ["purchase_filter"] },
+          ],
+          optional: false,
+          conversionWindow: { unit: "hours", value: 24 },
+        },
+      ],
+    },
+  };
+
+  it("changes when funnel step settings change", () => {
+    const originalHash = getMetricSettingsHash(
+      metric.id,
+      undefined,
+      [metric],
+      new Map([[factTable.id, factTable]]),
+    );
+    const changedMetric: FunnelFactMetricInterface = {
+      ...metric,
+      funnelSettings: {
+        ...metric.funnelSettings,
+        steps: metric.funnelSettings.steps.map((step, index) =>
+          index === 1
+            ? {
+                ...step,
+                conversionWindow: { unit: "hours", value: 48 },
+              }
+            : step,
+        ),
+      },
+    };
+
+    expect(
+      getMetricSettingsHash(
+        changedMetric.id,
+        undefined,
+        [changedMetric],
+        new Map([[factTable.id, factTable]]),
+      ),
+    ).not.toEqual(originalHash);
+  });
+
+  it("changes when a referenced saved filter changes", () => {
+    const originalHash = getMetricSettingsHash(
+      metric.id,
+      undefined,
+      [metric],
+      new Map([[factTable.id, factTable]]),
+    );
+    const changedFactTable = {
+      ...factTable,
+      filters: factTable.filters.map((filter) => ({
+        ...filter,
+        value: "event_name = 'completed_purchase'",
+      })),
+    };
+
+    expect(
+      getMetricSettingsHash(
+        metric.id,
+        undefined,
+        [metric],
+        new Map([[changedFactTable.id, changedFactTable]]),
+      ),
+    ).not.toEqual(originalHash);
   });
 });
