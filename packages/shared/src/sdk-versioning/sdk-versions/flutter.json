@@ -8,7 +8,22 @@
       "capabilities": ["caseInsensitiveRegex", "caseInsensitiveMembership"]
     },
     {
+      "version": "4.2.5"
+    },
+    {
+      "version": "4.2.4"
+    },
+    {
+      "version": "4.2.3"
+    },
+    {
+      "version": "4.2.2"
+    },
+    {
       "version": "4.2.1"
+    },
+    {
+      "version": "4.1.1"
     },
     {
       "version": "4.1.0"
@@ -17,7 +32,16 @@
       "version": "4.0.0"
     },
     {
+      "version": "3.9.14"
+    },
+    {
+      "version": "3.9.12"
+    },
+    {
       "version": "3.9.11"
+    },
+    {
+      "version": "3.9.10"
     },
     {
       "version": "3.9.9"
@@ -80,7 +104,31 @@
       "capabilities": ["encryption", "bucketingV2", "semverTargeting"]
     },
     {
+      "version": "3.0.0"
+    },
+    {
+      "version": "2.1.0"
+    },
+    {
+      "version": "2.0.1"
+    },
+    {
+      "version": "2.0.0"
+    },
+    {
+      "version": "1.2.0"
+    },
+    {
       "version": "1.1.2"
+    },
+    {
+      "version": "1.1.1"
+    },
+    {
+      "version": "1.1.0"
+    },
+    {
+      "version": "1.0.0"
     },
     {
       "version": "0.0.0",

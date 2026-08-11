@@ -20,6 +20,9 @@
       "version": "0.0.24"
     },
     {
+      "version": "0.0.22"
+    },
+    {
       "version": "0.0.21"
     },
     {
@@ -27,6 +30,9 @@
     },
     {
       "version": "0.0.10"
+    },
+    {
+      "version": "0.0.9"
     },
     {
       "version": "0.0.8"
@@ -51,6 +57,21 @@
         "redirects",
         "stickyBucketing"
       ]
+    },
+    {
+      "version": "0.0.5"
+    },
+    {
+      "version": "0.0.4"
+    },
+    {
+      "version": "0.0.3"
+    },
+    {
+      "version": "0.0.2"
+    },
+    {
+      "version": "0.0.1"
     }
   ]
 }
