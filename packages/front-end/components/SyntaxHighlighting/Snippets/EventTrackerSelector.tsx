@@ -20,7 +20,7 @@ const eventTrackerOptions = [
 // The above trackers are all implemented via browser globals (window.gtag,
 // analytics.track, etc.), so they don't apply to back-end SDKs.
 export const backendEventTrackerOptions = [
-  { label: "GrowthBook Managed Warehouse", value: "growthbook" },
+  { label: "GrowthBook", value: "growthbook" },
   { label: "Other", value: "other" },
 ];
 
