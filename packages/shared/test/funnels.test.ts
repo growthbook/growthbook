@@ -7,6 +7,7 @@ import {
   ExperimentMetricInterface,
   funnelStepMetricId,
   getAllExpandedMetricIdsFromExperiment,
+  getFunnelStepMetric,
   getFunnelStepMetrics,
   getMetricSnapshotSettings,
   parseFunnelStepMetricId,
@@ -224,6 +225,20 @@ describe("getFunnelStepMetrics", () => {
       column: "$$distinctUsers",
       rowFilters: [signupRowFilter],
     });
+  });
+});
+
+describe("getFunnelStepMetric", () => {
+  it("returns the metric for a step the funnel has", () => {
+    expect(getFunnelStepMetric(funnelMetric, 1)?.name).toBe(
+      "Signup Funnel: Signup",
+    );
+  });
+
+  it("returns null for a step index outside the funnel", () => {
+    // Results and snapshots outlive edits that remove a step.
+    expect(getFunnelStepMetric(funnelMetric, 2)).toBeNull();
+    expect(getFunnelStepMetric(funnelMetric, -1)).toBeNull();
   });
 });
 

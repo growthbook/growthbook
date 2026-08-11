@@ -1480,6 +1480,17 @@ export function getFunnelStepMetrics(
   }));
 }
 
+/**
+ * A single funnel step metric, or null when the step no longer exists: results
+ * and snapshots outlive edits that remove a step.
+ */
+export function getFunnelStepMetric(
+  metric: FunnelFactMetricInterface,
+  stepIndex: number,
+): StandardFactMetricInterface | null {
+  return getFunnelStepMetrics(metric)[stepIndex] ?? null;
+}
+
 export function dedupeMetricIdsPreserveOrder(ids: string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
